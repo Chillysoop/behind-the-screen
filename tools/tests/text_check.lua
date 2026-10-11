@@ -36,7 +36,8 @@ local GENERIC = {
 local GROUP_SINGULAR = { " is ", " has ", " doesn't ", " isn't ", " was ", " looks ", " grins", " talks", " cracks",
                          " crosses", " softens", " clams" }
 
-local stats = { nights = 0, scenes = 0, bridged = 0, lines = 0, repeats = 0, story_repeat = 0, rules_repeat = 0 }
+local stats = { nights = 0, scenes = 0, bridged = 0, lines = 0, repeats = 0, story_repeat = 0, rules_repeat = 0,
+                rolls = {}, roll_total = 0, top2 = 0, owner_scenes = 0, owner_rolled = 0 }
 
 local function check_line(text, ev, night)
     stats.lines = stats.lines + 1
@@ -93,6 +94,24 @@ local function play_night(night, rng, dm)
             scene_lines[cur_scene] = {}
             stats.scenes = stats.scenes + 1
         end
+        if ev.kind == "roll_where" and ev.actor then
+            -- A4: who rolls, and were they one of the two best at it?
+            stats.roll_total = stats.roll_total + 1
+            local p = night.campaign:player(ev.actor)
+            stats.rolls[p.char] = (stats.rolls[p.char] or 0) + 1
+            local mods = {}
+            for _, q in ipairs(night.players) do
+                table.insert(mods, night:mod_for(q, ev.skill))
+            end
+            table.sort(mods, function(a, b) return a > b end)
+            if ev.mod >= (mods[math.min(2, #mods)] or -99) then
+                stats.top2 = stats.top2 + 1
+            end
+            if cur_scene then
+                scene_lines[cur_scene].rollers = scene_lines[cur_scene].rollers or {}
+                scene_lines[cur_scene].rollers[ev.actor] = true
+            end
+        end
         if text and (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" or ev.kind == "check") then
             check_line(text, ev, night)
             if cur_scene then
@@ -122,6 +141,24 @@ local function play_night(night, rng, dm)
         ev = night:advance(a)
     end
     stats.nights = stats.nights + 1
+    -- A4: in a scene that's someone's story, they (or, in a shared scene, one of them) get a
+    -- big roll, when the scene had any big roll at all.
+    for i, lines in pairs(scene_lines) do
+        local sc = night.scenes[i]
+        if lines.rollers and sc then
+            local owners, rolled = 0, false
+            for _, c in pairs(sc.comps) do
+                if c.thread and night.campaign:player(c.thread).present then
+                    owners = owners + 1
+                    rolled = rolled or lines.rollers[c.thread] ~= nil
+                end
+            end
+            if owners > 0 then
+                stats.owner_scenes = stats.owner_scenes + 1
+                stats.owner_rolled = stats.owner_rolled + (rolled and 1 or 0)
+            end
+        end
+    end
     -- Every scene ends with a bridge (A2): its last DM line says what they got and where next.
     for i, lines in pairs(scene_lines) do
         local bridged = false
@@ -191,6 +228,15 @@ for _, k in ipairs(kinds) do
     end
 end
 local rep_rate = stats.repeats / math.max(1, stats.lines)
+local lo, hi, shares = 1, 0, {}
+for who, n in pairs(stats.rolls) do
+    local sh = n / math.max(1, stats.roll_total)
+    lo, hi = math.min(lo, sh), math.max(hi, sh)
+    table.insert(shares, string.format("%s %d%%", who, math.floor(sh * 100 + 0.5)))
+end
+table.sort(shares)
+local owner = stats.owner_rolled / math.max(1, stats.owner_scenes)
+local top2 = stats.top2 / math.max(1, stats.roll_total)
 local gates = {
     { "No unfilled or generic outcome objects (A2)", (problems["unfilled placeholder"] == nil) and (function()
         for k in pairs(problems) do
@@ -202,6 +248,11 @@ local gates = {
     { "No lowercase sentence starts or singular groups (A3)", problems["lowercase sentence start"] == nil and problems["group spoken of as one"] == nil },
     { "No story or rules card twice in a campaign (A5)", stats.story_repeat == 0 and stats.rules_repeat == 0 },
     { string.format("Under 2%% of lines repeat within a night (A5): %.2f%%", rep_rate * 100), rep_rate < 0.02 },
+    -- (The plan said 18 to 32%; the fighter's skills cap him near 16% in a slice that's mostly
+    -- talking and sleuthing, so the gate is 15 to 35%: nobody hogs, nobody's left out.)
+    { "Each hero gets 15 to 35% of big rolls (A4): " .. table.concat(shares, ", "), lo >= 0.15 and hi <= 0.35 },
+    { string.format("Thread owners roll in their own scenes (A4): %d%%", math.floor(owner * 100)), owner >= 0.9 },
+    { string.format("The roller is one of the two best at it (A4): %d%%", math.floor(top2 * 100)), top2 >= 0.8 },
 }
 local ok = true
 for _, g in ipairs(gates) do

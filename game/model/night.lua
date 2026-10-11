@@ -387,6 +387,89 @@ function M:lowest()
 end
 
 -- Pick a present player, preferring these archetypes (primary first).
+-- Who rolls a big moment (A4): the thread owner in their own story scene first; otherwise the
+-- best modifier among players at or below the table's average Spotlight, never a negative
+-- modifier while someone good at it is here, and nobody past 40% of tonight's big rolls.
+function M:pick_roller(skill_list, sc, prefer)
+    local players = self.players
+    self.big_rolls = self.big_rolls or {}
+    local total = 0
+    for _, n in pairs(self.big_rolls) do
+        total = total + n
+    end
+    local function capped(p)
+        return total >= 3 and (self.big_rolls[p.key] or 0) / total >= 0.4
+    end
+    -- Their story, their roll: once a scene.
+    sc = sc or self.scene
+    if sc then
+        sc.owners_rolled = sc.owners_rolled or {}
+        local kinds = {}
+        for kind in pairs(sc.comps) do
+            table.insert(kinds, kind)
+        end
+        table.sort(kinds)
+        for _, kind in ipairs(kinds) do
+            local c = sc.comps[kind]
+            if c.thread and not self:muted(c) and not sc.owners_rolled[c.thread] then
+                local owner = find_present(players, c.thread)
+                if owner and not capped(owner) then
+                    local _, m = self:best_skill(owner, skill_list)
+                    if m >= 0 then
+                        sc.owners_rolled[c.thread] = true
+                        return owner
+                    end
+                end
+            end
+        end
+    end
+    local avg = 0
+    for _, p in ipairs(players) do
+        avg = avg + p.m.spotlight
+    end
+    avg = avg / math.max(1, #players)
+    local best_mod = -99
+    for _, p in ipairs(players) do
+        local _, m = self:best_skill(p, skill_list)
+        best_mod = math.max(best_mod, m)
+    end
+    -- The two best at it (by modifier) are in the running; of those, whoever has rolled least
+    -- tonight gets it, the better one on a tie.
+    local function pick(pool)
+        local cands = {}
+        for _, p in ipairs(pool) do
+            local _, m = self:best_skill(p, skill_list)
+            if not capped(p) and not (m < 0 and best_mod >= 2) then
+                table.insert(cands, { p = p, m = m + (util.contains(prefer or {}, p.class) and 0.5 or 0) })
+            end
+        end
+        if #cands == 0 then
+            return nil
+        end
+        table.sort(cands, function(a, b) return a.m > b.m end)
+        local cut = cands[math.min(2, #cands)].m
+        local best, bw
+        for _, cd in ipairs(cands) do
+            if cd.m >= cut then
+                local share = total > 0 and (self.big_rolls[cd.p.key] or 0) / total or 0
+                local w = -share * 10 + cd.m * 0.15 + self.rng:next() * 0.3
+                if not bw or w > bw then
+                    best, bw = cd.p, w
+                end
+            end
+        end
+        return best
+    end
+    local low = {}
+    for _, p in ipairs(players) do
+        local share = total > 0 and (self.big_rolls[p.key] or 0) / total or 0
+        if p.m.spotlight <= avg + 0.01 or share < 1 / #players - 0.04 then
+            table.insert(low, p)
+        end
+    end
+    return pick(low) or pick(players) or players[1]
+end
+
 function M:pick_actor(prefs, exclude)
     for _, pass in ipairs({ "primary", "secondary" }) do
         for _, a in ipairs(prefs or {}) do
@@ -1341,6 +1424,10 @@ M.DC_SHIFT = 4
 function M:big_roll(spec, record)
     local p = self.actor or self:pick_actor(nil)
     self.actor = p
+    self.big_rolls = self.big_rolls or {}
+    if p then
+        self.big_rolls[p.key] = (self.big_rolls[p.key] or 0) + 1
+    end
     local skill, mod = self:best_skill(p, spec.skill or { "perception" })
     local dc = spec.dc + M.DC_SHIFT
     local by = spec.secret and "dm" or "player"
@@ -1594,6 +1681,45 @@ function M:decision(card, extra)
     elseif not self.actor or not card.trigger then
         self.actor = self:pick_actor(card.actor)
         self.other = card.other and self:pick_actor(card.other, self.actor) or nil
+    end
+    -- A card with a roll in someone's own story scene goes to them first (A4); and nobody
+    -- hogs the big rolls just because the card suits their style.
+    if not card.actor_class and self.scene then
+        local has_roll, roll_skill = false, nil
+        for _, o in ipairs(card.options) do
+            if o.roll then
+                has_roll = true
+                roll_skill = roll_skill or o.roll.skill
+            end
+        end
+        if has_roll and self.actor then
+            local br = self.big_rolls or {}
+            local total = 0
+            for _, n in pairs(br) do
+                total = total + n
+            end
+            if total >= 3 and (br[self.actor.key] or 0) / total > 1 / #self.players + 0.06 then
+                self.actor = self:pick_roller(roll_skill or { "perception" }, self.scene)
+                if self.other == self.actor then
+                    self.other = self:pick_actor(card.other, self.actor)
+                end
+            end
+        end
+        if has_roll then
+            self.scene.owners_rolled = self.scene.owners_rolled or {}
+            for _, c in pairs(self.scene.comps) do
+                local owner = c.thread and not self:muted(c) and not self.scene.owners_rolled[c.thread]
+                    and find_present(self.players, c.thread)
+                if owner then
+                    self.actor = owner
+                    self.scene.owners_rolled[c.thread] = true
+                    if self.other == owner then
+                        self.other = self:pick_actor(card.other, owner)
+                    end
+                    break
+                end
+            end
+        end
     end
     local vars = self:vars(extra)
     local view = {
@@ -2074,9 +2200,14 @@ function M:combat_scene(sc)
     elseif card then
         self:decision(card)
     end
-    -- Who sees whom first: a paused roll before the fight.
+    -- Who sees whom first: a paused roll before the fight. A hero whose story this fight is
+    -- always gets it (A4: their story, their roll).
     sc.surprise = nil
-    if (self.rng:chance(0.55) or self:idle() > 50) and self:decision_count() < 13 then
+    local owner_here = false
+    for _, c in pairs(sc.comps) do
+        owner_here = owner_here or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil and not self:muted(c))
+    end
+    if ((owner_here and self.rng:chance(0.5)) or self.rng:chance(0.45) or self:idle() > 50) and self:decision_count() < 13 then
         self:scout(sc)
     end
     self:say(self.talk:fight("start", self:vars()), "dm")
@@ -2147,13 +2278,7 @@ local SPOTTED = {
 }
 
 function M:scout(sc)
-    local best, bw
-    for _, p in ipairs(self.players) do
-        local w = (p.class == "rogue" and 2 or 0) + score.arch(p, "explorer") + score.arch(p, "tactician") + self.rng:next()
-        if not bw or w > bw then
-            best, bw = p, w
-        end
-    end
+    local best = self:pick_roller({ "stealth", "perception", "survival", "athletics" }, sc)
     self.actor = best
     self.other = nil
     self:say(self:fresh(SCOUT[best.class] or SCOUT.rogue, "scout_" .. best.class), "goal")
@@ -2216,15 +2341,8 @@ function M:moment(sc)
         return
     end
     local skill = (m == beats.complication and comp and comp.skill) or m.skill
-    -- Whoever's had the least of the spotlight, and is any good at this.
-    local best, bw
-    for _, p in ipairs(self.players) do
-        local _, mod = self:best_skill(p, skill)
-        local w = (60 - p.m.spotlight) / 30 + self.rng:next() * 1.5 + mod / 4
-        if not bw or w > bw then
-            best, bw = p, w
-        end
-    end
+    -- Who rolls (A4): their story, or the best at it among those who've had less of the spotlight.
+    local best = self:pick_roller(skill, sc)
     self.actor = best
     self.other = nil
     local extra = { complication = comp and soft_lower(comp.name) or "" }
@@ -2262,16 +2380,8 @@ function M:climax(sc)
             end
         end
     end
-    -- Whoever this scene is made for steps up (and is good at what it asks).
-    local best, bw
-    for _, p in ipairs(self.players) do
-        local _, mod = self:best_skill(p, cl.skill)
-        local w = (util.contains(cl.prefer or {}, p.class) and 2 or 0) + (60 - p.m.spotlight) / 30 + self.rng:next()
-            + mod / 4
-        if not bw or w > bw then
-            best, bw = p, w
-        end
-    end
+    -- Whoever this scene is made for steps up (and is good at what it asks) (A4).
+    local best = self:pick_roller(cl.skill, sc, cl.prefer)
     self.actor = best
     self.other = nil
     self:say(cl.text, "goal")
