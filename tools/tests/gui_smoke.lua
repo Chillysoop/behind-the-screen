@@ -1306,7 +1306,7 @@ if #problems == 0 then
         end
         -- A save from some other build is refused politely.
         local out = io.open(path, "wb")
-        out:write('F=1\nW=2\nS=1\nT[1]={"s","x","c",{"no_such_data"}}\n')
+        out:write('F=2\nW=2\nS=1\nT[1]={"s","x","c",{"no_such_data"}}\n')
         out:close()
         restart()
         if not click_key("continue") then problem("no continue button for the broken save") end

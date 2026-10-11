@@ -127,14 +127,15 @@ end
 -- Bad saves are refused, not half-loaded.
 check(save.load("hello") == nil, "a file that isn't a save is refused")
 check(save.load("F=99\nW=1\nS=1\nT[1]={}\n") == nil, "a save from another format is refused")
-check(save.load('F=1\nW=1\nS=1\nT[1]={"s","x","c",{"no_such_table"}}\n') == nil, "a save pointing at missing game data is refused")
-check(save.load('F=1\nW=1\nS=1\nT[1]={"s","x","t",7}\n') == nil, "a save with a broken link is refused")
-check(save.load('F=1\nW=1\nS=1\nos.exit(1)\nT[1]={m="campaign"}\n') ~= nil, "lines that aren't table statements are ignored")
-check(save.load('F=1\nW=1\nS=1\nT[1]={m="campaign"}\n') ~= nil, "a minimal campaign line loads")
-check(save.load('F=1\nW=1\nS=1\nT[1]={}\n') == nil, "a save without a campaign is refused")
+check(save.load('F=2\nW=1\nS=1\nT[1]={"s","x","c",{"no_such_table"}}\n') == nil, "a save pointing at missing game data is refused")
+check(save.load('F=2\nW=1\nS=1\nT[1]={"s","x","t",7}\n') == nil, "a save with a broken link is refused")
+check(save.load('F=2\nW=1\nS=1\nos.exit(1)\nT[1]={m="campaign"}\n') ~= nil, "lines that aren't table statements are ignored")
+check(save.load('F=2\nW=1\nS=1\nT[1]={m="campaign"}\n') ~= nil, "a minimal campaign line loads")
+check(save.load('F=2\nW=1\nS=1\nT[1]={}\n') == nil, "a save without a campaign is refused")
+check(save.load('F=1\nW=1\nS=1\nT[1]={m="campaign"}\n') == nil, "a save from before the slice rework is turned away")
 for _, bad in ipairs({ 'T[1]={os.exit(1)}', 'T[1]={("x"):rep(9)}', 'T[1]={"a".."b"}', 'T[1]={while true do end}',
                        'T[1]={m="campaign","s","x","s","\\n"}', 'T[1]={function() end}' }) do
-    check(not save.safe_line(bad) and save.load("F=1\nW=1\nS=1\n" .. bad .. "\n") == nil,
+    check(not save.safe_line(bad) and save.load("F=2\nW=1\nS=1\n" .. bad .. "\n") == nil,
         "a line that isn't plain data is refused: " .. bad)
 end
 -- New books (A13): the shelf, what was pulled in, the items the party carries and a published

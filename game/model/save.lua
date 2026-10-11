@@ -18,7 +18,7 @@ local content = require "game.model.content"
 
 local M = {}
 
-M.FORMAT = 1
+M.FORMAT = 2       -- 2: the slice rework (Oct 11). A save from before it is turned away, not half-loaded.
 M.SKIP = { prep = true, night = true, report = true }   -- top-level campaign fields not saved
 -- ...except the prep board when the save was made at "Run game night" (campaign.at_night, the
 -- fix pass): then the board is kept, and loading starts that night again with it intact. And
