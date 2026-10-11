@@ -241,7 +241,7 @@ return {
     { id = "passage", kind = "goal", suits = { "road", "bridge", "camp" }, name = "Negotiate safe passage", cost = 1,
       fits = { "social" }, tags = { "talk" },
       line = "Goal: talk your way through without anyone drawing steel.",
-      win = "{Cast} agrees: {deal}. Nobody drew steel.",
+      win = "{Cast} {agrees|agree}: {deal}. Nobody drew steel.",
       lose = "No passage. They'll have to find another way round.", got = "safe passage",
       on = { win = { "safe_conduct" } } },
     { id = "hidden_map", kind = "goal", suits = { "ruin", "bells" }, with = { "chapel", "bell_paths" }, deck = "arc", name = "Find the hidden map", cost = 1,

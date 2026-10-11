@@ -104,6 +104,7 @@ function M.new(campaign, prep, opts)
     self.improvised = {}
     self.talk = talk_mod.new(self.rng)
     self.talk:set_present(self.players)
+    self.talk:remember_weeks(campaign, 3)   -- a speaker doesn't repeat a line for three weeks (A5)
     self.clock = 0
     self.counts = { decision = 0, improv = 0, ruling = 0 }
     self.fights = 0
@@ -240,11 +241,30 @@ function M:vars(extra)
         v.culprit = person and soft_lower(cast.short or cast.name) or cul.name or "someone nobody suspected"
         v.Culprit = util.capitalize(v.culprit)
         v.secret = person and cast.secret or cul.secret or "they've been covering for someone"
-        v.deal = cast and cast.deal or "what they came for, on fair terms"
-        v.lead = beat and beat.lead or "a name nobody expected"
+        v.deal = cast and cast.deal or "safe passage, for now"
+        local last = content.arc.beats[#content.arc.beats]
+        v.lead = beat and beat.lead or (last and last.lead) or "Kessrick the Wolf"
+        -- A group acts as a group (A3): {one|many} picks the verb.
+        v.plural = cast and cast.group and true or false
+        -- Who gets caught in a lie: the scene's person, or someone the place would have (A2).
+        local loc = sc.comps.location
+        local by = "a stallholder who saw too much"
+        for _, set in ipairs(loc and loc.setting or {}) do
+            local b = M.BYSTANDER[set]
+            if b then
+                by = b
+                break
+            end
+        end
+        v.witness = person and soft_lower(cast.short or cast.name) or by
+        v.Witness = util.capitalize(v.witness)
+        -- What the big moment turns up when no goal says (A2): the scene's reward, or the lead.
+        local reward = shown(sc.comps.reward)
+        v.found = reward and soft_lower(reward.got or reward.name) or ("a fresh trail, and a name: " .. v.lead)
         v.location = shown(sc.comps.location) and soft_lower(sc.comps.location.name) or "this place"
         v.goal = shown(sc.comps.goal) and soft_lower(sc.comps.goal.name) or "what they came for"
         v.boss = sc.boss_name or "the villain"
+        v.Boss = util.capitalize(v.boss)
     end
     for k, val in pairs(extra or {}) do
         v[k] = val
@@ -282,9 +302,46 @@ function M:location()
     return sc and sc.comps.location
 end
 
--- A caption.
+-- Who's there to be caught in a lie, by the kind of place (A2: never "the witness" with
+-- nobody there).
+M.BYSTANDER = {
+    tavern = "the barman", market = "a stallholder", shop = "the shopkeeper", crowd = "a gossip in the crowd",
+    town = "a shopkeeper", road = "a carter on the road", forest = "a woodcutter", camp = "a camp follower",
+    bells = "the bell-ringers' old porter", ruin = "a scavenger in the ruins", wild = "a shepherd",
+    under = "a tunnel rat", indoor = "a servant", outdoor = "a passer-by", water = "a boatman",
+}
+
+-- A caption. Every sentence starts with a capital, whatever was substituted (A3).
 function M:say(text, style, extra)
-    return self:emit({ kind = "narrate", text = util.fill(text, self:vars(extra)), style = style or "narration" })
+    return self:emit({ kind = "narrate", text = util.sentence_case(util.fill(text, self:vars(extra))),
+                       style = style or "narration" })
+end
+
+-- A line from a list that hasn't been said tonight (A5): each one once before any repeats.
+function M:fresh(list, key)
+    if type(list) ~= "table" then
+        return list
+    end
+    self.fresh_used = self.fresh_used or {}
+    local used = self.fresh_used[key or tostring(list)] or {}
+    self.fresh_used[key or tostring(list)] = used
+    local free = {}
+    for i, l in ipairs(list) do
+        if not used[i] then
+            table.insert(free, i)
+        end
+    end
+    if #free == 0 then
+        for i in pairs(used) do
+            used[i] = nil
+        end
+        for i = 1, #list do
+            free[i] = i
+        end
+    end
+    local i = self.rng:pick(free)
+    used[i] = true
+    return list[i]
 end
 
 -- A speech bubble from a player, picked from the table talk for this trigger.
@@ -702,15 +759,26 @@ function M:improv_cards(kind)
     -- anything else has to suit the location.
     local function fits(c)
         if c.kind == "location" then
-            return content.setting_clash(c, sc.comps) == nil
+            if content.setting_clash(c, sc.comps) ~= nil then
+                return false
+            end
+            -- A place has to suit the story already on the scene (the goal tied to the chapel).
+            for _, other in pairs(sc.comps) do
+                if other.kind ~= "location" and not content.belongs_at(other, c) then
+                    return false
+                end
+            end
+            return true
         end
-        return content.fits_setting(c, sc.comps.location)
+        return content.fits_setting(c, sc.comps.location) and content.belongs_at(c, sc.comps.location)
     end
     local all = self:improv_pool()
     local pool = {}
     for _, c in ipairs(all) do
         if c.kind == kind and fits(c) then
-            table.insert(pool, { c = c, rank = self:improv_rank(c), r = self.rng:next() })
+            -- Within a rank, what suits this kind of scene and this place comes first.
+            local score = content.affinity(c, sc.comps, sc.type)
+            table.insert(pool, { c = c, rank = self:improv_rank(c), r = self.rng:next() - score })
         end
     end
     table.sort(pool, function(a, b)
@@ -882,7 +950,8 @@ function M:improvise(kind)
         local fan = self:pick_actor({ "storyteller", "method_actor", "explorer" })
         poses[fan.key] = "lean"
     end
-    self:say(content.improv.outcomes[fit], fit == "poor" and "warn" or "dm", { critic = critic and critic.name or "Someone" })
+    self:say(self:fresh(content.improv.outcomes[fit], "improv_" .. fit), fit == "poor" and "warn" or "aside",
+        { critic = critic and critic.name or "Someone" })
     self:react(poses)
     if fit == "great" or (fit == "poor" and critic) then
         self:bark(critic or self:pick_actor({ "storyteller", "method_actor" }), fit == "great" and "improv_great" or "improv_poor")
@@ -957,11 +1026,11 @@ function M:drift()
     end
     if fit == "poor" then
         self:apply({ { "actor", spotlight = 6, fun = -2 }, { "all", story = 2 } })
-        self:say(util.fill(content.improv.outcomes.poor, { critic = actor.name }), "warn")
+        self:say(util.fill(self:fresh(content.improv.outcomes.poor, "improv_poor"), { critic = actor.name }), "warn")
     else
         self:apply({ { "actor", spotlight = 10, fun = fit == "great" and 6 or 3 }, { "arch:explorer", story = 4 },
                      { "arch:instigator", fun = 3 }, { "all", story = 2 } })
-        self:say(content.improv.outcomes[fit], "dm")
+        self:say(self:fresh(content.improv.outcomes[fit], "improv_" .. fit), "aside")
         self:highlight(fit == "great" and 7 or 4, actor.char .. " drags everyone off the map", { actor })
         self:bark(actor, "improv_great")
     end
@@ -998,15 +1067,26 @@ function M:actions_for(sc, used)
     local loc = sc.comps.location
     local cast = sc.comps.cast and not self:muted(sc.comps.cast)
     local out = {}
+    -- Nobody talks a wolf into anything, or threatens, robs or lies to a mentor's ghost (A3).
+    local c = sc.comps.cast
+    local function suits(a)
+        if a.cast and c and c.talks == false then
+            return false
+        end
+        if c and c.revered and (a.skill == "intimidation" or a.skill == "sleight_of_hand" or a.skill == "deception") then
+            return false
+        end
+        return content.fits_setting(a, loc) and (not a.cast or cast) and (not a.other or #self.players > 1)
+    end
     for i, a in ipairs(list) do
-        if not used[i] and content.fits_setting(a, loc) and (not a.cast or cast) and (not a.other or #self.players > 1) then
+        if not used[i] and suits(a) then
             table.insert(out, { i = i, a = a })
         end
     end
     if #out == 0 then
         -- Everything's been tried: let the table repeat the ones that fit.
         for i, a in ipairs(list) do
-            if content.fits_setting(a, loc) and (not a.cast or cast) and (not a.other or #self.players > 1) then
+            if suits(a) then
                 table.insert(out, { i = i, a = a })
             end
         end
@@ -1069,8 +1149,10 @@ function M:hero_action(sc, used, dc, need, spots)
     local text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = " .. util.int(total)
         .. " vs DC " .. util.int(dc) .. ", " .. result
     if edge then
-        text = text .. " (" .. (edge == "adv" and "advantage" or "disadvantage") .. ": " .. ledger.about(pid).name .. " is "
-            .. ledger.label(ledger.att(self.campaign, pid, self)) .. "; the other die was " .. util.int(other_roll) .. ")"
+        local cast = sc.comps.cast
+        text = text .. " (" .. (edge == "adv" and "advantage" or "disadvantage") .. ": " .. ledger.about(pid).name
+            .. ((cast and cast.group) and " are " or " is ") .. ledger.label(ledger.att(self.campaign, pid, self))
+            .. "; the other die was " .. util.int(other_roll) .. ")"
     end
     table.insert(self.checks, success)
     if success then
@@ -1144,7 +1226,11 @@ function M:quick_checks(sc)
     local layout = content.terrain_layout.sets[sc.terrain] or content.terrain_layout.sets.blank
     local spots = layout.spots or {}
     sc.progress = { wins = 0, setbacks = 0, need = need }
-    local used = {}
+    -- What the heroes have already tried tonight, by scene type: nobody repeats a move until
+    -- the rest have been used (A5).
+    self.actions_used = self.actions_used or {}
+    self.actions_used[sc.type] = self.actions_used[sc.type] or {}
+    local used = self.actions_used[sc.type]
     local i = 0
     while i < max_checks and sc.progress.wins < need and sc.progress.setbacks < beats.setbacks do
         i = i + 1
@@ -1174,10 +1260,11 @@ function M:quick_checks(sc)
     self:scene_card(sc)
     -- The track sets up the big moment: ahead makes it easier, behind makes it harder.
     sc.edge = (sc.progress.wins >= need) and -2 or ((sc.progress.setbacks >= beats.setbacks) and 2 or 0)
+    -- Your own read on the scene: an aside for the log, not something the table hears (A2).
     if sc.edge < 0 then
-        self:say("They've done the groundwork. The big moment is within reach.", "good")
+        self:say("They've done the groundwork. The big moment is within reach.", "aside")
     elseif sc.edge > 0 then
-        self:say("Too many setbacks. The big moment will be hard now.", "bad")
+        self:say("Too many setbacks. The big moment will be hard now.", "aside")
     end
 end
 
@@ -1202,7 +1289,10 @@ function M:pick_decision(sc, kinds)
     local eligible, weights = {}, {}
     local last = self.campaign.last_cards or {}
     for _, d in ipairs(content.decisions) do
-        if not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
+        local camp = self.campaign
+        local settled = (d.type == "rules" and camp.house_rules and camp.house_rules[d.id])   -- A5: asked once
+            or (d.once and camp.cards_once and camp.cards_once[d.id])
+        if not settled and not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
             and (not kinds or kinds[d.type]) and content.fits_setting(d, sc.comps.location)
             and (not d.actor_class or self:by_class(d.actor_class)) then
             local w = last[d.id] and 0.3 or 1
@@ -1580,6 +1670,15 @@ function M:decision(card, extra)
     if card.type == "rules" and o.leans then
         table.insert(self.rules_calls, { card = card.id, leans = o.leans, looked = o.looked,
                                          topic = content.conflicts.rules_topics[card.id] })
+    end
+    -- A ruling becomes a house rule (A5): the question never comes back, and the notes list it.
+    if card.type == "rules" then
+        self.house_rules = self.house_rules or {}
+        self.house_rules[card.id] = { title = card.title, ruling = util.fill(o.label or "", self:vars(extra)) }
+    end
+    if card.once then
+        self.cards_once = self.cards_once or {}
+        self.cards_once[card.id] = true
     end
     if o.cliffhanger then
         self.end_early = true
@@ -2031,10 +2130,20 @@ end
 
 -- Before a fight: someone scouts ahead (or tries to talk first). The result sets who's surprised.
 local SCOUT = {
-    rogue = "{actor_char} creeps ahead to scout.",
-    fighter = "{actor_char} stands watch at the front.",
-    wizard = "{actor_char} sends a light ahead to check the way.",
-    cleric = "{actor_char} listens hard for trouble.",
+    rogue = { "{actor_char} creeps ahead to scout.", "{actor_char} slips off the path to see what's waiting.",
+              "{actor_char} goes on ahead, quiet as a cat." },
+    fighter = { "{actor_char} stands watch at the front.", "{actor_char} takes the lead, shield up.",
+                "{actor_char} plants their feet and watches the dark." },
+    wizard = { "{actor_char} sends a light ahead to check the way.", "{actor_char} mutters a cantrip and peers ahead.",
+               "{actor_char} sends a spark skittering along the ground ahead." },
+    cleric = { "{actor_char} listens hard for trouble.", "{actor_char} closes their eyes and listens.",
+               "{actor_char} murmurs a prayer and watches the shadows." },
+}
+local SPOTTED = {
+    success = { "They spot the enemy first. Weapons out, quietly.", "Movement up ahead. They see it before it sees them.",
+                "A glint of steel in the dark. They're ready first." },
+    fail = { "A twig snaps. Every head turns their way.", "Something clatters underfoot. So much for surprise.",
+             "Too late: they've been seen." },
 }
 
 function M:scout(sc)
@@ -2047,12 +2156,12 @@ function M:scout(sc)
     end
     self.actor = best
     self.other = nil
-    self:say(SCOUT[best.class] or SCOUT.rogue, "goal")
+    self:say(self:fresh(SCOUT[best.class] or SCOUT.rogue, "scout_" .. best.class), "goal")
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "stealth", "perception" },
-                   success = { log = "They spot the enemy first. Weapons out, quietly.",
+                   success = { log = self:fresh(SPOTTED.success, "spot_yes"),
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
-                   fail = { log = "A twig snaps. Every head turns their way.",
+                   fail = { log = self:fresh(SPOTTED.fail, "spot_no"),
                             effects = { { "all", challenge = 6 }, { "arch:butt_kicker", fun = 2 } } } }
     table.insert(self.decisions, { card = "scout", option = 0, rolls = {} })
     local ok = self:big_roll(spec)
@@ -2292,6 +2401,39 @@ function M:note_outcome(sc)
     self:note(sc, e)
 end
 
+-- The bridge out of a scene (A2): what they got, and where they go next.
+function M:bridge(sc)
+    if self.end_early or sc.index >= #self.scenes then
+        return
+    end
+    local lines = content.scene_beats.bridge
+    local nxt = self.scenes[sc.index + 1]
+    local next_place
+    local nl = nxt.comps.location
+    if nl and not self:muted(nl) then
+        next_place = soft_lower(nl.short or nl.name)
+    elseif nxt.comps.goal and not self:muted(nxt.comps.goal) then
+        next_place = "the next job (" .. soft_lower(nxt.comps.goal.name) .. ")"
+    else
+        next_place = "wherever the trail leads"
+    end
+    local loc = sc.comps.location
+    local here = loc and soft_lower(loc.short or loc.name) or "this place"
+    local got
+    if sc.outcome == "win" then
+        local goal, reward = sc.comps.goal, sc.comps.reward
+        if goal and goal.got and not self:muted(goal) then
+            got = goal.got
+        elseif reward and not self:muted(reward) then
+            got = soft_lower(reward.got or reward.name)
+        end
+    end
+    local pool = got and lines.got or (sc.outcome == "win" and lines.won or lines.lost)
+    local text = util.fill(self:fresh(pool, "bridge_" .. (got and "got" or sc.outcome or "lost")),
+        { got = got or "", Got = util.capitalize(got or ""), next = next_place, here = here })
+    self:say(text, "bridge")
+end
+
 function M:play_scene(sc)
     self.scene = sc
     self.actor, self.other = nil, nil
@@ -2359,8 +2501,10 @@ function M:play_scene(sc)
             for _, p in ipairs(self.players) do
                 if p.key == c.thread then
                     p.thread_hits = p.thread_hits + 1
-                    if not announced[p.key] then
+                    self.thread_said = self.thread_said or {}
+                    if not announced[p.key] and not self.thread_said[p.key] then
                         announced[p.key] = true
+                        self.thread_said[p.key] = true
                         self:react({ [p.key] = "lean" })
                         self:say(p.name .. " sits up. This is about " .. p.char .. "'s past.", "thread")
                         self:bark(p, "thread")
@@ -2463,6 +2607,7 @@ function M:play_scene(sc)
         self:describe(sc.comps.complication, "twist")
         self.ended_on_cliff = sc.index == #self.scenes
     end
+    self:bridge(sc)
     if sc.index < #self.scenes then
         self:table_check(sc)
         -- Between scenes the table chats while you reset the terrain.

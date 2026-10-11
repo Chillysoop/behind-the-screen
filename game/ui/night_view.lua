@@ -1121,7 +1121,10 @@ function M.handle(app, ev)
         end
         cam(app, 2)
     elseif k == "narrate" then
-        M.caption(app, ev.text, ev.style)
+        -- A DM-only aside goes to the log, never the big caption (A2).
+        if ev.style ~= "aside" then
+            M.caption(app, ev.text, ev.style)
+        end
         M.push(app, ev.text, ev.style)
     elseif k == "clue" then
         -- The party learned something: it goes in the DM's notes.

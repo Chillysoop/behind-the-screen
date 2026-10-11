@@ -1,0 +1,211 @@
+-- The text gate (update prompt A2, A3, A5, A11): plays many game nights with the simulated
+-- DMs and reads every line the night shows, the way the veteran-DM playtest did. Run from
+-- the project root:   texlua tools/tests/text_check.lua [campaigns] [weeks]
+-- Prints each kind of problem with a few examples; exit code 1 if any gate fails.
+
+package.path = "./?.lua;./tools/sim/?.lua;" .. package.path
+
+local content = require "game.model.content"
+local campaign_mod = require "game.model.campaign"
+local rng_mod = require "game.model.rng"
+local bots = require "slice_bots"
+
+local RUNS = tonumber(arg and arg[1]) or 40
+local WEEKS = tonumber(arg and arg[2]) or 4
+
+local problems = {}      -- kind -> { count, examples }
+local function flag(kind, text)
+    local p = problems[kind]
+    if not p then
+        p = { n = 0, ex = {}, seen = {} }
+        problems[kind] = p
+    end
+    p.n = p.n + 1
+    if #p.ex < 6 and not p.seen[text] then
+        p.seen[text] = true
+        table.insert(p.ex, text)
+    end
+end
+
+-- Generic objects: an outcome that should have named its thing (A2).
+local GENERIC = {
+    "A name comes out%.$", "Then a name%.$", "the culprit[%.,]", "someone nobody suspected", "costs them something%.$",
+    "a name nobody expected", "The witness", "the locals", "what they came for[%.,]",
+}
+-- A group spoken of as one (A3).
+local GROUP_SINGULAR = { " is ", " has ", " doesn't ", " isn't ", " was ", " looks ", " grins", " talks", " cracks",
+                         " crosses", " softens", " clams" }
+
+local stats = { nights = 0, scenes = 0, bridged = 0, lines = 0, repeats = 0, story_repeat = 0, rules_repeat = 0 }
+
+local function check_line(text, ev, night)
+    stats.lines = stats.lines + 1
+    if string.find(text, "{[%w_]+}") then
+        flag("unfilled placeholder", text)
+    end
+    if string.find(text, "nil") and not string.find(text, "nill") then
+        flag("nil in text", text)
+    end
+    if string.find(text, "[\128-\255]") then
+        flag("non-ASCII", text)
+    end
+    for _, pat in ipairs(GENERIC) do
+        if string.find(text, pat) then
+            flag("generic object (" .. pat .. ")", text)
+        end
+    end
+    -- A lowercase sentence start (after ". " or at the start).
+    local low = string.find(text, "^['\"]?%l") ~= nil
+    for pos in string.gmatch(text, "()[%.!?]['\"]? ['\"]?%l") do
+        if string.sub(text, pos - 1, pos - 1) ~= "." then   -- "..." trails off; it doesn't end a sentence
+            low = true
+        end
+    end
+    -- Player chatter at the table may be lowercase on purpose; the DM's lines may not.
+    if low and ev.kind ~= "say" then
+        flag("lowercase sentence start", text)
+    end
+    -- Group casts as singular.
+    local sc = night.scene
+    local cast = sc and sc.comps.cast
+    if cast and cast.group then
+        local nm = cast.short or cast.name
+        local cap = string.upper(string.sub(nm, 1, 1)) .. string.sub(nm, 2)
+        for _, v in ipairs(GROUP_SINGULAR) do
+            if string.find(text, cap .. v, 1, true) or string.find(text, nm .. v, 1, true) then
+                flag("group spoken of as one", text)
+            end
+        end
+    end
+end
+
+local function play_night(night, rng, dm)
+    local seen = {}
+    local ev = night:advance()
+    local guard = 0
+    local scene_lines = {}
+    local cur_scene
+    while ev.kind ~= "done" and guard < 900 do
+        guard = guard + 1
+        local text = ev.text
+        if ev.kind == "scene" then
+            cur_scene = ev.index
+            scene_lines[cur_scene] = {}
+            stats.scenes = stats.scenes + 1
+        end
+        if text and (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" or ev.kind == "check") then
+            check_line(text, ev, night)
+            if cur_scene then
+                table.insert(scene_lines[cur_scene], { text = text, style = ev.style, kind = ev.kind })
+            end
+            -- Repeats within a night (table talk and narration; dice lines and fixed system lines aside).
+            if ev.kind ~= "check" and ev.style ~= "dice" and ev.style ~= "system" then
+                if seen[text] then
+                    stats.repeats = stats.repeats + 1
+                    flag("line repeated in one night", text)
+                end
+                seen[text] = true
+            end
+        end
+        local a
+        if ev.kind == "decision" then
+            a = rng:int(1, #ev.card.options)
+        elseif ev.kind == "improv" then
+            a = 1
+        elseif ev.kind == "roll_where" then
+            a = dm.open_rolls and "open" or "hidden"
+        elseif ev.kind == "roll" then
+            a = rng:d20()
+        elseif ev.kind == "cook" then
+            a = false
+        end
+        ev = night:advance(a)
+    end
+    stats.nights = stats.nights + 1
+    -- Every scene ends with a bridge (A2): its last DM line says what they got and where next.
+    for i, lines in pairs(scene_lines) do
+        local bridged = false
+        for _, l in ipairs(lines) do
+            bridged = bridged or l.style == "bridge"
+        end
+        if bridged then
+            stats.bridged = stats.bridged + 1
+        elseif i < #night.scenes and not night.end_early then
+            flag("scene with no bridge", "scene " .. i .. ": " .. (lines[#lines] and lines[#lines].text or "?"))
+        else
+            stats.bridged = stats.bridged + 1   -- the last scene closes the night instead
+        end
+        -- A goal never shows its answer in the scene's first lines (A2): the goal's win text
+        -- shouldn't appear before the scene's checks.
+    end
+end
+
+local played_story = {}
+for i = 1, RUNS do
+    for _, dmk in ipairs({ "careful", "plain", "careless" }) do
+        local seed = 4100 + i * 31 + #dmk
+        local c = campaign_mod.new(seed)
+        local rng = rng_mod.new(seed + 1)
+        local dm = bots.DMS[dmk]
+        c:session_zero(dm.s0)
+        local story_seen, rules_seen = {}, {}
+        for w = 1, WEEKS do
+            local prep = c:start_week()
+            bots.prep(dm, c, prep, rng)
+            local night = c:start_night()
+            play_night(night, rng, dm)
+            -- Story reveals and rules cards play once per campaign (A5).
+            for id in pairs(night.revealed or {}) do
+                if story_seen[id] then
+                    stats.story_repeat = stats.story_repeat + 1
+                    flag("story card told twice", id)
+                end
+                story_seen[id] = true
+            end
+            for _, rc in ipairs(night.rules_calls or {}) do
+                local id = rc.card
+                if rules_seen[id] then
+                    stats.rules_repeat = stats.rules_repeat + 1
+                    flag("rules question asked twice in a campaign", tostring(id))
+                end
+                rules_seen[id] = true
+            end
+            c:finish_night()
+            if dm.level and c:level_status().ready then
+                c:level_up()
+            end
+        end
+    end
+end
+
+local kinds = {}
+for k in pairs(problems) do
+    table.insert(kinds, k)
+end
+table.sort(kinds, function(a, b) return problems[a].n > problems[b].n end)
+print(string.format("%d nights, %d scenes, %d lines", stats.nights, stats.scenes, stats.lines))
+for _, k in ipairs(kinds) do
+    print(string.format("%6d  %s", problems[k].n, k))
+    for _, ex in ipairs(problems[k].ex) do
+        print("          " .. ex)
+    end
+end
+local rep_rate = stats.repeats / math.max(1, stats.lines)
+local gates = {
+    { "No unfilled or generic outcome objects (A2)", (problems["unfilled placeholder"] == nil) and (function()
+        for k in pairs(problems) do
+            if string.find(k, "^generic object") then return false end
+        end
+        return true
+    end)() },
+    { "Every scene ends with a bridge (A2)", problems["scene with no bridge"] == nil },
+    { "No lowercase sentence starts or singular groups (A3)", problems["lowercase sentence start"] == nil and problems["group spoken of as one"] == nil },
+    { "No story or rules card twice in a campaign (A5)", stats.story_repeat == 0 and stats.rules_repeat == 0 },
+    { string.format("Under 2%% of lines repeat within a night (A5): %.2f%%", rep_rate * 100), rep_rate < 0.02 },
+}
+local ok = true
+for _, g in ipairs(gates) do
+    print(string.format("  [%s] %s", g[2] and "PASS" or "FAIL", g[1]))
+    ok = ok and g[2]
+end
+os.exit(ok and 0 or 1)

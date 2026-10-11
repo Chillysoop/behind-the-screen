@@ -85,7 +85,7 @@ return {
     {
         id = "wild_theory", type = "story", scenes = { "mystery", "exploration", "social", "puzzle" },
         actor = { "storyteller", "explorer" },
-        title = "Their theory is better",
+        title = "Their theory is better", once = true,   -- once a campaign (A11), until Steal the theory
         text = "{actor_char} lays out a wild theory about who is behind it all. Honestly, it's better than what you wrote.",
         options = {
             { label = "Steal it. Their theory is now true.",

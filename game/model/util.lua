@@ -45,8 +45,13 @@ function M.contains(list, value)
     return false
 end
 
--- Fill {key} placeholders. Unknown keys are left as they are.
+-- Fill {key} placeholders. Unknown keys are left as they are. {one|many} picks by
+-- vars.plural (the slice rework, A3: "Rook's bandits are", "Gus is"): the first word for one,
+-- the second for a group.
 function M.fill(template, vars)
+    template = string.gsub(template, "{([%w' ]*)|([%w' ]*)}", function(one, many)
+        return (vars and vars.plural) and many or one
+    end)
     local out = string.gsub(template, "{([%w_]+)}", function(k)
         local v = vars[k]
         if v == nil then
@@ -70,6 +75,15 @@ end
 
 function M.capitalize(s)
     return (string.gsub(s, "^%l", string.upper))
+end
+
+-- Every sentence starts with a capital, whatever got substituted in (A3: "the biggest drunk
+-- hesitates" at the start of a line). A trailing "..." doesn't end a sentence.
+function M.sentence_case(s)
+    s = string.gsub(s, "^(['\"]?)(%l)", function(q, c) return q .. string.upper(c) end)
+    s = string.gsub(s, "([^%.][%.!?] ['\"]?)(%l)", function(pre, c) return pre .. string.upper(c) end)
+    s = string.gsub(s, "([%.!?]['\"] )(%l)", function(pre, c) return pre .. string.upper(c) end)
+    return s
 end
 
 -- Join names: "A", "A and B", "A, B and C".

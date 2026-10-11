@@ -23,7 +23,40 @@ function M:set_present(players)
     end
 end
 
+-- Lines said in a campaign stay fresh for some weeks (A5): a speaker doesn't repeat a line
+-- for `weeks` weeks. campaign.said = { [line id] = week }. Game night's talker uses it; the
+-- group chat's has its own memory.
+function M:remember_weeks(campaign, weeks)
+    campaign.said = campaign.said or {}
+    self.campaign, self.weeks = campaign, weeks
+    -- Forget what's old enough to say again (keeps the save small).
+    local week = campaign.week or 0
+    for id, w in pairs(campaign.said) do
+        if week - w >= weeks then
+            campaign.said[id] = nil
+        end
+    end
+end
+
+-- The lines to skip right now: said tonight, or said by the same voice within the window.
+function M:skip()
+    if not self.campaign then
+        return self.recent
+    end
+    local said, week, weeks, recent = self.campaign.said, self.campaign.week or 0, self.weeks, self.recent
+    return setmetatable({}, { __index = function(_, id)
+        if recent[id] then
+            return true
+        end
+        local w = said[id]
+        return w ~= nil and week - w < weeks
+    end })
+end
+
 function M:remember(id)
+    if self.campaign then
+        self.campaign.said[id] = self.campaign.week or 0
+    end
     if self.recent[id] then
         return
     end
@@ -61,7 +94,7 @@ function M:line(trigger, p, vars)
             missing[k] = true
         end
     end
-    local ctx = { to = vars.other_key, split = vars.split, recent = self.recent, rng = self.rng, missing = missing,
+    local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
                   present = self.present }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
@@ -78,7 +111,7 @@ end
 
 -- An NPC line (what: greet, good, bad, taunt, down): text, line.
 function M:npc(cast_id, what, vars)
-    local l = self.lib:pick("npc_" .. what, cast_id, { recent = self.recent, rng = self.rng, present = self.present })
+    local l = self.lib:pick("npc_" .. what, cast_id, { recent = self:skip(), rng = self.rng, present = self.present })
     if not l then
         return nil
     end
@@ -99,7 +132,7 @@ function M:banter(players)
     end
     self.rng:shuffle(speakers)
     for _, p in ipairs(speakers) do
-        local l = self.lib:pick("banter", p.key, { present = present, recent = self.recent, rng = self.rng })
+        local l = self.lib:pick("banter", p.key, { present = present, recent = self:skip(), rng = self.rng })
         if l then
             self:remember(l.id)
             return l, p
@@ -114,7 +147,25 @@ function M:fight(what, vars)
     if not pool then
         return nil
     end
-    return util.fill(self.rng:pick(pool), vars or {})
+    -- Each caption once a night before any repeats (A5).
+    self.fight_used = self.fight_used or {}
+    local used = self.fight_used[what] or {}
+    self.fight_used[what] = used
+    local free = {}
+    for i = 1, #pool do
+        if not used[i] then
+            table.insert(free, i)
+        end
+    end
+    if #free == 0 then
+        for i = 1, #pool do
+            used[i] = nil
+            free[i] = i
+        end
+    end
+    local i = self.rng:pick(free)
+    used[i] = true
+    return util.fill(pool[i], vars or {})
 end
 
 function M.in_character(trigger)

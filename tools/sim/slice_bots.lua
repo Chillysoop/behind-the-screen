@@ -40,6 +40,13 @@ function B.play_story(c, prep)
                 for _, f in ipairs(card.fits) do
                     fits = fits or f == s.type
                 end
+                -- Write the story where it belongs: not the chapel's map on the forest road.
+                fits = fits and content.belongs_at(card, s.slots.location)
+                for _, other in pairs(s.slots) do
+                    if card.kind == "location" and other.kind ~= "location" then
+                        fits = fits and content.belongs_at(other, card)
+                    end
+                end
                 if fits and not s.slots[card.kind] and prep:can_place(i, id) then
                     prep:place(i, id)
                     break

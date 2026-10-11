@@ -51,7 +51,7 @@ return {
         tags = { "explore" },
         climax = { text = "{actor_char} pushes into the last, darkest part of {location}.", dc = 13, prefer = { "rogue", "wizard" },
                    skill = { "perception", "investigation", "survival", "athletics" },
-                   success = { log = "Behind the last door: exactly what they came for.",
+                   success = { log = "Behind the last door of {location}: {found}.",
                                effects = { { "actor", spotlight = 10 }, { "arch:explorer", fun = 6, reward = 4 }, { "all", story = 4 } } },
                    fail = { log = "A wrong turn. They come out scraped, muddy and empty-handed.",
                             effects = { { "all", challenge = 6 }, { "arch:explorer", fun = -2 } } } },

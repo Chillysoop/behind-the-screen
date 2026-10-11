@@ -12,8 +12,8 @@ return {
     setbacks = 3,
 
     win = {
-        social = { "{cast} leans in. That landed.", "A laugh from {cast}. The ice is breaking.",
-                   "{cast} lets something slip. Useful.", "Nods around the room. People are listening now." },
+        social = { "{Cast} {leans|lean} in. That landed.", "A laugh from {cast}. The ice is breaking.",
+                   "{Cast} {lets|let} something slip: {lead}. Useful.", "Nods around the room. People are listening now." },
         exploration = { "A way forward opens up.", "They find a dry passage nobody's used in years.",
                         "Footprints. Fresh ones. This is the right way.", "A hidden ledge, just wide enough." },
         puzzle = { "One piece clicks into place.", "Something in the walls shifts. Good sign.",
@@ -24,13 +24,13 @@ return {
                      "Someone buys them a drink.", "Gus actually smiles. Briefly." },
     },
     lose = {
-        social = { "{cast} narrows their eyes.", "Wrong thing to say. The room goes chilly.",
-                   "{cast} changes the subject. Fast.", "A guard by the door starts paying attention." },
+        social = { "{Cast} {narrows|narrow} their eyes.", "Wrong thing to say. The room goes chilly.",
+                   "{Cast} {changes|change} the subject. Fast.", "A guard by the door starts paying attention." },
         exploration = { "Dead end. Back the way they came.", "The floor creaks ominously. Everyone freezes.",
                         "They get turned around in the dark.", "Something skitters away in the shadows." },
         puzzle = { "A grinding noise. That wasn't good.", "Wrong lever. Dust falls from the ceiling.",
                    "The symbols go dark again.", "Back to square one on that bit." },
-        mystery = { "A red herring. A very convincing one.", "The witness clams up.",
+        mystery = { "A red herring. A very convincing one.", "{Witness} clams up.",
                     "The evidence points somewhere awkward.", "Somebody saw them snooping." },
         downtime = { "That went sideways. Hilariously.", "Gus sighs the sigh of a tired man.",
                      "A chair breaks. Not their fault. Mostly.", "Someone is now banned from the dartboard." },
@@ -50,10 +50,10 @@ return {
                    skill = { "investigation", "arcana" },
                    success = { log = "The pattern holds. Half the riddle falls away.", effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
                    fail = { log = "The pattern breaks. Something clicks ominously.", effects = { { "all", challenge = 6 } } } },
-        mystery = { text = "{actor_char} catches a witness in a lie and pushes.", dc = 12,
+        mystery = { text = "{actor_char} catches {witness} in a lie and pushes.", dc = 12,
                     skill = { "insight", "intimidation", "investigation" },
-                    success = { log = "The witness cracks. A name comes out.", effects = { { "actor", spotlight = 8 }, { "arch:storyteller", story = 4 } } },
-                    fail = { log = "The witness bolts out the back door.", effects = { { "all", story = 3, challenge = 3 } } } },
+                    success = { log = "{Witness} cracks. A name comes out: {lead}.", effects = { { "actor", spotlight = 8 }, { "arch:storyteller", story = 4 } } },
+                    fail = { log = "{Witness} bolts for the door, and the name goes with them.", effects = { { "all", story = 3, challenge = 3 } } } },
         downtime = { text = "{actor_char} gets dared into something very silly.", dc = 11,
                      skill = { "performance", "acrobatics", "athletics" },
                      success = { log = "They pull it off. Legendary.", effects = { { "actor", spotlight = 8, fun = 3 }, { "all", social = 4 } } },
@@ -62,6 +62,17 @@ return {
                          skill = { "athletics", "acrobatics", "insight" },   -- unless the complication names its own
                          success = { log = "Handled. Barely, but handled.", effects = { { "actor", spotlight = 8 }, { "all", challenge = 3 } } },
                          fail = { log = "It gets away from them. The scene just got harder.", effects = { { "all", challenge = 7, story = 2 } } } },
+    },
+
+    -- The bridge at the end of every scene but the last (A2): what they got, and where they
+    -- go next. {got}/{Got} what they won, {next} the next scene's place (or its goal), {here}.
+    bridge = {
+        got = { "They walk away with {got}. Next: {next}.", "{Got}, and on to {next}.",
+                "With {got} in hand, they make for {next}." },
+        won = { "Done at {here}. Next: {next}.", "That's {here} settled. On to {next}.",
+                "They leave {here} better than they found it. Next: {next}." },
+        lost = { "They come away from {here} with nothing but bruises. Next: {next}.", "Empty-handed, they head for {next}.",
+                 "Not their night at {here}. On to {next}." },
     },
 
     -- The heroes talking to each other, in character, between checks.

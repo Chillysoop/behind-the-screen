@@ -117,6 +117,37 @@ function M.line_for(card, location)
     return card.line
 end
 
+-- Does a card belong at this place (the slice rework, A11: no "Tobin hid something in the
+-- chapel" on the forest road)? A card tied to particular places (its `with` names locations)
+-- belongs only there, or somewhere with the same feel (its `suits`). Anything else belongs
+-- anywhere its `where` allows.
+function M.belongs_at(card, location)
+    if not card or not location or card.kind == "location" then
+        return true
+    end
+    local tied = false
+    for _, w in ipairs(card.with or {}) do
+        local other = M.components[w]
+        if other and other.kind == "location" then
+            tied = true
+            if w == location.id then
+                return true
+            end
+        end
+    end
+    if not tied then
+        return true
+    end
+    for _, t in ipairs(card.suits or {}) do
+        for _, set in ipairs(location.setting or {}) do
+            if t == set then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 -- Is anything already on this scene at odds with the card (either way round)?
 -- Returns the clashing card, or nil.
 function M.setting_clash(card, slots)

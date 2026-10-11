@@ -47,9 +47,14 @@ return {
         "{actor_char} asks the bartender's name, then their life story. You have neither.",
     },
 
+    -- How an improvised bit lands. great and good are your own asides (the log only); poor
+    -- is what the table sees. Each night uses each line once before repeating.
     outcomes = {
-        great = "Nice save. Nobody can tell you made that up.",
-        good = "It holds together. Mostly.",
-        poor = "{critic} squints. That didn't quite fit.",
+        great = { "Nice save. Nobody can tell you made that up.", "Smooth. That sounded planned.",
+                  "That fit like it was in your notes all along." },
+        good = { "It holds together. Mostly.", "Good enough. Nobody's asking questions.",
+                 "It'll do. The table rolls with it." },
+        poor = { "{critic} squints. That didn't quite fit.", "{critic} tilts their head. Hm.",
+                 "{critic} opens their mouth, then decides to let it go.", "A beat of silence from {critic}. Close enough?" },
     },
 }

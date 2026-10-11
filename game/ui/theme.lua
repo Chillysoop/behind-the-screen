@@ -79,5 +79,7 @@ return {
         recap = c("#d9c6f2"),
         opening = c("#f3e7cf"),
         clue = c("#e8b04a"),
+        bridge = c("#e9dcc3"),
+        aside = c("#8a7c6a"),
     },
 }

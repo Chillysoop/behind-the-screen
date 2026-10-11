@@ -358,6 +358,15 @@ function M.after_night(campaign, night)
             end
         end
     end
+    -- Story cards that told their part tonight never tell it again, wherever they were (A5).
+    for id in pairs(night.revealed or {}) do
+        local e = d.cards[id]
+        if e then
+            e.revealed = e.revealed or week
+        else
+            d.cards[id] = { state = "deck", since = week, joined = week, plays = 0, history = {}, revealed = week }
+        end
+    end
     -- An agenda card (S6) is made for its week: if it didn't play, it's gone (next time the
     -- person comes, they bring whatever fits how they feel then).
     for id, e in pairs(d.cards) do

@@ -348,6 +348,18 @@ function M:finish_night()
     self.hype = rep.hype
     -- M6: the night pushes the table conflicts around and counts toward the next level.
     self.last_rules_calls = night.rules_calls
+    -- House rules (A5): every ruling made, kept for the notes; and cards that play once a campaign.
+    self.house_rules = self.house_rules or {}
+    for id, r in pairs(night.house_rules or {}) do
+        if not self.house_rules[id] then
+            r.week = self.week
+            self.house_rules[id] = r
+        end
+    end
+    self.cards_once = self.cards_once or {}
+    for id in pairs(night.cards_once or {}) do
+        self.cards_once[id] = true
+    end
     social.after_night(self, night)
     progression.after_night(self, night)
     rep.table = social.status(self)
