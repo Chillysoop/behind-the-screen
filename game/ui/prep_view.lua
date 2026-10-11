@@ -261,7 +261,7 @@ local function top_bar(app, prep)
             theme.orange)
     end
     -- Prep hours as pips.
-    local left = prep:left()
+    local left = math.max(0, prep:left())
     local x0 = 820
     kit.text(x0, 12, "PREP TIME", "ui14", theme.dim)
     for i = 1, prep.budget do
@@ -303,17 +303,16 @@ local function theory_pins(app)
         kit.box(24, y, 320, h, kit.rgba("#f3df8a"), { radius = 4 })
         kit.text(34, y + 6, "THEORY: " .. string.upper(p and p.name or "?"), "ui14", theme.ink_dim)
         local text = claim and claim.says or ""
-        kit.text(34, y + 24, kit.ellipsize(text, "ui14", 300), "ui14", theme.ink)
-        kit.text(34, y + 24 + 18, kit.ellipsize(content.seeds[th.seed].name, "ui14", 160), "ui14", theme.ink_dim)
+        kit.text(34, y + 24, text, "ui14", theme.ink, { w = 300, lines = 2 })      -- the whole theory (A8)
         local ok, why = seeds_mod.can_steal(c, th)
+        -- Under it: the seed it's about, or why it can't come true now (two short lines, beside the button).
+        local under = (not ok and why) or content.seeds[th.seed].name
+        kit.text(34, y + h - 38, under, "ui14", theme.ink_dim, { w = 172, lines = 2 })
         kit.button(214, y + h - 34, 120, 28, "Make it true", function()
             local done, msg = seeds_mod.steal(c, th)
             app.toast = done and ((p and p.name or "They") .. " is going to be insufferable about this.") or msg
             app.refresh()
         end, { font = "ui14", enabled = ok, color = theme.go, hover = theme.go_hover, key = "steal_" .. th.seed })
-        if not ok and why then
-            kit.text(34, y + h - 26, why, "ui14", theme.ink_dim)
-        end
         y = y + messages_view.PIN_H
     end
 end
@@ -385,8 +384,12 @@ local function scene_card(app, prep, i)
                 table.insert(names, sc and (sc.short or sc.name) or id)
             end
             kit.text(x + 20, sy + 6, label, "ui14", kit.rgba("#2f6f5a"))
-            kit.text(x + 20, sy + 25, #names > 0 and util.capitalize(table.concat(names, ", ")) or "Sketch a few places they might go",
-                #names > 0 and "ui18b" or "ui14", #names > 0 and theme.ink or kit.rgba("#9a8a72"), { w = CARD_W - 40, lines = 2 })
+            local spots = #names > 0 and util.capitalize(table.concat(names, ", ")) or "Sketch a few places they might go"
+            -- (Long place names drop to the small type rather than get cut off, A8.)
+            local sfont = (#names > 0 and kit.text_height(spots, "ui18b", CARD_W - 40) <= 2 * kit.text_height("A", "ui18b", CARD_W - 40))
+                and "ui18b" or "ui14"
+            kit.text(x + 20, sy + 25, spots, sfont, #names > 0 and theme.ink or kit.rgba("#9a8a72"),
+                { w = CARD_W - 40, lines = 2 })
             break
         end
         if not c and M.new_in_hand(app, prep, kind) > 0 then
@@ -425,7 +428,8 @@ local function pacing_panel(app, prep)
             return util.int(h) .. "h" .. (mm > 0 and (" " .. util.int(mm) .. "m") or "")
         end
         local over = est - plan
-        kit.text(x + 80, y + 8, "About " .. hm(est) .. " at the table. You play " .. hm(plan) .. ".", "ui14",
+        -- Short enough to stay left of the notes column (x + 300).
+        kit.text(x + 80, y + 8, kit.ellipsize("About " .. hm(est) .. " of your " .. hm(plan) .. ".", "ui14", 212), "ui14",
             over > 20 and theme.orange or theme.faint)
     end
     local pv = prep:pacing_now()
@@ -537,16 +541,19 @@ local function drawer(app, prep)
     if sel.kind == "type" then
         kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
         -- What this campaign's style mostly plays (A18).
+        -- What this campaign usually plays (A18): a gold corner on those types, named once here.
+        local usual = {}
         do
             local sm = require "game.model.styles"
-            local names = {}
-            for _, t in ipairs(sm.usual_types(app.campaign, 3)) do
-                table.insert(names, string.lower(content.scenes[t].name))
+            local types = sm.usual_types(app.campaign, 3)
+            for _, t in ipairs(types) do
+                usual[t] = true
             end
-            if #names > 0 then
+            if #types > 0 then
                 local q = kit.width("Scene 1: what kind of scene?", "ui18b") + 34
-                kit.text(x + q, y + 15, kit.ellipsize(sm.def(sm.current(app.campaign)).name .. " plays mostly "
-                    .. util.join_names(names) .. ".", "ui14", w - q - 350), "ui14", theme.faint)
+                kit.dot(x + q + 6, y + 23, 10, theme.gold)
+                kit.text(x + q + 16, y + 15, kit.ellipsize("Usual in " .. sm.def(sm.current(app.campaign)).name, "ui14",
+                    w - q - 366), "ui14", theme.faint)
             end
         end
         -- Or let the players choose (A15).
@@ -590,6 +597,9 @@ local function drawer(app, prep)
             end
             kit.text(cx + 8, cy + 50, st.short or st.blurb, "ui14", theme.text, { w = cw - 14 })
             faces(app, cx + 6, cy + 120, type_leans(app, key), 18)
+            if usual[key] then
+                kit.dot(cx + cw - 12, cy + 138, 10, theme.gold)
+            end
         end
         -- Published adventures from your books (A13): the whole scene, ready to run.
         local mods = books_mod.modules(app.campaign)
@@ -1090,8 +1100,12 @@ local function player_card(app, prep, p, i, forecast)
     kit.dot(x + 29, y + 23, 34, panels.COLORS[p.key] or theme.panel3)
     kit.picture(x + 13, y + 7, 32, 32, panels.face(p.key))
     kit.text(x + 52, y + 10, p.name, "ui22b", theme.text)
-    kit.text(x + 52 + kit.width(p.name, "ui22b") + 10, y + 14, kit.ellipsize(p.char .. ", " .. p.class_name, "ui18",
-        262 - 52 - kit.width(p.name, "ui22b") - 10), "ui18", theme.dim)
+    local who = p.char .. ", " .. p.class_name
+    local room = 262 - 52 - kit.width(p.name, "ui22b") - 10
+    if kit.width(who, "ui18") > room then
+        who = (string.match(p.char, "^(%S+)") or p.char) .. ", " .. p.class_name     -- a long name: first name
+    end
+    kit.text(x + 52 + kit.width(p.name, "ui22b") + 10, y + 14, kit.ellipsize(who, "ui18", room), "ui18", theme.dim)
     if p.on_break then
         local talked = prep.talked[p.key]
         kit.button(x + w - 128, y + 10, 114, 30, talked and "Checked in" or "Check in  2h", function()
@@ -1287,7 +1301,7 @@ function M.inspiration(app, prep, x, y)
             app.refresh()
         end, { color = done and kit.rgba("#28403c") or theme.panel2, hover = theme.button_hover, enabled = ok or done ~= nil,
                key = "inspire_" .. id })
-        local name = book and "Read the new book" or a.name
+        local name = book and "New book" or a.name
         if book and not done then
             kit.dot(bx + bw - 10, by + bh - 10, 10, theme.green)
         end
@@ -1300,7 +1314,12 @@ function M.inspiration(app, prep, x, y)
         kit.text(bx + bw - 8, by + 6, (done and not (book and prep.reading and prep.reading.left > 0)) and "Done"
             or (done and "Open" or (util.int(a.cost) .. "h")), "ui14", done and theme.teal or theme.gold,
             { pivot = gui.PIVOT_NE })
-        if not done or book then
+        if book then
+            -- the book's whole title, under "New book" (A8): "Vale Bestiary & Treasury"
+            local title = string.gsub(about, "^The ", "")
+            title = string.gsub(title, "^A ", "")
+            kit.text(bx + 8, by + 28, title, "ui14", theme.faint, { w = bw - 14, lines = 2 })
+        elseif not done then
             kit.text(bx + 8, by + 56, kit.ellipsize(about, "ui14", bw - 16), "ui14", theme.faint)
         end
     end

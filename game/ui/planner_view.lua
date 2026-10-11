@@ -96,8 +96,11 @@ function M.build(app)
         if t.style then
             kit.dot(x + cw - 12, y + ch - 12, 10, theme.gold)
         end
-        kit.text(x + 12, y + 8, t.name, "ui18b", theme.text, { w = cw - 24, lines = 1 })
-        kit.text(x + 12, y + 36, t.about, "ui14", on and theme.text or theme.dim, { w = cw - 28, lines = 3 })
+        -- A long truth takes two lines and its note gives one up (A8: nothing cut off).
+        local two = kit.text_height(t.name, "ui18b", cw - 24) > kit.text_height("A", "ui18b", cw - 24)
+        kit.text(x + 12, y + 8, t.name, "ui18b", theme.text, { w = cw - 24, lines = two and 2 or 1 })
+        kit.text(x + 12, two and y + 56 or y + 36, t.about, "ui14", on and theme.text or theme.dim,
+            { w = cw - 28, lines = two and 2 or 3 })
     end
     do
         local k = #truths

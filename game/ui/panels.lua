@@ -49,6 +49,14 @@ function M.face(key, pose)
 end
 
 -- Draw the panels into the current layer. on_click(key) opens a character sheet.
+-- A player's dice changed (a gift, a set shown off): their panel shows the new set.
+function M.set_dice(app, key, id)
+    local chip = app.chips and app.chips[key]
+    if chip and chip.dice then
+        gui.play_flipbook(chip.dice, "dice_" .. id)
+    end
+end
+
 function M.draw(app, on_click)
     app.chips = {}
     local level = app.campaign.level or 2
@@ -79,6 +87,10 @@ function M.draw(app, on_click)
         chip.token = kit.dot(x + TEXT_X + kit.width(p.name, "ui18b") + 14, y + 17, 14, theme.gold)
         gui.set_enabled(chip.token, p.heroic and true or false)
         local role = p.char .. ", " .. p.class_name .. " " .. util.int(level)
+        if kit.width(role, "ui14") > TEXT_W then
+            -- A long name (a new hero after a death): their first name is enough here.
+            role = (string.match(p.char, "^(%S+)") or p.char) .. ", " .. p.class_name .. " " .. util.int(level)
+        end
         kit.text(x + TEXT_X, y + 29, kit.ellipsize(role, "ui14", TEXT_W), "ui14", theme.dim)
         if not p.present then
             kit.text(x + TEXT_X, y + 52, "Out this week.", "ui14", theme.faint)
@@ -101,6 +113,9 @@ function M.draw(app, on_click)
             chip.num = kit.text(rx + ROLL_W / 2, y + 33, "", "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
             chip.what = kit.text(rx + ROLL_W / 2, y + 58, "no rolls yet", "ui14", theme.faint, { pivot = gui.PIVOT_N })
             chip.res = kit.text(rx + ROLL_W / 2, y + 76, "", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+            -- Their dice (grey to start; a gift or a set they bought shows here).
+            chip.dice = kit.picture(rx + ROLL_W - 22, y + 11, 18, 18,
+                "dice_" .. require("game.model.dice_sets").of(app.campaign, p.key))
             app.chips[p.key] = chip
             local last = app.last_roll and app.last_roll[p.key]
             if last then

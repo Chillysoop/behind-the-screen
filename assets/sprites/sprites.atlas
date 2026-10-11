@@ -71,6 +71,129 @@ images {
   image: "/assets/sprites/npc_rival.png"
 }
 images {
+  image: "/assets/sprites/pirate.png"
+}
+images {
+  image: "/assets/sprites/merrow.png"
+}
+images {
+  image: "/assets/sprites/giant_crab.png"
+}
+images {
+  image: "/assets/sprites/guard.png"
+}
+images {
+  image: "/assets/sprites/spy.png"
+}
+images {
+  image: "/assets/sprites/swarm_of_rats.png"
+}
+images {
+  image: "/assets/sprites/animated_armor.png"
+}
+images {
+  image: "/assets/sprites/giant_spider.png"
+}
+images {
+  image: "/assets/sprites/specter.png"
+}
+images {
+  image: "/assets/sprites/brown_bear.png"
+}
+images {
+  image: "/assets/sprites/gnoll_warrior.png"
+}
+images {
+  image: "/assets/sprites/bugbear_warrior.png"
+}
+images {
+  image: "/assets/sprites/warrior_veteran.png"
+}
+images {
+  image: "/assets/sprites/kobold_warrior.png"
+}
+images {
+  image: "/assets/sprites/scout.png"
+}
+images {
+  image: "/assets/sprites/worg.png"
+}
+images {
+  image: "/assets/sprites/pregen_bryn.png"
+}
+images {
+  image: "/assets/sprites/pregen_hesk.png"
+}
+images {
+  image: "/assets/sprites/pregen_tam.png"
+}
+images {
+  image: "/assets/sprites/pregen_lark.png"
+}
+images {
+  image: "/assets/sprites/pregen_aldith.png"
+}
+images {
+  image: "/assets/sprites/pregen_rufus.png"
+}
+images {
+  image: "/assets/sprites/pregen_corwin.png"
+}
+images {
+  image: "/assets/sprites/pregen_ysolde.png"
+}
+images {
+  image: "/assets/sprites/npc_vask.png"
+}
+images {
+  image: "/assets/sprites/npc_wren.png"
+}
+images {
+  image: "/assets/sprites/npc_grey_coat.png"
+}
+images {
+  image: "/assets/sprites/npc_tilly.png"
+}
+images {
+  image: "/assets/sprites/npc_ottilie.png"
+}
+images {
+  image: "/assets/sprites/npc_hob.png"
+}
+images {
+  image: "/assets/sprites/npc_holt.png"
+}
+images {
+  image: "/assets/sprites/npc_tumble.png"
+}
+images {
+  image: "/assets/sprites/npc_verrin.png"
+}
+images {
+  image: "/assets/sprites/npc_nib.png"
+}
+images {
+  image: "/assets/sprites/npc_ansel.png"
+}
+images {
+  image: "/assets/sprites/npc_rosin.png"
+}
+images {
+  image: "/assets/sprites/npc_pearl.png"
+}
+images {
+  image: "/assets/sprites/npc_coil.png"
+}
+images {
+  image: "/assets/sprites/npc_stag.png"
+}
+images {
+  image: "/assets/sprites/npc_ashby.png"
+}
+images {
+  image: "/assets/sprites/npc_reeve.png"
+}
+images {
   image: "/assets/sprites/dev.png"
 }
 images {
@@ -186,111 +309,6 @@ images {
 }
 images {
   image: "/assets/sprites/halo.png"
-}
-images {
-  image: "/assets/sprites/pirate.png"
-}
-images {
-  image: "/assets/sprites/merrow.png"
-}
-images {
-  image: "/assets/sprites/giant_crab.png"
-}
-images {
-  image: "/assets/sprites/guard.png"
-}
-images {
-  image: "/assets/sprites/spy.png"
-}
-images {
-  image: "/assets/sprites/swarm_of_rats.png"
-}
-images {
-  image: "/assets/sprites/animated_armor.png"
-}
-images {
-  image: "/assets/sprites/giant_spider.png"
-}
-images {
-  image: "/assets/sprites/specter.png"
-}
-images {
-  image: "/assets/sprites/brown_bear.png"
-}
-images {
-  image: "/assets/sprites/gnoll_warrior.png"
-}
-images {
-  image: "/assets/sprites/bugbear_warrior.png"
-}
-images {
-  image: "/assets/sprites/warrior_veteran.png"
-}
-images {
-  image: "/assets/sprites/kobold_warrior.png"
-}
-images {
-  image: "/assets/sprites/scout.png"
-}
-images {
-  image: "/assets/sprites/worg.png"
-}
-images {
-  image: "/assets/sprites/pregen_bryn.png"
-}
-images {
-  image: "/assets/sprites/pregen_hesk.png"
-}
-images {
-  image: "/assets/sprites/pregen_tam.png"
-}
-images {
-  image: "/assets/sprites/pregen_lark.png"
-}
-images {
-  image: "/assets/sprites/pregen_aldith.png"
-}
-images {
-  image: "/assets/sprites/pregen_rufus.png"
-}
-images {
-  image: "/assets/sprites/pregen_corwin.png"
-}
-images {
-  image: "/assets/sprites/pregen_ysolde.png"
-}
-images {
-  image: "/assets/sprites/npc_vask.png"
-}
-images {
-  image: "/assets/sprites/npc_wren.png"
-}
-images {
-  image: "/assets/sprites/npc_grey_coat.png"
-}
-images {
-  image: "/assets/sprites/npc_tilly.png"
-}
-images {
-  image: "/assets/sprites/npc_ottilie.png"
-}
-images {
-  image: "/assets/sprites/npc_hob.png"
-}
-images {
-  image: "/assets/sprites/npc_holt.png"
-}
-images {
-  image: "/assets/sprites/npc_tumble.png"
-}
-images {
-  image: "/assets/sprites/npc_verrin.png"
-}
-images {
-  image: "/assets/sprites/npc_nib.png"
-}
-images {
-  image: "/assets/sprites/npc_ansel.png"
 }
 margin: 2
 extrude_borders: 2

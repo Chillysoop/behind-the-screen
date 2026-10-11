@@ -259,7 +259,7 @@ end
 
 -- How everyone's feeling about the whole package.
 local function feelings(app, c, y)
-    local x, w = 1072, 504
+    local x, w = 548, 500     -- under the asks (the rules column runs down to the Start button)
     kit.text(x, y, "HOW EVERYONE FEELS", "ui14", theme.dim)
     -- What the words mean (A8).
     kit.text(x + w, y, "Heard > Happy > Okay > Uneasy", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
@@ -284,8 +284,8 @@ function M.build(app)
         "ui18", theme.dim)
     pitch(app, c)
     asks(app, c)
-    local y = rules(app, c)
-    feelings(app, c, y + 4)
+    rules(app, c)
+    feelings(app, c, 108 + 4 * 176)
     local ready = M.complete(app)
     kit.button(1356, 830, 220, 50, "Start week 1  >", function()
         M.start(app)

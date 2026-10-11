@@ -12,6 +12,8 @@
 --   autotest = 5   real clicks (tools/tests/ui_play/): drive every screen at 2x, but leave every
 --                  game-night card for an outside harness to click with real X input; quit after
 --                  behind_the_screen.autotest_weeks sessions (default 6)
+--   autotest = 6   the board gallery: every board (game/data/boards.lua) set out in full on the
+--                  table, with a party and some foes on it, one shot each from the table camera
 
 local kit = require "game.ui.kit"
 
@@ -273,12 +275,75 @@ function M.night_shots(app, a)
     return false
 end
 
+-- Mode 6: the board gallery. No screens, just the table, one board at a time.
+local function gallery(app, a)
+    if not a.boards then
+        a.boards = {}
+        for id in pairs(require("game.data.boards")) do
+            table.insert(a.boards, id)
+        end
+        table.sort(a.boards)
+        a.bi = 0
+        kit.clear_all()
+        app.layers = {}
+        app.zoom(2)
+        msg.post("/table#table", "clear", { how = "sweep" })
+        a.wait = 1.5
+        return
+    end
+    if a.pend then
+        shot(a, a.pend)
+        a.pend = nil
+        a.wait = SHOT_WAIT
+        return
+    end
+    a.bi = a.bi + 1
+    local id = a.boards[a.bi]
+    if not id then
+        return finish(a, true, "showed " .. #a.boards .. " boards")
+    end
+    local board = require "game.model.board"
+    local c = board.compile(id)
+    msg.post("/board#board", "board", { id = id, show = "all", animate = false })
+    local party, foes = {}, {}
+    local taken = {}
+    local fight = require "game.model.fight"
+    local blocked = {}
+    for _, sq in ipairs(c.blocked) do
+        blocked[sq[1] * 1000 + sq[2]] = true
+    end
+    local ps = fight.squares_near(blocked, taken, c.party[1], c.party[2], 4, 1, board.W, board.H)
+    for i, cls in ipairs({ "fighter", "wizard", "rogue", "cleric" }) do
+        if ps[i] then
+            table.insert(party, { id = "g_p" .. i, class = cls, sprite = cls, x = ps[i][1], y = ps[i][2] })
+        end
+    end
+    local fs = fight.squares_near(blocked, taken, c.foes[1], c.foes[2], 3, 2, board.W, board.H)
+    for i, sp in ipairs({ "bandit_captain", "bandit", "tough" }) do
+        if fs[i] then
+            table.insert(foes, { id = "g_f" .. i, sprite = sp, x = fs[i][1], y = fs[i][2] })
+        end
+    end
+    msg.post("/table#table", "stage", { party = party, fresh = true })
+    msg.post("/table#table", "spawn", { list = foes })
+    a.pend = "board_" .. id
+    a.wait = 2.2
+end
+
 function M.update(app, dt)
     local a = app.autotest
     if not a or a.over then
         return
     end
     a.t = a.t + dt
+    if a.mode == 6 then
+        a.wait = a.wait - dt
+        if a.wait <= 0 then
+            a.wait = STEP
+            gallery(app, a)
+        end
+        return
+    end
     if a.t > 600 then
         return finish(a, false, "timed out on " .. tostring(app.screen))
     end

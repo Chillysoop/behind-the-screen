@@ -586,7 +586,7 @@ function B:attack(att, tgt, prof, opts)
         self:remove_effect(att, sanct_own, "attacked")
     end
     local crit_range = prof.is_weapon and (prof.crit_range or att.crit_range or 20) or 20
-    local cover = self:cover_bonus(att, tgt)
+    local cover, cover_what = self:cover_bonus(att, tgt)
     local ac = self:ac(tgt) + cover
     res.cover = cover > 0 or nil
     -- Heroic Inspiration on a miss that matters: against the boss.
@@ -669,12 +669,17 @@ function B:attack(att, tgt, prof, opts)
     if crit then
         att.stats.crits = att.stats.crits + 1
     end
+    -- A miss the cover made: the shot hits the crate instead (the table says so).
+    if not hit and cover > 0 and not res.blocked and roll ~= 1 and total >= ac - cover then
+        res.blocked = "cover"
+        res.cover_what = type(cover_what) == "string" and cover_what or nil
+    end
     if not hit then
         self:log("%s misses %s with %s (%d vs AC %d%s).", att.name, tgt.name, prof.name, total, ac,
             mode > 0 and ", Advantage" or (mode < 0 and ", Disadvantage" or ""))
         self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit, hit = false, roll = roll, total = total,
                     ac = ac, mode = mode, blocked = res.blocked, ranged = prof.kind == "ranged",
-                    opportunity = opts.opportunity, spell = prof.spell })
+                    opportunity = opts.opportunity, spell = prof.spell, cover_what = res.cover_what })
         -- Graze (p. 90): miss still deals the ability modifier.
         if prof.mastery == "graze" and (prof.ability or 0) > 0 then
             self:deal(att, tgt, { { prof.ability, prof.damage[1][4] } }, { graze = true })
@@ -1354,7 +1359,7 @@ local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { 
 -- to AC and Dexterity saves. Simplified: against attacks from more than 5 feet away, a creature
 -- has it standing on a cover square (the map's), or tucked in behind a piece of the board's
 -- scenery (a low wall, a table, a crate) that sits between it and the attacker (the save bonus
--- isn't modelled).
+-- isn't modelled). Also returns what the piece is called, when the board says ("crate").
 local function sign(v)
     return v > 0 and 1 or (v < 0 and -1 or 0)
 end
@@ -1367,7 +1372,7 @@ function B:cover_bonus(att, tgt)
         return 0
     end
     if self.cover[tgt.x .. "," .. tgt.y] then
-        return 2
+        return 2, self.cover[tgt.x .. "," .. tgt.y]
     end
     if att and att.x then
         local dx, dy = sign(att.x - tgt.x), sign(att.y - tgt.y)
@@ -1375,14 +1380,14 @@ function B:cover_bonus(att, tgt)
             return self.cover[x .. "," .. y] and self.blocked and self.blocked[x * 1000 + y]
         end
         if behind(tgt.x + dx, tgt.y + dy) then
-            return 2
+            return 2, self.cover[(tgt.x + dx) .. "," .. (tgt.y + dy)]
         end
         -- Coming in at a slant, the piece beside them still covers them.
         local adx, ady = math.abs(att.x - tgt.x), math.abs(att.y - tgt.y)
         if adx > ady and dx ~= 0 and behind(tgt.x + dx, tgt.y) then
-            return 2
+            return 2, self.cover[(tgt.x + dx) .. "," .. tgt.y]
         elseif ady > adx and dy ~= 0 and behind(tgt.x, tgt.y + dy) then
-            return 2
+            return 2, self.cover[tgt.x .. "," .. (tgt.y + dy)]
         end
     end
     return 0

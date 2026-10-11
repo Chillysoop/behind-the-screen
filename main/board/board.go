@@ -207,6 +207,22 @@ components {
   component: "/main/board/props/floor_cobbles.factory"
 }
 components {
+  id: "floor_grass"
+  component: "/main/board/props/floor_grass.factory"
+}
+components {
+  id: "floor_dirt"
+  component: "/main/board/props/floor_dirt.factory"
+}
+components {
+  id: "floor_ash"
+  component: "/main/board/props/floor_ash.factory"
+}
+components {
+  id: "floor_sand"
+  component: "/main/board/props/floor_sand.factory"
+}
+components {
   id: "wall_room"
   component: "/main/board/props/wall_room.factory"
 }

@@ -72,6 +72,58 @@ local function middle(b)
     return math.floor(sx / n + 0.5), math.floor(sy / n + 0.5)
 end
 
+-- The board's own source for a hazard (b.sources, from game/model/board.lua): the one nearest
+-- the fight, so a fire starts at the hearth and the ice is where the frost was.
+local SOURCE_OF = { spreading_fire = "fire", rising_water = "water", slippery_ice = "ice" }
+
+local function source(b, what)
+    local list = b.sources and b.sources[what]
+    if not list or #list == 0 then
+        return nil
+    end
+    local mx, my = middle(b)
+    local best, bd
+    for _, src in ipairs(list) do
+        for _, sq in ipairs(src.squares) do
+            local d = math.max(math.abs(sq[1] - mx), math.abs(sq[2] - my))
+            if not bd or d < bd then
+                best, bd = src, d
+            end
+        end
+    end
+    return best
+end
+
+-- How far every free square is from the water on the board (a flood rises out of it).
+local function water_distance(b)
+    local dist, queue = {}, {}
+    for _, src in ipairs(b.sources.water) do
+        for _, sq in ipairs(src.squares) do
+            local k = key(sq[1], sq[2])
+            if dist[k] == nil and b:in_bounds(sq[1], sq[2]) then
+                -- the water's own squares: open water (a stream) floods first, a pond's edge next
+                dist[k] = free(b, sq[1], sq[2]) and 0 or -1
+                table.insert(queue, { sq[1], sq[2] })
+            end
+        end
+    end
+    local i = 1
+    while i <= #queue do
+        local x, y = queue[i][1], queue[i][2]
+        i = i + 1
+        local d = math.max(dist[key(x, y)], 0)
+        for _, dd in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+            local nx, ny = x + dd[1], y + dd[2]
+            local k = key(nx, ny)
+            if dist[k] == nil and free(b, nx, ny) then
+                dist[k] = d + 1
+                table.insert(queue, { nx, ny })
+            end
+        end
+    end
+    return dist
+end
+
 -- Set a hazard up on a battle (after everyone's placed).
 function M.setup(b, id)
     local def = data.hazards[id]
@@ -80,12 +132,41 @@ function M.setup(b, id)
     end
     local st = { id = id, def = def, zones = {}, round = 0 }
     b.hazard = st
-    b:log("Hazard: %s.", def.name)
-    b:emit({ kind = "hazard", id = id, name = def.name, about = def.about })
+    local src = SOURCE_OF[id] and source(b, SOURCE_OF[id])
+    st.from = src and src.name
+    b:log("Hazard: %s%s.", def.name, src and (", from the " .. src.name) or "")
+    b:emit({ kind = "hazard", id = id, name = def.name, about = def.about, from = st.from })
     local rng = b.dice.rng
     if id == "spreading_fire" then
         local mx, my = middle(b)
         st.fire = {}
+        if src then
+            -- It catches beside the hearth (the campfire, the brazier) and spreads from there.
+            local near, seen = {}, {}
+            for r = 1, 2 do
+                for _, sq in ipairs(src.squares) do
+                    for dx = -r, r do
+                        for dy = -r, r do
+                            local x, y = sq[1] + dx, sq[2] + dy
+                            if not seen[key(x, y)] and free(b, x, y) and not b:occupant(x, y) then
+                                seen[key(x, y)] = true
+                                table.insert(near, { x, y })
+                            end
+                        end
+                    end
+                end
+                if #near >= def.start then
+                    break
+                end
+            end
+            for _ = 1, def.start do
+                if #near == 0 then
+                    break
+                end
+                local cell = table.remove(near, rng:int(1, #near))
+                st.fire[key(cell[1], cell[2])] = true
+            end
+        end
         local tries = 0
         while tries < 40 and #cells_list(st.fire) < def.start do
             tries = tries + 1
@@ -98,11 +179,27 @@ function M.setup(b, id)
                                          on_start = function(bb, z, c) burning_effect(bb, c, def.burning) end })
     elseif id == "rising_water" then
         st.water, st.level = {}, 0
+        if src then
+            st.dist = water_distance(b)      -- it comes up out of the stream (the pond, the harbour)
+        end
     elseif id == "slippery_ice" then
         st.ice = {}
         local mx, my = middle(b)
+        local frost = {}
+        if src then
+            for _, f in ipairs(b.sources.ice) do
+                for _, sq in ipairs(f.squares) do
+                    table.insert(frost, sq)
+                end
+            end
+        end
         for _ = 1, def.patches do
             local x0, y0 = mx + rng:int(-4, 3), my + rng:int(-4, 3)
+            if #frost > 0 then
+                -- where the frost already was
+                local sq = frost[rng:int(1, #frost)]
+                x0, y0 = sq[1] - rng:int(0, def.size - 1), sq[2] - rng:int(0, def.size - 1)
+            end
             for dx = 0, def.size - 1 do
                 for dy = 0, def.size - 1 do
                     if free(b, x0 + dx, y0 + dy) then
@@ -217,10 +314,19 @@ function M.round(b)
                                          on_start = function(bb, z, c) burning_effect(bb, c, def.burning) end })
     elseif id == "rising_water" then
         st.level = st.level + def.rise
-        for y = b.H - st.level + 1, b.H do
-            for x = 1, b.W do
-                if free(b, x, y) then
-                    st.water[key(x, y)] = true
+        if st.dist then
+            -- out of the board's water, a ring a round
+            for k, d in pairs(st.dist) do
+                if d >= 0 and d <= st.level then
+                    st.water[k] = true
+                end
+            end
+        else
+            for y = b.H - st.level + 1, b.H do
+                for x = 1, b.W do
+                    if free(b, x, y) then
+                        st.water[key(x, y)] = true
+                    end
                 end
             end
         end

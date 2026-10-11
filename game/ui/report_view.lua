@@ -142,7 +142,7 @@ local function recap_panel(app, rep, x, y, w, h)
     local bw = w - 32 - 120
     for k, b in ipairs(r.beats) do
         local th = kit.text_height(b.text, "ui18", bw)
-        if ty + th > y + h - 150 then
+        if ty + th > y + h - 166 then
             break
         end
         kit.text(x + 16, ty, b.text, "ui18", b.cut and theme.faint or (b.pinned and theme.gold or theme.text), { w = bw })
@@ -159,7 +159,7 @@ local function recap_panel(app, rep, x, y, w, h)
         ty = ty + math.max(th, 24) + 8
     end
     -- The DM's note: one line, typed.
-    local ny = y + h - 140
+    local ny = y + h - 156
     local typing = app.report_note
     kit.box(x + 16, ny, w - 32, 32, typing and theme.panel3 or kit.rgba("#000000", 0.25), { radius = 6 })
     local note = (r.note or "") ~= "" and r.note or (typing and "" or "Add a one-line note...")
@@ -171,7 +171,7 @@ local function recap_panel(app, rep, x, y, w, h)
         app.refresh()
     end, { font = "ui14", key = "recap_note" })
     -- Snapshots: the night's framed moments. Look at one and the table shows it as it was.
-    local sy = y + h - 96
+    local sy = y + h - 112
     local snaps = {}
     for _, sn in ipairs(rep.snapshots or {}) do
         table.insert(snaps, sn)
@@ -185,11 +185,14 @@ local function recap_panel(app, rep, x, y, w, h)
     for k = 1, math.min(3, #snaps) do
         local sn = snaps[k]
         local sx = x + 16 + (k - 1) * (sw + 10)
-        kit.box(sx, sy, sw, 80, kit.rgba("#f7f1e3"), { radius = 4 })
+        -- A polaroid: the place on the photo, the moment written underneath (two lines, nothing cut).
+        kit.box(sx, sy, sw, 96, kit.rgba("#f7f1e3"), { radius = 4 })
         kit.box(sx + 6, sy + 6, sw - 12, 40, kit.rgba("#2a3a2c"), { radius = 2 })
-        kit.text(sx + 12, sy + 14, kit.ellipsize(sn.title or "", "ui14", sw - 24), "ui14", kit.rgba("#e8e0c8"))
-        kit.text(sx + 8, sy + 50, kit.ellipsize(sn.caption or "", "ui14", sw - 70), "ui14", theme.ink)
-        kit.button(sx + sw - 58, sy + 50, 50, 24, "Look", function()
+        local tt = sn.title or ""
+        local two = kit.width(tt, "ui14") > sw - 84
+        kit.text(sx + 12, two and sy + 8 or sy + 14, tt, "ui14", kit.rgba("#e8e0c8"), { w = sw - 84, lines = 2 })
+        kit.text(sx + 8, sy + 52, sn.caption or "", "ui14", theme.ink, { w = sw - 16, lines = 2 })
+        kit.button(sx + sw - 62, sy + 14, 50, 24, "Look", function()
             M.view_snapshot(app, sn)
         end, { font = "ui14", key = "snapshot_" .. k })
     end

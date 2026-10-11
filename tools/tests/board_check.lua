@@ -19,7 +19,8 @@ local function fail(msg)
 end
 
 -- Pieces that lie flat on the ground: other pieces may stand on them.
-local GROUND = { floor_boards = true, floor_flags = true, floor_cobbles = true, road_ew = true, path_ns = true,
+local GROUND = { floor_boards = true, floor_flags = true, floor_cobbles = true, floor_grass = true, floor_dirt = true,
+                 floor_ash = true, floor_sand = true, road_ew = true, path_ns = true,
                  path_patch = true, ash = true, sand_ring = true, puddle = true, stream_ns = true, water_strip = true,
                  frost = true, tracks = true, rug = true, tall_grass = true, flowers = true, pit_ring = true,
                  pier = true, rope_bridge = true }
@@ -87,7 +88,7 @@ for _, id in ipairs(ids) do
     for _ in pairs(block) do
         free = free - 1
     end
-    if free < 0.6 * board.W * board.H then
+    if free < (b.tight and 0.35 or 0.6) * board.W * board.H then
         fail(id .. ": only " .. free .. " free squares")
     end
     for _, who in ipairs({ "party", "npc", "foes" }) do

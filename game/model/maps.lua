@@ -208,9 +208,9 @@ function M.layout(m)
     for _, sq in ipairs(base.blocked) do
         blocked[sq[1] * 1000 + sq[2]] = true
     end
-    local extras = { cover = {}, rough = {}, traps = {} }
-    for k in pairs(base.cover or {}) do
-        extras.cover[k] = true
+    local extras = { cover = {}, rough = {}, traps = {}, planks = base.planks, sources = base.sources }
+    for k, what in pairs(base.cover or {}) do
+        extras.cover[k] = what
     end
     for k in pairs(base.rough or {}) do
         extras.rough[k] = true
@@ -228,7 +228,8 @@ function M.layout(m)
         end
     end
     local layout = { title = base.title, light = base.light, party = m.party or base.party, foes = m.foes or base.foes,
-                     npc = base.npc, npc_at = base.npc_at, spots = base.spots, planks = base.planks, blocked = {} }
+                     npc = base.npc, npc_at = base.npc_at, spots = base.spots, planks = base.planks, sources = base.sources,
+                     blocked = {} }
     for k in pairs(blocked) do
         table.insert(layout.blocked, { math.floor(k / 1000), k % 1000 })
     end

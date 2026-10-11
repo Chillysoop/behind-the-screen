@@ -1,10 +1,10 @@
-mesh: "/assets/meshes/prop_floor_boards_wood.glb"
+mesh: "/assets/meshes/prop_floor_sand_paint.glb"
 name: "{{NAME}}"
 materials {
   name: "default"
   material: "/materials/lit.material"
   textures {
     sampler: "tex0"
-    texture: "/assets/textures/wood_floor.png"
+    texture: "/assets/textures/props_palette.png"
   }
 }

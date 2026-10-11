@@ -96,9 +96,11 @@ ok=0
 for m in ${MODES:-1 2}; do
     run "$m" || ok=1
 done
+if [ "${MODES:-1 2}" != "6" ]; then   # (the board gallery plays no session: nothing to save)
 SAVE=$(find "$WORK/home" -name campaign_save.txt | head -1)
 [ -n "$SAVE" ] && echo "  save: $(head -c 40 "$SAVE" | tr '\n' ' ')... $(wc -c < "$SAVE") bytes" || { echo "  no save file written"; ok=1; }
 LOGF=$(find "$WORK/home" -name playtest_log.jsonl | head -1)
 [ -n "$LOGF" ] && echo "  playtest log: $(wc -l < "$LOGF") lines" || { echo "  no playtest log"; ok=1; }
+fi
 [ $ok -eq 0 ] && echo "ENGINE CHECK OK" || echo "ENGINE CHECK FAILED"
 exit $ok

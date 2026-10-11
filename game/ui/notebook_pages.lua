@@ -543,33 +543,53 @@ function M.web(app, x, y, w, h)
     kit.text(bx + 14, by + 10, "THE WEB", "ui14", kit.rgba("#f3e2c0"))
     local factions = ledger.data.order
     local pos = {}
-    -- Factions along the top, people under their faction, places along the bottom.
+    -- Factions along the top, people in a column under their faction, the unaligned in a row
+    -- above the places, places along the bottom. Neighbouring columns sit half a row apart, so a
+    -- long name can run wider than its column without landing on the next one's (A8).
     local fw = (bw - 40) / math.max(1, #factions)
     local col_of = {}
     for i, fid in ipairs(factions) do
         local fx = bx + 20 + (i - 0.5) * fw
-        pos["f:" .. fid] = { fx, by + 56 }
-        col_of[fid] = { fx, 0 }
+        local stagger = (i % 2 == 0) and 30 or 0
+        pos["f:" .. fid] = { fx, by + 54 + stagger }
+        col_of[fid] = { fx, 0, stagger }
     end
     local people = ledger.people(c)
-    local unaligned = { bx + bw / 2, 0 }
     local placed_people = {}
+    local loose = {}
+    local step = math.min(78, math.max(58, (bh - 300) / 4))
     for _, pid in ipairs(people) do
         local fid = ledger.faction_of(c, pid)
-        local col = col_of[fid] or unaligned
-        col[2] = col[2] + 1
-        if col[2] <= 4 then
-            local px = col[1] + ((col[2] % 2 == 0) and 34 or -34) * (col == unaligned and 2 or 1)
-            local py = by + 120 + (col[2] - 1) * 58
-            pos["p:" .. pid] = { px, py }
-            table.insert(placed_people, { pid = pid, fid = fid })
+        local col = col_of[fid]
+        if col then
+            col[2] = col[2] + 1
+            if col[2] <= 4 then
+                pos["p:" .. pid] = { col[1], by + 128 + col[3] + (col[2] - 1) * step }
+                table.insert(placed_people, { pid = pid, fid = fid })
+            end
+        elseif #loose < 5 then
+            table.insert(loose, pid)
+            table.insert(placed_people, { pid = pid })
         end
+    end
+    local lw2 = (bw - 60) / math.max(1, #loose)
+    for i, pid in ipairs(loose) do
+        pos["p:" .. pid] = { bx + 30 + (i - 0.5) * lw2, by + bh - 116 + ((i % 2 == 0) and 22 or 0) }
     end
     local plist = places.list(c)
     local nplaces = math.min(6, #plist)
+    local pw = (bw - 60) / math.max(1, nplaces)
     for i = 1, nplaces do
         local pl = plist[i]
-        pos["l:" .. pl.id] = { bx + 30 + (i - 0.5) * (bw - 60) / math.max(1, nplaces), by + bh - 46 }
+        pos["l:" .. pl.id] = { bx + 30 + (i - 0.5) * pw, by + bh - 34 - ((i % 2 == 0) and 30 or 0) }
+    end
+    -- How wide a label can run: two columns' worth, less a gap (the neighbours are half a row off).
+    local function room(cw)
+        return math.max(90, 2 * cw - 16)
+    end
+    -- A label's centre, nudged in so the whole card stays on the board.
+    local function inside(px, tw)
+        return math.max(bx + 8 + tw / 2, math.min(bx + bw - 8 - tw / 2, px))
     end
     -- Strings first, so the pins sit on top.
     for _, pp in ipairs(placed_people) do
@@ -604,32 +624,35 @@ function M.web(app, x, y, w, h)
         local p = pos["f:" .. fid]
         local fd = ledger.data[fid]
         local name = fd and fd.name or fid
-        local tw = math.min(fw - 8, kit.width(name, "ui14") + 20)
-        kit.box(p[1] - tw / 2, p[2] - 14, tw, 28, kit.rgba("#f3df8a"), { radius = 3 })
-        kit.text(p[1], p[2] - 10, kit.ellipsize(name, "ui14", tw - 10), "ui14", theme.ink, { pivot = gui.PIVOT_N })
+        local tw = math.min(room(fw), kit.width(name, "ui14") + 20)
+        local cx = inside(p[1], tw)
+        kit.box(cx - tw / 2, p[2] - 14, tw, 28, kit.rgba("#f3df8a"), { radius = 3 })
+        kit.text(cx, p[2] - 10, kit.ellipsize(name, "ui14", tw - 10), "ui14", theme.ink, { pivot = gui.PIVOT_N })
         kit.dot(p[1], p[2] - 16, 10, theme.red)
     end
     for _, pp in ipairs(placed_people) do
         local p = pos["p:" .. pp.pid]
         local ab = ledger.about(pp.pid)
-        local name = kit.ellipsize(ab.name, "ui14", 120)
+        local name = kit.ellipsize(ab.name, "ui14", (pp.fid and room(fw) or room(lw2)) - 16)
         local tw = kit.width(name, "ui14") + 16
         local met = ledger.met(c, pp.pid)
-        kit.box(p[1] - tw / 2, p[2] - 12, tw, 24, met and kit.rgba("#fbf4e2") or kit.rgba("#fbf4e2", 0.55), { radius = 3 })
-        kit.text(p[1], p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
+        local cx = inside(p[1], tw)
+        kit.box(cx - tw / 2, p[2] - 12, tw, 24, met and kit.rgba("#fbf4e2") or kit.rgba("#fbf4e2", 0.55), { radius = 3 })
+        kit.text(cx, p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
         kit.dot(p[1], p[2] - 14, 8, theme.teal)
         local g = ledger.grudge_level(c, pp.pid)
         if g > 0 then
-            kit.text(p[1] + tw / 2 + 4, p[2] - 9, string.rep("!", g), "ui14", theme.red)
+            kit.text(cx + tw / 2 + 4, p[2] - 9, string.rep("!", g), "ui14", theme.red)
         end
     end
     for i = 1, nplaces do
         local pl = plist[i]
         local p = pos["l:" .. pl.id]
-        local name = kit.ellipsize(pl.card.short and util.capitalize(pl.card.short) or pl.card.name, "ui14", (bw - 60) / nplaces - 10)
+        local name = kit.ellipsize(pl.card.short and util.capitalize(pl.card.short) or pl.card.name, "ui14", room(pw) - 16)
         local tw = kit.width(name, "ui14") + 16
-        kit.box(p[1] - tw / 2, p[2] - 12, tw, 24, kit.rgba("#cfe3d8"), { radius = 3 })
-        kit.text(p[1], p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
+        local cx = inside(p[1], tw)
+        kit.box(cx - tw / 2, p[2] - 12, tw, 24, kit.rgba("#cfe3d8"), { radius = 3 })
+        kit.text(cx, p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
     end
     kit.text(bx + bw - 14, by + 10, "green: warm  red: cold  dashed: not met yet  !: Grudge", "ui14", kit.rgba("#f3e2c0", 0.8),
         { pivot = gui.PIVOT_NE })

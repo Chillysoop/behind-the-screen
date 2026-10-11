@@ -145,7 +145,7 @@ def b_bush(P, rng):
 
 
 def b_tall_grass(P, rng):
-    P.paint.add(blob(0, 0, 2.3, 2.3, 0.07, "grass_dark", 5))
+    P.paint.add(blob(0, 0, 2.3, 2.3, 0.13, "grass_dark", 5))
     for k in range(9):
         x, z = rng.uniform(-1.8, 1.8), rng.uniform(-1.8, 1.8)
         P.paint.add(gm.cylinder((x, 0, z), 0.35, 0.0, rng.uniform(1.6, 2.8), 4, sw(["grass", "leaf_c", "grass_dark"][k % 3]),
@@ -196,17 +196,27 @@ def b_campfire(P, rng):
 
 
 def b_tent(P, rng):
-    length, h, half = 2 * SQ - 0.6, 6.5, 4.0
-    L = length / 2
+    """An A-frame tent, its door end facing the DM so it reads as a tent from the table."""
+    half, D, h = 4.4, 2.2, 6.4          # half width (x), half depth (z), ridge height
     for s in (-1, 1):
-        ps = [(-L, 0, s * half), (L, 0, s * half), (L, h, 0), (-L, h, 0)]
-        n = np.array((0, half, s * h), float)
+        # the two slopes, one a shade darker so the ridge reads
+        ps = [(0, h, -D), (0, h, D), (s * half, 0, D), (s * half, 0, -D)]
+        n = np.array((s * h, half, 0), float)
         n /= np.linalg.norm(n)
-        P.paint.quad([np.array(p, float) for p in ps], [n] * 4, [uv("canvas")] * 4)
+        P.paint.quad([np.array(p, float) for p in ps], [n] * 4, [uv("canvas" if s < 0 else "canvas_dark")] * 4)
     for s in (-1, 1):
-        ps = [(s * L, 0, -half), (s * L, 0, half), (s * L, h, 0)]
-        P.paint.tri([np.array(p, float) for p in ps], [np.array((s, 0, 0), float)] * 3, [uv("canvas_dark")] * 3)
-    P.paint.add(gm.box((0, h + 0.2, 0), (length + 0.6, 0.5, 0.5), sw("log")))
+        ps = [(-half, 0, s * D), (half, 0, s * D), (0, h, s * D)]
+        P.paint.tri([np.array(p, float) for p in ps], [np.array((0, 0, s), float)] * 3, [uv("canvas")] * 3)
+    # the door: a dark opening with one flap pinned back
+    door = [(-1.5, 0.02, D + 0.06), (1.5, 0.02, D + 0.06), (0, 4.2, D + 0.06)]
+    P.paint.tri([np.array(p, float) for p in door], [np.array((0, 0, 1), float)] * 3, [uv("char")] * 3)
+    flap = [(1.5, 0.02, D + 0.12), (3.0, 0.02, D + 0.12), (0.3, 3.9, D + 0.12)]
+    P.paint.tri([np.array(p, float) for p in flap], [np.array((0, 0, 1), float)] * 3, [uv("canvas_dark")] * 3)
+    # ridge pole poking out at both ends, and a peg rope at each corner
+    P.paint.add(gm.box((0, h + 0.1, 0), (0.5, 0.5, 2 * D + 1.2), sw("log")))
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            P.paint.add(gm.box((sx * (half + 0.3), 0.3, sz * (D - 0.4)), (0.3, 0.6, 0.3), sw("wood_dark")))
 
 
 def b_log_seat(P, rng):
@@ -239,33 +249,33 @@ def b_weapon_rack(P, rng):
 
 def b_road_ew(P, rng):
     w = 20 * SQ
-    P.paint.add(rect(-w / 2, -6.0, w / 2, 6.0, 0.05, "dirt"))
+    P.paint.add(rect(-w / 2, -6.0, w / 2, 6.0, 0.10, "dirt"))
     for k in range(22):
         x = -w / 2 + rng.uniform(0, w)
-        P.paint.add(blob(x, rng.uniform(-5, 5), rng.uniform(1.5, 4), rng.uniform(0.6, 1.6), 0.07, "dirt_dark", 70 + k, n=8))
+        P.paint.add(blob(x, rng.uniform(-5, 5), rng.uniform(1.5, 4), rng.uniform(0.6, 1.6), 0.12, "dirt_dark", 70 + k, n=8))
     for e in (-1, 1):
         x = -w / 2
         while x < w / 2:
-            P.paint.add(blob(x, e * 6.4, rng.uniform(1.2, 2.6), rng.uniform(0.5, 1.0), 0.06, "grass_dark", int(x * 3) + e * 7, n=7))
+            P.paint.add(blob(x, e * 6.4, rng.uniform(1.2, 2.6), rng.uniform(0.5, 1.0), 0.11, "grass_dark", int(x * 3) + e * 7, n=7))
             x += rng.uniform(3, 6)
 
 
 def b_path_ns(P, rng):
     h = 13 * SQ
-    P.paint.add(rect(-6.0, -h / 2, 6.0, h / 2, 0.05, "dirt"))
+    P.paint.add(rect(-6.0, -h / 2, 6.0, h / 2, 0.10, "dirt"))
     for k in range(14):
         P.paint.add(blob(rng.uniform(-5, 5), -h / 2 + rng.uniform(0, h), rng.uniform(0.6, 1.6), rng.uniform(1.5, 3.5),
-                         0.07, "dirt_dark", 90 + k, n=8))
+                         0.12, "dirt_dark", 90 + k, n=8))
 
 
 def b_path_patch(P, rng):
-    P.paint.add(blob(0, 0, 7.0, 7.0, 0.05, "dirt", 101))
-    P.paint.add(blob(1.5, -1.0, 3.0, 2.0, 0.07, "dirt_dark", 102))
+    P.paint.add(blob(0, 0, 7.0, 7.0, 0.10, "dirt", 101))
+    P.paint.add(blob(1.5, -1.0, 3.0, 2.0, 0.12, "dirt_dark", 102))
 
 
 def b_ash(P, rng):
-    P.paint.add(blob(0, 0, 7.0, 6.6, 0.05, "ash", 111))
-    P.paint.add(blob(-2.0, 1.5, 3.5, 2.5, 0.07, "ash_light", 112))
+    P.paint.add(blob(0, 0, 7.0, 6.6, 0.10, "ash", 111))
+    P.paint.add(blob(-2.0, 1.5, 3.5, 2.5, 0.12, "ash_light", 112))
     for k in range(6):
         x, z = rng.uniform(-5, 5), rng.uniform(-5, 5)
         P.paint.add(gm.sphere((x, 0.15, z), 0.3, 5, 3, sw("ember_dim")))
@@ -275,22 +285,22 @@ def b_ash(P, rng):
 
 
 def b_sand_ring(P, rng):
-    P.paint.add(blob(0, 0, 14.0, 14.0, 0.05, "sand", 121, n=24, jag=0.05))
+    P.paint.add(blob(0, 0, 14.0, 14.0, 0.10, "sand", 121, n=24, jag=0.05))
     for k in range(10):
-        P.paint.add(blob(rng.uniform(-10, 10), rng.uniform(-10, 10), rng.uniform(1, 2.5), rng.uniform(0.8, 2), 0.07,
+        P.paint.add(blob(rng.uniform(-10, 10), rng.uniform(-10, 10), rng.uniform(1, 2.5), rng.uniform(0.8, 2), 0.12,
                          "sand_dark", 122 + k, n=7))
 
 
 def b_puddle(P, rng):
-    P.paint.add(blob(0, 0, 6.5, 6.0, 0.06, "water", 131))
-    P.paint.add(blob(-1.0, -0.6, 3.0, 2.2, 0.08, "water_light", 132))
+    P.paint.add(blob(0, 0, 6.5, 6.0, 0.16, "water", 131))
+    P.paint.add(blob(-1.0, -0.6, 3.0, 2.2, 0.18, "water_light", 132))
 
 
 def b_stream_ns(P, rng):
     h = 13 * SQ
-    P.paint.add(rect(-4.6, -h / 2, 4.6, h / 2, 0.05, "water"))
+    P.paint.add(rect(-4.6, -h / 2, 4.6, h / 2, 0.16, "water"))
     for k in range(12):
-        P.paint.add(blob(rng.uniform(-3, 3), -h / 2 + rng.uniform(0, h), rng.uniform(0.6, 1.4), rng.uniform(2, 4), 0.07,
+        P.paint.add(blob(rng.uniform(-3, 3), -h / 2 + rng.uniform(0, h), rng.uniform(0.6, 1.4), rng.uniform(2, 4), 0.18,
                          "water_light", 140 + k, n=8))
     for e in (-1, 1):
         z = -h / 2 + 1
@@ -300,8 +310,8 @@ def b_stream_ns(P, rng):
 
 
 def b_pond(P, rng):
-    P.paint.add(blob(0, 0, 7.0, 6.6, 0.05, "water_deep", 151, jag=0.12))
-    P.paint.add(blob(0.8, 0.5, 4.5, 4.0, 0.07, "water", 152, jag=0.15))
+    P.paint.add(blob(0, 0, 7.0, 6.6, 0.16, "water_deep", 151, jag=0.12))
+    P.paint.add(blob(0.8, 0.5, 4.5, 4.0, 0.18, "water", 152, jag=0.15))
     for k in range(10):
         a = k / 10 * 2 * math.pi
         rocky(P.stone, math.cos(a) * 7.0, 0.3, math.sin(a) * 6.6, rng.uniform(0.6, 1.1), 153 + k)
@@ -311,7 +321,7 @@ def b_pond(P, rng):
 
 def b_chasm(P, rng):
     w, h = 3 * SQ, 5 * SQ
-    P.paint.add(rect(-w / 2 + 0.6, -h / 2, w / 2 - 0.6, h / 2, 0.06, "chasm"))
+    P.paint.add(rect(-w / 2 + 0.6, -h / 2, w / 2 - 0.6, h / 2, 0.10, "chasm"))
     for e in (-1, 1):
         z = -h / 2 + 1
         while z < h / 2:
@@ -421,7 +431,7 @@ def b_house_burned(P, rng):
                 P.paint.add(gm.box((x - sx / 2 + t * sx, hk / 2, z), (sx / segs, hk, sz), sw("char")))
             else:
                 P.paint.add(gm.box((x, hk / 2, z - sz / 2 + t * sz), (sx, hk, sz / segs), sw("char")))
-    P.paint.add(blob(0, 0, w / 2 - 0.5, d / 2 - 0.5, 0.06, "ash", 171))
+    P.paint.add(blob(0, 0, w / 2 - 0.5, d / 2 - 0.5, 0.12, "ash", 171))
     for k in range(4):
         bm = gm.box((0, 0, 0), (rng.uniform(5, 9), 0.7, 0.7), sw("char"))
         P.paint.add(bm.transformed(yaw=rng.uniform(0, 3), roll=rng.uniform(-0.3, 0.3), offset=(rng.uniform(-3, 3), 0.8, rng.uniform(-3, 3))))
@@ -555,15 +565,15 @@ def b_bell_fallen(P, rng):
     bell = gm.cylinder((0, 0, 0), 2.0, 1.0, 3.2, 12, sw("bronze"), caps=(False, True))
     bell.add(gm.cylinder((0, 0, 0), 1.9, 0.95, 3.1, 12, sw("bronze_dark"), caps=(False, False), inside=True))
     P.paint.add(bell.transformed(pitch=1.3, offset=(0, 1.9, -0.6)))
-    P.paint.add(blob(0, 0.6, 2.4, 2.0, 0.06, "ash", 181))
+    P.paint.add(blob(0, 0.6, 2.4, 2.0, 0.12, "ash", 181))
 
 
 def b_pit_ring(P, rng):
     """The fighting pit: a sand ring with posts and ropes. 6 x 6; only the posts block."""
     r = 3 * SQ - 1.0
-    P.paint.add(blob(0, 0, r, r, 0.05, "sand", 191, n=24, jag=0.03))
+    P.paint.add(blob(0, 0, r, r, 0.10, "sand", 191, n=24, jag=0.03))
     for k in range(8):
-        P.paint.add(blob(rng.uniform(-10, 10), rng.uniform(-10, 10), rng.uniform(1, 2.5), rng.uniform(0.8, 2), 0.07,
+        P.paint.add(blob(rng.uniform(-10, 10), rng.uniform(-10, 10), rng.uniform(1, 2.5), rng.uniform(0.8, 2), 0.12,
                          "sand_dark", 192 + k, n=7))
     c = 3 * SQ - 2.5
     posts = [(-c, -c), (c, -c), (c, c), (-c, c)]
@@ -584,14 +594,57 @@ def grid_lines(P, color, w=0.14):
     W, H = 20 * SQ, 13 * SQ
     for i in range(1, 20):
         x = -W / 2 + i * SQ
-        P.paint.add(rect(x - w / 2, -H / 2, x + w / 2, H / 2, 0.06, color))
+        P.paint.add(rect(x - w / 2, -H / 2, x + w / 2, H / 2, 0.07, color))
     for j in range(1, 13):
         z = -H / 2 + j * SQ
-        P.paint.add(rect(-W / 2, z - w / 2, W / 2, z + w / 2, 0.06, color))
+        P.paint.add(rect(-W / 2, z - w / 2, W / 2, z + w / 2, 0.07, color))
+
+
+def ground(P, rng, base, shades, grid, n=70):
+    """Outdoor ground over the whole mat: a base colour, mottled, with the grid drawn faintly."""
+    W, H = 20 * SQ, 13 * SQ
+    P.paint.add(rect(-W / 2, -H / 2, W / 2, H / 2, 0.04, base))
+    for k in range(n):
+        P.paint.add(blob(rng.uniform(-W / 2 + 3, W / 2 - 3), rng.uniform(-H / 2 + 3, H / 2 - 3), rng.uniform(2.0, 6.0),
+                         rng.uniform(1.5, 4.0), 0.05 + 0.002 * (k % 5), shades[k % len(shades)], 300 + k, n=9, jag=0.3))
+    grid_lines(P, grid, w=0.12)
+
+
+def b_floor_grass(P, rng):
+    ground(P, rng, "grass", ["grass_dark", "leaf_c", "moss"], "grass_dark")
+
+
+def b_floor_dirt(P, rng):
+    ground(P, rng, "dirt", ["dirt_dark", "sand_dark", "grass_dark"], "dirt_dark")
+
+
+def b_floor_ash(P, rng):
+    ground(P, rng, "ash_light", ["ash", "grass_dark", "dirt_dark"], "ash")
+
+
+def b_floor_sand(P, rng):
+    ground(P, rng, "sand", ["sand_dark", "dirt"], "sand_dark", n=40)
 
 
 def b_floor_boards(P, rng):
-    P.wood.add(gm.plane_xz(0, 0.04, 0, 20 * SQ, 13 * SQ, gm.triplanar(30.0)))
+    """Floorboards, painted plank by plank (so a room reads apart from the wooden table under it)."""
+    W, H = 20 * SQ, 13 * SQ
+    P.paint.add(rect(-W / 2, -H / 2, W / 2, H / 2, 0.04, "timber"))
+    shades = ["wood_mid", "wood_light", "barrel", "crate"]
+    row_h = 2.5
+    z = -H / 2
+    r = 0
+    while z < H / 2 - 0.01:
+        x = -W / 2 - rng.uniform(0, 12)
+        while x < W / 2:
+            length = rng.uniform(10, 26)
+            x0, x1 = max(x, -W / 2), min(x + length, W / 2)
+            if x1 - x0 > 0.5:
+                P.paint.add(rect(x0 + 0.08, z + 0.1, x1 - 0.08, min(z + row_h, H / 2) - 0.1, 0.05,
+                                 shades[int(rng.integers(0, len(shades)))]))
+            x += length
+        z += row_h
+        r += 1
     grid_lines(P, "timber")
 
 
@@ -748,9 +801,9 @@ def b_strongbox(P, rng):
 
 def b_rug(P, rng):
     w, d = 3 * SQ - 2.0, 2 * SQ - 2.0
-    P.paint.add(rect(-w / 2, -d / 2, w / 2, d / 2, 0.06, "rug_a"))
-    P.paint.add(rect(-w / 2 + 1.0, -d / 2 + 1.0, w / 2 - 1.0, d / 2 - 1.0, 0.07, "rug_b"))
-    P.paint.add(rect(-w / 2 + 2.0, -d / 2 + 2.0, w / 2 - 2.0, d / 2 - 2.0, 0.08, "rug_c"))
+    P.paint.add(rect(-w / 2, -d / 2, w / 2, d / 2, 0.20, "rug_a"))
+    P.paint.add(rect(-w / 2 + 1.0, -d / 2 + 1.0, w / 2 - 1.0, d / 2 - 1.0, 0.21, "rug_b"))
+    P.paint.add(rect(-w / 2 + 2.0, -d / 2 + 2.0, w / 2 - 2.0, d / 2 - 2.0, 0.22, "rug_c"))
 
 
 def b_wardrobe(P, rng):
@@ -844,11 +897,11 @@ def b_sarcophagus(P, rng):
 def b_gravestone(P, rng):
     P.stone.add(gm.box((0, 2.6, 0), (3.2, 5.2, 0.9), STONE).transformed(roll=rng.uniform(-0.12, 0.12)))
     P.stone.add(gm.cylinder((0, 5.0, 0), 1.6, 1.6, 0.9, 10, STONE).transformed(pitch=math.pi / 2, offset=(0, 0, 0.45)))
-    P.paint.add(rect(-1.4, 0.6, 1.4, 4.4, 0.06, "grass_dark"))
+    P.paint.add(rect(-1.4, 0.6, 1.4, 4.4, 0.13, "grass_dark"))
 
 
 def b_open_grave(P, rng):
-    P.paint.add(rect(-1.8, -4.0, 1.8, 4.0, 0.07, "chasm"))
+    P.paint.add(rect(-1.8, -4.0, 1.8, 4.0, 0.10, "chasm"))
     P.paint.add(gm.box((2.6, 0.9, 0), (1.6, 1.8, 7.0), sw("dirt")))
     P.stone.add(gm.box((0, 2.6, -4.6), (3.0, 5.2, 0.9), STONE))
 
@@ -916,7 +969,7 @@ def b_great_bell(P, rng):
     P.paint.add(bell_mesh(3.6, 6.0).transformed(offset=(0, 8.6, 0)))
     P.paint.add(gm.sphere((0, 8.6, 0), 0.8, 7, 5, sw("iron")))
     for k in range(4):
-        P.paint.add(rect(-3 + k * 1.8, -1.0, -2.0 + k * 1.8, 1.4, 0.06, "frost"))
+        P.paint.add(rect(-3 + k * 1.8, -1.0, -2.0 + k * 1.8, 1.4, 0.24, "frost"))
 
 
 def b_bell(P, rng):
@@ -940,7 +993,7 @@ def b_mound(P, rng):
 
 
 def b_frost(P, rng):
-    P.paint.add(blob(0, 0, 2.2, 2.0, 0.06, "frost", 211, n=10, jag=0.35))
+    P.paint.add(blob(0, 0, 2.2, 2.0, 0.24, "frost", 211, n=10, jag=0.35))
 
 
 def b_wall_notes(P, rng):
@@ -967,7 +1020,7 @@ def b_vault_door(P, rng):
 
 
 def b_flowers(P, rng):
-    P.paint.add(blob(0, 0, 2.0, 1.8, 0.06, "grass", 221))
+    P.paint.add(blob(0, 0, 2.0, 1.8, 0.13, "grass", 221))
     for k in range(10):
         x, z = rng.uniform(-1.6, 1.6), rng.uniform(-1.4, 1.4)
         P.paint.add(gm.cylinder((x, 0, z), 0.08, 0.08, 1.2, 4, sw("leaf_c")))
@@ -978,9 +1031,9 @@ def b_tracks(P, rng):
     for k in range(6):
         x = -2.0 + k * 0.8
         z = 0.7 * (1 if k % 2 else -1)
-        P.paint.add(blob(x, z, 0.35, 0.3, 0.07, "dirt_dark", 230 + k, n=6, jag=0.1))
+        P.paint.add(blob(x, z, 0.35, 0.3, 0.25, "dirt_dark", 230 + k, n=6, jag=0.1))
         for t in range(3):
-            P.paint.add(blob(x + 0.35, z - 0.25 + t * 0.25, 0.1, 0.1, 0.075, "dirt_dark", 240 + k * 3 + t, n=5, jag=0.05))
+            P.paint.add(blob(x + 0.35, z - 0.25 + t * 0.25, 0.1, 0.1, 0.26, "dirt_dark", 240 + k * 3 + t, n=5, jag=0.05))
 
 
 def b_drum(P, rng):
@@ -996,10 +1049,10 @@ def b_drum(P, rng):
 
 def b_water_strip(P, rng):
     w, d = 20 * SQ, 4 * SQ
-    P.paint.add(rect(-w / 2, -d / 2, w / 2, d / 2 - 0.6, 0.05, "water_deep"))
+    P.paint.add(rect(-w / 2, -d / 2, w / 2, d / 2 - 0.6, 0.16, "water_deep"))
     for k in range(18):
         P.paint.add(blob(rng.uniform(-w / 2, w / 2), rng.uniform(-d / 2 + 1, d / 2 - 2), rng.uniform(1.5, 4), rng.uniform(0.3, 0.8),
-                         0.07, "water", 250 + k, n=8))
+                         0.18, "water", 250 + k, n=8))
     x = -w / 2 + 1
     while x < w / 2:
         P.stone.add(gm.box((x + 1.2, 0.6, d / 2 - 0.3), (2.6, 1.2, 1.4), STONE))
@@ -1025,6 +1078,20 @@ def b_pier(P, rng):
 
 def K(fn, fw=1, fh=1, blocks=True, cover=False, rough=False, mask=None, light=0.0, words=(), say=""):
     return dict(fn=fn, fw=fw, fh=fh, blocks=blocks, cover=cover, rough=rough, mask=mask, light=light, words=list(words), say=say)
+
+
+# What one piece of cover is called when a shot or a swing hits it instead ("the arrow thuds into
+# the crate"). Every kind that gives cover has one.
+ONE = {
+    "pine": "pine", "oak": "old oak", "dead_tree": "dead tree", "rock": "rocks", "boulder": "boulder",
+    "standing_stone": "standing stone", "fallen_log": "fallen log", "log_seat": "log", "weapon_rack": "spear rack",
+    "fence": "fence", "well": "well", "stall": "stall", "cart": "cart", "crate": "crate", "barrel": "barrel",
+    "hay_bale": "hay bale", "bench": "bench", "statue": "statue", "bell_fallen": "fallen bell", "bar": "bar",
+    "counter": "counter", "table_round": "table", "table_long": "long table", "bed": "bed", "desk": "desk",
+    "chest": "chest", "strongbox": "strongbox", "pillar": "pillar", "broken_pillar": "broken pillar",
+    "ruin_wall_low": "low wall", "altar": "altar", "pew": "pew", "sarcophagus": "tomb", "gravestone": "gravestone",
+    "great_bell": "great bell", "bell": "bell", "drum": "war drum",
+}
 
 
 KINDS = {
@@ -1086,6 +1153,10 @@ KINDS = {
     "floor_flags": K(b_floor_flags, 20, 13, blocks=False, words=("flagstones", "stone floor"), say="flagstones"),
     "floor_cobbles": K(b_floor_cobbles, 20, 13, blocks=False, words=("cobbles", "cobbled", "square", "street"),
                        say="cobbles"),
+    "floor_grass": K(b_floor_grass, 20, 13, blocks=False, words=("grass", "meadow", "field"), say="grass"),
+    "floor_dirt": K(b_floor_dirt, 20, 13, blocks=False, words=("dirt", "mud", "trampled"), say="trampled dirt"),
+    "floor_ash": K(b_floor_ash, 20, 13, blocks=False, words=("ash", "ashes", "scorched"), say="scorched ground"),
+    "floor_sand": K(b_floor_sand, 20, 13, blocks=False, words=("sand", "shore", "beach"), say="sand"),
     "wall_room": K(b_wall_room, words=("wall", "walls", "room"), say="walls"),
     "wall_window": K(b_wall_window, words=("window", "windows", "shutters", "rain"), say="shuttered windows"),
     "wall_door": K(b_wall_door, words=("door", "doorway"), say="a door"),
@@ -1105,7 +1176,7 @@ KINDS = {
     "rug": K(b_rug, 3, 2, blocks=False, words=("rug", "carpet"), say="a rug"),
     "wardrobe": K(b_wardrobe, words=("wardrobe", "cupboard"), say="a wardrobe"),
     "candelabra": K(b_candelabra, light=0.35, words=("candles", "candle", "candlelight", "candelabra"), say="candles"),
-    "curtain": K(b_curtain, words=("curtain", "curtains", "velvet", "drapes"), say="velvet curtains"),
+    "curtain": K(b_curtain, words=("curtain", "curtains", "drapes"), say="velvet curtains"),
     # sacred and ruined
     "pillar": K(b_pillar, cover=True, words=("pillar", "pillars", "columns", "column"), say="pillars"),
     "broken_pillar": K(b_broken_pillar, cover=True, words=("pillar", "pillars", "broken", "fallen", "ruins"),
@@ -1143,7 +1214,7 @@ KINDS = {
 # A piece you can walk on even where another blocks the square (a pier over the water).
 CLEAR = {"pier", "rope_bridge"}
 # Pieces that lie flat on the mat: they're laid down rather than dropped.
-FLAT = {"floor_boards", "floor_flags", "floor_cobbles", "road_ew", "path_ns", "path_patch", "ash", "sand_ring", "puddle",
+FLAT = {"floor_boards", "floor_flags", "floor_cobbles", "floor_grass", "floor_dirt", "floor_ash", "floor_sand", "road_ew", "path_ns", "path_patch", "ash", "sand_ring", "puddle",
         "stream_ns", "water_strip", "frost", "tracks", "rug", "pit_ring", "flowers", "tall_grass"}
 
 
@@ -1185,6 +1256,7 @@ def main():
            "-- the mat, and what the DM calls it. main/board/board.script drops them in; game/model/board.lua",
            "-- works out what blocks, what's cover and what's rough ground.", "", "return {"]
     stats = []
+    written = set()
     for name, k in KINDS.items():
         P = Parts()
         k["fn"](P, rng_for(name))
@@ -1197,10 +1269,12 @@ def main():
             mname = f"prop_{name}_{part}"
             gm.write_glb(os.path.join(ROOT, "assets/meshes", mname + ".glb"), mesh, mname)
             w(f"main/board/props/{mname}.model", model_file(mname, TEX[part]))
+            written |= {mname + ".glb", mname + ".model"}
             comps.append((part, f"/main/board/props/{mname}.model"))
             tris += len(mesh.p) // 3
         w(f"main/board/props/{name}.go", go_file(comps))
         w(f"main/board/props/{name}.factory", f'prototype: "/main/board/props/{name}.go"\n')
+        written |= {name + ".go", name + ".factory"}
         board_comps.append((name, f"/main/board/props/{name}.factory"))
         stats.append((name, tris))
         mask = ""
@@ -1210,9 +1284,19 @@ def main():
         clear = (", clear = true" if name in CLEAR else "") + (", flat = true" if name in FLAT else "")
         lua.append(f"    {name} = {{ fw = {k['fw']}, fh = {k['fh']}, blocks = {str(k['blocks']).lower()}, "
                    f"cover = {str(k['cover']).lower()}, rough = {str(k['rough']).lower()}, light = {k['light']}{mask}{clear},")
-        lua.append(f"        words = {{ {words} }}, say = {lua_str(k['say'])} }},")
+        one = f", one = {lua_str(ONE[name])}" if k["cover"] else ""
+        lua.append(f"        words = {{ {words} }}, say = {lua_str(k['say'])}{one} }},")
     lua.append("}")
+    missing = [n for n, k in KINDS.items() if k["cover"] and n not in ONE]
+    assert not missing, "cover pieces with no ONE name: " + ", ".join(missing)
     w("main/board/board.go", go_file(board_comps))
+    # Anything left over from a kind or a part that's gone.
+    for fn in os.listdir(os.path.join(ROOT, "main/board/props")):
+        if fn not in written:
+            os.remove(os.path.join(ROOT, "main/board/props", fn))
+    for fn in os.listdir(os.path.join(ROOT, "assets/meshes")):
+        if fn.startswith("prop_") and fn not in written:
+            os.remove(os.path.join(ROOT, "assets/meshes", fn))
     w("game/data/props.lua", "\n".join(lua) + "\n")
     total = sum(t for _, t in stats)
     print(f"{len(KINDS)} kinds, {total} triangles; biggest: " +

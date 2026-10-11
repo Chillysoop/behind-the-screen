@@ -84,6 +84,15 @@ local function merged_words(f, kind)
     return out
 end
 
+-- Where a hazard comes from on this board (game/rules/hazards.lua): a fire spreads from the
+-- hearth or the campfire, a flood rises out of the water, ice forms where the frost is.
+local SOURCE = {
+    campfire = { "fire", "campfire" }, hearth = { "fire", "hearth" }, candelabra = { "fire", "candles" },
+    brazier = { "fire", "brazier" }, puddle = { "water", "standing water" }, stream_ns = { "water", "stream" },
+    pond = { "water", "pond" }, water_strip = { "water", "water" }, frost = { "ice", "frost" },
+}
+M.SOURCE = SOURCE
+
 local cache = {}
 
 -- A board, compiled: its pieces, features, and what they mean for the rules.
@@ -97,7 +106,7 @@ function M.compile(id)
     local b = boards[id] or boards.blank
     local out = { id = boards[id] and id or "blank", title = b.title, light = b.light, party = b.party, npc = b.npc,
                   npc_at = b.npc_at or {}, foes = b.foes, pieces = {}, features = {}, by_id = {}, blocked = {}, cover = {}, rough = {}, spots = {},
-                  planks = {} }
+                  planks = {}, sources = {} }
     local block, clear = {}, {}
     for _, f in ipairs(b.features) do
         local parts = f.parts or { { kind = f.kind, at = f.at } }
@@ -112,6 +121,12 @@ function M.compile(id)
                 table.insert(out.pieces, pc)
                 table.insert(feat.pieces, #out.pieces)
                 feat.light = math.max(feat.light, k.light or 0)
+                local src = SOURCE[part.kind]
+                if src then
+                    local list = out.sources[src[1]] or {}
+                    out.sources[src[1]] = list
+                    table.insert(list, { squares = M.squares(part.kind, pc.x, pc.y, pc.r), name = src[2] })
+                end
                 for _, sq in ipairs(M.squares(part.kind, pc.x, pc.y, pc.r)) do
                     local kk = key(sq[1], sq[2])
                     if k.clear then
@@ -120,7 +135,7 @@ function M.compile(id)
                     elseif sq[3] then
                         block[kk] = true
                         if k.cover then
-                            out.cover[kk] = true
+                            out.cover[kk] = k.one or true      -- what it's called when a shot hits it
                         end
                     elseif k.rough then
                         out.rough[kk] = true
@@ -175,7 +190,7 @@ end
 function M.layout(id)
     local c = M.compile(id)
     return { title = c.title, light = c.light, party = c.party, npc = c.npc, npc_at = c.npc_at, foes = c.foes,
-             blocked = c.blocked, spots = c.spots, cover = c.cover, rough = c.rough, planks = c.planks }
+             blocked = c.blocked, spots = c.spots, cover = c.cover, rough = c.rough, planks = c.planks, sources = c.sources }
 end
 
 -- Every board's layout, keyed by id (content.terrain_layout).

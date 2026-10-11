@@ -230,15 +230,17 @@ function M.draw(app)
     local camp = app.campaign
     local mode, pref = death.mode_for(camp, s.key), death.pref(s.key)
     local dx = X + 196 + kit.width("Played by " .. s.player, "ui14") + 18
-    local dline = "If " .. s.name .. " dies: " .. death.data.MODE[mode].short .. "."
-    if pref and pref ~= mode then
-        dline = dline .. " " .. s.player .. " would rather: " .. death.data.MODE[pref].short .. "."
-    end
+    local dline = "If " .. s.name .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
+    local wants = pref and pref ~= mode and (s.player .. " wants: " .. string.lower(death.data.MODE[pref].short) .. ".")
     local room = (X + W - 600) - dx - 20
     local honour = pref and pref ~= mode
     local undo = camp.death_overrides and camp.death_overrides[s.key]
     local bw = (honour or undo) and 120 or 0
-    kit.text(dx, Y + 80, kit.ellipsize(dline, "ui14", room - bw - 8), "ui14", theme.dim)
+    -- Two short lines: the rule, and what the player would rather (A8: nothing cut off).
+    kit.text(dx, wants and Y + 72 or Y + 80, kit.ellipsize(dline, "ui14", room - bw - 8), "ui14", theme.dim)
+    if wants then
+        kit.text(dx, Y + 90, kit.ellipsize(wants, "ui14", room - bw - 8), "ui14", theme.gold)
+    end
     if honour or undo then
         kit.button(dx + room - bw, Y + 74, bw, 28, honour and "Honour it" or "Table's rule", function()
             death.set_override(camp, s.key, honour and pref or nil)

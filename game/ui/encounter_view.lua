@@ -61,6 +61,27 @@ end
 
 local TONE = { danger = "orange", good = "green", info = "dim" }
 
+-- The hazards the scene's board has a place for, and where each would start: { id = "hearth" }.
+function M.board_hazards(campaign, s)
+    local maps = require "game.model.maps"
+    local set = maps.template(campaign, s.slots and s.slots.location, s.type)
+    local layout = set and content.terrain_layout.sets[set]
+    local out = {}
+    if not layout then
+        return out
+    end
+    local src = layout.sources or {}
+    for hid, what in pairs({ spreading_fire = "fire", rising_water = "water", slippery_ice = "ice" }) do
+        if src[what] and src[what][1] then
+            out[hid] = src[what][1].name
+        end
+    end
+    if layout.planks and next(layout.planks) then
+        out.crumbling_bridge = "bridge"
+    end
+    return out
+end
+
 function M.draw(app)
     if app.enc_layer then
         kit.drop(app.enc_layer)
@@ -237,12 +258,18 @@ function M.draw(app)
         ly = ly + 58
     end
 
-    -- A hazard on the mat (A10): from the SRD's traps and environment.
+    -- A hazard on the mat (A10): from the SRD's traps and environment. The ones this board's own
+    -- scenery brings (a hearth to catch, a stream to flood, a bridge to give way) are marked.
     ly = math.max(ly + 4, fy + 26 + 4 * 58 + 4)
     local hz = require "game.rules.data.hazards"
+    local here = M.board_hazards(app.campaign, s)
     kit.text(fx, ly, "HAZARD", "ui14", theme.gold)
     local hdef = hazard and hz.hazards[hazard]
-    kit.text(fx + 70, ly, hdef and (hdef.about .. " (" .. hdef.src .. ")") or "None. Add one to make the place part of the fight.",
+    local START = { spreading_fire = " It catches by the %s.", rising_water = " It comes up out of the %s.",
+                    slippery_ice = " It forms where the %s is." }
+    local habout = hdef and (hdef.about .. (here[hazard] and START[hazard] and string.format(START[hazard], here[hazard]) or "")
+        .. " (" .. hdef.src .. ")")
+    kit.text(fx + 70, ly, habout or "None. Add one to make the place part of the fight.",
         "ui14", hdef and theme.text or theme.faint, { w = fw - 70, lines = 2 })
     ly = ly + 40
     local prep = app.campaign.prep
@@ -251,10 +278,19 @@ function M.draw(app)
         local d = hz.hazards[hid]
         local on = hazard == hid
         local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
-        kit.button(fx + col * (hbw + 6), ly + row * 34, hbw, 28, d.name, function()
+        local bx, by = fx + col * (hbw + 6), ly + row * 34
+        -- what this place has for it: "Spreading fire: hearth"
+        local label = d.name
+        if here[hid] and hid ~= "crumbling_bridge" and kit.width(d.name .. ": " .. here[hid], "ui14") < hbw - 24 then
+            label = d.name .. ": " .. here[hid]
+        end
+        kit.button(bx, by, hbw, 28, label, function()
             prep:set_hazard(i, on and false or hid)
             M.draw(app)
         end, { font = "ui14", color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "enc_hazard_" .. hid })
+        if here[hid] then
+            kit.box(bx + hbw - 12, by + 4, 8, 8, theme.gold, { radius = 4 })     -- this place has one
+        end
     end
     ly = ly + 2 * 34 + 8
 

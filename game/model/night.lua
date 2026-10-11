@@ -65,7 +65,7 @@ M.__index = M
 
 local CHECKS_PER_SCENE = 4
 local HAND_SIZE = 5
-local LATE_AFTER = 11.5 * 60      -- seconds into the night before "It's getting late" can come up
+local LATE_AFTER = 15.5 * 60      -- seconds of watching before "It's getting late" comes up anyway
 
 -- "The old bridge" -> "the old bridge", but leave names like "Ilsa's ring" alone.
 local function find_present(players, key)
@@ -272,7 +272,7 @@ end
 
 -- Narration styles that don't set the scene (asides, dice, the system's own lines).
 local NOT_SCENERY = { aside = true, system = true, dice = true, warn = true, recap = true, check = true, reaction = true,
-                      thread = true, scene = true, good = true, bad = true }
+                      thread = true, scene = true, good = true, bad = true, dm = true }
 
 function M:board_set(id, sc)
     -- The same place again (two scenes there tonight): what's on the table stays on it.
@@ -348,6 +348,7 @@ function M:vars(extra)
     if low then
         v.lowest, v.lowest_char = low.name, low.char
     end
+    v.time = self:clock_text()           -- the table clock, "10:05 pm"
     local sc = self.scene
     if sc then
         -- A card that was veiled or X-carded isn't named either.
@@ -5144,7 +5145,9 @@ function M:run()
             break
         end
         -- The escape valve: running long before the last scene.
-        if i == #self.scenes and i > 1 and (self.clock > LATE_AFTER or self.table_min > self.table_planned - 25)
+        -- (By the table clock: it's late when the agreed end is near with a whole scene to go. The
+        -- watching clock only backs it up on a very long evening, so the card stays an occasional one.)
+        if i == #self.scenes and i > 1 and (self.table_min > self.table_planned - 30 or self.clock > LATE_AFTER)
             and not self.used_cards.running_late
             and self:decision_count() < 13 then
             self.actor = nil

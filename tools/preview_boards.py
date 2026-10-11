@@ -139,7 +139,7 @@ def render(b, out_path, size=(1200, 760)):
         th = -pc["r"] * math.pi / 2
         R = gp.gm.rot_matrix(yaw=th)
         for (a, bb, c, col) in kind_tris(pc["kind"]):
-            flat = max(a[1], bb[1], c[1]) < 0.2
+            flat = max(a[1], bb[1], c[1]) < 0.3
             tris.append((R @ a + (wx, 0, wz), R @ bb + (wx, 0, wz), R @ c + (wx, 0, wz), col, flat))
     # minis: party (gold), foes (red), npc (blue) as little columns
     for key, col in (("party", "#c9a24c"), ("foes", "#8a3a32"), ("npc", "#5a7a8a")):

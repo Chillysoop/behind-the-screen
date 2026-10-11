@@ -301,8 +301,12 @@ sets out the rest in a line ("Around them: the bar, mugs lined up, sticky tables
 door."). The person in the scene steps onto the mat when they're named or speak, where they'd be (Gus behind
 the bar, the stranger at a corner table), and the slice's people have their own minis, a story villain leading
 a fight as themselves. Fights play on the whole board: low walls, tables, crates and rocks give Half Cover
-from attacks across them, brush, rubble and webs are Difficult Terrain, archers look for cover, and a
-crumbling bridge gives way under its planks.
+from attacks across them (a shot the cover stops "hits the crate instead" in the log), brush, rubble and webs
+are Difficult Terrain, archers look for cover, and a crumbling bridge gives way under its planks. Hazards start
+from the board's own scenery: a fire catches by the hearth or the campfire, a flood rises out of the stream or
+the harbour, ice forms where the frost was; the fight builder marks the hazards a place has the makings of. The
+campaign styles' people (the sea captain, the merfolk envoy, the canal gossip, the white stag, the hedge witch
+and her goat, the tired reeve) have minis of their own too.
 
 ## Dialogue (M5)
 
@@ -433,7 +437,7 @@ with any Lua 5.1+ or LuaJIT interpreter:
 
     lua tools/tests/sim_weeks.lua      # simulates 720 weeks with three DM styles and checks the numbers
     lua tools/tests/gui_smoke.lua      # clicks through the whole slice of the real UI against a mock GUI, then continues a save
-    lua tools/tests/rules_cases.lua    # 58 hand-checked SRD 5.2.1 combat cases (M3 and since)
+    lua tools/tests/rules_cases.lua    # 59 hand-checked SRD 5.2.1 combat cases (M3 and since)
     lua tools/sim/nights.lua           # 288 game nights with six DM styles against the M4 gate (about 20 seconds)
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/social_check.lua   # M6 data hangs together; Session Zero, conversations, seeds, level-ups work
@@ -449,6 +453,7 @@ with any Lua 5.1+ or LuaJIT interpreter:
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)
     MODES=4 tools/tests/engine_check.sh  # the same, showing off notes, sheets, the builder, checks and a fight in screenshots
+    MODES=6 tools/tests/engine_check.sh  # the board gallery: every board set out in full, one screenshot each
     AUDIT=1 lua tools/tests/gui_smoke.lua  # also lists every text the screens had to cut short, and where
 
 ## Simulation harness (M2)

@@ -865,6 +865,72 @@ case("falling", "Falling: 1d6 per 10 feet, and Prone", "p. 182",
         t:eq("lands Prone", b:has(f, "prone"), true)
     end)
 
+case("bridge-planks", "A crumbling bridge gives way under its planks, not on solid ground", "p. 182",
+    "On a board with a bridge, holes open only on the planks; someone standing on the bank is never under one.",
+    function(t)
+        local b = fresh()
+        local onb = at(b, pc("fighter", 2), 10, 7)       -- on the planks
+        local bank = at(b, pc("rogue", 2), 4, 7)         -- on the bank
+        b.planks = { ["9,6"] = true, ["10,6"] = true, ["11,6"] = true, ["9,7"] = true, ["10,7"] = true, ["11,7"] = true,
+                     ["9,8"] = true, ["10,8"] = true, ["11,8"] = true }
+        local hz = require "game.rules.hazards"
+        local st = hz.setup(b, "crumbling_bridge")
+        for r = 1, 6 do
+            b.round = r
+            hz.round(b)
+        end
+        local off = 0
+        for k in pairs(st.holes or {}) do
+            if not b.planks[k] then off = off + 1 end
+        end
+        t:eq("no hole off the planks", off, 0)
+        t:eq("the bank stays solid under the rogue", b:has(bank, "prone"), false)
+        t:eq("the planks do give way", next(st.holes or {}) ~= nil, true)
+    end)
+
+case("board-hazards", "The board says where a hazard starts: fire by the hearth, water out of the stream",
+    "p. 178, p. 16, p. 195",
+    "Spreading fire starts beside the board's fire; rising water comes up out of the board's water a ring a round; "
+        .. "ice forms where the frost is.",
+    function(t)
+        local hz = require "game.rules.hazards"
+        local b = fresh()
+        at(b, pc("fighter", 2), 4, 6)
+        at(b, mon("goblin_warrior"), 14, 6)
+        b.blocked = { [17 * 1000 + 2] = true }
+        b.sources = { fire = { { squares = { { 17, 2 } }, name = "hearth" } } }
+        local st = hz.setup(b, "spreading_fire")
+        local far = 0
+        for k in pairs(st.fire) do
+            local x, y = string.match(k, "^(%d+),(%d+)$")
+            if math.max(math.abs(tonumber(x) - 17), math.abs(tonumber(y) - 2)) > 2 then far = far + 1 end
+        end
+        t:eq("the fire starts by the hearth", far, 0)
+        t:eq("and says so", st.from, "hearth")
+        local b2 = fresh()
+        at(b2, pc("fighter", 2), 2, 6)
+        at(b2, mon("goblin_warrior"), 18, 6)
+        local stream = {}
+        for y = 1, b2.H do table.insert(stream, { 10, y }) end
+        b2.sources = { water = { { squares = stream, name = "stream" } } }
+        local st2 = hz.setup(b2, "rising_water")
+        b2.round = 1
+        hz.round(b2)
+        t:eq("round one: the stream and its banks", st2.water["10,3"] and st2.water["11,3"] and st2.water["9,3"] or false, true)
+        t:eq("the far bank is dry", st2.water["2,6"] or false, false)
+        t:eq("the DM's edge isn't flooded first", st2.water["2," .. b2.H] or false, false)
+        local b3 = fresh()
+        at(b3, pc("fighter", 2), 2, 2)
+        b3.sources = { ice = { { squares = { { 15, 9 } }, name = "frost" } } }
+        local st3 = hz.setup(b3, "slippery_ice")
+        local near = 0
+        for k in pairs(st3.ice) do
+            local x, y = string.match(k, "^(%d+),(%d+)$")
+            if math.abs(tonumber(x) - 15) <= 1 and math.abs(tonumber(y) - 9) <= 1 then near = near + 1 end
+        end
+        t:eq("the ice is where the frost was", near > 0, true)
+    end)
+
 -- Runner ---------------------------------------------------------------------------------------
 
 local function run_case(cs)
@@ -968,7 +1034,7 @@ case("board-cover", "Behind the board's scenery: a low wall between them is Half
     function(t)
         local b = fresh()
         b.blocked = { [9 * 1000 + 5] = true }
-        b.cover = { ["9,5"] = true }                     -- a low wall just west of the fighter
+        b.cover = { ["9,5"] = "low wall" }               -- a low wall just west of the fighter
         local f = at(b, pc("fighter", 2), 10, 5)
         local g = at(b, mon("goblin_warrior"), 3, 5)     -- shooting from the west, across the wall
         local g3 = at(b, mon("goblin_warrior"), 16, 5)   -- shooting from the east, nothing in the way
@@ -982,6 +1048,11 @@ case("board-cover", "Behind the board's scenery: a low wall between them is Half
         local r = b:attack(g, f, prof)
         t:eq("across the wall, the hit becomes a miss", r.hit, false)
         t:eq("and says it was the cover", r.cover, true)
+        t:eq("the shot hits the wall instead (the table says which piece)", r.blocked .. ":" .. tostring(r.cover_what),
+            "cover:low wall")
+        b.dice:force(ac - prof.to_hit - 3)
+        r = b:attack(g, f, prof)
+        t:eq("a shot that would have missed anyway is just a miss", r.blocked, nil)
         b.dice:force(ac - prof.to_hit)
         r = b:attack(g3, f, prof)
         t:eq("from the open side, no cover", r.hit, true)

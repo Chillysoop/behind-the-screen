@@ -298,7 +298,7 @@ return {
         id = "running_late", type = "pacing", trigger = "late",
         actor = { "casual", "tactician" },
         title = "It's getting late",
-        text = "It's past ten. {lowest} has work tomorrow and keeps glancing at the clock. You still have a whole scene.",
+        text = "It's {time}. {lowest} has work tomorrow and keeps glancing at the clock. You still have a whole scene.",
         options = {
             { label = "End early, on a cliffhanger.", cliffhanger = true,
               log = "'And that's where we'll stop for tonight.' A chorus of groans.",

@@ -204,7 +204,7 @@ M.styles = {
               about = "Lamplighters, Boatmen, Chimneysweeps: every street belongs to someone, and everyone pays.",
               suits = { "town", "crowd" }, cards = { "ur_lamplighters", "ur_win_guild", "ur_guild_token" } },
             { id = "ur_coil", name = "Everyone in Lowtown owes Mother Coil", short = "Mother Coil",
-              about = "She sells eels, buys secrets and remembers every favor anyone ever asked her for.",
+              about = "She sells eels, buys secrets and remembers every favor owed.",
               suits = { "water", "shop" }, cards = { "ur_mother_coil", "ur_canal_market", "ur_mint_barge" } },
         },
         front = {

@@ -70,7 +70,7 @@ function M.unread(app)
 end
 
 -- The bottom of the column, above any theories pinned to the board (B5).
-M.PIN_H = 92
+M.PIN_H = 112
 local function bottom(app)
     if app.screen ~= "prep" then
         return 885

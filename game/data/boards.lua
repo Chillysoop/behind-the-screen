@@ -59,11 +59,11 @@ B.kettle = {
         { id = "hearth", parts = { { kind = "hearth", at = { { 2, 1 } } }, { kind = "rug", at = { { 2, 2 } } } },
           say = "a fire that needs feeding" },
         { id = "bar", parts = { { kind = "bar", at = run(10, 14, 3) }, { kind = "wall_shelf", at = run(10, 14, 1) } },
-          words = { "gus", "mugs" }, say = "the bar, mugs lined up" },
+          words = { "gus", "mugs" }, say = "the bar with its mugs lined up" },
         { id = "tables", kind = "table_round", at = { { 5, 5 }, { 8, 9 }, { 4, 11 }, { 15, 6 }, { 17, 10 }, { 12, 11 }, { 10, 6 } },
           words = { "sticky", "usual table" }, say = "sticky tables" },
         { id = "barrels", kind = "barrel", at = { { 18, 2 }, { 19, 2 }, { 19, 3 } }, say = "barrels by the back door" },
-        { id = "long_table", kind = "table_long", at = { { 8, 12 } }, words = { "ballad", "bard" }, say = "a long table where the bard is murdering a ballad" },
+        { id = "long_table", kind = "table_long", at = { { 8, 12 } }, words = { "ballad", "bard" }, say = "the bard's long table" },
         { id = "benches", kind = "bench", at = { { 15, 12 } }, words = { "regulars" }, say = "benches for the regulars" },
     },
 }
@@ -100,7 +100,7 @@ B.ilsa_room = {
         { id = "drawings", kind = "wall_notes", at = { { 4, 1 }, { 5, 1 }, { 6, 1 }, { 7, 1 }, { 15, 1 }, { 16, 1 }, { 17, 1 }, { 18, 1 } },
           words = { "bell tower", "drawings" }, say = "drawings of the bell tower pinned to every wall" },
         { id = "bed", kind = "bed", at = { { 3, 3 } }, say = "a narrow bed" },
-        { id = "desk", kind = "desk", at = { { 12, 3 } }, words = { "page", "hand", "corin" }, say = "a writing desk" },
+        { id = "desk", kind = "desk", at = { { 12, 3 } }, words = { "page", "handwriting", "corin" }, say = "a writing desk" },
         { id = "books", kind = "bookshelf", at = { { 7, 2 } } },
         { id = "chest", kind = "chest", at = { { 5, 4 } } },
         { id = "rug", kind = "rug", at = { { 8, 6 } }, words = { "dust" }, say = "a dusty rug" },
@@ -147,7 +147,7 @@ B.chapel = {
           say = "a cracked altar" },
         { id = "pews", kind = "pew", at = { { 8, 4 }, { 8, 9 }, { 12, 4 }, { 12, 9 } }, words = { "moss" }, say = "broken pews" },
         { id = "pillars", kind = "broken_pillar", at = { { 6, 3 }, { 6, 11 }, { 15, 3 }, { 15, 11 } } },
-        { id = "bell", kind = "bell_fallen", at = { { 18, 10 } }, words = { "rope" }, say = "a little bell, cut from its rope" },
+        { id = "bell", kind = "bell_fallen", at = { { 18, 10 } }, words = { "rope" }, say = "a little bell cut from its rope" },
         { id = "rubble", kind = "rubble", at = { { 10, 2 }, { 11, 12 }, { 4, 5 }, { 13, 7 } } },
         { id = "moss", kind = "tall_grass", at = { { 3, 3 }, { 4, 12 }, { 19, 4 } }, words = { "moss" }, say = "moss over the flagstones" },
     },
@@ -164,7 +164,7 @@ B.bell_tower = {
           say = "the stairs" },
         { id = "great_bell", kind = "great_bell", at = { { 10, 3 } }, words = { "dead still" }, say = "the great bell" },
         { id = "bells", kind = "bell", at = { { 6, 3 }, { 15, 3 }, { 18, 5 }, { 6, 10 }, { 14, 10 }, { 18, 10 } },
-          words = { "seven" }, say = "six more bells, hanging dead still" },
+          words = { "seven" }, say = "six more bells hanging dead still" },
         { id = "frost", kind = "frost", at = { { 4, 5 }, { 8, 11 }, { 12, 8 }, { 17, 7 }, { 3, 11 } },
           say = "frost on the stones" },
         { id = "banner", kind = "banner", at = { { 19, 2 } }, words = { "kessrick", "wolf" }, say = "a wolf banner" },
@@ -196,6 +196,7 @@ B.barrow = {
     title = "The old barrow", light = "day",
     party = { 4, 8 }, npc = { 12, 6 }, foes = { 15, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "grass", kind = "tall_grass", at = { { 3, 5 }, { 17, 8 }, { 12, 11 }, { 6, 11 } }, base = true },
         { id = "mound", kind = "mound", at = { { 9, 1 } }, words = { "grassy", "stone door", "door" },
           say = "a grassy mound with a stone door" },
@@ -216,9 +217,10 @@ B.shrine = {
     title = "A forgotten shrine", light = "day",
     party = { 4, 8 }, npc = { 12, 5 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "path", kind = "path_ns", at = { { 9, 1 } }, words = { "step" }, base = true },
         { id = "shrine", kind = "statue", at = { { 10, 2 } }, words = { "shrine", "tends" }, say = "a weathered shrine" },
-        { id = "bell", kind = "bell", at = { { 11, 2 } }, words = { "green with age" }, say = "a little bell, green with age" },
+        { id = "bell", kind = "bell", at = { { 11, 2 } }, words = { "green with age" }, say = "a little bell green with age" },
         { id = "flowers", kind = "flowers", at = { { 10, 3 }, { 11, 3 } }, words = { "fresh" }, say = "fresh flowers" },
         { id = "walls", kind = "ruin_wall_low", at = { { 7, 3 }, { 8, 3 }, { 13, 3 }, { 14, 3 } }, say = "a low wall" },
         { id = "trees", kind = "pine", at = { { 2, 2 }, { 4, 1 }, { 18, 2 }, { 16, 1 }, { 3, 12 }, { 19, 11 } } },
@@ -238,7 +240,7 @@ B.archive = {
           say = "knee-deep water" },
         { id = "shelves", parts = { { kind = "scroll_rack", at = { { 3, 2 }, { 13, 2 } } }, { kind = "bookshelf", at = { { 7, 2 }, { 17, 2 } } } },
           words = { "ledgers", "floating" }, say = "shelves of sodden ledgers" },
-        { id = "lantern", kind = "candelabra", at = { { 12, 5 } }, words = { "lantern", "still lit" }, say = "a lantern, somehow still lit" },
+        { id = "lantern", kind = "candelabra", at = { { 12, 5 } }, words = { "lantern", "still lit" }, say = "a lantern that is somehow still lit" },
         { id = "pillars", kind = "broken_pillar", at = { { 9, 4 }, { 14, 9 } } },
         { id = "crates", kind = "crate", at = { { 18, 11 } } },
         { id = "rubble", kind = "rubble", at = { { 17, 7 }, { 3, 12 } } },
@@ -266,11 +268,12 @@ B.hales_crossing = {
     title = "The ashes of Hale's Crossing", light = "day",
     party = { 3, 8 }, npc = { 12, 9 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_ash", at = { { 1, 1 } }, base = true },
         { id = "ash", kind = "ash", at = { { 10, 5 }, { 4, 10 }, { 15, 10 } }, words = { "what's left" }, base = true },
         { id = "houses", kind = "house_burned", at = { { 2, 1 }, { 7, 1 }, { 15, 1 } }, words = { "village", "old village" },
           say = "burned-out houses" },
         { id = "bell", kind = "bell_fallen", at = { { 11, 6 } }, words = { "tongue", "little bell" },
-          say = "the village bell, lying in the ash" },
+          say = "the village bell in the ash" },
         { id = "fence", kind = "fence", at = { { 3, 5 }, { 4, 5 }, { 5, 5 }, { 16, 9 }, { 17, 9 } }, words = { "fencepost", "burnt" },
           say = "burnt fenceposts" },
         { id = "well", kind = "well", at = { { 8, 9 } }, words = { "rebuilding" }, say = "the old well" },
@@ -284,6 +287,7 @@ B.millbrook_walls = {
     title = "Millbrook's old walls", light = "day",
     party = { 5, 10 }, npc = { 10, 7 }, foes = { 16, 1 },
     features = {
+        { id = "ground", kind = "floor_dirt", at = { { 1, 1 } }, base = true },
         { id = "walls", kind = "town_wall", at = run_but(1, 20, 3, { 6, 7, 12, 13, 14 }), words = { "half fallen", "old town" },
           say = "the old town walls", base = true },
         { id = "gate", kind = "gate", at = { { 12, 3 } }, say = "the gate" },
@@ -316,6 +320,7 @@ B.forest_road = {
     title = "The forest road", light = "day",
     party = { 3, 7 }, npc = { 13, 7 }, foes = { 17, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "road", kind = "road_ew", at = { { 1, 6 } }, words = { "north road" }, base = true },
         { id = "pines", kind = "pine", at = { { 2, 2 }, { 4, 1 }, { 7, 3 }, { 11, 2 }, { 14, 1 }, { 17, 3 }, { 19, 2 },
                                                { 3, 11 }, { 6, 12 }, { 10, 11 }, { 13, 12 }, { 16, 11 }, { 19, 12 } },
@@ -334,6 +339,7 @@ B.bell_paths = {
     title = "The old bell paths", light = "day",
     party = { 3, 7 }, npc = { 12, 6 }, foes = { 17, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "path", kind = "road_ew", at = { { 1, 6 } }, words = { "footpath", "path" }, base = true },
         { id = "hillside", kind = "cliff", at = { { 1, 1 }, { 2, 1 }, { 3, 2 }, { 6, 1 }, { 7, 1 }, { 9, 2 }, { 12, 1 }, { 13, 1 },
                                                   { 16, 2 }, { 17, 1 }, { 20, 1 }, { 20, 2 } },
@@ -342,7 +348,7 @@ B.bell_paths = {
           words = { "waymarks" }, say = "pines along the path" },
         { id = "waymark", kind = "signpost", at = { { 8, 5 } }, words = { "waymark", "waymarks" }, say = "an old waymark" },
         { id = "prints", kind = "tracks", at = { { 6, 7 }, { 10, 7 }, { 13, 7 } }, words = { "boot prints", "fresh" },
-          say = "fresh boot prints, going up" },
+          say = "fresh boot prints going up" },
         { id = "boulder", kind = "boulder", at = { { 9, 10 } } },
         { id = "valley", kind = "rock", at = { { 2, 12 }, { 17, 12 }, { 12, 13 } }, words = { "valley" }, say = "the drop to the valley" },
     },
@@ -353,6 +359,7 @@ B.goblin_camp = {
     title = "The goblin camp", light = "fire",
     party = { 3, 7 }, npc = { 12, 10 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_dirt", at = { { 1, 1 } }, base = true },
         { id = "mud", kind = "path_patch", at = { { 9, 6 } }, base = true },
         { id = "fire", kind = "campfire", at = { { 10, 7 } }, say = "a fire with a cooking pot" },
         { id = "drums", kind = "drum", at = { { 14, 5 }, { 15, 5 } } },
@@ -370,6 +377,7 @@ B.old_bridge = {
     title = "The old rope bridge", light = "day",
     party = { 5, 7 }, npc = { 14, 7 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "gorge", kind = "chasm", at = { { 9, 1 }, { 9, 9 } }, words = { "no bottom" }, say = "a gorge with no bottom", base = true },
         { id = "bridge", kind = "rope_bridge", at = { { 9, 6 } }, words = { "rain-slick", "creak" }, say = "rain-slick planks" },
         { id = "approach", kind = "path_patch", at = { { 4, 6 }, { 14, 6 } }, say = "muddy approaches" },
@@ -401,6 +409,7 @@ B.camp = {
     title = "A camp", light = "fire",
     party = { 4, 9 }, npc = { 11, 8 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_dirt", at = { { 1, 1 } }, base = true },
         { id = "mud", kind = "path_patch", at = { { 8, 5 } }, base = true },
         { id = "fire", kind = "campfire", at = { { 9, 6 } } },
         { id = "tents", kind = "tent", at = { { 14, 3 }, { 6, 2 } } },
@@ -415,6 +424,7 @@ B.forest = {
     title = "The woods", light = "day",
     party = { 4, 7 }, npc = { 13, 7 }, foes = { 17, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "grass", kind = "tall_grass", at = { { 7, 8 }, { 12, 5 }, { 16, 10 } }, base = true },
         { id = "trees", kind = "pine", at = { { 2, 2 }, { 5, 1 }, { 8, 3 }, { 15, 2 }, { 19, 3 }, { 3, 11 }, { 9, 12 }, { 18, 12 } } },
         { id = "oaks", kind = "oak", at = { { 11, 2 }, { 13, 11 } } },
@@ -429,6 +439,7 @@ B.road = {
     title = "The road", light = "day",
     party = { 3, 7 }, npc = { 12, 6 }, foes = { 17, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "road", kind = "road_ew", at = { { 1, 6 } }, base = true },
         { id = "sign", kind = "signpost", at = { { 9, 5 } } },
         { id = "cart", kind = "cart", at = { { 13, 9 } } },
@@ -499,6 +510,7 @@ B.bridge = {
     title = "A bridge", light = "day",
     party = { 5, 7 }, npc = { 14, 7 }, foes = { 15, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "gorge", kind = "chasm", at = { { 9, 1 }, { 9, 9 } }, base = true },
         { id = "bridge", kind = "rope_bridge", at = { { 9, 6 } } },
         { id = "trees", kind = "pine", at = { { 3, 3 }, { 18, 2 }, { 1, 12 }, { 17, 11 } } },
@@ -510,6 +522,7 @@ B.dock = {
     title = "The waterside", light = "day",
     party = { 4, 9 }, npc = { 12, 9 }, foes = { 16, 8 },
     features = {
+        { id = "ground", kind = "floor_sand", at = { { 1, 1 } }, base = true },
         { id = "water", kind = "water_strip", at = { { 1, 1 } }, base = true },
         { id = "pier", kind = "pier", at = { { 9, 1 } } },
         { id = "cargo", parts = { { kind = "crate", at = { { 5, 7 }, { 6, 7 }, { 15, 6 } } }, { kind = "barrel", at = { { 18, 7 }, { 3, 11 } } } } },
@@ -537,9 +550,107 @@ B.blank = {
     title = "Open ground", light = "day",
     party = { 4, 7 }, npc = { 12, 7 }, foes = { 16, 7 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "grass", kind = "tall_grass", at = { { 7, 4 }, { 13, 10 }, { 17, 3 } }, base = true },
         { id = "rocks", kind = "rock", at = { { 8, 10 }, { 15, 4 } } },
         { id = "brush", kind = "bush", at = { { 11, 8 } } },
+    },
+}
+
+-- More places from the campaign styles and the books -----------------------------------------
+
+B.hall = {
+    title = "A great hall", light = "candle",
+    party = { 3, 8 }, npc = { 10, 3 }, foes = { 17, 8 },
+    features = {
+        { id = "floor", kind = "floor_boards", at = { { 1, 1 } }, base = true },
+        { id = "walls", parts = { { kind = "wall_room", at = run_but(1, 20, 1, { 4, 8, 13, 17 }) },
+                                  { kind = "wall_window", at = { { 4, 1 }, { 8, 1 }, { 13, 1 }, { 17, 1 } } } }, base = true },
+        { id = "tables", kind = "table_long", at = { { 5, 5 }, { 13, 5 }, { 5, 10 }, { 13, 10 } }, words = { "feast", "guild" },
+          say = "long tables" },
+        { id = "pillars", kind = "pillar", at = { { 9, 4 }, { 11, 4 }, { 9, 10 }, { 11, 10 } }, say = "carved pillars" },
+        { id = "candles", kind = "candelabra", at = { { 2, 3 }, { 19, 3 }, { 10, 7 } }, words = { "lamps", "lit", "light" } },
+        { id = "banners", kind = "banner", at = { { 6, 2 }, { 15, 2 } }, own_words = true, words = { "banner", "banners", "crest" },
+          say = "banners on the walls" },
+        { id = "curtains", kind = "curtain", at = { { 10, 2 }, { 11, 2 } }, words = { "masks", "stage" }, say = "a curtained stage" },
+    },
+}
+
+B.hospital = {
+    title = "A field hospital", light = "candle",
+    party = { 3, 7 }, npc = { 11, 7 }, foes = { 17, 7 },
+    features = {
+        { id = "floor", kind = "floor_boards", at = { { 1, 1 } }, base = true },
+        { id = "walls", parts = { { kind = "wall_room", at = run_but(1, 20, 1, { 5, 10, 15 }) },
+                                  { kind = "wall_window", at = { { 5, 1 }, { 10, 1 }, { 15, 1 } } } }, words = { "lanterns" }, base = true },
+        { id = "beds", kind = "bed", at = { { 3, 3 }, { 6, 3 }, { 9, 3 }, { 12, 3 }, { 15, 3 }, { 18, 3 }, { 6, 9 }, { 9, 9 }, { 12, 9 }, { 15, 9 } },
+          words = { "wounded", "patients" }, say = "rows of cots" },
+        { id = "tables", kind = "table_round", at = { { 4, 7 }, { 17, 10 } }, words = { "bandages", "herbs" },
+          say = "tables of bandages and herbs" },
+        { id = "lanterns", kind = "candelabra", at = { { 8, 6 }, { 14, 6 } }, words = { "lanterns", "awake" } },
+        { id = "supplies", kind = "crate", at = { { 19, 6 }, { 19, 7 }, { 2, 12 } } },
+    },
+}
+
+B.stone_circle = {
+    title = "A ring of standing stones", light = "day",
+    party = { 3, 7 }, npc = { 12, 7 }, foes = { 17, 7 },
+    features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
+        { id = "grass", kind = "tall_grass", at = { { 4, 3 }, { 16, 11 }, { 5, 11 }, { 15, 2 } }, base = true },
+        { id = "stones", kind = "standing_stone", at = { { 10, 3 }, { 13, 4 }, { 14, 7 }, { 13, 10 }, { 10, 11 }, { 7, 10 }, { 6, 7 },
+                                                         { 7, 4 }, { 12, 2 } }, words = { "nine", "ten", "maidens", "count" },
+          say = "nine standing stones in a ring" },
+        { id = "altar", kind = "altar", at = { { 10, 6 } }, own_words = true, words = { "altar", "slab", "centre", "center" },
+          say = "a flat stone at the centre" },
+        { id = "rocks", kind = "rock", at = { { 2, 2 }, { 18, 12 }, { 19, 3 } } },
+        { id = "brush", kind = "bush", at = { { 3, 11 }, { 17, 4 } } },
+    },
+}
+
+B.ford = {
+    title = "A river ford", light = "day",
+    party = { 3, 7 }, npc = { 13, 6 }, foes = { 17, 7 },
+    features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
+        { id = "road", kind = "road_ew", at = { { 1, 6 } }, base = true },
+        { id = "river", kind = "stream_ns", at = { { 9, 1 } }, words = { "ford", "crossing", "waist-deep", "drowning" },
+          say = "the river running fast over the ford" },
+        { id = "stones", kind = "rock", at = { { 8, 3 }, { 11, 10 }, { 8, 11 }, { 11, 3 } }, words = { "stepping" }, say = "stepping stones" },
+        { id = "reeds", kind = "tall_grass", at = { { 7, 2 }, { 12, 4 }, { 7, 9 }, { 12, 11 } }, words = { "reeds", "bank" },
+          say = "reeds along the bank" },
+        { id = "trees", kind = "oak", at = { { 3, 2 }, { 16, 2 }, { 4, 12 }, { 17, 12 } } },
+        { id = "sign", kind = "signpost", at = { { 6, 5 } } },
+    },
+}
+
+B.causeway = {
+    title = "A causeway over the marsh", light = "day", tight = true,     -- a narrow way across: that's the point
+    party = { 3, 7 }, npc = { 12, 6 }, foes = { 17, 7 },
+    features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
+        { id = "road", kind = "road_ew", at = { { 1, 6 } }, words = { "causeway", "stone" }, base = true },
+        { id = "marsh", parts = { { kind = "water_strip", at = { { 1, 1 } } }, { kind = "water_strip", at = { { 1, 10, 2 } } } },
+          words = { "marsh", "tide", "water" }, say = "marsh water on both sides" },
+        { id = "reeds", kind = "tall_grass", at = { { 4, 5 }, { 11, 9 }, { 16, 5 }, { 7, 9 } }, words = { "reeds" }, say = "reeds" },
+        { id = "post", kind = "signpost", at = { { 9, 5 } }, own_words = true, words = { "post", "marker" },
+          say = "a post where the water reached last time" },
+        { id = "rocks", kind = "rock", at = { { 14, 9 }, { 2, 5 } } },
+    },
+}
+
+B.pass = {
+    title = "A mountain pass", light = "day",
+    party = { 3, 7 }, npc = { 12, 6 }, foes = { 17, 7 },
+    features = {
+        { id = "ground", kind = "floor_dirt", at = { { 1, 1 } }, base = true },
+        { id = "path", kind = "road_ew", at = { { 1, 6 } }, words = { "pass", "path" }, base = true },
+        { id = "cliffs", kind = "cliff", at = { { 1, 1 }, { 2, 1 }, { 3, 2 }, { 5, 1 }, { 6, 1 }, { 8, 2 }, { 9, 1 }, { 12, 1 },
+                                                { 13, 2 }, { 15, 1 }, { 16, 1 }, { 18, 2 }, { 19, 1 }, { 20, 1 } },
+          words = { "notch", "crags", "peaks" }, say = "crags on both sides" },
+        { id = "boulders", parts = { { kind = "boulder", at = { { 5, 10 }, { 14, 10 } } }, { kind = "rock", at = { { 9, 11 }, { 18, 11 }, { 2, 12 } } } },
+          words = { "fallen" }, say = "boulders fallen from above" },
+        { id = "trees", kind = "dead_tree", at = { { 11, 4 }, { 7, 9 } }, words = { "ravens" }, say = "dead trees full of ravens" },
     },
 }
 
@@ -548,6 +659,7 @@ B.vignette = {
     title = "Campfire", light = "fire",
     party = { 5, 8 }, npc = { 11, 8 }, foes = { 15, 6 },
     features = {
+        { id = "ground", kind = "floor_grass", at = { { 1, 1 } }, base = true },
         { id = "trees", kind = "pine", at = { { 1, 1 }, { 17, 2 }, { 2, 12 }, { 13, 11 }, { 19, 8 }, { 7, 1 } }, base = true },
         { id = "fire", kind = "campfire", at = { { 8, 5 } } },
         { id = "tents", kind = "tent", at = { { 3, 2 }, { 12, 2 } } },

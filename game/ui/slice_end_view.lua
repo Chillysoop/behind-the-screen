@@ -153,8 +153,9 @@ local function scrapbook(app)
         for k, m in ipairs(list) do
             if k <= 2 and shown < 6 then
                 local line = "S" .. util.int(e.week) .. "  " .. m[1]
-                kit.text(40, my, line, "ui18", m[2], { w = 520, lines = 1 })
-                my = my + 30
+                local lh = math.min(kit.text_height(line, "ui18", 520), 50)
+                kit.text(40, my, line, "ui18", m[2], { w = 520, lines = 2 })
+                my = my + lh + 8
                 shown = shown + 1
             end
         end

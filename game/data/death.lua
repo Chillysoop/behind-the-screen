@@ -10,13 +10,13 @@ local M = {}
 M.MODES = { "permanent", "meaningful", "cost", "choice" }
 M.MODE = {
     permanent = { name = "Dead is dead", short = "Dead is dead",
-                  about = "A character who dies stays dead. A new one joins next week." },
-    meaningful = { name = "Rare and meaningful", short = "Rare, meaningful",
-                   about = "Death only at the big moments, and it means something when it comes." },
+                  about = "Dead stays dead. A new hero joins next week." },
+    meaningful = { name = "Rare and meaningful", short = "Rare, meaningful", button = "Rare",
+                   about = "Death only at big moments, and it means something." },
     cost = { name = "Back, at a cost", short = "Back, at a cost",
-             about = "The dead can come back, and it always costs them: a scar, a debt, a quest." },
+             about = "They can come back, at a cost: a scar, a debt." },
     choice = { name = "The player's choice", short = "Their choice",
-               about = "When a character dies, their player decides what happens next." },
+               about = "Their player decides what happens next." },
 }
 
 -- What each player wants, and what they say about the table's choice (Session Zero).

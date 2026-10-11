@@ -26,7 +26,7 @@ return {
           truth = "Ilsa wrote backwards to hide from the warband's readers. {char}'s guess was exactly right." },
     },
     old_roads = {
-        { says = "the roads that don't exist are the OLD roads. before the flood. they're still there underground.",
+        { says = "the missing roads are the OLD roads, from before the flood. still there, underground.",
           truth = "The roads are there, under the silt: the old roads before the flood. {char} was right." },
         { says = "that peddler knew exactly what he was selling us.",
           truth = "The peddler turns up again, and grins: he knew. {char} had his number from the start." },

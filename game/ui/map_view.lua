@@ -95,8 +95,15 @@ function M.draw(app, x, y, w, h, ids, hazard)
     for j = 0, H do
         kit.box(gx, gy + j * C, W * C, 1, kit.rgba("#000000", 0.18), { round = false })
     end
+    -- The board's own scenery: what blocks (dark; brown when it also gives cover) and rough ground.
+    for k in pairs(set.rough or {}) do
+        local rx, ry = maps.split(k)
+        kit.box(gx + (rx - 1) * C + 6, gy + (ry - 1) * C + 6, C - 12, C - 12, kit.rgba("#5d7a3e", 0.55), { radius = 4 })
+    end
     for _, sq in ipairs(set.blocked) do
-        kit.box(gx + (sq[1] - 1) * C + 2, gy + (sq[2] - 1) * C + 2, C - 4, C - 4, kit.rgba("#1b1714", 0.75), { radius = 4 })
+        local covers = set.cover and set.cover[sq[1] .. "," .. sq[2]]
+        kit.box(gx + (sq[1] - 1) * C + 2, gy + (sq[2] - 1) * C + 2, C - 4, C - 4,
+            covers and kit.rgba("#4a3626", 0.85) or kit.rgba("#1b1714", 0.75), { radius = 4 })
     end
     for k, kind in pairs(m and m.pieces or {}) do
         local px, py = maps.split(k)
@@ -121,8 +128,8 @@ function M.draw(app, x, y, w, h, ids, hazard)
         end
     end, { color = kit.rgba("#000000", 0), hover = kit.rgba("#ffffff", 0.04), key = "map_grid" })
     local ly = gy + H * C + 10
-    kit.text(x, ly, "Dark squares are the " .. string.lower(set.title) .. "'s own scenery. P: the party comes in here. M: the monsters wait here.",
-        "ui14", theme.faint, { w = W * C })
+    kit.text(x, ly, "Dark: the scenery of " .. util.lower_first(set.title) .. " (brown gives cover; green is rough ground). "
+        .. "P: the party comes in. M: the monsters wait.", "ui14", theme.faint, { w = W * C })
     if m and m.changed then
         local ledger = require "game.model.ledger"
         local st = ledger.place_state(app.campaign, loc.id)

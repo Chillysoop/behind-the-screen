@@ -70,9 +70,9 @@ function M.blocked_set(set_name, map)
         blocked[sq[1] * 1000 + sq[2]] = true
     end
     -- The board's own cover (low walls, crates, tables) and rough ground (brush, rubble, webs).
-    local extras = { cover = {}, rough = {}, traps = {}, planks = layout.planks }
-    for k in pairs(layout.cover or {}) do
-        extras.cover[k] = true
+    local extras = { cover = {}, rough = {}, traps = {}, planks = layout.planks, sources = layout.sources }
+    for k, what in pairs(layout.cover or {}) do
+        extras.cover[k] = what           -- true, or what the piece is called ("crate")
     end
     for k in pairs(layout.rough or {}) do
         extras.rough[k] = true
@@ -442,7 +442,7 @@ function M.step(night, ev)
         s.id, s.target = ref(ev.att), ref(ev.tgt)
         s.hit, s.crit, s.roll, s.total, s.ac = ev.hit, ev.crit, ev.roll, ev.total, ev.ac
         s.ranged, s.blocked, s.weapon, s.spell = ev.ranged, ev.blocked, ev.weapon, ev.spell
-        s.dmg, s.to_hit = ev.dmg, ev.to_hit
+        s.dmg, s.to_hit, s.cover_what = ev.dmg, ev.to_hit, ev.cover_what
         s.dm = ev.att.side ~= "party"
         s.hidden = s.dm and night.dm_rolls == "hidden"
         s.mode = ev.mode
@@ -482,7 +482,7 @@ function M.step(night, ev)
     elseif k == "temp" then
         s.id, s.amount = ref(ev.who), ev.amount
     elseif k == "hazard" or k == "hazard_act" then
-        s.name, s.about = ev.name, ev.about
+        s.name, s.about, s.from = ev.name, ev.about, ev.from
     elseif k == "flee" then
         s.id, s.why = ref(ev.who), ev.why
     else
@@ -724,6 +724,7 @@ function M.run(night, sc, plan)
     if extras then
         b.cover = extras.cover
         b.planks = extras.planks or layout.planks     -- a bridge's planks: where a crumbling bridge gives way
+        b.sources = extras.sources or layout.sources  -- where a fire, a flood or the ice starts (hazards.lua)
         if next(extras.rough) then
             table.insert(b.zones, { kind = "rough", difficult = true, cells = extras.rough })
         end
@@ -774,12 +775,6 @@ function M.run(night, sc, plan)
         night.villain_here = f.boss.person
     end
     night.villain_barks = {}
-    -- A hazard (A10): the one built into the fight, else one the scene's complication brings.
-    local hz = M.hazard_of(sc)
-    if hz then
-        require("game.rules.hazards").setup(b, hz)
-        sc.hazard = hz
-    end
     -- Surprise from the scouting roll: Disadvantage on Initiative (p. 13).
     for _, c in ipairs(b.creatures) do
         c.surprised = (sc.surprise == "foes" and c.side == "foes") or (sc.surprise == "party" and c.side == "party") or nil
@@ -816,6 +811,14 @@ function M.run(night, sc, plan)
                 night.open_dm_rolls = night.open_dm_rolls + 1
             end
         end
+    end
+
+    -- A hazard (A10): the one built into the fight, else one the scene's complication brings. Set
+    -- up once the table is listening, so "Hazard: ..." and its fire or ice reach the mat.
+    local hz = M.hazard_of(sc)
+    if hz then
+        require("game.rules.hazards").setup(b, hz)
+        sc.hazard = hz
     end
 
     -- Damage the DM can still overrule.

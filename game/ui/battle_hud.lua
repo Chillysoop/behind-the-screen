@@ -184,8 +184,20 @@ function M.draw(app)
                     end
                 end
             end
+            -- Unconscious, Paralyzed, Stunned and Petrified already mean Incapacitated: say it once.
+            if seen.Incapacitated and (seen.Unconscious or seen.Paralyzed or seen.Stunned or seen.Petrified) then
+                for i = #cond, 1, -1 do
+                    if cond[i] == "Incapacitated" then
+                        table.remove(cond, i)
+                    end
+                end
+            end
             table.sort(cond)
-            local ctext = kit.ellipsize(table.concat(cond, ", "), "ui14", 130)
+            local ctext = table.concat(cond, ", ")
+            if kit.width(ctext, "ui14") > 130 then
+                ctext = string.gsub(ctext, "Incapacitated", "Incap.")      -- the long one, shortened first
+            end
+            ctext = kit.ellipsize(ctext, "ui14", 130)
             m.cond_w = ctext ~= "" and kit.width(ctext, "ui14") or 0
             n.cond = kit.text(0, 0, ctext, "ui14", theme.purple, { pivot = gui.PIVOT_N })
             m.n = n

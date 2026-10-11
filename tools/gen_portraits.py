@@ -25,6 +25,7 @@ STANDEES = ["fighter", "rogue", "cleric", "wizard",
             # The slice's people (tools/gen_sprites_npcs.py).
             "npc_vask", "npc_wren", "npc_grey_coat", "npc_tilly", "npc_ottilie", "npc_hob", "npc_holt", "npc_tumble",
             "npc_verrin", "npc_nib", "npc_ansel",
+            "npc_rosin", "npc_pearl", "npc_coil", "npc_stag", "npc_ashby", "npc_reeve",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
             # The Vale Bestiary (A13).

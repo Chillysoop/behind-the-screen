@@ -62,14 +62,14 @@ local CAST_SPRITE = {
     market_friend = "npc_tilly", merchant = "npc_ottilie", cutpurses = "bandit", wolf_pack = "dire_wolf",
     restless_dead = "skeleton",
     -- Campaign styles (A18) and the new books (A13).
-    fr_reeve = "npc_ottilie", fr_goblin_chief = "goblin_boss", sea_captain_rosin = "npc_corin", sea_grey_moll = "pirate",
-    sea_envoy_pearl = "npc_ghost", sea_serpent_wake = "merrow", ur_watch_captain = "guard", ur_fixer = "npc_stranger",
-    ur_mother_coil = "npc_hermit", dn_lantern_company = "npc_rival", dn_mossjaw = "animated_armor", wd_guide = "scout",
-    wd_white_stag = "npc_ghost", wd_moss_hermit = "npc_hermit",
+    fr_reeve = "npc_reeve", fr_goblin_chief = "goblin_boss", sea_captain_rosin = "npc_rosin", sea_grey_moll = "pirate",
+    sea_envoy_pearl = "npc_pearl", sea_serpent_wake = "merrow", ur_watch_captain = "guard", ur_fixer = "npc_stranger",
+    ur_mother_coil = "npc_coil", dn_lantern_company = "npc_rival", dn_mossjaw = "animated_armor", wd_guide = "scout",
+    wd_white_stag = "npc_stag", wd_moss_hermit = "npc_hermit",
     bk_pirate_crew = "pirate", bk_merrow = "merrow", bk_crabs = "giant_crab", bk_spy = "spy", bk_rats = "swarm_of_rats",
     bk_armor = "animated_armor", bk_spiders = "giant_spider", bk_specter = "specter", bk_bear = "brown_bear",
     bk_gnolls = "gnoll_warrior", bk_worgs = "worg", bk_bugbear = "bugbear_warrior", bk_veteran = "warrior_veteran",
-    bk_kobolds = "kobold_warrior", gz_hedge_witch = "npc_hermit", mod_bell_sexton = "npc_ansel", mod_bridge_hobb = "npc_hermit",
+    bk_kobolds = "kobold_warrior", gz_hedge_witch = "npc_ashby", mod_bell_sexton = "npc_ansel", mod_bridge_hobb = "npc_hermit",
 }
 local MONSTER_SPRITES = {
     goblin_boss = true, bandit = true, bandit_captain = true, cultist = true, tough = true, wolf = true,
@@ -81,7 +81,7 @@ local MONSTER_SPRITES = {
 }
 local BLOCKED = {
     sanctuary = "Sanctuary", decoy = "Hit the decoy", mirror_image = "Hit an image", shield = "Shield!",
-    warding_flash = "Warding Flare", parry = "Parried",
+    warding_flash = "Warding Flare", parry = "Parried", cover = "Cover!",
 }
 local TIER_TITLE = { triumph = "A triumph!", success = "It works.", near = "So close...", flop = "That's a flop." }
 local FIT_HAND = { great = "Fits this scene", good = "Always works", poor = "A stretch" }
@@ -1140,8 +1140,15 @@ function M.play_step(app, s, pace)
                 nums = " (" .. util.int(s.roll) .. signed(s.total - s.roll) .. " = " .. util.int(s.total) .. " vs AC "
                     .. util.int(s.ac) .. ")"
             end
-            M.push(app, name_of(app, s.id) .. (s.blocked and " is stopped: " .. (BLOCKED[s.blocked] or "blocked") .. "."
-                or (" misses " .. name_of(app, s.target) .. nums .. ".")), "system")
+            if s.blocked == "cover" then
+                -- The board earning its keep: the shot that would have landed hits the scenery.
+                M.push(app, name_of(app, s.target) .. " ducks behind " .. (s.cover_what and ("the " .. s.cover_what) or "cover")
+                    .. ". " .. name_of(app, s.id) .. "'s " .. string.lower(s.weapon or "attack") .. " hits that instead" .. nums .. ".",
+                    "system")
+            else
+                M.push(app, name_of(app, s.id) .. (s.blocked and " is stopped: " .. (BLOCKED[s.blocked] or "blocked") .. "."
+                    or (" misses " .. name_of(app, s.target) .. nums .. ".")), "system")
+            end
         end
     elseif k == "damage" then
         post("hit", { id = s.id })
@@ -1207,7 +1214,8 @@ function M.play_step(app, s, pace)
                 .. (s.area and (", " .. util.int(#s.area) .. " squares") or "") .. ".", "system")
         end
     elseif k == "hazard" then
-        M.push(app, "Hazard: " .. (s.name or "") .. ". " .. (s.about or ""), "system")
+        M.push(app, "Hazard: " .. (s.name or "") .. (s.from and (", from the " .. s.from) or "") .. ". " .. (s.about or ""),
+            "system")
     elseif k == "hazard_act" then
         M.push(app, (s.name or "The hazard acts") .. ".", "bad")
     elseif k == "zone" then
@@ -1361,6 +1369,9 @@ function M.handle(app, ev)
         if app.paint_dice then
             app.paint_dice()
         end
+        if ev.set then
+            panels.set_dice(app, ev.who, ev.set)
+        end
         local p = player(app, ev.who)
         if p then
             M.float(app, ev.who, ev.gift and ("The dice you gave: " .. (ev.name or "")) or ("New dice! " .. (ev.name or "")),
@@ -1487,7 +1498,8 @@ function M.handle(app, ev)
                 if f.boss then
                     app.boss_id = f.id
                 end
-                table.insert(list, { id = f.id, sprite = foe_sprite(f, i), x = f.x, y = f.y, delay = 0.3 })
+                -- one at a time, the way the DM sets the minis out
+                table.insert(list, { id = f.id, sprite = foe_sprite(f, i), x = f.x, y = f.y, delay = 0.3 + (i - 1) * 0.12 })
             end
             app.on_table = {}
             post("spawn", { list = list })

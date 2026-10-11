@@ -173,6 +173,24 @@ images {
   image: "/assets/portraits/mini_npc_ansel.png"
 }
 images {
+  image: "/assets/portraits/mini_npc_rosin.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_pearl.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_coil.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_stag.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_ashby.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_reeve.png"
+}
+images {
   image: "/assets/portraits/mini_goblin_boss.png"
 }
 images {

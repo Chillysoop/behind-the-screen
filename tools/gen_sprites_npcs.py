@@ -7,6 +7,8 @@ Verrin of the Ninth Tower, Nib the goblin scout and Brother Ansel the sexton.
 Writes assets/sprites/npc_<name>.png. Then add them to assets/sprites/sprites.atlas and the
 portrait cut-outs (tools/gen_portraits.py). Run from tools/: python3 gen_sprites_npcs.py
 """
+import math
+
 import gen_sprites_m4 as m4
 from gen_sprites_m4 import C, canvas, face, finish, hand, head, legs, sword
 
@@ -270,8 +272,222 @@ def npc_ansel():
     finish(img, "npc_ansel", 151)
 
 
+# ------------------------------------------------------------------ the campaign styles' people
+# (game/data/styles.lua, game/data/books.lua): until now they borrowed someone else's mini.
+
+def npc_rosin():
+    """Captain Ada Rosin: a retired privateer with a wooden leg and an opinion about your knots."""
+    g = gs()
+    img, d = canvas()
+    skin = "#d9a47e"
+    # one good leg and boot, one wooden peg
+    d.rounded_rectangle([214, 500, 248, 592], 14, fill=C("#3a3a48"))
+    d.rounded_rectangle([198, 568, 252, 612], 18, fill=C("#2a1d1a"))
+    d.rounded_rectangle([264, 500, 298, 540], 14, fill=C("#3a3a48"))
+    d.polygon([(268, 536), (294, 536), (286, 606), (276, 606)], fill=C("#a07848"))
+    d.ellipse([272, 598, 290, 612], fill=C("#6b4a32"))
+    # the long navy coat, gold buttons
+    d.polygon([(192, 326), (320, 326), (356, 560), (156, 560)], fill=C("#2a3a5a"))
+    d.polygon([(232, 334), (280, 334), (276, 470), (236, 470)], fill=C("#efe4c8"))
+    for y in (360, 400, 440):
+        d.ellipse([214, y - 7, 228, y + 7], fill=C("#d6a845"))
+        d.ellipse([284, y - 7, 298, y + 7], fill=C("#d6a845"))
+    d.rectangle([192, 470, 320, 488], fill=C("#7a2f2b"))                # a red sash
+    g.limb(d, (200, 352), (172, 440), 34, C("#2a3a5a"))
+    hand(d, (168, 446), skin)
+    # a coil of rope with a knot she's not happy with
+    for k in range(3):
+        d.ellipse([136 - k * 4, 440 + k * 8, 196 - k * 4, 500 + k * 8], outline=C("#c8a868"), width=7)
+    g.limb(d, (312, 352), (344, 300), 34, C("#2a3a5a"))                # pointing it out
+    hand(d, (348, 292), skin)
+    d.line([(352, 286), (372, 262)], fill=C(skin), width=12)
+    head(d, skin, cy=250, rx=64, ry=68)
+    face(d, 256, 254, "scowl", sep=26)
+    d.line([(318, 236), (330, 330)], fill=C("#d8d4cc"), width=14)       # a white braid
+    d.ellipse([322, 324, 340, 342], fill=C("#7a2f2b"))
+    # the tricorn
+    d.polygon([(166, 206), (346, 206), (256, 150)], fill=C("#1e1a24"))
+    d.polygon([(150, 214), (196, 176), (316, 176), (362, 214), (256, 198)], fill=C("#2a2430"))
+    d.line([(176, 206), (336, 206)], fill=C("#d6a845"), width=5)
+    finish(img, "npc_rosin", 152)
+
+
+def npc_pearl():
+    """Envoy Pearl of the Kelp Court: a merfolk diplomat, here about the nets."""
+    g = gs()
+    img, d = canvas()
+    skin = "#8cc4b4"
+    tail, fin = "#3a8a8a", "#6ac0b0"
+    # the tail, curled on the base, with its fin
+    d.ellipse([180, 430, 332, 560], fill=C(tail))
+    d.pieslice([200, 500, 380, 620], 180, 300, fill=C(tail))
+    d.polygon([(330, 540), (410, 500), (396, 560), (420, 610), (340, 584)], fill=C(fin))
+    for (x, y) in [(220, 470), (256, 490), (292, 470), (238, 520), (276, 520), (300, 556)]:
+        d.arc([x - 14, y - 10, x + 14, y + 12], 200, 340, fill=C("#2a6a6a"), width=4)   # scales
+    # a kelp-green robe of state, and a string of pearls
+    d.polygon([(204, 326), (308, 326), (330, 470), (182, 470)], fill=C("#4a6a3a"))
+    d.polygon([(204, 326), (226, 326), (210, 470), (182, 470)], fill=C("#3a5a2e"))
+    for k in range(7):
+        x = 220 + k * 12
+        y = 352 + int(14 * math.sin(k / 6 * math.pi))
+        d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=C("#f4f0ee"))
+    g.limb(d, (208, 356), (180, 420), 28, C("#4a6a3a"))
+    hand(d, (176, 426), skin)
+    # a sealed letter about the nets
+    d.rectangle([132, 404, 182, 444], fill=C("#efe4c8"))
+    d.ellipse([150, 418, 166, 434], fill=C("#3a8a8a"))
+    g.limb(d, (304, 356), (330, 430), 28, C("#4a6a3a"))
+    hand(d, (332, 436), skin)
+    head(d, skin, cy=250, rx=62, ry=68)
+    for sx in (-1, 1):                                                  # fin ears
+        d.polygon([(256 + sx * 58, 236), (256 + sx * 104, 206), (256 + sx * 96, 256), (256 + sx * 60, 270)], fill=C(fin))
+    face(d, 256, 254, "calm", sep=26, eye="#1a3a4a")
+    # long sea-green hair with pearls, and a circlet
+    d.chord([186, 170, 326, 256], 180, 360, fill=C("#2e6a5a"))
+    d.polygon([(188, 220), (204, 220), (196, 360), (176, 340)], fill=C("#2e6a5a"))
+    d.polygon([(308, 220), (324, 220), (336, 340), (316, 360)], fill=C("#2e6a5a"))
+    d.line([(196, 196), (316, 196)], fill=C("#e8e0d8"), width=6)
+    d.ellipse([246, 180, 266, 200], fill=C("#f8f4f2"))
+    finish(img, "npc_pearl", 153)
+
+
+def npc_coil():
+    """Old Mother Coil: sells eels on the canal, buys secrets, gives very little change."""
+    g = gs()
+    img, d = canvas()
+    skin = "#e2b494"
+    legs(d, "#4a3a3a", "#2a1d1a")
+    # a long skirt and a fringed shawl, hunched a little
+    d.polygon([(196, 400), (316, 400), (346, 590), (166, 590)], fill=C("#5a4a6a"))
+    d.polygon([(178, 320), (334, 320), (352, 440), (160, 440)], fill=C("#8a5a3a"))
+    for x in range(168, 350, 14):
+        d.line([(x, 440), (x - 2, 458)], fill=C("#8a5a3a"), width=4)
+    # the eel bucket
+    d.polygon([(320, 470), (400, 470), (390, 560), (330, 560)], fill=C("#7a6a5a"))
+    d.ellipse([318, 460, 402, 482], fill=C("#3a3a32"))
+    for k, x in enumerate((336, 356, 378)):
+        d.line([(x, 470), (x + 8, 430 - k * 8), (x - 4, 404 - k * 6)], fill=C("#4a5a42"), width=10, joint="curve")
+    d.arc([330, 420, 390, 500], 200, 340, fill=C("#4a4a52"), width=5)  # the handle
+    g.limb(d, (196, 350), (176, 430), 30, C("#8a5a3a"))
+    hand(d, (172, 436), skin)
+    d.ellipse([156, 440, 176, 460], fill=C("#d6a845"))                  # a coin she isn't giving back
+    g.limb(d, (318, 350), (346, 440), 30, C("#8a5a3a"))
+    hand(d, (348, 446), skin)
+    head(d, skin, cy=262, rx=62, ry=64)
+    face(d, 256, 266, "sly", sep=24)
+    d.line([(236, 300), (276, 300)], fill=C("#b88a6a"), width=3)       # wrinkles
+    # a knotted headscarf
+    d.chord([186, 186, 326, 278], 180, 360, fill=C("#7a2f3a"))
+    d.polygon([(186, 236), (326, 236), (318, 214), (194, 214)], fill=C("#7a2f3a"))
+    d.ellipse([306, 236, 336, 262], fill=C("#7a2f3a"))
+    finish(img, "npc_coil", 154)
+
+
+def npc_stag():
+    """The great white stag: seen at dawn, gone by sunrise."""
+    img, d = canvas()
+    coat, shade, hoof, horn = "#f2f0ea", "#d4d0c6", "#6a6058", "#d8c8a4"
+    # side-on, looking out at the table
+    for (x, top) in [(196, 430), (236, 440), (344, 440), (384, 430)]:
+        d.rounded_rectangle([x - 10, top, x + 10, 592], 8, fill=C(coat if x in (196, 344) else shade))
+        d.polygon([(x - 12, 590), (x + 12, 590), (x + 8, 610), (x - 8, 610)], fill=C(hoof))
+    d.ellipse([170, 340, 410, 470], fill=C(coat))
+    d.ellipse([190, 410, 390, 468], fill=C(shade))
+    d.ellipse([392, 352, 424, 384], fill=C("#ffffff"))                  # the white tail
+    # neck and head, raised
+    d.polygon([(190, 380), (236, 360), (196, 250), (160, 270)], fill=C(coat))
+    d.ellipse([120, 214, 214, 290], fill=C(coat))
+    d.polygon([(130, 262), (70, 284), (78, 306), (140, 290)], fill=C(coat))
+    d.ellipse([66, 284, 86, 302], fill=C("#3a3230"))
+    d.ellipse([140, 238, 160, 256], fill=C("#2a2220"))
+    d.ellipse([146, 242, 152, 248], fill=(255, 255, 255, 230))
+    d.polygon([(186, 222), (226, 204), (206, 240)], fill=C(shade))      # ear
+    # the antlers
+    for (base, tips) in [((168, 218), [(150, 120), (120, 150), (176, 100), (196, 140)]),
+                         ((194, 214), [(224, 110), (258, 140), (210, 92), (240, 168)])]:
+        bx, by = base
+        mx, my = (bx + tips[0][0]) // 2, (by + tips[0][1]) // 2
+        d.line([(bx, by), tips[0]], fill=C(horn), width=10)
+        for t in tips[1:]:
+            d.line([(mx, my), t], fill=C(horn), width=7)
+    # a faint glow about it
+    finish(img, "npc_stag", 155)
+
+
+def npc_ashby():
+    """Granny Ashby, the hedge witch, and her talking goat."""
+    g = gs()
+    img, d = canvas()
+    skin = "#e8c0a0"
+    legs(d, "#4a4030", "#3a2a20")
+    d.polygon([(200, 330), (312, 330), (350, 596), (162, 596)], fill=C("#5a6a3a"))
+    d.polygon([(184, 320), (328, 320), (340, 420), (172, 420)], fill=C("#8a6a3a"))     # a patched shawl
+    d.rectangle([292, 360, 318, 386], fill=C("#a8463a"))
+    d.rectangle([196, 390, 218, 410], fill=C("#3f6a9a"))
+    g.limb(d, (204, 352), (176, 420), 30, C("#8a6a3a"))
+    hand(d, (172, 426), skin)
+    # a bunch of herbs
+    for k, col in enumerate(("#4f7a3a", "#6d9447", "#9a6aa8")):
+        d.line([(172, 430), (140 + k * 14, 350 + k * 6)], fill=C("#4f7a3a"), width=5)
+        d.ellipse([132 + k * 14, 336 + k * 6, 152 + k * 14, 356 + k * 6], fill=C(col))
+    g.limb(d, (308, 352), (330, 440), 30, C("#8a6a3a"))
+    hand(d, (332, 446), skin)
+    head(d, skin, cy=256, rx=62, ry=64)
+    face(d, 256, 260, "kind", sep=24)
+    d.chord([190, 186, 322, 262], 180, 360, fill=C("#d8d4cc"))
+    # the wide old hat, a little bent
+    d.polygon([(214, 196), (300, 196), (290, 110), (316, 74), (262, 98)], fill=C("#3a3428"))
+    d.ellipse([160, 182, 354, 216], fill=C("#2e2a20"))
+    d.line([(222, 190), (296, 190)], fill=C("#9a6aa8"), width=6)
+    # the goat, at her side, with something to say
+    gx, gy = 392, 520
+    d.ellipse([gx - 50, gy - 20, gx + 40, gy + 40], fill=C("#e8e0d0"))
+    for x in (gx - 36, gx - 12, gx + 14, gx + 30):
+        d.rectangle([x - 5, gy + 30, x + 5, gy + 86], fill=C("#d0c8b8"))
+    d.ellipse([gx - 70, gy - 70, gx - 26, gy - 20], fill=C("#e8e0d0"))
+    d.polygon([(gx - 64, gy - 70), (gx - 76, gy - 100), (gx - 54, gy - 72)], fill=C("#8a7a6a"))
+    d.polygon([(gx - 38, gy - 70), (gx - 30, gy - 100), (gx - 30, gy - 68)], fill=C("#8a7a6a"))
+    d.ellipse([gx - 58, gy - 54, gx - 50, gy - 46], fill=C("#2a2220"))
+    d.polygon([(gx - 60, gy - 22), (gx - 50, gy - 22), (gx - 56, gy - 4)], fill=C("#d0c8b8"))     # beard
+    finish(img, "npc_ashby", 156)
+
+
+def npc_reeve():
+    """Reeve Hollis Tamsin: the town's tired reeve, who would give anything for one quiet week."""
+    g = gs()
+    img, d = canvas()
+    skin = "#c8946e"
+    legs(d, "#4a3a2a", "#2a1d1a")
+    d.rounded_rectangle([182, 320, 330, 540], 48, fill=C("#6a4a30"))
+    d.polygon([(236, 330), (276, 330), (268, 520), (244, 520)], fill=C("#d8ccb0"))
+    # the chain of office
+    for k in range(9):
+        a = math.pi * (0.15 + 0.7 * k / 8)
+        x, y = 256 + 62 * math.cos(a), 330 + 46 * math.sin(a)
+        d.ellipse([x - 7, y - 6, x + 7, y + 6], outline=C("#d6a845"), width=4)
+    d.ellipse([240, 372, 272, 404], fill=C("#d6a845"))
+    d.ellipse([248, 380, 264, 396], fill=C("#a87a2a"))
+    g.limb(d, (196, 352), (170, 430), 32, C("#6a4a30"))
+    hand(d, (166, 436), skin)
+    # a stack of complaints
+    d.rectangle([118, 410, 176, 470], fill=C("#efe4c8"))
+    d.rectangle([124, 400, 180, 462], fill=C("#f4ecd8"))
+    for y in (414, 426, 438, 450):
+        d.line([(132, y), (170, y)], fill=C("#8a7a6a"), width=2)
+    g.limb(d, (318, 352), (300, 280), 32, C("#6a4a30"))                # rubbing her temple
+    hand(d, (296, 272), skin)
+    head(d, skin, cy=250, rx=64, ry=68)
+    face(d, 256, 254, "calm", sep=26)
+    for sx in (-1, 1):                                                   # tired eyes
+        d.arc([256 + sx * 26 - 14, 262, 256 + sx * 26 + 14, 280], 20, 160, fill=C("#9a6a52"), width=3)
+    d.chord([188, 172, 324, 254], 180, 360, fill=C("#6a6460"))         # short greying hair
+    d.line([(214, 196), (236, 184)], fill=C("#b8b0a8"), width=6)
+    finish(img, "npc_reeve", 157)
+
+
 NEW = ["npc_vask", "npc_wren", "npc_grey_coat", "npc_tilly", "npc_ottilie", "npc_hob", "npc_holt", "npc_tumble",
-       "npc_verrin", "npc_nib", "npc_ansel"]
+       "npc_verrin", "npc_nib", "npc_ansel",
+       "npc_rosin", "npc_pearl", "npc_coil", "npc_stag", "npc_ashby", "npc_reeve"]
 
 
 def main():
