@@ -90,7 +90,16 @@ function M.party(night)
             end
         end
     end
-    -- Eight-hour buffs go up before the night starts (Mage Armor, Aid).
+    -- Where they left off (A16): HP, slots, Hit Point Dice and features carry across nights.
+    -- After a Long Rest, the day's buffs go up before the night starts (Mage Armor, Aid).
+    local carried = M.load_state(night)
+    if not carried then
+        M.prebuff(night)
+    end
+    return night.pcs
+end
+
+function M.prebuff(night)
     local b = battle.new({ seed = night.rng:int(1, 2147483000), ai = ai })
     if #night.pc_list > 0 then
         local filler = {}
@@ -99,7 +108,59 @@ function M.party(night)
         end
         encounter.prebuff(b, filler)
     end
-    return night.pcs
+end
+
+-- The party's state lives on the campaign between nights (campaign.party_state). Returns true
+-- when it was carried over (no Long Rest since).
+local function copy(t)
+    if type(t) ~= "table" then
+        return t
+    end
+    local o = {}
+    for k, v in pairs(t) do
+        o[k] = copy(v)
+    end
+    return o
+end
+
+function M.load_state(night)
+    local st = night.campaign.party_state
+    if not st or st.rested or st.level ~= (night.campaign.level or 2) then
+        return false
+    end
+    local any = false
+    for _, c in ipairs(night.pc_list) do
+        local s = st.pcs and st.pcs[c.player_key]
+        if s then
+            any = true
+            c.hp_max = s.hp_max or c.hp_max
+            c.hp = math.min(c.hp_max, math.max(1, s.hp or c.hp))
+            c.temp = s.temp or 0
+            c.res = copy(s.res) or c.res
+            if c.hd and s.hd_left then
+                c.hd.left = s.hd_left
+            end
+            c.arcane_used = s.arcane_used
+            c.mage_armor = s.mage_armor or false
+        end
+    end
+    return any
+end
+
+function M.save_state(night, rested)
+    local camp = night.campaign
+    local st = camp.party_state or { pcs = {} }
+    st.pcs = st.pcs or {}
+    st.level = camp.level or 2
+    st.rested = rested and true or false
+    st.week = camp.week
+    st.fights_since_long = night.fights_since_long or st.fights_since_long or 0
+    for _, c in ipairs(night.pc_list or {}) do
+        st.pcs[c.player_key] = { hp = math.max(1, c.hp), hp_max = c.hp_max, temp = c.temp or 0, res = copy(c.res),
+                                 hd_left = c.hd and c.hd.left, arcane_used = c.arcane_used or nil,
+                                 mage_armor = c.mage_armor or nil }
+    end
+    camp.party_state = st
 end
 
 local function ready_for_battle(c)

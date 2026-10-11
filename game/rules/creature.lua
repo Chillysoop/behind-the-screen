@@ -199,6 +199,8 @@ function M.new_pc(sheet)
         hp = hp + level                   -- Dwarven Toughness (p. 84)
     end
     c.hp_max, c.hp = hp, hp
+    -- Hit Point Dice: one per level, spent on Short Rests, all back on a Long Rest (SRD 5.2.1).
+    c.hd = { die = cls.hit_die, max = level, left = level }
     -- Class resources.
     c.res.potions = sheet.potions or 0
     if sheet.class == "fighter" then
@@ -209,6 +211,7 @@ function M.new_pc(sheet)
         c.sneak_dice = row.sneak
     elseif sheet.class == "cleric" then
         c.res.channel = row.channel or 0
+        c.res.channel_max = row.channel or 0
     end
     if row.slots then
         c.res.slots = {}
@@ -241,6 +244,19 @@ function M.new_pc(sheet)
         subclasses.apply(c, sheet.subclass, sheet)
     end
     c.mage_armor = sheet.mage_armor or false
+    -- What a Long Rest restores to (game/rules/rest.lua).
+    c.res_full = {}
+    for k, v in pairs(c.res) do
+        if type(v) == "table" then
+            local t = {}
+            for i, n in pairs(v) do
+                t[i] = n
+            end
+            c.res_full[k] = t
+        else
+            c.res_full[k] = v
+        end
+    end
     return c
 end
 

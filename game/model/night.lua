@@ -42,6 +42,8 @@ local seeds = require "game.model.seeds"
 local story = require "game.model.story"
 local ledger = require "game.model.ledger"
 local places = require "game.model.places"
+local rest_rules = require "game.rules.rest"
+local rests = require "game.data.rests"
 local deck = require "game.model.deck"
 local skills = require "game.rules.skills"
 
@@ -100,6 +102,11 @@ function M.new(campaign, prep, opts)
     self.used_cards = {}
     self.table_card_used = false
     self.drift_used = false
+    -- Where the party left off (A16): fights since their last Long Rest carry over.
+    do
+        local ps = campaign.party_state
+        self.fights_since_long = (ps and not ps.rested and ps.fights_since_long) or 0
+    end
     -- The table clock (A14): starts at seven; Session Zero said how long you play.
     self.table_min, self.table_start = 0, 19 * 60
     do
@@ -2632,7 +2639,13 @@ function M:combat_scene(sc)
         self:apply({ { "arch:tactician", fun = 4 }, { "arch:butt_kicker", fun = 3 } })
         self:highlight(6, "a fight that came down to the wire", self.players)
     end
-    fight.short_rest(self)
+    -- No automatic patch-up after a fight any more (A16): rests are the players' to ask for.
+    self.fights_since_long = (self.fights_since_long or 0) + 1
+    for _, c in ipairs(self.pc_list or {}) do
+        if c.down and not c.dead then
+            c.down, c.hp = false, math.max(1, c.hp)    -- stabilized after the fight, back on their feet at 1
+        end
+    end
 end
 
 -- Before a fight: someone scouts ahead (or tries to talk first). The result sets who's surprised.
@@ -2938,6 +2951,344 @@ function M:finish_open(sc, chosen, mode, hook_id)
     sc.difficulty = prep_mod.difficulty(sc.comps)
     sc.encounter = keep_hook and sc.encounter or nil
     self.on_board[chosen] = true
+end
+
+-- Rests (A16) ---------------------------------------------------------------------------------------
+-- The players ask; you rule. What comes back follows SRD 5.2.1 (game/rules/rest.lua).
+
+local function place_kind(loc)
+    local st = loc and loc.setting or {}
+    if util.contains(st, "tavern") then
+        return "inn"
+    elseif util.contains(st, "camp") then
+        return "camp"
+    elseif util.contains(st, "water") and not util.contains(st, "under") then
+        return "ship"
+    elseif util.contains(st, "under") or util.contains(st, "ruin") then
+        return "dungeon"
+    elseif util.contains(st, "town") then
+        return "town"
+    end
+    return "wilderness"
+end
+M.place_kind = place_kind
+
+function M:pc_of(p)
+    return self.pcs and self.pcs[p.key]
+end
+
+-- Does this request's "when" hold for this player right now?
+function M:rest_fits(rq, p, sc)
+    local w = rq.when or {}
+    local c = self:pc_of(p)
+    if not c then
+        return false
+    end
+    local fought = sc.result ~= nil
+    local st = rest_rules.state(self.pc_list)
+    if w.after_fight and not fought then
+        return false
+    end
+    if w.own_hp_below and c.hp / c.hp_max >= w.own_hp_below then
+        return false
+    end
+    if w.party_hp_below and st.hp >= w.party_hp_below then
+        return false
+    end
+    if w.any_down and not (sc.result and (sc.result.pc_downs or 0) > 0) then
+        return false
+    end
+    if w.own_spent then
+        for _, r in ipairs(w.own_spent) do
+            if (c.res[r] or 0) > 0 or c.res[r] == nil then
+                return false
+            end
+        end
+    end
+    if w.own_slots_below then
+        local s = rest_rules.state({ c })
+        if not c.slots_max or s.slots >= w.own_slots_below then
+            return false
+        end
+    end
+    if w.hit_dice_left and not (c.hd and c.hd.left >= w.hit_dice_left) then
+        return false
+    end
+    if w.fights_since_long and (self.fights_since_long or 0) < w.fights_since_long then
+        return false
+    end
+    if w.next_is then
+        local nx = self.scenes[sc.index + 1]
+        if not nx or nx.type ~= w.next_is then
+            return false
+        end
+    end
+    if w.late and self.table_min < self.table_planned * 0.7 then
+        return false
+    end
+    if w.where then
+        local loc = sc.comps.location
+        local ok = false
+        for _, s in ipairs(w.where) do
+            ok = ok or util.contains(loc and loc.setting or {}, s) or place_kind(loc) == s
+        end
+        if not ok then
+            return false
+        end
+    end
+    if w.scene_types and not util.contains(w.scene_types, sc.type) then
+        return false
+    end
+    if w.exhausted then
+        return false     -- nothing causes Exhaustion yet
+    end
+    return true
+end
+
+function M:rest_request(sc)
+    if not self.pc_list or #self.pc_list == 0 or self.end_early then
+        return
+    end
+    self.rest_asks = self.rest_asks or 0
+    if self.rest_asks >= 2 or not self:room(13) then
+        return
+    end
+    local st = rest_rules.state(self.pc_list)
+    -- Nobody asks when they're fresh.
+    if st.hp > 0.85 and st.slots > 0.7 then
+        return
+    end
+    local cands, weights = {}, {}
+    for _, rq in ipairs(rests.requests) do
+        for _, p in ipairs(self.players) do
+            local aw = rq.archetype == "any" and 1 or ((p.primary == rq.archetype and 1) or (p.secondary == rq.archetype and 0.5) or 0)
+            if aw > 0 and self:rest_fits(rq, p, sc) then
+                local prof = rests.profiles[p.primary] or {}
+                table.insert(cands, { rq = rq, p = p })
+                table.insert(weights, (rq.weight or 1) * aw * (prof.asks or 1))
+            end
+        end
+    end
+    if #cands == 0 then
+        return
+    end
+    local need = (1 - st.hp) * 0.9 + (1 - st.slots) * 0.3
+    if not self.rng:chance(math.min(0.85, 0.15 + need)) then
+        return
+    end
+    local pick = self.rng:weighted(cands, weights)
+    local rq, p = pick.rq, pick.p
+    self.rest_asks = self.rest_asks + 1
+    self:emit({ kind = "say", who = p.key, text = self:fresh(rq.lines, "rest_" .. rq.id), ic = false })
+    -- The card: what this place allows.
+    self.actor = p
+    local loc = sc.comps.location
+    local kind = place_kind(loc)
+    local data = rests.card
+    local card = { id = "rest_request", type = "pacing", title = data.title,
+                   text = util.fill(data.text, self:vars({ kind = rq.kind, location = loc and soft_lower(loc.short or loc.name) or "the road" })),
+                   options = {} }
+    for _, oid in ipairs(data.offer[kind] or data.offer.wilderness) do
+        for _, o in ipairs(data.options) do
+            if o.id == oid and #card.options < 4 then
+                local oo = {}
+                for k2, v2 in pairs(o) do
+                    oo[k2] = v2
+                end
+                if o.say_reason then
+                    oo.log = (rests.places[kind] and rests.places[kind].reason) or o.log
+                elseif rq.kind == "short" and (o.id == "allow" or o.id == "allow_scene") then
+                    oo.label = o.id == "allow" and "Sure. Take an hour." or "Take an hour. Let's play it out."
+                    oo.log = o.id == "allow" and "An hour of quiet: bandages, water, a breather." or o.log
+                end
+                table.insert(card.options, oo)
+            end
+        end
+    end
+    self.actor = p
+    local o = self:decision(card)
+    if not o then
+        return
+    end
+    -- How each kind of player takes the ruling.
+    for arch, prof in pairs(rests.profiles) do
+        local fx = prof.on and prof.on[o.id]
+        if fx then
+            local e = { "arch:" .. arch }
+            for k2, v2 in pairs(fx) do
+                e[k2] = v2
+            end
+            self:apply({ e })
+        end
+    end
+    local needy = st.hp < 0.4 or st.slots < 0.2
+    local fresh = st.hp > 0.75 and st.slots > 0.5
+    local ctx = rests.context
+    if needy and ctx.needy[o.id] then
+        self:apply(ctx.needy[o.id])
+    elseif fresh and ctx.fresh[o.id] then
+        self:apply(ctx.fresh[o.id])
+    end
+    self:fairness(o.id, kind)
+    self:do_rest(o, rq.kind, kind, sc)
+end
+
+-- What the table remembers: a run of "no" stings; a run of easy long rests bores the planners.
+function M:fairness(rid, kind)
+    local camp = self.campaign
+    camp.rest_log = camp.rest_log or {}
+    local no = rid == "deny_reason" or rid == "interrupt"
+    table.insert(camp.rest_log, { week = camp.week, ruling = rid, place = kind, no = no })
+    while #camp.rest_log > 12 do
+        table.remove(camp.rest_log, 1)
+    end
+    local streak = 0
+    for i = #camp.rest_log, 1, -1 do
+        if camp.rest_log[i].no then
+            streak = streak + 1
+        else
+            break
+        end
+    end
+    local f = rests.fairness
+    if no and streak >= f.streak_hurt then
+        self:apply(f.streak_effects)
+    end
+    if no and streak >= f.streak_warn then
+        local q = self:pick_actor({ "casual", "tactician", "power_gamer" })
+        if q then
+            self:emit({ kind = "say", who = q.key, text = self:fresh(rests.table_lines.streak_warn, "rest_streak"), ic = false })
+        end
+    end
+end
+
+-- Apply the ruling: who rests how, what turns up, and the scene it plays.
+function M:do_rest(o, asked, kind, sc)
+    local how = o.rest
+    local long = asked == "long"
+    local interrupted
+    if how == "none" then
+        return
+    elseif how == "short" or how == "player_choice" then
+        long = false
+    elseif how == "roll" or how == "interrupt" then
+        local pl = rests.places[kind] or rests.places.wilderness
+        local chance = long and pl.long or pl.short
+        local events = {}
+        local w = {}
+        for _, ev in ipairs(pl.events) do
+            if how == "roll" or ev.interrupts then
+                table.insert(events, ev)
+                table.insert(w, ev.w or 1)
+            end
+        end
+        if (how == "interrupt" or self.rng:chance(chance * 1.5)) and #events > 0 then
+            local ev = self.rng:weighted(events, w)
+            self:say(ev.line, ev.interrupts and "bad" or "narration")
+            if ev.interrupts then
+                interrupted = true
+                -- A skirmish or a hazard in the night: a few bruises, and the rest is cut short.
+                for _, c in ipairs(self.pc_list) do
+                    if ev.kind == "fight" or ev.damage then
+                        c.hp = math.max(1, c.hp - self.rng:int(1, 6))
+                    end
+                end
+                for _, q in ipairs(self.players) do
+                    score.add(q, "challenge", 3)
+                end
+            elseif ev.story then
+                for _, q in ipairs(self.players) do
+                    score.add(q, "story", 2)
+                end
+            end
+            if ev.poor_rest then
+                long = false
+            end
+        end
+    elseif how == "travel" then
+        self.table_min = self.table_min + 20
+    end
+    local mins = long and 15 or 8
+    self.table_min = self.table_min + mins
+    if interrupted then
+        -- Broken before an hour had passed (always, when you planned it): no benefit at all. After
+        -- an hour, an interrupted Long Rest still counts as a Short Rest (SRD 5.2.1).
+        if how == "interrupt" or not self.rng:chance(0.5) then
+            self:say("Nobody got any real rest.", "aside")
+            self.rests = self.rests or {}
+            table.insert(self.rests, { kind = "none", interrupted = true, place = kind })
+            return
+        end
+        long = false
+    end
+    local spend = rest_rules.SPEND
+    local healed = 0
+    for _, c in ipairs(self.pc_list) do
+        local p = self.campaign:player(c.player_key)
+        if long then
+            local before = c.hp
+            rest_rules.long(c)
+            healed = healed + (c.hp - before)
+        else
+            local got = rest_rules.short(c, self.rng, spend[p and p.primary] or spend.default)
+            healed = healed + got.hp
+        end
+    end
+    if long then
+        self.fights_since_long = 0
+        fight.prebuff(self)   -- a new day: Mage Armor and Aid go back up
+    end
+    self:say(long and "A full night's rest. Everyone wakes whole, spells back, ready." or
+        (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
+         or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
+    self.rests = self.rests or {}
+    table.insert(self.rests, { kind = long and "long" or "short", interrupted = interrupted, place = kind })
+    if not interrupted and (o.beat or self:arch_present("storyteller") or self:arch_present("method_actor")) and self:idle() < 80 then
+        self:rest_beat(kind)
+    end
+end
+
+function M:arch_present(a)
+    for _, p in ipairs(self.players) do
+        if p.primary == a then
+            return true
+        end
+    end
+    return false
+end
+
+-- A little scene while they rest: a pair at the fire, a dream, someone cooking.
+function M:rest_beat(kind)
+    local camp = self.campaign
+    camp.beats_seen = camp.beats_seen or {}
+    local cands, w = {}, {}
+    for _, b in ipairs(rests.beats) do
+        local ok = not camp.beats_seen[b.id] and (util.contains(b.where or { "any" }, "any") or util.contains(b.where, kind))
+        for _, who in ipairs(b.pair or {}) do
+            local k, id = string.match(who, "^(%a+):(.+)$")
+            if k == "pc" and not find_present(self.players, id) then
+                ok = false
+            end
+        end
+        if ok then
+            table.insert(cands, b)
+            table.insert(w, b.mend and 2 or 1)
+        end
+    end
+    if #cands == 0 then
+        return
+    end
+    local b = self.rng:weighted(cands, w)
+    camp.beats_seen[b.id] = camp.week
+    self.table_min = self.table_min + 5
+    self:say(b.line, "narration")
+    self:apply(b.effects or {})
+    if b.thread then
+        local p = find_present(self.players, b.thread)
+        if p then
+            p.thread_hits = p.thread_hits + 1
+        end
+    end
 end
 
 -- The table clock (A14) --------------------------------------------------------------------------
@@ -3512,6 +3863,8 @@ function M:play_scene(sc)
         self:describe(sc.comps.complication, "twist")
         self.ended_on_cliff = sc.index == #self.scenes
     end
+    -- The players may ask to rest (A16).
+    self:rest_request(sc)
     self:bridge(sc)
     if sc.index < #self.scenes then
         self:table_check(sc)
@@ -3537,6 +3890,32 @@ function M:intro()
     local recap = story.recap(self.campaign)
     if recap then
         self:say(recap, "recap")
+    end
+    -- Where they left off, if they haven't rested since (A16): what the sheets say.
+    local ps = self.campaign.party_state
+    if ps and not ps.rested and ps.level == (self.campaign.level or 2) then
+        fight.party(self)
+        local hurt = {}
+        for _, c in ipairs(self.pc_list or {}) do
+            local bits = {}
+            if c.hp < c.hp_max then
+                table.insert(bits, util.int(c.hp) .. "/" .. util.int(c.hp_max) .. " HP")
+            end
+            local s = rest_rules.state({ c })
+            if c.slots_max and s.slots < 1 then
+                local left = 0
+                for _, n in ipairs(c.res.slots or {}) do
+                    left = left + n
+                end
+                table.insert(bits, util.int(left) .. (left == 1 and " spell slot" or " spell slots") .. " left")
+            end
+            if #bits > 0 then
+                table.insert(hurt, c.name .. " " .. table.concat(bits, ", "))
+            end
+        end
+        if #hurt > 0 then
+            self:say("Where we left off, no rest since: " .. table.concat(hurt, "; ") .. ".", "recap")
+        end
     end
     local beat = self.campaign:arc_beat()
     if beat and beat.open then
@@ -3583,6 +3962,23 @@ function M:run()
         end
     end
     self:table_verdicts()
+    -- Where the party is at, for next week (A16): a night that ends in town rests; a cliffhanger
+    -- or a night out in the wild picks up exactly where it stopped.
+    if self.pc_list then
+        local last
+        for _, sc in ipairs(self.scenes) do
+            if sc.terrain then
+                last = sc
+            end
+        end
+        local loc = last and last.comps.location
+        local safe = loc and (util.contains(loc.setting or {}, "town") or util.contains(loc.setting or {}, "tavern"))
+        local rested = safe and not (self.ended_on_cliff or self.end_early)
+        fight.save_state(self, rested)
+        if rested then
+            self.campaign.party_state.fights_since_long = 0
+        end
+    end
     -- You asked what they wanted, then gave it to them (A6: the one-on-one).
     local notes = self.prep and self.prep.talk_notes or {}
     for _, p in ipairs(self.players) do

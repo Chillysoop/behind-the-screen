@@ -1241,6 +1241,28 @@ function M.build(app)
     pacing_panel(app, prep)
     drawer(app, prep)
     kit.text(1196, 84, "THE TABLE", "ui14", theme.dim)
+    -- Where the party is at (A16): carried over from last week unless they rested.
+    local ps = app.campaign.party_state
+    if ps and not ps.rested and ps.pcs then
+        local hp, hpm, sl = 0, 0, 0
+        local parts = {}
+        for _, p in ipairs(app.campaign.players) do
+            local s = ps.pcs[p.key]
+            if s then
+                hp, hpm = hp + s.hp, hpm + s.hp_max
+                if s.hp < s.hp_max then
+                    table.insert(parts, p.char .. " " .. util.int(s.hp) .. "/" .. util.int(s.hp_max))
+                end
+                for _, n in ipairs(s.res and s.res.slots or {}) do
+                    sl = sl + n
+                end
+            end
+        end
+        if hpm > 0 and hp < hpm then
+            kit.text(1576, 84, "No rest since last week: party at " .. util.int(math.floor(100 * hp / hpm + 0.5)) .. "% HP",
+                "ui14", theme.orange, { pivot = gui.PIVOT_NE })
+        end
+    end
     empathy_meter(app)
     local forecast = prep:forecast()
     for i, p in ipairs(app.campaign.players) do
