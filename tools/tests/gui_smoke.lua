@@ -221,11 +221,27 @@ local function run_night_click()
     return true
 end
 
+local finish_talk
 local function click_key(k)
+    -- A one-on-one left open by random clicks sits over everything: finish it first.
+    if self.app.talk and finish_talk and string.sub(k, 1, 5) ~= "talk_" then
+        finish_talk()
+    end
     for _, b in ipairs(buttons()) do
         if b.key == k then click(b); return true end
     end
     return false
+end
+-- A one-on-one the random clicks opened (A6): play it through.
+finish_talk = function()
+    for _ = 1, 8 do
+        if not self.app.talk then break end
+        local done = false
+        for _, b in ipairs(buttons()) do
+            if b.key == "talk_opt_1" or b.key == "talk_done" then click(b); done = true; break end
+        end
+        if not done then break end
+    end
 end
 local function has_key(k)
     for _, b in ipairs(buttons()) do
@@ -420,6 +436,7 @@ for week = 1, WEEKS do
         -- Messages: the spotlight conflict was pushed live last week.
         local tip_was = app.guide_step
 check_tip_absorbs(" (week 2 prep)")
+                finish_talk()
                 if not click_key("tab_messages") then problem("no messages tab") end
         if tip_was == "prep_messages" and not (app.campaign.guide and app.campaign.guide.seen.prep_messages) then
             problem("opening Messages didn't retire the tip that asked for it")
@@ -434,6 +451,7 @@ check_tip_absorbs(" (week 2 prep)")
             end
         end
         if by then
+            finish_talk()
             for _ = 1, 4 do
                 if not click_key("guide_ok") then break end
             end
