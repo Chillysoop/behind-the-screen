@@ -58,6 +58,7 @@ return {
         screen = c("#2e2620"),
         pacing = c("#9a7432"),
         table = c("#3f7f7a"),
+        curveball = c("#8f4f6a"),
     },
     log = {
         narration = c("#e9dcc3"),

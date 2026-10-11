@@ -100,6 +100,7 @@ function M.new(campaign, prep, opts)
     self.table_card_used = false
     self.drift_used = false
     self.checks = {}
+    self.behaviors = {}      -- table behaviors tonight, by id (A12)
     self.unused = prep:unused()
     self.improvised = {}
     self.talk = talk_mod.new(self.rng)
@@ -409,18 +410,24 @@ function M:pick_roller(skill_list, sc, prefer)
             table.insert(kinds, kind)
         end
         table.sort(kinds)
+        -- With two stories in one scene, whoever has rolled least tonight goes first.
+        local pick_owner, fewest
         for _, kind in ipairs(kinds) do
             local c = sc.comps[kind]
             if c.thread and not self:muted(c) and not sc.owners_rolled[c.thread] then
                 local owner = find_present(players, c.thread)
                 if owner and not capped(owner) then
                     local _, m = self:best_skill(owner, skill_list)
-                    if m >= 0 then
-                        sc.owners_rolled[c.thread] = true
-                        return owner
+                    local n = self.big_rolls[owner.key] or 0
+                    if m >= 0 and (not fewest or n < fewest) then
+                        pick_owner, fewest = owner, n
                     end
                 end
             end
+        end
+        if pick_owner then
+            sc.owners_rolled[pick_owner.key] = true
+            return pick_owner
         end
     end
     local avg = 0
@@ -448,11 +455,16 @@ function M:pick_roller(skill_list, sc, prefer)
         end
         table.sort(cands, function(a, b) return a.m > b.m end)
         local cut = cands[math.min(2, #cands)].m
+        -- Someone well behind tonight gets a look-in when they're decent at it, not just the two
+        -- best (the fighter's skills would leave him out of most talking and sleuthing).
+        local function behind(p)
+            return total >= 4 and (self.big_rolls[p.key] or 0) / total < 1 / #players - 0.1
+        end
         local best, bw
         for _, cd in ipairs(cands) do
-            if cd.m >= cut then
+            if cd.m >= cut or (cd.m >= 2 and behind(cd.p)) then
                 local share = total > 0 and (self.big_rolls[cd.p.key] or 0) / total or 0
-                local w = -share * 10 + cd.m * 0.15 + self.rng:next() * 0.3
+                local w = -share * 10 + cd.m * 0.1 + self.rng:next() * 0.5
                 if not bw or w > bw then
                     best, bw = cd.p, w
                 end
@@ -1196,6 +1208,13 @@ function M:hero_action(sc, used, dc, need, spots)
     for k, o in ipairs(options) do
         local m = self:mod_for(p, o.a.skill)
         aw[k] = 2 ^ (util.clamp(m, -2, 8) / 2)
+        -- People play to type (A12): a Butt-Kicker kicks the door in, a Method Actor does the voice.
+        local arch = o.a.archetype
+        if arch and (p.primary == arch) then
+            aw[k] = aw[k] * 3
+        elseif arch and p.secondary == arch then
+            aw[k] = aw[k] * 2
+        end
     end
     local pick = self.rng:weighted(options, aw)
     local a = pick and pick.a
@@ -1279,9 +1298,13 @@ function M:hero_action(sc, used, dc, need, spots)
         end
         self:react(poses)
         self:bark(p, "crit")
+        self:table_behavior("after_crit", p)
     elseif roll == 1 then
         self:react({ [p.key] = "gasp" })
         self:bark(p, "fumble")
+        self:table_behavior("after_fail", p)
+    elseif not success and self:table_behavior("after_fail", p) then
+        -- (they said something already)
     elseif self.rng:chance(0.22) then
         self:bark(p, success and "check_win" or "check_lose")
     elseif self.rng:chance(0.22) and #self.players > 1 then
@@ -1321,9 +1344,16 @@ function M:quick_checks(sc)
         if i == 1 and sc.comps.cast and not self:muted(sc.comps.cast)
             and (sc.type == "social" or sc.type == "mystery" or sc.type == "downtime") then
             self:npc_line("greet")
+            self:table_behavior("social")
         end
         if self:hero_action(sc, used, dc, need, spots) == nil then
             break
+        end
+        if i == 3 then
+            self:table_behavior("long_scene")
+            if not sc.cut then
+                self:curveball(sc)
+            end
         end
         if i == 1 and comp and not comp.cliffhanger and not self:muted(comp) and self:fits_here(comp) then
             self:say(content.line_for(comp, sc.comps.location), "twist")
@@ -1356,6 +1386,9 @@ function M:table_life()
     if not self.rng:chance(0.3) then
         return
     end
+    if self:table_behavior("idle") then
+        return
+    end
     local low = self:lowest()
     if low and low.engagement < 0.25 and self.rng:chance(0.6) then
         self:react({ [low.key] = "phone" })
@@ -1366,6 +1399,259 @@ function M:table_life()
         local p = self.rng:pick(self.players)
         self:bark(p, "snack")
     end
+end
+
+-- Players being players (A12) -----------------------------------------------------------------
+-- What real players do out of character at the table, at the moment it fits (the research in
+-- game/data/table_behaviors.lua): one line, from whoever at the table would do it, now and
+-- then. A few a night, never the same behavior twice in a night, never the same line twice
+-- in three weeks.
+local TB_CHANCE = { start = 0.8, idle = 0.45, after_crit = 0.55, after_fail = 0.3, combat = 0.35, social = 0.35,
+                    rules = 0.6, long_scene = 0.4, late = 0.5, ["end"] = 0.6 }
+local TB_MAX = 7
+local TB_POSE = { rules_lookup = "think", technically_actually = "arms", analysis_paralysis = "think",
+                  theory_build = "think", plan_overload = "think", map_drawer = "think", note_taker = "think",
+                  in_character_spat = "arms", dont_split_party = "arms", meme_share = "phone", stretch_break = "yawn",
+                  getting_late = "yawn", wild_theory = "think", hp_fishing = "think", check_dm_math = "think",
+                  spell_lookup_midturn = "phone", teach_new_player = "lean" }
+M.TB_MAX = TB_MAX
+
+local function class_ok(b, p)
+    if b.not_class and p.class == b.not_class then
+        return false
+    end
+    if not b.class then
+        return true
+    end
+    if type(b.class) == "table" then
+        return util.contains(b.class, p.class)
+    end
+    return p.class == b.class
+end
+
+local function arch_weight(arch, p)
+    if not arch or arch == "any" then
+        return 1
+    elseif p.primary == arch then
+        return 3
+    elseif p.secondary == arch then
+        return 1.5
+    end
+    return 0
+end
+
+-- Does this behavior fit the moment (the scene, the place, who's in it)?
+function M:behavior_fits(b, sc, week)
+    if b.min_week and week < b.min_week then
+        return false
+    end
+    if b.scenes and not (sc and util.contains(b.scenes, sc.type)) then
+        return false
+    end
+    if b.where and not content.fits_setting(b, sc and sc.comps.location) then
+        return false
+    end
+    if b.needs == "cast" or b.needs == "met_before" then
+        local cast = sc and sc.comps.cast
+        if not cast or self:muted(cast) or cast.talks == false or cast.revered then
+            return false
+        end
+        if b.needs == "met_before" then
+            local lp = ledger.person(self.campaign, ledger.person_of(cast))
+            local met = lp and lp.met
+            if not (met == true or (type(met) == "number" and met < week)) then
+                return false
+            end
+        end
+    elseif b.needs == "cliff" then
+        return self.ended_on_cliff or self.end_early or false
+    end
+    return true
+end
+
+function M:table_behavior(when, roller, sure)
+    self.tb = self.tb or { n = 0, used = {}, hooks = {} }
+    local tb = self.tb
+    local sc = self.scene
+    local hook = when .. ":" .. (sc and sc.index or 0)
+    if tb.n >= TB_MAX or tb.hooks[hook] or #self.players == 0 then
+        return nil
+    end
+    if not sure and not self.rng:chance(TB_CHANCE[when] or 0.3) then
+        return nil
+    end
+    local camp = self.campaign
+    camp.tb_said = camp.tb_said or {}
+    local week = camp.week or 1
+    local cands, weights = {}, {}
+    for _, b in ipairs(content.table_behaviors) do
+        if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week) then
+            local free = {}
+            for i in ipairs(b.lines) do
+                local last = camp.tb_said[b.id .. "#" .. i]
+                if not last or week - last >= 3 then
+                    table.insert(free, i)
+                end
+            end
+            if #free > 0 then
+                for _, p in ipairs(self.players) do
+                    local w = arch_weight(b.archetype, p)
+                    if not class_ok(b, p) then
+                        w = 0
+                    elseif b.by == "roller" and p ~= roller then
+                        w = 0
+                    elseif b.by == "other" and (not roller or p == roller) then
+                        w = 0
+                    elseif b.mood == "engaged" and p.engagement < 0.4 then
+                        w = 0
+                    elseif b.mood == "bored" and p.engagement >= 0.45 then
+                        w = 0
+                    end
+                    if w > 0 then
+                        table.insert(cands, { b = b, p = p, free = free })
+                        table.insert(weights, w)
+                    end
+                end
+            end
+        end
+    end
+    if #cands == 0 then
+        return nil
+    end
+    local c = self.rng:weighted(cands, weights)
+    local b, p = c.b, c.p
+    local i = self.rng:pick(c.free)
+    tb.n = tb.n + 1
+    tb.used[b.id] = true
+    tb.hooks[hook] = true
+    camp.tb_said[b.id .. "#" .. i] = week
+    local text = util.fill(b.lines[i], self:vars({ other_char = roller and roller.char or "" }))
+    local pose = TB_POSE[b.id] or (b.mood == "bored" and "yawn")
+        or (string.find(b.effect or "", "^fun%+") and "laugh") or (b.by == "other" and "cheer") or "lean"
+    self:react({ [p.key] = pose })
+    self:emit({ kind = "say", who = p.key, text = text, ic = false, line = "tb_" .. b.id, behavior = b.id })
+    -- What it does to the table.
+    local meter, sign, target = string.match(b.effect or "", "^(%a+)([%+%-]) (%a+)$")
+    if meter then
+        local amount = (target == "speaker" and 3 or 2) * (sign == "+" and 1 or -1)
+        if target == "speaker" then
+            score.add(p, meter, amount)
+        else
+            for _, q in ipairs(self.players) do
+                if not (meter == "boredom" and q == p) then
+                    score.add(q, meter, amount)
+                end
+            end
+        end
+    end
+    table.insert(self.behaviors, b.id)
+    return b.id
+end
+
+-- The players go off the map (A12): a curveball card, at most one a night, when someone at the
+-- table is the type to do it and the scene allows it.
+local FOE_KIND = { goblin_boss = "humanoid", goblin_warrior = "humanoid", bandit_captain = "humanoid", bandit = "humanoid",
+                   tough = "humanoid", cultist = "humanoid", dire_wolf = "beast", wolf = "beast", ghoul = "undead",
+                   skeleton = "undead", zombie = "undead", ogre = "giant" }
+M.FOE_KIND = FOE_KIND
+
+function M:foe_kind(sc)
+    local ids = sc and sc.plan and sc.plan.ids
+    return ids and FOE_KIND[ids[1]] or nil
+end
+
+function M:curveball(sc, chance)
+    if self.curveball_done or self.end_early or self:decision_count() >= 13 or not self.rng:chance(chance or 0.25) then
+        return false
+    end
+    local camp = self.campaign
+    local week = camp.week or 1
+    local eligible, weights = {}, {}
+    for _, card in ipairs(content.curveballs) do
+        local ok = not (camp.cards_once and camp.cards_once[card.id]) and not self.used_cards[card.id]
+            and (card.scenes == nil or util.contains(card.scenes, sc.type))
+            and content.fits_setting(card, sc.comps.location)
+            and (not card.foes or card.foes == self:foe_kind(sc))
+            and self:behavior_fits({ needs = card.needs }, sc, week)
+        if ok then
+            local w = 0
+            for _, p in ipairs(self.players) do
+                w = math.max(w, arch_weight(card.actor[1], p))
+            end
+            if w >= 1.5 then
+                table.insert(eligible, card)
+                table.insert(weights, w)
+            end
+        end
+    end
+    if #eligible == 0 then
+        return false
+    end
+    self.curveball_done = true
+    self.actor = nil
+    self:decision(self.rng:weighted(eligible, weights))
+    return true
+end
+
+-- Before a fight, a hero tries something flashy (A12): a quick check; a win gives the party the
+-- first move. Which stunt depends on what they're up against and who's at the table.
+function M:stunt(sc)
+    local camp = self.campaign
+    camp.stunts_said = camp.stunts_said or {}
+    local week = camp.week or 1
+    local kind = self:foe_kind(sc)
+    local cands, weights = {}, {}
+    for i, st in ipairs(content.stunts) do
+        local last = camp.stunts_said[i]
+        if (not st.foes or st.foes == kind) and content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
+            for _, p in ipairs(self.players) do
+                local w = arch_weight(st.archetype, p)
+                if w > 0 and class_ok(st, p) then
+                    table.insert(cands, { st = st, p = p, i = i })
+                    table.insert(weights, w * 2 ^ (util.clamp(self:mod_for(p, st.skill), -2, 8) / 4))
+                end
+            end
+        end
+    end
+    if #cands == 0 then
+        return nil
+    end
+    local c = self.rng:weighted(cands, weights)
+    local st, p = c.st, c.p
+    camp.stunts_said[c.i] = week
+    self.actor = p
+    self.other = st.other and self:pick_actor(nil, p) or nil
+    local vars = self:vars({ char = p.char, other_char = self.other and self.other.char or "" })
+    self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(st.say, vars)), ic = true })
+    local mod = self:mod_for(p, st.skill)
+    local dc = 12 + util.clamp((sc.difficulty or 2) - 2, -1, 2)
+    local roll = self.rng:d20()
+    local total = roll + mod
+    local success = total >= dc
+    local name = skills.name(st.skill)
+    local result = roll == 20 and "natural 20" or (roll == 1 and "natural 1" or (success and "success" or "miss"))
+    self:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = "
+                    .. util.int(total) .. " vs DC " .. util.int(dc) .. ", " .. result,
+                roll = roll, bonus = mod, total = total, dc = dc, success = success, actor = p.key, char = p.char,
+                skill = st.skill, skill_name = name, crit = roll == 20, fumble = roll == 1 })
+    self:say(util.capitalize(util.fill(success and st.win or st.lose, vars)), success and "good" or "bad")
+    if success then
+        sc.surprise = (sc.surprise == "party") and nil or "foes"
+        score.add(p, "spotlight", 6)
+        score.add(p, "fun", 3)
+        self:react({ [p.key] = "cheer" })
+        if roll == 20 then
+            self:highlight(7, p.char .. " pulls off a stunt nobody will forget", { p })
+        end
+    else
+        score.add(p, "spotlight", 2)
+        for _, q in ipairs(self.players) do
+            score.add(q, "fun", 1)
+        end
+        self:react({ [p.key] = "gasp" })
+    end
+    table.insert(self.checks, success)
+    return success
 end
 
 function M:pick_decision(sc, kinds)
@@ -1577,6 +1863,13 @@ function M:big_roll(spec, record)
         table.insert(rec, { where = where, value = value, cooked = cooked, success = success, tier = tier, ruling = pick,
                             skill = skill, mod = mod, dc = shown_dc, by = by })
     end
+    if by == "player" and p then
+        if reported == 20 then
+            self:table_behavior("after_crit", p)
+        elseif not success and (reported == 1 or tier == "flop") then
+            self:table_behavior("after_fail", p)
+        end
+    end
     if cooked then
         self:maybe_callout(0.35)
     end
@@ -1735,7 +2028,7 @@ function M:decision(card, extra)
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
                             leans = self:leans(o.effects) }
     end
-    if card.type == "rules" and self.rng:chance(0.7) then
+    if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
     end
     local pick = self:emit({ kind = "decision", card = view, actor = self.actor and self.actor.key })
@@ -1770,6 +2063,13 @@ function M:decision(card, extra)
         self.cooks = self.cooks + 1
         self:add_cook_suspicion(o.convenient)
         self:maybe_callout(0.3)
+    end
+    -- A curveball before a fight (A12): talked out of it, or the party moves first.
+    if o.skip_fight and self.scene then
+        self.scene.skip_fight = true
+    end
+    if o.surprise and self.scene then
+        self.scene.surprise = o.surprise
     end
     if o.cut and self.scene then
         self.scene.cut = true
@@ -2207,8 +2507,25 @@ function M:combat_scene(sc)
     for _, c in pairs(sc.comps) do
         owner_here = owner_here or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil and not self:muted(c))
     end
+    local scouted = false
     if ((owner_here and self.rng:chance(0.5)) or self.rng:chance(0.45) or self:idle() > 50) and self:decision_count() < 13 then
         self:scout(sc)
+        scouted = true
+    end
+    -- Somebody at the table has other ideas (A12): talk it down, or a flashy opening move.
+    if self:curveball(sc, 0.2) and sc.skip_fight then
+        sc.result = { winner = "party", rounds = 0, pc_downs = 0, talked = true }
+        sc.outcome = "win"
+        for _, p in ipairs(self.players) do
+            score.add(p, "story", 4)
+            score.add(p, "fun", 2)
+        end
+        self:apply({ { "arch:method_actor", fun = 4 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = -3 } })
+        self:highlight(7, "a fight that ended before it started", self.players)
+        return
+    end
+    if not scouted and self.rng:chance(0.4) then
+        self:stunt(sc)
     end
     self:say(self.talk:fight("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
@@ -2277,8 +2594,33 @@ local SPOTTED = {
              "Too late: they've been seen." },
 }
 
+-- Who leads the way takes turns over the campaign (A4): among those decent at it, whoever has
+-- led least lately goes first, unless it's someone's own story.
+function M:scout_roller(sc)
+    local list = { "stealth", "perception", "survival", "athletics" }
+    local camp = self.campaign
+    camp.scouted = camp.scouted or {}
+    local best = self:pick_roller(list, sc)
+    local owner = sc and sc.owners_rolled and sc.owners_rolled[best.key]
+    if not owner then
+        local least, ln
+        for _, p in ipairs(self.players) do
+            local _, m = self:best_skill(p, list)
+            local n = camp.scouted[p.key] or 0
+            if m >= 3 and (not ln or n < ln) then
+                least, ln = p, n
+            end
+        end
+        if least and ln < (camp.scouted[best.key] or 0) then
+            best = least
+        end
+    end
+    camp.scouted[best.key] = (camp.scouted[best.key] or 0) + 1
+    return best
+end
+
 function M:scout(sc)
-    local best = self:pick_roller({ "stealth", "perception", "survival", "athletics" }, sc)
+    local best = self:scout_roller(sc)
     self.actor = best
     self.other = nil
     self:say(self:fresh(SCOUT[best.class] or SCOUT.rogue, "scout_" .. best.class), "goal")
@@ -2737,6 +3079,7 @@ function M:intro()
         self:bark(who[i], "arrive")
     end
     self:say("Everyone's here. Dice out.", "system")
+    self:table_behavior("start")
     -- The DM's opening: last time, then where tonight starts.
     local recap = story.recap(self.campaign)
     if recap then
@@ -2770,6 +3113,9 @@ function M:run()
                 break
             end
         end
+        if i == #self.scenes and i > 1 then
+            self:table_behavior("late")
+        end
         self:play_scene(sc)
     end
     -- How the shape of the night landed.
@@ -2796,6 +3142,7 @@ function M:run()
     elseif pv.flat then
         self:say("The night never quite catches fire.", "warn")
     end
+    self:table_behavior("end")
     -- A couple of goodbyes, not a speech from everyone.
     local leaving = {}
     for _, p in ipairs(self.players) do

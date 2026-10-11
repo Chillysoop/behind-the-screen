@@ -24,6 +24,13 @@ M.progression = require "game.data.progression"
 M.arc = require "game.data.arc"
 -- What the heroes do in a scene, and the checks they roll (real-session pass).
 M.actions = require "game.data.actions"
+-- More of what real players try (the slice rework, A12), appended to each scene type's list.
+for scene_type, list in pairs(require "game.data.actions_more") do
+    M.actions[scene_type] = M.actions[scene_type] or {}
+    for _, a in ipairs(list) do
+        table.insert(M.actions[scene_type], a)
+    end
+end
 -- Everything the players, characters and NPCs say (M5): game/data/dialogue/.
 M.dialogue = require("game.model.dialogue").load()
 
@@ -253,6 +260,29 @@ for _, d in ipairs(decisions) do
     else
         table.insert(M.decisions, d)
     end
+end
+
+-- What players do at the table (A12): table behaviors, pre-fight stunts, and curveballs,
+-- which become decision cards of their own type, dealt at most once a night.
+local behaviors = require "game.data.table_behaviors"
+M.table_behaviors = behaviors.behaviors
+M.stunts = behaviors.stunts
+M.decision_types.curveball = "Curveball"
+M.curveballs = {}
+for _, cb in ipairs(behaviors.curveballs) do
+    local fight = cb.scenes and (cb.scenes[1] == "combat" or cb.scenes[1] == "set_piece")
+    table.insert(M.curveballs, {
+        id = "cb_" .. cb.id, type = "curveball", curveball = true, scenes = cb.scenes, where = cb.where, foes = cb.foes,
+        needs = cb.needs, fight = fight, actor = { cb.archetype }, title = cb.title, text = cb.desc, once = true,
+        options = {
+            { label = "Yes, and: " .. cb.yes_and, log = cb.yes_and, canon = cb.canon, skip_fight = fight or nil,
+              effects = { { "actor", fun = 6, spotlight = 6 }, { "arch:" .. cb.archetype, fun = 3 }, { "all", story = 3, social = 2 } } },
+            { label = "Yes, but: " .. cb.yes_but, log = cb.yes_but, surprise = fight and "foes" or nil,
+              effects = { { "actor", fun = 3, spotlight = 4 }, { "all", challenge = 4, story = 2 } } },
+            { label = "No. Steer them back to the story.", log = "{actor_char} grumbles, and the story moves on.",
+              effects = { { "actor", fun = -4 }, { "arch:tactician", fun = 1 }, { "all", boredom = 2 } } },
+        },
+    })
 end
 
 M.stock = {}

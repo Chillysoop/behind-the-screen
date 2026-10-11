@@ -490,6 +490,9 @@ local function react(night, f, steps, who)
     if line then
         night:bark(line[1], line[2], line[3])
     end
+    if crit and P and not boss_dead then
+        night:table_behavior("after_crit", P)
+    end
 end
 
 -- The DM's call on a moment the fight created. Returns the chosen option.
@@ -656,7 +659,10 @@ function M.run(night, sc, plan)
         night:emit({ kind = "round", round = r })
         -- Table chatter and the villain's taunts between rounds.
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
-            night:bark(night.rng:pick(night.players), "fight_chat")
+            -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.
+            if not (night.rng:chance(0.5) and night:table_behavior("combat", nil, true)) then
+                night:bark(night.rng:pick(night.players), "fight_chat")
+            end
         end
         if r >= 2 and r % 2 == 0 and f.boss and not f.boss.dead and plan.cast then
             night:npc_line("taunt")

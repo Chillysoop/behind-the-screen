@@ -37,7 +37,10 @@ local GROUP_SINGULAR = { " is ", " has ", " doesn't ", " isn't ", " was ", " loo
                          " crosses", " softens", " clams" }
 
 local stats = { nights = 0, scenes = 0, bridged = 0, lines = 0, repeats = 0, story_repeat = 0, rules_repeat = 0,
-                rolls = {}, roll_total = 0, top2 = 0, owner_scenes = 0, owner_rolled = 0 }
+                rolls = {}, roll_total = 0, top2 = 0, owner_scenes = 0, owner_rolled = 0,
+                behaviors = 0, behavior_ids = {}, curve_nights = 0, curveballs = {}, stunts = 0, talked_down = 0,
+                behavior_line_repeat = 0, actions = {} }
+local said_week = {}     -- campaign line -> week (A12: no table-behavior line twice in three weeks)
 
 local function check_line(text, ev, night)
     stats.lines = stats.lines + 1
@@ -94,6 +97,24 @@ local function play_night(night, rng, dm)
             scene_lines[cur_scene] = {}
             stats.scenes = stats.scenes + 1
         end
+        if ev.kind == "say" and ev.behavior then
+            stats.behaviors = stats.behaviors + 1
+            stats.behavior_ids[ev.behavior] = true
+            local wk = night.campaign.week
+            local last = said_week[ev.text]
+            if last and wk - last < 3 then
+                stats.behavior_line_repeat = stats.behavior_line_repeat + 1
+                flag("table behavior line again within three weeks", ev.text)
+            end
+            said_week[ev.text] = wk
+        end
+        if ev.kind == "say" and ev.ic and ev.who then
+            stats.actions[ev.text] = true
+        end
+        if ev.kind == "decision" and ev.card.type == "curveball" then
+            stats.curveballs[ev.card.id] = (stats.curveballs[ev.card.id] or 0) + 1
+            night.had_curveball = true
+        end
         if ev.kind == "roll_where" and ev.actor then
             -- A4: who rolls, and were they one of the two best at it?
             stats.roll_total = stats.roll_total + 1
@@ -141,6 +162,14 @@ local function play_night(night, rng, dm)
         ev = night:advance(a)
     end
     stats.nights = stats.nights + 1
+    if night.had_curveball then
+        stats.curve_nights = stats.curve_nights + 1
+    end
+    for _, sc in ipairs(night.scenes) do
+        if sc.result and sc.result.talked then
+            stats.talked_down = stats.talked_down + 1
+        end
+    end
     -- A4: in a scene that's someone's story, they (or, in a shared scene, one of them) get a
     -- big roll, when the scene had any big roll at all.
     for i, lines in pairs(scene_lines) do
@@ -186,6 +215,7 @@ for i = 1, RUNS do
         local dm = bots.DMS[dmk]
         c:session_zero(dm.s0)
         local story_seen, rules_seen = {}, {}
+        said_week = {}
         for w = 1, WEEKS do
             local prep = c:start_week()
             bots.prep(dm, c, prep, rng)
@@ -236,6 +266,22 @@ for who, n in pairs(stats.rolls) do
 end
 table.sort(shares)
 local owner = stats.owner_rolled / math.max(1, stats.owner_scenes)
+local per_night = stats.behaviors / math.max(1, stats.nights)
+local distinct = 0
+for _ in pairs(stats.behavior_ids) do
+    distinct = distinct + 1
+end
+local kinds_cb = 0
+for _ in pairs(stats.curveballs) do
+    kinds_cb = kinds_cb + 1
+end
+local curve_rate = stats.curve_nights / math.max(1, stats.nights)
+local actions = 0
+for _ in pairs(stats.actions) do
+    actions = actions + 1
+end
+print(string.format("A12: %.1f table behaviors a night (%d kinds), curveballs in %d%% of nights (%d kinds), %d fights talked down, %d different in-character lines",
+    per_night, distinct, math.floor(curve_rate * 100), kinds_cb, stats.talked_down, actions))
 local top2 = stats.top2 / math.max(1, stats.roll_total)
 local gates = {
     { "No unfilled or generic outcome objects (A2)", (problems["unfilled placeholder"] == nil) and (function()
@@ -253,6 +299,13 @@ local gates = {
     { "Each hero gets 15 to 35% of big rolls (A4): " .. table.concat(shares, ", "), lo >= 0.15 and hi <= 0.35 },
     { string.format("Thread owners roll in their own scenes (A4): %d%%", math.floor(owner * 100)), owner >= 0.9 },
     { string.format("The roller is one of the two best at it (A4): %d%%", math.floor(top2 * 100)), top2 >= 0.8 },
+    -- A12: players play like people. A few table habits a night, lots of different ones, no line
+    -- twice in three weeks; a curveball now and then, not every night.
+    { string.format("2 to 7 table behaviors a night, 40+ kinds (A12): %.1f, %d", per_night, distinct),
+      per_night >= 2 and per_night <= 7 and (distinct >= 40 or stats.nights < 60) },
+    { "No table-behavior line twice in three weeks (A12)", stats.behavior_line_repeat == 0 },
+    { string.format("Curveballs in 15 to 60%% of nights (A12): %d%%", math.floor(curve_rate * 100)),
+      curve_rate >= 0.15 and curve_rate <= 0.6 },
 }
 local ok = true
 for _, g in ipairs(gates) do
