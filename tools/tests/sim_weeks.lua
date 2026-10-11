@@ -148,7 +148,7 @@ local function play_night(night, rng, style, stats)
             text_ok(ev.title, "scene title")
         elseif ev.kind == "improv" then
             text_ok(ev.prompt, "improv prompt")
-            check(#ev.cards >= 3 and #ev.cards <= 5, "improv hand has 3 to 5 cards")
+            check(#ev.cards >= 3 and #ev.cards <= 5, "improv hand has 3 to 5 cards (" .. #ev.cards .. " for " .. tostring(ev.slot or (ev.drift and "drift")) .. ")")
             for _, c in ipairs(ev.cards) do text_ok(c.name, "improv card") end
             if style == "greedy" then
                 answer = {}

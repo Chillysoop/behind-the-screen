@@ -30,17 +30,32 @@ local function person(id)
     end
 end
 
--- This week's beat's reveal and clue for a card, if it's one of this week's story cards.
+-- A story card's reveal and clue, if it still has one to tell (the slice rework): any beat up
+-- to this week can hold it, so a story card you didn't play last week still tells its part
+-- when it does play. Once revealed (deck.lua remembers), the card plays its usual line.
+function M.pending_reveal(campaign, card)
+    if not card then
+        return nil
+    end
+    local deck = require "game.model.deck"
+    local e = deck.entry(campaign, card.id)
+    if e and e.revealed then
+        return nil
+    end
+    local beats = content.arc.beats
+    for i = 1, math.min(campaign.week or 0, #beats) do
+        local b = beats[i]
+        if b.reveal and b.reveal[card.id] then
+            return b.reveal[card.id], b.clues and b.clues[card.id], i
+        end
+    end
+    return nil
+end
+
+-- Kept for callers that ask the old way: the card's reveal and clue, if it has one pending.
 function M.reveal(campaign, card)
-    local beat = campaign:arc_beat()
-    if not (beat and beat.reveal and card) then
-        return nil
-    end
-    local prep = campaign.prep
-    if prep and prep.arc_cards and not prep.arc_cards[card.id] then
-        return nil
-    end
-    return beat.reveal[card.id], beat.clues and beat.clues[card.id]
+    local text, clue = M.pending_reveal(campaign, card)
+    return text, clue
 end
 
 -- Has the party already found this clue?

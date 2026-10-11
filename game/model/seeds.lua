@@ -214,6 +214,20 @@ function M.callback_line(campaign)
     end
 end
 
+-- Cards from a player's backstory a reread could bring to the hand (the story deck): the
+-- thread's cards that are in the deck now but didn't make the hand. Later steps of a thread
+-- only open by playing the earlier ones.
+function M.backstory_pool(campaign, prep, p)
+    local deck = require "game.model.deck"
+    local pool = {}
+    for _, c in ipairs(deck.cards(campaign)) do
+        if c.thread == p.key and not in_hand(prep, c.id) then
+            table.insert(pool, c)
+        end
+    end
+    return pool
+end
+
 -- Can the DM do this activity right now? Returns ok, why.
 function M.can_inspire(campaign, prep, id)
     local a = content.inspiration[id]
@@ -237,14 +251,8 @@ function M.can_inspire(campaign, prep, id)
         if not p then
             return false, "Nobody's coming this week."
         end
-        local left = false
-        for _, kind in ipairs(content.kinds) do
-            for _, c in ipairs(content.by_kind[kind]) do
-                left = left or (c.thread == p.key and not in_hand(prep, c.id))
-            end
-        end
-        if not left then
-            return false, "Every card from " .. p.name .. "'s backstory is already in your hand."
+        if #M.backstory_pool(campaign, prep, p) == 0 then
+            return false, "Nothing new in " .. p.name .. "'s backstory right now."
         end
     end
     return true
@@ -270,7 +278,8 @@ function M.inspire(campaign, prep, id)
         local pool = {}
         for _, c in ipairs(content.reserve.inspiration or {}) do
             local kind_ok = not a.draw.kinds or util.contains(a.draw.kinds, c.kind)
-            if kind_ok and not in_hand(prep, c.id) then
+            local in_deck = require("game.model.deck").entry(campaign, c.id) ~= nil
+            if kind_ok and not in_hand(prep, c.id) and not in_deck then
                 local rank = (seen[c.id] and 2 or 0) + ((a.draw.tags and not has_any(c, a.draw.tags)) and 1 or 0)
                 table.insert(pool, { c = c, rank = rank + rng:next() * 0.5 })
             end
@@ -284,14 +293,7 @@ function M.inspire(campaign, prep, id)
     end
     if a.thread then
         local p = M.backstory_target(campaign)
-        local pool = {}
-        for _, kind in ipairs(content.kinds) do
-            for _, c in ipairs(content.by_kind[kind]) do
-                if c.thread == p.key and not in_hand(prep, c.id) then
-                    table.insert(pool, c)
-                end
-            end
-        end
+        local pool = M.backstory_pool(campaign, prep, p)
         rng:shuffle(pool)
         for i = 1, math.min(a.thread, #pool) do
             take(pool[i])

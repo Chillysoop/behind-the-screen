@@ -13,7 +13,10 @@ HERE="$ROOT/tools/tests/ui_play"
 OUT="${1:-$ROOT/build/ui_play}"
 BOB="${BOB:-/home/claude/defold/bob.jar}"
 JAVA="${JAVA:-/home/claude/defold/jdk/jdk-25.0.2+10/bin/java}"
-DISPLAY_N="${XDISPLAY:-:93}"
+# A free X display (another run, or anything else, may hold :93).
+if [ -n "${XDISPLAY:-}" ]; then DISPLAY_N="$XDISPLAY"; else
+    for n in $(seq 93 120); do [ -e "/tmp/.X$n-lock" ] || [ -e "/tmp/.X11-unix/X$n" ] || { DISPLAY_N=":$n"; break; }; done
+fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"; [ -n "${GPID:-}" ] && kill $GPID 2>/dev/null; [ -n "${XPID:-}" ] && kill $XPID 2>/dev/null' EXIT
 mkdir -p "$OUT"
@@ -37,6 +40,7 @@ printf 'pcm.!default { type null }\nctl.!default { type hw card 0 }\n' > "$WORK/
 Xvfb $DISPLAY_N -screen 0 1600x900x24 >/dev/null 2>&1 &
 XPID=$!
 sleep 1.5
+kill -0 $XPID 2>/dev/null || { echo "Xvfb didn't start on $DISPLAY_N"; exit 1; }
 (cd "$GAME_DIR" && HOME="$WORK/home" XDG_DATA_HOME="$WORK/home/.local/share" LD_LIBRARY_PATH="$WORK/lib" \
     DISPLAY=$DISPLAY_N "$GAME" > "$OUT/engine.log" 2>&1) &
 GPID=$!

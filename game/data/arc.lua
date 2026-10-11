@@ -80,6 +80,11 @@ return {
             },
             -- What the DM is hoping the party walks away with (shown in the notes).
             goal = "The party agrees to look for Old Tobin up the north road.",
+            -- Who's behind it this week, when a scene needs a name and nobody in it fits (the
+            -- slice rework: outcomes always name someone).
+            lead = "Old Tobin, the bell-ringer",
+            culprit = { name = "a scarred stranger who took a room and never slept in it",
+                        secret = "he was asking which key opens the bell tower" },
         },
         {
             title = "The road out",
@@ -107,6 +112,8 @@ return {
                     .. "a key.'",
             },
             goal = "The party finds Tobin's map and learns the hush came from inside the tower.",
+            lead = "a scarred man with a wolf badge",
+            culprit = { name = "the scarred man with the wolf badge", secret = "he's been watching the north road for Kessrick" },
         },
         {
             title = "Old debts",
@@ -140,6 +147,8 @@ return {
                     .. "then he comes.",
             },
             goal = "The party learns who holds the tower, and what it will take to wake the bells.",
+            lead = "Vask, Kessrick's lieutenant",
+            culprit = { name = "Vask, Kessrick's lieutenant", secret = "Vask bought a copy of the tower key in Lowmarket" },
         },
         {
             title = "The silent bell",
@@ -166,6 +175,8 @@ return {
                 cliffhanger = "The bells are awake, and Kessrick's warband knows it. It's coming.",
             },
             goal = "The bells ring again, and the first act ends on Kessrick's horns.",
+            lead = "Kessrick the Wolf",
+            culprit = { name = "Vask", secret = "Vask has been holding the tower for Kessrick all along" },
         },
     },
 

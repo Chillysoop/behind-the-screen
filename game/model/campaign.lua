@@ -15,6 +15,7 @@ local social = require "game.model.social"
 local progression = require "game.model.progression"
 local seeds = require "game.model.seeds"
 local story = require "game.model.story"
+local deck = require "game.model.deck"
 
 local M = {}
 M.__index = M
@@ -58,27 +59,16 @@ function M:slice_done()
     return self.week >= content.arc.SESSIONS and self.report ~= nil
 end
 
--- Put this week's story cards in the hand (only the ones a present player can use).
+-- Mark the story cards in this week's hand (the slice rework: the story deck deals them; any
+-- card with a reveal still to tell counts, whichever week's beat it came from).
 function M:deal_arc_cards(prep)
-    local beat = self:arc_beat()
-    if not beat then
-        return
-    end
-    for _, id in ipairs(beat.cards) do
-        local c = content.components[id]
-        local owner = c and c.thread and self:player(c.thread)
-        if c and (not owner or owner.present) then
-            local list = prep.hand[c.kind]
-            local have = false
-            for _, h in ipairs(list) do
-                have = have or h.id == id
+    for _, kind in ipairs(content.kinds) do
+        for _, c in ipairs(prep.hand[kind] or {}) do
+            if story.pending_reveal(self, c) then
+                prep.arc_cards[c.id] = true
+                -- Story cards play a little better, like inspired ones: you care about them.
+                prep.inspired[c.id] = prep.inspired[c.id] or "story"
             end
-            if not have then
-                table.insert(list, c)
-            end
-            prep.arc_cards[id] = true
-            -- Story cards play a little better, like inspired ones: you care about them.
-            prep.inspired[id] = prep.inspired[id] or "story"
         end
     end
 end
@@ -165,6 +155,7 @@ function M:start_week()
         end
         best.present = true
     end
+    deck.start_week(self)   -- the story deck: follow-ups join, the beat deals its cards
     self.prep = prep_mod.new(self)
     self.leveled_now = nil
     self:deal_arc_cards(self.prep)
@@ -371,6 +362,8 @@ function M:finish_night()
         story.meet(self, self.week, id, how == "revealed")
     end
     story.after_night(self, night)
+    -- The story deck: what's spent, what comes back, and what tonight opened.
+    rep.opened = deck.after_night(self, night)
     local beat = self:arc_beat()
     if beat and beat.finale then
         local played = {}

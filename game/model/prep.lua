@@ -14,95 +14,18 @@ M.__index = M
 
 M.BUDGET = 12
 M.SCENES = 3
-M.HAND_PER_KIND = 5
+M.HAND_PER_KIND = 5      -- (the old random draw, kept for reference; the hand comes from the deck now)
 M.TALK_COST = 2
 M.BASE_QUALITY = 0.62
 
 local IMPROV_ORDER = { "goal", "cast", "location", "complication", "reward" }
 M.IMPROV_ORDER = IMPROV_ORDER
 
--- Draw this week's hand: five per kind, avoiding last week's cards when it
--- can, and making sure a couple of backstory threads show up.
-local function draw_hand(campaign)
-    local rng = campaign.rng
-    local recent = campaign.last_used or {}
-    local hand = {}
-    local present = {}
-    for _, p in ipairs(campaign.players) do
-        if p.present then
-            present[p.key] = true
-        end
-    end
-    for _, kind in ipairs(content.kinds) do
-        local pool = {}
-        local weights = {}
-        for _, c in ipairs(content.by_kind[kind]) do
-            if not c.thread or present[c.thread] then
-                table.insert(pool, c)
-                table.insert(weights, recent[c.id] and 0.25 or 1)
-            end
-        end
-        local picked = {}
-        local taken = {}
-        while #picked < M.HAND_PER_KIND and #picked < #pool do
-            local c = rng:weighted(pool, weights)
-            if not taken[c.id] then
-                taken[c.id] = true
-                table.insert(picked, c)
-            end
-            for i = 1, #pool do
-                if pool[i] == c then
-                    weights[i] = 0
-                end
-            end
-        end
-        hand[kind] = picked
-    end
-    -- At least two thread cards in the hand.
-    local threads = 0
-    for _, kind in ipairs(content.kinds) do
-        for _, c in ipairs(hand[kind]) do
-            if c.thread then
-                threads = threads + 1
-            end
-        end
-    end
-    local tries = 0
-    while threads < 2 and tries < 20 do
-        tries = tries + 1
-        local kind = rng:pick(content.kinds)
-        local options = {}
-        for _, c in ipairs(content.by_kind[kind]) do
-            local already = false
-            for _, h in ipairs(hand[kind]) do
-                if h == c then
-                    already = true
-                end
-            end
-            if c.thread and present[c.thread] and not already then
-                table.insert(options, c)
-            end
-        end
-        local c = rng:pick(options)
-        if c then
-            local list = hand[kind]
-            for i = #list, 1, -1 do
-                if not list[i].thread then
-                    list[i] = c
-                    threads = threads + 1
-                    break
-                end
-            end
-        end
-    end
-    return hand
-end
-
 function M.new(campaign)
     local self = setmetatable({}, M)
     self.campaign = campaign
     self.budget = M.BUDGET
-    self.hand = draw_hand(campaign)
+    self.hand = require("game.model.deck").hand(campaign)   -- the story deck (the slice rework)
     self.talked = {}
     self.scenes = {}
     for i = 1, M.SCENES do

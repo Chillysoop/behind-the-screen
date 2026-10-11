@@ -40,6 +40,7 @@ local fight = require "game.model.fight"
 local social = require "game.model.social"
 local seeds = require "game.model.seeds"
 local story = require "game.model.story"
+local deck = require "game.model.deck"
 local skills = require "game.rules.skills"
 
 local M = {}
@@ -144,6 +145,14 @@ function M.new(campaign, prep, opts)
             encounter = s.encounter,   -- the fight the DM built in prep (combat and set pieces)
         }
     end
+    -- Cards on tonight's board: improv draws from the rest of the story deck.
+    self.on_board = {}
+    for _, s in ipairs(prep.scenes) do
+        for _, c in pairs(s.slots) do
+            self.on_board[c.id] = true
+        end
+    end
+    self.revealed = {}        -- story cards that told their part tonight (deck.lua remembers)
     self.pacing = prep_mod.pacing(prep.scenes, self.players)
     self.co = coroutine.create(function()
         self:run()
@@ -218,8 +227,19 @@ function M:vars(extra)
         local function shown(c)
             return c and not self:muted(c) and c or nil
         end
-        v.cast = shown(sc.comps.cast) and soft_lower(sc.comps.cast.name) or "the locals"
+        local cast = shown(sc.comps.cast)
+        v.cast = cast and soft_lower(cast.short or cast.name) or "the locals"
         v.Cast = util.capitalize(v.cast)
+        -- Who's behind it (a mystery's culprit, a traitor): someone in the scene, never a
+        -- mentor's ghost; else whoever this week's story points at.
+        local beat = self.campaign:arc_beat() or content.arc.beats[#content.arc.beats]
+        local person = cast and not cast.revered and cast.talks ~= false
+        local cul = beat and beat.culprit or {}
+        v.culprit = person and soft_lower(cast.short or cast.name) or cul.name or "someone nobody suspected"
+        v.Culprit = util.capitalize(v.culprit)
+        v.secret = person and cast.secret or cul.secret or "they've been covering for someone"
+        v.deal = cast and cast.deal or "what they came for, on fair terms"
+        v.lead = beat and beat.lead or "a name nobody expected"
         v.location = shown(sc.comps.location) and soft_lower(sc.comps.location.name) or "this place"
         v.goal = shown(sc.comps.goal) and soft_lower(sc.comps.goal.name) or "what they came for"
         v.boss = sc.boss_name or "the villain"
@@ -485,24 +505,48 @@ function M:describe(c, style)
     if not c or self:muted(c) or not self:fits_here(c) then
         return
     end
-    local rev, clue = story.reveal(self.campaign, c)
-    self:say(rev or content.line_for(c, sc and sc.comps.location), style or "narration")
-    if rev then
-        self.story_found = self.story_found or {}
-        for _, f in ipairs(self.story_found) do
-            if f.id == c.id then
-                return
-            end
+    -- A story card tells its part the first time it plays (whichever week's beat it's from);
+    -- a recurring card that's been here before remembers it.
+    local rev, clue
+    if not self.revealed[c.id] then
+        rev, clue = story.pending_reveal(self.campaign, c)
+    end
+    local text = rev
+    if not text then
+        if c.again and deck.returning(self.campaign, c) then
+            text = c.again
+        else
+            text = content.line_for(c, sc and sc.comps.location)
         end
+    end
+    self:say(text, style or "narration")
+    if rev then
+        self.revealed[c.id] = true
         if clue and not story.has_clue(self.campaign, c.id) then
-            table.insert(self.story_found, { id = c.id, text = clue })
-            self:emit({ kind = "clue", id = c.id, text = clue })
+            if c.kind == "goal" and sc then
+                -- A goal's answer comes when the scene pays it off, never in its first line.
+                sc.goal_clue = { id = c.id, text = clue }
+            else
+                self:found_clue(c.id, clue)
+            end
         end
     end
     if c.kind == "cast" then
         self.met = self.met or {}
-        self.met[c.id] = rev and "revealed" or true
+        self.met[c.id] = rev and "revealed" or (self.met[c.id] or true)
     end
+end
+
+-- The party learns something: into the DM's notes (once a night).
+function M:found_clue(id, text)
+    self.story_found = self.story_found or {}
+    for _, f in ipairs(self.story_found) do
+        if f.id == id then
+            return
+        end
+    end
+    table.insert(self.story_found, { id = id, text = text })
+    self:emit({ kind = "clue", id = id, text = text })
 end
 
 function M:terrain_for(sc)
@@ -606,10 +650,47 @@ local function picks_from(answer, cards)
     return picks
 end
 
+-- The story deck's cards that aren't on tonight's board (the slice rework: improv draws from
+-- the same deck as prep), with the hand's leftovers first. Backstory cards of someone who
+-- isn't here stay out.
+function M:improv_pool()
+    local present = {}
+    for _, p in ipairs(self.players) do
+        present[p.key] = true
+    end
+    local pool, seen = {}, {}
+    local function add(c)
+        if c and not seen[c.id] and not self.improvised[c.id] and not self.on_board[c.id]
+            and (not c.thread or present[c.thread]) and not deck.is_spent(self.campaign, c.id) then
+            seen[c.id] = true
+            table.insert(pool, c)
+        end
+    end
+    for _, c in ipairs(self.unused) do
+        add(c)
+    end
+    for _, c in ipairs(deck.cards(self.campaign)) do
+        add(c)
+    end
+    return pool
+end
+
+-- How much a card belongs on an improv hand: this week's story first, then whatever just
+-- joined the deck, then backstory, then the rest.
+function M:improv_rank(c)
+    if self.prep.arc_cards and self.prep.arc_cards[c.id] or story.pending_reveal(self.campaign, c) then
+        return 1
+    elseif deck.is_new(self.campaign, c.id) then
+        return 2
+    elseif c.thread then
+        return 3
+    end
+    return 4
+end
+
 function M:improv_cards(kind)
     local sc = self.scene
     local cards = {}
-    local pool = {}
     -- Only what could happen here: a location has to suit what's already on the scene,
     -- anything else has to suit the location.
     local function fits(c)
@@ -618,22 +699,24 @@ function M:improv_cards(kind)
         end
         return content.fits_setting(c, sc.comps.location)
     end
-    for _, c in ipairs(self.unused) do
-        if c.kind == kind and not self.improvised[c.id] and fits(c) then
-            table.insert(pool, c)
+    local all = self:improv_pool()
+    local pool = {}
+    for _, c in ipairs(all) do
+        if c.kind == kind and fits(c) then
+            table.insert(pool, { c = c, rank = self:improv_rank(c), r = self.rng:next() })
         end
     end
-    for _, id in ipairs(self.campaign.improv_deck) do
-        local c = content.components[id]
-        if c and c.kind == kind and not self.improvised[c.id] and fits(c) then
-            if not util.contains(pool, c) then
-                table.insert(pool, c)
-            end
+    table.sort(pool, function(a, b)
+        if a.rank ~= b.rank then
+            return a.rank < b.rank
         end
-    end
-    self.rng:shuffle(pool)
-    for i = 1, math.min(2, #pool) do
-        local c = pool[i]
+        return a.r < b.r
+    end)
+    -- A goal ("what are we doing here?") and a cast ("who do we talk to?") want answers from the
+    -- story: up to three of those. Anything else: two, then stock moves.
+    local want = (kind == "goal" or kind == "cast" or kind == "location") and 3 or 2
+    for i = 1, math.min(want, #pool) do
+        local c = pool[i].c
         local fit = util.contains(c.fits, sc.type) and "great" or "poor"
         local flag = social.content_flags(self.campaign, { c })[1]
         local warn
@@ -642,13 +725,46 @@ function M:improv_cards(kind)
             warn = flag.kind == "line" and (who .. "'s line") or (flag.kind == "veil" and (who .. "'s veil") or (who .. " asked"))
         end
         table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = fit,
-                              payoff = c.payoff_of ~= nil, warn = warn })
+                              payoff = c.payoff_of ~= nil, warn = warn, story = pool[i].rank == 1 })
     end
-    -- A recurring face or place from the improv deck can join the mix.
+    if kind == "location" or kind == "cast" then
+        -- Somewhere to be, or someone to talk to: no stock moves. Short of three, any place or
+        -- person that suits the scene and isn't spent will do, at a stretch.
+        if #cards < 3 then
+            local have = {}
+            for _, card in ipairs(cards) do
+                have[card.comp.id] = true
+            end
+            -- First pass: everyday places and people that suit the scene; second: anything not
+            -- spent that suits it; last: anything not spent at all, at a stretch.
+            for pass = 1, 3 do
+                local extra = {}
+                for _, c in ipairs(content.by_kind[kind]) do
+                    local everyday = not c.thread and (c.deck or "start") ~= "follow"
+                    if not have[c.id] and not self.improvised[c.id] and not self.on_board[c.id] and (pass == 3 or fits(c))
+                        and not deck.is_spent(self.campaign, c.id) and (pass >= 2 or everyday) then
+                        table.insert(extra, c)
+                    end
+                end
+                table.sort(extra, function(a, b) return a.id < b.id end)
+                self.rng:shuffle(extra)
+                for i = 1, math.min(3 - #cards, #extra) do
+                    local c = extra[i]
+                    have[c.id] = true
+                    table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind],
+                                          fit = (pass < 3 and util.contains(c.fits, sc.type)) and "good" or "poor" })
+                end
+                if #cards >= 3 then
+                    break
+                end
+            end
+        end
+        return cards
+    end
+    -- A recurring face or place from the deck can join the mix.
     local extra = {}
-    for _, id in ipairs(self.campaign.improv_deck) do
-        local c = content.components[id]
-        if c and (c.kind == "cast" or c.kind == "location") and c.kind ~= kind and not self.improvised[c.id]
+    for _, c in ipairs(all) do
+        if (c.kind == "cast" or c.kind == "location") and c.kind ~= kind and deck.returning(self.campaign, c)
             and not sc.comps[c.kind] and fits(c) then
             table.insert(extra, c)
         end
@@ -658,62 +774,8 @@ function M:improv_cards(kind)
         local fit = util.contains(c.fits, sc.type) and "good" or "poor"
         table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = fit, extra = true })
     end
-    if kind == "location" then
-        -- Somewhere to be, nothing else: stock moves don't say where the scene is. Three places
-        -- to pick from: the ones in hand first, then any place that suits the scene and isn't on
-        -- tonight's board.
-        local only = {}
-        local have = {}
-        for _, card in ipairs(cards) do
-            if card.comp and card.comp.kind == "location" and not have[card.comp.id] then
-                have[card.comp.id] = true
-                table.insert(only, card)
-            end
-        end
-        if #only < 3 then
-            local board = {}
-            for _, other in ipairs(self.scenes) do
-                if other.comps.location then
-                    board[other.comps.location.id] = true
-                end
-            end
-            local extra_locs = {}
-            for _, c in ipairs(content.by_kind.location) do
-                if not board[c.id] and not have[c.id] and not self.improvised[c.id] and fits(c) then
-                    table.insert(extra_locs, c)
-                end
-            end
-            self.rng:shuffle(extra_locs)
-            for i = 1, math.min(3 - #only, #extra_locs) do
-                local c = extra_locs[i]
-                table.insert(only, { comp = c, name = c.name, kind_name = content.kind_names[c.kind],
-                                     fit = util.contains(c.fits, sc.type) and "good" or "poor" })
-            end
-        end
-        if #only < 3 then
-            -- What's on the scene already doesn't sit well anywhere: any place will do, at a stretch.
-            local rest = {}
-            for _, c in ipairs(content.by_kind.location) do
-                if not have[c.id] and not self.improvised[c.id] then
-                    local used = false
-                    for _, o in ipairs(only) do
-                        used = used or o.comp == c
-                    end
-                    if not used then
-                        table.insert(rest, c)
-                    end
-                end
-            end
-            self.rng:shuffle(rest)
-            for i = 1, math.min(3 - #only, #rest) do
-                local c = rest[i]
-                table.insert(only, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = "poor" })
-            end
-        end
-        return only
-    end
-    for _, s in ipairs(stock_cards(self, HAND_SIZE - #cards)) do
-        table.insert(cards, s)
+    for _, st in ipairs(stock_cards(self, HAND_SIZE - #cards)) do
+        table.insert(cards, st)
     end
     return cards
 end
@@ -842,8 +904,8 @@ function M:drift()
     end
     local pool = {}
     local loc = self:location()
-    for _, c in ipairs(self.unused) do
-        if (c.kind == "location" or (c.kind == "cast" and content.fits_setting(c, loc))) and not self.improvised[c.id] then
+    for _, c in ipairs(self:improv_pool()) do
+        if (c.kind == "location" or (c.kind == "cast" and not c.foe and not c.villain and content.fits_setting(c, loc))) then
             table.insert(pool, c)
         end
     end
@@ -854,8 +916,8 @@ function M:drift()
         table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = fit_for(c.tags) })
     end
     -- The quantum ogre: move an unused fight onto their new path.
-    for _, c in ipairs(self.unused) do
-        if c.kind == "cast" and content.encounters.by_cast[c.id] and not self.improvised[c.id] then
+    for _, c in ipairs(self:improv_pool()) do
+        if c.kind == "cast" and content.encounters.by_cast[c.id] then
             table.insert(cards, { quantum = true, comp_id = c.id, name = "Quantum ogre: " .. c.name, kind_name = "Unused encounter",
                                   fit = "good", line = "Wherever they go, " .. soft_lower(c.name) .. " turns out to be there too." })
             break
@@ -1897,8 +1959,14 @@ function M:combat_scene(sc)
     if sc.comps.cast and content.encounters.by_cast[sc.comps.cast.id] then
         self:npc_line("taunt")
     end
-    local result = fight.run(self, sc, plan)
+    local result, f = fight.run(self, sc, plan)
     sc.result = result
+    sc.outcome = result.winner == "party" and "win" or "lose"
+    -- A villain (or a fighting cast) who got away comes back another week (the story deck).
+    local cast = sc.comps.cast
+    if cast and (cast.villain or cast.foe) and f and f.fled then
+        sc.escaped = { [cast.id] = true }
+    end
     if result.winner == "party" then
         self:say(self.talk:fight("party_win", self:vars()), "good")
         local poses = {}
@@ -2072,10 +2140,51 @@ function M:climax(sc)
     self.other = nil
     self:say(cl.text, "goal")
     self:react({ [best.key] = "lean" })
-    local spec = { dc = cl.dc + (sc.difficulty - 2) + (sc.edge or 0), convenient = "success", success = cl.success,
-                   fail = cl.fail, skill = cl.skill }
+    -- The goal pays off in its own words (the slice rework): the map found, the culprit named.
+    local success, fail = cl.success, cl.fail
+    local goal = sc.comps.goal
+    if goal and goal.win and not self:muted(goal) then
+        success = { log = goal.win, effects = cl.success.effects }
+        fail = { log = goal.lose or cl.fail.log, effects = cl.fail.effects }
+    end
+    local spec = { dc = cl.dc + (sc.difficulty - 2) + (sc.edge or 0), convenient = "success", success = success,
+                   fail = fail, skill = cl.skill }
     table.insert(self.decisions, { card = "climax_" .. sc.type, option = 0, rolls = {} })
-    self:big_roll(spec)
+    local ok = self:big_roll(spec)
+    sc.outcome = ok and "win" or "lose"
+    sc.goal_said = true
+    self:pay_goal_clue(sc)
+end
+
+-- The goal's story clue, held back from the scene's first line, lands now: when it pays off,
+-- or (the story still moving) when it doesn't.
+function M:pay_goal_clue(sc)
+    local gc = sc.goal_clue
+    if gc then
+        sc.goal_clue = nil
+        self:found_clue(gc.id, gc.text)
+    end
+end
+
+-- A scene that settled without its big moment (the scene card's own roll, a cut, a fight):
+-- how it went, and its goal's payoff in its own words.
+function M:settle_scene(sc)
+    if not sc.outcome then
+        local pr = sc.progress
+        if sc.result then
+            sc.outcome = sc.result.winner == "party" and "win" or "lose"
+        elseif pr then
+            sc.outcome = (pr.wins >= pr.setbacks) and "win" or "lose"
+        else
+            sc.outcome = "win"
+        end
+    end
+    local goal = sc.comps.goal
+    if goal and goal.win and not sc.goal_said and not self:muted(goal) and not self.end_early then
+        sc.goal_said = true
+        self:say(sc.outcome == "win" and goal.win or (goal.lose or goal.win), sc.outcome == "win" and "good" or "bad")
+    end
+    self:pay_goal_clue(sc)
 end
 
 function M:play_scene(sc)
@@ -2205,11 +2314,18 @@ function M:play_scene(sc)
             self:climax(sc)
         end
     end
-    if sc.comps.reward and not self.end_early then
+    self:settle_scene(sc)
+    if sc.comps.reward and not self.end_early and sc.outcome == "lose" then
+        -- A reward they didn't win is still out there (it stays in the story deck).
         local r = sc.comps.reward
         if not self:muted(r) then
-            local rev = story.reveal(self.campaign, r)
-            if rev then
+            self:say("Not tonight: " .. soft_lower(r.got or r.name) .. " stays out of reach. It's still out there.", "bad")
+        end
+    elseif sc.comps.reward and not self.end_early then
+        local r = sc.comps.reward
+        if not self:muted(r) then
+            local rev = story.pending_reveal(self.campaign, r)
+            if rev and not self.revealed[r.id] then
                 self:describe(r, "reward")
             else
                 self:say("They earn " .. soft_lower(r.line), "reward")
