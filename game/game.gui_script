@@ -24,6 +24,7 @@ local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
+local input_trace = require "game.ui.input_trace"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
@@ -47,6 +48,14 @@ local A = {
     text = hash("text"),
     backspace = hash("backspace"),
     notes = hash("next_cell"),   -- N: the DM's notes (it's "next cell" in the review queue)
+    wheel_up = hash("zoom_in"),
+    wheel_down = hash("zoom_out"),
+}
+
+-- Number keys: the camera on game night, but a card's options while one is up (the fix pass).
+local NUMKEY = {
+    [hash("zoom_room")] = 1, [hash("zoom_table")] = 2, [hash("zoom_imagination")] = 3, [hash("zoom_dice")] = 4,
+    [hash("key5")] = 5, [hash("key6")] = 6,
 }
 
 local function block_camera(on)
@@ -254,7 +263,10 @@ function init(self)
         end
         app.campaign = c
         app.resume = nil
-        if c.week >= content.arc.SESSIONS and not c.slice_survey_done then
+        if c.at_night and c.prep then
+            -- Saved at "Run game night": the same board, the same night, from its start.
+            app.go("night")
+        elseif c.week >= content.arc.SESSIONS and not c.slice_survey_done then
             app.slice_seen = true
             app.go("slice_end")
         else
@@ -333,6 +345,10 @@ function init(self)
             msg.post(TABLE, "seats", {})
             app.zoom(2)
         elseif screen == "night" then
+            -- Save the board first (the fix pass): quitting anywhere in the night, or a night
+            -- that gets stuck, comes back to the start of this night with the prep intact.
+            app.campaign.at_night = true
+            app.save_campaign()
             app.prep_seconds = app.time - (app.prep_started or app.time)
             app.night_started = app.time
             app.screen = "night"
@@ -368,6 +384,8 @@ function init(self)
         ambience.sfx("click")
     end
     ambience.screen(app, "intro")
+    -- Real-click tracing for tools/tests/ui_play/ (off in every normal build).
+    app.input_trace = input_trace.start()
     -- The in-engine autotest (tools/tests/engine_check.sh); off in every normal build.
     local ok_at, at_mode = pcall(sys.get_config_int, "behind_the_screen.autotest", 0)
     if ok_at and at_mode and at_mode > 0 then
@@ -383,6 +401,7 @@ end
 function update(self, dt)
     local app = self.app
     app.time = app.time + dt
+    input_trace.tick(dt)
     if app.autotest then
         guard(self, require("game.ui.autotest").update, app, dt)
     end
@@ -427,6 +446,9 @@ end
 
 function on_input(self, action_id, action)
     local app = self.app
+    if action_id == A.touch and input_trace.on then
+        input_trace.touch(action)
+    end
     if action_id == A.sandbox and action.pressed and not app.tester_build then
         toggle_sandbox(self)
         return true
@@ -576,6 +598,25 @@ function on_input(self, action_id, action)
         end
     end
     if app.screen == "night" then
+        -- A card is up: number keys pick its options, Enter plays the improv cards you picked.
+        if app.pending and not app.overlay and NUMKEY[action_id] then
+            if action.pressed then
+                guard(self, night_view.pick_key, app, NUMKEY[action_id])
+            end
+            return true
+        end
+        if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
+            and app.pending.kind == "improv" then
+            guard(self, night_view.play_improv, app)
+            return true
+        end
+        -- The mouse wheel scrolls the open log when it's over it (and zooms the camera elsewhere).
+        if (action_id == A.wheel_up or action_id == A.wheel_down) and night_view.over_log(app, action.x, action.y) then
+            if action.pressed then
+                guard(self, night_view.scroll_log, app, action_id == A.wheel_up and 3 or -3)
+            end
+            return true
+        end
         if (action_id == A.roll or action_id == A.confirm) and action.pressed then
             guard(self, night_view.skip, app)
             return true

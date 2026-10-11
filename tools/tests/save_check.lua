@@ -160,6 +160,73 @@ do
             "the campaign card is back in the game data after loading")
     end
 end
+-- The fix pass: a save made at "Run game night" keeps the board, and loading it plays the same
+-- night from its start, then carries on as if it had never stopped.
+for _, dm_key in ipairs(bots.ORDER) do
+    local dm = bots.DMS[dm_key]
+    for stop = 1, content.arc.SESSIONS do
+        local seed = 9300 + stop * 17
+        local a = campaign_mod.new(seed)
+        local rng = rng_mod.new(seed + 5)
+        a:session_zero(dm.s0)
+        for w = 1, stop - 1 do
+            play_week(a, dm, rng)
+        end
+        local prep = a:start_week()
+        bots.prep(dm, a, prep, rng)
+        a.at_night = true
+        local src = save.dump(a)
+        a.at_night = nil
+        local b, err = save.load(src)
+        check(b ~= nil and b.at_night and b.prep ~= nil and getmetatable(b.prep) == getmetatable(prep),
+            string.format("%s: a save at game night %d loads with its board (%s)", dm_key, stop, tostring(err)))
+        check(save.peek(src).at_night, dm_key .. ": the header says it was saved at game night")
+        if b then
+            check(save.dump(b) == src, dm_key .. ": saving the loaded game-night copy gives the same file")
+            local types_a, types_b = {}, {}
+            for i, sc in ipairs(prep.scenes) do
+                types_a[i] = tostring(sc.type) .. ":" .. tostring(prep:spent())
+                types_b[i] = tostring(b.prep.scenes[i].type) .. ":" .. tostring(b.prep:spent())
+            end
+            check(table.concat(types_a, ",") == table.concat(types_b, ","), dm_key .. ": the board comes back as built")
+            local rs = rng.s
+            local rng_b = rng_mod.new(1)
+            rng_b.s = rs
+            local function night_of(c, r)
+                local night = c:start_night()
+                bots.play_night(night, r, dm)
+                local rep = c:finish_night()
+                local out = telemetry.week_record(c, 300, night.clock)
+                if dm.level and rep.level.ready then
+                    c:level_up()
+                end
+                return out
+            end
+            local want = night_of(a, rng)
+            local got = night_of(b, rng_b)
+            check(want == got, string.format("%s: game night %d plays the same after loading at Run game night (%s)",
+                dm_key, stop, want == got and "" or first_diff(want, got)))
+            check(not b.at_night, dm_key .. ": the night clears the game-night flag")
+            local after = save.dump(b)
+            check(not string.find(after, "\nN=1"), dm_key .. ": the save after the night is an ordinary between-weeks save")
+            local wa, wb = play_week(a, dm, rng), play_week(b, dm, rng_b)
+            check(wa == wb, dm_key .. ": the week after plays the same too")
+        end
+    end
+end
+-- A game-night save whose board is missing falls back to prep instead of a broken night.
+do
+    local c = campaign_mod.new(41)
+    c:session_zero()
+    c:start_week()
+    c.at_night = true
+    local src = string.gsub(save.dump(c), "\nN=1", "\nN=1")
+    local saved_prep = c.prep
+    c.prep = nil
+    local b = save.load(save.dump(c))
+    check(b and not b.at_night, "a game-night save without its board loads as a between-weeks save")
+    c.prep = saved_prep
+end
 local head = save.peek(save.dump(campaign_mod.new(5)))
 check(head and head.week == 0 and head.seed == 5, "the header says the week and seed")
 

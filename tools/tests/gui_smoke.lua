@@ -98,6 +98,7 @@ function gui.get_text(n) if chk(n, "get_text") then return n.text or "" end retu
 function gui.set_euler(n, v) chk(n, "set_euler"); num(v.z, "euler.z"); n.euler = v.z end
 gui.set_rotation = gui.set_euler
 function gui.set_enabled(n, e) if chk(n, "set_enabled") then n.enabled = e end end
+function gui.is_enabled(n) if chk(n, "is_enabled") then return n.enabled ~= false end return false end
 function gui.set_render_order() end
 function gui.set_adjust_mode() end
 function gui.cancel_animation() end
@@ -783,6 +784,65 @@ if #problems == 0 then
         if app.campaign == was then problem("continuing reused the old campaign table") end
         dump("24_prep_after_continue")
         play_resumed_night(" (after continuing)")
+        -- The fix pass: quitting in the middle of game night keeps the board. The save made at
+        -- "Run game night" brings back the same night, from its start.
+        do
+            local c = app.campaign
+            if app.screen ~= "prep" then problem("not on prep before the mid-night quit (" .. tostring(app.screen) .. ")") end
+            c.prep:set_type(1, "social"); c.prep:set_type(2, "combat"); c.prep:set_type(3, "mystery")
+            app.refresh()
+            local wk, spent = c.week, c.prep:spent()
+            if not click_label("Run game night") then problem("no run button before the mid-night quit") end
+            for _ = 1, 30 do
+                call(update, self, 0.4)
+                if app.pending then break end
+            end
+            -- Number keys pick a card's options, and the open log scrolls under the wheel.
+            if app.pending then
+                local before = app.card_seq
+                key("zoom_room")
+                if app.pending and app.pending.kind ~= "improv" then problem("key 1 didn't answer the " .. app.pending.kind .. " card") end
+            end
+            key("log")
+            for _ = 1, 4 do call(update, self, 0.4) end
+            call(on_input, self, "zoom_in", { pressed = true, x = 200, y = 900 - 300 })
+            if #app.log > 3 and (app.log_scroll or 0) == 0 then problem("the wheel didn't scroll the open log") end
+            key("log")
+            restart()
+            local found = false
+            for _, b in ipairs(buttons()) do
+                if b.key == "continue" and string.find(label_of(b), "night", 1, true) then found = true end
+            end
+            if not found then problem("Continue doesn't say it goes back to game night") end
+            click_key("continue")
+            if app.screen ~= "night" then problem("continuing a mid-night quit went to " .. tostring(app.screen)) end
+            if app.campaign.week ~= wk then problem("the mid-night quit came back at week " .. app.campaign.week .. ", not " .. wk) end
+            local p2 = app.campaign.prep
+            if not p2 or p2.scenes[2].type ~= "combat" or p2.scenes[3].type ~= "mystery" or p2:spent() ~= spent then
+                problem("the board didn't survive the mid-night quit")
+            end
+            dump("24b_night_after_quit")
+            local guard = 0
+            while app.screen == "night" and not app.night_done and guard < 8000 do
+                guard = guard + 1
+                call(update, self, 0.4)
+                if app.rolling then
+                    call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
+                elseif app.pending then
+                    -- Every other card by number key, the rest by clicking.
+                    if guard % 2 == 0 and app.pending.kind ~= "improv" then
+                        key("zoom_table")
+                        if app.pending then key("zoom_room") end
+                    else
+                        local bs = buttons()
+                        if not click_label("Play") and #bs > 0 then click(bs[1]) end
+                    end
+                end
+            end
+            if not app.night_done then problem("the night after the mid-night quit never finished") end
+            if not click_label("See how everyone felt") then problem("no report button after the mid-night quit") end
+            if leave_report(" (after the mid-night quit)") then stats.weeks = stats.weeks + 1 end
+        end
         -- "New campaign" next to Continue asks first, then starts over (Enter would continue).
         restart()
         click_key("new_campaign")

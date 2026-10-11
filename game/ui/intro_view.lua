@@ -29,7 +29,9 @@ function M.build(app)
         -- A campaign saved between sessions (M7): carry on, or start a new one.
         local sessions = content.arc.SESSIONS
         local label
-        if saved.week >= sessions and not saved.survey_done then
+        if saved.at_night then
+            label = "Continue: Session " .. saved.week .. " night  >"   -- saved at Run game night
+        elseif saved.week >= sessions and not saved.survey_done then
             label = "Continue: end of the first act  >"
         elseif saved.week >= sessions then
             label = "Continue: Session " .. (saved.week + 1) .. "  >"

@@ -102,6 +102,14 @@ key_trigger {
   input: KEY_BACKSPACE
   action: "backspace"
 }
+key_trigger {
+  input: KEY_5
+  action: "key5"
+}
+key_trigger {
+  input: KEY_6
+  action: "key6"
+}
 mouse_trigger {
   input: MOUSE_WHEEL_UP
   action: "zoom_in"

@@ -8,7 +8,7 @@
 -- answers the beats that need the DM.
 --
 -- Keys: Space skip   F speed 1x/2x/4x   Tab log   H your rolls hidden/open
---       T gentle timer on decisions   1-4 camera   N your notes
+--       T gentle timer on decisions   1-4 camera, or a card's options   N your notes
 --
 -- The real-session pass: the player panels (game/ui/panels.lua) show who's who, their faces
 -- and their dice; fights show everyone's hit points, conditions, spell areas and the turn
@@ -24,6 +24,7 @@ local util = require "game.model.util"
 local review = require "game.ui.review_view"
 local panels = require "game.ui.panels"
 local battle_hud = require "game.ui.battle_hud"
+local input_trace = require "game.ui.input_trace"
 
 local M = {}
 
@@ -215,7 +216,7 @@ function M.draw_frame(app)
         end
     end, { font = "ui14", key = "night_notes" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip    F speed    Tab log    N notes    H your rolls    T timer    1-4 camera", "ui14", theme.faint,
+    kit.text(1576, 32, "Space skip    F speed    Tab log    N notes    H your rolls    T timer    1-4 camera or a card's options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
@@ -319,11 +320,17 @@ function M.draw_log(app)
         kit.text(LOG_X + LOG_W - 12, LOG_Y + LOG_H - 22, "Tab: hide the log", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
         local w = LOG_W - 32
         local y = LOG_Y + LOG_H - 34
-        for i = #app.log, 1, -1 do
+        local back = math.max(0, math.min(app.log_scroll or 0, #app.log - 1))
+        app.log_scroll = back
+        if back > 0 then
+            kit.text(LOG_X + 12, LOG_Y + LOG_H - 22, "Scrolled back: wheel down for newer", "ui14", theme.gold)
+        end
+        local first_shown = nil
+        for i = #app.log - back, 1, -1 do
             local e = app.log[i]
             local font = (e.style == "scene") and "ui18b" or "ui18"
             local h = kit.text_height(e.text, font, w) + (e.style == "scene" and 14 or 6)
-            if y - h < LOG_Y + 10 then
+            if y - h < LOG_Y + 30 then
                 break
             end
             y = y - h
@@ -333,6 +340,18 @@ function M.draw_log(app)
                 kit.box(LOG_X + 10, y + 2, LOG_W - 20, h - 6, kit.rgba("#ffffff", 0.07), { radius = 6 })
             end
             kit.text(LOG_X + 16, y + (e.style == "scene" and 7 or 0), e.text, font, color, { w = w })
+            first_shown = i
+        end
+        if first_shown and first_shown > 1 then
+            kit.text(LOG_X + 16, LOG_Y + 8, "Wheel up for earlier", "ui14", theme.faint)
+        end
+        -- A card that's up stays on top of the log.
+        local modal = app.layers.modal
+        local ref = modal and modal.nodes and modal.nodes[1]
+        if ref and gui.move_below then
+            for _, n in ipairs(l.nodes) do
+                gui.move_below(n, ref)
+            end
         end
     else
         -- The last few lines, small and fading, out of the way of the table. Long lines wrap
@@ -364,15 +383,32 @@ function M.draw_log(app)
 end
 
 function M.push(app, text, style)
+    -- The log keeps the whole night (the fix pass); scrolled back, the view stays put.
     table.insert(app.log, { text = text, style = style })
-    if #app.log > 80 then
-        table.remove(app.log, 1)
+    if (app.log_scroll or 0) > 0 then
+        app.log_scroll = app.log_scroll + 1
     end
     M.draw_log(app)
 end
 
 function M.toggle_log(app)
     app.log_open = not app.log_open
+    app.log_scroll = 0
+    M.draw_log(app)
+end
+
+-- Is the pointer over the open log? (The mouse wheel scrolls it there, and zooms elsewhere.)
+function M.over_log(app, x, y)
+    if not app.log_open then
+        return false
+    end
+    local ly = kit.H - y
+    return x >= LOG_X and x <= LOG_X + LOG_W and ly >= LOG_Y and ly <= LOG_Y + LOG_H
+end
+
+-- lines > 0 goes back to earlier lines.
+function M.scroll_log(app, lines)
+    app.log_scroll = math.max(0, (app.log_scroll or 0) + lines)
     M.draw_log(app)
 end
 
@@ -1288,6 +1324,9 @@ end
 
 function M.answer(app, value)
     local ev = app.pending
+    if input_trace.on then
+        input_trace.log("answer", tostring(ev and ev.kind) .. " " .. tostring(value))
+    end
     app.pending = nil
     app.pending_left = nil
     M.close_modal(app)
@@ -1295,6 +1334,68 @@ function M.answer(app, value)
         rest_cam(app)
     end
     M.step(app, value)
+end
+
+-- Number keys pick a card's options (the fix pass): 1 to 4 on any card, and on the improv hand
+-- they pick cards (Enter plays them). A fallback that works even when a click doesn't.
+function M.pick_key(app, n)
+    local ev = app.pending
+    if not ev then
+        return false
+    end
+    if ev.kind == "decision" then
+        if ev.card and ev.card.options[n] then
+            M.answer(app, n)
+            return true
+        end
+    elseif ev.kind == "ruling" then
+        if ev.options and ev.options[n] then
+            M.answer(app, n)
+            return true
+        end
+    elseif ev.kind == "roll_where" then
+        if n == 1 or n == 2 then
+            M.answer(app, n == 1 and "open" or "hidden")
+            return true
+        end
+    elseif ev.kind == "cook" then
+        if n == 1 or n == 2 then
+            M.answer(app, n == 2)
+            return true
+        end
+    elseif ev.kind == "improv" then
+        if ev.cards and ev.cards[n] then
+            local b = M.find_button(app, "improv_card_" .. n)
+            if b then
+                b.on_click(b)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Enter on the improv hand plays what's picked.
+function M.play_improv(app)
+    local ev = app.pending
+    if ev and ev.kind == "improv" then
+        local b = M.find_button(app, "improv_play")
+        if b and b.enabled then
+            b.on_click(b)
+            return true
+        end
+    end
+    return false
+end
+
+function M.find_button(app, key)
+    local l = app.layers.modal
+    for _, b in ipairs(l and l.buttons or {}) do
+        if b.key == key then
+            return b
+        end
+    end
+    return nil
 end
 
 -- Cards ------------------------------------------------------------------------------------------
@@ -1314,12 +1415,16 @@ local function badge(x, y, label, color)
     kit.text(x + 12, y + 4, label, "ui14", theme.text)
 end
 
+-- Every card option shows its number key (1, 2, 3...) at its right edge (the fix pass).
+local KEY_PAD = 34
+
 local function option_height(label, w)
-    return 20 + kit.text_height(label, "ui18b", w - 28)
+    return 20 + kit.text_height(label, "ui18b", w - 28 - KEY_PAD)
 end
 
 -- Cards slide in from their side of the screen.
 local function slide_in(layer, dx)
+    kit.rest_hits(layer)   -- a click while it slides lands where the button is going
     for _, n in ipairs(layer.nodes) do
         local p = gui.get_position(n)
         gui.set_position(n, vmath.vector3(p.x + dx, p.y, p.z))
@@ -1414,7 +1519,7 @@ function M.show_modal(app, ev, instant)
             kit.button(x + 20, oy, w - 40, oh, label, function()
                 M.answer(app, i)
             end, { align = "left", color = card.options[i].cooked and theme.decision.screen or theme.button,
-                   hover = theme.button_hover })
+                   hover = theme.button_hover, key_hint = i })
             if lean_h[i] > 0 then
                 M.draw_leans(app, x + 34, oy + oh - 32, card.options[i].leans)
             end
@@ -1456,7 +1561,7 @@ function M.show_modal(app, ev, instant)
             local tone = ev.options[i].tone
             kit.button(x + 20, oy, w - 40, oh, label, function()
                 M.answer(app, i)
-            end, { align = "left", color = theme.button, hover = theme.button_hover })
+            end, { align = "left", color = theme.button, hover = theme.button_hover, key_hint = i })
             kit.box(x + 20, oy, 6, oh, tone == "good" and theme.green or (tone == "bad" and theme.red or theme.gold),
                 { round = false })
             oy = oy + oh + 10
@@ -1480,10 +1585,10 @@ function M.show_modal(app, ev, instant)
             or "Roll it behind your screen\nOnly you see it. You could misread it..."
         kit.button(x + 20, oy, w - 40, 58, open_label, function()
             M.answer(app, "open")
-        end, { align = "left", pad_y = 8, color = theme.button, hover = theme.button_hover })
+        end, { align = "left", pad_y = 8, color = theme.button, hover = theme.button_hover, key_hint = 1 })
         kit.button(x + 20, oy + 68, w - 40, 58, hidden_label, function()
             M.answer(app, "hidden")
-        end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover })
+        end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover, key_hint = 2 })
         timer_bar(app, x + 20, oy + 136, w - 40, "in the open")
         slide = -640
     elseif ev.kind == "cook" then
@@ -1515,19 +1620,29 @@ function M.show_modal(app, ev, instant)
         local oy = y + 110 + text_h
         kit.button(x + 20, oy, w - 40, 58, "Keep it honest\nCall it " .. verdict .. ".", function()
             M.answer(app, false)
-        end, { align = "left", pad_y = 8, color = theme.button, hover = theme.button_hover })
+        end, { align = "left", pad_y = 8, color = theme.button, hover = theme.button_hover, key_hint = 1 })
         local cook_label = player_roll
             and ("Move the DC\nSay it was " .. (ev.success and "higher: a miss" or "lower: a success") .. ". Someone might wonder.")
             or ("Cook it\nCall it " .. (ev.success and "a miss" or "a success") .. ". Someone might notice.")
         kit.button(x + 20, oy + 68, w - 40, 58, cook_label, function()
             M.answer(app, true)
-        end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover })
+        end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover, key_hint = 2 })
         timer_bar(app, x + 20, oy + 136, w - 40, "keep it honest")
         slide = -640
     end
+    M.trace_card(app, ev)   -- before the slide, so the trace has where the buttons come to rest
     if not instant and slide ~= 0 then
         slide_in(app.layers.modal, slide)
     end
+end
+
+-- For the real-click harness (tools/tests/ui_play/): which card is up and where its buttons are.
+function M.trace_card(app, ev)
+    if not input_trace.on then
+        return
+    end
+    app.card_seq = (app.card_seq or 0) + 1
+    input_trace.log("card", util.int(app.card_seq) .. " " .. tostring(ev.kind) .. " " .. input_trace.buttons())
 end
 
 -- Who at the table would enjoy an option (green) and who wouldn't (red): their faces, the DM's read.
@@ -1589,7 +1704,8 @@ function M.draw_improv(app, ev)
             end
             app.improv_sel = sel
             M.show_modal(app, ev, true)
-        end, { color = on and theme.go or theme.button, hover = theme.button_hover })
+        end, { color = on and theme.go or theme.button, hover = theme.button_hover, key = "improv_card_" .. i,
+               key_hint = i <= 6 and i or nil, key_hint_bottom = true })
         if on then
             kit.box(cx, cy, cw, 5, theme.gold, { round = false })
         end
@@ -1637,7 +1753,10 @@ function M.draw_improv(app, ev)
             end
         end
         M.answer(app, list)
-    end, { enabled = #picked > 0, color = theme.go, hover = theme.go_hover })
+    end, { enabled = #picked > 0, color = theme.go, hover = theme.go_hover, key = "improv_play" })
+    if #picked > 0 then
+        kit.text(bx + 600 - 206, by + 28, "Enter", "ui14", theme.faint, { pivot = gui.PIVOT_E })
+    end
 end
 
 function M.show_done(app)

@@ -20,6 +20,8 @@ local M = {}
 
 M.FORMAT = 1
 M.SKIP = { prep = true, night = true, report = true }   -- top-level campaign fields not saved
+-- ...except the prep board when the save was made at "Run game night" (campaign.at_night, the
+-- fix pass): then the board is kept, and loading starts that night again with it intact.
 
 -- Classes with metatables that can be part of the saved state. The talker's metatable
 -- is filled in lazily (game.model.talk requires content, which is fine, but keep the
@@ -29,6 +31,7 @@ local function classes()
         campaign = require "game.model.campaign",
         rng = require "game.model.rng",
         talk = require "game.model.talk",
+        prep = require "game.model.prep",
     }
 end
 
@@ -173,7 +176,7 @@ function M.dump(campaign)
             fields[1] = "m=" .. str(name)
         end
         for _, k in ipairs(sorted_keys(t)) do
-            if not (t == campaign and M.SKIP[k]) then
+            if not (t == campaign and M.SKIP[k] and not (k == "prep" and campaign.at_night)) then
                 local v = rawget(t, k)
                 local where = "table " .. i .. "." .. tostring(k)
                 table.insert(fields, value(k, where) .. "," .. value(v, where))
@@ -189,8 +192,8 @@ function M.dump(campaign)
         table.insert(out, "T[" .. i .. "]={" .. table.concat(fields, ",") .. "}")
         i = i + 1
     end
-    local head = string.format("F=%d\nW=%d\nS=%s\nQ=%d\n", M.FORMAT, campaign.week or 0, num(campaign.seed or 0),
-        campaign.slice_survey_done and 1 or 0)
+    local head = string.format("F=%d\nW=%d\nS=%s\nQ=%d\nN=%d\n", M.FORMAT, campaign.week or 0, num(campaign.seed or 0),
+        campaign.slice_survey_done and 1 or 0, campaign.at_night and 1 or 0)
     return head .. table.concat(out, "\n") .. "\n"
 end
 
@@ -272,7 +275,8 @@ function M.peek(src)
     if not (f and w) then
         return nil
     end
-    return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil }
+    return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil,
+             at_night = string.match(src, "\nN=1") ~= nil }
 end
 
 -- string -> campaign, or nil and why.
@@ -334,6 +338,9 @@ function M.load(src)
     local campaign = tables[1]
     if getmetatable(campaign) ~= cls.campaign then
         return nil, "broken save: no campaign in it"
+    end
+    if campaign.at_night and not campaign.prep then
+        campaign.at_night = nil   -- a board that didn't make it into the save: back to prep
     end
     for _, card in ipairs(campaign.registered or {}) do
         content.register(card)

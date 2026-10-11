@@ -9,6 +9,9 @@
 --   autotest = 4   the real-session pass, shown off: a story board with a built fight, the notes,
 --                  a character sheet and the encounter builder, then game night with shots of a
 --                  skill check, a clue, a decision, a fight and a spell; quit at the report
+--   autotest = 5   real clicks (tools/tests/ui_play/): drive every screen at 2x, but leave every
+--                  game-night card for an outside harness to click with real X input; quit after
+--                  behind_the_screen.autotest_weeks sessions (default 6)
 
 local kit = require "game.ui.kit"
 
@@ -253,6 +256,12 @@ function M.update(app, dt)
             return
         end
         local wk = app.campaign.week
+        if a.mode == 5 then
+            local ok, n = pcall(sys.get_config_int, "behind_the_screen.autotest_weeks", 6)
+            if a.weeks >= ((ok and n and n > 0) and n or 6) then
+                return finish(a, true, "played " .. a.weeks .. " sessions with real clicks")
+            end
+        end
         if a.mode == 1 and wk >= 3 then
             return finish(a, true, "reached the prep for session 3")
         end
@@ -282,6 +291,13 @@ function M.update(app, dt)
             if not shot(a, "night_done_" .. app.campaign.week) then
                 by_label("See how everyone felt")
             end
+        elseif app.pending and a.mode == 5 then
+            -- The harness clicks the card; just keep the night at 2x.
+            app.speed_i = 2
+            if not a.handed then
+                a.handed = true
+                say("handover")
+            end
         elseif app.pending then
             if a.mode == 4 and (app.pending.kind == "decision" or app.pending.kind == "roll_where") and not a.shots[app.pending.kind] then
                 shot(a, app.pending.kind)
@@ -301,10 +317,24 @@ function M.update(app, dt)
                 a.last_night_shot = a.t
                 return
             end
-            nv.skip(app)
+            if a.mode == 5 then
+                -- 2x like the playtest; skipping ahead between cards unless autotest_skip = 0.
+                app.speed_i = 2
+                local ok, sk = pcall(sys.get_config_int, "behind_the_screen.autotest_skip", 1)
+                if not ok or sk ~= 0 then
+                    nv.skip(app)
+                end
+            else
+                nv.skip(app)
+            end
         end
         a.wait = 0.05
     elseif s == "report" then
+        if a.mode == 5 and not app.quick and a.counted_week ~= app.campaign.week then
+            a.counted_week = app.campaign.week
+            a.weeks = a.weeks + 1
+            say("session " .. app.campaign.week .. " done")
+        end
         if (a.mode == 3 or a.mode == 4) and a.shots["report_" .. app.campaign.week] then
             return finish(a, true, "saw the first report")
         end

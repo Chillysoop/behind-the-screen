@@ -278,13 +278,21 @@ function M.button(x, y, w, h, label, on_click, opts)
         tc = M.rgba("#8a7c6a")
     end
     local label_node
+    local hint_w = (opts.key_hint and not opts.key_hint_bottom) and 34 or 0
+    if opts.key_hint then
+        -- The number key that also presses it, at the right edge.
+        local kx, ky = x + w - 30, opts.key_hint_bottom and (y + h - 30) or (y + 8)
+        M.box(kx, ky, 22, 22, M.rgba("#000000", 0.22), { radius = 5 })
+        M.text(kx + 11, ky + 11, tostring(opts.key_hint), "ui14", M.rgba(enabled and "#f3e7cf" or "#8a7c6a", 0.85),
+            { pivot = gui.PIVOT_CENTER })
+    end
     if opts.align == "left" then
-        label_node = M.text(x + 14, y + (opts.pad_y or 10), label, font, tc, { w = w - 28 })
+        label_node = M.text(x + 14, y + (opts.pad_y or 10), label, font, tc, { w = w - 28 - hint_w })
     else
         label_node = M.text(x + w / 2, y + h / 2, label, font, tc, { pivot = gui.PIVOT_CENTER, w = w - 20 })
     end
     local b = { node = bg, label = label_node, on_click = on_click, enabled = enabled, color = color, hover = hover,
-                key = opts.key, on_hover = opts.on_hover }
+                key = opts.key, on_hover = opts.on_hover, rect = { x, y, w, h } }
     table.insert(M.current.buttons, b)
     return b
 end
@@ -355,6 +363,20 @@ local function over_pinned_panel(x, y)
     return false
 end
 
+-- Is the point on the button? A button that's sliding into place (a card coming in) answers
+-- where it will come to rest, so a click made while it's still moving isn't lost (the fix pass).
+local function on_button(b, x, y)
+    if b.rect_hit and b.rect then
+        if not gui.is_enabled(b.node) then
+            return false
+        end
+        local r = b.rect
+        local ly = M.H - y
+        return x >= r[1] and x <= r[1] + r[3] and ly >= r[2] and ly <= r[2] + r[4]
+    end
+    return gui.pick_node(b.node, x, y)
+end
+
 function M.hit(x, y)
     local checked = false
     for _, b in ipairs(topmost_buttons()) do
@@ -364,11 +386,18 @@ function M.hit(x, y)
                 return nil
             end
         end
-        if b.enabled and gui.pick_node(b.node, x, y) then
+        if b.enabled and on_button(b, x, y) then
             return b
         end
     end
     return nil
+end
+
+-- The buttons of a layer whose nodes are about to slide in: hit-test them where they'll rest.
+function M.rest_hits(l)
+    for _, b in ipairs(l and l.buttons or {}) do
+        b.rect_hit = true
+    end
 end
 
 -- True if the point is over any node of a modal layer or a given layer.
@@ -408,7 +437,7 @@ end
 -- A disabled button with something to say on hover (on_hover), under the pointer.
 function M.hover_only(x, y)
     for _, b in ipairs(topmost_buttons()) do
-        if not b.enabled and b.on_hover and gui.pick_node(b.node, x, y) then
+        if not b.enabled and b.on_hover and on_button(b, x, y) then
             return b
         end
     end

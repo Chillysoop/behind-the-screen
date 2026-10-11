@@ -337,6 +337,7 @@ function M:answer_chat(i, choice)
 end
 
 function M:start_night()
+    self.at_night = nil   -- set by the game when it saves at "Run game night"; the night is on now
     seeds.commit(self, self.prep)
     self.night = night_mod.new(self, self.prep)
     return self.night
