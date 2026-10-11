@@ -1060,6 +1060,7 @@ end
 function B:give_temp(c, amount)
     if amount > c.temp then
         c.temp = amount       -- Temporary Hit Points don't stack (p. 18)
+        self:emit({ kind = "temp", who = c, amount = amount })
     end
 end
 

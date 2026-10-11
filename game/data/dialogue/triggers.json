@@ -530,6 +530,24 @@
    "max": 90
   },
   {
+   "id": "victory_close",
+   "group": "Fights",
+   "voice": "table",
+   "when": "The party wins, but it was close: someone went down or is nearly out.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "boss"
+   ],
+   "max": 90
+  },
+  {
    "id": "defeat",
    "group": "Fights",
    "voice": "table",

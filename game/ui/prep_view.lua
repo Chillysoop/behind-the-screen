@@ -634,6 +634,20 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
             if here then
                 return
             end
+            if kind == "cast" and prep:cast_would_lead(sel.scene, c) then
+                -- Cast and fight stay in sync (A7): ask before they take over a fight you built.
+                local fam = content.encounters.by_cast[c.id]
+                ask_view.ask(app, { title = "They lead the fight?", text = "You built scene " .. util.int(sel.scene)
+                    .. "'s fight yourself. Cast \"" .. c.name .. "\" and " .. fam.name .. " leads it, with the rest of your monsters.",
+                    yes = "Cast them", no = "Leave it", on_yes = function()
+                        local placed = prep:place(sel.scene, c.id)
+                        if placed then
+                            prep:cast_leads(sel.scene)
+                        end
+                        app.refresh()
+                    end })
+                return
+            end
             if elsewhere then
                 ask_view.ask(app, { title = "Move this card?", text = "\"" .. c.name .. "\" is already on scene " .. util.int(at)
                     .. ". Move it to scene " .. util.int(sel.scene) .. "? Scene " .. util.int(at) .. " will have to improvise it.",

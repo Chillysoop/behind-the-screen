@@ -277,20 +277,21 @@ return {
     },
 
     {
-        id = "stacking", type = "rules", scenes = nil,
+        id = "stacking", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric",
         actor = { "power_gamer", "tactician" },
         title = "Do those stack?",
-        text = "{actor} says the sword bonus and the blessing stack. You're about 70 percent sure they don't.",
+        text = "{actor} asks if Oswin's Bless stacks with their other bonus. Then: does a second Bless, from a scroll, stack on top?",
         options = {
-            { label = "Allow it this once.", leans = "cool",
+            -- SRD 5.2.1: different effects add together; the same spell's effects don't (p. 108).
+            { label = "Different effects stack. The same spell twice doesn't.", leans = "book",
+              log = "Bless and the bonus, yes. Bless twice, no. {actor} takes the win and the loss.",
+              effects = { { "arch:tactician", trust = 4, fun = 2 }, { "actor", fun = 1 } } },
+            { label = "Let both Blesses count, just this once.", leans = "cool",
               log = "The numbers get very large. {actor} is delighted.",
               effects = { { "actor", reward = 8, fun = 4 }, { "arch:tactician", trust = -3 }, { "all", challenge = -4 } } },
-            { label = "No, they don't stack.", leans = "book",
-              log = "'Nope.' A dramatic sigh from {actor}.",
-              effects = { { "arch:tactician", trust = 3 }, { "actor", fun = -4 } } },
-            { label = "Write a house-rule card for it.", leans = "house",
-              log = "A new index card goes on the wall: HOUSE RULE 1.",
-              effects = { { "all", trust = 2, investment = 2, boredom = 3 }, { "arch:tactician", fun = 4 } } },
+            { label = "Nothing stacks. Keep the numbers small.", leans = "strict",
+              log = "'Nope. Pick one.' A dramatic sigh from {actor}. Someone mutters that the book says otherwise.",
+              effects = { { "actor", fun = -4 }, { "arch:tactician", trust = -3 }, { "all", challenge = 2 } } },
         },
     },
 
@@ -355,7 +356,8 @@ return {
     },
 
     {
-        id = "potion_action", type = "rules", scenes = { "combat", "set_piece", "exploration" },
+        -- Only when someone actually drinks one (A7): the fight deals it.
+        id = "potion_action", type = "rules", trigger = "potion",
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
         text = "{actor} drinks a healing potion and asks if that's their whole turn.",

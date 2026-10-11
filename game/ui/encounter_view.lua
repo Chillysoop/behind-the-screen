@@ -78,9 +78,19 @@ function M.draw(app)
     kit.text(X + 24, Y + 14, "BUILD THE FIGHT", "title30", theme.gold)
     kit.text(X + 24 + kit.width("BUILD THE FIGHT", "title30") + 36, Y + 22,
         "Scene " .. util.int(i) .. ": " .. (s.type and content.scenes[s.type].name or "") .. where, "ui18", theme.dim)
-    kit.button(X + W - 380, Y + 14, 230, 36, "Use the suggestion", function()
-        set(app, nil)
-    end, { font = "ui18b", enabled = enc.built, key = "enc_reset" })
+    local undo = app.enc_undo and app.enc_undo.scene == i and not enc.built and app.enc_undo.ids
+    if undo then
+        -- "Use the suggestion" can be undone (A7).
+        kit.button(X + W - 380, Y + 14, 230, 36, "Undo: back to yours", function()
+            app.enc_undo = nil
+            set(app, undo)
+        end, { font = "ui18b", key = "enc_undo" })
+    else
+        kit.button(X + W - 380, Y + 14, 230, 36, "Use the suggestion", function()
+            app.enc_undo = { scene = i, ids = ids }
+            set(app, nil)
+        end, { font = "ui18b", enabled = enc.built, key = "enc_reset" })
+    end
     kit.button(X + W - 140, Y + 14, 120, 36, "Done", function()
         M.close(app)
         if app.refresh then
@@ -183,6 +193,21 @@ function M.draw(app)
     -- How hard: the SRD budget and the meter.
     ly = math.max(ly + 8, fy + 26 + 4 * 58 + 8)
     kit.text(fx, ly, "HOW HARD", "ui14", theme.gold)
+    if a.meter then
+        -- The word names the band the XP reaches, on the same scale as the bar (A7).
+        local b = a.budget
+        local word, wcol
+        if a.xp >= b.high then
+            word, wcol = "High", theme.red
+        elseif a.xp >= b.moderate then
+            word, wcol = "Moderate", theme.orange
+        elseif a.xp >= b.low then
+            word, wcol = "Low", theme.gold
+        else
+            word, wcol = "Under Low", theme.teal
+        end
+        kit.text(fx + 90, ly - 4, word, "ui22b", wcol)
+    end
     ly = ly + 24
     if a.meter then
         local b = a.budget
@@ -198,8 +223,9 @@ function M.draw(app)
             kit.text(mx, ly + 20, mark[2], "ui14", theme.dim, { pivot = gui.PIVOT_N })
         end
         ly = ly + 44
-        kit.text(fx, ly, util.int(a.xp) .. " XP: " .. (a.meter.srd or "?") .. " for " .. util.int(a.n) .. " level "
-            .. util.int(a.level) .. " heroes (SRD budget).", "ui18", theme.text, { w = fw })
+        kit.text(fx, ly, util.int(a.xp) .. " XP against a budget of " .. util.int(b.low) .. " / " .. util.int(b.moderate) .. " / "
+            .. util.int(b.high) .. " (Low / Moderate / High) for " .. util.int(a.n) .. " level " .. util.int(a.level)
+            .. " heroes, SRD 5.2.1.", "ui18", theme.text, { w = fw })
         ly = ly + 26
         if a.meter.someone_drops then
             kit.text(fx, ly, "Forecast: " .. (a.meter.danger or "") .. ". Someone drops in "

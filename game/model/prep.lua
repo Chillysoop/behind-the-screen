@@ -206,6 +206,29 @@ function M:set_encounter(i, ids)
     s.encounter = { ids = copy, boss_name = name, built = true }
 end
 
+-- A fighting cast on a fight you built yourself that someone else leads (A7: cast and fight
+-- stay in sync). The prep board asks before the cast takes over the lead.
+function M:cast_would_lead(i, c)
+    local s = self.scenes[i]
+    local fam = c and content.encounters.by_cast[c.id]
+    return fam ~= nil and s.encounter ~= nil and (s.type == "combat" or s.type == "set_piece") and s.encounter.boss_name ~= fam.name
+end
+
+-- The cast leads the scene's fight: their monster takes the lead, the rest of yours stay.
+function M:cast_leads(i)
+    local s = self.scenes[i]
+    local fam = s.slots.cast and content.encounters.by_cast[s.slots.cast.id]
+    if not (fam and s.encounter) then
+        return false
+    end
+    local ids = { fam.boss }
+    for k = 2, #s.encounter.ids do
+        table.insert(ids, s.encounter.ids[k])
+    end
+    self:set_encounter(i, ids)
+    return true
+end
+
 function M:can_talk(key)
     return not self.talked[key] and self:left() >= M.TALK_COST
 end

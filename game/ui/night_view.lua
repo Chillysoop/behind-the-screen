@@ -265,6 +265,12 @@ function M.draw_strip(app)
     kit.remove(app.strip_nodes or {})
     app.strip_nodes = {}
     local n = math.min(#app.strip, 16)
+    if n > 0 then
+        -- What the strip is (A7).
+        local left = STRIP_RIGHT - n * (DIE + 4)
+        table.insert(app.strip_nodes, kit.text(left - 8, STRIP_Y + DIE / 2, "Rolls tonight  (? = behind your screen)", "ui14",
+            theme.faint, { pivot = gui.PIVOT_E }))
+    end
     for k = 1, n do
         local d = app.strip[#app.strip - n + k]
         local x = STRIP_RIGHT - (n - k + 1) * (DIE + 4)
@@ -1007,6 +1013,18 @@ function M.play_step(app, s, pace)
         M.float(app, s.id, "+" .. util.int(s.amount or 0), theme.green)
         spark(app, s.id, SPARK.heal)
         set_hp(app, s.id, s.hp, s.hp_max)
+        -- Healing shows in the log (A7).
+        if (s.amount or 0) > 0 then
+            local hp = s.hp and s.hp_max and (" (" .. util.int(s.hp) .. "/" .. util.int(s.hp_max) .. ")") or ""
+            if s.by and s.by ~= s.id then
+                M.push(app, name_of(app, s.by) .. " heals " .. name_of(app, s.id) .. " for " .. util.int(s.amount) .. hp .. ".", "good")
+            else
+                M.push(app, name_of(app, s.id) .. " regains " .. util.int(s.amount) .. " hit points" .. hp .. ".", "good")
+            end
+        end
+    elseif k == "temp" then
+        M.float(app, s.id, "+" .. util.int(s.amount or 0) .. " temp", theme.teal)
+        M.push(app, name_of(app, s.id) .. " gains " .. util.int(s.amount or 0) .. " temporary hit points.", "good")
     elseif k == "down" then
         post("down", { id = s.id })
         M.float(app, s.id, "Down!", theme.orange, true)
@@ -1043,7 +1061,14 @@ function M.play_step(app, s, pace)
     elseif k == "zone_end" then
         battle_hud.zone_end(app, s.zone)
     elseif k == "feature" then
-        if s.name then
+        if s.name == "Potion of Healing" then
+            M.float(app, s.id, "Potion!", theme.teal)
+            if s.target and s.target ~= s.id and type(s.target) ~= "table" then
+                M.push(app, name_of(app, s.id) .. " pours a Potion of Healing into " .. name_of(app, s.target) .. ".", "good")
+            else
+                M.push(app, name_of(app, s.id) .. " drinks a Potion of Healing.", "good")
+            end
+        elseif s.name then
             M.float(app, s.id, s.name, theme.teal)
             M.push(app, name_of(app, s.id) .. ": " .. s.name .. ".", "system")
         end
@@ -1073,6 +1098,11 @@ function M.play_step(app, s, pace)
         M.float(app, s.id, "Stable", theme.teal)
     elseif k == "fortitude" then
         M.float(app, s.id, "Undead Fortitude", theme.purple)
+    elseif k == "flee" and s.why == "surrender" then
+        -- A foe who surrenders stays put, hands up (A7): never "runs for it".
+        M.float(app, s.id, "Surrenders", theme.teal)
+        battle_hud.gone(app, s.id)
+        M.push(app, name_of(app, s.id) .. " throws down their weapon and surrenders.", "good")
     elseif k == "flee" then
         post("flee", { id = s.id })
         battle_hud.gone(app, s.id)
@@ -1231,7 +1261,8 @@ function M.handle(app, ev)
         if (ev.round or 1) > 1 then
             M.push(app, "Round " .. util.int(ev.round), "system")
         end
-        app.battle_cam = ((ev.round or 1) % 2 == 1) and 3 or 2
+        -- Fights stay on the mat (A7).
+        app.battle_cam = 2
         cam(app, app.battle_cam)
     elseif k == "turn" then
         local t = 0.3
@@ -1299,7 +1330,7 @@ function M.handle(app, ev)
         app.pending_left = app.timer_on and TIMERS[k] or nil
         M.clear_fx(app)
         if k == "decision" then
-            cam(app, 1)
+            cam(app, app.in_battle and 2 or 1)   -- a card mid-fight keeps the mat in view (A7)
         elseif k == "improv" then
             cam(app, 2)
         else

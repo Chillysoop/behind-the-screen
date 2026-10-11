@@ -171,6 +171,16 @@ function M.suggest(sc, level, n)
         ids = try
         k = k + 1
     end
+    -- A story villain is never a pushover (A7): at least Moderate on the SRD 5.2.1 budget.
+    local cast = sc.comps and sc.comps.cast
+    if cast and (cast.villain or cast.foe) and enc.by_cast[cast.id] then
+        local m = encounter.meter(level, n, ids)
+        while m.xp < m.budget[2] and #ids < enc.max_monsters do
+            table.insert(ids, fam.minion[(k % #fam.minion) + 1])
+            k = k + 1
+            m = encounter.meter(level, n, ids)
+        end
+    end
     return ids, fam, aim
 end
 
@@ -187,8 +197,15 @@ function M.plan(night, sc)
         for _, id in ipairs(sc.encounter.ids) do
             table.insert(ids, id)
         end
+        local boss_name = sc.encounter.boss_name or fam.name
+        -- The scene's villain is always on the mat, leading (A7).
+        local cfam = cast and enc.by_cast[cast.id]
+        if cfam and boss_name ~= cfam.name then
+            ids[1] = cfam.boss
+            boss_name = cfam.name
+        end
         local meter = encounter.meter(level, n, ids)
-        return { ids = ids, boss_name = sc.encounter.boss_name or fam.name, aim = 0, meter = meter,
+        return { ids = ids, boss_name = boss_name, aim = 0, meter = meter,
                  cast = cast and enc.by_cast[cast.id] and cast.id, built = true }
     end
     local ids, _, aim = M.suggest(sc, level, n)
@@ -359,6 +376,10 @@ function M.step(night, ev)
         local c = ev.who
         s.id, s.monster, s.x, s.y, s.name = ref(c), c.monster_id, c.x, c.y, c.name
         s.hp, s.hp_max = c.hp, c.hp_max
+    elseif k == "temp" then
+        s.id, s.amount = ref(ev.who), ev.amount
+    elseif k == "flee" then
+        s.id, s.why = ref(ev.who), ev.why
     else
         s.id = ev.who and ref(ev.who)
     end
@@ -599,6 +620,10 @@ function M.run(night, sc, plan)
             return
         end
         table.insert(night.turn_steps, M.step(night, ev))
+        -- Someone drinks a potion: the potion question can come up now (A7), never before.
+        if ev.kind == "feature" and ev.name == "Potion of Healing" and ev.who and ev.who.pc and not f.potion_by then
+            f.potion_by = ev.who
+        end
         if ev.kind == "attack" and ev.att.side ~= "party" and ev.roll then
             if night.dm_rolls == "hidden" then
                 night.hidden_dm_rolls = night.hidden_dm_rolls + 1
@@ -666,6 +691,12 @@ function M.run(night, sc, plan)
         end
         if r >= 2 and r % 2 == 0 and f.boss and not f.boss.dead and plan.cast then
             night:npc_line("taunt")
+        end
+        -- The potion question, the round after someone drinks one, once a campaign.
+        local camp = night.campaign
+        if f.potion_by and not f.used.potion and not (camp.house_rules and camp.house_rules.potion_action)
+            and not night.used_cards.potion_action and night:decision_count() < 14 then
+            moment(night, f, "potion", {}, f.potion_by)
         end
         -- A rules question comes up mid-fight.
         if r == 2 and sc.rules_card and night:decision_count() < 14 then

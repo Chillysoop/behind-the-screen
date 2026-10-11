@@ -166,14 +166,21 @@ function M.draw(app)
             local label = m.boss and m.name or nil
             n.name = kit.text(0, 0, label and kit.ellipsize(label, "ui14", 260) or "", "ui14", theme.text,
                 { pivot = gui.PIVOT_S })
-            local cond = {}
+            -- Condition tags: each condition once, short, and nudged apart in place() (A7).
+            local cond, seen = {}, {}
             for _, v in pairs(m.effects or {}) do
-                if v ~= "" then
-                    table.insert(cond, v)
+                for part in string.gmatch(v, "[^,]+") do
+                    part = (string.gsub(part, "^%s+", ""))
+                    if part ~= "" and not seen[part] then
+                        seen[part] = true
+                        table.insert(cond, part)
+                    end
                 end
             end
             table.sort(cond)
-            n.cond = kit.text(0, 0, table.concat(cond, ", "), "ui14", theme.purple, { pivot = gui.PIVOT_N })
+            local ctext = kit.ellipsize(table.concat(cond, ", "), "ui14", 130)
+            m.cond_w = ctext ~= "" and kit.width(ctext, "ui14") or 0
+            n.cond = kit.text(0, 0, ctext, "ui14", theme.purple, { pivot = gui.PIVOT_N })
             m.n = n
             m.nodes = { n.back, n.fill, n.name, n.cond }
         end
@@ -205,7 +212,8 @@ function M.place(app)
     for id, m in pairs(state(app).minis) do
         if m.n then
             local a = an[id]
-            local show = on_screen(a) and not m.gone
+            -- HP bars only over the mat (A7): hidden when the camera is on the room or the dice.
+            local show = on_screen(a) and not m.gone and (app.camera_index == nil or app.camera_index == 2)
             for _, node in ipairs(m.nodes) do
                 gui.set_enabled(node, show)
             end
@@ -214,9 +222,39 @@ function M.place(app)
                 gui.set_position(m.n.back, vmath.vector3(x - BAR_W / 2 - 1, H - (y - 1), 0))
                 gui.set_position(m.n.fill, vmath.vector3(x - BAR_W / 2, H - y, 0))
                 gui.set_position(m.n.name, vmath.vector3(x, H - (y - 3), 0))
-                gui.set_position(m.n.cond, vmath.vector3(x, H - (y + BAR_H + 3), 0))
+                m.cond_at = { x, y + BAR_H + 3 }
             end
         end
+    end
+    -- Condition tags never overlap: a tag that would sit on another moves down a line.
+    local tags = {}
+    for _, m in pairs(state(app).minis) do
+        if m.n and m.cond_at and (m.cond_w or 0) > 0 and gui.is_enabled(m.n.cond) then
+            table.insert(tags, m)
+        end
+    end
+    table.sort(tags, function(a, b)
+        if a.cond_at[2] ~= b.cond_at[2] then
+            return a.cond_at[2] < b.cond_at[2]
+        end
+        return a.cond_at[1] < b.cond_at[1]
+    end)
+    local placed = {}
+    for _, m in ipairs(tags) do
+        local x, y, w = m.cond_at[1], m.cond_at[2], m.cond_w + 6
+        local moved = true
+        local guard = 0
+        while moved and guard < 6 do
+            moved, guard = false, guard + 1
+            for _, r in ipairs(placed) do
+                if math.abs(r[1] - x) < (r[3] + w) / 2 and math.abs(r[2] - y) < 16 then
+                    y = r[2] + 16
+                    moved = true
+                end
+            end
+        end
+        table.insert(placed, { x, y, w })
+        gui.set_position(m.n.cond, vmath.vector3(x, H - y, 0))
     end
 end
 

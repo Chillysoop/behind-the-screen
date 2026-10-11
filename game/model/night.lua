@@ -1311,13 +1311,13 @@ function M:hero_action(sc, used, dc, need, spots)
         self:table_behavior("after_fail", p)
     elseif not success and self:table_behavior("after_fail", p) then
         -- (they said something already)
-    elseif self.rng:chance(0.22) then
+    elseif self.rng:chance(self:idle() > 75 and 0.1 or 0.22) then
         self:bark(p, success and "check_win" or "check_lose")
     elseif self.rng:chance(0.22) and #self.players > 1 then
         local q = self:pick_actor(nil, p)
         self:bark(q, success and "cheer_other" or "groan_other", { other = p.name, other_char = p.char, other_key = p.key })
     end
-    if sc.comps.cast and not self:muted(sc.comps.cast) and self.rng:chance(0.25) then
+    if sc.comps.cast and not self:muted(sc.comps.cast) and self.rng:chance(self:idle() > 75 and 0.12 or 0.25) then
         self:npc_line(success and "good" or "bad")
     end
     return success
@@ -1484,6 +1484,14 @@ function M:table_behavior(when, roller, sure)
         return nil
     end
     if not sure and not self.rng:chance(TB_CHANCE[when] or 0.3) then
+        return nil
+    end
+    -- A long stretch with nothing for the DM to do: table chatter keeps it brisk (the nights gate).
+    if self:idle() > 75 and when ~= "start" and when ~= "rules" then
+        return nil
+    end
+    -- Out of calls for the night: the last stretch runs without you, so keep it short.
+    if self:decision_count() >= 13 and when ~= "after_crit" and when ~= "rules" then
         return nil
     end
     local camp = self.campaign
@@ -1669,7 +1677,8 @@ function M:pick_decision(sc, kinds)
             or (d.once and camp.cards_once and camp.cards_once[d.id])
         if not settled and not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
             and (not kinds or kinds[d.type]) and content.fits_setting(d, sc.comps.location)
-            and (not d.actor_class or self:by_class(d.actor_class)) then
+            and (not d.actor_class or self:by_class(d.actor_class))
+            and (not d.needs_class or self:by_class(d.needs_class)) then
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
             for _, a in ipairs(d.actor or {}) do
@@ -2418,9 +2427,11 @@ function M:flush_turn()
     local ev = { kind = "turn", steps = steps, who = who and who.mini, side = who and who.side }
     -- Once the DM has been watching a while, the table plays the fight briskly (and after a
     -- long while, faster still: everyone knows their turn by now).
-    if self:idle() > 100 then
+    -- Out of calls for the night, the table speeds up sooner (everyone can feel the clock).
+    local spent = self:decision_count() >= 14
+    if self:idle() > 100 or (spent and self:idle() > 60) then
         ev.brisk = "very"
-    elseif self:idle() > 60 then
+    elseif self:idle() > 60 or (spent and self:idle() > 30) then
         ev.brisk = true
     end
     -- Now and then a player says something about their turn: what they're about to
@@ -2530,7 +2541,7 @@ function M:combat_scene(sc)
         self:highlight(7, "a fight that ended before it started", self.players)
         return
     end
-    if not scouted and self.rng:chance(0.4) then
+    if not scouted and self:idle() < 60 and self.rng:chance(0.4) then
         self:stunt(sc)
     end
     self:say(self.talk:fight("start", self:vars()), "dm")
@@ -2542,6 +2553,14 @@ function M:combat_scene(sc)
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"
+    -- A foe who surrenders stays surrendered, and talks (A7): a name from the story.
+    if f and f.surrendered then
+        self:say(self:fresh(M.SURRENDER_TALK, "surrender_talk"), "goal")
+        local beat = self.campaign:arc_beat()
+        if beat and beat.lead then
+            self:found_clue("surrender_" .. tostring(self.campaign.week), util.fill("{Boss} named {lead}.", self:vars()))
+        end
+    end
     -- A villain (or a fighting cast) who got away comes back another week (the story deck).
     local cast = sc.comps.cast
     if cast and (cast.villain or cast.foe) and f and f.fled then
@@ -2554,7 +2573,12 @@ function M:combat_scene(sc)
             poses[p.key] = "cheer"
         end
         self:react(poses)
-        self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), "victory")
+        -- The table talk reads the fight (A7): no "Too easy." after someone dropped.
+        local close = (result.pc_downs or 0) >= 1
+        for _, c in ipairs(self.pc_list or {}) do
+            close = close or (not c.dead and c.hp_max and c.hp <= c.hp_max * 0.35)
+        end
+        self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), close and "victory_close" or "victory")
         for _, p in ipairs(self.players) do
             score.add(p, "challenge", 6)
             score.add(p, "fun", 2)
@@ -2598,6 +2622,12 @@ local SPOTTED = {
                 "A glint of steel in the dark. They're ready first." },
     fail = { "A twig snaps. Every head turns their way.", "Something clatters underfoot. So much for surprise.",
              "Too late: they've been seen." },
+}
+
+M.SURRENDER_TALK = {
+    "{Boss} drops to their knees and talks fast. It was {lead}. It's always been {lead}.",
+    "In exchange for their life, {boss} gives up a name: {lead}.",
+    "'All right! All right.' {Boss} sits down hard and tells them everything they know about {lead}.",
 }
 
 -- Who leads the way takes turns over the campaign (A4): among those decent at it, whoever has
@@ -3180,7 +3210,7 @@ function M:run()
         table.insert(leaving, p)
     end
     self.rng:shuffle(leaving)
-    for i = 1, math.min(2, #leaving) do
+    for i = 1, math.min(self:idle() > 60 and 1 or 2, #leaving) do
         self:bark(leaving[i], "wrap")
     end
     self:say("That's a wrap. Chairs scrape, someone stacks the dice.", "system")
