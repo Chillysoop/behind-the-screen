@@ -1,0 +1,183 @@
+images {
+  image: "/assets/portraits/face_mara.png"
+}
+images {
+  image: "/assets/portraits/face_mara_arms.png"
+}
+images {
+  image: "/assets/portraits/face_mara_cheer.png"
+}
+images {
+  image: "/assets/portraits/face_mara_gasp.png"
+}
+images {
+  image: "/assets/portraits/face_mara_laugh.png"
+}
+images {
+  image: "/assets/portraits/face_mara_lean.png"
+}
+images {
+  image: "/assets/portraits/face_mara_phone.png"
+}
+images {
+  image: "/assets/portraits/face_mara_think.png"
+}
+images {
+  image: "/assets/portraits/face_mara_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_dev.png"
+}
+images {
+  image: "/assets/portraits/face_dev_arms.png"
+}
+images {
+  image: "/assets/portraits/face_dev_cheer.png"
+}
+images {
+  image: "/assets/portraits/face_dev_gasp.png"
+}
+images {
+  image: "/assets/portraits/face_dev_laugh.png"
+}
+images {
+  image: "/assets/portraits/face_dev_lean.png"
+}
+images {
+  image: "/assets/portraits/face_dev_phone.png"
+}
+images {
+  image: "/assets/portraits/face_dev_think.png"
+}
+images {
+  image: "/assets/portraits/face_dev_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_jess.png"
+}
+images {
+  image: "/assets/portraits/face_jess_arms.png"
+}
+images {
+  image: "/assets/portraits/face_jess_cheer.png"
+}
+images {
+  image: "/assets/portraits/face_jess_gasp.png"
+}
+images {
+  image: "/assets/portraits/face_jess_laugh.png"
+}
+images {
+  image: "/assets/portraits/face_jess_lean.png"
+}
+images {
+  image: "/assets/portraits/face_jess_phone.png"
+}
+images {
+  image: "/assets/portraits/face_jess_think.png"
+}
+images {
+  image: "/assets/portraits/face_jess_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_sam.png"
+}
+images {
+  image: "/assets/portraits/face_sam_arms.png"
+}
+images {
+  image: "/assets/portraits/face_sam_cheer.png"
+}
+images {
+  image: "/assets/portraits/face_sam_gasp.png"
+}
+images {
+  image: "/assets/portraits/face_sam_laugh.png"
+}
+images {
+  image: "/assets/portraits/face_sam_lean.png"
+}
+images {
+  image: "/assets/portraits/face_sam_phone.png"
+}
+images {
+  image: "/assets/portraits/face_sam_think.png"
+}
+images {
+  image: "/assets/portraits/face_sam_yawn.png"
+}
+images {
+  image: "/assets/portraits/mini_fighter.png"
+}
+images {
+  image: "/assets/portraits/mini_rogue.png"
+}
+images {
+  image: "/assets/portraits/mini_cleric.png"
+}
+images {
+  image: "/assets/portraits/mini_wizard.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_gus.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_stranger.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_hermit.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_rival.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_corin.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_sable.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_ghost.png"
+}
+images {
+  image: "/assets/portraits/mini_goblin_boss.png"
+}
+images {
+  image: "/assets/portraits/mini_goblin_club.png"
+}
+images {
+  image: "/assets/portraits/mini_goblin_spear.png"
+}
+images {
+  image: "/assets/portraits/mini_bandit.png"
+}
+images {
+  image: "/assets/portraits/mini_bandit_captain.png"
+}
+images {
+  image: "/assets/portraits/mini_cultist.png"
+}
+images {
+  image: "/assets/portraits/mini_tough.png"
+}
+images {
+  image: "/assets/portraits/mini_wolf.png"
+}
+images {
+  image: "/assets/portraits/mini_dire_wolf.png"
+}
+images {
+  image: "/assets/portraits/mini_skeleton.png"
+}
+images {
+  image: "/assets/portraits/mini_zombie.png"
+}
+images {
+  image: "/assets/portraits/mini_ghoul.png"
+}
+images {
+  image: "/assets/portraits/mini_ogre.png"
+}
+margin: 2
+extrude_borders: 2
+inner_padding: 0

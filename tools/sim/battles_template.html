@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rules Engine Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Outfit:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column, like the game's session report. Gate verdict first,
+   then one section per gate question with the charts that answer it. Dark-first,
+   in the game's own lamp-lit palette; light mode is the prep board's paper. */
+:root {
+  color-scheme: dark;
+  --bg: #1b1411;
+  --surface: #241b16;
+  --raise: #2f241d;
+  --ink: #f3e7cf;
+  --ink-2: #c9b89c;
+  --muted: #8f7f68;
+  --rule: #3a2e25;
+  --grid: #33281f;
+  --accent: #e8b04a;
+  --good: #0ca30c;
+  --bad: #d03b3b;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --heat-lo: #1f2a3a;
+  --heat-hi: #9ec5f4;
+  --heat-ink-lo: #f3e7cf;
+  --heat-ink-hi: #1b1411;
+  --font-display: "Lora", Georgia, "Times New Roman", serif;
+  --font-body: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4ecdb;
+    --surface: #fbf6ea;
+    --raise: #efe4c8;
+    --ink: #2b2018;
+    --ink-2: #5d4e3c;
+    --muted: #85745e;
+    --rule: #e0d4b8;
+    --grid: #ebe2cc;
+    --accent: #8a5a0e;
+    --good: #0a7d0a;
+    --bad: #c03434;
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --s4: #eda100;
+    --s5: #e87ba4;
+    --heat-lo: #f3ecdc;
+    --heat-hi: #1c5cab;
+    --heat-ink-lo: #2b2018;
+    --heat-ink-hi: #fbf6ea;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4ecdb;
+  --surface: #fbf6ea;
+  --raise: #efe4c8;
+  --ink: #2b2018;
+  --ink-2: #5d4e3c;
+  --muted: #85745e;
+  --rule: #e0d4b8;
+  --grid: #ebe2cc;
+  --accent: #8a5a0e;
+  --good: #0a7d0a;
+  --bad: #c03434;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --heat-lo: #f3ecdc;
+  --heat-hi: #1c5cab;
+  --heat-ink-lo: #2b2018;
+  --heat-ink-hi: #fbf6ea;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 40px 72px;
+  display: grid;
+  gap: 56px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; }
+h2 { font-size: clamp(22px, 3.2vw, 28px); line-height: 1.2; }
+h3 { font-family: var(--font-body); font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+}
+.lede { color: var(--ink-2); font-size: 17px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+header { display: grid; gap: 14px; }
+.verdict {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px;
+  padding: 18px 20px; border-radius: 12px; background: var(--surface); border: 1px solid var(--rule);
+}
+.verdict strong { font-family: var(--font-display); font-size: 26px; }
+.runinfo { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--ink-2); }
+
+section { display: grid; gap: 18px; }
+section > header { gap: 8px; }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checks li {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline;
+  padding: 10px 0; border-bottom: 1px solid var(--rule);
+}
+.checks li:last-child { border-bottom: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 9px 2px 7px; border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.chip.pass { color: var(--good); }
+.chip.fail { color: var(--bad); }
+.check-name { font-weight: 500; }
+.check-detail { grid-column: 2; color: var(--ink-2); font-size: 14px; }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 18px; }
+.figure {
+  margin: 0; min-width: 0; display: grid; gap: 10px; padding: 16px 16px 12px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 12px;
+}
+.figure.wide { grid-column: 1 / -1; }
+.figure figcaption { display: grid; gap: 2px; }
+.figure figcaption p { font-size: 14px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.ring { width: 10px; height: 10px; border-radius: 50%; background: transparent !important; border: 2px solid var(--ink-2); }
+.plot { position: relative; min-width: 0; }
+.plot svg { display: block; width: 100%; overflow: visible; }
+.plot text { fill: var(--muted); font: 400 11px var(--font-body); font-variant-numeric: tabular-nums; }
+.plot .endlabel { fill: var(--ink-2); font-size: 12px; font-weight: 500; }
+.plot .annot { fill: var(--ink-2); font-size: 11px; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; min-width: 150px;
+  padding: 8px 10px; border-radius: 8px; background: var(--raise); border: 1px solid var(--rule);
+  color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+.tip .row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.tip .row i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.tip .row span:last-child { margin-left: auto; padding-left: 10px; }
+
+details { font-size: 13px; color: var(--ink-2); }
+details summary { cursor: pointer; color: var(--muted); width: max-content; }
+details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+td.text { white-space: normal; min-width: 220px; text-align: left; }
+
+.heat { display: grid; gap: 10px; }
+.heat table td.cell { text-align: center; color: var(--ink); font-weight: 500; min-width: 64px; position: relative; }
+.heat table td.cell.best { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 6px; }
+.heat table th.player { text-align: left; }
+.heat table th.player small { display: block; color: var(--muted); font-weight: 400; }
+
+.styles td.style { text-align: left; white-space: normal; min-width: 210px; }
+.styles td.style b { display: block; color: var(--ink); font-weight: 600; }
+.styles td.style small { color: var(--muted); font-size: 12px; }
+
+.notes { display: grid; gap: 10px; color: var(--ink-2); font-size: 15px; }
+.notes p { max-width: 72ch; }
+.notes b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .wrap { gap: 44px; padding-block: 28px 56px; }
+  .figure { padding: 14px 12px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+.figure .note { font-size: 12px; color: var(--muted); }
+.bar { height: 8px; border-radius: 4px; background: var(--s1); display: inline-block; vertical-align: middle; }
+.bar.ghost { background: var(--grid); }
+.barcell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.barcell .track { width: 90px; height: 8px; border-radius: 4px; background: var(--grid); position: relative; overflow: hidden; }
+.barcell .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--s1); }
+tr.srd td:first-child b::after { content: " SRD"; font-size: 10px; letter-spacing: 0.08em; color: var(--accent); margin-left: 6px; }
+.cases td.text { min-width: 280px; }
+.cases td .page { color: var(--muted); }
+.cases details { margin-top: 4px; }
+.cases ul { margin: 6px 0 0; padding-left: 18px; }
+.delta.up { color: var(--good); } .delta.down { color: var(--bad); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <span class="eyebrow">Behind the Screen &middot; M3 rules core</span>
+    <h1>Rules engine check</h1>
+    <p class="lede" id="lede">The headless SRD 5.2.1 engine runs the slice party (Fighter, Rogue, Cleric and Wizard at levels 2 to 4, all twelve subclasses) through thousands of fights against the slice's monsters. This page checks the M3 gate: hand-checked combat cases match the rules, and the difficulty meter predicts outcomes.</p>
+    <div class="verdict" id="verdict"></div>
+    <div class="runinfo" id="runinfo"></div>
+  </header>
+
+  <section id="gate">
+    <header><span class="eyebrow">Gate</span><h2>What passed</h2></header>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section id="rules">
+    <header>
+      <span class="eyebrow">Rules</span>
+      <h2>Do the rules match the SRD?</h2>
+      <p class="muted">Each case sets up a tiny fight, forces the dice, and compares the engine with the rule on the cited page. Open a row to see every check.</p>
+    </header>
+    <div class="figure wide"><div class="tablewrap"><table class="cases" id="cases"></table></div></div>
+  </section>
+
+  <section id="meter">
+    <header>
+      <span class="eyebrow">Difficulty meter</span>
+      <h2>Does the meter predict what happens?</h2>
+      <p class="muted">The SRD budget sorts fights into Low, Moderate and High. The meter also reads the stat blocks (Hit Points and damage) and learns from the simulated fights. Every forecast below comes from a meter fitted without that fight (5-fold cross-validation).</p>
+    </header>
+    <div class="charts" id="meter-charts"></div>
+  </section>
+
+  <section id="monsters">
+    <header>
+      <span class="eyebrow">Roster</span>
+      <h2>Which monsters does XP misjudge?</h2>
+      <p class="muted">Each cell is a Moderate-budget fight against a single kind of monster: how often someone in the party drops to 0 Hit Points.</p>
+    </header>
+    <div class="figure wide heat"><div class="tablewrap"><table id="probes"></table></div></div>
+  </section>
+
+  <section id="balance">
+    <header>
+      <span class="eyebrow">Balance</span>
+      <h2>Are the twelve subclasses even?</h2>
+      <p class="muted">Moderate and harder fights at levels 3 and 4, with the other three players' subclasses mixed at random. Each original subclass is compared with the SRD subclass of its class.</p>
+    </header>
+    <div class="figure wide"><div class="tablewrap"><table id="subs"></table></div></div>
+  </section>
+
+  <section id="engine">
+    <header><span class="eyebrow">Fine print</span><h2>What the engine simplifies</h2></header>
+    <div class="notes">
+      <p><b>Grid and space.</b> A 5-foot grid with diagonals counting 5 feet. Every creature takes one square, even the Large ogre and dire wolf. Open ground: no cover, no obstacles, everyone sees everyone unless a condition says otherwise.</p>
+      <p><b>Tactics.</b> Players and monsters follow simple, readable tactics (focus the closest threat, heal the fallen, use area spells on crowds). Real players do better and worse in different places, so treat the numbers as a baseline, not a promise.</p>
+      <p><b>Cozy defaults.</b> Monsters don't attack characters who are already down. Deaths come from failed Death Saving Throws and massive damage. Each character carries one Potion of Healing; the party starts each fight with full resources after casting its 8-hour buffs (Mage Armor and Aid).</p>
+      <p><b>Not modelled yet.</b> Hiding, grappling and shoving, ready actions, flying, and non-combat spells. Those arrive with game night at the table in M4.</p>
+    </div>
+  </section>
+</main>
+<script>
+const DATA = /*SIM_DATA*/null;
+
+(function () {
+  if (!DATA) { document.getElementById("verdict").textContent = "No data yet: run lua tools/sim/battles.lua"; return; }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const pct = v => (v == null ? "-" : Math.round(v * 100) + "%");
+  function el(tag, attrs, parent, text) {
+    const e = document.createElement(tag);
+    for (const k in (attrs || {})) { if (k === "class") e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const NS = "http://www.w3.org/2000/svg";
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  // Verdict and run info.
+  const m = DATA.meta;
+  const v = document.getElementById("verdict");
+  el("strong", { class: "num" }, v, `${m.gates_passed} of ${m.gates_total} gate checks pass`);
+  el("span", { class: "muted" }, v, m.gates_passed === m.gates_total ? "The rules core is ready for game night at the table." : "See the failing checks below.");
+  const ri = document.getElementById("runinfo");
+  [`${m.battles.toLocaleString()} simulated fights`, `meter checked by ${m.folds}-fold cross-validation`,
+   `${m.rules_ok} of ${m.rules_total} rules cases`, `seed ${m.seed}`].forEach(t => el("span", {}, ri, t));
+
+  // Gate checks.
+  const ul = document.getElementById("checks");
+  const GROUP = { rules: "Rules", meter: "Difficulty meter", balance: "Balance" };
+  DATA.checks.forEach(c => {
+    const li = el("li", {}, ul);
+    el("span", { class: "chip " + (c.ok ? "pass" : "fail") }, li, c.ok ? "Pass" : "Fail");
+    el("span", { class: "check-name" }, li, `${GROUP[c.group] || c.group}: ${c.name}`);
+    el("span", { class: "check-detail" }, li, c.detail);
+  });
+
+  // Rules cases.
+  (function () {
+    const t = document.getElementById("cases");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Case", "Rule", "Checks", ""].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    (DATA.rules || []).forEach(c => {
+      const tr = el("tr", {}, tb);
+      const td = el("td", { class: "text" }, tr);
+      el("b", {}, td, c.title);
+      el("div", { class: "page" }, td, c.page);
+      const rule = el("td", { class: "text" }, tr, c.rule);
+      const d = el("details", {}, rule);
+      el("summary", {}, d, "Checks");
+      const list = el("ul", {}, d);
+      c.checks.forEach(k => el("li", {}, list, `${k.label}: expected ${k.expected}, got ${k.actual}`));
+      el("td", { class: "num" }, tr, String(c.checks.length));
+      const s = el("td", {}, tr);
+      el("span", { class: "chip " + (c.ok ? "pass" : "fail") }, s, c.ok ? "Pass" : "Fail");
+    });
+  })();
+
+  // Charts ------------------------------------------------------------------------------
+  function figure(parent, title, text, wide) {
+    const f = el("figure", { class: "figure" + (wide ? " wide" : "") }, parent);
+    const cap = el("figcaption", {}, f);
+    el("h3", {}, cap, title);
+    if (text) el("p", {}, cap, text);
+    return f;
+  }
+  function legend(fig, items) {
+    const l = el("div", { class: "legend" }, fig);
+    items.forEach(it => { const s = el("span", {}, l); const i = el("i", {}, s); i.style.background = it.color; s.appendChild(document.createTextNode(it.label)); });
+  }
+  function tip(plot) {
+    const t = el("div", { class: "tip" }, plot); t.hidden = true; return t;
+  }
+
+  // Categories by level: dot-and-line, one line per level.
+  function categoryChart(parent, key, title, text) {
+    const fig = figure(parent, title, text);
+    const LV = [2, 3, 4], COLORS = [css("--s1"), css("--s2"), css("--s3")];
+    legend(fig, LV.map((l, i) => ({ label: `Level ${l}`, color: COLORS[i] })));
+    const plot = el("div", { class: "plot" }, fig);
+    const W = 460, H = 240, L = 40, R = 16, T = 12, B = 34;
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title }, plot);
+    const cats = ["Trivial", "Low", "Moderate", "High", "Beyond High"];
+    const x = i => L + (W - L - R) * (i + 0.5) / cats.length;
+    const y = v => T + (H - T - B) * (1 - v);
+    [0, 0.25, 0.5, 0.75, 1].forEach(g => {
+      sv("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: css("--grid") }, svg);
+      sv("text", { x: L - 6, y: y(g) + 4, "text-anchor": "end" }, svg, Math.round(g * 100) + "%");
+    });
+    cats.forEach((c, i) => sv("text", { x: x(i), y: H - 12, "text-anchor": "middle" }, svg, c));
+    const tp = tip(plot);
+    LV.forEach((lvl, li) => {
+      const pts = cats.map((c, i) => { const r = DATA.categories.find(d => d.level === lvl && d.label === c); return r && r.n >= 15 ? [i, r] : null; }).filter(Boolean);
+      sv("polyline", { points: pts.map(p => `${x(p[0])},${y(p[1][key])}`).join(" "), fill: "none", stroke: COLORS[li], "stroke-width": 2 }, svg);
+      pts.forEach(p => {
+        const dot = sv("circle", { cx: x(p[0]), cy: y(p[1][key]), r: 4.5, fill: COLORS[li], stroke: css("--surface"), "stroke-width": 1.5 }, svg);
+        dot.addEventListener("mouseenter", () => {
+          tp.hidden = false; tp.innerHTML = `<b>Level ${lvl} · ${p[1].label}</b>${pct(p[1][key])} of ${p[1].n} fights<br>party wins ${pct(p[1].win)} · a death ${pct(p[1].death)}`;
+          tp.style.left = (x(p[0]) / W * plot.clientWidth + 10) + "px"; tp.style.top = (y(p[1][key]) / H * plot.clientHeight - 10) + "px";
+        });
+        dot.addEventListener("mouseleave", () => tp.hidden = true);
+      });
+    });
+    const tw = el("details", {}, fig); el("summary", {}, tw, "Show the numbers");
+    const t = el("table", {}, el("div", { class: "tablewrap" }, tw));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Level", "Category", "Fights", "Party wins", "Someone drops", "A death", "HP lost", "Rounds"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    DATA.categories.forEach(r => {
+      const tr = el("tr", {}, tb);
+      [r.level, r.label, r.n, pct(r.win), pct(r.drop), pct(r.death), pct(r.lost), r.rounds.toFixed(1)].forEach(vv => el("td", {}, tr, String(vv)));
+    });
+  }
+
+  // Calibration: predicted vs observed, tenths of out-of-fold forecasts.
+  function calibration(parent) {
+    const fig = figure(parent, "Forecasts vs what happened", "Every fight, forecast by a meter that never saw it, grouped into tenths by forecast. Points on the diagonal mean the meter is right.");
+    const S = [{ key: "drop", label: "Someone drops", color: css("--s1") }, { key: "loss", label: "Party falls", color: css("--s2") }, { key: "death", label: "Someone dies", color: css("--s4") }];
+    legend(fig, S);
+    const plot = el("div", { class: "plot" }, fig);
+    const W = 460, H = 260, L = 40, R = 16, T = 12, B = 34;
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "calibration" }, plot);
+    const x = v => L + (W - L - R) * v, y = v => T + (H - T - B) * (1 - v);
+    [0, 0.25, 0.5, 0.75, 1].forEach(g => {
+      sv("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: css("--grid") }, svg);
+      sv("text", { x: L - 6, y: y(g) + 4, "text-anchor": "end" }, svg, Math.round(g * 100) + "%");
+      sv("text", { x: x(g), y: H - 12, "text-anchor": "middle" }, svg, Math.round(g * 100) + "%");
+    });
+    sv("line", { x1: x(0), y1: y(0), x2: x(1), y2: y(1), stroke: css("--muted"), "stroke-dasharray": "4 4" }, svg);
+    sv("text", { x: x(0.98), y: y(0.06), "text-anchor": "end", class: "annot" }, svg, "dashed line: a perfect forecast");
+    const tp = tip(plot);
+    S.forEach(s => {
+      DATA.meter[s.key].bins.forEach(b => {
+        const d = sv("circle", { cx: x(b.predicted), cy: y(b.observed), r: 4.5, fill: s.color, stroke: css("--surface"), "stroke-width": 1.5 }, svg);
+        d.addEventListener("mouseenter", () => {
+          tp.hidden = false; tp.innerHTML = `<b>${s.label}</b>forecast ${pct(b.predicted)}, happened ${pct(b.observed)}<br>${b.n} fights`;
+          tp.style.left = (x(b.predicted) / W * plot.clientWidth + 10) + "px"; tp.style.top = (y(b.observed) / H * plot.clientHeight - 10) + "px";
+        });
+        d.addEventListener("mouseleave", () => tp.hidden = true);
+      });
+    });
+    const t = el("table", {}, el("div", { class: "tablewrap" }, fig));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Outcome", "Meter", "SRD category alone", "No information"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    S.forEach(s => {
+      const e = DATA.meter[s.key]; const tr = el("tr", {}, tb);
+      [s.label, e.brier_meter.toFixed(3), e.brier_category.toFixed(3), e.brier_base.toFixed(3)].forEach(vv => el("td", {}, tr, vv));
+    });
+    el("p", { class: "note" }, fig, "Brier score: average squared error of the forecast. Lower is better.");
+  }
+
+  const mc = document.getElementById("meter-charts");
+  categoryChart(mc, "drop", "How often someone drops", "Share of fights where at least one character hits 0 Hit Points.");
+  categoryChart(mc, "win", "How often the party wins", "The rest are fights where everyone ends up down.");
+  calibration(mc);
+  (function () {
+    const fig = figure(mc, "The meter's formula", `Logistic regression on ${DATA.features.length - 1} features plus a constant, fitted on all ${m.battles.toLocaleString()} fights; positive weights push the forecast up.`, true);
+    const t = el("table", {}, el("div", { class: "tablewrap" }, fig));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Feature", "Someone drops", "Party falls", "Someone dies"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    DATA.features.forEach((f, i) => {
+      const tr = el("tr", {}, tb);
+      [f, DATA.fits.drop[i].toFixed(2), DATA.fits.tpk[i].toFixed(2), DATA.fits.death[i].toFixed(2)].forEach(vv => el("td", {}, tr, vv));
+    });
+  })();
+
+  // Monster probes heat table.
+  (function () {
+    const t = document.getElementById("probes");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Monster", "Level 2", "Level 3", "Level 4"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    const lo = css("--heat-lo"), hi = css("--heat-hi");
+    const mix = (a, b, f) => { const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16)); return "rgb(" + pa.map((c, i) => Math.round(c + (pb[i] - c) * f)).join(",") + ")"; };
+    const names = [...new Set(DATA.probes.map(p => p.id))];
+    names.forEach(id => {
+      const tr = el("tr", {}, tb);
+      const first = DATA.probes.find(p => p.id === id);
+      const th = el("th", { class: "player" }, tr, first.name);
+      [2, 3, 4].forEach(l => {
+        const p = DATA.probes.find(q => q.id === id && q.level === l);
+        const td = el("td", { class: "cell" }, tr);
+        if (!p) { td.textContent = "-"; return; }
+        td.style.background = mix(lo, hi, p.drop);
+        td.style.color = p.drop > 0.55 ? css("--heat-ink-hi") : css("--heat-ink-lo");
+        td.textContent = pct(p.drop);
+        td.title = `${p.count} x ${p.name} vs level ${l}: someone drops ${pct(p.drop)}, party wins ${pct(p.win)}`;
+      });
+    });
+  })();
+
+  // Subclass table.
+  (function () {
+    const t = document.getElementById("subs");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Subclass", "Party wins", "vs SRD", "Someone drops", "vs SRD", "Damage / round", "Healing / fight", "Own drops / fight", "Fights"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    const CL = { fighter: "Fighter", rogue: "Rogue", cleric: "Cleric", wizard: "Wizard" };
+    ["fighter", "rogue", "cleric", "wizard"].forEach(cls => {
+      const rows = DATA.subclasses.filter(r => r.class === cls);
+      const srd = rows.find(r => r.source.startsWith("SRD"));
+      const head = el("tr", {}, tb); const th = el("th", { colspan: 9, style: "text-align:left;padding-top:14px" }, head, CL[cls]);
+      rows.sort((a, b) => (a.source.startsWith("SRD") ? -1 : 0) - (b.source.startsWith("SRD") ? -1 : 0)).forEach(r => {
+        const tr = el("tr", { class: r === srd ? "srd" : "" }, tb);
+        const td = el("td", {}, tr); el("b", {}, td, r.name);
+        const bar = (vv) => { const c = el("td", {}, tr); const w = el("div", { class: "barcell" }, c); const tr2 = el("span", { class: "track" }, w); const i = el("i", {}, tr2); i.style.width = Math.round(vv * 100) + "%"; el("span", { class: "num" }, w, pct(vv)); };
+        const delta = (vv, base, goodUp) => { const c = el("td", { class: "num" }, tr); if (r === srd) { c.textContent = "-"; return; } const d = Math.round((vv - base) * 100); c.textContent = (d > 0 ? "+" : "") + d; c.className = "num delta " + (d === 0 ? "" : ((d > 0) === goodUp ? "up" : "down")); };
+        bar(r.win); delta(r.win, srd.win, true); bar(r.drop); delta(r.drop, srd.drop, false);
+        el("td", { class: "num" }, tr, r.dpr.toFixed(1)); el("td", { class: "num" }, tr, r.healed.toFixed(1));
+        el("td", { class: "num" }, tr, r.own_downs.toFixed(2)); el("td", { class: "num" }, tr, String(r.n));
+      });
+    });
+  })();
+})();
+</script>
+</body>
+</html>

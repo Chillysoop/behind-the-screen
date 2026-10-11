@@ -1,0 +1,15 @@
+script: "/main/hud/hud.gui_script"
+fonts {
+  name: "body"
+  font: "/assets/fonts/body.font"
+}
+fonts {
+  name: "big"
+  font: "/assets/fonts/big.font"
+}
+textures {
+  name: "ui"
+  texture: "/assets/ui/ui.atlas"
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

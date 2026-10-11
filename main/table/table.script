@@ -1,0 +1,356 @@
+-- The table on game night (M4): swaps the terrain sets with a physical reset,
+-- spawns and moves the paper minis, poses the players (empty chairs for anyone out),
+-- throws sparks for spells,
+-- and tells the game screen where everyone is on screen so it can hang speech
+-- bubbles and damage numbers on them. The game screen drives it with messages.
+
+local state = require "main.state"
+local scene = require "main.scene_data"
+
+local GUI = msg.url("main", "/game", "game")
+local UP = vmath.vector3(0, 1, 0)
+
+local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
+local POSE_TIME = 2.6
+
+local function square(x, y)
+    local g = scene.grid
+    return vmath.vector3(g.x0 + g.size * (x - 0.5), g.base_top, g.z0 + g.size * (y - 0.5))
+end
+
+local function set_fire(name)
+    local f = scene.terrain_fire[name]
+    if f and f.pos and f.level > 0 then
+        state.fire_pos = f.pos
+        state.fire_level = f.level
+    else
+        state.fire_pos = f and f.pos or nil
+        state.fire_level = 0
+    end
+end
+
+-- Terrain ---------------------------------------------------------------------------------
+
+local function terrain_id(name)
+    return "/terrain_" .. name
+end
+
+local function show_terrain(self, name, animate)
+    if name == self.terrain then
+        return
+    end
+    local old = self.terrain
+    self.terrain = name
+    if old then
+        local oid = terrain_id(old)
+        if animate then
+            go.animate(oid, "position.y", go.PLAYBACK_ONCE_FORWARD, 70, go.EASING_INBACK, 0.45, 0, function()
+                msg.post(oid, "disable")
+                go.set_position(vmath.vector3(0, 0, 0), oid)
+            end)
+        else
+            msg.post(oid, "disable")
+        end
+    end
+    local nid = terrain_id(name)
+    msg.post(nid, "enable")
+    if animate then
+        go.set_position(vmath.vector3(0, 60, 0), nid)
+        go.animate(nid, "position.y", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBOUNCE, 0.8, 0.4)
+    else
+        go.set_position(vmath.vector3(0, 0, 0), nid)
+    end
+    set_fire(name)
+end
+
+-- Minis -----------------------------------------------------------------------------------
+
+local function spawn(self, m)
+    local pos = square(m.x, m.y)
+    local size = scene.large[m.sprite] or 1
+    -- Scale and lift go in at creation so the standee never shows at full sprite size.
+    local s = scene.mini.scale * size
+    local id = factory.create("#mini_factory", pos, nil, { lift = m.drop and 30 or 0 }, vmath.vector3(s, s, s))
+    local base = factory.create("#base_factory", vmath.vector3(pos.x, scene.grid.y, pos.z), nil, nil,
+        vmath.vector3(size, 1, size))
+    local shadow = factory.create("#shadow_factory", vmath.vector3(pos.x, scene.grid.y + 0.05, pos.z), nil, nil,
+        vmath.vector3(0.01, 1, 0.01))
+    msg.post(msg.url(nil, id, "mini"), "setup", { base = base, shadow = shadow, anim = hash(m.sprite), side = m.side,
+                                                 size = size, drop = m.drop, delay = m.delay })
+    self.minis[m.id] = { go = id, x = m.x, y = m.y, side = m.side, size = size, sprite = m.sprite }
+end
+
+local function remove(self, id, how)
+    local m = self.minis[id]
+    if not m then
+        return
+    end
+    self.minis[id] = nil
+    msg.post(msg.url(nil, m.go, "mini"), how or "remove")
+end
+
+local function mini_msg(self, id, what, data)
+    local m = self.minis[id]
+    if m then
+        msg.post(msg.url(nil, m.go, "mini"), what, data or {})
+    end
+    return m
+end
+
+-- Put the party (and the NPC) where the scene wants them; drop anyone who isn't in it.
+-- fresh: the scenery just changed, so the DM sweeps the old minis off and sets them down again.
+local function stage(self, message)
+    if message.fresh then
+        for id in pairs(self.minis) do
+            remove(self, id, "sweep")
+        end
+    end
+    local keep = {}
+    for i, p in ipairs(message.party or {}) do
+        keep[p.id] = true
+        local m = self.minis[p.id]
+        if m then
+            if m.x ~= p.x or m.y ~= p.y then
+                mini_msg(self, p.id, "walk", { path = { square(p.x, p.y) }, step = 0.5 })
+                m.x, m.y = p.x, p.y
+            end
+        else
+            spawn(self, { id = p.id, sprite = p.sprite or CLASS_SPRITE[p.class] or p.class, x = p.x, y = p.y,
+                          side = "party", drop = true, delay = (message.fresh and 0.9 or 0.1) + i * 0.12 })
+        end
+    end
+    if message.npc then
+        keep.npc = true
+        local n = message.npc
+        local m = self.minis.npc
+        if m and m.sprite == n.sprite then
+            if m.x ~= n.x or m.y ~= n.y then
+                mini_msg(self, "npc", "walk", { path = { square(n.x, n.y) }, step = 0.5 })
+                m.x, m.y = n.x, n.y
+            end
+        else
+            if m then
+                remove(self, "npc", "sweep")
+            end
+            spawn(self, { id = "npc", sprite = n.sprite, x = n.x, y = n.y, side = "npc", drop = true,
+                          delay = message.fresh and 1.4 or 0.3 })
+        end
+    end
+    for id in pairs(self.minis) do
+        if not keep[id] then
+            remove(self, id, "flee")
+        end
+    end
+end
+
+-- The M0 vignette: the party around the campfire with two goblins sneaking up.
+local function vignette(self)
+    show_terrain(self, "camp", self.terrain ~= nil)
+    for _, m in ipairs({
+        { id = "dev", sprite = "fighter", x = 9, y = 7, side = "party" },
+        { id = "mara", sprite = "wizard", x = 5, y = 5, side = "party" },
+        { id = "sam", sprite = "cleric", x = 6, y = 4, side = "party" },
+        { id = "jess", sprite = "rogue", x = 11, y = 4, side = "party" },
+        { id = "g1", sprite = "goblin_spear", x = 14, y = 5, side = "foe" },
+        { id = "g2", sprite = "goblin_club", x = 15, y = 7, side = "foe" },
+    }) do
+        spawn(self, m)
+    end
+end
+
+-- Players around the table ------------------------------------------------------------------
+
+local function pose(self, who, name, hold)
+    local p = self.people[who]
+    if not p then
+        return
+    end
+    local anim = (name == "neutral" or not name) and who or (who .. "_" .. name)
+    if p.anim ~= anim then
+        p.anim = anim
+        msg.post(msg.url(nil, "/" .. who, "person"), "pose", { anim = hash(anim) })
+    end
+    p.until_t = hold and (self.t + POSE_TIME) or nil
+end
+
+-- Screen positions ------------------------------------------------------------------------
+
+local function projector()
+    local w, h = window.get_size()
+    if not w or w == 0 then
+        w, h = 1600, 900
+    end
+    local view = vmath.matrix4_look_at(state.cam_eye, state.cam_target, UP)
+    local proj = vmath.matrix4_perspective(state.cam_fov, w / math.max(h, 1), 2, 3000)
+    local vp = proj * view
+    return function(p)
+        local c = vp * vmath.vector4(p.x, p.y, p.z, 1)
+        if c.w <= 0.01 then
+            return nil
+        end
+        return { (c.x / c.w + 1) * 0.5, (1 - c.y / c.w) * 0.5 }
+    end
+end
+
+-- Spell areas and zones (real-session pass): a tinted square on every grid square they cover.
+local function mark_area(self, message)
+    local g = scene.grid
+    local ids = {}
+    for i, sq in ipairs(message.cells or {}) do
+        local x, y = sq[1], sq[2]
+        if x >= 1 and y >= 1 and x <= g.w and y <= g.h then
+            local pos = vmath.vector3(g.x0 + g.size * (x - 0.5), g.y + 0.06, g.z0 + g.size * (y - 0.5))
+            local id = factory.create("#mark_factory", pos, nil,
+                { color = message.color or vmath.vector4(1, 0.6, 0.3, 0.6), life = message.life or 1.2,
+                  delay = (message.stagger or 0) * (i - 1) },
+                vmath.vector3(g.size * 0.94, 1, g.size * 0.94))
+            table.insert(ids, id)
+        end
+    end
+    if message.zone then
+        self.zones[message.zone] = ids
+    end
+end
+
+local function clear_area(self, zone)
+    for _, id in ipairs(self.zones[zone] or {}) do
+        msg.post(msg.url(nil, id, "mark"), "fade")
+    end
+    self.zones[zone] = nil
+end
+
+function init(self)
+    self.zones = {}
+    self.minis = {}
+    self.people = {}
+    self.t = 0
+    self.tracking = false
+    for who in pairs(scene.heads) do
+        self.people[who] = { anim = who }
+    end
+    for _, name in ipairs(scene.terrain_sets) do
+        msg.post(terrain_id(name), "disable")
+    end
+    vignette(self)
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    -- Momentary poses relax back to each player's mood.
+    for who, p in pairs(self.people) do
+        if p.until_t and self.t >= p.until_t then
+            pose(self, who, p.mood or "neutral", false)
+        end
+    end
+    if not self.tracking then
+        return
+    end
+    local project = projector()
+    local heads, minis = {}, {}
+    for who, pos in pairs(scene.heads) do
+        heads[who] = project(pos)
+    end
+    for id, m in pairs(self.minis) do
+        local ok, p = pcall(go.get_position, m.go)
+        if ok and p then
+            -- The position is the standee's middle; aim just over the top of its art.
+            local top = scene.mini_tops[m.sprite] or 0.2
+            minis[id] = project(p + vmath.vector3(0, scene.mini.height * (0.53 - top) * m.size, 0))
+        end
+    end
+    msg.post(GUI, "anchors", { heads = heads, minis = minis })
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("track") then
+        self.tracking = message.on
+    elseif message_id == hash("terrain") then
+        show_terrain(self, message.set, message.animate ~= false)
+    elseif message_id == hash("stage") then
+        stage(self, message)
+    elseif message_id == hash("spawn") then
+        for i, m in ipairs(message.list) do
+            if self.minis[m.id] then
+                remove(self, m.id)
+            end
+            spawn(self, { id = m.id, sprite = m.sprite, x = m.x, y = m.y, side = m.side or "foe", drop = true,
+                          delay = (m.delay or 0) + i * 0.08 })
+        end
+    elseif message_id == hash("clear") then
+        for id, m in pairs(self.minis) do
+            if not message.side or m.side == message.side then
+                remove(self, id, message.how or "flee")
+            end
+        end
+    elseif message_id == hash("walk") then
+        local m = self.minis[message.id]
+        if m then
+            local pts = {}
+            for _, sq in ipairs(message.path) do
+                table.insert(pts, square(sq[1], sq[2]))
+                m.x, m.y = sq[1], sq[2]
+            end
+            mini_msg(self, message.id, "walk", { path = pts, step = message.step })
+        end
+    elseif message_id == hash("lunge") then
+        local t = self.minis[message.target]
+        if t then
+            mini_msg(self, message.id, "lunge", { to = square(t.x, t.y), ranged = message.ranged, time = message.time })
+        end
+    elseif message_id == hash("hit") or message_id == hash("down") or message_id == hash("up") then
+        mini_msg(self, message.id, message_id)
+    elseif message_id == hash("die") or message_id == hash("flee") then
+        remove(self, message.id, message_id == hash("die") and "die" or "flee")
+    elseif message_id == hash("spark") then
+        local pos
+        if message.id and self.minis[message.id] then
+            local m = self.minis[message.id]
+            pos = square(m.x, m.y) + vmath.vector3(0, scene.mini.height * 0.5, 0)
+        elseif message.x then
+            pos = square(message.x, message.y) + vmath.vector3(0, 3, 0)
+        end
+        if pos then
+            factory.create("#spark_factory", pos, nil, { color = message.color or vmath.vector4(1, 0.8, 0.5, 1),
+                                                          size = message.size or 1, life = message.life or 0.7 })
+        end
+    elseif message_id == hash("area") then
+        mark_area(self, message)
+    elseif message_id == hash("area_end") then
+        if message.zone then
+            clear_area(self, message.zone)
+        else
+            for z in pairs(self.zones) do
+                clear_area(self, z)
+            end
+        end
+    elseif message_id == hash("pose") then
+        pose(self, message.who, message.pose, message.hold)
+    elseif message_id == hash("mood") then
+        -- Resting poses (how into it everyone is); momentary ones wait their turn.
+        for who, name in pairs(message.poses) do
+            local p = self.people[who]
+            if p then
+                p.mood = name
+                if not p.until_t then
+                    pose(self, who, name, false)
+                end
+            end
+        end
+    elseif message_id == hash("seats") then
+        -- Who made it tonight: an empty chair for anyone who's out.
+        for who in pairs(self.people) do
+            local here = not message.present or message.present[who] ~= false
+            msg.post(msg.url(nil, "/" .. who, "person"), "seat", { present = here })
+        end
+    elseif message_id == hash("vignette") then
+        for id in pairs(self.minis) do
+            remove(self, id, "sweep")
+        end
+        for who, p in pairs(self.people) do
+            p.mood, p.until_t = nil, nil
+            pose(self, who, "neutral", false)
+        end
+        self.tracking = false
+        vignette(self)
+    end
+end

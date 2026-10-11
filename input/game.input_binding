@@ -1,0 +1,124 @@
+key_trigger {
+  input: KEY_1
+  action: "zoom_room"
+}
+key_trigger {
+  input: KEY_2
+  action: "zoom_table"
+}
+key_trigger {
+  input: KEY_3
+  action: "zoom_imagination"
+}
+key_trigger {
+  input: KEY_SPACE
+  action: "roll"
+}
+key_trigger {
+  input: KEY_L
+  action: "lamp"
+}
+key_trigger {
+  input: KEY_R
+  action: "reset_view"
+}
+key_trigger {
+  input: KEY_F
+  action: "fast"
+}
+key_trigger {
+  input: KEY_F2
+  action: "sandbox"
+}
+key_trigger {
+  input: KEY_F3
+  action: "debug"
+}
+key_trigger {
+  input: KEY_ENTER
+  action: "confirm"
+}
+key_trigger {
+  input: KEY_4
+  action: "zoom_dice"
+}
+key_trigger {
+  input: KEY_TAB
+  action: "log"
+}
+key_trigger {
+  input: KEY_T
+  action: "timer"
+}
+key_trigger {
+  input: KEY_M
+  action: "music"
+}
+key_trigger {
+  input: KEY_H
+  action: "dm_rolls"
+}
+key_trigger {
+  input: KEY_F4
+  action: "review"
+}
+key_trigger {
+  input: KEY_Q
+  action: "queue"
+}
+key_trigger {
+  input: KEY_UP
+  action: "up"
+}
+key_trigger {
+  input: KEY_DOWN
+  action: "down"
+}
+key_trigger {
+  input: KEY_A
+  action: "approve"
+}
+key_trigger {
+  input: KEY_R
+  action: "reject"
+}
+key_trigger {
+  input: KEY_E
+  action: "edit"
+}
+key_trigger {
+  input: KEY_N
+  action: "next_cell"
+}
+key_trigger {
+  input: KEY_P
+  action: "prev_cell"
+}
+key_trigger {
+  input: KEY_ESC
+  action: "back"
+}
+key_trigger {
+  input: KEY_BACKSPACE
+  action: "backspace"
+}
+mouse_trigger {
+  input: MOUSE_WHEEL_UP
+  action: "zoom_in"
+}
+mouse_trigger {
+  input: MOUSE_WHEEL_DOWN
+  action: "zoom_out"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_RIGHT
+  action: "orbit"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_LEFT
+  action: "touch"
+}
+text_trigger {
+  input: TEXT
+  action: "text"
+}

@@ -1,0 +1,12 @@
+/.internal
+/build
+/bundle
+.externalToolBuilders
+.DS_Store
+Thumbs.db
+*.pyc
+__pycache__/
+/tools/preview_scene.json
+log.txt
+/tools/sim/report.html
+/tools/sim/sim_data.json

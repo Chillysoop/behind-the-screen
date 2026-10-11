@@ -1,0 +1,1439 @@
+{
+ "version": 1,
+ "note": "Every moment in the game that needs a line. voice: table (the player talking at the table), character (the character speaking in the story), chat (a text in the group chat), npc (the DM voicing an NPC). fill: the {placeholders} a line may use. split: lines are written separately for each value. needs: extra fields every line must have.",
+ "min_approved": 3,
+ "variants": 4,
+ "triggers": [
+  {
+   "id": "arrive",
+   "group": "Arriving and leaving",
+   "voice": "table",
+   "when": "Sitting down at the start of game night, before any dice.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "scene_like",
+   "group": "Scenes",
+   "voice": "table",
+   "when": "A new scene starts and it is exactly their kind of scene (their archetype loves this scene type).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "location",
+    "cast"
+   ],
+   "max": 90
+  },
+  {
+   "id": "scene_dislike",
+   "group": "Scenes",
+   "voice": "table",
+   "when": "A new scene starts and it is NOT their kind of scene. Mild grumbling, never mean.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "location"
+   ],
+   "max": 90
+  },
+  {
+   "id": "thread",
+   "group": "Scenes",
+   "voice": "table",
+   "when": "Something in this scene ties to their character's backstory hook ({thread} in the voice sheet). They sit up.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "npc_talk",
+   "group": "Scenes",
+   "voice": "character",
+   "when": "In a social scene, their character opens their mouth first to the NPC.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "cast"
+   ],
+   "max": 90
+  },
+  {
+   "id": "reward_like",
+   "group": "Scenes",
+   "voice": "table",
+   "when": "The party earns a reward they personally love.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "between",
+   "group": "Scenes",
+   "voice": "table",
+   "when": "Between scenes while the DM resets the terrain: stretching, refills, a comment on the last scene.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "wrap",
+   "group": "Arriving and leaving",
+   "voice": "table",
+   "when": "The session ends. Packing up dice, saying goodnight.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "banter",
+   "group": "Scenes",
+   "voice": "character",
+   "when": "Two characters bicker or joke in character during a scene. The line is spoken to another character (to) and gets a short reply in that character's voice (reply).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90,
+   "needs": [
+    "to",
+    "reply"
+   ]
+  },
+  {
+   "id": "check_win",
+   "group": "Checks",
+   "voice": "character",
+   "when": "Their character just succeeded at a skill check (sneaking, persuading, studying, climbing).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "check_lose",
+   "group": "Checks",
+   "voice": "character",
+   "when": "Their character just failed a skill check. Shrugging it off, not despair.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "crit",
+   "group": "Checks",
+   "voice": "table",
+   "when": "They rolled a natural 20. Big reaction at the table.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "fumble",
+   "group": "Checks",
+   "voice": "table",
+   "when": "They rolled a natural 1. A laugh or a groan, never real anger.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "cheer_other",
+   "group": "Checks",
+   "voice": "table",
+   "when": "Another player ({other}, playing {other_char}) just pulled something off. Cheering them on.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "other",
+    "other_char"
+   ],
+   "max": 90
+  },
+  {
+   "id": "groan_other",
+   "group": "Checks",
+   "voice": "table",
+   "when": "Another player ({other}, playing {other_char}) just flubbed a roll. Sympathy or teasing.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "other",
+    "other_char"
+   ],
+   "max": 90
+  },
+  {
+   "id": "boss_appears",
+   "group": "Fights",
+   "voice": "table",
+   "when": "The boss of the fight ({boss}) shows up. First reaction.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "boss"
+   ],
+   "max": 90
+  },
+  {
+   "id": "turn",
+   "group": "Fights",
+   "voice": "character",
+   "when": "The start of their character's turn in a fight: what they're about to do.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "hit",
+   "group": "Fights",
+   "voice": "character",
+   "when": "Their character lands an ordinary hit on {target}.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "target"
+   ],
+   "max": 90
+  },
+  {
+   "id": "big_hit",
+   "group": "Fights",
+   "voice": "table",
+   "when": "They deal a lot of damage in one turn. Bragging about the number.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "target"
+   ],
+   "max": 90
+  },
+  {
+   "id": "miss",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Every attack they made this turn missed.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "target"
+   ],
+   "max": 90
+  },
+  {
+   "id": "kill",
+   "group": "Fights",
+   "voice": "table",
+   "when": "They just took down an enemy ({target}).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "target"
+   ],
+   "max": 90
+  },
+  {
+   "id": "spell",
+   "group": "Fights",
+   "voice": "character",
+   "when": "Their character casts a spell in a fight.",
+   "speakers": [
+    "mara",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "heal_cast",
+   "group": "Fights",
+   "voice": "character",
+   "when": "Oswin heals someone in a fight.",
+   "speakers": [
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "ouch",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Their character takes a big hit (a third of their hit points or more) but stays up.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "down_self",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Their character drops to 0 hit points.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "ally_down",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Another character ({other_char}, played by {other}) just dropped to 0 hit points.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "other",
+    "other_char"
+   ],
+   "max": 90
+  },
+  {
+   "id": "up_again",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Their character is back on their feet after being down.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "thanks",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Someone just healed or saved their character.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "fight_chat",
+   "group": "Fights",
+   "voice": "table",
+   "when": "Table chatter between rounds of a fight: initiative, moving minis, rules, snacks.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "victory",
+   "group": "Fights",
+   "voice": "table",
+   "when": "The party wins the fight.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "boss"
+   ],
+   "max": 90
+  },
+  {
+   "id": "defeat",
+   "group": "Fights",
+   "voice": "table",
+   "when": "The party loses or has to fall back.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "snack",
+   "group": "Table life",
+   "voice": "table",
+   "when": "Small talk about snacks and drinks between beats.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "bored",
+   "group": "Table life",
+   "voice": "table",
+   "when": "They are losing interest in the current scene. A small, honest tell, not rude.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "phone",
+   "group": "Table life",
+   "voice": "table",
+   "when": "They've been on their phone and just looked up. Slightly sheepish.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "improv_great",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM just improvised something that fits beautifully. Impressed.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "improv_poor",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM just improvised something that doesn't fit. Mild confusion, never cruel.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "ruling_good",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM ruled a roll generously in their favor.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "ruling_bad",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM ruled a roll harshly: things got worse.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "open_roll",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM rolls a big moment in the open, where everyone can see the die.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "suspicious",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "Under their breath: the DM's hidden rolls have been suspiciously convenient.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "callout",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "Out loud: they ask to see the DM's hidden roll. The table goes quiet. Firm but friendly.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "rules_lawyer",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "A rules question comes up mid-fight and they have an opinion.",
+   "speakers": [
+    "dev",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "spotlight_shy",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM puts them on the spot and they'd rather not be. Awkward, short.",
+   "speakers": [
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "chat_intro",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Week 1: introducing their character to the group chat before the first session.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_reaction",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "The day after a session, how it went for them. Tier: loved (best night ever), fun, fine (okay but wanted more of their thing), bored, out (checked out, honest).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "moment",
+    "want"
+   ],
+   "split": {
+    "field": "tier",
+    "values": [
+     "loved",
+     "fun",
+     "fine",
+     "bored",
+     "out"
+    ]
+   },
+   "max": 140
+  },
+  {
+   "id": "chat_mood",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Before game night, a hint about how their week is going. Mood: tired, celebrating, stressed, chatty, distracted.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "split": {
+    "field": "mood",
+    "values": [
+     "tired",
+     "celebrating",
+     "stressed",
+     "chatty",
+     "distracted"
+    ]
+   },
+   "max": 140
+  },
+  {
+   "id": "chat_want",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Before game night: a nudge toward what they want from sessions ({want}).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "want"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_thread",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Before game night: asking when their backstory ({thread}) will come up.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "thread"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_absent",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "They can't make it this week. Apologetic.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_returning",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Back after missing a week.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_wavering",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Their commitment is slipping and they say so honestly. Not a goodbye yet.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_leaving",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "They're taking a break from Thursdays for a while. Kind, a bit sad, leaves the door open.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_on_break",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Still on their break, checking in.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_back",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Coming back after a break. A little nervous, happy.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_cliffhanger",
+   "group": "Group chat",
+   "voice": "chat",
+   "when": "Last session ended on a cliffhanger and they can't wait for Thursday.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "report_quote",
+   "group": "Session report",
+   "voice": "table",
+   "when": "Said right after the session, for the report card. Tier: loved, fun, fine, bored, out.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "moment"
+   ],
+   "split": {
+    "field": "tier",
+    "values": [
+     "loved",
+     "fun",
+     "fine",
+     "bored",
+     "out"
+    ]
+   },
+   "max": 80
+  },
+  {
+   "id": "npc_greet",
+   "group": "NPCs",
+   "voice": "npc",
+   "when": "The NPC's first words when the party meets them in a scene.",
+   "speakers": [
+    "goblins",
+    "gus",
+    "stranger",
+    "rook",
+    "hermit",
+    "rivals",
+    "ogre",
+    "corin",
+    "wolf_lieutenant",
+    "madame_sable",
+    "abbot_ghost",
+    "holt",
+    "brother_tumble",
+    "goblin_scout",
+    "verrin"
+   ],
+   "fill": [],
+   "max": 90
+  },
+  {
+   "id": "npc_good",
+   "group": "NPCs",
+   "voice": "npc",
+   "when": "The party just handled something well in front of the NPC.",
+   "speakers": [
+    "goblins",
+    "gus",
+    "stranger",
+    "rook",
+    "hermit",
+    "rivals",
+    "ogre",
+    "corin",
+    "wolf_lieutenant",
+    "madame_sable",
+    "abbot_ghost",
+    "holt",
+    "brother_tumble",
+    "goblin_scout",
+    "verrin"
+   ],
+   "fill": [],
+   "max": 90
+  },
+  {
+   "id": "npc_bad",
+   "group": "NPCs",
+   "voice": "npc",
+   "when": "The party just fumbled something in front of the NPC.",
+   "speakers": [
+    "goblins",
+    "gus",
+    "stranger",
+    "rook",
+    "hermit",
+    "rivals",
+    "ogre",
+    "corin",
+    "wolf_lieutenant",
+    "madame_sable",
+    "abbot_ghost",
+    "holt",
+    "brother_tumble",
+    "goblin_scout",
+    "verrin"
+   ],
+   "fill": [],
+   "max": 90
+  },
+  {
+   "id": "npc_taunt",
+   "group": "NPCs",
+   "voice": "npc",
+   "when": "The NPC taunts the party mid-fight.",
+   "speakers": [
+    "goblins",
+    "rook",
+    "rivals",
+    "ogre",
+    "wolf_lieutenant",
+    "madame_sable",
+    "verrin",
+    "bone_choir",
+    "white_wolf"
+   ],
+   "fill": [],
+   "max": 90
+  },
+  {
+   "id": "npc_down",
+   "group": "NPCs",
+   "voice": "npc",
+   "when": "The NPC is beaten in a fight. Last words, played for fun (nobody dies on screen).",
+   "speakers": [
+    "goblins",
+    "rook",
+    "rivals",
+    "ogre",
+    "wolf_lieutenant",
+    "madame_sable",
+    "verrin",
+    "bone_choir",
+    "white_wolf"
+   ],
+   "fill": [],
+   "max": 90
+  },
+  {
+   "id": "chat_spotlight",
+   "group": "Table conflicts",
+   "voice": "chat",
+   "when": "While Jess (Pip) has been hogging the spotlight for weeks: a gentle grumble in the group chat. Half a joke, never mean. May name Jess or Pip.",
+   "speakers": [
+    "sam",
+    "mara",
+    "dev"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_rules_spat",
+   "group": "Table conflicts",
+   "voice": "chat",
+   "when": "While Dev and Sam keep arguing about rules calls: a friendly jab at the other side about {topic}. Dev wants rule of cool; Sam wants the same rules every time.",
+   "speakers": [
+    "dev",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "topic"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_tone",
+   "group": "Table conflicts",
+   "voice": "chat",
+   "when": "While the tone clash is live: Mara wants Ilsa's story taken seriously; Jess wants to keep things light. Careful, a little awkward, never mean.",
+   "speakers": [
+    "mara",
+    "jess"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "seed_planted",
+   "group": "Seeds",
+   "voice": "table",
+   "when": "The DM just dropped a little mystery ({seed}) into the scene. They notice it and lean in.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "seed"
+   ],
+   "max": 90
+  },
+  {
+   "id": "chat_seed_theory",
+   "group": "Seeds",
+   "voice": "chat",
+   "when": "During the week: a theory about {seed}, a mystery the DM planted. Wild guesses welcome. Never start the message with {seed}.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "seed"
+   ],
+   "max": 140
+  },
+  {
+   "id": "seed_payoff",
+   "group": "Seeds",
+   "voice": "table",
+   "when": "A mystery planted weeks ago ({seed}) finally pays off at the table. Delight, vindication, I-knew-it.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "seed"
+   ],
+   "max": 90
+  },
+  {
+   "id": "chat_seed_stale",
+   "group": "Seeds",
+   "voice": "chat",
+   "when": "Weeks after the DM planted {seed}, nothing has come of it. Curious, a little let down, never rude.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name",
+    "seed"
+   ],
+   "max": 140
+  },
+  {
+   "id": "chat_level_overdue",
+   "group": "Level-ups",
+   "voice": "chat",
+   "when": "The party hasn't leveled up in a while. Asking the DM when.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 140
+  },
+  {
+   "id": "level_up",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "The DM announces the party levels up, right there at the table.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
+   "id": "pick_champion",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Champion for their character (crits on a 19 or 20, an athlete's edge). In their own words, why it's them.",
+   "speakers": [
+    "dev"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_banner_captain",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Banner Captain for their character (calls orders so allies get extra attacks, and shields the people beside him). In their own words, why it's them.",
+   "speakers": [
+    "dev"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_spellguard",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Spellguard for their character (a fighter who learns wizard cantrips and turns a hit into a miss). In their own words, why it's them.",
+   "speakers": [
+    "dev"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_thief",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Thief for their character (fast hands, climbing and jumping). In their own words, why it's them.",
+   "speakers": [
+    "jess"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_silvertongue",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Silvertongue for their character (expertise in talking, and feints that set up her attacks). In their own words, why it's them.",
+   "speakers": [
+    "jess"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_ambusher",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Ambusher for their character (acts first and hits hardest on the first turn). In their own words, why it's them.",
+   "speakers": [
+    "jess"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_life",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Life Domain for their character (stronger heals and a burst of healing for everyone). In their own words, why it's them.",
+   "speakers": [
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_hearth",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Hearth Domain for their character (temporary hit points for friends and courage against fear). In their own words, why it's them.",
+   "speakers": [
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_mischief",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Mischief Domain for their character (illusions and a decoy double that draws attacks). In their own words, why it's them.",
+   "speakers": [
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_evoker",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Evoker for their character (damage spells, and cantrips that still hurt when they miss). In their own words, why it's them.",
+   "speakers": [
+    "mara"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_wayfinder",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Wayfinder for their character (teleporting with a friend and moving the party before a fight). In their own words, why it's them.",
+   "speakers": [
+    "mara"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  },
+  {
+   "id": "pick_mirror_mage",
+   "group": "Level-ups",
+   "voice": "table",
+   "when": "Level 3: announcing they've picked Mirror Mage for their character (illusions, mirror images and making attackers miss). In their own words, why it's them.",
+   "speakers": [
+    "mara"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 110
+  }
+ ]
+}

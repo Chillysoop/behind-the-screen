@@ -1,0 +1,6 @@
+default_animation: "halo"
+material: "/materials/glow.material"
+textures {
+  sampler: "texture_sampler"
+  texture: "/assets/sprites/sprites.atlas"
+}

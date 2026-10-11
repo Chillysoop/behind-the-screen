@@ -1,0 +1,9 @@
+font: "/assets/fonts/Outfit-Regular.ttf"
+material: "/builtins/fonts/font.material"
+size: 18
+antialias: 1
+alpha: 1.0
+outline_alpha: 0.0
+outline_width: 0.0
+shadow_alpha: 0.0
+output_format: TYPE_BITMAP

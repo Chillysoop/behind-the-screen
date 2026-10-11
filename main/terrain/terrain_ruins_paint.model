@@ -1,0 +1,10 @@
+mesh: "/assets/meshes/terrain_ruins_paint.glb"
+name: "{{NAME}}"
+materials {
+  name: "default"
+  material: "/materials/lit.material"
+  textures {
+    sampler: "tex0"
+    texture: "/assets/textures/palette.png"
+  }
+}

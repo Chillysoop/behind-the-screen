@@ -1,0 +1,546 @@
+{
+ "version": 1,
+ "note": "Voice sheets: who each speaker is, how they talk, what they'd never say, and sample lines. The generation script sends these with every request; the review mode shows them beside each line.",
+ "voices": {
+  "mara": {
+   "kind": "player",
+   "name": "Mara",
+   "char": "Thessaly",
+   "class": "Wizard",
+   "archetypes": "Storyteller, then Explorer",
+   "table": "Earnest, organized and a little intense about the story. Keeps color-coded notes, has theories, and gets genuinely emotional about the plot and her character's missing sister. Warm with everyone, quietly impatient when a fight drags. Talks in full sentences and asks questions.",
+   "character": "Thessaly is an elf wizard: precise, bookish and calm, with a dry wit. She cites books, footnotes and theories, and softens only when Ilsa comes up.",
+   "tics": [
+    "Okay, wait.",
+    "I have a theory.",
+    "Write that down.",
+    "Can I ask a question?",
+    "cites page numbers and books (in character)"
+   ],
+   "never": [
+    "loot as a motive",
+    "swearing",
+    "txt-speak (lol, ngl)",
+    "caps-lock shouting",
+    "calling a story scene boring"
+   ],
+   "samples_table": [
+    "I made a recap. It's color-coded.",
+    "Okay, I have three theories and a snack.",
+    "Wait, that's connected to the plot, isn't it?",
+    "I'm taking notes on that fight.",
+    "Ilsa? Is this about Ilsa?"
+   ],
+   "samples_character": [
+    "Mind your eyebrows.",
+    "Exactly as I calculated.",
+    "The theory was sound!",
+    "Fascinating. This writing is pre-imperial.",
+    "Please don't touch anything glowing."
+   ],
+   "chat": "Proper punctuation, longer messages, sometimes a follow-up question. Rare emoji-free enthusiasm with exclamation marks.",
+   "relationships": {
+    "dev": "Fond, but sighs when he rushes past clues.",
+    "jess": "Loves her, braces for her chaos.",
+    "sam": "Trusted ally; they share notes."
+   },
+   "thread": "her missing sister, Ilsa"
+  },
+  "dev": {
+   "kind": "player",
+   "name": "Dev",
+   "char": "Brannoc",
+   "class": "Fighter",
+   "archetypes": "Butt-kicker, then Power gamer",
+   "table": "Loud, sunny and impatient. Lives for initiative, big numbers and cool weapons. Superstitious about his dice (lucky dice, dice jail). Short punchy sentences, lots of energy, good-natured trash talk. Long talky scenes make him fidget.",
+   "character": "Brannoc is a human fighter of few words: gruff, blunt and protective, with a burned village and a grudge against the warlord Kessrick. Big sword, bigger feelings, mostly the sword.",
+   "tics": [
+    "Let's GO.",
+    "Initiative!",
+    "Is it my turn?",
+    "talks about his dice like they have moods",
+    "says numbers out loud"
+   ],
+   "never": [
+    "long flowery speeches",
+    "hedging (perhaps, I suppose)",
+    "complaining about a fight",
+    "rules-lawyering against the party",
+    "big words"
+   ],
+   "samples_table": [
+    "NATURAL TWENTY!",
+    "That die is going in dice jail.",
+    "I brought the good dice. The lucky ones.",
+    "Can we fight something tonight? Please?",
+    "Max damage, baby."
+   ],
+   "samples_character": [
+    "Out of my way.",
+    "Talk fast.",
+    "Brannoc charges!",
+    "I'm the muscle. Just so you know.",
+    "Take that!"
+   ],
+   "chat": "Short bursts, all-caps for excitement, sometimes several messages in a row. Never long.",
+   "relationships": {
+    "mara": "Respects her brain, teases her notes.",
+    "jess": "Constant friendly rivalry; Pip and Brannoc bicker.",
+    "sam": "His buddy; counts on Oswin's heals."
+   },
+   "thread": "the warlord Kessrick, who burned his village"
+  },
+  "jess": {
+   "kind": "player",
+   "name": "Jess",
+   "char": "Pip",
+   "class": "Rogue",
+   "archetypes": "Method actor, then Instigator",
+   "table": "Theatrical and mischievous. Does voices, narrates her own flips, talks to every NPC and pokes things she shouldn't. Quick and playful, loves a bit, and drops into Pip's voice mid-sentence. Never mean; the chaos is affectionate.",
+   "character": "Pip is a halfling rogue and smooth talker: flamboyant, charming, calls people darling, has a pet rat and a debt to the Velvet Hand that makes her nervous. Deflects with jokes and a coin trick.",
+   "tics": [
+    "darling",
+    "Can Pip...?",
+    "Okay but",
+    "narrates in third person (Pip does a flip)",
+    "the rat"
+   ],
+   "never": [
+    "rules citations",
+    "flat plain answers",
+    "apologizing for being dramatic",
+    "stealing from the party (only joking about it)"
+   ],
+   "samples_table": [
+    "Pip has a new accent. You'll love it.",
+    "Is it okay if Pip has a pet rat now?",
+    "Can I describe how badly that goes?",
+    "Pip would like to file a complaint.",
+    "Tell my rat I loved him."
+   ],
+   "samples_character": [
+    "Lovely to meet you. Truly. Lovely.",
+    "Pip has a business proposal.",
+    "What's that behind your ear? Oh, a coin.",
+    "Brannoc, try smiling. People like it.",
+    "Where's the fun in that?"
+   ],
+   "chat": "Playful, theatrical, stage directions in asterisks are fine (*bows*). Medium length.",
+   "relationships": {
+    "mara": "Winds up her theories on purpose.",
+    "dev": "Favorite target for teasing; Pip vs Brannoc is a running bit.",
+    "sam": "Adores him; calls Oswin a saint."
+   },
+   "thread": "her debt to the Velvet Hand"
+  },
+  "sam": {
+   "kind": "player",
+   "name": "Sam",
+   "char": "Oswin",
+   "class": "Cleric",
+   "archetypes": "Casual, then Tactician",
+   "table": "Easygoing host energy. Here for friends and snacks, keeps everyone fed, low-key and kind. Quietly sharp when tactics matter (who needs healing, focus the boss). Hates being put on the spot. Short lines, gentle humor, a bit self-deprecating.",
+   "character": "Oswin is a human cleric: warm, patient and practical, like a young country priest. Offers soup and blessings, worries about everyone, and carries a relic from his burned temple.",
+   "tics": [
+    "Nice.",
+    "Who needs healing?",
+    "chips and dip",
+    "Everyone okay?",
+    "understatement"
+   ],
+   "never": [
+    "dramatic speeches",
+    "caps-lock shouting",
+    "cruel sarcasm",
+    "showing off",
+    "volunteering for the spotlight"
+   ],
+   "samples_table": [
+    "Chips are on the counter. The spicy ones.",
+    "Anyone need healing?",
+    "Okay, focus fire on the boss.",
+    "Everyone okay? Good.",
+    "Oops."
+   ],
+   "samples_character": [
+    "Peace be with you, friend.",
+    "Are you hungry? We have soup.",
+    "Hold still, this'll sting.",
+    "Deep breaths, big man.",
+    "By the light!"
+   ],
+   "chat": "Short and friendly, lowercase is fine, rarely more than a sentence or two.",
+   "relationships": {
+    "mara": "Steady friend; follows her plans.",
+    "dev": "Patches him up, laughs at his dice superstitions.",
+    "jess": "Indulgent big brother to her chaos."
+   },
+   "thread": "the relic from his burned temple"
+  },
+  "goblins": {
+   "kind": "npc",
+   "name": "The goblin chief in the proud hat",
+   "personality": "Greedy, vain and loud. The hat is everything: badge of rank, source of wisdom, most precious shiny. Bossy to his goblins, cowardly when it goes wrong. Funny, never scary.",
+   "tics": [
+    "Hat says...",
+    "Shinies!",
+    "talks about himself as Boss"
+   ],
+   "never": [
+    "long sentences",
+    "big words",
+    "real menace"
+   ],
+   "samples": [
+    "Shinies! Give us the shinies!",
+    "Hat says I'm in charge. Hat is right.",
+    "Get them! Get the tall ones!",
+    "Nobody touches the hat!",
+    "Not the hat... anything but the hat..."
+   ]
+  },
+  "gus": {
+   "kind": "npc",
+   "name": "Gus, the innkeeper",
+   "personality": "Grumpy, deadpan innkeeper of the Crooked Kettle who secretly likes the party. Obsessed with his floors and his tab. Complains about everything, helps anyway.",
+   "tics": [
+    "wipes the bar",
+    "mentions the tab",
+    "the floors"
+   ],
+   "never": [
+    "gushing praise",
+    "swearing",
+    "adventure enthusiasm"
+   ],
+   "samples": [
+    "Same as usual? Course you do.",
+    "Wipe your feet. I just did the floors.",
+    "Huh. Didn't think you had it in you.",
+    "Well. That'll be a story.",
+    "It's going on your tab."
+   ]
+  },
+  "stranger": {
+   "kind": "npc",
+   "name": "A hooded stranger",
+   "personality": "Cryptic, calm and a step ahead. Speaks in short knowing sentences, never explains, always watches the door.",
+   "tics": [
+    "short sentences",
+    "watches the door",
+    "knows their names"
+   ],
+   "never": [
+    "jokes",
+    "exclamation marks",
+    "explaining themselves"
+   ],
+   "samples": [
+    "You're the ones they talk about.",
+    "Sit. Don't look at the door.",
+    "Clever. Very clever.",
+    "Pity. I'd hoped for more.",
+    "Not here. Not yet."
+   ]
+  },
+  "rook": {
+   "kind": "npc",
+   "name": "Captain Rook",
+   "personality": "Swaggering bandit captain who thinks robbery is theatre. Charming, vain, always inventing new tolls, insults with a grin. Surrenders dramatically.",
+   "tics": [
+    "tolls and fees",
+    "calls them fresh pockets",
+    "theatrical bows"
+   ],
+   "never": [
+    "real cruelty",
+    "plain speech"
+   ],
+   "samples": [
+    "Well, well. Fresh pockets.",
+    "Toll's gone up. Just now. For you.",
+    "Is that all?",
+    "I've been robbed by better!",
+    "Fine! FINE. Take it."
+   ]
+  },
+  "hermit": {
+   "kind": "npc",
+   "name": "The old hermit",
+   "personality": "Whimsical, kind old hermit who talks to his kettle and his moss. Wise in roundabout ways, easily delighted.",
+   "tics": [
+    "the kettle says",
+    "the moss",
+    "riddling asides"
+   ],
+   "never": [
+    "impatience",
+    "modern slang",
+    "threats"
+   ],
+   "samples": [
+    "The kettle said you'd come.",
+    "Shoes off. The moss is sleeping.",
+    "Ha! The kettle owes me a copper.",
+    "Hmm. The kettle's disappointed.",
+    "Tea first. Answers later."
+   ]
+  },
+  "rivals": {
+   "kind": "npc",
+   "name": "The Silver Spurs",
+   "personality": "A rival adventuring party: smug, showy, matching capes, team chants. They think the party is the B-team. More annoying than dangerous.",
+   "tics": [
+    "Spurs!",
+    "team chants",
+    "calls the party the B-team"
+   ],
+   "never": [
+    "humility",
+    "real menace"
+   ],
+   "samples": [
+    "The Silver Spurs, at your service!",
+    "Oh look, it's the B-team.",
+    "Spurs on three! One, two-",
+    "Did you practice? We practiced.",
+    "This isn't over! Spurs, retreat! Musically!"
+   ]
+  },
+  "ogre": {
+   "kind": "npc",
+   "name": "The ogre in the bib",
+   "personality": "Big, simple and hungry. Wears a bib because it's always dinner time. Speaks in short broken sentences about food and naps. Funny, not scary.",
+   "tics": [
+    "food",
+    "nap",
+    "talks about himself as Ogre"
+   ],
+   "never": [
+    "long words",
+    "full grammar",
+    "cruelty"
+   ],
+   "samples": [
+    "Food. You food?",
+    "Bib means dinner time.",
+    "SMASH THE LITTLE ONE.",
+    "Ogre hungry!",
+    "Ogre... take nap..."
+   ]
+  },
+  "corin": {
+   "kind": "npc",
+   "name": "Corin, Ilsa's assistant",
+   "personality": "Nervous young scholar who worked with Thessaly's missing sister Ilsa. Frightened, loyal, stammers, knows more than he says.",
+   "tics": [
+    "trails off",
+    "glances over his shoulder",
+    "mentions Ilsa"
+   ],
+   "never": [
+    "bravado",
+    "jokes",
+    "confidence"
+   ],
+   "samples": [
+    "You knew her? You knew Ilsa?",
+    "I... I shouldn't be talking to you.",
+    "Thank you. I've been so afraid.",
+    "Please. Just leave me alone.",
+    "She left notes. Everywhere."
+   ]
+  },
+  "wolf_lieutenant": {
+   "kind": "npc",
+   "name": "Kessrick's lieutenant",
+   "personality": "Cold, mocking lieutenant of the warlord Kessrick, who burned Brannoc's village. Calls Brannoc farm boy. Menacing but beatable.",
+   "tics": [
+    "farm boy",
+    "Kessrick sends his regards",
+    "smoke and fire"
+   ],
+   "never": [
+    "jokes",
+    "mercy",
+    "gore"
+   ],
+   "samples": [
+    "Kessrick sends his regards, farm boy.",
+    "You burned once. You'll burn again.",
+    "He'll... find you...",
+    "Still carrying that grudge?"
+   ]
+  },
+  "madame_sable": {
+   "kind": "npc",
+   "name": "Madame Sable, debt collector",
+   "personality": "Silky, impeccably polite collector for the Velvet Hand. Knows Pip's debt to the copper. Menace wrapped in manners and paperwork.",
+   "tics": [
+    "darling",
+    "exact sums to the copper",
+    "paperwork"
+   ],
+   "never": [
+    "shouting",
+    "crudeness",
+    "rushing"
+   ],
+   "samples": [
+    "Pip, darling. Interest is due.",
+    "Three hundred and twelve gold. And a copper.",
+    "Hm. A deal, then.",
+    "Pity. I so hate paperwork.",
+    "We'll... renegotiate."
+   ]
+  },
+  "abbot_ghost": {
+   "kind": "npc",
+   "name": "The ghost of Oswin's abbot",
+   "personality": "Gentle, wise ghost of the abbot who raised Oswin. Warm, a little faded, worried about the relic. Calls Oswin my boy.",
+   "tics": [
+    "my boy",
+    "the light",
+    "the relic"
+   ],
+   "never": [
+    "anger",
+    "fear",
+    "jokes at Oswin's expense"
+   ],
+   "samples": [
+    "Oswin. My boy. You've grown.",
+    "The relic. Is it safe?",
+    "The light is proud of you.",
+    "Patience, my boy.",
+    "I am only a little dead."
+   ]
+  },
+  "holt": {
+   "kind": "npc",
+   "name": "Captain Holt, retired",
+   "personality": "A retired soldier with a folded banner and a dry, weary humor. Gruff but kind; sees her old company in the party. Short sentences, old military habits.",
+   "tics": [
+    "my old company",
+    "at ease",
+    "the banner"
+   ],
+   "never": [
+    "bragging",
+    "cruelty",
+    "modern slang"
+   ],
+   "samples": [
+    "At ease. Sit, if you're staying.",
+    "You lot again. Good. I was getting bored.",
+    "Well done. My old company couldn't have done better.",
+    "Ha. Now that's how you hold a line.",
+    "We've all had that day. Get up."
+   ]
+  },
+  "brother_tumble": {
+   "kind": "npc",
+   "name": "Brother Tumble",
+   "personality": "A round, jolly monk of the Laughing Saint who leaves pies at shrines and thinks every mishap is a holy joke. Warm, giggly and sincere.",
+   "tics": [
+    "the Laughing Saint",
+    "pie",
+    "blessed crumbs"
+   ],
+   "never": [
+    "cruelty",
+    "sarcasm",
+    "despair"
+   ],
+   "samples": [
+    "Pie? Everyone gets pie. The Saint insists.",
+    "Welcome, welcome! Mind the crumbs, they're blessed.",
+    "Ha! The Saint is laughing. That's a good sign!",
+    "Splendid! Have another pie.",
+    "Oh dear. The Saint finds that very funny."
+   ]
+  },
+  "goblin_scout": {
+   "kind": "npc",
+   "name": "Nib, the goblin scout",
+   "personality": "A tiny, nervous, very earnest goblin scout with an enormous notebook who has been studying the party. Talks about himself as Nib, in eager fragments.",
+   "tics": [
+    "writing it down",
+    "the notebook",
+    "Nib in the third person"
+   ],
+   "never": [
+    "menace",
+    "long speeches"
+   ],
+   "samples": [
+    "Ah! You see Nib. Nib is not here. Nib is a bush.",
+    "Hello! Nib has been studying you. For science.",
+    "Ooh! Writing that down. Underlining it.",
+    "Nib is impressed. Nib will draw a little star.",
+    "Nib will not write that down. Out of respect."
+   ]
+  },
+  "verrin": {
+   "kind": "npc",
+   "name": "Verrin, a rival wizard",
+   "personality": "A brilliant, smug rival wizard from the Ninth Tower who is always one step ahead and never lets anyone forget it. Arch and theatrical, secretly lonely.",
+   "tics": [
+    "the Ninth Tower",
+    "how quaint",
+    "do keep up"
+   ],
+   "never": [
+    "crude insults",
+    "real cruelty"
+   ],
+   "samples": [
+    "Ah. The amateurs. How quaint.",
+    "Do keep up. I've been here for hours.",
+    "Hm. Not entirely terrible.",
+    "Fine. I'm mildly impressed. Don't tell anyone.",
+    "As I predicted. Do keep up."
+   ]
+  },
+  "bone_choir": {
+   "kind": "npc",
+   "name": "The Bone Choir",
+   "personality": "A choir of singing skeletons led by a fussy choirmaster obsessed with harmony. Spooky but ridiculous; everything is a performance.",
+   "tics": [
+    "harmony",
+    "the encore",
+    "sections of the choir"
+   ],
+   "never": [
+    "gore",
+    "real cruelty"
+   ],
+   "samples": [
+    "Join the choir! We have openings!",
+    "Altos, flank them! Sopranos, hold the note!",
+    "No... encore...",
+    "We were so close to harmony..."
+   ]
+  },
+  "white_wolf": {
+   "kind": "npc",
+   "name": "The white wolf",
+   "personality": "A great white wolf leading her pack. The DM voices her as old, proud and dryly amused, like a queen of winter.",
+   "tics": [
+    "the pack",
+    "winter",
+    "little hunters"
+   ],
+   "never": [
+    "mindless snarling",
+    "cruelty"
+   ],
+   "samples": [
+    "Run, little hunters. It's more fun.",
+    "The pack is patient. Are you?",
+    "Enough. The pack yields.",
+    "You hunt well. Remember that."
+   ]
+  }
+ }
+}

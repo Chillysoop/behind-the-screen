@@ -1,0 +1,10 @@
+mesh: "/assets/meshes/blob.glb"
+name: "{{NAME}}"
+materials {
+  name: "default"
+  material: "/materials/mark.material"
+  textures {
+    sampler: "tex0"
+    texture: "/assets/textures/mark.png"
+  }
+}

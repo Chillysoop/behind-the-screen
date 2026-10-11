@@ -1,0 +1,23 @@
+-- Soft contact shadow under a mini, pushed away from the pendant lamp so it
+-- reads as cast light rather than a sticker.
+
+local state = require "main.state"
+
+go.property("caster_height", 9)
+go.property("size", 5.5)
+
+function init(self)
+    self.anchor = go.get_position()
+end
+
+function update(self, dt)
+    local L = state.lamp_pos
+    local a = self.anchor
+    local dx, dz = a.x - L.x, a.z - L.z
+    local h = math.max(L.y - a.y, 1)
+    local k = (self.caster_height * 0.45) / h
+    go.set_position(vmath.vector3(a.x + dx * k, a.y, a.z + dz * k))
+    go.set_rotation(vmath.quat_rotation_y(math.atan2(dx, dz)))
+    local stretch = 1 + math.sqrt(dx * dx + dz * dz) / h * 0.5
+    go.set_scale(vmath.vector3(self.size, 1, self.size * stretch))
+end

@@ -1,0 +1,602 @@
+-- Behind the Screen: prep -> game night -> report -> next week.
+-- The model lives in game/model (pure Lua); this script draws it and wires up
+-- the camera, the HUD, the physical d20 and (M4) the table, which stages game
+-- night with terrain, minis and the players' poses.
+
+local kit = require "game.ui.kit"
+local campaign_mod = require "game.model.campaign"
+local telemetry = require "game.model.telemetry"
+local dialogue = require "game.model.dialogue"
+local save = require "game.model.save"
+local content = require "game.model.content"
+local ambience = require "game.ui.ambience"
+local guide_view = require "game.ui.guide_view"
+local intro_view = require "game.ui.intro_view"
+local prep_view = require "game.ui.prep_view"
+local night_view = require "game.ui.night_view"
+local report_view = require "game.ui.report_view"
+local debug_view = require "game.ui.debug_view"
+local review_view = require "game.ui.review_view"
+local session_zero_view = require "game.ui.session_zero_view"
+local messages_view = require "game.ui.messages_view"
+local levelup_view = require "game.ui.levelup_view"
+local slice_end_view = require "game.ui.slice_end_view"
+local notes_view = require "game.ui.notes_view"
+local sheet_view = require "game.ui.sheet_view"
+local encounter_view = require "game.ui.encounter_view"
+
+local CAMERA = "/camera#camera"
+local HUD = "/hud#hud"
+local DICE = "/dice#dice"
+local TABLE = "/table#table"
+
+local A = {
+    touch = hash("touch"),
+    roll = hash("roll"),
+    fast = hash("fast"),
+    debug = hash("debug"),
+    sandbox = hash("sandbox"),
+    confirm = hash("confirm"),
+    log = hash("log"),
+    timer = hash("timer"),
+    music = hash("music"),
+    dm_rolls = hash("dm_rolls"),
+    review = hash("review"),
+    queue = hash("queue"),
+    back = hash("back"),
+    text = hash("text"),
+    backspace = hash("backspace"),
+    notes = hash("next_cell"),   -- N: the DM's notes (it's "next cell" in the review queue)
+}
+
+local function block_camera(on)
+    msg.post(CAMERA, "block_input", { on = on })
+end
+
+local function write_playtest_line(app, line)
+    local ok, err = pcall(function()
+        local f = io.open(app.log_path, "a")
+        if f then
+            f:write(line, "\n")
+            f:close()
+        end
+    end)
+    if not ok then
+        print("playtest log: " .. tostring(err))
+    end
+end
+
+-- Dev safety net: any Lua error in a click, a message or game night playback
+-- is printed, appended to error_log.txt next to the playtest log, and shown
+-- on screen instead of silently leaving the game stuck.
+local function show_error(self, err)
+    local app = self.app
+    print("[game] ERROR " .. tostring(err))
+    write_playtest_line({ log_path = sys.get_save_file("behind_the_screen", "error_log.txt") }, tostring(err))
+    pcall(function()
+        if app.error_layer then
+            kit.drop(app.error_layer)
+        end
+        app.error_layer = kit.layer("error")
+        kit.box(40, 40, kit.W - 80, 330, kit.rgba("#3a1410", 0.96), { radius = 10 })
+        kit.text(60, 54, "Something broke. The game may be stuck; the details are in error_log.txt, in the same folder as the playtest log.",
+            "ui18b", kit.rgba("#ffd0c0"), { w = kit.W - 120 })
+        kit.text(60, 86, tostring(err), "ui14", kit.rgba("#ffe8e0"), { w = kit.W - 120, lines = 15 })
+    end)
+end
+
+local function guard(self, fn, ...)
+    local ok, err = xpcall(fn, debug.traceback, ...)
+    if not ok then
+        show_error(self, err)
+    end
+    return ok and err
+end
+
+-- Saving between sessions (M7). The campaign is saved after Session Zero and after every
+-- game night, so a tester can stop after any session and carry on later. A failed save
+-- never stops the game; it's noted in error_log.txt.
+-- Write the new save beside the old one, read it back, and only then swap it in, keeping
+-- the previous save as .bak until the swap has worked. A full disk never costs the old save.
+local function write_file(path, text)
+    local tmp, bak = path .. ".tmp", path .. ".bak"
+    local f = io.open(tmp, "wb")
+    if not f then
+        return false
+    end
+    local ok = f:write(text)
+    ok = f:close() and ok
+    local back = ok and io.open(tmp, "rb")
+    local same = back and back:read("*a") == text
+    if back then
+        back:close()
+    end
+    if not same then
+        os.remove(tmp)
+        return false
+    end
+    os.remove(bak)
+    local had_old = os.rename(path, bak)
+    if not had_old then
+        os.remove(path) -- a .bak we couldn't clear: don't let it block every save after this
+    end
+    if os.rename(tmp, path) then
+        return true
+    end
+    if had_old then
+        os.rename(bak, path)
+    end
+    -- The verified .tmp stays: find_save falls back to it (and to .bak).
+    return false
+end
+
+local function save_campaign(app)
+    local ok, err = pcall(function()
+        local text = save.dump(app.campaign)
+        assert(write_file(app.save_path, text), "couldn't write " .. tostring(app.save_path))
+    end)
+    if not ok then
+        write_playtest_line({ log_path = sys.get_save_file("behind_the_screen", "error_log.txt") }, "save: " .. tostring(err))
+    end
+    return ok
+end
+
+-- The saved campaign, if there is one: { head = { week, seed, ... }, text = ... }.
+-- The save, or if the game stopped halfway through swapping files, the new one still
+-- waiting as .tmp or the previous one as .bak.
+local function find_save(app)
+    for _, path in ipairs({ app.save_path, app.save_path .. ".tmp", app.save_path .. ".bak" }) do
+        local ok, found = pcall(function()
+            local f = io.open(path, "rb")
+            if not f then
+                return nil
+            end
+            local text = f:read("*a")
+            f:close()
+            local head = save.peek(text)
+            return head and { head = head, text = text } or nil
+        end)
+        if ok and found then
+            return found
+        end
+    end
+    return nil
+end
+
+local function build_screen(self)
+    local app = self.app
+    kit.clear_all()
+    kit.reset_hover()
+    app.layers = {}
+    if app.sandbox then
+        return
+    end
+    local s = app.screen
+    if s == "intro" then
+        kit.layer("intro")
+        intro_view.build(app)
+        block_camera(false)
+    elseif s == "prep" then
+        kit.layer("prep")
+        prep_view.build(app)
+        block_camera(true)
+    elseif s == "night" then
+        night_view.build(app)
+        block_camera(false)
+    elseif s == "report" then
+        kit.layer("report")
+        report_view.build(app)
+        block_camera(true)
+    elseif s == "session_zero" then
+        kit.layer("session_zero")
+        session_zero_view.build(app)
+        block_camera(true)
+    elseif s == "slice_end" then
+        kit.layer("slice_end")
+        slice_end_view.build(app)
+        block_camera(true)
+    end
+    -- M6 modals: a conversation, the level-up moment.
+    if app.convo and s == "prep" then
+        messages_view.modal(app)
+    end
+    if app.levelup then
+        levelup_view.modal(app)
+    end
+    if app.debug then
+        debug_view.build(app)
+    end
+    -- The real-session pass: the DM's notes, a character sheet, the encounter builder.
+    if app.overlay == "notes" and (s == "prep" or s == "night" or s == "report") then
+        notes_view.draw(app)
+    elseif app.overlay == "sheet" and (s == "prep" or s == "night" or s == "report") then
+        sheet_view.draw(app)
+    elseif app.overlay == "encounter" and s == "prep" then
+        encounter_view.draw(app)
+    else
+        app.overlay = nil
+    end
+    review_view.rebuild(app)
+    guide_view.refresh(app)   -- the first-session tips, on top
+end
+
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    gui.set_render_order(4)
+    self.refocused = false
+    local app = {
+        campaign = campaign_mod.new(os.time()),
+        screen = "intro",
+        layers = {},
+        sel = nil,
+        fast = false,
+        debug = false,
+        sandbox = false,
+        time = 0,
+        log_path = sys.get_save_file("behind_the_screen", "playtest_log.jsonl"),
+        tester_build = dialogue.playtest_build(), -- testers' build: no developer keys
+    }
+    self.app = app
+    app.save_path = sys.get_save_file("behind_the_screen", "campaign_save.txt")
+    app.resume = find_save(app)
+    app.save_campaign = function()
+        return save_campaign(app)
+    end
+    -- Pick the saved campaign back up: next week's prep, or the end of the first act if
+    -- they stopped before its survey.
+    app.continue_campaign = function()
+        local c, err = save.load(app.resume and app.resume.text)
+        if not c then
+            app.resume = nil
+            app.resume_error = tostring(err)
+            build_screen(self)
+            return
+        end
+        app.campaign = c
+        app.resume = nil
+        if c.week >= content.arc.SESSIONS and not c.slice_survey_done then
+            app.slice_seen = true
+            app.go("slice_end")
+        else
+            app.go("prep")
+        end
+    end
+    -- Development builds read the dialogue straight from the project folder when they
+    -- can find it, so the review mode's decisions land in lines.json.
+    if review_view.available() then
+        review_view.attach_project(app)
+    end
+
+    app.refresh = function()
+        build_screen(self)
+    end
+    local function looked(what)
+        local c = app.campaign
+        c.looked = c.looked or {}
+        c.looked[what] = (c.looked[what] or 0) + 1
+    end
+    app.open_sheet = function(key)
+        looked("sheets")
+        if app.overlay == "notes" then
+            notes_view.close(app)
+        end
+        sheet_view.open(app, key)
+        guide_view.refresh(app)   -- tips step aside while a sheet is open
+    end
+    app.open_notes = function(tab)
+        looked("notes")
+        if app.overlay == "sheet" then
+            sheet_view.close(app)
+        end
+        notes_view.open(app, tab)
+        guide_view.refresh(app)
+    end
+    app.open_encounter = function(i)
+        looked("fights")
+        encounter_view.open(app, i)
+        guide_view.refresh(app)
+    end
+    app.close_overlay = function()
+        notes_view.close(app)
+        sheet_view.close(app)
+        encounter_view.close(app)
+        app.overlay = nil
+        guide_view.refresh(app)
+    end
+    -- Extra lines for the playtest log (M7: the quick questions and the slice survey).
+    app.log_line = function(line)
+        write_playtest_line(app, line)
+    end
+    app.zoom = function(index)
+        -- Always ask: the player may have moved the camera with the number keys.
+        app.camera_index = index
+        msg.post(CAMERA, "set_zoom", { index = index })
+    end
+    app.roll_dice = function()
+        msg.post(DICE, "roll", { reply = true })
+    end
+    app.refresh_debug = function()
+        if app.debug then
+            debug_view.refresh(app)
+        end
+    end
+    app.go = function(screen)
+        guide_view.left_screen(app, app.screen)
+        app.overlay = nil
+        if screen == "prep" then
+            app.save_campaign()   -- between weeks: Session Zero done, or last week's level-up made
+            app.campaign:start_week()
+            app.sel = nil
+            app.prep_started = app.time
+            -- Back to the campfire vignette, everyone in their chair.
+            msg.post(TABLE, "vignette")
+            msg.post(TABLE, "seats", {})
+            app.zoom(2)
+        elseif screen == "night" then
+            app.prep_seconds = app.time - (app.prep_started or app.time)
+            app.night_started = app.time
+            app.screen = "night"
+            kit.clear_all()
+            app.layers = {}
+            night_view.start(app)
+            block_camera(false)
+            if app.debug then
+                debug_view.build(app)
+            end
+            ambience.screen(app, "night")
+            return
+        elseif screen == "session_zero" then
+            app.s0 = nil
+        elseif screen == "slice_end" then
+            app.slice = nil
+            app.zoom(1)
+        elseif screen == "report" then
+            msg.post(TABLE, "track", { on = false })
+            app.campaign:finish_night()
+            write_playtest_line(app, telemetry.week_record(app.campaign, app.prep_seconds,
+                app.time - (app.night_started or app.time)))
+            app.save_campaign()
+            app.zoom(1)
+        end
+        app.screen = screen
+        build_screen(self)
+        ambience.screen(app, screen)
+    end
+
+    -- Every button click ticks (M7).
+    kit.on_press = function()
+        ambience.sfx("click")
+    end
+    ambience.screen(app, "intro")
+    -- The in-engine autotest (tools/tests/engine_check.sh); off in every normal build.
+    local ok_at, at_mode = pcall(sys.get_config_int, "behind_the_screen.autotest", 0)
+    if ok_at and at_mode and at_mode > 0 then
+        require("game.ui.autotest").start(app, at_mode)
+    end
+
+    msg.post(HUD, "game_mode", { on = true })
+    msg.post(CAMERA, "game_mode", { on = true })
+    app.zoom(1)
+    build_screen(self)
+end
+
+function update(self, dt)
+    local app = self.app
+    app.time = app.time + dt
+    if app.autotest then
+        guard(self, require("game.ui.autotest").update, app, dt)
+    end
+    if not app.sandbox then
+        guard(self, guide_view.update, app)
+    end
+    if not self.refocused then
+        -- Make sure the UI sits above the camera on the input stack.
+        self.refocused = true
+        msg.post(".", "acquire_input_focus")
+    end
+    if app.screen == "night" and not app.sandbox and not app.error_layer then
+        guard(self, night_view.update, app, dt)
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    local app = self.app
+    if message_id == hash("anchors") then
+        -- Where heads and minis are on screen, from the table, every frame of game night.
+        if app.screen == "night" then
+            night_view.on_anchors(app, message)
+        end
+    elseif message_id == hash("roll_result") then
+        -- In the sandbox the night is paused; it rolls for itself if the die never comes back.
+        if app.screen == "night" and app.rolling and not app.sandbox and not app.error_layer then
+            guard(self, night_view.on_roll, app, message.value)
+        end
+    end
+end
+
+local function toggle_sandbox(self)
+    local app = self.app
+    app.sandbox = not app.sandbox
+    msg.post(HUD, "game_mode", { on = not app.sandbox })
+    msg.post(CAMERA, "game_mode", { on = not app.sandbox })
+    build_screen(self)
+    if app.sandbox then
+        block_camera(false)
+    end
+end
+
+function on_input(self, action_id, action)
+    local app = self.app
+    if action_id == A.sandbox and action.pressed and not app.tester_build then
+        toggle_sandbox(self)
+        return true
+    end
+    if app.sandbox then
+        return false
+    end
+    if action_id == A.review and action.pressed and review_view.available() then
+        guard(self, review_view.toggle, app)
+        return true
+    end
+    if app.review and app.review.queue_open then
+        -- The review queue takes the keyboard (and its own buttons take the clicks).
+        if guard(self, review_view.on_input, app, action_id, action) then
+            return true
+        end
+        if action_id == nil then
+            if action.x then
+                kit.on_move(action.x, action.y)
+            end
+            return true
+        end
+        if action_id == A.touch and action.pressed then
+            guard(self, kit.on_click, action.x, action.y)
+        end
+        return true
+    end
+    -- Typing an answer in the slice survey (M7) takes the keyboard.
+    if app.screen == "slice_end" and slice_end_view.typing(app) then
+        if action_id == A.text then
+            guard(self, slice_end_view.on_text, app, action.text)
+            return true
+        elseif action_id == A.backspace and (action.pressed or action.repeated) then
+            guard(self, slice_end_view.on_backspace, app)
+            return true
+        elseif action_id == A.back and action.pressed then
+            app.slice.focus = nil
+            app.refresh()
+            return true
+        end
+    end
+    if action_id == A.music and action.pressed and not (app.screen == "slice_end" and slice_end_view.typing(app)) then
+        -- M: music off and on (the rain and the effects stay).
+        ambience.toggle_music()
+        return true
+    end
+    -- The DM's notes, a character sheet or the encounter builder: Esc closes, N opens the notes.
+    if app.overlay and action_id == A.back and action.pressed then
+        guard(self, app.close_overlay)
+        return true
+    end
+    if action_id == A.notes and action.pressed and not (app.review and app.review.queue_open)
+        and (app.screen == "prep" or app.screen == "night" or app.screen == "report") and not app.convo then
+        if app.overlay == "notes" then
+            guard(self, app.close_overlay)
+        else
+            guard(self, app.open_notes)
+        end
+        return true
+    end
+    if app.overlay and (action_id == A.confirm or action_id == A.roll) and action.pressed then
+        return true   -- the table waits while you read
+    end
+    if action_id == A.back and action.pressed and (app.convo or app.levelup) then
+        -- Esc closes a conversation or the level-up moment.
+        if app.levelup then
+            guard(self, levelup_view.close, app)
+        else
+            guard(self, messages_view.close, app)
+        end
+        return true
+    end
+    if action_id == A.queue and action.pressed and app.review and app.review.on and app.screen == "night" then
+        guard(self, review_view.open_queue, app)
+        return true
+    end
+    if action_id == A.debug and action.pressed and not app.tester_build then
+        app.debug = not app.debug
+        if app.debug then
+            debug_view.build(app)
+        else
+            debug_view.hide(app)
+        end
+        return true
+    end
+    if action_id == nil then
+        if action.x then
+            kit.on_move(action.x, action.y)
+            review_view.on_move(app, action.x, action.y)
+        end
+        return false
+    end
+    if action_id == A.touch and action.pressed then
+        if guard(self, kit.on_click, action.x, action.y) then
+            return true
+        end
+        return app.screen ~= "night"
+    end
+    if action_id == A.confirm and action.pressed then
+        -- Enter takes the screen's main step forward.
+        local s = app.screen
+        if app.levelup then
+            guard(self, levelup_view.close, app)
+            return true
+        elseif app.convo then
+            return true
+        elseif s == "intro" then
+            -- Enter takes the main button: Continue when there's a save, else Session Zero.
+            if app.resume then
+                guard(self, app.continue_campaign)
+            else
+                guard(self, app.go, "session_zero")
+            end
+            return true
+        elseif s == "session_zero" then
+            guard(self, session_zero_view.start, app)
+            return true
+        elseif s == "report" then
+            if not app.quick then
+                guard(self, report_view.next, app)
+            end
+            return true
+        elseif s == "slice_end" then
+            local st = app.slice
+            if st and st.stage == "survey" then
+                if st.focus then
+                    st.focus = nil
+                    app.refresh()
+                else
+                    guard(self, slice_end_view.save, app)
+                end
+            elseif st and st.stage == "scrapbook" and not st.saved then
+                st.stage = "survey"
+                app.refresh()
+            else
+                guard(self, app.go, "prep")
+            end
+            return true
+        elseif s == "prep" then
+            if app.campaign.prep:ready() then
+                guard(self, app.go, "night")
+            end
+            return true
+        elseif s == "night" and app.night_done then
+            guard(self, app.go, "report")
+            return true
+        end
+    end
+    if app.screen == "night" then
+        if (action_id == A.roll or action_id == A.confirm) and action.pressed then
+            guard(self, night_view.skip, app)
+            return true
+        end
+        if action.pressed then
+            if action_id == A.fast then
+                guard(self, night_view.cycle_speed, app)
+                return true
+            elseif action_id == A.log then
+                guard(self, night_view.toggle_log, app)
+                return true
+            elseif action_id == A.timer then
+                guard(self, night_view.toggle_timer, app)
+                return true
+            elseif action_id == A.dm_rolls then
+                guard(self, night_view.toggle_dm_rolls, app)
+                return true
+            end
+        end
+        return false
+    end
+    -- Prep, report and intro screens keep the camera still.
+    return true
+end

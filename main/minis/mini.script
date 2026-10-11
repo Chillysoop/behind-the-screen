@@ -1,0 +1,184 @@
+-- A paper-standee mini on the battle mat (M4). The table script spawns it with a
+-- base and a soft shadow, then drives it with messages: walk along a path with
+-- little hops, lunge at a target, flinch when hit, tip over when dropped, stand
+-- back up, keel over and slide off the table when defeated.
+-- Like the M0 billboard it turns to face the camera around the vertical axis.
+
+local state = require "main.state"
+local scene = require "main.scene_data"
+
+go.property("tilt", 0)          -- 0 standing, 1 lying flat on its back
+go.property("lift", 0)          -- extra height (spawn drop, hops)
+
+local function base_y()
+    return scene.grid.base_top
+end
+
+function init(self)
+    self.home = go.get_position()
+    self.home.y = base_y()
+    self.size = 1
+    self.offset = vmath.vector3()     -- lunge offset
+    self.path = nil
+    self.phase = math.random() * 6.283
+    self.speed = 1.8 + math.random() * 0.8
+    self.flash = 0
+    self.dying = nil
+end
+
+local function place_followers(self, p)
+    if self.base then
+        go.set_position(vmath.vector3(p.x, scene.grid.y, p.z), self.base)
+    end
+    if self.shadow then
+        local L = state.lamp_pos
+        local dx, dz = p.x - L.x, p.z - L.z
+        local h = math.max(L.y - scene.grid.y, 1)
+        local k = (9 * self.size * 0.45) / h
+        go.set_position(vmath.vector3(p.x + dx * k, scene.grid.y + 0.05, p.z + dz * k), self.shadow)
+        go.set_rotation(vmath.quat_rotation_y(math.atan2(dx, dz)), self.shadow)
+        local stretch = 1 + math.sqrt(dx * dx + dz * dz) / h * 0.5
+        local s = 5.5 * self.size * (1 - 0.5 * self.tilt)
+        go.set_scale(vmath.vector3(s, 1, s * stretch), self.shadow)
+    end
+end
+
+function update(self, dt)
+    -- Walking: one square per step, with a little hop.
+    if self.path then
+        self.t = self.t + dt
+        local step = self.step_time
+        local i = math.floor(self.t / step) + 1
+        if i > #self.path then
+            self.home = vmath.vector3(self.path[#self.path])
+            self.path = nil
+            self.hop = 0
+        else
+            local from = (i == 1) and self.from or self.path[i - 1]
+            local to = self.path[i]
+            local f = (self.t - (i - 1) * step) / step
+            self.home = vmath.lerp(f, from, to)
+            self.hop = math.sin(f * math.pi) * 1.4
+        end
+    end
+    if self.lunge_target then
+        self.lunge_time = self.lunge_time + dt
+        local f = self.lunge_time / self.lunge_dur
+        if f >= 1 then
+            self.offset = vmath.vector3()
+            self.lunge_target = nil
+        else
+            local k = (f < 0.35) and (f / 0.35) or (1 - (f - 0.35) / 0.65)
+            self.offset = self.lunge_target * k
+        end
+    end
+    if self.flash > 0 then
+        self.flash = math.max(0, self.flash - dt * 2.5)
+        local k = self.flash
+        go.set("#sprite", "tint", vmath.vector4(1, 1 - 0.6 * k, 1 - 0.6 * k, 1))
+    end
+
+    local eye = state.cam_eye
+    local home = self.home
+    local yaw = math.atan2(eye.x - home.x, eye.z - home.z)
+    local rot = vmath.quat_rotation_y(yaw)
+    -- Tip over around the base, away from the camera.
+    local a = self.tilt * 1.45
+    local h = scene.mini.height * self.size
+    local up = vmath.vector3(0, math.cos(a) * h / 2, 0) + vmath.rotate(rot, vmath.vector3(0, 0, -math.sin(a) * h / 2))
+    local bob = 0
+    local imag = state.imagination
+    if imag > 0.001 and self.tilt < 0.01 and not self.path then
+        local t = state.time * self.speed + self.phase
+        bob = math.max(0, math.sin(t)) * 0.35 * imag
+    end
+    local p = home + self.offset + up + vmath.vector3(0, self.lift + (self.hop or 0) + bob, 0)
+    go.set_position(p)
+    go.set_rotation(rot * vmath.quat_rotation_x(-a))
+    place_followers(self, home + self.offset)
+end
+
+local function world(m)
+    return vmath.vector3(m.x, base_y(), m.z)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("setup") then
+        self.base, self.shadow = message.base, message.shadow
+        self.size = message.size or 1
+        local s = scene.mini.scale * self.size
+        go.set_scale(vmath.vector3(s, s, s))
+        sprite.play_flipbook("#sprite", message.anim)
+        if self.base then
+            for _, side in ipairs({ "party", "foe", "npc" }) do
+                msg.post(msg.url(nil, self.base, side), side == (message.side or "foe") and "enable" or "disable")
+            end
+            go.set_scale(vmath.vector3(self.size, 1, self.size), self.base)
+        end
+        if message.drop then
+            -- Dropped onto the mat by the DM's hand.
+            self.lift = 30
+            go.animate("#mini", "lift", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBOUNCE, 0.7, message.delay or 0)
+        end
+    elseif message_id == hash("place") then
+        self.path = nil
+        self.home = world(message.pos)
+    elseif message_id == hash("walk") then
+        local pts = {}
+        for _, p in ipairs(message.path) do
+            table.insert(pts, world(p))
+        end
+        if #pts > 0 then
+            self.from = vmath.vector3(self.home)
+            self.path = pts
+            self.t = 0
+            self.step_time = message.step or 0.16
+        end
+    elseif message_id == hash("lunge") then
+        local d = world(message.to) - self.home
+        d.y = 0
+        local len = vmath.length(d)
+        if len > 0.01 then
+            local reach = math.min(len * 0.45, message.ranged and 1.0 or 3.5)
+            self.lunge_target = d / len * reach
+            self.lunge_time = 0
+            self.lunge_dur = message.time or 0.32
+        end
+    elseif message_id == hash("hit") then
+        self.flash = 1
+    elseif message_id == hash("down") then
+        go.animate("#mini", "tilt", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_OUTBOUNCE, 0.6)
+    elseif message_id == hash("up") then
+        go.animate("#mini", "tilt", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBACK, 0.5)
+    elseif message_id == hash("die") or message_id == hash("flee") or message_id == hash("sweep") then
+        if self.leaving then
+            return
+        end
+        self.leaving = true
+        local wait = 0.1
+        if message_id == hash("die") then
+            go.animate("#mini", "tilt", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_OUTQUAD, 0.45)
+            wait = 0.75
+        elseif message_id == hash("flee") then
+            local edge = vmath.vector3(self.home)
+            edge.x = scene.grid.x0 + scene.grid.w * scene.grid.size + 6
+            self.from = vmath.vector3(self.home)
+            self.path = { edge }
+            self.t = 0
+            self.step_time = 0.7
+            wait = 0.5
+        end
+        -- The DM sweeps it off the table: it shrinks away, base and shadow with it.
+        go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(0.001, 0.001, 0.001), go.EASING_INBACK,
+            message_id == hash("sweep") and 0.3 or 0.45, wait,
+            function()
+                if self.base then go.delete(self.base) end
+                if self.shadow then go.delete(self.shadow) end
+                go.delete()
+            end)
+    elseif message_id == hash("remove") then
+        if self.base then go.delete(self.base) end
+        if self.shadow then go.delete(self.shadow) end
+        go.delete()
+    end
+end

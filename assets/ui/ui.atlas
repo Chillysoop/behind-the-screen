@@ -1,0 +1,74 @@
+images {
+  image: "/assets/ui/vignette.png"
+}
+images {
+  image: "/assets/ui/panel.png"
+}
+images {
+  image: "/assets/ui/dot.png"
+}
+images {
+  image: "/assets/ui/icon_spotlight.png"
+}
+images {
+  image: "/assets/ui/icon_challenge.png"
+}
+images {
+  image: "/assets/ui/icon_story.png"
+}
+images {
+  image: "/assets/ui/icon_social.png"
+}
+images {
+  image: "/assets/ui/icon_reward.png"
+}
+images {
+  image: "/assets/ui/icon_fun.png"
+}
+images {
+  image: "/assets/ui/icon_commitment.png"
+}
+images {
+  image: "/assets/ui/icon_investment.png"
+}
+images {
+  image: "/assets/ui/icon_trust.png"
+}
+images {
+  image: "/assets/ui/icon_suspicion.png"
+}
+images {
+  image: "/assets/ui/icon_up.png"
+}
+images {
+  image: "/assets/ui/icon_down.png"
+}
+images {
+  image: "/assets/ui/icon_warn.png"
+}
+images {
+  image: "/assets/ui/icon_empathy.png"
+}
+images {
+  image: "/assets/ui/icon_mood.png"
+}
+images {
+  image: "/assets/ui/icon_d20.png"
+}
+images {
+  image: "/assets/ui/icon_heart.png"
+}
+images {
+  image: "/assets/ui/icon_clock.png"
+}
+images {
+  image: "/assets/ui/icon_tail.png"
+}
+images {
+  image: "/assets/ui/icon_speed.png"
+}
+images {
+  image: "/assets/ui/icon_hourglass.png"
+}
+margin: 2
+extrude_borders: 2

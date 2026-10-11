@@ -1,0 +1,817 @@
+-- The prep board: group chat, three scene cards, the pacing curve, the
+-- card drawer and the players. Rebuilt from scratch whenever something changes.
+
+local kit = require "game.ui.kit"
+local theme = require "game.ui.theme"
+local content = require "game.model.content"
+local score = require "game.model.score"
+local prep_mod = require "game.model.prep"
+local empathy = require "game.model.empathy"
+local util = require "game.model.util"
+local social = require "game.model.social"
+local seeds_mod = require "game.model.seeds"
+local messages_view = require "game.ui.messages_view"
+local levelup_view = require "game.ui.levelup_view"
+local panels = require "game.ui.panels"
+local notes_view = require "game.ui.notes_view"
+
+local M = {}
+
+local CARD_X, CARD_Y, CARD_W, CARD_H, CARD_GAP = 364, 84, 256, 472, 22
+local SLOT_H = 70
+
+local function tier_color(fun)
+    if fun >= 72 then
+        return theme.green
+    elseif fun >= 55 then
+        return theme.teal
+    elseif fun >= 40 then
+        return theme.gold
+    elseif fun >= 25 then
+        return theme.orange
+    end
+    return theme.red
+end
+
+-- Who at the table would enjoy a card, from what they like and whose backstory it is: the
+-- DM's read of their friends (real-session pass). { key = 1 | -1 }
+local function card_leans(app, c)
+    local out = {}
+    for _, p in ipairs(app.campaign.players) do
+        if p.present then
+            local like = 0
+            for _, t in ipairs(c.tags or {}) do
+                like = like + score.like(p, t)
+            end
+            if c.thread == p.key then
+                like = like + 2
+            end
+            if like >= 1.3 then
+                out[p.key] = 1
+            elseif like <= -0.3 then
+                out[p.key] = -1
+            end
+        end
+    end
+    return out
+end
+
+local function type_leans(app, scene_type)
+    local out = {}
+    for _, p in ipairs(app.campaign.players) do
+        if p.present then
+            local t = score.taste(p, scene_type)
+            if t >= 1.3 then
+                out[p.key] = 1
+            elseif t <= -0.3 then
+                out[p.key] = -1
+            end
+        end
+    end
+    return out
+end
+
+-- Little faces in a row, ringed green (they'd love it) or red (they wouldn't).
+local function faces(app, x, y, leans, size)
+    size = size or 20
+    local fx = x
+    for _, want in ipairs({ 1, -1 }) do
+        for _, p in ipairs(app.campaign.players) do
+            if leans[p.key] == want then
+                kit.dot(fx + size / 2 + 2, y + size / 2 + 2, size + 4, want > 0 and theme.green or theme.red)
+                kit.picture(fx + 2, y + 2, size, size, panels.face(p.key))
+                fx = fx + size + 6
+            end
+        end
+    end
+    return fx - x
+end
+
+-- Why someone likes a card, in words: "Dev: action. Mara: lore, mystery."
+local function lean_reasons(app, c)
+    local likes, dislikes = {}, {}
+    for _, p in ipairs(app.campaign.players) do
+        if p.present then
+            local pos, neg = {}, {}
+            for _, t in ipairs(c.tags or {}) do
+                local v = score.like(p, t)
+                if v >= 0.6 then
+                    table.insert(pos, t)
+                elseif v <= -0.3 then
+                    table.insert(neg, t)
+                end
+            end
+            if c.thread == p.key then
+                table.insert(pos, 1, p.char .. "'s backstory")
+            end
+            if #pos > 0 then
+                table.insert(likes, p.name .. " (" .. table.concat(pos, ", ") .. ")")
+            end
+            if #neg > 0 then
+                table.insert(dislikes, p.name .. " (" .. table.concat(neg, ", ") .. ")")
+            end
+        end
+    end
+    return likes, dislikes
+end
+
+-- Hovering a card in the hand: everything about it, nothing cut off.
+local function card_detail(app, prep, c, s, x0, why)
+    local w = 470
+    local loc = s and s.slots and s.slots.location
+    local line = content.line_for(c, c.kind ~= "location" and loc or nil)
+    local likes, dislikes = lean_reasons(app, c)
+    local rows = {}
+    table.insert(rows, { line, "story22", theme.text })
+    if why then
+        table.insert(rows, { why, "ui18b", theme.orange })
+    end
+    local fits = {}
+    for _, f in ipairs(c.fits or {}) do
+        table.insert(fits, content.scenes[f] and content.scenes[f].name or f)
+    end
+    if #fits > 0 then
+        table.insert(rows, { "Best in: " .. table.concat(fits, ", ") .. ".", "ui14", theme.dim })
+    end
+    if c.where then
+        local need = {}
+        for _, wh in ipairs(c.where) do
+            table.insert(need, wh)
+        end
+        table.insert(rows, { "Only happens somewhere: " .. table.concat(need, ", ") .. ".", "ui14", theme.dim })
+    end
+    if #likes > 0 then
+        table.insert(rows, { "Would love it: " .. table.concat(likes, ", ") .. ".", "ui14", theme.green })
+    end
+    if #dislikes > 0 then
+        table.insert(rows, { "Not their thing: " .. table.concat(dislikes, ", ") .. ".", "ui14", theme.red })
+    end
+    local h = 52
+    for _, r in ipairs(rows) do
+        h = h + kit.text_height(r[1], r[2], w - 32) + 8
+    end
+    local x = util.clamp(x0 - w / 2, 8, kit.W - w - 8)
+    local y = 676 - h
+    local l = kit.layer("prep_hover")
+    app.hover_layer = l
+    kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
+    kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
+    kit.text(x + 16, y + 12, c.name, "ui18b", theme.text, { w = w - 90 })
+    kit.text(x + w - 16, y + 14, string.upper(content.kind_names[c.kind]) .. "  " .. util.int(c.cost) .. "h", "ui14",
+        theme.gold, { pivot = gui.PIVOT_NE })
+    local ry = y + 44
+    for _, r in ipairs(rows) do
+        kit.text(x + 16, ry, r[1], r[2], r[3], { w = w - 32 })
+        ry = ry + kit.text_height(r[1], r[2], w - 32) + 8
+    end
+end
+
+local function drop_hover(app)
+    if app.hover_layer then
+        kit.drop(app.hover_layer)
+        app.hover_layer = nil
+    end
+end
+
+local function top_bar(app, prep)
+    kit.box(0, 0, kit.W, 66, theme.bg, { round = false })
+    kit.text(24, 14, "WEEK " .. util.int(app.campaign.week) .. "  -  PREP", "title30", theme.gold)
+    -- The slice's story beat (M7), or the plain reminder once the slice is over.
+    local beat = app.campaign:arc_beat()
+    -- The story beat is the way into your notes (N).
+    kit.button(292, 4, 524, 58, "", function()
+        if app.open_notes then
+            app.open_notes("session")
+        end
+    end, { color = theme.bg, hover = theme.panel, radius = 8, key = "notes_open" })
+    if beat then
+        kit.text(300, 12, "SESSION " .. util.int(app.campaign.week) .. " OF " .. util.int(content.arc.SESSIONS) .. ":  "
+            .. string.upper(beat.title), "ui14", theme.gold, { w = 400, lines = 1 })
+        local hint = beat.hint .. " Story cards are in your hand."
+        if kit.width(hint, "ui18") > 510 then
+            hint = beat.hint
+        end
+        kit.text(300, 32, hint, "ui18", theme.dim)
+    else
+        kit.text(300, 24, "Game night is Thursday. Write three scenes.", "ui18", theme.dim)
+    end
+    kit.text(808, 12, "Your notes (N)", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    -- Prep hours as pips.
+    local left = prep:left()
+    local x0 = 820
+    kit.text(x0, 12, "PREP TIME", "ui14", theme.dim)
+    for i = 1, prep.budget do
+        local filled = i <= left
+        kit.box(x0 + (i - 1) * 22, 34, 18, 18, filled and theme.gold or theme.panel3, { radius = 4 })
+    end
+    kit.text(x0 + prep.budget * 22 + 8, 33, util.int(left) .. (left == 1 and " hour left" or " hours left"), "ui18", theme.text)
+    -- The party's level (M6): level up from here once it's earned.
+    local lv = app.campaign:level_status()
+    if lv.ready then
+        kit.button(1208, 12, 136, 42, "Level up", function()
+            levelup_view.level_up(app)
+        end, { font = "ui18b", color = lv.overdue and kit.rgba("#8a4a2a") or theme.button, key = "level_up" })
+        kit.text(1276, 56, lv.overdue and "Overdue!" or ("Level " .. util.int(lv.level + 1) .. " is ready"), "ui14",
+            lv.overdue and theme.orange or theme.dim, { pivot = gui.PIVOT_N })
+    else
+        kit.text(1276, 24, "LEVEL " .. util.int(lv.level), "ui18b", theme.dim, { pivot = gui.PIVOT_N })
+    end
+    local ready = prep:ready()
+    kit.button(1356, 12, 220, 42, "Run game night  >", function()
+        app.go("night")
+    end, { enabled = ready, color = theme.go, hover = theme.go_hover })
+    kit.text(1466, 56, ready and "or press Enter" or "Pick a type for every scene first.", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+end
+
+local function chat_column(app)
+    messages_view.column(app)
+end
+
+local function scene_card(app, prep, i)
+    local s = prep.scenes[i]
+    local x = CARD_X + (i - 1) * (CARD_W + CARD_GAP)
+    local y = CARD_Y
+    local sel = app.sel
+    kit.box(x, y, CARD_W, CARD_H, theme.paper, { radius = 10 })
+    kit.text(x + 12, y + 9, "SCENE " .. util.int(i), "ui14", theme.ink_dim)
+    -- Tension pips.
+    local t = prep_mod.tension(s.type, s.slots, i == #prep.scenes)
+    for k = 1, 5 do
+        kit.dot(x + CARD_W - 16 - (5 - k) * 12, y + 17, 9, k <= t and theme.red or kit.rgba("#000000", 0.15))
+    end
+    -- Scene type.
+    local selected_type = sel and sel.scene == i and sel.kind == "type"
+    if selected_type then
+        kit.box(x + 7, y + 29, CARD_W - 14, 46, theme.select, { radius = 9 })
+    end
+    local tcolor = s.type and theme.scene[s.type] or kit.rgba("#8a3a30")
+    local fighty = s.type == "combat" or s.type == "set_piece"
+    kit.button(x + 10, y + 32, fighty and CARD_W - 112 or CARD_W - 20, 40, s.type and content.scenes[s.type].name or "Choose a type",
+        function()
+            app.sel = { scene = i, kind = "type" }
+            app.refresh()
+        end, { color = tcolor, hover = theme.button_hover, font = fighty and "ui18b" or "ui22b" })
+    if fighty then
+        -- The encounter builder: the fight this scene brings, built around the party.
+        local enc = prep:encounter(i)
+        kit.button(x + CARD_W - 98, y + 32, 88, 40, enc.built and "Your fight" or "The fight", function()
+            if app.open_encounter then
+                app.open_encounter(i)
+            end
+        end, { font = "ui14", color = enc.built and theme.go or theme.button, hover = theme.button_hover,
+               key = "fight_" .. util.int(i) })
+    end
+    -- Slots.
+    for k, kind in ipairs(content.kinds) do
+        local sy = y + 84 + (k - 1) * (SLOT_H + 6)
+        local c = s.slots[kind]
+        local selected = sel and sel.scene == i and sel.kind == kind
+        if selected then
+            kit.box(x + 7, sy - 3, CARD_W - 14, SLOT_H + 6, theme.select, { radius = 9 })
+        end
+        kit.button(x + 10, sy, CARD_W - 20, SLOT_H, "", function()
+            app.sel = { scene = i, kind = kind }
+            app.refresh()
+        end, { color = theme.paper_dim, hover = kit.rgba("#f6edd6") })
+        local label = string.upper(content.kind_names[kind])
+        if c and c.thread then
+            local owner = app.campaign:player(c.thread)
+            label = label .. "  -  " .. owner.name .. "'s thread"
+        end
+        kit.text(x + 20, sy + 6, label, "ui14", c and c.thread and kit.rgba("#6a4f8f") or theme.ink_dim)
+        if c then
+            kit.text(x + CARD_W - 20, sy + 6, util.int(c.cost) .. "h", "ui14", theme.ink_dim, { pivot = gui.PIVOT_NE })
+            kit.text(x + 20, sy + 25, c.name, "ui18b", theme.ink, { w = CARD_W - 40, lines = 2 })
+        else
+            kit.text(x + 20, sy + 30, "Empty: improvise it at the table", "ui14", kit.rgba("#9a8a72"))
+        end
+    end
+end
+
+local function pacing_panel(app, prep)
+    local x, y, w, h = CARD_X, 566, 812, 104
+    kit.box(x, y, w, h, theme.panel, { radius = 8 })
+    kit.text(x + 14, y + 8, "PACING", "ui14", theme.dim)
+    local pv = prep:pacing_now()
+    -- The curve.
+    local gx = { x + 40, x + 140, x + 240 }
+    local function gy(t)
+        return y + 88 - (math.max(t, 1) - 1) * 14
+    end
+    for k = 1, 5 do
+        kit.box(x + 28, gy(k), 230, 1, kit.rgba("#ffffff", 0.06), { round = false })
+    end
+    local pts = {}
+    for i, s in ipairs(prep.scenes) do
+        if s.type then
+            pts[i] = { gx[i], gy(pv.tensions[i]) }
+        end
+    end
+    for i = 1, 2 do
+        if pts[i] and pts[i + 1] then
+            kit.line(pts[i][1], pts[i][2], pts[i + 1][1], pts[i + 1][2], 3, theme.dim)
+        end
+    end
+    for i = 1, 3 do
+        if pts[i] then
+            kit.dot(pts[i][1], pts[i][2], 14, theme.scene[prep.scenes[i].type])
+        end
+        kit.text(gx[i], y + 92, util.int(i), "ui14", theme.faint, { pivot = gui.PIVOT_N })
+    end
+    -- Notes.
+    local notes = {}
+    for _, g in ipairs(pv.good or {}) do
+        table.insert(notes, { g, theme.teal })
+    end
+    for _, wtext in ipairs(pv.warnings) do
+        table.insert(notes, { wtext, theme.orange })
+    end
+    local sk = prep:sketched()
+    if sk > 0 then
+        table.insert(notes, { util.int(sk) .. (sk == 1 and " empty slot" or " empty slots") .. ": you'll improvise one per scene.", theme.dim })
+    end
+    local threads = prep:threads()
+    if next(threads) == nil then
+        table.insert(notes, { "Nobody's backstory comes up this week.", theme.dim })
+    end
+    -- Session Zero: what's on the board that someone asked about.
+    local board = {}
+    for _, sc in ipairs(prep.scenes) do
+        for _, c in pairs(sc.slots) do
+            table.insert(board, c)
+        end
+    end
+    for _, f in ipairs(social.content_flags(app.campaign, board)) do
+        local p = app.campaign:player(f.key)
+        if p.present then
+            if f.kind == "line" then
+                table.insert(notes, 1, { p.name .. " drew a line at this at Session Zero: " .. f.card.name .. ".", theme.red })
+            elseif f.kind == "veil" then
+                table.insert(notes, { "You'll keep the " .. f.tag .. " off screen for " .. p.name .. ".", theme.dim })
+            else
+                table.insert(notes, 1, { p.name .. " asked you about this at Session Zero: " .. f.card.name .. ".", theme.orange })
+            end
+        end
+    end
+    for _, st in ipairs(social.status(app.campaign)) do
+        if st.state ~= "fixed" then
+            table.insert(notes, 1, { st.text, st.state == "active" and theme.red or theme.orange })
+        end
+    end
+    local lv = app.campaign:level_status()
+    if lv.overdue then
+        table.insert(notes, { "The party is overdue a level-up. Dev keeps asking.", theme.orange })
+    end
+    local ny = y + 10
+    for _, n in ipairs(notes) do
+        local hgt = kit.text_height(n[1], "ui14", 490)
+        if ny + hgt > y + h - 4 then
+            break
+        end
+        kit.dot(x + 300, ny + 9, 7, n[2])
+        kit.text(x + 312, ny, n[1], "ui14", theme.text, { w = 490 })
+        ny = ny + hgt + 2
+    end
+end
+
+local function fit_text(c, scene_type)
+    if not scene_type then
+        return "Pick a scene type first", theme.ink_dim
+    end
+    if util.contains(c.fits, scene_type) then
+        return "Fits " .. content.scenes[scene_type].name, kit.rgba("#2f6f68")
+    end
+    return "A stretch here", kit.rgba("#a0522d")
+end
+
+local function drawer(app, prep)
+    local x, y, w, h = CARD_X, 680, 812, 206
+    kit.box(x, y, w, h, theme.panel, { radius = 8 })
+    local sel = app.sel
+    if not sel then
+        M.inspiration(app, prep, x, y)
+        M.seeds(app, prep, x + 430, y)
+        if app.toast then
+            kit.text(x + w / 2, y + h - 2, app.toast, "ui14", theme.orange, { pivot = gui.PIVOT_S })
+            app.toast = nil
+        end
+        return
+    end
+    local s = prep.scenes[sel.scene]
+    if sel.kind == "type" then
+        kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
+        local cw = 105
+        for k, key in ipairs(content.scenes.order) do
+            local st = content.scenes[key]
+            local cx = x + 14 + (k - 1) * (cw + 8)
+            local cy = y + 42
+            local chosen = s.type == key
+            if chosen then
+                kit.box(cx - 3, cy - 3, cw + 6, 156, theme.select, { radius = 9 })
+            end
+            kit.button(cx, cy, cw, 150, "", function()
+                prep:set_type(sel.scene, key)
+                -- Move on to the first empty slot.
+                app.sel = { scene = sel.scene, kind = "location" }
+                for _, kind in ipairs(content.kinds) do
+                    if not s.slots[kind] then
+                        app.sel.kind = kind
+                        break
+                    end
+                end
+                app.refresh()
+            end, { color = theme.scene[key], hover = theme.button_hover })
+            kit.text(cx + 8, cy + 8, st.name, "ui18b", theme.text, { w = cw - 12 })
+            for d = 1, 5 do
+                kit.dot(cx + 12 + (d - 1) * 11, cy + 38, 8, d <= st.tension and theme.text or kit.rgba("#000000", 0.25))
+            end
+            kit.text(cx + 8, cy + 50, st.short or st.blurb, "ui14", theme.text, { w = cw - 14 })
+            faces(app, cx + 6, cy + 120, type_leans(app, key), 18)
+        end
+        return
+    end
+    local kind = sel.kind
+    local current = s.slots[kind]
+    kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": choose a " .. content.kind_names[kind], "ui18b", theme.text)
+    if current then
+        kit.button(x + w - 236, y + 8, 104, 28, "Remove", function()
+            prep:clear(sel.scene, kind)
+            app.refresh()
+        end, { font = "ui14" })
+    end
+    kit.button(x + w - 122, y + 8, 106, 28, "Close", function()
+        app.sel = nil
+        app.refresh()
+    end, { font = "ui14" })
+    -- Five cards at a time, wide enough that no name is ever cut; page through the rest.
+    local hand = prep.hand[kind]
+    local n = #hand
+    local PER = 5
+    app.hand_page = app.hand_page or {}
+    local pages = math.max(1, math.ceil(n / PER))
+    local page = util.clamp(app.hand_page[kind] or 1, 1, pages)
+    app.hand_page[kind] = page
+    if pages > 1 then
+        local hx = x + w - 250 - (current and 116 or 0)
+        kit.text(hx - 8, y + 14, "Cards " .. util.int((page - 1) * PER + 1) .. "-" .. util.int(math.min(n, page * PER))
+            .. " of " .. util.int(n), "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+        kit.button(hx, y + 8, 56, 28, "<", function()
+            app.hand_page[kind] = page - 1
+            app.refresh()
+        end, { font = "ui18b", enabled = page > 1, key = "hand_prev" })
+        kit.button(hx + 62, y + 8, 56, 28, ">", function()
+            app.hand_page[kind] = page + 1
+            app.refresh()
+        end, { font = "ui18b", enabled = page < pages, key = "hand_next" })
+    end
+    local cw = 148
+    for k = (page - 1) * PER + 1, math.min(n, page * PER) do
+        local c = hand[k]
+        local cx = x + 14 + (k - (page - 1) * PER - 1) * (cw + 9)
+        local cy = y + 44
+        local here = current and current.id == c.id
+        local at = prep:placed_at(c.id)
+        local ok, why = prep:can_place(sel.scene, c.id)
+        if here then
+            kit.box(cx - 3, cy - 3, cw + 6, 156, theme.select, { radius = 9 })
+        end
+        kit.button(cx, cy, cw, 150, "", function()
+            if here then
+                return
+            end
+            local placed, why2 = prep:place(sel.scene, c.id)
+            if placed then
+                -- Jump to the next empty slot on this card.
+                for _, k2 in ipairs(content.kinds) do
+                    if not s.slots[k2] then
+                        app.sel = { scene = sel.scene, kind = k2 }
+                        break
+                    end
+                end
+            else
+                app.toast = why2
+            end
+            app.refresh()
+        end, { color = theme.paper, hover = kit.rgba("#fff6e0"), enabled = ok or here, key = "hand_" .. c.id,
+               on_hover = function(_, on)
+                   drop_hover(app)
+                   if on then
+                       card_detail(app, prep, c, s, cx + cw / 2, (not ok and not here) and why or nil)
+                   end
+               end })
+        local ink = (ok or here) and theme.ink or theme.ink_dim
+        kit.text(cx + 10, cy + 6, c.name, "ui18b", ink, { w = cw - 20 })
+        local ry = cy + 10 + kit.text_height(c.name, "ui18b", cw - 20)
+        -- Its cost, then whether it suits this scene (and this place).
+        local ft, fc = fit_text(c, s.type)
+        if why and string.find(why, "can't happen", 1, true) then
+            ft, fc = "Can't happen here", kit.rgba("#a0322d")
+        elseif ft == "A stretch here" then
+            ft = "A stretch"
+        elseif string.find(ft, "^Fits") and kit.width(ft, "ui14") > cw - 52 then
+            ft = "Fits"
+        end
+        local cost = util.int(c.cost) .. "h  "
+        kit.text(cx + 10, ry, cost, "ui14", theme.ink_dim)
+        kit.text(cx + 10 + kit.width(cost, "ui14"), ry, ft, "ui14", fc)
+        local note, ncolor
+        local flags = social.content_flags(app.campaign, { c })
+        local flag = flags[1]
+        if flag and app.campaign:player(flag.key).present then
+            local who = app.campaign:player(flag.key).name
+            note = flag.kind == "line" and (who .. "'s line!") or (flag.kind == "veil" and (who .. ": off screen") or (who .. " asked..."))
+            ncolor = flag.kind == "veil" and theme.ink_dim or kit.rgba("#a0322d")
+        elseif prep.payoffs[c.id] then
+            note = "Pays off a seed"
+            ncolor = kit.rgba("#2f6f3a")
+        elseif prep.arc_cards[c.id] then
+            note = "Story card"
+            ncolor = kit.rgba("#8a5a0e")
+        elseif prep.inspired[c.id] then
+            note = "Inspired"
+            ncolor = kit.rgba("#2f6f3a")
+        elseif c.thread then
+            note = app.campaign:player(c.thread).name .. "'s past"
+            ncolor = kit.rgba("#6a4f8f")
+        elseif at and at ~= sel.scene then
+            note = "On scene " .. util.int(at)
+            ncolor = theme.ink_dim
+        end
+        if note then
+            kit.text(cx + 10, ry + 19, note, "ui14", ncolor)
+        end
+        -- Who'd love it (green) and who wouldn't (red); hover for the whole card.
+        faces(app, cx + 6, cy + 124, card_leans(app, c), 18)
+    end
+    if app.toast then
+        kit.text(x + w / 2, y + h - 2, app.toast, "ui14", theme.orange, { pivot = gui.PIVOT_S })
+        app.toast = nil
+    end
+end
+
+-- One long-term bar as the DM reads it: icon, name, fill (or band), trend arrow.
+local function long_bar(app, p, idx, key, bx, by)
+    local level = app.campaign:empathy()
+    local read = empathy.long(level, p, key, app.campaign.week, idx)
+    local color = theme.long[key]
+    kit.icon(bx, by - 4, 16, key, color)
+    kit.text(bx + 21, by - 4, score.LONG_NAMES[key], "ui14", theme.dim)
+    if read.lo then
+        kit.bar(bx + 112, by, 52, 9, 0, 100, color, { range = { read.lo, read.hi } })
+    else
+        kit.bar(bx + 112, by, 52, 9, read.fill, 100, color)
+    end
+    if read.arrow then
+        local good = (read.arrow == "up") ~= (key == "suspicion")
+        kit.icon(bx + 168, by - 2, 12, read.arrow, good and theme.green or theme.red)
+    end
+end
+
+local WARNINGS = {
+    wavering = "Said in the chat they're losing steam.",
+    drifting = "Seems to be drifting away lately.",
+}
+
+-- The one-line version of a player's notes, for a card that also shows a warning or a feud.
+local function short_notes(p)
+    local d = content.players[p.key]
+    return d and d.short or p.notes
+end
+
+local function player_card(app, prep, p, i, forecast)
+    local x, w = 1196, 380
+    local y = 106 + (i - 1) * 196
+    local h = 186
+    local level = app.campaign:empathy()
+    kit.box(x, y, w, h, theme.panel, { radius = 10 })
+    -- Their face and name: click for the character sheet.
+    kit.button(x + 6, y + 4, 262, 38, "", function()
+        if app.open_sheet then
+            app.open_sheet(p.key)
+        end
+    end, { color = theme.panel, hover = theme.panel2, radius = 8, key = "sheet_" .. p.key })
+    kit.dot(x + 29, y + 23, 34, panels.COLORS[p.key] or theme.panel3)
+    kit.picture(x + 13, y + 7, 32, 32, panels.face(p.key))
+    kit.text(x + 52, y + 10, p.name, "ui22b", theme.text)
+    kit.text(x + 52 + kit.width(p.name, "ui22b") + 10, y + 14, kit.ellipsize(p.char .. ", " .. p.class_name, "ui18",
+        262 - 52 - kit.width(p.name, "ui22b") - 10), "ui18", theme.dim)
+    if p.on_break then
+        local talked = prep.talked[p.key]
+        kit.button(x + w - 128, y + 10, 114, 30, talked and "Checked in" or "Check in  2h", function()
+            if prep:talk(p.key) then
+                app.refresh()
+            end
+        end, { font = "ui14", enabled = (not talked) and prep:can_talk(p.key) })
+        kit.icon(x + 14, y + 48, 18, "warn", theme.orange)
+        kit.text(x + 40, y + 47, "Taking a break from Thursdays.", "ui18", theme.orange)
+        kit.text(x + 14, y + 76, talked and "You checked in. They'll be back sooner, and they know they're missed."
+            or "A one-on-one check-in brings them back sooner. They'll return either way.", "ui14", theme.dim,
+            { w = w - 28, lines = 2 })
+    elseif not p.present then
+        kit.text(x + 14, y + 48, "Can't make it this week.", "ui18", theme.orange)
+        local warn = empathy.warning(level, p)
+        if warn and WARNINGS[warn] then
+            kit.icon(x + 14, y + 76, 16, "warn", theme.orange)
+            kit.text(x + 36, y + 74, WARNINGS[warn], "ui14", theme.orange, { w = w - 50, lines = 1 })
+        else
+            kit.text(x + 14, y + 74, p.notes, "ui14", theme.faint, { w = w - 28, lines = 2 })
+        end
+    else
+        local talked = prep.talked[p.key]
+        kit.button(x + w - 108, y + 10, 94, 30, talked and "Talked" or "Talk  2h", function()
+            if prep:talk(p.key) then
+                app.refresh()
+            end
+        end, { font = "ui14", enabled = (not talked) and prep:can_talk(p.key) })
+        local warn = empathy.warning(level, p)
+        local feud = M.feud_line(app, p)
+        if warn and WARNINGS[warn] then
+            kit.icon(x + 14, y + 46, 16, "warn", theme.orange)
+            kit.text(x + 36, y + 44, WARNINGS[warn], "ui14", theme.orange, { w = w - 50, lines = 1 })
+            kit.text(x + 14, y + 64, feud or short_notes(p), "ui14", feud and theme.orange or theme.dim, { w = w - 28, lines = 1 })
+        elseif feud then
+            kit.text(x + 14, y + 44, feud, "ui14", theme.orange, { w = w - 28, lines = 1 })
+            kit.text(x + 14, y + 64, short_notes(p), "ui14", theme.dim, { w = w - 28, lines = 1 })
+        else
+            kit.text(x + 14, y + 44, p.notes, "ui14", theme.dim, { w = w - 28, lines = 2 })
+        end
+        local mood = score.mood(p)
+        kit.icon(x + 14, y + 87, 14, "mood", p.mood_known and theme.gold or theme.faint)
+        local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
+        kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
+        -- Forecast for Thursday, from the board as it stands.
+        kit.text(x + 14, y + 108, "Thursday", "ui14", theme.dim)
+        local f = forecast[p.key]
+        if f then
+            kit.bar(x + 86, y + 111, 190, 10, f, 100, tier_color(f))
+            kit.text(x + 286, y + 106, content.chat.verdicts[score.tier(f)], "ui14", tier_color(f))
+        else
+            kit.text(x + 86, y + 108, "Finish the scene types to see a forecast", "ui14", theme.faint)
+        end
+    end
+    do
+        -- Long-term bars, as well as your Empathy lets you read them.
+        local bars = {
+            { "commitment", x + 14 }, { "trust", x + 196 },
+            { "investment", x + 14 }, { "suspicion", x + 196 },
+        }
+        for k, b in ipairs(bars) do
+            long_bar(app, p, i, b[1], b[2], y + 136 + (k > 2 and 24 or 0))
+        end
+    end
+end
+
+-- How well you read the table: shown above the player cards.
+local function empathy_meter(app)
+    local c = app.campaign
+    local level = c:empathy()
+    local x = 1576
+    for k = empathy.MAX, 1, -1 do
+        local filled = k <= level
+        local px = x - (empathy.MAX - k + 1) * 14
+        kit.dot(px + 5, 92, 10, filled and theme.teal or theme.panel3)
+    end
+    local label = "EMPATHY  " .. string.upper(empathy.NAMES[level])
+    local lx = x - empathy.MAX * 14 - 10
+    kit.text(lx, 84, label, "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+    kit.icon(lx - kit.width(label, "ui14") - 22, 84, 16, "empathy", theme.teal)
+end
+
+-- What a live conflict looks like from this player's chair.
+local FEUD = {
+    spotlight = { jess = "Filling every scene lately.", other = "Can't get a word in past Pip." },
+    rules = { dev = "Sick of the rulebook coming out.", sam = "Wants the same rules every time." },
+    tone = { mara = "Wants Ilsa's story taken seriously.", jess = "Scared her jokes aren't welcome." },
+}
+function M.feud_line(app, p)
+    for _, id in ipairs(content.conflicts.order) do
+        local c = app.campaign.conflicts[id]
+        if social.is_live(c) then
+            local f = FEUD[id]
+            if f[p.key] then
+                return f[p.key]
+            elseif f.other and util.contains(content.conflicts[id].hurt, p.key) and c.state == "active" then
+                return f.other
+            end
+        end
+    end
+end
+
+-- The drawer when nothing's selected: an evening off for inspiration, and seeds to plant.
+function M.inspiration(app, prep, x, y)
+    local insp = content.inspiration
+    kit.text(x + 16, y + 10, "INSPIRATION", "ui14", theme.dim)
+    kit.text(x + 112, y + 10, "An evening off draws extra cards. " .. util.int(insp.PER_WEEK) .. " a week.", "ui14", theme.faint)
+    local bw, bh = 128, 78
+    for k, id in ipairs(insp.order) do
+        local a = insp[id]
+        local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
+        local bx, by = x + 14 + col * (bw + 8), y + 34 + row * (bh + 8)
+        local done = prep.inspired_by[id]
+        local ok = seeds_mod.can_inspire(app.campaign, prep, id)
+        kit.button(bx, by, bw, bh, "", function()
+            local drawn = prep:inspire(id)
+            if drawn then
+                local names = {}
+                for _, c in ipairs(drawn) do
+                    table.insert(names, c.name)
+                end
+                if #names > 0 then
+                    app.toast = "Drew: " .. table.concat(names, ", ")
+                elseif a.seed then
+                    app.toast = "A new seed idea."
+                else
+                    app.toast = "Nothing new turned up."
+                end
+            end
+            app.refresh()
+        end, { color = done and kit.rgba("#28403c") or theme.panel2, hover = theme.button_hover, enabled = ok or done ~= nil,
+               key = "inspire_" .. id })
+        kit.text(bx + 8, by + 6, a.name, "ui14", (ok or done) and theme.text or theme.faint, { w = bw - 36 })
+        local about = a.short or a.about
+        if a.thread then
+            local p = seeds_mod.backstory_target(app.campaign)
+            about = util.fill(about, { name = p and p.name or "someone" })
+        end
+        kit.text(bx + bw - 8, by + 6, done and "Done" or (util.int(a.cost) .. "h"), "ui14", done and theme.teal or theme.gold,
+            { pivot = gui.PIVOT_NE })
+        if not done then
+            kit.text(bx + 8, by + 56, kit.ellipsize(about, "ui14", bw - 16), "ui14", theme.faint)
+        end
+    end
+end
+
+function M.seeds(app, prep, x, y)
+    local sd = content.seeds
+    local w = 370
+    kit.text(x, y + 10, "SEEDS", "ui14", theme.dim)
+    kit.text(x + 56, y + 10, "Plant a mystery now, pay it off in 1 to " .. util.int(sd.PAYOFF_WEEKS) .. " weeks.", "ui14",
+        theme.faint)
+    local by = y + 32
+    for _, id in ipairs(prep.seed_ideas) do
+        local def = sd[id]
+        local planted = prep.planted == id
+        local ok = prep:can_plant(id)
+        if by + 28 > y + 160 then
+            break
+        end
+        kit.button(x, by, w, 28, "", function()
+            if planted then
+                prep:unplant()
+            else
+                local done, why = prep:plant(id)
+                if not done then
+                    app.toast = why
+                end
+            end
+            app.refresh()
+        end, { color = planted and kit.rgba("#28403c") or theme.panel2, hover = theme.button_hover,
+               enabled = ok or planted, key = "seed_" .. id })
+        kit.text(x + 10, by + 5, def.name, "ui14", (ok or planted) and theme.text or theme.faint, { w = w - 120, lines = 1 })
+        kit.text(x + w - 10, by + 5, planted and "Planted (undo)" or (util.int(sd.COST) .. "h"), "ui14",
+            planted and theme.teal or theme.gold, { pivot = gui.PIVOT_NE })
+        by = by + 32
+    end
+    -- What's growing.
+    local growing = seeds_mod.growing(app.campaign)
+    local gy = y + 164
+    if #growing == 0 then
+        kit.text(x, gy, "Nothing planted yet.", "ui14", theme.faint)
+        return
+    end
+    local parts, ready = {}, 0
+    for _, s in ipairs(growing) do
+        local def = sd[s.id]
+        local left = s.week + sd.PAYOFF_WEEKS - app.campaign.week
+        local in_hand = prep.payoffs[def.payoff]
+        if in_hand then
+            ready = ready + 1
+        end
+        table.insert(parts, def.name .. (in_hand and left <= 0 and " (last week!)" or ""))
+    end
+    local text = "Growing: " .. table.concat(parts, ", ") .. "."
+    if ready > 0 then
+        text = text .. " " .. (ready == 1 and "A payoff is" or (util.int(ready) .. " payoffs are")) .. " in your hand."
+    end
+    kit.text(x, gy, text, "ui14", theme.text, { w = w, lines = 2 })
+end
+
+function M.build(app)
+    local prep = app.campaign.prep
+    kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
+    top_bar(app, prep)
+    chat_column(app)
+    for i = 1, #prep.scenes do
+        scene_card(app, prep, i)
+    end
+    pacing_panel(app, prep)
+    drawer(app, prep)
+    kit.text(1196, 84, "THE TABLE", "ui14", theme.dim)
+    empathy_meter(app)
+    local forecast = prep:forecast()
+    for i, p in ipairs(app.campaign.players) do
+        player_card(app, prep, p, i, forecast)
+    end
+end
+
+return M

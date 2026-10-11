@@ -1,0 +1,189 @@
+images {
+  image: "/assets/sprites/fighter.png"
+}
+images {
+  image: "/assets/sprites/wizard.png"
+}
+images {
+  image: "/assets/sprites/cleric.png"
+}
+images {
+  image: "/assets/sprites/rogue.png"
+}
+images {
+  image: "/assets/sprites/goblin_spear.png"
+}
+images {
+  image: "/assets/sprites/goblin_club.png"
+}
+images {
+  image: "/assets/sprites/goblin_boss.png"
+}
+images {
+  image: "/assets/sprites/bandit.png"
+}
+images {
+  image: "/assets/sprites/bandit_captain.png"
+}
+images {
+  image: "/assets/sprites/cultist.png"
+}
+images {
+  image: "/assets/sprites/tough.png"
+}
+images {
+  image: "/assets/sprites/wolf.png"
+}
+images {
+  image: "/assets/sprites/dire_wolf.png"
+}
+images {
+  image: "/assets/sprites/skeleton.png"
+}
+images {
+  image: "/assets/sprites/zombie.png"
+}
+images {
+  image: "/assets/sprites/ghoul.png"
+}
+images {
+  image: "/assets/sprites/ogre.png"
+}
+images {
+  image: "/assets/sprites/npc_gus.png"
+}
+images {
+  image: "/assets/sprites/npc_stranger.png"
+}
+images {
+  image: "/assets/sprites/npc_hermit.png"
+}
+images {
+  image: "/assets/sprites/npc_sable.png"
+}
+images {
+  image: "/assets/sprites/npc_ghost.png"
+}
+images {
+  image: "/assets/sprites/npc_corin.png"
+}
+images {
+  image: "/assets/sprites/npc_rival.png"
+}
+images {
+  image: "/assets/sprites/dev.png"
+}
+images {
+  image: "/assets/sprites/mara.png"
+}
+images {
+  image: "/assets/sprites/jess.png"
+}
+images {
+  image: "/assets/sprites/sam.png"
+}
+images {
+  image: "/assets/sprites/dev_lean.png"
+}
+images {
+  image: "/assets/sprites/dev_cheer.png"
+}
+images {
+  image: "/assets/sprites/dev_laugh.png"
+}
+images {
+  image: "/assets/sprites/dev_gasp.png"
+}
+images {
+  image: "/assets/sprites/dev_arms.png"
+}
+images {
+  image: "/assets/sprites/dev_yawn.png"
+}
+images {
+  image: "/assets/sprites/dev_phone.png"
+}
+images {
+  image: "/assets/sprites/dev_think.png"
+}
+images {
+  image: "/assets/sprites/mara_lean.png"
+}
+images {
+  image: "/assets/sprites/mara_cheer.png"
+}
+images {
+  image: "/assets/sprites/mara_laugh.png"
+}
+images {
+  image: "/assets/sprites/mara_gasp.png"
+}
+images {
+  image: "/assets/sprites/mara_arms.png"
+}
+images {
+  image: "/assets/sprites/mara_yawn.png"
+}
+images {
+  image: "/assets/sprites/mara_phone.png"
+}
+images {
+  image: "/assets/sprites/mara_think.png"
+}
+images {
+  image: "/assets/sprites/jess_lean.png"
+}
+images {
+  image: "/assets/sprites/jess_cheer.png"
+}
+images {
+  image: "/assets/sprites/jess_laugh.png"
+}
+images {
+  image: "/assets/sprites/jess_gasp.png"
+}
+images {
+  image: "/assets/sprites/jess_arms.png"
+}
+images {
+  image: "/assets/sprites/jess_yawn.png"
+}
+images {
+  image: "/assets/sprites/jess_phone.png"
+}
+images {
+  image: "/assets/sprites/jess_think.png"
+}
+images {
+  image: "/assets/sprites/sam_lean.png"
+}
+images {
+  image: "/assets/sprites/sam_cheer.png"
+}
+images {
+  image: "/assets/sprites/sam_laugh.png"
+}
+images {
+  image: "/assets/sprites/sam_gasp.png"
+}
+images {
+  image: "/assets/sprites/sam_arms.png"
+}
+images {
+  image: "/assets/sprites/sam_yawn.png"
+}
+images {
+  image: "/assets/sprites/sam_phone.png"
+}
+images {
+  image: "/assets/sprites/sam_think.png"
+}
+images {
+  image: "/assets/sprites/flame.png"
+}
+images {
+  image: "/assets/sprites/halo.png"
+}
+margin: 2
+extrude_borders: 2
+inner_padding: 0

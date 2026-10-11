@@ -1,0 +1,6 @@
+default_animation: "wizard"
+material: "/materials/standee.material"
+textures {
+  sampler: "texture_sampler"
+  texture: "/assets/sprites/sprites.atlas"
+}

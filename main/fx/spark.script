@@ -1,0 +1,31 @@
+-- A burst of light on the table (M4): spells, healing, crits. Spawned by the table
+-- script with a colour and a size; it swells, fades and removes itself.
+
+local state = require "main.state"
+
+go.property("color", vmath.vector4(1, 0.8, 0.5, 1))
+go.property("size", 1)
+go.property("life", 0.7)
+
+function init(self)
+    self.t = 0
+    go.set("#sprite", "tint", self.color)
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    local f = self.t / self.life
+    if f >= 1 then
+        go.delete()
+        return
+    end
+    local p = go.get_world_position()
+    local d = state.cam_eye - p
+    local len = vmath.length(d)
+    if len > 0.001 then
+        go.set_rotation(vmath.quat_rotation_y(math.atan2(d.x, d.z)) * vmath.quat_rotation_x(-math.asin(d.y / len)))
+    end
+    local s = 0.035 * self.size * (0.4 + 0.9 * math.sqrt(f))
+    go.set_scale(vmath.vector3(s, s, s))
+    go.set("#sprite", "glow", vmath.vector4(1.6 * (1 - f) * (1 - f), 0, 0, 0))
+end

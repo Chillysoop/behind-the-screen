@@ -1,0 +1,37 @@
+-- Campfire flame on the battle mat: a vertical billboard that flickers,
+-- glowing brighter as the camera pushes into the imagination zoom.
+
+local state = require "main.state"
+
+go.property("pixel_height", 192)
+
+function init(self)
+    self.t = math.random() * 10
+    local p = go.get_position()
+    self.scale = go.get_scale()
+    self.base_y = p.y - self.pixel_height * self.scale.y * 0.5
+    self.x, self.z = p.x, p.z
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    -- The fire moves with the terrain set (campfire, hearth) and goes out where there is none.
+    if state.fire_pos then
+        self.x, self.z = state.fire_pos.x, state.fire_pos.z
+        self.base_y = state.fire_pos.y
+    end
+    if (state.fire_level or 1) <= 0.01 then
+        go.set_position(vmath.vector3(self.x, -500, self.z))
+        return
+    end
+    local eye = state.cam_eye
+    go.set_rotation(vmath.quat_rotation_y(math.atan2(eye.x - self.x, eye.z - self.z)))
+
+    local f = state.fire_intensity
+    local imag = state.imagination
+    local sx = self.scale.x * (0.9 + 0.1 * math.sin(self.t * 9.1))
+    local sy = self.scale.y * (0.8 + 0.3 * f)
+    go.set_scale(vmath.vector3(sx, sy, self.scale.z))
+    go.set_position(vmath.vector3(self.x, self.base_y + self.pixel_height * sy * 0.5, self.z))
+    go.set("#sprite", "glow", vmath.vector4((0.55 + 0.75 * imag) * f, 0, 0, 0))
+end

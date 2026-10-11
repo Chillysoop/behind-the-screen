@@ -1,0 +1,823 @@
+-- Hand-checkable rules cases for the M3 gate. Each case sets up a tiny fight,
+-- forces the exact dice, and checks the engine against SRD 5.2.1. Run from the
+-- project root with any Lua 5.1+ or LuaJIT interpreter:
+--
+--   lua tools/tests/rules_cases.lua            (prints PASS/FAIL per case)
+--   lua tools/tests/rules_cases.lua json FILE  (also writes the cases as JSON)
+
+package.path = "./?.lua;" .. package.path
+unpack = unpack or table.unpack
+
+local battle = require "game.rules.battle"
+local creature = require "game.rules.creature"
+local party = require "game.rules.party"
+local spells = require "game.rules.spells"
+local ai = require "game.rules.ai"
+local enc = require "game.rules.encounter"
+
+local S = spells.list
+local cases = {}
+
+local function case(id, title, page, rule, fn)
+    table.insert(cases, { id = id, title = title, page = page, rule = rule, fn = fn })
+end
+
+-- Helpers ----------------------------------------------------------------------------------
+
+local function fresh()
+    local b = battle.new({ seed = 1, ai = ai })
+    b.keep_log = true
+    return b
+end
+
+-- A PC with optional feats switched off so the dice are easy to follow.
+local function pc(cls, level, sub, opts)
+    opts = opts or {}
+    local sheet = party.sheet(cls, level, sub)
+    for k, v in pairs(opts.sheet or {}) do sheet[k] = v end
+    local c = creature.new_pc(sheet)
+    if not opts.keep_savage then c.feats.savage_attacker = nil end
+    if not opts.keep_gwf then c.feats.great_weapon_fighting = nil end
+    if not opts.keep_luck then c.traits.halfling_luck = nil end
+    c.res.thrown = 8
+    return c
+end
+
+local function mon(id)
+    return creature.new_monster(id, "")
+end
+
+local function at(b, c, x, y)
+    b:add(c, x, y)
+    c.turn = { action = true, bonus = true, move = c.speed, attacks = 0 }
+    return c
+end
+
+local function melee(c)
+    return creature.weapon_attack(c, c.weapons.main, { two_handed = c.weapons.two_handed })
+end
+
+-- Cases --------------------------------------------------------------------------------------
+
+case("hit-vs-ac", "An attack hits when the total meets the target's AC", "p. 14",
+    "Roll d20 + modifiers; meeting or beating AC is a hit.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local g = at(b, mon("goblin_warrior"), 6, 5)         -- AC 15
+        local prof = melee(f)                                -- greatsword +5
+        b.dice:force(10, 3, 4)                               -- 10 + 5 = 15 vs AC 15; damage 3 + 4 + 3
+        local r = b:attack(f, g, prof)
+        t:eq("to-hit bonus (Str +3, PB +2)", prof.to_hit, 5)
+        t:eq("15 vs AC 15 hits", r.hit, true)
+        t:eq("damage 2d6 (3+4) + Str 3", r.damage, 10)
+    end)
+
+case("nat20-crit", "A natural 20 always hits and rolls the damage dice twice", "p. 7, p. 16",
+    "Critical Hit: roll all of the attack's damage dice twice, then add modifiers.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(20, 1, 2, 3, 4)                         -- four d6 for a 2d6 crit
+        local r = b:attack(f, o, melee(f))
+        t:eq("natural 20 is a Critical Hit", r.crit, true)
+        t:eq("4d6 (1+2+3+4) + 3", r.damage, 13)
+    end)
+
+case("nat1-miss", "A natural 1 always misses", "p. 7",
+    "A natural 1 on an attack roll misses regardless of modifiers or AC.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 4), 5, 5)
+        local z = at(b, mon("zombie"), 6, 5)                 -- AC 8
+        b.dice:force(1)
+        local r = b:attack(f, z, melee(f))
+        t:eq("1 + 6 against AC 8 still misses", r.hit, false)
+    end)
+
+case("adv-dis", "Advantage keeps the higher d20; both together cancel", "p. 8",
+    "If a roll has Advantage and Disadvantage, neither applies.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 2), 5, 5)
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        b:add_effect(r, { name = "Steady Aim", steady_aim = true })
+        local mode = b:attack_mode(r, g, melee(r))
+        t:eq("Steady Aim gives Advantage", mode, 1)
+        b:add_effect(r, { name = "Poisoned", conds = { poisoned = true } })
+        mode = b:attack_mode(r, g, melee(r))
+        t:eq("Advantage + Poisoned cancel out", mode, 0)
+        local v, a, c = b.dice:d20(1)
+        t:eq("advantage keeps the higher of two rolls", v, math.max(a, c))
+    end)
+
+case("champion-19", "Champion: Improved Critical on 19 or 20", "p. 49",
+    "Weapon attack rolls score a Critical Hit on a roll of 19 or 20.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 3, "champion"), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(19, 1, 1, 1, 1)
+        local r = b:attack(f, o, melee(f))
+        t:eq("19 is a Critical Hit", r.crit, true)
+        t:eq("4d6 all ones + 3", r.damage, 7)
+        local b2 = fresh()
+        local f2 = at(b2, pc("fighter", 3, "banner_captain"), 5, 5)
+        local o2 = at(b2, mon("ogre"), 6, 5)
+        b2.dice:force(19, 1, 1)
+        local r2 = b2:attack(f2, o2, melee(f2))
+        t:eq("a non-Champion's 19 is just a hit", r2.crit, false)
+    end)
+
+case("gwf", "Great Weapon Fighting turns 1s and 2s into 3s", "p. 88",
+    "Two-Handed or Versatile melee weapon held in two hands: any 1 or 2 on a damage die counts as 3.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2, nil, { keep_gwf = true }), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(15, 1, 2)
+        local r = b:attack(f, o, melee(f))
+        t:eq("2d6 of 1 and 2 count as 3 + 3, plus Str 3", r.damage, 9)
+    end)
+
+case("savage", "Savage Attacker keeps the better weapon damage roll", "p. 87",
+    "Once per turn when you hit with a weapon, roll its damage dice twice and use either roll.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2, nil, { keep_savage = true }), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(15, 1, 2, 6, 5)                         -- first 2d6 = 3, second = 11
+        local r = b:attack(f, o, melee(f))
+        t:eq("keeps 11 over 3, plus Str 3", r.damage, 14)
+        b.dice:force(15, 1, 2)
+        local r2 = b:attack(f, o, melee(f))
+        t:eq("only once per turn: second hit uses one roll", r2.damage, 6)
+    end)
+
+case("sneak-ally", "Sneak Attack with an ally next to the target", "pp. 61-62",
+    "Once per turn: Finesse or Ranged weapon, and Advantage, or an ally within 5 feet of the target "
+        .. "(not Incapacitated) without Disadvantage.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 2), 5, 5)
+        local f = at(b, pc("fighter", 2), 7, 6)
+        local o = at(b, mon("ogre"), 6, 5)                   -- ally Brannoc is adjacent to the ogre
+        b.dice:force(15, 4, 6)                               -- shortsword d6 = 4, Sneak 1d6 = 6
+        local res = b:attack(r, o, melee(r))
+        t:eq("ally adjacent: Sneak Attack lands", res.sneak, true)
+        t:eq("1d6 (4) + Dex 3 + Sneak 1d6 (6)", res.damage, 13)
+        b.dice:force(15, 4)
+        local res2 = b:attack(r, o, melee(r))
+        t:eq("only once per turn", res2.sneak, nil)
+    end)
+
+case("sneak-disadvantage", "No Sneak Attack with Disadvantage, even with an ally adjacent", "pp. 61-62",
+    "The ally route only works if you don't have Disadvantage on the attack roll.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 2), 5, 5)
+        local f = at(b, pc("fighter", 2), 7, 6)
+        local o = at(b, mon("ogre"), 6, 5)
+        b:add_effect(r, { name = "Poisoned", conds = { poisoned = true } })
+        b.dice:force(18, 18, 4)
+        local res = b:attack(r, o, melee(r))
+        t:eq("hit lands", res.hit, true)
+        t:eq("no Sneak Attack", res.sneak, nil)
+    end)
+
+case("ranged-close", "Ranged attacks within 5 feet of an enemy have Disadvantage", "p. 15",
+    "A ranged attack roll has Disadvantage if you're within 5 feet of an enemy who can see you and "
+        .. "isn't Incapacitated.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 2), 5, 5)
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        local bow = creature.weapon_attack(r, "shortbow")
+        t:eq("adjacent goblin: Disadvantage", (b:attack_mode(r, g, bow)), -1)
+        b:add_effect(g, { name = "Asleep", conds = { unconscious = true } })
+        t:eq("an Unconscious goblin doesn't count (and grants Advantage)", (b:attack_mode(r, g, bow)), 1)
+    end)
+
+case("prone", "Prone: Advantage within 5 feet, Disadvantage from farther away", "p. 186",
+    "An attack roll against a Prone creature has Advantage if the attacker is within 5 feet, otherwise "
+        .. "Disadvantage.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local r = at(b, pc("rogue", 2), 2, 5)
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        b:knock_prone(g, "test")
+        t:eq("fighter adjacent: Advantage", (b:attack_mode(f, g, melee(f))), 1)
+        t:eq("rogue 20 feet away with a bow: Disadvantage", (b:attack_mode(r, g, creature.weapon_attack(r, "shortbow"))), -1)
+    end)
+
+case("paralyzed-autocrit", "Hits on a Paralyzed creature within 5 feet are Critical Hits", "p. 186",
+    "Attack rolls against a Paralyzed creature have Advantage; any hit within 5 feet is a Critical Hit.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local bc = at(b, mon("bandit_captain"), 6, 5)
+        b:add_effect(bc, { name = "Hold Person", conds = { paralyzed = true } })
+        bc.reaction_used = true                              -- no Parry while Paralyzed anyway
+        b.dice:force(11, 9, 1, 1, 1, 1)                      -- Advantage: keeps 11; 11 + 5 = 16 vs AC 15
+        local r = b:attack(f, bc, melee(f))
+        t:eq("hit becomes a Critical Hit", r.crit, true)
+        t:eq("4d6 all ones + 3", r.damage, 7)
+    end)
+
+case("resist-vuln", "Resistance halves (round down), Vulnerability doubles", "p. 17",
+    "Adjustments first, then Resistance, then Vulnerability.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)                -- Dwarf: Resistance to Poison
+        local sk = at(b, mon("skeleton"), 6, 5)               -- Vulnerable to Bludgeoning
+        local before = c.hp
+        b:deal(sk, c, { { 9, "poison" } })
+        t:eq("9 Poison to a dwarf: 4", before - c.hp, 4)
+        b.dice:force(15, 4)                                   -- mace 1d6 = 4, + Str 2 = 6, doubled
+        local r = b:attack(c, sk, melee(c))
+        t:eq("mace on a skeleton: (4 + 2) x 2 = 12", r.damage, 12)
+        t:eq("skeleton (13 HP) hangs on at 1", sk.hp, 1)
+    end)
+
+case("temp-hp", "Temporary Hit Points absorb damage first and don't stack", "p. 18",
+    "Lose Temporary Hit Points first; receiving more lets you keep the larger amount.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        b:give_temp(w, 7)
+        b:give_temp(w, 5)
+        t:eq("keeps 7, not 12", w.temp, 7)
+        local before = w.hp
+        b:deal(w, w, { { 10, "fire" } })
+        t:eq("7 soaked, 3 through", before - w.hp, 3)
+        t:eq("no Temporary Hit Points left", w.temp, 0)
+    end)
+
+case("drop-death-saves", "Dropping to 0 and Death Saving Throws", "pp. 17-18",
+    "Unconscious at 0 HP. Death save: 10+ succeeds; three successes = Stable; a 1 counts as two failures; "
+        .. "a 20 regains 1 HP; damage at 0 HP is a failure (a Critical Hit, two).",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        b:deal(w, w, { { w.hp + 3, "slashing" } })
+        t:eq("at 0 HP and Unconscious", b:has(w, "unconscious"), true)
+        t:eq("not dead (3 left over < max HP)", w.dead, false)
+        b.dice:force(12, 1)
+        b:death_save(w)
+        t:eq("12: one success", w.ds.s, 1)
+        b:death_save(w)
+        t:eq("natural 1: two failures", w.ds.f, 2)
+        b:deal(w, w, { { 2, "slashing" } }, { crit = true })
+        t:eq("a Critical Hit at 0 HP: dead", w.dead, true)
+        local b2 = fresh()
+        local r = at(b2, pc("rogue", 2), 5, 5)
+        b2:deal(r, r, { { r.hp, "slashing" } })
+        b2.dice:force(20)
+        b2:death_save(r)
+        t:eq("natural 20: back up with 1 HP", r.hp, 1)
+        t:eq("conscious again", r.down, false)
+    end)
+
+case("massive-damage", "Massive damage kills outright", "p. 17",
+    "If damage reduces you to 0 and the remainder equals or exceeds your Hit Point maximum, you die.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)               -- 14 HP
+        b:deal(w, w, { { w.hp + w.hp_max, "bludgeoning" } })
+        t:eq("dead", w.dead, true)
+    end)
+
+case("concentration", "Concentration save after damage", "p. 179",
+    "Constitution save, DC 10 or half the damage taken (round down), whichever is higher, up to 30.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)
+        local f = at(b, pc("fighter", 2), 6, 5)
+        S.bless.cast(b, c, 1, { f })
+        t:eq("Bless is running", c.conc ~= nil, true)
+        b.dice:force(8)                                       -- 8 + Con 1 = 9 vs DC 10 -> lost
+        b:deal(f, c, { { 4, "slashing" } })
+        t:eq("failed DC 10: Concentration ends", c.conc == nil, true)
+        t:eq("Bless is gone from Brannoc", b:find_effect(f, "Bless") == nil, true)
+        local b2 = fresh()
+        local w = at(b2, pc("wizard", 3), 5, 5)
+        S.blur.cast(b2, w, 2)
+        b2:give_temp(w, 60)                                   -- soak the damage so she stays up
+        b2.dice:force(12)                                     -- 28 damage: DC 14; 12 + Con 2 = 14 holds
+        b2:deal(w, w, { { 28, "slashing" } })
+        t:eq("28 damage, DC 14: 14 keeps Blur", w.conc ~= nil, true)
+        b2.dice:force(12)                                     -- 30 damage: DC 15; 14 loses it
+        b2:deal(w, w, { { 30, "slashing" } })
+        t:eq("30 damage, DC 15: 14 drops Blur", w.conc == nil, true)
+    end)
+
+case("undead-fortitude", "Zombie: Undead Fortitude", "p. 343",
+    "If damage drops it to 0, Constitution save DC 5 + the damage; on a success it drops to 1 HP instead. "
+        .. "Not against Radiant damage or a Critical Hit.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local z = at(b, mon("zombie"), 6, 5)
+        z.hp = 8
+        b.dice:force(10)                                      -- 10 + 3 = 13 vs DC 5 + 8
+        b:deal(f, z, { { 8, "slashing" } })
+        t:eq("survives at 1 HP", z.hp, 1)
+        b:deal(f, z, { { 6, "radiant" } })
+        t:eq("Radiant damage finishes it", z.dead, true)
+    end)
+
+case("second-wind", "Fighter: Second Wind", "p. 48",
+    "Bonus Action: regain 1d10 + Fighter level Hit Points. Two uses at levels 1-3, three at level 4.",
+    function(t)
+        local f2, f4 = pc("fighter", 2), pc("fighter", 4)
+        t:eq("level 2: two uses", f2.res.second_wind, 2)
+        t:eq("level 4: three uses", f4.res.second_wind, 3)
+        local b = fresh()
+        at(b, f2, 5, 5)
+        f2.hp = 5
+        local g = at(b, mon("goblin_warrior"), 15, 5)
+        b.dice:force(7)
+        b.active = f2
+        ai.take_turn(b, f2)
+        t:eq("heals 7 + 2", f2.hp, 14)
+        t:eq("one use spent", f2.res.second_wind, 1)
+    end)
+
+case("hp-fixed", "Hit Points at higher levels", "p. 23",
+    "Level 1: maximum Hit Die + Con. After that, the fixed value + Con each level.",
+    function(t)
+        t:eq("Fighter 3, Con 14: 12 + 2 x 8", pc("fighter", 3).hp_max, 28)
+        t:eq("Wizard 4, Con 14: 8 + 3 x 6", pc("wizard", 4).hp_max, 26)
+        t:eq("Rogue 2, Con 14: 10 + 7", pc("rogue", 2).hp_max, 17)
+        t:eq("Dwarf Cleric 3, Con 13: 9 + 2 x 6 + Dwarven Toughness 3", pc("cleric", 3).hp_max, 24)
+    end)
+
+case("armor", "Armor Class: heavy armor, shields, Mage Armor", "p. 92, p. 145",
+    "Chain Mail is AC 16 and ignores Dexterity; a Shield adds 2; Mage Armor sets base AC to 13 + Dex.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)               -- Dex 8, Chain Mail + Shield
+        t:eq("Oswin: 16 + 2, no Dex penalty", b:ac(c), 18)
+        local w = at(b, pc("wizard", 2), 6, 5)
+        t:eq("Thessaly unarmored: 10 + 1", b:ac(w), 11)
+        w.mage_armor = true
+        t:eq("with Mage Armor: 13 + 1", b:ac(w), 14)
+        local r = at(b, pc("rogue", 2), 7, 5)
+        t:eq("Pip in Leather: 11 + 3", b:ac(r), 14)
+    end)
+
+case("masteries", "Weapon Mastery: Sap, Vex, Graze, Topple", "p. 90",
+    "Sap: Disadvantage on the target's next attack. Vex: Advantage on your next attack. Graze: a miss deals "
+        .. "the ability modifier. Topple: Con save (DC 8 + mod + PB) or Prone.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)
+        c.masteries.mace = true                             -- pretend Oswin trained the Mace
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(15, 3)
+        b:attack(c, o, melee(c))
+        t:eq("Sap: the ogre's next attack has Disadvantage", (b:attack_mode(o, c, creature.monster_attack(o, o.attacks[1]))), -1)
+        local b2 = fresh()
+        local r = at(b2, pc("rogue", 2), 5, 5)
+        local o2 = at(b2, mon("ogre"), 6, 5)
+        b2.dice:force(18, 3)
+        b2:attack(r, o2, melee(r), { no_sneak = true })
+        t:eq("Vex: Pip's next attack on the ogre has Advantage", (b2:attack_mode(r, o2, melee(r))), 1)
+        local b3 = fresh()
+        local f = at(b3, pc("fighter", 2), 5, 5)
+        local o3 = at(b3, mon("ogre"), 6, 5)
+        local before = o3.hp
+        b3.dice:force(2)
+        b3:attack(f, o3, melee(f))
+        t:eq("Graze: a greatsword miss still deals Str 3", before - o3.hp, 3)
+        local b4 = fresh()
+        local w = at(b4, pc("wizard", 2), 5, 5)
+        w.masteries.quarterstaff = true
+        local g = at(b4, mon("goblin_warrior"), 6, 5)
+        g.hp = 50
+        b4.dice:force(19, 2, 3)                              -- hit, d6 = 2, goblin Con save 3 + 0 vs DC 8 - 1 + 2 = 9
+        b4:attack(w, g, melee(w))
+        t:eq("Topple: the goblin is Prone", b4:has(g, "prone"), true)
+    end)
+
+case("nick", "Nick: the Light weapon's extra attack inside the Attack action", "p. 89, p. 90",
+    "The extra Light attack doesn't add a positive ability modifier to damage (without Two-Weapon Fighting).",
+    function(t)
+        local r = pc("rogue", 2)
+        local off = creature.weapon_attack(r, "dagger", { offhand = true })
+        t:eq("dagger extra attack: 1d4 + 0", off.damage[1][3], 0)
+        t:eq("dagger has Nick mastery for Pip", off.mastery, "nick")
+    end)
+
+case("bless", "Bless adds 1d4 to attack rolls and saves", "p. 113",
+    "Up to three creatures add 1d4 to attack rolls and saving throws while you concentrate.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local g = at(b, mon("goblin_warrior"), 7, 5)
+        S.bless.cast(b, c, 1, { f })
+        b.dice:force(8, 2, 4, 4)                             -- 8 + 5 + 2 = 15 vs AC 15
+        local r = b:attack(f, g, melee(f))
+        t:eq("8 + 5 + Bless 2 = 15 hits AC 15", r.hit, true)
+    end)
+
+case("shield-spell", "Shield: +5 AC, including against the triggering attack", "p. 161",
+    "Reaction when hit: +5 AC until the start of your next turn.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)                -- AC 11, Shield free from Magic Initiate
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(8)                                       -- 8 + 6 = 14 vs AC 11 hits, +5 -> 16 misses
+        local r = b:attack(o, w, creature.monster_attack(o, o.attacks[1]))
+        t:eq("the hit turns into a miss", r.hit, false)
+        t:eq("Shield used her Reaction", w.reaction_used, true)
+        t:eq("the free Magic Initiate cast is spent", w.res.mi_free, 0)
+    end)
+
+case("magic-missile", "Magic Missile always hits", "p. 146",
+    "Three darts, 1d4 + 1 Force each, one more per slot level above 1.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3), 5, 5)
+        local o = at(b, mon("ogre"), 10, 5)
+        b.dice:force(1, 2, 3, 4)
+        S.magic_missile.cast(b, w, 2, o)
+        t:eq("four darts at level 2: 2+3+4+5", o.hp_max - o.hp, 14)
+    end)
+
+case("sleep", "Sleep: Incapacitated, then Unconscious", "p. 163",
+    "Wisdom save or Incapacitated until the end of its next turn, then save again or Unconscious. Creatures "
+        .. "immune to Exhaustion succeed automatically. Damage wakes them.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 2, 5)
+        local g = at(b, mon("goblin_warrior"), 8, 5)
+        local sk = at(b, mon("skeleton"), 9, 5)
+        b.dice:force(4)                                       -- goblin Wis save 4 - 1 = 3 fails
+        S.sleep.cast(b, w, 1, { x = 8, y = 5 })
+        t:eq("goblin Incapacitated", b:has(g, "incapacitated"), true)
+        t:eq("skeleton immune (Exhaustion immunity)", b:has(sk, "incapacitated"), false)
+        b.active = g
+        b:start_turn(g)
+        b.dice:force(2)
+        b:end_turn(g)
+        t:eq("second failed save: Unconscious", b:has(g, "unconscious"), true)
+        b:deal(w, g, { { 1, "fire" } })
+        t:eq("damage wakes it", b:has(g, "unconscious"), false)
+    end)
+
+case("hold-person", "Hold Person: Humanoids only, save again each turn", "p. 141",
+    "Wisdom save or Paralyzed; repeat the save at the end of each of its turns.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 4), 2, 5)
+        local bc = at(b, mon("bandit_captain"), 8, 5)
+        local wolf = at(b, mon("wolf"), 9, 5)
+        b.dice:force(3)
+        S.hold_person.cast(b, c, 2, bc)
+        t:eq("captain Paralyzed", b:has(bc, "paralyzed"), true)
+        b.active = bc
+        b:start_turn(bc)
+        b.dice:force(20)
+        b:end_turn(bc)
+        t:eq("shakes it off at end of turn", b:has(bc, "paralyzed"), false)
+        local b2 = fresh()
+        local c2 = at(b2, pc("cleric", 4), 2, 5)
+        local w2 = at(b2, mon("wolf"), 8, 5)
+        S.hold_person.cast(b2, c2, 2, w2)
+        t:eq("a wolf isn't a Humanoid", b2:has(w2, "paralyzed"), false)
+    end)
+
+case("disciple-of-life", "Life Domain: Disciple of Life", "p. 40",
+    "Healing from a spell slot adds 2 + the slot level.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 3, "life"), 5, 5)
+        local f = at(b, pc("fighter", 3), 6, 5)
+        f.hp = 1
+        b.dice:force(3, 4)
+        S.cure_wounds.cast(b, c, 1, f)
+        t:eq("2d8 (3+4) + Wis 3 + 2 + 1", f.hp, 1 + 13)
+    end)
+
+case("preserve-life", "Life Domain: Preserve Life", "p. 40",
+    "Restore 5 x Cleric level among Bloodied creatures within 30 feet, none above half its maximum.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 3, "life"), 5, 5)
+        local f = at(b, pc("fighter", 3), 6, 5)
+        local w = at(b, pc("wizard", 3), 7, 5)
+        f.hp, w.hp = 2, 3
+        ai.preserve_life(b, c)
+        t:eq("Brannoc topped to half (14)", f.hp, 14)
+        t:eq("Thessaly gets the rest (3 + 3 = 6)", w.hp, 6)
+    end)
+
+case("potent-cantrip", "Evoker: Potent Cantrip", "p. 82",
+    "A damaging cantrip still deals half damage on a miss or a successful save.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "evoker"), 2, 5)
+        local o = at(b, mon("ogre"), 10, 5)
+        b.dice:force(2, 8)                                    -- Fire Bolt misses (2 + 5), d10 = 8 -> 4
+        S.fire_bolt.cast(b, w, 0, o)
+        t:eq("half of 8 on a miss", o.hp_max - o.hp, 4)
+    end)
+
+case("pack-tactics", "Wolf: Pack Tactics", "p. 364",
+    "Advantage if an ally is within 5 feet of the target and isn't Incapacitated.",
+    function(t)
+        local b = fresh()
+        local w1 = at(b, mon("wolf"), 6, 5)
+        local w2 = at(b, mon("wolf"), 6, 6)
+        local f = at(b, pc("fighter", 2), 5, 5)
+        t:eq("wolf with a packmate: Advantage", (b:attack_mode(w1, f, creature.monster_attack(w1, w1.attacks[1]))), 1)
+        b:add_effect(w2, { name = "Asleep", conds = { unconscious = true } })
+        t:eq("packmate asleep: no Advantage", (b:attack_mode(w1, f, creature.monster_attack(w1, w1.attacks[1]))), 0)
+    end)
+
+case("parry", "Bandit Captain: Parry", "p. 261",
+    "Reaction when hit by a melee attack while holding a weapon: +2 AC against it.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local bc = at(b, mon("bandit_captain"), 6, 5)
+        b.dice:force(11)                                      -- 11 + 5 = 16 vs AC 15; +2 = 17 misses
+        local r = b:attack(f, bc, melee(f))
+        t:eq("parried", r.hit, false)
+        t:eq("Reaction spent", bc.reaction_used, true)
+    end)
+
+case("opportunity", "Opportunity Attacks and Disengage", "p. 15, p. 181, p. 185",
+    "Leaving an enemy's reach provokes an Opportunity Attack; Disengage prevents it.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(1)                                       -- the OA misses
+        b:move_to(w, 3, 5)
+        t:eq("the ogre used its Reaction", o.reaction_used, true)
+        local b2 = fresh()
+        local r = at(b2, pc("rogue", 2), 5, 5)
+        local o2 = at(b2, mon("ogre"), 6, 5)
+        r.turn.disengaged = true
+        b2:move_to(r, 3, 5)
+        t:eq("Disengaged: no Opportunity Attack", o2.reaction_used, false)
+    end)
+
+case("turn-undead", "Turn Undead", "p. 37",
+    "Each Undead within 30 feet: Wisdom save or Frightened and Incapacitated for 1 minute; ends if it takes damage.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 2), 5, 5)
+        local z = at(b, mon("zombie"), 9, 5)
+        b.dice:force(5)
+        ai.turn_undead(b, c)
+        t:eq("zombie is Incapacitated", b:has(z, "incapacitated"), true)
+        b:deal(c, z, { { 1, "radiant" } })
+        t:eq("damage ends the turning", b:has(z, "incapacitated"), false)
+    end)
+
+case("halfling-luck", "Halfling: Luck", "p. 85",
+    "When you roll a 1 on the d20 of a D20 Test, reroll it and use the new roll.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 2, nil, { keep_luck = true }), 5, 5)
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        b.dice:force(1, 17, 2)
+        local res = b:attack(r, g, melee(r), { no_sneak = true })
+        t:eq("the 1 becomes a 17", res.roll, 17)
+    end)
+
+case("mirror-image", "Mirror Image", "p. 150",
+    "When hit, roll a d6 per duplicate; on any 3+, a duplicate is hit and destroyed instead.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3), 5, 5)
+        w.res.mi_free = 0
+        w.res.slots = { 0, 0 }                                -- no Shield to muddy the test
+        local o = at(b, mon("ogre"), 6, 5)
+        S.mirror_image.cast(b, w)
+        b.dice:force(18, 1, 2, 4)
+        local r = b:attack(o, w, creature.monster_attack(o, o.attacks[1]))
+        t:eq("a duplicate takes it", r.mirror, true)
+        t:eq("two duplicates left", b:find_effect(w, "Mirror Image").mirror_images, 2)
+        t:eq("Thessaly unhurt", w.hp, w.hp_max)
+    end)
+
+case("xp-budget", "Encounter XP budget", "p. 202",
+    "Multiply the XP Budget per Character by the party size: Low for four level 1 characters is 200 XP; "
+        .. "Moderate for five level 3 characters is 1,125 XP.",
+    function(t)
+        local low = enc.budget(1, 4)
+        local _, mod = enc.budget(3, 5)
+        t:eq("4 x level 1, Low", low, 200)
+        t:eq("5 x level 3, Moderate", mod, 1125)
+        t:eq("one CR 2 Ogre for four level 2s rates Moderate", enc.rate(2, 4, { "ogre" }).label, "Moderate")
+    end)
+
+-- Original subclasses ---------------------------------------------------------------------------
+
+case("hold-fast", "Banner Captain: Hold Fast (original)", "Subclass design",
+    "Allies within 5 feet of the captain get +1 AC.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 3, "banner_captain"), 5, 5)
+        local w = at(b, pc("wizard", 3), 6, 5)
+        t:eq("Thessaly next to Brannoc: 11 + 1", b:ac(w), 12)
+        w.x = 9
+        t:eq("away from Brannoc: 11", b:ac(w), 11)
+    end)
+
+case("battle-orders", "Banner Captain: Battle Orders (original)", "Subclass design",
+    "Bonus Action, one use of Second Wind: an ally attacks with its Reaction (Sneak Attack works again).",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 3, "banner_captain"), 5, 5)
+        local r = at(b, pc("rogue", 3), 6, 4)
+        local o = at(b, mon("ogre"), 6, 5)
+        r.turn.sneak_used = true                              -- Pip already used Sneak Attack on his turn
+        b.dice:force(15, 1, 1, 15, 3, 4, 5)                  -- Brannoc hits (15, 2d6 = 1,1); Pip hits (15, d6 = 3, Sneak 2d6 = 4,5)
+        b.active = f
+        f.turn = { action = true, bonus = true, move = 0, attacks = 0 }
+        f.res.action_surge = 0
+        ai.take_turn(b, f)
+        t:eq("one Second Wind use spent on the order", f.res.second_wind, 1)
+        t:eq("Pip used his Reaction", r.reaction_used, true)
+        t:eq("ogre took 1+1+3 from Brannoc and 3+3+4+5 from Pip", o.hp_max - o.hp, 20)
+    end)
+
+case("feint", "Silvertongue: Feint (original)", "Subclass design",
+    "Bonus Action: Charisma (Deception) vs Wisdom (Insight); win and your next attack this turn has Advantage.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 3, "silvertongue"), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(10, 10)                                  -- 10 + Cha 2 + 4 = 16 vs 10 - 2 = 8
+        ai.feint(b, r, o)
+        t:eq("Advantage against the ogre", (b:attack_mode(r, o, melee(r))), 1)
+    end)
+
+case("opening-strike", "Ambusher: Opening Strike (original)", "Subclass design",
+    "Round 1: Advantage against creatures that haven't acted, and one extra Sneak Attack die once.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 3, "ambusher"), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        b.round = 1
+        b.dice:force(12, 3, 3, 1, 2, 3)                       -- Advantage d20s; d6 = 1; 3d6 Sneak = 2+3+...
+        t:eq("Advantage on a creature that hasn't acted", (b:attack_mode(r, o, melee(r))), 1)
+        b.dice.queue = {}
+        b.dice:force(12, 3, 1, 2, 3, 4)
+        local res = b:attack(r, o, melee(r))
+        t:eq("1d6 (1) + Dex 3 + three Sneak dice (2+3+4)", res.damage, 13)
+    end)
+
+case("warm-welcome", "Hearth Domain: Warm Welcome (original)", "Subclass design",
+    "Channel Divinity, Bonus Action: up to Wis-mod creatures within 30 ft gain Temp HP = Wis mod + level.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 3, "hearth"), 5, 5)
+        local f = at(b, pc("fighter", 3), 6, 5)
+        ai.warm_welcome(b, c)
+        t:eq("Brannoc gets Wis 3 + level 3", f.temp, 6)
+        t:eq("it's a Bonus Action", c.turn and c.turn.bonus, false)
+        t:eq("one Channel Divinity spent", c.res.channel, 1)
+    end)
+
+case("tricky-decoy", "Mischief Domain: Tricky Decoy (original)", "Subclass design",
+    "Bonus Action double; attackers near it save (Wis) or swing at it with Disadvantage (AC = spell DC).",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 3, "mischief"), 5, 5)
+        local f = at(b, pc("fighter", 3), 6, 5)
+        local g = at(b, mon("goblin_warrior"), 7, 5)
+        ai.tricky_decoy(b, c)
+        t:eq("the decoy stands by Brannoc", c.decoy and c.decoy.x, 6)
+        t:eq("no Concentration used", c.conc, nil)
+        b.dice:force(5, 15, 12)                   -- Wis save 4 fails vs DC 13; Disadvantage 15/12: 12 + 4 hits AC 13
+        local r = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
+        t:eq("the goblin swings at the decoy", r.decoyed, true)
+        t:eq("Brannoc untouched", f.hp, f.hp_max)
+        t:eq("a hit pops it", c.decoy, nil)
+        ai.tricky_decoy(b, c)
+        b.dice:force(15, 15, 3)                   -- 15 - 1 = 14 saves: the goblin sees through it
+        local r2 = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
+        t:eq("a successful save attacks Brannoc", r2.decoyed or false, false)
+        t:eq("the decoy survives", c.decoy ~= nil, true)
+        b.dice:force(2, 18, 6)                    -- fails the save; Disadvantage keeps the 6: 10 misses
+        local r3 = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
+        t:eq("Disadvantage: the decoy shrugs off the miss", r3.decoyed and c.decoy ~= nil, true)
+    end)
+
+case("quick-reflection", "Mirror Mage: Quick Reflection (original)", "Subclass design",
+    "Mirror Image as a Bonus Action; once per Long Rest without a slot (so it doesn't use the turn's slot).",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "mirror_mage"), 5, 5)
+        b.active = w
+        b:start_turn(w)
+        ai.cast(b, w, "mirror_image")
+        t:eq("the free use is spent", w.res.qr_free, 0)
+        t:eq("both level 2 slots left", w.res.slots[2], 2)
+        t:eq("a slot spell is still allowed this turn", ai.can_cast(w, "magic_missile"), true)
+    end)
+
+case("shimmer", "Mirror Mage: Shimmer (original)", "Subclass design",
+    "Reaction: impose Disadvantage on an attack roll against you (Int-mod uses per Long Rest).",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "mirror_mage"), 5, 5)
+        w.res.mi_free = 0
+        w.res.slots = { 0, 0 }
+        local o = at(b, mon("ogre"), 6, 5)
+        b.dice:force(18, 2)
+        local r = b:attack(o, w, creature.monster_attack(o, o.attacks[1]))
+        t:eq("Disadvantage keeps the 2", r.roll, 2)
+        t:eq("one use spent (3 -> 2)", w.res.shimmer, 2)
+    end)
+
+case("warding-flash", "Spellguard: Warding Flash (original)", "Subclass design",
+    "Reaction when hit: +5 AC against that one attack. Once per Short or Long Rest.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 3, "spellguard"), 5, 5)
+        local o = at(b, mon("ogre"), 6, 5)
+        t:eq("Spellguard AC", b:ac(f), 16)
+        b.dice:force(11)                                      -- 11 + 6 = 17 vs AC 16: hit, 17 < 21 -> miss
+        local r = b:attack(o, f, creature.monster_attack(o, o.attacks[1]))
+        t:eq("Warding Flash turns the hit", r.hit, false)
+        t:eq("the use is spent", f.res.warding_flash, 0)
+        t:eq("AC is back to normal", b:ac(f), 16)
+        b.dice:force(11, 3, 3)
+        f.reaction_used = false
+        local r2 = b:attack(o, f, creature.monster_attack(o, o.attacks[1]))
+        t:eq("no second flash before a rest", r2.hit, true)
+        local f2 = at(b, pc("fighter", 3, "spellguard"), 9, 9)
+        b.dice:force(16, 3, 3)                                -- 16 + 6 = 22: even +5 doesn't save it
+        local r3 = b:attack(o, f2, creature.monster_attack(o, o.attacks[1]))
+        t:eq("a big hit isn't worth the reaction", r3.hit, true)
+        t:eq("so the use is kept", f2.res.warding_flash, 1)
+    end)
+
+case("one-slot", "One spell slot per turn", "p. 105",
+    "On a turn, you can expend only one spell slot to cast a spell.",
+    function(t)
+        local b = fresh()
+        local c = at(b, pc("cleric", 3), 5, 5)
+        local f = at(b, pc("fighter", 3), 6, 5)
+        b.active = c
+        b:start_turn(c)
+        t:eq("Shield of Faith is castable", ai.can_cast(c, "shield_of_faith"), true)
+        ai.cast(b, c, "shield_of_faith", f)
+        t:eq("no second slot spell this turn", ai.can_cast(c, "guiding_bolt"), false)
+        t:eq("the free Magic Initiate Healing Word still works", ai.can_cast(c, "healing_word"), true)
+        t:eq("cantrips still fine", ai.can_cast(c, "sacred_flame"), true)
+    end)
+
+-- Runner ---------------------------------------------------------------------------------------
+
+local function run_case(cs)
+    local t = { checks = {}, ok = true }
+    function t:eq(label, actual, expected)
+        local ok = actual == expected
+        table.insert(self.checks, { label = label, expected = tostring(expected), actual = tostring(actual), ok = ok })
+        if not ok then self.ok = false end
+    end
+    local ok, err = xpcall(function() cs.fn(t) end, debug.traceback)
+    if not ok then
+        t.ok = false
+        table.insert(t.checks, { label = "error", expected = "no error", actual = tostring(err), ok = false })
+    end
+    return t
+end
+
+local passed, results = 0, {}
+for _, cs in ipairs(cases) do
+    local r = run_case(cs)
+    if r.ok then passed = passed + 1 end
+    if not RULES_CASES_RETURN or not r.ok then
+        print(string.format("%s  %-22s %s (%s)", r.ok and "PASS" or "FAIL", cs.id, cs.title, cs.page))
+    end
+    for _, c in ipairs(r.checks) do
+        if not c.ok then
+            print(string.format("        %s: expected %s, got %s", c.label, c.expected, c.actual))
+        end
+    end
+    table.insert(results, { id = cs.id, title = cs.title, page = cs.page, rule = cs.rule, ok = r.ok, checks = r.checks })
+end
+print(string.format("%d of %d rules cases pass", passed, #cases))
+
+if RULES_CASES_RETURN then
+    return { passed = passed, total = #cases, results = results }
+end
+if arg and arg[1] == "json" and arg[2] then
+    local telemetry = require "game.model.telemetry"
+    local f = assert(io.open(arg[2], "w"))
+    f:write(telemetry.encode and telemetry.encode(results) or "[]")
+    f:close()
+end
+os.exit(passed == #cases and 0 or 1)

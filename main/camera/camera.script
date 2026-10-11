@@ -1,0 +1,142 @@
+-- Camera rig with four zooms (room, table, imagination, dice tray), smooth transitions,
+-- a gentle idle drift, and right-drag orbiting. It also owns input and
+-- forwards dice and lamp actions.
+
+local state = require "main.state"
+local scene = require "main.scene_data"
+
+local UP = vmath.vector3(0, 1, 0)
+local RATE = 3.0
+
+local ACTIONS = {
+    zoom_room = hash("zoom_room"),
+    zoom_table = hash("zoom_table"),
+    zoom_imagination = hash("zoom_imagination"),
+    zoom_dice = hash("zoom_dice"),
+    zoom_in = hash("zoom_in"),
+    zoom_out = hash("zoom_out"),
+    orbit = hash("orbit"),
+    roll = hash("roll"),
+    lamp = hash("lamp"),
+    reset_view = hash("reset_view"),
+}
+
+local function damp(rate, dt)
+    return 1 - math.exp(-rate * dt)
+end
+
+local function set_zoom(self, index)
+    index = math.max(1, math.min(#scene.presets, index))
+    if index ~= self.index then
+        self.index = index
+        self.yaw, self.pitch = 0, 0
+        msg.post("/hud#hud", "zoom", { index = index })
+    end
+end
+
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    self.index = 1
+    local p = scene.presets[1]
+    self.eye = vmath.vector3(p.eye)
+    self.target = vmath.vector3(p.target)
+    self.fov = math.rad(p.fov)
+    self.yaw, self.pitch = 0, 0
+    self.orbiting = false
+    self.time = 0
+    self.imag = 0
+    msg.post("/hud#hud", "zoom", { index = 1 })
+end
+
+function update(self, dt)
+    self.time = self.time + dt
+    state.time = self.time
+
+    local p = scene.presets[self.index]
+    local offset = p.eye - p.target
+    offset = vmath.rotate(vmath.quat_rotation_y(self.yaw), offset)
+    local right = vmath.normalize(vmath.cross(offset, UP))
+    offset = vmath.rotate(vmath.quat_axis_angle(right, self.pitch), offset)
+
+    local t = self.time
+    local drift = vmath.vector3(math.sin(t * 0.31), math.sin(t * 0.23) * 0.6, math.cos(t * 0.27)) * p.drift
+
+    local k = damp(RATE, dt)
+    self.eye = vmath.lerp(k, self.eye, p.target + offset + drift)
+    self.target = vmath.lerp(k, self.target, p.target)
+    self.fov = self.fov + (math.rad(p.fov) - self.fov) * k
+    local goal_imag = (self.index == 3) and 1 or 0
+    self.imag = self.imag + (goal_imag - self.imag) * (1 - math.exp(-2.0 * dt))
+
+    state.cam_eye = self.eye
+    state.cam_target = self.target
+    state.cam_fov = self.fov
+    state.imagination = self.imag
+    msg.post("@render:", "camera", {
+        eye = self.eye, target = self.target, fov = self.fov, imagination = self.imag,
+    })
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("set_zoom") then
+        set_zoom(self, message.index)
+    elseif message_id == hash("block_input") then
+        self.blocked = message.on
+        if message.on then
+            self.orbiting = false
+        end
+    elseif message_id == hash("game_mode") then
+        self.game_mode = message.on
+    end
+end
+
+function on_input(self, action_id, action)
+    if self.blocked then
+        return false
+    end
+    if self.game_mode and action_id == ACTIONS.roll then
+        -- Space belongs to game night (next line), not the sandbox roll.
+        return false
+    end
+    if action_id == nil then
+        if self.orbiting and action.dx then
+            self.yaw = math.max(-0.9, math.min(0.9, self.yaw - action.dx * 0.004))
+            self.pitch = math.max(-0.35, math.min(0.35, self.pitch + action.dy * 0.003))
+        end
+        return false
+    end
+    if action_id == ACTIONS.orbit then
+        if action.pressed then
+            self.orbiting = true
+        elseif action.released then
+            self.orbiting = false
+        end
+        return true
+    end
+    if not action.pressed then
+        return false
+    end
+    if action_id == ACTIONS.zoom_room then
+        set_zoom(self, 1)
+    elseif action_id == ACTIONS.zoom_table then
+        set_zoom(self, 2)
+    elseif action_id == ACTIONS.zoom_imagination then
+        set_zoom(self, 3)
+    elseif action_id == ACTIONS.zoom_dice then
+        set_zoom(self, 4)
+    elseif action_id == ACTIONS.zoom_in then
+        set_zoom(self, self.index + 1)
+    elseif action_id == ACTIONS.zoom_out then
+        set_zoom(self, self.index - 1)
+    elseif action_id == ACTIONS.roll then
+        msg.post("/dice#dice", "roll")
+    elseif action_id == ACTIONS.lamp then
+        msg.post("/lamp#lamp", "toggle")
+    elseif action_id == ACTIONS.reset_view then
+        self.yaw, self.pitch = 0, 0
+    else
+        -- Not ours (clicks, game keys): let the game UI have it.
+        return false
+    end
+    return true
+end

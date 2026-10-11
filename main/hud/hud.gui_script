@@ -1,0 +1,102 @@
+-- HUD for the engine spike: zoom tabs, controls, a vignette that deepens in
+-- the imagination zoom, and the d20 result card.
+
+local CREAM = vmath.vector4(0.96, 0.89, 0.74, 1)
+local DIM = vmath.vector4(0.96, 0.89, 0.74, 0.45)
+local GOLD = vmath.vector4(1.0, 0.80, 0.38, 1)
+local RED = vmath.vector4(0.95, 0.42, 0.36, 1)
+local OUTLINE = vmath.vector4(0.10, 0.06, 0.04, 0.85)
+
+-- gui.cancel_animations replaced gui.cancel_animation in newer engines.
+local cancel = gui.cancel_animations or gui.cancel_animation
+
+local ZOOMS = { "1  ROOM", "2  TABLE", "3  IMAGINATION", "4  DICE" }
+local ZOOM_RIGHT = { 1124, 1260, 1448, 1560 } -- right edges, right to left layout
+local VIGNETTE = { 0.55, 0.45, 0.9, 0.5 }
+
+local function text(str, x, y, font, pivot, color, xa, ya)
+    local n = gui.new_text_node(vmath.vector3(x, y, 0), str)
+    gui.set_font(n, font)
+    gui.set_pivot(n, pivot)
+    gui.set_color(n, color)
+    gui.set_outline(n, OUTLINE)
+    if xa then
+        gui.set_xanchor(n, xa)
+    end
+    if ya then
+        gui.set_yanchor(n, ya)
+    end
+    return n
+end
+
+function init(self)
+    self.vignette = gui.new_box_node(vmath.vector3(800, 450, 0), vmath.vector3(1600, 900, 0))
+    gui.set_texture(self.vignette, "ui")
+    gui.play_flipbook(self.vignette, "vignette")
+    gui.set_adjust_mode(self.vignette, gui.ADJUST_STRETCH)
+    gui.set_color(self.vignette, vmath.vector4(1, 1, 1, VIGNETTE[1]))
+
+    self.sandbox_nodes = {}
+    table.insert(self.sandbox_nodes, text("BEHIND THE SCREEN", 40, 866, "body", gui.PIVOT_NW, CREAM, gui.ANCHOR_LEFT, gui.ANCHOR_TOP))
+    table.insert(self.sandbox_nodes, text("M0 sandbox  -  F2 to go back to the game", 40, 838, "body", gui.PIVOT_NW, DIM, gui.ANCHOR_LEFT, gui.ANCHOR_TOP))
+
+    self.tabs = {}
+    for i, label in ipairs(ZOOMS) do
+        self.tabs[i] = text(label, ZOOM_RIGHT[i], 866, "body", gui.PIVOT_NE, DIM, gui.ANCHOR_RIGHT, gui.ANCHOR_TOP)
+        table.insert(self.sandbox_nodes, self.tabs[i])
+    end
+
+    table.insert(self.sandbox_nodes, text("1 2 3 4 or mouse wheel: zoom      right-drag: orbit      R: reset view      SPACE: roll the d20      L: dim the lamp",
+        40, 34, "body", gui.PIVOT_SW, DIM, gui.ANCHOR_LEFT, gui.ANCHOR_BOTTOM))
+
+    self.result_label = text("d20", 1400, 640, "body", gui.PIVOT_CENTER, CREAM, gui.ANCHOR_RIGHT, nil)
+    self.result = text("", 1400, 560, "big", gui.PIVOT_CENTER, CREAM, gui.ANCHOR_RIGHT, nil)
+    self.result_note = text("", 1400, 478, "body", gui.PIVOT_CENTER, CREAM, gui.ANCHOR_RIGHT, nil)
+    for _, n in ipairs({ self.result_label, self.result, self.result_note }) do
+        gui.set_color(n, vmath.vector4(1, 1, 1, 0))
+    end
+end
+
+local function show(node, color, delay)
+    cancel(node, "color.w")
+    gui.set_color(node, color)
+    gui.animate(node, "color.w", 0, gui.EASING_INOUTSINE, 0.8, delay or 3.0)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("game_mode") then
+        -- The game screens bring their own titles and hints.
+        for _, n in ipairs(self.sandbox_nodes) do
+            gui.set_enabled(n, not message.on)
+        end
+    elseif message_id == hash("zoom") then
+        for i, n in ipairs(self.tabs) do
+            gui.set_color(n, i == message.index and GOLD or DIM)
+        end
+        gui.animate(self.vignette, "color.w", VIGNETTE[message.index] or 0.5, gui.EASING_INOUTSINE, 1.2)
+    elseif message_id == hash("rolling") then
+        gui.set_text(self.result_note, "rolling...")
+        show(self.result_note, DIM, 5)
+        gui.set_color(self.result, vmath.vector4(1, 1, 1, 0))
+        gui.set_color(self.result_label, vmath.vector4(1, 1, 1, 0))
+    elseif message_id == hash("roll_result") then
+        local v = message.value
+        gui.set_text(self.result, tostring(v))
+        local color, note = CREAM, ""
+        if v == 20 then
+            color, note = GOLD, "Natural 20!"
+        elseif v == 1 then
+            color, note = RED, "Natural 1..."
+        end
+        gui.set_text(self.result_note, note)
+        show(self.result_label, DIM)
+        show(self.result, color)
+        show(self.result_note, color)
+        cancel(self.result, "scale")
+        gui.set_scale(self.result, vmath.vector3(1.35, 1.35, 1))
+        gui.animate(self.result, "scale", vmath.vector3(1, 1, 1), gui.EASING_OUTBACK, 0.35)
+    elseif message_id == hash("fell") then
+        gui.set_text(self.result_note, "The die rolled off the table!")
+        show(self.result_note, RED)
+    end
+end

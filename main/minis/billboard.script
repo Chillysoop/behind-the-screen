@@ -1,0 +1,27 @@
+-- Paper standee: always turns to face the camera (around the vertical axis
+-- only, like a real standee on a base). In the imagination zoom the minis
+-- come subtly alive with a little bob and squash.
+
+local state = require "main.state"
+
+function init(self)
+    self.base_pos = go.get_position()
+    self.base_scale = go.get_scale()
+    self.phase = math.random() * 6.283
+    self.speed = 1.8 + math.random() * 0.8
+end
+
+function update(self, dt)
+    local p = go.get_world_position()
+    local eye = state.cam_eye
+    go.set_rotation(vmath.quat_rotation_y(math.atan2(eye.x - p.x, eye.z - p.z)))
+
+    local a = state.imagination
+    if a > 0.001 then
+        local t = state.time * self.speed + self.phase
+        local hop = math.max(0, math.sin(t)) * 0.35 * a
+        local squash = 1 + math.sin(t * 2 + 1.1) * 0.025 * a
+        go.set_position(self.base_pos + vmath.vector3(0, hop, 0))
+        go.set_scale(vmath.vector3(self.base_scale.x / squash, self.base_scale.y * squash, self.base_scale.z))
+    end
+end

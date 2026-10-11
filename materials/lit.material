@@ -1,0 +1,100 @@
+name: "lit"
+tags: "model"
+vertex_program: "/materials/lit.vp"
+fragment_program: "/materials/lit.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+vertex_constants {
+  name: "mtx_world"
+  type: CONSTANT_TYPE_WORLD
+}
+vertex_constants {
+  name: "mtx_viewproj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+fragment_constants {
+  name: "lamp_pos"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.0
+    y: 163.0
+    z: -5.0
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "lamp_color"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 1.0
+    y: 0.72
+    z: 0.45
+    w: 115.0
+  }
+}
+fragment_constants {
+  name: "fire_pos"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: -23.5
+    y: 79.0
+    z: -7.0
+    w: 0.3
+  }
+}
+fragment_constants {
+  name: "fire_color"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 1.0
+    y: 0.45
+    z: 0.16
+    w: 16.0
+  }
+}
+fragment_constants {
+  name: "cam_pos"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 230.0
+    y: 215.0
+    z: 285.0
+    w: 0.0
+  }
+}
+fragment_constants {
+  name: "ambient"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.11
+    y: 0.085
+    z: 0.09
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "surface"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.05
+    y: 8.0
+    z: 0.0
+    w: 0.0
+  }
+}
+fragment_constants {
+  name: "tint"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+    w: 1.0
+  }
+}
+samplers {
+  name: "tex0"
+  wrap_u: WRAP_MODE_REPEAT
+  wrap_v: WRAP_MODE_REPEAT
+  filter_min: FILTER_MODE_MIN_LINEAR_MIPMAP_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+}

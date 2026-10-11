@@ -1,0 +1,136 @@
+-- Behind the Screen: render pipeline for the M0 engine spike.
+--
+-- One perspective pass for the table scene, then the HUD on top.
+-- The camera script and the lamp script post their state here every frame,
+-- and the light values go to every lit material through one constant buffer.
+
+local IDENTITY = vmath.matrix4()
+local UP = vmath.vector3(0, 1, 0)
+
+function init(self)
+    self.pred = {
+        model = render.predicate({ "model" }),
+        standee = render.predicate({ "standee" }),
+        blob = render.predicate({ "blob" }),
+        glow = render.predicate({ "glow" }),
+        gui = render.predicate({ "gui" }),
+        text = render.predicate({ "text" }),
+    }
+
+    self.eye = vmath.vector3(230, 215, 285)
+    self.target = vmath.vector3(-5, 72, -15)
+    self.fov = math.rad(45)
+
+    -- Global lighting; the lamp and camera scripts keep these updated.
+    self.cb = render.constant_buffer()
+    self.cb.lamp_pos = vmath.vector4(0, 163, -5, 1)
+    self.lamp_color = vmath.vector4(1.0, 0.72, 0.45, 115)   -- kept here too: the buffer is write-only
+    self.cb.lamp_color = self.lamp_color
+    self.cb.fire_pos = vmath.vector4(-23.5, 79, -7, 0.3)
+    self.cb.fire_color = vmath.vector4(1.0, 0.45, 0.16, 16)
+    self.cb.cam_pos = vmath.vector4(self.eye.x, self.eye.y, self.eye.z, 0)
+    self.ambient = vmath.vector4(0.11, 0.085, 0.09, 1.0)
+    self.cb.ambient = self.ambient
+
+    -- The evening (M7): ambient light and the lamp's colour drift as the session goes on.
+    -- game/ui/ambience.lua posts "mood" { ambient, lamp_color, seconds }.
+    self.mood = nil
+
+    self.world_opts = { constants = self.cb }
+    self.clear = {
+        [graphics.BUFFER_TYPE_COLOR0_BIT] = vmath.vector4(0.035, 0.025, 0.03, 1),
+        [graphics.BUFFER_TYPE_DEPTH_BIT] = 1,
+        [graphics.BUFFER_TYPE_STENCIL_BIT] = 0,
+    }
+end
+
+local function step_mood(self, dt)
+    local m = self.mood
+    if not m then
+        return
+    end
+    m.t = math.min(m.t + dt, m.seconds)
+    local k = m.seconds > 0 and (m.t / m.seconds) or 1
+    k = k * k * (3 - 2 * k)
+    self.ambient = vmath.lerp(k, m.from_ambient, m.ambient)
+    local c = vmath.lerp(k, m.from_lamp, m.lamp_color)
+    -- lamp_color.w is the lamp's range; keep whatever it was.
+    self.lamp_color = vmath.vector4(c.x, c.y, c.z, m.from_lamp.w)
+    self.cb.ambient = self.ambient
+    self.cb.lamp_color = self.lamp_color
+    if m.t >= m.seconds then
+        self.mood = nil
+    end
+end
+
+function update(self, dt)
+    step_mood(self, dt or (1 / 60))
+    local w = render.get_window_width()
+    local h = math.max(render.get_window_height(), 1)
+
+    render.set_viewport(0, 0, w, h)
+    render.set_depth_mask(true)
+    render.set_stencil_mask(0xff)
+    render.clear(self.clear)
+
+    -- World pass ------------------------------------------------------------
+    render.set_view(vmath.matrix4_look_at(self.eye, self.target, UP))
+    render.set_projection(vmath.matrix4_perspective(self.fov, w / h, 2, 3000))
+
+    render.enable_state(graphics.STATE_DEPTH_TEST)
+    render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
+    render.disable_state(graphics.STATE_STENCIL_TEST)
+    render.disable_state(graphics.STATE_BLEND)
+    render.enable_state(graphics.STATE_CULL_FACE)
+    render.set_cull_face(graphics.FACE_TYPE_BACK)
+    render.draw(self.pred.model, self.world_opts)
+
+    -- Paper standees and players: alpha-tested, so they write depth.
+    render.disable_state(graphics.STATE_CULL_FACE)
+    render.draw(self.pred.standee, self.world_opts)
+
+    -- Contact shadows, then additive glows; neither writes depth.
+    render.set_depth_mask(false)
+    render.enable_state(graphics.STATE_BLEND)
+    render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+    render.draw(self.pred.blob, self.world_opts)
+    render.set_blend_func(graphics.BLEND_FACTOR_ONE, graphics.BLEND_FACTOR_ONE)
+    render.draw(self.pred.glow, self.world_opts)
+
+    render.draw_debug3d()
+
+    -- HUD pass --------------------------------------------------------------
+    render.set_view(IDENTITY)
+    render.set_projection(vmath.matrix4_orthographic(0, w, 0, h, -1, 1))
+    render.disable_state(graphics.STATE_DEPTH_TEST)
+    render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+    render.enable_state(graphics.STATE_STENCIL_TEST)
+    render.draw(self.pred.gui)
+    render.draw(self.pred.text)
+    render.disable_state(graphics.STATE_STENCIL_TEST)
+    render.set_depth_mask(true)
+end
+
+local MSG_CAMERA = hash("camera")
+local MSG_LIGHTS = hash("lights")
+local MSG_MOOD = hash("mood")
+
+function on_message(self, message_id, message)
+    if message_id == MSG_CAMERA then
+        self.eye = message.eye
+        self.target = message.target
+        self.fov = message.fov
+        self.cb.cam_pos = vmath.vector4(message.eye.x, message.eye.y, message.eye.z, message.imagination)
+    elseif message_id == MSG_LIGHTS then
+        self.cb.lamp_pos = message.lamp
+        self.cb.fire_pos = message.fire
+    elseif message_id == MSG_MOOD then
+        local lamp = self.lamp_color
+        self.mood = {
+            t = 0, seconds = message.seconds or 2,
+            from_ambient = self.ambient, ambient = message.ambient or self.ambient,
+            from_lamp = vmath.vector4(lamp.x, lamp.y, lamp.z, lamp.w),
+            lamp_color = message.lamp_color or lamp,
+        }
+    end
+end

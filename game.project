@@ -1,0 +1,40 @@
+[bootstrap]
+main_collection = /main/main.collectionc
+render = /render/cozy.renderc
+
+[project]
+title = Behind the Screen
+version = 0.1.0
+developer = Conner
+custom_resources = /game/data/dialogue
+
+[display]
+width = 1600
+height = 900
+high_dpi = 1
+samples = 4
+vsync = 1
+fullscreen = 0
+
+[input]
+game_binding = /input/game.input_bindingc
+
+[physics]
+type = 3D
+gravity_y = -70
+scale = 0.1
+debug = 0
+max_collisions = 128
+max_contacts = 256
+
+[graphics]
+max_font_batches = 1024
+
+[model]
+max_count = 256
+
+[sprite]
+max_count = 256
+
+[collection]
+max_instances = 1024

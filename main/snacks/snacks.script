@@ -1,0 +1,51 @@
+-- The snack table (M7): pizza on a plate and chips in the bowl, eaten over game night
+-- and back again for the next session. The meshes come from tools/generate.py; this
+-- script lives on the pizza and reaches over to the chips.
+--
+-- Messages (from game/ui/ambience.lua):
+--   eaten { amount = 0..1 }   how far through the snacks the table is (only ever goes up)
+--   refill                    a fresh plate and a full bowl
+
+local SLICES = 6
+local ORDER = { 3, 6, 1, 4, 2, 5 }   -- the order slices go; the last one always lingers
+local CHIPS = "/chips"
+local AUDIO = "/audio#audio"
+
+local function chips_scale(full)
+    -- Sinks into the bowl, narrowing so it stays inside the walls.
+    local xz = 0.7 + 0.3 * full
+    return vmath.vector3(xz, 0.2 + 0.8 * full, xz)
+end
+
+local function show(gone)
+    for i, k in ipairs(ORDER) do
+        msg.post("#pizza_" .. k, (i <= gone) and "disable" or "enable")
+    end
+end
+
+function init(self)
+    self.amount = 0
+    self.gone = 0
+    show(0)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("eaten") then
+        local a = math.max(self.amount, math.min(message.amount or 0, 1))
+        self.amount = a
+        local gone = math.min(SLICES - 1, math.floor(a * SLICES + 0.0001))
+        if gone > self.gone then
+            self.gone = gone
+            show(gone)
+            msg.post(AUDIO, "sfx", { id = "crinkle", gain = 0.7 })
+        end
+        go.cancel_animations(CHIPS, "scale")
+        go.animate(CHIPS, "scale", go.PLAYBACK_ONCE_FORWARD, chips_scale(1 - 0.85 * a), go.EASING_INOUTSINE, 2.5)
+    elseif message_id == hash("refill") then
+        self.amount = 0
+        self.gone = 0
+        show(0)
+        go.cancel_animations(CHIPS, "scale")
+        go.animate(CHIPS, "scale", go.PLAYBACK_ONCE_FORWARD, chips_scale(1), go.EASING_OUTBACK, 0.8)
+    end
+end

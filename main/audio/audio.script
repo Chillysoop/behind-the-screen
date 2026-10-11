@@ -1,0 +1,78 @@
+-- Sound for the cozy room (M7): one-shot effects, rain on the window, and two quiet
+-- music loops that crossfade between prep and game night. The sounds themselves are
+-- made by tools/gen_audio.py.
+--
+-- Messages (from game/ui/ambience.lua):
+--   sfx { id = "click", gain = 1, speed = 1 }   play an effect (gain and speed optional)
+--   music { track = "prep" | "night" | false }  crossfade to a loop, or fade out
+--   toggle_music                                 M: music off/on (rain and effects stay)
+
+local SFX = {
+    click = 0.3, tap = 0.45, card = 0.55, page = 0.5, pencil = 0.4, crinkle = 0.4,
+    dice = 0.8, ping = 0.45, chime = 0.5, sparkle = 0.55,
+}
+local MUSIC_GAIN = 0.3
+local RAIN_GAIN = 0.16
+local FADE = 1.6             -- seconds for a music crossfade
+local MIN_GAP = 0.05         -- the same effect won't stack closer than this
+
+function init(self)
+    self.t = 0
+    self.last = {}
+    self.music_on = true
+    self.want = nil          -- the track the game wants
+    self.gain = {}           -- track -> current gain while it's playing
+    sound.play("#rain", { gain = RAIN_GAIN })
+end
+
+local function start(self, track)
+    if not self.gain[track] then
+        self.gain[track] = 0
+        sound.play("#music_" .. track, { gain = 0 })
+    end
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    local step = dt * MUSIC_GAIN / FADE
+    for track, g in pairs(self.gain) do
+        local target = (self.music_on and track == self.want) and MUSIC_GAIN or 0
+        if g < target then
+            g = math.min(target, g + step)
+        elseif g > target then
+            g = math.max(target, g - step)
+        end
+        if g <= 0 and target == 0 then
+            sound.stop("#music_" .. track)
+            self.gain[track] = nil
+        else
+            self.gain[track] = g
+            sound.set_gain("#music_" .. track, g)
+        end
+    end
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("sfx") then
+        local id = message.id
+        local base = SFX[id]
+        if not base then
+            return
+        end
+        if self.last[id] and self.t - self.last[id] < MIN_GAP then
+            return
+        end
+        self.last[id] = self.t
+        sound.play("#" .. id, { gain = base * (message.gain or 1), speed = message.speed or 1 })
+    elseif message_id == hash("music") then
+        self.want = message.track or nil
+        if self.want and self.music_on then
+            start(self, self.want)
+        end
+    elseif message_id == hash("toggle_music") then
+        self.music_on = not self.music_on
+        if self.music_on and self.want then
+            start(self, self.want)
+        end
+    end
+end

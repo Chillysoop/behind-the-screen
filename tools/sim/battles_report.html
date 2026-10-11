@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rules Engine Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Outfit:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column, like the game's session report. Gate verdict first,
+   then one section per gate question with the charts that answer it. Dark-first,
+   in the game's own lamp-lit palette; light mode is the prep board's paper. */
+:root {
+  color-scheme: dark;
+  --bg: #1b1411;
+  --surface: #241b16;
+  --raise: #2f241d;
+  --ink: #f3e7cf;
+  --ink-2: #c9b89c;
+  --muted: #8f7f68;
+  --rule: #3a2e25;
+  --grid: #33281f;
+  --accent: #e8b04a;
+  --good: #0ca30c;
+  --bad: #d03b3b;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --heat-lo: #1f2a3a;
+  --heat-hi: #9ec5f4;
+  --heat-ink-lo: #f3e7cf;
+  --heat-ink-hi: #1b1411;
+  --font-display: "Lora", Georgia, "Times New Roman", serif;
+  --font-body: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4ecdb;
+    --surface: #fbf6ea;
+    --raise: #efe4c8;
+    --ink: #2b2018;
+    --ink-2: #5d4e3c;
+    --muted: #85745e;
+    --rule: #e0d4b8;
+    --grid: #ebe2cc;
+    --accent: #8a5a0e;
+    --good: #0a7d0a;
+    --bad: #c03434;
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --s4: #eda100;
+    --s5: #e87ba4;
+    --heat-lo: #f3ecdc;
+    --heat-hi: #1c5cab;
+    --heat-ink-lo: #2b2018;
+    --heat-ink-hi: #fbf6ea;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4ecdb;
+  --surface: #fbf6ea;
+  --raise: #efe4c8;
+  --ink: #2b2018;
+  --ink-2: #5d4e3c;
+  --muted: #85745e;
+  --rule: #e0d4b8;
+  --grid: #ebe2cc;
+  --accent: #8a5a0e;
+  --good: #0a7d0a;
+  --bad: #c03434;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --heat-lo: #f3ecdc;
+  --heat-hi: #1c5cab;
+  --heat-ink-lo: #2b2018;
+  --heat-ink-hi: #fbf6ea;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 40px 72px;
+  display: grid;
+  gap: 56px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; }
+h2 { font-size: clamp(22px, 3.2vw, 28px); line-height: 1.2; }
+h3 { font-family: var(--font-body); font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+}
+.lede { color: var(--ink-2); font-size: 17px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+header { display: grid; gap: 14px; }
+.verdict {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px;
+  padding: 18px 20px; border-radius: 12px; background: var(--surface); border: 1px solid var(--rule);
+}
+.verdict strong { font-family: var(--font-display); font-size: 26px; }
+.runinfo { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--ink-2); }
+
+section { display: grid; gap: 18px; }
+section > header { gap: 8px; }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checks li {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline;
+  padding: 10px 0; border-bottom: 1px solid var(--rule);
+}
+.checks li:last-child { border-bottom: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 9px 2px 7px; border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.chip.pass { color: var(--good); }
+.chip.fail { color: var(--bad); }
+.check-name { font-weight: 500; }
+.check-detail { grid-column: 2; color: var(--ink-2); font-size: 14px; }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 18px; }
+.figure {
+  margin: 0; min-width: 0; display: grid; gap: 10px; padding: 16px 16px 12px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 12px;
+}
+.figure.wide { grid-column: 1 / -1; }
+.figure figcaption { display: grid; gap: 2px; }
+.figure figcaption p { font-size: 14px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.ring { width: 10px; height: 10px; border-radius: 50%; background: transparent !important; border: 2px solid var(--ink-2); }
+.plot { position: relative; min-width: 0; }
+.plot svg { display: block; width: 100%; overflow: visible; }
+.plot text { fill: var(--muted); font: 400 11px var(--font-body); font-variant-numeric: tabular-nums; }
+.plot .endlabel { fill: var(--ink-2); font-size: 12px; font-weight: 500; }
+.plot .annot { fill: var(--ink-2); font-size: 11px; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; min-width: 150px;
+  padding: 8px 10px; border-radius: 8px; background: var(--raise); border: 1px solid var(--rule);
+  color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+.tip .row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.tip .row i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.tip .row span:last-child { margin-left: auto; padding-left: 10px; }
+
+details { font-size: 13px; color: var(--ink-2); }
+details summary { cursor: pointer; color: var(--muted); width: max-content; }
+details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+td.text { white-space: normal; min-width: 220px; text-align: left; }
+
+.heat { display: grid; gap: 10px; }
+.heat table td.cell { text-align: center; color: var(--ink); font-weight: 500; min-width: 64px; position: relative; }
+.heat table td.cell.best { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 6px; }
+.heat table th.player { text-align: left; }
+.heat table th.player small { display: block; color: var(--muted); font-weight: 400; }
+
+.styles td.style { text-align: left; white-space: normal; min-width: 210px; }
+.styles td.style b { display: block; color: var(--ink); font-weight: 600; }
+.styles td.style small { color: var(--muted); font-size: 12px; }
+
+.notes { display: grid; gap: 10px; color: var(--ink-2); font-size: 15px; }
+.notes p { max-width: 72ch; }
+.notes b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .wrap { gap: 44px; padding-block: 28px 56px; }
+  .figure { padding: 14px 12px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+.figure .note { font-size: 12px; color: var(--muted); }
+.bar { height: 8px; border-radius: 4px; background: var(--s1); display: inline-block; vertical-align: middle; }
+.bar.ghost { background: var(--grid); }
+.barcell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.barcell .track { width: 90px; height: 8px; border-radius: 4px; background: var(--grid); position: relative; overflow: hidden; }
+.barcell .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--s1); }
+tr.srd td:first-child b::after { content: " SRD"; font-size: 10px; letter-spacing: 0.08em; color: var(--accent); margin-left: 6px; }
+.cases td.text { min-width: 280px; }
+.cases td .page { color: var(--muted); }
+.cases details { margin-top: 4px; }
+.cases ul { margin: 6px 0 0; padding-left: 18px; }
+.delta.up { color: var(--good); } .delta.down { color: var(--bad); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <span class="eyebrow">Behind the Screen &middot; M3 rules core</span>
+    <h1>Rules engine check</h1>
+    <p class="lede" id="lede">The headless SRD 5.2.1 engine runs the slice party (Fighter, Rogue, Cleric and Wizard at levels 2 to 4, all twelve subclasses) through thousands of fights against the slice's monsters. This page checks the M3 gate: hand-checked combat cases match the rules, and the difficulty meter predicts outcomes.</p>
+    <div class="verdict" id="verdict"></div>
+    <div class="runinfo" id="runinfo"></div>
+  </header>
+
+  <section id="gate">
+    <header><span class="eyebrow">Gate</span><h2>What passed</h2></header>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section id="rules">
+    <header>
+      <span class="eyebrow">Rules</span>
+      <h2>Do the rules match the SRD?</h2>
+      <p class="muted">Each case sets up a tiny fight, forces the dice, and compares the engine with the rule on the cited page. Open a row to see every check.</p>
+    </header>
+    <div class="figure wide"><div class="tablewrap"><table class="cases" id="cases"></table></div></div>
+  </section>
+
+  <section id="meter">
+    <header>
+      <span class="eyebrow">Difficulty meter</span>
+      <h2>Does the meter predict what happens?</h2>
+      <p class="muted">The SRD budget sorts fights into Low, Moderate and High. The meter also reads the stat blocks (Hit Points and damage) and learns from the simulated fights. Every forecast below comes from a meter fitted without that fight (5-fold cross-validation).</p>
+    </header>
+    <div class="charts" id="meter-charts"></div>
+  </section>
+
+  <section id="monsters">
+    <header>
+      <span class="eyebrow">Roster</span>
+      <h2>Which monsters does XP misjudge?</h2>
+      <p class="muted">Each cell is a Moderate-budget fight against a single kind of monster: how often someone in the party drops to 0 Hit Points.</p>
+    </header>
+    <div class="figure wide heat"><div class="tablewrap"><table id="probes"></table></div></div>
+  </section>
+
+  <section id="balance">
+    <header>
+      <span class="eyebrow">Balance</span>
+      <h2>Are the twelve subclasses even?</h2>
+      <p class="muted">Moderate and harder fights at levels 3 and 4, with the other three players' subclasses mixed at random. Each original subclass is compared with the SRD subclass of its class.</p>
+    </header>
+    <div class="figure wide"><div class="tablewrap"><table id="subs"></table></div></div>
+  </section>
+
+  <section id="engine">
+    <header><span class="eyebrow">Fine print</span><h2>What the engine simplifies</h2></header>
+    <div class="notes">
+      <p><b>Grid and space.</b> A 5-foot grid with diagonals counting 5 feet. Every creature takes one square, even the Large ogre and dire wolf. Open ground: no cover, no obstacles, everyone sees everyone unless a condition says otherwise.</p>
+      <p><b>Tactics.</b> Players and monsters follow simple, readable tactics (focus the closest threat, heal the fallen, use area spells on crowds). Real players do better and worse in different places, so treat the numbers as a baseline, not a promise.</p>
+      <p><b>Cozy defaults.</b> Monsters don't attack characters who are already down. Deaths come from failed Death Saving Throws and massive damage. Each character carries one Potion of Healing; the party starts each fight with full resources after casting its 8-hour buffs (Mage Armor and Aid).</p>
+      <p><b>Not modelled yet.</b> Hiding, grappling and shoving, ready actions, flying, and non-combat spells. Those arrive with game night at the table in M4.</p>
+    </div>
+  </section>
+</main>
+<script>
+const DATA = {"categories":[{"category":1,"death":0,"downs":0.2043,"drop":0.1532,"label":"Trivial","level":2,"lost":0.1029,"n":235,"rounds":2.7617,"win":1},{"category":2,"death":0.0216,"downs":1.5382,"drop":0.5764,"label":"Low","level":2,"lost":0.2397,"n":602,"rounds":4.7708,"win":0.9618},{"category":3,"death":0.0470,"downs":2.4146,"drop":0.6655,"label":"Moderate","level":2,"lost":0.3305,"n":574,"rounds":5.3693,"win":0.8798},{"category":4,"death":0.0906,"downs":4.0822,"drop":0.8809,"label":"High","level":2,"lost":0.5124,"n":596,"rounds":5.9497,"win":0.6963},{"category":5,"death":0.1360,"downs":5.1360,"drop":0.9263,"label":"Beyond High","level":2,"lost":0.6407,"n":353,"rounds":6.3456,"win":0.5552},{"category":1,"death":0,"downs":0.0580,"drop":0.0379,"label":"Trivial","level":3,"lost":0.1190,"n":448,"rounds":3.2746,"win":1},{"category":2,"death":0.0063,"downs":0.4761,"drop":0.2655,"label":"Low","level":3,"lost":0.1836,"n":1277,"rounds":3.8434,"win":0.9992},{"category":3,"death":0.0327,"downs":1.2745,"drop":0.4657,"label":"Moderate","level":3,"lost":0.2692,"n":1224,"rounds":4.8162,"win":0.9608},{"category":4,"death":0.1300,"downs":4.0855,"drop":0.8494,"label":"High","level":3,"lost":0.5419,"n":1169,"rounds":6.8580,"win":0.7126},{"category":5,"death":0.2379,"downs":6.9261,"drop":0.9825,"label":"Beyond High","level":3,"lost":0.8663,"n":744,"rounds":7.3226,"win":0.2621},{"category":1,"death":0.0021,"downs":0.1169,"drop":0.0793,"label":"Trivial","level":4,"lost":0.1054,"n":479,"rounds":2.9687,"win":1},{"category":2,"death":0.0101,"downs":0.6046,"drop":0.3086,"label":"Low","level":4,"lost":0.2088,"n":1186,"rounds":4.2614,"win":0.9941},{"category":3,"death":0.0557,"downs":1.7229,"drop":0.6058,"label":"Moderate","level":4,"lost":0.3200,"n":1238,"rounds":5.6906,"win":0.9556},{"category":4,"death":0.1350,"downs":3.9019,"drop":0.8344,"label":"High","level":4,"lost":0.5227,"n":1111,"rounds":7.0441,"win":0.7534},{"category":5,"death":0.2186,"downs":7.7605,"drop":0.9921,"label":"Beyond High","level":4,"lost":0.8414,"n":764,"rounds":8.7094,"win":0.3181}],"checks":[{"detail":"48 of 48 cases","group":"rules","name":"Hand-checked cases match SRD 5.2.1","ok":true},{"detail":"Brier score 0.134 vs 0.161 by category (lower is better)","group":"meter","name":"Predicts who drops better than the SRD category alone","ok":true},{"detail":"Brier score 0.0832 vs 0.0988 by category","group":"meter","name":"Predicts party wipes better than the SRD category alone","ok":true},{"detail":"worst tenth off by 1.6 points","group":"meter","name":"Calibrated: someone-drops forecasts land within 5 points","ok":true},{"detail":"worst tenth off by 1.6 points","group":"meter","name":"Calibrated: wipe forecasts land within 5 points","ok":true},{"detail":"share of fights where someone drops rises from Trivial to Beyond High","group":"meter","name":"Harder SRD categories hurt more at every level","ok":true},{"detail":"party win rate within 5 points and drop rate within 8 on Moderate+ fights","group":"balance","name":"Each original subclass lands within 5 points of its SRD sibling","ok":true}],"features":["bias","log(XP / Moderate budget)","log ratio squared","monsters per character","log ratio x monsters per character","share of XP in the biggest monster","party level - 3","log(monster HP / party HP)","log(4 rounds of monster damage / party HP)"],"fits":{"death":[-5.9601,7.6964,-1.4180,1.6140,-2.2960,-0.2524,0.1046,0.1015,-0.2274],"drop":[-0.9058,2.6974,0.1892,1.1879,0.2080,-1.3764,-0.4399,0.5907,-0.5174],"lost":[-1.9045,1.0036,0.6818,0.7273,0.4464,-0.8753,-0.0766,0.8597,-0.6648],"tpk":[-6.6131,7.2339,-1.2841,1.9880,-1.3300,-2.4949,-0.3246,1.9239,-0.9784]},"meta":{"battles":12000,"folds":5,"gates_passed":7,"gates_total":7,"rules_ok":48,"rules_total":48,"seed":20261010},"meter":{"death":{"base":0.0765,"bins":[{"n":1200,"observed":0,"predicted":0.0000},{"n":1200,"observed":0.0017,"predicted":0.0008},{"n":1200,"observed":0.0033,"predicted":0.0040},{"n":1200,"observed":0.0117,"predicted":0.0100},{"n":1200,"observed":0.0392,"predicted":0.0297},{"n":1200,"observed":0.0367,"predicted":0.0515},{"n":1200,"observed":0.0908,"predicted":0.0931},{"n":1200,"observed":0.1567,"predicted":0.1534},{"n":1200,"observed":0.2117,"predicted":0.1887},{"n":1200,"observed":0.2133,"predicted":0.2338}],"brier_base":0.0706,"brier_category":0.0655,"brier_meter":0.0637,"worst_bin":0.0230},"drop":{"base":0.5922,"bins":[{"n":1200,"observed":0.0350,"predicted":0.0478},{"n":1200,"observed":0.1558,"predicted":0.1512},{"n":1200,"observed":0.2958,"predicted":0.2886},{"n":1200,"observed":0.4575,"predicted":0.4516},{"n":1200,"observed":0.5908,"predicted":0.5867},{"n":1200,"observed":0.7008,"predicted":0.7107},{"n":1200,"observed":0.8275,"predicted":0.8330},{"n":1200,"observed":0.9292,"predicted":0.9130},{"n":1200,"observed":0.9442,"predicted":0.9557},{"n":1200,"observed":0.9850,"predicted":0.9833}],"brier_base":0.2415,"brier_category":0.1612,"brier_meter":0.1343,"worst_bin":0.0162},"loss":{"base":0.1851,"bins":[{"n":1200,"observed":0,"predicted":0.0000},{"n":1200,"observed":0,"predicted":0.0002},{"n":1200,"observed":0.0025,"predicted":0.0014},{"n":1200,"observed":0.0133,"predicted":0.0062},{"n":1200,"observed":0.0275,"predicted":0.0183},{"n":1200,"observed":0.0367,"predicted":0.0513},{"n":1200,"observed":0.1525,"predicted":0.1448},{"n":1200,"observed":0.3408,"predicted":0.3334},{"n":1200,"observed":0.5117,"predicted":0.5279},{"n":1200,"observed":0.7658,"predicted":0.7676}],"brier_base":0.1508,"brier_category":0.0988,"brier_meter":0.0832,"worst_bin":0.0162}},"probes":[{"budget_share":0.4167,"count":10,"drop":0.8167,"id":"bandit","level":2,"name":"Bandit","win":0.9333},{"budget_share":0.2778,"count":10,"drop":0.1167,"id":"bandit","level":3,"name":"Bandit","win":1},{"budget_share":0.1667,"count":10,"drop":0.0500,"id":"bandit","level":4,"name":"Bandit","win":1},{"budget_share":0.4167,"count":10,"drop":0.4167,"id":"cultist","level":2,"name":"Cultist","win":1},{"budget_share":0.2778,"count":10,"drop":0.0333,"id":"cultist","level":3,"name":"Cultist","win":1},{"budget_share":0.1667,"count":10,"drop":0,"id":"cultist","level":4,"name":"Cultist","win":1},{"budget_share":0.8333,"count":10,"drop":1,"id":"goblin_warrior","level":2,"name":"Goblin Warrior","win":0.8000},{"budget_share":0.5556,"count":10,"drop":0.5833,"id":"goblin_warrior","level":3,"name":"Goblin Warrior","win":0.9833},{"budget_share":0.3333,"count":10,"drop":0.4500,"id":"goblin_warrior","level":4,"name":"Goblin Warrior","win":1},{"budget_share":0.8333,"count":10,"drop":0.8500,"id":"wolf","level":2,"name":"Wolf","win":0.7333},{"budget_share":0.5556,"count":10,"drop":0.3000,"id":"wolf","level":3,"name":"Wolf","win":1},{"budget_share":0.3333,"count":10,"drop":0.1167,"id":"wolf","level":4,"name":"Wolf","win":1},{"budget_share":0.8333,"count":10,"drop":1,"id":"skeleton","level":2,"name":"Skeleton","win":0.7500},{"budget_share":0.5556,"count":10,"drop":0.6167,"id":"skeleton","level":3,"name":"Skeleton","win":0.9833},{"budget_share":0.3333,"count":10,"drop":0.4167,"id":"skeleton","level":4,"name":"Skeleton","win":1},{"budget_share":0.8333,"count":10,"drop":0.6333,"id":"zombie","level":2,"name":"Zombie","win":0.9167},{"budget_share":0.5556,"count":10,"drop":0.1000,"id":"zombie","level":3,"name":"Zombie","win":0.9833},{"budget_share":0.3333,"count":10,"drop":0.1500,"id":"zombie","level":4,"name":"Zombie","win":1},{"budget_share":1,"count":6,"drop":0.9667,"id":"tough","level":2,"name":"Tough","win":0.6667},{"budget_share":1,"count":9,"drop":0.9667,"id":"tough","level":3,"name":"Tough","win":0.6333},{"budget_share":0.6667,"count":10,"drop":0.7500,"id":"tough","level":4,"name":"Tough","win":0.8667},{"budget_share":1,"count":3,"drop":0.9000,"id":"goblin_boss","level":2,"name":"Goblin Boss","win":1},{"budget_share":0.8889,"count":4,"drop":0.5500,"id":"goblin_boss","level":3,"name":"Goblin Boss","win":1},{"budget_share":0.9333,"count":7,"drop":0.9000,"id":"goblin_boss","level":4,"name":"Goblin Boss","win":0.9333},{"budget_share":1,"count":3,"drop":0.4833,"id":"dire_wolf","level":2,"name":"Dire Wolf","win":1},{"budget_share":0.8889,"count":4,"drop":0.1833,"id":"dire_wolf","level":3,"name":"Dire Wolf","win":1},{"budget_share":0.9333,"count":7,"drop":0.5667,"id":"dire_wolf","level":4,"name":"Dire Wolf","win":0.9667},{"budget_share":1,"count":3,"drop":0.5167,"id":"ghoul","level":2,"name":"Ghoul","win":1},{"budget_share":0.8889,"count":4,"drop":0.2667,"id":"ghoul","level":3,"name":"Ghoul","win":0.9667},{"budget_share":0.9333,"count":7,"drop":0.4500,"id":"ghoul","level":4,"name":"Ghoul","win":0.9833},{"budget_share":0.7500,"count":1,"drop":0.2000,"id":"bandit_captain","level":2,"name":"Bandit Captain","win":1},{"budget_share":1,"count":2,"drop":0.3167,"id":"bandit_captain","level":3,"name":"Bandit Captain","win":1},{"budget_share":0.9000,"count":3,"drop":0.1833,"id":"bandit_captain","level":4,"name":"Bandit Captain","win":1},{"budget_share":0.7500,"count":1,"drop":0.2833,"id":"ogre","level":2,"name":"Ogre","win":1},{"budget_share":1,"count":2,"drop":0.2000,"id":"ogre","level":3,"name":"Ogre","win":1},{"budget_share":0.9000,"count":3,"drop":0.2000,"id":"ogre","level":4,"name":"Ogre","win":1}],"rules":[{"checks":[{"actual":"5","expected":"5","label":"to-hit bonus (Str +3, PB +2)","ok":true},{"actual":"true","expected":"true","label":"15 vs AC 15 hits","ok":true},{"actual":"10","expected":"10","label":"damage 2d6 (3+4) + Str 3","ok":true}],"id":"hit-vs-ac","ok":true,"page":"p. 14","rule":"Roll d20 + modifiers; meeting or beating AC is a hit.","title":"An attack hits when the total meets the target's AC"},{"checks":[{"actual":"true","expected":"true","label":"natural 20 is a Critical Hit","ok":true},{"actual":"13","expected":"13","label":"4d6 (1+2+3+4) + 3","ok":true}],"id":"nat20-crit","ok":true,"page":"p. 7, p. 16","rule":"Critical Hit: roll all of the attack's damage dice twice, then add modifiers.","title":"A natural 20 always hits and rolls the damage dice twice"},{"checks":[{"actual":"false","expected":"false","label":"1 + 6 against AC 8 still misses","ok":true}],"id":"nat1-miss","ok":true,"page":"p. 7","rule":"A natural 1 on an attack roll misses regardless of modifiers or AC.","title":"A natural 1 always misses"},{"checks":[{"actual":"1","expected":"1","label":"Steady Aim gives Advantage","ok":true},{"actual":"0","expected":"0","label":"Advantage + Poisoned cancel out","ok":true},{"actual":"3","expected":"3","label":"advantage keeps the higher of two rolls","ok":true}],"id":"adv-dis","ok":true,"page":"p. 8","rule":"If a roll has Advantage and Disadvantage, neither applies.","title":"Advantage keeps the higher d20; both together cancel"},{"checks":[{"actual":"true","expected":"true","label":"19 is a Critical Hit","ok":true},{"actual":"7","expected":"7","label":"4d6 all ones + 3","ok":true},{"actual":"false","expected":"false","label":"a non-Champion's 19 is just a hit","ok":true}],"id":"champion-19","ok":true,"page":"p. 49","rule":"Weapon attack rolls score a Critical Hit on a roll of 19 or 20.","title":"Champion: Improved Critical on 19 or 20"},{"checks":[{"actual":"9","expected":"9","label":"2d6 of 1 and 2 count as 3 + 3, plus Str 3","ok":true}],"id":"gwf","ok":true,"page":"p. 88","rule":"Two-Handed or Versatile melee weapon held in two hands: any 1 or 2 on a damage die counts as 3.","title":"Great Weapon Fighting turns 1s and 2s into 3s"},{"checks":[{"actual":"14","expected":"14","label":"keeps 11 over 3, plus Str 3","ok":true},{"actual":"6","expected":"6","label":"only once per turn: second hit uses one roll","ok":true}],"id":"savage","ok":true,"page":"p. 87","rule":"Once per turn when you hit with a weapon, roll its damage dice twice and use either roll.","title":"Savage Attacker keeps the better weapon damage roll"},{"checks":[{"actual":"true","expected":"true","label":"ally adjacent: Sneak Attack lands","ok":true},{"actual":"13","expected":"13","label":"1d6 (4) + Dex 3 + Sneak 1d6 (6)","ok":true},{"actual":"nil","expected":"nil","label":"only once per turn","ok":true}],"id":"sneak-ally","ok":true,"page":"pp. 61-62","rule":"Once per turn: Finesse or Ranged weapon, and Advantage, or an ally within 5 feet of the target (not Incapacitated) without Disadvantage.","title":"Sneak Attack with an ally next to the target"},{"checks":[{"actual":"true","expected":"true","label":"hit lands","ok":true},{"actual":"nil","expected":"nil","label":"no Sneak Attack","ok":true}],"id":"sneak-disadvantage","ok":true,"page":"pp. 61-62","rule":"The ally route only works if you don't have Disadvantage on the attack roll.","title":"No Sneak Attack with Disadvantage, even with an ally adjacent"},{"checks":[{"actual":"-1","expected":"-1","label":"adjacent goblin: Disadvantage","ok":true},{"actual":"1","expected":"1","label":"an Unconscious goblin doesn't count (and grants Advantage)","ok":true}],"id":"ranged-close","ok":true,"page":"p. 15","rule":"A ranged attack roll has Disadvantage if you're within 5 feet of an enemy who can see you and isn't Incapacitated.","title":"Ranged attacks within 5 feet of an enemy have Disadvantage"},{"checks":[{"actual":"1","expected":"1","label":"fighter adjacent: Advantage","ok":true},{"actual":"-1","expected":"-1","label":"rogue 20 feet away with a bow: Disadvantage","ok":true}],"id":"prone","ok":true,"page":"p. 186","rule":"An attack roll against a Prone creature has Advantage if the attacker is within 5 feet, otherwise Disadvantage.","title":"Prone: Advantage within 5 feet, Disadvantage from farther away"},{"checks":[{"actual":"true","expected":"true","label":"hit becomes a Critical Hit","ok":true},{"actual":"7","expected":"7","label":"4d6 all ones + 3","ok":true}],"id":"paralyzed-autocrit","ok":true,"page":"p. 186","rule":"Attack rolls against a Paralyzed creature have Advantage; any hit within 5 feet is a Critical Hit.","title":"Hits on a Paralyzed creature within 5 feet are Critical Hits"},{"checks":[{"actual":"4","expected":"4","label":"9 Poison to a dwarf: 4","ok":true},{"actual":"12","expected":"12","label":"mace on a skeleton: (4 + 2) x 2 = 12","ok":true},{"actual":"1","expected":"1","label":"skeleton (13 HP) hangs on at 1","ok":true}],"id":"resist-vuln","ok":true,"page":"p. 17","rule":"Adjustments first, then Resistance, then Vulnerability.","title":"Resistance halves (round down), Vulnerability doubles"},{"checks":[{"actual":"7","expected":"7","label":"keeps 7, not 12","ok":true},{"actual":"3","expected":"3","label":"7 soaked, 3 through","ok":true},{"actual":"0","expected":"0","label":"no Temporary Hit Points left","ok":true}],"id":"temp-hp","ok":true,"page":"p. 18","rule":"Lose Temporary Hit Points first; receiving more lets you keep the larger amount.","title":"Temporary Hit Points absorb damage first and don't stack"},{"checks":[{"actual":"true","expected":"true","label":"at 0 HP and Unconscious","ok":true},{"actual":"false","expected":"false","label":"not dead (3 left over < max HP)","ok":true},{"actual":"1","expected":"1","label":"12: one success","ok":true},{"actual":"2","expected":"2","label":"natural 1: two failures","ok":true},{"actual":"true","expected":"true","label":"a Critical Hit at 0 HP: dead","ok":true},{"actual":"1","expected":"1","label":"natural 20: back up with 1 HP","ok":true},{"actual":"false","expected":"false","label":"conscious again","ok":true}],"id":"drop-death-saves","ok":true,"page":"pp. 17-18","rule":"Unconscious at 0 HP. Death save: 10+ succeeds; three successes = Stable; a 1 counts as two failures; a 20 regains 1 HP; damage at 0 HP is a failure (a Critical Hit, two).","title":"Dropping to 0 and Death Saving Throws"},{"checks":[{"actual":"true","expected":"true","label":"dead","ok":true}],"id":"massive-damage","ok":true,"page":"p. 17","rule":"If damage reduces you to 0 and the remainder equals or exceeds your Hit Point maximum, you die.","title":"Massive damage kills outright"},{"checks":[{"actual":"true","expected":"true","label":"Bless is running","ok":true},{"actual":"true","expected":"true","label":"failed DC 10: Concentration ends","ok":true},{"actual":"true","expected":"true","label":"Bless is gone from Brannoc","ok":true},{"actual":"true","expected":"true","label":"28 damage, DC 14: 14 keeps Blur","ok":true},{"actual":"true","expected":"true","label":"30 damage, DC 15: 14 drops Blur","ok":true}],"id":"concentration","ok":true,"page":"p. 179","rule":"Constitution save, DC 10 or half the damage taken (round down), whichever is higher, up to 30.","title":"Concentration save after damage"},{"checks":[{"actual":"1","expected":"1","label":"survives at 1 HP","ok":true},{"actual":"true","expected":"true","label":"Radiant damage finishes it","ok":true}],"id":"undead-fortitude","ok":true,"page":"p. 343","rule":"If damage drops it to 0, Constitution save DC 5 + the damage; on a success it drops to 1 HP instead. Not against Radiant damage or a Critical Hit.","title":"Zombie: Undead Fortitude"},{"checks":[{"actual":"2","expected":"2","label":"level 2: two uses","ok":true},{"actual":"3","expected":"3","label":"level 4: three uses","ok":true},{"actual":"14","expected":"14","label":"heals 7 + 2","ok":true},{"actual":"1","expected":"1","label":"one use spent","ok":true}],"id":"second-wind","ok":true,"page":"p. 48","rule":"Bonus Action: regain 1d10 + Fighter level Hit Points. Two uses at levels 1-3, three at level 4.","title":"Fighter: Second Wind"},{"checks":[{"actual":"28","expected":"28","label":"Fighter 3, Con 14: 12 + 2 x 8","ok":true},{"actual":"26","expected":"26","label":"Wizard 4, Con 14: 8 + 3 x 6","ok":true},{"actual":"17","expected":"17","label":"Rogue 2, Con 14: 10 + 7","ok":true},{"actual":"24","expected":"24","label":"Dwarf Cleric 3, Con 13: 9 + 2 x 6 + Dwarven Toughness 3","ok":true}],"id":"hp-fixed","ok":true,"page":"p. 23","rule":"Level 1: maximum Hit Die + Con. After that, the fixed value + Con each level.","title":"Hit Points at higher levels"},{"checks":[{"actual":"18","expected":"18","label":"Oswin: 16 + 2, no Dex penalty","ok":true},{"actual":"11","expected":"11","label":"Thessaly unarmored: 10 + 1","ok":true},{"actual":"14","expected":"14","label":"with Mage Armor: 13 + 1","ok":true},{"actual":"14","expected":"14","label":"Pip in Leather: 11 + 3","ok":true}],"id":"armor","ok":true,"page":"p. 92, p. 145","rule":"Chain Mail is AC 16 and ignores Dexterity; a Shield adds 2; Mage Armor sets base AC to 13 + Dex.","title":"Armor Class: heavy armor, shields, Mage Armor"},{"checks":[{"actual":"-1","expected":"-1","label":"Sap: the ogre's next attack has Disadvantage","ok":true},{"actual":"1","expected":"1","label":"Vex: Pip's next attack on the ogre has Advantage","ok":true},{"actual":"3","expected":"3","label":"Graze: a greatsword miss still deals Str 3","ok":true},{"actual":"true","expected":"true","label":"Topple: the goblin is Prone","ok":true}],"id":"masteries","ok":true,"page":"p. 90","rule":"Sap: Disadvantage on the target's next attack. Vex: Advantage on your next attack. Graze: a miss deals the ability modifier. Topple: Con save (DC 8 + mod + PB) or Prone.","title":"Weapon Mastery: Sap, Vex, Graze, Topple"},{"checks":[{"actual":"0","expected":"0","label":"dagger extra attack: 1d4 + 0","ok":true},{"actual":"nick","expected":"nick","label":"dagger has Nick mastery for Pip","ok":true}],"id":"nick","ok":true,"page":"p. 89, p. 90","rule":"The extra Light attack doesn't add a positive ability modifier to damage (without Two-Weapon Fighting).","title":"Nick: the Light weapon's extra attack inside the Attack action"},{"checks":[{"actual":"true","expected":"true","label":"8 + 5 + Bless 2 = 15 hits AC 15","ok":true}],"id":"bless","ok":true,"page":"p. 113","rule":"Up to three creatures add 1d4 to attack rolls and saving throws while you concentrate.","title":"Bless adds 1d4 to attack rolls and saves"},{"checks":[{"actual":"false","expected":"false","label":"the hit turns into a miss","ok":true},{"actual":"true","expected":"true","label":"Shield used her Reaction","ok":true},{"actual":"0","expected":"0","label":"the free Magic Initiate cast is spent","ok":true}],"id":"shield-spell","ok":true,"page":"p. 161","rule":"Reaction when hit: +5 AC until the start of your next turn.","title":"Shield: +5 AC, including against the triggering attack"},{"checks":[{"actual":"14","expected":"14","label":"four darts at level 2: 2+3+4+5","ok":true}],"id":"magic-missile","ok":true,"page":"p. 146","rule":"Three darts, 1d4 + 1 Force each, one more per slot level above 1.","title":"Magic Missile always hits"},{"checks":[{"actual":"true","expected":"true","label":"goblin Incapacitated","ok":true},{"actual":"false","expected":"false","label":"skeleton immune (Exhaustion immunity)","ok":true},{"actual":"true","expected":"true","label":"second failed save: Unconscious","ok":true},{"actual":"false","expected":"false","label":"damage wakes it","ok":true}],"id":"sleep","ok":true,"page":"p. 163","rule":"Wisdom save or Incapacitated until the end of its next turn, then save again or Unconscious. Creatures immune to Exhaustion succeed automatically. Damage wakes them.","title":"Sleep: Incapacitated, then Unconscious"},{"checks":[{"actual":"true","expected":"true","label":"captain Paralyzed","ok":true},{"actual":"false","expected":"false","label":"shakes it off at end of turn","ok":true},{"actual":"false","expected":"false","label":"a wolf isn't a Humanoid","ok":true}],"id":"hold-person","ok":true,"page":"p. 141","rule":"Wisdom save or Paralyzed; repeat the save at the end of each of its turns.","title":"Hold Person: Humanoids only, save again each turn"},{"checks":[{"actual":"14","expected":"14","label":"2d8 (3+4) + Wis 3 + 2 + 1","ok":true}],"id":"disciple-of-life","ok":true,"page":"p. 40","rule":"Healing from a spell slot adds 2 + the slot level.","title":"Life Domain: Disciple of Life"},{"checks":[{"actual":"14","expected":"14","label":"Brannoc topped to half (14)","ok":true},{"actual":"6","expected":"6","label":"Thessaly gets the rest (3 + 3 = 6)","ok":true}],"id":"preserve-life","ok":true,"page":"p. 40","rule":"Restore 5 x Cleric level among Bloodied creatures within 30 feet, none above half its maximum.","title":"Life Domain: Preserve Life"},{"checks":[{"actual":"4","expected":"4","label":"half of 8 on a miss","ok":true}],"id":"potent-cantrip","ok":true,"page":"p. 82","rule":"A damaging cantrip still deals half damage on a miss or a successful save.","title":"Evoker: Potent Cantrip"},{"checks":[{"actual":"1","expected":"1","label":"wolf with a packmate: Advantage","ok":true},{"actual":"0","expected":"0","label":"packmate asleep: no Advantage","ok":true}],"id":"pack-tactics","ok":true,"page":"p. 364","rule":"Advantage if an ally is within 5 feet of the target and isn't Incapacitated.","title":"Wolf: Pack Tactics"},{"checks":[{"actual":"false","expected":"false","label":"parried","ok":true},{"actual":"true","expected":"true","label":"Reaction spent","ok":true}],"id":"parry","ok":true,"page":"p. 261","rule":"Reaction when hit by a melee attack while holding a weapon: +2 AC against it.","title":"Bandit Captain: Parry"},{"checks":[{"actual":"true","expected":"true","label":"the ogre used its Reaction","ok":true},{"actual":"false","expected":"false","label":"Disengaged: no Opportunity Attack","ok":true}],"id":"opportunity","ok":true,"page":"p. 15, p. 181, p. 185","rule":"Leaving an enemy's reach provokes an Opportunity Attack; Disengage prevents it.","title":"Opportunity Attacks and Disengage"},{"checks":[{"actual":"true","expected":"true","label":"zombie is Incapacitated","ok":true},{"actual":"false","expected":"false","label":"damage ends the turning","ok":true}],"id":"turn-undead","ok":true,"page":"p. 37","rule":"Each Undead within 30 feet: Wisdom save or Frightened and Incapacitated for 1 minute; ends if it takes damage.","title":"Turn Undead"},{"checks":[{"actual":"17","expected":"17","label":"the 1 becomes a 17","ok":true}],"id":"halfling-luck","ok":true,"page":"p. 85","rule":"When you roll a 1 on the d20 of a D20 Test, reroll it and use the new roll.","title":"Halfling: Luck"},{"checks":[{"actual":"true","expected":"true","label":"a duplicate takes it","ok":true},{"actual":"2","expected":"2","label":"two duplicates left","ok":true},{"actual":"20","expected":"20","label":"Thessaly unhurt","ok":true}],"id":"mirror-image","ok":true,"page":"p. 150","rule":"When hit, roll a d6 per duplicate; on any 3+, a duplicate is hit and destroyed instead.","title":"Mirror Image"},{"checks":[{"actual":"200","expected":"200","label":"4 x level 1, Low","ok":true},{"actual":"1125","expected":"1125","label":"5 x level 3, Moderate","ok":true},{"actual":"Moderate","expected":"Moderate","label":"one CR 2 Ogre for four level 2s rates Moderate","ok":true}],"id":"xp-budget","ok":true,"page":"p. 202","rule":"Multiply the XP Budget per Character by the party size: Low for four level 1 characters is 200 XP; Moderate for five level 3 characters is 1,125 XP.","title":"Encounter XP budget"},{"checks":[{"actual":"12","expected":"12","label":"Thessaly next to Brannoc: 11 + 1","ok":true},{"actual":"11","expected":"11","label":"away from Brannoc: 11","ok":true}],"id":"hold-fast","ok":true,"page":"Subclass design","rule":"Allies within 5 feet of the captain get +1 AC.","title":"Banner Captain: Hold Fast (original)"},{"checks":[{"actual":"1","expected":"1","label":"one Second Wind use spent on the order","ok":true},{"actual":"true","expected":"true","label":"Pip used his Reaction","ok":true},{"actual":"20","expected":"20","label":"ogre took 1+1+3 from Brannoc and 3+3+4+5 from Pip","ok":true}],"id":"battle-orders","ok":true,"page":"Subclass design","rule":"Bonus Action, one use of Second Wind: an ally attacks with its Reaction (Sneak Attack works again).","title":"Banner Captain: Battle Orders (original)"},{"checks":[{"actual":"1","expected":"1","label":"Advantage against the ogre","ok":true}],"id":"feint","ok":true,"page":"Subclass design","rule":"Bonus Action: Charisma (Deception) vs Wisdom (Insight); win and your next attack this turn has Advantage.","title":"Silvertongue: Feint (original)"},{"checks":[{"actual":"1","expected":"1","label":"Advantage on a creature that hasn't acted","ok":true},{"actual":"13","expected":"13","label":"1d6 (1) + Dex 3 + three Sneak dice (2+3+4)","ok":true}],"id":"opening-strike","ok":true,"page":"Subclass design","rule":"Round 1: Advantage against creatures that haven't acted, and one extra Sneak Attack die once.","title":"Ambusher: Opening Strike (original)"},{"checks":[{"actual":"6","expected":"6","label":"Brannoc gets Wis 3 + level 3","ok":true},{"actual":"false","expected":"false","label":"it's a Bonus Action","ok":true},{"actual":"1","expected":"1","label":"one Channel Divinity spent","ok":true}],"id":"warm-welcome","ok":true,"page":"Subclass design","rule":"Channel Divinity, Bonus Action: up to Wis-mod creatures within 30 ft gain Temp HP = Wis mod + level.","title":"Hearth Domain: Warm Welcome (original)"},{"checks":[{"actual":"6","expected":"6","label":"the decoy stands by Brannoc","ok":true},{"actual":"nil","expected":"nil","label":"no Concentration used","ok":true},{"actual":"true","expected":"true","label":"the goblin swings at the decoy","ok":true},{"actual":"28","expected":"28","label":"Brannoc untouched","ok":true},{"actual":"nil","expected":"nil","label":"a hit pops it","ok":true},{"actual":"false","expected":"false","label":"a successful save attacks Brannoc","ok":true},{"actual":"true","expected":"true","label":"the decoy survives","ok":true},{"actual":"true","expected":"true","label":"Disadvantage: the decoy shrugs off the miss","ok":true}],"id":"tricky-decoy","ok":true,"page":"Subclass design","rule":"Bonus Action double; attackers near it save (Wis) or swing at it with Disadvantage (AC = spell DC).","title":"Mischief Domain: Tricky Decoy (original)"},{"checks":[{"actual":"0","expected":"0","label":"the free use is spent","ok":true},{"actual":"2","expected":"2","label":"both level 2 slots left","ok":true},{"actual":"true","expected":"true","label":"a slot spell is still allowed this turn","ok":true}],"id":"quick-reflection","ok":true,"page":"Subclass design","rule":"Mirror Image as a Bonus Action; once per Long Rest without a slot (so it doesn't use the turn's slot).","title":"Mirror Mage: Quick Reflection (original)"},{"checks":[{"actual":"2","expected":"2","label":"Disadvantage keeps the 2","ok":true},{"actual":"2","expected":"2","label":"one use spent (3 -> 2)","ok":true}],"id":"shimmer","ok":true,"page":"Subclass design","rule":"Reaction: impose Disadvantage on an attack roll against you (Int-mod uses per Long Rest).","title":"Mirror Mage: Shimmer (original)"},{"checks":[{"actual":"16","expected":"16","label":"Spellguard AC","ok":true},{"actual":"false","expected":"false","label":"Warding Flash turns the hit","ok":true},{"actual":"0","expected":"0","label":"the use is spent","ok":true},{"actual":"16","expected":"16","label":"AC is back to normal","ok":true},{"actual":"true","expected":"true","label":"no second flash before a rest","ok":true},{"actual":"true","expected":"true","label":"a big hit isn't worth the reaction","ok":true},{"actual":"1","expected":"1","label":"so the use is kept","ok":true}],"id":"warding-flash","ok":true,"page":"Subclass design","rule":"Reaction when hit: +5 AC against that one attack. Once per Short or Long Rest.","title":"Spellguard: Warding Flash (original)"},{"checks":[{"actual":"true","expected":"true","label":"Shield of Faith is castable","ok":true},{"actual":"false","expected":"false","label":"no second slot spell this turn","ok":true},{"actual":"true","expected":"true","label":"the free Magic Initiate Healing Word still works","ok":true},{"actual":"true","expected":"true","label":"cantrips still fine","ok":true}],"id":"one-slot","ok":true,"page":"p. 105","rule":"On a turn, you can expend only one spell slot to cast a spell.","title":"One spell slot per turn"}],"scatter":[{"drop":0,"level":4,"lost":0.0935,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":3,"win":1},{"drop":1,"level":2,"lost":0.8676,"m":3,"win":1},{"drop":0,"level":4,"lost":0.3309,"m":0.9500,"win":1},{"drop":0,"level":4,"lost":0.0647,"m":1.8000,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":0,"level":4,"lost":0.2158,"m":2,"win":1},{"drop":0,"level":4,"lost":0.0144,"m":2.5000,"win":1},{"drop":0,"level":3,"lost":0,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0,"m":0.8000,"win":1},{"drop":1,"level":4,"lost":0.2950,"m":2,"win":1},{"drop":1,"level":3,"lost":0.4234,"m":3.8571,"win":1},{"drop":1,"level":2,"lost":0.3088,"m":4.3125,"win":1},{"drop":1,"level":4,"lost":0.3022,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.4245,"m":3,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.4317,"m":1.9000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":0,"level":3,"lost":0.1712,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4.0625,"win":0},{"drop":1,"level":4,"lost":0.3237,"m":3.9000,"win":1},{"drop":1,"level":2,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.2374,"m":3.6000,"win":1},{"drop":0,"level":4,"lost":0.3165,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2446,"m":3.6000,"win":1},{"drop":1,"level":2,"lost":0.2353,"m":4,"win":1},{"drop":1,"level":4,"lost":0.5180,"m":3,"win":1},{"drop":1,"level":3,"lost":0.4775,"m":4,"win":1},{"drop":1,"level":4,"lost":0.4604,"m":4,"win":1},{"drop":1,"level":4,"lost":0.3309,"m":1.6000,"win":1},{"drop":1,"level":4,"lost":0.2230,"m":2.9000,"win":1},{"drop":0,"level":3,"lost":0.1802,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":0,"level":3,"lost":0,"m":1.5000,"win":1},{"drop":1,"level":3,"lost":0.2072,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0.1151,"m":3,"win":1},{"drop":1,"level":3,"lost":0.2613,"m":4,"win":1},{"drop":1,"level":3,"lost":0.4955,"m":3.7143,"win":1},{"drop":1,"level":4,"lost":1,"m":4.0500,"win":0},{"drop":1,"level":3,"lost":0.1532,"m":2.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":3,"lost":0.2613,"m":3.6429,"win":1},{"drop":0,"level":3,"lost":0.1982,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2446,"m":2,"win":1},{"drop":0,"level":4,"lost":0.4317,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.0631,"m":3,"win":1},{"drop":1,"level":3,"lost":0.3874,"m":3,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":2.8333,"win":1},{"drop":1,"level":3,"lost":0.0811,"m":2.6667,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1367,"m":1.8000,"win":1},{"drop":0,"level":4,"lost":0.1871,"m":1.8000,"win":1},{"drop":1,"level":2,"lost":0.8676,"m":4,"win":1},{"drop":1,"level":4,"lost":0.5899,"m":4,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":1.8333,"win":1},{"drop":1,"level":3,"lost":0.3964,"m":3.9286,"win":1},{"drop":0,"level":4,"lost":0.3237,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1802,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":1,"level":3,"lost":0.2162,"m":4,"win":1},{"drop":0,"level":3,"lost":0.0631,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0631,"m":1.5000,"win":1},{"drop":0,"level":3,"lost":0.2883,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":2.9500,"win":0},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.2374,"m":1.9000,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":3,"win":1},{"drop":1,"level":2,"lost":0.5000,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":2,"lost":0.0882,"m":3,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.1727,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":3,"win":0},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":1,"level":3,"lost":1,"m":3,"win":0},{"drop":0,"level":2,"lost":0.0882,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1261,"m":0.8333,"win":1},{"drop":0,"level":4,"lost":0.1583,"m":4,"win":1},{"drop":0,"level":4,"lost":0,"m":1,"win":1},{"drop":1,"level":3,"lost":0.7117,"m":4.4062,"win":1},{"drop":1,"level":4,"lost":0.4101,"m":3.0500,"win":1},{"drop":1,"level":3,"lost":0.5676,"m":3.7143,"win":1},{"drop":0,"level":3,"lost":0.2072,"m":4,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":3,"lost":0.5766,"m":4.2500,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0.2374,"m":2.2000,"win":1},{"drop":1,"level":2,"lost":0.2206,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0721,"m":1.5000,"win":1},{"drop":1,"level":3,"lost":0.6757,"m":4,"win":1},{"drop":1,"level":2,"lost":0.0882,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":0,"level":4,"lost":0.2662,"m":1,"win":1},{"drop":1,"level":3,"lost":0.2072,"m":2.2500,"win":1},{"drop":0,"level":4,"lost":0.3741,"m":3.4000,"win":1},{"drop":0,"level":4,"lost":0,"m":0.8000,"win":1},{"drop":1,"level":2,"lost":0.1324,"m":3.2500,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3750,"win":0},{"drop":0,"level":4,"lost":0.0719,"m":4,"win":1},{"drop":1,"level":4,"lost":0.2158,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.0432,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.1367,"m":1,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.1261,"m":1,"win":1},{"drop":0,"level":3,"lost":0,"m":2.6667,"win":1},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":0,"level":4,"lost":0.0863,"m":2.9000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.3125,"win":0},{"drop":0,"level":4,"lost":0.1871,"m":1.5000,"win":1},{"drop":1,"level":4,"lost":0.3309,"m":3.6000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":3,"lost":0.4775,"m":3.6429,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":1.6667,"win":1},{"drop":0,"level":3,"lost":0.2523,"m":1,"win":1},{"drop":1,"level":3,"lost":0.3153,"m":4,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":0,"level":3,"lost":0.2252,"m":1,"win":1},{"drop":0,"level":2,"lost":0.0882,"m":3,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0.0791,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":1,"win":1},{"drop":1,"level":2,"lost":0.6618,"m":4,"win":1},{"drop":1,"level":4,"lost":0.1367,"m":4,"win":1},{"drop":1,"level":4,"lost":1,"m":4.0500,"win":0},{"drop":0,"level":3,"lost":0.0991,"m":2.6667,"win":1},{"drop":1,"level":4,"lost":0.5827,"m":2.8000,"win":1},{"drop":0,"level":2,"lost":0.2794,"m":2,"win":1},{"drop":0,"level":2,"lost":0,"m":2,"win":1},{"drop":0,"level":4,"lost":0.1223,"m":1.8000,"win":1},{"drop":1,"level":4,"lost":0.3813,"m":2.6000,"win":1},{"drop":0,"level":3,"lost":0.0450,"m":1,"win":1},{"drop":1,"level":4,"lost":0.5396,"m":3.4000,"win":1},{"drop":1,"level":2,"lost":1,"m":4.2500,"win":0},{"drop":0,"level":4,"lost":0,"m":1.8000,"win":1},{"drop":0,"level":4,"lost":0.2878,"m":2.7000,"win":1},{"drop":0,"level":2,"lost":0.0735,"m":2.2500,"win":1},{"drop":0,"level":2,"lost":0.1324,"m":4,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":2.6667,"win":1},{"drop":1,"level":2,"lost":0.3235,"m":4,"win":1},{"drop":1,"level":2,"lost":1,"m":2,"win":0},{"drop":0,"level":3,"lost":0.3063,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":2,"win":1},{"drop":1,"level":2,"lost":0.0588,"m":1,"win":1},{"drop":1,"level":4,"lost":0.3669,"m":4,"win":1},{"drop":0,"level":3,"lost":0.3063,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2446,"m":3,"win":1},{"drop":1,"level":3,"lost":0.1982,"m":2.8333,"win":1},{"drop":1,"level":4,"lost":0.2518,"m":4.3500,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":2,"lost":0,"m":4.2500,"win":1},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":0,"level":3,"lost":0.0360,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":0.4505,"m":3.3214,"win":1},{"drop":0,"level":4,"lost":0.0791,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.1712,"m":2,"win":1},{"drop":1,"level":4,"lost":0.7410,"m":4.3500,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":2,"win":1},{"drop":0,"level":3,"lost":0.2252,"m":1.6667,"win":1},{"drop":1,"level":2,"lost":0.2647,"m":3.3750,"win":1},{"drop":0,"level":3,"lost":0.1261,"m":1.8333,"win":1},{"drop":1,"level":3,"lost":0.2342,"m":3.5714,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":2,"win":1},{"drop":1,"level":4,"lost":0.3237,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":3.5000,"win":0},{"drop":1,"level":4,"lost":0.4532,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1727,"m":3.6000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":0,"level":3,"lost":0.0631,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":3.7143,"win":0},{"drop":1,"level":3,"lost":0.2613,"m":1.6667,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.2734,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2086,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1176,"m":1,"win":1},{"drop":1,"level":4,"lost":1,"m":4.0500,"win":0},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":2,"lost":0.0588,"m":1,"win":1},{"drop":0,"level":4,"lost":0.1871,"m":1.6000,"win":1},{"drop":0,"level":2,"lost":0.1176,"m":1,"win":1},{"drop":1,"level":2,"lost":0.4559,"m":2.5000,"win":1},{"drop":1,"level":4,"lost":0.4101,"m":3.6000,"win":1},{"drop":0,"level":3,"lost":0.3423,"m":4,"win":1},{"drop":0,"level":2,"lost":0.1618,"m":2,"win":1},{"drop":0,"level":4,"lost":0,"m":0.8000,"win":1},{"drop":1,"level":3,"lost":1,"m":3.7143,"win":0},{"drop":0,"level":3,"lost":0.2432,"m":3.6429,"win":1},{"drop":1,"level":4,"lost":1,"m":3.4000,"win":0},{"drop":0,"level":3,"lost":0.2703,"m":3.7143,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.5252,"m":4,"win":1},{"drop":0,"level":2,"lost":0.1912,"m":1,"win":1},{"drop":0,"level":4,"lost":0.0719,"m":1.7000,"win":1},{"drop":1,"level":4,"lost":0.4460,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.3525,"m":3.6000,"win":1},{"drop":0,"level":3,"lost":0.4054,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2230,"m":3.1000,"win":1},{"drop":0,"level":4,"lost":0,"m":2,"win":1},{"drop":1,"level":3,"lost":0.2072,"m":3.6429,"win":1},{"drop":1,"level":2,"lost":0.3235,"m":2.5000,"win":1},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.4388,"m":4,"win":1},{"drop":0,"level":4,"lost":0.1583,"m":2.8000,"win":1},{"drop":0,"level":3,"lost":0.0450,"m":2,"win":1},{"drop":0,"level":2,"lost":0.2500,"m":2.5000,"win":1},{"drop":0,"level":4,"lost":0.1871,"m":1.8000,"win":1},{"drop":1,"level":3,"lost":0.4955,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1029,"m":4,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.3885,"m":2.2000,"win":1},{"drop":1,"level":4,"lost":0.3094,"m":2.8000,"win":1},{"drop":1,"level":2,"lost":0.3382,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1765,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2518,"m":2.7000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.3741,"m":3.6000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.1583,"m":1,"win":1},{"drop":1,"level":3,"lost":0.4054,"m":3,"win":1},{"drop":1,"level":2,"lost":0.3235,"m":4,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.4317,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.3885,"m":3.6000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.4532,"m":2.8000,"win":1},{"drop":0,"level":3,"lost":0.1532,"m":3,"win":1},{"drop":1,"level":2,"lost":0.4412,"m":4,"win":1},{"drop":1,"level":4,"lost":0.3957,"m":4,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":0,"level":3,"lost":0.1982,"m":2.2500,"win":1},{"drop":0,"level":3,"lost":0.2342,"m":2,"win":1},{"drop":1,"level":4,"lost":0.3813,"m":2.5000,"win":1},{"drop":1,"level":4,"lost":0.3165,"m":3.6000,"win":1},{"drop":0,"level":3,"lost":0,"m":0.8333,"win":1},{"drop":1,"level":3,"lost":0.3874,"m":4,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":1,"level":3,"lost":0.1622,"m":1,"win":1},{"drop":1,"level":3,"lost":0.4775,"m":2,"win":1},{"drop":0,"level":4,"lost":0,"m":1.8000,"win":1},{"drop":1,"level":4,"lost":0.5755,"m":2.8000,"win":1},{"drop":1,"level":2,"lost":0.2794,"m":4,"win":1},{"drop":1,"level":3,"lost":0.3604,"m":3.9286,"win":1},{"drop":0,"level":3,"lost":0.0450,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2374,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0.2793,"m":2,"win":1},{"drop":0,"level":4,"lost":0.0863,"m":2,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":2,"lost":0.3676,"m":4,"win":1},{"drop":0,"level":4,"lost":0.3309,"m":1.6000,"win":1},{"drop":1,"level":3,"lost":0.3964,"m":1.6667,"win":1},{"drop":1,"level":2,"lost":0.2353,"m":3,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":3,"win":1},{"drop":0,"level":4,"lost":0.2014,"m":3,"win":1},{"drop":0,"level":4,"lost":0.2446,"m":2.7000,"win":1},{"drop":1,"level":4,"lost":0.6259,"m":3,"win":1},{"drop":0,"level":2,"lost":0.1029,"m":2,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":4,"win":1},{"drop":1,"level":3,"lost":0.6396,"m":2.8333,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0.2158,"m":1.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":2,"lost":0.1029,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1261,"m":1,"win":1},{"drop":1,"level":3,"lost":0.4775,"m":3,"win":1},{"drop":0,"level":3,"lost":0.0631,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":1,"level":4,"lost":1,"m":3.9000,"win":0},{"drop":1,"level":2,"lost":0.3382,"m":4,"win":1},{"drop":0,"level":2,"lost":0.1471,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":0,"level":3,"lost":0.2072,"m":2,"win":1},{"drop":0,"level":2,"lost":0,"m":4,"win":1},{"drop":1,"level":3,"lost":0.3423,"m":3.6429,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":0.6036,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0,"m":0.9000,"win":1},{"drop":1,"level":3,"lost":0.4595,"m":3.9286,"win":1},{"drop":0,"level":4,"lost":0.0647,"m":2,"win":1},{"drop":1,"level":2,"lost":0.3676,"m":3.3750,"win":1},{"drop":0,"level":3,"lost":0.1081,"m":1.6667,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":3,"lost":0.1532,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":2.6667,"win":1},{"drop":1,"level":2,"lost":0.3824,"m":3,"win":1},{"drop":1,"level":3,"lost":0.2252,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.3022,"m":3.8000,"win":1},{"drop":1,"level":4,"lost":0.1367,"m":2,"win":1},{"drop":1,"level":3,"lost":0.5045,"m":4.2500,"win":1},{"drop":0,"level":2,"lost":0.1618,"m":4,"win":1},{"drop":0,"level":3,"lost":0.2162,"m":1.5000,"win":1},{"drop":0,"level":4,"lost":0.1223,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1892,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":1,"m":4.3125,"win":0},{"drop":0,"level":4,"lost":0.1583,"m":2,"win":1},{"drop":1,"level":3,"lost":0.3153,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.5683,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.2518,"m":2,"win":1},{"drop":1,"level":3,"lost":0.6216,"m":3.6429,"win":1},{"drop":1,"level":4,"lost":0.2950,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.1367,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0.1171,"m":3.6429,"win":1},{"drop":1,"level":4,"lost":0.6115,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":4,"lost":0.2158,"m":3,"win":1},{"drop":1,"level":3,"lost":0.3063,"m":2,"win":1},{"drop":0,"level":3,"lost":0,"m":1.5000,"win":1},{"drop":1,"level":4,"lost":0.2230,"m":2,"win":1},{"drop":0,"level":4,"lost":0.0504,"m":1.8000,"win":1},{"drop":1,"level":2,"lost":0.2500,"m":4,"win":1},{"drop":0,"level":3,"lost":0.2523,"m":2.8333,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":0,"level":2,"lost":0.3235,"m":1,"win":1},{"drop":1,"level":4,"lost":0.1583,"m":4,"win":1},{"drop":1,"level":4,"lost":0.2518,"m":3.6000,"win":1},{"drop":0,"level":3,"lost":0.1171,"m":1,"win":1},{"drop":0,"level":4,"lost":0.2086,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.1223,"m":1,"win":1},{"drop":0,"level":4,"lost":0.1655,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.2162,"m":2,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":2.8333,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":1,"level":4,"lost":0.2302,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.2059,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1511,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2446,"m":1,"win":1},{"drop":1,"level":4,"lost":0.7266,"m":4,"win":1},{"drop":1,"level":3,"lost":0.2793,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":0.5899,"m":3.4000,"win":1},{"drop":1,"level":2,"lost":1,"m":2.5000,"win":0},{"drop":1,"level":2,"lost":0.3235,"m":4.1250,"win":1},{"drop":1,"level":4,"lost":1,"m":3.9000,"win":0},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.3971,"m":3,"win":1},{"drop":1,"level":3,"lost":0.3694,"m":1.6667,"win":1},{"drop":1,"level":2,"lost":0.5000,"m":2,"win":1},{"drop":1,"level":2,"lost":0.3824,"m":4,"win":1},{"drop":1,"level":2,"lost":0.2794,"m":4,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2518,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.1511,"m":3.4000,"win":1},{"drop":1,"level":3,"lost":0.4505,"m":1.6667,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":3.3214,"win":1},{"drop":1,"level":2,"lost":0.1765,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.2500,"m":2,"win":1},{"drop":0,"level":3,"lost":0.3604,"m":3.9286,"win":1},{"drop":0,"level":4,"lost":0.0863,"m":2,"win":1},{"drop":1,"level":3,"lost":0.3333,"m":3.8571,"win":1},{"drop":1,"level":2,"lost":1,"m":2.5000,"win":0},{"drop":1,"level":2,"lost":0.2794,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0270,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1712,"m":1.4167,"win":1},{"drop":0,"level":3,"lost":0.1802,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1892,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0.1007,"m":2,"win":1},{"drop":0,"level":4,"lost":0.1727,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0.0450,"m":1,"win":1},{"drop":1,"level":4,"lost":0.7410,"m":4,"win":1},{"drop":0,"level":4,"lost":0,"m":0.8000,"win":1},{"drop":0,"level":3,"lost":0,"m":1.5000,"win":1},{"drop":1,"level":2,"lost":0.1912,"m":4,"win":1},{"drop":1,"level":4,"lost":0.4892,"m":3.6000,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":1,"m":2.8000,"win":0},{"drop":1,"level":4,"lost":0.3813,"m":2.8000,"win":1},{"drop":0,"level":2,"lost":0.0588,"m":2,"win":1},{"drop":1,"level":2,"lost":0.1029,"m":3,"win":1},{"drop":0,"level":3,"lost":0.1982,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":3.9000,"win":0},{"drop":1,"level":3,"lost":0.3964,"m":2,"win":1},{"drop":1,"level":2,"lost":0.0882,"m":3,"win":1},{"drop":1,"level":4,"lost":0.1583,"m":2,"win":1},{"drop":1,"level":2,"lost":0.3676,"m":2,"win":1},{"drop":1,"level":4,"lost":0.3381,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2590,"m":3.6000,"win":1},{"drop":0,"level":4,"lost":0.0935,"m":2.8000,"win":1},{"drop":1,"level":2,"lost":0.3676,"m":4,"win":1},{"drop":1,"level":2,"lost":0.1324,"m":4,"win":1},{"drop":1,"level":3,"lost":0.3694,"m":4,"win":1},{"drop":1,"level":3,"lost":1,"m":3.5714,"win":0},{"drop":0,"level":4,"lost":0.1295,"m":1.8000,"win":1},{"drop":0,"level":4,"lost":0.3309,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.5971,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.2500,"win":0},{"drop":0,"level":2,"lost":0.1176,"m":2,"win":1},{"drop":1,"level":4,"lost":0.5899,"m":2,"win":1},{"drop":0,"level":4,"lost":0,"m":0.8000,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":2.7000,"win":1},{"drop":1,"level":3,"lost":0.2432,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":1,"level":3,"lost":0.1622,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.0811,"m":1,"win":1},{"drop":1,"level":3,"lost":0.5315,"m":4,"win":1},{"drop":1,"level":2,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":1,"m":2.8000,"win":0},{"drop":0,"level":3,"lost":0.1351,"m":3,"win":1},{"drop":1,"level":2,"lost":0.4412,"m":4,"win":1},{"drop":0,"level":3,"lost":0.1081,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":0.4685,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1081,"m":2.6667,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.5180,"m":4,"win":1},{"drop":1,"level":2,"lost":0.7059,"m":4,"win":1},{"drop":1,"level":4,"lost":0.4029,"m":2.8000,"win":1},{"drop":0,"level":3,"lost":0.2252,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":0.1942,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2662,"m":2.8000,"win":1},{"drop":1,"level":2,"lost":0.2794,"m":4.1250,"win":1},{"drop":1,"level":2,"lost":0.3382,"m":2,"win":1},{"drop":0,"level":2,"lost":0.0588,"m":2,"win":1},{"drop":0,"level":2,"lost":0.0588,"m":4,"win":1},{"drop":0,"level":4,"lost":0.2590,"m":2,"win":1},{"drop":1,"level":2,"lost":1,"m":2,"win":0},{"drop":1,"level":2,"lost":0.1029,"m":4.1250,"win":1},{"drop":0,"level":4,"lost":0.2590,"m":2.2000,"win":1},{"drop":0,"level":3,"lost":0.0541,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":1,"m":3.8750,"win":0},{"drop":0,"level":3,"lost":0.0541,"m":2.6667,"win":1},{"drop":1,"level":2,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.2158,"m":3.6000,"win":1},{"drop":1,"level":3,"lost":1,"m":3.9286,"win":0},{"drop":1,"level":2,"lost":0.4265,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1765,"m":2,"win":1},{"drop":1,"level":2,"lost":1,"m":3,"win":0},{"drop":1,"level":3,"lost":0.2613,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.2806,"m":3.6000,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":2,"lost":0.2794,"m":4.3125,"win":1},{"drop":1,"level":3,"lost":0.5495,"m":4.4062,"win":1},{"drop":1,"level":2,"lost":0.6029,"m":4.3750,"win":1},{"drop":1,"level":3,"lost":0.7477,"m":4,"win":1},{"drop":1,"level":2,"lost":0.5441,"m":1.7500,"win":1},{"drop":1,"level":2,"lost":0.3088,"m":3,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.2353,"m":3,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":3,"win":1},{"drop":1,"level":2,"lost":0.3235,"m":4.3750,"win":1},{"drop":1,"level":3,"lost":0.4865,"m":4,"win":1},{"drop":0,"level":3,"lost":0.2793,"m":2,"win":1},{"drop":0,"level":3,"lost":0.2432,"m":2,"win":1},{"drop":0,"level":4,"lost":0.0432,"m":0.9000,"win":1},{"drop":1,"level":4,"lost":1,"m":3.4000,"win":0},{"drop":1,"level":3,"lost":0.3604,"m":4.2500,"win":1},{"drop":0,"level":4,"lost":0.0935,"m":1.8000,"win":1},{"drop":1,"level":3,"lost":0.5315,"m":3,"win":1},{"drop":1,"level":4,"lost":0.6691,"m":2.8000,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":1,"level":2,"lost":1,"m":4.3125,"win":0},{"drop":1,"level":4,"lost":0.2662,"m":2,"win":1},{"drop":1,"level":3,"lost":0.6937,"m":4.4375,"win":1},{"drop":1,"level":3,"lost":0.4324,"m":1.6667,"win":1},{"drop":0,"level":4,"lost":0.0791,"m":1,"win":1},{"drop":1,"level":3,"lost":0.3514,"m":3.3214,"win":1},{"drop":1,"level":3,"lost":0.3153,"m":3.3214,"win":1},{"drop":1,"level":2,"lost":0.1471,"m":4.1250,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.2950,"m":2.8000,"win":1},{"drop":1,"level":3,"lost":0.1802,"m":0.8333,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2806,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4375,"win":0},{"drop":1,"level":3,"lost":0.6396,"m":4,"win":1},{"drop":1,"level":2,"lost":0.2059,"m":4.2500,"win":1},{"drop":0,"level":3,"lost":0.1712,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4375,"win":0},{"drop":0,"level":4,"lost":0.1799,"m":1,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":0.2342,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1081,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2374,"m":3.6000,"win":1},{"drop":0,"level":4,"lost":0.0576,"m":2.8000,"win":1},{"drop":1,"level":3,"lost":0.3874,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1439,"m":2,"win":1},{"drop":1,"level":3,"lost":0.2342,"m":4,"win":1},{"drop":1,"level":3,"lost":0.5315,"m":3,"win":1},{"drop":0,"level":3,"lost":0.1802,"m":2.5833,"win":1},{"drop":1,"level":3,"lost":0.4595,"m":3.5714,"win":1},{"drop":0,"level":4,"lost":0.1583,"m":2.9500,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1912,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1029,"m":4,"win":1},{"drop":1,"level":4,"lost":0.2158,"m":3.8000,"win":1},{"drop":1,"level":3,"lost":0.3423,"m":4,"win":1},{"drop":1,"level":2,"lost":0.5882,"m":3,"win":1},{"drop":1,"level":4,"lost":0.6259,"m":3.4000,"win":1},{"drop":0,"level":3,"lost":0.1712,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1712,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":0.1622,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0.0576,"m":0.9000,"win":1},{"drop":1,"level":2,"lost":0.4559,"m":2,"win":1},{"drop":0,"level":2,"lost":0,"m":1,"win":1},{"drop":0,"level":3,"lost":0.0811,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1223,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.3063,"m":3,"win":1},{"drop":1,"level":3,"lost":0.3874,"m":2.8333,"win":1},{"drop":1,"level":2,"lost":0.6912,"m":4.2500,"win":1},{"drop":1,"level":4,"lost":0.6115,"m":3,"win":1},{"drop":1,"level":4,"lost":0.1799,"m":1,"win":1},{"drop":1,"level":3,"lost":0.4955,"m":4,"win":1},{"drop":0,"level":4,"lost":0.2014,"m":2.6000,"win":1},{"drop":0,"level":3,"lost":0.1802,"m":2,"win":1},{"drop":1,"level":2,"lost":0.1765,"m":4,"win":1},{"drop":1,"level":3,"lost":1,"m":4.3438,"win":0},{"drop":1,"level":4,"lost":0.4604,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":3,"lost":0.1622,"m":3,"win":1},{"drop":0,"level":3,"lost":0.1261,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":0.8333,"win":1},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":0,"level":4,"lost":0.1079,"m":1.7000,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.2302,"m":3.6000,"win":1},{"drop":1,"level":2,"lost":0.1912,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":1,"level":3,"lost":0.4054,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0541,"m":1.5000,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":0.4505,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":1,"level":4,"lost":0.4964,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":2,"win":1},{"drop":1,"level":4,"lost":0.3022,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2302,"m":3,"win":1},{"drop":0,"level":4,"lost":0.2446,"m":2.8000,"win":1},{"drop":0,"level":3,"lost":0.2072,"m":2,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":1.6667,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":0.1982,"m":1.6667,"win":1},{"drop":1,"level":3,"lost":0.3333,"m":2,"win":1},{"drop":0,"level":3,"lost":0.3604,"m":2,"win":1},{"drop":1,"level":4,"lost":0.4388,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1029,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1912,"m":4,"win":1},{"drop":1,"level":3,"lost":0.5045,"m":4.2500,"win":1},{"drop":0,"level":4,"lost":0.1871,"m":2,"win":1},{"drop":1,"level":4,"lost":0.3237,"m":2.8000,"win":1},{"drop":0,"level":2,"lost":0.1029,"m":1,"win":1},{"drop":1,"level":4,"lost":0.4173,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2446,"m":3.6000,"win":1},{"drop":0,"level":4,"lost":0.2230,"m":1.8000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4375,"win":0},{"drop":0,"level":3,"lost":0.1441,"m":3,"win":1},{"drop":1,"level":3,"lost":0.3243,"m":2.2500,"win":1},{"drop":0,"level":2,"lost":0.1029,"m":1,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":3,"lost":0.6216,"m":4.2500,"win":1},{"drop":1,"level":3,"lost":0.3514,"m":3,"win":1},{"drop":0,"level":3,"lost":0.1892,"m":3,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":2,"win":1},{"drop":1,"level":2,"lost":0.3235,"m":4,"win":1},{"drop":0,"level":4,"lost":0.2230,"m":2.7000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":4,"lost":0.2086,"m":2.6000,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.1471,"m":2,"win":1},{"drop":0,"level":3,"lost":0.2432,"m":3,"win":1},{"drop":0,"level":4,"lost":0.2158,"m":1.8000,"win":1},{"drop":0,"level":4,"lost":0.3381,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2950,"m":4.3500,"win":1},{"drop":1,"level":3,"lost":0.7477,"m":4,"win":1},{"drop":0,"level":3,"lost":0.2523,"m":1.6667,"win":1},{"drop":0,"level":2,"lost":0.2647,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2302,"m":1.9000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":2,"lost":0.1618,"m":4,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":0.3604,"m":2,"win":1},{"drop":1,"level":2,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":2,"lost":0.5294,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.4853,"m":2.5000,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":0.1471,"m":4,"win":1},{"drop":1,"level":4,"lost":0.3813,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.2950,"m":2.7000,"win":1},{"drop":0,"level":3,"lost":0,"m":1,"win":1},{"drop":0,"level":3,"lost":0.3333,"m":3,"win":1},{"drop":1,"level":4,"lost":0.5036,"m":1.6000,"win":1},{"drop":1,"level":4,"lost":0.3309,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4250,"win":0},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.1802,"m":1.5000,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":4,"win":1},{"drop":1,"level":2,"lost":0.0882,"m":1,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1982,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":0.4101,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":3.9000,"win":0},{"drop":1,"level":3,"lost":0.4414,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1324,"m":2.2500,"win":1},{"drop":0,"level":3,"lost":0.3694,"m":1.6667,"win":1},{"drop":0,"level":3,"lost":0.3784,"m":3,"win":1},{"drop":1,"level":4,"lost":0.3237,"m":4.3500,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":1,"m":3.7500,"win":0},{"drop":1,"level":3,"lost":0.7027,"m":4.4062,"win":1},{"drop":1,"level":2,"lost":0.1912,"m":1,"win":1},{"drop":1,"level":3,"lost":0.3423,"m":4.2500,"win":1},{"drop":1,"level":2,"lost":0.2647,"m":2,"win":1},{"drop":0,"level":3,"lost":0.2793,"m":2,"win":1},{"drop":1,"level":3,"lost":0.2973,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":0.2613,"m":3,"win":1},{"drop":1,"level":2,"lost":0.0735,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2446,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.1439,"m":2,"win":1},{"drop":0,"level":2,"lost":0.1176,"m":1,"win":1},{"drop":1,"level":4,"lost":1,"m":2.8000,"win":0},{"drop":0,"level":4,"lost":0.1439,"m":1.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.1622,"m":0.8333,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":1,"level":4,"lost":0.3525,"m":2.6000,"win":1},{"drop":1,"level":2,"lost":1,"m":4.3750,"win":0},{"drop":0,"level":3,"lost":0.1261,"m":2,"win":1},{"drop":1,"level":4,"lost":0.4460,"m":3,"win":1},{"drop":0,"level":2,"lost":0.1618,"m":1,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":1,"win":1},{"drop":1,"level":4,"lost":0.5396,"m":3.9000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.3125,"win":0},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":1,"level":4,"lost":0.3741,"m":2.8000,"win":1},{"drop":0,"level":3,"lost":0.2342,"m":2,"win":1},{"drop":0,"level":4,"lost":0.1295,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2806,"m":2,"win":1},{"drop":1,"level":3,"lost":0.3333,"m":3,"win":1},{"drop":0,"level":4,"lost":0.1511,"m":2.7000,"win":1},{"drop":0,"level":4,"lost":0.2230,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.0450,"m":1,"win":1},{"drop":1,"level":3,"lost":0.2162,"m":1.4167,"win":1},{"drop":1,"level":4,"lost":0.4892,"m":4,"win":1},{"drop":0,"level":3,"lost":0,"m":1.8333,"win":1},{"drop":0,"level":4,"lost":0.1871,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":0,"level":3,"lost":0.0901,"m":2,"win":1},{"drop":1,"level":3,"lost":1,"m":3.3214,"win":0},{"drop":0,"level":3,"lost":0.2973,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4375,"win":0},{"drop":0,"level":4,"lost":0.2086,"m":2,"win":1},{"drop":0,"level":4,"lost":0.3381,"m":2.9000,"win":1},{"drop":0,"level":3,"lost":0.1171,"m":1.6667,"win":1},{"drop":0,"level":4,"lost":0.3094,"m":2,"win":1},{"drop":1,"level":2,"lost":0.2206,"m":2,"win":1},{"drop":1,"level":4,"lost":0.5108,"m":4.1875,"win":1},{"drop":1,"level":2,"lost":0.4265,"m":4.3750,"win":1},{"drop":1,"level":3,"lost":0.4324,"m":3,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":3.8571,"win":1},{"drop":0,"level":3,"lost":0.0631,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1441,"m":2,"win":1},{"drop":1,"level":3,"lost":0.5315,"m":3.8214,"win":1},{"drop":0,"level":3,"lost":0.3063,"m":1.6667,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":2,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.3597,"m":4,"win":1},{"drop":0,"level":2,"lost":0.1176,"m":2.2500,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":0.8333,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":0,"level":2,"lost":0.2206,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1982,"m":4.2188,"win":1},{"drop":0,"level":3,"lost":0.2252,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1622,"m":2,"win":1},{"drop":1,"level":3,"lost":0.2432,"m":3.6429,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":1.4167,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":1,"win":1},{"drop":0,"level":4,"lost":0.0719,"m":1.8000,"win":1},{"drop":0,"level":4,"lost":0.1007,"m":2,"win":1},{"drop":0,"level":2,"lost":0.3382,"m":4,"win":1},{"drop":1,"level":4,"lost":0.1511,"m":1,"win":1},{"drop":0,"level":2,"lost":0.0147,"m":2,"win":1},{"drop":0,"level":4,"lost":0.1799,"m":2.7000,"win":1},{"drop":1,"level":4,"lost":0.4101,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.3957,"m":3.9000,"win":1},{"drop":0,"level":3,"lost":0.0901,"m":0.8333,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":2,"lost":1,"m":4.1875,"win":0},{"drop":0,"level":2,"lost":0.1765,"m":2.5000,"win":1},{"drop":0,"level":3,"lost":0.1441,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0.3022,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.0811,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":0.3964,"m":3.9286,"win":1},{"drop":1,"level":4,"lost":0.3094,"m":2.8000,"win":1},{"drop":0,"level":2,"lost":0.3382,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1802,"m":1,"win":1},{"drop":1,"level":2,"lost":0.2500,"m":3.7500,"win":1},{"drop":0,"level":4,"lost":0,"m":1.7000,"win":1},{"drop":1,"level":4,"lost":0.2302,"m":3.6000,"win":1},{"drop":1,"level":3,"lost":0.7477,"m":4.4062,"win":1},{"drop":0,"level":3,"lost":0.2072,"m":1.6667,"win":1},{"drop":1,"level":4,"lost":0.3741,"m":4,"win":1},{"drop":1,"level":4,"lost":0.2230,"m":2.8000,"win":1},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":4,"lost":0.3957,"m":3,"win":1},{"drop":1,"level":3,"lost":0.7568,"m":4,"win":1},{"drop":1,"level":3,"lost":0.2162,"m":3,"win":1},{"drop":1,"level":3,"lost":0.2162,"m":3.6429,"win":1},{"drop":1,"level":3,"lost":0.1892,"m":3.6429,"win":1},{"drop":0,"level":3,"lost":0.1622,"m":3,"win":1},{"drop":0,"level":3,"lost":0.0811,"m":2,"win":1},{"drop":0,"level":4,"lost":0,"m":2.7000,"win":1},{"drop":0,"level":4,"lost":0.0360,"m":1.8000,"win":1},{"drop":1,"level":2,"lost":0.2500,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":1,"win":1},{"drop":1,"level":3,"lost":0.5405,"m":3.8571,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":2,"win":1},{"drop":1,"level":4,"lost":1,"m":4.4250,"win":0},{"drop":0,"level":3,"lost":0.4144,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0360,"m":2,"win":1},{"drop":1,"level":4,"lost":0.2230,"m":3.6000,"win":1},{"drop":1,"level":4,"lost":1,"m":2,"win":0},{"drop":0,"level":3,"lost":0.1261,"m":2.6667,"win":1},{"drop":0,"level":4,"lost":0.1655,"m":2.7000,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":1,"level":4,"lost":1,"m":4.4000,"win":0},{"drop":0,"level":4,"lost":0.2158,"m":3,"win":1},{"drop":0,"level":3,"lost":0.2162,"m":3.8571,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":2,"win":1},{"drop":1,"level":4,"lost":0.1727,"m":3,"win":1},{"drop":1,"level":2,"lost":0.1471,"m":3.8750,"win":1},{"drop":0,"level":4,"lost":0.0647,"m":4,"win":1},{"drop":0,"level":2,"lost":0.0882,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2518,"m":2.7000,"win":1},{"drop":1,"level":2,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":0.2973,"m":2.6667,"win":1},{"drop":1,"level":2,"lost":0.0882,"m":4,"win":1},{"drop":1,"level":4,"lost":0.4820,"m":4.3500,"win":1},{"drop":1,"level":3,"lost":0.4234,"m":4,"win":1},{"drop":0,"level":3,"lost":0.0991,"m":2,"win":1},{"drop":0,"level":3,"lost":0.1351,"m":1.6667,"win":1},{"drop":0,"level":3,"lost":0,"m":1.5000,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0,"m":1,"win":1},{"drop":1,"level":3,"lost":0.4414,"m":4.4062,"win":1},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":1,"level":3,"lost":1,"m":4,"win":0},{"drop":1,"level":3,"lost":0.4054,"m":3,"win":1},{"drop":0,"level":4,"lost":0,"m":2,"win":1},{"drop":1,"level":4,"lost":0.4388,"m":4,"win":1},{"drop":1,"level":4,"lost":0.4388,"m":2,"win":1},{"drop":0,"level":4,"lost":0.2158,"m":1.8000,"win":1},{"drop":1,"level":3,"lost":0.2793,"m":3,"win":1},{"drop":1,"level":3,"lost":0.1622,"m":4,"win":1},{"drop":0,"level":4,"lost":0.3381,"m":1,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":1,"level":3,"lost":1,"m":3.8929,"win":0},{"drop":1,"level":4,"lost":1,"m":4.4500,"win":0},{"drop":1,"level":4,"lost":1,"m":4.3500,"win":0},{"drop":0,"level":3,"lost":0.1171,"m":2,"win":1},{"drop":1,"level":2,"lost":0.3971,"m":2,"win":1},{"drop":1,"level":3,"lost":0.5676,"m":3,"win":1},{"drop":1,"level":4,"lost":0.2878,"m":2.8000,"win":1},{"drop":0,"level":4,"lost":0.0504,"m":1,"win":1},{"drop":1,"level":4,"lost":0.5036,"m":4,"win":1},{"drop":1,"level":3,"lost":0.2523,"m":1.6667,"win":1},{"drop":1,"level":3,"lost":0.4685,"m":3.6429,"win":1},{"drop":1,"level":4,"lost":0.5971,"m":4.3500,"win":1},{"drop":1,"level":2,"lost":0.1618,"m":2,"win":1},{"drop":0,"level":3,"lost":0.0450,"m":3,"win":1},{"drop":1,"level":3,"lost":1,"m":4.4062,"win":0},{"drop":1,"level":4,"lost":0.1655,"m":2,"win":1},{"drop":1,"level":3,"lost":0.5315,"m":4,"win":1},{"drop":0,"level":4,"lost":0.1223,"m":0.8000,"win":1},{"drop":0,"level":4,"lost":0.0791,"m":0.8000,"win":1},{"drop":0,"level":2,"lost":0.1324,"m":2.2500,"win":1},{"drop":1,"level":4,"lost":0.3094,"m":2.8000,"win":1},{"drop":1,"level":4,"lost":0.2014,"m":2,"win":1},{"drop":1,"level":3,"lost":0.1982,"m":3,"win":1},{"drop":1,"level":4,"lost":1,"m":4,"win":0},{"drop":0,"level":4,"lost":0.3381,"m":1,"win":1},{"drop":0,"level":4,"lost":0.0863,"m":1.8000,"win":1},{"drop":0,"level":3,"lost":0.1532,"m":2.6667,"win":1},{"drop":1,"level":3,"lost":0.3243,"m":3.6429,"win":1},{"drop":0,"level":2,"lost":0.3088,"m":4,"win":1},{"drop":1,"level":3,"lost":1,"m":4.2500,"win":0},{"drop":0,"level":2,"lost":0,"m":4.2500,"win":1},{"drop":1,"level":2,"lost":0.7353,"m":4.3750,"win":1},{"drop":0,"level":2,"lost":0.1765,"m":2,"win":1},{"drop":1,"level":2,"lost":0.2647,"m":3.2500,"win":1},{"drop":1,"level":3,"lost":0.7568,"m":4,"win":1},{"drop":1,"level":3,"lost":0.5405,"m":3.8929,"win":1},{"drop":1,"level":4,"lost":0.3022,"m":2.8000,"win":1}],"subclasses":[{"class":"cleric","dpr":2.3198,"drop":0.7602,"healed":15.9017,"id":"hearth","lost":0.5135,"n":2127,"name":"Hearth Domain","own_downs":0.6446,"source":"Original","win":0.7231},{"class":"cleric","dpr":2.0310,"drop":0.7872,"healed":31.0144,"id":"life","lost":0.5144,"n":2082,"name":"Life Domain","own_downs":0.6378,"source":"SRD 5.2.1 p. 40","win":0.7233},{"class":"cleric","dpr":2.4225,"drop":0.7217,"healed":14.9809,"id":"mischief","lost":0.5214,"n":2041,"name":"Mischief Domain","own_downs":0.6139,"source":"Original (classic-inspired)","win":0.6972},{"class":"fighter","dpr":9.2620,"drop":0.7713,"healed":7.9154,"id":"banner_captain","lost":0.5257,"n":2068,"name":"Banner Captain","own_downs":1.4705,"source":"Original","win":0.7118},{"class":"fighter","dpr":9.5921,"drop":0.7814,"healed":16.1024,"id":"champion","lost":0.5327,"n":2109,"name":"Champion","own_downs":1.4846,"source":"SRD 5.2.1 p. 49","win":0.6951},{"class":"fighter","dpr":9.6556,"drop":0.7168,"healed":15.0439,"id":"spellguard","lost":0.4904,"n":2073,"name":"Spellguard","own_downs":1.2479,"source":"Original (classic-inspired)","win":0.7376},{"class":"rogue","dpr":13.3967,"drop":0.7190,"healed":4.4038,"id":"ambusher","lost":0.5025,"n":2110,"name":"Ambusher","own_downs":1.2687,"source":"Original (classic-inspired)","win":0.7332},{"class":"rogue","dpr":11.1750,"drop":0.7960,"healed":5.0029,"id":"silvertongue","lost":0.5287,"n":2059,"name":"Silvertongue","own_downs":1.7232,"source":"Original","win":0.6965},{"class":"rogue","dpr":12.1537,"drop":0.7559,"healed":4.7040,"id":"thief","lost":0.5183,"n":2081,"name":"Thief","own_downs":1.3369,"source":"SRD 5.2.1 p. 64","win":0.7141},{"class":"wizard","dpr":11.4550,"drop":0.7577,"healed":0,"id":"evoker","lost":0.5206,"n":2080,"name":"Evoker","own_downs":0.3495,"source":"SRD 5.2.1 p. 82","win":0.7072},{"class":"wizard","dpr":10.6013,"drop":0.7484,"healed":0,"id":"mirror_mage","lost":0.5134,"n":2023,"name":"Mirror Mage","own_downs":0.3366,"source":"Original (classic-inspired)","win":0.7232},{"class":"wizard","dpr":10.4170,"drop":0.7634,"healed":0,"id":"wayfinder","lost":0.5151,"n":2147,"name":"Wayfinder","own_downs":0.3540,"source":"Original","win":0.7140}]};
+
+(function () {
+  if (!DATA) { document.getElementById("verdict").textContent = "No data yet: run lua tools/sim/battles.lua"; return; }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const pct = v => (v == null ? "-" : Math.round(v * 100) + "%");
+  function el(tag, attrs, parent, text) {
+    const e = document.createElement(tag);
+    for (const k in (attrs || {})) { if (k === "class") e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const NS = "http://www.w3.org/2000/svg";
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  // Verdict and run info.
+  const m = DATA.meta;
+  const v = document.getElementById("verdict");
+  el("strong", { class: "num" }, v, `${m.gates_passed} of ${m.gates_total} gate checks pass`);
+  el("span", { class: "muted" }, v, m.gates_passed === m.gates_total ? "The rules core is ready for game night at the table." : "See the failing checks below.");
+  const ri = document.getElementById("runinfo");
+  [`${m.battles.toLocaleString()} simulated fights`, `meter checked by ${m.folds}-fold cross-validation`,
+   `${m.rules_ok} of ${m.rules_total} rules cases`, `seed ${m.seed}`].forEach(t => el("span", {}, ri, t));
+
+  // Gate checks.
+  const ul = document.getElementById("checks");
+  const GROUP = { rules: "Rules", meter: "Difficulty meter", balance: "Balance" };
+  DATA.checks.forEach(c => {
+    const li = el("li", {}, ul);
+    el("span", { class: "chip " + (c.ok ? "pass" : "fail") }, li, c.ok ? "Pass" : "Fail");
+    el("span", { class: "check-name" }, li, `${GROUP[c.group] || c.group}: ${c.name}`);
+    el("span", { class: "check-detail" }, li, c.detail);
+  });
+
+  // Rules cases.
+  (function () {
+    const t = document.getElementById("cases");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Case", "Rule", "Checks", ""].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    (DATA.rules || []).forEach(c => {
+      const tr = el("tr", {}, tb);
+      const td = el("td", { class: "text" }, tr);
+      el("b", {}, td, c.title);
+      el("div", { class: "page" }, td, c.page);
+      const rule = el("td", { class: "text" }, tr, c.rule);
+      const d = el("details", {}, rule);
+      el("summary", {}, d, "Checks");
+      const list = el("ul", {}, d);
+      c.checks.forEach(k => el("li", {}, list, `${k.label}: expected ${k.expected}, got ${k.actual}`));
+      el("td", { class: "num" }, tr, String(c.checks.length));
+      const s = el("td", {}, tr);
+      el("span", { class: "chip " + (c.ok ? "pass" : "fail") }, s, c.ok ? "Pass" : "Fail");
+    });
+  })();
+
+  // Charts ------------------------------------------------------------------------------
+  function figure(parent, title, text, wide) {
+    const f = el("figure", { class: "figure" + (wide ? " wide" : "") }, parent);
+    const cap = el("figcaption", {}, f);
+    el("h3", {}, cap, title);
+    if (text) el("p", {}, cap, text);
+    return f;
+  }
+  function legend(fig, items) {
+    const l = el("div", { class: "legend" }, fig);
+    items.forEach(it => { const s = el("span", {}, l); const i = el("i", {}, s); i.style.background = it.color; s.appendChild(document.createTextNode(it.label)); });
+  }
+  function tip(plot) {
+    const t = el("div", { class: "tip" }, plot); t.hidden = true; return t;
+  }
+
+  // Categories by level: dot-and-line, one line per level.
+  function categoryChart(parent, key, title, text) {
+    const fig = figure(parent, title, text);
+    const LV = [2, 3, 4], COLORS = [css("--s1"), css("--s2"), css("--s3")];
+    legend(fig, LV.map((l, i) => ({ label: `Level ${l}`, color: COLORS[i] })));
+    const plot = el("div", { class: "plot" }, fig);
+    const W = 460, H = 240, L = 40, R = 16, T = 12, B = 34;
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title }, plot);
+    const cats = ["Trivial", "Low", "Moderate", "High", "Beyond High"];
+    const x = i => L + (W - L - R) * (i + 0.5) / cats.length;
+    const y = v => T + (H - T - B) * (1 - v);
+    [0, 0.25, 0.5, 0.75, 1].forEach(g => {
+      sv("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: css("--grid") }, svg);
+      sv("text", { x: L - 6, y: y(g) + 4, "text-anchor": "end" }, svg, Math.round(g * 100) + "%");
+    });
+    cats.forEach((c, i) => sv("text", { x: x(i), y: H - 12, "text-anchor": "middle" }, svg, c));
+    const tp = tip(plot);
+    LV.forEach((lvl, li) => {
+      const pts = cats.map((c, i) => { const r = DATA.categories.find(d => d.level === lvl && d.label === c); return r && r.n >= 15 ? [i, r] : null; }).filter(Boolean);
+      sv("polyline", { points: pts.map(p => `${x(p[0])},${y(p[1][key])}`).join(" "), fill: "none", stroke: COLORS[li], "stroke-width": 2 }, svg);
+      pts.forEach(p => {
+        const dot = sv("circle", { cx: x(p[0]), cy: y(p[1][key]), r: 4.5, fill: COLORS[li], stroke: css("--surface"), "stroke-width": 1.5 }, svg);
+        dot.addEventListener("mouseenter", () => {
+          tp.hidden = false; tp.innerHTML = `<b>Level ${lvl} · ${p[1].label}</b>${pct(p[1][key])} of ${p[1].n} fights<br>party wins ${pct(p[1].win)} · a death ${pct(p[1].death)}`;
+          tp.style.left = (x(p[0]) / W * plot.clientWidth + 10) + "px"; tp.style.top = (y(p[1][key]) / H * plot.clientHeight - 10) + "px";
+        });
+        dot.addEventListener("mouseleave", () => tp.hidden = true);
+      });
+    });
+    const tw = el("details", {}, fig); el("summary", {}, tw, "Show the numbers");
+    const t = el("table", {}, el("div", { class: "tablewrap" }, tw));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Level", "Category", "Fights", "Party wins", "Someone drops", "A death", "HP lost", "Rounds"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    DATA.categories.forEach(r => {
+      const tr = el("tr", {}, tb);
+      [r.level, r.label, r.n, pct(r.win), pct(r.drop), pct(r.death), pct(r.lost), r.rounds.toFixed(1)].forEach(vv => el("td", {}, tr, String(vv)));
+    });
+  }
+
+  // Calibration: predicted vs observed, tenths of out-of-fold forecasts.
+  function calibration(parent) {
+    const fig = figure(parent, "Forecasts vs what happened", "Every fight, forecast by a meter that never saw it, grouped into tenths by forecast. Points on the diagonal mean the meter is right.");
+    const S = [{ key: "drop", label: "Someone drops", color: css("--s1") }, { key: "loss", label: "Party falls", color: css("--s2") }, { key: "death", label: "Someone dies", color: css("--s4") }];
+    legend(fig, S);
+    const plot = el("div", { class: "plot" }, fig);
+    const W = 460, H = 260, L = 40, R = 16, T = 12, B = 34;
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "calibration" }, plot);
+    const x = v => L + (W - L - R) * v, y = v => T + (H - T - B) * (1 - v);
+    [0, 0.25, 0.5, 0.75, 1].forEach(g => {
+      sv("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: css("--grid") }, svg);
+      sv("text", { x: L - 6, y: y(g) + 4, "text-anchor": "end" }, svg, Math.round(g * 100) + "%");
+      sv("text", { x: x(g), y: H - 12, "text-anchor": "middle" }, svg, Math.round(g * 100) + "%");
+    });
+    sv("line", { x1: x(0), y1: y(0), x2: x(1), y2: y(1), stroke: css("--muted"), "stroke-dasharray": "4 4" }, svg);
+    sv("text", { x: x(0.98), y: y(0.06), "text-anchor": "end", class: "annot" }, svg, "dashed line: a perfect forecast");
+    const tp = tip(plot);
+    S.forEach(s => {
+      DATA.meter[s.key].bins.forEach(b => {
+        const d = sv("circle", { cx: x(b.predicted), cy: y(b.observed), r: 4.5, fill: s.color, stroke: css("--surface"), "stroke-width": 1.5 }, svg);
+        d.addEventListener("mouseenter", () => {
+          tp.hidden = false; tp.innerHTML = `<b>${s.label}</b>forecast ${pct(b.predicted)}, happened ${pct(b.observed)}<br>${b.n} fights`;
+          tp.style.left = (x(b.predicted) / W * plot.clientWidth + 10) + "px"; tp.style.top = (y(b.observed) / H * plot.clientHeight - 10) + "px";
+        });
+        d.addEventListener("mouseleave", () => tp.hidden = true);
+      });
+    });
+    const t = el("table", {}, el("div", { class: "tablewrap" }, fig));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Outcome", "Meter", "SRD category alone", "No information"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    S.forEach(s => {
+      const e = DATA.meter[s.key]; const tr = el("tr", {}, tb);
+      [s.label, e.brier_meter.toFixed(3), e.brier_category.toFixed(3), e.brier_base.toFixed(3)].forEach(vv => el("td", {}, tr, vv));
+    });
+    el("p", { class: "note" }, fig, "Brier score: average squared error of the forecast. Lower is better.");
+  }
+
+  const mc = document.getElementById("meter-charts");
+  categoryChart(mc, "drop", "How often someone drops", "Share of fights where at least one character hits 0 Hit Points.");
+  categoryChart(mc, "win", "How often the party wins", "The rest are fights where everyone ends up down.");
+  calibration(mc);
+  (function () {
+    const fig = figure(mc, "The meter's formula", `Logistic regression on ${DATA.features.length - 1} features plus a constant, fitted on all ${m.battles.toLocaleString()} fights; positive weights push the forecast up.`, true);
+    const t = el("table", {}, el("div", { class: "tablewrap" }, fig));
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Feature", "Someone drops", "Party falls", "Someone dies"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    DATA.features.forEach((f, i) => {
+      const tr = el("tr", {}, tb);
+      [f, DATA.fits.drop[i].toFixed(2), DATA.fits.tpk[i].toFixed(2), DATA.fits.death[i].toFixed(2)].forEach(vv => el("td", {}, tr, vv));
+    });
+  })();
+
+  // Monster probes heat table.
+  (function () {
+    const t = document.getElementById("probes");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Monster", "Level 2", "Level 3", "Level 4"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    const lo = css("--heat-lo"), hi = css("--heat-hi");
+    const mix = (a, b, f) => { const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16)); return "rgb(" + pa.map((c, i) => Math.round(c + (pb[i] - c) * f)).join(",") + ")"; };
+    const names = [...new Set(DATA.probes.map(p => p.id))];
+    names.forEach(id => {
+      const tr = el("tr", {}, tb);
+      const first = DATA.probes.find(p => p.id === id);
+      const th = el("th", { class: "player" }, tr, first.name);
+      [2, 3, 4].forEach(l => {
+        const p = DATA.probes.find(q => q.id === id && q.level === l);
+        const td = el("td", { class: "cell" }, tr);
+        if (!p) { td.textContent = "-"; return; }
+        td.style.background = mix(lo, hi, p.drop);
+        td.style.color = p.drop > 0.55 ? css("--heat-ink-hi") : css("--heat-ink-lo");
+        td.textContent = pct(p.drop);
+        td.title = `${p.count} x ${p.name} vs level ${l}: someone drops ${pct(p.drop)}, party wins ${pct(p.win)}`;
+      });
+    });
+  })();
+
+  // Subclass table.
+  (function () {
+    const t = document.getElementById("subs");
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["Subclass", "Party wins", "vs SRD", "Someone drops", "vs SRD", "Damage / round", "Healing / fight", "Own drops / fight", "Fights"].forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    const CL = { fighter: "Fighter", rogue: "Rogue", cleric: "Cleric", wizard: "Wizard" };
+    ["fighter", "rogue", "cleric", "wizard"].forEach(cls => {
+      const rows = DATA.subclasses.filter(r => r.class === cls);
+      const srd = rows.find(r => r.source.startsWith("SRD"));
+      const head = el("tr", {}, tb); const th = el("th", { colspan: 9, style: "text-align:left;padding-top:14px" }, head, CL[cls]);
+      rows.sort((a, b) => (a.source.startsWith("SRD") ? -1 : 0) - (b.source.startsWith("SRD") ? -1 : 0)).forEach(r => {
+        const tr = el("tr", { class: r === srd ? "srd" : "" }, tb);
+        const td = el("td", {}, tr); el("b", {}, td, r.name);
+        const bar = (vv) => { const c = el("td", {}, tr); const w = el("div", { class: "barcell" }, c); const tr2 = el("span", { class: "track" }, w); const i = el("i", {}, tr2); i.style.width = Math.round(vv * 100) + "%"; el("span", { class: "num" }, w, pct(vv)); };
+        const delta = (vv, base, goodUp) => { const c = el("td", { class: "num" }, tr); if (r === srd) { c.textContent = "-"; return; } const d = Math.round((vv - base) * 100); c.textContent = (d > 0 ? "+" : "") + d; c.className = "num delta " + (d === 0 ? "" : ((d > 0) === goodUp ? "up" : "down")); };
+        bar(r.win); delta(r.win, srd.win, true); bar(r.drop); delta(r.drop, srd.drop, false);
+        el("td", { class: "num" }, tr, r.dpr.toFixed(1)); el("td", { class: "num" }, tr, r.healed.toFixed(1));
+        el("td", { class: "num" }, tr, r.own_downs.toFixed(2)); el("td", { class: "num" }, tr, String(r.n));
+      });
+    });
+  })();
+})();
+</script>
+</body>
+</html>

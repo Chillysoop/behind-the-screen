@@ -1,0 +1,40 @@
+script: "/game/game.gui_script"
+fonts {
+  name: "ui14"
+  font: "/assets/fonts/ui14.font"
+}
+fonts {
+  name: "ui18"
+  font: "/assets/fonts/ui18.font"
+}
+fonts {
+  name: "ui18b"
+  font: "/assets/fonts/ui18b.font"
+}
+fonts {
+  name: "ui22b"
+  font: "/assets/fonts/ui22b.font"
+}
+fonts {
+  name: "title30"
+  font: "/assets/fonts/title30.font"
+}
+fonts {
+  name: "hand24"
+  font: "/assets/fonts/hand24.font"
+}
+fonts {
+  name: "story22"
+  font: "/assets/fonts/story22.font"
+}
+textures {
+  name: "ui"
+  texture: "/assets/ui/ui.atlas"
+}
+textures {
+  name: "portraits"
+  texture: "/assets/portraits/portraits.atlas"
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 2048

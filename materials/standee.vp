@@ -1,0 +1,21 @@
+#version 140
+
+// Sprites are batched in world space, so positions arrive already transformed.
+
+in highp vec4 position;
+in mediump vec2 texcoord0;
+
+out highp vec3 var_world_pos;
+out mediump vec2 var_texcoord0;
+
+uniform vs_uniforms
+{
+    highp mat4 view_proj;
+};
+
+void main()
+{
+    var_world_pos = position.xyz;
+    var_texcoord0 = texcoord0;
+    gl_Position = view_proj * vec4(position.xyz, 1.0);
+}

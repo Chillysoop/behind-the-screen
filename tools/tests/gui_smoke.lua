@@ -1,0 +1,901 @@
+-- Drives the real game.gui_script against a mocked Defold GUI API, clicking
+-- random buttons through several full weeks. Catches Lua errors, use of
+-- deleted nodes, unknown fonts/textures, node-count overflow and stuck flows.
+-- Run from the project root:  texlua tools/tests/gui_smoke.lua [seed] [weeks]
+
+package.path = "./?.lua;" .. package.path
+unpack = unpack or table.unpack
+
+local SEED = tonumber(arg and arg[1]) or 1
+local WEEKS = tonumber(arg and arg[2]) or 5
+local H = 900
+
+-- Fonts and textures declared in game.gui
+local gui_file = io.open("game/game.gui"):read("*a")
+local FONTS, TEXTURES, MAX_NODES = {}, {}, tonumber(string.match(gui_file, "max_nodes: (%d+)")) or 512
+for name in string.gmatch(gui_file, 'fonts {%s*name: "([^"]+)"') do FONTS[name] = true end
+for name in string.gmatch(gui_file, 'textures {%s*name: "([^"]+)"') do TEXTURES[name] = true end
+local ATLAS = {}
+for img in string.gmatch(io.open("assets/ui/ui.atlas"):read("*a"), '/assets/ui/([%w_]+)%.png') do ATLAS[img] = true end
+for img in string.gmatch(io.open("assets/portraits/portraits.atlas"):read("*a"), '/assets/portraits/([%w_]+)%.png') do ATLAS[img] = true end
+
+local problems = {}
+local function problem(msg)
+    if #problems < 30 then table.insert(problems, msg .. "\n" .. debug.traceback("", 2)) end
+end
+
+-- vmath ---------------------------------------------------------------------
+vmath = {}
+local V = {}
+V.__index = V
+function vmath.vector3(x, y, z)
+    if type(x) == "table" then return setmetatable({ x = x.x, y = x.y, z = x.z }, V) end
+    return setmetatable({ x = x or 0, y = y or 0, z = z or 0 }, V)
+end
+function vmath.vector4(x, y, z, w) return setmetatable({ x = x or 0, y = y or 0, z = z or 0, w = w or 0 }, V) end
+local function num(v, where) if type(v) ~= "number" or v ~= v then problem("bad number at " .. where .. ": " .. tostring(v)) end end
+
+-- gui -------------------------------------------------------------------------
+gui = {
+    PIVOT_CENTER = "c", PIVOT_N = "n", PIVOT_NE = "ne", PIVOT_E = "e", PIVOT_SE = "se", PIVOT_S = "s",
+    PIVOT_SW = "sw", PIVOT_W = "w", PIVOT_NW = "nw",
+    ADJUST_FIT = 0, ADJUST_ZOOM = 1, ADJUST_STRETCH = 2,
+    ANCHOR_NONE = 0, ANCHOR_LEFT = 1, ANCHOR_RIGHT = 2, ANCHOR_TOP = 3, ANCHOR_BOTTOM = 4,
+    EASING_INOUTSINE = 0, EASING_OUTBACK = 1, EASING_LINEAR = 2, EASING_OUTCUBIC = 3,
+}
+local alive, alive_count = {}, 0
+local order = {}
+local function new_node(kind, pos, size)
+    num(pos.x, "pos.x"); num(pos.y, "pos.y")
+    local n = { kind = kind, pos = pos, size = size or vmath.vector3(0, 0, 0), pivot = "c", enabled = true, alive = true }
+    alive[n] = true
+    table.insert(order, n)
+    alive_count = alive_count + 1
+    if alive_count > MAX_NODES then problem("too many nodes: " .. alive_count) end
+    return n
+end
+local function chk(n, fn)
+    if type(n) ~= "table" or not n.kind then problem(fn .. " on a non-node"); return false end
+    if not n.alive then problem(fn .. " on a deleted node (" .. tostring(n.text or n.kind) .. ")"); return false end
+    return true
+end
+function gui.new_box_node(pos, size) num(size.x, "size.x"); num(size.y, "size.y"); return new_node("box", pos, size) end
+function gui.new_text_node(pos, text)
+    if type(text) ~= "string" then problem("text node with " .. type(text)) end
+    if string.find(text or "", "[\128-\255]") then problem("non-ASCII text: " .. text) end
+    -- The review queue shows lines as written, {placeholders} and all.
+    local reviewing = REVIEW_APP and REVIEW_APP.review and REVIEW_APP.review.queue_open
+    if string.find(text or "", "{[%w_]+}") and not reviewing then problem("unfilled placeholder: " .. text) end
+    local n = new_node("text", pos)
+    n.text = text
+    return n
+end
+function gui.delete_node(n) if chk(n, "delete_node") then n.alive = false; alive[n] = nil; alive_count = alive_count - 1 end end
+function gui.set_pivot(n, p) if chk(n, "set_pivot") then n.pivot = p end end
+function gui.set_color(n, c) if chk(n, "set_color") then if type(c) ~= "table" or c.w == nil then problem("set_color needs vector4") end; n.color = c end end
+function gui.set_texture(n, t) if chk(n, "set_texture") then if not TEXTURES[t] then problem("unknown texture " .. tostring(t)) end end end
+function gui.play_flipbook(n, a) if chk(n, "play_flipbook") then if not ATLAS[a] then problem("unknown atlas image " .. tostring(a)) end; n.image = a end end
+function gui.set_slice9(n, v) if chk(n, "set_slice9") then n.slice = v.x end end
+function gui.set_font(n, f) if chk(n, "set_font") then if not FONTS[f] then problem("unknown font " .. tostring(f)) end; n.font = f end end
+function gui.set_outline(n) chk(n, "set_outline") end
+function gui.set_shadow(n) chk(n, "set_shadow") end
+function gui.set_line_break(n) chk(n, "set_line_break") end
+function gui.set_size(n, s) if chk(n, "set_size") then num(s.x, "set_size.x"); n.size = s end end
+function gui.get_size(n) if chk(n, "get_size") then return n.size end return vmath.vector3() end
+function gui.set_scale(n) chk(n, "set_scale") end
+function gui.set_position(n, p)
+    if chk(n, "set_position") then num(p.x, "set_position.x"); num(p.y, "set_position.y"); n.pos = vmath.vector3(p) end
+end
+function gui.get_position(n) if chk(n, "get_position") then return vmath.vector3(n.pos) end return vmath.vector3() end
+function gui.set_text(n, t)
+    if chk(n, "set_text") then
+        if type(t) ~= "string" then problem("set_text with " .. type(t)) end
+        if string.find(t or "", "[\128-\255]") then problem("non-ASCII text: " .. t) end
+        n.text = t
+    end
+end
+function gui.get_text(n) if chk(n, "get_text") then return n.text or "" end return "" end
+function gui.set_euler(n, v) chk(n, "set_euler"); num(v.z, "euler.z"); n.euler = v.z end
+gui.set_rotation = gui.set_euler
+function gui.set_enabled(n, e) if chk(n, "set_enabled") then n.enabled = e end end
+function gui.set_render_order() end
+function gui.set_adjust_mode() end
+function gui.cancel_animation() end
+function gui.animate(n, prop, to)
+    if chk(n, "animate") and prop == "position.x" then n.pos = vmath.vector3(to, n.pos.y, n.pos.z) end
+end
+function gui.pick_node(n, x, y)
+    if not chk(n, "pick_node") then return false end
+    local w, h = n.size.x, n.size.y
+    local px, py = n.pos.x, n.pos.y
+    local left = ({ nw = px, w = px, sw = px, n = px - w / 2, c = px - w / 2, s = px - w / 2, ne = px - w, e = px - w, se = px - w })[n.pivot]
+    local top = ({ nw = py, n = py, ne = py, w = py + h / 2, c = py + h / 2, e = py + h / 2, sw = py + h, s = py + h, se = py + h })[n.pivot]
+    return x >= left and x <= left + w and y <= top and y >= top - h
+end
+
+-- msg, sys, hash ------------------------------------------------------------------
+local posted = {}
+msg = { post = function(url, id, m) table.insert(posted, { url = url, id = id, m = m or {} }) end }
+function hash(s) return s end
+local save = os.tmpname()
+local other_saves = {}
+sys = { get_save_file = function(_, name)
+    if name == "playtest_log.jsonl" then return save end
+    other_saves[name] = other_saves[name] or os.tmpname()
+    return other_saves[name]
+end }
+
+-- Load the script ---------------------------------------------------------------
+dofile("game/game.gui_script")
+local kit = require "game.ui.kit"
+local rng = require("game.model.rng").new(SEED)
+local content = require "game.model.content"
+
+local self = {}
+local ok, err = pcall(init, self)
+if not ok then problem("init: " .. tostring(err)) end
+local app = self.app
+REVIEW_APP = app
+
+local function call(fn, ...)
+    local ok2, e = pcall(fn, ...)
+    if not ok2 then problem(tostring(e)) end
+end
+
+local function center(b)
+    local n = b.node
+    return n.pos.x + n.size.x / 2, n.pos.y - n.size.y / 2
+end
+
+local function buttons()
+    local out = {}
+    for i = #kit.layers, 1, -1 do
+        local l = kit.layers[i]
+        for _, b in ipairs(l.buttons) do
+            if b.enabled then table.insert(out, b) end
+        end
+        if l.modal then break end
+    end
+    return out
+end
+
+-- A tip panel swallows clicks: a point on the panel (not on its buttons) must hit nothing.
+local function check_tip_absorbs(where)
+    local l = app.guide_layer
+    local n = l and l.blockers and l.blockers[1]
+    if not n then return end
+    -- between "Got it" and "Hide tips", where the panel is most likely to sit over something
+    local x, y = n.pos.x + n.size.x / 2, n.pos.y - n.size.y + 32
+    local b = kit.hit(x, y)
+    if b and b.key ~= "guide_ok" and b.key ~= "guide_off" then
+        problem("a click on the tip panel went to a hidden button (" .. tostring(b.key or (b.label and b.label.text)) .. ")" .. where)
+    end
+end
+
+-- What a random click may hit: anything but "Hide tips" (the tips are tested on their own).
+local function random_buttons()
+    local out = {}
+    for _, b in ipairs(buttons()) do
+        if b.key ~= "guide_off" then table.insert(out, b) end
+    end
+    return out
+end
+
+local function label_of(b) return b.label and b.label.text or "" end
+
+local function click(b)
+    local x, y = center(b)
+    call(on_input, self, nil, { x = x, y = y })
+    call(on_input, self, "touch", { pressed = true, x = x, y = y })
+end
+
+local function click_label(prefix)
+    for _, b in ipairs(buttons()) do
+        if string.sub(label_of(b), 1, #prefix) == prefix then click(b); return true end
+    end
+    return false
+end
+
+local function key(action) call(on_input, self, action, { pressed = true }) end
+
+local function click_key(k)
+    for _, b in ipairs(buttons()) do
+        if b.key == k then click(b); return true end
+    end
+    return false
+end
+local function has_key(k)
+    for _, b in ipairs(buttons()) do
+        if b.key == k then return true end
+    end
+    return false
+end
+
+local DUMP = os.getenv("DUMP_DIR")
+-- AUDIT=1: list every piece of text the screens had to cut short.
+if os.getenv("AUDIT") then
+    kit.audit = {}
+    -- Which view line asked for the cut text.
+    kit.audit_where = function()
+        for lvl = 3, 12 do
+            local info = debug.getinfo(lvl, "Sl")
+            if not info then break end
+            if info.short_src and not info.short_src:find("kit.lua") then
+                return (info.short_src:match("([%w_]+)%.lua") or info.short_src) .. ":" .. tostring(info.currentline)
+            end
+        end
+    end
+end
+local dumped_decision, dumped_improv, dumped_battle, dumped_talk
+local function dump(name)
+    if not DUMP then return end
+    local f = io.open(DUMP .. "/" .. name .. ".txt", "w")
+    for _, n in ipairs(order) do
+        if n.alive and n.enabled then
+            local c = n.color or vmath.vector4(1, 1, 1, 1)
+            f:write(table.concat({ n.kind, n.pos.x, n.pos.y, n.size.x, n.size.y, n.pivot, c.x, c.y, c.z, c.w,
+                n.font or "-", n.image or "-", n.euler or 0, n.slice or 0 }, "\t"))
+            f:write("\t" .. string.gsub(n.text or "", "\n", "\\n") .. "\n")
+        end
+    end
+    f:close()
+end
+
+local dumped_once = {}
+local function dump_once(name)
+    if not dumped_once[name] then
+        dumped_once[name] = true
+        dump(name)
+    end
+end
+
+-- Leave the report: the quick playtest questions, then the next week or the end of the slice.
+local function leave_report(where)
+    if not click_key("next_week") then problem("no next-week button" .. where) return false end
+    if app.quick then
+        dump_once("18_quick_questions")
+        if rng:chance(0.2) then
+            click_key("quick_skip")
+        else
+            click_key("quick_prep_" .. rng:int(1, 3))
+            click_key("quick_watch_" .. rng:int(1, 3))
+        end
+        if app.quick then problem("quick questions didn't close" .. where) return false end
+    end
+    return true
+end
+
+local stats = { clicks = 0, weeks = 0, rolls = 0, modals = 0, max_nodes = 0 }
+
+local function has_text_fn(fragment)
+    for _, n in ipairs(order) do
+        if n.alive and n.text and string.find(n.text, fragment, 1, true) then return true end
+    end
+    return false
+end
+local social = require "game.model.social"
+local seeds_mod = require "game.model.seeds"
+
+for week = 1, WEEKS do
+    if app.screen == "intro" then
+        dump("1_intro")
+        if not click_label("Session Zero") then problem("no Session Zero button") end
+        if app.screen ~= "session_zero" then problem("expected Session Zero, got " .. tostring(app.screen)) end
+        dump("1b_session_zero")
+        -- The first-session tips: one shows, "Got it" moves to the next, and they stay clickable.
+        if app.guide_step ~= "s0_pitch" or not has_key("guide_ok") then
+            problem("no first tip on Session Zero (" .. tostring(app.guide_step) .. ")")
+        else
+            click_key("guide_ok")
+            if app.guide_step ~= "s0_asks" then problem("Got it didn't move to the next tip (" .. tostring(app.guide_step) .. ")") end
+            dump("1d_session_zero_tip")
+        end
+        if click_label("Start week 1") then problem("Session Zero let you start with nothing decided") end
+        -- Click around, then make sure every question has an answer.
+        for _ = 1, 30 do
+            local bs = random_buttons()
+            local pick = bs[rng:int(1, #bs)]
+            if pick and not string.find(label_of(pick), "Start week", 1, true) then click(pick) end
+        end
+        app.s0 = app.s0 or { asks = {}, rules = {} }
+        app.s0.tone = app.s0.tone or "mixed"
+        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do app.s0.asks[k] = app.s0.asks[k] or "agree" end
+        app.s0.rules.xcard = app.s0.rules.xcard or "on"
+        app.s0.rules.dice = app.s0.rules.dice or "big_open"
+        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.refresh()
+        dump("1c_session_zero_done")
+        if not click_label("Start week 1") then problem("no start button after Session Zero") end
+        if not (app.campaign.table and app.campaign.table.held) then problem("Session Zero didn't settle the table") end
+    end
+    if app.screen ~= "prep" then problem("expected prep, got " .. tostring(app.screen)) break end
+    if week == 1 then
+        if not (app.campaign.guide and app.campaign.guide.seen.s0_pitch) then problem("Session Zero tips weren't kept in the campaign") end
+        if app.guide_step ~= "prep_story" then problem("the first prep doesn't open with its tip (" .. tostring(app.guide_step) .. ")") end
+        dump("2b_prep_tip")
+    end
+    -- Random clicking on the prep board, then make sure it's ready.
+    for i = 1, 60 do
+        local bs = random_buttons()
+        local pick = bs[rng:int(1, #bs)]
+        if pick and not string.find(label_of(pick), "Run game night", 1, true) then
+            click(pick)
+            stats.clicks = stats.clicks + 1
+        end
+        if i == 20 then key("debug") end
+        if i == 40 then key("debug") end
+        stats.max_nodes = math.max(stats.max_nodes, alive_count)
+    end
+    if app.overlay then
+        -- Random clicks opened the notes, a sheet or the encounter builder: close it like a player would.
+        local was = app.overlay
+        if not (click_key("notes_close") or click_key("sheet_close") or click_key("enc_done")) then
+            problem("no way to close the " .. was)
+        end
+        if app.overlay then problem(was .. " wouldn't close") end
+    end
+    if app.convo then
+        click_label("Close"); click_label("Done")
+        if app.convo then problem("conversation modal wouldn't close") end
+    end
+    if app.levelup then click_label("Back to the table") end
+    if app.levelup then problem("level-up modal wouldn't close") end
+    if week == 1 then
+        app.sel = nil
+        app.refresh()
+        local c = app.campaign
+        if not c.prep.planted then
+            local id = c.prep.seed_ideas[1]
+            if c.prep:left() < 1 then c.prep.extra = c.prep.extra - 1 end
+            app.refresh()
+            if not click_key("seed_" .. id) then
+                local keys = {}
+                for i = #kit.layers, 1, -1 do
+                    for _, b in ipairs(kit.layers[i].buttons) do
+                        table.insert(keys, tostring(b.key) .. (b.enabled and "" or "(off)"))
+                    end
+                end
+                problem("no seed button in the drawer for " .. tostring(id) .. " (left " .. c.prep:left() .. "): " .. table.concat(keys, " "))
+            end
+            if c.prep.planted ~= id then problem("clicking a seed didn't plant it") end
+        end
+        dump("15_prep_drawer")
+    end
+    if week == 2 then
+        local c = app.campaign
+        app.sel = nil
+        app.convo = nil
+        app.refresh()
+        -- The seed from week 1 is ready to pay off: its card is in the hand.
+        if next(c.prep.payoffs) == nil then problem("the week 1 seed's payoff card isn't in the hand") end
+        -- An evening off draws cards.
+        local before = 0
+        for _, k in ipairs(content.kinds) do before = before + #c.prep.hand[k] end
+        c.prep.extra = c.prep.extra - 1 -- room for it
+        c.prep.inspirations = 0
+        c.prep.inspired_by.novel = nil
+        app.refresh()
+        if not click_key("inspire_novel") then problem("no inspiration button") end
+        local after = 0
+        for _, k in ipairs(content.kinds) do after = after + #c.prep.hand[k] end
+        if after <= before then problem("inspiration drew no cards") end
+        -- Messages: the spotlight conflict was pushed live last week.
+        local tip_was = app.guide_step
+check_tip_absorbs(" (week 2 prep)")
+                if not click_key("tab_messages") then problem("no messages tab") end
+        if tip_was == "prep_messages" and not (app.campaign.guide and app.campaign.guide.seen.prep_messages) then
+            problem("opening Messages didn't retire the tip that asked for it")
+        end
+        dump("13_prep_messages")
+        local rows = require("game.ui.messages_view").rows(app)
+        if #rows == 0 then problem("no conversations open with a live conflict") end
+        local by, answered
+        for _, r in ipairs(rows) do
+            if r.def.opener == "player" then
+                if r.state == "New" then by = r else answered = true end
+            end
+        end
+        if by then
+            if not click_key("convo_" .. by.id) then problem("couldn't open " .. by.id) end
+            if app.convo ~= by.id then problem("conversation didn't open") end
+            dump("14_convo")
+            if not click_key("convo_opt_1") then problem("no reply options in the conversation") end
+            if #c.prep.convos[by.id].log < 3 then problem("they didn't answer") end
+            dump("14b_convo_answered")
+            if not click_key("convo_done") then
+                local keys = {}
+                for _, b in ipairs(buttons()) do table.insert(keys, tostring(b.key)) end
+                local th = c.prep.convos[by.id]
+                problem("no Done button after the conversation ended: " .. by.id .. " done=" .. tostring(th.done)
+                    .. " convo=" .. tostring(app.convo) .. " keys " .. table.concat(keys, " "))
+            end
+        elseif not answered then
+            problem("no bystander message for a live conflict")
+        end
+        -- Starting one yourself costs prep time only when you send.
+        local jess_row
+        for _, r in ipairs(require("game.ui.messages_view").rows(app)) do
+            if r.id == "spotlight_jess" then jess_row = r end
+        end
+        if jess_row and not c.prep.convos.spotlight_jess and c.prep:left() >= 1 then
+            local left = c.prep:left()
+            click_key("convo_spotlight_jess")
+            if c.prep:left() ~= left then problem("opening a conversation charged before sending") end
+            click_key("convo_close")
+            if c.prep:left() ~= left then problem("closing an unsent conversation cost time") end
+            click_key("convo_spotlight_jess")
+            click_key("convo_opt_2")
+            if c.prep:left() ~= left - 1 then problem("sending to Jess didn't cost an hour") end
+            local th = c.prep.convos.spotlight_jess
+            while th and not th.done and click_key("convo_opt_1") do end
+            click_key("convo_done")
+        end
+        -- Answer a theory in the group chat if there is one.
+        click_key("tab_group")
+        for i, m in ipairs(c.chat) do
+            if m.choices and not m.answered then
+                -- (A long chat can scroll it off the top; only check when it's on screen.)
+                if click_key("chat_" .. i .. "_1") and not m.answered then problem("answering a theory didn't stick") end
+                break
+            end
+        end
+    end
+    for i = 1, 3 do
+        if not app.campaign.prep.scenes[i].type then
+            app.sel = { scene = i, kind = "type" }
+            app.refresh()
+            -- the type cards are the 7 big buttons in the drawer
+            local bs = buttons()
+            for _, b in ipairs(bs) do
+                if b.node.size.y == 150 and b.node.size.x == 105 then click(b) break end
+            end
+        end
+    end
+    if not app.campaign.prep:ready() then problem("prep not ready after picking types") break end
+    if week == 1 then
+        -- The real-session pass: the DM's notes (N), every tab; every character sheet, both pages.
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes on the prep board") end
+        for _, tab in ipairs({ "session", "story", "people", "party" }) do
+            if not click_key("notes_tab_" .. tab) then problem("no notes tab " .. tab) end
+            dump("26_notes_" .. tab)
+        end
+        if not click_key("notes_sheet_mara") then problem("no sheet button on the party page") end
+        if app.overlay ~= "sheet" then problem("the party page didn't open a sheet") end
+        for _, who in ipairs({ "dev", "jess", "sam", "mara" }) do
+            click_key("sheet_who_" .. who)
+            click_key("sheet_page_sheet")
+            dump("27_sheet_" .. who)
+            click_key("sheet_page_features")
+            dump("27_sheet_" .. who .. "_features")
+        end
+        key("back")
+        if app.overlay then problem("Esc didn't close the sheet") end
+        if not click_key("sheet_jess") then problem("no sheet link on Jess's prep card") end
+        if app.overlay ~= "sheet" then problem("Jess's prep card didn't open her sheet") end
+        click_key("sheet_close")
+        -- The encounter builder on a combat scene.
+        local c = app.campaign
+        app.sel = nil
+        local type_before = c.prep.scenes[1].type
+        c.prep:set_type(1, "combat")
+        app.refresh()
+        if not click_key("fight_1") then problem("no fight button on a combat scene") end
+        if app.overlay ~= "encounter" then problem("the fight button didn't open the builder") end
+        dump("28_encounter_suggested")
+        click_key("enc_add_ogre")
+        click_key("enc_add_goblin_warrior")
+        click_key("enc_lead_ogre")
+        local enc = c.prep:encounter(1)
+        if not enc.built or enc.ids[1] ~= "ogre" then problem("the builder didn't take the ogre as the lead: " .. table.concat(enc.ids, ",")) end
+        dump("28_encounter_built")
+        click_key("enc_done")
+        if app.overlay then problem("the builder wouldn't close") end
+        c.prep:set_type(1, type_before)
+        app.refresh()
+        -- Dialogue review (F4): work a few cells by keyboard and mouse.
+        local lib = content.dialogue
+        local function count(status)
+            local n = 0
+            for _, l in ipairs(lib.lines) do if l.status == status then n = n + 1 end end
+            return n
+        end
+        local drafts = count("draft")
+        key("review")
+        if not (app.review and app.review.queue_open) then problem("F4 didn't open the review queue") end
+        key("approve"); key("down"); key("reject"); key("edit")
+        call(on_input, self, "text", { text = " Okay!" })
+        key("backspace")
+        key("confirm")
+        key("next_cell"); key("prev_cell"); key("confirm")
+        dump("11_review_queue")
+        if not click_label("Next cell") then problem("no Next cell button in the queue") end
+        if not click_label("Approve") then problem("no Approve button in the queue") end
+        key("edit"); key("log"); call(on_input, self, "text", { text = "x" }); key("back")
+        if count("approved") < 2 or count("rejected") < 1 or count("edited") < 1 then
+            problem(string.format("review keys didn't land: approved %d rejected %d edited %d", count("approved"), count("rejected"), count("edited")))
+        end
+        if count("draft") >= drafts then problem("review left the drafts untouched") end
+        key("back")
+        if app.review.queue_open then problem("Esc didn't close the review queue") end
+        if not app.review.on then problem("closing the queue turned review mode off") end
+        stats.reviewed = drafts - count("draft")
+        app.sel = { scene = 2, kind = "cast" }
+        app.refresh()
+        dump("2_prep")
+        app.sel = { scene = 1, kind = "type" }
+        app.refresh()
+        dump("3_prep_types")
+    end
+    if not click_label("Run game night") then problem("no run button") break end
+    if app.screen ~= "night" then problem("expected night") break end
+    if week == 2 then key("fast") end
+    if week == 3 then key("sandbox"); key("sandbox") end
+    local guard = 0
+    if week == 3 then key("timer") end
+    -- Review mode stays on after the queue closes, so the rail follows into the night.
+    if week == 2 and not (app.review and app.review.on) then key("review") end
+    if week == 4 then key("timer"); key("dm_rolls") end
+    while not app.night_done and guard < 6000 do
+        guard = guard + 1
+        if guard % 5 == 0 then
+            local minis = {}
+            for _, id in ipairs({ "dev", "mara", "jess", "sam", "npc", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8" }) do
+                if rng:chance(0.85) then minis[id] = { rng:next(), rng:next() } end
+            end
+            call(on_message, self, "anchors", { heads = { dev = { 0.2, 0.3 }, mara = { 0.45, 0.2 }, jess = { 0.6, 0.2 },
+                sam = { 1.2, 0.3 } }, minis = minis }, "table")
+        end
+        if guard % 97 == 0 then key("log") end
+        if week == 1 and guard == 150 and not app.pending and not app.rolling then
+            local clock = app.night.clock
+            key("next_cell")
+            if app.overlay ~= "notes" then problem("N didn't open the notes on game night") end
+            for _ = 1, 10 do call(update, self, 0.5) end
+            if app.night.clock ~= clock then problem("game night kept going behind the notes") end
+            dump("29_night_notes")
+            key("next_cell")
+            if app.overlay then problem("N didn't close the notes") end
+            if click_key("panel_sam") then
+                if app.overlay ~= "sheet" then problem("clicking Sam's panel didn't open his sheet") end
+                dump("29_night_sheet")
+                key("back")
+            end
+        end
+        if week == 2 and guard == 300 then
+            if not app.layers.review_rail and not app.pending then problem("review rail not shown on game night") end
+            dump("12_review_rail")
+            -- Hovering the rail holds the night.
+            if app.layers.review_rail and app.review.rail_hit and app.review.rail_hit[1] then
+                local n = app.review.rail_hit[1]
+                call(on_input, self, nil, { x = n.pos.x + 5, y = n.pos.y - 5 })
+                if not app.review.hold then problem("hovering the rail didn't hold the night") end
+                call(on_input, self, nil, { x = 5, y = 5 })
+            end
+            key("queue")
+            if not app.review.queue_open then problem("Q didn't open the queue on game night") end
+            key("back")
+        end
+        call(update, self, 0.4)
+        if week == 1 and app.in_battle and app.floaters and #app.floaters >= 2 and not dumped_battle then
+            dumped_battle = true
+            dump("4b_night_battle")
+        end
+        if week == 1 and app.bubbles and #app.bubbles >= 1 and app.caption and app.caption.life > 0
+            and not app.in_battle and not dumped_talk then
+            dumped_talk = true
+            dump("4a_night_talk")
+        end
+        if rng:chance(0.1) then key("roll") end
+        if app.rolling then
+            stats.rolls = stats.rolls + 1
+            call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
+        elseif app.pending then
+            if week == 1 and app.pending.kind == "decision" and not dumped_decision then
+                dumped_decision = true
+                dump("4_night_decision")
+            end
+            if app.pending.kind == "improv" and not dumped_improv then
+                dumped_improv = true
+                dump("5_night_improv")
+            end
+            stats.modals = stats.modals + 1
+            if week == 3 and rng:chance(0.3) then
+                -- Let the gentle timer run out sometimes.
+                for _ = 1, 30 do call(update, self, 2) if not app.pending then break end end
+                if not app.pending then goto continue end
+            end
+            local bs = buttons()
+            if #bs == 0 then problem("modal with no buttons: " .. app.pending.kind) break end
+            if rng:chance(0.2) then key("debug") end
+            click(bs[rng:int(1, #bs)])
+        end
+        ::continue::
+        stats.max_nodes = math.max(stats.max_nodes, alive_count)
+    end
+    if week == 2 then key("review") end
+    if not app.night_done then problem("night never finished (" .. guard .. " steps)") break end
+    if week == 1 then dump("6_night_done") end
+    if not click_label("See how everyone felt") then problem("no report button") break end
+    if app.screen ~= "report" then problem("expected report") break end
+    if week == 1 then
+        dump("7_report")
+        -- Push the spotlight conflict live so week 2 has messages to answer.
+        social.push(app.campaign, "spotlight", 80)
+    end
+    if week == 2 then
+        local c = app.campaign
+        if not c:level_status().ready then problem("no level-up after two nights") end
+        if not click_key("level_up") then problem("no level-up button on the report") end
+        if c.level ~= 3 then problem("level-up didn't happen") end
+        for _, p in ipairs(c.players) do
+            if not (c.picks[p.key] and c.subclasses[p.class]) then problem(p.key .. " didn't pick a subclass") end
+        end
+        dump("16_levelup")
+        if not has_text_fn("LEVEL 3!") then problem("level-up moment not shown") end
+        key("back")
+        if app.levelup then problem("Esc didn't close the level-up moment") end
+        dump("17_report_after_levelup")
+    end
+    stats.max_nodes = math.max(stats.max_nodes, alive_count)
+    if not leave_report("") then break end
+    stats.weeks = stats.weeks + 1
+    if app.screen == "slice_end" then
+        -- The end of the slice: scrapbook, survey, thanks, keep playing.
+        dump("19_slice_scrapbook")
+        if #app.campaign.journal ~= app.campaign.week then problem("the journal missed a week") end
+        if not click_key("to_survey") then problem("no survey button on the scrapbook") end
+        dump("20_survey_empty")
+        if click_key("save_survey") then problem("the survey saved with nothing answered") end
+        for _, q in ipairs({ "satisfying", "payoff", "homework", "gut" }) do
+            click_key("q_" .. q .. "_" .. rng:int(1, 5))
+        end
+        click_key("q_next_" .. rng:int(1, 3))
+        click_key("text_drag")
+        call(on_input, self, "text", { text = "Prep in week 3 dragged a bit." })
+        call(on_input, self, "backspace", { pressed = true })
+        call(on_input, self, "text", { text = "!" })
+        click_key("text_favourite")
+        call(on_input, self, "text", { text = "Pip and the innkeeper." })
+        if app.slice.answers.text.drag ~= "Prep in week 3 dragged a bit!" then
+            problem("typing into the survey: '" .. tostring(app.slice.answers.text.drag) .. "'")
+        end
+        dump("21_survey_filled")
+        local before = io.open(save):read("*a")
+        if not click_key("save_survey") then problem("couldn't save the survey") end
+        local after = io.open(save):read("*a")
+        if not string.find(after, '"type":"slice_survey"', #before - 5, true) then problem("the survey never reached the playtest log") end
+        if not string.find(after, "Pip and the innkeeper.", 1, true) then problem("free-text answer missing from the log") end
+        dump("22_thanks")
+        if not click_key("keep_playing") then problem("no keep-playing button") end
+        if app.screen ~= "prep" then problem("keep playing didn't start week " .. (app.campaign.week)) end
+    end
+end
+
+-- Hard times: someone wavering, someone on a break, someone drifting, a perceptive DM,
+-- and somebody leaving after the night. Every one of these must draw without errors.
+local function has_text(fragment)
+    for _, n in ipairs(order) do
+        if n.alive and n.text and string.find(n.text, fragment, 1, true) then return true end
+    end
+    return false
+end
+if app.screen == "prep" and #problems == 0 then
+    local c = app.campaign
+    c.empathy_xp = 30
+    local mara, dev, jess, sam = c:player("mara"), c:player("dev"), c:player("jess"), c:player("sam")
+    mara.wavering, mara.present = 1, false -- wavering and away: the warning must still show
+    dev.on_break, dev.break_left, dev.present = true, 4, false
+    jess.commitment, jess.delta.commitment = 30, -4
+    app.refresh()
+    dump("8_prep_hard_times")
+    if not has_text("losing steam") then problem("wavering warning not shown") end
+    if not has_text("drifting away") then problem("early warning not shown at high Empathy") end
+    if not has_text("Taking a break") then problem("on-break card not shown") end
+    local xp = c.empathy_xp
+    if not click_label("Check in") then problem("no check-in button") end
+    if dev.break_left ~= 2 then problem("check-in didn't shorten the break (" .. tostring(dev.break_left) .. ")") end
+    if c.empathy_xp <= xp then problem("check-in gave no Empathy") end
+    for i = 1, 3 do
+        if not c.prep.scenes[i].type then c.prep:set_type(i, "social") end
+    end
+    app.refresh()
+    sam.commitment, sam.wavering = 5, 3
+    if not click_label("Run game night") then problem("no run button (hard times)") end
+    local guard = 0
+    while app.screen == "night" and not app.night_done and guard < 8000 do
+        guard = guard + 1
+        call(update, self, 0.4)
+        if app.rolling then
+            call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
+        elseif app.pending then
+            local bs = buttons()
+            -- The improv hand needs a card picked, then Play.
+            if not click_label("Play") and #bs > 0 then click(bs[1]) end
+        end
+    end
+    if not app.night_done then problem("hard-times night never finished (" .. guard .. " steps)") end
+    if not click_label("See how everyone felt") then problem("no report button (hard times)") end
+    dump("9_report_hard_times")
+    if not has_text("need a break") then problem("leaving banner not shown on the report") end
+    if not has_text("On a break") then problem("on-break column not shown on the report") end
+    if not sam.on_break then problem("Sam should be on a break after wavering at Commitment 5") end
+    leave_report(" (hard times)")
+    dump("10_prep_after_leaving")
+    local said = false
+    for _, m in ipairs(c.chat) do
+        if m.key == "sam" and m.line and string.find(m.line, "^chat_leaving%.") then said = true end
+    end
+    if not said then problem("Sam didn't say goodbye in the group chat") end
+    stats.weeks = stats.weeks + 1
+end
+
+-- Saving between sessions (M7): the game saves after every night and before every prep,
+-- and a fresh start of the game offers to carry on from there.
+local save_mod = require "game.model.save"
+local function restart()
+    -- A new run of the game: init again, as if it had been closed and opened.
+    self = {}
+    call(init, self)
+    app = self.app
+end
+local function play_resumed_night(where)
+    local c = app.campaign
+    for i = 1, 3 do
+        if not c.prep.scenes[i].type then c.prep:set_type(i, "social") end
+    end
+    app.refresh()
+    if not click_label("Run game night") then problem("no run button" .. where) return end
+    local guard = 0
+    while app.screen == "night" and not app.night_done and guard < 8000 do
+        guard = guard + 1
+        call(update, self, 0.4)
+        if app.rolling then
+            call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
+        elseif app.pending then
+            local bs = buttons()
+            if not click_label("Play") and #bs > 0 then click(bs[1]) end
+        end
+    end
+    if not app.night_done then problem("night never finished" .. where) return end
+    if not click_label("See how everyone felt") then problem("no report button" .. where) return end
+    if leave_report(where) then stats.weeks = stats.weeks + 1 end
+end
+if #problems == 0 then
+    local path = app.save_path
+    local fh = path and io.open(path, "rb")
+    local text = fh and fh:read("*a")
+    if fh then fh:close() end
+    local head = save_mod.peek(text)
+    local was = app.campaign
+    if not head then
+        problem("no campaign save on disk after " .. stats.weeks .. " weeks")
+    else
+        if head.week ~= was.week - 1 then problem("the save is from week " .. head.week .. ", expected " .. (was.week - 1)) end
+        if head.seed ~= was.seed then problem("the save has the wrong seed") end
+        restart()
+        dump("23_intro_continue")
+        if not has_key("continue") then problem("the intro doesn't offer to continue a saved campaign") end
+        if not has_key("new_campaign") then problem("the intro doesn't offer a new campaign next to Continue") end
+        click_key("continue")
+        if app.screen ~= "prep" then problem("continuing went to " .. tostring(app.screen) .. ", not prep") end
+        if app.campaign.week ~= was.week then problem("continued at week " .. app.campaign.week .. ", expected " .. was.week) end
+        if app.campaign == was then problem("continuing reused the old campaign table") end
+        dump("24_prep_after_continue")
+        play_resumed_night(" (after continuing)")
+        -- "New campaign" next to Continue asks first, then starts over (Enter would continue).
+        restart()
+        click_key("new_campaign")
+        if app.screen ~= "intro" or not app.confirm_new then problem("one click on New campaign already started over") end
+        if not has_text("Click again to start over") then problem("no note before starting over") end
+        click_key("new_campaign")
+        if app.screen ~= "session_zero" then problem("two clicks on New campaign didn't start Session Zero") end
+        -- Stopped after the first act, before its survey: continuing goes back to the survey.
+        if app.campaign.week >= content.arc.SESSIONS then
+            local c = save_mod.load(save_mod.dump(app.campaign))
+            c.slice_survey_done = nil
+            local out = io.open(path, "wb")
+            out:write(save_mod.dump(c))
+            out:close()
+            restart()
+            click_key("continue")
+            if app.screen ~= "slice_end" then problem("an unanswered first-act survey didn't come back on continue (" .. tostring(app.screen) .. ")") end
+        end
+        -- A save from some other build is refused politely.
+        local out = io.open(path, "wb")
+        out:write('F=1\nW=2\nS=1\nT[1]={"s","x","c",{"no_such_data"}}\n')
+        out:close()
+        restart()
+        if not click_key("continue") then problem("no continue button for the broken save") end
+        if app.screen ~= "intro" or not app.resume_error then problem("a broken save didn't stay on the intro with a note") end
+        if has_key("continue") then problem("the broken save is still offered") end
+        if not has_text("couldn't be opened") then problem("no note about the broken save") end
+        if not has_key("session_zero") then problem("no way to start over after a broken save") end
+        dump("25_intro_broken_save")
+    end
+end
+
+-- Pinned layers (the tips): their panel swallows clicks meant for whatever is under it,
+-- even with no tip button there; without the panel the same point reaches the button.
+do
+    local base = kit.layer("test_base")
+    kit.button(100, 100, 200, 50, "Under", function() end, { key = "under" })
+    local pin = kit.layer("test_pin", false, true)
+    kit.into(pin, function()
+        pin.blockers = { kit.box(80, 80, 260, 120, kit.rgba("#000000")) }
+    end)
+    if kit.hit(200, 900 - 125) then problem("a tip panel let a click through to the button under it") end
+    pin.blockers = nil
+    local b = kit.hit(200, 900 - 125)
+    if not (b and b.key == "under") then problem("test setup: the button wasn't hit without the panel") end
+    if kit.current == pin then problem("drawing into a pinned layer left it as the current layer") end
+    kit.drop(pin)
+    kit.drop(base)
+end
+
+-- The cozy layer (M7): sounds, the evening light and the snacks went out, and every sound
+-- the game asks for is one the audio script knows.
+do
+    local known = {}
+    local src = io.open("main/audio/audio.script"):read("*a")
+    local block = string.match(src, "local SFX = (%b{})")
+    for id in string.gmatch(block or "", "([%a_]+)%s*=") do known[id] = true end
+    local coll = io.open("main/main.collection"):read("*a")
+    local seen, by_url = {}, {}
+    for _, p in ipairs(posted) do
+        local url = tostring(p.url)
+        by_url[url .. " " .. tostring(p.id)] = (by_url[url .. " " .. tostring(p.id)] or 0) + 1
+        if url == "/audio#audio" and p.id == "sfx" then
+            seen[p.m.id] = true
+            if not known[p.m.id] then problem("asked for a sound the audio script doesn't have: " .. tostring(p.m.id)) end
+        end
+        local inst = string.match(url, "^/([%w_]+)#")
+        if inst and not string.find(coll, 'id: "' .. inst .. '"', 1, true) then
+            problem("posted to " .. url .. ", which isn't in main.collection")
+        end
+    end
+    for _, id in ipairs({ "click", "dice", "card", "page" }) do
+        if not seen[id] then problem("never played the " .. id .. " sound") end
+    end
+    for _, k in ipairs({ "/audio#audio music", "@render: mood", "/props#props mood", "/pizza#snacks eaten", "/pizza#snacks refill" }) do
+        if not by_url[k] then problem("never sent " .. k) end
+    end
+end
+
+local f = io.open(save)
+local kinds = {}
+if f then
+    for line in f:lines() do
+        -- (scenes on the board have a "type" too; the record's own type is one of these)
+        local t = (string.find(line, '"type":"week_survey"', 1, true) and "week_survey")
+            or (string.find(line, '"type":"slice_survey"', 1, true) and "slice_survey")
+            or (string.find(line, '"type":"week"', 1, true) and "week") or "?"
+        kinds[t] = (kinds[t] or 0) + 1
+    end
+    f:close()
+end
+if (kinds.week or 0) ~= stats.weeks then problem("playtest log has " .. tostring(kinds.week) .. " week records for " .. stats.weeks .. " weeks") end
+if (kinds.week_survey or 0) ~= stats.weeks then problem("playtest log has " .. tostring(kinds.week_survey) .. " quick-question records for " .. stats.weeks .. " weeks") end
+if WEEKS >= 4 and (kinds.slice_survey or 0) ~= 1 then problem("expected one slice survey in the log, got " .. tostring(kinds.slice_survey)) end
+if kinds["?"] then problem(kinds["?"] .. " playtest log lines without a type") end
+os.remove(save)
+
+print(string.format("seed %d: weeks %d, prep clicks %d, modals %d, rolls %d, lines reviewed %d, peak nodes %d/%d, messages %d",
+    SEED, stats.weeks, stats.clicks, stats.modals, stats.rolls, stats.reviewed or 0, stats.max_nodes, MAX_NODES, #posted))
+for _, path in pairs(other_saves) do os.remove(path); os.remove(path .. ".bak"); os.remove(path .. ".tmp") end
+for _, p in ipairs(problems) do print("PROBLEM: " .. p) end
+if kit.audit then
+    local seen, n = {}, 0
+    for _, e in ipairs(kit.audit) do
+        local k = e.text .. "|" .. tostring(e.w)
+        if not seen[k] then
+            seen[k] = true
+            n = n + 1
+            print(string.format("CUT  %s  (w %s, %s lines, %s) at %s", e.text, tostring(e.w), tostring(e.lines), e.font,
+                tostring(e.where)))
+        end
+    end
+    print(n .. " different texts cut short")
+end
+print(#problems == 0 and "GUI SMOKE OK" or (#problems .. " PROBLEMS"))
+os.exit(#problems == 0 and 0 or 1)

@@ -1,0 +1,10 @@
+mesh: "/assets/meshes/d20.glb"
+name: "{{NAME}}"
+materials {
+  name: "default"
+  material: "/materials/lit.material"
+  textures {
+    sampler: "tex0"
+    texture: "/assets/textures/d20.png"
+  }
+}

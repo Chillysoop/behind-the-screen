@@ -1,0 +1,201 @@
+-- The simulated DMs for the M7 slice (tools/sim/slice.lua, tools/tests/save_check.lua):
+-- a careful one, one who plans for fun only, and a careless one. Each is a table of
+-- habits; the helpers below act them out on a week's prep board and game night.
+
+local content = require "game.model.content"
+local social = require "game.model.social"
+local seeds = require "game.model.seeds"
+local styles = require "dm_styles"
+
+local B = {}
+
+local CAREFUL_S0 = { tone = "mixed", asks = { mara = "agree", sam = "agree", dev = "agree", jess = "push" },
+                     rules = { xcard = "on", dice = "big_open", rulings = "quick" } }
+local CARELESS_S0 = { tone = "silly", asks = { mara = "push", sam = "push", dev = "push", jess = "agree" },
+                      rules = { xcard = "off", dice = "screen", rulings = "cool" } }
+
+-- Put this week's story cards on the board where they fit (a DM following the arc).
+function B.play_story(c, prep)
+    local beat = c:arc_beat()
+    if not beat then
+        return
+    end
+    -- Make sure at least one scene suits the first story card, the way a DM would plan it.
+    local first = content.components[beat.cards[1]]
+    local fits_any = false
+    for i = 1, 3 do
+        for _, f in ipairs(first.fits) do
+            fits_any = fits_any or f == prep.scenes[i].type
+        end
+    end
+    if not fits_any and prep.arc_cards[first.id] then
+        prep:set_type(1, first.fits[1])
+    end
+    for _, id in ipairs(beat.cards) do
+        local card = content.components[id]
+        if prep.arc_cards[id] and not prep:placed_at(id) then
+            for i = 1, 3 do
+                local s = prep.scenes[i]
+                local fits = false
+                for _, f in ipairs(card.fits) do
+                    fits = fits or f == s.type
+                end
+                if fits and not s.slots[card.kind] and prep:can_place(i, id) then
+                    prep:place(i, id)
+                    break
+                end
+            end
+        end
+    end
+    if beat.finale and prep.arc_cards.cliffhanger and not prep:placed_at("cliffhanger") then
+        prep:clear(3, "complication")
+        prep:place(3, "cliffhanger")
+    end
+end
+
+function B.plant_and_pay(c, prep)
+    if c.week <= 2 and prep.seed_ideas[1] and #seeds.growing(c) == 0 then
+        prep:plant(prep.seed_ideas[1])
+    end
+    for card_id in pairs(prep.payoffs) do
+        local card = content.components[card_id]
+        if not prep:placed_at(card_id) then
+            for i = 1, 3 do
+                local s = prep.scenes[i]
+                for _, f in ipairs(card.fits) do
+                    if f == s.type then
+                        prep:clear(i, card.kind)
+                        if prep:place(i, card_id) then
+                            goto placed
+                        end
+                    end
+                end
+            end
+            prep:set_type(2, card.fits[1])
+            prep:clear(2, card.kind)
+            prep:place(2, card_id)
+            ::placed::
+        end
+    end
+end
+
+-- Answer messages kindly and fix live conflicts in DMs (the careful DM).
+function B.tend_table(c, prep)
+    for i, m in ipairs(c.chat) do
+        if m.choices then
+            c:answer_chat(i, 1)
+        end
+    end
+    local replies = { spotlight_sam = 2, spotlight_mara = 2, spotlight_dev = 2, rules_sam = 2, rules_dev = 2,
+                      tone_mara = 1, tone_jess = 1 }
+    local starts = { spotlight = { "spotlight_jess", 1 }, rules = { "rules_house", 1 }, tone = { "tone_check", 1 } }
+    for _, oc in ipairs(c.open_convos or {}) do
+        if replies[oc.id] or oc.id == "rules_followup" then
+            local th = prep:open_convo(oc.id)
+            if th then
+                prep:reply(oc.id, replies[oc.id] or 1)
+                local guard = 0
+                while not th.done and guard < 4 do
+                    guard = guard + 1
+                    prep:reply(oc.id, 1)
+                end
+            end
+        end
+    end
+    for _, id in ipairs(content.conflicts.order) do
+        local plan = starts[id]
+        if social.is_live(c.conflicts[id]) and plan then
+            local th = prep:open_convo(plan[1])
+            if th and not th.done then
+                prep:reply(plan[1], plan[2])
+                local guard = 0
+                while not th.done and guard < 4 do
+                    guard = guard + 1
+                    prep:reply(plan[1], 1)
+                end
+            end
+        end
+    end
+end
+
+B.DMS = {
+    careful = {
+        label = "Careful DM",
+        about = "Careful Session Zero, plays the story cards, plants a seed and pays it off, tends the table, levels when offered.",
+        s0 = CAREFUL_S0, story = true, seeds = true, tend = true, level = true, open_rolls = true,
+    },
+    plain = {
+        label = "Plans for fun only",
+        about = "Careful Session Zero and good prep, but ignores the story cards, seeds and messages; levels when offered.",
+        s0 = CAREFUL_S0, level = true, open_rolls = true,
+    },
+    careless = {
+        label = "Careless DM",
+        about = "Careless Session Zero, random prep, never answers anyone, never levels up, cooks the dice.",
+        s0 = CARELESS_S0, random = true, cook = true,
+    },
+}
+B.ORDER = { "careful", "plain", "careless" }
+
+function B.play_night(night, rng, dm)
+    local ev = night:advance()
+    local guard = 0
+    local decisions = 0
+    while ev.kind ~= "done" and guard < 800 do
+        guard = guard + 1
+        local a
+        if ev.kind == "decision" then
+            decisions = decisions + 1
+            local card = ev.card
+            if dm.tend and (card.id == "pip_show" or card.id == "joke_moment") then
+                a = 2
+            elseif dm.tend and card.id == "rules_spat" then
+                a = 2
+            else
+                a = rng:int(1, #card.options)
+            end
+        elseif ev.kind == "improv" then
+            a = 1
+            for i, cd in ipairs(ev.cards) do
+                if cd.fit == "great" then
+                    a = i
+                end
+            end
+        elseif ev.kind == "roll_where" then
+            a = dm.open_rolls and "open" or "hidden"
+        elseif ev.kind == "roll" then
+            a = rng:d20()
+        elseif ev.kind == "cook" then
+            a = dm.cook and rng:chance(0.5) or false
+        end
+        ev = night:advance(a)
+    end
+    return decisions, night.clock
+end
+
+
+-- One week of prep the way this DM does it.
+function B.prep(dm, c, prep, rng)
+    if dm.tend then
+        B.tend_table(c, prep)
+    end
+    if dm.seeds then
+        B.plant_and_pay(c, prep)
+    end
+    if dm.story then
+        B.play_story(c, prep)    -- story cards first, while there's prep time
+    end
+    if dm.random then
+        styles.random.prep(prep, rng, c)
+    else
+        styles.balanced.prep(prep, rng, c)
+    end
+    if dm.story then
+        B.play_story(c, prep)
+    end
+    if dm.seeds then
+        B.plant_and_pay(c, prep)
+    end
+end
+
+return B

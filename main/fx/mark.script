@@ -1,0 +1,47 @@
+-- One square of a spell's area or a lasting zone on the battle mat (real-session pass).
+-- Spawned by the table script with a colour; a burst (life > 0) fades in and out on its own,
+-- a zone (life = 0) stays until the table sends "fade".
+
+go.property("color", vmath.vector4(1, 0.6, 0.3, 0.6))
+go.property("life", 1.2)
+go.property("delay", 0)
+
+local FADE_IN, FADE_OUT = 0.18, 0.45
+
+function init(self)
+    self.t = -self.delay
+    self.out = nil
+    local c = self.color
+    go.set("#model", "tint", vmath.vector4(c.x, c.y, c.z, 0))
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    local c = self.color
+    local a
+    if self.out then
+        self.out = self.out + dt
+        a = math.max(0, 1 - self.out / FADE_OUT)
+        if a <= 0 then
+            go.delete()
+            return
+        end
+    elseif self.t < 0 then
+        a = 0
+    elseif self.t < FADE_IN then
+        a = self.t / FADE_IN
+    elseif self.life > 0 and self.t > self.life then
+        self.out = 0
+        a = 1
+    else
+        -- A gentle pulse so a lasting zone reads as magic, not paint.
+        a = self.life > 0 and 1 or (0.85 + 0.15 * math.sin(self.t * 3))
+    end
+    go.set("#model", "tint", vmath.vector4(c.x, c.y, c.z, c.w * a))
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("fade") and not self.out then
+        self.out = 0
+    end
+end

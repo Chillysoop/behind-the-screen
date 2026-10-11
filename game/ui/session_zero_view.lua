@@ -1,0 +1,235 @@
+-- Session Zero (M6): before week 1 the table talks it through. Pitch a tone, hear
+-- each player's ask, set the table rules. People say what they think, so their
+-- reactions are shown plainly. Rebuilt from scratch on every click.
+
+local kit = require "game.ui.kit"
+local theme = require "game.ui.theme"
+local content = require "game.model.content"
+local social = require "game.model.social"
+
+local M = {}
+
+local KIND = { line = "A line", veil = "A veil", promise = "A promise" }
+local KIND_ABOUT = {
+    line = "A line: it never happens in the game.",
+    veil = "A veil: it can happen, but off screen.",
+    promise = "A promise about how you'll run things.",
+}
+
+local function choices(app)
+    app.s0 = app.s0 or { tone = nil, asks = {}, rules = {} }
+    return app.s0
+end
+
+-- Ready when every question has an answer.
+function M.complete(app)
+    local c = choices(app)
+    if not c.tone then
+        return false
+    end
+    for _, key in ipairs(content.session_zero.asks.order) do
+        if not c.asks[key] then
+            return false
+        end
+    end
+    for _, rk in ipairs(content.session_zero.rules.order) do
+        if not c.rules[rk] then
+            return false
+        end
+    end
+    return true
+end
+
+function M.start(app)
+    if not M.complete(app) then
+        return false
+    end
+    app.campaign:session_zero(app.s0)
+    app.s0 = nil
+    app.go("prep")
+    return true
+end
+
+local function like_color(v)
+    if v > 0 then
+        return theme.green
+    elseif v < 0 then
+        return theme.orange
+    end
+    return theme.faint
+end
+
+-- Little name chips: who likes this option, who doesn't.
+local function chips(x, y, like, max_w)
+    local cx = x
+    for _, key in ipairs(content.players.order) do
+        local v = like[key] or 0
+        if v ~= 0 then
+            local name = content.players[key].name
+            local label = name .. (v > 0 and " +" or " -")
+            if v >= 2 or v <= -2 then
+                label = label .. (v > 0 and "+" or "-")
+            end
+            local w = kit.width(label, "ui14") + 14
+            if cx + w > x + max_w then
+                return
+            end
+            kit.box(cx, y, w, 20, like_color(v), { radius = 6 })
+            kit.text(cx + 7, y + 1, label, "ui14", theme.ink)
+            cx = cx + w + 6
+        end
+    end
+end
+
+local function pitch(app, c)
+    local s0 = content.session_zero
+    local x, w = 24, 500
+    kit.text(x, 84, "THE PITCH", "ui14", theme.dim)
+    kit.text(x + 96, 84, "What should this campaign feel like?", "ui14", theme.faint)
+    local y = 108
+    for _, key in ipairs(s0.tones.order) do
+        local t = s0.tones[key]
+        local chosen = c.tone == key
+        if chosen then
+            kit.box(x - 3, y - 3, w + 6, 70, theme.select, { radius = 10 })
+        end
+        kit.button(x, y, w, 64, "", function()
+            c.tone = key
+            app.refresh()
+        end, { color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover })
+        kit.text(x + 14, y + 8, t.name, "ui18b", theme.text)
+        kit.text(x + 14, y + 34, t.blurb, "ui14", theme.dim, { w = w - 28, lines = 1 })
+        y = y + 74
+    end
+    -- What everyone says about the pitch.
+    kit.text(x, y + 8, "AROUND THE TABLE", "ui14", theme.dim)
+    y = y + 32
+    local t = c.tone and s0.tones[c.tone]
+    if not t then
+        kit.text(x, y, "Pitch a tone and see how it lands.", "ui18", theme.faint)
+        return
+    end
+    for _, key in ipairs(content.players.order) do
+        local v = t.like[key] or 0
+        kit.dot(x + 8, y + 10, 12, like_color(v))
+        kit.text(x + 22, y, content.players[key].name, "ui18b", theme.text)
+        local said = '"' .. (t.says[key] or "") .. '"'
+        kit.text(x + 92, y + 2, said, "ui14", theme.text, { w = w - 96, lines = 2 })
+        y = y + math.max(26, kit.text_height(said, "ui14", w - 96)) + 12
+    end
+end
+
+local function asks(app, c)
+    local s0 = content.session_zero
+    local x, w = 548, 500
+    kit.text(x, 84, "LINES, VEILS AND ASKS", "ui14", theme.dim)
+    local y = 108
+    for _, key in ipairs(s0.asks.order) do
+        local a = s0.asks[key]
+        local answer = c.asks[key]
+        local h = 168
+        kit.box(x, y, w, h, theme.panel, { radius = 10 })
+        kit.text(x + 14, y + 10, content.players[key].name, "ui18b", theme.text)
+        local kind = KIND[a.kind]
+        local kw = kit.width(kind, "ui14") + 16
+        kit.box(x + w - 14 - kw, y + 10, kw, 22, a.kind == "promise" and theme.purple or theme.teal, { radius = 6 })
+        kit.text(x + w - 14 - kw + 8, y + 12, kind, "ui14", theme.ink)
+        kit.text(x + 14, y + 36, '"' .. a.text .. '"', "ui18", theme.text, { w = w - 28, lines = 2 })
+        local by = y + 86
+        local bw = (w - 38) / 2
+        for i, which in ipairs({ "agree", "push" }) do
+            local o = a[which]
+            local chosen = answer == which
+            local bx = x + 14 + (i - 1) * (bw + 10)
+            if chosen then
+                kit.box(bx - 3, by - 3, bw + 6, 46, theme.select, { radius = 9 })
+            end
+            kit.button(bx, by, bw, 40, o.label, function()
+                c.asks[key] = which
+                app.refresh()
+            end, { font = "ui14", color = chosen and theme.panel3 or theme.button })
+        end
+        if answer then
+            local o = a[answer]
+            kit.text(x + 14, y + 136, '"' .. o.reply .. '"', "ui14", like_color(o.like), { w = w - 28, lines = 1 })
+        else
+            kit.text(x + 14, y + 136, KIND_ABOUT[a.kind], "ui14", theme.faint, { w = w - 28, lines = 1 })
+        end
+        y = y + h + 8
+    end
+end
+
+local function rules(app, c)
+    local s0 = content.session_zero
+    local x, w = 1072, 504
+    kit.text(x, 84, "TABLE RULES", "ui14", theme.dim)
+    local y = 108
+    for _, rk in ipairs(s0.rules.order) do
+        local r = s0.rules[rk]
+        kit.text(x, y, r.name, "ui18b", theme.text)
+        kit.text(x, y + 24, r.about, "ui14", theme.dim, { w = w, lines = 1 })
+        y = y + 48
+        for _, ok in ipairs(r.order) do
+            local o = r[ok]
+            local chosen = c.rules[rk] == ok
+            if chosen then
+                kit.box(x - 3, y - 3, w + 6, 46, theme.select, { radius = 9 })
+            end
+            kit.button(x, y, w, 40, "", function()
+                c.rules[rk] = ok
+                app.refresh()
+            end, { color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover })
+            kit.text(x + 12, y + 10, o.name, "ui18", theme.text, { w = 250, lines = 1 })
+            chips(x + 262, y + 10, o.like, w - 270)
+            y = y + 46
+        end
+        -- What people said about the chosen option.
+        local o = c.rules[rk] and r[c.rules[rk]]
+        local said
+        for _, key in ipairs(content.players.order) do
+            if o and o.says and o.says[key] and not said then
+                said = content.players[key].name .. ': "' .. o.says[key] .. '"'
+            end
+        end
+        kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
+        y = y + 30
+    end
+    return y
+end
+
+-- How everyone's feeling about the whole package.
+local function feelings(app, c, y)
+    local x, w = 1072, 504
+    kit.text(x, y, "HOW EVERYONE FEELS", "ui14", theme.dim)
+    y = y + 22
+    local full = { tone = c.tone or "mixed", asks = c.asks, rules = c.rules }
+    local f = social.feelings(full)
+    for i, key in ipairs(content.players.order) do
+        local v = f[key] or 0
+        local bx = x + ((i - 1) % 2) * (w / 2)
+        local by = y + math.floor((i - 1) / 2) * 26
+        kit.text(bx, by, content.players[key].name, "ui18b", theme.text)
+        local word = v >= 3 and "Heard" or (v >= 1 and "Happy" or (v >= -1 and "Okay" or "Uneasy"))
+        kit.text(bx + 70, by + 2, word, "ui18", like_color(v >= 1 and 1 or (v <= -2 and -1 or 0)))
+    end
+end
+
+function M.build(app)
+    local c = choices(app)
+    kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
+    kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
+    kit.text(280, 24, "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
+        "ui18", theme.dim)
+    pitch(app, c)
+    asks(app, c)
+    local y = rules(app, c)
+    feelings(app, c, y + 4)
+    local ready = M.complete(app)
+    kit.button(1356, 830, 220, 50, "Start week 1  >", function()
+        M.start(app)
+    end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b" })
+    kit.text(1340, 846, ready and "You can revisit this later if the table needs it."
+        or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+end
+
+return M

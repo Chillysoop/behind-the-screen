@@ -1,0 +1,8 @@
+font: "/assets/fonts/Lora-Bold.ttf"
+material: "/builtins/fonts/font.material"
+size: 96
+antialias: 1
+alpha: 1.0
+outline_alpha: 1.0
+outline_width: 3.0
+output_format: TYPE_BITMAP

@@ -1,0 +1,16 @@
+-- Soft glow around the lamp bulb: a full billboard that always faces the eye.
+-- The lamp script moves it and sets its brightness.
+
+local state = require "main.state"
+
+function update(self, dt)
+    local p = go.get_world_position()
+    local d = state.cam_eye - p
+    local len = vmath.length(d)
+    if len < 0.001 then
+        return
+    end
+    local yaw = math.atan2(d.x, d.z)
+    local pitch = -math.asin(d.y / len)
+    go.set_rotation(vmath.quat_rotation_y(yaw) * vmath.quat_rotation_x(pitch))
+end

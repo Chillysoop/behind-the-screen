@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Status Model Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Outfit:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column, like the game's session report. Gate verdict first,
+   then one section per gate question with the charts that answer it. Dark-first,
+   in the game's own lamp-lit palette; light mode is the prep board's paper. */
+:root {
+  color-scheme: dark;
+  --bg: #1b1411;
+  --surface: #241b16;
+  --raise: #2f241d;
+  --ink: #f3e7cf;
+  --ink-2: #c9b89c;
+  --muted: #8f7f68;
+  --rule: #3a2e25;
+  --grid: #33281f;
+  --accent: #e8b04a;
+  --good: #0ca30c;
+  --bad: #d03b3b;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --heat-lo: #1f2a3a;
+  --heat-hi: #9ec5f4;
+  --heat-ink-lo: #f3e7cf;
+  --heat-ink-hi: #1b1411;
+  --font-display: "Lora", Georgia, "Times New Roman", serif;
+  --font-body: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4ecdb;
+    --surface: #fbf6ea;
+    --raise: #efe4c8;
+    --ink: #2b2018;
+    --ink-2: #5d4e3c;
+    --muted: #85745e;
+    --rule: #e0d4b8;
+    --grid: #ebe2cc;
+    --accent: #8a5a0e;
+    --good: #0a7d0a;
+    --bad: #c03434;
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --s4: #eda100;
+    --s5: #e87ba4;
+    --heat-lo: #f3ecdc;
+    --heat-hi: #1c5cab;
+    --heat-ink-lo: #2b2018;
+    --heat-ink-hi: #fbf6ea;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4ecdb;
+  --surface: #fbf6ea;
+  --raise: #efe4c8;
+  --ink: #2b2018;
+  --ink-2: #5d4e3c;
+  --muted: #85745e;
+  --rule: #e0d4b8;
+  --grid: #ebe2cc;
+  --accent: #8a5a0e;
+  --good: #0a7d0a;
+  --bad: #c03434;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --heat-lo: #f3ecdc;
+  --heat-hi: #1c5cab;
+  --heat-ink-lo: #2b2018;
+  --heat-ink-hi: #fbf6ea;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 40px 72px;
+  display: grid;
+  gap: 56px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; }
+h2 { font-size: clamp(22px, 3.2vw, 28px); line-height: 1.2; }
+h3 { font-family: var(--font-body); font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+}
+.lede { color: var(--ink-2); font-size: 17px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+header { display: grid; gap: 14px; }
+.verdict {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px;
+  padding: 18px 20px; border-radius: 12px; background: var(--surface); border: 1px solid var(--rule);
+}
+.verdict strong { font-family: var(--font-display); font-size: 26px; }
+.runinfo { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--ink-2); }
+
+section { display: grid; gap: 18px; }
+section > header { gap: 8px; }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checks li {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline;
+  padding: 10px 0; border-bottom: 1px solid var(--rule);
+}
+.checks li:last-child { border-bottom: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 9px 2px 7px; border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.chip.pass { color: var(--good); }
+.chip.fail { color: var(--bad); }
+.check-name { font-weight: 500; }
+.check-detail { grid-column: 2; color: var(--ink-2); font-size: 14px; }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 18px; }
+.figure {
+  margin: 0; min-width: 0; display: grid; gap: 10px; padding: 16px 16px 12px; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 12px;
+}
+.figure.wide { grid-column: 1 / -1; }
+.figure figcaption { display: grid; gap: 2px; }
+.figure figcaption p { font-size: 14px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.ring { width: 10px; height: 10px; border-radius: 50%; background: transparent !important; border: 2px solid var(--ink-2); }
+.plot { position: relative; min-width: 0; }
+.plot svg { display: block; width: 100%; overflow: visible; }
+.plot text { fill: var(--muted); font: 400 11px var(--font-body); font-variant-numeric: tabular-nums; }
+.plot .endlabel { fill: var(--ink-2); font-size: 12px; font-weight: 500; }
+.plot .annot { fill: var(--ink-2); font-size: 11px; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; min-width: 150px;
+  padding: 8px 10px; border-radius: 8px; background: var(--raise); border: 1px solid var(--rule);
+  color: var(--ink); font-size: 12px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+.tip .row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.tip .row i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.tip .row span:last-child { margin-left: auto; padding-left: 10px; }
+
+details { font-size: 13px; color: var(--ink-2); }
+details summary { cursor: pointer; color: var(--muted); width: max-content; }
+details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+td.wrap { white-space: normal; min-width: 220px; text-align: left; }
+
+.heat { display: grid; gap: 10px; }
+.heat table td.cell { text-align: center; color: var(--ink); font-weight: 500; min-width: 64px; position: relative; }
+.heat table td.cell.best { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 6px; }
+.heat table th.player { text-align: left; }
+.heat table th.player small { display: block; color: var(--muted); font-weight: 400; }
+
+.styles td.style { text-align: left; white-space: normal; min-width: 210px; }
+.styles td.style b { display: block; color: var(--ink); font-weight: 600; }
+.styles td.style small { color: var(--muted); font-size: 12px; }
+
+.notes { display: grid; gap: 10px; color: var(--ink-2); font-size: 15px; }
+.notes p { max-width: 72ch; }
+.notes b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .wrap { gap: 44px; padding-block: 28px 56px; }
+  .figure { padding: 14px 12px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <span class="eyebrow">Behind the Screen &middot; M2 player status model</span>
+    <h1>Simulated tables</h1>
+    <p class="lede" id="lede">Simulated DMs run whole campaigns against the real model, and every bar is recorded week by week. This page checks the M2 gate: the bars respond to your choices, archetypes want different things, and nobody quits without a reason you could see.</p>
+    <div class="verdict" id="verdict"></div>
+  </header>
+
+  <section id="respond">
+    <header>
+      <span class="eyebrow">Gate question 1</span>
+      <h2>Do the bars respond to your choices?</h2>
+    </header>
+    <ul class="checks" data-group="Bars respond to your choices"></ul>
+    <div class="charts">
+      <figure class="figure" id="fig-susp"></figure>
+      <figure class="figure" id="fig-trust"></figure>
+      <figure class="figure" id="fig-invest"></figure>
+      <figure class="figure" id="fig-sam"></figure>
+    </div>
+  </section>
+
+  <section id="archetypes">
+    <header>
+      <span class="eyebrow">Gate question 2</span>
+      <h2>Do archetypes want different things?</h2>
+    </header>
+    <ul class="checks" data-group="Archetypes want different things"></ul>
+    <figure class="figure heat" id="fig-taste"></figure>
+  </section>
+
+  <section id="quits">
+    <header>
+      <span class="eyebrow">Gate question 3</span>
+      <h2>Does anyone quit without a visible reason?</h2>
+    </header>
+    <ul class="checks" data-group="Nobody quits for no visible reason"></ul>
+    <div class="charts">
+      <figure class="figure wide" id="fig-example"></figure>
+      <figure class="figure wide" id="fig-breaks"></figure>
+    </div>
+  </section>
+
+  <section id="styles">
+    <header>
+      <span class="eyebrow">All runs</span>
+      <h2>Every DM style, side by side</h2>
+    </header>
+    <figure class="figure styles" id="fig-styles"></figure>
+  </section>
+
+  <section id="model">
+    <header>
+      <span class="eyebrow">How it works</span>
+      <h2>The rules behind the bars</h2>
+    </header>
+    <div class="notes" id="notes"></div>
+  </section>
+</main>
+
+<script>
+const DATA = /*SIM_DATA*/null;
+
+(function () {
+  if (!DATA) {
+    document.getElementById("verdict").textContent = "No data. Run lua tools/sim/run.lua from the project root.";
+    return;
+  }
+  const NS = "http://www.w3.org/2000/svg";
+  const STYLE_COLOR = { balanced: "--s1", cooker: "--s2", story_threads: "--s3", combat_only: "--s4", neglect_sam: "--s5" };
+  const PLAYER_COLOR = { mara: "--s1", dev: "--s2", jess: "--s3", sam: "--s4" };
+  const styleBy = Object.fromEntries(DATA.styles.map(s => [s.key, s]));
+  const playerBy = Object.fromEntries(DATA.players.map(p => [p.key, p]));
+  const W = DATA.meta.weeks;
+  const weeks = Array.from({ length: W }, (_, i) => i + 1);
+  const fmt = v => (v == null ? "-" : (Math.round(v * 10) / 10).toString());
+  const fmt0 = v => (v == null ? "-" : Math.round(v).toString());
+
+  function el(tag, attrs, parent, text) {
+    const n = document.createElement(tag);
+    for (const k in attrs || {}) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function sv(tag, attrs, parent, text) {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs || {}) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // Header ------------------------------------------------------------------
+  const m = DATA.meta;
+  const v = document.getElementById("verdict");
+  el("strong", { class: "num" }, v, `${m.gates_passed} of ${m.gates_total} gate checks pass`);
+  const info = el("div", { class: "runinfo" }, v);
+  el("span", {}, info, `${DATA.styles.length} DM styles`);
+  el("span", {}, info, `${m.campaigns} campaigns each`);
+  el("span", {}, info, `${m.weeks} weeks per campaign`);
+  el("span", {}, info, `4 players: ${DATA.players.map(p => p.name).join(", ")}`);
+
+  // Gate check lists ----------------------------------------------------------
+  document.querySelectorAll(".checks").forEach(ul => {
+    DATA.gates.filter(g => g.group === ul.dataset.group).forEach(g => {
+      const li = el("li", {}, ul);
+      el("span", { class: "chip " + (g.pass ? "pass" : "fail") }, li, g.pass ? "✓ Pass" : "✕ Fail");
+      el("span", { class: "check-name" }, li, g.name);
+      el("span", { class: "check-detail" }, li, g.detail);
+    });
+  });
+
+  // Shared pieces -------------------------------------------------------------
+  function caption(fig, title, text) {
+    const cap = el("figcaption", {}, fig);
+    el("h3", {}, cap, title);
+    if (text) el("p", {}, cap, text);
+  }
+  function legend(fig, items) {
+    const lg = el("div", { class: "legend" }, fig);
+    items.forEach(it => {
+      const s = el("span", {}, lg);
+      const i = el("i", it.ring ? { class: "ring" } : {}, s);
+      if (!it.ring) i.style.background = `var(${it.color})`;
+      s.appendChild(document.createTextNode(it.label));
+    });
+  }
+  function dataTable(fig, head, rows, label) {
+    const d = el("details", {}, fig);
+    el("summary", {}, d, label || "Show the numbers");
+    const wrap = el("div", { class: "tablewrap" }, d);
+    const t = el("table", {}, wrap);
+    const tr = el("tr", {}, el("thead", {}, t));
+    head.forEach(h => el("th", {}, tr, h));
+    const tb = el("tbody", {}, t);
+    rows.forEach(r => {
+      const row = el("tr", {}, tb);
+      r.forEach(c => el("td", {}, row, c));
+    });
+  }
+
+  // A line chart with a crosshair tooltip and direct end labels.
+  // opts: { series: [{ label, color, values, faded?: [bool] , rings?: [bool] }], thresholds: [{ y, label }],
+  //         annotations: [{ x, y, text }], yLabel, extra(i) -> [[label, value]] }
+  function lineChart(fig, opts) {
+    const plot = el("div", { class: "plot" }, fig);
+    const tip = el("div", { class: "tip", hidden: "" }, plot);
+    let svg;
+    function draw() {
+      if (svg) svg.remove();
+      const width = Math.max(260, plot.clientWidth);
+      const height = opts.height || 220;
+      const longest = Math.max(...opts.series.map(s => (s.short || s.label).length));
+      const pad = { l: 30, r: Math.round(longest * 6.6) + 20, t: 10, b: 24 };
+      const iw = width - pad.l - pad.r, ih = height - pad.t - pad.b;
+      const x = w => pad.l + (W === 1 ? 0 : (w - 1) / (W - 1)) * iw;
+      const y = val => pad.t + (1 - val / 100) * ih;
+      svg = sv("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img", "aria-label": opts.aria || "" });
+      plot.insertBefore(svg, tip);
+      [0, 25, 50, 75, 100].forEach(t => {
+        sv("line", { x1: pad.l, x2: pad.l + iw, y1: y(t), y2: y(t), stroke: cssVar(t === 0 ? "--rule" : "--grid"), "stroke-width": 1 }, svg);
+        sv("text", { x: pad.l - 6, y: y(t) + 4, "text-anchor": "end" }, svg, t);
+      });
+      const ticks = weeks.filter(w => w === 1 || (w % 4 === 0 && w > 4));
+      ticks.forEach(w => sv("text", { x: x(w), y: height - 6, "text-anchor": "middle" }, svg, w));
+      sv("text", { x: pad.l - 6, y: height - 6, "text-anchor": "end" }, svg, "wk");
+      (opts.thresholds || []).forEach(th => {
+        sv("line", { x1: pad.l, x2: pad.l + iw, y1: y(th.y), y2: y(th.y), stroke: cssVar("--muted"), "stroke-width": 1, opacity: 0.7 }, svg);
+        sv("text", { class: "annot", x: pad.l + 4, y: y(th.y) - 5 }, svg, th.label);
+      });
+      const surface = cssVar("--surface");
+      opts.series.forEach(s => {
+        const color = cssVar(s.color);
+        // Split into runs so faded stretches (on a break) draw lighter.
+        let run = [], runFaded = null;
+        const flush = () => {
+          if (run.length > 1) {
+            sv("polyline", { points: run.map(p => p.join(",")).join(" "), fill: "none", stroke: color, "stroke-width": 2,
+              "stroke-linejoin": "round", "stroke-linecap": "round", opacity: runFaded ? 0.3 : 1 }, svg);
+          }
+        };
+        s.values.forEach((val, i) => {
+          if (val == null) { flush(); run = []; return; }
+          const f = !!(s.faded && s.faded[i]);
+          const pt = [x(i + 1), y(val)];
+          if (runFaded !== null && f !== runFaded) { run.push(pt); flush(); run = [pt]; runFaded = f; return; }
+          runFaded = f;
+          run.push(pt);
+        });
+        flush();
+        if (s.rings) s.values.forEach((val, i) => {
+          if (s.rings[i] && val != null) sv("circle", { cx: x(i + 1), cy: y(val), r: 4.5, fill: surface, stroke: color, "stroke-width": 2 }, svg);
+        });
+      });
+      // End labels, nudged apart with leader lines when they collide.
+      const ends = opts.series.map(s => {
+        let i = s.values.length - 1;
+        while (i >= 0 && s.values[i] == null) i--;
+        return { s, i, y0: y(s.values[i]), y: y(s.values[i]) };
+      }).sort((a, b) => a.y0 - b.y0);
+      for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 14) ends[k].y = ends[k - 1].y + 14;
+      ends.forEach(e => {
+        const ex = x(e.i + 1);
+        sv("circle", { cx: ex, cy: e.y0, r: 4, fill: cssVar(e.s.color), stroke: surface, "stroke-width": 2 }, svg);
+        if (Math.abs(e.y - e.y0) > 1) sv("line", { x1: ex + 5, y1: e.y0, x2: ex + 10, y2: e.y, stroke: cssVar("--muted"), "stroke-width": 1 }, svg);
+        sv("text", { class: "endlabel", x: ex + 12, y: e.y + 4 }, svg, e.s.short || e.s.label);
+      });
+      (opts.annotations || []).forEach(a => {
+        sv("text", { class: "annot", x: x(a.x), y: y(a.y), "text-anchor": a.anchor || "middle" }, svg, a.text);
+      });
+      // Crosshair.
+      const cross = sv("line", { y1: pad.t, y2: pad.t + ih, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, svg);
+      const hit = sv("rect", { x: pad.l, y: 0, width: iw, height: height, fill: "transparent" }, svg);
+      const show = evt => {
+        const r = svg.getBoundingClientRect();
+        const px = (evt.clientX - r.left) * (width / r.width);
+        const w = Math.max(1, Math.min(W, Math.round((px - pad.l) / iw * (W - 1)) + 1));
+        cross.setAttribute("x1", x(w)); cross.setAttribute("x2", x(w)); cross.setAttribute("visibility", "visible");
+        tip.innerHTML = "";
+        el("b", {}, tip, `Week ${w}`);
+        opts.series.forEach(s => {
+          const row = el("div", { class: "row" }, tip);
+          const dot = el("i", {}, row); dot.style.background = `var(${s.color})`;
+          el("span", {}, row, s.label);
+          el("span", {}, row, fmt0(s.values[w - 1]));
+        });
+        if (opts.extra) opts.extra(w - 1).forEach(line => el("div", { class: "row muted" }, tip, line));
+        tip.hidden = false;
+        const tx = (x(w) / width) * r.width;
+        tip.style.left = Math.min(Math.max(0, tx + 12), r.width - tip.offsetWidth) + "px";
+        tip.style.top = "6px";
+        if (tx + 12 + tip.offsetWidth > r.width) tip.style.left = Math.max(0, tx - tip.offsetWidth - 12) + "px";
+      };
+      hit.addEventListener("pointermove", show);
+      hit.addEventListener("pointerdown", show);
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+    }
+    draw();
+    let last = plot.clientWidth;
+    new ResizeObserver(() => { if (Math.abs(plot.clientWidth - last) > 4) { last = plot.clientWidth; draw(); } }).observe(plot);
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", draw);
+    new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+
+  // Mean of one bar across all four players, per week, for one style.
+  function allPlayers(style, bar) {
+    return weeks.map((_, i) => {
+      let t = 0, n = 0;
+      DATA.players.forEach(p => { const v = DATA.series[style][p.key][bar][i]; if (v != null) { t += v; n++; } });
+      return n ? t / n : null;
+    });
+  }
+  function styleSeries(style, bar, player) {
+    const s = styleBy[style];
+    return { label: s.label, short: s.label, color: STYLE_COLOR[style],
+             values: player ? DATA.series[style][player][bar] : allPlayers(style, bar) };
+  }
+  function seriesTable(fig, series) {
+    dataTable(fig, ["Week"].concat(series.map(s => s.label)),
+      weeks.map((w, i) => [w].concat(series.map(s => fmt(s.values[i])))));
+  }
+
+  // Gate 1 charts ---------------------------------------------------------------
+  {
+    const fig = document.getElementById("fig-susp");
+    const series = [styleSeries("cooker", "suspicion"), styleSeries("balanced", "suspicion")];
+    caption(fig, "Suspicion, average of all four players", "Every failed big roll cooked behind the screen, against the same prep with every roll in the open.");
+    legend(fig, series);
+    lineChart(fig, { series, aria: "Suspicion over 24 weeks, cooking the dice versus rolling in the open" });
+    seriesTable(fig, series);
+  }
+  {
+    const fig = document.getElementById("fig-trust");
+    const series = [styleSeries("cooker", "trust"), styleSeries("balanced", "trust")];
+    caption(fig, "Trust, average of all four players", "Callouts at the table knock Trust down; open rolls build it back slowly.");
+    legend(fig, series);
+    lineChart(fig, { series, aria: "Trust over 24 weeks, cooking the dice versus rolling in the open" });
+    seriesTable(fig, series);
+  }
+  {
+    const fig = document.getElementById("fig-invest");
+    const series = [styleSeries("story_threads", "investment"), styleSeries("balanced", "investment"), styleSeries("combat_only", "investment")];
+    caption(fig, "Investment, average of all four players", "Backstory cards on the board raise it; weeks without them let it fade.");
+    legend(fig, series);
+    lineChart(fig, { series, aria: "Investment over 24 weeks for three DM styles" });
+    seriesTable(fig, series);
+  }
+  {
+    const fig = document.getElementById("fig-sam");
+    const series = [styleSeries("balanced", "commitment", "sam"), styleSeries("neglect_sam", "commitment", "sam")];
+    caption(fig, "Sam's Commitment", "The same thoughtful prep, with and without Sam in mind. The other three players barely notice the difference.");
+    legend(fig, series);
+    lineChart(fig, { series, aria: "Sam's commitment over 24 weeks, planned for versus ignored" });
+    seriesTable(fig, series);
+  }
+
+  // Gate 2: taste heatmap ---------------------------------------------------------
+  {
+    const fig = document.getElementById("fig-taste");
+    caption(fig, "Fun when all three scenes are the same type",
+      "One week, well filled, averaged over 8 runs. The outlined cell is each player's favourite. Darker means less Fun.");
+    const wrap = el("div", { class: "tablewrap" }, fig);
+    const t = el("table", {}, wrap);
+    const hr = el("tr", {}, el("thead", {}, t));
+    el("th", {}, hr, "Player");
+    DATA.scene_types.forEach(s => el("th", { style: "text-align:center" }, hr, s.name));
+    const tb = el("tbody", {}, t);
+    const tipBox = el("div", { class: "tip", hidden: "" }, fig);
+    fig.style.position = "relative";
+    DATA.players.forEach(p => {
+      const tr = el("tr", {}, tb);
+      const th = el("th", { class: "player" }, tr, p.name);
+      el("small", {}, th, p.archetypes);
+      const row = DATA.taste[p.key];
+      const best = Math.max(...DATA.scene_types.map(s => row[s.key] || 0));
+      DATA.scene_types.forEach(s => {
+        const val = row[s.key];
+        const pct = Math.round(Math.max(0, Math.min(100, val || 0)));
+        const td = el("td", { class: "cell" + (val === best ? " best" : ""), tabindex: "0" }, tr, fmt0(val));
+        td.style.background = `color-mix(in srgb, var(--heat-hi) ${pct}%, var(--heat-lo))`;
+        td.style.color = pct > 55 ? "var(--heat-ink-hi)" : "var(--heat-ink-lo)";
+        const showTip = () => {
+          tipBox.innerHTML = "";
+          el("b", {}, tipBox, `${p.name} in ${s.name.toLowerCase()} scenes`);
+          el("div", {}, tipBox, `Fun ${fmt(val)}${val === best ? " (favourite)" : ""}`);
+          tipBox.hidden = false;
+          const fr = fig.getBoundingClientRect(), r = td.getBoundingClientRect();
+          tipBox.style.left = Math.min(r.left - fr.left, fr.width - tipBox.offsetWidth - 8) + "px";
+          tipBox.style.top = (r.bottom - fr.top + 6) + "px";
+        };
+        td.addEventListener("pointerenter", showTip);
+        td.addEventListener("focus", showTip);
+        td.addEventListener("pointerleave", () => { tipBox.hidden = true; });
+        td.addEventListener("blur", () => { tipBox.hidden = true; });
+      });
+    });
+  }
+
+  // Gate 3: an example campaign and every break ------------------------------------
+  {
+    const ex = DATA.example;
+    const fig = document.getElementById("fig-example");
+    const style = styleBy[ex.style];
+    const leavers = [];
+    DATA.players.forEach(p => ex.weeks.forEach(w => { if (w.players[p.key].standing === "left") leavers.push([p, w.week]); }));
+    const story = leavers.length
+      ? leavers.map(([p, wk]) => `${p.name} leaves in week ${wk}`).join("; ")
+      : "Nobody leaves";
+    caption(fig, `One campaign, week by week: Commitment under the ${style.label.toLowerCase()} DM`,
+      `${story}. Rings mark weeks they warned the group chat first. Faded stretches are weeks on a break; a break ends with a fresh start at ${DATA.meta.return_at} or more.`);
+    const series = DATA.players.map(p => ({
+      label: p.name, color: PLAYER_COLOR[p.key],
+      values: ex.weeks.map(w => w.players[p.key].commitment),
+      faded: ex.weeks.map(w => w.players[p.key].on_break),
+      rings: ex.weeks.map(w => w.players[p.key].warned),
+    }));
+    legend(fig, series.concat([{ label: "Warned in the group chat", ring: true }]));
+    const annotations = leavers.map(([p, wk]) => {
+      const val = ex.weeks[wk - 1].players[p.key].commitment;
+      return { x: Math.min(W - 2, wk + 1.5), y: Math.max(6, val - 8), text: `${p.name} takes a break`, anchor: "start" };
+    });
+    lineChart(fig, {
+      series, height: 260, annotations,
+      thresholds: [{ y: DATA.meta.waver_at, label: `Below ${DATA.meta.waver_at}: they say so in the chat` }],
+      aria: "Commitment of each player over one campaign",
+      extra: i => {
+        const w = ex.weeks[i];
+        const lines = [`DM's Empathy: level ${w.empathy}`];
+        DATA.players.forEach(p => {
+          const pw = w.players[p.key];
+          if (pw.on_break) lines.push(`${p.name} is on a break`);
+          else if (!pw.present) lines.push(`${p.name} missed this week`);
+          if (pw.warned) lines.push(`${p.name} posted a warning in the chat`);
+        });
+        return lines;
+      },
+    });
+    dataTable(fig, ["Week", "Empathy"].concat(DATA.players.flatMap(p => [`${p.name} Commitment`, `${p.name} Fun`])),
+      ex.weeks.map(w => [w.week, w.empathy].concat(DATA.players.flatMap(p => {
+        const pw = w.players[p.key];
+        return [fmt(pw.commitment) + (pw.warned ? " (warned)" : "") + (pw.on_break ? " (break)" : ""), pw.fun == null ? "-" : fmt(pw.fun)];
+      }))));
+  }
+  {
+    const fig = document.getElementById("fig-breaks");
+    const q = DATA.quits;
+    caption(fig, `Every break across all runs (${q.length})`,
+      q.length ? "Who left, when, how many weeks they warned the chat first, and what the DM could see at the time." : "Nobody took a break in any run.");
+    if (q.length) {
+      const counts = {};
+      q.forEach(r => { counts[r.style] = counts[r.style] || {}; counts[r.style][r.player] = (counts[r.style][r.player] || 0) + 1; });
+      const wrap = el("div", { class: "tablewrap" }, fig);
+      const t = el("table", {}, wrap);
+      const hr = el("tr", {}, el("thead", {}, t));
+      ["DM style"].concat(DATA.players.map(p => p.name), ["Total"]).forEach(h => el("th", {}, hr, h));
+      const tb = el("tbody", {}, t);
+      DATA.styles.forEach(s => {
+        const c = counts[s.key] || {};
+        const tr = el("tr", {}, tb);
+        el("td", {}, tr, s.label);
+        let total = 0;
+        DATA.players.forEach(p => { total += c[p.key] || 0; el("td", {}, tr, c[p.key] ? String(c[p.key]) : "-"); });
+        el("td", {}, tr, total ? String(total) : "-");
+      });
+      const d = el("details", {}, fig);
+      el("summary", {}, d, "Show every break");
+      const w2 = el("div", { class: "tablewrap" }, d);
+      const t2 = el("table", {}, w2);
+      const h2 = el("tr", {}, el("thead", {}, t2));
+      ["DM style", "Player", "Week", "Weeks warned", "Recent Fun", "What the DM could see"].forEach(h => el("th", {}, h2, h));
+      const b2 = el("tbody", {}, t2);
+      q.forEach(r => {
+        const tr = el("tr", {}, b2);
+        el("td", {}, tr, styleBy[r.style].label);
+        el("td", {}, tr, playerBy[r.player].name);
+        el("td", {}, tr, String(r.week));
+        el("td", {}, tr, String(r.warned_weeks));
+        el("td", {}, tr, fmt0(r.recent_fun));
+        el("td", { class: "wrap" }, tr, r.reasons.join("; "));
+      });
+    }
+  }
+
+  // All styles --------------------------------------------------------------------
+  {
+    const fig = document.getElementById("fig-styles");
+    caption(fig, "Averages over every campaign of each style",
+      "Breaks and callouts are per campaign. Wavering is the share of player-weeks spent drifting away. End Commitment is week " + W + ".");
+    const wrap = el("div", { class: "tablewrap" }, fig);
+    const t = el("table", {}, wrap);
+    const hr = el("tr", {}, el("thead", {}, t));
+    ["DM style", "Avg Fun", "Breaks", "Wavering", "Callouts"].concat(DATA.players.map(p => p.name)).forEach(h => el("th", {}, hr, h));
+    const tb = el("tbody", {}, t);
+    DATA.styles.forEach(s => {
+      const sm = DATA.summary[s.key];
+      const tr = el("tr", {}, tb);
+      const td = el("td", { class: "style" }, tr);
+      el("b", {}, td, s.label);
+      el("small", {}, td, s.about);
+      el("td", {}, tr, fmt0(sm.avg_fun));
+      el("td", {}, tr, fmt(sm.quits_per_campaign));
+      el("td", {}, tr, fmt(sm.wavering_share) + "%");
+      el("td", {}, tr, fmt(sm.callouts));
+      DATA.players.forEach(p => el("td", {}, tr, fmt0(sm.end_commitment[p.key])));
+    });
+  }
+
+  // Notes -------------------------------------------------------------------------
+  {
+    const n = document.getElementById("notes");
+    const add = html => { const p = el("p", {}, n); p.innerHTML = html; };
+    add("<b>Session meters</b> (Spotlight, Challenge, Story, Social, Reward) start fresh each game night. Fun is computed from them, weighted by each player's archetype blend and nudged by their mood that week.");
+    add("<b>Commitment</b> follows recent Fun most, then that night's Fun, Investment and Trust. Life pressure from a bad week pulls it down a little. It builds more slowly than it drains.");
+    add(`<b>Leaving.</b> Below ${m.waver_at} Commitment, a player says so in the group chat, at any Empathy. Only after ${m.waver_weeks} weeks of that, and still below ${m.leave_at}, do they take a break of 3 to 5 weeks. A one-on-one check-in shortens it, and they come back with a fresh start.`);
+    add("<b>Investment</b> rises when their backstory is on the board and with Spotlight and Story; it fades slowly without them and faster on the sidelines. <b>Trust</b> rises with open rolls and drops when someone catches you cooking. <b>Suspicion</b> rises with hidden rolls, faster for perceptive players and convenient results.");
+    add("<b>Empathy</b> is the DM's read of all this. At level 1 the bars snap to quarters and show last week's values; by level 5 they are precise, with trend arrows and early warnings. Suspicion always shows as a band that never closes. In these runs, the DM gets Empathy from every game night and every one-on-one talk.");
+    add(`Run it yourself from the project root with <code>lua tools/sim/run.lua ${m.campaigns} ${m.weeks}</code>. Base seed ${m.seed}.`);
+  }
+})();
+</script>
+</body>
+</html>

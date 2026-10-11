@@ -1,0 +1,111 @@
+-- Dice tray controller: throws a physical d20 into the tray, keeps a soft
+-- shadow under it, and reads the face that lands on top.
+
+local scene = require "main.scene_data"
+
+local BLOB = "/dice_blob"
+local MSG_ROLL = hash("roll")
+
+local function random_rotation()
+    return vmath.quat_rotation_y(math.random() * 6.283)
+        * vmath.quat_rotation_x(math.random() * 6.283)
+        * vmath.quat_rotation_z(math.random() * 6.283)
+end
+
+local function read_face(rot)
+    local best, value = -2, 1
+    for _, f in ipairs(scene.d20_faces) do
+        local n = vmath.rotate(rot, vmath.vector3(f[1], f[2], f[3]))
+        if n.y > best then
+            best, value = n.y, f[4]
+        end
+    end
+    return value
+end
+
+local function hide_blob()
+    go.set_position(vmath.vector3(0, -500, 0), BLOB)
+end
+
+local function throw(self)
+    if self.die then
+        go.delete(self.die)
+        self.die = nil
+    end
+    local d = scene.dice
+    local pos = vmath.vector3(d.spawn.x + (math.random() - 0.5) * 3, d.spawn.y, d.spawn.z + (math.random() - 0.5) * 6)
+    self.die = factory.create("#factory", pos, random_rotation())
+    local co = msg.url(nil, self.die, "collisionobject")
+    local v = vmath.vector3(d.throw.x + (math.random() - 0.5) * 25, d.throw.y, d.throw.z + (math.random() - 0.5) * 40)
+    local w = vmath.vector3((math.random() - 0.5) * 60, (math.random() - 0.5) * 60, (math.random() - 0.5) * 60)
+    local ok = pcall(go.set, co, "linear_velocity", v)
+    pcall(go.set, co, "angular_velocity", w)
+    if not ok then
+        -- Older engines can't set velocity directly; push it instead.
+        msg.post(co, "apply_force", { force = v * 60, position = pos + vmath.vector3(0.8, 0.6, 0) })
+    end
+    self.age, self.still, self.reported = 0, 0, false
+    msg.post("/hud#hud", "rolling")
+end
+
+function init(self)
+    math.randomseed(os.time())
+    self.die = nil
+    self.reported = true
+    hide_blob()
+end
+
+function update(self, dt)
+    if not self.die then
+        return
+    end
+    self.age = self.age + dt
+    local p = go.get_position(self.die)
+    local d = scene.dice
+
+    if p.y < d.floor_y - 30 then
+        go.delete(self.die)
+        self.die = nil
+        hide_blob()
+        msg.post("/hud#hud", "fell")
+        if self.requester then
+            -- Game night is waiting on this roll: throw again.
+            throw(self)
+        end
+        return
+    end
+
+    local h = math.max(p.y - d.floor_y, 0)
+    go.set_position(vmath.vector3(p.x + 0.4, d.floor_y + 0.05, p.z + 0.6), BLOB)
+    local s = 5.0 + h * 0.18
+    go.set_scale(vmath.vector3(s, 1, s), BLOB)
+    go.set(msg.url(nil, BLOB, "model"), "tint", vmath.vector4(1, 1, 1, math.max(0.15, 0.62 - h * 0.025)))
+
+    if not self.reported then
+        local co = msg.url(nil, self.die, "collisionobject")
+        local lv = go.get(co, "linear_velocity")
+        local av = go.get(co, "angular_velocity")
+        if self.age > 0.4 and vmath.length(lv) < 2.0 and vmath.length(av) < 0.8 then
+            self.still = self.still + dt
+        else
+            self.still = 0
+        end
+        if self.still > 0.25 or self.age > 6 then
+            self.reported = true
+            local value = read_face(go.get_rotation(self.die))
+            msg.post("/hud#hud", "roll_result", { value = value })
+            if self.requester then
+                msg.post(self.requester, "roll_result", { value = value })
+                self.requester = nil
+            end
+        end
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == MSG_ROLL then
+        -- Game night asks for a reply; the sandbox Space roll doesn't.
+        self.requester = message.reply and sender or nil
+        throw(self)
+    end
+end

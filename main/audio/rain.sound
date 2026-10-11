@@ -1,0 +1,4 @@
+sound: "/assets/audio/rain.wav"
+looping: 1
+group: "ambience"
+gain: 1.0
