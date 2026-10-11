@@ -137,7 +137,7 @@ M.list = {
                 .. "space within 30 feet. It lasts 1 minute, until you use this feature again, or until you have the "
                 .. "Incapacitated condition. When a creature attacks you or an ally within "
                 .. "10 feet of the decoy, it must succeed on a Wisdom save against your spell save DC or attack the "
-                .. "decoy instead, with Disadvantage. The decoy's AC equals your spell save DC, and a hit ends it. On "
+                .. "decoy instead. The decoy's AC equals your spell save DC, and a hit ends it. On "
                 .. "later turns, you can move the decoy up to 30 feet as a Bonus Action." },
         },
         domain_spells = { "disguise_self", "color_spray", "blur", "mirror_image" },

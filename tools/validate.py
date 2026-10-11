@@ -217,11 +217,16 @@ for side in ("party", "foe", "npc"):
     if f'id: "{side}"' not in base_go:
         errors.append(f"main/minis/mini_base.go: missing component {side}")
 
-# Terrain sets: one game object per set, all placed in the collection.
-layout = open(os.path.join(ROOT, "game/data/terrain_layout.lua")).read()
-for name in re.findall(r"^        ([a-z]+) = \{", layout, flags=re.M):
-    if f'"terrain_{name}"' not in col:
-        errors.append(f"terrain set {name} is not placed in main.collection")
+# The board: placed in the collection, and a factory for every kind in the prop kit.
+if 'id: "board"' not in col:
+    errors.append("the board (main/board/board.go) is not placed in main.collection")
+board_go = open(os.path.join(ROOT, "main/board/board.go")).read()
+props_lua = open(os.path.join(ROOT, "game/data/props.lua")).read()
+for name in re.findall(r"^    ([a-z_]+) = \{ fw", props_lua, flags=re.M):
+    if f'id: "{name}"' not in board_go:
+        errors.append(f"prop kind {name} has no factory on main/board/board.go")
+    if not os.path.exists(os.path.join(ROOT, f"main/board/props/{name}.go")):
+        errors.append(f"prop kind {name} has no prototype main/board/props/{name}.go")
 
 # Dialogue data (M5): the JSON parses and ships inside the game.
 import json

@@ -123,6 +123,24 @@ function M.showcase(app, a)
             end
         end
         p:set_encounter(3, { "ogre", "goblin_warrior", "goblin_warrior", "goblin_warrior" })
+        -- A map for the fight's place (B9): a wall, cover by the monsters, rough ground and a trap.
+        local s3 = p.scenes[3]
+        if not s3.slots.location then
+            s3.slots.location = require("game.model.content").components.forest_road
+        end
+        local maps = require "game.model.maps"
+        local loc = s3.slots.location
+        local m = maps.new(app.campaign, loc.id, maps.auto_template(app.campaign, loc, "combat"))
+        for y = 4, 9 do
+            maps.place(m, "wall", 11, y)
+        end
+        for _, sq in ipairs({ { 15, 5 }, { 15, 9 } }) do
+            maps.place(m, "cover", sq[1], sq[2])
+        end
+        for x = 6, 8 do
+            maps.place(m, "rough", x, 10)
+        end
+        maps.place(m, "trap", 9, 7)
         app.sel = { scene = 2, kind = "cast" }
         app.refresh()
         shot(a, "prep_board")
@@ -140,7 +158,12 @@ function M.showcase(app, a)
         app.close_overlay()
         app.open_encounter(3)
         shot(a, "encounter")
+    elseif step == 6 then
+        app.enc_tab = "map"
+        app.refresh()
+        shot(a, "map_builder")
     else
+        app.enc_tab = nil
         app.close_overlay()
         a.showcased = true
         a.wait = 0.5
@@ -160,9 +183,58 @@ function M.night_shots(app, a)
         end
         return false
     end
+    -- A shot a moment later, once the pieces have dropped onto the mat.
+    if a.pend then
+        shot(a, a.pend)
+        a.pend = nil
+        return true
+    end
+    local function later(name, when, secs)
+        if when and not a.shots[name] then
+            a.pend = name
+            a.wait = secs or 1.6
+            return true
+        end
+        return false
+    end
+    -- The story-matched table: the intros, the board going down with the place, pieces
+    -- dropping in on the DM's words, the rest set out, the person stepping in.
+    if later("intro_meet", ev.kind == "intro" and ev.index == 2, 2.0) then return true end
+    if later("dice_moment", ev.kind == "dice", 1.6) then return true end
+    if later("board_base", ev.kind == "scene", 1.4) then return true end
+    if later("board_words", ev.kind == "narrate" and ev.reveal ~= nil and not ev.dressing, 2.2) then return true end
+    if later("board_dressed", ev.kind == "narrate" and ev.dressing, 3.0) then return true end
+    if later("npc_steps_in", ev.npc_show == true, 1.6) then return true end
+    if later("battle_board", ev.kind == "battle" and ev.phase == "start", 3.0) then return true end
+    -- A9: the room with everyone on their chairs, once, from the room camera.
+    if not a.room_zoomed and ev.kind == "stage" then
+        a.room_zoomed = true
+        app.zoom(1)
+        a.wait = 2.2
+        return true
+    end
+    if a.room_zoomed and not a.shots.room then
+        shot(a, "room")
+        a.after_room = true
+        return true
+    end
+    if a.after_room then
+        a.after_room = nil
+        app.zoom(2)
+        a.wait = 1.2
+        return true
+    end
     if once("check", ev.kind == "check") then return true end
+    if once("read_aloud", ev.kind == "narrate" and app.caption and app.caption.read and app.caption.life > 0) then return true end
+    if once("in_character", ev.kind == "say" and ev.ic) then return true end
+    if once("npc_talk", ev.kind == "npc" and app.on_table and app.on_table.npc) then return true end
     if once("clue", ev.kind == "clue") then return true end
     if once("opening", ev.kind == "narrate" and ev.style == "opening") then return true end
+    -- The DM's map on the table (B9), when the fight on it starts.
+    if ev.kind == "battle" and ev.phase == "start" and ev.pieces and not a.shots.map_on_table then
+        a.wait = 1.4
+        return once("map_on_table", true)
+    end
     if ev.kind == "turn" then
         for _, st in ipairs(ev.steps or {}) do
             if st.kind == "spell" and st.area and not a.shots.spell_area then
@@ -247,6 +319,8 @@ function M.update(app, dt)
         app.s0.rules.xcard = app.s0.rules.xcard or "on"
         app.s0.rules.dice = app.s0.rules.dice or "big_open"
         app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.s0.rules.length = app.s0.rules.length or "half"
+        app.s0.rules.death = app.s0.rules.death or "meaningful"
         app.refresh()
         if not shot(a, "session_zero") then
             by_label("Start week")
@@ -308,8 +382,15 @@ function M.update(app, dt)
                 say("handover")
             end
         elseif app.pending then
-            if a.mode == 4 and (app.pending.kind == "decision" or app.pending.kind == "roll_where") and not a.shots[app.pending.kind] then
+            if a.mode == 4 and (app.pending.kind == "decision" or app.pending.kind == "roll_where" or app.pending.kind == "ruling")
+                and not a.shots[app.pending.kind] then
                 shot(a, app.pending.kind)
+                return
+            end
+            -- Taking over (B8): the talk card and the boss's turn, once each.
+            local ct = app.pending.kind == "decision" and app.pending.card and app.pending.card.type
+            if a.mode == 4 and (ct == "talk" or ct == "boss") and not a.shots["takeover_" .. ct] then
+                shot(a, "takeover_" .. ct)
                 return
             end
             if not by_label("Play") then

@@ -1,5 +1,5 @@
--- The table on game night (M4): swaps the terrain sets with a physical reset,
--- spawns and moves the paper minis, poses the players (empty chairs for anyone out),
+-- The table on game night (M4): spawns and moves the paper minis (the scenery is the board's:
+-- main/board/board.script), poses the players (empty chairs for anyone out),
 -- throws sparks for spells,
 -- and tells the game screen where everyone is on screen so it can hang speech
 -- bubbles and damage numbers on them. The game screen drives it with messages.
@@ -18,50 +18,8 @@ local function square(x, y)
     return vmath.vector3(g.x0 + g.size * (x - 0.5), g.base_top, g.z0 + g.size * (y - 0.5))
 end
 
-local function set_fire(name)
-    local f = scene.terrain_fire[name]
-    if f and f.pos and f.level > 0 then
-        state.fire_pos = f.pos
-        state.fire_level = f.level
-    else
-        state.fire_pos = f and f.pos or nil
-        state.fire_level = 0
-    end
-end
-
--- Terrain ---------------------------------------------------------------------------------
-
-local function terrain_id(name)
-    return "/terrain_" .. name
-end
-
-local function show_terrain(self, name, animate)
-    if name == self.terrain then
-        return
-    end
-    local old = self.terrain
-    self.terrain = name
-    if old then
-        local oid = terrain_id(old)
-        if animate then
-            go.animate(oid, "position.y", go.PLAYBACK_ONCE_FORWARD, 70, go.EASING_INBACK, 0.45, 0, function()
-                msg.post(oid, "disable")
-                go.set_position(vmath.vector3(0, 0, 0), oid)
-            end)
-        else
-            msg.post(oid, "disable")
-        end
-    end
-    local nid = terrain_id(name)
-    msg.post(nid, "enable")
-    if animate then
-        go.set_position(vmath.vector3(0, 60, 0), nid)
-        go.animate(nid, "position.y", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBOUNCE, 0.8, 0.4)
-    else
-        go.set_position(vmath.vector3(0, 0, 0), nid)
-    end
-    set_fire(name)
-end
+-- The board (the scenery) lives on its own game object: main/board/board.script.
+local BOARD = msg.url("main", "/board", "board")
 
 -- Minis -----------------------------------------------------------------------------------
 
@@ -78,6 +36,25 @@ local function spawn(self, m)
     msg.post(msg.url(nil, id, "mini"), "setup", { base = base, shadow = shadow, anim = hash(m.sprite), side = m.side,
                                                  size = size, drop = m.drop, delay = m.delay })
     self.minis[m.id] = { go = id, x = m.x, y = m.y, side = m.side, size = size, sprite = m.sprite }
+end
+
+-- The shelf of fallen heroes (M8, B3): their minis stand on top of the bookshelf, a little
+-- bigger than on the mat so they read from the table.
+local SHELF = { x = -284.0, y = 196.0, z0 = -178.0, step = 11.0, size = 1.7 }
+
+local function shelf(self, list)
+    for _, id in ipairs(self.shelf or {}) do
+        go.delete(id)
+    end
+    self.shelf = {}
+    for i, sprite in ipairs(list or {}) do
+        local pos = vmath.vector3(SHELF.x, SHELF.y, SHELF.z0 + (i - 1) * SHELF.step)
+        local s = scene.mini.scale * SHELF.size
+        local id = factory.create("#mini_factory", pos, nil, { lift = 0 }, vmath.vector3(s, s, s))
+        msg.post(msg.url(nil, id, "mini"), "setup", { anim = hash(sprite), side = "party", size = SHELF.size,
+                                                     home_y = SHELF.y })
+        table.insert(self.shelf, id)
+    end
 end
 
 local function remove(self, id, how)
@@ -145,7 +122,8 @@ end
 
 -- The M0 vignette: the party around the campfire with two goblins sneaking up.
 local function vignette(self)
-    show_terrain(self, "camp", self.terrain ~= nil)
+    msg.post(BOARD, "board", { id = "vignette", show = "all", animate = self.vignetted ~= nil })
+    self.vignetted = true
     for _, m in ipairs({
         { id = "dev", sprite = "fighter", x = 9, y = 7, side = "party" },
         { id = "mara", sprite = "wizard", x = 5, y = 5, side = "party" },
@@ -212,6 +190,28 @@ local function mark_area(self, message)
     end
 end
 
+-- The DM's map pieces (B9): paper tiles on the mat, walls, cover, rough ground and traps.
+local PIECE_COLOR = {
+    wall = vmath.vector4(0.54, 0.5, 0.47, 0.95), cover = vmath.vector4(0.62, 0.46, 0.26, 0.8),
+    rough = vmath.vector4(0.36, 0.5, 0.26, 0.6), trap = vmath.vector4(0.55, 0.32, 0.62, 0.45),
+}
+local function lay_pieces(self, cells)
+    for _, id in ipairs(self.pieces or {}) do
+        msg.post(msg.url(nil, id, "mark"), "fade")
+    end
+    self.pieces = {}
+    local g = scene.grid
+    for kind, list in pairs(cells or {}) do
+        for _, sq in ipairs(list) do
+            local pos = vmath.vector3(g.x0 + g.size * (sq[1] - 0.5), g.y + 0.05, g.z0 + g.size * (sq[2] - 0.5))
+            local id = factory.create("#mark_factory", pos, nil,
+                { color = PIECE_COLOR[kind] or PIECE_COLOR.wall, life = 0, still = true, delay = 0.3 },
+                vmath.vector3(g.size * 0.9, 1, g.size * 0.9))
+            table.insert(self.pieces, id)
+        end
+    end
+end
+
 local function clear_area(self, zone)
     for _, id in ipairs(self.zones[zone] or {}) do
         msg.post(msg.url(nil, id, "mark"), "fade")
@@ -227,9 +227,6 @@ function init(self)
     self.tracking = false
     for who in pairs(scene.heads) do
         self.people[who] = { anim = who }
-    end
-    for _, name in ipairs(scene.terrain_sets) do
-        msg.post(terrain_id(name), "disable")
     end
     vignette(self)
 end
@@ -265,7 +262,10 @@ function on_message(self, message_id, message)
     if message_id == hash("track") then
         self.tracking = message.on
     elseif message_id == hash("terrain") then
-        show_terrain(self, message.set, message.animate ~= false)
+        -- (Older callers name a terrain set: it's a board now.)
+        msg.post(BOARD, "board", { id = message.set, show = message.show or "all", animate = message.animate ~= false })
+    elseif message_id == hash("pieces") then
+        lay_pieces(self, message.cells)
     elseif message_id == hash("stage") then
         stage(self, message)
     elseif message_id == hash("spawn") then
@@ -299,6 +299,13 @@ function on_message(self, message_id, message)
         end
     elseif message_id == hash("hit") or message_id == hash("down") or message_id == hash("up") then
         mini_msg(self, message.id, message_id)
+    elseif message_id == hash("glow") then
+        -- Someone speaks in character (A9): their mini lights up and stands a little taller.
+        local m = mini_msg(self, message.id, "glow", { time = message.time })
+        if m then
+            factory.create("#spark_factory", square(m.x, m.y) + vmath.vector3(0, scene.mini.height * 0.9, 0), nil,
+                { color = vmath.vector4(1, 0.85, 0.45, 1), size = 0.6, life = 0.6 })
+        end
     elseif message_id == hash("die") or message_id == hash("flee") then
         remove(self, message.id, message_id == hash("die") and "die" or "flee")
     elseif message_id == hash("spark") then
@@ -342,10 +349,13 @@ function on_message(self, message_id, message)
             local here = not message.present or message.present[who] ~= false
             msg.post(msg.url(nil, "/" .. who, "person"), "seat", { present = here })
         end
+    elseif message_id == hash("shelf") then
+        shelf(self, message.list)
     elseif message_id == hash("vignette") then
         for id in pairs(self.minis) do
             remove(self, id, "sweep")
         end
+        lay_pieces(self, nil)
         for who, p in pairs(self.people) do
             p.mood, p.until_t = nil, nil
             pose(self, who, "neutral", false)

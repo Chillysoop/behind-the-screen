@@ -46,6 +46,18 @@ local rest_rules = require "game.rules.rest"
 local rapport = require "game.model.rapport"
 local rests = require "game.data.rests"
 local deck = require "game.model.deck"
+local fails_mod = require "game.model.fails"
+local death_mod = require "game.model.death"
+local takeover = require "game.model.takeover"
+local maps = require "game.model.maps"
+local villains = require "game.model.villains"
+local intros = require "game.model.intros"
+local dice_sets = require "game.model.dice_sets"
+local recap_mod = require "game.model.recap"
+local board_mod = require "game.model.board"
+
+-- Skills for talking to someone: a hero who uses one walks over to the person (A9).
+local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
 local skills = require "game.rules.skills"
 
 local M = {}
@@ -165,6 +177,9 @@ function M.new(campaign, prep, opts)
             quality = prep_mod.quality(s.type, comps, prep.inspired),
             difficulty = prep_mod.difficulty(comps),
             encounter = s.encounter,   -- the fight the DM built in prep (combat and set pieces)
+            module = s.module and s.module.id,                       -- a published adventure (A13)
+            hazard = s.hazard,                                       -- a hazard on the mat (A10)
+            module_custom = s.module and next(s.module.swaps) ~= nil or nil,
             open = s.open,             -- the players choose where (A15)
             spots = s.open and util.copy(s.spots or {}) or nil,
         }
@@ -206,19 +221,32 @@ end
 -- The table clock (A14): minutes of real table time, apart from the screen's playback time.
 -- Only what happens moves it: a fight's rounds, each check and call, a lookup, a break.
 M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, improv = 3.5, ruling = 2.5,
-                roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6 }
+                roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6, dice = 1, intro = 0.5 }
 
 function M:emit(ev)
+    if self.board_id then
+        self:board_hear(ev)
+    end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
-    self.table_min = (self.table_min or 0) + (M.TABLE_MIN[ev.kind] or 0) + (ev.table_min or 0)
+    -- The table clock moves with the session being played, never while a choice waits for you:
+    -- a call's minutes are the table playing it out, so they land once you've made it.
+    local minutes = (M.TABLE_MIN[ev.kind] or 0) + (ev.table_min or 0)
+    local prompt = pacing.DECISION_KINDS[ev.kind] or ev.kind == "roll_where"
+    if not prompt then
+        self.table_min = (self.table_min or 0) + minutes
+    end
     if pacing.DECISION_KINDS[ev.kind] then
         self.counts[ev.kind] = self.counts[ev.kind] + 1
     end
-    if pacing.DECISION_KINDS[ev.kind] or ev.kind == "roll_where" then
+    if prompt then
         self.last_input = self.clock
     end
-    return coroutine.yield(ev)
+    local answer = coroutine.yield(ev)
+    if prompt then
+        self.table_min = (self.table_min or 0) + minutes
+    end
+    return answer
 end
 
 -- Seconds since the DM last had a choice to make.
@@ -236,6 +264,74 @@ function M:room(cap)
     local last = self.scenes[#self.scenes]
     local reserve = (last and self.scene ~= last) and 2 or 0
     return self:decision_count() < cap - reserve
+end
+
+-- The board (the story-matched table) --------------------------------------------
+-- The place goes down with its floor and walls; every other piece drops in when the DM's words
+-- name it (game/model/board.lua), and the scene's person appears when they're named or speak.
+
+-- Narration styles that don't set the scene (asides, dice, the system's own lines).
+local NOT_SCENERY = { aside = true, system = true, dice = true, warn = true, recap = true, check = true, reaction = true,
+                      thread = true, scene = true, good = true, bad = true }
+
+function M:board_set(id, sc)
+    -- The same place again (two scenes there tonight): what's on the table stays on it.
+    if id ~= self.board_id or not self.board_shown then
+        self.board_id = id
+        self.board_shown = {}
+        for _, fid in ipairs(board_mod.base_ids(id)) do
+            self.board_shown[fid] = true
+        end
+    end
+    local cast = sc and sc.comps.cast
+    self.npc_words = cast and board_mod.person_words(cast) or nil
+    self.npc_pending = nil
+end
+
+-- What this event puts on the table.
+function M:board_hear(ev)
+    local k = ev.kind
+    if ev.reveal then
+        for _, r in ipairs(ev.reveal) do
+            self.board_shown[r.id] = true
+        end
+    elseif (k == "narrate" and not NOT_SCENERY[ev.style or ""]) or k == "npc" then
+        local hits = board_mod.mentioned(self.board_id, ev.text, self.board_shown)
+        if #hits > 0 then
+            ev.reveal = hits
+            for _, h in ipairs(hits) do
+                self.board_shown[h.id] = true
+            end
+        end
+    elseif (pacing.DECISION_KINDS[k] and k ~= "improv") or k == "roll_where" or k == "check" or k == "battle" then
+        -- Play has started: anything the DM hasn't set out goes down now. (An improv card is the
+        -- DM still making the place up, so it waits for the words.)
+        local rest = board_mod.hidden(self.board_id, self.board_shown)
+        if #rest > 0 then
+            ev.reveal = {}
+            for _, f in ipairs(rest) do
+                self.board_shown[f.id] = true
+                table.insert(ev.reveal, { id = f.id, at = 0 })
+            end
+            self.board_late = (self.board_late or 0) + #rest
+        end
+    end
+    if self.npc_pending and (k == "npc" or self.npc_cue or (k == "narrate" and board_mod.names(self.npc_words, ev.text))
+        or (pacing.DECISION_KINDS[k] and k ~= "improv") or k == "check") then
+        ev.npc_show = true
+        self.npc_pending = nil
+    end
+end
+
+-- The DM sets out the rest of the place in a line, so every piece comes in on a word.
+function M:dress_board()
+    if not self.board_id then
+        return
+    end
+    local text, list = board_mod.dressing(self.board_id, self.board_shown, 5)
+    if text then
+        self:emit({ kind = "narrate", text = text, style = "narration", reveal = list, dressing = true })
+    end
 end
 
 -- Helpers ---------------------------------------------------------------------
@@ -261,6 +357,9 @@ function M:vars(extra)
         local cast = shown(sc.comps.cast)
         v.cast = cast and soft_lower(cast.short or cast.name) or "the locals"
         v.Cast = util.capitalize(v.cast)
+        v.they_want = (cast and cast.group) and "they actually want"
+            or ((cast and cast.pronoun == "he") and "he actually wants" or ((cast and cast.pronoun == "she") and "she actually wants"
+            or "they actually want"))
         -- Who's behind it (a mystery's culprit, a traitor): someone in the scene, never a
         -- mentor's ghost; else whoever this week's story points at.
         local beat = self.campaign:arc_beat() or content.arc.beats[#content.arc.beats]
@@ -306,7 +405,9 @@ end
 function M:mod_for(p, skill)
     local c = self.campaign
     local sub = c.subclasses and c.subclasses[p.class]
+    -- Magic items: the Luckstone, the Gloves when there's climbing or swimming (A13).
     return skills.mod(p.class, skill, c.level or 2, sub)
+        + require("game.model.items").check_bonus(c, p.key, skill, self.scene and self.scene.comps.location)
 end
 
 -- A hero's best skill from a list (or the one skill): skill, modifier.
@@ -395,6 +496,37 @@ function M:npc_line(what, extra)
     local text, line = self.talk:npc(cast.id, what, self:vars(extra))
     if text then
         self:emit({ kind = "npc", name = cast.name, cast = cast.id, text = text, line = line.id })
+    end
+end
+
+-- A published adventure's person says their lines from the book ({npc}: whoever plays them).
+function M:module_line(sc, i)
+    local m = sc.module and require("game.model.books").module(sc.module)
+    local cast = sc.comps.cast
+    local line = m and m.lines and m.lines[i]
+    if not (line and cast) or self:muted(cast) then
+        return
+    end
+    local who = cast.short or cast.name
+    local text = util.capitalize(util.fill(line, { npc = who }))
+    self:emit({ kind = "npc", name = cast.name, cast = cast.id, text = text })
+end
+
+-- After a module scene: run straight from the book, the storyteller notices it didn't touch the
+-- campaign; customized (their own reward, someone from the notebook), it did.
+function M:module_verdict(sc)
+    for _, p in ipairs(self.players) do
+        if score.arch(p, "storyteller") >= 1 then
+            if sc.module_custom then
+                score.add(p, "investment", 1)
+            else
+                score.add(p, "investment", -1)
+                if self:idle() < 120 then
+                    self:emit({ kind = "say", who = p.key, text = "That was fun. Didn't really connect to anything, though." })
+                end
+            end
+            break
+        end
     end
 end
 
@@ -535,8 +667,33 @@ function M:pick_actor(prefs, exclude)
     return self.rng:pick(others)
 end
 
-function M:highlight(score_value, text, who)
+-- A moment for the scrapbook from a log line: its first sentence, or the first two when the first
+-- is only a word or two ("Click. The lock gives." is the lock giving, not "Click").
+function M.moment_of(text)
+    local out, words = "", 0
+    for sentence in string.gmatch(text .. " ", "(.-[%.!?]+[\"']?)%s+") do
+        out = out == "" and sentence or (out .. " " .. sentence)
+        for _ in string.gmatch(sentence, "%a+") do
+            words = words + 1
+        end
+        if words >= 4 then
+            break
+        end
+    end
+    if out == "" then
+        return text
+    end
+    return (string.gsub(out, "[%.!]+$", ""))
+end
+
+function M:highlight(score_value, text, who, ev)
     table.insert(self.highlights, { score = score_value, text = text })
+    -- Every moment worth a highlight is in the event log too (M8, B1).
+    local keys = {}
+    for _, p in ipairs(who or {}) do
+        table.insert(keys, p.key)
+    end
+    self:event(ev or "moment", { who = #keys == 1 and keys[1] or "party", keys = keys, text = text, weight = score_value })
     for _, p in ipairs(who or {}) do
         if not p.best or score_value > p.best.score then
             p.best = { score = score_value, text = text }
@@ -570,6 +727,13 @@ function M:targets(sel)
         if low then
             table.insert(out, { low, 1 })
         end
+    elseif string.sub(sel, 1, 4) == "key:" then
+        local key = string.sub(sel, 5)
+        for _, p in ipairs(self.players) do
+            if p.key == key then
+                table.insert(out, { p, 1 })
+            end
+        end
     elseif sel == "perceptive" then
         for _, p in ipairs(self.players) do
             table.insert(out, { p, p.perception })
@@ -586,7 +750,36 @@ function M:targets(sel)
     return out
 end
 
--- Apply a list of effects and nudge engagement for everyone touched.
+-- Every consequence has a cause (A11): suspicion goes up with a reason, kept for the night so a
+-- callout and the report can name it ("Sam noticed the cooked roll").
+function M:suspect(p, amount, why)
+    score.add(p, "suspicion", amount)
+    if amount > 0 then
+        self.suspicion_log = self.suspicion_log or {}
+        local log = self.suspicion_log[p.key] or {}
+        self.suspicion_log[p.key] = log
+        why = why or "something behind the screen"
+        log[why] = (log[why] or 0) + amount
+        -- Suspicion carries over from week to week, and so does what started it.
+        local camp = self.campaign
+        camp.suspicion_last = camp.suspicion_last or {}
+        camp.suspicion_last[p.key] = why
+    end
+end
+
+-- What made p most suspicious tonight, or else the last thing that did, or nil.
+function M:suspicion_cause(p)
+    local best, amt
+    for why, a in pairs((self.suspicion_log or {})[p.key] or {}) do
+        if not amt or a > amt or (a == amt and why < best) then
+            best, amt = why, a
+        end
+    end
+    return best or (self.campaign.suspicion_last or {})[p.key]
+end
+
+-- Apply a list of effects and nudge engagement for everyone touched. An effect's why says what
+-- caused it (suspicion keeps it); else the card being answered.
 function M:apply(effects)
     local touched = {}
     for _, eff in ipairs(effects or {}) do
@@ -594,7 +787,10 @@ function M:apply(effects)
             local p, scale = t[1], t[2]
             local g = {}
             for k, v in pairs(eff) do
-                if k ~= 1 then
+                if k == "suspicion" then
+                    self:suspect(p, v * scale, eff.why or self.why)
+                    g[k] = v * scale
+                elseif k ~= 1 and k ~= "why" then
                     score.add(p, k, v * scale)
                     g[k] = v * scale
                 end
@@ -738,32 +934,25 @@ function M:found_clue(id, text)
         end
     end
     table.insert(self.story_found, { id = id, text = text })
+    self:event("clue", { who = self.actor and self.actor.key or "party", clue = id, text = "They found out: " .. text })
     self:emit({ kind = "clue", id = id, text = text })
 end
 
--- A place without a set of its own (a style's new places, A18) borrows one by what it is.
-local BY_SETTING = { { "ship", "bridge" }, { "port", "market" }, { "tavern", "tavern" }, { "island", "forest" },
-                     { "under", "ruins" }, { "ruin", "ruins" }, { "vault", "tavern" }, { "camp", "camp" },
-                     { "crowd", "market" }, { "town", "market" }, { "indoor", "tavern" }, { "forest", "forest" },
-                     { "road", "forest" }, { "wild", "forest" }, { "water", "bridge" } }
-
+-- The terrain set on the table: the place's map if the DM drew one (B9), else the place's own set,
+-- else one borrowed by what the place is, else by the scene (game/model/maps.lua).
 function M:terrain_for(sc)
-    local t = content.terrain
-    local loc = sc.comps.location
-    if loc and t.by_location[loc.id] then
-        return t.by_location[loc.id]
-    end
-    for _, pair in ipairs(loc and BY_SETTING or {}) do
-        if util.contains(loc.setting or {}, pair[1]) then
-            return pair[2]
-        end
-    end
-    return t.by_scene[sc.type] or "blank"
+    return maps.template(self.campaign, sc.comps.location, sc.type)
+end
+
+-- The place's map, if there is one (B9).
+function M:map_for(sc)
+    local loc = sc and sc.comps.location
+    return loc and maps.get(self.campaign, loc.id) or nil
 end
 
 -- Where the party stands when a scene opens, and who the DM is voicing.
 function M:staging(sc)
-    local blocked, layout = fight.blocked_set(sc.terrain)
+    local blocked, layout = fight.blocked_set(sc.terrain, self:map_for(sc))
     local taken = {}
     local party = {}
     local spots = fight.squares_near(blocked, taken, layout.party[1], layout.party[2], #self.players, 1,
@@ -775,12 +964,16 @@ function M:staging(sc)
     local npc
     local cast = sc.comps.cast
     if cast and not (sc.type == "combat" or sc.type == "set_piece") then
-        local sq = fight.squares_near(blocked, taken, layout.npc[1], layout.npc[2], 1, 1,
+        -- Where this person would be: the board can say (the stranger in the corner, Gus behind the bar).
+        local at = (layout.npc_at and layout.npc_at[cast.id]) or layout.npc
+        local sq = fight.squares_near(blocked, taken, at[1], at[2], 1, 1,
             content.terrain_layout.W, content.terrain_layout.H)[1]
         if sq then
             npc = { id = "npc", cast = cast.id, name = cast.name, x = sq[1], y = sq[2] }
         end
     end
+    -- Where the person stands, so a hero talking to them walks over (A9).
+    sc.npc_at = npc and { npc.x, npc.y } or nil
     return party, npc
 end
 
@@ -1011,7 +1204,7 @@ function M:play_improv(picks, kind, replace)
     end
     picks = kept
     local fit = M.combo_fit(picks)
-    local moved = false
+    local moved, new_cast = false, false
     for _, card in ipairs(picks) do
         if card.comp then
             local ck = card.comp.kind
@@ -1033,6 +1226,7 @@ function M:play_improv(picks, kind, replace)
                 if ck == "location" then
                     moved = true
                 end
+                new_cast = new_cast or ck == "cast"
                 -- The scene narrates its own slots once it's set up; mid-scene, say it now.
                 if replace then
                     describe()
@@ -1040,6 +1234,7 @@ function M:play_improv(picks, kind, replace)
             elseif sc and not sc.comps[ck] and (ck == "cast" or ck == "location") then
                 sc.comps[ck] = card.comp
                 moved = moved or ck == "location"
+                new_cast = new_cast or ck == "cast"
                 describe()
             else
                 describe()
@@ -1052,21 +1247,30 @@ function M:play_improv(picks, kind, replace)
             self:say(card.stock.line, "narration")
         end
     end
-    if moved and sc and not self.pre_scene then
-        self:restage(sc)
+    if (moved or new_cast) and sc and not self.pre_scene and sc.terrain then
+        -- A person made up mid-scene gets a mini on the board too (A9).
+        self:restage(sc, new_cast)
     end
     return fit
 end
 
 -- The scenery changes mid-scene (an improvised location, or they wandered off).
-function M:restage(sc)
+function M:restage(sc, force)
     local t = self:terrain_for(sc)
-    if t == sc.terrain then
+    if t == sc.terrain and not force then
         return
     end
+    local shifted = t ~= sc.terrain
     sc.terrain = t
     local party, npc = self:staging(sc)
-    self:emit({ kind = "stage", terrain = t, party = party, npc = npc, title = self:scene_title(sc) })
+    self.stage_now = { terrain = t, party = party, npc = npc }
+    if shifted then
+        self:board_set(t, sc)
+    end
+    self:emit({ kind = "stage", terrain = t, party = party, npc = npc, title = shifted and self:scene_title(sc) or nil })
+    if shifted then
+        self:dress_board()
+    end
 end
 
 function M:improvise(kind)
@@ -1087,10 +1291,14 @@ function M:improvise(kind)
     if fit == "poor" then
         critic = self:pick_actor({ "storyteller", "tactician" })
         self:apply({ { "arch:storyteller", fun = -3 }, { "arch:tactician", fun = -2 } })
-        poses[critic.key] = "arms"
+        if critic then
+            poses[critic.key] = "arms"
+        end
     else
         local fan = self:pick_actor({ "storyteller", "method_actor", "explorer" })
-        poses[fan.key] = "lean"
+        if fan then
+            poses[fan.key] = "lean"
+        end
     end
     self:say(self:fresh(content.improv.outcomes[fit], "improv_" .. fit), fit == "poor" and "warn" or "aside",
         { critic = critic and critic.name or "Someone" })
@@ -1173,7 +1381,7 @@ function M:drift()
         self:apply({ { "actor", spotlight = 10, fun = fit == "great" and 6 or 3 }, { "arch:explorer", story = 4 },
                      { "arch:instigator", fun = 3 }, { "all", story = 2 } })
         self:say(self:fresh(content.improv.outcomes[fit], "improv_" .. fit), "aside")
-        self:highlight(fit == "great" and 7 or 4, actor.char .. " drags everyone off the map", { actor })
+        self:highlight(fit == "great" and 7 or 4, actor.char .. " drags everyone off the map", { actor }, "curveball")
         self:bark(actor, "improv_great")
     end
     self.improv_count = (self.improv_count or 0) + 1
@@ -1282,6 +1490,16 @@ function M:hero_action(sc, used, dc, need, spots)
     -- Aimed at someone in the scene: how they feel about the party counts (SRD 5.2.1 attitudes).
     local pid = (a.cast or a.skill == "deception") and self:cast_person(sc) or nil
     local edge = ledger.influence(self.campaign, pid, a.skill, self)
+    -- An item's Advantage (Boots of Elvenkind, Eyes of the Eagle, A13) cancels out a disadvantage.
+    local iedge, iname = require("game.model.items").check_edge(self.campaign, p.key, a.skill)
+    local item_edge
+    if iedge then
+        if edge == "dis" then
+            edge = nil
+        elseif edge ~= "adv" then
+            edge, item_edge = "adv", iname
+        end
+    end
     local roll = self.rng:d20()
     local other_roll
     if edge then
@@ -1289,6 +1507,12 @@ function M:hero_action(sc, used, dc, need, spots)
         if (edge == "adv" and other_roll > roll) or (edge == "dis" and other_roll < roll) then
             roll, other_roll = other_roll, roll
         end
+    end
+    -- Last time was a near miss (B2): they know the trick of it now.
+    local near_bonus = self.edge_next and self.edge_next[p.key]
+    if near_bonus then
+        mod = mod + near_bonus
+        self.edge_next[p.key] = nil
     end
     local total = roll + mod
     local success = total >= dc
@@ -1303,7 +1527,9 @@ function M:hero_action(sc, used, dc, need, spots)
     end
     local text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = " .. util.int(total)
         .. " vs DC " .. util.int(dc) .. ", " .. result
-    if edge then
+    if edge and item_edge then
+        text = text .. " (advantage: " .. item_edge .. "; the other die was " .. util.int(other_roll) .. ")"
+    elseif edge and pid then
         local cast = sc.comps.cast
         text = text .. " (" .. (edge == "adv" and "advantage" or "disadvantage") .. ": " .. ledger.about(pid).name
             .. ((cast and cast.group) and " are " or " is ") .. ledger.label(ledger.att(self.campaign, pid, self))
@@ -1316,7 +1542,7 @@ function M:hero_action(sc, used, dc, need, spots)
         score.add(p, "spotlight", big and 10 or 5)
         score.add(p, "fun", big and 4 or 1)
         if big then
-            self:highlight(8, p.char .. " rolls a natural 20 on " .. name, { p })
+            self:highlight(8, p.char .. " rolls a natural 20 on " .. name, { p }, "crit")
         end
     else
         sc.progress.setbacks = sc.progress.setbacks + 1
@@ -1325,11 +1551,15 @@ function M:hero_action(sc, used, dc, need, spots)
             score.add(q, "story", 1)
         end
         if roll == 1 then
-            self:highlight(3, p.char .. " rolls a 1 at the worst possible moment", { p })
+            self:highlight(3, p.char .. " rolls a 1 at the worst possible moment", { p }, "fumble")
         end
     end
     score.nudge_engagement(p, success and 14 or 6)
     local spot = #spots > 0 and self.rng:pick(spots) or nil
+    -- Everything happens on the board (A9): a hero talking to someone walks over to them.
+    if sc.npc_at and SOCIAL_SKILL[a.skill] then
+        spot = { sc.npc_at[1] - 1, sc.npc_at[2] }
+    end
     self:emit({ kind = "check", text = text, roll = roll, bonus = mod, total = total, dc = dc, success = success,
                 actor = p.key, char = p.char, skill = a.skill, skill_name = name, crit = roll == 20,
                 fumble = roll == 1, spot = spot, edge = edge, other_roll = other_roll,
@@ -1356,6 +1586,7 @@ function M:hero_action(sc, used, dc, need, spots)
         self:react({ [p.key] = "gasp" })
         self:bark(p, "fumble")
         self:table_behavior("after_fail", p)
+        fails_mod.jail(self, p)   -- B2: into dice jail with it
     elseif not success and self:table_behavior("after_fail", p) then
         -- (they said something already)
     elseif self.rng:chance(self:idle() > 75 and 0.1 or 0.22) then
@@ -1398,7 +1629,7 @@ function M:quick_checks(sc)
     while i < max_checks and sc.progress.wins < need and sc.progress.setbacks < beats.setbacks do
         i = i + 1
         -- In a social scene with someone to talk to, the cast speaks up first now and then.
-        if i == 1 and sc.comps.cast and not self:muted(sc.comps.cast)
+        if i == 1 and sc.comps.cast and not self:muted(sc.comps.cast) and not sc.talked
             and (sc.type == "social" or sc.type == "mystery" or sc.type == "downtime") then
             self:npc_line("greet")
             self:table_behavior("social")
@@ -1707,7 +1938,7 @@ function M:stunt(sc)
         score.add(p, "fun", 3)
         self:react({ [p.key] = "cheer" })
         if roll == 20 then
-            self:highlight(7, p.char .. " pulls off a stunt nobody will forget", { p })
+            self:highlight(7, p.char .. " pulls off a stunt nobody will forget", { p }, "stunt")
         end
     else
         score.add(p, "spotlight", 2)
@@ -1720,6 +1951,187 @@ function M:stunt(sc)
     return success
 end
 
+-- Heroic Inspiration (M8, B4): one token a night, flicked across the table after a great
+-- moment. Giving it to the same player twice inside three sessions, the rest of the table
+-- notices.
+M.FAIR_WINDOW = 3
+function M:give_inspiration(p)
+    self.inspiration_given = p.key
+    p.heroic = true
+    local camp = self.campaign
+    camp.inspired_log = camp.inspired_log or {}
+    local again = false
+    for _, e in ipairs(camp.inspired_log) do
+        again = again or (e.key == p.key and camp.week - e.week < M.FAIR_WINDOW)
+    end
+    table.insert(camp.inspired_log, { key = p.key, week = camp.week })
+    score.add(p, "spotlight", 6)
+    score.add(p, "fun", 4)
+    self:react({ [p.key] = "cheer" })
+    self:emit({ kind = "token", who = p.key, what = "inspiration" })
+    self:say("You flick the Heroic Inspiration token across the table. It lands in front of " .. p.name .. ".", "dm")
+    self:event("inspiration", { who = p.key, text = p.char .. " earned Heroic Inspiration." })
+    if again then
+        self:fairness_noticed(p, "inspiration")
+    end
+end
+
+-- The killing blow (M8, B4). Who's waited longest for one: the player with the fewest killing
+-- blows in the window, not counting whoever landed this one.
+function M:killing_blow_other(actor, villain)
+    local camp = self.campaign
+    -- The one who wants this villain most (Vendetta 3 or more) gets first refusal.
+    local wants = villains.wants_it(self, villain, actor)
+    if wants then
+        return wants
+    end
+    local count = {}
+    for _, e in ipairs(camp.killing_blows or {}) do
+        if camp.week - e.week < content.killing_blows.WINDOW then
+            count[e.key] = (count[e.key] or 0) + 1
+        end
+    end
+    local best
+    for _, p in ipairs(self.players) do
+        if p ~= actor and (not best or (count[p.key] or 0) < (count[best.key] or 0)
+            or ((count[p.key] or 0) == (count[best.key] or 0) and p.m.spotlight < best.m.spotlight)) then
+            best = p
+        end
+    end
+    return best
+end
+
+function M:killing_blow(p, tgt, boss_name)
+    local camp = self.campaign
+    camp.killing_blows = camp.killing_blows or {}
+    if not p then
+        self:event("villain_falls", { who = "party", text = boss_name .. " falls.", weight = 8 })
+        return
+    end
+    local kb = content.killing_blows
+    local again = false
+    for _, e in ipairs(camp.killing_blows) do
+        again = again or (e.key == p.key and camp.week - e.week < kb.WINDOW)
+    end
+    table.insert(camp.killing_blows, { key = p.key, week = camp.week, boss = boss_name })
+    -- The line: their class's, flavoured for their kind of player when there's one.
+    local lines = kb[p.class] or kb.fighter
+    local pool = {}
+    for _, l in ipairs(lines) do
+        if l.arch == p.primary or l.arch == p.secondary then
+            table.insert(pool, l)
+        end
+    end
+    if #pool == 0 or self.rng:chance(0.3) then
+        pool = lines
+    end
+    local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = boss_name, char = p.char }))
+    -- The final hit answers the villain's taunt, if they taunted this player (the retort).
+    local pid = tgt and tgt.person
+    local retort = pid and villains.retort(self, pid, p)
+    if retort then
+        line = retort
+    end
+    -- A villain with a Grudge falls harder (B6), and harder still for whoever wants them most.
+    local grudge = ledger.grudge_level and ledger.grudge_level(camp, pid) or 0
+    local vscale, waive = villains.vendetta_blow(self, pid, p)
+    local scale = (1 + 0.25 * grudge) * vscale
+    if waive then
+        again = false        -- the table understands: it was theirs to take
+    end
+    score.add(p, "spotlight", kb.SPOTLIGHT * scale)
+    score.add(p, "fun", kb.FUN * scale)
+    self:react({ [p.key] = "cheer" })
+    self:emit({ kind = "say", who = p.key, text = line, ic = true })
+    self:highlight(math.min(10, 8 + grudge), p.char .. " lands the killing blow on " .. boss_name, { p }, "killing_blow")
+    if again then
+        self:fairness_noticed(p, "killing_blow")
+    end
+end
+
+-- Favouring one player in a short window (the killing blow, Inspiration): the others notice.
+function M:fairness_noticed(p, what)
+    local q = self:pick_actor({ "casual", "tactician", "storyteller" }, p)
+    for _, o in ipairs(self.players) do
+        if o ~= p then
+            score.add(o, "fun", -2)
+            score.add(o, "trust", -1)
+        end
+    end
+    if q then
+        self:emit({ kind = "say", who = q.key, text = what == "inspiration" and ("Again? " .. p.char .. " got it last time too.")
+            or ("That's " .. p.char .. "'s second big finish in a row, just saying."), ic = false })
+    end
+    self:event("unfair", { who = p.key, text = "The table noticed " .. p.name .. " getting the " .. (what == "inspiration"
+        and "Inspiration" or "killing blow") .. " again.", weight = 3 })
+end
+
+-- Has a headache's situation actually happened (M8, B4)? needs:
+--   been = settings     a scene at a place like that tonight (or now);  or_type = scene types
+--   players = n         at least n at the table;  archetype = { ... } someone like that here
+--   setbacks = n        this scene has gone wrong n times;  first_scene: the night's start
+--   after_break         a break (pizza, snacks) happened tonight;  before_fight: a fight's coming
+function M:headache_ok(needs, sc)
+    if needs.players and #self.players < needs.players then
+        return false
+    end
+    if needs.archetype then
+        local any = false
+        for _, p in ipairs(self.players) do
+            any = any or util.contains(needs.archetype, p.primary) or util.contains(needs.archetype, p.secondary)
+        end
+        if not any then
+            return false
+        end
+    end
+    if needs.setbacks and not (sc and sc.progress and sc.progress.setbacks >= needs.setbacks) then
+        return false
+    end
+    if needs.first_scene and not (sc and sc.index == 1) then
+        return false
+    end
+    if needs.after_break and not self.had_break then
+        return false
+    end
+    if needs.before_fight and not (sc and (sc.type == "combat" or sc.type == "set_piece") and not sc.result) then
+        return false
+    end
+    if needs.been then
+        local ok = false
+        for _, s2 in ipairs(self.scenes) do
+            if s2 == sc or s2.outcome then
+                local loc = s2.comps and s2.comps.location
+                for _, set in ipairs(loc and loc.setting or {}) do
+                    ok = ok or util.contains(needs.been, set)
+                end
+                ok = ok or (needs.or_type and util.contains(needs.or_type, s2.type))
+            end
+        end
+        if not ok then
+            return false
+        end
+    end
+    return true
+end
+
+-- What a person in a scene is, from their card's data (A11: roles come from the cast data, so the
+-- abbot is never "the villain"): "hostile" is someone set against the party, a villain or a foe,
+-- who can talk.
+function M.cast_is(cast, what)
+    if not cast then
+        return false
+    end
+    if what == "hostile" then
+        return (cast.villain or cast.foe) and cast.talks ~= false and not cast.revered and true or false
+    end
+    return false
+end
+
+function M:shown_cast(sc)
+    local c = sc and sc.comps and sc.comps.cast
+    return c and not self:muted(c) and c or nil
+end
+
 function M:pick_decision(sc, kinds)
     local eligible, weights = {}, {}
     local last = self.campaign.last_cards or {}
@@ -1730,7 +2142,9 @@ function M:pick_decision(sc, kinds)
         if not settled and not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
             and (not kinds or kinds[d.type]) and content.fits_setting(d, sc.comps.location)
             and (not d.actor_class or self:by_class(d.actor_class))
-            and (not d.needs_class or self:by_class(d.needs_class)) then
+            and (not d.needs_class or self:by_class(d.needs_class))
+            and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
+            and (not d.needs or self:headache_ok(d.needs, sc)) then
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
             for _, a in ipairs(d.actor or {}) do
@@ -1782,6 +2196,11 @@ function M:big_roll(spec, record)
         self.big_rolls[p.key] = (self.big_rolls[p.key] or 0) + 1
     end
     local skill, mod = self:best_skill(p, spec.skill or { "perception" })
+    local near_bonus = p and self.edge_next and self.edge_next[p.key]
+    if near_bonus then
+        mod = mod + near_bonus   -- last time was a near miss (B2)
+        self.edge_next[p.key] = nil
+    end
     local dc = spec.dc + M.DC_SHIFT
     local by = spec.secret and "dm" or "player"
     local name = skills.name(skill)
@@ -1804,32 +2223,35 @@ function M:big_roll(spec, record)
     local value = self:emit({ kind = "roll", where = where, dc = dc, actor = p and p.key, by = by,
                               skill_name = name, mod = mod })
     value = util.clamp(math.floor(tonumber(value) or self.rng:d20()), 1, 20)
+    -- Advantage from an item the hero carries (A13): a second die, the better one counts.
+    if p then
+        local iedge, iname = require("game.model.items").check_edge(self.campaign, p.key, skill)
+        if iedge then
+            local second = self.rng:d20()
+            if second > value then
+                self:say(util.fill("{actor_char} rolls again with Advantage (" .. iname .. "): " .. util.int(second)
+                    .. " beats " .. util.int(value) .. ".", self:vars()), "aside")
+                value = second
+            end
+        end
+    end
+    -- Heroic Inspiration (B4): a player holding the token rerolls a miss and keeps the new roll.
+    if p and p.heroic and by == "player" and value + mod < dc then
+        local new = self.rng:d20()
+        p.heroic = nil
+        self:emit({ kind = "say", who = p.key, text = "Wait, I've got inspiration. I'm using it.", ic = false })
+        self:say(util.fill("{actor_char} spends Heroic Inspiration: the " .. util.int(value) .. " becomes a " .. util.int(new)
+            .. ", and that's the roll.", self:vars()), "dice")
+        self:event("inspiration", { who = p.key, text = p.char .. " spent Heroic Inspiration on a big roll.", spent = true })
+        self:emit({ kind = "token", who = p.key, what = "inspiration", spent = true })
+        value = new
+    end
     local total = value + mod
     local success = total >= dc
     local reported, shown_dc = value, dc
     local cooked = false
     if where == "hidden" then
         self.rolls.hidden = self.rolls.hidden + 1
-        local cook = self:emit({ kind = "cook", value = value, total = total, mod = mod, dc = dc, success = success,
-                                 by = by, char = p and p.char, skill_name = name })
-        if cook then
-            cooked = true
-            success = not success
-            if by == "player" then
-                -- Everyone saw the die. What moves is the DC nobody heard.
-                if success then
-                    shown_dc = math.max(1, total - self.rng:int(0, 2))
-                else
-                    shown_dc = total + self.rng:int(1, 3)
-                end
-            else
-                if success then
-                    reported = util.clamp(dc - mod + self.rng:int(0, 3), 1, 20)
-                else
-                    reported = util.clamp(dc - mod - self.rng:int(1, 4), 1, 20)
-                end
-            end
-        end
     else
         self.rolls.open = self.rolls.open + 1
         -- Doing it in the open builds Trust, less so when the table expects nothing else.
@@ -1844,30 +2266,99 @@ function M:big_roll(spec, record)
         -- Session Zero said everything happens in the open.
         for _, q in ipairs(self.players) do
             score.add(q, "trust", -1.5)
-            score.add(q, "suspicion", 2 * q.perception)
+            self:suspect(q, 2 * q.perception, "a hidden roll when you'd agreed to roll in the open")
         end
         if not self.promise_noted.dice then
             self.promise_noted.dice = true
             self:say("A few eyebrows go up. You agreed everything would happen in the open.", "warn")
         end
     end
-    if cooked then
-        self.rolls.cooked = self.rolls.cooked + 1
-        self.cooks = self.cooks + 1
-        local convenient = (success and spec.convenient == "success") or (not success and spec.convenient == "fail")
-        self:add_cook_suspicion(convenient)
+    -- The ruling, on one card (A11, B2's fold): the die sets the tier and the DM decides how generous
+    -- to be. Behind the screen the same card offers to overrule the die (cooking it), so nobody asks
+    -- "how close" twice. Answer a ruling option's number, or "cook".
+    local tier = tier_of(total, dc, value)
+    local rule = content.rulings[tier]
+    local opts = {}
+    for i, o in ipairs(rule.options) do
+        opts[i] = { label = o.label, tone = o.tone }
     end
-    -- A third lucky break in a row looks convenient even when it's honest.
-    if success and where == "hidden" then
-        self.lucky_streak = self.lucky_streak + 1
-        if self.lucky_streak >= 3 then
-            for _, q in ipairs(self.players) do
-                score.add(q, "suspicion", 2 * q.perception)
+    -- A miss deals the fail fan (M8, B2): three cards fitted to the scene, the flat fail, and the
+    -- player's own idea when they trust you enough. Success rulings stay as they were.
+    local fan
+    if (tier == "near" or tier == "flop") and p then
+        fan = fails_mod.fan(self, p, skill, self.scene, tier)
+        opts = {}
+        for i, c in ipairs(fan) do
+            opts[i] = { label = c.label, tone = c.tone, kind = c.kind }
+        end
+    end
+    -- A great roll can earn Heroic Inspiration (B4): the token, flicked across the table, one a
+    -- night, folded into this card rather than a card of its own.
+    local inspire_at
+    if tier == "triumph" and p and by == "player" and not self.inspiration_given and not p.heroic then
+        table.insert(opts, { label = "Yes, and... flick " .. p.char .. " the Heroic Inspiration token.", tone = "good" })
+        inspire_at = #opts
+    end
+    local cook_offer
+    if where == "hidden" then
+        local to = success and "a miss" or "a success"
+        cook_offer = {
+            to_success = not success,
+            label = by == "player" and ("Move the DC: say it was " .. (success and "higher. A miss." or "lower. A success."))
+                or ("Cook it: call it " .. to .. "."),
+            note = by == "player" and "Nobody else knows the DC. Someone might wonder." or "Nobody else saw the die. Someone might notice.",
+        }
+    end
+    local pick
+    if self:decision_count() >= 15 and not inspire_at then
+        -- Out of calls for the night (the 8-to-15 budget): the die decides, plainly, with no card.
+        pick = 1
+        self.auto_rulings = (self.auto_rulings or 0) + 1
+    else
+        pick = self:emit({ kind = "ruling", tier = tier, prompt = fan and "How does it go wrong?" or rule.prompt, value = value,
+                           total = total, fan = fan ~= nil,
+                           mod = mod, dc = dc, options = opts, where = where, by = by, success = success,
+                           cook = cook_offer, cooks = self.cooks,
+                           char = p and p.char, skill_name = name, actor = p and p.key })
+    end
+    if cook_offer and (pick == "cook" or pick == true) then
+        cooked = true
+        success = not success
+        if by == "player" then
+            -- Everyone saw the die. What moves is the DC nobody heard.
+            if success then
+                shown_dc = math.max(1, total - self.rng:int(0, 2))
+            else
+                shown_dc = total + self.rng:int(1, 3)
+            end
+        else
+            if success then
+                reported = util.clamp(dc - mod + self.rng:int(0, 3), 1, 20)
+            else
+                reported = util.clamp(dc - mod - self.rng:int(1, 4), 1, 20)
             end
         end
-    elseif not success then
-        self.lucky_streak = 0
+        -- A cooked result lands plainly on the side the DM chose.
+        tier = success and "success" or "near"
+        rule = content.rulings[tier]
+        pick = 1
+        for i, o in ipairs(rule.options) do
+            if o.success == success and not o.tone then
+                pick = i
+            end
+        end
+        fan = nil
     end
+    local card
+    if fan then
+        card = fan[util.clamp(math.floor(tonumber(pick) or 1), 1, #fan)]
+        pick = 1
+    end
+    if inspire_at and tonumber(pick) == inspire_at then
+        self:give_inspiration(p)
+        pick = 1
+    end
+    pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #rule.options)
     local reported_total = reported + mod
     local line
     if by == "player" then
@@ -1879,33 +2370,42 @@ function M:big_roll(spec, record)
             .. util.int(reported) .. ": " .. util.int(reported_total) .. " against DC " .. util.int(dc) .. "."
     end
     self:say(line, "dice")
-    -- The ruling: the die sets the tier, the DM decides how generous to be.
-    local tier = tier_of(reported_total, shown_dc, reported)
     if cooked then
-        -- A cooked result lands on the side the DM chose, however the numbers fall.
-        if success and (tier == "near" or tier == "flop") then
-            tier = "success"
-        elseif not success and (tier == "success" or tier == "triumph") then
-            tier = "near"
+        self.rolls.cooked = self.rolls.cooked + 1
+        self.cooks = self.cooks + 1
+        self:event("cooked", { who = p and p.key or "party", text = "You cooked " .. ((p and by == "player") and (p.char .. "'s ") or "a ")
+            .. name .. " roll behind the screen." })
+        local convenient = (success and spec.convenient == "success") or (not success and spec.convenient == "fail")
+        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll")
+    end
+    -- A third lucky break in a row looks convenient even when it's honest.
+    if success and where == "hidden" then
+        self.lucky_streak = self.lucky_streak + 1
+        if self.lucky_streak >= 3 then
+            for _, q in ipairs(self.players) do
+                self:suspect(q, 2 * q.perception, "three lucky breaks in a row behind the screen")
+            end
         end
+    elseif not success then
+        self.lucky_streak = 0
     end
-    local rule = content.rulings[tier]
-    local opts = {}
-    for i, o in ipairs(rule.options) do
-        opts[i] = { label = o.label, tone = o.tone }
-    end
-    local pick = self:emit({ kind = "ruling", tier = tier, prompt = rule.prompt, value = reported, total = reported_total,
-                             mod = mod, dc = shown_dc, options = opts, where = where, by = by,
-                             char = p and p.char, skill_name = name, actor = p and p.key })
-    pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #rule.options)
     local ro = rule.options[pick]
-    table.insert(self.rulings, { tier = tier, option = pick })
+    if card then
+        -- The fail card picked: it says which branch plays, and how the table takes it.
+        success = fails_mod.play(self, p, card, fan, tier)
+        ro = { tone = card.kind ~= "flat" and card.tone ~= "twist" and card.tone or nil, effects = {},
+               fail_line = card.kind ~= "flat" and card.text or nil }
+    end
+    table.insert(self.rulings, { tier = tier, option = pick, cooked = cooked, fail = card and card.kind })
     if ro.success ~= nil and ro.success ~= success then
         -- "Yes, at a cost" on a near miss: the success branch plays.
         success = ro.success
     end
     local branch = success and spec.success or spec.fail
     self:say(branch.log, success and "good" or "bad")
+    if ro.fail_line then
+        self:say(ro.fail_line, "twist")
+    end
     self:apply(branch.effects)
     self:apply(ro.effects)
     if ro.tone == "good" then
@@ -1922,8 +2422,7 @@ function M:big_roll(spec, record)
         self:say(ro.log, "twist")
     end
     if success and self.actor then
-        local first = string.match(util.fill(branch.log, self:vars()), "^(.-)[%.!?]") or branch.log
-        self:highlight(6, first, { self.actor })
+        self:highlight(6, M.moment_of(util.fill(branch.log, self:vars())), { self.actor })
     end
     local rec = record or (self.decisions[#self.decisions] and self.decisions[#self.decisions].rolls)
     if rec then
@@ -1936,6 +2435,9 @@ function M:big_roll(spec, record)
         elseif not success and (reported == 1 or tier == "flop") then
             self:table_behavior("after_fail", p)
         end
+        if value == 1 then
+            fails_mod.jail(self, p)   -- B2: the die that rolled a 1 goes to dice jail
+        end
     end
     if cooked then
         self:maybe_callout(0.35)
@@ -1943,10 +2445,12 @@ function M:big_roll(spec, record)
     return success
 end
 
-function M:add_cook_suspicion(convenient)
+function M:add_cook_suspicion(convenient, what)
+    local why = convenient and ("the cooked " .. (what or "roll") .. " that went the party's way")
+        or ("the " .. (what or "roll") .. " you cooked behind the screen")
     for _, p in ipairs(self.players) do
         local s = 8 * p.perception * (convenient and 1.6 or 1) * (1 + 0.3 * (self.cooks - 1))
-        score.add(p, "suspicion", s)
+        self:suspect(p, s, why)
     end
     -- The sharpest eye at the table might say it under their breath.
     local sharp
@@ -1981,7 +2485,11 @@ function M:maybe_callout(base)
     if not self:bark(worst, "callout") then
         self:emit({ kind = "say", who = worst.key, text = "Hang on. Can we see that roll?", ic = false })
     end
-    self:say("The table goes quiet. A few people look at your screen.", "warn")
+    -- It names its cause (A11): what they noticed.
+    local why = self:suspicion_cause(worst)
+    self:event("callout", { who = worst.key, text = worst.name .. " called out " .. (why or "a roll behind the screen") .. "." })
+    self:say((why and (worst.name .. " noticed " .. why .. ". ") or "") .. "The table goes quiet. A few people look at your screen.",
+        "warn")
     score.add(worst, "trust", -15)
     score.add(worst, "fun", -6)
     worst.suspicion = worst.suspicion * 0.5
@@ -2004,7 +2512,7 @@ function M:leans(effects)
             local p, scale = t[1], t[2]
             local g = gain[p] or {}
             for k, v in pairs(eff) do
-                if k ~= 1 then
+                if k ~= 1 and type(v) == "number" then
                     g[k] = (g[k] or 0) + v * scale
                 end
             end
@@ -2085,15 +2593,16 @@ function M:decision(card, extra)
     local view = {
         id = card.id,
         type = card.type,
+        cast = card.cast, monster = card.monster,      -- who's speaking or acting (B8): their mini on the card
         type_name = content.decision_types[card.type],
-        title = util.fill(card.title, vars),
-        text = util.fill(card.text, vars),
+        title = util.sentence_case(util.fill(card.title, vars)),
+        text = util.sentence_case(util.fill(card.text, vars)),
         options = {},
     }
     for i, o in ipairs(card.options) do
-        view.options[i] = { label = util.fill(o.label, vars), roll = o.roll ~= nil, cooked = o.cooked,
+        view.options[i] = { label = util.sentence_case(util.fill(o.label, vars)), roll = o.roll ~= nil, cooked = o.cooked,
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
-                            leans = self:leans(o.effects) }
+                            leans = self:leans(o.preview or o.effects) }
     end
     if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
@@ -2102,11 +2611,15 @@ function M:decision(card, extra)
     pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #card.options)
     local o = card.options[pick]
     table.insert(self.decisions, { card = card.id, option = pick, rolls = {} })
+    self.why = "your call on \"" .. card.title .. "\""
     if o.log then
         self:say(o.log, "dm", extra)
     end
     -- Breaks and lookups take real time at the table (A14).
     self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
+    if (o.table_min or 0) >= 10 then
+        self.had_break = true   -- for the headaches that follow a break (B4)
+    end
     if o.canon then
         table.insert(self.canon, util.fill(o.canon, self:vars(extra)))
     end
@@ -2130,7 +2643,7 @@ function M:decision(card, extra)
         -- Overruling a hidden die is cooking it.
         self.rolls.cooked = self.rolls.cooked + 1
         self.cooks = self.cooks + 1
-        self:add_cook_suspicion(o.convenient)
+        self:add_cook_suspicion(o.convenient, "ruling")
         self:maybe_callout(0.3)
     end
     -- A curveball before a fight (A12): talked out of it, or the party moves first.
@@ -2207,7 +2720,7 @@ function M:keep_promise(id, who)
     end
     if id == "open_death" then
         score.add(p, "trust", -8)
-        score.add(p, "suspicion", 10)
+        self:suspect(p, 10, "a death save made behind the screen")
         self:react({ [p.key] = "arms" })
         self:say(p.name .. " noticed. At Session Zero he asked you never to save him behind the screen.", "warn")
     elseif id == "no_cut" then
@@ -2434,8 +2947,27 @@ function M:pay_off(c)
     self:react(poses)
     local who = self.rng:pick(fans) or self.rng:pick(self.players)
     self:bark(who, "seed_payoff", { seed = def.theory })
-    self:highlight(9, def.name .. " paid off", fans)
+    self:highlight(9, def.name .. " paid off", fans, "payoff")
     table.insert(self.canon, def.name .. " paid off")
+    -- A stolen theory (B5): the payoff reveals the theorist was right all along.
+    local st = s.stolen
+    local theorist = st and find_present(self.players, st.key)
+    if st then
+        local claim = seeds.claim({ seed = s.id, claim = st.claim })
+        local p = theorist or self.campaign:player(st.key)
+        if claim and p then
+            self:say(util.fill(claim.truth, self:vars({ char = p.char })), "narration")
+            if theorist then
+                score.add(p, "fun", 10)
+                score.add(p, "spotlight", 12)
+                score.add(p, "investment", 6)
+                self:react({ [p.key] = "cheer" })
+                self:emit({ kind = "say", who = p.key, text = "I KNEW it. I said this. It's in the group chat. Scroll up.", ic = false })
+            end
+            self:highlight(10, p.char .. "'s theory comes true", { p }, "theory")
+            table.insert(self.canon, p.char .. "'s theory was right")
+        end
+    end
 end
 
 function M:table_check(sc)
@@ -2457,8 +2989,30 @@ function M:table_check(sc)
         card = by_id.phone              -- someone has checked out
     elseif low.engagement < 0.4 then
         card = by_id.voices             -- two people are running the show
-    elseif sc and sc.index == 1 and self.rng:chance(0.45) then
+    elseif sc and sc.index == 1 and self.rng:chance(0.3) and self:room(12) then
         card = by_id.pizza              -- real life knocks on the door
+    end
+    -- Or a running joke whose moment has come (B5).
+    local joke = not card and require("game.model.jokes").ripe(self.campaign)
+    if joke and self.rng:chance(0.5) then
+        self.table_card_used = true
+        self.actor = nil
+        local jokes = require "game.model.jokes"
+        local o = self:decision(jokes.card(joke))
+        if o and o.callback then
+            jokes.called(self, joke)
+        end
+        return
+    end
+    -- Or a headache whose moment has come (B4): the forgotten sheet, the food coma.
+    if not card then
+        local last = self.campaign.last_cards or {}
+        for _, id in ipairs({ "forgot_sheet", "food_coma" }) do
+            local d = by_id[id]
+            if not card and d and not last[id] and self:headache_ok(d.needs, sc) and self.rng:chance(0.3) then
+                card = d
+            end
+        end
     end
     if not card then
         return
@@ -2563,9 +3117,12 @@ function M:combat_scene(sc)
     end
     local plan = fight.plan(self, sc)
     sc.boss_name = plan.boss_name
+    self.battle_boss_name = plan.boss_name
     sc.plan = plan
     -- A card for this fight: a rules question waits for round two, anything else comes first.
-    local card = self:pick_decision(sc)
+    -- Or the boss's turn is yours to run (B8), in place of that card.
+    sc.boss_turn_planned = takeover.plan_boss(self, sc)
+    local card = ((not sc.boss_turn_planned and not sc.talked) or self:idle() > 75) and self:pick_decision(sc)
     if card and card.type == "rules" then
         sc.rules_card = card
     elseif card then
@@ -2615,6 +3172,19 @@ function M:combat_scene(sc)
             self:found_clue("surrender_" .. tostring(self.campaign.week), util.fill("{Boss} named {lead}.", self:vars()))
         end
     end
+    -- A hero died (B3): what happens next, by what Session Zero agreed.
+    self.dead_handled = self.dead_handled or {}
+    for _, c in ipairs(self.pc_list or {}) do
+        local p = c.dead and c.player_key and find_present(self.players, c.player_key)
+        if p and not self.dead_handled[p.key] then
+            self.dead_handled[p.key] = true
+            local outcome = death_mod.on_death(self, p, c, sc)
+            if outcome == "scar" then
+                c.dead, c.down = false, false
+                c.hp = 1
+            end
+        end
+    end
     -- A villain (or a fighting cast) who got away comes back another week (the story deck).
     local cast = sc.comps.cast
     if cast and (cast.villain or cast.foe) and f and f.fled then
@@ -2639,7 +3209,13 @@ function M:combat_scene(sc)
         end
     else
         self:say(self.talk:fight("party_lose", self:vars()), "bad")
-        self:say("They wake up later, bruised, robbed and very much alive. The story goes on.", "narration")
+        -- A defeat scene (B2): the party loses without anyone dying, and it leaves them something.
+        local d = fails_mod.defeat(self, sc)
+        sc.defeat = d.id
+        self:say(d.line, "narration")
+        self:apply(d.effects or {})
+        self:event("defeat", { who = "party", text = d.line, weight = 7 })
+        villains.bark(self, "defeat")
         local poses = {}
         for _, p in ipairs(self.players) do
             poses[p.key] = "gasp"
@@ -2920,7 +3496,7 @@ function M:open_scene(sc)
         end
         if o and o.mode == "quantum" then
             for _, p in ipairs(self.players) do
-                score.add(p, "suspicion", 3 * (p.perception or 0.5))
+                self:suspect(p, 3 * (p.perception or 0.5), "the place being wherever they went")
             end
         end
         if o and o.mode == "split" and second then
@@ -3058,8 +3634,14 @@ function M:friction_act(sc, def, doer)
                 end
             end
         end
-        local card = { id = "friction_" .. def.id, type = "table", title = "At the table",
-                       text = doer.name .. " is having fun. Not everyone else is.", options = opts }
+        -- The card says who's unhappy (A11: every consequence names its cause).
+        local names = {}
+        for _, p in ipairs(rapport.objectors(self.campaign, doer, def, self.players, target and target.key)) do
+            table.insert(names, p.name)
+        end
+        local text = #names > 0 and (doer.name .. " is having fun. " .. util.join_names(names) .. (#names == 1 and " isn't." or " aren't."))
+            or (doer.name .. " is having fun. The rest of the table is watching to see what you do.")
+        local card = { id = "friction_" .. def.id, type = "table", title = "At the table", text = text, options = opts }
         self.actor = doer
         local o = self:decision(card)
         resp = o and o.resp
@@ -3237,7 +3819,8 @@ function M:rest_request(sc)
         return
     end
     self.rest_asks = self.rest_asks or 0
-    if self.rest_asks >= 2 or not self:room(13) then
+    -- A second ask in one night waits for a quiet night.
+    if self.rest_asks >= 2 or not self:room(13) or (self.rest_asks >= 1 and not self:room(12)) then
         return
     end
     local st = rest_rules.state(self.pc_list)
@@ -3260,7 +3843,7 @@ function M:rest_request(sc)
         return
     end
     local need = (1 - st.hp) * 0.9 + (1 - st.slots) * 0.3
-    if not self.rng:chance(math.min(0.85, 0.15 + need)) then
+    if not self.rng:chance(math.min(0.9, 0.3 + need)) then
         return
     end
     local pick = self.rng:weighted(cands, weights)
@@ -3423,7 +4006,16 @@ function M:do_rest(o, asked, kind, sc)
     end
     if long then
         self.fights_since_long = 0
-        fight.prebuff(self)   -- a new day: Mage Armor and Aid go back up
+        -- A new day: items' charges and daily uses come back (A13), then Mage Armor and Aid.
+        local items = require "game.model.items"
+        for _, c in ipairs(self.pc_list) do
+            items.settle(c)
+        end
+        items.dawn(self.campaign, self.rng)
+        for _, c in ipairs(self.pc_list) do
+            items.apply(self.campaign, c.player_key, c)
+        end
+        fight.prebuff(self)
     end
     self:say(long and "A full night's rest. Everyone wakes whole, spells back, ready." or
         (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
@@ -3689,11 +4281,200 @@ function M:moment(sc)
 end
 
 -- A non-combat scene's big moment: one paused roll, then the DM's ruling.
+-- Traps (A10): in a puzzle or exploration scene, a trap card is the scene's whole encounter.
+-- The DM calls how they go in; a search can find it (SRD 5.2.1's DCs), it's disarmed or stepped
+-- around, or it springs and the heroes take it on their sheets (HP carries on, A16).
+local TRAP_PICK = {
+    under = { "spiked_pit", "poisoned_darts", "collapsing_roof", "hidden_pit" },
+    ruin = { "collapsing_roof", "poisoned_darts", "fire_statue", "hidden_pit" },
+    indoor = { "poisoned_needle", "poisoned_darts", "fire_statue", "falling_net" },
+    wild = { "falling_net", "hidden_pit" },
+}
+
+function M:trap_for(sc)
+    local comp = sc.comps.complication
+    if not comp or not (comp.trap or comp.id == "trap") or self:muted(comp) then
+        return nil
+    end
+    if sc.type ~= "puzzle" and sc.type ~= "exploration" and sc.type ~= "mystery" then
+        return nil
+    end
+    if sc.trap_id then
+        return sc.trap_id
+    end
+    if comp.trap and comp.trap ~= true then
+        sc.trap_id = comp.trap
+        return sc.trap_id
+    end
+    local loc = sc.comps.location
+    local pool
+    for _, s in ipairs({ "under", "ruin", "indoor", "wild" }) do
+        if not pool and loc and util.contains(loc.setting or {}, s) then
+            pool = TRAP_PICK[s]
+        end
+    end
+    pool = pool or TRAP_PICK.ruin
+    sc.trap_id = pool[self.rng:int(1, #pool)]
+    return sc.trap_id
+end
+
+local function roll_dice(rng, d)
+    local n = d[3] or 0
+    for _ = 1, d[1] do
+        n = n + rng:int(1, d[2])
+    end
+    return n
+end
+
+-- Whoever walks into it takes what the SRD says.
+function M:spring_trap(sc, t)
+    local fight = require "game.model.fight"
+    local creature = require "game.rules.creature"
+    fight.party(self)
+    local sp = t.sprung
+    local victims = { self.actor or self.players[1] }
+    if sp.who == "near" then
+        local other = self:pick_actor(nil, victims[1])
+        if other then
+            table.insert(victims, other)
+        end
+    end
+    self:say("The " .. string.lower(t.name) .. " goes off.", "bad")
+    local poses = {}
+    for _, q in ipairs(self.players) do
+        poses[q.key] = "gasp"
+    end
+    self:react(poses)
+    for _, p in ipairs(victims) do
+        local c = self.pcs and self.pcs[p.key]
+        if c and not c.dead then
+            local saved = false
+            if sp.save then
+                local roll = self.rng:d20()
+                local total = roll + creature.save_bonus(c, sp.save[1])
+                saved = total >= sp.save[2]
+                self:say(p.char .. " makes a " .. string.upper(sp.save[1]) .. " save: " .. util.int(total) .. " against DC "
+                    .. util.int(sp.save[2]) .. (saved and ". Made it." or ". Failed."), "dice")
+            end
+            local dmg = 0
+            if sp.damage and not (saved and not sp.half) then
+                if sp.darts then
+                    local n = self.rng:int(sp.darts[1], sp.darts[2])
+                    for _ = 1, n do
+                        dmg = dmg + roll_dice(self.rng, sp.damage)
+                    end
+                else
+                    dmg = roll_dice(self.rng, sp.damage) + (sp.extra and roll_dice(self.rng, sp.extra) or 0)
+                end
+                if saved and sp.half then
+                    dmg = math.floor(dmg / 2)
+                end
+            end
+            if dmg > 0 then
+                c.hp = c.hp - dmg
+                self:say(p.char .. " takes " .. util.int(dmg) .. " damage (" .. util.int(math.max(0, c.hp)) .. "/"
+                    .. util.int(c.hp_max) .. " HP).", "bad")
+                if c.hp <= 0 then
+                    -- Down outside a fight: the others get them breathing again (a Healing Word, a potion, a slap).
+                    c.hp = 1
+                    self:say(p.char .. " drops. The others get " .. p.char .. " back on their feet with 1 HP.", "bad")
+                end
+            end
+            if sp.condition == "restrained" and not saved then
+                self:say(p.char .. " is tangled in the net until someone cuts " .. p.char .. " free (an action, Strength (Athletics) DC "
+                    .. util.int(sp.escape[3]) .. ").", "bad")
+            elseif sp.condition == "poisoned" and not saved then
+                c.poisoned_hour = true
+                self:say(p.char .. " is Poisoned for the next hour.", "bad")
+            end
+            if sp.climb then
+                self:say("Getting out of the pit takes rope and a hand up.", "aside")
+            end
+            score.add(p, "fun", -2)
+            score.add(p, "challenge", 3)
+        end
+    end
+end
+
+function M:trap_scene(sc, tid)
+    local hz = require "game.rules.data.hazards"
+    local t = hz.traps[tid]
+    local find_skill, dc = t.find[2], t.find[3]
+    local scout = self:pick_roller({ find_skill }, sc, { "explorer", "tactician" })
+    self.actor, self.other = scout, nil
+    local passive_ok = find_skill == "perception"
+    local card = {
+        id = "trap_" .. tid, type = "rules",
+        title = "A " .. string.lower(t.name) .. " ahead",
+        text = "Only you know it's there: " .. t.about .. " (" .. t.src .. ") How do they go in?",
+        options = {
+            { label = "{actor_char} checks ahead (" .. skills.name(find_skill) .. ", DC " .. util.int(dc) .. ")",
+              log = "{actor_char} goes first, slowly, looking at everything.", mode = "search",
+              effects = { { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 } } },
+            { label = passive_ok and "Everyone watches where they step (passive Perception)" or "Everyone just walks carefully",
+              log = "You ask what everyone's watching, and check it against the trap.", mode = "passive",
+              effects = { { "arch:casual", fun = 2 } } },
+            { label = "Keep it moving: they walk right in",
+              log = "No time for poking at floors. In they go.", mode = "rush",
+              effects = { { "arch:butt_kicker", fun = 3 }, { "arch:tactician", trust = -2 } } },
+        },
+    }
+    local o = self:decision(card)
+    local found = false
+    if o.mode == "search" then
+        self.actor = scout
+        found = self:big_roll({ dc = dc - M.DC_SHIFT, skill = { find_skill }, convenient = "success",
+                                success = { log = "{actor_char} stops dead. There: " .. string.lower(t.about), effects = { { "actor", spotlight = 8 } } },
+                                fail = { log = "Nothing looks wrong. {actor_char} steps forward." } })
+    elseif o.mode == "passive" and passive_ok then
+        local best, bv
+        for _, p in ipairs(self.players) do
+            local v = 10 + self:mod_for(p, "perception")
+            if not bv or v > bv then
+                best, bv = p, v
+            end
+        end
+        found = bv >= dc
+        self.actor = best
+        self:say(best.char .. "'s passive Perception is " .. util.int(bv) .. " against DC " .. util.int(dc) .. ". "
+            .. (found and (best.char .. " spots it.") or "Nobody notices a thing."), "dice")
+    end
+    local sprung = not found
+    if found then
+        local d = t.disarm
+        if d.none then
+            self:say(d.text, "good")
+        else
+            self.actor = self:pick_roller({ d[2] }, sc)
+            local ok = self:big_roll({ dc = d[3] - M.DC_SHIFT, skill = { d[2] }, convenient = "success",
+                                       success = { log = d.text .. " Done.", effects = { { "actor", spotlight = 6 } } },
+                                       fail = { log = "{actor_char} can't make it work." } })
+            if not ok and tid == "poisoned_needle" then
+                sprung = true                          -- (a failed disarm sets the needle off, p. 200)
+            elseif not ok then
+                self:say("They give it a wide berth instead.", "aside")
+            end
+        end
+    end
+    if sprung then
+        self:spring_trap(sc, t)
+    else
+        self:highlight(5, "The party gets past the " .. string.lower(t.name), { self.actor })
+    end
+    sc.trap_sprung = sprung
+    sc.outcome = sprung and "lose" or "win"
+    sc.had_roll = true
+end
+
 function M:climax(sc)
     local st = content.scenes[sc.type]
     local cl = st.climax
     if not cl or sc.cut or sc.had_roll then
         return
+    end
+    local trap = self:trap_for(sc)
+    if trap then
+        return self:trap_scene(sc, trap)
     end
     -- The same big moment, told the way it fits this place (and whether anyone's there to talk to).
     local loc = sc.comps.location
@@ -3782,6 +4563,97 @@ function M:note(sc, entry)
     return entry
 end
 
+-- The night's events (M8, B1). The notebook's ledger is the one event log: besides who did
+-- what to whom, it keeps the moments a table talks about afterwards. Recaps, running jokes,
+-- awards, Grudge and the report all read these; nothing reads the raw night.
+--   ev     the kind: moment, crit, fumble, down, death, killing_blow, inspiration, clue, payoff,
+--          cooked, callout, fail_card, jail, joke, theory, escape, villain_falls, stunt, curveball
+--   who    the player it's about (a key), or "party"; keys: everyone in it
+--   to     a person or faction it touched, if any;  text: a line for the recap
+--   weight how big a moment it was, 1 to 10;  tags: anything a reader filters on
+M.EVENT_WEIGHT = { moment = 4, crit = 6, fumble = 5, down = 6, death = 10, killing_blow = 8, inspiration = 5,
+                   clue = 5, payoff = 8, cooked = 3, callout = 6, fail_card = 4, jail = 3, joke = 4, theory = 7,
+                   escape = 7, villain_falls = 9, stunt = 5, curveball = 5, talk = 6, boss_turn = 3, taunt = 6, interrupt = 6,
+                   retort = 9 }
+
+function M:event(ev, fields)
+    local e = fields or {}
+    e.ev = ev
+    e.weight = e.weight or M.EVENT_WEIGHT[ev] or 3
+    e.clock = self.clock
+    e.who = e.who or "party"
+    -- Who it was, and which villain saw it (the villain's ledger reads these).
+    if e.who ~= "party" and not e.char then
+        local p = self.campaign:player(e.who)
+        e.char = p and p.char or nil
+    end
+    if self.villain_here and e.villain == nil then
+        e.villain = self.villain_here
+    end
+    if M.SNAP_KINDS[ev] and (e.weight or 0) >= 6 then
+        self:snapshot(e.text, e.weight, e.who)
+    end
+    return self:note(self.scene, e)
+end
+
+-- Snapshots (M8, B1): a key moment kept as a scene description, not a picture: the terrain set,
+-- every mini and its square, the camera, a caption in the DM's hand and who was in it. The
+-- report re-stages one on the table to show it. Six a night at most catch themselves; the DM can
+-- take three more with the camera button.
+M.SNAP_KINDS = { death = true, killing_blow = true, villain_falls = true, theory = true, crit = true, escape = true,
+                 goodbye = true, payoff = true, defeat = true, new_character = true }
+M.SNAP_AUTO, M.SNAP_DM = 6, 3
+
+function M:snapshot(caption, weight, who, by_dm)
+    self.snapshots = self.snapshots or {}
+    self.snaps_auto, self.snaps_dm = self.snaps_auto or 0, self.snaps_dm or 0
+    if by_dm then
+        if self.snaps_dm >= M.SNAP_DM then
+            return nil, "Three a night: that's your camera roll."
+        end
+        self.snaps_dm = self.snaps_dm + 1
+    else
+        if self.snaps_auto >= M.SNAP_AUTO then
+            return nil
+        end
+        self.snaps_auto = self.snaps_auto + 1
+    end
+    local st = self.stage_now or {}
+    local minis = {}
+    for _, p in ipairs(st.party or {}) do
+        table.insert(minis, { id = p.id, class = p.class, x = p.x, y = p.y, side = "party" })
+    end
+    if st.npc then
+        table.insert(minis, { id = "npc", cast = st.npc.cast, x = st.npc.x, y = st.npc.y, side = "npc" })
+    end
+    -- Mid-fight, the mat as it stands: heroes and monsters where they are now.
+    if self.battle and self.battle.creatures then
+        minis = {}
+        for _, c in ipairs(self.battle.creatures) do
+            if not c.removed and c.x then
+                table.insert(minis, { id = c.mini, class = c.class, monster = c.monster_id, x = c.x, y = c.y,
+                                      side = c.side == "party" and "party" or "foe", down = c.dead or c.down or nil })
+            end
+        end
+    end
+    local snap = { week = self.campaign.week, scene = self.scene and self.scene.index, terrain = st.terrain, minis = minis,
+                   camera = 2, caption = caption or "", weight = weight or 5, who = who, by_dm = by_dm or nil,
+                   title = self.scene and self.scene.title }
+    table.insert(self.snapshots, snap)
+    return snap
+end
+
+-- Tonight's events of a kind (or all of them), in order.
+function M:events(ev)
+    local out = {}
+    for _, e in ipairs(self.ledger) do
+        if e.ev and (not ev or e.ev == ev) then
+            table.insert(out, e)
+        end
+    end
+    return out
+end
+
 -- First time the party meets someone, the notebook starts their card.
 function M:note_meeting(sc)
     local pid = self:cast_person(sc)
@@ -3815,6 +4687,17 @@ function M:note_outcome(sc)
             e.did, e.d = "beat", villain and 0 or -1
             if villain then
                 e.status = "beaten"
+                -- A villain with a Grudge falls at last (B6): the payoff is as big as the Grudge.
+                local g = ledger.grudge_level(self.campaign, pid)
+                if g >= 2 then
+                    for _, p in ipairs(self.players) do
+                        score.add(p, "story", 3 * g)
+                        score.add(p, "investment", g)
+                        score.add(p, "fun", g)
+                    end
+                    self:highlight(10, util.capitalize(cast.short or cast.name) .. " falls at last, after everything", self.players,
+                        "villain_falls")
+                end
             end
         else
             e.did, e.d = "lost_to", 0
@@ -3897,6 +4780,10 @@ function M:play_scene(sc)
     end
     sc.terrain = self:terrain_for(sc)
     sc.title = self:scene_title(sc)
+    self.villain_here = villains.present(self, sc)     -- the villain who remembers this scene
+    if self.villain_here then
+        villains.state(self.campaign, self.villain_here).seen = self.campaign.week
+    end
     local party, npc = self:staging(sc)
     local cast = sc.comps.cast
     local goal = sc.comps.goal
@@ -3907,8 +4794,13 @@ function M:play_scene(sc)
             is_story = true
         end
     end
+    self.stage_now = { terrain = sc.terrain, party = party, npc = npc }
+    local map = self:map_for(sc)
+    self:board_set(sc.terrain, sc)
     self:emit({ kind = "scene", index = sc.index, total = #self.scenes, title = sc.title, type = sc.type,
                 type_name = content.scenes[sc.type].name, terrain = sc.terrain, party = party, npc = npc,
+                npc_hidden = npc ~= nil,
+                pieces = map and map.template == sc.terrain and maps.cells(map) or nil,
                 cast = cast and cast.name, goal = goal and goal.name, story = is_story })
     if improvised_first then
         sc.quality = sc.quality - 0.03 * #sc.missing
@@ -3917,11 +4809,23 @@ function M:play_scene(sc)
         sc.quality = sc.quality - 0.03 * (#sc.missing - 1)
     end
     self:safety_check(sc)
-    self:describe(sc.comps.location, "narration")
+    local module = sc.module and require("game.model.books").module(sc.module)
+    -- The person in the scene appears on the mat when the DM names them (or they speak).
+    self.npc_pending = npc ~= nil or nil
+    if module then
+        self:say(module.read_aloud, "narration")      -- the book's own boxed text, read out
+    else
+        self:describe(sc.comps.location, "narration")
+    end
+    self:dress_board()
     self:note_meeting(sc)
+    -- Taking over (B8): a key person's first big scene tonight, and the DM speaks for them.
+    local talk_now = takeover.talk_ready(self, sc)
     if sc.comps.cast and not self:muted(sc.comps.cast) then
+        self.npc_cue = true
         self:describe(sc.comps.cast, "narration")
-        if not (sc.type == "combat" or sc.type == "set_piece") then
+        self.npc_cue = nil
+        if not (sc.type == "combat" or sc.type == "set_piece") and not talk_now then
             self:npc_line("greet")
         end
     end
@@ -3951,7 +4855,7 @@ function M:play_scene(sc)
                         self:react({ [p.key] = "lean" })
                         self:say(p.name .. " sits up. This is about " .. p.char .. "'s past.", "thread")
                         self:bark(p, "thread")
-                        self:highlight(7, p.char .. "'s backstory finally comes up", { p })
+                        self:highlight(7, p.char .. "'s backstory finally comes up", { p }, "thread")
                         if p.key == "mara" then
                             self:conflict_tone(sc)
                         end
@@ -3997,10 +4901,24 @@ function M:play_scene(sc)
             self:drift()
         end
     end
+    if module then
+        self:module_line(sc, 1)
+    end
     if sc.type == "combat" or sc.type == "set_piece" then
+        if module then
+            self:module_line(sc, 2)
+        end
+        if talk_now then
+            takeover.talk(self, sc)        -- a word before the fight (B8), in place of the fight's card
+        end
         self:combat_scene(sc)
     else
-        self:conversation(sc)
+        if module then
+            self:module_line(sc, 2)
+        end
+        if not (talk_now and takeover.talk(self, sc)) then
+            self:conversation(sc)
+        end
         self:conflict_spotlight(sc)
         self:quick_checks(sc)
         if not self.end_early then
@@ -4008,6 +4926,12 @@ function M:play_scene(sc)
         end
     end
     self:settle_scene(sc)
+    if module then
+        if sc.outcome == "win" then
+            self:module_line(sc, 3)
+        end
+        self:module_verdict(sc)
+    end
     if sc.comps.reward and not self.end_early and sc.outcome == "lose" then
         -- A reward they didn't win is still out there (it stays in the story deck).
         local r = sc.comps.reward
@@ -4073,12 +4997,28 @@ function M:intro()
     for i = 1, math.min(2, #who) do
         self:bark(who[i], "arrive")
     end
+    -- Before the session starts: new dice (a gift from last week, or a set someone treated
+    -- themselves to and has to show everyone).
+    self:dice_moment()
     self:say("Everyone's here. Dice out.", "system")
     self:table_behavior("start")
-    -- The DM's opening: last time, then where tonight starts.
-    local recap = story.recap(self.campaign)
-    if recap then
-        self:say(recap, "recap")
+    if self.campaign.week == 1 then
+        -- The first session: everyone introduces themselves and their hero.
+        intros.run(self)
+    else
+        -- The DM's opening: last session's big beats, then where they are and what they're after.
+        local recap = recap_mod.last_session(self.campaign) or story.recap(self.campaign)
+        if recap then
+            local last = story.init(self.campaign).weeks[self.campaign.week - 1]
+            if last and last.cliff and not string.find(recap, "cliffhanger") then
+                recap = recap .. " And it ended on a cliffhanger."
+            end
+            self:say(recap, "recap")
+        end
+        local here = self:here_today()
+        if here then
+            self:say(here, "recap")
+        end
     end
     -- Where they left off, if they haven't rested since (A16): what the sheets say.
     local ps = self.campaign.party_state
@@ -4116,10 +5056,84 @@ function M:intro()
         -- The opening agrees with the board (A11): it only names a place if scene 1 is there.
         local first = self.scenes[1]
         local loc = first and first.comps.location
-        if beat.open_place and not (loc and loc.id == beat.open_place) then
+        local places = type(beat.open_place) == "table" and beat.open_place or { beat.open_place }
+        if beat.open_place and not (loc and util.contains(places, loc.id)) then
             open = (hit and beat.open_else_if) or beat.open_else or open
+        elseif beat.open_place and deck.returning(self.campaign, loc) then
+            -- They've been there: the opening doesn't present it as new; the place's own "again"
+            -- line follows when the scene starts.
+            open = (hit and beat.open_again_if) or beat.open_again or (hit and beat.open_else_if) or beat.open_else or open
         end
         self:say(open, "opening")
+    end
+    death_mod.intro(self)   -- a new character joins (B3)
+end
+
+-- "And here we are today: you're at <place>, and you're out to <objective>." Where scene 1 is,
+-- and what this week's story is after (game/data/arc.lua objective; objective_if once they know
+-- the clue it hangs on).
+function M:here_today()
+    local first = self.scenes[1]
+    local loc = first and first.comps.location
+    local beat = self.campaign:arc_beat()
+    local obj = beat and beat.objective
+    if beat and beat.objective_if and story.has_clue(self.campaign, beat.objective_if.clue) then
+        obj = beat.objective_if.text
+    end
+    if not loc then
+        return obj and ("And here we are today: you're out to " .. obj .. ".") or nil
+    end
+    local set = loc.setting or {}
+    local prep = "at"
+    if util.contains(set, "road") then
+        prep = "on"
+    elseif util.contains(set, "under") or (util.contains(set, "indoor") and not util.contains(set, "tavern")
+        and not util.contains(set, "crowd")) then
+        prep = "in"
+    end
+    local text = "And here we are today: you're " .. prep .. " " .. (loc.short or util.lower_first(loc.name))
+    if obj then
+        text = text .. ", and you're out to " .. obj
+    end
+    return text .. "."
+end
+
+-- New dice before the session (game/model/dice_sets.lua): last week's gift rolls for the first
+-- time, or someone who's all in turns up with a set they bought and shows it off.
+function M:dice_moment()
+    local dd = dice_sets.data
+    local camp = self.campaign
+    local p, id = dice_sets.gifted(self)
+    if p then
+        self:emit({ kind = "dice", who = p.key, set = id, name = dice_sets.name(id), sets = dice_sets.by_tray(camp), gift = true })
+        self:emit({ kind = "say", who = p.key, text = dice_sets.line(camp, dd.FIRST_ROLL_LINES, 23), ic = false })
+        score.add(p, "fun", dd.GIFT.fun_next)
+        for _, q in ipairs(self.players) do
+            score.add(q, "social", dd.GIFT.social_all)
+        end
+    end
+    local q, sid = dice_sets.show_off(self)
+    if q then
+        self:emit({ kind = "dice", who = q.key, set = sid, name = dice_sets.name(sid), sets = dice_sets.by_tray(camp), show = true })
+        self:emit({ kind = "say", who = q.key, text = dice_sets.line(camp, dd.SHOW_LINES, 29), ic = false })
+        local poses = { [q.key] = "cheer" }
+        local others = {}
+        for _, r in ipairs(self.players) do
+            if r ~= q then
+                table.insert(others, r)
+            end
+        end
+        if #others > 0 then
+            local r = others[(camp.week % #others) + 1]
+            self:emit({ kind = "say", who = r.key, text = dice_sets.line(camp, dd.REACT_LINES, 31), ic = false })
+            poses[r.key] = "lean"
+        end
+        self:react(poses)
+        score.add(q, "fun", dd.SHOW_OFF.fun)
+        for _, r in ipairs(self.players) do
+            score.add(r, "social", dd.SHOW_OFF.social_all)
+        end
+        self:event("moment", { who = q.key, text = q.name .. " showed off a new set of dice: " .. dice_sets.name(sid), weight = 3 })
     end
 end
 
@@ -4132,7 +5146,7 @@ function M:run()
         -- The escape valve: running long before the last scene.
         if i == #self.scenes and i > 1 and (self.clock > LATE_AFTER or self.table_min > self.table_planned - 25)
             and not self.used_cards.running_late
-            and self:decision_count() < 14 then
+            and self:decision_count() < 13 then
             self.actor = nil
             self:decision(content.triggered.late)
             if self.end_early then

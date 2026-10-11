@@ -31,10 +31,13 @@ max_contacts = 256
 max_font_batches = 1024
 
 [model]
-max_count = 256
+max_count = 768
 
 [sprite]
 max_count = 256
 
 [collection]
-max_instances = 1024
+max_instances = 2048
+
+[factory]
+max_count = 256

@@ -1,10 +1,33 @@
--- Dice tray controller: throws a physical d20 into the tray, keeps a soft
--- shadow under it, and reads the face that lands on top.
+-- The dice (A9): every player has a tray at their seat and rolls their own checks there; the DM
+-- has an open box in front of the screen, where the table sees the die, and a tray behind it,
+-- where only the DM does (scene_data.trays).
+--   roll   { reply, tray }   the full roll: a physical d20 thrown into that tray; the face that
+--                            lands on top is the result (sent back when reply is set)
+--   tumble { tray, value }   a quick check: the die hops and tumbles in the tray and settles at
+--                            once on the number the check rolled
+-- Each tray keeps its last die lying there, showing its last roll.
 
 local scene = require "main.scene_data"
 
+-- Dice sets: the DM's and each player's (game/data/dice.lua, tools/gen_dice.py). game night says
+-- whose set rolls in which tray with "sets" { sets = { [tray] = set id } }.
+go.property("set_grey", resource.texture("/assets/textures/d20_grey.png"))
+go.property("set_amethyst", resource.texture("/assets/textures/d20_amethyst.png"))
+go.property("set_ember", resource.texture("/assets/textures/d20_ember.png"))
+go.property("set_jade", resource.texture("/assets/textures/d20_jade.png"))
+go.property("set_deep_sea", resource.texture("/assets/textures/d20_deep_sea.png"))
+go.property("set_rose", resource.texture("/assets/textures/d20_rose.png"))
+go.property("set_bone", resource.texture("/assets/textures/d20_bone.png"))
+go.property("set_galaxy", resource.texture("/assets/textures/d20_galaxy.png"))
+go.property("set_copper", resource.texture("/assets/textures/d20_copper.png"))
+go.property("set_obsidian", resource.texture("/assets/textures/d20_obsidian.png"))
+
 local BLOB = "/dice_blob"
 local MSG_ROLL = hash("roll")
+local MSG_TUMBLE = hash("tumble")
+local UP = vmath.vector3(0, 1, 0)
+local REST = 1.74          -- the d20's centre above the felt when it lies on a face
+local TUMBLE_TIME = 0.5
 
 local function random_rotation()
     return vmath.quat_rotation_y(math.random() * 6.283)
@@ -23,20 +46,77 @@ local function read_face(rot)
     return value
 end
 
+-- A rotation that puts the face with this number on top, turned to a random heading.
+local function face_up(value)
+    for _, f in ipairs(scene.d20_faces) do
+        if f[4] == value then
+            local n = vmath.vector3(f[1], f[2], f[3])
+            local axis = vmath.cross(n, UP)
+            local q
+            if vmath.length(axis) < 1e-4 then
+                q = n.y > 0 and vmath.quat() or vmath.quat_rotation_x(math.pi)
+            else
+                q = vmath.quat_axis_angle(vmath.normalize(axis), math.acos(math.max(-1, math.min(1, vmath.dot(n, UP)))))
+            end
+            return vmath.quat_rotation_y(math.random() * 6.283) * q
+        end
+    end
+    return random_rotation()
+end
+
+-- Paint a new die in the set of whoever's tray it is.
+local function paint(self, id, tray)
+    local set = self.sets and self.sets[tray]
+    local tex = set and self["set_" .. set]
+    if tex then
+        pcall(go.set, msg.url(nil, id, "model"), "texture0", tex)
+    end
+end
+
+local function tray_of(name)
+    local trays = scene.trays or {}
+    return trays[name] or trays.dm_open
+end
+
 local function hide_blob()
     go.set_position(vmath.vector3(0, -500, 0), BLOB)
 end
 
-local function throw(self)
+-- Clear what's lying in a tray before a new die goes in.
+local function clear_tray(self, name)
+    local id = self.resting[name]
+    if id then
+        go.delete(id)
+        self.resting[name] = nil
+    end
+    local t = self.tumbles[name]
+    if t then
+        go.delete(t.id)
+        self.tumbles[name] = nil
+    end
+end
+
+local function throw(self, name)
     if self.die then
-        go.delete(self.die)
+        -- The last full roll stays where it landed, in its own tray.
+        if self.die_tray and not self.resting[self.die_tray] then
+            self.resting[self.die_tray] = self.die
+        else
+            go.delete(self.die)
+        end
         self.die = nil
     end
-    local d = scene.dice
-    local pos = vmath.vector3(d.spawn.x + (math.random() - 0.5) * 3, d.spawn.y, d.spawn.z + (math.random() - 0.5) * 6)
+    clear_tray(self, name)
+    local t = tray_of(name)
+    self.die_tray = name
+    local pos = vmath.vector3(t.spawn.x + (math.random() - 0.5) * 2, t.spawn.y, t.spawn.z + (math.random() - 0.5) * 2)
     self.die = factory.create("#factory", pos, random_rotation())
+    paint(self, self.die, name)
     local co = msg.url(nil, self.die, "collisionobject")
-    local v = vmath.vector3(d.throw.x + (math.random() - 0.5) * 25, d.throw.y, d.throw.z + (math.random() - 0.5) * 40)
+    local th = t.throw
+    local side = 6
+    local v = vmath.vector3(th.x * (0.85 + math.random() * 0.3) + (th.x == 0 and (math.random() - 0.5) * side or 0), th.y,
+        th.z * (0.85 + math.random() * 0.3) + (th.z == 0 and (math.random() - 0.5) * side or 0))
     local w = vmath.vector3((math.random() - 0.5) * 60, (math.random() - 0.5) * 60, (math.random() - 0.5) * 60)
     local ok = pcall(go.set, co, "linear_velocity", v)
     pcall(go.set, co, "angular_velocity", w)
@@ -48,35 +128,74 @@ local function throw(self)
     msg.post("/hud#hud", "rolling")
 end
 
+-- A quick check: no physics, a short hop and a tumble that lands on the number.
+local function tumble(self, name, value)
+    if self.die and self.die_tray == name then
+        go.delete(self.die)
+        self.die = nil
+        hide_blob()
+    end
+    clear_tray(self, name)
+    local t = tray_of(name)
+    local rest = vmath.vector3(t.pos.x + (math.random() - 0.5) * t.w * 0.3, t.pos.y + REST,
+        t.pos.z + (math.random() - 0.5) * t.d * 0.3)
+    local from = rest + vmath.vector3(0, 7, 0)
+    local id = factory.create("#factory", from, random_rotation())
+    paint(self, id, name)
+    msg.post(msg.url(nil, id, "collisionobject"), "disable")
+    self.tumbles[name] = { id = id, t = 0, from = from, to = rest, rot0 = go.get_rotation(id), rot1 = face_up(value),
+                           spin = vmath.quat_axis_angle(vmath.normalize(vmath.vector3(math.random() - 0.5, 0.3, math.random() - 0.5)), 1) }
+end
+
 function init(self)
     math.randomseed(os.time())
     self.die = nil
     self.reported = true
+    self.resting = {}
+    self.tumbles = {}
     hide_blob()
 end
 
+local function update_tumbles(self, dt)
+    for name, tb in pairs(self.tumbles) do
+        tb.t = tb.t + dt
+        local f = math.min(1, tb.t / TUMBLE_TIME)
+        -- Down with a little bounce, spinning less and less until it lies on its number.
+        local h = (1 - f) * (1 - f) * 7 + math.abs(math.sin(f * math.pi * 2)) * (1 - f) * 1.5
+        go.set_position(vmath.vector3(vmath.lerp(f, tb.from.x, tb.to.x), tb.to.y + h, vmath.lerp(f, tb.from.z, tb.to.z)), tb.id)
+        local spin = vmath.quat_axis_angle(vmath.vector3(1, 0, 0), (1 - f) * 9)
+        go.set_rotation(vmath.slerp(f, tb.rot0, tb.rot1) * vmath.slerp(f, spin, vmath.quat()), tb.id)
+        if f >= 1 then
+            go.set_rotation(tb.rot1, tb.id)
+            self.resting[name] = tb.id
+            self.tumbles[name] = nil
+        end
+    end
+end
+
 function update(self, dt)
+    update_tumbles(self, dt)
     if not self.die then
         return
     end
     self.age = self.age + dt
     local p = go.get_position(self.die)
-    local d = scene.dice
+    local floor_y = scene.dice.floor_y
 
-    if p.y < d.floor_y - 30 then
+    if p.y < floor_y - 30 then
         go.delete(self.die)
         self.die = nil
         hide_blob()
         msg.post("/hud#hud", "fell")
         if self.requester then
             -- Game night is waiting on this roll: throw again.
-            throw(self)
+            throw(self, self.die_tray)
         end
         return
     end
 
-    local h = math.max(p.y - d.floor_y, 0)
-    go.set_position(vmath.vector3(p.x + 0.4, d.floor_y + 0.05, p.z + 0.6), BLOB)
+    local h = math.max(p.y - floor_y, 0)
+    go.set_position(vmath.vector3(p.x + 0.4, floor_y + 0.05, p.z + 0.6), BLOB)
     local s = 5.0 + h * 0.18
     go.set_scale(vmath.vector3(s, 1, s), BLOB)
     go.set(msg.url(nil, BLOB, "model"), "tint", vmath.vector4(1, 1, 1, math.max(0.15, 0.62 - h * 0.025)))
@@ -106,6 +225,37 @@ function on_message(self, message_id, message, sender)
     if message_id == MSG_ROLL then
         -- Game night asks for a reply; the sandbox Space roll doesn't.
         self.requester = message.reply and sender or nil
-        throw(self)
+        throw(self, message.tray or "dm_open")
+    elseif message_id == MSG_TUMBLE then
+        tumble(self, message.tray or "dm_open", message.value or 1)
+    elseif message_id == hash("sets") then
+        self.sets = message.sets or {}
+        -- The dice already lying in their trays change too (a new set shown off, a gift).
+        for tray, id in pairs(self.resting) do
+            paint(self, id, tray)
+        end
+    elseif message_id == hash("jail") then
+        -- A natural 1 (B2): the die is lifted out of the tray and put in dice jail beside it.
+        local name = message.tray
+        local tb = self.tumbles[name]
+        if tb then
+            self.resting[name] = tb.id
+            self.tumbles[name] = nil
+        end
+        local id = self.resting[name]
+        if not id and self.die and self.die_tray == name and self.reported then
+            id, self.die = self.die, nil
+            hide_blob()
+            msg.post(msg.url(nil, id, "collisionobject"), "disable")
+        end
+        if id then
+            self.resting[name] = nil
+            local t = tray_of(name)
+            self.jailed = self.jailed or {}
+            local n = (self.jailed[name] or 0) + 1
+            self.jailed[name] = n
+            local to = vmath.vector3(t.pos.x + t.w / 2 + 3, t.pos.y - 0.6 + REST, t.pos.z - t.d / 2 + 2 + (n - 1) % 3 * 3)
+            go.animate(id, "position", go.PLAYBACK_ONCE_FORWARD, to, go.EASING_INOUTQUAD, 0.6, 0.5)
+        end
     end
 end

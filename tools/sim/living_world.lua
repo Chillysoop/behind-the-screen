@@ -200,6 +200,22 @@ local function run(dm_key, seed, plan)
                 fail("save round trip lost the world, the notebook or the pins (week " .. w .. ")")
             end
         end
+        -- S3: no card on two scenes of one night (a place can host more than one).
+        do
+            local seen_on = {}
+            for i, sc in ipairs(prep.scenes) do
+                for kind, card in pairs(sc.slots or {}) do
+                    if kind ~= "location" and card and seen_on[card.id] and seen_on[card.id] ~= i then
+                        T.double_cards = (T.double_cards or 0) + 1
+                        fail("week " .. w .. ": " .. card.id .. " on scenes " .. seen_on[card.id] .. " and " .. i)
+                    end
+                    if card then
+                        seen_on[card.id] = seen_on[card.id] or i
+                    end
+                end
+            end
+            T.boards = (T.boards or 0) + 1
+        end
         local night = c:start_night()
         bots.play_night(night, rng, dm)
         -- Every scene with a person in it is in the ledger.
@@ -326,6 +342,8 @@ local function mean(list)
 end
 
 check(T.spent_repeat == 0, "No spent card comes back (S1)", T.spent_repeat .. " repeats")
+check((T.double_cards or 0) == 0 and (T.boards or 0) > 0, "No card on two scenes of one night, places aside (S3)",
+    (T.double_cards or 0) .. " doubled across " .. (T.boards or 0) .. " boards")
 -- S3: every follow-up some card can open does get opened somewhere.
 local never = {}
 for _, c in pairs(content.components) do

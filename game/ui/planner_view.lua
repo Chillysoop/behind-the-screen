@@ -10,6 +10,7 @@ local content = require "game.model.content"
 local util = require "game.model.util"
 local planner = require "game.model.planner"
 local panels = require "game.ui.panels"
+local dice_sets = require "game.model.dice_sets"
 
 local M = {}
 
@@ -24,7 +25,8 @@ local function choices(app)
         for i, k in ipairs(d.threads) do
             th[i] = k
         end
-        app.plan_choices = { truths = t, front = d.front, threads = th, style = "frontier" }
+        app.plan_choices = { truths = t, front = d.front, threads = th, style = "frontier",
+                             dice = dice_sets.get(app.campaign).dm or dice_sets.offer(app.campaign)[1] }
     end
     return app.plan_choices
 end
@@ -54,6 +56,10 @@ function M.start(app)
         return false
     end
     planner.apply(app.campaign, choices(app))
+    dice_sets.pick_dm(app.campaign, choices(app).dice)
+    if app.paint_dice then
+        app.paint_dice()
+    end
     app.plan_choices = nil
     app.go("session_zero")
     return true
@@ -207,6 +213,26 @@ function M.build(app)
         kit.text(x + 66, yy + 12, p.char, "ui18b", theme.text, { w = pw - 76 })
         kit.text(x + 66, yy + 34, p.name, "ui14", theme.dim)
         kit.text(x + 14, yy + 62, util.capitalize(p.thread or ""), "ui14", on and theme.text or theme.dim, { w = pw - 28 })
+    end
+    -- Your dice (the DM's own set): one of three. The players start on plain grey.
+    local dy = 692
+    kit.text(24, dy, "YOUR DICE", "ui14", theme.gold)
+    kit.text(120, dy, "The set you'll roll behind the screen. The players start on plain grey; better dice come later.",
+        "ui14", theme.faint)
+    local offer = dice_sets.offer(app.campaign)
+    local cw = 300
+    for i, id in ipairs(offer) do
+        local set = dice_sets.data.SETS[id]
+        local x = 24 + (i - 1) * (cw + 12)
+        local yy = dy + 26
+        local on = c.dice == id
+        kit.button(x, yy, cw, 100, "", function()
+            c.dice = id
+            app.refresh()
+        end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "dice_" .. i })
+        kit.picture(x + 12, yy + 14, 72, 72, "dice_" .. id)
+        kit.text(x + 96, yy + 14, set.name, "ui18b", theme.text, { w = cw - 106 })
+        kit.text(x + 96, yy + 40, set.about, "ui14", on and theme.text or theme.dim, { w = cw - 106, lines = 3 })
     end
     -- Off to Session Zero.
     local ready = M.ready(app)

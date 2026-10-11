@@ -144,12 +144,16 @@ B.DMS = {
 }
 B.ORDER = { "careful", "plain", "careless" }
 
-function B.play_night(night, rng, dm)
+-- watch(ev, night), if given, sees every event before the bot answers it (tests use it).
+function B.play_night(night, rng, dm, watch)
     local ev = night:advance()
     local guard = 0
     local decisions = 0
     while ev.kind ~= "done" and guard < 800 do
         guard = guard + 1
+        if watch then
+            watch(ev, night)
+        end
         local a
         if ev.kind == "decision" then
             decisions = decisions + 1
@@ -172,8 +176,9 @@ function B.play_night(night, rng, dm)
             a = dm.open_rolls and "open" or "hidden"
         elseif ev.kind == "roll" then
             a = rng:d20()
-        elseif ev.kind == "cook" then
-            a = dm.cook and rng:chance(0.5) or false
+        elseif ev.kind == "ruling" then
+            -- Cooking is the ruling card's last button behind the screen (A11).
+            a = (ev.cook and dm.cook and rng:chance(0.5)) and "cook" or nil
         end
         ev = night:advance(a)
     end

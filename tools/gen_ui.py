@@ -19,6 +19,7 @@ GUI_FONTS = {
     "title30": ("Lora-Bold.ttf", 30),
     "hand24": ("NothingYouCouldDo-Regular.ttf", 24),
     "story22": ("Lora-Bold.ttf", 22),
+    "read26": ("Lora-Bold.ttf", 26),     # the DM's read-aloud passages on game night (A9)
 }
 
 FONT_TEMPLATE = ('font: "/assets/fonts/{ttf}"\nmaterial: "/builtins/fonts/font.material"\nsize: {size}\n'

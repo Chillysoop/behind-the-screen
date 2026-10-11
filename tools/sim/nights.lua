@@ -56,16 +56,18 @@ local function answer(ev, rng, style)
         return style.roll_where(ev, rng)
     elseif k == "roll" then
         return rng:d20()
-    elseif k == "cook" then
-        return style.cook(ev, rng)
     elseif k == "ruling" then
         text_ok(ev.prompt, "ruling prompt")
+        if ev.cook and style.cook(ev, rng) then
+            return "cook"
+        end
         return rng:int(1, #ev.options)
     end
     return nil
 end
 
 local nights = {}
+CARD_IDS = {}
 local t0 = os.clock()
 for si, skey in ipairs(STYLES) do
     local style = styles[skey]
@@ -96,10 +98,13 @@ for si, skey in ipairs(STYLES) do
                     rec.time[ev.kind] = (rec.time[ev.kind] or 0) + (ev.t or 0)
                     if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" then
                         text_ok(ev.text, ev.kind)
-                    elseif ev.kind == "scene" or ev.kind == "stage" then
+                    elseif ev.kind == "scene" or (ev.kind == "stage" and ev.title ~= nil) then
                         text_ok(ev.title, "scene title")
                     elseif ev.kind == "decision" then
                         rec.types[ev.card.type] = (rec.types[ev.card.type] or 0) + 1
+                        CARD_IDS[ev.card.id] = (CARD_IDS[ev.card.id] or 0) + 1
+                        rec.card_list = rec.card_list or {}
+                        table.insert(rec.card_list, ev.card.id)
                     elseif ev.kind == "battle" and ev.phase == "end" then
                         rec.fights = rec.fights + 1
                         rec.rounds = rec.rounds + (ev.rounds or 0)
@@ -149,6 +154,12 @@ for si, skey in ipairs(STYLES) do
             rec.rulings = night.counts.ruling
             rec.callouts = night.callouts
             rec.ended_early = night.end_early
+            -- Traps and hazards (A10).
+            rec.traps, rec.hazards = 0, 0
+            for _, sc in ipairs(night.scenes or {}) do
+                if sc.trap_id and sc.had_roll then rec.traps = rec.traps + 1 end
+                if sc.hazard and sc.result then rec.hazards = rec.hazards + 1 end
+            end
             table.insert(nights, rec)
             c:finish_night()
         end
@@ -226,6 +237,30 @@ print("where the long waits happen (>130s): " .. table.concat(wp, ", "))
 local waits = sorted("longest_wait")
 -- NIGHTS_TAIL=1: what fills the longest stretches without a DM choice.
 if os.getenv("NIGHTS_TAIL") then
+    local hist = {}
+    for _, n in ipairs(nights) do hist[n.decisions] = (hist[n.decisions] or 0) + 1 end
+    local hl = {}
+    for d = 0, 30 do if hist[d] then table.insert(hl, d .. ":" .. hist[d]) end end
+    print("decisions histogram: " .. table.concat(hl, " "))
+    local hi, agg, hc, hi_i, hi_r, lo_c = 0, {}, 0, 0, 0, 0
+    for _, n in ipairs(nights) do
+        if n.decisions > 15 then
+            hi = hi + 1
+            hc, hi_i, hi_r = hc + n.cards, hi_i + n.improv, hi_r + n.rulings
+            for _, id in ipairs(n.card_list or {}) do
+                local k = string.gsub(id, "_[%w]+_%d+$", "_*")
+                agg[k] = (agg[k] or 0) + 1
+            end
+        end
+    end
+    if hi > 0 then
+        local o = {}
+        for k, v in pairs(agg) do table.insert(o, { k, v }) end
+        table.sort(o, function(a, b) return a[2] > b[2] end)
+        local l = {}
+        for k = 1, math.min(20, #o) do table.insert(l, string.format("%s %.2f", o[k][1], o[k][2] / hi)) end
+        print(string.format("%d nights over 15: cards %.1f improv %.1f rulings %.1f; %s", hi, hc / hi, hi_i / hi, hi_r / hi, table.concat(l, ", ")))
+    end
     local worst = {}
     for _, r in ipairs(nights) do
         table.insert(worst, r)
@@ -261,6 +296,45 @@ local function check(name, ok, detail)
     table.insert(checks, ok)
     print(string.format("  [%s] %s  -  %s", ok and "PASS" or "FAIL", name, detail))
 end
+if os.getenv("NIGHTS_DETAIL") then
+    local ids = {}
+    for id, n in pairs(CARD_IDS) do
+        table.insert(ids, { (string.gsub(id, "_[%w]+_%d+$", "_*")), n })
+    end
+    local merged, order = {}, {}
+    for _, x in ipairs(ids) do
+        if not merged[x[1]] then table.insert(order, x[1]) end
+        merged[x[1]] = (merged[x[1]] or 0) + x[2]
+    end
+    table.sort(order, function(a, b) return merged[a] > merged[b] end)
+    local line = {}
+    for k = 1, math.min(40, #order) do
+        table.insert(line, string.format("%s %.2f", order[k], merged[order[k]] / #nights))
+    end
+    print("cards per night: " .. table.concat(line, ", "))
+    local c, i, r = 0, 0, 0
+    for _, n in ipairs(nights) do c, i, r = c + n.cards, i + n.improv, r + n.rulings end
+    print(string.format("per night: cards %.2f, improv %.2f, rulings %.2f", c / #nights, i / #nights, r / #nights))
+    local ty = {}
+    for _, n in ipairs(nights) do
+        for t, k in pairs(n.types) do ty[t] = (ty[t] or 0) + k end
+    end
+    local tl = {}
+    for t, k in pairs(ty) do table.insert(tl, string.format("%s %.2f", t, k / #nights)) end
+    table.sort(tl)
+    print("card types per night: " .. table.concat(tl, ", "))
+    local worst = {}
+    for _, n in ipairs(nights) do table.insert(worst, n) end
+    table.sort(worst, function(a, b) return a.longest_wait > b.longest_wait end)
+    for k = 1, 3 do
+        local n = worst[k]
+        local seq = {}
+        for _, ev in ipairs(n.stretch or {}) do
+            table.insert(seq, ev.kind .. string.format("%.0f", ev.t or 0) .. (ev.kind == "say" and ev.text and ("[" .. string.sub(ev.text, 1, 24) .. "]") or ""))
+        end
+        print(string.format("wait %.0fs at %s: %s", n.longest_wait, tostring(n.longest_where), table.concat(seq, " ")))
+    end
+end
 print("Gate")
 check("No errors, every night ends, every line filled in", #failures == 0, #failures .. " problems")
 local in_range = share(function(r) return r.decisions >= 8 and r.decisions <= 15 end)
@@ -274,6 +348,14 @@ end
 check("All six decision types come up", all_types, "each type in at least 5% of nights")
 check("The DM is never left watching too long", pct(waits, 0.9) <= 150,
     string.format("90%% of nights: longest gap %.0fs", pct(waits, 0.9)))
+do
+    local traps, hazards = 0, 0
+    for _, r in ipairs(nights) do
+        traps, hazards = traps + r.traps, hazards + r.hazards
+    end
+    check("Traps and hazards turn up on game nights (A10)", traps > 0 and hazards > 0,
+        string.format("%d trap scenes and %d fights with a hazard in %d nights", traps, hazards, #nights))
+end
 for _, f in ipairs(failures) do print("  ! " .. f) end
 local passed = 0
 for _, ok in ipairs(checks) do if ok then passed = passed + 1 end end

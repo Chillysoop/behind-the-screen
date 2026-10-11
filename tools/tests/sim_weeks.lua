@@ -144,7 +144,7 @@ local function play_night(night, rng, style, stats)
         local answer
         if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" or ev.kind == "check" then
             text_ok(ev.text, "event " .. ev.kind)
-        elseif ev.kind == "scene" or ev.kind == "stage" then
+        elseif ev.kind == "scene" or (ev.kind == "stage" and ev.title ~= nil) then
             text_ok(ev.title, "scene title")
         elseif ev.kind == "improv" then
             text_ok(ev.prompt, "improv prompt")
@@ -164,6 +164,14 @@ local function play_night(night, rng, style, stats)
             text_ok(ev.prompt, "ruling prompt")
             for _, o in ipairs(ev.options) do text_ok(o.label, "ruling option") end
             answer = rng:int(1, #ev.options)
+            if ev.cook then
+                text_ok(ev.cook.label, "cook option")
+                local cook = (style == "bad") and true or (style == "random" and rng:chance(0.3))
+                if cook then
+                    answer = "cook"
+                    stats.cooks = stats.cooks + 1
+                end
+            end
         elseif ev.kind == "turn" then
             check(#ev.steps > 0, "turn has steps")
         elseif ev.kind == "decision" then
@@ -177,9 +185,6 @@ local function play_night(night, rng, style, stats)
             answer = (style == "bad") and "hidden" or ((style == "random" and rng:chance(0.5)) and "hidden" or "open")
         elseif ev.kind == "roll" then
             answer = rng:d20()
-        elseif ev.kind == "cook" then
-            answer = (style == "bad") and true or (style == "random" and rng:chance(0.3))
-            if answer then stats.cooks = stats.cooks + 1 end
         end
         ev = night:advance(answer)
         for _, p in ipairs(night.players) do check_player(p, "mid-night " .. p.key) end

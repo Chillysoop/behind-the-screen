@@ -64,7 +64,7 @@ function M.blurb(id)
 end
 
 -- Everything the builder shows for this list of monster ids.
-function M.analyze(campaign, ids)
+function M.analyze(campaign, ids, hazard, tilt)
     local level = campaign.level or 2
     local pcs = M.party(campaign)
     local n = math.max(1, #pcs)
@@ -72,10 +72,14 @@ function M.analyze(campaign, ids)
     if #ids == 0 then
         return out
     end
-    out.meter = encounter.meter(level, n, ids)
     local low, mod, high = encounter.budget(level, n)
+    -- The map's tilt (B9): a share of the Moderate budget, as XP.
+    local map_xp = math.floor((tilt or 0) * mod + 0.5)
+    local opts = (hazard or map_xp ~= 0) and { hazard = hazard, extra_xp = map_xp } or nil
+    out.meter = encounter.meter(level, n, ids, opts)
     out.budget = { low = low, moderate = mod, high = high }
-    out.xp = encounter.xp(ids)
+    out.map_xp = map_xp
+    out.xp = math.max(0, encounter.xp(ids) + (hazard and (require("game.rules.hazards").weight(hazard)) or 0) + map_xp)
     local seen, kinds = {}, {}
     for _, id in ipairs(ids) do
         if not seen[id] then

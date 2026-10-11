@@ -3,6 +3,10 @@ key_trigger {
   action: "zoom_room"
 }
 key_trigger {
+  input: KEY_C
+  action: "snapshot"
+}
+key_trigger {
   input: KEY_2
   action: "zoom_table"
 }

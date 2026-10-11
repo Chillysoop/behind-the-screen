@@ -140,6 +140,39 @@ images {
   image: "/assets/portraits/mini_npc_ghost.png"
 }
 images {
+  image: "/assets/portraits/mini_npc_vask.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_wren.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_grey_coat.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_tilly.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_ottilie.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_hob.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_holt.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_tumble.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_verrin.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_nib.png"
+}
+images {
+  image: "/assets/portraits/mini_npc_ansel.png"
+}
+images {
   image: "/assets/portraits/mini_goblin_boss.png"
 }
 images {
@@ -225,6 +258,60 @@ images {
 }
 images {
   image: "/assets/portraits/mini_worg.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_bryn.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_hesk.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_tam.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_lark.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_aldith.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_rufus.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_corwin.png"
+}
+images {
+  image: "/assets/portraits/mini_pregen_ysolde.png"
+}
+images {
+  image: "/assets/portraits/dice_amethyst.png"
+}
+images {
+  image: "/assets/portraits/dice_bone.png"
+}
+images {
+  image: "/assets/portraits/dice_copper.png"
+}
+images {
+  image: "/assets/portraits/dice_deep_sea.png"
+}
+images {
+  image: "/assets/portraits/dice_ember.png"
+}
+images {
+  image: "/assets/portraits/dice_galaxy.png"
+}
+images {
+  image: "/assets/portraits/dice_grey.png"
+}
+images {
+  image: "/assets/portraits/dice_jade.png"
+}
+images {
+  image: "/assets/portraits/dice_obsidian.png"
+}
+images {
+  image: "/assets/portraits/dice_rose.png"
 }
 margin: 2
 extrude_borders: 2

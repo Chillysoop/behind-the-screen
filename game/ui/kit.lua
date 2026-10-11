@@ -446,6 +446,9 @@ end
 
 function M.on_click(x, y)
     local b = M.hit(x, y)
+    -- Where the click landed, in layout coordinates (top-left origin), for buttons that care
+    -- which part of them was clicked (the map grid, B9).
+    M.click = { x = x, y = M.H - y }
     if b and b.on_click then
         M.hovered = nil
         if M.on_press then

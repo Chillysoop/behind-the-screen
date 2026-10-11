@@ -162,11 +162,21 @@ for _, rk in ipairs(ROUTES) do
             place_card(prep, c.course[r.how])
         end
         bots.prep(DM, c, prep, rng)
+        local gate_card = r.how and c.course[r.how]
         if r.how then
-            place_card(prep, c.course[r.how])
+            place_card(prep, gate_card)
         end
-        play(c, prep, rng)
+        local night = play(c, prep, rng)
         o.runs = o.runs + 1
+        -- Did the gateway card play, and did they take it up (win its scene)?
+        for _, sc in ipairs(night.scenes or {}) do
+            for _, card in pairs(sc.comps or {}) do
+                if gate_card and card.id == gate_card and sc.outcome then
+                    o.played = (o.played or 0) + 1
+                    o.won = (o.won or 0) + (sc.outcome == "win" and 1 or 0)
+                end
+            end
+        end
         if c.style == TARGET then
             o.changed = o.changed + 1
             for key, re in pairs(c.course.reaction or {}) do
@@ -221,8 +231,8 @@ for _, sid in ipairs(styles.data().order) do
 end
 for _, rk in ipairs(ROUTES) do
     local o = out[rk]
-    print(string.format("%-10s changed %d/%d, trust from the change: not sold %+.1f, keen %+.1f, %s cards after %.0f, missed the old style %d (late %d)",
-        rk, o.changed, o.runs, mean(o.trust_unsure), mean(o.trust_keen), TARGET, mean(o.fun_after), o.missed, o.missed_late))
+    print(string.format("%-10s played %d, won %d, changed %d/%d, trust from the change: not sold %+.1f, keen %+.1f, %s cards after %.0f, missed the old style %d (late %d)",
+        rk, o.played or 0, o.won or 0, o.changed, o.runs, mean(o.trust_unsure), mean(o.trust_keen), TARGET, mean(o.fun_after), o.missed, o.missed_late))
 end
 
 local leans = true
@@ -247,9 +257,10 @@ local gates = {
     { "Crossovers happen: a port, a stair or a road opens another style in most campaigns",
       cross >= 0.5 * RUNS * #styles.data().order },
     { "Asking alone never changes course", out.ask.changed == 0 and out.ask.chat > 0 },
-    { "Force always changes course; a nudge only when they take it up",
-      out.force.changed == out.force.runs and out.ask_force.changed == out.ask_force.runs
-          and out.nudge.changed < out.nudge.runs and out.nudge.changed > 0 },
+    { "Force always changes course when it plays; a nudge only when they take it up",
+      out.force.changed == (out.force.played or 0) and out.ask_force.changed == (out.ask_force.played or 0)
+          and out.force.changed > 0 and out.nudge.changed == (out.nudge.won or 0)
+          and out.ask_nudge.changed == (out.ask_nudge.won or 0) and out.nudge.changed > 0 },
     { "Forcing it on players who didn't want it costs trust; asking first softens it",
       mean(out.force.trust_unsure) < mean(out.force.trust_keen) and mean(out.ask_force.trust_unsure) > mean(out.force.trust_unsure)
           and mean(out.ask_nudge.trust_unsure) >= mean(out.nudge.trust_unsure) },

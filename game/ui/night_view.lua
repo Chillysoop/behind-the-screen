@@ -42,7 +42,10 @@ local LEFT_X, LEFT_W = 24, 560
 local CAPTION_BOTTOM, CAPTION_W = 664, 900
 local CARD_BOTTOM = 760
 -- Longer read-alouds: the recap and the session's opening.
-local READ_ALOUD = { recap = true, opening = true }
+-- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in, the
+-- bridge between scenes. It gets the boxed-passage look; the DM's own notes ("You improvise")
+-- and the table's reactions stay plain captions, and asides go to the log only.
+local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, goal = true, twist = true, seed = true }
 local LOG_X, LOG_Y, LOG_W, LOG_H = 24, 70, 520, 690
 local STRIP_RIGHT, STRIP_Y, DIE = 1576, 66, 30
 
@@ -50,18 +53,31 @@ local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", 
 local CAST_SPRITE = {
     goblins = "goblin_boss", gus = "npc_gus", stranger = "npc_stranger", rook = "bandit_captain",
     hermit = "npc_hermit", rivals = "npc_rival", ogre = "ogre", corin = "npc_corin",
-    wolf_lieutenant = "tough", madame_sable = "npc_sable", abbot_ghost = "npc_ghost",
+    wolf_lieutenant = "npc_vask", madame_sable = "npc_sable", abbot_ghost = "npc_ghost",
     -- M6 casts borrow a mini until they get their own.
-    holt = "npc_hermit", brother_tumble = "npc_gus", goblin_scout = "goblin_boss", verrin = "npc_rival",
+    holt = "npc_holt", brother_tumble = "npc_tumble", goblin_scout = "npc_nib", verrin = "npc_verrin",
     bone_choir = "cultist", white_wolf = "dire_wolf",
     -- The slice rework's casts.
-    wren = "npc_stranger", grey_coat = "tough", miller = "npc_gus", turncoat_guide = "bandit_captain",
-    market_friend = "npc_sable", merchant = "npc_sable", cutpurses = "bandit", wolf_pack = "dire_wolf",
+    wren = "npc_wren", grey_coat = "npc_grey_coat", miller = "npc_hob", turncoat_guide = "bandit_captain",
+    market_friend = "npc_tilly", merchant = "npc_ottilie", cutpurses = "bandit", wolf_pack = "dire_wolf",
     restless_dead = "skeleton",
+    -- Campaign styles (A18) and the new books (A13).
+    fr_reeve = "npc_ottilie", fr_goblin_chief = "goblin_boss", sea_captain_rosin = "npc_corin", sea_grey_moll = "pirate",
+    sea_envoy_pearl = "npc_ghost", sea_serpent_wake = "merrow", ur_watch_captain = "guard", ur_fixer = "npc_stranger",
+    ur_mother_coil = "npc_hermit", dn_lantern_company = "npc_rival", dn_mossjaw = "animated_armor", wd_guide = "scout",
+    wd_white_stag = "npc_ghost", wd_moss_hermit = "npc_hermit",
+    bk_pirate_crew = "pirate", bk_merrow = "merrow", bk_crabs = "giant_crab", bk_spy = "spy", bk_rats = "swarm_of_rats",
+    bk_armor = "animated_armor", bk_spiders = "giant_spider", bk_specter = "specter", bk_bear = "brown_bear",
+    bk_gnolls = "gnoll_warrior", bk_worgs = "worg", bk_bugbear = "bugbear_warrior", bk_veteran = "warrior_veteran",
+    bk_kobolds = "kobold_warrior", gz_hedge_witch = "npc_hermit", mod_bell_sexton = "npc_ansel", mod_bridge_hobb = "npc_hermit",
 }
 local MONSTER_SPRITES = {
     goblin_boss = true, bandit = true, bandit_captain = true, cultist = true, tough = true, wolf = true,
     dire_wolf = true, skeleton = true, zombie = true, ghoul = true, ogre = true,
+    -- The Vale Bestiary (A13).
+    pirate = true, merrow = true, giant_crab = true, guard = true, spy = true, swarm_of_rats = true, animated_armor = true,
+    giant_spider = true, specter = true, brown_bear = true, gnoll_warrior = true, bugbear_warrior = true,
+    warrior_veteran = true, kobold_warrior = true, scout = true, worg = true,
 }
 local BLOCKED = {
     sanctuary = "Sanctuary", decoy = "Hit the decoy", mirror_image = "Hit an image", shield = "Shield!",
@@ -86,12 +102,21 @@ local SPARK = {
     grease = rgba(0.75, 0.62, 0.3), color_spray = rgba(1.0, 0.55, 0.85), bless = rgba(1.0, 0.9, 0.5),
     aid = rgba(1.0, 0.9, 0.5), guiding_bolt = rgba(1.0, 1.0, 0.8), ray_of_frost = rgba(0.6, 0.9, 1.0),
     shocking_grasp = rgba(0.7, 0.8, 1.0), chill_touch = rgba(0.6, 0.5, 0.9), hold_person = rgba(0.6, 0.6, 1.0),
+    -- Hazards (A10).
+    fire = rgba(1.0, 0.45, 0.15), dust = rgba(0.85, 0.75, 0.55), rubble = rgba(0.55, 0.5, 0.45), water = rgba(0.35, 0.6, 0.95),
+    holes = rgba(0.15, 0.12, 0.1), ice = rgba(0.8, 0.95, 1.0),
     spiritual_weapon = rgba(1.0, 0.9, 0.6), mirror_image = rgba(0.8, 0.85, 1.0), inflict_wounds = rgba(0.6, 0.25, 0.45),
     acid_splash = rgba(0.6, 1.0, 0.4), ice_knife = rgba(0.6, 0.9, 1.0), prayer_of_healing = rgba(0.5, 1.0, 0.55),
 }
 
 local function post(id, data)
     msg.post(TABLE, id, data or {})
+end
+
+-- The board (main/board/board.script): the scenery the DM sets out piece by piece.
+local BOARD = "/board#board"
+local function post_board(id, data)
+    msg.post(BOARD, id, data or {})
 end
 
 local function speed(app)
@@ -222,7 +247,7 @@ function M.draw_frame(app)
         end
     end, { font = "ui14", key = "night_notes" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip    F speed    Tab log    N notes    H your rolls    T timer    1-4 camera or a card's options", "ui14", theme.faint,
+    kit.text(1576, 32, "Space skip    F speed    Tab log    N notes    H your rolls    T timer    C photo    1-4 camera or options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
@@ -403,10 +428,70 @@ function M.push(app, text, style)
     M.draw_log(app)
 end
 
+-- Showing a snapshot from the report (B7): the table sets the moment back up as it was, terrain,
+-- minis and all. nil clears the table again.
+function M.restage_snapshot(app, sn)
+    post("vignette")
+    if not sn then
+        app.terrain = nil
+        app.zoom(1)
+        return
+    end
+    if sn.terrain then
+        app.terrain = sn.terrain
+        post("terrain", { set = sn.terrain, animate = false })
+    end
+    local list, n = {}, 0
+    for _, m in ipairs(sn.minis or {}) do
+        local sprite
+        if m.side == "party" then
+            local pl = app.campaign:player(m.id)
+            sprite = (pl and pl.mini) or CLASS_SPRITE[m.class] or "fighter"
+        elseif m.side == "npc" then
+            sprite = CAST_SPRITE[m.cast] or "npc_stranger"
+        else
+            n = n + 1
+            sprite = monster_sprite(m.monster, n)
+        end
+        table.insert(list, { id = "snap_" .. tostring(m.id), sprite = sprite, x = m.x, y = m.y,
+                             side = m.side == "party" and "party" or "foe" })
+    end
+    post("spawn", { list = list })
+    for _, m in ipairs(sn.minis or {}) do
+        if m.down then
+            post("down", { id = "snap_" .. tostring(m.id) })
+        end
+    end
+    app.zoom(sn.camera or 2)
+end
+
+-- The DM's camera (B1): three snapshots a night of whatever's on the table right now.
+function M.take_snapshot(app)
+    local night = app.night
+    if not night or app.night_done then
+        return
+    end
+    local snap, why = night:snapshot("You caught this one.", 6, nil, true)
+    if not snap then
+        M.push(app, why or "No more snapshots tonight.", "system")
+        return
+    end
+    local left = night.SNAP_DM - (night.snaps_dm or 0)
+    M.push(app, "Snapshot taken. " .. util.int(left) .. (left == 1 and " left tonight." or " left tonight."), "system")
+    -- A camera flash.
+    kit.use(app.layers.fx)
+    local flash = kit.box(0, 0, kit.W, kit.H, kit.rgba("#ffffff", 0.7), { round = false })
+    app.flash = { node = flash, t = 0 }
+end
+
 function M.toggle_log(app)
     app.log_open = not app.log_open
     app.log_scroll = 0
     M.draw_log(app)
+    -- A card that's up moves aside (or back) at once.
+    if app.pending and app.layers.modal then
+        M.show_modal(app, app.pending, true)
+    end
 end
 
 -- Is the pointer over the open log? (The mouse wheel scrolls it there, and zooms elsewhere.)
@@ -430,12 +515,34 @@ function M.draw_caption(app)
     kit.use(app.layers.fx)
     local c = {}
     c.box = kit.box(0, 0, 100, 40, kit.rgba("#140e0b", 0.82), { radius = 12 })
+    -- A read-aloud passage (A9) is a boxed passage of its own: parchment, a gold rule down its
+    -- left side, a small "Read aloud" tag, and the text large and set left.
+    c.rule = kit.box(0, 0, 6, 40, theme.gold, { round = false })
+    c.tag = kit.text(0, 0, "READ ALOUD", "ui14", theme.ink_dim)
     c.text = kit.text(0, 0, "", "story22", theme.text, { pivot = gui.PIVOT_N })
     c.life, c.age, c.color = 0, 0, theme.text
-    gui.set_enabled(c.box, false)
-    gui.set_enabled(c.text, false)
+    for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+        gui.set_enabled(n, false)
+    end
     app.caption = c
     app.title_card = nil
+end
+
+-- Lay the caption's nodes out in its rect (the read-aloud box or the plain caption).
+local function place_caption(c, x, y, w, h)
+    place(c.box, x, y)
+    if c.read then
+        place(c.rule, x + 14, y + 14)
+        gui.set_size(c.rule, vmath.vector3(4, h - 28, 0))
+        place(c.tag, x + 30, y + 10)
+        place(c.text, x + 30, y + 32)
+    else
+        place(c.text, x + w / 2, y + 11)
+    end
+end
+
+local function caption_box_color(c, a)
+    return c.read and alpha_of(theme.paper, 0.97 * a) or kit.rgba("#140e0b", 0.82 * a)
 end
 
 function M.caption(app, text, style)
@@ -443,40 +550,52 @@ function M.caption(app, text, style)
     if not c then
         return
     end
-    local font = (style == "dice" or style == "check" or style == "system" or style == "warn") and "ui22b" or "story22"
-    local width = READ_ALOUD[style] and 1060 or CAPTION_W
-    local max_lines = READ_ALOUD[style] and 6 or 5
-    local lines = kit.wrap(text, font, width - 48)
+    local read = READ_ALOUD[style] and true or false
+    local font = read and "read26" or ((style == "dice" or style == "check" or style == "system" or style == "warn") and "ui22b" or "story22")
+    local width = read and 1000 or CAPTION_W
+    local max_lines = read and 5 or 5
+    local pad = read and 58 or 48
+    local lines = kit.wrap(text, font, width - pad)
     if #lines > max_lines then
         local keep = {}
         for i = 1, max_lines do
             keep[i] = lines[i]
         end
-        keep[max_lines] = kit.ellipsize(keep[max_lines] .. " ...", font, width - 48)
+        keep[max_lines] = kit.ellipsize(keep[max_lines] .. " ...", font, width - pad)
         lines = keep
     end
     local tw = 0
     for _, l in ipairs(lines) do
         tw = math.max(tw, kit.width(l, font))
     end
-    local w, h = tw + 48, #lines * kit.line_height(font) + 22
+    local w = tw + pad
+    local h = #lines * kit.line_height(font) + (read and 46 or 22)
+    if read then
+        w = math.max(w, 360)
+    end
     local y = CAPTION_BOTTOM - h
     -- With the log open, the caption centers on the rest of the screen.
     local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
+    c.read = read
     gui.set_size(c.box, vmath.vector3(w, h, 0))
-    place(c.box, cx - w / 2, y)
-    app.caption_rect = { x = cx - w / 2, y = y, w = w, h = h }
     gui.set_font(c.text, font)
+    gui.set_pivot(c.text, read and gui.PIVOT_NW or gui.PIVOT_N)
     gui.set_text(c.text, table.concat(lines, "\n"))
-    place(c.text, cx, y + 11)
-    c.color = theme.log[style] or theme.text
+    place_caption(c, cx - w / 2, y, w, h)
+    app.caption_rect = { x = cx - w / 2, y = y, w = w, h = h }
+    c.color = read and theme.ink or (theme.log[style] or theme.text)
     c.age = 0
-    c.life = (pacing.read(text) + 0.6) / speed(app)
+    -- Read-aloud passages stay up a little longer: they're read out, not glanced at.
+    c.life = (pacing.read(text) * (read and 1.25 or 1) + 0.6) / speed(app)
     c.style = style
     gui.set_enabled(c.box, true)
     gui.set_enabled(c.text, true)
+    gui.set_enabled(c.rule, read)
+    gui.set_enabled(c.tag, read)
     gui.set_color(c.text, c.color)
-    gui.set_color(c.box, kit.rgba("#140e0b", 0.82))
+    gui.set_color(c.box, caption_box_color(c, 1))
+    gui.set_color(c.tag, theme.ink_dim)
+    gui.set_color(c.rule, theme.gold)
 end
 
 function M.title(app, top, title, sub)
@@ -501,7 +620,9 @@ function M.toast(app, top, text)
     local w = 620
     local lines = kit.wrap(text, "ui18", w - 40)
     local h = 40 + #lines * kit.line_height("ui18") + 12
-    local x, y = 800 - w / 2, 136
+    -- With the log open, it sits on the rest of the screen (A11).
+    local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
+    local x, y = cx - w / 2, 136
     local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {} }
     t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
     t.nodes[2] = kit.box(x, y, w, h, kit.rgba("#201813", 0.96), { radius = 11 })
@@ -696,6 +817,17 @@ local function fade(nodes, colors, a)
 end
 
 function M.update_fx(app, dt)
+    -- The camera flash (B1).
+    local fl = app.flash
+    if fl then
+        fl.t = fl.t + dt
+        if fl.t >= 0.35 then
+            kit.remove({ fl.node })
+            app.flash = nil
+        else
+            gui.set_color(fl.node, kit.rgba("#ffffff", 0.7 * (1 - fl.t / 0.35)))
+        end
+    end
     if not app.layers.fx then
         return
     end
@@ -732,12 +864,15 @@ function M.update_fx(app, dt)
             if a == 0 then
                 c.life = 0
                 app.caption_rect = nil
-                gui.set_enabled(c.box, false)
-                gui.set_enabled(c.text, false)
+                for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+                    gui.set_enabled(n, false)
+                end
             end
         end
         gui.set_color(c.text, alpha_of(c.color, a))
-        gui.set_color(c.box, kit.rgba("#140e0b", 0.82 * a))
+        gui.set_color(c.box, caption_box_color(c, a))
+        gui.set_color(c.tag, alpha_of(theme.ink_dim, a))
+        gui.set_color(c.rule, alpha_of(theme.gold, a))
     end
     local t = app.title_card
     if t then
@@ -882,10 +1017,11 @@ end
 
 -- Staging ----------------------------------------------------------------------------------
 
-local function party_list(list)
+local function party_list(list, app)
     local out = {}
     for _, p in ipairs(list or {}) do
-        table.insert(out, { id = p.id, class = p.class, sprite = CLASS_SPRITE[p.class] or "fighter", x = p.x, y = p.y })
+        local pl = app and app.campaign:player(p.id)
+        table.insert(out, { id = p.id, class = p.class, sprite = (pl and pl.mini) or CLASS_SPRITE[p.class] or "fighter", x = p.x, y = p.y })
     end
     return out
 end
@@ -894,15 +1030,28 @@ local function stage(app, ev)
     local fresh = ev.terrain ~= app.terrain
     if fresh then
         app.terrain = ev.terrain
-        post("terrain", { set = ev.terrain })
+        -- A new place: its floor and walls go down; the rest comes as the DM describes it.
+        post_board("board", { id = ev.terrain, show = ev.show or "base" })
     end
     local npc
     if ev.npc then
         npc = { sprite = CAST_SPRITE[ev.npc.cast] or "npc_stranger", x = ev.npc.x, y = ev.npc.y }
         app.names.npc = ev.npc.name
     end
+    -- The person in the scene steps onto the mat when the DM names them.
+    app.stage_party = party_list(ev.party, app)
+    app.npc_waiting = nil
+    if ev.npc_hidden and npc then
+        app.npc_waiting = npc
+        npc = nil
+    end
     app.on_table = { npc = npc and true or nil }
-    post("stage", { party = party_list(ev.party), npc = npc, fresh = fresh })
+    post("stage", { party = app.stage_party, npc = npc, fresh = fresh })
+    -- The DM's map for this place (B9), or a clean mat.
+    if ev.pieces or app.pieces_on then
+        post("pieces", { cells = ev.pieces })
+        app.pieces_on = ev.pieces ~= nil
+    end
 end
 
 -- What a mini or a player is called in the log.
@@ -1057,6 +1206,10 @@ function M.play_step(app, s, pace)
             M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level) .. ")") or "")
                 .. (s.area and (", " .. util.int(#s.area) .. " squares") or "") .. ".", "system")
         end
+    elseif k == "hazard" then
+        M.push(app, "Hazard: " .. (s.name or "") .. ". " .. (s.about or ""), "system")
+    elseif k == "hazard_act" then
+        M.push(app, (s.name or "The hazard acts") .. ".", "bad")
     elseif k == "zone" then
         local col = SPARK[s.what] or rgba(0.9, 0.9, 0.9)
         battle_hud.area(app, s.cells, col, s.zone)
@@ -1126,9 +1279,37 @@ local function player(app, key)
     return app.campaign:player(key)
 end
 
+-- The pieces the DM's words just named drop onto the mat as the words land.
+local function board_reveal(app, ev)
+    local ids, delays = {}, {}
+    local read = (ev.text and pacing.read(ev.text) or 0) / speed(app)
+    for _, r in ipairs(ev.reveal) do
+        table.insert(ids, r.id)
+        table.insert(delays, 0.15 + (r.at or 0) * read * 0.85)
+    end
+    post_board("reveal", { ids = ids, delays = delays })
+end
+
+local function npc_steps_in(app)
+    local npc = app.npc_waiting
+    if not npc then
+        return
+    end
+    app.npc_waiting = nil
+    app.on_table = app.on_table or {}
+    app.on_table.npc = true
+    post("stage", { party = app.stage_party, npc = npc })
+end
+
 function M.handle(app, ev)
     local k = ev.kind
     ambience.night_event(app, ev)
+    if ev.reveal then
+        board_reveal(app, ev)
+    end
+    if ev.npc_show then
+        npc_steps_in(app)
+    end
     if k == "scene" then
         app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. ev.cast) or ""
@@ -1158,6 +1339,57 @@ function M.handle(app, ev)
             M.caption(app, ev.text, ev.style)
         end
         M.push(app, ev.text, ev.style)
+    elseif k == "intro" then
+        -- First-session intros: their mini goes down on the mat and lights up while they talk.
+        while app.bubbles and #app.bubbles > 0 do
+            drop_bubble(app, 1)      -- the last one's lines have had their moment
+        end
+        post("stage", { party = party_list(ev.party, app) })
+        local secs = 6 / speed(app)
+        panels.light(app, ev.who, secs)
+        schedule(app, 0.5, function()
+            post("glow", { id = ev.who, time = secs })
+            spark(app, ev.who, SPARK.crit)
+        end)
+        M.title(app, "MEET THE PARTY   " .. util.int(ev.index) .. " OF " .. util.int(ev.total), ev.char, ev.sub or "")
+        M.push(app, "Meet " .. ev.char .. " (" .. (ev.sub or "") .. ").", "scene")
+        post("pose", { who = ev.who, pose = "cheer", hold = true })
+        panels.pose(app, ev.who, "cheer")
+        cam(app, 2)
+    elseif k == "dice" then
+        -- New dice (a gift, or a set someone's showing off): their tray gets the new set.
+        if app.paint_dice then
+            app.paint_dice()
+        end
+        local p = player(app, ev.who)
+        if p then
+            M.float(app, ev.who, ev.gift and ("The dice you gave: " .. (ev.name or "")) or ("New dice! " .. (ev.name or "")),
+                theme.gold)
+            M.push(app, ev.gift and (p.name .. " brought the dice you gave them: " .. (ev.name or "") .. ".")
+                or (p.name .. " shows off a new set of dice: " .. (ev.name or "") .. "."), "reaction")
+        end
+        if app.tumble_die then
+            app.tumble_die(ev.who, 20)
+        end
+        post("pose", { who = ev.who, pose = "cheer", hold = true })
+    elseif k == "token" then
+        -- Heroic Inspiration (B4): the token lands in front of them, or goes back when it's spent.
+        panels.set_token(app, ev.who, not ev.spent)
+        if not ev.spent then
+            M.float(app, ev.who, "Heroic Inspiration!", theme.gold)
+            post("spark", { id = ev.who, color = SPARK.crit })
+        end
+    elseif k == "jail" then
+        -- B2: the die that rolled a 1 goes to dice jail, to the table's delight.
+        local p = player(app, ev.who)
+        if p then
+            M.push(app, p.name .. "'s d20 goes to dice jail.", "reaction")
+            M.float(app, ev.who, "Dice jail!", theme.orange)
+        end
+        post("pose", { who = ev.who, pose = "laugh", hold = true })
+        if app.jail_die then
+            app.jail_die(ev.who)
+        end
     elseif k == "clue" then
         -- The party learned something: it goes in the DM's notes.
         M.toast(app, "NEW IN YOUR NOTES", ev.text)
@@ -1179,7 +1411,18 @@ function M.handle(app, ev)
     elseif k == "say" then
         local p = player(app, ev.who)
         local speaker = p and (ev.ic and p.char or p.name) or "Someone"
-        M.bubble(app, { head = ev.who }, speaker, ev.text, ev.ic)
+        local anchor = { head = ev.who }
+        if ev.ic then
+            -- In character, it shows (A9): their panel and their mini on the board light up, and
+            -- the line comes from the mini when it's on the board. Table talk stays at their head.
+            local secs = 1.2 + pacing.read(ev.text)
+            panels.light(app, ev.who, secs / speed(app))
+            post("glow", { id = ev.who, time = secs / speed(app) })
+            if anchor_xy(app, { mini = ev.who }) then
+                anchor = { mini = ev.who }
+            end
+        end
+        M.bubble(app, anchor, speaker, ev.text, ev.ic)
         M.push(app, speaker .. ": \"" .. ev.text .. "\"", ev.ic and "quote" or "reaction")
         review.on_line(app, ev)
     elseif k == "react" then
@@ -1199,6 +1442,10 @@ function M.handle(app, ev)
         M.push(app, ev.text, ev.crit and "good" or (ev.fumble and "bad" or "check"))
         post("pose", { who = ev.actor, pose = "think", hold = true })
         panels.pose(app, ev.actor, "think")
+        -- They roll it themselves (A9): a quick tumble in their own tray.
+        if app.tumble_die then
+            app.tumble_die(ev.actor, ev.roll)
+        end
         panels.roll(app, ev.actor, { roll = ev.roll, mod = ev.bonus, total = total, against = "DC " .. util.int(ev.dc or 0),
                                      what = ev.skill_name, success = ev.success, crit = ev.crit, fumble = ev.fumble })
         if ev.spot then
@@ -1224,21 +1471,27 @@ function M.handle(app, ev)
                 app.hp[c.id] = { c.hp, c.hp_max }
             end
             app.terrain = ev.terrain or app.terrain
-            post("stage", { party = party_list(ev.party) })
+            post("stage", { party = party_list(ev.party, app) })
             local list = {}
             app.boss_id = nil
+            -- A story villain leads the fight as themselves (Vask, Madame Sable): their own mini.
+            local function foe_sprite(f, i)
+                local own = f.cast and CAST_SPRITE[f.cast]
+                if own and string.sub(own, 1, 4) == "npc_" then
+                    return own
+                end
+                return monster_sprite(f.monster, i)
+            end
             for i, f in ipairs(ev.foes or {}) do
                 app.names[f.id] = f.name
                 if f.boss then
                     app.boss_id = f.id
                 end
-                table.insert(list, { id = f.id, sprite = monster_sprite(f.monster, i), x = f.x, y = f.y, delay = 0.3 })
+                table.insert(list, { id = f.id, sprite = foe_sprite(f, i), x = f.x, y = f.y, delay = 0.3 })
             end
             app.on_table = {}
             post("spawn", { list = list })
-            battle_hud.start(app, ev.party, ev.foes, function(f, i)
-                return monster_sprite(f.monster, i)
-            end)
+            battle_hud.start(app, ev.party, ev.foes, foe_sprite)
             local n = #(ev.foes or {})
             M.caption(app, "Roll for initiative!  " .. util.int(n) .. (n == 1 and " foe" or " foes")
                 .. (ev.danger and ("  (" .. ev.danger .. ")") or ""), "warn")
@@ -1312,8 +1565,11 @@ function M.handle(app, ev)
             M.caption(app, ev.where == "open" and "You roll the d20 where everyone can see it..." or "You roll the d20 behind your screen...", "dice")
             M.push(app, ev.where == "open" and "You roll in the open." or "You roll behind the screen.", "dice")
         end
+        -- Into the right tray (A9): theirs at their seat, or yours, in the open or behind the screen.
+        local tray = (ev.by == "player" and p) and p.key or (ev.where == "hidden" and "dm_hidden" or "dm_open")
+        app.roll_tray = tray
+        app.roll_dice(tray)
         cam(app, 4)
-        app.roll_dice()
     elseif k == "done" then
         app.night_done = true
         post("track", { on = false })
@@ -1336,6 +1592,10 @@ function M.handle(app, ev)
         elseif k == "improv" then
             cam(app, 2)
         else
+            -- The DC card looks at the tray the die is about to go into (A9).
+            if k == "roll_where" and app.set_tray then
+                app.set_tray((ev.by ~= "dm" and ev.actor) or "dm_open")
+            end
             cam(app, 4)
         end
         M.show_modal(app, ev)
@@ -1369,6 +1629,8 @@ function M.answer(app, value)
     end
     app.pending = nil
     app.pending_left = nil
+    -- A big roll's DC card and its ruling read as one card (A11).
+    app.roll_card_up = ev and ev.kind == "roll_where" or nil
     M.close_modal(app)
     if ev and (ev.kind == "decision" or ev.kind == "ruling") then
         rest_cam(app)
@@ -1392,15 +1654,13 @@ function M.pick_key(app, n)
         if ev.options and ev.options[n] then
             M.answer(app, n)
             return true
+        elseif ev.cook and ev.options and n == #ev.options + 1 then
+            M.answer(app, "cook")
+            return true
         end
     elseif ev.kind == "roll_where" then
         if n == 1 or n == 2 then
             M.answer(app, n == 1 and "open" or "hidden")
-            return true
-        end
-    elseif ev.kind == "cook" then
-        if n == 1 or n == 2 then
-            M.answer(app, n == 2)
             return true
         end
     elseif ev.kind == "improv" then
@@ -1504,6 +1764,19 @@ local function card_y(h)
     return math.max(76, math.min(420 - h / 2, CARD_BOTTOM - h))
 end
 
+-- The log stays out of the way (A11): with it open, the left-hand cards dock beside it rather
+-- than over it, and the improv hand centres in the space to its right.
+local function left_x(app)
+    return app.log_open and (LOG_X + LOG_W + 16) or LEFT_X
+end
+
+local function centre_x(app, w)
+    if app.log_open then
+        return math.max(800, math.min(LOG_X + LOG_W + 16 + w / 2, kit.W - 16 - w / 2))
+    end
+    return 800
+end
+
 -- A card is coming up: slide the caption into the space beside it (between x0 and x1), or put it
 -- away if it can't fit there or there's no space (no x0); it's in the log either way.
 local function dodge_caption(app, x0, x1)
@@ -1513,13 +1786,13 @@ local function dodge_caption(app, x0, x1)
     end
     if x0 and r.w <= x1 - x0 then
         r.x = (x0 + x1) / 2 - r.w / 2
-        place(c.box, r.x, r.y)
-        place(c.text, r.x + r.w / 2, r.y + 11)
+        place_caption(c, r.x, r.y, r.w, r.h)
     else
         c.life = 0
         app.caption_rect = nil
-        gui.set_enabled(c.box, false)
-        gui.set_enabled(c.text, false)
+        for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+            gui.set_enabled(n, false)
+        end
     end
 end
 
@@ -1528,8 +1801,8 @@ function M.show_modal(app, ev, instant)
     app.layers.modal = kit.layer("night_modal", true)
     if ev.kind == "decision" then
         dodge_caption(app, 16, RIGHT_X - 16)
-    elseif ev.kind == "ruling" or ev.kind == "roll_where" or ev.kind == "cook" then
-        dodge_caption(app, LEFT_X + LEFT_W + 16, kit.W - 16)
+    elseif ev.kind == "ruling" or ev.kind == "roll_where" then
+        dodge_caption(app, left_x(app) + LEFT_W + 16, kit.W - 16)
     elseif ev.kind == "improv" then
         dodge_caption(app, nil)
     end
@@ -1537,7 +1810,10 @@ function M.show_modal(app, ev, instant)
     if ev.kind == "decision" then
         local x, w = RIGHT_X, RIGHT_W
         local card = ev.card
-        local title_h = math.min(80, kit.text_height(card.title, "title30", w - 40))
+        -- Taking over (B8): the one you're speaking or acting for, as their paper mini.
+        local portrait = (card.cast and CAST_SPRITE[card.cast]) or (card.monster and monster_sprite(card.monster, 1)) or nil
+        local tw = portrait and (w - 120) or (w - 40)
+        local title_h = math.max(math.min(80, kit.text_height(card.title, "title30", tw)), portrait and 40 or 0)
         local text_h = kit.text_height(card.text, "ui18", w - 40)
         local labels, h = {}, 62 + title_h + 12 + text_h + 18
         local lean_h = {}
@@ -1551,7 +1827,10 @@ function M.show_modal(app, ev, instant)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
         badge(x + 20, y + 18, string.upper(card.type_name or "Call"), theme.decision[card.type] or theme.panel3)
-        kit.text(x + 20, y + 52, card.title, "title30", theme.ink, { w = w - 40, lines = 2 })
+        kit.text(x + 20, y + 52, card.title, "title30", theme.ink, { w = tw, lines = 2 })
+        if portrait then
+            kit.picture(x + w - 86, y + 10, 64, 80, "mini_" .. portrait)
+        end
         kit.text(x + 20, y + 62 + title_h, card.text, "ui18", theme.ink, { w = w - 40 })
         local oy = y + 62 + title_h + 12 + text_h + 8
         for i, label in ipairs(labels) do
@@ -1571,7 +1850,7 @@ function M.show_modal(app, ev, instant)
         M.draw_improv(app, ev)
         slide = 0
     elseif ev.kind == "ruling" then
-        local x, w = LEFT_X, LEFT_W
+        local x, w = left_x(app), LEFT_W
         local prompt_h = kit.text_height(ev.prompt or "", "ui18", w - 40)
         local total = ev.total or ev.value or 0
         local shown
@@ -1582,16 +1861,28 @@ function M.show_modal(app, ev, instant)
             shown = (ev.where == "hidden" and "Behind the screen: " or "On the table: ") .. "the die says "
                 .. util.int(ev.value or 0) .. " (" .. util.int(total) .. "), DC " .. util.int(ev.dc or 0) .. "."
         end
+        -- One card per big roll (A11): behind the screen, overruling the die is this card's last
+        -- button, not a card of its own.
+        if ev.where == "hidden" then
+            shown = shown .. " Only you know it."
+            if (ev.cooks or 0) > 0 then
+                shown = shown .. " You've cooked " .. util.int(ev.cooks) .. (ev.cooks == 1 and " roll" or " rolls") .. " tonight."
+            end
+        end
         local shown_h = kit.text_height(shown, "ui18b", w - 40)
         local labels, h = {}, 106 + shown_h + prompt_h + 34
         for i, o in ipairs(ev.options) do
             labels[i] = o.label
             h = h + option_height(o.label, w - 40) + 10
         end
+        local cook_label = ev.cook and (ev.cook.label .. "\n" .. ev.cook.note)
+        if cook_label then
+            h = h + 58 + 10
+        end
         h = h + 10 + (app.pending_left and 34 or 0)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
-        badge(x + 20, y + 18, "RULING", theme.decision.rules)
+        badge(x + 20, y + 18, ev.by == "dm" and "SECRET CHECK" or "BIG ROLL", theme.decision.screen)
         kit.text(x + 20, y + 52, TIER_TITLE[ev.tier] or "How does it land?", "title30", theme.ink, { w = w - 40 })
         kit.text(x + 20, y + 98, shown, "ui18b", theme.ink_dim, { w = w - 40 })
         kit.text(x + 20, y + 106 + shown_h, ev.prompt or "", "ui18", theme.ink, { w = w - 40 })
@@ -1606,10 +1897,18 @@ function M.show_modal(app, ev, instant)
                 { round = false })
             oy = oy + oh + 10
         end
+        if cook_label then
+            kit.button(x + 20, oy, w - 40, 58, cook_label, function()
+                M.answer(app, "cook")
+            end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover,
+                   key_hint = #labels + 1, key = "ruling_cook" })
+            oy = oy + 58 + 10
+        end
         timer_bar(app, x + 20, oy + 2, w - 40, "the first option")
-        slide = -640
+        -- The same card as the DC it follows: it turns over in place rather than sliding in again.
+        slide = app.roll_card_up and 0 or -640
     elseif ev.kind == "roll_where" then
-        local x, w = LEFT_X, LEFT_W
+        local x, w = left_x(app), LEFT_W
         local text_h = kit.text_height(ev.text or "", "ui18", w - 40)
         local h = 110 + text_h + 136 + 10 + (app.pending_left and 34 or 0)
         local y = card_y(h)
@@ -1631,44 +1930,6 @@ function M.show_modal(app, ev, instant)
         end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover, key_hint = 2 })
         timer_bar(app, x + 20, oy + 136, w - 40, "in the open")
         slide = -640
-    elseif ev.kind == "cook" then
-        local x, w = LEFT_X, LEFT_W
-        local verdict = ev.success and "a success" or "a miss"
-        local cooked = app.night and app.night.cooks or 0
-        local total = ev.total or ev.value
-        local player_roll = ev.by ~= "dm"
-        local note
-        if player_roll then
-            note = (ev.char or "They") .. " rolled " .. util.int(ev.value) .. ", " .. (ev.mod and ((ev.mod >= 0 and "+" or "") .. util.int(ev.mod)) or "")
-                .. ": " .. util.int(total) .. ". Your DC was " .. util.int(ev.dc) .. ", so that's " .. verdict
-                .. ". Nobody else knows the DC."
-        else
-            note = "With " .. ((ev.mod or 0) >= 0 and "+" or "") .. util.int(ev.mod or 0) .. " that's " .. util.int(total)
-                .. " against DC " .. util.int(ev.dc) .. ": " .. verdict .. ". Nobody else saw the die."
-        end
-        if cooked > 0 then
-            note = note .. " You've cooked " .. util.int(cooked) .. (cooked == 1 and " roll" or " rolls") .. " tonight."
-        end
-        local text_h = kit.text_height(note, "ui18", w - 40)
-        local h = 110 + text_h + 136 + 10 + (app.pending_left and 34 or 0)
-        local y = card_y(h)
-        kit.box(x, y, w, h, theme.paper, { radius = 12 })
-        badge(x + 20, y + 18, "BEHIND THE SCREEN", theme.decision.screen)
-        kit.text(x + 20, y + 52, player_roll and ((ev.char or "They") .. " got " .. util.int(total))
-            or ("The die says " .. util.int(ev.value)), "title30", theme.ink)
-        kit.text(x + 20, y + 96, note, "ui18", theme.ink, { w = w - 40 })
-        local oy = y + 110 + text_h
-        kit.button(x + 20, oy, w - 40, 58, "Keep it honest\nCall it " .. verdict .. ".", function()
-            M.answer(app, false)
-        end, { align = "left", pad_y = 8, color = theme.button, hover = theme.button_hover, key_hint = 1 })
-        local cook_label = player_roll
-            and ("Move the DC\nSay it was " .. (ev.success and "higher: a miss" or "lower: a success") .. ". Someone might wonder.")
-            or ("Cook it\nCall it " .. (ev.success and "a miss" or "a success") .. ". Someone might notice.")
-        kit.button(x + 20, oy + 68, w - 40, 58, cook_label, function()
-            M.answer(app, true)
-        end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover, key_hint = 2 })
-        timer_bar(app, x + 20, oy + 136, w - 40, "keep it honest")
-        slide = -640
     end
     M.trace_card(app, ev)   -- before the slide, so the trace has where the buttons come to rest
     if not instant and slide ~= 0 then
@@ -1685,22 +1946,22 @@ function M.trace_card(app, ev)
     input_trace.log("card", util.int(app.card_seq) .. " " .. tostring(ev.kind) .. " " .. input_trace.buttons())
 end
 
--- Who at the table would enjoy an option (green) and who wouldn't (red): their faces, the DM's read.
+-- Who at the table would enjoy an option (green) and who wouldn't (red): a dot and their names,
+-- the DM's read. Dots, not faces: the same marks as the prep board's hovers.
 function M.draw_leans(app, x, y, leans)
     local fx = x
-    for _, group in ipairs({ { 1, theme.green, "would love it" }, { -1, theme.red, "wouldn't" } }) do
-        local any = false
+    for _, group in ipairs({ { 1, theme.green, " would love it" }, { -1, theme.red, " wouldn't" } }) do
+        local names = {}
         for _, p in ipairs(app.campaign.players) do
             if leans[p.key] == group[1] then
-                any = true
-                kit.dot(fx + 12, y + 12, 26, group[2])
-                kit.picture(fx + 1, y + 1, 22, 22, panels.face(p.key))
-                fx = fx + 28
+                table.insert(names, p.name)
             end
         end
-        if any then
-            kit.text(fx + 4, y + 4, group[3], "ui14", group[2])
-            fx = fx + kit.width(group[3], "ui14") + 22
+        if #names > 0 then
+            kit.dot(fx + 7, y + 12, 12, group[2])
+            local line = util.join_names(names) .. group[3]
+            kit.text(fx + 18, y + 4, line, "ui14", group[2])
+            fx = fx + 18 + kit.width(line, "ui14") + 22
         end
     end
 end
@@ -1711,7 +1972,9 @@ function M.draw_improv(app, ev)
     local n = #ev.cards
     local cw, ch, gap = 178, 196, 12
     local total = n * cw + (n - 1) * gap
-    local px, pw = 800 - math.max(total, 640) / 2 - 20, math.max(total, 640) + 40
+    local pw = math.max(total, 640) + 40
+    local mid = centre_x(app, pw)
+    local px = mid - pw / 2
     local prompt_h = kit.text_height(ev.prompt or "", "ui18", pw - 40)
     local ph = 96 + prompt_h + 34
     local cards_y = 470
@@ -1723,7 +1986,7 @@ function M.draw_improv(app, ev)
     kit.text(px + 20, py + 100 + prompt_h, "Pick 1 to 3 cards. Your best card counts fully; one that doesn't fit always hurts.",
         "ui14", theme.ink_dim, { w = pw - 40 })
     local picked = {}
-    local x0 = 800 - total / 2
+    local x0 = mid - total / 2
     for i, c in ipairs(ev.cards) do
         local on = sel[i]
         if on then
@@ -1768,7 +2031,7 @@ function M.draw_improv(app, ev)
     end
     -- Play bar: the combined verdict and the button.
     local by = cards_y + ch + 14
-    local bx = 800 - 300
+    local bx = mid - 300
     kit.box(bx, by, 600, 56, theme.bg_glass, { radius = 10 })
     local verdict = "Pick at least one card"
     local vcolor = theme.dim

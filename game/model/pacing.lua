@@ -50,6 +50,10 @@ function M.duration(ev)
         return 8
     elseif k == "stage" then
         return 4
+    elseif k == "intro" then
+        return 2.5
+    elseif k == "dice" then
+        return 2.5
     elseif k == "narrate" or k == "npc" then
         return M.read(ev.text) + 0.4
     elseif k == "say" then

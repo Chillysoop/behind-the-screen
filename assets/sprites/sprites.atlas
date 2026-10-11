@@ -179,6 +179,9 @@ images {
   image: "/assets/sprites/sam_think.png"
 }
 images {
+  image: "/assets/sprites/chair_empty.png"
+}
+images {
   image: "/assets/sprites/flame.png"
 }
 images {
@@ -231,6 +234,63 @@ images {
 }
 images {
   image: "/assets/sprites/worg.png"
+}
+images {
+  image: "/assets/sprites/pregen_bryn.png"
+}
+images {
+  image: "/assets/sprites/pregen_hesk.png"
+}
+images {
+  image: "/assets/sprites/pregen_tam.png"
+}
+images {
+  image: "/assets/sprites/pregen_lark.png"
+}
+images {
+  image: "/assets/sprites/pregen_aldith.png"
+}
+images {
+  image: "/assets/sprites/pregen_rufus.png"
+}
+images {
+  image: "/assets/sprites/pregen_corwin.png"
+}
+images {
+  image: "/assets/sprites/pregen_ysolde.png"
+}
+images {
+  image: "/assets/sprites/npc_vask.png"
+}
+images {
+  image: "/assets/sprites/npc_wren.png"
+}
+images {
+  image: "/assets/sprites/npc_grey_coat.png"
+}
+images {
+  image: "/assets/sprites/npc_tilly.png"
+}
+images {
+  image: "/assets/sprites/npc_ottilie.png"
+}
+images {
+  image: "/assets/sprites/npc_hob.png"
+}
+images {
+  image: "/assets/sprites/npc_holt.png"
+}
+images {
+  image: "/assets/sprites/npc_tumble.png"
+}
+images {
+  image: "/assets/sprites/npc_verrin.png"
+}
+images {
+  image: "/assets/sprites/npc_nib.png"
+}
+images {
+  image: "/assets/sprites/npc_ansel.png"
 }
 margin: 2
 extrude_borders: 2

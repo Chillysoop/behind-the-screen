@@ -27,8 +27,8 @@ local pages = require "game.ui.notebook_pages"
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
 local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
-               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "threads", "Threads" },
-               { "story", "Story so far" }, { "party", "The party" } }
+               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" }, { "threads", "Threads" },
+               { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
 
@@ -286,13 +286,23 @@ end
 local function tab_party(app, x, y, w, h)
     local c = app.campaign
     local gap = 14
+    -- The shelf of fallen heroes (B3) along the bottom, when there's anyone on it.
+    local fallen = M.fallen_rows(app)
+    if #fallen > 0 then
+        local fh = 30 + math.min(3, #fallen) * 20
+        h = h - fh - 10
+        kit.text(x, y + h + 12, "THE SHELF OF FALLEN HEROES", "ui14", theme.gold)
+        for i = 1, math.min(3, #fallen) do
+            kit.text(x, y + h + 12 + i * 20, kit.ellipsize(fallen[i], "ui14", w), "ui14", theme.dim)
+        end
+    end
     local cw = math.floor((w - 3 * gap) / 4)
     for i, p in ipairs(c.players) do
         local px = x + (i - 1) * (cw + gap)
         kit.box(px, y, cw, h, theme.panel2, { radius = 10 })
         kit.dot(px + 50, y + 50, 80, panels.COLORS[p.key] or theme.panel3)
         kit.picture(px + 12, y + 12, 76, 76, panels.face(p.key))
-        kit.picture(px + cw - 72, y + 10, 60, 75, CLASS_MINI[p.class] or "mini_fighter")
+        kit.picture(px + cw - 72, y + 10, 60, 75, panels.mini(p))
         local py = y + 98
         kit.text(px + 14, py, p.name, "ui22b", theme.text)
         kit.text(px + 14 + kit.width(p.name, "ui22b") + 8, py + 6, "plays " .. p.char, "ui18", theme.gold,
@@ -329,6 +339,18 @@ local function tab_party(app, x, y, w, h)
             py = para(px + 14, py + 4, cw - 28, p.on_break and "Taking a break from Thursdays." or "Out this week.", "ui14",
                 theme.orange)
         end
+        -- What they've been through (B2, B3): a reputation, a scar, the hero they lost.
+        local fails = require "game.model.fails"
+        local rep = fails.reputation(c, p.key)
+        if rep then
+            py = para(px + 14, py + 4, cw - 28, "Known at the table as " .. rep .. ".", "ui14", theme.purple)
+        end
+        if p.scar then
+            py = para(px + 14, py + 2, cw - 28, p.scar, "ui14", theme.dim)
+        end
+        if p.old_char then
+            py = para(px + 14, py + 2, cw - 28, "Used to play " .. p.old_char .. ". They're on the shelf now.", "ui14", theme.faint)
+        end
         kit.button(px + 14, y + h - 54, cw - 28, 40, "Character sheet", function()
             M.close(app)
             if app.open_sheet then
@@ -336,6 +358,18 @@ local function tab_party(app, x, y, w, h)
             end
         end, { font = "ui18b", key = "notes_sheet_" .. p.key })
     end
+end
+
+-- The shelf of fallen heroes (B3), under the party: name, class, level, how they fell, and the
+-- reputation they had.
+function M.fallen_rows(app)
+    local rows = {}
+    for _, f in ipairs(app.campaign.fallen or {}) do
+        local p = app.campaign:player(f.key)
+        table.insert(rows, f.char .. " (" .. (p and p.name or "?") .. "), " .. util.capitalize(f.class or "hero") .. " " .. util.int(f.level or 1)
+            .. ": " .. f.how .. ", session " .. util.int(f.week) .. (f.rep and (". Remembered as " .. f.rep .. ".") or "."))
+    end
+    return rows
 end
 
 -- Anything in the binder waiting on you this week (the dot on its tab and on the prep board).
@@ -436,6 +470,8 @@ function M.draw(app)
         tab_session(app, cx, cy, cw)
     elseif tab == "campaign" then
         pages.campaign(app, cx, cy, cw, ch)
+    elseif tab == "web" then
+        pages.web(app, cx, cy, cw, ch)
     elseif tab == "people" then
         pages.people(app, cx, cy, cw, ch)
     elseif tab == "factions" then
@@ -446,6 +482,8 @@ function M.draw(app)
         pages.threads(app, cx, cy, cw, ch)
     elseif tab == "story" then
         tab_story(app, cx, cy, cw)
+    elseif tab == "log" then
+        pages.session_log(app, cx, cy, cw, ch)
     else
         tab_party(app, cx, cy, cw, ch)
     end

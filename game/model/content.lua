@@ -95,6 +95,52 @@ do
     end
     components = list
 end
+-- New books (A13): each entry's card joins the components (it reaches a deck only when the DM
+-- pulls it in), a pulled monster's card brings its fight, and a published adventure's cards are
+-- kept apart (they're placed as a whole scene, never dealt).
+M.books = require "game.data.books"
+M.book_entries = {}
+M.books.module_order = {}
+do
+    local list = components
+    for _, bid in ipairs(M.books.order) do
+        local bk = M.books.books[bid]
+        for _, e in ipairs(bk.entries) do
+            assert(not M.book_entries[e.id], "duplicate book entry " .. e.id)
+            e.book = bid
+            M.book_entries[e.id] = e
+            local c = e.card
+            if c then
+                c.deck = "book"
+                c.book = bid
+                c.cost = c.cost or ((c.kind == "complication" and (c.difficulty or 1) >= 3) and 2 or 1)
+                if c.kind == "reward" and e.item then
+                    c.item = e.item
+                end
+                table.insert(list, c)
+                if e.enc then
+                    M.encounters.by_cast[c.id] = e.enc
+                end
+            end
+            if e.module then
+                table.insert(M.books.module_order, e.module)
+            end
+        end
+    end
+    for _, mid in ipairs(M.books.module_order) do
+        local m = M.books.modules[mid]
+        for _, kind in ipairs({ "location", "cast", "goal", "complication", "reward" }) do
+            local c = m.cards[kind]
+            if c then
+                c.reserve = "module"
+                c.module = mid
+                c.cost = c.cost or 1
+                table.insert(list, c)
+            end
+        end
+    end
+    components = list
+end
 for _, c in ipairs(components) do
     assert(not M.components[c.id], "duplicate component id " .. c.id)
     assert(M.by_kind[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)
@@ -303,7 +349,9 @@ end
 M.decisions = {}
 M.triggered = {}       -- trigger -> card, dealt by game night when the moment happens
 for _, d in ipairs(decisions) do
-    if d.trigger then
+    if d.retired then
+        -- left in the data for old saves' last_cards; never dealt
+    elseif d.trigger then
         M.triggered[d.trigger] = d
     else
         table.insert(M.decisions, d)
@@ -312,6 +360,7 @@ end
 
 -- Party tension: friction and bonds between players (A17).
 M.friction = require "game.data.friction"
+M.killing_blows = require "game.data.killing_blows"   -- M8, B4
 
 -- Open scenes: the players choose where to go (A15).
 M.open_scenes = require "game.data.open_scenes"
@@ -330,6 +379,8 @@ end
 M.stunts = behaviors.stunts
 M.decision_types.curveball = "Curveball"
 M.decision_types.agency = "Where to?"
+M.decision_types.talk = "Talk as them"
+M.decision_types.boss = "The boss's turn"
 M.curveballs = {}
 for _, cb in ipairs(behaviors.curveballs) do
     local fight = cb.scenes and (cb.scenes[1] == "combat" or cb.scenes[1] == "set_piece")

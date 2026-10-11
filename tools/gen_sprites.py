@@ -309,10 +309,50 @@ def goblin(name, seed, weapon):
 POSES = ["neutral", "lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
 
+# Whole bodies on chairs (A9): the standee runs down to the floor. The head and arms keep the
+# M0 coordinates; the canvas grows downward. At the 2x drawing scale, y 596 is the table top,
+# y 882 the chair seat and y 1310 the floor.
+PERSON_H = 1310
+SEAT_Y = 882
+CHAIR_WOOD, CHAIR_DARK = "#8a5a36", "#6a4228"
+
+
+def chair(d, empty=False):
+    """A wooden kitchen chair seen from the front: the back's posts and rail show around the
+    sitter, the seat under them, four legs to the floor."""
+    wood, dark = C(CHAIR_WOOD), C(CHAIR_DARK)
+    # back legs (behind everything), the back rest and its posts
+    d.rounded_rectangle([132, 960, 160, 1288], 8, fill=dark)
+    d.rounded_rectangle([440, 960, 468, 1288], 8, fill=dark)
+    d.rounded_rectangle([118, 470, 152, 900], 10, fill=wood)
+    d.rounded_rectangle([448, 470, 482, 900], 10, fill=wood)
+    d.rounded_rectangle([110, 452, 490, 506], 16, fill=wood)
+    d.rounded_rectangle([140, 560, 460, 590], 10, fill=dark)
+    if empty:
+        d.rounded_rectangle([150, 660, 450, 686], 10, fill=dark)
+    # the seat, and the front legs
+    d.polygon([(96, 870), (504, 870), (528, 930), (72, 930)], fill=wood)
+    d.rounded_rectangle([72, 926, 528, 950], 8, fill=dark)
+    d.rounded_rectangle([88, 946, 122, 1300], 10, fill=wood)
+    d.rounded_rectangle([478, 946, 512, 1300], 10, fill=wood)
+    d.rounded_rectangle([112, 1150, 488, 1170], 6, fill=dark)
+
+
+def legs(d, trousers, shoes, seed):
+    """Seated legs, seen from the front: thighs toward the viewer, shins down to the floor."""
+    shade = tuple(int(v * 0.82) for v in C(trousers)[:3]) + (255,)
+    d.rounded_rectangle([150, 860, 450, 960], 46, fill=C(trousers))          # lap
+    for x0 in (170, 318):
+        d.rounded_rectangle([x0, 930, x0 + 112, 1010], 40, fill=C(trousers))  # knees
+        d.rounded_rectangle([x0 + 14, 990, x0 + 98, 1250], 34, fill=shade)    # shins
+        d.rounded_rectangle([x0 - 6, 1232, x0 + 118, 1296], 26, fill=C(shoes))
+
+
 def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, extras=None, happy=False,
-           open_mouth=False, glasses=False, pattern=None, pose="neutral"):
-    """A player at the table. pose changes arms, eyes and mouth; neutral is the M0 look."""
-    W, H = 600, 720
+           open_mouth=False, glasses=False, pattern=None, pose="neutral", trousers="#3b4250", shoes="#2e2522"):
+    """A player at the table, sitting on their chair. pose changes arms, eyes and mouth; neutral is
+    the M0 look."""
+    W, H = 600, PERSON_H
     img, d = new_canvas(W, H)
     shade = tuple(int(v * 0.85) for v in C(sweater)[:3]) + (255,)
     # arm targets per pose: (left shoulder -> hand), (right shoulder -> hand); None = default resting arm
@@ -329,8 +369,8 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
     }[pose]
     dy = 26 if pose == "lean" else 0
     draw_hair_back(d)
-    # torso and arms (cut off by the table)
-    d.rounded_rectangle([118, 430, 482, 800], 90, fill=C(sweater))
+    # torso down to the seat (the table hides it from across the room), and the arms
+    d.rounded_rectangle([118, 430, 482, 900], 90, fill=C(sweater))
     d.rounded_rectangle([262, 380, 338, 450], 20, fill=C(skin))
     behind = pose in ("neutral", "lean", "laugh", "phone", "think", "yawn")
     if behind:
@@ -422,6 +462,12 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
     if pose == "phone":
         d.ellipse([228, 586, 288, 646], fill=C(skin))
         d.ellipse([312, 586, 372, 646], fill=C(skin))
+    # Under it all, the chair and their legs (drawn apart so a sweater's pattern stays on the sweater).
+    under, ud = new_canvas(W, H)
+    chair(ud)
+    legs(ud, trousers, shoes, seed)
+    under.alpha_composite(img)
+    img = under
     img = painterly(img, seed, light=True)
     img = outline(img, 4)
     out = name if pose == "neutral" else name + "_" + pose
@@ -431,6 +477,17 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
 def players(poses=None):
     for pose in (poses or POSES):
         _players_pose(pose)
+    empty_chair()
+
+
+def empty_chair():
+    """Anyone out this week (A9): their chair stays at the table, empty."""
+    W, H = 600, PERSON_H
+    img, d = new_canvas(W, H)
+    chair(d, empty=True)
+    img = painterly(img, 299, light=True)
+    img = outline(img, 4)
+    img.resize((W // 2, H // 2), Image.LANCZOS).save(path(SPR, "chair_empty.png"))
 
 
 def _players_pose(pose):
@@ -439,7 +496,7 @@ def _players_pose(pose):
            lambda d: d.rounded_rectangle([160, 150, 440, 560], 120, fill=C("#b5482e")),
            lambda d: (d.chord([180, 130, 420, 330], 180, 360, fill=C("#b5482e")),
                       d.polygon([(186, 250), (230, 180), (300, 160), (250, 240)], fill=C("#c95a3a"))),
-           open_mouth=True, glasses=True, pose=pose)
+           open_mouth=True, glasses=True, pose=pose, trousers="#3f3550", shoes="#6a2a24")
 
     # Dev: short dark hair, blue hoodie, holding a red d6
     def dev_extras(d, pose="neutral"):
@@ -453,7 +510,7 @@ def _players_pose(pose):
            lambda d: None,
            lambda d: d.polygon([(184, 250), (196, 170), (240, 140), (300, 128), (360, 140), (410, 178), (416, 250),
                                 (380, 200), (330, 196), (300, 176), (260, 200), (220, 206)], fill=C("#1f1a1a")),
-           extras=dev_extras, pose=pose)
+           extras=dev_extras, pose=pose, trousers="#2c3446", shoes="#d8d2c8")
 
     # Jess: curly hair with a bun, teal cardigan, laughing
     def jess_back(d):
@@ -469,7 +526,7 @@ def _players_pose(pose):
     def jess_extras(d, pose="neutral"):
         d.polygon([(250, 430), (350, 430), (330, 800), (270, 800)], fill=C("#efe4cc"))
     person("jess", 203, "#8d5a3b", "#5a3a26", "#3f8a84", jess_back, jess_front, extras=jess_extras,
-           happy=True, open_mouth=True, pose=pose)
+           happy=True, open_mouth=True, pose=pose, trousers="#6b4a3a", shoes="#3a2a20")
 
     # Sam: beanie, beard, plaid shirt, relaxed
     def sam_front(d):
@@ -490,7 +547,7 @@ def _players_pose(pose):
             d.rounded_rectangle([96, 600, 166, 700], 12, fill=C("#e8dcc0"))
             d.arc([150, 620, 196, 676], 270, 90, fill=C("#e8dcc0"), width=10)
     person("sam", 204, "#e8b48a", "#6a4a30", "#a83a32", lambda d: None, sam_front, extras=sam_extras,
-           pattern=sam_plaid, pose=pose)
+           pattern=sam_plaid, pose=pose, trousers="#4a5a3a", shoes="#3a2e26")
 
 
 # ---------------------------------------------------------------- glow sprites

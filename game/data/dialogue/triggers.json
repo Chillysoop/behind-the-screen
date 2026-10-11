@@ -1452,6 +1452,100 @@
     "name"
    ],
    "max": 110
+  },
+  {
+   "id": "talk_open",
+   "group": "Taking over",
+   "voice": "npc",
+   "when": "Talk as the NPC (M8, B8): a hero walks up to this person and the DM speaks for them. mood: warm (open, glad to see them), guarded (careful, wants them gone), lie (an easy, innocent face over something they're hiding).",
+   "speakers": [
+    "gus",
+    "stranger",
+    "corin",
+    "hermit",
+    "madame_sable",
+    "wolf_lieutenant",
+    "abbot_ghost",
+    "holt",
+    "brother_tumble",
+    "verrin",
+    "rook",
+    "rivals",
+    "goblin_scout",
+    "anyone"
+   ],
+   "fill": [
+    "char"
+   ],
+   "split": {
+    "field": "mood",
+    "values": [
+     "warm",
+     "guarded",
+     "lie"
+    ]
+   },
+   "max": 100
+  },
+  {
+   "id": "talk_ask",
+   "group": "Taking over",
+   "voice": "npc",
+   "when": "Talk as the NPC (M8, B8): the hero asks about what they came for. warm: they're about to tell what they know (the game then gives the clue). guarded: they won't say. lie: a smooth, false answer.",
+   "speakers": [
+    "gus",
+    "stranger",
+    "corin",
+    "hermit",
+    "madame_sable",
+    "wolf_lieutenant",
+    "abbot_ghost",
+    "holt",
+    "brother_tumble",
+    "verrin",
+    "rook",
+    "rivals",
+    "goblin_scout",
+    "anyone"
+   ],
+   "fill": [
+    "char"
+   ],
+   "split": {
+    "field": "mood",
+    "values": [
+     "warm",
+     "guarded",
+     "lie"
+    ]
+   },
+   "max": 100
+  },
+  {
+   "id": "talk_reply",
+   "group": "Taking over",
+   "voice": "character",
+   "when": "The hero answers the NPC the DM is voicing (M8, B8), in character. mood: warm (they told you), guarded (they wouldn't), lie_caught (you see through their lie), lie_believed (you take the lie at face value).",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "split": {
+    "field": "mood",
+    "values": [
+     "warm",
+     "guarded",
+     "lie_caught",
+     "lie_believed"
+    ]
+   },
+   "max": 100
   }
  ]
 }

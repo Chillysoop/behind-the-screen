@@ -44,8 +44,8 @@ for t = 1, TESTERS do
                 a = rng:chance(0.7) and "open" or "hidden"
             elseif ev.kind == "roll" then
                 a = rng:d20()
-            elseif ev.kind == "cook" then
-                a = rng:chance(0.2)
+            elseif ev.kind == "ruling" then
+                a = (ev.cook and rng:chance(0.2)) and "cook" or nil
             end
             ev = night:advance(a)
         end

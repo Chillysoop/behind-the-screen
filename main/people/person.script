@@ -6,6 +6,7 @@ local state = require "main.state"
 go.property("pop", 0)
 
 function init(self)
+    self.base_anim = go.get("#sprite", "animation")
     self.base_scale = go.get_scale()
     self.phase = math.random() * 6.283
 end
@@ -21,11 +22,17 @@ end
 
 function on_message(self, message_id, message)
     if message_id == hash("pose") then
+        self.anim = message.anim
+        if self.away then
+            return
+        end
         sprite.play_flipbook("#sprite", message.anim)
         -- A little hop so the change reads from across the room.
-        self.pop = 0.07
+        self.pop = 0.04
         go.animate("#person", "pop", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBACK, 0.35)
     elseif message_id == hash("seat") then
-        msg.post("#sprite", message.present and "enable" or "disable")
+        -- Anyone out this week (A9): their chair stays at the table, empty.
+        self.away = not message.present
+        sprite.play_flipbook("#sprite", self.away and hash("chair_empty") or (self.anim or self.base_anim))
     end
 end

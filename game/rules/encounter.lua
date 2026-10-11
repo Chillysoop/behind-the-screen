@@ -35,8 +35,8 @@ end
 
 -- Where an encounter sits on the SRD scale. The meter runs 0..4: 0-1 below Low,
 -- 1-2 Low, 2-3 Moderate, 3-4 High, 4+ beyond High. "Low" means it fits a Low budget.
-function M.rate(level, n, monster_ids)
-    local xp = M.xp(monster_ids)
+function M.rate(level, n, monster_ids, extra_xp)
+    local xp = math.max(0, M.xp(monster_ids) + (extra_xp or 0))    -- a hazard counts too (A10), and a map (B9)
     local low, mod, high = M.budget(level, n)
     local meter, label
     if xp <= low * 0.5 then
@@ -100,8 +100,14 @@ M.FEATURE_NAMES = {
 -- (Hit Points and damage), so new monsters get a forecast without new simulations.
 -- opts.party_hp overrides the slice party's Hit Points.
 function M.features(level, n, monster_ids, opts)
-    local r = M.rate(level, n, monster_ids)
-    local maxxp, hp, dpr = 0, 0, 0
+    local hz_xp, hz_dpr = 0, 0
+    if opts and opts.hazard then
+        hz_xp, hz_dpr = require("game.rules.hazards").weight(opts.hazard)
+    end
+    -- A map's pieces (B9) tilt the fight like a hazard does: an XP-equivalent.
+    hz_xp = hz_xp + (opts and opts.extra_xp or 0)
+    local r = M.rate(level, n, monster_ids, hz_xp)
+    local maxxp, hp, dpr = 0, 0, hz_dpr
     for _, id in ipairs(monster_ids) do
         local m = monsters[id]
         maxxp = math.max(maxxp, m.xp)
@@ -111,7 +117,7 @@ function M.features(level, n, monster_ids, opts)
     local php = (opts and opts.party_hp) or M.party_hp(level) * n / 4
     -- The simulated fights span about a quarter of the Moderate budget up to 2.6 times it,
     -- with at most 2.5 monsters per character; outside that the forecast is held at the edge.
-    local lr = math.log(r.xp / r.moderate)
+    local lr = math.log(math.max(1, r.xp) / r.moderate)
     local per = #monster_ids / n
     r.extrapolated = lr < M.RANGE.lr[1] or lr > M.RANGE.lr[2] or per > M.RANGE.per
     lr = math.max(M.RANGE.lr[1], math.min(M.RANGE.lr[2], lr))
@@ -253,8 +259,11 @@ function M.run(level, monster_ids, opts)
         M.prebuff(b, party)
     end
     M.place(b, party, foes, opts.distance or 40)
+    if opts.hazard then
+        require("game.rules.hazards").setup(b, opts.hazard)
+    end
     local result = b:run()
-    result.rating = M.rate(level, #party, monster_ids)
+    result.rating = M.rate(level, #party, monster_ids, opts.hazard and (require("game.rules.hazards").weight(opts.hazard)) or nil)
     result.log = b.lines
     result.party = party
     return result

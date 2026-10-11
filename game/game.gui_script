@@ -24,10 +24,12 @@ local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
 local talk_view = require "game.ui.talk_view"
+local book_view = require "game.ui.book_view"
 local planner_view = require "game.ui.planner_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
+local dice_sets = require "game.model.dice_sets"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
@@ -45,6 +47,7 @@ local A = {
     timer = hash("timer"),
     music = hash("music"),
     dm_rolls = hash("dm_rolls"),
+    snapshot = hash("snapshot"),   -- C: the DM's camera on game night (B1)
     review = hash("review"),
     queue = hash("queue"),
     back = hash("back"),
@@ -236,6 +239,9 @@ local function build_screen(self)
     if app.talk and s == "prep" then
         talk_view.draw(app)
     end
+    if app.book and s == "prep" then
+        book_view.draw(app)       -- reading a new book (A13)
+    end
     if app.ask then
         ask_view.draw(app)
     end
@@ -280,6 +286,9 @@ function init(self)
         if c.at_night and c.prep then
             -- Saved at "Run game night": the same board, the same night, from its start.
             app.go("night")
+        elseif c.at_prep and c.prep then
+            -- Saved mid-prep (A11): the same board, the week not dealt again.
+            app.go("prep", { resume = true })
         elseif c.week >= content.arc.SESSIONS and not c.slice_survey_done then
             app.slice_seen = true
             app.go("slice_end")
@@ -295,6 +304,9 @@ function init(self)
 
     app.refresh = function()
         build_screen(self)
+        if app.screen == "prep" then
+            app.prep_dirty = true   -- something on the board may have moved: autosave soon
+        end
     end
     local function looked(what)
         local c = app.campaign
@@ -345,24 +357,62 @@ function init(self)
         app.camera_index = index
         msg.post(CAMERA, "set_zoom", { index = index })
     end
-    app.roll_dice = function()
-        msg.post(DICE, "roll", { reply = true })
+    -- A9: the full roll lands in a tray: the player's own, or the DM's open box or hidden tray.
+    app.roll_dice = function(tray)
+        msg.post(CAMERA, "set_tray", { tray = tray or "dm_open" })
+        msg.post(DICE, "roll", { reply = true, tray = tray or "dm_open" })
+    end
+    -- The shelf of fallen heroes (B3): every character who died and stayed dead.
+    app.update_shelf = function()
+        local list = {}
+        for _, f in ipairs(app.campaign.fallen or {}) do
+            local classes = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
+            table.insert(list, f.mini or classes[f.class] or "fighter")
+        end
+        msg.post(TABLE, "shelf", { list = list })
+    end
+    -- The report's snapshots (B7): set the moment back up on the table, or clear it.
+    app.restage = function(sn)
+        night_view.restage_snapshot(app, sn)
+    end
+    -- Whose dice look like what: the DM's set behind the screen, each player's in their tray.
+    app.paint_dice = function()
+        msg.post(DICE, "sets", { sets = dice_sets.by_tray(app.campaign) })
+    end
+    app.jail_die = function(tray)
+        msg.post(DICE, "jail", { tray = tray })
+    end
+    app.set_tray = function(tray)
+        msg.post(CAMERA, "set_tray", { tray = tray })
+    end
+    -- A quick check: the player's die tumbles in their tray and lands on the number at once.
+    app.tumble_die = function(tray, value)
+        msg.post(DICE, "tumble", { tray = tray, value = value })
     end
     app.refresh_debug = function()
         if app.debug then
             debug_view.refresh(app)
         end
     end
-    app.go = function(screen)
+    app.go = function(screen, opts)
         guide_view.left_screen(app, app.screen)
         app.overlay = nil
         if screen == "prep" then
-            app.save_campaign()   -- between weeks: Session Zero done, or last week's level-up made
-            app.campaign:start_week()
+            if not (opts and opts.resume) then
+                app.campaign.at_prep = nil
+                app.save_campaign()   -- between weeks: Session Zero done, or last week's level-up made
+                app.campaign:start_week()
+            end
+            -- From here the board autosaves (A11): quitting mid-prep comes back to it.
+            app.campaign.at_prep = true
+            app.save_campaign()
+            app.prep_dirty = nil
             app.sel = nil
             app.prep_started = app.time
             -- Back to the campfire vignette, everyone in their chair.
             msg.post(TABLE, "vignette")
+            app.paint_dice()
+            app.update_shelf()
             msg.post(TABLE, "seats", {})
             app.zoom(2)
         elseif screen == "night" then
@@ -375,6 +425,7 @@ function init(self)
             app.screen = "night"
             kit.clear_all()
             app.layers = {}
+            app.paint_dice()
             night_view.start(app)
             block_camera(false)
             if app.debug then
@@ -436,6 +487,20 @@ function update(self, dt)
     end
     if app.screen == "night" and not app.sandbox and not app.error_layer then
         guard(self, night_view.update, app, dt)
+    end
+    -- Prep autosaves (A11), a few seconds after the board last changed.
+    if app.screen == "prep" and app.prep_dirty and app.campaign.at_prep and app.time - (app.last_autosave or 0) >= 4 then
+        app.prep_dirty = nil
+        app.last_autosave = app.time
+        app.save_campaign()
+    end
+end
+
+-- Quitting mid-prep keeps the board (A11).
+function final(self)
+    local app = self.app
+    if app and app.screen == "prep" and app.campaign and app.campaign.at_prep then
+        app.save_campaign()
     end
 end
 
@@ -508,6 +573,22 @@ function on_input(self, action_id, action)
         elseif action_id == A.back and action.pressed then
             app.slice.focus = nil
             app.refresh()
+            return true
+        end
+    end
+    -- Typing the DM's note on the session report (B7).
+    if report_view.typing(app) then
+        if action_id == A.text then
+            guard(self, report_view.on_text, app, action.text)
+            return true
+        elseif action_id == A.backspace and (action.pressed or action.repeated) then
+            guard(self, report_view.on_backspace, app)
+            return true
+        elseif (action_id == A.back or action_id == A.confirm) and action.pressed then
+            app.report_note = nil
+            app.refresh()
+            return true
+        elseif action_id ~= A.touch and action_id ~= nil then
             return true
         end
     end
@@ -612,8 +693,8 @@ function on_input(self, action_id, action)
             end
             return true
         elseif s == "prep" then
-            if app.ask or app.talk then
-                return true   -- the "are you sure?" and the one-on-one answer with their buttons
+            if app.ask or app.talk or app.book then
+                return true   -- the "are you sure?", the one-on-one and the book answer with their buttons
             end
             if app.campaign.prep:ready() then
                 guard(self, app.run_night)
@@ -660,6 +741,9 @@ function on_input(self, action_id, action)
                 return true
             elseif action_id == A.dm_rolls then
                 guard(self, night_view.toggle_dm_rolls, app)
+                return true
+            elseif action_id == A.snapshot then
+                guard(self, night_view.take_snapshot, app)
                 return true
             end
         end

@@ -18,6 +18,22 @@ return {
     pitch = "Kessrick's warband is gathering in the hills, and the bells that used to warn the valley have gone "
         .. "quiet. Twenty sessions to find out why. The slice is the first four.",
     SESSIONS = 4,              -- Session Zero, then this many game nights
+
+    -- The big questions (M8, B10): the arc's few conclusions, each with at least three clue cards
+    -- in the deck (the three clue rule: a party misses some clues, so every conclusion needs
+    -- several roads to it). clues: the story cards whose reveal answers part of it; answered
+    -- once this many are found.
+    questions = {
+        { id = "hushed", q = "Who hushed the bells, and why?",
+          answer = "Kessrick, to bring down the valley's ward before his warband comes.",
+          clues = { "stranger", "hales_crossing", "corin", "riddle" }, answered_at = 3 },
+        { id = "tower", q = "Who holds the bell tower?",
+          answer = "Vask, Kessrick's lieutenant, let in with a copied key.",
+          clues = { "hidden_map", "velvet_den", "wolf_lieutenant", "bell_tower" }, answered_at = 3 },
+        { id = "tobin", q = "Where did Old Tobin go?",
+          answer = "Up the north road along the old bell paths, carrying the map that shows the hush came from inside.",
+          clues = { "stranger", "forest_road", "chapel", "hidden_map" }, answered_at = 3 },
+    },
     STORY_INVESTMENT = 2,      -- for storytellers and explorers when a story card hits the table
 
     -- The DM's own notes on the campaign: what the players don't know yet.
@@ -84,6 +100,9 @@ return {
             },
             -- What the DM is hoping the party walks away with (shown in the notes).
             goal = "The party agrees to look for Old Tobin up the north road.",
+            -- What the party is out to do tonight, as the DM tells the table after the recap ("And
+            -- here we are today: you're at ..., out to ..."); objective_if when they found the clue.
+            objective = "find out why Millbrook's bells went silent",
             -- Who's behind it this week, when a scene needs a name and nobody in it fits (the
             -- slice rework: outcomes always name someone).
             lead = "Old Tobin, the bell-ringer",
@@ -103,6 +122,10 @@ return {
             open_else = "Morning, and the rain has finally stopped. Above Millbrook, the bells are still silent.",
             open_else_if = "Morning, and the rain has finally stopped. Nine days ago, Old Tobin took the north road "
                 .. "into the pines, and never came back.",
+            -- They've walked it before: no "the north road climbs" as if it were new (A11).
+            open_again = "Morning, and the rain has finally stopped. Back up the north road, then, into the pines.",
+            open_again_if = "Morning, and the rain has finally stopped. Back up the north road, then: the way Old Tobin "
+                .. "went nine days ago, and never came back.",
             cards = { "forest_road", "chapel", "hidden_map" },
             pressure = { spotlight = 18, rules = 8 },     -- Jess has found her groove; the first rules calls
             reveal = {
@@ -120,6 +143,8 @@ return {
                     .. "a key.'",
             },
             goal = "The party finds Tobin's map and learns the hush came from inside the tower.",
+            objective = "find out who hushed Millbrook's bells, and where Old Tobin went",
+            objective_if = { clue = "stranger", text = "follow Old Tobin up the north road and find out what happened to him" },
             lead = "a scarred man with a wolf badge",
             culprit = { name = "the scarred man with the wolf badge", secret = "he's been watching the north road for Kessrick" },
         },
@@ -132,6 +157,10 @@ return {
             open_if = { clue = "hidden_map", text = "Tobin's map points three ways: the back alleys of Lowmarket, the "
                 .. "room Ilsa rented above the scriptorium, and the ashes of Hale's Crossing. Every one of them is "
                 .. "somebody's past." },
+            -- It names three places: only when scene 1 is one of them (A11); else the trail stays unnamed.
+            open_place = { "velvet_den", "ilsa_room", "hales_crossing" },
+            open_else = "The trail runs three ways from here, and every one of them is somebody's past.",
+            open_else_if = "Tobin's map points three ways, and every one of them is somebody's past.",
             cards = { "velvet_den", "corin", "abbot_ghost", "hales_crossing" },
             pressure = { tone = 22 },                     -- backstory week: the serious stuff arrives
             reveal = {
@@ -155,6 +184,8 @@ return {
                     .. "then he comes.",
             },
             goal = "The party learns who holds the tower, and what it will take to wake the bells.",
+            objective = "find out who's holding the bell tower, and what it'll take to wake the bells",
+            objective_if = { clue = "hidden_map", text = "follow Tobin's map and find out who had a key to the tower" },
             lead = "Vask, Kessrick's lieutenant",
             culprit = { name = "Vask, Kessrick's lieutenant", secret = "Vask bought a copy of the tower key in Lowmarket" },
         },
@@ -167,6 +198,7 @@ return {
             open_place = "bell_tower",
             open_else = "The bell tower stands over Millbrook, silent, a hundred and twelve steps high. Tonight, "
                 .. "somebody climbs them.",
+            open_again = "The bell tower again, silent over Millbrook. Tonight, somebody climbs all the way to the top.",
             cards = { "bell_tower", "wolf_lieutenant", "riddle", "cliffhanger" },
             finale = true,
             reveal = {
@@ -186,6 +218,8 @@ return {
                 cliffhanger = "The bells are awake, and Kessrick's warband knows it. It's coming.",
             },
             goal = "The bells ring again, and the first act ends on Kessrick's horns.",
+            objective = "climb the bell tower and wake the bells",
+            objective_if = { clue = "velvet_den", text = "climb the bell tower, deal with whoever has that key, and wake the bells" },
             lead = "Kessrick the Wolf",
             culprit = { name = "Vask", secret = "Vask has been holding the tower for Kessrick all along" },
         },

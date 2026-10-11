@@ -1,0 +1,169 @@
+-- The board on the battle mat (the story-matched table): the DM builds each place piece by piece.
+-- The floor and walls go down with the place; every other feature drops in when the narration
+-- mentions it (game/model/board.lua decides what's mentioned; the prop kit's meshes come from
+-- tools/gen_props.py, one factory per kind on this game object). Messages:
+--   board       { id, show = "base" | "all" | { feature ids }, animate }   a new place
+--   reveal      { ids = { feature ids }, delays = { seconds } }           pieces the DM just named
+--   reveal_all  { stagger }                                                the rest, at once
+--   clear       {}                                                         sweep the mat
+
+local state = require "main.state"
+local scene = require "main.scene_data"
+local board = require "game.model.board"
+
+local DROP = 34          -- how high a piece starts before it drops onto the mat (cm)
+local LIFT = 60
+
+local function piece_pos(pc)
+    local g = scene.grid
+    local w, h = board.size(pc.kind, pc.r)
+    local cx = pc.x + (w - 1) / 2
+    local cy = pc.y + (h - 1) / 2
+    return vmath.vector3(g.x0 + g.size * (cx - 0.5), g.y, g.z0 + g.size * (cy - 0.5))
+end
+
+local function update_fire(self)
+    local f = self.id and board.light(self.id, self.shown)
+    if f then
+        local g = scene.grid
+        state.fire_pos = vmath.vector3(g.x0 + g.size * (f.x - 0.5), g.y + 1.0, g.z0 + g.size * (f.y - 0.5))
+        state.fire_level = f.level
+    else
+        state.fire_level = 0
+    end
+end
+
+local function lift_away(id, delay)
+    go.cancel_animations(id, "position.y")
+    go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, go.get_position(id).y + LIFT, go.EASING_INBACK, 0.4, delay or 0,
+        function()
+            go.delete(id)
+        end)
+end
+
+local function clear(self, animate)
+    local n = 0
+    for _, list in pairs(self.gos or {}) do
+        for _, id in ipairs(list) do
+            if animate then
+                lift_away(id, (n % 12) * 0.02)
+            else
+                go.delete(id)
+            end
+            n = n + 1
+        end
+    end
+    for _, h in ipairs(self.timers or {}) do
+        timer.cancel(h)
+    end
+    self.timers = {}
+    self.gos = {}
+    self.shown = {}
+    self.id = nil
+    update_fire(self)
+end
+
+local function make(self, fid, pc, delay, animate)
+    local pos = piece_pos(pc)
+    local rot = vmath.quat_rotation_y(-pc.r * math.pi / 2)
+    local flat = board.props[pc.kind] and board.props[pc.kind].flat
+    local function create()
+        if self.shown[fid] == nil then
+            return          -- the board changed before this piece landed
+        end
+        local start = pos
+        if animate then
+            start = pos + vmath.vector3(0, flat and 6 or DROP, 0)
+        end
+        local ok, id = pcall(factory.create, "#" .. pc.kind, start, rot)
+        if not ok or not id then
+            print("board: no prop for " .. tostring(pc.kind))
+            return
+        end
+        if animate then
+            go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, pos.y, flat and go.EASING_OUTQUAD or go.EASING_OUTBOUNCE,
+                flat and 0.35 or 0.6)
+        end
+        self.gos[fid] = self.gos[fid] or {}
+        table.insert(self.gos[fid], id)
+    end
+    if animate and delay > 0 then
+        table.insert(self.timers, timer.delay(delay, false, create))
+    else
+        create()
+    end
+end
+
+local function reveal(self, fid, delay, animate)
+    if not self.id or self.shown[fid] then
+        return
+    end
+    local c = board.compile(self.id)
+    local feat = c.by_id[fid]
+    if not feat then
+        return
+    end
+    self.shown[fid] = true
+    for i, idx in ipairs(feat.pieces) do
+        make(self, fid, c.pieces[idx], (delay or 0) + (i - 1) * 0.07, animate)
+    end
+    update_fire(self)
+end
+
+local function show(self, which, animate, stagger)
+    if not self.id then
+        return
+    end
+    local c = board.compile(self.id)
+    local t = 0
+    for _, feat in ipairs(c.features) do
+        local on = which == "all" or (which == "base" and feat.base)
+        if type(which) == "table" then
+            for _, id in ipairs(which) do
+                on = on or id == feat.id
+            end
+        end
+        if on and not self.shown[feat.id] then
+            reveal(self, feat.id, t, animate)
+            t = t + (stagger or 0.12)
+        end
+    end
+end
+
+function init(self)
+    self.gos, self.shown, self.timers = {}, {}, {}
+    self.id = nil
+end
+
+function final(self)
+    clear(self, false)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("board") then
+        local animate = message.animate ~= false
+        if message.id ~= self.id or message.fresh then
+            clear(self, animate)
+            self.id = board.exists(message.id) and message.id or "blank"
+            -- The new place drops in once the old one has lifted away.
+            local which = message.show or "base"
+            if animate then
+                table.insert(self.timers, timer.delay(0.35, false, function()
+                    show(self, which, true)
+                end))
+            else
+                show(self, which, false)
+            end
+        else
+            show(self, message.show or "base", animate)
+        end
+    elseif message_id == hash("reveal") then
+        for i, fid in ipairs(message.ids or {}) do
+            reveal(self, fid, (message.delays or {})[i] or 0, message.animate ~= false)
+        end
+    elseif message_id == hash("reveal_all") then
+        show(self, "all", message.animate ~= false, message.stagger or 0.08)
+    elseif message_id == hash("clear") then
+        clear(self, message.animate ~= false)
+    end
+end

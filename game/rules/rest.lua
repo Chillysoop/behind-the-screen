@@ -40,6 +40,9 @@ function M.spend_hit_dice(c, dice, policy)
     while c.hd.left > policy.keep and c.hp < c.hp_max * policy.upto do
         c.hd.left = c.hd.left - 1
         local h = math.max(1, roll(dice, c.hd.die) + con)
+        if c.wound_closure then
+            h = h * 2                          -- Periapt of Wound Closure (p. 234)
+        end
         local before = c.hp
         c.hp = math.min(c.hp_max, c.hp + h)
         gained = gained + (c.hp - before)
@@ -82,7 +85,21 @@ function M.short(c, dice, policy)
     if r.channel and r.channel_max then
         r.channel = math.min(r.channel_max, r.channel + 1)
     end
-    return { hp = hp, slots = arcane_recovery(c) }
+    local slots = arcane_recovery(c)
+    -- Pearl of Power (SRD 5.2.1, p. 234): once a day, one spent slot of level 3 or lower.
+    local pi = c.pearl and c.pearl_item
+    if pi and not (pi.used and pi.used.slot) and r.slots and c.slots_max then
+        for lvl = math.min(c.pearl, #c.slots_max), 1, -1 do
+            if (r.slots[lvl] or 0) < c.slots_max[lvl] then
+                r.slots[lvl] = (r.slots[lvl] or 0) + 1
+                pi.used = pi.used or {}
+                pi.used.slot = true
+                slots = slots + 1
+                break
+            end
+        end
+    end
+    return { hp = hp, slots = slots }
 end
 
 -- A Long Rest: everything back. keep_potions: potions are things, not features.
@@ -107,6 +124,11 @@ function M.long(c)
         end
     end
     c.res.potions = potions
+    -- A Hit Point maximum that was drained comes back (SRD 5.2.1, p. 185).
+    if c.hp_full and c.hp_max < c.hp_full then
+        c.hp_max = c.hp_full
+        c.drained = nil
+    end
     c.hp = c.hp_max
     c.temp = 0
     if c.hd then

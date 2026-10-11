@@ -25,9 +25,9 @@ embedded_collision_shape {
   shapes {
     shape_type: TYPE_BOX
     position {
-      x: 60.0
+      x: -12.0
       y: 73.62
-      z: 33.0
+      z: 35.5
     }
     rotation {
       x: 0.0
@@ -41,9 +41,9 @@ embedded_collision_shape {
   shapes {
     shape_type: TYPE_BOX
     position {
-      x: 46.2
+      x: -26.0
       y: 87.0
-      z: 33.0
+      z: 35.5
     }
     rotation {
       x: 0.0
@@ -57,9 +57,9 @@ embedded_collision_shape {
   shapes {
     shape_type: TYPE_BOX
     position {
-      x: 73.8
+      x: 2.0
       y: 87.0
-      z: 33.0
+      z: 35.5
     }
     rotation {
       x: 0.0
@@ -73,9 +73,9 @@ embedded_collision_shape {
   shapes {
     shape_type: TYPE_BOX
     position {
-      x: 60.0
+      x: -12.0
       y: 87.0
-      z: 22.2
+      z: 29.5
     }
     rotation {
       x: 0.0
@@ -89,9 +89,9 @@ embedded_collision_shape {
   shapes {
     shape_type: TYPE_BOX
     position {
-      x: 60.0
+      x: -12.0
       y: 87.0
-      z: 43.8
+      z: 41.5
     }
     rotation {
       x: 0.0
@@ -102,22 +102,497 @@ embedded_collision_shape {
     index: 15
     count: 3
   }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -12.0
+      y: 73.62
+      z: 45.8
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 18
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -23.0
+      y: 87.0
+      z: 45.8
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 21
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -1.0
+      y: 87.0
+      z: 45.8
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 24
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -12.0
+      y: 87.0
+      z: 40.2
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 27
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -12.0
+      y: 87.0
+      z: 51.4
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 30
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -66.0
+      y: 73.62
+      z: 8.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 33
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -74.0
+      y: 87.0
+      z: 8.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 36
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -58.0
+      y: 87.0
+      z: 8.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 39
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -66.0
+      y: 87.0
+      z: -1.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 42
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -66.0
+      y: 87.0
+      z: 17.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 45
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -22.0
+      y: 73.62
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 48
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -32.0
+      y: 87.0
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 51
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -12.0
+      y: 87.0
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 54
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -22.0
+      y: 87.0
+      z: -50.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 57
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: -22.0
+      y: 87.0
+      z: -35.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 60
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 14.0
+      y: 73.62
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 63
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 4.0
+      y: 87.0
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 66
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 24.0
+      y: 87.0
+      z: -43.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 69
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 14.0
+      y: 87.0
+      z: -50.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 72
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 14.0
+      y: 87.0
+      z: -35.5
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 75
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 62.0
+      y: 73.62
+      z: 18.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 78
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 53.0
+      y: 87.0
+      z: 18.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 81
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 71.0
+      y: 87.0
+      z: 18.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 84
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 62.0
+      y: 87.0
+      z: 9.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 87
+    count: 3
+  }
+  shapes {
+    shape_type: TYPE_BOX
+    position {
+      x: 62.0
+      y: 87.0
+      z: 27.0
+    }
+    rotation {
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+    }
+    index: 90
+    count: 3
+  }
   data: 75.0
   data: 10.0
   data: 50.0
   data: 12.0
   data: 2.0
+  data: 4.0
+  data: 3.0
+  data: 12.0
+  data: 7.0
+  data: 3.0
+  data: 12.0
+  data: 7.0
+  data: 15.0
+  data: 12.0
+  data: 3.0
+  data: 15.0
+  data: 12.0
+  data: 3.0
   data: 9.0
+  data: 2.0
+  data: 3.6
+  data: 3.0
+  data: 12.0
+  data: 6.6
+  data: 3.0
+  data: 12.0
+  data: 6.6
+  data: 12.0
+  data: 12.0
   data: 3.0
   data: 12.0
   data: 12.0
   data: 3.0
+  data: 6.0
+  data: 2.0
+  data: 7.5
+  data: 3.0
   data: 12.0
+  data: 10.5
+  data: 3.0
   data: 12.0
-  data: 15.0
+  data: 10.5
+  data: 9.0
   data: 12.0
   data: 3.0
-  data: 15.0
+  data: 9.0
+  data: 12.0
+  data: 3.0
+  data: 8.0
+  data: 2.0
+  data: 5.5
+  data: 3.0
+  data: 12.0
+  data: 8.5
+  data: 3.0
+  data: 12.0
+  data: 8.5
+  data: 11.0
+  data: 12.0
+  data: 3.0
+  data: 11.0
+  data: 12.0
+  data: 3.0
+  data: 8.0
+  data: 2.0
+  data: 5.5
+  data: 3.0
+  data: 12.0
+  data: 8.5
+  data: 3.0
+  data: 12.0
+  data: 8.5
+  data: 11.0
+  data: 12.0
+  data: 3.0
+  data: 11.0
+  data: 12.0
+  data: 3.0
+  data: 7.0
+  data: 2.0
+  data: 7.0
+  data: 3.0
+  data: 12.0
+  data: 10.0
+  data: 3.0
+  data: 12.0
+  data: 10.0
+  data: 10.0
+  data: 12.0
+  data: 3.0
+  data: 10.0
   data: 12.0
   data: 3.0
 }

@@ -12,7 +12,7 @@
 
 return {
     triumph = {
-        prompt = "A great roll. How good does it get?",
+        prompt = "How good does it get?",
         options = {
             { label = "Yes, and... something extra goes their way.", success = true, tone = "good",
               log = "Better than they hoped. Something extra falls into their lap.",
@@ -23,7 +23,7 @@ return {
         },
     },
     success = {
-        prompt = "They made it. Any strings attached?",
+        prompt = "Any strings attached?",
         options = {
             { label = "Yes. It works.", success = true,
               log = "It works.",
@@ -34,21 +34,21 @@ return {
         },
     },
     near = {
-        prompt = "So close. How do you call it?",
+        prompt = "How do you call it?",
         options = {
             { label = "No, but... they get something out of it.", success = false, tone = "good",
               log = "Not quite, but they learn something useful on the way down.",
               effects = { { "actor", fun = 3 }, { "all", story = 3 }, { "arch:casual", fun = 2 } } },
             { label = "Yes, at a cost. Close enough.", success = true, tone = "twist",
               log = "Close enough, if they're willing to pay for it. They are.",
-              effects = { { "actor", spotlight = 4, fun = 2 }, { "all", challenge = 4 }, { "perceptive", suspicion = 1 } } },
+              effects = { { "actor", spotlight = 4, fun = 2 }, { "all", challenge = 4 }, { "perceptive", suspicion = 1, why = "a miss that became a yes" } } },
             { label = "No. A miss is a miss.", success = false,
               log = "It doesn't happen.",
               effects = { { "arch:tactician", trust = 2 } } },
         },
     },
     flop = {
-        prompt = "A bad roll. How bad does it get?",
+        prompt = "How bad does it get?",
         options = {
             { label = "No. It just doesn't work.", success = false,
               log = "It doesn't work.",

@@ -31,6 +31,8 @@ function M.build(app)
         local label
         if saved.at_night then
             label = "Continue: Session " .. saved.week .. " night  >"   -- saved at Run game night
+        elseif saved.at_prep then
+            label = "Continue: Session " .. saved.week .. " prep  >"    -- saved mid-prep (A11)
         elseif saved.week >= sessions and not saved.survey_done then
             label = "Continue: end of the first act  >"
         elseif saved.week >= sessions then

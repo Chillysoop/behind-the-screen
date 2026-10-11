@@ -53,6 +53,10 @@ function update(self, dt)
     state.time = self.time
 
     local p = scene.presets[self.index]
+    -- The dice view looks at whichever tray the die is in (A9).
+    if self.index == 4 and self.tray_view then
+        p = self.tray_view
+    end
     local offset = p.eye - p.target
     offset = vmath.rotate(vmath.quat_rotation_y(self.yaw), offset)
     local right = vmath.normalize(vmath.cross(offset, UP))
@@ -80,6 +84,11 @@ end
 function on_message(self, message_id, message)
     if message_id == hash("set_zoom") then
         set_zoom(self, message.index)
+    elseif message_id == hash("set_tray") then
+        local t = scene.trays and scene.trays[message.tray]
+        if t then
+            self.tray_view = { eye = t.eye, target = t.target, fov = 28, drift = 0.15 }
+        end
     elseif message_id == hash("block_input") then
         self.blocked = message.on
         if message.on then

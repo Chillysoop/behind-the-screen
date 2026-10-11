@@ -33,6 +33,14 @@ function M.x(i)
     return 24 + (i - 1) * M.STEP
 end
 
+-- The hero's paper mini on the screens: their class's, or a new character's own (B3).
+function M.mini(p, class)
+    if p and p.mini then
+        return "mini_" .. p.mini
+    end
+    return CLASS_MINI[(p and p.class) or class] or "mini_fighter"
+end
+
 function M.face(key, pose)
     if pose and FACES[pose] then
         return "face_" .. key .. "_" .. pose
@@ -47,6 +55,14 @@ function M.draw(app, on_click)
     for i, p in ipairs(app.campaign.players) do
         local x, y, w, h = M.x(i), M.Y, M.W, M.H
         local chip = { key = p.key, x = x, y = y, i = i }
+        -- Lit when they speak in character (A9): a glow round the panel, in their colour.
+        chip.glow = kit.box(x - 4, y - 4, w + 8, h + 8, M.COLORS[p.key] or theme.gold, { radius = 13 })
+        gui.set_enabled(chip.glow, false)
+        local icw = kit.width("IN CHARACTER", "ui14") + 20
+        chip.ic_bg = kit.box(x + w - icw, y - 30, icw, 24, M.COLORS[p.key] or theme.gold, { radius = 8 })
+        chip.ic = kit.text(x + w - icw / 2, y - 26, "IN CHARACTER", "ui14", theme.bg, { pivot = gui.PIVOT_N })
+        gui.set_enabled(chip.ic_bg, false)
+        gui.set_enabled(chip.ic, false)
         kit.button(x, y, w, h, "", function()
             if on_click then
                 on_click(p.key)
@@ -56,9 +72,12 @@ function M.draw(app, on_click)
         local dim = p.present and 1 or 0.35
         kit.dot(x + 40, y + 41, 66, alpha(col, 0.55 * dim))
         chip.face = kit.picture(x + 7, y + 8, 66, 66, M.face(p.key), alpha(kit.rgba("#ffffff"), p.present and 1 or 0.4))
-        chip.mini = kit.picture(x + 70, y + 27, 42, 52, CLASS_MINI[p.class] or "mini_fighter",
+        chip.mini = kit.picture(x + 70, y + 27, 42, 52, M.mini(p),
             alpha(kit.rgba("#ffffff"), p.present and 1 or 0.4))
         kit.text(x + TEXT_X, y + 6, p.name, "ui18b", p.present and theme.text or theme.faint)
+        -- The Heroic Inspiration token in front of them (B4).
+        chip.token = kit.dot(x + TEXT_X + kit.width(p.name, "ui18b") + 14, y + 17, 14, theme.gold)
+        gui.set_enabled(chip.token, p.heroic and true or false)
         local role = p.char .. ", " .. p.class_name .. " " .. util.int(level)
         kit.text(x + TEXT_X, y + 29, kit.ellipsize(role, "ui14", TEXT_W), "ui14", theme.dim)
         if not p.present then
@@ -221,7 +240,49 @@ function M.show_roll(app, key, r, quiet)
 end
 
 -- Every frame: tumbling dice.
+-- The Heroic Inspiration token lands in front of them, or gets spent (B4).
+function M.set_token(app, key, on)
+    local chip = app.chips and app.chips[key]
+    if chip and chip.token then
+        gui.set_enabled(chip.token, on and true or false)
+    end
+end
+
+-- They speak as their character (A9): the panel lights up for a moment.
+function M.light(app, key, seconds)
+    local chip = app.chips and app.chips[key]
+    if not chip or not chip.glow then
+        return
+    end
+    chip.lit = { t = 0, dur = seconds or 2.4 }
+    gui.set_enabled(chip.glow, true)
+    gui.set_enabled(chip.ic_bg, true)
+    gui.set_enabled(chip.ic, true)
+end
+
+function M.lit(app, key)
+    local chip = app.chips and app.chips[key]
+    return chip and chip.lit ~= nil
+end
+
 function M.update(app, dt)
+    for key, chip in pairs(app.chips or {}) do
+        local l = chip.lit
+        if l then
+            l.t = l.t + dt
+            local col = M.COLORS[key] or theme.gold
+            local a = l.t < 0.15 and (l.t / 0.15) or (l.t > l.dur - 0.4 and math.max(0, (l.dur - l.t) / 0.4) or 1)
+            gui.set_color(chip.glow, alpha(col, 0.9 * a))
+            gui.set_color(chip.ic_bg, alpha(col, a))
+            gui.set_color(chip.ic, alpha(theme.bg, a))
+            if l.t >= l.dur then
+                chip.lit = nil
+                gui.set_enabled(chip.glow, false)
+                gui.set_enabled(chip.ic_bg, false)
+                gui.set_enabled(chip.ic, false)
+            end
+        end
+    end
     for key, chip in pairs(app.chips or {}) do
         local s = chip.spin
         if s then

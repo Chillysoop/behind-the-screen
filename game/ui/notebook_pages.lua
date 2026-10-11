@@ -166,6 +166,16 @@ function M.person_rows(app, pid)
     if p and status ~= "around" then
         table.insert(rows, { ledger.data.STATUS[status] or status, "ui14", theme.orange })
     end
+    -- Grudge (B6): what a villain who got away holds against the party.
+    local g = ledger.grudge_level(c, pid)
+    if g > 0 then
+        table.insert(rows, { "Grudge: " .. string.rep("*", g) .. string.rep(".", ledger.GRUDGE_MAX - g)
+            .. (g >= 3 and "  It's personal now. When they fall, it'll mean something." or ""), "ui14", theme.red })
+    end
+    -- What the villain said, the retort that answered it, and who wants them (villain monologues).
+    for _, line in ipairs(require("game.model.villains").notes(c, pid)) do
+        table.insert(rows, { line, "ui14", theme.orange })
+    end
     for _, wm in ipairs(ledger.warmth(c, pid)) do
         local pl = c:player(wm.key)
         table.insert(rows, { (wm.n > 0 and "Warm to " or "Cold toward ") .. pl.char .. " (" .. pl.name .. ")", "ui14",
@@ -445,6 +455,8 @@ function M.campaign(app, x, y, w, h)
         table.insert(names, p.char .. " (" .. p.thread .. ")")
     end
     ly = para(x, ly, lw, #names > 0 and table.concat(names, "; ") or "None.", "ui14", theme.text)
+    -- The big questions (B10), counted; the web page has them in full.
+    ly = para(x, ly + 4, lw, require("game.model.questions").summary(c).text .. " (The web)", "ui14", theme.teal)
     -- Shelved cards: bring one back and it's in your hand again.
     ly = head(x, ly + 6, "Shelved")
     local shelved = deck.shelved(c)
@@ -495,6 +507,132 @@ function M.campaign(app, x, y, w, h)
         ry = ry + 8
     end
     M.course(app, rx, ry + 4, rw, y + h)
+end
+
+-- The web (M8, B10): the big questions, and a corkboard of the arc's people, places and
+-- factions. A string runs from each person to their faction and to where the party met them:
+-- green when they're warm to the party, red when they're cold, dashed for people the party
+-- hasn't met yet. The model is game/model/questions.lua and the ledger.
+function M.web(app, x, y, w, h)
+    local c = app.campaign
+    local questions = require "game.model.questions"
+    local places = require "game.model.places"
+    local lw = 420
+    local ly = head(x, y, "The big questions")
+    for _, st in ipairs(questions.all(c)) do
+        kit.text(x, ly, st.q.q, "ui18b", theme.text, { w = lw })
+        ly = ly + kit.text_height(st.q.q, "ui18b", lw) + 4
+        local dx = x
+        for _, cl in ipairs(st.clues) do
+            local col = cl.found and theme.gold or (cl.state == "spent" and theme.red or kit.rgba("#000000", 0.4))
+            kit.dot(dx + 7, ly + 8, 12, col)
+            dx = dx + 18
+        end
+        local count = util.int(st.found) .. " found, " .. util.int(st.out) .. " still out there"
+            .. (st.gone > 0 and (", " .. util.int(st.gone) .. " missed") or "")
+        kit.text(dx + 6, ly, count, "ui14", st.out + st.found < 3 and theme.orange or theme.dim)
+        ly = ly + 22
+        ly = para(x + 12, ly, lw - 12, st.answered and st.q.answer or "Not answered yet.", "ui14",
+            st.answered and theme.teal or theme.faint) + 6
+    end
+    para(x, ly + 4, lw, "Gold: found. Dark: still in the deck. Red: played without being found. Keep three roads to every answer.",
+        "ui14", theme.faint)
+    -- The corkboard.
+    local bx, by, bw, bh = x + lw + 30, y, w - lw - 30, h
+    kit.box(bx, by, bw, bh, kit.rgba("#7a5a3c"), { radius = 8 })
+    kit.text(bx + 14, by + 10, "THE WEB", "ui14", kit.rgba("#f3e2c0"))
+    local factions = ledger.data.order
+    local pos = {}
+    -- Factions along the top, people under their faction, places along the bottom.
+    local fw = (bw - 40) / math.max(1, #factions)
+    local col_of = {}
+    for i, fid in ipairs(factions) do
+        local fx = bx + 20 + (i - 0.5) * fw
+        pos["f:" .. fid] = { fx, by + 56 }
+        col_of[fid] = { fx, 0 }
+    end
+    local people = ledger.people(c)
+    local unaligned = { bx + bw / 2, 0 }
+    local placed_people = {}
+    for _, pid in ipairs(people) do
+        local fid = ledger.faction_of(c, pid)
+        local col = col_of[fid] or unaligned
+        col[2] = col[2] + 1
+        if col[2] <= 4 then
+            local px = col[1] + ((col[2] % 2 == 0) and 34 or -34) * (col == unaligned and 2 or 1)
+            local py = by + 120 + (col[2] - 1) * 58
+            pos["p:" .. pid] = { px, py }
+            table.insert(placed_people, { pid = pid, fid = fid })
+        end
+    end
+    local plist = places.list(c)
+    local nplaces = math.min(6, #plist)
+    for i = 1, nplaces do
+        local pl = plist[i]
+        pos["l:" .. pl.id] = { bx + 30 + (i - 0.5) * (bw - 60) / math.max(1, nplaces), by + bh - 46 }
+    end
+    -- Strings first, so the pins sit on top.
+    for _, pp in ipairs(placed_people) do
+        local a = pos["p:" .. pp.pid]
+        local met = ledger.met(c, pp.pid)
+        local att = ledger.att(c, pp.pid)
+        local col = (not met and kit.rgba("#f3e2c0", 0.35)) or (att >= 1 and theme.green) or (att <= -1 and theme.red)
+            or kit.rgba("#e8d8b0", 0.8)
+        local f = pp.fid and pos["f:" .. pp.fid]
+        if f then
+            if met then
+                kit.line(a[1], a[2], f[1], f[2], 2, col)
+            else
+                -- Dashed: someone the party hasn't met yet.
+                for k = 0, 5, 2 do
+                    local t0, t1 = k / 6, (k + 1) / 6
+                    kit.line(a[1] + (f[1] - a[1]) * t0, a[2] + (f[2] - a[2]) * t0, a[1] + (f[1] - a[1]) * t1,
+                        a[2] + (f[2] - a[2]) * t1, 2, col)
+                end
+            end
+        end
+        -- Where the party met them.
+        local hist = ledger.history(c, pp.pid)
+        local at = hist[#hist] and hist[#hist].at
+        local l = at and pos["l:" .. at]
+        if l and met then
+            kit.line(a[1], a[2], l[1], l[2], 1, kit.rgba("#f3e2c0", 0.45))
+        end
+    end
+    -- Pins and cards.
+    for i, fid in ipairs(factions) do
+        local p = pos["f:" .. fid]
+        local fd = ledger.data[fid]
+        local name = fd and fd.name or fid
+        local tw = math.min(fw - 8, kit.width(name, "ui14") + 20)
+        kit.box(p[1] - tw / 2, p[2] - 14, tw, 28, kit.rgba("#f3df8a"), { radius = 3 })
+        kit.text(p[1], p[2] - 10, kit.ellipsize(name, "ui14", tw - 10), "ui14", theme.ink, { pivot = gui.PIVOT_N })
+        kit.dot(p[1], p[2] - 16, 10, theme.red)
+    end
+    for _, pp in ipairs(placed_people) do
+        local p = pos["p:" .. pp.pid]
+        local ab = ledger.about(pp.pid)
+        local name = kit.ellipsize(ab.name, "ui14", 120)
+        local tw = kit.width(name, "ui14") + 16
+        local met = ledger.met(c, pp.pid)
+        kit.box(p[1] - tw / 2, p[2] - 12, tw, 24, met and kit.rgba("#fbf4e2") or kit.rgba("#fbf4e2", 0.55), { radius = 3 })
+        kit.text(p[1], p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
+        kit.dot(p[1], p[2] - 14, 8, theme.teal)
+        local g = ledger.grudge_level(c, pp.pid)
+        if g > 0 then
+            kit.text(p[1] + tw / 2 + 4, p[2] - 9, string.rep("!", g), "ui14", theme.red)
+        end
+    end
+    for i = 1, nplaces do
+        local pl = plist[i]
+        local p = pos["l:" .. pl.id]
+        local name = kit.ellipsize(pl.card.short and util.capitalize(pl.card.short) or pl.card.name, "ui14", (bw - 60) / nplaces - 10)
+        local tw = kit.width(name, "ui14") + 16
+        kit.box(p[1] - tw / 2, p[2] - 12, tw, 24, kit.rgba("#cfe3d8"), { radius = 3 })
+        kit.text(p[1], p[2] - 9, name, "ui14", theme.ink, { pivot = gui.PIVOT_N })
+    end
+    kit.text(bx + bw - 14, by + 10, "green: warm  red: cold  dashed: not met yet  !: Grudge", "ui14", kit.rgba("#f3e2c0", 0.8),
+        { pivot = gui.PIVOT_NE })
 end
 
 -- Where the campaign spends its time, and changing course (A18). Ask the table first (free, the
@@ -898,6 +1036,82 @@ function M.threads(app, x, y, w, h)
             kit.text(px + 30, ty, s[1] .. how, "ui14", s[2])
             ty = ty + 24
         end
+    end
+end
+
+-- The session log (M8, B7): every session report, kept. Pick a week to reopen its recap: the
+-- title you chose, the beats you kept (pinned ones marked), your note, the verdict and how each
+-- player felt.
+local VERDICT_COLOR = { ["One for the stories"] = theme.gold, ["Great session"] = theme.green, ["Good session"] = theme.teal,
+                        Okay = theme.dim, ["Rough night"] = theme.orange }
+local TIER_COLOR = { loved = theme.green, fun = theme.teal, fine = theme.gold, bored = theme.orange, out = theme.red }
+
+function M.session_log(app, x, y, w, h)
+    local log = app.campaign.session_log or {}
+    if #log == 0 then
+        para(x, y, w, "No sessions yet. Every session report is kept here once the night is over.", "ui18", theme.faint)
+        return
+    end
+    -- The weeks, newest first, down the left.
+    local pick = app.log_week
+    local found
+    for _, e in ipairs(log) do
+        found = found or (e.week == pick and e)
+    end
+    found = found or log[#log]
+    app.log_week = found.week
+    local lx, ly = x, y
+    for i = #log, 1, -1 do
+        local e = log[i]
+        if ly + 40 > y + h then
+            break
+        end
+        local on = e == found
+        local t = e.recap and e.recap.titles and e.recap.titles[e.recap.title or 1] or ("Session " .. util.int(e.week))
+        kit.button(lx, ly, 300, 36, util.int(e.week) .. ".  " .. kit.ellipsize(t, "ui14", 250), function()
+            app.log_week = e.week
+            app.refresh_notes()
+        end, { font = "ui14", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left",
+               key = "log_week_" .. util.int(e.week) })
+        ly = ly + 42
+    end
+    -- The chosen session.
+    local px, pw = x + 324, w - 324
+    local e = found
+    local r = e.recap or {}
+    local title = r.titles and r.titles[r.title or 1] or ("Session " .. util.int(e.week))
+    kit.text(px, y - 4, "SESSION " .. util.int(e.week), "ui14", theme.gold)
+    kit.text(px, y + 16, title, "title30", theme.text)
+    local vc = VERDICT_COLOR[e.verdict] or theme.dim
+    kit.text(px + pw, y + 24, e.verdict or "", "ui18b", vc, { pivot = gui.PIVOT_NE })
+    local ty = y + 66
+    ty = head(px, ty, "The recap")
+    local any = false
+    for _, b in ipairs(r.beats or {}) do
+        if not b.cut and ty < y + h - 230 then
+            any = true
+            if b.pinned then
+                kit.icon(px, ty + 3, 14, "reward", theme.gold)
+            end
+            ty = para(px + 22, ty, pw - 22, b.text, "ui18", b.pinned and theme.gold or theme.text)
+        end
+    end
+    if not any then
+        ty = para(px, ty, pw, "Nothing kept from this one.", "ui18", theme.faint)
+    end
+    if (r.note or "") ~= "" then
+        ty = para(px, ty + 4, pw, "Your note: " .. r.note, "hand24", kit.rgba("#f3df8a"))
+    end
+    ty = head(px, ty + 10, "How the table felt")
+    for _, row in ipairs(e.players or {}) do
+        if ty + 24 > y + h then
+            break
+        end
+        kit.text(px, ty, row.name, "ui18b", theme.text)
+        kit.text(px + 70, ty + 2, row.char or "", "ui14", theme.dim)
+        local q = row.quote and ('"' .. row.quote .. '"') or (row.fun and "" or "Wasn't there.")
+        kit.text(px + 190, ty + 2, kit.ellipsize(q, "ui14", pw - 190), "ui14", TIER_COLOR[row.tier] or theme.text)
+        ty = ty + 26
     end
 end
 

@@ -27,6 +27,10 @@ fonts {
   name: "story22"
   font: "/assets/fonts/story22.font"
 }
+fonts {
+  name: "read26"
+  font: "/assets/fonts/read26.font"
+}
 textures {
   name: "ui"
   texture: "/assets/ui/ui.atlas"

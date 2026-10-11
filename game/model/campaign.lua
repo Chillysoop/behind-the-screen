@@ -14,6 +14,9 @@ local talk_mod = require "game.model.talk"
 local social = require "game.model.social"
 local progression = require "game.model.progression"
 local seeds = require "game.model.seeds"
+local jokes = require "game.model.jokes"
+local death = require "game.model.death"
+local fails = require "game.model.fails"
 local story = require "game.model.story"
 local deck = require "game.model.deck"
 local planner = require "game.model.planner"
@@ -165,6 +168,18 @@ function M:start_week()
     self.leveled_now = nil
     self:deal_arc_cards(self.prep)
     self.stale_now = seeds.start_week(self, self.prep)
+    -- M8: shower thoughts drop into the hand (B5); table reputations fade or rub (B2).
+    self.showers = jokes.shower_thoughts(self, self.prep, rng)
+    fails.start_week(self)
+    require("game.model.villains").start_week(self)     -- Vendetta fades for villains who stay away
+    -- Death (B3): whoever fell rolls up someone new; a way back waits in the hand.
+    self.new_chars = death.start_week(self)
+    for key in pairs(self.death_quest or {}) do
+        local card = death.quest_card(self, key)
+        if card then
+            self.prep:pin(card.id, "The way back", "A way to bring them back.", { added = true })
+        end
+    end
     -- The story leans on the table this week (M7).
     local beat = self:arc_beat()
     for id, v in pairs(beat and beat.pressure or {}) do
@@ -173,6 +188,14 @@ function M:start_week()
     social.start_week(self)
     progression.start_week(self)
     self.chat = self:write_chat()
+    -- A new character (B3): the player tells the group chat who they rolled up.
+    for _, nc in ipairs(self.new_chars or {}) do
+        local p = self:player(nc.key)
+        if p then
+            table.insert(self.chat, 1, { who = p.name, key = p.key, new_char = true,
+                                         text = "RIP " .. nc.was .. ". Rolled up someone new: " .. p.char .. ". " .. nc.pregen.hook })
+        end
+    end
     self.night = nil
     self.report = nil
     return self.prep
@@ -211,6 +234,8 @@ function M:write_chat()
         end
         return msgs
     end
+    -- A new book out this week (A13): whoever's most excited posts about it.
+    require("game.model.books").arrive(self, msgs)
     -- Word from around the valley first: what the world did off screen (S7). You post it.
     world.post_news(self, msgs)
     -- Someone at the table is fed up with someone else (A17).
@@ -308,6 +333,12 @@ function M:write_social_chat(msgs, say)
         if p and say(p, "chat_seed_theory", { seed = def.theory }) and #msgs > before then
             local m = msgs[#msgs]
             m.seed = s.id
+            -- Steal the theory (B5): what exactly they think, pinned to the prep board.
+            local th, claim = seeds.new_theory(self, s, p, rng)
+            if th then
+                m.text = m.text .. " " .. claim.says
+                m.theory = #self.theories
+            end
             m.choices = {}
             for i, r in ipairs(seeds.THEORY_REPLIES) do
                 m.choices[i] = r.label
@@ -339,6 +370,7 @@ end
 
 function M:start_night()
     self.at_night = nil   -- set by the game when it saves at "Run game night"; the night is on now
+    self.at_prep = nil
     seeds.commit(self, self.prep)
     self.night = night_mod.new(self, self.prep)
     return self.night
@@ -373,6 +405,9 @@ function M:finish_night()
     rep.table_text = night.clock_text and night:length_text()
     rep.payoffs = night.payoffs
     rep.planted = night.planted
+    rep.jokes = jokes.after_night(self, night)   -- running jokes born tonight (B5)
+    death.after_night(self, night)                -- a way back that played (B3)
+    rep.snapshots = night.snapshots or {}          -- the night's framed moments (B1, B7)
     rep.broken = self.broken_now
     -- M7: the story beat, and how the first act landed.
     rep.story_hits = night.story_hits or {}
@@ -389,6 +424,22 @@ function M:finish_night()
     story.after_night(self, night)
     -- The story deck: what's spent, what comes back, and what tonight opened.
     rep.opened = deck.after_night(self, night)
+    -- Magic items earned tonight (A13): a won scene's reward card that's an item.
+    do
+        local items = require "game.model.items"
+        rep.items = {}
+        for _, sc in ipairs(night.scenes or {}) do
+            local r = sc.comps and sc.comps.reward
+            if r and r.item and deck.outcome_of(sc) == "win" and not (self.items_earned or {})[r.id] then
+                self.items_earned = self.items_earned or {}
+                self.items_earned[r.id] = self.week
+                local it, holder = items.earn(self, r.item, self:present())
+                if it then
+                    table.insert(rep.items, { id = r.item, holder = holder and holder.key })
+                end
+            end
+        end
+    end
     planner.after_night(self, night)
     -- The notebook: what the party did to whom tonight, and how it changed things.
     ledger.after_night(self, night)
@@ -461,6 +512,7 @@ function M:finish_night()
     self.report = rep
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)
+    require("game.model.recap").file(self, rep)   -- the session log (B7): every report, reopenable
     return rep
 end
 

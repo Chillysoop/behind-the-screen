@@ -185,26 +185,26 @@ return {
         },
         {
             id = "night_cook", screen = "night", at = NIGHT,
-            when = function(app) return pending(app, "cook") end,
-            done = function(app) return not pending(app, "cook") end,
+            when = function(app) return pending(app, "ruling") and app.pending.cook ~= nil end,
+            done = function(app) return not pending(app, "ruling") end,
             title = "Cooking the dice",
-            text = "You can change a roll nobody saw. It might save the night, but if they catch you, trust takes a real hit.",
+            text = "Behind the screen, the last button changes a roll nobody saw. It might save the night, but if they catch you, trust takes a real hit.",
         },
         {
             id = "night_ruling", screen = "night", at = NIGHT,
             when = function(app) return pending(app, "ruling") end,
             done = function(app) return not pending(app, "ruling") end,
-            title = "A rules call",
-            text = "Nobody's sure how the rule works. Decide quickly, or look it up and slow the table down. Each player leans a different way.",
+            title = "How does it land?",
+            text = "The die says how well it went. You decide how generous to be: a yes with strings, or a no that still gives them something.",
         },
 
         -- The first report ------------------------------------------------------------------------
         {
-            id = "report_read", screen = "report", at = { 420, 330 },
+            id = "report_read", screen = "report", at = { 412, 660 },
             when = function(app, c) return week(c, 1) end,
-            anchor = { 10, 94, 392, 572 },
+            anchor = { 776, 84, 800, 556 },
             title = "How it landed",
-            text = "Each player's night, and the bars that carry over (Over time). Weeks of low Commitment and someone takes a break.",
+            text = "Each player's night, the least happy first, and the bars that carry over. Weeks of low Commitment and someone takes a break.",
         },
 
         -- Later, the first time each feature matters ---------------------------------------------

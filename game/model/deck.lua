@@ -21,7 +21,7 @@ local M = {}
 
 -- Is this a story card (a reveal still to tell)? game.model.story is required lazily.
 local function is_story_card(campaign, c)
-    local story = require "game.model.story"
+    local story = util.lazy("game.model.story")
     return story.pending_reveal(campaign, c) ~= nil
 end
 
@@ -261,8 +261,8 @@ function M.hand(campaign)
                     rank = 5
                 end
                 -- Within a rank, what suits the campaign's truths leans first.
-                local lean = require("game.model.styles").tilt(campaign, c)   -- the campaign's style (A18)
-                local tilt = require("game.model.planner").tilt(campaign, c) + lean
+                local lean = util.lazy("game.model.styles").tilt(campaign, c)   -- the campaign's style (A18)
+                local tilt = util.lazy("game.model.planner").tilt(campaign, c) + lean
                 -- A card from a style the campaign has left behind waits behind the home style's
                 -- and its neighbors' (now and then one still turns up).
                 if lean < 0 and rank >= 4 and rng:next() > STRAY then

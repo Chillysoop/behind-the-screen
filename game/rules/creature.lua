@@ -61,7 +61,7 @@ function M.save_bonus(c, ab)
     if c.save_prof[ab] then
         b = b + c.pb
     end
-    return b
+    return b + (c.item_saves or 0)    -- Cloak of Protection, Stone of Good Luck (A13)
 end
 
 -- Base Armor Class from armor, shield and fighting style; effects are added by the battle.
@@ -134,6 +134,9 @@ function M.weapon_attack(c, weapon_id, opts)
         die = w.versatile
     end
     local dmg_bonus = ability + (c.magic_weapon or 0)
+    if ranged and c.item_bow_damage and (weapon_id == "longbow" or weapon_id == "shortbow") then
+        dmg_bonus = dmg_bonus + c.item_bow_damage   -- Bracers of Archery (A13)
+    end
     if opts.offhand and not c.feats.two_weapon_fighting and ability > 0 then
         dmg_bonus = (c.magic_weapon or 0)  -- Light extra attack adds no positive modifier (p. 89)
     end
@@ -304,6 +307,9 @@ function M.monster_attack(c, a, as_ranged)
         adv_bonus = a.adv_bonus,
         rider = a.rider,
         prone_max_size = a.prone_max_size,
+        -- The Vale Bestiary (A13): grapple (escape DC), pull, mark, drain, swarm damage.
+        grapple = a.grapple, pull = a.pull, mark = a.mark, drain = a.drain,
+        bloodied_damage = a.bloodied_damage, adv_vs_grappled = a.adv_vs_grappled,
         crit_range = 20,
         thrown_ammo = a.ammo and a.id or nil,
     }

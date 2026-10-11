@@ -14,6 +14,7 @@
 --                         damage, down, death, up, heal, save, spell, condition, flee
 --   b.hooks.before_damage(b, src, tgt, total, info) -> total   change damage before it lands
 --   b.hooks.before_pc_death(b, c, why) -> "stable" | "revive"   overrule a hero's death
+--   b.hooks.before_turn(b, c)   the DM runs a creature's turn (sets c.dm_target or c.dm_skip)
 --   b.blocked[x * 1000 + y] = true                              terrain squares nobody can enter
 --   b.force_end = "party" | "foes"                              end the fight after this turn
 
@@ -152,7 +153,8 @@ function B:add_effect(c, eff)
         end
     end
     table.insert(c.effects, eff)
-    if self.on_event and eff.conds and next(eff.conds) then
+    -- A tag on the mat: a condition, or an effect that wants showing on its own (Burning, Targeted).
+    if self.on_event and ((eff.conds and next(eff.conds)) or eff.tag) then
         self:emit({ kind = "condition", who = c, name = eff.name, conds = cond_names(eff) })
     end
     if eff.conc_of and eff.conc_of.conc then
@@ -172,7 +174,7 @@ function B:remove_effect(c, eff, why)
             if eff.on_end then
                 eff.on_end(self, c, why)
             end
-            if self.on_event and eff.conds and next(eff.conds) then
+            if self.on_event and ((eff.conds and next(eff.conds)) or eff.tag) then
                 self:emit({ kind = "condition_end", who = c, name = eff.name, conds = cond_names(eff) })
             end
             return true
@@ -281,7 +283,7 @@ end
 -- Armor Class -----------------------------------------------------------------------------
 
 function B:ac(c)
-    local ac = creature.base_ac(c) + self:sum_effect(c, "ac")
+    local ac = creature.base_ac(c) + self:sum_effect(c, "ac") + (c.item_ac or 0)
     -- Hold Fast (Banner Captain): +1 AC within 5 feet of the captain.
     if c.side == "party" then
         for _, o in ipairs(self.creatures) do
@@ -342,6 +344,13 @@ function B:attack_mode(att, tgt, prof, opts)
     if self:has(att, "restrained") then table.insert(dis, "attacker Restrained") end
     if self:has(att, "frightened") then table.insert(dis, "attacker Frightened") end
     if self:has(att, "invisible") then table.insert(adv, "attacker Invisible") end
+    -- Grappled (Rules Glossary): Disadvantage on attacks against anyone but the grappler.
+    local held = self:find_grapple(att)
+    if held and held.grapple_by ~= tgt then table.insert(dis, "attacker Grappled") end
+    if prof.adv_vs_grappled then
+        local g = self:find_grapple(tgt)
+        if g and g.grapple_by == att then table.insert(adv, "target Grappled") end
+    end
     for _, e in ipairs(att.effects) do
         if e.sapped then table.insert(dis, "Sap") end
         if e.enfeeble_dis_next then table.insert(dis, "Ray of Enfeeblement") end
@@ -364,7 +373,7 @@ function B:attack_mode(att, tgt, prof, opts)
     for _, e in ipairs(tgt.effects) do
         if e.dodge and self:can_see(tgt, att) and not self:incapacitated(tgt) then table.insert(dis, "Dodge") end
         if e.blur then table.insert(dis, "Blur") end
-        if e.marked_adv then table.insert(adv, "Guiding Bolt") end
+        if e.marked_adv then table.insert(adv, e.name or "Marked") end
     end
     -- Ranged attacks in close combat (p. 15): Disadvantage within 5 feet of a visible, active enemy.
     if prof.kind == "ranged" or prof.spell_ranged then
@@ -379,6 +388,14 @@ function B:attack_mode(att, tgt, prof, opts)
         end
     end
     if prof.heavy_disadvantage then table.insert(dis, "Heavy weapon") end
+    -- Hazards (A10): a gale spoils ranged weapons (p. 195); deep water is underwater combat (p. 16).
+    if self.wind and prof.kind == "ranged" and prof.is_weapon then table.insert(dis, "Strong wind") end
+    if self.hazard and prof.is_weapon and require("game.rules.hazards").deep(self, att) then
+        local piercing = prof.damage and prof.damage[1] and prof.damage[1][4] == "piercing"
+        if prof.kind == "ranged" or (not piercing and not (att.data and att.data.swim)) then
+            table.insert(dis, "underwater")
+        end
+    end
     -- Pack Tactics.
     if att.traits.pack_tactics then
         for _, o in ipairs(self:allies_of(att)) do
@@ -511,11 +528,14 @@ function B:attack(att, tgt, prof, opts)
             if decoy and (o.dead or self:incapacitated(o) or (self.round or 1) > decoy.last_round) then
                 o.decoy, decoy = nil, nil
             end
-            if decoy and (tgt == o or self:dist_xy(tgt.x, tgt.y, decoy.x, decoy.y) <= 10) then
+            -- Blindsight isn't fooled by an illusory double (the crab and the armor feel where you are).
+            local sees_true = att.data and att.data.blindsight and self:dist_xy(att.x, att.y, decoy and decoy.x or 0,
+                decoy and decoy.y or 0) <= att.data.blindsight
+            if decoy and not sees_true and (tgt == o or self:dist_xy(tgt.x, tgt.y, decoy.x, decoy.y) <= 10) then
                 if not self:save(att, "wis", creature.spell_dc(o), { kind = "decoy" }) then
-                    -- Swinging at a shifting illusion: Disadvantage (cancels any Advantage).
-                    local mode = self:attack_mode(att, tgt, prof, opts)
-                    local roll = self.dice:d20(mode > 0 and 0 or -1)
+                    -- Swinging at the illusion: an ordinary roll against the decoy's AC (A13 retune:
+                    -- with the bestiary's dim, many-armed monsters it outlasted its SRD sibling).
+                    local roll = self.dice:d20(0)
                     local total = roll + prof.to_hit
                     local popped = roll == 20 or (roll ~= 1 and total >= creature.spell_dc(o))
                     if popped then
@@ -566,8 +586,17 @@ function B:attack(att, tgt, prof, opts)
         self:remove_effect(att, sanct_own, "attacked")
     end
     local crit_range = prof.is_weapon and (prof.crit_range or att.crit_range or 20) or 20
+    local cover = self:cover_bonus(att, tgt)
+    local ac = self:ac(tgt) + cover
+    res.cover = cover > 0 or nil
+    -- Heroic Inspiration on a miss that matters: against the boss.
+    if att.heroic and roll < crit_range and (roll == 1 or total < ac) and tgt.boss then
+        local riders = total - roll
+        roll = self:heroic_reroll(att, roll, true, "attack", mode, luck)
+        total = roll + riders
+        res.roll, res.total = roll, total
+    end
     local crit = roll >= crit_range
-    local ac = self:ac(tgt)
     local hit
     if roll == 1 then
         hit = false
@@ -581,7 +610,7 @@ function B:attack(att, tgt, prof, opts)
         -- Shield (p. 161): +5 AC until the start of your next turn, including against this attack.
         if self.ai and self.ai.try_shield and total < ac + 5 then
             if self.ai.try_shield(self, tgt, att) then
-                ac = self:ac(tgt)
+                ac = self:ac(tgt) + cover
                 hit = total >= ac
                 if not hit then
                     res.blocked = "shield"
@@ -660,7 +689,11 @@ function B:attack(att, tgt, prof, opts)
     if savage then
         att.turn.savage_used = true
     end
-    local parts = self:roll_parts(prof.damage, crit, { gwf = prof.gwf, savage = savage })
+    local dmg_parts = prof.damage
+    if prof.bloodied_damage and att.hp <= att.hp_max / 2 then
+        dmg_parts = prof.bloodied_damage           -- a swarm half gone bites half as hard
+    end
+    local parts = self:roll_parts(dmg_parts, crit, { gwf = prof.gwf, savage = savage })
     if prof.adv_bonus and mode > 0 then
         local extra = self:roll_parts({ prof.adv_bonus }, crit)
         table.insert(parts, extra[1])
@@ -710,7 +743,10 @@ function B:attack(att, tgt, prof, opts)
     self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit, hit = true, crit = crit, roll = roll,
                 total = total, ac = ac, mode = mode, ranged = prof.kind == "ranged", sneak = res.sneak,
                 opportunity = opts.opportunity, spell = prof.spell })
+    local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
+    local hp_before = tgt.hp
     res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon })
+    self:bestiary_on_hit(att, tgt, prof, res, bloodied_before, hp_before)
     -- Monster riders.
     if prof.prone_max_size and not tgt.dead and SIZE_RANK[tgt.size] <= SIZE_RANK[prof.prone_max_size] then
         self:knock_prone(tgt, att.name .. "'s bite")
@@ -725,10 +761,19 @@ function B:attack(att, tgt, prof, opts)
             if tgt.traits and tgt.traits[t] then immune = true end
             if t == "elf" and tgt.species == "elf" then immune = true end
         end
-        if not immune and not self:save(tgt, r.save, r.dc, { kind = r.condition }) then
+        if tgt.condition_immune and tgt.condition_immune[r.condition] then
+            immune = true
+        end
+        if not immune and (not r.save or not self:save(tgt, r.save, r.dc, { kind = r.condition })) then
+            local whose, at = tgt, "end"
+            if r.lasts == "end_of_attacker_next_turn" then
+                whose = att
+            elseif r.lasts == "start_of_attacker_next_turn" then
+                whose, at = att, "start"
+            end
             self:add_effect(tgt, { name = r.condition, conds = { [r.condition] = true },
-                                   expires = self:next_turn(tgt, "end") })
-            self:log("%s is %s until the end of its next turn.", tgt.name, r.condition)
+                                   expires = self:next_turn(whose, at) })
+            self:log("%s is %s until the %s of %s next turn.", tgt.name, r.condition, at, whose == tgt and "its" or (att.name .. "'s"))
         end
     end
     -- Weapon mastery on a hit (p. 90).
@@ -771,6 +816,164 @@ function B:apply_mastery(att, tgt, prof, res)
                 self:log("%s cleaves into %s.", att.name, o.name)
                 self:attack(att, o, p2, { no_sneak = true })
                 break
+            end
+        end
+    end
+end
+
+-- The Vale Bestiary (A13) -------------------------------------------------------------------
+
+local SIZE_ORDER = { tiny = 1, small = 2, medium = 3, large = 4, huge = 5, gargantuan = 6 }
+
+-- The Grappled effect on c, if any (its grapple_by is the grappler).
+function B:find_grapple(c)
+    for _, e in ipairs(c.effects) do
+        if e.grapple_by then
+            return e
+        end
+    end
+    return nil
+end
+
+-- A grapple ends when the grappler is down, dead or Incapacitated, or the two are out of reach.
+function B:sweep_grapples()
+    for _, c in ipairs(self.creatures) do
+        for i = #c.effects, 1, -1 do
+            local e = c.effects[i]
+            if e and e.grapple_by then
+                local g = e.grapple_by
+                if c.dead or g.dead or g.down or self:incapacitated(g) or self:dist(g, c) > (e.reach or 5) then
+                    self:remove_effect(c, e, "released")
+                    self:log("  %s is free of %s's grip.", c.name, g.name)
+                end
+            end
+        end
+    end
+end
+
+-- Escape a grapple: an Athletics or Acrobatics check against the escape DC, as an action.
+function B:escape_grapple(c)
+    local e = self:find_grapple(c)
+    if not e then
+        return false
+    end
+    local prof = c.class and require("game.rules.skills").PROFICIENT[c.class] or {}
+    local str = self:check(c, "str", prof.athletics and (c.pb or 0) or 0)
+    local dex = self:check(c, "dex", prof.acrobatics and (c.pb or 0) or 0)
+    local total = math.max(str, dex)
+    if c.turn then
+        c.turn.action = false
+    end
+    if total >= e.escape_dc then
+        self:remove_effect(c, e, "escaped")
+        self:log("%s breaks free of %s's grip (%d vs DC %d).", c.name, e.grapple_by.name, total, e.escape_dc)
+        self:emit({ kind = "feature", who = c, name = "Breaks free" })
+        return true
+    end
+    self:log("%s strains against %s's grip and fails (%d vs DC %d).", c.name, e.grapple_by.name, total, e.escape_dc)
+    return false
+end
+
+-- Hack a way out of a giant spider's web (AC 10, 5 HP, Vulnerability to Fire): an attack as an action.
+function B:cut_web(c, prof)
+    local e = self:find_effect(c, "Spider web")
+    if not e then
+        return false
+    end
+    if c.turn then
+        c.turn.action = false
+    end
+    local roll = self.dice:d20(0)
+    if roll == 1 or roll + (prof and prof.to_hit or 0) < e.web.ac then
+        self:log("%s hacks at the web and misses.", c.name)
+        return false
+    end
+    local parts = self:roll_parts((prof and prof.damage) or { { 1, 4, 0, "slashing" } }, roll == 20)
+    local dmg = 0
+    for _, p in ipairs(parts) do
+        local n = p[1]
+        if p[2] == "fire" then n = n * 2 end
+        if p[2] == "poison" or p[2] == "psychic" then n = 0 end
+        dmg = dmg + n
+    end
+    e.web.hp = e.web.hp - dmg
+    if e.web.hp <= 0 then
+        self:remove_effect(c, e, "cut free")
+        self:log("%s cuts through the web.", c.name)
+        self:emit({ kind = "feature", who = c, name = "Cuts free" })
+        return true
+    end
+    self:log("%s hacks at the web (%d left).", c.name, e.web.hp)
+    return false
+end
+
+-- What a bestiary attack does after it lands: grab, pull, mark, drain, and the gnoll's Rampage.
+function B:bestiary_on_hit(att, tgt, prof, res, bloodied_before, hp_before)
+    if tgt.dead then
+        return
+    end
+    local g = prof.grapple
+    if g and (res.damage or 0) >= 0 and SIZE_ORDER[tgt.size or "medium"] <= SIZE_ORDER[g.max_size or "medium"]
+        and not (tgt.condition_immune and tgt.condition_immune.grappled) and not self:find_grapple(tgt) then
+        local holding = 0
+        for _, o in ipairs(self.creatures) do
+            local e = self:find_grapple(o)
+            if e and e.grapple_by == att then holding = holding + 1 end
+        end
+        if holding < (g.hands or 1) then
+            self:add_effect(tgt, { name = "Grappled", conds = { grappled = true }, grapple_by = att, escape_dc = g.dc,
+                                   reach = prof.reach or 5 })
+            self:log("  %s has %s in its grip (escape DC %d).", att.name, tgt.name, g.dc)
+            self:emit({ kind = "feature", who = att, name = "Grabs", target = tgt })
+        end
+    end
+    if prof.pull and SIZE_ORDER[tgt.size or "medium"] <= SIZE_ORDER[prof.pull.max_size or "large"] then
+        local before = self:dist(att, tgt)
+        for _ = 1, math.floor(prof.pull.feet / 5) do
+            if self:dist(att, tgt) <= 5 then break end
+            local sx = att.x > tgt.x and 1 or (att.x < tgt.x and -1 or 0)
+            local sy = att.y > tgt.y and 1 or (att.y < tgt.y and -1 or 0)
+            local nx, ny = tgt.x + sx, tgt.y + sy
+            if not self:in_bounds(nx, ny) or self:occupant(nx, ny) then break end
+            tgt.x, tgt.y = nx, ny
+        end
+        if self:dist(att, tgt) < before then
+            self:log("  %s hauls %s in on the line.", att.name, tgt.name)
+            self:emit({ kind = "move", who = tgt, path = { { tgt.x, tgt.y } }, forced = true })
+        end
+    end
+    if prof.mark then
+        self:add_effect(tgt, { name = att.name .. "'s bite", marked_adv = true, expires = self:next_turn(att, "start") })
+    end
+    if prof.drain and (res.damage or 0) > 0 then
+        local taken = math.max(0, hp_before - math.max(0, tgt.hp))
+        if tgt.down then taken = hp_before end
+        if taken > 0 then
+            tgt.hp_max = math.max(0, tgt.hp_max - taken)
+            tgt.drained = (tgt.drained or 0) + taken
+            self:log("  %s's Hit Point maximum drops by %d (%d).", tgt.name, taken, tgt.hp_max)
+            if tgt.hp_max <= 0 then
+                self:kill(tgt, att, "drained")
+            end
+        end
+    end
+    if bloodied_before and att.bonus_actions and att.bonus_actions.rampage and not att.rampage_used
+        and att.turn and att.turn.bonus and not tgt.dead and prof.kind == "melee" then
+        att.rampage_used = true
+        att.turn.bonus = false
+        self:log("%s goes on a Rampage.", att.name)
+        self:emit({ kind = "feature", who = att, name = "Rampage" })
+        for _, a in ipairs(att.attacks or {}) do
+            if a.id == "rend" then
+                local t = tgt
+                if t.dead or t.down then
+                    for _, o in ipairs(self:enemies_of(att)) do
+                        if self:dist(att, o) <= 5 then t = o break end
+                    end
+                end
+                if t and not t.dead and not t.down and self:dist(att, t) <= 5 then
+                    self:attack(att, t, creature.monster_attack(att, a))
+                end
             end
         end
     end
@@ -835,8 +1038,9 @@ function B:deal(src, tgt, parts, info)
             if resist_spell and resist_spell.resistance_type == dtype and not tgt.turn_resisted then
                 amount = math.max(0, amount - self.dice:d(4))
             end
-            if tgt.resist[dtype] or bond then
-                amount = math.floor(amount / 2)
+            local under = dtype == "fire" and self.hazard and require("game.rules.hazards").deep(self, tgt)
+            if tgt.resist[dtype] or bond or under then
+                amount = math.floor(amount / 2)            -- (anything underwater resists fire, p. 16)
             end
             if tgt.vulnerable[dtype] then
                 amount = amount * 2
@@ -999,8 +1203,28 @@ function B:death_failure(c, n, src)
     end
 end
 
+-- Heroic Inspiration (SRD 5.2.1, Rules Glossary): the holder can expend it to reroll any die
+-- right after rolling it, and must use the new roll (M8, B4). c.heroic is the token; want says
+-- whether this roll is worth it (the simulated players spend it on rolls that matter).
+function B:heroic_reroll(c, roll, want, what, mode, luck)
+    if not (c and c.heroic and want) then
+        return roll
+    end
+    c.heroic = nil
+    local new = self.dice:d20(mode or 0, luck)
+    self:log("  %s spends Heroic Inspiration to reroll the %s: %d becomes %d.", c.name, what or "die", roll, new)
+    self:emit({ kind = "feature", who = c, name = "Heroic Inspiration" })
+    self.heroic_used = (self.heroic_used or 0) + 1
+    return new
+end
+
 function B:death_save(c)
     local roll = self.dice:d20(0, c.traits.halfling_luck)
+    roll = self:heroic_reroll(c, roll, roll < 10, "Death Saving Throw", 0, c.traits.halfling_luck)
+    if c.wound_closure and roll <= 9 then
+        self:log("%s's Periapt of Wound Closure turns a %d into a 10.", c.name, roll)
+        roll = 10                                  -- Periapt of Wound Closure (A13)
+    end
     self:emit({ kind = "death_save", who = c, roll = roll })
     if roll == 20 then
         self:log("%s rolls a natural 20 on a Death Saving Throw and regains 1 Hit Point!", c.name)
@@ -1104,6 +1328,7 @@ function B:save(c, ab, dc, info)
     if self:any_effect(c, "warding_bond") then
         bonus = bonus + 1
     end
+    roll = self:heroic_reroll(c, roll, roll + bonus < dc, string.upper(ab) .. " save", mode, c.traits.halfling_luck)
     local total = roll + bonus
     local ok = total >= dc
     self:log("  %s %s a DC %d %s save (%d).", c.name, ok and "makes" or "fails", dc, string.upper(ab), total)
@@ -1118,12 +1343,50 @@ function B:check(c, ab, prof_bonus, info)
     if self:has(c, "poisoned") or self:has(c, "frightened") then mode = -1 end
     if info.adv and mode == 0 then mode = 1 elseif info.adv and mode < 0 then mode = 0 end
     local roll = self.dice:d20(mode, c.traits and c.traits.halfling_luck)
-    return roll + abmod(c, ab) + (prof_bonus or 0), roll
+    return roll + abmod(c, ab) + (prof_bonus or 0) + (c.item_checks or 0), roll
 end
 
 -- Movement and Opportunity Attacks (p. 15, p. 185) ------------------------------------------------------------------------------
 
 local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
+
+-- Cover from the board and the map (B9). SRD 5.2.1, Rules Glossary "Cover": Half Cover gives +2
+-- to AC and Dexterity saves. Simplified: against attacks from more than 5 feet away, a creature
+-- has it standing on a cover square (the map's), or tucked in behind a piece of the board's
+-- scenery (a low wall, a table, a crate) that sits between it and the attacker (the save bonus
+-- isn't modelled).
+local function sign(v)
+    return v > 0 and 1 or (v < 0 and -1 or 0)
+end
+
+function B:cover_bonus(att, tgt)
+    if not self.cover or not tgt or not tgt.x then
+        return 0
+    end
+    if att and att.x and self:dist(att, tgt) <= 5 then
+        return 0
+    end
+    if self.cover[tgt.x .. "," .. tgt.y] then
+        return 2
+    end
+    if att and att.x then
+        local dx, dy = sign(att.x - tgt.x), sign(att.y - tgt.y)
+        local function behind(x, y)
+            return self.cover[x .. "," .. y] and self.blocked and self.blocked[x * 1000 + y]
+        end
+        if behind(tgt.x + dx, tgt.y + dy) then
+            return 2
+        end
+        -- Coming in at a slant, the piece beside them still covers them.
+        local adx, ady = math.abs(att.x - tgt.x), math.abs(att.y - tgt.y)
+        if adx > ady and dx ~= 0 and behind(tgt.x + dx, tgt.y) then
+            return 2
+        elseif ady > adx and dy ~= 0 and behind(tgt.x, tgt.y + dy) then
+            return 2
+        end
+    end
+    return 0
+end
 
 function B:zone_at(x, y)
     for _, z in ipairs(self.zones) do
@@ -1351,8 +1614,8 @@ end
 function B:roll_initiative()
     for _, c in ipairs(self.creatures) do
         local mode = 0
-        if c.sub and c.sub.init_advantage then
-            mode = 1
+        if (c.sub and c.sub.init_advantage) or c.item_init_adv then
+            mode = 1                       -- (and the Sentinel Shield, A13)
         end
         -- Surprise (p. 13): Disadvantage on Initiative.
         if c.surprised then
@@ -1405,6 +1668,14 @@ function B:start_turn(c)
     c.turn = { action = true, bonus = true, move = self:speed(c), moved = false, attacks = 0 }
     c.reaction_used = false
     self:process_expiry(c, "start")
+    self:sweep_grapples()
+    if self.hazard then
+        require("game.rules.hazards").start_turn(self, c)   -- Burning (p. 178)
+    end
+    if c.web_spent and self.dice:d(6) >= ((c.data and c.data.web and c.data.web.recharge) or 5) then
+        c.web_spent = nil
+        self:log("%s's web is ready again.", c.name)
+    end
     c.turn.move = self:speed(c)
     -- Web: starting a turn in the webs means a save (p. 174).
     local z = self:zone_at(c.x, c.y)
@@ -1487,7 +1758,19 @@ function B:take_turn(c)
         end
     end
     if not self:incapacitated(c) and self.ai then
-        self.ai.take_turn(self, c)
+        -- Game night (B8): the DM can run this turn: who it goes for (c.dm_target), or a speech
+        -- instead of an attack (c.dm_skip).
+        if self.hooks.before_turn then
+            self.hooks.before_turn(self, c)
+        end
+        if c.dm_skip then
+            c.dm_skip = nil
+            self:log("%s stops to gloat.", c.name)
+            self:emit({ kind = "feature", who = c, name = c.dm_skip_name or "Gloats" })
+        elseif not c.dead and not c.removed then
+            self.ai.take_turn(self, c)
+        end
+        c.dm_target, c.dm_finish = nil, nil
     end
     if not c.dead then
         self:end_turn(c)
@@ -1538,6 +1821,9 @@ function B:run(opts)
         self.round = r
         self:log("-- Round %d --", r)
         self:emit({ kind = "round", round = r })
+        if self.hazard then
+            require("game.rules.hazards").round(self)     -- the hazard acts first (A10)
+        end
         if opts.before_round then
             opts.before_round(self, r)
         end

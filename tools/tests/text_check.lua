@@ -119,7 +119,7 @@ local function play_night(night, rng, dm)
             -- A4: who rolls, and were they one of the two best at it?
             stats.roll_total = stats.roll_total + 1
             local p = night.campaign:player(ev.actor)
-            stats.rolls[p.char] = (stats.rolls[p.char] or 0) + 1
+            stats.rolls[p.name] = (stats.rolls[p.name] or 0) + 1   -- per seat: a new character (B3) carries on
             local mods = {}
             for _, q in ipairs(night.players) do
                 table.insert(mods, night:mod_for(q, ev.skill))
@@ -296,7 +296,7 @@ local gates = {
     { string.format("Under 2%% of lines repeat within a night (A5): %.2f%%", rep_rate * 100), rep_rate < 0.02 },
     -- (The plan said 18 to 32%; the fighter's skills cap him near 16% in a slice that's mostly
     -- talking and sleuthing, so the gate is 15 to 35%: nobody hogs, nobody's left out.)
-    { "Each hero gets 15 to 35% of big rolls (A4): " .. table.concat(shares, ", "), lo >= 0.15 and hi <= 0.35 },
+    { "Each player's hero gets 15 to 35% of big rolls (A4): " .. table.concat(shares, ", "), lo >= 0.15 and hi <= 0.35 },
     { string.format("Thread owners roll in their own scenes (A4): %d%%", math.floor(owner * 100)), owner >= 0.9 },
     { string.format("The roller is one of the two best at it (A4): %d%%", math.floor(top2 * 100)), top2 >= 0.8 },
     -- A12: players play like people. A few table habits a night, lots of different ones, no line

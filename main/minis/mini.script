@@ -76,6 +76,17 @@ function update(self, dt)
         self.flash = math.max(0, self.flash - dt * 2.5)
         local k = self.flash
         go.set("#sprite", "tint", vmath.vector4(1, 1 - 0.6 * k, 1 - 0.6 * k, 1))
+    elseif self.glow then
+        -- Speaking in character (A9): a warm light that fades as the line ends.
+        self.glow.t = self.glow.t + dt
+        local g = self.glow
+        local k = g.t < 0.2 and g.t / 0.2 or math.max(0, 1 - math.max(0, g.t - (g.dur - 0.4)) / 0.4)
+        go.set("#sprite", "tint", vmath.vector4(1, 1 - 0.08 * k, 1 - 0.35 * k, 1))
+        self.glow_lift = 0.6 * k
+        if g.t >= g.dur then
+            self.glow, self.glow_lift = nil, 0
+            go.set("#sprite", "tint", vmath.vector4(1, 1, 1, 1))
+        end
     end
 
     local eye = state.cam_eye
@@ -92,7 +103,7 @@ function update(self, dt)
         local t = state.time * self.speed + self.phase
         bob = math.max(0, math.sin(t)) * 0.35 * imag
     end
-    local p = home + self.offset + up + vmath.vector3(0, self.lift + (self.hop or 0) + bob, 0)
+    local p = home + self.offset + up + vmath.vector3(0, self.lift + (self.hop or 0) + bob + (self.glow_lift or 0), 0)
     go.set_position(p)
     go.set_rotation(rot * vmath.quat_rotation_x(-a))
     place_followers(self, home + self.offset)
@@ -106,6 +117,10 @@ function on_message(self, message_id, message)
     if message_id == hash("setup") then
         self.base, self.shadow = message.base, message.shadow
         self.size = message.size or 1
+        if message.home_y then
+            -- Standing somewhere other than the mat (the shelf of fallen heroes, B3).
+            self.home = vmath.vector3(self.home.x, message.home_y, self.home.z)
+        end
         local s = scene.mini.scale * self.size
         go.set_scale(vmath.vector3(s, s, s))
         sprite.play_flipbook("#sprite", message.anim)
@@ -146,6 +161,8 @@ function on_message(self, message_id, message)
         end
     elseif message_id == hash("hit") then
         self.flash = 1
+    elseif message_id == hash("glow") then
+        self.glow = { t = 0, dur = math.max(0.8, message.time or 2) }
     elseif message_id == hash("down") then
         go.animate("#mini", "tilt", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_OUTBOUNCE, 0.6)
     elseif message_id == hash("up") then

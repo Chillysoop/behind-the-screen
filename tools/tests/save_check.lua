@@ -137,6 +137,50 @@ for _, bad in ipairs({ 'T[1]={os.exit(1)}', 'T[1]={("x"):rep(9)}', 'T[1]={"a".."
     check(not save.safe_line(bad) and save.load("F=1\nW=1\nS=1\n" .. bad .. "\n") == nil,
         "a line that isn't plain data is refused: " .. bad)
 end
+-- New books (A13): the shelf, what was pulled in, the items the party carries and a published
+-- adventure on the board all come back after loading.
+do
+    local books = require "game.model.books"
+    local items = require "game.model.items"
+    local c = campaign_mod.new(4242)
+    local rng = rng_mod.new(77)
+    c:session_zero(bots.DMS.plain.s0)
+    for _ = 1, 3 do
+        play_week(c, bots.DMS.plain, rng)
+    end
+    local prep = c:start_week()
+    check(books.get(c).arrived.vale_gazetteer == 4, "the gazetteer comes out in week 4")
+    prep:inspire("supplement")
+    local r = prep.reading
+    check(r ~= nil and r.book == "vale_gazetteer", "the supplement evening opens the newest book")
+    local mod_entry, place_entry
+    for _, e in ipairs(r and books.book(r.book).entries or {}) do
+        if e.kind == "module" and not mod_entry then mod_entry = e end
+        if e.kind == "place" and not place_entry then place_entry = e end
+    end
+    books.pull(c, prep, r, mod_entry.id)
+    books.pull(c, prep, r, place_entry.id)
+    items.earn(c, "cloak_of_protection")
+    check(prep:place_module(3, mod_entry.module), "a pulled adventure goes on the board")
+    c.at_night = true
+    local src = save.dump(c)
+    local b, err = save.load(src)
+    check(b ~= nil, "a campaign with books loads (" .. tostring(err) .. ")")
+    if b then
+        check(save.dump(b) == src, "saving the loaded book campaign gives the same file")
+        check(b.books.pulled[mod_entry.id] and b.books.pulled[place_entry.id] and b.books.modules[mod_entry.module],
+            "what was pulled in comes back")
+        check(b.prep.reading and b.prep.reading.left == r.left, "the open reading comes back with its pulls left")
+        check(b.prep.scenes[3].module and b.prep.scenes[3].module.id == mod_entry.module, "the adventure is still on scene 3")
+        local cloak
+        for _, it in ipairs(items.list(b)) do
+            if it.id == "cloak_of_protection" then cloak = it end
+        end
+        check(#items.list(b) == #items.list(c) and cloak ~= nil and cloak.holder ~= nil, "the party still carries its magic item")
+        check(require("game.model.deck").entry(b, place_entry.card.id) ~= nil, "the pulled place is still in the deck")
+    end
+end
+
 -- Cards a campaign made for itself (a callback from inspiration) come back after loading.
 do
     local seeds_mod = require "game.model.seeds"
@@ -212,6 +256,52 @@ for _, dm_key in ipairs(bots.ORDER) do
             local wa, wb = play_week(a, dm, rng), play_week(b, dm, rng_b)
             check(wa == wb, dm_key .. ": the week after plays the same too")
         end
+    end
+end
+-- Prep survives a quit (A11): a save made mid-prep keeps the half-built board and the week, and
+-- carrying on from it plays exactly as if nobody had quit.
+for _, dm_key in ipairs(bots.ORDER) do
+    local dm = bots.DMS[dm_key]
+    local seed = 9700 + #dm_key
+    local a = campaign_mod.new(seed)
+    local rng = rng_mod.new(seed + 5)
+    a:session_zero(dm.s0)
+    play_week(a, dm, rng)
+    local prep = a:start_week()
+    -- Half the board: scene 1's type and a card, then quit.
+    prep:set_type(1, prep.scenes[1].type or "social")
+    local first = nil
+    for _, kind in ipairs(content.kinds) do
+        for _, c in ipairs(prep.hand[kind] or {}) do
+            if not first and prep:place(1, c.id) then
+                first = c.id
+            end
+        end
+    end
+    a.at_prep = true
+    local src = save.dump(a)
+    local b, err = save.load(src)
+    check(save.peek(src).at_prep and not save.peek(src).at_night, dm_key .. ": the header says it was saved mid-prep")
+    check(b ~= nil and b.at_prep and b.prep ~= nil and b.week == a.week,
+        string.format("%s: a mid-prep save loads with its board and its week (%s)", dm_key, tostring(err)))
+    if b then
+        check(not first or b.prep:placed_at(first) == 1, dm_key .. ": the card placed before quitting is still on scene 1")
+        check(b.prep:left() == prep:left(), dm_key .. ": the hours spent before quitting stay spent")
+        check(save.dump(b) == src, dm_key .. ": saving the loaded mid-prep copy gives the same file")
+        local rng_b = rng_mod.new(1)
+        rng_b.s = rng.s
+        bots.prep(dm, a, a.prep, rng)
+        bots.prep(dm, b, b.prep, rng_b)
+        local function night_of(c, r)
+            local night = c:start_night()
+            bots.play_night(night, r, dm)
+            c:finish_night()
+            return telemetry.week_record(c, 300, night.clock)
+        end
+        local want, got = night_of(a, rng), night_of(b, rng_b)
+        check(want == got, string.format("%s: the night after a mid-prep quit plays the same (%s)", dm_key,
+            want == got and "" or first_diff(want, got)))
+        check(not b.at_prep and not string.find(save.dump(b), "\nP=1"), dm_key .. ": the night clears the mid-prep flag")
     end
 end
 -- A game-night save whose board is missing falls back to prep instead of a broken night.

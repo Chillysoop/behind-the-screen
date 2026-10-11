@@ -68,6 +68,17 @@ function M.reaction(w, act, target_key)
     return util.clamp(r, -3, 3)
 end
 
+-- Who at the table won't like an act (the same test on_act uses), for the card that asks about it.
+function M.objectors(campaign, doer, act, witnesses, target_key)
+    local out = {}
+    for _, w in ipairs(witnesses) do
+        if w ~= doer and M.rel(campaign, w.key, doer.key) and M.reaction(w, act, target_key) <= -0.5 then
+            table.insert(out, w)
+        end
+    end
+    return out
+end
+
 local function forgiveness(rapport)
     return util.clamp(1.3 - rapport / 100, 0.45, 1.0)
 end

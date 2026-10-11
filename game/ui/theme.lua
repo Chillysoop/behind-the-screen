@@ -60,6 +60,8 @@ return {
         table = c("#3f7f7a"),
         curveball = c("#8f4f6a"),
         agency = c("#2f6f5a"),
+        talk = c("#5a6f2f"),
+        boss = c("#7a2f2f"),
     },
     log = {
         narration = c("#e9dcc3"),

@@ -49,6 +49,11 @@ M.EVENTS = {
     lost_to = { 0, "lost a fight to" },
     escaped = { 0, "let slip" },
     outplayed = { 0, "outplayed" },
+    -- Taking over (B8): the DM spoke for them.
+    talk_warm = { 1, "got a straight answer from" },
+    talk_guarded = { 0, "got nothing out of" },
+    talk_lie = { 0, "was lied to by" },
+    talk_caught = { -1, "caught a lie from" },
 }
 
 local function clamp(v)
@@ -279,6 +284,10 @@ end
 
 function M.entry_text(campaign, entry, opts)
     opts = opts or {}
+    -- An event (M8, B1) carries its own line.
+    if entry.ev then
+        return entry.text or (util.capitalize(entry.ev) .. ".")
+    end
     local who
     if entry.who == "party" or not entry.who then
         who = "The party"
@@ -304,6 +313,7 @@ end
 -- After game night: file tonight's entries, move attitudes and statuses, and note what changed.
 function M.after_night(campaign, night)
     local nb = M.get(campaign)
+    night.filed = true
     for _, e in ipairs(night.ledger or {}) do
         e.w = campaign.week
         table.insert(nb.log, e)
@@ -483,6 +493,28 @@ function M.grudge(campaign, pid)
     end
 end
 
+-- Grudge (M8, B6): how much a villain who got away holds against the party, worked out from
+-- the log: every escape, every time they beat the party, every time the party hurt them. 0 to 5.
+M.GRUDGE_MAX = 5
+function M.grudge_level(campaign, pid)
+    if not pid then
+        return 0
+    end
+    local g = 0
+    for _, e in ipairs(M.get(campaign).log) do
+        if e.to == pid and not e.ev then
+            if e.did == "escaped" then
+                g = g + 2
+            elseif e.did == "lost_to" then
+                g = g + 1
+            elseif (e.d or 0) < 0 then
+                g = g + 0.5
+            end
+        end
+    end
+    return math.min(M.GRUDGE_MAX, math.floor(g))
+end
+
 -- What a person brings when the DM brings them in (S6): an agenda card from their wants, by
 -- how they feel about the party, or nil when they simply come as themselves (Indifferent).
 -- warm: a goal (a favour, a job); cold: a complication; back: a villain who got away.
@@ -513,6 +545,11 @@ function M.agenda_card(campaign, pid)
     local w = data.people[pid].wants[which]
     local cast = M.card_of(campaign, pid)
     local line = w.line
+    if which == "back" and M.grudge_level(campaign, pid) >= 2 then
+        -- A villain back with a Grudge (B6) says so.
+        line = line .. " The Grudge is personal now (" .. util.int(M.grudge_level(campaign, pid)) .. " of "
+            .. util.int(M.GRUDGE_MAX) .. ")."
+    end
     if which ~= "warm" then
         local g = M.grudge(campaign, pid)
         if g then

@@ -30,7 +30,7 @@ end
 -- moment over the prep board, the sandbox, an error, the dialogue review queue, the DM's
 -- notes, a character sheet or the encounter builder).
 local function quiet(app)
-    return app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask
+    return app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
         or (app.review and app.review.queue_open)
 end
 

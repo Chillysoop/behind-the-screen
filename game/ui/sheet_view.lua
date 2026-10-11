@@ -136,7 +136,26 @@ local function page_sheet(app, s, x, y)
     ry = ry + 22
     local hook = util.capitalize(s.thread or "")
     kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
-    ry = ry + kit.text_height(hook, "ui18", rw) + 14
+    ry = ry + kit.text_height(hook, "ui18", rw) + 6
+    -- How far the villain may go with it (Session Zero's backstory boundary): theirs to say, and
+    -- yours to change after a check-in.
+    local villains = require "game.model.villains"
+    local b = villains.boundary(app.campaign, s.key)
+    local vd = villains.data
+    local bline = "Villains: " .. vd.BOUNDARY_NAME[b] .. ". " .. vd.BOUNDARY_ABOUT[b]
+    kit.text(rx, ry, bline, "ui14", theme.dim, { w = rw - 110 })
+    kit.button(rx + rw - 100, ry - 4, 100, 26, "Change", function()
+        local order = vd.BOUNDARY_ORDER
+        local at = 1
+        for k, id in ipairs(order) do
+            if id == b then
+                at = k
+            end
+        end
+        villains.set_boundary(app.campaign, s.key, order[at % #order + 1])
+        M.draw(app)
+    end, { font = "ui14", key = "sheet_boundary" })
+    ry = ry + math.max(26, kit.text_height(bline, "ui14", rw - 110)) + 12
     kit.text(rx, ry, "AT THE TABLE", "ui14", theme.gold)
     ry = ry + 22
     kit.text(rx, ry, s.notes or "", "ui14", theme.dim, { w = rw })
@@ -199,12 +218,33 @@ function M.draw(app)
     kit.box(X, Y, W, 112, theme.panel, { radius = 14 })
     kit.dot(X + 62, Y + 56, 92, panels.COLORS[s.key] or theme.panel3)
     kit.picture(X + 16, Y + 10, 92, 92, panels.face(s.key))
-    kit.picture(X + 114, Y + 14, 68, 85, CLASS_MINI[s.class] or "mini_fighter")
+    kit.picture(X + 114, Y + 14, 68, 85, panels.mini(app.campaign:player(s.key), s.class))
     kit.text(X + 196, Y + 14, s.name, "title30", theme.text)
     local line = s.species .. " " .. s.class_name .. ", level " .. util.int(s.level)
         .. (s.subclass_name and (", " .. s.subclass_name) or "") .. ".  " .. s.background .. " background."
     kit.text(X + 196, Y + 56, line, "ui18", theme.dim)
     kit.text(X + 196, Y + 80, "Played by " .. s.player, "ui14", theme.gold)
+    -- When this hero dies (B3): the table's rule, or theirs if you've agreed to honour it. Revisit
+    -- it here any time.
+    local death = require "game.model.death"
+    local camp = app.campaign
+    local mode, pref = death.mode_for(camp, s.key), death.pref(s.key)
+    local dx = X + 196 + kit.width("Played by " .. s.player, "ui14") + 18
+    local dline = "If " .. s.name .. " dies: " .. death.data.MODE[mode].short .. "."
+    if pref and pref ~= mode then
+        dline = dline .. " " .. s.player .. " would rather: " .. death.data.MODE[pref].short .. "."
+    end
+    local room = (X + W - 600) - dx - 20
+    local honour = pref and pref ~= mode
+    local undo = camp.death_overrides and camp.death_overrides[s.key]
+    local bw = (honour or undo) and 120 or 0
+    kit.text(dx, Y + 80, kit.ellipsize(dline, "ui14", room - bw - 8), "ui14", theme.dim)
+    if honour or undo then
+        kit.button(dx + room - bw, Y + 74, bw, 28, honour and "Honour it" or "Table's rule", function()
+            death.set_override(camp, s.key, honour and pref or nil)
+            M.draw(app)
+        end, { font = "ui14", key = "sheet_death" })
+    end
     -- Pages and the other sheets.
     local bx = X + W - 600
     for _, pg in ipairs({ { "sheet", "Sheet" }, { "features", "Features" } }) do

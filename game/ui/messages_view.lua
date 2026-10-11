@@ -69,6 +69,15 @@ function M.unread(app)
     return n
 end
 
+-- The bottom of the column, above any theories pinned to the board (B5).
+M.PIN_H = 92
+local function bottom(app)
+    if app.screen ~= "prep" then
+        return 885
+    end
+    return 885 - #require("game.model.seeds").pinned(app.campaign) * M.PIN_H
+end
+
 local function group_chat(app, y0)
     local c = app.campaign
     local msgs = c.chat or {}
@@ -77,7 +86,7 @@ local function group_chat(app, y0)
     for i, m in ipairs(msgs) do
         heights[i] = 30 + kit.text_height(m.text, "ui18", W - 24) + (m.choices and 34 or 0)
     end
-    local room = 885 - y0
+    local room = bottom(app) - y0
     local first, used = #msgs + 1, 0
     for i = #msgs, 1, -1 do
         if used + heights[i] + 8 > room - (i > 1 and 22 or 0) then
@@ -128,7 +137,7 @@ local function message_list(app, y0)
     end
     for _, r in ipairs(rows) do
         local h = 76
-        if y + h > 885 then
+        if y + h > bottom(app) then
             break
         end
         kit.button(X, y, W, h, "", function()

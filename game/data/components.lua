@@ -407,7 +407,7 @@ return {
       lose = "The bell stops ringing. Something underneath it keeps going.", got = "the crypt bell silenced" },
 
     -- Complications: spent once played -------------------------------------------------------
-    { id = "collapse", kind = "complication", suits = { "ruin", "under", "high" }, skill = { "acrobatics", "athletics" }, where = { "indoor", "ruin", "under", "bridge", "high" }, name = "The floor gives way", cost = 1, difficulty = 1,
+    { id = "collapse", kind = "complication", hazard = "falling_rubble", suits = { "ruin", "under", "high" }, skill = { "acrobatics", "athletics" }, where = { "indoor", "ruin", "under", "bridge", "high" }, name = "The floor gives way", cost = 1, difficulty = 1,
       fits = { "exploration", "set_piece", "combat" }, tags = { "danger" },
       alt = { bridge = "Halfway across, a plank snaps and the whole span lurches.", high = "Halfway up, the old boards groan and give way." },
       line = "Halfway through, the floor groans and gives way." },
@@ -417,7 +417,7 @@ return {
     { id = "liar", kind = "complication", suits = { "crowd", "tavern" }, skill = { "insight" }, name = "Someone was lying", cost = 2, difficulty = 0,
       fits = { "social", "mystery" }, tags = { "mystery", "chaos" },
       line = "One detail does not add up. Someone has been lying all along." },
-    { id = "storm", kind = "complication", suits = { "forest", "wild", "road" }, skill = { "survival", "athletics" }, where = { "outdoor" }, name = "A storm rolls in", cost = 1, difficulty = 1,
+    { id = "storm", kind = "complication", hazard = "strong_wind", suits = { "forest", "wild", "road" }, skill = { "survival", "athletics" }, where = { "outdoor" }, name = "A storm rolls in", cost = 1, difficulty = 1,
       fits = { "exploration", "combat", "downtime" }, tags = { "chaos" },
       line = "Thunder. Then rain so heavy you can't hear yourself think." },
     { id = "clock", kind = "complication", suits = { "bells", "ruin" }, skill = { "investigation", "arcana" }, name = "The clock is ticking", cost = 1, difficulty = 1,
@@ -430,7 +430,7 @@ return {
       fits = { "combat", "social", "mystery" }, tags = { "chaos", "mystery" },
       line = "The friendly guide draws a knife. On them.",
       on = { played = { "turncoat_guide" } } },
-    { id = "trap", kind = "complication", suits = { "under", "ruin" }, skill = { "perception", "sleight_of_hand", "investigation" }, where = { "indoor", "ruin", "under", "wild" }, name = "A hidden trap", cost = 1, difficulty = 1,
+    { id = "trap", kind = "complication", trap = true, suits = { "under", "ruin" }, skill = { "perception", "sleight_of_hand", "investigation" }, where = { "indoor", "ruin", "under", "wild" }, name = "A hidden trap", cost = 1, difficulty = 1,
       fits = { "exploration", "puzzle" }, tags = { "danger", "puzzle" },
       alt = { wild = "Click. A snare line pulls taut across the path. Everyone freezes." },
       line = "Click. Everyone freezes. Nobody wants to look down." },
@@ -455,7 +455,7 @@ return {
       fits = { "social", "downtime", "combat" }, tags = { "funny", "chaos" },
       alt = { tavern = "Someone's goat gets loose in the taproom. Of course the goat gets loose.", crowd = "Someone's goat gets loose in the crowd. Of course the goat gets loose." },
       line = "The goat gets loose. Of course the goat gets loose." },
-    { id = "fire", kind = "complication", suits = { "town", "indoor", "forest" }, deck = "spare", skill = { "athletics", "survival" }, where = { "indoor", "town", "wild" }, name = "Fire!", cost = 1, difficulty = 1,
+    { id = "fire", kind = "complication", hazard = "spreading_fire", suits = { "town", "indoor", "forest" }, deck = "spare", skill = { "athletics", "survival" }, where = { "indoor", "town", "wild" }, name = "Fire!", cost = 1, difficulty = 1,
       fits = { "combat", "set_piece", "exploration" }, tags = { "danger", "action" },
       line = "Smoke first, then the crackle: something's caught, and it's spreading fast." },
     -- Opened by other cards:
@@ -500,7 +500,7 @@ return {
     { id = "purse_lifted", kind = "complication", deck = "plan", suits = { "crowd", "shop" }, skill = { "perception", "sleight_of_hand" }, where = { "crowd", "town" }, name = "Someone's purse is gone", cost = 1, difficulty = 0,
       fits = { "social", "downtime", "mystery" }, tags = { "funny", "chaos" },
       line = "Pip pats her belt, then Brannoc's, then everyone's. The party purse is gone." },
-    { id = "flood", kind = "complication", deck = "plan", suits = { "water", "road" }, skill = { "athletics", "survival" }, where = { "outdoor", "water", "under" }, name = "The river's rising", cost = 1, difficulty = 1,
+    { id = "flood", kind = "complication", hazard = "rising_water", deck = "plan", suits = { "water", "road" }, skill = { "athletics", "survival" }, where = { "outdoor", "water", "under" }, name = "The river's rising", cost = 1, difficulty = 1,
       fits = { "exploration", "set_piece", "combat" }, tags = { "danger" },
       line = "The river's over the road, then over their boots, then over their knees." },
     { id = "fog", kind = "complication", deck = "plan", suits = { "forest", "wild", "road", "high" }, skill = { "survival", "perception" }, where = { "outdoor" }, name = "Fog rolls in", cost = 1, difficulty = 1,
@@ -517,7 +517,7 @@ return {
       line = "Graves on the north road stand open, and the footprints leading out of them are bare and slow." },
 
     -- Rewards: spent once played --------------------------------------------------------------
-    { id = "sword", kind = "reward", suits = { "ruin", "under", "camp" }, name = "A +1 longsword", cost = 1,
+    { id = "sword", kind = "reward", suits = { "ruin", "under", "camp" }, name = "A +1 longsword", cost = 1, item = "weapon_plus1",
       fits = { "combat", "set_piece", "exploration" }, tags = { "loot" }, meters = { reward = 14 },
       line = "A +1 longsword, humming faintly.", got = "a +1 longsword" },
     { id = "gold", kind = "reward", suits = { "camp", "road" }, name = "A heavy purse of gold", cost = 1,
@@ -622,7 +622,7 @@ return {
       line = "Goal: a duel at dawn. Honor, pride, and a very nervous second.",
       win = "First blood, a bow, and honor satisfied before breakfast.",
       lose = "They lose the duel, keep their honor, and need a very long nap.", got = "a duel won" },
-    { id = "burning_bridge", kind = "complication", suits = { "bridge" }, skill = { "acrobatics", "athletics" }, where = { "bridge" }, name = "The bridge is on fire", cost = 1, difficulty = 1, reserve = "inspiration",
+    { id = "burning_bridge", kind = "complication", hazard = "spreading_fire", suits = { "bridge" }, skill = { "acrobatics", "athletics" }, where = { "bridge" }, name = "The bridge is on fire", cost = 1, difficulty = 1, reserve = "inspiration",
       fits = { "set_piece", "combat", "exploration" }, tags = { "action", "danger" },
       line = "Twist: somebody set the bridge on fire. With the party on it." },
     { id = "two_factions", kind = "complication", suits = { "town", "crowd" }, skill = { "persuasion", "deception" }, where = { "town" }, name = "Two factions arrive at once", cost = 1, difficulty = 1, reserve = "inspiration",

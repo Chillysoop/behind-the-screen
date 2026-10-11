@@ -234,6 +234,76 @@ never get cut.
 Everything at the table runs on the rules engine (`game/model/sheet.lua`, `game/rules/`), so a mode where real
 players roll their own dice could plug into it; the game itself stays simulated.
 
+## After the slice: the story deck, a living world and M8
+
+The first playtest round led to a story and card overhaul, a long fix pass (A1 to A18) and M8. In short:
+
+**The story deck.** Story cards come from a deck with follow-ups: how a scene goes decides what's dealt next.
+The campaign planner sets the truths, the second front and the featured threads. The notebook (N) keeps
+people, factions, places, threads, the campaign, the web of who's tied to whom and a session log, with
+attitudes that move on what the party does. The world turns between sessions: factions move on clocks,
+rumours come in, places change, and you can bring people in as guests or shelve cards for later.
+
+**Players play like people (A12, A15 to A17).** Actions by archetype, table habits, curveballs and stunts;
+open scenes where the players pick where to go; rests by the SRD rules with the party's hit points carrying
+over; and party tension, with friction between players you can defuse or let slide.
+
+**The table clock and campaign styles (A14, A18).** Sessions run on real table time apart from their
+encounters, and a campaign can change course (frontier, seafaring, urban, dungeon, wilderness) when a gateway
+card lands: a nudge when the players take it up, a force when it plays.
+
+**New books (A13).** Sourcebooks come out on their week and the group chat says so; reading one pulls in
+monsters (from the SRD 5.2.1, with their stat blocks in the fight builder), magic items the party can earn and
+carry, places, hooks and published adventures you can drop into prep as whole scenes.
+
+**At the table (A9, A10).** Narration in a read-aloud box, players speaking in character with their panel and
+mini lit, everyone seated at the table with their own dice tray, and traps and hazards on the mat.
+
+**M8, the DM's craft.**
+- B1 One event log behind the recap, jokes, Grudges and the report, and snapshots (C on game night) of the
+  table as it stood.
+- B2 Fun failure: a missed big roll deals three fail cards and a flat fail; natural 1s go to dice jail.
+- B3 Death at the table, by what Session Zero agreed: the last save, a goodbye, a scar or a quest back, new
+  characters, and a shelf of the fallen.
+- B4 Moments to hand out (the killing blow, Heroic Inspiration) and headaches (the forty-minute plan, the
+  forgotten sheet, the food coma).
+- B5 Shower thoughts, theories you can steal and make true, running jokes.
+- B6 Villains who get away and come back with a Grudge.
+- B7 The session report in five parts: the recap (pick a title, pin a beat, cut one, write a note),
+  how the table felt (the least happy first), the verdict (the Table Score), what it earned, the wrap-up;
+  snapshots re-stage the moment on the table, and the notebook's Session log reopens every report.
+- B8 Taking over: once a night you talk as a key person (warm, guarded or a lie, two turns, and the
+  table's Insight against your lie), and once a night you run the boss's turn (who it goes for, or a
+  speech). Each stands in for a card.
+- B9 Quick maps: the fight builder's map tab. Lay walls, cover, rough ground, a trap and where everyone
+  starts on the place's terrain; the meter moves as you draw; the map is saved with the place and is
+  what the fight there plays on.
+- B10 The big questions, each with at least three roads to its answer.
+
+**Villains who remember.** A villain keeps a ledger of what they were there for: who knocked them down, who
+humiliated them, the jokes made at their expense, the backstories their people scarred. Their monologue is
+built from it (a fair death taunted is fuel; an unfair one or an Off limits backstory is salt and costs
+Trust), the table can interrupt, and the hero they wronged can answer at the killing blow. Each player's sheet
+says how far the villains may go with their backstory.
+
+**Around the table.** You pick your own dice from three sets when the campaign starts; the players roll plain
+grey until you give someone a set after a session (one a week, on the report) or a player who's all in turns
+up with one and shows it off. The first session opens with everyone introducing themselves and their hero,
+with a bit of backstory in character and the table reacting. Every later session opens with "Last session:
+..." (the beats you kept on last week's report, never the ones you cut) and "And here we are today: you're at
+..., and you're out to ...". The table clock only moves while the session is being played, never while a
+choice waits for you.
+
+**The table matches the story.** Every place has its own board, built from a kit of about a hundred pieces
+(walls, a hearth, a bar, tables, houses, a burned-out village, bells, webs, a rope bridge over a gorge). The
+floor and walls go down with the place; every other piece drops in when the narration names it, and the DM
+sets out the rest in a line ("Around them: the bar, mugs lined up, sticky tables and barrels by the back
+door."). The person in the scene steps onto the mat when they're named or speak, where they'd be (Gus behind
+the bar, the stranger at a corner table), and the slice's people have their own minis, a story villain leading
+a fight as themselves. Fights play on the whole board: low walls, tables, crates and rocks give Half Cover
+from attacks across them, brush, rubble and webs are Difficult Terrain, archers look for cover, and a
+crumbling bridge gives way under its planks.
+
 ## Dialogue (M5)
 
 Every line anyone says lives in `game/data/dialogue/`:
@@ -293,7 +363,8 @@ and they always come back with a fresh start. Nobody leaves without warning.
 | --- | --- | --- |
 | Mouse | Click cards, slots and options; click a player's panel or prep card for their sheet; right-drag to look around at game night | Right-drag to orbit |
 | Enter | Next step: Session Zero, start the week, run game night, see the report, next week | |
-| Esc | Close a conversation, the level-up moment, your notes, a sheet or the encounter builder | |
+| Esc | Close a conversation, the level-up moment, your notes, a sheet or the fight builder | |
+| C | Take a snapshot of the table on game night (three a night) | |
 | N | Your notes: this session, the story so far, who's who, the party | |
 | M | Music off or on (rain and sounds stay) | |
 | Space | Skip to the next beat of game night | Roll the d20 |
@@ -328,7 +399,9 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/rules/data/` | SRD 5.2.1 data with page references: classes, weapons and armor, monsters; plus the fitted difficulty meter (`difficulty_fit.lua`, generated) |
 | `game/game.gui_script` | Ties the screens to the camera, the HUD and the d20 |
 | `render/`, `materials/` | The render pipeline and shaders (warm lamp, campfire, moonlight, imagination fade) |
-| `main/` | The table scene: camera, lamp, d20, players, HUD; `main/table/` stages game night (terrain sets, minis, poses, sparks), `main/minis/` is one paper mini, `main/terrain/` the scenery sets |
+| `main/` | The table scene: camera, lamp, d20, players, HUD; `main/table/` stages game night (minis, poses, sparks), `main/minis/` is one paper mini, `main/board/` the board and its prop kit (a factory per piece) |
+| `game/data/boards.lua`, `props.lua`, `game/model/board.lua`, `main/board/board.script` | The story-matched table: each place's board, the prop kit's footprints (generated), what blocks, what's cover and rough ground, what the narration puts down |
+| `game/model/dice_sets.lua`, `intros.lua`, `game/data/dice.lua`, `intros.lua` | Around the table: dice sets, gifts and show-offs; the first session's character intros |
 | `game/model/night.lua`, `fight.lua`, `pacing.lua` | Game night as a stream of timed beats: scenes, checks, fights on the rules engine, decision cards; and how long each beat plays |
 | `game/model/dialogue.lua`, `talk.lua` | Loading, picking, saving and checking dialogue lines (M5) |
 | `game/ui/review_view.lua` | The dialogue review mode (F4) |
@@ -340,6 +413,9 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/data/arc.lua` | M7: the slice's four story beats and the first-act finale |
 | `game/model/save.lua` | M7: saving and loading the campaign between sessions |
 | `game/ui/slice_end_view.lua`, `ambience.lua`, `autotest.lua` | M7: the scrapbook and survey; sound, light and snacks; the in-engine autotest |
+| `game/model/deck.lua`, `planner.lua`, `ledger.lua`, `world.lua` | The story deck, the campaign planner, the notebook's ledger and attitudes, the world's moves |
+| `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
+| `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
 | `main/audio/`, `main/snacks/`, `assets/audio/` | M7: the sound player and sounds; the pizza and chips |
 | `tools/playtest/` | M7: tester package script, tester readme, log analyzer, pretend logs |
@@ -357,13 +433,19 @@ with any Lua 5.1+ or LuaJIT interpreter:
 
     lua tools/tests/sim_weeks.lua      # simulates 720 weeks with three DM styles and checks the numbers
     lua tools/tests/gui_smoke.lua      # clicks through the whole slice of the real UI against a mock GUI, then continues a save
-    lua tools/tests/rules_cases.lua    # 48 hand-checked SRD 5.2.1 combat cases (M3)
+    lua tools/tests/rules_cases.lua    # 58 hand-checked SRD 5.2.1 combat cases (M3 and since)
     lua tools/sim/nights.lua           # 288 game nights with six DM styles against the M4 gate (about 20 seconds)
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/social_check.lua   # M6 data hangs together; Session Zero, conversations, seeds, level-ups work
     lua tools/sim/social.lua           # the M6 gate: conflicts, subclass picks, seeds (about 7 minutes)
     lua tools/sim/slice.lua            # the M7 slice: four sessions with three simulated DMs (about 30 seconds)
     lua tools/tests/save_check.lua     # save after any session, load, play on: nothing may change (about 40 seconds)
+    lua tools/tests/a11_check.lua      # the fix pass's gates (A1 to A18)
+    lua tools/tests/m8_check.lua       # M8's gates: events, fun failure, death, moments, jokes, Grudges, takeovers, maps
+    lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua kettle prints one)
+    lua tools/tests/board_story_check.lua  # pieces drop in on the words that name them; people step in when named
+    lua tools/tests/table_check.lua    # dice sets and gifts, first-session intros, the session-start recap, the clock
+    python3 tools/tests/require_check.py  # no require cycles (the engine's builder refuses them)
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)
     MODES=4 tools/tests/engine_check.sh  # the same, showing off notes, sheets, the builder, checks and a fight in screenshots
@@ -400,9 +482,14 @@ The meter reads the SRD XP budget plus each stat block's Hit Points and damage, 
 without new simulations. Fights bigger or smaller than the simulated range (more than 2.5 monsters per
 character, or far outside the XP budget) come back with `extrapolated = true`.
 
-What it simplifies: every creature takes one square on a 5-foot grid, scenery blocks squares but gives no cover,
-simple readable tactics on both sides, and monsters leave fallen characters alone. Hiding, grappling, shoving,
+What it simplifies: every creature takes one square on a 5-foot grid, scenery blocks squares, a map's cover
+square gives Half Cover (+2 AC) against attacks from more than 5 feet away (not to saves), simple readable
+tactics on both sides, and monsters leave fallen characters alone unless the DM runs the boss's turn and says
+otherwise. Hiding, grappling, shoving,
 readied actions and non-combat spells aren't modeled yet.
+
+The monsters, magic items, traps and hazards in `game/rules/data/` (the slice's and the new books') are from the
+SRD 5.2.1 with their page references.
 
 This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast
 LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons
@@ -418,11 +505,13 @@ All art is procedural. To change the layout, the camera presets or the art, edit
     python3 tools/generate.py
 
 It needs Python 3 with `numpy` and `pillow`, and overwrites the generated files (meshes, textures, sprites,
-fonts, status icons, terrain sets, `main/main.collection`, `main/props/`, `main/terrain/`, `main/scene_data.lua`,
-`game/data/terrain_layout.lua`, `game/ui/metrics.lua`, `main/snacks/` models), so make scene changes in the
+fonts, status icons, the board's prop kit, `main/main.collection`, `main/props/`, `main/board/`, `main/scene_data.lua`,
+`game/ui/metrics.lua`, `main/snacks/` models), so make scene changes in the
 generator, not in the editor. The sounds have their own generator: `python3 tools/gen_audio.py` writes
 `assets/audio/` and `main/audio/` (except `audio.script`).
-Terrain sets are laid out square by square in `tools/terrain_layout.py`; the same layout blocks squares in fights.
+The board's prop kit is `tools/gen_props.py` (one mesh and one factory per piece, and `game/data/props.lua`);
+the boards themselves are data in `game/data/boards.lua`, and `python3 tools/preview_boards.py out_dir [board]`
+draws them without the engine. The slice's people are painted by `tools/gen_sprites_npcs.py`.
 After changing sprites, `python3 tools/gen_portraits.py` recuts the faces and minis the screens use
 (`assets/portraits/`), and `python3 tools/gen_mark.py` redraws the square used for spell areas on the mat.
 

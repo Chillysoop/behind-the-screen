@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 FONTS = {
     "ui14": ("Outfit-Regular.ttf", 15), "ui18": ("Outfit-Regular.ttf", 18), "ui18b": ("Outfit-Bold.ttf", 18),
     "ui22b": ("Outfit-Bold.ttf", 22), "title30": ("Lora-Bold.ttf", 30), "hand24": ("NothingYouCouldDo-Regular.ttf", 24),
-    "story22": ("Lora-Bold.ttf", 22),
+    "story22": ("Lora-Bold.ttf", 22), "read26": ("Lora-Bold.ttf", 26),
 }
 _cache = {}
 
@@ -59,7 +59,7 @@ for line in open(src):
                 d.rounded_rectangle(box, radius=max(0, min(slice_ or 10, w / 2, h / 2)), fill=col)
             elif image == "vignette":
                 pass
-            elif image.startswith("face_") or image.startswith("mini_"):
+            elif image.startswith("face_") or image.startswith("mini_") or image.startswith("dice_"):
                 pic = Image.open("assets/portraits/" + image + ".png").convert("RGBA").resize((max(1, int(w)), max(1, int(h))))
                 if col[3] < 255 or col[:3] != (255, 255, 255):
                     r0, g0, b0, a0 = pic.split()

@@ -13,18 +13,7 @@ return {
     mini = { scale = 0.031, height = 9.92 },
     large = { ogre = 1.45, dire_wolf = 1.3, npc_ghost = 1.0 },
     -- where each standee's art starts, from the top of the sprite: HP bars sit just over the head
-    mini_tops = { bandit = 0.21, bandit_captain = 0.12, cleric = 0.22, cultist = 0.11, dire_wolf = 0.27, fighter = 0.06, ghoul = 0.28, goblin_boss = 0.03, goblin_club = 0.33, goblin_spear = 0.2, npc_corin = 0.24, npc_ghost = 0.23, npc_gus = 0.23, npc_hermit = 0.25, npc_rival = 0.18, npc_sable = 0.16, npc_stranger = 0.12, ogre = 0.21, rogue = 0.14, skeleton = 0.27, tough = 0.23, wizard = 0.03, wolf = 0.27, zombie = 0.24 },
-    -- fire light per terrain set: position and brightness (0 = no fire)
-    terrain_fire = {
-        camp = { pos = vmath.vector3(-23.5, 76.15, -7.0), level = 1.0 },
-        forest = { pos = nil, level = 0.0 },
-        ruins = { pos = vmath.vector3(36.5, 81.15, -4.5), level = 0.0 },
-        tavern = { pos = vmath.vector3(24.0, 76.15, -30.8), level = 0.75 },
-        market = { pos = nil, level = 0.0 },
-        bridge = { pos = nil, level = 0.0 },
-        blank = { pos = nil, level = 0.0 },
-    },
-    terrain_sets = { "camp", "forest", "ruins", "tavern", "market", "bridge", "blank" },
+    mini_tops = { animated_armor = 0.16, bandit = 0.21, bandit_captain = 0.12, brown_bear = 0.2, bugbear_warrior = 0.2, cleric = 0.22, cultist = 0.11, dire_wolf = 0.27, fighter = 0.06, ghoul = 0.28, giant_crab = 0.2, giant_spider = 0.44, gnoll_warrior = 0.17, goblin_boss = 0.03, goblin_club = 0.33, goblin_spear = 0.2, guard = 0.08, kobold_warrior = 0.28, merrow = 0.0, npc_ansel = 0.24, npc_corin = 0.24, npc_ghost = 0.23, npc_grey_coat = 0.19, npc_gus = 0.23, npc_hermit = 0.25, npc_hob = 0.23, npc_holt = 0.23, npc_nib = 0.39, npc_ottilie = 0.19, npc_rival = 0.18, npc_sable = 0.16, npc_stranger = 0.12, npc_tilly = 0.23, npc_tumble = 0.26, npc_vask = 0.23, npc_verrin = 0.06, npc_wren = 0.24, ogre = 0.21, pirate = 0.26, pregen_aldith = 0.22, pregen_bryn = 0.06, pregen_corwin = 0.03, pregen_hesk = 0.06, pregen_lark = 0.14, pregen_rufus = 0.22, pregen_tam = 0.14, pregen_ysolde = 0.03, rogue = 0.14, scout = 0.14, skeleton = 0.27, specter = 0.22, spy = 0.22, swarm_of_rats = 0.47, tough = 0.23, warrior_veteran = 0.2, wizard = 0.03, wolf = 0.27, worg = 0.27, zombie = 0.24 },
     -- where each player's head is (speech bubbles)
     heads = {
         dev = vmath.vector3(-106.0, 139.6, -6.0),
@@ -34,6 +23,15 @@ return {
     },
     lamp = { bulb_offset = vmath.vector3(0.0, -125.0, 0.0) },
     dice = { spawn = vmath.vector3(52.0, 91.0, 31.0), throw = vmath.vector3(95.0, -20.0, 25.0), floor_y = 75.62 },
+    -- dice trays (A9): a player's at their seat; the DM's open box and hidden tray
+    trays = {
+        dm_open = { pos = vmath.vector3(-12.0, 75.62, 35.5), w = 24.0, d = 8.0, spawn = vmath.vector3(-20.0, 87.0, 35.5), throw = vmath.vector3(76.8, -18.0, 0.0), eye = vmath.vector3(-12.0, 115.0, -6.5), target = vmath.vector3(-12.0, 76.0, 35.5) },
+        dm_hidden = { pos = vmath.vector3(-12.0, 75.62, 45.8), w = 18.0, d = 7.2, spawn = vmath.vector3(-18.0, 87.0, 45.8), throw = vmath.vector3(57.6, -18.0, 0.0), eye = vmath.vector3(-14.0, 117.0, 90.8), target = vmath.vector3(-12.0, 76.0, 45.8) },
+        dev = { pos = vmath.vector3(-66.0, 75.62, 8.0), w = 12.0, d = 15.0, spawn = vmath.vector3(-66.0, 87.0, 3.0), throw = vmath.vector3(0.0, -18.0, 48.0), eye = vmath.vector3(-36.218, 113.0, 4.3901), target = vmath.vector3(-66.0, 76.0, 8.0) },
+        mara = { pos = vmath.vector3(-22.0, 75.62, -43.0), w = 16.0, d = 11.0, spawn = vmath.vector3(-27.3333, 87.0, -43.0), throw = vmath.vector3(51.2, -18.0, 0.0), eye = vmath.vector3(-8.3357, 113.0, -16.2926), target = vmath.vector3(-22.0, 76.0, -43.0) },
+        jess = { pos = vmath.vector3(14.0, 75.62, -43.0), w = 16.0, d = 11.0, spawn = vmath.vector3(8.6667, 87.0, -43.0), throw = vmath.vector3(51.2, -18.0, 0.0), eye = vmath.vector3(4.7124, 113.0, -14.4739), target = vmath.vector3(14.0, 76.0, -43.0) },
+        sam = { pos = vmath.vector3(62.0, 75.62, 18.0), w = 14.0, d = 14.0, spawn = vmath.vector3(57.3333, 87.0, 18.0), throw = vmath.vector3(44.8, -18.0, 0.0), eye = vmath.vector3(33.1896, 113.0, 9.6357), target = vmath.vector3(62.0, 76.0, 18.0) },
+    },
     -- d20 face normals (local space) and the number printed on each face
     d20_faces = {
         { -0.5774, 0.5774, 0.5774, 15 },

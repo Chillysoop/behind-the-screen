@@ -44,16 +44,26 @@ function M.verdict(p)
     return "Drifting away", theme.orange
 end
 
--- Their best night's quote: the week they had the most fun.
-local function best_quote(app, key)
-    local best, best_fun
+-- Their best night's quote: the week they had the most fun, as long as it fits the note (three
+-- handwritten lines); otherwise the next best that does. A quote never gets cut off.
+local QUOTE_LINES = 3
+local function best_quote(app, key, width)
+    local rows = {}
     for _, e in ipairs(app.campaign.journal) do
         local row = e.players[key]
-        if row and row.present and row.quote and (not best_fun or row.fun > best_fun) then
-            best, best_fun = row.quote, row.fun
+        if row and row.present and row.quote then
+            table.insert(rows, row)
         end
     end
-    return best
+    table.sort(rows, function(a, b) return (a.fun or 0) > (b.fun or 0) end)
+    local line_h = kit.text_height("Ag", "hand24", width)
+    for _, row in ipairs(rows) do
+        if kit.text_height(row.quote, "hand24", width) <= line_h * QUOTE_LINES + 2 then
+            return row.quote, "hand24"
+        end
+    end
+    -- None fits in hand: the best one in a smaller hand.
+    return rows[1] and rows[1].quote, "ui18"
 end
 
 local function player_column(app, p, i)
@@ -87,13 +97,12 @@ local function player_column(app, p, i)
     local text, color = M.verdict(p)
     kit.text(x + 16, y + 216, "SESSION 5?", "ui14", theme.dim)
     kit.text(x + 16, y + 236, text, "ui22b", color)
-    local quote = best_quote(app, p.key)
+    local quote, font = best_quote(app, p.key, w - 64)
     local qy = y + 276
     if quote then
-        local qh = math.max(70, 24 + kit.text_height(quote, "hand24", w - 64))
-        qh = math.min(qh, 136)
+        local qh = math.max(70, 24 + kit.text_height(quote, font, w - 64))
         kit.box(x + 16, qy, w - 32, qh, kit.rgba("#f3df8a"), { radius = 4 })
-        kit.text(x + 32, qy + 12, quote, "hand24", theme.ink, { w = w - 64, lines = math.floor((qh - 24) / 32) })
+        kit.text(x + 32, qy + 12, quote, font, theme.ink, { w = w - 64 })
         qy = qy + qh + 14
     end
     -- Their backstory, and how often it came up.
@@ -118,11 +127,33 @@ local function scrapbook(app)
     kit.text(40, y + 12, "BEST MOMENTS", "ui14", theme.dim)
     local my = y + 34
     local shown = 0
+    -- What the DM pinned on each report comes first (B7); otherwise the recap's first kept beats.
+    local recap_mod = require "game.model.recap"
+    local by_week = {}
+    for _, le in ipairs(c.session_log or {}) do
+        by_week[le.week] = le
+    end
     for _, e in ipairs(c.journal) do
-        for k, m in ipairs(e.moments) do
+        local le = by_week[e.week]
+        local list, pinned = {}, {}
+        for _, b in ipairs(le and recap_mod.kept(le.recap) or {}) do
+            if b.pinned then
+                table.insert(pinned, { b.text, theme.gold })
+            elseif b.kind ~= "start" then
+                table.insert(list, { b.text, theme.text })
+            end
+        end
+        if #pinned > 0 then
+            list = pinned
+        elseif not le then
+            for _, m in ipairs(e.moments) do
+                table.insert(list, { m, theme.text })
+            end
+        end
+        for k, m in ipairs(list) do
             if k <= 2 and shown < 6 then
-                local line = "S" .. util.int(e.week) .. "  " .. m
-                kit.text(40, my, line, "ui18", theme.text, { w = 520, lines = 1 })
+                local line = "S" .. util.int(e.week) .. "  " .. m[1]
+                kit.text(40, my, line, "ui18", m[2], { w = 520, lines = 1 })
                 my = my + 30
                 shown = shown + 1
             end

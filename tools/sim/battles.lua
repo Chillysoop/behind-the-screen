@@ -79,9 +79,11 @@ end
 
 -- Features the meter uses (game/rules/encounter.lua) -----------------------------------------
 
-local function features(level, list)
-    return enc.features(level, 4, list)
+local function features(level, list, hazard)
+    return enc.features(level, 4, list, hazard and { hazard = hazard } or nil)
 end
+-- Hazards (A10): about a third of the fights have one, so the meter learns them too.
+local HAZARDS = require("game.rules.data.hazards").hazard_order
 local FEATURE_NAMES = enc.FEATURE_NAMES
 
 -- Run the fights ----------------------------------------------------------------------------------
@@ -95,13 +97,14 @@ for i = 1, N do
     local list = build(budget_for(level, target), 4)
     if list then
         local subs = level >= 3 and random_subs() or nil
-        local x, rating = features(level, list)
+        local hazard = rng:chance(0.3) and HAZARDS[rng:int(1, #HAZARDS)] or nil
+        local x, rating = features(level, list, hazard)
         local ok, r = pcall(enc.run, level, list, { seed = rng:int(1, 2147483000), subs = subs,
-                                                     distance = rng:int(6, 14) * 5 })
+                                                     distance = rng:int(6, 14) * 5, hazard = hazard })
         if ok then
             local rec = {
                 level = level, target = target, x = x, category = rating.category, label = rating.label,
-                meter = rating.meter, ratio = rating.ratio, count = #list, list = list, subs = subs,
+                meter = rating.meter, ratio = rating.ratio, count = #list, list = list, subs = subs, hazard = hazard,
                 win = r.winner == "party" and 1 or 0, drop = r.pc_downs > 0 and 1 or 0,
                 death = r.pc_deaths > 0 and 1 or 0, downs = r.pc_downs, lost = r.hp_lost_frac, rounds = r.rounds,
                 fold = (i % 5) + 1,                -- 5-fold cross-validation
@@ -315,6 +318,29 @@ check("meter", "Calibrated: someone-drops forecasts land within 5 points",
     meter_eval.drop.worst_bin <= 0.05, string.format("worst tenth off by %.1f points", 100 * meter_eval.drop.worst_bin))
 check("meter", "Calibrated: wipe forecasts land within 5 points",
     meter_eval.loss.worst_bin <= 0.05, string.format("worst tenth off by %.1f points", 100 * meter_eval.loss.worst_bin))
+
+-- Hazards (A10): fights with each one land where the meter says (out-of-fold forecasts).
+do
+    local worst, note, ok = 0, {}, true
+    for _, hid in ipairs(HAZARDS) do
+        local n, sp, sy = 0, 0, 0
+        for _, r in ipairs(records) do
+            if r.hazard == hid then
+                n, sp, sy = n + 1, sp + r.oof_drop, sy + r.drop
+            end
+        end
+        if n >= 50 then
+            local off = math.abs(sp / n - sy / n)
+            worst = math.max(worst, off)
+            table.insert(note, string.format("%s %d fights %+.0f", hid, n, 100 * (sy - sp) / n))
+            ok = ok and off <= 0.06
+        else
+            ok = false
+            table.insert(note, hid .. " only " .. n .. " fights")
+        end
+    end
+    check("meter", "Fights with each hazard land within 6 points of the meter's forecast", ok, table.concat(note, "; "))
+end
 
 -- Outcomes by SRD category and level.
 local cat = {}

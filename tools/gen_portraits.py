@@ -22,19 +22,27 @@ MINI = (96, 120)      # a paper mini: the whole standee
 # Paper minis on the table: the heroes, the NPCs and the monsters.
 STANDEES = ["fighter", "rogue", "cleric", "wizard",
             "npc_gus", "npc_stranger", "npc_hermit", "npc_rival", "npc_corin", "npc_sable", "npc_ghost",
+            # The slice's people (tools/gen_sprites_npcs.py).
+            "npc_vask", "npc_wren", "npc_grey_coat", "npc_tilly", "npc_ottilie", "npc_hob", "npc_holt", "npc_tumble",
+            "npc_verrin", "npc_nib", "npc_ansel",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
             # The Vale Bestiary (A13).
             "pirate", "merrow", "giant_crab", "guard", "spy", "swarm_of_rats", "animated_armor", "giant_spider",
             "specter", "brown_bear", "gnoll_warrior", "bugbear_warrior", "warrior_veteran", "kobold_warrior",
-            "scout", "worg"]
+            "scout", "worg",
+            # New characters after a death (M8, B3): tools/gen_pregens.py.
+            "pregen_bryn", "pregen_hesk", "pregen_tam", "pregen_lark", "pregen_aldith", "pregen_rufus",
+            "pregen_corwin", "pregen_ysolde"]
 
 
 def face(name):
     im = Image.open(os.path.join(SPRITES, name + ".png")).convert("RGBA")
     w, h = im.size
-    # Head and shoulders: the top of the 300x360 player sprite, a little in from the sides.
-    box = (int(w * 0.08), int(h * 0.03), int(w * 0.92), int(h * 0.03 + w * 0.84))
+    # Head and shoulders: the top of the player sprite (300 wide; the seated body runs on below,
+    # A9), a little in from the sides.
+    top = w * 0.036
+    box = (int(w * 0.08), int(top), int(w * 0.92), int(top + w * 0.84))
     crop = im.crop(box).resize((FACE, FACE), Image.LANCZOS)
     # A round frame: the GUI draws a coloured disc behind it.
     mask = Image.new("L", (FACE * 4, FACE * 4), 0)
@@ -76,6 +84,10 @@ def main():
         name = "mini_" + s
         standee(s).save(os.path.join(OUT, name + ".png"))
         names.append(name)
+    # Dice sets' swatches (tools/gen_dice.py) live here too.
+    for fn in sorted(os.listdir(OUT)):
+        if fn.startswith("dice_") and fn.endswith(".png"):
+            names.append(fn[:-4])
     with open(os.path.join(OUT, "portraits.atlas"), "w") as f:
         for n in names:
             f.write('images {\n  image: "/assets/portraits/%s.png"\n}\n' % n)

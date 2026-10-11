@@ -265,7 +265,8 @@ if os.getenv("AUDIT") then
         end
     end
 end
-local dumped_decision, dumped_improv, dumped_battle, dumped_talk
+local dumped_decision, dumped_improv, dumped_battle, dumped_talk, dumped_docked, dumped_read
+local dumped_takeover_talk, dumped_takeover_boss
 local function dump(name)
     if not DUMP then return end
     local f = io.open(DUMP .. "/" .. name .. ".txt", "w")
@@ -363,6 +364,9 @@ for week = 1, WEEKS do
         app.s0.rules.dice = app.s0.rules.dice or "big_open"
         app.s0.rules.rulings = app.s0.rules.rulings or "quick"
         app.s0.rules.length = app.s0.rules.length or "half"
+        -- When a hero dies (B3): click it, so the compact row is exercised.
+        if not app.s0.rules.death and not click_key("rule_death_cost") then problem("no death rule buttons in Session Zero") end
+        app.s0.rules.death = app.s0.rules.death or "cost"
         app.refresh()
         dump("1c_session_zero_done")
         if not click_label("Start week 1") then problem("no start button after Session Zero") end
@@ -510,6 +514,10 @@ check_tip_absorbs(" (week 2 prep)")
         if not app.talk then break end
         if not (click_key("talk_opt_1") or click_key("talk_done")) then break end
     end
+    -- Whatever the random clicks left open (the new book, a talk, the notebook) closes first.
+    if app.book then click_key("book_done") end
+    if app.ask then click_key("ask_no") end
+    if app.overlay then key("back") end
     for i = 1, 3 do
         if not app.campaign.prep.scenes[i].type then
             app.sel = { scene = i, kind = "type" }
@@ -521,7 +529,16 @@ check_tip_absorbs(" (week 2 prep)")
             end
         end
     end
-    if not app.campaign.prep:ready() then problem("prep not ready after picking types") break end
+    if not app.campaign.prep:ready() then
+        local t = {}
+        for i, sc in ipairs(app.campaign.prep.scenes) do
+            table.insert(t, i .. ":" .. tostring(sc.type) .. (sc.open and "(open)" or "") .. (sc.module and "(module)" or ""))
+        end
+        dump("x_prep_not_ready")
+        problem("prep not ready after picking types: " .. table.concat(t, " ") .. " (overlay " .. tostring(app.overlay)
+            .. ", ask " .. tostring(app.ask and true) .. ", talk " .. tostring(app.talk and true) .. ", convo " .. tostring(app.convo and true) .. ")")
+        break
+    end
     -- The slice rework: the one-page hand, and the notebook later in the campaign.
     if week == 3 or week == 1 then
         app.sel = { scene = 1, kind = "cast" }
@@ -532,6 +549,81 @@ check_tip_absorbs(" (week 2 prep)")
         dump("15c_prep_hand_comp_w" .. week)
         app.sel = nil
         app.refresh()
+    end
+    if (week == 2 or week == 4) and app.campaign.prep and require("game.model.books").newest(app.campaign) then
+        -- A new book (A13): the supplement evening opens it; pull an entry and see it in the game.
+        local books_mod = require "game.model.books"
+        local pr = app.campaign.prep
+        pr.inspired_by.supplement = nil
+        pr.inspirations = 0
+        pr.reading = nil
+        -- The random clicks may have spent every hour: clear cards until the evening is affordable.
+        for i = 1, #pr.scenes do
+            for kind in pairs(pr.scenes[i].slots) do
+                if not pr:can_inspire("supplement") then
+                    pr:clear(i, kind)
+                end
+            end
+        end
+        app.sel = nil
+        app.refresh()
+        if not click_key("inspire_supplement") then problem("no supplement button in week " .. week) end
+        if not app.book then problem("the supplement evening didn't open the new book (week " .. week .. ")") end
+        local r = pr.reading
+        local bk = r and books_mod.book(r.book)
+        local want = week == 4 and "module" or "monster"
+        local pick
+        for _, e in ipairs(bk and bk.entries or {}) do
+            if e.kind == want and not books_mod.get(app.campaign).pulled[e.id] then
+                pick = pick or e
+            end
+        end
+        if pick then
+            click_key("book_entry_" .. pick.id)
+            dump("32_book_page_w" .. week)
+            if not click_key("book_pull") then problem("no Pull it in button") end
+            if not books_mod.get(app.campaign).pulled[pick.id] then problem("pulling " .. pick.id .. " did nothing") end
+            if pick.card and not pr.inspired[pick.card.id] then problem("a pulled card isn't in the hand: " .. pick.card.id) end
+        end
+        if not click_key("book_done") then problem("no Done reading button") end
+        if app.book then problem("the book didn't close") end
+        -- A published adventure on scene 3 (week 4): it fills the scene; its reward can be swapped.
+        if week == 4 and pick and pick.module then
+            -- Room for it: scene 3 closed and cleared.
+            pr:set_open(3, false)
+            for kind in pairs(pr.scenes[3].slots) do
+                pr:clear(3, kind)
+            end
+            for i = 1, 2 do
+                for kind in pairs(pr.scenes[i].slots) do
+                    if pr:left() < 3 then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+            local can, why = pr:can_place_module(3, pick.module)
+            if not can then
+                -- The random clicks spent the hours on talks and reading: nothing to clear makes room.
+                print("  (module step skipped: " .. tostring(why) .. ")")
+            elseif click_key("type_3") then
+                for _ = 1, 4 do
+                    if not click_key("guide_ok") then break end
+                end
+                if not click_key("module_" .. pick.module) then problem("no module button in the type picker") end
+                if not (pr.scenes[3].module and pr.scenes[3].module.id == pick.module) then
+                    problem("the module didn't fill scene 3")
+                end
+                dump("33_module_scene")
+                app.sel = { scene = 3, kind = "reward" }
+                app.refresh()
+                dump("33b_module_reward")
+                app.sel = nil
+                app.refresh()
+            else
+                problem("no type button on scene 3")
+            end
+        end
     end
     if week == 2 then
         -- Changing course (A18): on the notebook's campaign page, pick another style, ask the
@@ -695,7 +787,60 @@ check_tip_absorbs(" (week 2 prep)")
         click_key("enc_lead_ogre")
         local enc = c.prep:encounter(1)
         if not enc.built or enc.ids[1] ~= "ogre" then problem("the builder didn't take the ogre as the lead: " .. table.concat(enc.ids, ",")) end
+        -- A hazard on the mat (A10).
+        if not click_key("enc_hazard_spreading_fire") then problem("no hazard buttons in the builder") end
+        if c.prep:hazard(1) ~= "spreading_fire" then problem("the builder didn't set the hazard") end
         dump("28_encounter_built")
+        -- The map (B9): lay a wall from the grid, then cover, a trap and the starts.
+        if not click_key("enc_tab_map") then problem("no map tab in the builder") end
+        local loc = c.prep.scenes[1].slots.location
+        if not loc then
+            -- Put a place on it: a map lives with its place.
+            for _, card in ipairs((c.prep.hand or {}).location or {}) do
+                if not loc then
+                    c.prep:place(1, card.id)
+                    loc = c.prep.scenes[1].slots.location
+                end
+            end
+            if not loc then
+                c.prep.scenes[1].slots.location = content.components.forest_road
+                loc = c.prep.scenes[1].slots.location
+            end
+            app.refresh()
+            click_key("enc_tab_map")
+        end
+        if not loc then
+            problem("no place to draw a map for")
+        else
+            local map_view = require "game.ui.map_view"
+            click_key("map_piece_wall")
+            click_key("map_grid")
+            local maps = require "game.model.maps"
+            local m = maps.get(c, loc.id)
+            if not m or maps.count(m) == 0 then problem("clicking the map grid laid no wall") end
+            for _, step in ipairs({ { "cover", 12, 4 }, { "cover", 13, 9 }, { "rough", 8, 6 }, { "trap", 9, 8 },
+                                    { "party", 3, 7 }, { "foes", 17, 6 } }) do
+                app.map_piece = step[1]
+                map_view.paint(app, step[2], step[3])
+            end
+            app.refresh()
+            click_key("map_trap")
+            m = maps.get(c, loc.id)
+            if not (m and m.party and m.foes and m.trap) then problem("the map's starts or trap didn't stick") end
+            local blocked = maps.layout(m)
+            local walls = 0
+            for k, kind in pairs(m.pieces) do
+                if kind == "wall" then
+                    local x, y = maps.split(k)
+                    walls = walls + (blocked[x * 1000 + y] and 1 or 0)
+                end
+            end
+            if walls == 0 then problem("the map's walls don't block") end
+            dump("28b_map")
+            click_key("map_template_ruins")
+            if maps.get(c, loc.id).template ~= "ruins" then problem("the template didn't change") end
+            click_key("enc_tab_fight")
+        end
         click_key("enc_done")
         if app.overlay then problem("the builder wouldn't close") end
         c.prep:set_type(1, type_before)
@@ -788,6 +933,11 @@ check_tip_absorbs(" (week 2 prep)")
             dumped_battle = true
             dump("4b_night_battle")
         end
+        -- The read-aloud box (A9): the DM's narration has a look of its own.
+        if app.caption and app.caption.read and app.caption.life > 0 and app.caption.age > 0.3 and not dumped_read then
+            dumped_read = true
+            dump("4c_night_read_aloud")
+        end
         if week == 1 and app.bubbles and #app.bubbles >= 1 and app.caption and app.caption.life > 0
             and not app.in_battle and not dumped_talk then
             dumped_talk = true
@@ -802,11 +952,43 @@ check_tip_absorbs(" (week 2 prep)")
                 dumped_decision = true
                 dump("4_night_decision")
             end
+            -- Taking over (B8): the talk card and the boss's turn.
+            if app.pending.kind == "decision" and app.pending.card and app.pending.card.type == "talk" then
+                stats.talks = (stats.talks or 0) + 1
+                if not dumped_takeover_talk then
+                    dumped_takeover_talk = true
+                    dump("4d_talk_as_npc")
+                end
+            end
+            if app.pending.kind == "decision" and app.pending.card and app.pending.card.type == "boss" then
+                stats.boss = (stats.boss or 0) + 1
+                if not dumped_takeover_boss then
+                    dumped_takeover_boss = true
+                    dump("4e_boss_turn")
+                end
+            end
             if app.pending.kind == "improv" and not dumped_improv then
                 dumped_improv = true
                 dump("5_night_improv")
             end
             stats.modals = stats.modals + 1
+            -- The log stays out of the way (A11): with it open, a DC or ruling card sits beside it.
+            if (app.pending.kind == "ruling" or app.pending.kind == "roll_where") then
+                if not app.log_open and rng:chance(0.3) then key("log") end
+                if app.log_open then
+                    stats.docked = (stats.docked or 0) + 1
+                    for _, b in ipairs(buttons()) do
+                        if b.node.pos.x < 544 then
+                            problem("a " .. app.pending.kind .. " card's button sits under the open log (x " .. b.node.pos.x .. ")")
+                            break
+                        end
+                    end
+                    if not dumped_docked then
+                        dumped_docked = true
+                        dump("34_log_docked")
+                    end
+                end
+            end
             if week == 3 and rng:chance(0.3) then
                 -- Let the gentle timer run out sometimes.
                 for _ = 1, 30 do call(update, self, 2) if not app.pending then break end end
@@ -821,12 +1003,60 @@ check_tip_absorbs(" (week 2 prep)")
         stats.max_nodes = math.max(stats.max_nodes, alive_count)
     end
     if week == 2 then key("review") end
-    if not app.night_done then problem("night never finished (" .. guard .. " steps)") break end
+    if not app.night_done then
+        local last = {}
+        for i = math.max(1, #(app.log or {}) - 3), #(app.log or {}) do
+            table.insert(last, tostring(app.log[i] and (app.log[i].text or app.log[i][1])))
+        end
+        problem("night never finished (" .. guard .. " steps); pending " .. tostring(app.pending and app.pending.kind)
+            .. ", rolling " .. tostring(app.rolling) .. ", last: " .. table.concat(last, " | "))
+        break
+    end
     if week == 1 then dump("6_night_done") end
     if not click_label("See how everyone felt") then problem("no report button") break end
     if app.screen ~= "report" then problem("expected report") break end
     if week == 1 then
         dump("7_report")
+        -- The recap is the DM's (B7): another title, pin a beat, cut one, write a note.
+        local r = app.campaign.report.recap
+        if not r or #r.beats == 0 then problem("the report has no recap") end
+        if r and #r.titles > 1 then
+            click_key("recap_title")
+            if r.title ~= 2 then problem("Other title didn't change the title") end
+        end
+        if r and r.beats[1] then
+            click_key("recap_pin_1")
+            if not r.beats[1].pinned then problem("pinning a recap beat didn't stick") end
+        end
+        if r and r.beats[2] then
+            click_key("recap_cut_2")
+            if not r.beats[2].cut then problem("cutting a recap beat didn't stick") end
+        end
+        click_key("recap_note")
+        call(on_input, self, "text", { text = "Mara needs more story." })
+        call(on_input, self, "backspace", { pressed = true })
+        if r and r.note ~= "Mara needs more story" then problem("typing the DM's note: '" .. tostring(r and r.note) .. "'") end
+        key("confirm")
+        if app.report_note then problem("Enter didn't finish the note") end
+        if app.screen ~= "report" then problem("Enter while typing the note left the report") end
+        local log = app.campaign.session_log or {}
+        if not (log[#log] and log[#log].week == 1 and log[#log].recap == r) then problem("the report never reached the session log") end
+        dump("7a_report_edited")
+        if click_key("snapshot_1") then
+            if not app.snapshot_view then problem("Look didn't open the snapshot") end
+            dump("7b_snapshot")
+            if not click_key("snapshot_back") then problem("no way back from a snapshot") end
+            if app.snapshot_view then problem("Back didn't close the snapshot") end
+        end
+        -- The notebook's session log reopens it.
+        key("next_cell")
+        if click_key("notes_tab_log") then
+            dump("7c_session_log")
+            if not has_text_fn("Mara needs more story") then problem("the session log doesn't show the note") end
+        else
+            problem("no Session log tab in the notebook")
+        end
+        key("back")
         -- Push the spotlight conflict live so week 2 has messages to answer.
         social.push(app.campaign, "spotlight", 80)
     end
@@ -978,7 +1208,11 @@ if #problems == 0 then
     if not head then
         problem("no campaign save on disk after " .. stats.weeks .. " weeks")
     else
-        if head.week ~= was.week - 1 then problem("the save is from week " .. head.week .. ", expected " .. (was.week - 1)) end
+        -- Prep autosaves (A11): the save on disk is this week's board, mid-prep.
+        if head.week ~= was.week or not head.at_prep then
+            problem("the save is from week " .. head.week .. (head.at_prep and " (prep)" or "") .. ", expected week " .. was.week .. "'s prep")
+        end
+        local was_spent, was_left = was.prep and was.prep:spent(), was.prep and was.prep:left()
         if head.seed ~= was.seed then problem("the save has the wrong seed") end
         restart()
         dump("23_intro_continue")
@@ -988,6 +1222,9 @@ if #problems == 0 then
         if app.screen ~= "prep" then problem("continuing went to " .. tostring(app.screen) .. ", not prep") end
         if app.campaign.week ~= was.week then problem("continued at week " .. app.campaign.week .. ", expected " .. was.week) end
         if app.campaign == was then problem("continuing reused the old campaign table") end
+        if app.campaign.prep and (app.campaign.prep:spent() ~= was_spent or app.campaign.prep:left() ~= was_left) then
+            problem("continuing mid-prep didn't bring the same board back")
+        end
         dump("24_prep_after_continue")
         play_resumed_night(" (after continuing)")
         -- The fix pass: quitting in the middle of game night keeps the board. The save made at

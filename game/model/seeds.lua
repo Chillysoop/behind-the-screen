@@ -12,6 +12,7 @@
 local content = require "game.model.content"
 local score = require "game.model.score"
 local util = require "game.model.util"
+local stale_mod = require "game.model.stale"
 
 local M = {}
 
@@ -71,7 +72,9 @@ function M.start_week(campaign, prep)
         if s.state == "growing" then
             local age = campaign.week - s.week
             local def = content.seeds[s.id]
-            if age > content.seeds.PAYOFF_WEEKS then
+            -- The shared staleness rule (M8, B1), with the seeds' own payoff window.
+            stale_mod.KINDS.seed.stale = content.seeds.PAYOFF_WEEKS
+            if stale_mod.is_stale({ born = s.week }, campaign.week, "seed") then
                 s.state = "stale"
                 s.stale_week = campaign.week
                 campaign.seeds.stale = campaign.seeds.stale + 1
@@ -166,6 +169,100 @@ function M.answer_theory(campaign, msg, i)
         score.add(p, "investment", -2)
     end
     return r
+end
+
+-- Steal the theory (M8, B5) ---------------------------------------------------------------------
+-- A theory in the chat about a planted seed pins to the prep board. Make it true and the seed's
+-- payoff reveals the theorist was right. A theory that contradicts what the party already knows
+-- (a found clue) can't be made true; a theory goes stale like everything else (game.model.stale).
+
+local theories_data = require "game.data.theories"
+M.STEAL_INVESTMENT = 3       -- the theorist, the moment you make it true (they can tell you liked it)
+M.PINS = 2                   -- theories pinned to the prep board at once
+
+-- A new theory, posted to the chat: { seed, key, claim, born, state = "open" | "stolen" | "stale" }.
+function M.new_theory(campaign, s, p, rng)
+    local claims = theories_data[s.id]
+    if not claims or not p then
+        return nil
+    end
+    campaign.theories = campaign.theories or {}
+    local used = {}
+    for _, t in ipairs(campaign.theories) do
+        if t.seed == s.id then
+            used[t.claim] = true
+        end
+    end
+    local pool = {}
+    for i = 1, #claims do
+        if not used[i] then
+            table.insert(pool, i)
+        end
+    end
+    if #pool == 0 then
+        return nil
+    end
+    local th = { seed = s.id, key = p.key, claim = pool[rng:int(1, #pool)], born = campaign.week, state = "open" }
+    table.insert(campaign.theories, th)
+    return th, claims[th.claim]
+end
+
+function M.claim(th)
+    return theories_data[th.seed] and theories_data[th.seed][th.claim]
+end
+
+-- The theories pinned to the board: open ones about seeds still growing, newest first.
+function M.pinned(campaign)
+    local stale = require "game.model.stale"
+    local out = {}
+    for i = #(campaign.theories or {}), 1, -1 do
+        local th = campaign.theories[i]
+        local s = M.record(campaign, th.seed)
+        if th.state == "open" and s and s.state == "growing" then
+            if stale.is_stale(th, campaign.week, "theory") then
+                th.state = "stale"
+            elseif #out < M.PINS then
+                table.insert(out, th)
+            end
+        end
+    end
+    return out
+end
+
+-- Can this theory be made true? Not when a clue the party found says otherwise.
+function M.can_steal(campaign, th)
+    local c = M.claim(th)
+    if not c or th.state ~= "open" then
+        return false, "It's had its moment."
+    end
+    local story = require "game.model.story"
+    for _, clue in ipairs(c.contradicts or {}) do
+        if story.has_clue(campaign, clue) then
+            return false, "It contradicts something they already know."
+        end
+    end
+    local s = M.record(campaign, th.seed)
+    if not s or s.state ~= "growing" or s.stolen then
+        return false, "That seed's answer is already set."
+    end
+    return true
+end
+
+-- Make it true: the seed's payoff now reveals the theorist was right.
+function M.steal(campaign, th)
+    local ok, why = M.can_steal(campaign, th)
+    if not ok then
+        return false, why
+    end
+    local s = M.record(campaign, th.seed)
+    s.stolen = { key = th.key, claim = th.claim }
+    th.state = "stolen"
+    th.stolen_week = campaign.week
+    local p = campaign:player(th.key)
+    if p then
+        score.add(p, "investment", M.STEAL_INVESTMENT)
+    end
+    return true
 end
 
 -- Inspiration ---------------------------------------------------------------------------------
@@ -271,6 +368,15 @@ function M.inspire(campaign, prep, id)
         table.insert(prep.hand[c.kind], c)
         prep.inspired[c.id] = id
         table.insert(drawn, c)
+    end
+    -- A new book is out (A13): the evening is reading it. What's pulled in joins the hand.
+    local books = require "game.model.books"
+    if id == "supplement" and books.newest(campaign) then
+        books.start(campaign, prep)
+        prep.inspired_by[id] = drawn
+        prep.inspirations = prep.inspirations + 1
+        prep.extra = prep.extra + a.cost
+        return drawn
     end
     if a.draw then
         -- Fresh cards that fit the activity first, then other fresh ones, then repeats.

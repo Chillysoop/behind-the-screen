@@ -66,18 +66,19 @@ return {
     {
         id = "befriend_villain", type = "story", scenes = { "social", "mystery" },
         actor = { "method_actor", "storyteller", "casual" },
+        needs_cast = "hostile",   -- A11: only when the scene's person is against the party (their data says so)
         title = "Hold on, let's talk",
-        text = "{actor_char} stops everything and asks the villain what they actually want.",
+        text = "{actor_char} stops everything and asks {cast} what {they_want}.",
         options = {
-            { label = "Let it work. The villain has a sad backstory.",
-              log = "The villain hesitates, then starts talking about their mother.",
+            { label = "Let it work. There's a sad story behind it.",
+              log = "{Cast} {hesitates|hesitate}, then {starts|start} talking about how it all began.",
               effects = { { "arch:method_actor", fun = 8 }, { "arch:storyteller", story = 10 }, { "arch:butt_kicker", fun = -8 },
                           { "all", social = 6 }, { "actor", spotlight = 10 } } },
             { label = "They talk, then it turns ugly anyway.",
-              log = "A tense, honest exchange. Then the villain sighs and reaches for a blade.",
+              log = "A tense, honest exchange. Then {cast} {sighs and reaches|sigh and reach} for a blade.",
               effects = { { "all", story = 4, social = 4, challenge = 6 }, { "actor", spotlight = 6 } } },
-            { label = "The villain laughs and attacks.",
-              log = "'Cute.' The villain lunges.",
+            { label = "{Cast} {laughs and attacks|laugh and attack}.",
+              log = "'Cute.' {Cast} {lunges|lunge}.",
               effects = { { "arch:butt_kicker", fun = 8 }, { "arch:method_actor", fun = -6 }, { "all", challenge = 10 } } },
         },
     },
@@ -85,7 +86,8 @@ return {
     {
         id = "wild_theory", type = "story", scenes = { "mystery", "exploration", "social", "puzzle" },
         actor = { "storyteller", "explorer" },
-        title = "Their theory is better", once = true,   -- once a campaign (A11), until Steal the theory
+        title = "Their theory is better", once = true,
+        retired = true,   -- B5: Steal the theory (the chat's theories, pinned to the prep board) replaces it
         text = "{actor_char} lays out a wild theory about who is behind it all. Honestly, it's better than what you wrote.",
         options = {
             { label = "Steal it. Their theory is now true.",
@@ -102,6 +104,59 @@ return {
     },
 
     {
+        -- The killing blow (M8, B4): a boss or a villain is about to fall. Who describes it?
+        -- kb: who gets it ("actor", "other": whoever's waited longest, "dm": you, briefly).
+        id = "killing_blow", type = "combat", trigger = "killing_blow",
+        actor = { "butt_kicker", "power_gamer" },
+        title = "The killing blow",
+        text = "{boss} is about to fall to {actor_char}. Who gets to describe the final hit?",
+        options = {
+            { label = "{actor_char} landed it. {actor}, how do you do this?", kb = "actor",
+              log = "You hand it over: '{actor}, how do you want to do this?'",
+              effects = { { "arch:butt_kicker", fun = 2 } } },
+            { label = "Hand it to {other_char}. {other} hasn't had one in a while.", kb = "other",
+              log = "'{other}, you've been waiting all night. Take it.'",
+              effects = { { "all", social = 3 }, { "actor", fun = -1 } } },
+            { label = "Describe it yourself, quickly.", kb = "dm",
+              log = "{boss} falls. You keep it short; the night moves on.",
+              effects = { { "arch:storyteller", fun = -1 }, { "arch:butt_kicker", fun = -2 } } },
+        },
+    },
+
+    {
+        -- The villain who gets away (M8, B6). Earned: the story set it up (they've met before,
+        -- or the scene has a complication to slip away through). Cheap: out of nowhere.
+        id = "escape_earned", type = "combat", trigger = "escape_earned",
+        actor = { "storyteller", "tactician" },
+        title = "A way out",
+        text = "{boss} is beaten, bleeding, and edging toward the way out they came in by. They planned for this.",
+        options = {
+            { label = "Let them go. They'll be back, and they'll remember.", battle = "escape",
+              log = "{boss} is gone before anyone can stop them. A last look back: this isn't over.",
+              effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:method_actor", fun = 4 }, { "arch:butt_kicker", fun = -3 },
+                          { "arch:tactician", fun = 1 } } },
+            { label = "No way out. Finish it.", battle = "let",
+              log = "Brannoc gets to the door first. {boss} isn't leaving.",
+              effects = { { "arch:butt_kicker", fun = 4 }, { "arch:tactician", fun = 3 } } },
+        },
+    },
+    {
+        id = "escape_cheap", type = "combat", trigger = "escape_cheap",
+        actor = { "storyteller", "tactician" },
+        title = "Out of nowhere",
+        text = "{boss} is nearly done. You could have them vanish, but nothing in the story has set up a way out.",
+        options = {
+            { label = "A puff of smoke, and they're gone.", battle = "escape",
+              log = "Smoke. Coughing. {boss} is gone. Someone says 'oh, come ON'.",
+              effects = { { "arch:storyteller", fun = 3, story = 3 }, { "arch:tactician", fun = -6, trust = -3 },
+                          { "arch:power_gamer", fun = -3 } } },
+            { label = "No way out. Finish it.", battle = "let",
+              log = "There's nowhere for {boss} to run.",
+              effects = { { "arch:butt_kicker", fun = 3 }, { "arch:tactician", fun = 3, trust = 1 } } },
+        },
+    },
+
+    {
         id = "boss_crit", type = "combat", trigger = "boss_crit",
         actor = { "butt_kicker", "power_gamer" },
         title = "An early knockout",
@@ -114,7 +169,7 @@ return {
             { label = "Second phase! It rises, angrier.", battle = "second_phase",
               log = "{boss}'s eyes flare. 'Is that all?'",
               effects = { { "all", challenge = 10 }, { "arch:tactician", fun = 5 }, { "arch:butt_kicker", fun = 4 },
-                          { "perceptive", suspicion = 4 } } },
+                          { "perceptive", suspicion = 4, why = "the boss getting back up out of nowhere" } } },
             { label = "It falls, but reinforcements burst in.", battle = "reinforce",
               log = "{boss} falls, and a horn answers from the dark. More of them.",
               effects = { { "actor", spotlight = 10 }, { "all", challenge = 8 }, { "arch:casual", fun = -3 },
@@ -151,7 +206,7 @@ return {
               effects = { { "all", challenge = 6 }, { "arch:tactician", fun = 3, trust = 2 } } },
             { label = "They get distracted by something shiny.", battle = "distract",
               log = "Something glitters on the floor. Every one of them dives for it.",
-              effects = { { "arch:instigator", fun = 4 }, { "arch:tactician", fun = -6, challenge = -6 }, { "perceptive", suspicion = 3 },
+              effects = { { "arch:instigator", fun = 4 }, { "arch:tactician", fun = -6, challenge = -6 }, { "perceptive", suspicion = 3, why = "monsters diving for something shiny" },
                           { "arch:casual", fun = 2 }, { "actor", fun = 2 } } },
             { label = "A friend dives in to save them.", battle = "rescue",
               log = "{other_char} barrels in like a runaway cart.",
@@ -192,7 +247,7 @@ return {
                           { "arch:tactician", fun = 4 } } },
             { label = "Fudge it. Call it a success.", battle = "fudge_save", cooked = true, convenient = true,
               log = "'Actually... that's a ten. You're stable.'",
-              effects = { { "actor", fun = 6 }, { "perceptive", suspicion = 6 }, { "arch:tactician", trust = -2 } } },
+              effects = { { "actor", fun = 6 }, { "perceptive", suspicion = 6, why = "the death save you fudged" }, { "arch:tactician", trust = -2 } } },
             { label = "A divine spark: Oswin's god answers.", battle = "miracle",
               log = "Light pours through the clouds. {actor_char} gasps awake.",
               canon = "the night Oswin's god answered",
@@ -307,7 +362,7 @@ return {
               effects = { { "arch:explorer", fun = -3 }, { "all", story = -2, trust = 1 } } },
             { label = "Have the torchlight flicker toward it.",
               log = "The flame bends toward the wall. {actor} notices.",
-              effects = { { "arch:explorer", fun = 6, reward = 6 }, { "perceptive", suspicion = 2 }, { "all", story = 4 } } },
+              effects = { { "arch:explorer", fun = 6, reward = 6 }, { "perceptive", suspicion = 2, why = "the torchlight pointing the way" }, { "all", story = 4 } } },
             { label = "Roll a secret Perception check for them.",
               roll = { dc = 14, convenient = "success", skill = "perception", secret = true,
                        success = { log = "{actor_char} stops. 'Wait. This wall is hollow.'",
@@ -320,6 +375,8 @@ return {
     {
         id = "shopping", type = "pacing", scenes = { "downtime", "social", "exploration" },
         where = { "town" },
+        -- A headache (B4): only once they've actually been shopping (a market or downtime tonight).
+        headache = true, needs = { been = { "town", "crowd", "shop" }, or_type = { "downtime" } },
         actor = { "method_actor", "casual" },
         title = "Fifteen minutes of shopping",
         text = "The shopping trip is entering its fifteenth minute. {lowest} is building a tower out of dice.",
@@ -331,9 +388,14 @@ return {
             { label = "Let it breathe.",
               log = "The haggling continues. Someone buys a hat shaped like a duck.",
               effects = { { "arch:casual", social = 8, fun = 4 }, { "arch:method_actor", fun = 4 }, { "arch:butt_kicker", boredom = 8 } } },
-            { label = "Something kicks the door in.",
-              log = "The shop door bursts open. Trouble has found them.",
-              effects = { { "all", challenge = 6 }, { "arch:instigator", fun = 6 }, { "arch:butt_kicker", fun = 6 }, { "arch:casual", fun = -2 } } },
+            -- Every call shows (A11): the trouble is real, and it's rolled for on the table.
+            { label = "Trouble at the door: a debt collector and two friends.",
+              roll = { dc = 12, skill = { "intimidation", "athletics", "persuasion" },
+                       success = { log = "{actor_char} meets them at the door. They think better of it, and leave a name: whoever sent them.",
+                                   effects = { { "all", challenge = 6 }, { "arch:instigator", fun = 6 }, { "arch:butt_kicker", fun = 6 },
+                                               { "actor", spotlight = 8 }, { "arch:casual", fun = -2 } } },
+                       fail = { log = "A scuffle among the hats. Nobody's badly hurt, but the shopkeeper adds the damage to the bill.",
+                                effects = { { "all", challenge = 8 }, { "arch:butt_kicker", fun = 6 }, { "arch:casual", fun = -4 } } } } },
         },
     },
 
@@ -438,6 +500,7 @@ return {
 
     {
         id = "split_party", type = "pacing", scenes = { "exploration", "mystery", "social" },
+        headache = true, needs = { players = 3, archetype = { "explorer", "instigator" } },
         actor = { "explorer", "instigator", "storyteller" },
         other = { "butt_kicker", "tactician", "casual" },
         title = "Splitting the party",
@@ -457,6 +520,7 @@ return {
 
     {
         id = "stuck_puzzle", type = "pacing", scenes = { "puzzle", "mystery" },
+        headache = true, needs = { setbacks = 1 },   -- they really are stuck
         actor = { "tactician", "storyteller" },
         title = "Twenty minutes on one riddle",
         text = "They've been stuck on the riddle for twenty minutes. {lowest} has started guessing random words.",
@@ -530,6 +594,83 @@ return {
             { label = "Cut it with a monster.",
               log = "A crossbow bolt thunks into the table between them.",
               effects = { { "arch:butt_kicker", fun = 6 }, { "actor", fun = -4 }, { "all", challenge = 4 } } },
+        },
+    },
+
+    -- Headaches (M8, B4): classic table problems. Each plays only when its situation actually
+    -- happened (needs, checked in game/model/night.lua headache_ok), and comes back on later
+    -- nights instead of being spent.
+    {
+        id = "plan_40", type = "pacing", scenes = { "combat", "set_piece" }, headache = true,
+        needs = { archetype = { "tactician" }, before_fight = true },
+        actor = { "tactician" },
+        title = "The forty-minute plan",
+        text = "{actor} has a plan. It has phases. It has a diagram. It is now forty minutes old, and the goblins are still waiting.",
+        options = {
+            { label = "Let the plan play out. It's their moment.", table_min = 10,
+              log = "The plan unfolds. Parts of it even work. {actor_char} is radiant.",
+              effects = { { "arch:tactician", fun = 8 }, { "actor", spotlight = 10 }, { "arch:butt_kicker", boredom = 8 },
+                          { "arch:casual", boredom = 5 } } },
+            { label = "The goblins get bored and attack first.",
+              log = "A spear sails out of the dark mid-sentence. Plan B it is.",
+              effects = { { "arch:butt_kicker", fun = 6 }, { "all", challenge = 5 }, { "arch:tactician", fun = -4 } } },
+            { label = "Give them one minute, out loud. Then go.", table_min = 1,
+              log = "'Sixty seconds.' The plan gets a lot simpler, fast.",
+              effects = { { "all", fun = 2, boredom = -4 }, { "arch:tactician", fun = -1 } } },
+        },
+    },
+    {
+        id = "forgot_sheet", type = "table", table_only = true, headache = true,
+        needs = { first_scene = true, archetype = { "casual", "instigator" } },
+        actor = { "casual", "instigator" },
+        title = "Who has my character sheet?",
+        text = "{actor} has forgotten their character sheet. Again. They're fairly sure {actor_char} has about this many hit points.",
+        options = {
+            { label = "Rebuild it together from memory.", table_min = 10,
+              log = "The whole table helps. Somehow {actor_char} ends up with a better sword than before.",
+              effects = { { "all", social = 6 }, { "actor", fun = 3 }, { "arch:tactician", trust = -1 } } },
+            { label = "Use your copy behind the screen.",
+              log = "You slide over the backup copy. You always keep a backup copy.",
+              effects = { { "all", trust = 1 }, { "arch:tactician", fun = 2 } } },
+            { label = "Wing it. Whatever they say goes.",
+              log = "'Twenty-six hit points?' 'Yep.' Nobody believes it. Nobody minds.",
+              effects = { { "arch:casual", fun = 4 }, { "arch:tactician", fun = -3, trust = -1 }, { "arch:power_gamer", fun = -2 } } },
+        },
+    },
+    {
+        id = "food_coma", type = "table", table_only = true, headache = true,
+        needs = { after_break = true },
+        actor = { "casual", "butt_kicker" },
+        title = "The food coma",
+        text = "After the break, the energy's gone. {lowest} is slumped, {actor} is drawing on a napkin, and nobody remembers where they were.",
+        options = {
+            { label = "A quick recap, out loud, with feeling.",
+              log = "You recap with sound effects. It works better than it should.",
+              effects = { { "all", story = 4, boredom = -6 }, { "arch:storyteller", fun = 3 } } },
+            { label = "Kick the door in: start with a fight.",
+              log = "'Initiative!' Everyone sits up.",
+              effects = { { "arch:butt_kicker", fun = 6 }, { "all", challenge = 4, boredom = -8 } } },
+            { label = "Let it be a slow scene.",
+              log = "A quiet, talky scene. Half the table loves it; half drifts.",
+              effects = { { "arch:method_actor", fun = 4 }, { "arch:butt_kicker", boredom = 6 }, { "lowest", boredom = 4 } } },
+        },
+    },
+    {
+        id = "rules_lookup", type = "pacing", scenes = { "combat", "set_piece", "puzzle" }, headache = true,
+        needs = { archetype = { "power_gamer", "tactician" } },
+        actor = { "power_gamer", "tactician" },
+        title = "Looking it up",
+        text = "{actor} is sure there's a rule for this. The book is out. Pages are turning. Everyone else is watching the pages turn.",
+        options = {
+            { label = "Let them find it.", table_min = 6, looked = true,
+              log = "Six minutes later: they were right. Mostly.",
+              effects = { { "arch:power_gamer", fun = 5 }, { "arch:tactician", trust = 2 }, { "arch:butt_kicker", boredom = 6 } } },
+            { label = "Make a call and look it up after.",
+              log = "'For tonight it works like this. I'll check by Thursday.' Fair enough.",
+              effects = { { "all", trust = 1, boredom = -2 }, { "arch:power_gamer", fun = -1 } } },
+            { label = "Rule of cool.",
+              log = "It works because it's awesome. The book closes.",
+              effects = { { "arch:instigator", fun = 4 }, { "arch:butt_kicker", fun = 3 }, { "arch:power_gamer", fun = -3, trust = -1 } } },
         },
     },
 

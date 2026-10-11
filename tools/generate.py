@@ -34,6 +34,22 @@ MAT_X0, MAT_Z0, MAT_W, MAT_H = -56.0, -34.5, 100.0, 65.0
 BASE_TOP = MAT_Y + 0.6
 TRAY = dict(cx=60.0, cz=33.0, w=24.0, d=18.0, wall=1.2, h=4.0, base=0.6)
 FELT_Y = TABLE_Y + TRAY["base"] + 0.02
+# Dice trays (A9): one at every player's seat, and two for the DM: an open box in front of the
+# screen, where the table sees the die, and a tray behind it, where only the DM does.
+# name -> (centre x, centre z, width along x, depth along z); a throw runs along the longer side.
+TRAYS = {
+    "dm_open": (-12.0, 35.5, 24.0, 8.0),
+    "dm_hidden": (-12.0, 45.8, 18.0, 7.2),
+    "dev": (-66.0, 8.0, 12.0, 15.0),
+    "mara": (-22.0, -43.0, 16.0, 11.0),
+    "jess": (14.0, -43.0, 16.0, 11.0),
+    "sam": (62.0, 18.0, 14.0, 14.0),
+}
+TRAY_WALL, TRAY_H, TRAY_BASE = 1.0, 3.2, 0.6
+# Where the camera looks from for each tray: the DM's side, except the open box, which the
+# table sees from theirs.
+TRAY_VIEW = {"dm_open": (0.0, 40.0, -42.0)}
+TRAY_VIEW_DEFAULT = (-2.0, 42.0, 45.0)
 LAMP_PIVOT = (0.0, 290.0, -5.0)
 BULB_OFFSET = (0.0, -125.0, 0.0)
 D20_RADIUS = 2.3
@@ -62,8 +78,9 @@ PEOPLE = [  # name, (x, z)
     ("sam", (106.0, -14.0)),
 ]
 PERSON_SCALE = 0.21
-PERSON_PX = (300, 360)
-PERSON_BOTTOM = 62.0
+# Whole bodies on chairs (A9): the standee reaches the floor, the head where it always was.
+PERSON_PX = (300, 655)
+PERSON_BOTTOM = 0.0
 
 PRESETS = [
     dict(name="Room", eye=(232.0, 212.0, 290.0), target=(-8.0, 84.0, -24.0), fov=42.0, drift=2.0),
@@ -132,18 +149,62 @@ def rug():
 
 
 def tray():
-    t = TRAY
+    """Every dice tray (A9): wooden walls and a felt floor, all in one mesh each."""
     wood = gm.triplanar(30)
-    m = gm.Mesh()
-    m.add(gm.box((t["cx"], TABLE_Y + t["base"] / 2, t["cz"]), (t["w"], t["base"], t["d"]), wood))
-    hy = TABLE_Y + t["h"] / 2
-    m.add(gm.box((t["cx"], hy, t["cz"] - t["d"] / 2 + t["wall"] / 2), (t["w"], t["h"], t["wall"]), wood))
-    m.add(gm.box((t["cx"], hy, t["cz"] + t["d"] / 2 - t["wall"] / 2), (t["w"], t["h"], t["wall"]), wood))
-    m.add(gm.box((t["cx"] - t["w"] / 2 + t["wall"] / 2, hy, t["cz"]), (t["wall"], t["h"], t["d"] - 2 * t["wall"]), wood))
-    m.add(gm.box((t["cx"] + t["w"] / 2 - t["wall"] / 2, hy, t["cz"]), (t["wall"], t["h"], t["d"] - 2 * t["wall"]), wood))
-    iw, idp = t["w"] - 2 * t["wall"], t["d"] - 2 * t["wall"]
-    felt = gm.plane_xz(t["cx"], FELT_Y, t["cz"], iw, idp, gm.triplanar(12))
+    m, felt = gm.Mesh(), gm.Mesh()
+    wl, h, base = TRAY_WALL, TRAY_H, TRAY_BASE
+    for (cx, cz, tw, td) in TRAYS.values():
+        m.add(gm.box((cx, TABLE_Y + base / 2, cz), (tw, base, td), wood))
+        hy = TABLE_Y + h / 2
+        m.add(gm.box((cx, hy, cz - td / 2 + wl / 2), (tw, h, wl), wood))
+        m.add(gm.box((cx, hy, cz + td / 2 - wl / 2), (tw, h, wl), wood))
+        m.add(gm.box((cx - tw / 2 + wl / 2, hy, cz), (wl, h, td - 2 * wl), wood))
+        m.add(gm.box((cx + tw / 2 - wl / 2, hy, cz), (wl, h, td - 2 * wl), wood))
+        felt.add(gm.plane_xz(cx, FELT_Y, cz, tw - 2 * wl, td - 2 * wl, gm.triplanar(12)))
     return m, felt
+
+
+def tray_physics():
+    """The trays' floors and tall invisible walls, so a thrown die stays in its tray."""
+    boxes = []
+    for (cx, cz, tw, td) in TRAYS.values():
+        ix0, ix1 = cx - tw / 2 + TRAY_WALL, cx + tw / 2 - TRAY_WALL
+        iz0, iz1 = cz - td / 2 + TRAY_WALL, cz + td / 2 - TRAY_WALL
+        boxes += [
+            ((cx, FELT_Y - 2, cz), (tw / 2, 2, td / 2)),
+            ((ix0 - 3, TABLE_Y + 12, cz), (3, 12, td / 2 + 3)),
+            ((ix1 + 3, TABLE_Y + 12, cz), (3, 12, td / 2 + 3)),
+            ((cx, TABLE_Y + 12, iz0 - 3), (tw / 2 + 3, 12, 3)),
+            ((cx, TABLE_Y + 12, iz1 + 3), (tw / 2 + 3, 12, 3)),
+        ]
+    return boxes
+
+
+def trays_lua():
+    """scene_data's trays: where each is, where a die is thrown from and how, and the camera."""
+    lines = ["    -- dice trays (A9): a player's at their seat; the DM's open box and hidden tray",
+             "    trays = {"]
+    for name, (cx, cz, tw, td) in TRAYS.items():
+        along_x = tw >= td
+        long = tw if along_x else td
+        if along_x:
+            spawn = (cx - long / 3, TABLE_Y + 12.0, cz)
+            throw = (long * 3.2, -18.0, 0.0)
+        else:
+            spawn = (cx, TABLE_Y + 12.0, cz - long / 3)
+            throw = (0.0, -18.0, long * 3.2)
+        if name in TRAY_VIEW or name.startswith("dm_"):
+            off = TRAY_VIEW.get(name, TRAY_VIEW_DEFAULT)
+        else:
+            # A player's tray is seen from the middle of the table, the player behind it.
+            k = math.hypot(cx, cz) or 1.0
+            off = (-cx / k * 30.0, 38.0, -cz / k * 30.0)
+        eye = (cx + off[0], TABLE_Y + off[1], cz + off[2])
+        lines.append(f"        {name} = {{ pos = {lua_vec((cx, FELT_Y, cz))}, w = {fmt(tw)}, d = {fmt(td)}, "
+                     f"spawn = {lua_vec(spawn)}, throw = {lua_vec(throw)}, "
+                     f"eye = {lua_vec(eye)}, target = {lua_vec((cx, TABLE_Y + 1.0, cz))} }},")
+    lines.append("    },")
+    return lines
 
 
 def screen_panel(width, height, thick, u_outer, u_inner):
@@ -214,7 +275,7 @@ def tableware():
     for (x, z, yaw) in [(-62.0, -2.0, 0.4), (-44.0, -38.0, 1.9), (40.0, -40.0, 2.6), (62.0, -22.0, -0.3)]:
         p = gm.box((0, 0, 0), (12, 0.8, 0.8), gm.swatch(PAL("pencil")))
         m.add(p.transformed(yaw=yaw, offset=(x, TABLE_Y + 0.4, z)))
-    for (x, z, c, yaw) in [(-70.0, -24.0, "dice_red", 0.3), (70.0, -28.0, "dice_blue", 0.8), (55.0, 14.0, "dice_red", 1.2)]:
+    for (x, z, c, yaw) in [(-70.0, -24.0, "dice_red", 0.3), (70.0, -28.0, "dice_blue", 0.8), (50.0, 40.0, "dice_red", 1.2)]:
         d = gm.box((0, 0, 0), (1.8, 1.8, 1.8), gm.swatch(PAL(c)))
         m.add(d.transformed(yaw=yaw, offset=(x, TABLE_Y + 0.9, z)))
     return m
@@ -680,46 +741,19 @@ def main():
     w("main/dice/d20.factory", 'prototype: "/main/dice/d20.go"\n')
     w("main/dice/dice.go", go_file([("factory", "/main/dice/d20.factory"), ("dice", "/main/dice/dice.script")]))
 
-    # static physics: table top and the walls of the dice tray (tall, invisible)
-    t = TRAY
-    ix0, ix1 = t["cx"] - t["w"] / 2 + t["wall"], t["cx"] + t["w"] / 2 - t["wall"]
-    iz0, iz1 = t["cz"] - t["d"] / 2 + t["wall"], t["cz"] + t["d"] / 2 - t["wall"]
-    boxes = [
-        ((0, TABLE_Y - 10, 0), (75, 10, 50)),
-        ((t["cx"], FELT_Y - 2, t["cz"]), (t["w"] / 2, 2, t["d"] / 2)),
-        ((ix0 - 3, TABLE_Y + 12, t["cz"]), (3, 12, t["d"] / 2 + 3)),
-        ((ix1 + 3, TABLE_Y + 12, t["cz"]), (3, 12, t["d"] / 2 + 3)),
-        ((t["cx"], TABLE_Y + 12, iz0 - 3), (t["w"] / 2 + 3, 12, 3)),
-        ((t["cx"], TABLE_Y + 12, iz1 + 3), (t["w"] / 2 + 3, 12, 3)),
-    ]
+    # static physics: table top and the walls of every dice tray (tall, invisible)
+    boxes = [((0, TABLE_Y - 10, 0), (75, 10, 50))] + tray_physics()
     w("main/physics/world.collisionobject",
       'collision_shape: ""\ntype: COLLISION_OBJECT_TYPE_STATIC\nmass: 0.0\nfriction: 0.6\nrestitution: 0.25\n'
       'group: "world"\nmask: "dice"\n' + box_shapes(boxes)
       + 'linear_damping: 0.0\nangular_damping: 0.0\nlocked_rotation: false\nbullet: false\n')
     w("main/physics/world.go", go_file([("collisionobject", "/main/physics/world.collisionobject")]))
 
-    # terrain sets (M4): one game object per set, toggled and animated by the table script
-    terrain_fire = {}
-    for set_name in terrain_layout.SETS:
-        parts = gen_terrain.build(set_name)
-        comps = []
-        for key, tex in (("stone", "stone.png"), ("paint", "palette.png")):
-            mesh = parts[key]
-            if len(mesh.p) == 0:
-                continue
-            mname = f"terrain_{set_name}_{key}"
-            gm.write_glb(path("assets/meshes", mname + ".glb"), mesh, mname)
-            w(f"main/terrain/{mname}.model", model_file(mname, T + tex))
-            comps.append((key, f"/main/terrain/{mname}.model"))
-        if parts["floor"]:
-            mesh, tex = parts["floor"]
-            mname = f"terrain_{set_name}_floor"
-            gm.write_glb(path("assets/meshes", mname + ".glb"), mesh, mname)
-            w(f"main/terrain/{mname}.model", model_file(mname, T + tex))
-            comps.append(("floor", f"/main/terrain/{mname}.model"))
-        w(f"main/terrain/{set_name}.go", go_file(comps))
-        terrain_fire[set_name] = gen_terrain.fire_spot(set_name)
-    w("game/data/terrain_layout.lua", terrain_layout.lua_layout())
+    # The board (the story-matched table): the prop kit, a factory per kind, dropped in piece by piece as
+    # the DM describes a place. Boards are data (game/data/boards.lua); the kit is tools/gen_props.py.
+    # (The M4 terrain sets, one baked mesh per set, are gone; game/data/terrain_layout.lua reads the boards.)
+    import gen_props
+    gen_props.main()
 
     # dynamic minis: the table script spawns them from these prototypes
     for side in ("party", "foe", "npc"):
@@ -744,10 +778,15 @@ def main():
                                       ("mark_factory", "/main/table/mark.factory")]))
 
     # sprites: atlas, minis, people (with poses), glows
-    mini_names = [m[0] for m in MINIS] + gen_sprites_m4.MONSTERS + gen_sprites_m4.NPCS
+    import gen_sprites_a13
+    import gen_pregens
+    import gen_sprites_npcs
+    mini_names = ([m[0] for m in MINIS] + gen_sprites_m4.MONSTERS + gen_sprites_m4.NPCS
+                  + [f.__name__ for f in gen_sprites_a13.BUILD] + ["pregen_" + k for k in gen_pregens.PREGENS]
+                  + gen_sprites_npcs.NEW)
     people_names = [p[0] for p in PEOPLE]
     pose_names = [f"{p}_{pose}" for p in people_names for pose in gen_sprites.POSES if pose != "neutral"]
-    sprite_names = mini_names + people_names + pose_names + ["flame", "halo"]
+    sprite_names = mini_names + people_names + pose_names + ["chair_empty", "flame", "halo"]
     w("assets/sprites/sprites.atlas",
       "".join(f'images {{\n  image: "/assets/sprites/{n}.png"\n}}\n' for n in sprite_names)
       + "margin: 2\nextrude_borders: 2\ninner_padding: 0\n")
@@ -790,9 +829,8 @@ def main():
     bulb = tuple(a + b for a, b in zip(LAMP_PIVOT, BULB_OFFSET))
     col += instance("lamp_halo", "/main/fx/halo.go", (bulb[0], bulb[1] - 2, bulb[2]), scale=0.22)
     col += instance("dice", "/main/dice/dice.go")
+    col += instance("board", "/main/board/board.go")
     col += instance("table", "/main/table/table.go")
-    for set_name in terrain_layout.SETS:
-        col += instance("terrain_" + set_name, f"/main/terrain/{set_name}.go")
     col += instance("dice_blob", "/main/dice/dice_blob.go", (0, -500, 0))
     flame_scale = 0.055
     col += instance("flame", "/main/fx/flame.go", (FIRE[0], MAT_Y + 1.0 + 192 * flame_scale / 2, FIRE[1]),
@@ -831,12 +869,6 @@ def main():
         tops[n] = round(bb[1] / im.size[1], 2) if bb else 0.2
     lua.append("    -- where each standee's art starts, from the top of the sprite: HP bars sit just over the head")
     lua.append("    mini_tops = { " + ", ".join(f"{k} = {fmt(v)}" for k, v in tops.items()) + " },")
-    lua.append("    -- fire light per terrain set: position and brightness (0 = no fire)")
-    lua.append("    terrain_fire = {")
-    for set_name, (pos, level) in terrain_fire.items():
-        lua.append(f"        {set_name} = {{ pos = {lua_vec(pos) if pos else 'nil'}, level = {fmt(level)} }},")
-    lua.append("    },")
-    lua.append("    terrain_sets = { " + ", ".join(f'"{n}"' for n in terrain_layout.SETS) + " },")
     lua.append("    -- where each player's head is (speech bubbles)")
     lua.append("    heads = {")
     for (name, (x, z)) in PEOPLE:
@@ -845,6 +877,7 @@ def main():
     lua.append(f"    lamp = {{ bulb_offset = {lua_vec(BULB_OFFSET)} }},")
     spawn = (TRAY["cx"] - TRAY["w"] / 2 + 4.0, TABLE_Y + 16.0, TRAY["cz"] - 2.0)
     lua.append(f"    dice = {{ spawn = {lua_vec(spawn)}, throw = {lua_vec((95.0, -20.0, 25.0))}, floor_y = {fmt(FELT_Y)} }},")
+    lua += trays_lua()
     lua.append("    -- d20 face normals (local space) and the number printed on each face")
     lua.append("    d20_faces = {")
     for (nx, ny, nz, num) in d20_lua_faces:

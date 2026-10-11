@@ -8,7 +8,7 @@
 -- says:   what they say when the option comes up (shown on the Session Zero screen).
 -- pressure: starting pressure on a table conflict (game/data/conflicts.lua).
 
-return {
+local S0 = {
     -- The pitch: what the campaign should feel like.
     tones = {
         order = { "mixed", "heroic", "grim", "silly" },
@@ -95,7 +95,7 @@ return {
 
     -- The table rules.
     rules = {
-        order = { "xcard", "dice", "rulings", "length" },
+        order = { "xcard", "dice", "rulings", "length", "death" },
         xcard = {
             name = "The X-card",
             about = "Anyone can tap it to skip something, no questions asked.",
@@ -145,9 +145,23 @@ return {
     },
 
     -- When Session Zero is skipped (headless runs): the middle of the road on everything.
+    -- (rules.death is filled in from game/data/death.lua below.)
     defaults = {
         tone = "mixed",
         asks = { mara = "agree", sam = "agree", dev = "agree", jess = "push" },
-        rules = { xcard = "on", dice = "big_open", rulings = "quick", length = "half" },
+        rules = { xcard = "on", dice = "big_open", rulings = "quick", length = "half", death = "meaningful" },
     },
 }
+
+-- When a hero dies (M8, B3): the table's default, from game/data/death.lua.
+do
+    local death = require "game.data.death"
+    local r = { name = death.RULE.name, about = "What happens when a character dies. Each player can still ask for their own.",
+                order = death.MODES, compact = true }
+    for _, m in ipairs(death.MODES) do
+        r[m] = { name = death.MODE[m].short, about = death.MODE[m].about, like = death.RULE[m].like, says = death.RULE[m].says }
+    end
+    S0.rules.death = r
+end
+
+return S0

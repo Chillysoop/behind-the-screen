@@ -52,7 +52,23 @@ local function by_distance(b, c, list)
 end
 
 local function enemies(b, c)
-    return b:enemies_of(c)
+    local list = b:enemies_of(c)
+    -- Charmed (Enthralling Panache): you can't attack the one who charmed you.
+    local charmers
+    for _, e in ipairs(c.effects or {}) do
+        if e.charmed_by then
+            charmers = charmers or {}
+            charmers[e.charmed_by] = true
+        end
+    end
+    if charmers then
+        local out = {}
+        for _, o in ipairs(list) do
+            if not charmers[o] then table.insert(out, o) end
+        end
+        return out
+    end
+    return list
 end
 
 local function adjacent_enemies(b, c, x, y, list)
@@ -90,6 +106,22 @@ local function approach(b, c, t, reach)
     return not c.dead and not c.down and b:dist(c, t) <= reach
 end
 
+-- How many of these enemies' ranged attacks a square would have Half Cover against (the board's
+-- low walls, tables and crates: battle.lua cover_bonus). Archers and casters like a wall.
+local function cover_from(b, x, y, foes)
+    if not b.cover then
+        return 0
+    end
+    local n = 0
+    local spot = { x = x, y = y }
+    for _, e in ipairs(foes) do
+        if b:cover_bonus(e, spot) > 0 then
+            n = n + 1
+        end
+    end
+    return n
+end
+
 -- Step away from enemies to a square at least `want` feet from all of them, if possible.
 local function back_off(b, c, want, keep_in_range_of, range)
     if c.turn.move <= 0 then
@@ -101,7 +133,7 @@ local function back_off(b, c, want, keep_in_range_of, range)
         for _, e in ipairs(foes) do
             nearest = math.min(nearest, b:dist_xy(x, y, e.x, e.y))
         end
-        local s = math.min(nearest, want)
+        local s = math.min(nearest, want) + 4 * cover_from(b, x, y, foes)
         if keep_in_range_of and b:dist_xy(x, y, keep_in_range_of.x, keep_in_range_of.y) > range then
             s = s - 100
         end
@@ -121,7 +153,7 @@ local function get_in_range(b, c, t, range)
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
         local s = (d <= range) and 100 or -d
-        s = s - adjacent_enemies(b, c, x, y, foes) * 20
+        s = s - adjacent_enemies(b, c, x, y, foes) * 20 + 6 * cover_from(b, x, y, foes)
         return s
     end)
     if x then
@@ -196,6 +228,9 @@ local function can_cast(c, id)
     if free_reflection(c, id) then
         return true
     end
+    if id == "magic_missile" and (c.res.wand or 0) > 0 then
+        return true                       -- the Wand of Magic Missiles (A13): no slot needed
+    end
     if slot_used_this_turn(c) then
         return false
     end
@@ -215,6 +250,17 @@ local function pay(c, id, prefer_level)
     if free_reflection(c, id) then
         c.res.qr_free = c.res.qr_free - 1
         return s.level
+    end
+    -- The wand first (its charges come back at dawn), up to 3 charges for a level 3 missile.
+    if id == "magic_missile" and (c.res.wand or 0) > 0 then
+        local n = math.min(3, c.res.wand, prefer_level or 1)
+        c.res.wand = c.res.wand - n
+        if c.res.wand <= 0 and c.battle and c.battle.dice:d(20) == 1 then
+            c.wand_crumbled = true
+            c.battle:log("The Wand of Magic Missiles crumbles to ash.")
+        end
+        c.wand_cast = true
+        return n
     end
     local slot = spells.find_slot(c, prefer_level or s.level)
     if not slot then
@@ -343,6 +389,11 @@ end
 
 -- Game night: the DM can tell the monsters who to go after (b.focus = "squishy" | "big" | "spread").
 local function focus_target(b, c, foes, reach)
+    -- The DM ran this turn (B8): it goes for the one they picked.
+    local t = c.dm_target
+    if t and not t.dead and not t.removed and (not t.down or c.dm_finish) then
+        return t
+    end
     local f = b.focus
     if not f then
         return nil
@@ -379,6 +430,40 @@ local function monster_attack_with(b, c, t, a, ranged)
         end
     end
     b:attack(c, t, prof)
+    return true
+end
+
+local function find_named(c, id)
+    for _, a in ipairs(c.attacks) do
+        if a.id == id then return a end
+    end
+    return nil
+end
+
+-- The giant spider's Web (Recharge 5-6): a Dex save or Restrained until the web is cut.
+local function spider_web(b, c, foes)
+    local w = c.data and c.data.web
+    if not w or c.web_spent then
+        return false
+    end
+    local best, bv
+    for _, e in ipairs(foes) do
+        if b:dist(c, e) <= w.range and not b:has(e, "restrained") and not (e.condition_immune and e.condition_immune.restrained) then
+            local v = (b:dist(c, e) > 5 and 3 or 0) + ((e.class == "wizard" or e.class == "cleric") and 2 or 0) - e.hp / 30
+            if not bv or v > bv then best, bv = e, v end
+        end
+    end
+    if not best then
+        return false
+    end
+    c.web_spent = true
+    c.turn.action = false
+    b:log("%s flings a web at %s.", c.name, best.name)
+    b:emit({ kind = "feature", who = c, name = "Web", target = best })
+    if not b:save(best, w.save, w.dc, { kind = "restrained" }) then
+        b:add_effect(best, { name = "Spider web", conds = { restrained = true }, web = { ac = w.ac, hp = w.hp } })
+        b:log("  %s is stuck fast in the web.", best.name)
+    end
     return true
 end
 
@@ -428,6 +513,12 @@ local function monster_turn(b, c)
         return
     end
     by_distance(b, c, foes)
+    -- A spider with its web ready opens with it, unless someone's already in its face.
+    if c.data and c.data.web and not c.web_spent and (adjacent_enemies(b, c) == 0 or b.dice:chance(0.3)) then
+        if spider_web(b, c, foes) then
+            return
+        end
+    end
     local melee = find_attack(c, "melee")
     local ranged = find_attack(c, "ranged")
     local nearest = foes[1]
@@ -493,7 +584,8 @@ local function monster_turn(b, c)
         end
     end
     for i = 1, count do
-        if t.dead or t.down then
+        repeat   -- (break = on to the next attack)
+        if t.dead or (t.down and not (c.dm_finish and t == c.dm_target)) then
             local near = by_distance(b, c, enemies(b, c))
             t = near[1]
             if not t or b:dist(c, t) > reach then
@@ -501,6 +593,37 @@ local function monster_turn(b, c)
             end
         end
         local a = melee
+        -- A set order of attacks (the bear's bite then claw, the merrow's bite then harpoon).
+        if c.multiattack and c.multiattack.seq then
+            a = find_named(c, c.multiattack.seq[i]) or melee
+        end
+        -- The bugbear grabs first, then hammers whoever it's holding (Advantage).
+        if c.monster_id == "bugbear_warrior" then
+            local g = b:find_grapple(t)
+            a = (g and g.grapple_by == c) and find_named(c, "light_hammer") or find_named(c, "grab")
+        end
+        -- The pirate trades a dagger for Enthralling Panache on whoever's most dangerous up close.
+        if i == 1 and count > 1 and c.data and c.data.panache and not c.turn.panache_used then
+            local p = c.data.panache
+            local best, bv
+            for _, e in ipairs(enemies(b, c)) do
+                if b:dist(c, e) <= p.range and not b:find_effect(e, "Charmed") and not (e.condition_immune and e.condition_immune.charmed) then
+                    local v = (e.class == "fighter" and 3 or 0) + (b:dist(c, e) <= 5 and 2 or 0) + e.hp / 20
+                    if not bv or v > bv then best, bv = e, v end
+                end
+            end
+            if best then
+                c.turn.panache_used = true
+                b:log("%s flashes a grin at %s: Enthralling Panache.", c.name, best.name)
+                b:emit({ kind = "feature", who = c, name = "Enthralling Panache", target = best })
+                if not b:save(best, p.save, p.dc, { kind = "charmed" }) then
+                    b:add_effect(best, { name = "Charmed", conds = { charmed = true }, charmed_by = c,
+                                         expires = b:next_turn(c, "start") })
+                    b:log("  %s can't bring themselves to hit %s.", best.name, c.name)
+                end
+                break
+            end
+        end
         -- Ghouls sometimes go for the paralysing claw when a friend can follow up.
         if c.monster_id == "ghoul" and i == 1 then
             local friend = false
@@ -516,6 +639,7 @@ local function monster_turn(b, c)
             end
         end
         monster_attack_with(b, c, t, a, false)
+        until true
     end
 end
 
@@ -1155,7 +1279,44 @@ function AI.on_initiative(b)
     end
 end
 
+-- Hazards (A10): step out of falling dust or fire before anything else, and put yourself out.
+local function hazard_cell(b, x, y)
+    local st = b.hazard
+    if not st then
+        return false
+    end
+    local k = x .. "," .. y
+    return (st.warned and st.warned[k]) or (st.fire and st.fire[k]) or false
+end
+
+local function dodge_hazards(b, c)
+    if not b.hazard or c.dead or c.down or (c.turn.move or 0) <= 0 then
+        return
+    end
+    if hazard_cell(b, c.x, c.y) then
+        local x, y = b:best_square(c, c.turn.move, function(x, y)
+            return hazard_cell(b, x, y) and -100 or 0
+        end)
+        if x and not hazard_cell(b, x, y) then
+            b:move_to(c, x, y)
+        end
+    end
+    local burning = b:find_effect(c, "Burning")
+    if burning and c.pc and c.turn.action and (c.hp <= c.hp_max * 0.4 or adjacent_enemies(b, c) == 0) then
+        -- As an action: drop Prone and roll it out (p. 178).
+        c.turn.action = false
+        b:remove_effect(c, burning, "put out")
+        b:knock_prone(c, "rolling out the flames")
+        b:log("%s drops and rolls, and the flames go out.", c.name)
+        b:emit({ kind = "feature", who = c, name = "Puts out the flames" })
+    end
+end
+
 function AI.take_turn(b, c)
+    dodge_hazards(b, c)
+    if c.turn and not c.turn.action and c.pc and b:find_effect(c, "Prone") and not c.down then
+        return                              -- (rolled out the flames: that was the turn)
+    end
     local cmd = b:find_effect(c, "Commanded")
     if cmd then
         b:knock_prone(c, "Command: Grovel")
@@ -1164,6 +1325,17 @@ function AI.take_turn(b, c)
     end
     if not c.pc then
         return monster_turn(b, c)
+    end
+    -- Stuck in a giant spider's web: cut free first (an attack on the web, AC 10).
+    if b:find_effect(c, "Spider web") then
+        b:cut_web(c, weapon_profile(c, "melee") or weapon_profile(c, "ranged"))
+        return
+    end
+    -- Grabbed: casters and archers break free; fighters just hit the thing holding them.
+    local g = b:find_grapple(c)
+    if g and (c.class == "wizard" or c.class == "cleric" or (c.class == "rogue" and b:dist(c, g.grapple_by) > 5)) then
+        b:escape_grapple(c)            -- the action goes on it
+        return
     end
     if c.class == "fighter" then
         fighter_turn(b, c)

@@ -90,6 +90,7 @@ function M.week_record(campaign, prep_seconds, night_seconds)
     for k in pairs(prep.talked) do
         table.insert(talked, k)
     end
+    table.sort(talked)
     -- M6: the table's conflicts, conversations, seeds and level.
     local conflicts = {}
     for id, c in pairs(campaign.conflicts or {}) do
@@ -99,10 +100,12 @@ function M.week_record(campaign, prep_seconds, night_seconds)
     for id, th in pairs(prep.convos or {}) do
         table.insert(convos, { id = id, done = th.done, cost = th.cost })
     end
+    table.sort(convos, function(a, b) return a.id < b.id end)
     local inspired = {}
     for id in pairs(prep.inspired_by or {}) do
         table.insert(inspired, id)
     end
+    table.sort(inspired)
     local seeds = {}
     for _, sd in ipairs(campaign.seeds and campaign.seeds.planted or {}) do
         table.insert(seeds, { id = sd.id, state = sd.state, week = sd.week, hype = sd.hype })

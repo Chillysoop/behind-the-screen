@@ -58,6 +58,11 @@ function M:cost_of(c)
     if c.kind == "location" and places_mod().is_known(self.campaign, c.id) then
         return 0
     end
+    -- A shower thought (B5) costs nothing to place.
+    local pin = self.pins and self.pins[c.id]
+    if pin and pin.free then
+        return 0
+    end
     return c.cost
 end
 
@@ -65,7 +70,15 @@ function M:spent()
     local total = 0
     local places = {}
     for _, s in ipairs(self.scenes) do
-        for kind, c in pairs(s.slots) do
+        -- A published adventure (A13): one price for the whole scene, plus each swap.
+        if s.module then
+            local n = 0
+            for _ in pairs(s.module.swaps) do
+                n = n + 1
+            end
+            total = total + content.books.MODULE_COST + n * content.books.SWAP_COST
+        end
+        for kind, c in pairs(s.module and {} or s.slots) do
             -- A place you've prepped once can host more than one scene (A6).
             if kind ~= "location" or not places[c.id] then
                 total = total + self:cost_of(c)
@@ -109,6 +122,9 @@ function M:can_place(i, id)
     local c = content.components[id]
     if not c then
         return false, "Unknown card."
+    end
+    if self.scenes[i].module then
+        return false, "This scene is a published adventure. Swap its reward or its person instead."
     end
     local refund = 0
     local cur = self.scenes[i].slots[c.kind]
@@ -177,7 +193,11 @@ function M:clear(i, kind)
 end
 
 function M:set_type(i, scene_type)
+    if self.scenes[i].module then
+        return false          -- a published adventure brings its own type (A13)
+    end
     self.scenes[i].type = scene_type
+    return true
 end
 
 -- The table clock (A14): roughly how long the board will run at the table, and how long you
@@ -207,6 +227,7 @@ end
 function M:set_open(i, on)
     local s = self.scenes[i]
     if on then
+        self:clear_module(i)
         s.open = true
         s.spots = s.spots or {}
         s.type = s.type or "social"
@@ -306,6 +327,157 @@ function M:spot_suggestions(i)
     return out
 end
 
+-- Published adventures (A13) -----------------------------------------------------------------
+-- A module pulled in from a book fills a whole scene: every slot, the scene type and the fight,
+-- for books.MODULE_COST hours. Swap its reward for a card from your hand, or recast its person
+-- with someone from the notebook, for books.SWAP_COST each. s.module = { id, swaps = { kind = id } }.
+
+local function books_mod()
+    return require "game.model.books"
+end
+
+function M:can_place_module(i, mid)
+    local s = self.scenes[i]
+    local m = books_mod().module(mid)
+    if not m or not books_mod().get(self.campaign).modules[mid] then
+        return false, "Pull it in from a book first."
+    end
+    if s.open then
+        return false, "An open scene lets the players choose. Close it first."
+    end
+    for j, o in ipairs(self.scenes) do
+        if j ~= i and o.module and o.module.id == mid then
+            return false, "It's already on scene " .. util.int(j) .. "."
+        end
+    end
+    -- What this scene's cards cost now comes back.
+    local refund = 0
+    if s.module then
+        refund = self:module_cost(i)
+    else
+        for _, c in pairs(s.slots) do
+            refund = refund + self:cost_of(c)
+        end
+    end
+    if content.books.MODULE_COST > self:left() + refund then
+        return false, "Not enough prep time left."
+    end
+    return true
+end
+
+function M:module_cost(i)
+    local s = self.scenes[i]
+    if not s.module then
+        return 0
+    end
+    local n = 0
+    for _ in pairs(s.module.swaps) do
+        n = n + 1
+    end
+    return content.books.MODULE_COST + n * content.books.SWAP_COST
+end
+
+function M:place_module(i, mid)
+    local ok, why = self:can_place_module(i, mid)
+    if not ok then
+        return false, why
+    end
+    local s = self.scenes[i]
+    local m = books_mod().module(mid)
+    s.slots = {}
+    for kind, c in pairs(m.cards) do
+        s.slots[kind] = content.components[c.id]
+    end
+    s.type = m.type
+    s.module = { id = mid, swaps = {} }
+    if m.encounter then
+        local ids = {}
+        for k, id in ipairs(m.encounter.ids) do
+            ids[k] = id
+        end
+        s.encounter = { ids = ids, boss_name = m.encounter.boss_name, built = true, module = true }
+    else
+        s.encounter = nil
+    end
+    return true
+end
+
+function M:clear_module(i)
+    local s = self.scenes[i]
+    if s.module then
+        s.module = nil
+        s.slots = {}
+        s.encounter = nil
+    end
+end
+
+-- Swap a module's reward (a reward from your hand) or person (a cast card of someone in the notebook).
+function M:can_swap(i, id)
+    local s = self.scenes[i]
+    local c = content.components[id]
+    if not (s.module and c) then
+        return false, "Not a published adventure."
+    end
+    if c.kind ~= "reward" and c.kind ~= "cast" then
+        return false, "Only its reward or its person can change."
+    end
+    if c.module then
+        return false, "That's the book's own."
+    end
+    if c.kind == "cast" then
+        local ledger = require "game.model.ledger"
+        local pid = ledger.person_of(c)
+        if not (pid and ledger.met(self.campaign, pid)) then
+            return false, "Recast it with someone the party knows (from your notebook)."
+        end
+    end
+    if self:placed_at(id) then
+        return false, "Already on the board."
+    end
+    if not s.module.swaps[c.kind] and content.books.SWAP_COST > self:left() then
+        return false, "Not enough prep time left."
+    end
+    return true
+end
+
+function M:swap(i, id)
+    local ok, why = self:can_swap(i, id)
+    if not ok then
+        return false, why
+    end
+    local s = self.scenes[i]
+    local c = content.components[id]
+    s.slots[c.kind] = c
+    s.module.swaps[c.kind] = id
+    return true
+end
+
+-- Who from the notebook could play the module's person: people the party has met, still around.
+function M:recast_options(i)
+    local ledger = require "game.model.ledger"
+    local out = {}
+    for _, pid in ipairs(ledger.people(self.campaign)) do
+        if ledger.met(self.campaign, pid) and ledger.around(self.campaign, pid) then
+            local c = ledger.card_of(self.campaign, pid)
+            if c and c.kind == "cast" and not c.foe and not c.villain and self:can_swap(i, c.id) then
+                table.insert(out, { pid = pid, card = c })
+            end
+        end
+    end
+    return out
+end
+
+function M:unswap(i, kind)
+    local s = self.scenes[i]
+    if not (s.module and s.module.swaps[kind]) then
+        return false
+    end
+    local m = books_mod().module(s.module.id)
+    s.module.swaps[kind] = nil
+    s.slots[kind] = content.components[m.cards[kind].id]
+    return true
+end
+
 -- The encounter builder (real-session pass) ----------------------------------------------
 -- A combat or set-piece scene's fight. Until the DM builds their own, game night uses the
 -- one the scene suggests (its cast's monsters, else its location's, sized by the meter).
@@ -323,7 +495,7 @@ function M:suggested_encounter(i)
             n = n + 1
         end
     end
-    local sc = { comps = s.slots, type = s.type, difficulty = M.difficulty(s.slots) }
+    local sc = { comps = s.slots, type = s.type, difficulty = M.difficulty(s.slots), hazard = s.hazard }
     local ids, fam = fight_mod().suggest(sc, camp.level or 2, math.max(1, n))
     return ids, fam
 end
@@ -336,6 +508,17 @@ function M:encounter(i)
     end
     local ids, fam = self:suggested_encounter(i)
     return { ids = ids, boss_name = fam.name, built = false }
+end
+
+-- A hazard on the mat (A10): one of game/rules/data/hazards.lua, or nil for none. Otherwise the
+-- scene's complication may bring one (a fire, a flood, a floor giving way).
+function M:set_hazard(i, id)
+    self.scenes[i].hazard = id
+end
+
+function M:hazard(i)
+    local s = self.scenes[i]
+    return fight_mod().hazard_of({ comps = s.slots, hazard = s.hazard, encounter = s.encounter })
 end
 
 -- The DM's own fight: monster ids, the first one leads it. nil goes back to the suggestion.

@@ -220,148 +220,28 @@ instances {
   }
 }
 instances {
+  id: "board"
+  prototype: "/main/board/board.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  scale3 {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+}
+instances {
   id: "table"
   prototype: "/main/table/table.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_camp"
-  prototype: "/main/terrain/camp.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_forest"
-  prototype: "/main/terrain/forest.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_ruins"
-  prototype: "/main/terrain/ruins.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_tavern"
-  prototype: "/main/terrain/tavern.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_market"
-  prototype: "/main/terrain/market.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_bridge"
-  prototype: "/main/terrain/bridge.go"
-  position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-instances {
-  id: "terrain_blank"
-  prototype: "/main/terrain/blank.go"
   position {
     x: 0.0
     y: 0.0
@@ -424,7 +304,7 @@ instances {
   prototype: "/main/people/dev.go"
   position {
     x: -106.0
-    y: 99.8
+    y: 68.775
     z: -6.0
   }
   rotation {
@@ -444,7 +324,7 @@ instances {
   prototype: "/main/people/mara.go"
   position {
     x: -38.0
-    y: 99.8
+    y: 68.775
     z: -80.0
   }
   rotation {
@@ -464,7 +344,7 @@ instances {
   prototype: "/main/people/jess.go"
   position {
     x: 34.0
-    y: 99.8
+    y: 68.775
     z: -80.0
   }
   rotation {
@@ -484,7 +364,7 @@ instances {
   prototype: "/main/people/sam.go"
   position {
     x: 106.0
-    y: 99.8
+    y: 68.775
     z: -14.0
   }
   rotation {

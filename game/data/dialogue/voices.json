@@ -541,6 +541,22 @@
     "Enough. The pack yields.",
     "You hunt well. Remember that."
    ]
+  },
+  "anyone": {
+   "kind": "npc",
+   "name": "Anyone (a person without a voice sheet)",
+   "personality": "A plain voice for any person in a scene who has no voice sheet of their own: a shopkeeper, a guard, a priest or a smuggler alike. Natural, a little wary of strangers, never names themselves or their job.",
+   "tics": [],
+   "never": [
+    "naming themselves",
+    "naming a specific place",
+    "anything that only fits one job"
+   ],
+   "samples": [
+    "What can I do for you?",
+    "I don't know anything about that.",
+    "Good to see a friendly face."
+   ]
   }
  }
 }

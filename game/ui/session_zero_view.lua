@@ -204,6 +204,28 @@ local function rules(app, c)
         local r = s0.rules[rk]
         -- (Four rules with the table clock's length, A14: rows are compact to fit above the button.)
         kit.text(x, y, r.name, "ui18b", theme.text)
+        if r.compact then
+            -- When a hero dies (B3): the options side by side, the about line saved for the chosen one.
+            local cur = c.rules[rk] and r[c.rules[rk]]
+            kit.text(x + kit.width(r.name, "ui18b") + 10, y + 3, cur and cur.about or r.about, "ui14", theme.dim,
+                { w = w - kit.width(r.name, "ui18b") - 10, lines = 1 })
+            y = y + 24
+            local bw = (w - 3 * 6) / #r.order
+            for i, ok in ipairs(r.order) do
+                local o = r[ok]
+                local chosen = c.rules[rk] == ok
+                local bx = x + (i - 1) * (bw + 6)
+                if chosen then
+                    kit.box(bx - 3, y - 3, bw + 6, 36, theme.select, { radius = 9 })
+                end
+                kit.button(bx, y, bw, 30, o.name, function()
+                    c.rules[rk] = ok
+                    app.refresh()
+                end, { font = "ui14", color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover,
+                       key = "rule_" .. rk .. "_" .. ok })
+            end
+            y = y + 34
+        else
         kit.text(x, y + 21, r.about, "ui14", theme.dim, { w = w, lines = 1 })
         y = y + 42
         for _, ok in ipairs(r.order) do
@@ -219,6 +241,7 @@ local function rules(app, c)
             kit.text(x + 12, y + 5, o.name, "ui18", theme.text, { w = 250, lines = 1 })
             chips(x + 262, y + 5, o.like, w - 270)
             y = y + 34
+        end
         end
         -- What people said about the chosen option.
         local o = c.rules[rk] and r[c.rules[rk]]

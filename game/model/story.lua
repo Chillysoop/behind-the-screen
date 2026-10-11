@@ -122,7 +122,8 @@ local function clue_text(campaign, id)
     end
 end
 
--- "Last time on The Silent Bells: ..." for the start of the night, or nil in week 1.
+-- "Last session: ..." for the start of the night, or nil in week 1 (the fallback when there's no
+-- filed report to read: game/model/recap.lua last_session is the usual one).
 function M.recap(campaign)
     local st = M.init(campaign)
     local last = st.weeks[campaign.week - 1]
@@ -152,13 +153,13 @@ function M.recap(campaign)
         else
             text = text .. " And the bells above Millbrook are still silent."
         end
-        return "Last time on " .. content.arc.name .. ": " .. text
+        return "Last session: " .. text
     end
     local text = table.concat(parts, " ")
     if last.cliff then
         text = text .. " And it ended on a cliffhanger."
     end
-    return "Last time on " .. content.arc.name .. ": " .. text
+    return "Last session: " .. text
 end
 
 -- Everything the DM's notes show, gathered in one place.

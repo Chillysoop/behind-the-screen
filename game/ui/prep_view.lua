@@ -16,6 +16,8 @@ local function notes_view_mod()
     return require "game.ui.notes_view"
 end
 local talk_view = require "game.ui.talk_view"
+local book_view = require "game.ui.book_view"
+local books_mod = require "game.model.books"
 local messages_view = require "game.ui.messages_view"
 local levelup_view = require "game.ui.levelup_view"
 local panels = require "game.ui.panels"
@@ -283,11 +285,42 @@ local function top_bar(app, prep)
     kit.button(1356, 12, 220, 42, "Run game night  >", function()
         M.run_night(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, key = "run_night" })
-    kit.text(1466, 56, ready and "or press Enter" or "Pick a type for every scene first.", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+    if not (ready and M.party_not_rested(app)) then
+        kit.text(1466, 56, ready and "or press Enter" or "Pick a type for every scene first.", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+    end
+end
+
+-- Theories pinned to a corner of the board (B5): the chat's best guesses, as sticky notes. Make
+-- one true and the seed's payoff proves them right.
+local function theory_pins(app)
+    local c = app.campaign
+    local pins = seeds_mod.pinned(c)
+    local y = 885 - #pins * messages_view.PIN_H + 6
+    for _, th in ipairs(pins) do
+        local claim = seeds_mod.claim(th)
+        local p = c:player(th.key)
+        local h = messages_view.PIN_H - 10
+        kit.box(24, y, 320, h, kit.rgba("#f3df8a"), { radius = 4 })
+        kit.text(34, y + 6, "THEORY: " .. string.upper(p and p.name or "?"), "ui14", theme.ink_dim)
+        local text = claim and claim.says or ""
+        kit.text(34, y + 24, kit.ellipsize(text, "ui14", 300), "ui14", theme.ink)
+        kit.text(34, y + 24 + 18, kit.ellipsize(content.seeds[th.seed].name, "ui14", 160), "ui14", theme.ink_dim)
+        local ok, why = seeds_mod.can_steal(c, th)
+        kit.button(214, y + h - 34, 120, 28, "Make it true", function()
+            local done, msg = seeds_mod.steal(c, th)
+            app.toast = done and ((p and p.name or "They") .. " is going to be insufferable about this.") or msg
+            app.refresh()
+        end, { font = "ui14", enabled = ok, color = theme.go, hover = theme.go_hover, key = "steal_" .. th.seed })
+        if not ok and why then
+            kit.text(34, y + h - 26, why, "ui14", theme.ink_dim)
+        end
+        y = y + messages_view.PIN_H
+    end
 end
 
 local function chat_column(app)
     messages_view.column(app)
+    theory_pins(app)
 end
 
 local function scene_card(app, prep, i)
@@ -313,7 +346,8 @@ local function scene_card(app, prep, i)
         tcolor, fighty = theme.decision.agency, false
     end
     kit.button(x + 10, y + 32, fighty and CARD_W - 112 or CARD_W - 20, 40,
-        s.open and "Open: they choose" or (s.type and content.scenes[s.type].name or "Choose a type"),
+        s.open and "Open: they choose" or (s.module and books_mod.module(s.module.id).name)
+            or (s.type and content.scenes[s.type].name or "Choose a type"),
         function()
             app.sel = { scene = i, kind = "type" }
             app.refresh()
@@ -330,6 +364,7 @@ local function scene_card(app, prep, i)
     end
     -- Slots.
     for k, kind in ipairs(content.kinds) do
+        repeat   -- (break = on to the next slot)
         local sy = y + 84 + (k - 1) * (SLOT_H + 6)
         local c = s.slots[kind]
         local selected = sel and sel.scene == i and sel.kind == kind
@@ -352,7 +387,7 @@ local function scene_card(app, prep, i)
             kit.text(x + 20, sy + 6, label, "ui14", kit.rgba("#2f6f5a"))
             kit.text(x + 20, sy + 25, #names > 0 and util.capitalize(table.concat(names, ", ")) or "Sketch a few places they might go",
                 #names > 0 and "ui18b" or "ui14", #names > 0 and theme.ink or kit.rgba("#9a8a72"), { w = CARD_W - 40, lines = 2 })
-            goto continue
+            break
         end
         if not c and M.new_in_hand(app, prep, kind) > 0 then
             -- New cards of this kind in your hand (A6): a dot until you've opened it.
@@ -365,12 +400,16 @@ local function scene_card(app, prep, i)
         end
         kit.text(x + 20, sy + 6, label, "ui14", c and c.thread and kit.rgba("#6a4f8f") or theme.ink_dim)
         if c then
-            kit.text(x + CARD_W - 20, sy + 6, util.int(c.cost) .. "h", "ui14", theme.ink_dim, { pivot = gui.PIVOT_NE })
+            local tag = util.int(prep:cost_of(c)) .. "h"
+            if s.module then
+                tag = s.module.swaps[kind] and "Yours" or "Book"     -- a published adventure (A13)
+            end
+            kit.text(x + CARD_W - 20, sy + 6, tag, "ui14", theme.ink_dim, { pivot = gui.PIVOT_NE })
             kit.text(x + 20, sy + 25, c.name, "ui18b", theme.ink, { w = CARD_W - 40, lines = 2 })
         else
             kit.text(x + 20, sy + 30, "Empty: improvise it at the table", "ui14", kit.rgba("#9a8a72"))
         end
-        ::continue::
+        until true
     end
 end
 
@@ -531,6 +570,9 @@ local function drawer(app, prep)
                 if s.open then
                     prep:set_open(sel.scene, false)
                 end
+                if s.module then
+                    prep:clear_module(sel.scene)
+                end
                 prep:set_type(sel.scene, key)
                 -- Move on to the first empty slot.
                 app.sel = { scene = sel.scene, kind = "location" }
@@ -549,17 +591,124 @@ local function drawer(app, prep)
             kit.text(cx + 8, cy + 50, st.short or st.blurb, "ui14", theme.text, { w = cw - 14 })
             faces(app, cx + 6, cy + 120, type_leans(app, key), 18)
         end
+        -- Published adventures from your books (A13): the whole scene, ready to run.
+        local mods = books_mod.modules(app.campaign)
+        if #mods > 0 or s.module then
+            local my = y + 204
+            kit.text(x + 16, my + 8, "OR RUN A PUBLISHED ADVENTURE", "ui14", theme.gold)
+            local mx = x + 16 + kit.width("OR RUN A PUBLISHED ADVENTURE", "ui14") + 16
+            for _, mid in ipairs(mods) do
+                local m = books_mod.module(mid)
+                local label = m.name .. "  " .. util.int(content.books.MODULE_COST) .. "h"
+                local on = s.module and s.module.id == mid
+                local ok, why = prep:can_place_module(sel.scene, mid)
+                local bw = kit.width(label, "ui14") + 28
+                kit.button(mx, my, bw, 32, label, function()
+                    if on then
+                        prep:clear_module(sel.scene)
+                    else
+                        local placed, why2 = prep:place_module(sel.scene, mid)
+                        if not placed then
+                            app.toast = why2
+                        end
+                    end
+                    app.refresh()
+                end, { font = "ui14", color = on and theme.go or theme.decision.agency, hover = theme.button_hover,
+                       enabled = ok or on, key = "module_" .. mid })
+                mx = mx + bw + 8
+            end
+            kit.text(x + 16, my + 44, "Everything in one: place, person, goal, twist, reward and the fight, instead of 6 to 8 hours of cards. "
+                .. "Swap its reward or recast its person to tie it to your campaign.", "ui14", theme.faint, { w = w - 32 })
+        end
         return
     end
     local kind = sel.kind
     local current = s.slots[kind]
+    if s.module then
+        M.module_drawer(app, prep, s, sel, kind)
+        return
+    end
     M.hand_drawer(app, prep, s, sel, kind, current)
+end
+
+local HAND_X, HAND_Y, HAND_W, HAND_H = CARD_X, 566, 812, 320
+
+-- A published adventure's slot (A13): its reward and its person can be made yours, the rest is
+-- the book's.
+function M.module_drawer(app, prep, s, sel, kind)
+    local x, y, w, h = HAND_X, HAND_Y, HAND_W, HAND_H
+    local m = books_mod.module(s.module.id)
+    local bk = books_mod.book(m.book)
+    kit.box(x, y, w, h, theme.panel, { radius = 8 })
+    kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": " .. m.name .. ", from " .. bk.name, "ui18b", theme.text,
+        { w = w - 260, lines = 1 })
+    kit.button(x + w - 122, y + 8, 106, 28, "Close", function()
+        app.sel = nil
+        app.refresh()
+    end, { font = "ui14", key = "hand_close" })
+    local c = s.slots[kind]
+    local book_card = content.components[m.cards[kind] and m.cards[kind].id or ""]
+    local swapped = s.module.swaps[kind]
+    local ty = y + 48
+    if c then
+        kit.text(x + 16, ty, (swapped and "Yours: " or "From the book: ") .. c.name, "ui18b", swapped and theme.teal or theme.gold)
+        ty = ty + 26
+        kit.text(x + 16, ty, c.line or "", "ui14", theme.dim, { w = w - 32, lines = 2 })
+        ty = ty + 44
+    end
+    if kind ~= "reward" and kind ~= "cast" then
+        kit.text(x + 16, ty, "This part comes from the book. Swap the reward or recast the person to make the scene yours.", "ui18",
+            theme.faint, { w = w - 32 })
+        return
+    end
+    if swapped then
+        kit.button(x + 16, ty, 300, 32, "Put the book's " .. (kind == "cast" and "person" or "reward") .. " back", function()
+            prep:unswap(sel.scene, kind)
+            app.refresh()
+        end, { font = "ui14", key = "unswap_" .. kind })
+        ty = ty + 40
+    end
+    local options = {}
+    if kind == "cast" then
+        kit.text(x + 16, ty, "Recast " .. (book_card and book_card.name or "them") .. " with someone the party knows ("
+            .. util.int(content.books.SWAP_COST) .. "h). Then what happens goes in your notebook.", "ui14", theme.text, { w = w - 32 })
+        for _, o in ipairs(prep:recast_options(sel.scene)) do
+            table.insert(options, o.card)
+        end
+    else
+        kit.text(x + 16, ty, "Swap the book's reward for one of yours (" .. util.int(content.books.SWAP_COST)
+            .. "h). Then it can move someone's story.", "ui14", theme.text, { w = w - 32 })
+        for _, card in ipairs(prep.hand.reward or {}) do
+            if prep:can_swap(sel.scene, card.id) then
+                table.insert(options, card)
+            end
+        end
+    end
+    ty = ty + 26
+    if #options == 0 then
+        kit.text(x + 16, ty, kind == "cast" and "Nobody from your notebook fits yet." or "No rewards in your hand to swap in.", "ui18",
+            theme.faint)
+        return
+    end
+    local bw = (w - 32 - 16) / 3
+    for k, card in ipairs(options) do
+        if k > 9 then
+            break
+        end
+        local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
+        kit.button(x + 16 + col * (bw + 8), ty + row * 38, bw, 32, kit.ellipsize(card.name, "ui14", bw - 16), function()
+            local ok, why = prep:swap(sel.scene, card.id)
+            if not ok then
+                app.toast = why
+            end
+            app.refresh()
+        end, { font = "ui14", color = theme.paper, text_color = theme.ink, hover = kit.rgba("#fff6e0"), key = "swap_" .. card.id })
+    end
 end
 
 -- The hand when a slot is picked (the slice rework): every card of the kind on one page, two
 -- rows of five, over the pacing panel. Pins first, with why; then new cards, then the rest.
 -- A card on another scene is dimmed and says where; moving it asks first. The x shelves a card.
-local HAND_X, HAND_Y, HAND_W, HAND_H = CARD_X, 566, 812, 320
 local HCW, HCH = 150, 128
 
 -- A margin note in the DM's handwriting, a little smaller than the font's size.
@@ -591,11 +740,16 @@ local function badge(app, prep, c, at, sel)
         if e and e.from and string.sub(e.from, 1, 6) == "world:" then
             return "New: from off screen", kit.rgba("#2f6f3a")
         end
+        if e and e.from and string.sub(e.from, 1, 5) == "book:" then
+            return "New: from a book", kit.rgba("#2f6f3a")
+        end
         return from and "New: follows" or "New", kit.rgba("#2f6f3a")
     elseif prep.inspired[c.id] then
         return "Inspired", kit.rgba("#2f6f3a")
     elseif c.thread then
         return camp:player(c.thread).name .. "'s past", kit.rgba("#6a4f8f")
+    elseif c.book then
+        return "From a book", kit.rgba("#2f5f8a")
     end
     return nil
 end
@@ -1041,6 +1195,21 @@ function M.forecast_hover(app, prep, p, f, x0, y0)
     end
 end
 
+-- The party ends last week's night without a rest (A16): prep says so under Run game night.
+function M.party_not_rested(app)
+    local ps = app.campaign.party_state
+    if not (ps and not ps.rested and ps.pcs) then
+        return false
+    end
+    for _, p in ipairs(app.campaign.players) do
+        local st = ps.pcs[p.key]
+        if st and st.hp < st.hp_max then
+            return true
+        end
+    end
+    return false
+end
+
 -- How well you read the table: shown above the player cards.
 local function empathy_meter(app)
     local c = app.campaign
@@ -1089,8 +1258,19 @@ function M.inspiration(app, prep, x, y)
         local bx, by = x + 14 + col * (bw + 8), y + 34 + row * (bh + 8)
         local done = prep.inspired_by[id]
         local ok = seeds_mod.can_inspire(app.campaign, prep, id)
+        -- A new book is out (A13): the supplement evening reads it (and reopens it this week).
+        local book_id = id == "supplement" and (prep.reading and prep.reading.book or books_mod.newest(app.campaign))
+        local book = book_id and books_mod.book(book_id)
         kit.button(bx, by, bw, bh, "", function()
+            if book and prep.reading then
+                book_view.open(app)
+                return
+            end
             local drawn = prep:inspire(id)
+            if book and prep.reading then
+                book_view.open(app)
+                return
+            end
             if drawn then
                 local names = {}
                 for _, c in ipairs(drawn) do
@@ -1107,15 +1287,20 @@ function M.inspiration(app, prep, x, y)
             app.refresh()
         end, { color = done and kit.rgba("#28403c") or theme.panel2, hover = theme.button_hover, enabled = ok or done ~= nil,
                key = "inspire_" .. id })
-        kit.text(bx + 8, by + 6, a.name, "ui14", (ok or done) and theme.text or theme.faint, { w = bw - 36 })
-        local about = a.short or a.about
+        local name = book and "Read the new book" or a.name
+        if book and not done then
+            kit.dot(bx + bw - 10, by + bh - 10, 10, theme.green)
+        end
+        kit.text(bx + 8, by + 6, name, "ui14", (ok or done) and theme.text or theme.faint, { w = bw - 36 })
+        local about = book and book.name or (a.short or a.about)
         if a.thread then
             local p = seeds_mod.backstory_target(app.campaign)
             about = util.fill(about, { name = p and p.name or "someone" })
         end
-        kit.text(bx + bw - 8, by + 6, done and "Done" or (util.int(a.cost) .. "h"), "ui14", done and theme.teal or theme.gold,
+        kit.text(bx + bw - 8, by + 6, (done and not (book and prep.reading and prep.reading.left > 0)) and "Done"
+            or (done and "Open" or (util.int(a.cost) .. "h")), "ui14", done and theme.teal or theme.gold,
             { pivot = gui.PIVOT_NE })
-        if not done then
+        if not done or book then
             kit.text(bx + 8, by + 56, kit.ellipsize(about, "ui14", bw - 16), "ui14", theme.faint)
         end
     end
@@ -1273,8 +1458,9 @@ function M.build(app)
             end
         end
         if hpm > 0 and hp < hpm then
-            kit.text(1576, 84, "No rest since last week: party at " .. util.int(math.floor(100 * hp / hpm + 0.5)) .. "% HP",
-                "ui14", theme.orange, { pivot = gui.PIVOT_NE })
+            -- (Where "or press Enter" usually sits, under Run game night.)
+            kit.text(1466, 56, "Not rested: the party's at " .. util.int(math.floor(100 * hp / hpm + 0.5)) .. "% HP",
+                "ui14", theme.orange, { pivot = gui.PIVOT_N })
         end
     end
     empathy_meter(app)

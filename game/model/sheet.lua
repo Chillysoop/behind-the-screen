@@ -81,18 +81,20 @@ function M.build(campaign, key)
     local sub = level >= 3 and campaign.subclasses and campaign.subclasses[cls] or nil
     local raw = party.sheet(cls, level, sub)
     local c = creature.new_pc(raw)
+    local items = require "game.model.items"
+    items.apply(campaign, key, c)          -- magic items the hero carries (A13)
     local cdef = classes[cls]
     local out = {
-        key = key, player = p.name, name = raw.name, class = cls, class_name = cdef.name, level = level,
+        key = key, player = p.name, name = p.char or raw.name, class = cls, class_name = cdef.name, level = level,
         subclass = sub, subclass_name = sub and subclasses.list[sub] and subclasses.list[sub].name or nil,
         species = classes.species[raw.species] and classes.species[raw.species].name or raw.species,
         background = util.capitalize(raw.background or ""), pb = c.pb, speed = c.speed,
         hp_max = c.hp_max, thread = p.thread, notes = p.notes,
     }
     -- Armor Class (Thessaly casts Mage Armor before every adventuring day).
-    out.ac = creature.base_ac(c)
+    out.ac = creature.base_ac(c) + (c.item_ac or 0)
     if cls == "wizard" then
-        local with = 13 + creature.abmod(c, "dex")
+        local with = 13 + creature.abmod(c, "dex") + (c.item_ac or 0)
         out.ac_note = "with Mage Armor; " .. util.int(out.ac) .. " without"
         out.ac = with
     end
@@ -212,6 +214,13 @@ function M.build(campaign, key)
     end
     if (raw.potions or 0) > 0 then
         table.insert(gear, util.int(raw.potions) .. " healing potion" .. (raw.potions > 1 and "s" or ""))
+    end
+    for _, it in ipairs(items.held_by(campaign, key)) do
+        local d = items.def(it.id)
+        if d and not it.destroyed then
+            table.insert(gear, d.name .. (it.charges and (" (" .. util.int(it.charges) .. " charges)") or ""))
+            table.insert(out.features, { name = d.name, text = d.text .. " (SRD 5.2.1, p. " .. util.int(d.page) .. ")", item = true })
+        end
     end
     out.gear = gear
     return out

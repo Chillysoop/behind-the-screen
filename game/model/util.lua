@@ -73,6 +73,34 @@ function M.lower_first(text)
     return text
 end
 
+-- A sentence used in the middle of another ("The bit where {moment}"): its first letter goes
+-- lower case unless it starts with a name (names: a set of words that stay capitalised).
+function M.mid_sentence(text, names)
+    if type(text) ~= "string" then
+        return text
+    end
+    local first = string.match(text, "^([%a']+)")
+    if not first or (names and names[first]) or string.match(first, "^%u%u") or first == "I" then
+        return text
+    end
+    return string.lower(string.sub(text, 1, 1)) .. string.sub(text, 2)
+end
+
+-- Title Case for a session title: every word capitalised but the small ones (unless first).
+local SMALL = { a = true, an = true, the = true, of = true, ["in"] = true, on = true, at = true, to = true, ["and"] = true,
+                ["or"] = true, by = true, with = true }
+function M.title_case(s)
+    local i = 0
+    return (string.gsub(s or "", "(%S+)", function(w)
+        i = i + 1
+        local low = string.lower(w)
+        if i > 1 and SMALL[low] then
+            return low
+        end
+        return (string.gsub(w, "^%l", string.upper))
+    end))
+end
+
 function M.capitalize(s)
     return (string.gsub(s, "^%l", string.upper))
 end
@@ -95,6 +123,13 @@ function M.join_names(names)
         return names[1]
     end
     return table.concat(names, ", ", 1, n - 1) .. " and " .. names[n]
+end
+
+-- A require done when it's needed, for a module that requires this one back. Written so the
+-- Defold builder's scan doesn't see it (it refuses a build with a require cycle in it); the
+-- module is still in the build, since something else requires it outright.
+function M.lazy(name)
+    return require(name)
 end
 
 return M

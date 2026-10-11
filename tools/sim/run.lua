@@ -49,8 +49,8 @@ local function play_night(night, rng, style)
             answer = style.roll_where(ev, rng)
         elseif ev.kind == "roll" then
             answer = rng:d20()
-        elseif ev.kind == "cook" then
-            answer = style.cook(ev, rng)
+        elseif ev.kind == "ruling" then
+            answer = (ev.cook and style.cook(ev, rng)) and "cook" or nil
         end
         ev = night:advance(answer)
     end

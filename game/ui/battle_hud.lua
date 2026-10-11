@@ -40,10 +40,12 @@ end
 -- sprite_of(foe, i) names a foe's mini picture.
 function M.start(app, party, foes, sprite_of)
     local st = state(app)
+    M.clear_nodes(app)   -- the last fight's bars and tags go with it
     st.minis, st.order, st.turn, st.zones = {}, {}, nil, {}
     for _, c in ipairs(party or {}) do
         st.minis[c.id] = { id = c.id, side = "party", hp = c.hp, max = c.hp_max, conds = {},
-                           pic = CLASS_MINI[c.class] or "mini_fighter", name = app.names and app.names[c.id] }
+                           pic = require("game.ui.panels").mini(app.campaign and app.campaign:player(c.id), c.class),
+                           name = app.names and app.names[c.id] }
     end
     for i, f in ipairs(foes or {}) do
         st.minis[f.id] = { id = f.id, side = "foe", hp = f.hp, max = f.hp_max, conds = {}, boss = f.boss,
@@ -63,6 +65,7 @@ end
 
 function M.stop(app)
     local st = state(app)
+    M.clear_nodes(app)   -- before the list goes, or its bars and tags stay on screen
     st.minis, st.order, st.turn = {}, {}, nil
     post("area_end", {})
     M.draw(app)
@@ -96,6 +99,10 @@ function M.condition(app, id, name, conds, on)
         local labels = {}
         for _, c in ipairs(conds or {}) do
             table.insert(labels, COND_NAMES[c] or util.capitalize(c))
+        end
+        -- An effect with no condition of its own (Burning, Targeted) shows by its name.
+        if #labels == 0 and name then
+            labels = { name }
         end
         m.effects[name or "?"] = table.concat(labels, ", ")
     else
@@ -214,6 +221,10 @@ function M.place(app)
             local a = an[id]
             -- HP bars only over the mat (A7): hidden when the camera is on the room or the dice.
             local show = on_screen(a) and not m.gone and (app.camera_index == nil or app.camera_index == 2)
+            -- ...and not over the open log, where they'd sit on its text.
+            if show and app.log_open and a[1] * kit.W < 24 + 520 + 20 and a[2] * H > 60 and a[2] * H < 770 then
+                show = false
+            end
             for _, node in ipairs(m.nodes) do
                 gui.set_enabled(node, show)
             end

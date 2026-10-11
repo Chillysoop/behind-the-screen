@@ -163,7 +163,7 @@ M.context = {
     fresh = { allow = { { "arch:tactician", fun = -2, challenge = -3 }, { "arch:power_gamer", challenge = -2 } },
               deny_reason = { { "all", fun = 1 } } },
     -- The boss is next and they know it: a rest is what a good DM gives.
-    before_set_piece = { allow = { { "all", trust = 2 } }, interrupt = { { "all", trust = -3, suspicion = 3 } } },
+    before_set_piece = { allow = { { "all", trust = 2 } }, interrupt = { { "all", trust = -3, suspicion = 3, why = "the rest you cut short before the big fight" } } },
     -- Out-of-character tiredness (casual's "late" request): a snack break counts as a yes.
     late = { allow = { { "arch:casual", fun = 3, commitment = 1 } } },
 }
@@ -172,10 +172,10 @@ M.fairness = {
     -- A "no" is deny_reason, an unrolled interrupt, or a risky roll the DM cooked toward interruption.
     streak_warn = 2,          -- after 2 no's in a row, someone says "do we ever get to sleep?"
     streak_hurt = 3,          -- 3rd no and each one after it:
-    streak_effects = { { "all", fun = -3, trust = -3 }, { "perceptive", suspicion = 4 } },
+    streak_effects = { { "all", fun = -3, trust = -3 }, { "perceptive", suspicion = 4, why = "another rest refused" } },
     telegraph_softens = 0.5,  -- effects x0.5 when the danger was shown first (tracks, alarm clock, warning)
     planned_per_arc = 2,      -- more planned interrupts than this per arc reads as "the DM hates rests"
-    planned_over_effects = { { "all", trust = -2 }, { "perceptive", suspicion = 5 } },
+    planned_over_effects = { { "all", trust = -2 }, { "perceptive", suspicion = 5, why = "rests that always get interrupted" } },
     -- The other extreme: a full long rest after every fight.
     pushover_after = 3,       -- 3 fights in a row each followed by a long rest
     pushover_effects = { { "arch:tactician", fun = -3, challenge = -6 }, { "arch:power_gamer", challenge = -4 },

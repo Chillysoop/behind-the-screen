@@ -689,7 +689,7 @@ case("warm-welcome", "Hearth Domain: Warm Welcome (original)", "Subclass design"
     end)
 
 case("tricky-decoy", "Mischief Domain: Tricky Decoy (original)", "Subclass design",
-    "Bonus Action double; attackers near it save (Wis) or swing at it with Disadvantage (AC = spell DC).",
+    "Bonus Action double; attackers near it save (Wis) or swing at it instead (AC = spell DC).",
     function(t)
         local b = fresh()
         local c = at(b, pc("cleric", 3, "mischief"), 5, 5)
@@ -698,7 +698,7 @@ case("tricky-decoy", "Mischief Domain: Tricky Decoy (original)", "Subclass desig
         ai.tricky_decoy(b, c)
         t:eq("the decoy stands by Brannoc", c.decoy and c.decoy.x, 6)
         t:eq("no Concentration used", c.conc, nil)
-        b.dice:force(5, 15, 12)                   -- Wis save 4 fails vs DC 13; Disadvantage 15/12: 12 + 4 hits AC 13
+        b.dice:force(5, 12)                       -- Wis save 4 fails vs DC 13; 12 + 4 hits the decoy's AC 13
         local r = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
         t:eq("the goblin swings at the decoy", r.decoyed, true)
         t:eq("Brannoc untouched", f.hp, f.hp_max)
@@ -708,9 +708,9 @@ case("tricky-decoy", "Mischief Domain: Tricky Decoy (original)", "Subclass desig
         local r2 = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
         t:eq("a successful save attacks Brannoc", r2.decoyed or false, false)
         t:eq("the decoy survives", c.decoy ~= nil, true)
-        b.dice:force(2, 18, 6)                    -- fails the save; Disadvantage keeps the 6: 10 misses
+        b.dice:force(2, 6)                        -- fails the save; 6 + 4 = 10 misses the decoy
         local r3 = b:attack(g, f, creature.monster_attack(g, g.attacks[1]))
-        t:eq("Disadvantage: the decoy shrugs off the miss", r3.decoyed and c.decoy ~= nil, true)
+        t:eq("a miss leaves the decoy standing", r3.decoyed and c.decoy ~= nil, true)
     end)
 
 case("quick-reflection", "Mirror Mage: Quick Reflection (original)", "Subclass design",
@@ -778,6 +778,93 @@ case("one-slot", "One spell slot per turn", "p. 105",
         t:eq("cantrips still fine", ai.can_cast(c, "sacred_flame"), true)
     end)
 
+-- The Vale Bestiary (A13) and hazards (A10) -------------------------------------------------------
+
+case("grapple-escape", "Giant Crab: a claw that grabs, and breaking free", "pp. 350, 182 (Grappled)",
+    "Claw hit: a Medium or smaller target is Grappled (escape DC 11). Grappled: Speed 0, Disadvantage on attacks against "
+        .. "anyone but the grappler. Escape: an action, Athletics or Acrobatics against the escape DC.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        local crab = at(b, mon("giant_crab"), 6, 5)
+        local other = at(b, mon("bandit"), 4, 5)
+        b.dice:force(15, 4)                                -- 15 + 3 = 18 hits; damage 1d6 4 + 1
+        local r = b:attack(crab, w, creature.monster_attack(crab, crab.attacks[1]))
+        t:eq("the claw hits", r.hit, true)
+        t:eq("the wizard is Grappled", b:has(w, "grappled"), true)
+        t:eq("Speed 0", b:speed(w), 0)
+        local mode = b:attack_mode(w, other, { kind = "ranged", is_weapon = false })
+        t:eq("Disadvantage against someone else", mode, -1)
+        w.turn = { action = true }
+        b.dice:force(15, 4)                                -- Str check 15 - 1; Dex check 4 + 2: best 14 vs DC 11
+        t:eq("breaks free", b:escape_grapple(w), true)
+        t:eq("no longer Grappled", b:has(w, "grappled"), false)
+    end)
+
+case("spider-web", "Giant Spider: Web holds you until it's cut", "p. 353",
+    "Web (Recharge 5-6): Dex save DC 13 or Restrained until the web is destroyed (AC 10, HP 5, Vulnerability to Fire).",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local sp = at(b, mon("giant_spider"), 10, 5)
+        b:add_effect(f, { name = "Spider web", conds = { restrained = true }, web = { ac = 10, hp = 5 } })
+        t:eq("Restrained", b:has(f, "restrained"), true)
+        b.dice:force(12, 3, 3)                             -- 12 + 5 hits AC 10; greatsword 3 + 3 + 3 = 9 >= 5
+        t:eq("cut free", b:cut_web(f, melee(f)), true)
+        t:eq("not Restrained", b:has(f, "restrained"), false)
+    end)
+
+case("specter-drain", "Specter: Life Drain lowers the Hit Point maximum", "p. 327, Long Rest p. 185",
+    "Life Drain: the target's Hit Point maximum drops by the damage taken; a Long Rest returns it to normal.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local sp = at(b, mon("specter"), 6, 5)
+        local full = f.hp_max
+        f.hp_full = full
+        b.dice:force(15, 3, 4)                             -- 15 + 4 hits; 2d6 = 7 necrotic
+        b:attack(sp, f, creature.monster_attack(sp, sp.attacks[1]))
+        t:eq("HP max down by 7", f.hp_max, full - 7)
+        require("game.rules.rest").long(f)
+        t:eq("a Long Rest brings it back", f.hp_max, full)
+    end)
+
+case("burning", "Burning: 1d4 Fire at the start of each turn, until put out", "p. 178",
+    "A burning creature takes 1d4 Fire damage at the start of each of its turns; Prone and rolling puts it out.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local g = at(b, mon("goblin_warrior"), 9, 5)
+        require("game.rules.hazards").setup(b, "strong_wind")   -- any hazard switches the hooks on
+        b:add_effect(f, { name = "Burning", conds = {}, burning = { 1, 4, 0, "fire" } })
+        local hp = f.hp
+        b.dice:force(3)
+        b:start_turn(f)
+        t:eq("burns for 3", f.hp, hp - 3)
+        t:eq("strong wind: ranged weapon attacks have Disadvantage",
+            (b:attack_mode(g, f, { kind = "ranged", is_weapon = true })), -1)
+    end)
+
+case("falling", "Falling: 1d6 per 10 feet, and Prone", "p. 182",
+    "A creature that falls takes 1d6 Bludgeoning damage for every 10 feet it fell, and lands Prone.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local hz = require "game.rules.hazards"
+        local st = hz.setup(b, "crumbling_bridge")
+        b.round = 1
+        b.dice:force(2, 4, 1)                          -- Dex save 2 + 1 fails DC 10; 20 feet: 2d6 = 4 + 1
+        local hp = f.hp
+        -- Put the hole right under Brannoc and let the round run.
+        local rng = b.dice.rng
+        local real = rng.int
+        rng.int = function(_, lo, hi) if lo == -1 and hi == 1 then return 0 end return real(rng, lo, hi) end
+        hz.round(b)
+        rng.int = real
+        t:eq("2d6 from the fall", f.hp, hp - 5)
+        t:eq("lands Prone", b:has(f, "prone"), true)
+    end)
+
 -- Runner ---------------------------------------------------------------------------------------
 
 local function run_case(cs)
@@ -794,6 +881,130 @@ local function run_case(cs)
     end
     return t
 end
+
+case("heroic-inspiration", "Heroic Inspiration rerolls a die, and the new roll stands", "Rules Glossary: Heroic Inspiration",
+    "Expend Heroic Inspiration to reroll any die immediately after rolling it; you must use the new roll.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local boss = at(b, mon("bandit_captain"), 6, 5)       -- AC 15
+        boss.boss = true
+        f.heroic = true
+        b.dice:force(3, 9)                                   -- 3 + 5 misses; the reroll 9 + 5 = 14 still misses
+        local r = b:attack(f, boss, melee(f))
+        t:eq("the token is spent on the missed swing at the boss", f.heroic, nil)
+        t:eq("the new roll stands, even when it's no better", r.roll, 9)
+        t:eq("14 against AC 15 misses", r.hit, false)
+        f.heroic = true
+        b.dice:force(4, 16, 5, 6)                            -- 4 + 5 misses; the reroll 16 + 5 = 21 hits
+        r = b:attack(f, boss, melee(f))
+        t:eq("the reroll can turn a miss into a hit", r.hit, true)
+        f.heroic = true
+        b.dice:force(18, 2, 2)                               -- a hit doesn't spend it
+        r = b:attack(f, boss, melee(f))
+        t:eq("a hit keeps the token", f.heroic, true)
+        b.dice:force(2, 19)                                  -- a failed DEX save, rerolled to a success
+        local ok = b:save(f, "dex", 15)
+        t:eq("a failed save is rerolled with the token", f.heroic, nil)
+        t:eq("and the new roll stands", ok, true)
+    end)
+
+case("dm-runs-turn", "The DM can run a monster's turn: who it goes for, or a speech instead", "Game night (B8)",
+    "Taking over: the DM picks the boss's target, or has it gloat; the rules resolve the turn as usual.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local w = at(b, pc("wizard", 2), 9, 5)
+        local boss = at(b, mon("bandit_captain"), 6, 5)
+        boss.side = "foes"
+        local targets = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == boss then
+                table.insert(targets, ev.tgt)
+            end
+        end
+        boss.dm_target = w
+        b:take_turn(boss)
+        t:eq("it goes for the one the DM picked, not the hero next to it", targets[1] == w, true)
+        t:eq("the pick lasts one turn", boss.dm_target, nil)
+        targets = {}
+        boss.dm_skip = true
+        b:take_turn(boss)
+        t:eq("a gloat is a turn with no attack", #targets, 0)
+        t:eq("and the hero next to it is untouched", f.hp, f.hp_max)
+    end)
+
+case("map-cover", "A map's cover square: Half Cover against attacks from range", "Rules Glossary: Cover",
+    "Half Cover: +2 bonus to AC and Dexterity saving throws (here: against attacks from more than 5 feet away).",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 10, 5)
+        local g = at(b, mon("goblin_warrior"), 3, 5)
+        local g2 = at(b, mon("goblin_warrior"), 11, 5)
+        b.cover = { ["10,5"] = true }
+        local ac = b:ac(f)
+        local bow
+        for _, a in ipairs(g.attacks) do
+            if a.kind == "ranged" then bow = a end
+        end
+        local prof = require("game.rules.creature").monster_attack(g, bow, true)
+        b.dice:force(ac - prof.to_hit)                   -- exactly the AC: a hit, but for the cover
+        local r = b:attack(g, f, prof)
+        t:eq("from range, the cover turns a hit into a miss", r.hit, false)
+        t:eq("and says so", r.cover, true)
+        local sword
+        for _, a in ipairs(g2.attacks) do
+            if a.kind == "melee" then sword = a end
+        end
+        local mp = require("game.rules.creature").monster_attack(g2, sword, false)
+        b.dice:force(ac - mp.to_hit, 3)
+        r = b:attack(g2, f, mp)
+        t:eq("right next to them, the cover doesn't help", r.hit, true)
+    end)
+
+case("board-cover", "Behind the board's scenery: a low wall between them is Half Cover from range", "Rules Glossary: Cover",
+    "Half Cover: +2 AC against an attack when an obstacle blocks at least half of the target (here: a cover piece of "
+        .. "the board on the square next to them, toward the attacker).",
+    function(t)
+        local b = fresh()
+        b.blocked = { [9 * 1000 + 5] = true }
+        b.cover = { ["9,5"] = true }                     -- a low wall just west of the fighter
+        local f = at(b, pc("fighter", 2), 10, 5)
+        local g = at(b, mon("goblin_warrior"), 3, 5)     -- shooting from the west, across the wall
+        local g3 = at(b, mon("goblin_warrior"), 16, 5)   -- shooting from the east, nothing in the way
+        local ac = b:ac(f)
+        local bow
+        for _, a in ipairs(g.attacks) do
+            if a.kind == "ranged" then bow = a end
+        end
+        local prof = require("game.rules.creature").monster_attack(g, bow, true)
+        b.dice:force(ac - prof.to_hit)
+        local r = b:attack(g, f, prof)
+        t:eq("across the wall, the hit becomes a miss", r.hit, false)
+        t:eq("and says it was the cover", r.cover, true)
+        b.dice:force(ac - prof.to_hit)
+        r = b:attack(g3, f, prof)
+        t:eq("from the open side, no cover", r.hit, true)
+    end)
+
+case("map-trap", "A trap on the map springs on whoever steps on it, once", "p. 200 (Hidden Pit)",
+    "Hidden Pit: a creature that steps on the lid falls in, taking 1d6 Bludgeoning damage; it's Prone at the bottom.",
+    function(t)
+        local b = fresh()
+        local g = at(b, mon("goblin_warrior"), 8, 5)
+        local g2 = at(b, mon("goblin_warrior"), 8, 7)
+        local f = at(b, pc("fighter", 2), 2, 5)
+        require("game.rules.hazards").place_traps(b, { ["6,5"] = true }, "hidden_pit")
+        local hp = g.hp
+        b.dice:force(4)
+        b:move_to(g, 6, 5)
+        t:eq("the goblin falls in and takes the 1d6", g.hp, hp - 4)
+        t:eq("and lands Prone", b:has(g, "prone"), true)
+        t:eq("the trap is spent", b:zone_at(6, 5), nil)
+        g.x, g.y = 8, 5
+        b:move_to(g2, 6, 5)
+        t:eq("the next one walks over the open pit's lid unharmed", g2.hp, g2.hp_max)
+    end)
 
 local passed, results = 0, {}
 for _, cs in ipairs(cases) do
