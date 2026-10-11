@@ -23,6 +23,7 @@ local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
+local talk_view = require "game.ui.talk_view"
 local planner_view = require "game.ui.planner_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
@@ -232,6 +233,9 @@ local function build_screen(self)
         app.overlay = nil
     end
     -- An "are you sure?" (the slice rework) sits over everything but the tips.
+    if app.talk and s == "prep" then
+        talk_view.draw(app)
+    end
     if app.ask then
         ask_view.draw(app)
     end
@@ -608,8 +612,8 @@ function on_input(self, action_id, action)
             end
             return true
         elseif s == "prep" then
-            if app.ask then
-                return true   -- the "are you sure?" answers with its buttons
+            if app.ask or app.talk then
+                return true   -- the "are you sure?" and the one-on-one answer with their buttons
             end
             if app.campaign.prep:ready() then
                 guard(self, app.run_night)

@@ -522,6 +522,41 @@ check_tip_absorbs(" (week 2 prep)")
         if not click_key("sheet_jess") then problem("no sheet link on Jess's prep card") end
         if app.overlay ~= "sheet" then problem("Jess's prep card didn't open her sheet") end
         click_key("sheet_close")
+        -- Talk 2h is a one-on-one (A6): three questions, an answer to the worry, what you learned.
+        local talker
+        local pr = app.campaign.prep
+        if pr:left() < 2 then
+            -- Free up two hours for the talk: take a card back off the board.
+            for i, sc in ipairs(pr.scenes) do
+                for kind, c in pairs(sc.slots) do
+                    if pr:left() < 2 and kind ~= "goal" then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+        end
+        for _, p in ipairs(app.campaign.players) do
+            if p.present and app.campaign.prep:can_talk(p.key) and has_key("talk_" .. p.key) then
+                talker = p
+                break
+            end
+        end
+        if talker then
+            click_key("talk_" .. talker.key)
+            if not app.talk then problem("Talk 2h didn't open a one-on-one") end
+            local guard_t = 0
+            while app.talk and not app.talk.done and guard_t < 8 do
+                guard_t = guard_t + 1
+                if guard_t == 3 then dump("28_one_on_one") end
+                if not click_key("talk_opt_1") then problem("no answer to pick in the one-on-one"); break end
+            end
+            dump("28_one_on_one_done")
+            if not click_key("talk_done") then problem("the one-on-one has no Done button") end
+            if app.talk then problem("the one-on-one didn't close") end
+            local n = app.campaign.prep.talk_notes and app.campaign.prep.talk_notes[talker.key]
+            if not (n and n.mood and n.want) then problem("the one-on-one didn't note a mood and a want") end
+        end
         -- The encounter builder on a combat scene.
         local c = app.campaign
         app.sel = nil

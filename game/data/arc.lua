@@ -62,6 +62,10 @@ return {
             open = "Rain over the Vale of Millbrook. Four travellers, four reasons to be on the road, and one inn with "
                 .. "its lamps still lit: the Crooked Kettle. Somewhere above the town, the bells that should be "
                 .. "ringing the hour are silent.",
+            -- The opening names a place: it's only used when scene 1 is there (A11); else open_else.
+            open_place = "tavern",
+            open_else = "Rain over the Vale of Millbrook. Four travellers, four reasons to be on the road. Somewhere "
+                .. "above the town, the bells that should be ringing the hour are silent.",
             cards = { "tavern", "gus", "stranger" },
             reveal = {
                 tavern = "The Crooked Kettle, the only inn in Millbrook. Rain on the shutters, a fire that needs "
@@ -95,6 +99,10 @@ return {
             -- When the party found this last week, the DM opens with what it means.
             open_if = { clue = "stranger", text = "Morning, and the rain has finally stopped. The north road climbs out "
                 .. "of Millbrook into the pines: the way Old Tobin went nine days ago, and never came back." },
+            open_place = "forest_road",
+            open_else = "Morning, and the rain has finally stopped. Above Millbrook, the bells are still silent.",
+            open_else_if = "Morning, and the rain has finally stopped. Nine days ago, Old Tobin took the north road "
+                .. "into the pines, and never came back.",
             cards = { "forest_road", "chapel", "hidden_map" },
             pressure = { spotlight = 18, rules = 8 },     -- Jess has found her groove; the first rules calls
             reveal = {
@@ -156,6 +164,9 @@ return {
             hint = "End high: a big fight or a cliffhanger into session 5.",
             open = "A hundred and twelve steps up the bell tower above Millbrook. Tonight, somebody finally climbs "
                 .. "them.",
+            open_place = "bell_tower",
+            open_else = "The bell tower stands over Millbrook, silent, a hundred and twelve steps high. Tonight, "
+                .. "somebody climbs them.",
             cards = { "bell_tower", "wolf_lieutenant", "riddle", "cliffhanger" },
             finale = true,
             reveal = {

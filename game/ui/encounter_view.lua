@@ -33,6 +33,8 @@ function M.close(app)
     end
     if app.overlay == "encounter" then
         app.overlay = nil
+        -- Back to the drawer's resting state: inspiration and seeds (A6).
+        app.sel = nil
     end
     kit.reset_hover()
 end

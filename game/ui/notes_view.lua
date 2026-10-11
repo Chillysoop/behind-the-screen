@@ -324,10 +324,34 @@ local function tab_party(app, x, y, w, h)
 end
 
 -- Anything in the binder waiting on you this week (the dot on its tab and on the prep board).
+-- A thread that moved this week (a story card that follows from how one went): a dot on the
+-- Threads tab until you've looked (A6).
+function M.threads_moved(app)
+    local camp = app.campaign
+    if not (camp and camp.prep) then
+        return false
+    end
+    if app.notes_seen and app.notes_seen.threads == camp.week then
+        return false
+    end
+    local deck = require "game.model.deck"
+    for _, kind in ipairs(content.kinds) do
+        for _, c in ipairs(camp.prep.hand[kind] or {}) do
+            if c.thread and deck.is_new(camp, c.id) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function M.attention(app)
     local out = {}
     if app.campaign and app.campaign.prep and pages.week_pending(app) > 0 then
         out.week = true
+    end
+    if M.threads_moved(app) then
+        out.threads = true
     end
     return out
 end
@@ -364,6 +388,8 @@ function M.draw(app)
         local on = tab == t[1]
         kit.button(X + 14, ty, 168, 38, t[2], function()
             app.notes_tab = t[1]
+            app.notes_seen = app.notes_seen or {}
+            app.notes_seen[t[1]] = app.campaign and app.campaign.week
             M.draw(app)
         end, { font = "ui18b", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left", pad_y = 9,
                key = "notes_tab_" .. t[1] })

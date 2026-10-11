@@ -671,6 +671,11 @@ function M:describe(c, style)
     if state then
         text = state.line
     end
+    -- Back somewhere they were earlier tonight (a place on two scenes, A6).
+    self.described = self.described or {}
+    if not text and c.kind == "location" and self.described[c.id] then
+        text = c.again or ("Back to " .. soft_lower(c.name) .. ".")
+    end
     if not text then
         if c.again and deck.returning(self.campaign, c) then
             text = c.again
@@ -678,6 +683,7 @@ function M:describe(c, style)
             text = content.line_for(c, sc and sc.comps.location)
         end
     end
+    self.described[c.id] = true
     self:say(text, style or "narration")
     if rev then
         self.revealed[c.id] = true
@@ -3088,8 +3094,15 @@ function M:intro()
     local beat = self.campaign:arc_beat()
     if beat and beat.open then
         local open = beat.open
-        if beat.open_if and story.has_clue(self.campaign, beat.open_if.clue) then
+        local hit = beat.open_if and story.has_clue(self.campaign, beat.open_if.clue)
+        if hit then
             open = beat.open_if.text
+        end
+        -- The opening agrees with the board (A11): it only names a place if scene 1 is there.
+        local first = self.scenes[1]
+        local loc = first and first.comps.location
+        if beat.open_place and not (loc and loc.id == beat.open_place) then
+            open = (hit and beat.open_else_if) or beat.open_else or open
         end
         self:say(open, "opening")
     end
@@ -3117,6 +3130,24 @@ function M:run()
             self:table_behavior("late")
         end
         self:play_scene(sc)
+    end
+    -- You asked what they wanted, then gave it to them (A6: the one-on-one).
+    local notes = self.prep and self.prep.talk_notes or {}
+    for _, p in ipairs(self.players) do
+        local n = notes[p.key]
+        if n then
+            local got = false
+            for _, sc in ipairs(self.scenes) do
+                if sc.terrain and ((n.want_type and sc.type == n.want_type) or (n.want_thread and p.thread_hits > 0)) then
+                    got = true
+                end
+            end
+            if got then
+                score.add(p, "fun", 4)
+                score.add(p, "trust", 1)
+                self:highlight(4, p.char .. " gets what " .. p.name .. " asked for", { p })
+            end
+        end
     end
     -- How the shape of the night landed.
     local pv = self.pacing

@@ -102,8 +102,13 @@ local function talk_to_someone(prep, campaign, skip)
             end
         end
     end
-    if pick then
-        prep:talk(pick)
+    if pick and prep:talk(pick) and campaign:player(pick).present then
+        -- The one-on-one plays out (A6): ask, listen, take the worry seriously.
+        local ooo = require "game.model.one_on_one"
+        local t = ooo.start(campaign, prep, pick)
+        while not t.done do
+            ooo.choose(campaign, prep, t, 1)
+        end
     end
 end
 

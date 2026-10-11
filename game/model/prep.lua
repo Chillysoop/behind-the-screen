@@ -51,9 +51,16 @@ end
 
 function M:spent()
     local total = 0
+    local places = {}
     for _, s in ipairs(self.scenes) do
-        for _, c in pairs(s.slots) do
-            total = total + c.cost
+        for kind, c in pairs(s.slots) do
+            -- A place you've prepped once can host more than one scene (A6).
+            if kind ~= "location" or not places[c.id] then
+                total = total + c.cost
+            end
+            if kind == "location" then
+                places[c.id] = true
+            end
         end
     end
     for _ in pairs(self.talked) do
@@ -111,8 +118,22 @@ function M:can_place(i, id)
     return true
 end
 
--- Put a component in its slot on scene i. A card can only be in one place,
--- so placing it again moves it.
+-- Every scene a component is on (a location can host several; anything else is on one).
+function M:placed_all(id)
+    local list = {}
+    for i, s in ipairs(self.scenes) do
+        for _, c in pairs(s.slots) do
+            if c.id == id then
+                table.insert(list, i)
+            end
+        end
+    end
+    return list
+end
+
+-- Put a component in its slot on scene i. A card can only be in one place, so placing it
+-- again moves it; a location can be in several (the riddle and the fight both in the bell
+-- tower, A6), prepped once.
 function M:place(i, id)
     local ok, why = self:can_place(i, id)
     if not ok then
@@ -120,7 +141,7 @@ function M:place(i, id)
     end
     local c = content.components[id]
     local at_i, at_kind = self:placed_at(id)
-    if at_i then
+    if at_i and c.kind ~= "location" then
         self.scenes[at_i].slots[at_kind] = nil
     end
     self.scenes[i].slots[c.kind] = c
@@ -524,6 +545,85 @@ function M:forecast()
         p.m, p.boredom, p.fun_bonus = saved_m, saved_b, saved_f
     end
     return out
+end
+
+-- Why the forecast says what it says (A6): the reasons that move this player's night most,
+-- strongest first, e.g. "Long talky scenes lose Dev, and scenes 1 and 2 are social."
+local function scene_list(idx)
+    if #idx == 1 then
+        return "scene " .. util.int(idx[1]) .. " is"
+    end
+    local parts = {}
+    for k, i in ipairs(idx) do
+        parts[k] = util.int(i)
+    end
+    return "scenes " .. table.concat(parts, ", ", 1, #parts - 1) .. " and " .. parts[#parts] .. " are"
+end
+
+function M:forecast_reasons(key)
+    local p = self.campaign:player(key)
+    if not p then
+        return {}
+    end
+    local out = {}
+    local function add(w, text)
+        table.insert(out, { w = w, text = text })
+    end
+    local by_type = {}
+    for i, s in ipairs(self.scenes) do
+        if s.type then
+            by_type[s.type] = by_type[s.type] or {}
+            table.insert(by_type[s.type], i)
+        end
+        for _, c in pairs(s.slots) do
+            if c.thread == key then
+                add(1.3, "Scene " .. util.int(i) .. " is about " .. p.char .. "'s past.")
+            end
+            for _, t in ipairs(c.tags or {}) do
+                local v = score.like(p, t)
+                if v <= -0.5 then
+                    add(0.6 + -v * 0.3, p.name .. " isn't keen on " .. t .. " (" .. c.name .. ", scene " .. util.int(i) .. ").")
+                elseif v >= 1 then
+                    add(0.4 + v * 0.2, p.name .. " loves " .. t .. " (" .. c.name .. ", scene " .. util.int(i) .. ").")
+                end
+            end
+        end
+    end
+    local types = {}
+    for t in pairs(by_type) do
+        table.insert(types, t)
+    end
+    table.sort(types)
+    for _, t in ipairs(types) do
+        local idx = by_type[t]
+        local v = score.taste(p, t)
+        local name = string.lower(content.scenes[t].name)
+        if v <= 0.7 then
+            add((1 - v) * #idx + 0.2, "Long " .. name .. " scenes lose " .. p.name .. ", and " .. scene_list(idx) .. " " .. name .. ".")
+        elseif v >= 1.4 then
+            add((v - 1) * #idx, p.name .. " loves " .. name .. " scenes, and " .. scene_list(idx) .. " " .. name .. ".")
+        end
+    end
+    local pv = self:pacing_now()
+    if pv.repeat_type and score.taste(p, pv.repeat_type) < 1 then
+        add(1.1, "The same kind of scene over and over will drag for " .. p.name .. ".")
+    end
+    if p.mood_known and p.mood ~= "fine" then
+        local m = score.mood(p)
+        add(math.abs(m.fun or 0) / 4 + 0.3, p.name .. " is " .. string.lower(m.name) .. " this week.")
+    end
+    local n = self.talk_notes and self.talk_notes[key]
+    if n and n.want_type and by_type[n.want_type] then
+        add(1.5, "You're giving " .. p.name .. " what they asked for: " .. n.want .. ".")
+    elseif n and n.want_type then
+        add(0.8, p.name .. " asked for " .. n.want .. ", and there isn't one yet.")
+    end
+    table.sort(out, function(a, b) return a.w > b.w end)
+    local texts = {}
+    for i = 1, math.min(3, #out) do
+        texts[i] = out[i].text
+    end
+    return texts
 end
 
 -- Bringing them in (the slice rework, S6) --------------------------------------------------
