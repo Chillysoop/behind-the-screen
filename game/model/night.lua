@@ -43,6 +43,7 @@ local story = require "game.model.story"
 local ledger = require "game.model.ledger"
 local places = require "game.model.places"
 local rest_rules = require "game.rules.rest"
+local rapport = require "game.model.rapport"
 local rests = require "game.data.rests"
 local deck = require "game.model.deck"
 local skills = require "game.rules.skills"
@@ -2953,6 +2954,171 @@ function M:finish_open(sc, chosen, mode, hook_id)
     self.on_board[chosen] = true
 end
 
+-- Party tension (A17) -------------------------------------------------------------------------------
+-- Characters sometimes do things that land on each other: a needless scrap, pocketing a
+-- friend's prize, a joke in someone's big moment. Each act lands differently on each player,
+-- moves the rapport between them, and you answer it the way real DMs do. Bonds go the other way.
+
+function M:scene_moments(sc)
+    local m = { any = true }
+    m.fight = sc.result ~= nil and sc.result.winner == "party"
+    m.loot = sc.comps.reward ~= nil and sc.outcome == "win"
+    m.social = sc.type == "social" or sc.type == "mystery" or sc.type == "downtime"
+    m.explore = sc.type == "exploration" or sc.type == "puzzle"
+    for _, c in pairs(sc.comps) do
+        m.story = m.story or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil)
+    end
+    return m
+end
+
+local function doer_weight(def, p)
+    if def.class and p.class ~= def.class then
+        return 0
+    end
+    local d = def.doers
+    if not d then
+        return 1
+    end
+    return (d[p.primary] or 0) + (d[p.secondary] or 0) * 0.5
+end
+
+function M:party_moment(sc)
+    if #self.players < 2 or self.end_early then
+        return
+    end
+    local moments = self:scene_moments(sc)
+    local fr = content.friction
+    local function eligible(list)
+        local cands, w = {}, {}
+        for _, def in ipairs(list) do
+            if moments[def.when or "any"] and (def.needs ~= "cast" or (sc.comps.cast and not self:muted(sc.comps.cast)))
+                and not (self.friction_done and self.friction_done[def.id]) then
+                for _, p in ipairs(self.players) do
+                    local dw = doer_weight(def, p)
+                    if dw > 0 then
+                        table.insert(cands, { def = def, p = p })
+                        table.insert(w, dw)
+                    end
+                end
+            end
+        end
+        return cands, w
+    end
+    self.friction_done = self.friction_done or {}
+    local roll = self.rng:next()
+    if roll < 0.32 then
+        local cands, w = eligible(fr.acts)
+        if #cands > 0 then
+            local pick = self.rng:weighted(cands, w)
+            self:friction_act(sc, pick.def, pick.p)
+        end
+    elseif roll < 0.62 then
+        local cands, w = eligible(fr.bonds)
+        if #cands > 0 then
+            local pick = self.rng:weighted(cands, w)
+            self:bond_act(sc, pick.def, pick.p)
+        end
+    end
+end
+
+function M:friction_act(sc, def, doer)
+    self.friction_done[def.id] = true
+    local target = def.target and self:pick_actor(nil, doer) or nil
+    local v = { actor_char = doer.char, actor = doer.name, target_char = target and target.char or "",
+                target = target and target.name or "" }
+    self:say(util.capitalize(util.fill(def.line, self:vars(v))), "twist")
+    -- How you answer it: a quick card when there's room for one, otherwise you let it ride.
+    local fr = content.friction
+    local resp
+    if self:room(13) then
+        local opts = {}
+        local order = { "let_it_ride", target and "party_reacts" or "world_reacts",
+                        self.rng:chance(0.5) and "pause" or "session_zero", "outlet" }
+        for _, id in ipairs(order) do
+            for _, r in ipairs(fr.responses) do
+                if r.id == id and (not r.needs_target or target) then
+                    table.insert(opts, { label = util.fill(r.label, v), log = util.fill(r.log, v), resp = r })
+                end
+            end
+        end
+        local card = { id = "friction_" .. def.id, type = "table", title = "At the table",
+                       text = doer.name .. " is having fun. Not everyone else is.", options = opts }
+        self.actor = doer
+        local o = self:decision(card)
+        resp = o and o.resp
+    end
+    resp = resp or fr.responses[1]
+    local out = rapport.on_act(self.campaign, doer, def, self.players, target and target.key, resp.heat)
+    -- The response's own effects.
+    local fx = resp.effects or {}
+    local function add(p, t)
+        for k, n in pairs(t or {}) do
+            score.add(p, k, n)
+        end
+    end
+    add(doer, fx.doer)
+    if target then
+        add(target, fx.target)
+    end
+    for _, p in ipairs(out.objectors) do
+        add(p, fx.objectors)
+    end
+    for _, p in ipairs(self.players) do
+        add(p, fx.all)
+    end
+    -- It shows at the table.
+    local poses = {}
+    for _, p in ipairs(out.objectors) do
+        poses[p.key] = "arms"
+    end
+    for _, p in ipairs(out.enjoyers) do
+        poses[p.key] = "laugh"
+    end
+    self:react(poses)
+    if #out.objectors > 0 and self:idle() < 80 then
+        local who = out.objectors[1]
+        self:say(self:fresh(fr.jabs, "jab"), "narration", { char = who.char, doer_char = doer.char })
+    end
+    if def.feeds then
+        require("game.model.social").push(self.campaign, def.feeds, 4 * (def.severity or 1))
+    end
+    self.frictions = self.frictions or {}
+    table.insert(self.frictions, { id = def.id, doer = doer.key, target = target and target.key, response = resp.id,
+                                   objectors = #out.objectors })
+end
+
+function M:bond_act(sc, def, doer)
+    local target
+    if def.amends then
+        -- Amends come from someone others are hot with.
+        local best, bh
+        for _, p in ipairs(self.players) do
+            if p ~= doer then
+                local rel = rapport.rel(self.campaign, p.key, doer.key)
+                if rel and rel.heat > 10 and (not bh or rel.heat > bh) then
+                    best, bh = p, rel.heat
+                end
+            end
+        end
+        if not best then
+            return
+        end
+        target = best
+    else
+        target = self:pick_actor(nil, doer)
+    end
+    if not target then
+        return
+    end
+    self.friction_done[def.id] = true
+    local v = { actor_char = doer.char, actor = doer.name, target_char = target.char, target = target.name }
+    self:say(util.capitalize(util.fill(def.line, self:vars(v))), "good")
+    rapport.bond(self.campaign, doer.key, target.key, def.rapport or 3, def.amends)
+    self:react({ [doer.key] = "cheer", [target.key] = "laugh" })
+    self.bonds = self.bonds or {}
+    table.insert(self.bonds, { id = def.id, a = doer.key, b = target.key })
+end
+
 -- Rests (A16) ---------------------------------------------------------------------------------------
 -- The players ask; you rule. What comes back follows SRD 5.2.1 (game/rules/rest.lua).
 
@@ -3863,6 +4029,8 @@ function M:play_scene(sc)
         self:describe(sc.comps.complication, "twist")
         self.ended_on_cliff = sc.index == #self.scenes
     end
+    -- What the characters do to each other (A17): a rub, or a bond.
+    self:party_moment(sc)
     -- The players may ask to rest (A16).
     self:rest_request(sc)
     self:bridge(sc)

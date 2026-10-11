@@ -53,6 +53,14 @@ end
 
 -- What's bugging them, most pressing first; nil when nothing is.
 local function worry_of(campaign, p)
+    -- Another player getting under their skin (A17), when it's brewing.
+    local rapport = require "game.model.rapport"
+    for _, s in ipairs(rapport.strained(campaign)) do
+        if s.hurt == p then
+            return "Honestly? " .. s.doer.char .. ". The stuff with " .. s.doer.char .. " is getting old. I don't want to make it a thing.",
+                "how " .. s.doer.char .. " plays", "rift", s.doer.key
+        end
+    end
     if (p.suspicion or 0) >= 45 then
         return "The rolls behind your screen lately... I don't know. Some of them felt a bit convenient.",
             "your hidden rolls", "trust"
@@ -127,9 +135,9 @@ function M.choose(campaign, prep, t, i)
         reply = line
         t.learned.want, t.learned.want_type, t.learned.want_thread = short, typ, thread
     elseif t.step == 3 then
-        local line, short, kind = worry_of(campaign, p)
+        local line, short, kind, other = worry_of(campaign, p)
         reply = line or "Honestly? Nope. I'm having a great time."
-        t.learned.worry, t.learned.worry_kind = short, kind
+        t.learned.worry, t.learned.worry_kind, t.learned.worry_about = short, kind, other
     else
         if t.learned.worry then
             if i == 1 then
@@ -137,6 +145,13 @@ function M.choose(campaign, prep, t, i)
                 reply = "Thanks. That means a lot."
                 if t.learned.worry_kind == "trust" then
                     score.add(p, "suspicion", -6)
+                elseif t.learned.worry_kind == "rift" and t.learned.worry_about then
+                    -- Being heard takes the heat down (A17: the ladder's private talk).
+                    local rel = require("game.model.rapport").rel(campaign, p.key, t.learned.worry_about)
+                    if rel then
+                        rel.heat = rel.heat * 0.6
+                        rel.rapport = math.min(100, rel.rapport + 2)
+                    end
                 end
             elseif i == 2 then
                 score.add(p, "trust", 1)

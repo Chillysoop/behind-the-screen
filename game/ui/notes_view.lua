@@ -310,6 +310,21 @@ local function tab_party(app, x, y, w, h)
         py = para(px + 14, py, cw - 28, util.capitalize(p.thread or ""), "ui18", theme.text)
         py = head(px + 14, py + 6, "At the table")
         py = para(px + 14, py, cw - 28, p.notes or "", "ui14", theme.dim)
+        -- How they get on with the others (A17).
+        local rapport = require "game.model.rapport"
+        local bits = {}
+        for _, q in ipairs(c.players) do
+            if q ~= p then
+                local word = rapport.word(c, p.key, q.key)
+                if word and word ~= "Fine" then
+                    table.insert(bits, word .. " with " .. q.name)
+                end
+            end
+        end
+        if #bits > 0 then
+            py = head(px + 14, py + 6, "With the others")
+            py = para(px + 14, py, cw - 28, table.concat(bits, ". ") .. ".", "ui14", theme.text)
+        end
         if not p.present then
             py = para(px + 14, py + 4, cw - 28, p.on_break and "Taking a break from Thursdays." or "Out this week.", "ui14",
                 theme.orange)

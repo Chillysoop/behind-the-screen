@@ -47,6 +47,19 @@ for _, pol in ipairs({ "kind", "hard", "mixed" }) do
                 end
             end
             local night = c:start_night()
+            -- The carry itself: tonight's party starts as last week's ended.
+            if expect then
+                require("game.model.fight").party(night)
+                r.carried_n = r.carried_n + 1
+                local same = true
+                for _, pc in ipairs(night.pc_list) do
+                    if expect[pc.player_key] and pc.hp ~= math.min(pc.hp_max, math.max(1, expect[pc.player_key])) then
+                        same = false
+                    end
+                end
+                r.carried_ok = r.carried_ok + (same and 1 or 0)
+                expect = nil
+            end
             local first_battle = true
             local ev = night:advance()
             while ev.kind ~= "done" do

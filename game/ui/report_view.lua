@@ -116,6 +116,16 @@ function M.build(app)
     if rep.table_text then
         table.insert(items, { rep.table_text, theme.dim })
     end
+    -- Between the players (A17): the friendships under strain after tonight.
+    do
+        local rapport = require "game.model.rapport"
+        for k, s in ipairs(rapport.strained(app.campaign)) do
+            if k <= 2 then
+                table.insert(items, { (s.stage == "live" and "Rift: " or "Strained: ") .. s.hurt.name .. " is fed up with "
+                    .. s.doer.char .. ". A one-on-one or a word with the table would help.", s.stage == "live" and theme.red or theme.orange })
+            end
+        end
+    end
     for _, c in ipairs(rep.clues or {}) do
         table.insert(items, { "Found out: " .. c, theme.gold })
     end

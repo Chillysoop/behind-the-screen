@@ -262,6 +262,9 @@ for _, d in ipairs(decisions) do
     end
 end
 
+-- Party tension: friction and bonds between players (A17).
+M.friction = require "game.data.friction"
+
 -- Open scenes: the players choose where to go (A15).
 M.open_scenes = require "game.data.open_scenes"
 

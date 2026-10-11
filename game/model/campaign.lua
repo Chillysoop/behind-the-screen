@@ -213,6 +213,8 @@ function M:write_chat()
     end
     -- Word from around the valley first: what the world did off screen (S7). You post it.
     world.post_news(self, msgs)
+    -- Someone at the table is fed up with someone else (A17).
+    require("game.model.rapport").chat(self, msgs)
     if self.hype > 0 then
         local fan = rng:pick(self:present())
         if fan then
@@ -366,6 +368,7 @@ function M:finish_night()
     rep.level = progression.status(self)
     rep.safety = night.safety
     rep.table_time = night.table_report     -- how the length landed (A14)
+    rep.frictions, rep.bonds = night.frictions or {}, night.bonds or {}   -- what they did to each other (A17)
     rep.table_text = night.clock_text and night:length_text()
     rep.payoffs = night.payoffs
     rep.planted = night.planted
@@ -391,6 +394,8 @@ function M:finish_night()
     world.after_night(self, night)
     -- Every place prepped or visited tonight is one of yours now (A15).
     require("game.model.places").after_night(self, night)
+    -- The friendships at the table settle for the week (A17).
+    require("game.model.rapport").week_end(self)
     rep.moved = ledger.changes(self, self.week)
     local beat = self:arc_beat()
     if beat and beat.finale then

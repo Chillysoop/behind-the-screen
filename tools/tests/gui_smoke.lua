@@ -434,11 +434,14 @@ check_tip_absorbs(" (week 2 prep)")
             end
         end
         if by then
+            for _ = 1, 4 do
+                if not click_key("guide_ok") then break end
+            end
             if not click_key("convo_" .. by.id) then problem("couldn't open " .. by.id) end
             if app.convo ~= by.id then problem("conversation didn't open") end
             dump("14_convo")
             if not click_key("convo_opt_1") then problem("no reply options in the conversation") end
-            if #c.prep.convos[by.id].log < 3 then problem("they didn't answer") end
+            if not (c.prep.convos[by.id] and #c.prep.convos[by.id].log >= 3) then problem("they didn't answer") end
             dump("14b_convo_answered")
             if not click_key("convo_done") then
                 local keys = {}
