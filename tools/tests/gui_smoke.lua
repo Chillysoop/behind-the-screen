@@ -199,6 +199,18 @@ end
 
 local function key(action) call(on_input, self, action, { pressed = true }) end
 
+-- "Run game night" may ask "are you sure?" (the slice rework): answer it like a player who's done.
+local function run_night_click()
+    if not click_label("Run game night") then return false end
+    local app = self.app
+    if app.ask then
+        for _, b in ipairs(buttons()) do
+            if b.key == "ask_yes" then click(b); break end
+        end
+    end
+    return true
+end
+
 local function click_key(k)
     for _, b in ipairs(buttons()) do
         if b.key == k then click(b); return true end
@@ -280,7 +292,21 @@ local seeds_mod = require "game.model.seeds"
 for week = 1, WEEKS do
     if app.screen == "intro" then
         dump("1_intro")
-        if not click_label("Session Zero") then problem("no Session Zero button") end
+        if not click_label("Plan the campaign") then problem("no Plan the campaign button") end
+        if app.screen ~= "planner" then problem("expected the planner, got " .. tostring(app.screen)) end
+        dump("1a_planner")
+        -- Click a few truths and threads around, then go on with whatever's picked (or the defaults).
+        for _ = 1, 6 do
+            local bs = random_buttons()
+            local pick = bs[rng:int(1, #bs)]
+            if pick and pick.key ~= "plan_done" then click(pick) end
+        end
+        if not click_key("plan_done") then
+            app.plan_choices = nil
+            app.refresh()
+            if not click_key("plan_done") then problem("the planner wouldn't go on with its defaults") end
+        end
+        if not (app.campaign.plan and #app.campaign.plan.truths == 3) then problem("the planner didn't lay down three truths") end
         if app.screen ~= "session_zero" then problem("expected Session Zero, got " .. tostring(app.screen)) end
         dump("1b_session_zero")
         -- The first-session tips: one shows, "Got it" moves to the next, and they stay clickable.
@@ -453,11 +479,32 @@ check_tip_absorbs(" (week 2 prep)")
         end
     end
     if not app.campaign.prep:ready() then problem("prep not ready after picking types") break end
+    -- The slice rework: the one-page hand, and the notebook later in the campaign.
+    if week == 3 or week == 1 then
+        app.sel = { scene = 1, kind = "cast" }
+        app.refresh()
+        dump("15b_prep_hand_w" .. week)
+        app.sel = { scene = 2, kind = "complication" }
+        app.refresh()
+        dump("15c_prep_hand_comp_w" .. week)
+        app.sel = nil
+        app.refresh()
+    end
+    if week == 3 then
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes in week 3") end
+        for _, t in ipairs(require("game.ui.notes_view").TABS) do
+            if not click_key("notes_tab_" .. t[1]) then problem("no notes tab " .. t[1]) end
+            dump("30_notes_w3_" .. t[1])
+        end
+        key("next_cell")
+    end
     if week == 1 then
         -- The real-session pass: the DM's notes (N), every tab; every character sheet, both pages.
         key("next_cell")
         if app.overlay ~= "notes" then problem("N didn't open the notes on the prep board") end
-        for _, tab in ipairs({ "session", "story", "people", "party" }) do
+        for _, t in ipairs(require("game.ui.notes_view").TABS) do
+            local tab = t[1]
             if not click_key("notes_tab_" .. tab) then problem("no notes tab " .. tab) end
             dump("26_notes_" .. tab)
         end
@@ -528,7 +575,7 @@ check_tip_absorbs(" (week 2 prep)")
         app.refresh()
         dump("3_prep_types")
     end
-    if not click_label("Run game night") then problem("no run button") break end
+    if not run_night_click() then problem("no run button") break end
     if app.screen ~= "night" then problem("expected night") break end
     if week == 2 then key("fast") end
     if week == 3 then key("sandbox"); key("sandbox") end
@@ -702,7 +749,7 @@ if app.screen == "prep" and #problems == 0 then
     end
     app.refresh()
     sam.commitment, sam.wavering = 5, 3
-    if not click_label("Run game night") then problem("no run button (hard times)") end
+    if not run_night_click() then problem("no run button (hard times)") end
     local guard = 0
     while app.screen == "night" and not app.night_done and guard < 8000 do
         guard = guard + 1
@@ -746,7 +793,7 @@ local function play_resumed_night(where)
         if not c.prep.scenes[i].type then c.prep:set_type(i, "social") end
     end
     app.refresh()
-    if not click_label("Run game night") then problem("no run button" .. where) return end
+    if not run_night_click() then problem("no run button" .. where) return end
     local guard = 0
     while app.screen == "night" and not app.night_done and guard < 8000 do
         guard = guard + 1
@@ -792,7 +839,7 @@ if #problems == 0 then
             c.prep:set_type(1, "social"); c.prep:set_type(2, "combat"); c.prep:set_type(3, "mystery")
             app.refresh()
             local wk, spent = c.week, c.prep:spent()
-            if not click_label("Run game night") then problem("no run button before the mid-night quit") end
+            if not run_night_click() then problem("no run button before the mid-night quit") end
             for _ = 1, 30 do
                 call(update, self, 0.4)
                 if app.pending then break end
@@ -849,7 +896,7 @@ if #problems == 0 then
         if app.screen ~= "intro" or not app.confirm_new then problem("one click on New campaign already started over") end
         if not has_text("Click again to start over") then problem("no note before starting over") end
         click_key("new_campaign")
-        if app.screen ~= "session_zero" then problem("two clicks on New campaign didn't start Session Zero") end
+        if app.screen ~= "planner" then problem("two clicks on New campaign didn't start the planner") end
         -- Stopped after the first act, before its survey: continuing goes back to the survey.
         if app.campaign.week >= content.arc.SESSIONS then
             local c = save_mod.load(save_mod.dump(app.campaign))

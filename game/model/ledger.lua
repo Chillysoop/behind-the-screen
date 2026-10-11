@@ -4,14 +4,13 @@
 -- game keeps it as the story happens. The people and factions are game/data/factions.lua.
 -- Pure Lua.
 --
--- campaign.notebook = {
---   log     = { entry... }       every interaction, oldest first
---   people  = { [person] = { att, warm = { [key] = n }, status, status_week, met, last, knows = { text... },
---                            faction, exposed } }
---   factions = { [faction] = { shift, clock, done, crossed, helped } }
---   places  = { [location] = { state, since } }
+-- campaign.notebook = {           this table's side: how the Vale feels about THIS party
+--   log     = { entry... }       every interaction, oldest first (the one event log)
+--   people  = { [person] = { att, warm = { [key] = n }, met, last, knows = { text... }, exposed } }
+--   factions = { [faction] = { shift, crossed, pushed, helped } }
 --   changes = { { week, kind = "att" | "status" | "standing", id, from, to, why } }
 -- }
+-- The world's side (statuses, sides, projects, places) is in campaign.world: see world_state.
 -- entry = { w = week, s = scene, who = player key | "party", to = person | faction, did, ok, at = location, d }
 --
 -- Game night writes its entries to night.ledger as it goes (so quitting halfway and playing
@@ -62,20 +61,71 @@ function M.get(campaign)
     if nb then
         return nb
     end
-    nb = { log = {}, people = {}, factions = {}, places = {}, changes = {} }
+    nb = { log = {}, people = {}, factions = {}, changes = {} }
     for pid, def in pairs(data.people) do
         local warm = {}
         for k, v in pairs(def.warm or {}) do
             warm[k] = v
         end
-        nb.people[pid] = { att = def.att or 0, warm = warm, status = def.status or "around", knows = {},
-                           faction = def.faction }
+        nb.people[pid] = { att = def.att or 0, warm = warm, knows = {} }
     end
     for _, fid in ipairs(data.order) do
-        nb.factions[fid] = { shift = 0, clock = 0 }
+        nb.factions[fid] = { shift = 0 }
     end
     campaign.notebook = nb
+    M.world_state(campaign)
     return nb
+end
+
+-- The world's side of it, kept apart from this table's notebook so a second table can share
+-- the world later (GDD: A second table): where everyone is and whose side they're on, each
+-- faction's project, and what's become of places. It lives in campaign.world, beside the
+-- world turn's moves and timeline (world.lua).
+--   people   { [person] = { status, status_week, faction } }
+--   factions { [faction] = { clock, done } }
+--   places   { [location] = { state, since } }
+function M.world_state(campaign)
+    local w = campaign.world
+    if not w then
+        w = {}
+        campaign.world = w
+    end
+    if not w.people then
+        w.people = {}
+        for pid, def in pairs(data.people) do
+            w.people[pid] = { status = def.status or "around", faction = def.faction }
+        end
+    end
+    if not w.factions then
+        w.factions = {}
+        for _, fid in ipairs(data.order) do
+            w.factions[fid] = { clock = 0 }
+        end
+    end
+    w.places = w.places or {}
+    return w
+end
+
+function M.status(campaign, pid)
+    local wp = M.world_state(campaign).people[pid]
+    return wp and wp.status or "around"
+end
+
+function M.faction_of(campaign, pid)
+    local wp = M.world_state(campaign).people[pid]
+    return wp and wp.faction or nil
+end
+
+function M.set_faction(campaign, pid, fid)
+    local wp = M.world_state(campaign).people[pid]
+    if wp then
+        wp.faction = fid
+    end
+end
+
+-- A faction's project state in the world: { clock, done }.
+function M.project_state(campaign, fid)
+    return M.world_state(campaign).factions[fid]
 end
 
 -- The person a cast card is, if the notebook keeps them (beasts and the dead it doesn't).
@@ -187,20 +237,23 @@ function M.adjust(campaign, pid, d, why, key)
 end
 
 function M.set_status(campaign, pid, status, why)
-    local p = M.person(campaign, pid)
-    if not p or p.status == status then
+    local wp = M.world_state(campaign).people[pid]
+    if not wp or wp.status == status then
         return
     end
     local nb = M.get(campaign)
-    note_change(nb, campaign.week, "status", pid, p.status, status, why)
-    p.status = status
-    p.status_week = campaign.week
+    note_change(nb, campaign.week, "status", pid, wp.status, status, why)
+    wp.status = status
+    wp.status_week = campaign.week
 end
 
 -- Is this person still around to bring in (not missing, gone or beaten)?
 function M.around(campaign, pid)
-    local p = M.person(campaign, pid)
-    return p ~= nil and (p.status == "around" or p.status == "got away")
+    if not M.person(campaign, pid) then
+        return false
+    end
+    local st = M.status(campaign, pid)
+    return st == "around" or st == "got away"
 end
 
 -- The words for one entry: "Pip charmed her at the Kettle."
@@ -303,9 +356,9 @@ function M.after_night(campaign, night)
     end
     -- Anyone the party hurt tonight crossed their faction too.
     for _, e in ipairs(night.ledger or {}) do
-        local p = nb.people[e.to]
-        if p and p.faction and (e.d or 0) < 0 and nb.factions[p.faction] then
-            nb.factions[p.faction].crossed = campaign.week
+        local fid = nb.people[e.to] and M.faction_of(campaign, e.to)
+        if fid and (e.d or 0) < 0 and nb.factions[fid] then
+            nb.factions[fid].crossed = campaign.week
         end
     end
 end
@@ -332,7 +385,7 @@ function M.members(campaign, fid, all)
     local out = {}
     for pid, p in pairs(nb.people) do
         local def = data.people[pid]
-        if p.faction == fid and (all or not def.hidden or p.exposed) then
+        if M.faction_of(campaign, pid) == fid and (all or not def.hidden or p.exposed) then
             table.insert(out, pid)
         end
     end
@@ -442,7 +495,7 @@ function M.agenda_kind(campaign, pid)
     if not wants or not p then
         return nil
     end
-    if p.status == "got away" and wants.back then
+    if M.status(campaign, pid) == "got away" and wants.back then
         return "back"
     elseif p.att >= 1 and wants.warm then
         return "warm"
@@ -491,14 +544,13 @@ end
 
 -- A place's state, once the world has changed it: { label, line } or nil.
 function M.place_state(campaign, lid)
-    local pl = M.get(campaign).places[lid]
+    local pl = M.world_state(campaign).places[lid]
     local states = data.places[lid]
     return pl and states and states[pl.state] or nil
 end
 
 function M.set_place(campaign, lid, state)
-    local nb = M.get(campaign)
-    nb.places[lid] = { state = state, since = campaign.week }
+    M.world_state(campaign).places[lid] = { state = state, since = campaign.week }
 end
 
 -- Who at the table someone is warm or cold toward: { { key, n } }, strongest first.

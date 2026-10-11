@@ -22,6 +22,8 @@ local messages_view = require "game.ui.messages_view"
 local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
+local ask_view = require "game.ui.ask_view"
+local planner_view = require "game.ui.planner_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
@@ -196,6 +198,10 @@ local function build_screen(self)
         kit.layer("report")
         report_view.build(app)
         block_camera(true)
+    elseif s == "planner" then
+        kit.layer("planner")
+        planner_view.build(app)
+        block_camera(true)
     elseif s == "session_zero" then
         kit.layer("session_zero")
         session_zero_view.build(app)
@@ -224,6 +230,10 @@ local function build_screen(self)
         encounter_view.draw(app)
     else
         app.overlay = nil
+    end
+    -- An "are you sure?" (the slice rework) sits over everything but the tips.
+    if app.ask then
+        ask_view.draw(app)
     end
     review_view.rebuild(app)
     guide_view.refresh(app)   -- the first-session tips, on top
@@ -308,11 +318,18 @@ function init(self)
         encounter_view.open(app, i)
         guide_view.refresh(app)
     end
+    app.run_night = function()
+        prep_view.run_night(app)
+    end
     app.close_overlay = function()
+        local was_notes = app.overlay == "notes"
         notes_view.close(app)
         sheet_view.close(app)
         encounter_view.close(app)
         app.overlay = nil
+        if was_notes and app.screen == "prep" then
+            build_screen(self)   -- the notes can change the hand (pins, shelves, the world's cards)
+        end
         guide_view.refresh(app)
     end
     -- Extra lines for the playtest log (M7: the quick questions and the slice survey).
@@ -560,8 +577,11 @@ function on_input(self, action_id, action)
             if app.resume then
                 guard(self, app.continue_campaign)
             else
-                guard(self, app.go, "session_zero")
+                guard(self, app.go, "planner")
             end
+            return true
+        elseif s == "planner" then
+            guard(self, planner_view.start, app)
             return true
         elseif s == "session_zero" then
             guard(self, session_zero_view.start, app)
@@ -588,8 +608,11 @@ function on_input(self, action_id, action)
             end
             return true
         elseif s == "prep" then
+            if app.ask then
+                return true   -- the "are you sure?" answers with its buttons
+            end
             if app.campaign.prep:ready() then
-                guard(self, app.go, "night")
+                guard(self, app.run_night)
             end
             return true
         elseif s == "night" and app.night_done then

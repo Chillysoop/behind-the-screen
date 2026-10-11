@@ -232,6 +232,12 @@ function M.update(app, dt)
                 end
             end
         end
+    elseif s == "planner" then
+        if not shot(a, "planner") then
+            if not by_key("plan_done") then
+                return finish(a, false, "the planner has no way on")
+            end
+        end
     elseif s == "session_zero" then
         app.s0 = app.s0 or { asks = {}, rules = {} }
         app.s0.tone = app.s0.tone or "mixed"
@@ -283,6 +289,9 @@ function M.update(app, dt)
         app.refresh()
         if not by_label("Run game night") then
             return finish(a, false, "no Run game night button")
+        end
+        if app.ask then
+            by_label(app.ask.yes or "Run game night")
         end
         say("night " .. wk)
     elseif s == "night" then

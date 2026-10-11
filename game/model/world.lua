@@ -29,9 +29,13 @@ M.data = data
 function M.get(campaign)
     local w = campaign.world
     if not w then
-        w = { week = 0, moves = {}, held = {}, holds = 0, timeline = {}, news = {}, done = {} }
+        w = {}
         campaign.world = w
     end
+    if not w.moves then
+        w.week, w.moves, w.held, w.holds, w.timeline, w.news, w.done = 0, {}, {}, 0, {}, {}, {}
+    end
+    ledger.world_state(campaign)
     return w
 end
 
@@ -62,7 +66,7 @@ function M.project(campaign, fid)
     if not fd.project or M.is_front(campaign, fid) then
         return nil
     end
-    local f = ledger.get(campaign).factions[fid]
+    local f = ledger.project_state(campaign, fid)
     return { name = fd.project.name, size = fd.project.size, clock = f.clock or 0, done = f.done }
 end
 
@@ -259,10 +263,7 @@ function M.apply_fx(campaign, fid, fx, text, result)
         ledger.set_place(campaign, lid, st)
     end
     for pid, to in pairs(fx.join or {}) do
-        local p = nb.people[pid]
-        if p then
-            p.faction = to
-        end
+        ledger.set_faction(campaign, pid, to)
     end
     if fx.standing then
         ledger.shift(campaign, fid, fx.standing, text)
@@ -291,7 +292,7 @@ function M.apply_fx(campaign, fid, fx, text, result)
     if fx.clock then
         local pr = M.project(campaign, fid)
         if pr and not pr.done then
-            local f = nb.factions[fid]
+            local f = ledger.project_state(campaign, fid)
             f.clock = util.clamp((f.clock or 0) + fx.clock, 0, pr.size)
             if f.clock >= pr.size then
                 M.complete(campaign, fid)
@@ -311,7 +312,7 @@ end
 -- A project's clock filled: the world changes for good.
 function M.complete(campaign, fid)
     local fd = data[fid]
-    local f = ledger.get(campaign).factions[fid]
+    local f = ledger.project_state(campaign, fid)
     if f.done then
         return
     end
@@ -494,21 +495,22 @@ function M.after_night(campaign, night)
     end
     for _, fid in ipairs(data.order) do
         local f = nb.factions[fid]
+        local ps = ledger.project_state(campaign, fid)
         local pr = M.project(campaign, fid)
         if pr and not pr.done then
             if f.pushed == campaign.week then
-                f.clock = math.max(0, (f.clock or 0) - 1)
+                ps.clock = math.max(0, (ps.clock or 0) - 1)
                 record(campaign, { faction = fid, move = "pushback", name = pr.name, result = "pushed",
                                    text = "The party set " .. data[fid].short .. " back: " .. string.lower(pr.name) .. " lost a step.",
                                    know = "secret", cards = {}, via = "scene" })
             end
             if f.helped == campaign.week then
-                f.clock = math.min(pr.size, (f.clock or 0) + 1)
+                ps.clock = math.min(pr.size, (ps.clock or 0) + 1)
                 ledger.shift(campaign, fid, 1, "The party helped " .. data[fid].short .. ".")
                 record(campaign, { faction = fid, move = "helped", name = pr.name, result = "helped",
                                    text = "The party helped " .. data[fid].short .. ": " .. string.lower(pr.name) .. " moved on a step.",
                                    know = "public", cards = {}, via = "scene" })
-                if f.clock >= pr.size then
+                if ps.clock >= pr.size then
                     M.complete(campaign, fid)
                 end
             end

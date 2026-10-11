@@ -47,15 +47,15 @@ function M.build(app)
         kit.button(x + 410, y + h - 110, 200, 56, app.confirm_new and "Yes, start over" or "New campaign", function()
             if app.confirm_new then
                 app.confirm_new = nil
-                app.go("session_zero")
+                app.go("planner")
             else
                 app.confirm_new = true
                 app.refresh()
             end
         end, { font = "ui18b", key = "new_campaign", color = app.confirm_new and theme.red or nil })
     else
-        kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Session Zero  >", function()
-            app.go("session_zero")
+        kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Plan the campaign  >", function()
+            app.go("planner")
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "session_zero" })
     end
     local foot

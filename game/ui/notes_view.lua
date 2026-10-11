@@ -1,8 +1,14 @@
--- The DM's notes (real-session pass): the binder behind the screen. Open it with N or the
--- Notes button on prep, game night and the report; game night waits while it's open.
+-- The DM's notes (real-session pass, grown into the campaign notebook in the slice rework):
+-- the binder behind the screen. Open it with N or the Notes button on prep, game night and
+-- the report; game night waits while it's open.
+--   This week      the world's moves off screen, who this session is for, who shows up
 --   This session   what tonight is for, the opening to read, the story cards and the board
+--   Campaign       the plan: premise, truths, fronts and their portents, shelved cards
+--   People         everyone the party has met: attitude, status, history (hover for it all)
+--   Factions       standing, projects and fronts, members, what they've been up to
+--   Places         where the party has been, what changed, what happened there
+--   Threads        each backstory as a chain of cards
 --   Story so far   the campaign's secrets, every session's clues and moments, seeds in play
---   Who's who      the people of the story, with who the party has met
 --   The party      who's playing whom, their backstory hooks, and their character sheets
 -- The data is game/model/story.lua; the story itself game/data/arc.lua.
 
@@ -16,9 +22,14 @@ local panels = require "game.ui.panels"
 
 local M = {}
 
+local pages = require "game.ui.notebook_pages"
+
 local X, Y, W, H = 110, 44, 1380, 816
-local TABS = { { "session", "This session" }, { "story", "Story so far" }, { "people", "Who's who" },
-               { "party", "The party" } }
+-- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
+local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
+               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "threads", "Threads" },
+               { "story", "Story so far" }, { "party", "The party" } }
+M.TABS = TABS
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
 
 function M.is_open(app)
@@ -32,6 +43,7 @@ function M.open(app, tab)
 end
 
 function M.close(app)
+    pages.drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
         app.notes_layer = nil
@@ -269,45 +281,23 @@ local function tab_story(app, x, y, w)
     end
 end
 
--- Who's who ---------------------------------------------------------------------------------------------
-
-local function tab_people(app, x, y, w)
-    local notes = story.notes(app.campaign)
-    local cw, ch, gap = 430, 150, 14
-    for i, p in ipairs(notes.people) do
-        local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
-        local px, py = x + col * (cw + gap), y + row * (ch + gap)
-        kit.box(px, py, cw, ch, p.met and theme.panel2 or theme.panel, { radius = 10 })
-        if p.sprite then
-            kit.picture(px + 10, py + 10, 76, 95, "mini_" .. p.sprite, kit.rgba("#ffffff", p.met and 1 or 0.45))
-        else
-            kit.dot(px + 48, py + 56, 70, kit.rgba("#000000", 0.25))
-            kit.text(px + 48, py + 56, "?", "title30", theme.faint, { pivot = gui.PIVOT_CENTER })
-        end
-        kit.text(px + 100, py + 10, p.name, "ui18b", theme.text)
-        kit.text(px + 100, py + 32, p.role, "ui14", theme.gold, { w = cw - 110 })
-        local ah = kit.text_height(p.role, "ui14", cw - 110)
-        kit.text(px + 100, py + 36 + ah, p.about, "ui14", theme.dim, { w = cw - 110 })
-        local tag = p.met and (p.week and ("Met in session " .. util.int(p.week)) or "Known to everyone")
-            or "The party hasn't met them yet"
-        kit.text(px + cw - 10, py + ch - 22, tag, "ui14", p.met and theme.teal or theme.faint, { pivot = gui.PIVOT_NE })
-    end
-end
-
 -- The party -------------------------------------------------------------------------------------------------
 
-local function tab_party(app, x, y, w)
+local function tab_party(app, x, y, w, h)
     local c = app.campaign
-    local cw, gap = 316, 18
+    local gap = 14
+    local cw = math.floor((w - 3 * gap) / 4)
     for i, p in ipairs(c.players) do
         local px = x + (i - 1) * (cw + gap)
-        kit.box(px, y, cw, 600, theme.panel2, { radius = 10 })
-        kit.dot(px + 60, y + 60, 96, panels.COLORS[p.key] or theme.panel3)
-        kit.picture(px + 12, y + 12, 96, 96, panels.face(p.key))
-        kit.picture(px + 120, y + 20, 72, 90, CLASS_MINI[p.class] or "mini_fighter")
-        kit.text(px + 204, y + 20, p.name, "ui22b", theme.text)
-        kit.text(px + 204, y + 50, "plays", "ui14", theme.dim)
-        kit.text(px + 204, y + 68, p.char, "ui18b", theme.gold)
+        kit.box(px, y, cw, h, theme.panel2, { radius = 10 })
+        kit.dot(px + 50, y + 50, 80, panels.COLORS[p.key] or theme.panel3)
+        kit.picture(px + 12, y + 12, 76, 76, panels.face(p.key))
+        kit.picture(px + cw - 72, y + 10, 60, 75, CLASS_MINI[p.class] or "mini_fighter")
+        local py = y + 98
+        kit.text(px + 14, py, p.name, "ui22b", theme.text)
+        kit.text(px + 14 + kit.width(p.name, "ui22b") + 8, py + 6, "plays " .. p.char, "ui18", theme.gold,
+            { w = cw - 36 - kit.width(p.name, "ui22b") })
+        py = py + 34
         local level = c.level or 2
         local sub = level >= 3 and c.subclasses and c.subclasses[p.class]
         local subs = require "game.rules.subclasses"
@@ -315,7 +305,6 @@ local function tab_party(app, x, y, w)
         if sub and subs.list[sub] then
             line = line .. ", " .. subs.list[sub].name
         end
-        local py = y + 124
         py = para(px + 14, py, cw - 28, line, "ui18", theme.text)
         py = head(px + 14, py + 6, "Backstory hook")
         py = para(px + 14, py, cw - 28, util.capitalize(p.thread or ""), "ui18", theme.text)
@@ -325,7 +314,7 @@ local function tab_party(app, x, y, w)
             py = para(px + 14, py + 4, cw - 28, p.on_break and "Taking a break from Thursdays." or "Out this week.", "ui14",
                 theme.orange)
         end
-        kit.button(px + 14, y + 600 - 54, cw - 28, 40, "Character sheet", function()
+        kit.button(px + 14, y + h - 54, cw - 28, 40, "Character sheet", function()
             M.close(app)
             if app.open_sheet then
                 app.open_sheet(p.key)
@@ -334,27 +323,62 @@ local function tab_party(app, x, y, w)
     end
 end
 
+-- Anything in the binder waiting on you this week (the dot on its tab and on the prep board).
+function M.attention(app)
+    local out = {}
+    if app.campaign and app.campaign.prep and pages.week_pending(app) > 0 then
+        out.week = true
+    end
+    return out
+end
+
 function M.draw(app)
+    pages.drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
     end
     local l = kit.layer("notes", true)
     app.notes_layer = l
+    app.refresh_notes = app.refresh_notes or function()
+        if app.overlay == "notes" then
+            M.draw(app)
+        end
+    end
     kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.55), { round = false })
     kit.box(X, Y, W, H, theme.bg, { radius = 14 })
     kit.box(X, Y, W, 60, theme.panel, { radius = 14 })
     kit.text(X + 24, Y + 14, "YOUR NOTES", "title30", theme.gold)
-    local tx = X + 240
+    local tab = app.notes_tab or "session"
+    local known = false
     for _, t in ipairs(TABS) do
-        local on = app.notes_tab == t[1]
-        local tw = kit.width(t[2], "ui18b") + 36
-        kit.button(tx, Y + 12, tw, 36, t[2], function()
+        known = known or t[1] == tab
+    end
+    if not known then
+        tab = "session"
+        app.notes_tab = tab
+    end
+    -- The tabs down the left, like a binder's dividers.
+    local attn = M.attention(app)
+    local ty = Y + 76
+    for _, t in ipairs(TABS) do
+        local on = tab == t[1]
+        kit.button(X + 14, ty, 168, 38, t[2], function()
             app.notes_tab = t[1]
             M.draw(app)
-        end, { font = "ui18b", color = on and theme.go or theme.panel2, hover = theme.button_hover,
+        end, { font = "ui18b", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left", pad_y = 9,
                key = "notes_tab_" .. t[1] })
-        tx = tx + tw + 10
+        if attn[t[1]] then
+            kit.dot(X + 170, ty + 19, 12, theme.orange)
+        end
+        ty = ty + 44
     end
+    local title = ""
+    for _, t in ipairs(TABS) do
+        if t[1] == tab then
+            title = t[2]
+        end
+    end
+    kit.text(X + 260, Y + 20, string.upper(title), "ui18b", theme.dim)
     kit.button(X + W - 130, Y + 12, 110, 36, "Close", function()
         if app.close_overlay then
             app.close_overlay()
@@ -363,16 +387,26 @@ function M.draw(app)
         end
     end, { font = "ui18b", key = "notes_close" })
     kit.text(X + W - 144, Y + 22, "N or Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
-    local cx, cy, cw = X + 30, Y + 84, W - 60
-    local tab = app.notes_tab or "session"
-    if tab == "session" then
+    local cx, cy = X + 204, Y + 76
+    local cw, ch = W - 204 - 24, H - 76 - 22
+    if tab == "week" then
+        pages.week(app, cx, cy, cw, ch)
+    elseif tab == "session" then
         tab_session(app, cx, cy, cw)
+    elseif tab == "campaign" then
+        pages.campaign(app, cx, cy, cw, ch)
+    elseif tab == "people" then
+        pages.people(app, cx, cy, cw, ch)
+    elseif tab == "factions" then
+        pages.factions(app, cx, cy, cw, ch)
+    elseif tab == "places" then
+        pages.places(app, cx, cy, cw, ch)
+    elseif tab == "threads" then
+        pages.threads(app, cx, cy, cw, ch)
     elseif tab == "story" then
         tab_story(app, cx, cy, cw)
-    elseif tab == "people" then
-        tab_people(app, cx, cy, cw)
     else
-        tab_party(app, cx, cy, cw)
+        tab_party(app, cx, cy, cw, ch)
     end
 end
 

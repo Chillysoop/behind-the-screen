@@ -40,6 +40,8 @@ local T = {
     cast_scenes = 0, cast_logged = 0,
     dead_cards = 0, truth_cards = {}, front_cards = {},
     save_ok = 0, save_bad = 0,
+    opened_ids = {}, careful_steps = {}, front_dealt = { velvet_hand = {}, under_chapel = {} },
+    doom = { careful = { n = 0, d = 0 }, careless = { n = 0, d = 0 } },
 }
 
 local function bump(t, k, n)
@@ -169,7 +171,7 @@ local function run(dm_key, seed, plan)
                     local pid = ledger.person_of(h)
                     if pid and not ledger.around(c, pid) then
                         T.dead_cards = T.dead_cards + 1
-                        fail("week " .. w .. ": " .. h.id .. " dealt while " .. ledger.person(c, pid).status)
+                        fail("week " .. w .. ": " .. h.id .. " dealt while " .. ledger.status(c, pid))
                     end
                 end
             end
@@ -218,6 +220,24 @@ local function run(dm_key, seed, plan)
         end
         local rep = c:finish_night()
         T.opened = T.opened + #(rep.opened or {})
+        for _, o in ipairs(rep.opened or {}) do
+            T.opened_ids[o.id] = true
+        end
+        if w == 4 and dm_key == "careful" then
+            -- S3: a tended thread moves at least two steps in the first four weeks.
+            for _, p in ipairs(c.players) do
+                local done = 0
+                for _, st in ipairs(deck.threads(c)[p.key] or {}) do
+                    done = done + (st.state == "done" and 1 or 0)
+                end
+                table.insert(T.careful_steps, done)
+            end
+        end
+        if w == 4 and (dm_key == "careful" or dm_key == "careless") then
+            local st = c.plan.fronts[c.plan.front]
+            T.doom[dm_key].n = T.doom[dm_key].n + 1
+            T.doom[dm_key].d = T.doom[dm_key].d + ((st and (st.doom or st.step >= 3)) and 1 or 0)
+        end
         for _, ch in ipairs(rep.moved or {}) do
             if ch.kind == "att" then
                 local order = { Hostile = -2, Wary = -1, Indifferent = 0, Warm = 1, Friendly = 2 }
@@ -269,6 +289,13 @@ local function run(dm_key, seed, plan)
         end
     end
     T.front_cards[c.plan.front] = (T.front_cards[c.plan.front] or 0) + 1
+    for id in pairs(deck.get(c).cards) do
+        T.opened_ids[id] = true     -- joined the deck one way or another
+    end
+    -- S4: which front's own cards made it into the deck.
+    for _, cid in ipairs({ "silence_crypt", "dead_walk", "save_kettle", "key_for_sale" }) do
+        table.insert(T.front_dealt[c.plan.front], deck.state(c, cid) ~= nil and cid or false)
+    end
 end
 
 local dms = { "careful", "plain", "careless", "random" }
@@ -299,6 +326,46 @@ local function mean(list)
 end
 
 check(T.spent_repeat == 0, "No spent card comes back (S1)", T.spent_repeat .. " repeats")
+-- S3: every follow-up some card can open does get opened somewhere.
+local never = {}
+for _, c in pairs(content.components) do
+    for _, list in pairs(c.on or {}) do
+        for _, id in ipairs(list) do
+            if not T.opened_ids[id] and not never[id] then
+                never[id] = true
+            end
+        end
+    end
+end
+local nlist = {}
+for id in pairs(never) do
+    table.insert(nlist, id)
+end
+table.sort(nlist)
+check(#nlist == 0, "Every follow-up card gets into a deck somewhere (S3)", #nlist == 0 and "all reached" or (#nlist .. " never: " .. table.concat(nlist, ", ")))
+local two = 0
+for _, v in ipairs(T.careful_steps) do
+    two = two + (v >= 2 and 1 or 0)
+end
+check(#T.careful_steps > 0 and two / #T.careful_steps >= 0.7, "Tended threads move two steps in four weeks (S3)",
+    string.format("%d%% of the careful DM's players", math.floor(100 * two / math.max(1, #T.careful_steps))))
+local function share_of(list, id)
+    local n, hit = 0, 0
+    for i = 1, #list, 4 do
+        n = n + 1
+        for k = i, i + 3 do
+            hit = hit + ((list[k] == id) and 1 or 0)
+        end
+    end
+    return n > 0 and hit / n or 0
+end
+local uc, vh = share_of(T.front_dealt.under_chapel, "silence_crypt"), share_of(T.front_dealt.velvet_hand, "silence_crypt")
+check(uc > vh + 0.3, "The second front changes what's dealt (S4)",
+    string.format("the crypt bell's card in %d%% of under-the-chapel campaigns, %d%% of Velvet Hand ones", math.floor(uc * 100), math.floor(vh * 100)))
+local dc = T.doom.careless.d / math.max(1, T.doom.careless.n)
+local dk = T.doom.careful.d / math.max(1, T.doom.careful.n)
+check(dc > dk, "An ignored front gets further than a tended one (S4)",
+    string.format("past its last portent by week 4: %d%% careless, %d%% careful", math.floor(dc * 100), math.floor(dk * 100)))
 check(T.opened > n, "Played cards open follow-ups (S1)", T.opened .. " cards opened across " .. n .. " campaigns")
 local truths = 0
 for _ in pairs(T.truth_cards) do

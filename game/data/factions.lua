@@ -415,7 +415,7 @@ return {
     },
 
     spurs = {
-        name = "The Silver Spurs", short = "the Spurs", tier = 1, start = -1,
+        name = "The Silver Spurs", short = "the Spurs", tier = 1, start = 0,
         goal = "Be the valley's famous heroes, whatever it takes.",
         project = { name = "Steal the party's glory", size = 4,
             done = { text = "All of Millbrook thinks the Silver Spurs are the heroes of the valley. There's a song.",

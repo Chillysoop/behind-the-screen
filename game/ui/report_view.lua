@@ -119,6 +119,24 @@ function M.build(app)
     for _, t in ipairs(rep.threads) do
         table.insert(items, { "- " .. t, theme.text })
     end
+    -- The slice rework: who feels differently now, and what tonight opened for the weeks ahead.
+    local ledger = require "game.model.ledger"
+    for k, ch in ipairs(rep.moved or {}) do
+        if k <= 3 and ch.kind ~= "standing" then
+            local worse = ch.to == "Hostile" or ch.to == "Wary" or ch.kind == "status"
+            table.insert(items, { ledger.change_text(app.campaign, ch), worse and theme.orange or theme.teal })
+        end
+    end
+    local opened = {}
+    for _, o in ipairs(rep.opened or {}) do
+        local c = content.components[o.id]
+        if c and not c.agenda then
+            table.insert(opened, c.name)
+        end
+    end
+    if #opened > 0 then
+        table.insert(items, { "Tonight opened: " .. util.join_names(opened) .. ". They're in next week's deck.", theme.green })
+    end
     for _, id in ipairs(rep.payoffs or {}) do
         table.insert(items, { "Paid off: " .. content.seeds[id].name, theme.green })
     end

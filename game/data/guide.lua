@@ -43,6 +43,12 @@ return {
     WIDTH = 340,
 
     steps = {
+        -- The campaign planner (the slice rework) ------------------------------------------------
+        {
+            id = "plan_intro", screen = "planner", at = { 24, 626 }, leave = true,
+            title = "Plan the campaign",
+            text = "Real DMs sketch a campaign before the first game. Pick three truths about the world, a second front and two players' stories to feature. The defaults are fine too.",
+        },
         -- Session Zero ------------------------------------------------------------------------
         {
             id = "s0_pitch", screen = "session_zero", at = S0,

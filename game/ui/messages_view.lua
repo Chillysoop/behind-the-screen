@@ -48,6 +48,17 @@ function M.rows(app)
     return out
 end
 
+-- Group-chat posts waiting on you: theories you haven't answered.
+function M.unanswered(app)
+    local n = 0
+    for _, m in ipairs(app.campaign.chat or {}) do
+        if m.choices and not m.answered then
+            n = n + 1
+        end
+    end
+    return n
+end
+
 function M.unread(app)
     local n = 0
     for _, r in ipairs(M.rows(app)) do
@@ -145,6 +156,10 @@ function M.column(app)
         end, { font = "ui14", color = on and theme.panel3 or theme.bg, hover = theme.button_hover,
                text_color = (t[1] == "messages" and unread > 0) and theme.gold or (on and theme.text or theme.dim),
                key = "tab_" .. t[1] })
+        -- A dot for anything waiting on you there (the slice rework: easy to miss otherwise).
+        if (t[1] == "messages" and unread > 0) or (t[1] == "group" and M.unanswered(app) > 0) then
+            kit.dot(bx + 150, 80, 12, theme.orange)
+        end
     end
     if app.chat_tab == "messages" then
         message_list(app, 112)

@@ -738,7 +738,7 @@ function M:bring_in(id)
     end
     local att = ledger.att(self.campaign, id)
     local note = ledger.about(id).name .. ": " .. ledger.label(att)
-    if ledger.person(self.campaign, id).status == "got away" then
+    if ledger.status(self.campaign, id) == "got away" then
         note = ledger.about(id).name .. ": got away last time"
     end
     self:pin(card.id, "guest", note, { guest = id })
