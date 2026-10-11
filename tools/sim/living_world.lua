@@ -329,7 +329,8 @@ check(T.spent_repeat == 0, "No spent card comes back (S1)", T.spent_repeat .. " 
 -- S3: every follow-up some card can open does get opened somewhere.
 local never = {}
 for _, c in pairs(content.components) do
-    for _, list in pairs(c.on or {}) do
+    -- (A gateway card's follow-ups come with a change of course: tools/sim/styles.lua covers those.)
+    for _, list in pairs(c.deck ~= "gateway" and c.on or {}) do
         for _, id in ipairs(list) do
             if not T.opened_ids[id] and not never[id] then
                 never[id] = true

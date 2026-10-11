@@ -47,6 +47,54 @@ M.reserve = {}         -- reserve kind ("inspiration", "payoff") -> list
 for _, kind in ipairs(M.kinds) do
     M.by_kind[kind] = {}
 end
+-- Campaign styles (A18): each style's own cards join the components (they come into a deck when
+-- their style becomes home or through a crossover), and so do the gateway cards for changing course.
+M.styles = require "game.data.styles"
+do
+    -- Style cards are written short; fill in what the slice's own cards carry (prep cost, a
+    -- toughness, the skills a complication calls for) so they play the same way.
+    local SKILL_BY_TAG = { danger = { "athletics", "survival" }, mystery = { "investigation", "insight" },
+                           talk = { "persuasion", "insight" }, puzzle = { "investigation", "arcana" },
+                           chaos = { "athletics", "persuasion" }, funny = { "performance", "persuasion" } }
+    local function fill(c, sid)
+        c.cost = c.cost or ((c.kind == "complication" and (c.difficulty or 1) >= 3) and 2 or 1)
+        if c.kind == "cast" or c.kind == "complication" then
+            c.difficulty = c.difficulty or 1
+        end
+        if c.kind == "complication" and not c.skill then
+            for _, t in ipairs(c.tags or {}) do
+                if SKILL_BY_TAG[t] then
+                    c.skill = SKILL_BY_TAG[t]
+                    break
+                end
+            end
+        end
+        if c.kind ~= "location" and not c.suits and sid then
+            c.suits = M.styles.styles[sid].settings
+        end
+    end
+    local list = {}
+    for _, c in ipairs(components) do
+        table.insert(list, c)
+    end
+    for _, c in ipairs(M.styles.cards) do
+        c.deck = c.deck or "style"
+        fill(c, c.styles and c.styles[1])
+        table.insert(list, c)
+    end
+    for _, sid in ipairs(M.styles.order) do
+        local g = M.styles.styles[sid].gateway or {}
+        for _, how in ipairs({ "nudge", "force" }) do
+            local gc = g[how]
+            if gc then
+                gc.deck = "gateway"
+                fill(gc, nil)
+                table.insert(list, gc)
+            end
+        end
+    end
+    components = list
+end
 for _, c in ipairs(components) do
     assert(not M.components[c.id], "duplicate component id " .. c.id)
     assert(M.by_kind[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)
@@ -272,6 +320,13 @@ M.open_scenes = require "game.data.open_scenes"
 -- which become decision cards of their own type, dealt at most once a night.
 local behaviors = require "game.data.table_behaviors"
 M.table_behaviors = behaviors.behaviors
+-- Each style's own table habits (sea shanties on a pirate night), dealt only in that style.
+for _, sid in ipairs(M.styles.order) do
+    for _, b in ipairs(M.styles.styles[sid].behaviors or {}) do
+        b.style = b.style or sid
+        table.insert(M.table_behaviors, b)
+    end
+end
 M.stunts = behaviors.stunts
 M.decision_types.curveball = "Curveball"
 M.decision_types.agency = "Where to?"

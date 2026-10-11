@@ -494,6 +494,135 @@ function M.campaign(app, x, y, w, h)
         end
         ry = ry + 8
     end
+    M.course(app, rx, ry + 4, rw, y + h)
+end
+
+-- Where the campaign spends its time, and changing course (A18). Ask the table first (free, the
+-- group chat answers), nudge with a card they can take up, or force it with a story event.
+function M.course(app, x, y, w, bottom)
+    local c = app.campaign
+    local styles = require "game.model.styles"
+    local home = styles.current(c)
+    local hd = styles.def(home)
+    if not hd then
+        return y
+    end
+    y = head(x, y, "Where the campaign spends its time")
+    kit.text(x, y, hd.name, "ui22b", theme.text)
+    local keen, unsure = {}, {}
+    for _, p in ipairs(c.players) do
+        local f = styles.fit(p, home)
+        if f >= 1 then
+            table.insert(keen, p.name)
+        elseif f < 0 then
+            table.insert(unsure, p.name)
+        end
+    end
+    local who = (#keen > 0 and ("Keen: " .. table.concat(keen, ", ") .. ". ") or "")
+        .. (#unsure > 0 and ("Not sold: " .. table.concat(unsure, ", ") .. ".") or "")
+    kit.text(x + kit.width(hd.name, "ui22b") + 14, y + 6, kit.ellipsize(who, "ui14", w - kit.width(hd.name, "ui22b") - 14),
+        "ui14", theme.dim)
+    y = y + 32
+    y = para(x, y, w, hd.pitch, "ui14", theme.dim)
+    for _, row in ipairs({ { "Getting around: ", hd.travel and hd.travel.text }, { "Resting: ", hd.rest and hd.rest.text } }) do
+        if row[2] then
+            y = para(x, y - 2, w, row[1] .. row[2], "ui14", theme.faint)
+        end
+    end
+    -- What's in motion.
+    local course = c.course or {}
+    local status
+    if course.target and course.target ~= home then
+        local td = styles.def(course.target)
+        local card = content.components[course.force or course.nudge or ""]
+        if course.force and card then
+            status = { "In this week's hand: " .. card.name .. ". When it plays, the campaign moves to " .. td.name .. ".", theme.orange }
+        elseif course.nudge and card then
+            status = { "In this week's hand: " .. card.name .. ". If they take it up, the campaign moves to " .. td.name .. ".", theme.teal }
+        elseif course.asked then
+            status = { "You asked the table about " .. td.name .. " (session " .. util.int(course.asked) .. "). Their answers are in the group chat.", theme.teal }
+        end
+    elseif course.how and course.to == home and (c.week - (course.week or c.week)) < styles.BLEND_WEEKS then
+        local from = styles.def(course.from)
+        status = { "Changed course from " .. (from and from.name or "the old style") .. " (session " .. util.int(course.week or c.week) .. "). "
+            .. "Whoever liked it better may miss it for a week or two.", theme.dim }
+    end
+    if status then
+        y = para(x, y, w, status[1], "ui14", status[2])
+    end
+    if y + 120 > bottom then
+        return y
+    end
+    -- Change course: pick where, then how.
+    y = head(x, y + 4, "Change course")
+    local others = {}
+    for _, sid in ipairs(styles.data().order) do
+        if sid ~= home then
+            table.insert(others, sid)
+        end
+    end
+    local pick = app.course_pick
+    if pick == home or not styles.def(pick or "") then
+        pick = (course.target ~= home and course.target) or nil
+    end
+    local bw = (w - 8 * (#others - 1)) / #others
+    for k, sid in ipairs(others) do
+        local sd = styles.def(sid)
+        local on = pick == sid
+        kit.button(x + (k - 1) * (bw + 8), y, bw, 30, sd.name, function()
+            app.course_pick = sid
+            app.refresh_notes()
+        end, { font = "ui14", color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "course_style_" .. sid,
+               on_hover = hover_with(app, function()
+                   local rows = { { sd.name, "ui18b", theme.text }, { sd.pitch, "ui14", theme.dim } }
+                   local f = {}
+                   for _, p in ipairs(c.players) do
+                       local v = styles.fit(p, sid)
+                       table.insert(f, p.name .. (v >= 1 and " would love it" or (v < 0 and " isn't sure" or " doesn't mind")))
+                   end
+                   table.insert(rows, { table.concat(f, ". ") .. ".", "ui14", theme.teal })
+                   return rows
+               end, x + (k - 1) * (bw + 8), y + 36, 420) })
+    end
+    y = y + 38
+    if not pick then
+        return para(x, y, w, "Pick a style to see the ways in.", "ui14", theme.faint)
+    end
+    local sd = styles.def(pick)
+    local prep = c.prep
+    local asked = course.target == pick and course.asked
+    local nudge = styles.gateway_card(pick, "nudge")
+    local force = styles.gateway_card(pick, "force")
+    local in_hand = course.target == pick and (course.nudge or course.force)
+    local actions = {
+        { key = "course_ask", label = asked and "Asked" or "Ask the table", enabled = not asked,
+          why = "Free. Post the idea in the group chat and see who's keen. Asking first softens whatever you do next.",
+          go = function() styles.ask(c, pick) end },
+        { key = "course_nudge", label = "Nudge", enabled = nudge ~= nil and prep ~= nil and not in_hand,
+          why = nudge and ("A card in this week's hand: " .. nudge.name .. ". If the party takes it up, the campaign moves to "
+              .. sd.name .. ". If they don't, nothing changes.") or "No way in from here.",
+          go = function() styles.plan(c, prep, pick, "nudge") end },
+        { key = "course_force", label = "Force it", enabled = force ~= nil and prep ~= nil and not in_hand,
+          why = force and ("A story event in this week's hand: " .. force.name .. ". When it plays, they're in " .. sd.name
+              .. ", like it or not. Anyone who didn't want it takes it as railroading, less so if you asked.") or "No way in from here.",
+          go = function() styles.plan(c, prep, pick, "force") end },
+    }
+    local aw = (w - 16) / 3
+    for k, a in ipairs(actions) do
+        local ax = x + (k - 1) * (aw + 8)
+        kit.button(ax, y, aw, 34, a.label, function()
+            a.go()
+            app.refresh_notes()
+        end, { font = "ui18", enabled = a.enabled, key = a.key,
+               on_hover = hover_with(app, function()
+                   local rows = { { a.why, "ui14", theme.text } }
+                   if not prep and k > 1 then
+                       table.insert(rows, { "Only while you're prepping a session.", "ui14", theme.faint })
+                   end
+                   return rows
+               end, ax, y + 40, 380) })
+    end
+    return y + 42
 end
 
 -- People ------------------------------------------------------------------------------------

@@ -215,6 +215,7 @@ function M:write_chat()
     world.post_news(self, msgs)
     -- Someone at the table is fed up with someone else (A17).
     require("game.model.rapport").chat(self, msgs)
+    require("game.model.styles").chat(self, msgs)   -- the week after a change of course (A18)
     if self.hype > 0 then
         local fan = rng:pick(self:present())
         if fan then
@@ -396,6 +397,12 @@ function M:finish_night()
     require("game.model.places").after_night(self, night)
     -- The friendships at the table settle for the week (A17).
     require("game.model.rapport").week_end(self)
+    -- A gateway card that played changes the campaign's course (A18).
+    do
+        local turn = require("game.model.styles").after_night(self, night)
+        rep.course = turn.to
+        rep.crossed = turn.crossed
+    end
     rep.moved = ledger.changes(self, self.week)
     local beat = self:arc_beat()
     if beat and beat.finale then

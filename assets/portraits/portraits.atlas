@@ -178,6 +178,54 @@ images {
 images {
   image: "/assets/portraits/mini_ogre.png"
 }
+images {
+  image: "/assets/portraits/mini_pirate.png"
+}
+images {
+  image: "/assets/portraits/mini_merrow.png"
+}
+images {
+  image: "/assets/portraits/mini_giant_crab.png"
+}
+images {
+  image: "/assets/portraits/mini_guard.png"
+}
+images {
+  image: "/assets/portraits/mini_spy.png"
+}
+images {
+  image: "/assets/portraits/mini_swarm_of_rats.png"
+}
+images {
+  image: "/assets/portraits/mini_animated_armor.png"
+}
+images {
+  image: "/assets/portraits/mini_giant_spider.png"
+}
+images {
+  image: "/assets/portraits/mini_specter.png"
+}
+images {
+  image: "/assets/portraits/mini_brown_bear.png"
+}
+images {
+  image: "/assets/portraits/mini_gnoll_warrior.png"
+}
+images {
+  image: "/assets/portraits/mini_bugbear_warrior.png"
+}
+images {
+  image: "/assets/portraits/mini_warrior_veteran.png"
+}
+images {
+  image: "/assets/portraits/mini_kobold_warrior.png"
+}
+images {
+  image: "/assets/portraits/mini_scout.png"
+}
+images {
+  image: "/assets/portraits/mini_worg.png"
+}
 margin: 2
 extrude_borders: 2
 inner_padding: 0

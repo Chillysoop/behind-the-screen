@@ -26,6 +26,8 @@ local function is_story_card(campaign, c)
 end
 
 M.HAND_CAP = 8        -- cards of a kind in the hand: they all fit on one page
+local STRAY = 0.15    -- chance a card from far outside the campaign's style still makes the hand
+local OFF_CAP = 2     -- far-off cards in a kind's hand (A18), unless the hand would be thin
 M.MIN_PER_KIND = 5    -- below this, a kind tops up from the spare cards
 
 -- Places and people come back; everything else is spent once played. Foes and villains are
@@ -259,8 +261,16 @@ function M.hand(campaign)
                     rank = 5
                 end
                 -- Within a rank, what suits the campaign's truths leans first.
-                local tilt = require("game.model.planner").tilt(campaign, c)
-                table.insert(list, { c = c, rank = rank, r = rng:next() - tilt })
+                local lean = require("game.model.styles").tilt(campaign, c)   -- the campaign's style (A18)
+                local tilt = require("game.model.planner").tilt(campaign, c) + lean
+                -- A card from a style the campaign has left behind waits behind the home style's
+                -- and its neighbors' (now and then one still turns up).
+                if lean < 0 and rank >= 4 and rng:next() > STRAY then
+                    rank = rank + 2
+                elseif lean >= 0.45 and rank == 5 and c.styles then
+                    rank = 4                 -- the home style's own cards come up like old favorites
+                end
+                table.insert(list, { c = c, rank = rank, r = rng:next() - tilt, off = lean < 0 and rank >= 4 })
             end
         end
         table.sort(list, function(a, b)
@@ -269,9 +279,16 @@ function M.hand(campaign)
             end
             return a.r < b.r
         end)
-        local picked = {}
-        for i = 1, math.min(M.HAND_CAP, #list) do
-            picked[i] = list[i].c
+        -- Far-off cards fill out a thin hand, but only a couple of them.
+        local picked, off = {}, 0
+        for _, it in ipairs(list) do
+            if #picked >= M.HAND_CAP then
+                break
+            end
+            if not it.off or off < OFF_CAP or #picked < 4 then
+                table.insert(picked, it.c)
+                off = off + (it.off and 1 or 0)
+            end
         end
         hand[kind] = picked
     end

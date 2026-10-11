@@ -289,6 +289,17 @@ function M:spot_suggestions(i)
             add(c.id, self.campaign:player(c.thread).char .. "'s past")
         end
     end
+    -- A way on to the styles next door (A18): a port, a stair down, a road out of town.
+    local styles = require "game.model.styles"
+    local reach = styles.reachable(self.campaign)
+    for _, c in ipairs(self.hand.location or {}) do
+        for _, t in ipairs(c.cross or {}) do
+            if reach[t] then
+                add(c.id, "A way on to " .. styles.def(t).name)
+                break
+            end
+        end
+    end
     for _, pl in ipairs(places_mod().list(self.campaign)) do
         add(pl.id, "One of your places (free)")
     end

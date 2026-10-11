@@ -327,6 +327,12 @@ for week = 1, WEEKS do
             local pick = bs[rng:int(1, #bs)]
             if pick and pick.key ~= "plan_done" then click(pick) end
         end
+        -- Every few seeds, a campaign in another style (A18), with its truths and front.
+        if SEED % 3 == 0 then
+            local order = require("game.model.content").styles.order
+            click_key("style_" .. order[(SEED / 3) % #order + 1])
+        end
+        dump("1a2_planner_picked")
         if not click_key("plan_done") then
             app.plan_choices = nil
             app.refresh()
@@ -527,6 +533,31 @@ check_tip_absorbs(" (week 2 prep)")
         app.sel = nil
         app.refresh()
     end
+    if week == 2 then
+        -- Changing course (A18): on the notebook's campaign page, pick another style, ask the
+        -- table, then nudge: the gateway card goes into this week's hand.
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes in week 2") end
+        if click_key("notes_tab_campaign") then
+            local styles_mod = require "game.model.styles"
+            local home = styles_mod.current(app.campaign)
+            local target
+            for _, sid in ipairs(styles_mod.data().order) do
+                if sid ~= home and not target then target = sid end
+            end
+            if not click_key("course_style_" .. target) then problem("no course style button for " .. target) end
+            local chat_before = #(app.campaign.chat or {})
+            if not click_key("course_ask") then problem("no Ask the table button") end
+            if #(app.campaign.chat or {}) <= chat_before then problem("asking the table posted nothing") end
+            if not click_key("course_nudge") then problem("no Nudge button") end
+            local nudge = app.campaign.course and app.campaign.course.nudge
+            if not (nudge and app.campaign.prep:pinned(nudge)) then problem("the nudge card isn't in the hand") end
+            dump("31_change_course")
+        else
+            problem("no campaign tab in the notes")
+        end
+        key("next_cell")
+    end
     if week == 3 then
         key("next_cell")
         if app.overlay ~= "notes" then problem("N didn't open the notes in week 3") end
@@ -614,17 +645,39 @@ check_tip_absorbs(" (week 2 prep)")
             if not click_key("open_scene") then problem("no Open scene button in the type picker") end
             if not pr.scenes[3].open then problem("Open scene didn't open scene 3") end
             dump("29_open_scene")
+            local tried = {}
             for _, tab in ipairs({ "places", "suggested", "hand" }) do
                 if click_key("loc_tab_" .. tab) then
-                    for _, b in ipairs(buttons()) do
-                        if b.key and string.sub(b.key, 1, 5) == "hand_" and b.key ~= "hand_close" and b.enabled ~= false and #(pr.scenes[3].spots or {}) < 2 then
-                            click(b)
+                    -- One card at a time, from a fresh look at the screen after each click.
+                    for _ = 1, 8 do
+                        if #(pr.scenes[3].spots or {}) >= 2 then break end
+                        local hit
+                        for _, b in ipairs(buttons()) do
+                            if b.key and string.sub(b.key, 1, 5) == "hand_" and b.key ~= "hand_close" and b.enabled ~= false
+                                and not tried[b.key] then
+                                hit = b
+                                break
+                            end
+                        end
+                        if not hit then break end
+                        tried[hit.key] = true
+                        local before = #(pr.scenes[3].spots or {})
+                        click(hit)
+                        if #(pr.scenes[3].spots or {}) == before and os.getenv("SMOKE_DEBUG") then
+                            print("spot click did nothing: " .. hit.key .. " toast=" .. tostring(app.toast) .. " ask=" .. tostring(app.ask ~= nil))
                         end
                     end
                 end
             end
             dump("29_open_scene_spots")
-            if #(pr.scenes[3].spots or {}) == 0 then problem("couldn't sketch any spots on the open scene") end
+            if #(pr.scenes[3].spots or {}) == 0 then
+                local why = {}
+                for _, cd in ipairs(pr.hand.location or {}) do
+                    local ok, w = pr:can_add_spot(3, cd.id)
+                    table.insert(why, cd.id .. "=" .. tostring(ok) .. (w and (":" .. w) or ""))
+                end
+                problem("couldn't sketch any spots on the open scene (left " .. tostring(pr:left()) .. "; " .. table.concat(why, ", ") .. ")")
+            end
             app.sel = nil
             app.refresh()
         end

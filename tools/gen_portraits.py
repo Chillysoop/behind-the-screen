@@ -23,7 +23,11 @@ MINI = (96, 120)      # a paper mini: the whole standee
 STANDEES = ["fighter", "rogue", "cleric", "wizard",
             "npc_gus", "npc_stranger", "npc_hermit", "npc_rival", "npc_corin", "npc_sable", "npc_ghost",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
-            "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre"]
+            "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
+            # The Vale Bestiary (A13).
+            "pirate", "merrow", "giant_crab", "guard", "spy", "swarm_of_rats", "animated_armor", "giant_spider",
+            "specter", "brown_bear", "gnoll_warrior", "bugbear_warrior", "warrior_veteran", "kobold_warrior",
+            "scout", "worg"]
 
 
 def face(name):

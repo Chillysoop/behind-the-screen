@@ -150,6 +150,26 @@ function M.build(app)
     if #opened > 0 then
         table.insert(items, { "Tonight opened: " .. util.join_names(opened) .. ". They're in next week's deck.", theme.green })
     end
+    -- Crossovers and changes of course (A18).
+    do
+        local styles = require "game.model.styles"
+        local by = {}
+        for _, x in ipairs(rep.crossed or {}) do
+            local c = content.components[x.id]
+            if c then
+                by[x.to] = by[x.to] or { via = x.via, names = {} }
+                table.insert(by[x.to].names, c.name)
+            end
+        end
+        for to, g in pairs(by) do
+            local via = content.components[g.via]
+            table.insert(items, { (via and (via.name .. " leads on: ") or "A way on: ") .. util.join_names(g.names)
+                .. " (" .. styles.def(to).name .. ") join the deck.", theme.teal })
+        end
+        if rep.course then
+            table.insert(items, { "The campaign changes course: from now on it's " .. styles.def(rep.course).name .. ".", theme.gold })
+        end
+    end
     for _, id in ipairs(rep.payoffs or {}) do
         table.insert(items, { "Paid off: " .. content.seeds[id].name, theme.green })
     end

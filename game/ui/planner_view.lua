@@ -24,7 +24,7 @@ local function choices(app)
         for i, k in ipairs(d.threads) do
             th[i] = k
         end
-        app.plan_choices = { truths = t, front = d.front, threads = th }
+        app.plan_choices = { truths = t, front = d.front, threads = th, style = "frontier" }
     end
     return app.plan_choices
 end
@@ -70,14 +70,16 @@ function M.build(app)
     kit.box(24, 96, 1552, 70, theme.panel, { radius = 10 })
     kit.text(40, 106, data.premise.name, "ui22b", theme.text)
     kit.text(40, 136, data.premise.text, "ui18", theme.dim, { w = 1500 })
-    -- Three truths.
+    -- Three truths: the Vale's six, and two from the campaign's style.
+    local truths = planner.truths_for(c.style or "frontier")
     local tx, ty = 24, 186
     kit.text(tx, ty, "THREE TRUTHS ABOUT THE WORLD  (" .. util.int(#c.truths) .. " OF " .. util.int(data.PICK_TRUTHS) .. ")", "ui14",
         theme.gold)
-    local cw, ch = 296, 110
-    for i, t in ipairs(data.truths) do
-        local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
-        local x, y = tx + col * (cw + 12), ty + 26 + row * (ch + 12)
+    local cols = 3
+    local cw, ch = (912 - (cols - 1) * 10) / cols, 100
+    for i, t in ipairs(truths) do
+        local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+        local x, y = tx + col * (cw + 10), ty + 26 + row * (ch + 10)
         local on = util.contains(c.truths, t.id)
         kit.button(x, y, cw, ch, "", function()
             if not toggle(c.truths, t.id, data.PICK_TRUTHS) then
@@ -85,40 +87,107 @@ function M.build(app)
             end
             app.refresh()
         end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "truth_" .. t.id })
-        kit.text(x + 14, y + 10, t.name, "ui18b", theme.text, { w = cw - 28 })
-        kit.text(x + 14, y + 38, t.about, "ui14", on and theme.text or theme.dim, { w = cw - 28 })
+        if t.style then
+            kit.dot(x + cw - 12, y + ch - 12, 10, theme.gold)
+        end
+        kit.text(x + 12, y + 8, t.name, "ui18b", theme.text, { w = cw - 24, lines = 1 })
+        kit.text(x + 12, y + 36, t.about, "ui14", on and theme.text or theme.dim, { w = cw - 28, lines = 3 })
     end
-    -- A second front.
-    local fx, fy = 960, 186
+    do
+        local k = #truths
+        if k % cols ~= 0 then
+            local col, row = k % cols, math.floor(k / cols)
+            local x, y = tx + col * (cw + 10), ty + 26 + row * (ch + 10)
+            kit.dot(x + 14, y + 16, 10, theme.gold)
+            kit.text(x + 28, y + 6, "Two truths come from the campaign's style. Change the style and they change too.",
+                "ui14", theme.faint, { w = cw - 36 })
+        end
+    end
+    -- The campaign's style (A18): where most nights happen. The Silent Bells still pulls the
+    -- party back to Millbrook; the rest of the deck leans to the style.
+    local styles = content.styles
+    local fx, fw = 960, 616
+    local sy = 186
+    kit.text(fx, sy, "CAMPAIGN STYLE", "ui14", theme.gold)
+    kit.text(fx + 136, sy, "Where most nights happen. The bells still call them home.", "ui14", theme.faint)
+    sy = sy + 26
+    local sw = (fw - 20) / 3
+    for k, sid in ipairs(styles.order) do
+        local st = styles.styles[sid]
+        local on = (c.style or "frontier") == sid
+        local col, row = (k - 1) % 3, math.floor((k - 1) / 3)
+        kit.button(fx + col * (sw + 10), sy + row * 42, sw, 36, st.name, function()
+            c.style = sid
+            -- Truths and fronts from the old style don't come along.
+            for i = #c.truths, 1, -1 do
+                local def = planner.truth_def(c.truths[i])
+                if def and def.style and def.style ~= sid then
+                    table.remove(c.truths, i)
+                end
+            end
+            if not util.contains(planner.fronts_for(sid), c.front) then
+                c.front = data.default.front
+            end
+            app.refresh()
+        end, { font = "ui18", color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "style_" .. sid })
+    end
+    sy = sy + 2 * 42 + 2
+    local sd = styles.styles[c.style or "frontier"]
+    kit.text(fx, sy, sd.pitch, "ui14", theme.text, { w = fw })
+    sy = sy + kit.text_height(sd.pitch, "ui14", fw) + 2
+    local sm = require "game.model.styles"
+    local keen, unsure = {}, {}
+    for _, p in ipairs(app.campaign.players) do
+        local f = sm.fit(p, c.style or "frontier")
+        if f >= 1 then
+            table.insert(keen, p.name)
+        elseif f < 0 then
+            table.insert(unsure, p.name)
+        end
+    end
+    local who = (#keen > 0 and ("Keen: " .. util.join_names(keen) .. ". ") or "")
+        .. (#unsure > 0 and ("Not sold: " .. util.join_names(unsure) .. ".") or "")
+    if who ~= "" then
+        kit.text(fx, sy, who, "ui14", #unsure > 0 and theme.orange or theme.teal, { w = fw })
+        sy = sy + 22
+    end
+    -- A second front: the picked one shows its portents, the others stay short.
+    local fy = sy + 10
     kit.text(fx, fy, "A SECOND FRONT", "ui14", theme.gold)
     kit.text(fx + 130, fy, "Kessrick's warband is the main one.", "ui14", theme.faint)
-    local fw = 616
     local y = fy + 26
-    for _, id in ipairs(data.second_fronts) do
+    for _, id in ipairs(planner.fronts_for(c.style or "frontier")) do
         local f = data.fronts[id]
         local on = c.front == id
         local lines = {}
-        for k, p in ipairs(f.portents) do
-            table.insert(lines, util.int(k) .. ". " .. p.text)
+        if on then
+            for k, p in ipairs(f.portents) do
+                table.insert(lines, util.int(k) .. ". " .. p.text)
+            end
         end
         local body = table.concat(lines, "\n")
-        local h = 64 + kit.text_height(f.about, "ui14", fw - 28) + kit.text_height(body, "ui14", fw - 28)
-            + kit.text_height("Doom: " .. f.doom, "ui14", fw - 28) + 10
+        local h = 44 + kit.text_height(f.about, "ui14", fw - 28) + (on and (kit.text_height(body, "ui14", fw - 28) + 4) or 0)
+            + kit.text_height("Doom: " .. f.doom, "ui14", fw - 28) + 8
         kit.button(fx, y, fw, h, "", function()
             c.front = id
             app.refresh()
         end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "front_" .. id })
-        kit.text(fx + 14, y + 10, f.name, "ui18b", theme.text, { w = fw - 28 })
-        local by = y + 36
+        kit.text(fx + 14, y + 8, f.name, "ui18b", theme.text, { w = fw - 160 })
+        if f.style then
+            kit.text(fx + fw - 12, y + 10, styles.styles[f.style].name, "ui14", theme.gold, { pivot = gui.PIVOT_NE })
+        end
+        local by = y + 34
         kit.text(fx + 14, by, f.about, "ui14", theme.dim, { w = fw - 28 })
-        by = by + kit.text_height(f.about, "ui14", fw - 28) + 6
-        kit.text(fx + 14, by, body, "ui14", theme.text, { w = fw - 28 })
-        by = by + kit.text_height(body, "ui14", fw - 28) + 4
+        by = by + kit.text_height(f.about, "ui14", fw - 28) + 2
+        if on then
+            kit.text(fx + 14, by, body, "ui14", theme.text, { w = fw - 28 })
+            by = by + kit.text_height(body, "ui14", fw - 28) + 4
+        end
         kit.text(fx + 14, by, "Doom: " .. f.doom, "ui14", theme.orange, { w = fw - 28 })
-        y = y + h + 12
+        y = y + h + 8
     end
     -- Two featured threads.
-    local hy = 466
+    local hy = 546
     kit.text(24, hy, "TWO FEATURED THREADS  (" .. util.int(#c.threads) .. " OF " .. util.int(data.PICK_THREADS) .. ")", "ui14",
         theme.gold)
     kit.text(330, hy, "Their story cards come sooner.", "ui14", theme.faint)
@@ -127,7 +196,7 @@ function M.build(app)
         local x = 24 + (i - 1) * (pw + 12)
         local yy = hy + 26
         local on = util.contains(c.threads, p.key)
-        kit.button(x, yy, pw, 110, "", function()
+        kit.button(x, yy, pw, 100, "", function()
             if not toggle(c.threads, p.key, data.PICK_THREADS) then
                 app.toast = "Two featured threads. Take one out first."
             end

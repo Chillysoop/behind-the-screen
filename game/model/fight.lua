@@ -78,7 +78,8 @@ function M.party(night)
         return night.pcs
     end
     local camp = night.campaign
-    local built = party_mod.build(camp.level or 2, camp.subclasses)
+    night.pc_level = camp.level or 2      -- what the sheets were built at (the carry checks it)
+    local built = party_mod.build(night.pc_level, camp.subclasses)
     night.pcs, night.pc_list = {}, {}
     for _, c in ipairs(built) do
         for _, p in ipairs(night.players) do
@@ -136,7 +137,15 @@ function M.load_state(night)
             c.hp_max = s.hp_max or c.hp_max
             c.hp = math.min(c.hp_max, math.max(1, s.hp or c.hp))
             c.temp = s.temp or 0
-            c.res = copy(s.res) or c.res
+            local res = copy(s.res) or c.res
+            -- A carried sheet always has a slot count for every level it can cast at.
+            if c.slots_max then
+                res.slots = res.slots or {}
+                for l, n in ipairs(c.slots_max) do
+                    res.slots[l] = math.min(n, res.slots[l] or n)
+                end
+            end
+            c.res = res
             if c.hd and s.hd_left then
                 c.hd.left = s.hd_left
             end
@@ -151,7 +160,7 @@ function M.save_state(night, rested)
     local camp = night.campaign
     local st = camp.party_state or { pcs = {} }
     st.pcs = st.pcs or {}
-    st.level = camp.level or 2
+    st.level = night.pc_level or camp.level or 2
     st.rested = rested and true or false
     st.week = camp.week
     st.fights_since_long = night.fights_since_long or st.fights_since_long or 0

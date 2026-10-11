@@ -497,6 +497,19 @@ local function drawer(app, prep)
     local s = prep.scenes[sel.scene]
     if sel.kind == "type" then
         kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
+        -- What this campaign's style mostly plays (A18).
+        do
+            local sm = require "game.model.styles"
+            local names = {}
+            for _, t in ipairs(sm.usual_types(app.campaign, 3)) do
+                table.insert(names, string.lower(content.scenes[t].name))
+            end
+            if #names > 0 then
+                local q = kit.width("Scene 1: what kind of scene?", "ui18b") + 34
+                kit.text(x + q, y + 15, kit.ellipsize(sm.def(sm.current(app.campaign)).name .. " plays mostly "
+                    .. util.join_names(names) .. ".", "ui14", w - q - 350), "ui14", theme.faint)
+            end
+        end
         -- Or let the players choose (A15).
         kit.button(x + w - 330, y + 8, 314, 30, s.open and "Open scene: the players choose (on)" or "Or let the players choose: Open scene",
             function()
@@ -565,7 +578,8 @@ local function badge(app, prep, c, at, sel)
     elseif at and at ~= sel.scene then
         return "On scene " .. util.int(at), theme.ink_dim
     elseif pin then
-        local tag = pin.why == "spotlight" and "Spotlight" or (pin.why == "screen" and "Off screen, now on" or "Brought in")
+        local tag = pin.why == "spotlight" and "Spotlight" or (pin.why == "screen" and "Off screen, now on"
+            or (pin.why == "course" and "Change course" or "Brought in"))
         return tag, kit.rgba("#8a5a0e")
     elseif prep.arc_cards[c.id] then
         return "Story card", kit.rgba("#8a5a0e")

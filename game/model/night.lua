@@ -103,6 +103,8 @@ function M.new(campaign, prep, opts)
     self.used_cards = {}
     self.table_card_used = false
     self.drift_used = false
+    -- The first weeks after a change of course (A18).
+    require("game.model.styles").night_start(campaign, self.players)
     -- Where the party left off (A16): fights since their last Long Rest carry over.
     do
         local ps = campaign.party_state
@@ -739,10 +741,24 @@ function M:found_clue(id, text)
     self:emit({ kind = "clue", id = id, text = text })
 end
 
+-- A place without a set of its own (a style's new places, A18) borrows one by what it is.
+local BY_SETTING = { { "ship", "bridge" }, { "port", "market" }, { "tavern", "tavern" }, { "island", "forest" },
+                     { "under", "ruins" }, { "ruin", "ruins" }, { "vault", "tavern" }, { "camp", "camp" },
+                     { "crowd", "market" }, { "town", "market" }, { "indoor", "tavern" }, { "forest", "forest" },
+                     { "road", "forest" }, { "wild", "forest" }, { "water", "bridge" } }
+
 function M:terrain_for(sc)
     local t = content.terrain
     local loc = sc.comps.location
-    return (loc and t.by_location[loc.id]) or t.by_scene[sc.type] or "blank"
+    if loc and t.by_location[loc.id] then
+        return t.by_location[loc.id]
+    end
+    for _, pair in ipairs(loc and BY_SETTING or {}) do
+        if util.contains(loc.setting or {}, pair[1]) then
+            return pair[2]
+        end
+    end
+    return t.by_scene[sc.type] or "blank"
 end
 
 -- Where the party stands when a scene opens, and who the DM is voicing.
@@ -1534,7 +1550,8 @@ function M:table_behavior(when, roller, sure)
     local week = camp.week or 1
     local cands, weights = {}, {}
     for _, b in ipairs(content.table_behaviors) do
-        if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week) then
+        if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week)
+            and (not b.style or b.style == (self.campaign.style or "frontier")) then
             local free = {}
             for i in ipairs(b.lines) do
                 local last = camp.tb_said[b.id .. "#" .. i]
@@ -3124,7 +3141,11 @@ end
 
 local function place_kind(loc)
     local st = loc and loc.setting or {}
-    if util.contains(st, "tavern") then
+    if loc and loc.haven then
+        return util.contains(st, "ship") and "ship" or "inn"   -- a style's safe home base (A18)
+    elseif util.contains(st, "ship") then
+        return "ship"
+    elseif util.contains(st, "tavern") then
         return "inn"
     elseif util.contains(st, "camp") then
         return "camp"

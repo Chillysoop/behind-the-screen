@@ -184,6 +184,54 @@ images {
 images {
   image: "/assets/sprites/halo.png"
 }
+images {
+  image: "/assets/sprites/pirate.png"
+}
+images {
+  image: "/assets/sprites/merrow.png"
+}
+images {
+  image: "/assets/sprites/giant_crab.png"
+}
+images {
+  image: "/assets/sprites/guard.png"
+}
+images {
+  image: "/assets/sprites/spy.png"
+}
+images {
+  image: "/assets/sprites/swarm_of_rats.png"
+}
+images {
+  image: "/assets/sprites/animated_armor.png"
+}
+images {
+  image: "/assets/sprites/giant_spider.png"
+}
+images {
+  image: "/assets/sprites/specter.png"
+}
+images {
+  image: "/assets/sprites/brown_bear.png"
+}
+images {
+  image: "/assets/sprites/gnoll_warrior.png"
+}
+images {
+  image: "/assets/sprites/bugbear_warrior.png"
+}
+images {
+  image: "/assets/sprites/warrior_veteran.png"
+}
+images {
+  image: "/assets/sprites/kobold_warrior.png"
+}
+images {
+  image: "/assets/sprites/scout.png"
+}
+images {
+  image: "/assets/sprites/worg.png"
+}
 margin: 2
 extrude_borders: 2
 inner_padding: 0

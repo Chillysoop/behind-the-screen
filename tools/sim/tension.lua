@@ -44,7 +44,11 @@ local POL = {
 }
 
 local res = {}
-for _, pol in ipairs({ "ride", "ladder" }) do
+-- "nobond": letting it ride, with bonds doing nothing (the counterfactual for the bonds gate).
+POL.nobond = POL.ride
+local real_bond = rapport.bond
+for _, pol in ipairs({ "ride", "ladder", "nobond" }) do
+    rapport.bond = pol == "nobond" and function() end or real_bond
     local r = { acts = 0, bonds = 0, nights = 0, live = 0, brewing = 0, pairs = 0, rapport = 0, bonded_rap = 0, bonded_n = 0,
                 vents = 0 }
     res[pol] = r
@@ -110,11 +114,12 @@ for _, pol in ipairs({ "ride", "ladder" }) do
     end
 end
 
-for _, pol in ipairs({ "ride", "ladder" }) do
+rapport.bond = real_bond
+for _, pol in ipairs({ "ride", "ladder", "nobond" }) do
     local r = res[pol]
-    print(string.format("%-7s %.2f acts and %.2f bonds a night; pairs strained %d, in a rift %d of %d; avg rapport %.1f (bonded %.1f); vents %d",
+    print(string.format("%-7s %.2f acts and %.2f bonds a night; pairs strained %d, in a rift %d of %d; avg rapport %.1f (bonded %+.1f, not %+.1f); vents %d",
         pol, r.acts / r.nights, r.bonds / r.nights, r.brewing, r.live, r.pairs, r.rapport / (r.pairs * 2),
-        r.bonded_n > 0 and r.bonded_rap / r.bonded_n or 0, r.vents))
+        r.bonded_n > 0 and r.bonded_rap / r.bonded_n or 0, (r.other_rap or 0) / math.max(1, r.other_n or 0), r.vents))
 end
 local ride, lad = res.ride, res.ladder
 local gates = {
@@ -124,8 +129,8 @@ local gates = {
     { "Left alone, a pattern strains friendships", ride.brewing + ride.live > 0 },
     { "The DM's ladder keeps the table closer than letting it ride",
       (lad.brewing + 2 * lad.live) < (ride.brewing + 2 * ride.live) and lad.rapport >= ride.rapport },
-    { "Bonds help: pairs who bonded gain more than pairs who didn't",
-      ride.bonded_rap / math.max(1, ride.bonded_n) > (ride.other_rap or 0) / math.max(1, ride.other_n or 0) },
+    { "Bonds help: the same table ends closer with its bonding moments than without them",
+      ride.rapport > res.nobond.rapport },
     { "A strained table vents in the group chat", ride.vents > 0 },
 }
 local ok = true

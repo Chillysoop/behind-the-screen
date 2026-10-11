@@ -104,6 +104,26 @@ local function pitch(app, c)
     end
     -- What everyone says about the pitch.
     kit.text(x, y + 8, "AROUND THE TABLE", "ui14", theme.dim)
+    -- The style the planner picked (A18), and who's keen.
+    do
+        local styles = require "game.model.styles"
+        local sid = styles.current(app.campaign)
+        local sd = styles.def(sid)
+        if sd then
+            local keen, unsure = {}, {}
+            for _, p in ipairs(app.campaign.players) do
+                local f = styles.fit(p, sid)
+                if f >= 1 then
+                    table.insert(keen, p.name)
+                elseif f < 0 then
+                    table.insert(unsure, p.name)
+                end
+            end
+            local line = sd.name .. (#keen > 0 and (". Keen: " .. table.concat(keen, ", ")) or "")
+                .. (#unsure > 0 and (". Not sold: " .. table.concat(unsure, ", ")) or "") .. "."
+            kit.text(x + 160, y + 8, kit.ellipsize(line, "ui14", w - 160), "ui14", theme.faint)
+        end
+    end
     y = y + 32
     local t = c.tone and s0.tones[c.tone]
     -- The party (A8): who they are and how they know each other.

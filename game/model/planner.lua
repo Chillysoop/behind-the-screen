@@ -29,6 +29,49 @@ local function truth_def(id)
 end
 M.truth_def = truth_def
 
+-- Campaign styles (A18): each style brings two truths of its own, and a new style a front that
+-- can be the campaign's second. They join the planner's lists, marked with their style.
+do
+    local styles = content.styles
+    for _, sid in ipairs(styles.order) do
+        local st = styles.styles[sid]
+        for _, t in ipairs(st.truths or {}) do
+            if not truth_def(t.id) then
+                t.style = sid
+                table.insert(data.truths, t)
+            end
+        end
+        local f = st.front
+        if f and not data.fronts[f.id] then
+            f.style = sid
+            data.fronts[f.id] = f
+        end
+    end
+end
+
+-- The truths and second fronts the planner offers for a style: the Vale's own, plus the style's.
+function M.truths_for(style)
+    local out = {}
+    for _, t in ipairs(data.truths) do
+        if not t.style or t.style == style then
+            table.insert(out, t)
+        end
+    end
+    return out
+end
+
+function M.fronts_for(style)
+    local out = {}
+    for _, id in ipairs(data.second_fronts) do
+        table.insert(out, id)
+    end
+    local st = content.styles.styles[style or "frontier"]
+    if st and st.front then
+        table.insert(out, st.front.id)
+    end
+    return out
+end
+
 -- Lay down the plan (before Session Zero). choices = { truths, front, threads }; anything
 -- missing takes the default.
 function M.apply(campaign, choices)
@@ -49,7 +92,11 @@ function M.apply(campaign, choices)
         end
     end
     plan.fronts[plan.front] = { step = 0, pushed = false, held = {}, portents = {} }
+    -- The campaign's style (A18): frontier unless the DM picks another; its cards join the deck.
+    plan.style = choices.style or "frontier"
     campaign.plan = plan
+    campaign.style = plan.style
+    require("game.model.styles").set_home(campaign, plan.style, "start")
     -- The truths' cards are part of the world from the start.
     for _, id in ipairs(plan.truths) do
         for _, cid in ipairs(truth_def(id).cards or {}) do
