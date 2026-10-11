@@ -378,6 +378,17 @@ local function pacing_panel(app, prep)
     local x, y, w, h = CARD_X, 566, 812, 104
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
     kit.text(x + 14, y + 8, "PACING", "ui14", theme.dim)
+    -- The table clock (A14): the board's rough length against the time you agreed on.
+    do
+        local est, plan = prep:estimate_minutes(), prep:planned_minutes()
+        local function hm(m)
+            local h, mm = math.floor(m / 60), math.floor(m % 60)
+            return util.int(h) .. "h" .. (mm > 0 and (" " .. util.int(mm) .. "m") or "")
+        end
+        local over = est - plan
+        kit.text(x + 80, y + 8, "About " .. hm(est) .. " at the table. You play " .. hm(plan) .. ".", "ui14",
+            over > 20 and theme.orange or theme.faint)
+    end
     local pv = prep:pacing_now()
     -- The curve.
     local gx = { x + 40, x + 140, x + 240 }

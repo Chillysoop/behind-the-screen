@@ -199,7 +199,9 @@ end
 
 local function status_text(app)
     local n = app.night
-    return "Night " .. clock_text(n and n.clock or 0) .. " / 15:00      Calls " .. util.int(n and n:decision_count() or 0)
+    -- The table clock (A14): what time it is at the table, and when you said you'd stop.
+    local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
+    return tc .. "      Calls " .. util.int(n and n:decision_count() or 0)
         .. "      Speed " .. util.int(speed(app)) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
         .. "      Timer: " .. (app.timer_on and "on" or "off")
 end

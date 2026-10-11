@@ -95,7 +95,7 @@ return {
 
     -- The table rules.
     rules = {
-        order = { "xcard", "dice", "rulings" },
+        order = { "xcard", "dice", "rulings", "length" },
         xcard = {
             name = "The X-card",
             about = "Anyone can tap it to skip something, no questions asked.",
@@ -130,12 +130,24 @@ return {
                      says = { dev = "RULE OF COOL.", sam = "So the rules are... whatever's cool? Okay." },
                      pressure = { rules = 26 } },
         },
+        -- How long a night runs (A14): the table clock's planned end. Encounters still run long or short.
+        length = {
+            name = "How long we play",
+            about = "When Thursday ends. Fights and talks can still run long or short.",
+            order = { "three", "half", "four" },
+            three = { name = "7 to 10", hours = 3, like = { mara = 0, dev = -1, jess = 0, sam = 2 },
+                      says = { sam = "Perfect. I've got work on Friday.", dev = "Three hours? That's one fight." } },
+            half = { name = "7 to 10:30", hours = 3.5, like = { mara = 1, dev = 0, jess = 1, sam = 0 },
+                     says = { mara = "Room for a proper scene or three." } },
+            four = { name = "7 to 11", hours = 4, like = { mara = 1, dev = 2, jess = 1, sam = -2 },
+                     says = { dev = "Now we're talking.", sam = "I'll be useless after ten. Just saying." } },
+        },
     },
 
     -- When Session Zero is skipped (headless runs): the middle of the road on everything.
     defaults = {
         tone = "mixed",
         asks = { mara = "agree", sam = "agree", dev = "agree", jess = "push" },
-        rules = { xcard = "on", dice = "big_open", rulings = "quick" },
+        rules = { xcard = "on", dice = "big_open", rulings = "quick", length = "half" },
     },
 }

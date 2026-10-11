@@ -113,6 +113,9 @@ function M.build(app)
     kit.text(420, y + 12, "THE STORY", "ui14", theme.dim)
     kit.text(900, y + 12, "Your notes: N", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local items = {}
+    if rep.table_text then
+        table.insert(items, { rep.table_text, theme.dim })
+    end
     for _, c in ipairs(rep.clues or {}) do
         table.insert(items, { "Found out: " .. c, theme.gold })
     end

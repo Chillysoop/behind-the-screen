@@ -7,6 +7,16 @@ package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local SEED = tonumber(arg and arg[1]) or 1
+-- The game seeds a new campaign from the clock: pin it, so a run is repeatable by its seed.
+do
+    local real_time = os.time
+    os.time = function(t)
+        if t then
+            return real_time(t)
+        end
+        return 1700000000 + SEED
+    end
+end
 local WEEKS = tonumber(arg and arg[2]) or 5
 local H = 900
 
@@ -330,6 +340,7 @@ for week = 1, WEEKS do
         app.s0.rules.xcard = app.s0.rules.xcard or "on"
         app.s0.rules.dice = app.s0.rules.dice or "big_open"
         app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.s0.rules.length = app.s0.rules.length or "half"
         app.refresh()
         dump("1c_session_zero_done")
         if not click_label("Start week 1") then problem("no start button after Session Zero") end
@@ -467,6 +478,11 @@ check_tip_absorbs(" (week 2 prep)")
             end
         end
     end
+    -- A one-on-one the random clicks opened (A6): play it through.
+    for _ = 1, 8 do
+        if not app.talk then break end
+        if not (click_key("talk_opt_1") or click_key("talk_done")) then break end
+    end
     for i = 1, 3 do
         if not app.campaign.prep.scenes[i].type then
             app.sel = { scene = i, kind = "type" }
@@ -571,7 +587,9 @@ check_tip_absorbs(" (week 2 prep)")
             end
             app.refresh()
             if not click_key("type_3") then problem("no type button on scene 3") end
-            click_key("guide_ok")
+            for _ = 1, 4 do
+                if not click_key("guide_ok") then break end
+            end
             if not click_key("open_scene") then problem("no Open scene button in the type picker") end
             if not pr.scenes[3].open then problem("Open scene didn't open scene 3") end
             dump("29_open_scene")

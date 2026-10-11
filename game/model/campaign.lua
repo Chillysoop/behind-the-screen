@@ -365,6 +365,8 @@ function M:finish_night()
     rep.table = social.status(self)
     rep.level = progression.status(self)
     rep.safety = night.safety
+    rep.table_time = night.table_report     -- how the length landed (A14)
+    rep.table_text = night.clock_text and night:length_text()
     rep.payoffs = night.payoffs
     rep.planted = night.planted
     rep.broken = self.broken_now

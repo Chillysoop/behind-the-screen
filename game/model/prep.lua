@@ -180,6 +180,25 @@ function M:set_type(i, scene_type)
     self.scenes[i].type = scene_type
 end
 
+-- The table clock (A14): roughly how long the board will run at the table, and how long you
+-- all agreed to play. Fights and choices still run long or short on the night.
+M.SCENE_MIN = { combat = 70, set_piece = 80, social = 55, mystery = 60, exploration = 60, puzzle = 55, downtime = 45 }
+
+function M:estimate_minutes()
+    local m = 25
+    for _, s in ipairs(self.scenes) do
+        m = m + (M.SCENE_MIN[s.type] or 55) + (s.open and 10 or 0)
+    end
+    return m
+end
+
+function M:planned_minutes()
+    local tbl = self.campaign.table
+    local len = tbl and tbl.rules and tbl.rules.length
+    local opt = len and content.session_zero.rules.length[len]
+    return ((opt and opt.hours) or 3.5) * 60
+end
+
 -- Open scenes (A15) ------------------------------------------------------------------------------
 -- The DM sets the stage and the players choose: a scene marked open has a few spots (places,
 -- sketched for an hour each, free if they're already yours) instead of one location. Its other

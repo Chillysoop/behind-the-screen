@@ -100,6 +100,14 @@ function M.new(campaign, prep, opts)
     self.used_cards = {}
     self.table_card_used = false
     self.drift_used = false
+    -- The table clock (A14): starts at seven; Session Zero said how long you play.
+    self.table_min, self.table_start = 0, 19 * 60
+    do
+        local tbl = campaign.table
+        local len = tbl and tbl.rules and tbl.rules.length
+        local opt = len and content.session_zero.rules.length[len]
+        self.table_planned = ((opt and opt.hours) or 3.5) * 60
+    end
     self.checks = {}
     self.behaviors = {}      -- table behaviors tonight, by id (A12)
     self.unused = prep:unused()
@@ -185,9 +193,15 @@ function M:set_dm_rolls(mode)
 end
 
 -- Every beat goes out through here: timed, counted, and yielded to the screen.
+-- The table clock (A14): minutes of real table time, apart from the screen's playback time.
+-- Only what happens moves it: a fight's rounds, each check and call, a lookup, a break.
+M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, improv = 3.5, ruling = 2.5,
+                roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6 }
+
 function M:emit(ev)
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
+    self.table_min = (self.table_min or 0) + (M.TABLE_MIN[ev.kind] or 0) + (ev.table_min or 0)
     if pacing.DECISION_KINDS[ev.kind] then
         self.counts[ev.kind] = self.counts[ev.kind] + 1
     end
@@ -1146,6 +1160,10 @@ end
 
 -- A hero in character, talking to another (the scene's little back-and-forths).
 function M:banter()
+    -- A long stretch without a call: the table keeps it moving (the nights gate).
+    if self:idle() > 80 then
+        return
+    end
     local l, p = self.talk:banter(self.players)
     if not l then
         return
@@ -1232,8 +1250,10 @@ function M:hero_action(sc, used, dc, need, spots)
     end
     used[pick.i] = true
     local vars = self:vars({ char = p.char, other_char = self.other and self.other.char or "" })
-    -- The player says it, in character.
-    self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(a.say, vars)), ic = true })
+    -- The player says it, in character (in a long stretch without a call, the table just rolls).
+    if self:idle() < 90 then
+        self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(a.say, vars)), ic = true })
+    end
     local mod = self:mod_for(p, a.skill)
     -- Aimed at someone in the scene: how they feel about the party counts (SRD 5.2.1 attitudes).
     local pid = (a.cast or a.skill == "deception") and self:cast_person(sc) or nil
@@ -1336,6 +1356,10 @@ function M:quick_checks(sc)
         need = need + 1
     end
     local max_checks = sc.cut and 2 or (need + 3)
+    -- Out of calls for the night: the scene gets to the point (the table can feel the clock).
+    if self:decision_count() >= 14 then
+        max_checks = math.min(max_checks, need + 1)
+    end
     local dc = (content.actions.DC[util.clamp(sc.difficulty, 1, 3)] or 12) + ((comp and comp.difficulty > 0) and 1 or 0)
     sc.dc = dc
     local layout = content.terrain_layout.sets[sc.terrain] or content.terrain_layout.sets.blank
@@ -2056,6 +2080,8 @@ function M:decision(card, extra)
     if o.log then
         self:say(o.log, "dm", extra)
     end
+    -- Breaks and lookups take real time at the table (A14).
+    self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
     if o.canon then
         table.insert(self.canon, util.fill(o.canon, self:vars(extra)))
     end
@@ -2432,9 +2458,9 @@ function M:flush_turn()
     -- long while, faster still: everyone knows their turn by now).
     -- Out of calls for the night, the table speeds up sooner (everyone can feel the clock).
     local spent = self:decision_count() >= 14
-    if self:idle() > 100 or (spent and self:idle() > 60) then
+    if self:idle() > 85 or (spent and self:idle() > 60) then
         ev.brisk = "very"
-    elseif self:idle() > 60 or (spent and self:idle() > 30) then
+    elseif self:idle() > 50 or (spent and self:idle() > 30) then
         ev.brisk = true
     end
     -- Now and then a player says something about their turn: what they're about to
@@ -2912,6 +2938,110 @@ function M:finish_open(sc, chosen, mode, hook_id)
     sc.difficulty = prep_mod.difficulty(sc.comps)
     sc.encounter = keep_hook and sc.encounter or nil
     self.on_board[chosen] = true
+end
+
+-- The table clock (A14) --------------------------------------------------------------------------
+-- Each player has their own ideal length (players.lua), moved by their mood this week and by
+-- how into it they are: when they're hooked, time flies; when they're bored, it drags.
+local MOOD_HOURS = { tired = -0.75, stressed = -0.5, distracted = -0.5, celebrating = 0.5, chatty = 0.5 }
+M.FADING = { "is it ten already? sorry. is it?", "i have work tomorrow, just saying.", "one more scene and then i'm out.",
+             "sorry, i'm fading. keep going without me if i doze off." }
+
+function M:ideal_minutes(p)
+    local d = content.players[p.key]
+    local h = (d and d.hours or 3.5) + (MOOD_HOURS[p.mood] or 0) + ((p.engagement or 0.5) - 0.5) * 1.2
+    return h * 60
+end
+
+function M:clock_text(min)
+    local t = (self.table_start or 19 * 60) + math.floor(min or self.table_min or 0)
+    local h, m = math.floor(t / 60), t % 60
+    local ampm = (h >= 12 and h < 24) and "pm" or "am"
+    local h12 = h % 12
+    if h12 == 0 then
+        h12 = 12
+    end
+    return util.int(h12) .. ":" .. string.format("%02d", m) .. " " .. ampm
+end
+
+-- Between scenes: anyone past their limit says so (once a night).
+function M:clock_tells()
+    self.fading = self.fading or {}
+    for _, p in ipairs(self.players) do
+        if not self.fading[p.key] and self.table_min > self:ideal_minutes(p) then
+            self.fading[p.key] = self.table_min
+            self:react({ [p.key] = "yawn" })
+            if self:idle() < 75 then
+                self:emit({ kind = "say", who = p.key, text = self:fresh(M.FADING, "fading"), ic = false })
+            end
+        end
+    end
+end
+
+-- How the length landed for each of them (and whether you kept to the time you all agreed).
+function M:table_verdicts()
+    local mins = self.table_min
+    local soft = (self.ended_on_cliff or self.end_early) and 0.5 or 1   -- a cliffhanger softens both
+    local out = { minutes = mins, planned = self.table_planned, players = {} }
+    for _, p in ipairs(self.players) do
+        local ideal = self:ideal_minutes(p)
+        local v
+        if mins > ideal + 15 then
+            local over = (mins - ideal) / 60
+            score.add(p, "fun", -math.min(10, 7 * over) * soft)
+            if over > 0.75 then
+                score.add(p, "commitment", -1.5 * soft)
+            end
+            v = "long"
+        elseif mins < ideal - 45 then
+            score.add(p, "fun", -math.min(6, 3 * (ideal - mins) / 60) * soft)
+            v = "short"
+        else
+            score.add(p, "fun", 1)
+            v = "right"
+        end
+        out.players[p.key] = { verdict = v, ideal = ideal, fading_at = self.fading and self.fading[p.key] }
+        if mins > self.table_planned + 15 and ideal < mins then
+            score.add(p, "trust", -1)   -- "you said half ten"
+        end
+    end
+    self.table_report = out
+end
+
+-- The report's line about the night's length: "Ran 40 minutes long. Sam was fading by 10:15;
+-- Dev wanted more."
+function M:length_text()
+    local r = self.table_report
+    if not r then
+        return nil
+    end
+    local function hm(m)
+        local h = math.floor(m / 60)
+        local mm = math.floor(m % 60 + 0.5)
+        return util.int(h) .. "h" .. (mm > 0 and (" " .. util.int(mm) .. "m") or "")
+    end
+    local diff = r.minutes - r.planned
+    local head
+    if diff > 15 then
+        head = "Ran " .. hm(diff) .. " long (" .. hm(r.minutes) .. ", planned " .. hm(r.planned) .. ")."
+    elseif diff < -30 then
+        head = "Finished " .. hm(-diff) .. " early (" .. hm(r.minutes) .. ")."
+    else
+        head = "Right on time (" .. hm(r.minutes) .. ")."
+    end
+    local parts = {}
+    for _, p in ipairs(self.players) do
+        local v = r.players[p.key]
+        if v and v.verdict == "long" then
+            table.insert(parts, p.name .. " was fading" .. (v.fading_at and (" by " .. self:clock_text(v.fading_at)) or ""))
+        elseif v and v.verdict == "short" then
+            table.insert(parts, p.name .. " wanted more")
+        end
+    end
+    if #parts == 0 then
+        return head .. " It suited everyone."
+    end
+    return head .. " " .. table.concat(parts, "; ") .. "."
 end
 
 -- Who leads the way takes turns over the campaign (A4): among those decent at it, whoever has
@@ -3432,7 +3562,8 @@ function M:run()
             break
         end
         -- The escape valve: running long before the last scene.
-        if i == #self.scenes and i > 1 and self.clock > LATE_AFTER and not self.used_cards.running_late
+        if i == #self.scenes and i > 1 and (self.clock > LATE_AFTER or self.table_min > self.table_planned - 25)
+            and not self.used_cards.running_late
             and self:decision_count() < 14 then
             self.actor = nil
             self:decision(content.triggered.late)
@@ -3447,7 +3578,11 @@ function M:run()
             self:table_behavior("late")
         end
         self:play_scene(sc)
+        if i < #self.scenes then
+            self:clock_tells()
+        end
     end
+    self:table_verdicts()
     -- You asked what they wanted, then gave it to them (A6: the one-on-one).
     local notes = self.prep and self.prep.talk_notes or {}
     for _, p in ipairs(self.players) do

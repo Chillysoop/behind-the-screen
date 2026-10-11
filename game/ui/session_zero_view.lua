@@ -4,6 +4,7 @@
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
+local panels = require "game.ui.panels"
 local content = require "game.model.content"
 local social = require "game.model.social"
 
@@ -105,8 +106,22 @@ local function pitch(app, c)
     kit.text(x, y + 8, "AROUND THE TABLE", "ui14", theme.dim)
     y = y + 32
     local t = c.tone and s0.tones[c.tone]
+    -- The party (A8): who they are and how they know each other.
+    local function party(py)
+        kit.text(x, py, "THE PARTY", "ui14", theme.dim)
+        py = py + 22
+        for _, key in ipairs(content.players.order) do
+            local d = content.players[key]
+            kit.dot(x + 18, py + 18, 36, panels.COLORS[key] or theme.panel3)
+            kit.picture(x + 2, py + 2, 32, 32, panels.face(key))
+            kit.text(x + 44, py, d.char .. ", " .. string.lower(d.class_name) .. "  (" .. d.name .. ")", "ui18b", theme.text)
+            kit.text(x + 44, py + 21, d.intro or d.notes, "ui14", theme.dim, { w = w - 50, lines = 2 })
+            py = py + 62
+        end
+    end
     if not t then
         kit.text(x, y, "Pitch a tone and see how it lands.", "ui18", theme.faint)
+        party(y + 40)
         return
     end
     for _, key in ipairs(content.players.order) do
@@ -117,6 +132,7 @@ local function pitch(app, c)
         kit.text(x + 92, y + 2, said, "ui14", theme.text, { w = w - 96, lines = 2 })
         y = y + math.max(26, kit.text_height(said, "ui14", w - 96)) + 12
     end
+    party(y + 8)
 end
 
 local function asks(app, c)
@@ -166,22 +182,23 @@ local function rules(app, c)
     local y = 108
     for _, rk in ipairs(s0.rules.order) do
         local r = s0.rules[rk]
+        -- (Four rules with the table clock's length, A14: rows are compact to fit above the button.)
         kit.text(x, y, r.name, "ui18b", theme.text)
-        kit.text(x, y + 24, r.about, "ui14", theme.dim, { w = w, lines = 1 })
-        y = y + 48
+        kit.text(x, y + 21, r.about, "ui14", theme.dim, { w = w, lines = 1 })
+        y = y + 42
         for _, ok in ipairs(r.order) do
             local o = r[ok]
             local chosen = c.rules[rk] == ok
             if chosen then
-                kit.box(x - 3, y - 3, w + 6, 46, theme.select, { radius = 9 })
+                kit.box(x - 3, y - 3, w + 6, 36, theme.select, { radius = 9 })
             end
-            kit.button(x, y, w, 40, "", function()
+            kit.button(x, y, w, 30, "", function()
                 c.rules[rk] = ok
                 app.refresh()
-            end, { color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover })
-            kit.text(x + 12, y + 10, o.name, "ui18", theme.text, { w = 250, lines = 1 })
-            chips(x + 262, y + 10, o.like, w - 270)
-            y = y + 46
+            end, { color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover, key = "rule_" .. rk .. "_" .. ok })
+            kit.text(x + 12, y + 5, o.name, "ui18", theme.text, { w = 250, lines = 1 })
+            chips(x + 262, y + 5, o.like, w - 270)
+            y = y + 34
         end
         -- What people said about the chosen option.
         local o = c.rules[rk] and r[c.rules[rk]]
@@ -192,7 +209,7 @@ local function rules(app, c)
             end
         end
         kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
-        y = y + 30
+        y = y + 22
     end
     return y
 end
@@ -201,6 +218,8 @@ end
 local function feelings(app, c, y)
     local x, w = 1072, 504
     kit.text(x, y, "HOW EVERYONE FEELS", "ui14", theme.dim)
+    -- What the words mean (A8).
+    kit.text(x + w, y, "Heard > Happy > Okay > Uneasy", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     y = y + 22
     local full = { tone = c.tone or "mixed", asks = c.asks, rules = c.rules }
     local f = social.feelings(full)
