@@ -18,6 +18,12 @@ return {
         verrin = { boss = "cultist", name = "Verrin", minion = { "skeleton" } },
         bone_choir = { boss = "cultist", name = "the choirmaster", minion = { "skeleton", "zombie" } },
         white_wolf = { boss = "dire_wolf", name = "the white wolf", minion = { "wolf" } },
+        -- The slice rework's new casts.
+        wolf_pack = { boss = "dire_wolf", name = "the pack leader", minion = { "wolf" } },
+        restless_dead = { boss = "ghoul", name = "the oldest of the dead", minion = { "skeleton", "zombie" } },
+        cutpurses = { boss = "bandit_captain", name = "the cutpurses' boss", minion = { "bandit" } },
+        grey_coat = { boss = "tough", name = "the man in the grey coat", minion = { "bandit" } },
+        turncoat_guide = { boss = "bandit_captain", name = "the turncoat guide", minion = { "bandit", "tough" } },
     },
 
     -- When the cast doesn't fight (Gus, the hermit...), the place does.
@@ -37,6 +43,12 @@ return {
         lighthouse = { boss = "cultist", name = "the lamp-keeper", minion = { "cultist" } },
         rooftops = { boss = "bandit_captain", name = "the rooftop boss", minion = { "bandit" } },
         lost_road = { boss = "dire_wolf", name = "the road's old guardian", minion = { "wolf" } },
+        crypt = { boss = "ghoul", name = "the thing by the crypt bell", minion = { "skeleton", "zombie" } },
+        barrow = { boss = "ghoul", name = "the barrow's old king", minion = { "skeleton" } },
+        shrine = { boss = "skeleton", name = "the shrine's last guardian", minion = { "skeleton" } },
+        bell_paths = { boss = "dire_wolf", name = "the pack leader", minion = { "wolf" } },
+        millbrook_walls = { boss = "bandit_captain", name = "Kessrick's outrider", minion = { "bandit", "wolf" } },
+        ilsa_room = { boss = "tough", name = "the man waiting in Ilsa's room", minion = { "bandit" } },
     },
 
     default = { boss = "goblin_boss", name = "the goblin chief", minion = { "goblin_warrior" } },

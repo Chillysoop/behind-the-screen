@@ -54,6 +54,10 @@ local CAST_SPRITE = {
     -- M6 casts borrow a mini until they get their own.
     holt = "npc_hermit", brother_tumble = "npc_gus", goblin_scout = "goblin_boss", verrin = "npc_rival",
     bone_choir = "cultist", white_wolf = "dire_wolf",
+    -- The slice rework's casts.
+    wren = "npc_stranger", grey_coat = "tough", miller = "npc_gus", turncoat_guide = "bandit_captain",
+    market_friend = "npc_sable", merchant = "npc_sable", cutpurses = "bandit", wolf_pack = "dire_wolf",
+    restless_dead = "skeleton",
 }
 local MONSTER_SPRITES = {
     goblin_boss = true, bandit = true, bandit_captain = true, cultist = true, tough = true, wolf = true,

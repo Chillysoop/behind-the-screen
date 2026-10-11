@@ -201,8 +201,9 @@ function M.hand(campaign)
                 local rank
                 if is_story(campaign, c) then
                     rank = 1
-                elseif M.is_new(campaign, c.id) then
-                    rank = 2
+                elseif M.is_new(campaign, c.id) or (c.thread and campaign.plan
+                    and util.contains(campaign.plan.threads or {}, c.thread)) then
+                    rank = 2                 -- just joined, or a featured backstory (the planner)
                 elseif c.thread then
                     rank = 3
                 elseif (e.plays or 0) > 0 then
@@ -210,7 +211,9 @@ function M.hand(campaign)
                 else
                     rank = 5
                 end
-                table.insert(list, { c = c, rank = rank, r = rng:next() })
+                -- Within a rank, what suits the campaign's truths leans first.
+                local tilt = require("game.model.planner").tilt(campaign, c)
+                table.insert(list, { c = c, rank = rank, r = rng:next() - tilt })
             end
         end
         table.sort(list, function(a, b)

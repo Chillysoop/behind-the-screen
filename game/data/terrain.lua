@@ -21,6 +21,13 @@ return {
         lost_road = "forest",
         rooftops = "market",
         field_hospital = "tavern",
+        -- The slice rework's new places.
+        ilsa_room = "tavern",
+        bell_paths = "forest",
+        millbrook_walls = "market",
+        shrine = "ruins",
+        barrow = "ruins",
+        crypt = "ruins",
     },
     -- No location written (or improvised from a stock move): pick by scene type.
     by_scene = {

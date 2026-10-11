@@ -56,6 +56,18 @@ for _, c in ipairs(components) do
     end
 end
 
+-- Which cards go together (components.lua "with"), both ways round: Corin with Ilsa's room,
+-- Ilsa's room with Corin (the slice rework's place tags).
+M.goes_with = {}
+for _, c in ipairs(components) do
+    for _, w in ipairs(c.with or {}) do
+        M.goes_with[c.id] = M.goes_with[c.id] or {}
+        M.goes_with[c.id][w] = true
+        M.goes_with[w] = M.goes_with[w] or {}
+        M.goes_with[w][c.id] = true
+    end
+end
+
 -- Cards made during a campaign (callbacks to canon, M6) are registered here so the
 -- board can look them up like any other card.
 function M.register(c)
@@ -111,6 +123,88 @@ function M.setting_clash(card, slots)
         end
     end
     return nil
+end
+
+-- How well a card belongs on a scene (the slice rework): a real DM writes a scene for a place,
+-- the people in it and the players' stories. Returns a score and the DM's margin note:
+--   goes with another card on the scene  3   "goes with Corin"
+--   suits the scene's place               2   "suits the forest road"
+--   suits the scene's type                1
+--   neither, on a scene with a type       0   "odd here?"
+-- slots: the scene's cards (the card itself may be among them); scene_type may be nil.
+local function has(list, v)
+    for _, x in ipairs(list or {}) do
+        if x == v then
+            return true
+        end
+    end
+    return false
+end
+
+local function short_of(c)
+    local name = c.short or c.name
+    for _, w in ipairs({ "A ", "An ", "The " }) do
+        if string.sub(name, 1, #w) == w then
+            return string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
+        end
+    end
+    return name
+end
+M.short_of = short_of
+
+function M.affinity(card, slots, scene_type)
+    local score, note = 0, nil
+    local with = M.goes_with[card.id]
+    if with then
+        local kinds = {}
+        for kind in pairs(slots or {}) do
+            table.insert(kinds, kind)
+        end
+        table.sort(kinds)
+        for _, kind in ipairs(kinds) do
+            local other = slots[kind]
+            if other.id ~= card.id and with[other.id] then
+                score = score + 3
+                note = note or ("goes with " .. short_of(other))
+            end
+        end
+    end
+    local loc = slots and slots.location
+    if card.kind ~= "location" and loc and loc.id ~= card.id then
+        for _, t in ipairs(card.suits or {}) do
+            if has(loc.setting, t) then
+                score = score + 2
+                note = note or ("suits " .. short_of(loc))
+                break
+            end
+        end
+    elseif card.kind == "location" then
+        -- A place suits the people and trouble already written for the scene.
+        local kinds = {}
+        for kind in pairs(slots or {}) do
+            table.insert(kinds, kind)
+        end
+        table.sort(kinds)
+        for _, kind in ipairs(kinds) do
+            local other = slots[kind]
+            if other.kind ~= "location" then
+                for _, t in ipairs(other.suits or {}) do
+                    if has(card.setting, t) then
+                        score = score + 2
+                        note = note or ("right for " .. short_of(other))
+                        break
+                    end
+                end
+            end
+        end
+    end
+    if scene_type and has(card.fits, scene_type) then
+        score = score + 1
+    end
+    if not note and scene_type and score == 0 then
+        note = "odd here?"
+    end
+    return score, note
 end
 
 M.decisions = {}

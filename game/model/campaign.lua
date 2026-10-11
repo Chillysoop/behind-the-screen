@@ -16,6 +16,7 @@ local progression = require "game.model.progression"
 local seeds = require "game.model.seeds"
 local story = require "game.model.story"
 local deck = require "game.model.deck"
+local planner = require "game.model.planner"
 
 local M = {}
 M.__index = M
@@ -155,7 +156,8 @@ function M:start_week()
         end
         best.present = true
     end
-    deck.start_week(self)   -- the story deck: follow-ups join, the beat deals its cards
+    planner.start_week(self)   -- the campaign planner: fronts move unless they were pushed back
+    deck.start_week(self)      -- the story deck: follow-ups join, the beat deals its cards
     self.prep = prep_mod.new(self)
     self.leveled_now = nil
     self:deal_arc_cards(self.prep)
@@ -364,6 +366,7 @@ function M:finish_night()
     story.after_night(self, night)
     -- The story deck: what's spent, what comes back, and what tonight opened.
     rep.opened = deck.after_night(self, night)
+    planner.after_night(self, night)
     local beat = self:arc_beat()
     if beat and beat.finale then
         local played = {}
