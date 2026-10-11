@@ -76,6 +76,13 @@ function M.register(c)
     c.meters = c.meters or {}
     c.difficulty = c.difficulty or 0
     M.components[c.id] = c
+    -- A card made for a campaign can go with others too (an agenda card goes with its person).
+    for _, w in ipairs(c.with or {}) do
+        M.goes_with[c.id] = M.goes_with[c.id] or {}
+        M.goes_with[c.id][w] = true
+        M.goes_with[w] = M.goes_with[w] or {}
+        M.goes_with[w][c.id] = true
+    end
     return c
 end
 

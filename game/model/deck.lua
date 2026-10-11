@@ -8,7 +8,8 @@
 --   opened = { { week, id, from, why } },     every card another card opened, in order
 -- }
 -- entry = { state, since, joined, from, why, plays, last, history = { outcome... }, revealed }
---   state   "waiting" (joins the deck at week `since`), "deck" (in it), "spent" (gone for good)
+--   state   "waiting" (joins the deck at week `since`), "deck" (in it), "spent" (gone for good),
+--           "shelved" (the DM put it aside, S6: never dealt until it's brought back)
 --   joined  the week it came into the deck; from/why: the card that opened it, and how that
 --           card's scene went ("win", "lose", "played", "escaped"), or "story" for a beat's card
 --   history how each scene it played in went, oldest first
@@ -17,6 +18,12 @@ local content = require "game.model.content"
 local util = require "game.model.util"
 
 local M = {}
+
+-- Is this a story card (a reveal still to tell)? game.model.story is required lazily.
+local function is_story_card(campaign, c)
+    local story = require "game.model.story"
+    return story.pending_reveal(campaign, c) ~= nil
+end
 
 M.HAND_CAP = 8        -- cards of a kind in the hand: they all fit on one page
 M.MIN_PER_KIND = 5    -- below this, a kind tops up from the spare cards
@@ -124,6 +131,51 @@ function M.spend(campaign, id)
     e.state = "spent"
 end
 
+-- Shelving (S6): the DM puts a card aside so it stops coming up. This week's story cards stay.
+function M.can_shelve(campaign, id)
+    local c = content.components[id]
+    if not c or M.state(campaign, id) ~= "deck" then
+        return false, "Only a card in the deck can be shelved."
+    end
+    if is_story_card(campaign, c) then
+        return false, "Story cards can't be shelved: the story needs them."
+    end
+    return true
+end
+
+function M.shelve(campaign, id)
+    local ok, why = M.can_shelve(campaign, id)
+    if not ok then
+        return false, why
+    end
+    local e = M.entry(campaign, id)
+    e.state = "shelved"
+    e.shelved = campaign.week
+    return true
+end
+
+function M.unshelve(campaign, id)
+    local e = M.entry(campaign, id)
+    if not e or e.state ~= "shelved" then
+        return false
+    end
+    e.state = "deck"
+    e.shelved = nil
+    return true
+end
+
+function M.shelved(campaign)
+    local out = {}
+    for id, e in pairs(M.get(campaign).cards) do
+        local c = content.components[id]
+        if c and e.state == "shelved" then
+            table.insert(out, c)
+        end
+    end
+    table.sort(out, function(a, b) return a.id < b.id end)
+    return out
+end
+
 -- Cards in the deck now, of a kind (or all kinds), in a stable order.
 function M.cards(campaign, kind)
     local d = M.get(campaign)
@@ -177,12 +229,7 @@ function M.start_week(campaign)
     end
 end
 
--- Is this a story card (a reveal still to tell)? Uses game.model.story, required lazily
--- (story requires content, which is fine, but keeps the require graph simple).
-local function is_story(campaign, c)
-    local story = require "game.model.story"
-    return story.pending_reveal(campaign, c) ~= nil
-end
+local is_story = is_story_card
 
 -- This week's hand from the deck: every kind on one page, story cards first, then cards that
 -- just joined, then the rest. Backstory cards of someone who isn't here wait in the deck.
@@ -307,6 +354,19 @@ function M.after_night(campaign, night)
                 if on then
                     open_list(c, on.played, "played")
                     open_list(c, on[how] or (how == "escaped" and on.lose) or nil, how)
+                end
+            end
+        end
+    end
+    -- An agenda card (S6) is made for its week: if it didn't play, it's gone (next time the
+    -- person comes, they bring whatever fits how they feel then).
+    for id, e in pairs(d.cards) do
+        local c = content.components[id]
+        if c and c.agenda and (e.plays or 0) == 0 and e.state ~= "spent" then
+            d.cards[id] = nil
+            for i = #(campaign.registered or {}), 1, -1 do
+                if campaign.registered[i].id == id then
+                    table.remove(campaign.registered, i)
                 end
             end
         end

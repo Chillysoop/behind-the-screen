@@ -41,6 +41,11 @@ function M.new(campaign)
     self.seed_ideas = campaign.seeds and seeds.offer(campaign, content.seeds.OFFERED) or {}
     self.convos = {}         -- conversation id -> thread
     self.arc_cards = {}      -- (M7) this week's story cards, by id
+    -- S6, bringing them in: cards the DM pinned into the hand, and why.
+    self.pins = {}           -- card id -> { why = "spotlight" | "guest" | "screen", note, guest, added }
+    self.pin_order = {}
+    self.guests = {}         -- person or place id -> { cards = { id... } }
+    self.spot = nil          -- the player this session is for
     return self
 end
 
@@ -519,6 +524,275 @@ function M:forecast()
         p.m, p.boredom, p.fun_bonus = saved_m, saved_b, saved_f
     end
     return out
+end
+
+-- Bringing them in (the slice rework, S6) --------------------------------------------------
+-- The DM's three questions at the start of prep pin cards into the hand: who this session is
+-- for (their thread's next card), who shows up (people and places from the notebook, with
+-- an agenda card that fits how they feel), and which faction's move happens on screen
+-- (world.lua). Pins come first in their kind and show why they're there.
+
+M.PAGE = 10   -- cards of a kind the prep board shows at once (two rows of five)
+
+local function deck_mod()
+    return require "game.model.deck"
+end
+local function ledger_mod()
+    return require "game.model.ledger"
+end
+
+local function remove_from(list, id)
+    for i = #list, 1, -1 do
+        if list[i].id == id then
+            table.remove(list, i)
+        end
+    end
+end
+
+-- A card that joined the deck mid-prep (a move the DM let happen) goes into the hand, after
+-- the pins.
+function M:take_new(c)
+    local list = self.hand[c.kind]
+    for _, h in ipairs(list) do
+        if h.id == c.id then
+            return
+        end
+    end
+    local at = 1
+    while list[at] and self.pins[list[at].id] do
+        at = at + 1
+    end
+    table.insert(list, at, c)
+    self:trim(c.kind)
+end
+
+function M:drop_from_hand(id)
+    local c = content.components[id]
+    if c then
+        remove_from(self.hand[c.kind], id)
+        if self:placed_at(id) then
+            local i, kind = self:placed_at(id)
+            self.scenes[i].slots[kind] = nil
+        end
+    end
+end
+
+-- Keep a kind to one page: the plainest cards drop back into the deck (never a pin, a story
+-- card, a payoff, an inspired card or one on the board).
+function M:trim(kind)
+    local list = self.hand[kind]
+    local i = #list
+    while #list > M.PAGE and i >= 1 do
+        local c = list[i]
+        if not (self.pins[c.id] or self.arc_cards[c.id] or self.payoffs[c.id] or self.inspired[c.id] or self:placed_at(c.id)) then
+            table.remove(list, i)
+        end
+        i = i - 1
+    end
+end
+
+function M:pin(id, why, note, extra)
+    local c = content.components[id]
+    if not c then
+        return false
+    end
+    local list = self.hand[c.kind]
+    remove_from(list, id)
+    local at = 1
+    while list[at] and self.pins[list[at].id] do
+        at = at + 1
+    end
+    table.insert(list, at, c)
+    local p = { why = why, note = note }
+    for k, v in pairs(extra or {}) do
+        p[k] = v
+    end
+    self.pins[id] = p
+    table.insert(self.pin_order, id)
+    self:trim(c.kind)
+    return true
+end
+
+-- Take a pin back out. A card that only came in for the pin leaves the hand (and an agenda
+-- card leaves the deck); one that was in the deck anyway stays in the hand.
+function M:unpin(id)
+    local p = self.pins[id]
+    if not p then
+        return
+    end
+    self.pins[id] = nil
+    for i = #self.pin_order, 1, -1 do
+        if self.pin_order[i] == id then
+            table.remove(self.pin_order, i)
+        end
+    end
+    local c = content.components[id]
+    if p.added or (c and c.agenda) then
+        self:drop_from_hand(id)
+        local d = deck_mod().get(self.campaign)
+        if d.cards[id] and (d.cards[id].plays or 0) == 0 then
+            d.cards[id] = nil
+        end
+    end
+end
+
+function M:pinned(id)
+    return self.pins[id]
+end
+
+-- Who's this session for? The next open card of their backstory thread.
+function M:spotlight_card(key)
+    local deck = deck_mod()
+    for _, st in ipairs(deck.threads(self.campaign)[key] or {}) do
+        if st.state == "open" and deck.available(self.campaign, st.card.id) then
+            return st.card
+        end
+    end
+    -- Every step played: a recurring thread card (a person, a place) can still come back.
+    for _, st in ipairs(deck.threads(self.campaign)[key] or {}) do
+        if deck.available(self.campaign, st.card.id) then
+            return st.card
+        end
+    end
+    return nil
+end
+
+function M:spotlight(key)
+    local p = self.campaign:player(key)
+    if not p or not p.present then
+        return false, "They're not at the table this week."
+    end
+    if self.spot == key then
+        return true
+    end
+    local c = self:spotlight_card(key)
+    if not c then
+        return false, "Nothing in " .. p.char .. "'s story is ready to come up this week."
+    end
+    self:clear_spotlight()
+    self:pin(c.id, "spotlight", "Spotlight: " .. p.name, { key = key })
+    self.spot = key
+    return true
+end
+
+function M:clear_spotlight()
+    for id, pin in pairs(self.pins) do
+        if pin.why == "spotlight" then
+            self:unpin(id)
+        end
+    end
+    self.spot = nil
+end
+
+-- Who can be brought in this week: people the party has met who are still around and whose
+-- card is in the deck, and places in the deck. { people = { pid... }, places = { card... } }
+function M:guest_options()
+    local deck = deck_mod()
+    local ledger = ledger_mod()
+    local out = { people = {}, places = {} }
+    for _, pid in ipairs(ledger.people(self.campaign)) do
+        local card = ledger.card_of(self.campaign, pid)
+        if card and ledger.met(self.campaign, pid) and ledger.around(self.campaign, pid)
+            and deck.available(self.campaign, card.id) and (not card.thread or self.campaign:player(card.thread).present) then
+            table.insert(out.people, pid)
+        end
+    end
+    for _, c in ipairs(deck.cards(self.campaign, "location")) do
+        if not c.thread or self.campaign:player(c.thread).present then
+            table.insert(out.places, c)
+        end
+    end
+    return out
+end
+
+function M:guest_count()
+    local n = 0
+    for _ in pairs(self.guests) do
+        n = n + 1
+    end
+    return n
+end
+
+-- Bring someone (a person id) or somewhere (a location id) in. Returns the cards it pinned.
+function M:bring_in(id)
+    local ledger = ledger_mod()
+    local deck = deck_mod()
+    if self.guests[id] then
+        return true
+    end
+    if self:guest_count() >= ledger.data.GUESTS then
+        return false, "Two guests a week. Send one home first."
+    end
+    local c = content.components[id]
+    if c and c.kind == "location" then
+        if not deck.available(self.campaign, id) then
+            return false, "That place isn't in your deck."
+        end
+        self:pin(id, "guest", "You brought it in")
+        self.guests[id] = { cards = { id } }
+        return true, { c }
+    end
+    local card = ledger.card_of(self.campaign, id)
+    if not card or not deck.available(self.campaign, card.id) or not ledger.around(self.campaign, id) then
+        return false, "They can't come this week."
+    end
+    local att = ledger.att(self.campaign, id)
+    local note = ledger.about(id).name .. ": " .. ledger.label(att)
+    if ledger.person(self.campaign, id).status == "got away" then
+        note = ledger.about(id).name .. ": got away last time"
+    end
+    self:pin(card.id, "guest", note, { guest = id })
+    local cards = { card }
+    local agenda = ledger.agenda_card(self.campaign, id)
+    if agenda then
+        deck.add(self.campaign, agenda.id, self.campaign.week, card.id, "agenda")
+        self:pin(agenda.id, "guest", note, { guest = id, added = true })
+        table.insert(cards, agenda)
+    end
+    local ids = {}
+    for _, x in ipairs(cards) do
+        table.insert(ids, x.id)
+    end
+    self.guests[id] = { cards = ids }
+    return true, cards
+end
+
+function M:send_home(id)
+    local g = self.guests[id]
+    if not g then
+        return
+    end
+    for _, cid in ipairs(g.cards) do
+        self:unpin(cid)
+    end
+    self.guests[id] = nil
+end
+
+-- Shelve a card from the hand (the notebook can bring it back).
+function M:shelve(id)
+    if self:placed_at(id) then
+        return false, "Take it off the board first."
+    end
+    if self.pins[id] then
+        return false, "You pinned that one this week."
+    end
+    local ok, why = deck_mod().shelve(self.campaign, id)
+    if not ok then
+        return false, why
+    end
+    self:drop_from_hand(id)
+    return true
+end
+
+function M:unshelve(id)
+    if deck_mod().unshelve(self.campaign, id) then
+        local c = content.components[id]
+        if c then
+            self:take_new(c)
+        end
+        return true
+    end
+    return false
 end
 
 -- Cards from the hand that didn't make it onto the board.

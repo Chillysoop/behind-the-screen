@@ -40,6 +40,7 @@ local fight = require "game.model.fight"
 local social = require "game.model.social"
 local seeds = require "game.model.seeds"
 local story = require "game.model.story"
+local ledger = require "game.model.ledger"
 local deck = require "game.model.deck"
 local skills = require "game.rules.skills"
 
@@ -153,6 +154,7 @@ function M.new(campaign, prep, opts)
         end
     end
     self.revealed = {}        -- story cards that told their part tonight (deck.lua remembers)
+    self.ledger = {}          -- the notebook's entries tonight (ledger.lua files them after the night)
     self.pacing = prep_mod.pacing(prep.scenes, self.players)
     self.co = coroutine.create(function()
         self:run()
@@ -512,6 +514,11 @@ function M:describe(c, style)
         rev, clue = story.pending_reveal(self.campaign, c)
     end
     local text = rev
+    -- A place the world changed off screen (S7) is described as it is now.
+    local state = not text and c.kind == "location" and ledger.place_state(self.campaign, c.id)
+    if state then
+        text = state.line
+    end
     if not text then
         if c.again and deck.returning(self.campaign, c) then
             text = c.again
@@ -1015,6 +1022,7 @@ function M:hero_action(sc, used, dc, need, spots)
     for j, p in ipairs(self.players) do
         local shine = st.shine[p.class] or 0
         weights[j] = 1 + 2 * shine + math.max(0, (40 - p.m.spotlight) / 20)
+            + ((self.prep and self.prep.spot == p.key) and 1.5 or 0)   -- this session is for them (S6)
     end
     local p = self.rng:weighted(self.players, weights)
     self.actor = p
@@ -1036,7 +1044,17 @@ function M:hero_action(sc, used, dc, need, spots)
     -- The player says it, in character.
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(a.say, vars)), ic = true })
     local mod = self:mod_for(p, a.skill)
+    -- Aimed at someone in the scene: how they feel about the party counts (SRD 5.2.1 attitudes).
+    local pid = (a.cast or a.skill == "deception") and self:cast_person(sc) or nil
+    local edge = ledger.influence(self.campaign, pid, a.skill, self)
     local roll = self.rng:d20()
+    local other_roll
+    if edge then
+        other_roll = self.rng:d20()
+        if (edge == "adv" and other_roll > roll) or (edge == "dis" and other_roll < roll) then
+            roll, other_roll = other_roll, roll
+        end
+    end
     local total = roll + mod
     local success = total >= dc
     local name = skills.name(a.skill)
@@ -1050,6 +1068,10 @@ function M:hero_action(sc, used, dc, need, spots)
     end
     local text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = " .. util.int(total)
         .. " vs DC " .. util.int(dc) .. ", " .. result
+    if edge then
+        text = text .. " (" .. (edge == "adv" and "advantage" or "disadvantage") .. ": " .. ledger.about(pid).name .. " is "
+            .. ledger.label(ledger.att(self.campaign, pid, self)) .. "; the other die was " .. util.int(other_roll) .. ")"
+    end
     table.insert(self.checks, success)
     if success then
         local big = roll == 20
@@ -1073,9 +1095,14 @@ function M:hero_action(sc, used, dc, need, spots)
     local spot = #spots > 0 and self.rng:pick(spots) or nil
     self:emit({ kind = "check", text = text, roll = roll, bonus = mod, total = total, dc = dc, success = success,
                 actor = p.key, char = p.char, skill = a.skill, skill_name = name, crit = roll == 20,
-                fumble = roll == 1, spot = spot,
+                fumble = roll == 1, spot = spot, edge = edge, other_roll = other_roll,
                 progress = { wins = math.min(sc.progress.wins, need), setbacks = sc.progress.setbacks, need = need,
                              max = content.scene_beats.setbacks } })
+    -- The notebook remembers what they did to whom.
+    if pid then
+        local act = ledger.ACTS[a.skill]
+        self:note(sc, { who = p.key, to = pid, did = a.skill, ok = success, d = act and (success and act[1] or act[2]) or 0 })
+    end
     -- How it lands in the story, then at the table.
     self:say(util.capitalize(util.fill(success and a.win or a.lose, vars)), success and "good" or "bad")
     if roll == 20 then
@@ -2185,6 +2212,84 @@ function M:settle_scene(sc)
         self:say(sc.outcome == "win" and goal.win or (goal.lose or goal.win), sc.outcome == "win" and "good" or "bad")
     end
     self:pay_goal_clue(sc)
+    self:note_outcome(sc)
+end
+
+-- The notebook (the slice rework, S5) -----------------------------------------------------------
+
+-- The person in this scene the notebook keeps a card for (not a beast, not muted).
+function M:cast_person(sc)
+    local cast = sc and sc.comps.cast
+    if not cast or self:muted(cast) then
+        return nil
+    end
+    return ledger.person_of(cast), cast
+end
+
+function M:note(sc, entry)
+    entry.s = sc and sc.index
+    entry.at = entry.at or (sc and sc.comps.location and sc.comps.location.id)
+    table.insert(self.ledger, entry)
+    return entry
+end
+
+-- First time the party meets someone, the notebook starts their card.
+function M:note_meeting(sc)
+    local pid = self:cast_person(sc)
+    if not pid or ledger.met(self.campaign, pid) then
+        return
+    end
+    for _, e in ipairs(self.ledger) do
+        if e.to == pid then
+            return
+        end
+    end
+    self:note(sc, { who = "party", to = pid, did = "met", d = 0 })
+end
+
+-- How the scene went for the person in it: a fight, a deal, a secret out, or help given.
+function M:note_outcome(sc)
+    local pid, cast = self:cast_person(sc)
+    if not pid or not sc.outcome or self.end_early and not sc.terrain then
+        return
+    end
+    local goal = sc.comps.goal
+    local win = sc.outcome == "win"
+    local fought = (sc.type == "combat" or sc.type == "set_piece") and content.encounters.by_cast[cast.id] ~= nil
+    local villain = cast.villain or cast.foe
+    local e = { who = "party", to = pid }
+    local gwin = goal and not self:muted(goal) and goal.win or ""
+    if fought then
+        if sc.escaped and sc.escaped[cast.id] then
+            e.did, e.d, e.status = "escaped", 0, "got away"
+        elseif win then
+            e.did, e.d = "beat", villain and 0 or -1
+            if villain then
+                e.status = "beaten"
+            end
+        else
+            e.did, e.d = "lost_to", 0
+        end
+    elseif string.find(gwin, "{deal}", 1, true) then
+        e.did, e.d = win and "deal" or "no_deal", win and 1 or 0
+        if win and cast.deal then
+            e.know = "Agreed: " .. cast.deal .. "."
+        end
+    elseif string.find(gwin, "{culprit}", 1, true) and not cast.revered and cast.talks ~= false then
+        if win then
+            e.did, e.d = "exposed", -2
+            if cast.secret then
+                e.know = util.capitalize(cast.secret) .. "."
+            end
+        else
+            e.did, e.d = "outplayed", 0
+        end
+    elseif villain then
+        e.did, e.d = win and "outplayed" or "lost_to", 0
+    else
+        e.did, e.d = win and "helped" or "let_down", win and 1 or 0
+    end
+    self:note(sc, e)
 end
 
 function M:play_scene(sc)
@@ -2228,6 +2333,7 @@ function M:play_scene(sc)
     end
     self:safety_check(sc)
     self:describe(sc.comps.location, "narration")
+    self:note_meeting(sc)
     if sc.comps.cast and not self:muted(sc.comps.cast) then
         self:describe(sc.comps.cast, "narration")
         if not (sc.type == "combat" or sc.type == "set_piece") then

@@ -174,8 +174,87 @@ function B.play_night(night, rng, dm)
 end
 
 
+-- The start of prep (S6, S7): what the world does this week, who the session is for, and who
+-- shows up. The careful DM brings the biggest threat on screen, spotlights whoever's least
+-- invested and brings in people tied to the table; the plain DM lets the world happen and
+-- spotlights someone; the careless DM doesn't look (the moves play out on their own).
+local world = require "game.model.world"
+local ledger = require "game.model.ledger"
+
+function B.plan_week(dm, c, prep, rng)
+    if dm.random then
+        return
+    end
+    local w = world.get(c)
+    if dm.tend then
+        -- On screen: a strike back first, else a front's move, else nothing.
+        local best, best_v
+        for i, m in ipairs(w.moves) do
+            local mv = world.move_def(m.faction, m.move)
+            local v = (mv.when and mv.when.crossed and 3 or 0) + (world.is_front(c, m.faction) and 2 or 0)
+                + (ledger.standing(c, m.faction) < 0 and 1 or 0)
+            if v > 0 and world.screen_card(c, m.faction, mv) and (not best_v or v > best_v) then
+                best, best_v = i, v
+            end
+        end
+        if best then
+            world.decide(c, best, "screen")
+        end
+    end
+    for i, m in ipairs(w.moves) do
+        if m.state == "pending" then
+            world.decide(c, i, "let")
+        end
+    end
+    -- Spotlight: the least invested player whose story has a card ready.
+    local pick, low
+    for _, p in ipairs(c:present()) do
+        if prep:spotlight_card(p.key) and (not low or p.investment < low) then
+            pick, low = p, p.investment
+        end
+    end
+    if pick then
+        prep:spotlight(pick.key)
+    end
+    if dm.tend then
+        -- Guests: people whose story is someone's at the table, or who like the party.
+        local opts = prep:guest_options()
+        local scored = {}
+        for _, pid in ipairs(opts.people) do
+            local card = ledger.card_of(c, pid)
+            local v = (card and card.thread and 2 or 0) + math.abs(ledger.att(c, pid)) + rng:next()
+            table.insert(scored, { pid = pid, v = v })
+        end
+        table.sort(scored, function(a, b) return a.v > b.v end)
+        for k = 1, math.min(ledger.data.GUESTS, #scored) do
+            prep:bring_in(scored[k].pid)
+        end
+    end
+end
+
+-- Put pinned cards on the board where they fit (the careful and plain DMs wanted them).
+function B.place_pins(c, prep)
+    for _, id in ipairs(prep.pin_order) do
+        local card = content.components[id]
+        if card and not prep:placed_at(id) then
+            for i = 1, 3 do
+                local s = prep.scenes[i]
+                local fits = false
+                for _, f in ipairs(card.fits or {}) do
+                    fits = fits or f == s.type
+                end
+                if fits and not s.slots[card.kind] and prep:can_place(i, id) then
+                    prep:place(i, id)
+                    break
+                end
+            end
+        end
+    end
+end
+
 -- One week of prep the way this DM does it.
 function B.prep(dm, c, prep, rng)
+    B.plan_week(dm, c, prep, rng)
     if dm.tend then
         B.tend_table(c, prep)
     end
@@ -192,6 +271,9 @@ function B.prep(dm, c, prep, rng)
     end
     if dm.story then
         B.play_story(c, prep)
+    end
+    if not dm.random then
+        B.place_pins(c, prep)
     end
     if dm.seeds then
         B.plant_and_pay(c, prep)

@@ -17,6 +17,8 @@ local seeds = require "game.model.seeds"
 local story = require "game.model.story"
 local deck = require "game.model.deck"
 local planner = require "game.model.planner"
+local ledger = require "game.model.ledger"
+local world = require "game.model.world"
 
 local M = {}
 M.__index = M
@@ -156,6 +158,7 @@ function M:start_week()
         end
         best.present = true
     end
+    world.start_week(self)     -- the world turns: last week's undecided moves play out, new ones are proposed
     planner.start_week(self)   -- the campaign planner: fronts move unless they were pushed back
     deck.start_week(self)      -- the story deck: follow-ups join, the beat deals its cards
     self.prep = prep_mod.new(self)
@@ -208,6 +211,8 @@ function M:write_chat()
         end
         return msgs
     end
+    -- Word from around the valley first: what the world did off screen (S7). You post it.
+    world.post_news(self, msgs)
     if self.hype > 0 then
         local fan = rng:pick(self:present())
         if fan then
@@ -367,6 +372,10 @@ function M:finish_night()
     -- The story deck: what's spent, what comes back, and what tonight opened.
     rep.opened = deck.after_night(self, night)
     planner.after_night(self, night)
+    -- The notebook: what the party did to whom tonight, and how it changed things.
+    ledger.after_night(self, night)
+    world.after_night(self, night)
+    rep.moved = ledger.changes(self, self.week)
     local beat = self:arc_beat()
     if beat and beat.finale then
         local played = {}
