@@ -34,6 +34,8 @@ return {
         old_bridge = { boss = "bandit_captain", name = "the toll-taker", minion = { "bandit" } },
         archive = { boss = "ghoul", name = "the drowned archivist", minion = { "zombie", "skeleton" } },
         market = { boss = "tough", name = "the gang boss", minion = { "bandit", "tough" } },
+        fighting_pit = { boss = "tough", name = "the pit champion", minion = { "bandit" } },
+        counting_house = { boss = "bandit_captain", name = "the vault guard captain", minion = { "tough", "bandit" } },
         tavern = { boss = "tough", name = "the biggest drunk", minion = { "bandit" } },
         bell_tower = { boss = "cultist", name = "the bell cult's leader", minion = { "cultist", "skeleton" } },
         hales_crossing = { boss = "ghoul", name = "something in the ashes", minion = { "skeleton", "zombie" } },

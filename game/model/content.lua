@@ -262,12 +262,16 @@ for _, d in ipairs(decisions) do
     end
 end
 
+-- Open scenes: the players choose where to go (A15).
+M.open_scenes = require "game.data.open_scenes"
+
 -- What players do at the table (A12): table behaviors, pre-fight stunts, and curveballs,
 -- which become decision cards of their own type, dealt at most once a night.
 local behaviors = require "game.data.table_behaviors"
 M.table_behaviors = behaviors.behaviors
 M.stunts = behaviors.stunts
 M.decision_types.curveball = "Curveball"
+M.decision_types.agency = "Where to?"
 M.curveballs = {}
 for _, cb in ipairs(behaviors.curveballs) do
     local fight = cb.scenes and (cb.scenes[1] == "combat" or cb.scenes[1] == "set_piece")

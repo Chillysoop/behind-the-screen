@@ -28,6 +28,8 @@ return {
         shrine = "ruins",
         barrow = "ruins",
         crypt = "ruins",
+        counting_house = "tavern",
+        fighting_pit = "market",
     },
     -- No location written (or improvised from a stock move): pick by scene type.
     by_scene = {

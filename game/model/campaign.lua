@@ -387,6 +387,8 @@ function M:finish_night()
     -- The notebook: what the party did to whom tonight, and how it changed things.
     ledger.after_night(self, night)
     world.after_night(self, night)
+    -- Every place prepped or visited tonight is one of yours now (A15).
+    require("game.model.places").after_night(self, night)
     rep.moved = ledger.changes(self, self.week)
     local beat = self:arc_beat()
     if beat and beat.finale then

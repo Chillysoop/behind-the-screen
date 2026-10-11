@@ -41,6 +41,7 @@ local social = require "game.model.social"
 local seeds = require "game.model.seeds"
 local story = require "game.model.story"
 local ledger = require "game.model.ledger"
+local places = require "game.model.places"
 local deck = require "game.model.deck"
 local skills = require "game.rules.skills"
 
@@ -146,6 +147,8 @@ function M.new(campaign, prep, opts)
             quality = prep_mod.quality(s.type, comps, prep.inspired),
             difficulty = prep_mod.difficulty(comps),
             encounter = s.encounter,   -- the fight the DM built in prep (combat and set pieces)
+            open = s.open,             -- the players choose where (A15)
+            spots = s.open and util.copy(s.spots or {}) or nil,
         }
     end
     -- Cards on tonight's board: improv draws from the rest of the story deck.
@@ -2630,6 +2633,287 @@ M.SURRENDER_TALK = {
     "'All right! All right.' {Boss} sits down hard and tells them everything they know about {lead}.",
 }
 
+-- Open scenes (A15: player agency) -------------------------------------------------------------
+-- "What do you do?" The players pitch where to go (their type, their story, the notebook, a
+-- wild idea), back each other's pitches, and the DM decides: follow the table, go with
+-- someone's idea, split the party, move the prepped hook to where they went (the quantum ogre),
+-- or steer them to the hook.
+
+local HOOK_KINDS = { "cast", "goal", "complication", "reward" }
+
+-- How much this player wants to go to this place, and why.
+function M:pitch_weight(p, id, sc)
+    local c = content.components[id]
+    local w, why = 0, nil
+    for _, f in ipairs(c.fits or {}) do
+        w = math.max(w, score.taste(p, f))
+    end
+    for _, t in ipairs(c.tags or {}) do
+        w = w + 0.3 * score.like(p, t)
+    end
+    if c.thread == p.key then
+        w, why = w + 1.1, "thread"
+    end
+    -- Someone they like from the notebook was last seen there.
+    for _, pid in ipairs(ledger.people(self.campaign)) do
+        if ledger.met(self.campaign, pid) then
+            local last = ledger.history(self.campaign, pid)[1]
+            local lp = ledger.person(self.campaign, pid)
+            if last and last.at == id and lp and (lp.warm and (lp.warm[p.key] or 0) > 0 or (lp.att or 0) > 0) then
+                w, why = w + 0.5, why or ("person:" .. pid)
+            end
+        end
+    end
+    local known = places.get(self.campaign)[id]
+    if known and (known.visits or 0) > 0 then
+        w, why = w + 0.25, why or "again"
+    end
+    if util.contains(sc.spots or {}, id) then
+        w = w + 0.2
+    end
+    return w, why
+end
+
+function M:open_scene(sc)
+    local os = content.open_scenes
+    local camp = self.campaign
+    sc.chosen = true
+    -- Where they could go: the spots you sketched, and every place that's already yours.
+    local options = {}
+    for _, id in ipairs(sc.spots or {}) do
+        if content.components[id] then
+            table.insert(options, id)
+        end
+    end
+    local first = content.components[options[1] or "tavern"] or content.components.tavern
+    -- Where they are: town if any spot you sketched is in town, the wilds if any is out there.
+    local area = {}
+    for _, id in ipairs(options) do
+        local st = content.components[id].setting or {}
+        area.town = area.town or util.contains(st, "town")
+        area.wild = area.wild or util.contains(st, "wild")
+    end
+    if not area.town and not area.wild then
+        area.town = true
+    end
+    local in_town = area.town
+    local function nearby(card)
+        local st = card.setting or {}
+        return (area.town and util.contains(st, "town")) or (area.wild and util.contains(st, "wild"))
+    end
+    for _, pl in ipairs(places.list(camp)) do
+        -- Your places nearby, always on the map.
+        if nearby(pl.card) and not util.contains(options, pl.id) and not self:muted(pl.card) then
+            table.insert(options, pl.id)
+        end
+    end
+    local hub = in_town and "Millbrook" or "the hills around Millbrook"
+    self:say(self:fresh(os.arrive, "open_arrive"), "opening", { hub = hub, Hub = util.capitalize(hub) })
+    -- The pitches.
+    local pitches, by_spot = {}, {}
+    for _, p in ipairs(self.players) do
+        local best, bw, bwhy
+        for _, id in ipairs(options) do
+            local w, why = self:pitch_weight(p, id, sc)
+            w = w + self.rng:next() * 0.6
+            if not bw or w > bw then
+                best, bw, bwhy = id, w, why
+            end
+        end
+        -- A wild idea nobody prepped, now and then, from the type who'd have it.
+        local wild
+        for _, wd in ipairs(os.wild) do
+            if (p.primary == wd.archetype or p.secondary == wd.archetype) and content.components[wd.place]
+                and nearby(content.components[wd.place]) then
+                wild = wd
+            end
+        end
+        local say
+        if wild and (not bw or self.rng:chance(0.25)) and wild.place ~= best and not util.contains(options, wild.place) then
+            best, bwhy, say = wild.place, "wild", wild.say
+        end
+        if best and by_spot[best] then
+            -- Someone already said it: they back it instead.
+            table.insert(by_spot[best].backers, p)
+            local c = content.components[best]
+            local v = { place = soft_lower(c.short or c.name), Place = util.capitalize(soft_lower(c.short or c.name)) }
+            self:emit({ kind = "say", who = p.key, text = util.fill(self:fresh(os.back, "open_back"), v), ic = false })
+        elseif best then
+            local c = content.components[best]
+            local v = { place = soft_lower(c.short or c.name), Place = util.capitalize(soft_lower(c.short or c.name)),
+                        char = p.char, Char = p.char }
+            if not say then
+                if bwhy == "thread" then
+                    say = self:fresh(os.thread, "open_thread")
+                elseif bwhy and string.sub(bwhy, 1, 7) == "person:" then
+                    local pid = string.sub(bwhy, 8)
+                    v.person = soft_lower(ledger.about(pid).name)
+                    v.Person = util.capitalize(v.person)
+                    say = self:fresh(os.person, "open_person")
+                elseif bwhy == "again" then
+                    say = self:fresh(os.again, "open_again")
+                else
+                    local t = (c.fits or { "social" })[1]
+                    say = self:fresh(os.pitch[t] or os.pitch.social, "open_pitch_" .. t)
+                end
+            end
+            local pitch = { who = p, id = best, why = bwhy, backers = { p } }
+            table.insert(pitches, pitch)
+            self:emit({ kind = "say", who = p.key, text = util.fill(say, v), ic = false })
+            by_spot[best] = by_spot[best] or pitch
+        end
+    end
+    -- For the report and the sims: who pitched what, and why.
+    sc.pitches = {}
+    for _, pt in ipairs(pitches) do
+        table.insert(sc.pitches, { who = pt.who.key, id = pt.id, why = pt.why, backers = #pt.backers })
+    end
+    -- Who backs what: whoever pitched it, and whoever seconded it.
+    local ranked = {}
+    for id, pitch in pairs(by_spot) do
+        table.insert(ranked, { id = id, who = pitch.backers, pitch = pitch })
+    end
+    table.sort(ranked, function(a, b)
+        if #a.who ~= #b.who then
+            return #a.who > #b.who
+        end
+        return a.id < b.id
+    end)
+    local top, second = ranked[1], ranked[2]
+    if not top then
+        -- Nobody had an idea: the first spot it is.
+        sc.comps.location = first
+        self:finish_open(sc, first.id, nil)
+        return
+    end
+    -- The DM's hook waits at the first spot you sketched.
+    local hook_id = sc.spots and sc.spots[1]
+    local has_hook = false
+    for _, k in ipairs(HOOK_KINDS) do
+        has_hook = has_hook or sc.comps[k] ~= nil
+    end
+    local function name_of(id)
+        local c = content.components[id]
+        return soft_lower(c.short or c.name)
+    end
+    local function names(list)
+        local n = {}
+        for _, p in ipairs(list) do
+            table.insert(n, p.name)
+        end
+        return table.concat(n, ", ")
+    end
+    local L, G = os.labels, os.logs
+    local card = { id = "open_choice", type = "agency", title = "Where to?", options = {},
+                   text = "The table has ideas. You can go with them, or not." }
+    local function opt(mode, id, extra)
+        local v = { place = name_of(id), Place = util.capitalize(name_of(id)), who = names((extra and extra.who) or top.who),
+                    name = extra and extra.name or "", other_place = extra and extra.other and name_of(extra.other) or "",
+                    hook = hook_id and name_of(hook_id) or "" }
+        table.insert(card.options, { label = util.fill(L[mode], v), log = util.fill(G[mode], v), mode = mode, spot = id,
+                                     other = extra and extra.other, effects = {} })
+    end
+    opt("follow", top.id, { who = top.who })
+    if has_hook and hook_id and top.id ~= hook_id then
+        opt("quantum", top.id, { who = top.who })
+    end
+    if second then
+        opt("other", second.id, { name = second.pitch.who.name })
+        if #self.players >= 3 then
+            opt("split", top.id, { other = second.id })
+        end
+    end
+    if has_hook and hook_id and top.id ~= hook_id then
+        opt("steer", hook_id)
+    end
+    while #card.options > 4 do
+        table.remove(card.options, #card.options - 1)
+    end
+    self.actor = top.pitch.who
+    local o = self:decision(card)
+    local chosen = (o and o.spot) or top.id
+    -- What the table makes of it.
+    local winners = {}
+    if o and o.mode == "steer" then
+        for _, r in ipairs(ranked) do
+            for _, p in ipairs(r.who) do
+                score.add(p, "trust", -3)
+                score.add(p, "fun", -2)
+            end
+        end
+        self:react((function()
+            local poses = {}
+            for _, p in ipairs(self.players) do
+                poses[p.key] = "arms"
+            end
+            return poses
+        end)())
+    else
+        local r = (o and o.mode == "other") and second or top
+        winners = r.who
+        for _, p in ipairs(r.who) do
+            score.add(p, "fun", 5)
+            score.add(p, "spotlight", 4)
+            score.add(p, "investment", 2)
+        end
+        if r.pitch and r.pitch.who then
+            score.add(r.pitch.who, "fun", 2)
+            self:react({ [r.pitch.who.key] = "cheer" })
+            self:highlight(5, r.pitch.who.char .. "'s idea takes the party to " .. name_of(chosen), { r.pitch.who })
+        end
+        if o and o.mode == "quantum" then
+            for _, p in ipairs(self.players) do
+                score.add(p, "suspicion", 3 * (p.perception or 0.5))
+            end
+        end
+        if o and o.mode == "split" and second then
+            for _, p in ipairs(second.who) do
+                score.add(p, "spotlight", 4)
+                score.add(p, "fun", 3)
+            end
+            local v = { place = name_of(second.id), who = names(#second.who > 0 and second.who or { second.pitch.who }) }
+            self:say(self:fresh(os.meanwhile, "open_meanwhile"), "narration", v)
+            places.visit(camp, second.id)
+        end
+    end
+    self:finish_open(sc, chosen, o and o.mode, hook_id)
+end
+
+-- Set the scene up at the chosen place: the hook stays only where it was prepped (or where you
+-- moved it); anything missing gets improvised as usual.
+function M:finish_open(sc, chosen, mode, hook_id)
+    local c = content.components[chosen]
+    sc.comps.location = c
+    sc.chosen_spot = chosen
+    local keep_hook = (chosen == hook_id) or mode == "quantum" or mode == "steer"
+    if not keep_hook then
+        sc.hook_skipped = {}
+        for _, k in ipairs(HOOK_KINDS) do
+            if sc.comps[k] then
+                table.insert(sc.hook_skipped, sc.comps[k].id)
+                self.on_board[sc.comps[k].id] = nil
+                sc.comps[k] = nil
+            end
+        end
+    end
+    local goal = sc.comps.goal
+    sc.type = (goal and goal.fits and goal.fits[1]) or (c.fits and c.fits[1]) or "social"
+    if not content.scenes[sc.type] then
+        sc.type = "social"
+    end
+    sc.missing = {}
+    for _, kind in ipairs(prep_mod.IMPROV_ORDER) do
+        if not sc.comps[kind] then
+            table.insert(sc.missing, kind)
+        end
+    end
+    local sketched = util.contains(sc.spots or {}, chosen) or places.is_known(self.campaign, chosen)
+    sc.quality = prep_mod.quality(sc.type, sc.comps, self.prep.inspired) - (sketched and 0 or 0.05)
+    sc.difficulty = prep_mod.difficulty(sc.comps)
+    sc.encounter = keep_hook and sc.encounter or nil
+    self.on_board[chosen] = true
+end
+
 -- Who leads the way takes turns over the campaign (A4): among those decent at it, whoever has
 -- led least lately goes first, unless it's someone's own story.
 function M:scout_roller(sc)
@@ -2925,6 +3209,9 @@ end
 function M:play_scene(sc)
     self.scene = sc
     self.actor, self.other = nil, nil
+    if sc.open and not sc.chosen then
+        self:open_scene(sc)
+    end
     -- Nobody wrote down where this happens: the DM makes it up before anyone asks. That's
     -- the scene's one improvised slot; anything else left empty just plays thinner.
     local improvised_first = false

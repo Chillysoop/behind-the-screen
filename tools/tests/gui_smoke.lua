@@ -557,6 +557,38 @@ check_tip_absorbs(" (week 2 prep)")
             local n = app.campaign.prep.talk_notes and app.campaign.prep.talk_notes[talker.key]
             if not (n and n.mood and n.want) then problem("the one-on-one didn't note a mood and a want") end
         end
+        -- An open scene (A15): the players choose. Sketch spots from Your places and suggestions.
+        do
+            local pr = app.campaign.prep
+            click_key("guide_ok")
+            -- Room for a couple of sketches.
+            for i, sc in ipairs(pr.scenes) do
+                for kind in pairs(sc.slots) do
+                    if pr:left() < 2 then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+            if not click_key("type_3") then problem("no type button on scene 3") end
+            click_key("guide_ok")
+            if not click_key("open_scene") then problem("no Open scene button in the type picker") end
+            if not pr.scenes[3].open then problem("Open scene didn't open scene 3") end
+            dump("29_open_scene")
+            for _, tab in ipairs({ "places", "suggested", "hand" }) do
+                if click_key("loc_tab_" .. tab) then
+                    for _, b in ipairs(buttons()) do
+                        if b.key and string.sub(b.key, 1, 5) == "hand_" and b.key ~= "hand_close" and b.enabled ~= false and #(pr.scenes[3].spots or {}) < 2 then
+                            click(b)
+                        end
+                    end
+                end
+            end
+            dump("29_open_scene_spots")
+            if #(pr.scenes[3].spots or {}) == 0 then problem("couldn't sketch any spots on the open scene") end
+            app.sel = nil
+            app.refresh()
+        end
         -- The encounter builder on a combat scene.
         local c = app.campaign
         app.sel = nil

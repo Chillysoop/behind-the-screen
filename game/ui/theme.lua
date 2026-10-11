@@ -59,6 +59,7 @@ return {
         pacing = c("#9a7432"),
         table = c("#3f7f7a"),
         curveball = c("#8f4f6a"),
+        agency = c("#2f6f5a"),
     },
     log = {
         narration = c("#e9dcc3"),

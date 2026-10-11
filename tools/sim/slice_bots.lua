@@ -129,7 +129,7 @@ B.DMS = {
     careful = {
         label = "Careful DM",
         about = "Careful Session Zero, plays the story cards, plants a seed and pays it off, tends the table, levels when offered.",
-        s0 = CAREFUL_S0, story = true, seeds = true, tend = true, level = true, open_rolls = true,
+        s0 = CAREFUL_S0, story = true, seeds = true, tend = true, level = true, open_rolls = true, open = 0.35,
     },
     plain = {
         label = "Plans for fun only",
@@ -260,7 +260,37 @@ function B.place_pins(c, prep)
 end
 
 -- One week of prep the way this DM does it.
+-- An open scene now and then (A15): scene 2 becomes "what do you do?", with a few spots: places
+-- of your own first (free), then suggestions, then the hand, while there's time.
+function B.open_scene(c, prep, rng)
+    local i = math.min(2, #prep.scenes)
+    prep:set_open(i, true)
+    local places = require "game.model.places"
+    local tries = {}
+    for _, pl in ipairs(places.list(c)) do
+        table.insert(tries, pl.id)
+    end
+    for _, sg in ipairs(prep:spot_suggestions(i)) do
+        table.insert(tries, sg.id)
+    end
+    for _, card in ipairs(prep.hand.location or {}) do
+        table.insert(tries, card.id)
+    end
+    for _, id in ipairs(tries) do
+        if #prep.scenes[i].spots >= 3 then
+            break
+        end
+        prep:add_spot(i, id)
+    end
+    if #prep.scenes[i].spots == 0 then
+        prep:set_open(i, false)
+    end
+end
+
 function B.prep(dm, c, prep, rng)
+    if dm.open and c.week >= 2 and rng:chance(dm.open) then
+        B.open_scene(c, prep, rng)
+    end
     B.plan_week(dm, c, prep, rng)
     if dm.tend then
         B.tend_table(c, prep)

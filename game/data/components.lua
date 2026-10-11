@@ -90,6 +90,15 @@ return {
       fits = { "social", "combat", "mystery" }, tags = { "talk", "danger" },
       line = "Velvet curtains, sharp smiles, and Pip's name in a very large ledger.",
       again = "The Velvet Hand's back room. Madame Sable has had a chair brought for Pip. That's worse." },
+    -- Town spots for open scenes (A15): somewhere for a party with ideas.
+    { id = "counting_house", kind = "location", short = "the counting house", setting = { "town", "indoor", "shop" }, name = "The counting house", cost = 1,
+      fits = { "mystery", "set_piece", "social" }, tags = { "loot", "danger" },
+      line = "Brass scales, a clerk who counts everything twice, and a vault door the size of a cart.",
+      again = "The counting house. The clerk counts the party twice now, just to be safe." },
+    { id = "fighting_pit", kind = "location", short = "the pit", setting = { "town", "indoor", "crowd" }, name = "The fighting pit behind the tannery", cost = 1,
+      fits = { "combat", "social", "downtime" }, tags = { "action", "funny" },
+      line = "A sawdust ring behind the tannery, a chalkboard of odds, and a crowd that cheers for anyone bleeding.",
+      again = "The pit behind the tannery. The chalkboard has their names on it now." },
     -- Opened by other cards:
     { id = "ilsa_room", kind = "location", short = "Ilsa's room", deck = "follow", setting = { "town", "indoor" }, name = "Ilsa's room above the scriptorium", cost = 1, thread = "mara", step = 3,
       fits = { "mystery", "exploration", "social" }, tags = { "heart", "lore" },

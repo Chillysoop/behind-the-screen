@@ -9,6 +9,10 @@ local util = require "game.model.util"
 local seeds = require "game.model.seeds"
 local convo = require "game.model.convo"
 
+local function places_mod()
+    return require "game.model.places"
+end
+
 local M = {}
 M.__index = M
 
@@ -49,6 +53,14 @@ function M.new(campaign)
     return self
 end
 
+-- What a card costs to prep this week: a place you already know is free (A15: Your places).
+function M:cost_of(c)
+    if c.kind == "location" and places_mod().is_known(self.campaign, c.id) then
+        return 0
+    end
+    return c.cost
+end
+
 function M:spent()
     local total = 0
     local places = {}
@@ -56,10 +68,18 @@ function M:spent()
         for kind, c in pairs(s.slots) do
             -- A place you've prepped once can host more than one scene (A6).
             if kind ~= "location" or not places[c.id] then
-                total = total + c.cost
+                total = total + self:cost_of(c)
             end
             if kind == "location" then
                 places[c.id] = true
+            end
+        end
+        -- An open scene's spots (A15): a quick sketch each, free if it's already yours.
+        for _, id in ipairs(s.spots or {}) do
+            local c = content.components[id]
+            if c and not places[id] then
+                places[id] = true
+                total = total + (self:cost_of(c) > 0 and content.open_scenes.SPOT_COST or 0)
             end
         end
     end
@@ -93,13 +113,13 @@ function M:can_place(i, id)
     local refund = 0
     local cur = self.scenes[i].slots[c.kind]
     if cur then
-        refund = refund + cur.cost
+        refund = refund + self:cost_of(cur)
     end
     local at = self:placed_at(id)
     if at then
-        refund = refund + c.cost
+        refund = refund + self:cost_of(c)
     end
-    if c.cost > self:left() + refund then
+    if self:cost_of(c) > self:left() + refund then
         return false, "Not enough prep time left."
     end
     -- It has to make sense where the scene happens: no floor to give way on a forest road.
@@ -135,6 +155,10 @@ end
 -- again moves it; a location can be in several (the riddle and the fight both in the bell
 -- tower, A6), prepped once.
 function M:place(i, id)
+    local pc = content.components[id]
+    if pc and pc.kind == "location" and self.scenes[i].open then
+        return self:add_spot(i, id)   -- an open scene takes places as spots (A15)
+    end
     local ok, why = self:can_place(i, id)
     if not ok then
         return false, why
@@ -154,6 +178,102 @@ end
 
 function M:set_type(i, scene_type)
     self.scenes[i].type = scene_type
+end
+
+-- Open scenes (A15) ------------------------------------------------------------------------------
+-- The DM sets the stage and the players choose: a scene marked open has a few spots (places,
+-- sketched for an hour each, free if they're already yours) instead of one location. Its other
+-- slots are the DM's hook, waiting at the first spot. The night asks the table where they go.
+
+function M:set_open(i, on)
+    local s = self.scenes[i]
+    if on then
+        s.open = true
+        s.spots = s.spots or {}
+        s.type = s.type or "social"
+        local loc = s.slots.location
+        if loc and #s.spots < content.open_scenes.SPOTS and not util.contains(s.spots, loc.id) then
+            table.insert(s.spots, 1, loc.id)
+        end
+        s.slots.location = nil
+    else
+        s.open = nil
+        if s.spots and s.spots[1] and not s.slots.location then
+            s.slots.location = content.components[s.spots[1]]
+        end
+        s.spots = nil
+    end
+end
+
+function M:can_add_spot(i, id)
+    local s = self.scenes[i]
+    local c = content.components[id]
+    if not (s.open and c and c.kind == "location") then
+        return false, "Only places can be spots."
+    end
+    if util.contains(s.spots, id) then
+        return false, "Already a spot."
+    end
+    if #s.spots >= content.open_scenes.SPOTS then
+        return false, util.int(content.open_scenes.SPOTS) .. " spots is plenty. Take one out first."
+    end
+    if self:cost_of(c) > 0 and content.open_scenes.SPOT_COST > self:left() then
+        return false, "Not enough prep time left."
+    end
+    return true
+end
+
+function M:add_spot(i, id)
+    local ok, why = self:can_add_spot(i, id)
+    if not ok then
+        return false, why
+    end
+    table.insert(self.scenes[i].spots, id)
+    return true
+end
+
+function M:remove_spot(i, id)
+    local s = self.scenes[i]
+    for k, v in ipairs(s.spots or {}) do
+        if v == id then
+            table.remove(s.spots, k)
+            return true
+        end
+    end
+    return false
+end
+
+-- Spots the campaign suggests (A15): your places, people the notebook last saw somewhere,
+-- and places from the hand tied to someone's story. { id, why }, best first.
+function M:spot_suggestions(i)
+    local s = self.scenes[i]
+    local out, seen = {}, {}
+    local function add(id, why)
+        if id and not seen[id] and not util.contains(s.spots or {}, id) and content.components[id]
+            and content.components[id].kind == "location" then
+            seen[id] = true
+            table.insert(out, { id = id, why = why })
+        end
+    end
+    local ledger = require "game.model.ledger"
+    for _, pe in ipairs(ledger.people(self.campaign)) do
+        local pid = pe.id or pe
+        if type(pid) == "string" and ledger.met(self.campaign, pid) then
+            local last = ledger.history(self.campaign, pid)[1]
+            if last and last.at then
+                add(last.at, ledger.about(pid).name .. " was last seen here")
+            end
+        end
+    end
+    for _, c in ipairs(self.hand.location or {}) do
+        if c.thread then
+            add(c.id, self.campaign:player(c.thread).char .. "'s past")
+        end
+    end
+    for _, pl in ipairs(places_mod().list(self.campaign)) do
+        add(pl.id, "One of your places (free)")
+    end
+    return out
 end
 
 -- The encounter builder (real-session pass) ----------------------------------------------

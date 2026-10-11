@@ -11,6 +11,7 @@ local util = require "game.model.util"
 local social = require "game.model.social"
 local seeds_mod = require "game.model.seeds"
 local one_on_one = require "game.model.one_on_one"
+local places_mod = require "game.model.places"
 local function notes_view_mod()
     return require "game.ui.notes_view"
 end
@@ -308,11 +309,15 @@ local function scene_card(app, prep, i)
     end
     local tcolor = s.type and theme.scene[s.type] or kit.rgba("#8a3a30")
     local fighty = s.type == "combat" or s.type == "set_piece"
-    kit.button(x + 10, y + 32, fighty and CARD_W - 112 or CARD_W - 20, 40, s.type and content.scenes[s.type].name or "Choose a type",
+    if s.open then
+        tcolor, fighty = theme.decision.agency, false
+    end
+    kit.button(x + 10, y + 32, fighty and CARD_W - 112 or CARD_W - 20, 40,
+        s.open and "Open: they choose" or (s.type and content.scenes[s.type].name or "Choose a type"),
         function()
             app.sel = { scene = i, kind = "type" }
             app.refresh()
-        end, { color = tcolor, hover = theme.button_hover, font = fighty and "ui18b" or "ui22b" })
+        end, { color = tcolor, hover = theme.button_hover, font = (fighty or s.open) and "ui18b" or "ui22b", key = "type_" .. util.int(i) })
     if fighty then
         -- The encounter builder: the fight this scene brings, built around the party.
         local enc = prep:encounter(i)
@@ -336,6 +341,19 @@ local function scene_card(app, prep, i)
             app.refresh()
         end, { color = theme.paper_dim, hover = kit.rgba("#f6edd6") })
         local label = string.upper(content.kind_names[kind])
+        if s.open and kind == "location" then
+            -- An open scene's spots instead of one place (A15).
+            label = "SPOTS  (" .. util.int(#s.spots) .. " OF " .. util.int(content.open_scenes.SPOTS) .. ")"
+            local names = {}
+            for _, id in ipairs(s.spots) do
+                local sc = content.components[id]
+                table.insert(names, sc and (sc.short or sc.name) or id)
+            end
+            kit.text(x + 20, sy + 6, label, "ui14", kit.rgba("#2f6f5a"))
+            kit.text(x + 20, sy + 25, #names > 0 and util.capitalize(table.concat(names, ", ")) or "Sketch a few places they might go",
+                #names > 0 and "ui18b" or "ui14", #names > 0 and theme.ink or kit.rgba("#9a8a72"), { w = CARD_W - 40, lines = 2 })
+            goto continue
+        end
         if not c and M.new_in_hand(app, prep, kind) > 0 then
             -- New cards of this kind in your hand (A6): a dot until you've opened it.
             kit.dot(x + CARD_W - 28, sy + 13, 11, theme.green)
@@ -352,6 +370,7 @@ local function scene_card(app, prep, i)
         else
             kit.text(x + 20, sy + 30, "Empty: improvise it at the table", "ui14", kit.rgba("#9a8a72"))
         end
+        ::continue::
     end
 end
 
@@ -467,16 +486,27 @@ local function drawer(app, prep)
     local s = prep.scenes[sel.scene]
     if sel.kind == "type" then
         kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
+        -- Or let the players choose (A15).
+        kit.button(x + w - 330, y + 8, 314, 30, s.open and "Open scene: the players choose (on)" or "Or let the players choose: Open scene",
+            function()
+                prep:set_open(sel.scene, not s.open)
+                app.sel = s.open and { scene = sel.scene, kind = "location" } or { scene = sel.scene, kind = "type" }
+                app.loc_tab = (s.open and #prep:spot_suggestions(sel.scene) > 0) and "suggested" or nil
+                app.refresh()
+            end, { font = "ui14", color = s.open and theme.decision.agency or theme.panel2, key = "open_scene" })
         local cw = 105
         for k, key in ipairs(content.scenes.order) do
             local st = content.scenes[key]
             local cx = x + 14 + (k - 1) * (cw + 8)
             local cy = y + 42
-            local chosen = s.type == key
+            local chosen = s.type == key and not s.open
             if chosen then
                 kit.box(cx - 3, cy - 3, cw + 6, 156, theme.select, { radius = 9 })
             end
             kit.button(cx, cy, cw, 150, "", function()
+                if s.open then
+                    prep:set_open(sel.scene, false)
+                end
                 prep:set_type(sel.scene, key)
                 -- Move on to the first empty slot.
                 app.sel = { scene = sel.scene, kind = "location" }
@@ -577,7 +607,29 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
     prep.seen_kinds = prep.seen_kinds or {}
     prep.seen_kinds[kind] = true
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
-    kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": choose a " .. content.kind_names[kind], "ui18b", theme.text)
+    local open = s.open and kind == "location"
+    local title = open and ("Scene " .. util.int(sel.scene) .. ": spots (" .. util.int(#s.spots) .. " of "
+        .. util.int(content.open_scenes.SPOTS) .. ")") or ("Scene " .. util.int(sel.scene) .. ": choose a " .. content.kind_names[kind])
+    kit.text(x + 16, y + 12, title, "ui18b", theme.text)
+    -- Places: the hand, Your places (free, no card needed), and for open scenes, suggestions (A15).
+    local tab = "hand"
+    if kind == "location" then
+        tab = app.loc_tab or "hand"
+        local known = places_mod.list(app.campaign)
+        local tabs = { { "hand", "Hand" }, { "places", "Your places (" .. util.int(#known) .. ")" } }
+        if open then
+            table.insert(tabs, { "suggested", "Suggested (" .. util.int(#prep:spot_suggestions(sel.scene)) .. ")" })
+        end
+        local tx = x + 16 + kit.width(title, "ui18b") + 16
+        for _, t in ipairs(tabs) do
+            local tw = kit.width(t[2], "ui14") + 20
+            kit.button(tx, y + 8, tw, 28, t[2], function()
+                app.loc_tab = t[1]
+                app.refresh()
+            end, { font = "ui14", color = tab == t[1] and theme.go or theme.panel2, key = "loc_tab_" .. t[1] })
+            tx = tx + tw + 6
+        end
+    end
     if current then
         kit.button(x + w - 236, y + 8, 104, 28, "Remove", function()
             prep:clear(sel.scene, kind)
@@ -589,9 +641,24 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
         app.refresh()
     end, { font = "ui14", key = "hand_close" })
     local hand = prep.hand[kind]
+    local reasons = {}
+    if tab == "places" then
+        hand = {}
+        for _, pl in ipairs(places_mod.list(app.campaign)) do
+            table.insert(hand, pl.card)
+        end
+    elseif tab == "suggested" then
+        hand = {}
+        for _, sg in ipairs(prep:spot_suggestions(sel.scene)) do
+            table.insert(hand, content.components[sg.id])
+            reasons[sg.id] = sg.why
+        end
+    end
     local n = math.min(#hand, prep_mod.PAGE or 10)
     if #hand == 0 then
-        kit.text(x + 16, y + 52, "No cards of this kind this week. Leave it empty and improvise it at the table.", "ui18",
+        kit.text(x + 16, y + 52, tab == "places" and "No places of your own yet. Any place you prep becomes yours, free to use again."
+            or (tab == "suggested" and "Nothing from your notes yet. Sketch spots from your hand."
+            or "No cards of this kind this week. Leave it empty and improvise it at the table."), "ui18",
             theme.faint, { w = w - 32 })
     end
     for k = 1, n do
@@ -613,6 +680,13 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
         local shared = kind == "location" and at and at ~= sel.scene
         local elsewhere = at and at ~= sel.scene and not shared
         local ok, why = prep:can_place(sel.scene, c.id)
+        local spot = open and util.contains(s.spots, c.id)
+        if open then
+            ok, why = prep:can_add_spot(sel.scene, c.id)
+            ok = ok or spot
+            elsewhere = false
+            here = spot
+        end
         if here then
             kit.box(cx - 3, cy - 3, HCW + 6, HCH + 6, theme.select, { radius = 9 })
         end
@@ -631,6 +705,19 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
             app.refresh()
         end
         kit.button(cx, cy, HCW, HCH, "", function()
+            if open then
+                -- An open scene's spots: click to sketch it, click again to take it out.
+                if spot then
+                    prep:remove_spot(sel.scene, c.id)
+                else
+                    local added, why2 = prep:add_spot(sel.scene, c.id)
+                    if not added then
+                        app.toast = why2
+                    end
+                end
+                app.refresh()
+                return
+            end
             if here then
                 return
             end
@@ -669,9 +756,20 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
         kit.text(cx + 10, cy + 6, c.name, nfont, ink, { w = nw })
         local ty = cy + 8 + kit.text_height(c.name, nfont, nw)
         -- Cost, and why it's in the hand.
-        local cost = util.int(c.cost) .. "h"
+        local hrs = prep:cost_of(c)
+        if open then
+            hrs = hrs > 0 and content.open_scenes.SPOT_COST or 0
+        end
+        local cost = util.int(hrs) .. "h"
         kit.text(cx + 10, ty, cost, "ui14", theme.ink_dim)
         local btext, bcol = badge(app, prep, c, at, sel)
+        if reasons[c.id] then
+            btext, bcol = reasons[c.id], kit.rgba("#2f6f5a")
+        elseif open and spot then
+            btext, bcol = (s.spots[1] == c.id) and "Spot 1: your hook waits here" or "A spot", kit.rgba("#2f6f5a")
+        elseif kind == "location" and places_mod.is_known(app.campaign, c.id) and not (at and at ~= sel.scene) then
+            btext, bcol = "Your place: free", kit.rgba("#2f6f5a")
+        end
         local flags = social.content_flags(app.campaign, { c })
         local flag = flags[1]
         if flag and app.campaign:player(flag.key).present then
