@@ -437,7 +437,7 @@ with any Lua 5.1+ or LuaJIT interpreter:
 
     lua tools/tests/sim_weeks.lua      # simulates 720 weeks with three DM styles and checks the numbers
     lua tools/tests/gui_smoke.lua      # clicks through the whole slice of the real UI against a mock GUI, then continues a save
-    lua tools/tests/rules_cases.lua    # 59 hand-checked SRD 5.2.1 combat cases (M3 and since)
+    lua tools/tests/rules_cases.lua    # 60 hand-checked SRD 5.2.1 combat cases (M3 and since)
     lua tools/sim/nights.lua           # 288 game nights with six DM styles against the M4 gate (about 20 seconds)
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/social_check.lua   # M6 data hangs together; Session Zero, conversations, seeds, level-ups work
@@ -448,7 +448,10 @@ with any Lua 5.1+ or LuaJIT interpreter:
     lua tools/tests/m8_check.lua       # M8's gates: events, fun failure, death, moments, jokes, Grudges, takeovers, maps
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua kettle prints one)
     lua tools/tests/board_story_check.lua  # pieces drop in on the words that name them; people step in when named
-    lua tools/tests/table_check.lua    # dice sets and gifts, first-session intros, the session-start recap, the clock
+    lua tools/tests/table_check.lua    # dice sets and gifts, first-session intros, the session-start recap, the clock,
+                                       # table awards, gifts from the table (Goodwill)
+    lua tools/tests/story_check.lua    # the story playtest: foes named, places and favours consistent, cliffhangers end
+                                       # the night; storylines (loose ends wear down, come back), handouts
     python3 tools/tests/require_check.py  # no require cycles (the engine's builder refuses them)
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)
@@ -516,7 +519,8 @@ generator, not in the editor. The sounds have their own generator: `python3 tool
 `assets/audio/` and `main/audio/` (except `audio.script`).
 The board's prop kit is `tools/gen_props.py` (one mesh and one factory per piece, and `game/data/props.lua`);
 the boards themselves are data in `game/data/boards.lua`, and `python3 tools/preview_boards.py out_dir [board]`
-draws them without the engine. The slice's people are painted by `tools/gen_sprites_npcs.py`.
+draws them without the engine. The players' gifts on the DM's side of the table and the handouts at their seats
+are `tools/gen_keepsakes.py` (`main/keepsakes/`, all but `keepsakes.script`). The slice's people are painted by `tools/gen_sprites_npcs.py`.
 After changing sprites, `python3 tools/gen_portraits.py` recuts the faces and minis the screens use
 (`assets/portraits/`), and `python3 tools/gen_mark.py` redraws the square used for spell areas on the mat.
 

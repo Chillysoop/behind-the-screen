@@ -9,6 +9,15 @@ local styles = require "dm_styles"
 
 local B = {}
 
+local function util_contains(list, x)
+    for _, v in ipairs(list or {}) do
+        if v == x then
+            return true
+        end
+    end
+    return false
+end
+
 local CAREFUL_S0 = { tone = "mixed", asks = { mara = "agree", sam = "agree", dev = "agree", jess = "push" },
                      rules = { xcard = "on", dice = "big_open", rulings = "quick" } }
 local CARELESS_S0 = { tone = "silly", asks = { mara = "push", sam = "push", dev = "push", jess = "agree" },
@@ -264,6 +273,48 @@ function B.place_pins(c, prep)
     end
 end
 
+-- Keep the storylines alive (game/model/storylines.lua): a card from every storyline that's
+-- about to be dropped (or already was), where it fits; then handouts for the story's cards.
+function B.tend_storylines(c, prep)
+    local storylines = require "game.model.storylines"
+    local f = storylines.forecast(c, prep)
+    local want = {}
+    for _, list in ipairs({ f.loose, f.cold }) do
+        for _, d in ipairs(list) do
+            table.insert(want, d.id)
+        end
+    end
+    for _, sid in ipairs(want) do
+        local done = false
+        for _, kind in ipairs(content.kinds) do
+            for _, card in ipairs(prep.hand[kind] or {}) do
+                if not done and not prep:placed_at(card.id) and util_contains(storylines.of_card(c, card), sid) then
+                    for i = 1, #prep.scenes do
+                        local sc = prep.scenes[i]
+                        if not done and not sc.slots[kind] and not sc.open and prep:can_place(i, card.id) then
+                            prep:place(i, card.id)
+                            done = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function B.make_handouts(c, prep)
+    local handouts = require "game.model.handouts"
+    for i = 1, #prep.scenes do
+        for _, kind in ipairs(content.kinds) do
+            local card = prep.scenes[i].slots[kind]
+            if card and handouts.worth_it(c, card) and handouts.count(prep) < handouts.data.PER_WEEK
+                and prep:left() >= handouts.data.COST + 1 then
+                handouts.toggle(prep, card.id)
+            end
+        end
+    end
+end
+
 -- One week of prep the way this DM does it.
 -- An open scene now and then (A15): scene 2 becomes "what do you do?", with a few spots: places
 -- of your own first (free), then suggestions, then the hand, while there's time.
@@ -305,6 +356,8 @@ function B.prep(dm, c, prep, rng)
     end
     if dm.story then
         B.play_story(c, prep)    -- story cards first, while there's prep time
+        B.tend_storylines(c, prep)
+        B.make_handouts(c, prep)
     end
     if dm.random then
         styles.random.prep(prep, rng, c)

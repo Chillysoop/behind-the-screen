@@ -23,6 +23,7 @@ return {
     orange = c("#e08a4a"),
     purple = c("#a48ad6"),
     green = c("#7fb069"),
+    heart = c("#e07a8a"),              -- Goodwill: a player's heart filling toward a gift
     select = c("#e8b04a"),
     button = c("#4a3a2e"),
     button_hover = c("#6a5240"),

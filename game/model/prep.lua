@@ -99,6 +99,8 @@ function M:spent()
     for _ in pairs(self.talked) do
         total = total + M.TALK_COST
     end
+    -- Handouts made for cards on the board (game/model/handouts.lua).
+    total = total + require("game.model.handouts").cost(self)
     return total + self.extra
 end
 
@@ -138,6 +140,10 @@ function M:can_place(i, id)
     if self:cost_of(c) > self:left() + refund then
         return false, "Not enough prep time left."
     end
+    -- A cliffhanger ends the night (the story playtest): it can only close the last scene.
+    if c.cliffhanger and i ~= #self.scenes then
+        return false, "A cliffhanger ends the night. It goes in the last scene."
+    end
     -- It has to make sense where the scene happens: no floor to give way on a forest road.
     local others = {}
     for kind, other in pairs(self.scenes[i].slots) do
@@ -150,6 +156,16 @@ function M:can_place(i, id)
         local loc = c.kind == "location" and c or clash
         local odd = c.kind == "location" and clash or c
         return false, "\"" .. odd.name .. "\" can't happen at " .. util.lower_first(loc.name) .. ".", clash
+    end
+    -- A card tied to one place happens there (the abbot's candles are in the chapel, not the
+    -- fighting pit: the story playtest).
+    local loc = c.kind == "location" and c or others.location
+    for _, card in pairs(c.kind == "location" and others or { c }) do
+        if loc and card.kind ~= "location" and not content.belongs_at(card, loc) then
+            local home = content.tied_place(card)
+            return false, "\"" .. card.name .. "\" happens at " .. (home and util.lower_first(home.name) or "another place")
+                .. ", not " .. util.lower_first(loc.name) .. ".", c.kind == "location" and card or loc
+        end
     end
     return true
 end

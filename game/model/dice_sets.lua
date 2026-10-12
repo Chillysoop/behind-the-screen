@@ -118,6 +118,7 @@ function M.gift(campaign, key, rng)
         score.add(p, "trust", data.GIFT.trust)
         score.add(p, "investment", data.GIFT.investment)
         p.gift_glow = campaign.week          -- they bring the good mood to next session
+        require("game.model.keepsakes").dice_given(campaign, key)   -- and it fills their heart
     end
     d.last_gift = { key = key, set = id, week = campaign.week }
     return id, data.GIFT_LINES[rng:int(1, #data.GIFT_LINES)]

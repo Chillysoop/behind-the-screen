@@ -119,8 +119,8 @@ end
 
 -- The fan for a missed big roll: three cards fitted to the scene, then the flat fail, then (Trust
 -- 75+) the player's own idea. Each: { kind, label, text, key, tone }.
-function M.fan(night, p, skill, sc, tier)
-    local act = M.action(skill)
+function M.fan(night, p, skill, sc, tier, act)
+    act = act or M.action(skill)
     local cast = sc and sc.comps and night:shown_cast(sc)
     local solemn = M.solemn(night, sc)
     local w = weights(night, p, sc, tier, solemn)

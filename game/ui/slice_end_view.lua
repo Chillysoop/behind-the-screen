@@ -75,30 +75,41 @@ local function player_column(app, p, i)
     local sub = c.subclasses and c.subclasses[p.class]
     local level = "Level " .. util.int(c.level) .. (sub and (" " .. subclasses.list[sub].name) or "")
     kit.text(x + 16, y + 44, level, "ui18b", theme.gold)
+    -- The table's award for them (M9's awards, in the slice): a rosette, the title, and why.
+    local award = app.awards and app.awards[p.key]
+    if award then
+        local rx, ry = x + 27, y + 82
+        kit.box(rx - 8, ry + 4, 6, 16, theme.red, { radius = 2 })
+        kit.box(rx + 2, ry + 4, 6, 16, theme.red, { radius = 2 })
+        kit.dot(rx, ry, 24, theme.gold)
+        kit.dot(rx, ry, 12, kit.rgba("#b8862e"))
+        kit.text(x + 48, y + 70, award.title, "ui18b", theme.gold, { w = w - 64, lines = 1 })
+        kit.text(x + 48, y + 94, award.reason, "ui14", theme.dim, { w = w - 64, lines = 2 })
+    end
     -- A bar per session: how much fun they had.
-    kit.text(x + 16, y + 76, "EACH SESSION", "ui14", theme.dim)
-    local bw, gap, base = 64, 18, y + 180
+    kit.text(x + 16, y + 136, "EACH SESSION", "ui14", theme.dim)
+    local bw, gap, base, bh = 64, 18, y + 216, 60
     for k, e in ipairs(c.journal) do
         if k > 4 then
             break
         end
         local bx = x + 16 + (k - 1) * (bw + gap)
         local row = e.players[p.key]
-        kit.box(bx, base - 80, bw, 80, kit.rgba("#000000", 0.25), { radius = 4 })
+        kit.box(bx, base - bh, bw, bh, kit.rgba("#000000", 0.25), { radius = 4 })
         if row and row.present and row.fun then
-            local hgt = math.max(4, row.fun / 100 * 80)
+            local hgt = math.max(4, row.fun / 100 * bh)
             kit.box(bx, base - hgt, bw, hgt, theme[TIER_COLOR[row.tier] or "dim"], { radius = 4 })
         else
-            kit.text(bx + bw / 2, base - 44, row and row.on_break and "break" or "away", "ui14", theme.faint,
+            kit.text(bx + bw / 2, base - bh / 2, row and row.on_break and "break" or "away", "ui14", theme.faint,
                 { pivot = gui.PIVOT_CENTER })
         end
-        kit.text(bx + bw / 2, base + 6, "S" .. util.int(k), "ui14", theme.faint, { pivot = gui.PIVOT_N })
+        kit.text(bx + bw / 2, base + 4, "S" .. util.int(k), "ui14", theme.faint, { pivot = gui.PIVOT_N })
     end
     local text, color = M.verdict(p)
-    kit.text(x + 16, y + 216, "SESSION 5?", "ui14", theme.dim)
-    kit.text(x + 16, y + 236, text, "ui22b", color)
+    kit.text(x + 16, y + 246, "SESSION 5?", "ui14", theme.dim)
+    kit.text(x + 16, y + 264, text, "ui22b", color)
     local quote, font = best_quote(app, p.key, w - 64)
-    local qy = y + 276
+    local qy = y + 302
     if quote then
         local qh = math.max(70, 24 + kit.text_height(quote, font, w - 64))
         kit.box(x + 16, qy, w - 32, qh, kit.rgba("#f3df8a"), { radius = 4 })
@@ -115,6 +126,10 @@ end
 local function scrapbook(app)
     local c = app.campaign
     local arc = content.arc
+    -- The table awards: picked once, when the scrapbook first opens.
+    if not app.awards then
+        app.awards = require("game.model.awards").pick(c)
+    end
     kit.text(24, 14, "THE FIRST FOUR THURSDAYS", "title30", theme.gold)
     kit.text(24, 58, arc.name .. ", sessions 1 to " .. util.int(arc.SESSIONS) .. ". Session 5 is next Thursday.", "ui18",
         theme.text)
@@ -177,6 +192,32 @@ local function scrapbook(app)
         story = story + (e.story > 0 and 1 or 0)
     end
     table.insert(lines, util.int(story) .. " of " .. util.int(#c.journal) .. " sessions moved the story along.")
+    -- The storylines (game/model/storylines.lua): what's still running into session 5, what was
+    -- tied off, and the loose ends the table noticed (they can still come back).
+    do
+        local storylines = require "game.model.storylines"
+        local going, loose, tied = {}, {}, {}
+        local function nm(d)
+            return d.kind == "backstory" and (d.short .. "'s story") or util.lower_first(d.short)
+        end
+        local all = storylines.get(c)
+        for _, d in ipairs(storylines.defs(c)) do
+            local st = all[d.id]
+            if st and st.state == "open" then
+                table.insert(st.loose and loose or going, nm(d))
+            elseif st and st.state == "resolved" then
+                table.insert(tied, nm(d))
+            end
+        end
+        if #going > 0 then
+            table.insert(lines, "Into session 5: " .. util.join_names(going) .. ".")
+        end
+        if #tied > 0 then
+            table.insert(lines, "Tied off: " .. util.join_names(tied) .. ".")
+        end
+        table.insert(lines, #loose > 0 and ("Loose ends: " .. util.join_names(loose) .. ". They can still come back.")
+            or "No loose ends. Every thread you opened is still alive.")
+    end
     if #c.levelups > 0 then
         table.insert(lines, "The party reached level " .. util.int(c.level) .. ".")
     else

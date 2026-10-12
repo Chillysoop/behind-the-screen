@@ -227,6 +227,9 @@ function M:emit(ev)
     if self.board_id then
         self:board_hear(ev)
     end
+    if ev.kind == "say" and ev.ic then
+        require("game.model.awards").heard(self, ev)   -- in character, toward the table awards
+    end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
     -- The table clock moves with the session being played, never while a choice waits for you:
@@ -1061,7 +1064,8 @@ function M:improv_pool()
     local pool, seen = {}, {}
     local function add(c)
         if c and not seen[c.id] and not self.improvised[c.id] and not self.on_board[c.id]
-            and (not c.thread or present[c.thread]) and not deck.is_spent(self.campaign, c.id) then
+            and (not c.thread or present[c.thread]) and deck.thread_live(self.campaign, c)
+            and not deck.is_spent(self.campaign, c.id) then
             seen[c.id] = true
             table.insert(pool, c)
         end
@@ -1094,6 +1098,10 @@ function M:improv_cards(kind)
     -- Only what could happen here: a location has to suit what's already on the scene,
     -- anything else has to suit the location.
     local function fits(c)
+        -- A cliffhanger only closes the night's last scene.
+        if c.cliffhanger and sc.index < #self.scenes then
+            return false
+        end
         if c.kind == "location" then
             if content.setting_clash(c, sc.comps) ~= nil then
                 return false
@@ -1315,7 +1323,21 @@ function M:drift()
     self.drift_used = true
     self.actor = self:pick_actor({ "instigator", "explorer", "method_actor" })
     self.other = nil
-    local prompt = util.fill(self.rng:pick(content.improv.drift), self:vars())
+    local loc = self.scene and self.scene.comps.location
+    local fitting = {}
+    for _, d in ipairs(content.improv.drift) do
+        if type(d) == "string" then
+            table.insert(fitting, d)
+        elseif loc then
+            for _, w in ipairs(d.where or {}) do
+                if util.contains(loc.setting or {}, w) then
+                    table.insert(fitting, d[1])
+                    break
+                end
+            end
+        end
+    end
+    local prompt = util.fill(self.rng:pick(fitting), self:vars())
     local actor = self.actor
     local function fit_for(tags)
         local best = 0
@@ -2287,7 +2309,7 @@ function M:big_roll(spec, record)
     -- player's own idea when they trust you enough. Success rulings stay as they were.
     local fan
     if (tier == "near" or tier == "flop") and p then
-        fan = fails_mod.fan(self, p, skill, self.scene, tier)
+        fan = fails_mod.fan(self, p, skill, self.scene, tier, spec.act)
         opts = {}
         for i, c in ipairs(fan) do
             opts[i] = { label = c.label, tone = c.tone, kind = c.kind }
@@ -2403,9 +2425,19 @@ function M:big_roll(spec, record)
         success = ro.success
     end
     local branch = success and spec.success or spec.fail
-    self:say(branch.log, success and "good" or "bad")
-    if ro.fail_line then
-        self:say(ro.fail_line, "twist")
+    -- How the fail card says it went, then what it means (the story playtest: "They've been seen"
+    -- followed by a near-miss line read as two different stories). A plain check's fail line says
+    -- it all on its own.
+    if ro.fail_line and not success then
+        self:say(ro.fail_line, "bad")
+        if not spec.fail_replaces then
+            self:say(branch.log, "bad")
+        end
+    else
+        self:say(branch.log, success and "good" or "bad")
+        if ro.fail_line then
+            self:say(ro.fail_line, "twist")
+        end
     end
     self:apply(branch.effects)
     self:apply(ro.effects)
@@ -2422,7 +2454,7 @@ function M:big_roll(spec, record)
     elseif ro.tone == "twist" then
         self:say(ro.log, "twist")
     end
-    if success and self.actor then
+    if success and self.actor and not spec.quiet then
         self:highlight(6, M.moment_of(util.fill(branch.log, self:vars())), { self.actor })
     end
     local rec = record or (self.decisions[#self.decisions] and self.decisions[#self.decisions].rolls)
@@ -2962,6 +2994,9 @@ function M:pay_off(c)
                 score.add(p, "fun", 10)
                 score.add(p, "spotlight", 12)
                 score.add(p, "investment", 6)
+                -- A moment like this fills their heart (game/model/keepsakes.lua).
+                self.heart_moments = self.heart_moments or {}
+                self.heart_moments[p.key] = (self.heart_moments[p.key] or 0) + 1   -- their theory came true
                 self:react({ [p.key] = "cheer" })
                 self:emit({ kind = "say", who = p.key, text = "I KNEW it. I said this. It's in the group chat. Scroll up.", ic = false })
             end
@@ -3141,6 +3176,9 @@ function M:combat_scene(sc)
         self:scout(sc)
         scouted = true
     end
+    -- Who they're up against, out loud, before anyone tries anything (the story playtest: "Roll
+    -- initiative!" with no name left the table guessing who the enemy was).
+    self:say(self:foe_line(plan, sc), "narration")
     -- Somebody at the table has other ideas (A12): talk it down, or a flashy opening move.
     if self:curveball(sc, 0.2) and sc.skip_fight then
         sc.result = { winner = "party", rounds = 0, pc_downs = 0, talked = true }
@@ -3243,9 +3281,61 @@ function M:combat_scene(sc)
     end
 end
 
+-- The foes a fight puts on the mat, said the way a DM would: "The pack leader, with four wolves
+-- behind them." The first id is the boss (the scene's villain when there is one).
+local NUMBERS = { "a", "two", "three", "four", "five", "six", "seven", "eight" }
+local function plural(name)
+    if string.match(name, "wolf$") then
+        return string.sub(name, 1, -2) .. "ves"
+    end
+    return name .. "s"
+end
+local function a_an(name)
+    return (string.match(name, "^[aeiou]") and "an " or "a ") .. name
+end
+M.FOE_LINES = {
+    "{Boss}, with {rest} behind them.",
+    "Out of hiding comes {boss}, with {rest}.",
+    "It's {boss}, with {rest} at their back.",
+    "{Boss} steps into the open, {rest} close behind.",
+}
+M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty." }
+
+function M:foe_line(plan, sc)
+    local monsters = require "game.rules.data.monsters"
+    local counts, order = {}, {}
+    for i, id in ipairs(plan.ids or {}) do
+        if i > 1 and monsters[id] then
+            if not counts[id] then
+                table.insert(order, id)
+            end
+            counts[id] = (counts[id] or 0) + 1
+        end
+    end
+    local parts = {}
+    if plan.crew and #order > 0 then
+        -- The place's own people (a tavern's drinking pals, not "bandits").
+        local n = #(plan.ids or {}) - 1
+        table.insert(parts, n == 1 and a_an(plan.crew) or ((NUMBERS[n] or tostring(n)) .. " " .. plural(plan.crew)))
+    else
+        for _, id in ipairs(order) do
+            local name = string.lower(monsters[id].name)
+            local n = counts[id]
+            table.insert(parts, n == 1 and a_an(name) or ((NUMBERS[n] or tostring(n)) .. " " .. plural(name)))
+        end
+    end
+    local boss = plan.boss_name or "their leader"
+    sc.foes_said = { boss = boss, rest = util.join_names(parts) }
+    local v = { boss = boss, Boss = util.capitalize(boss), rest = util.join_names(parts) }
+    if #parts == 0 then
+        return util.fill(self:fresh(M.FOE_ALONE, "foe_alone"), v)
+    end
+    return util.fill(self:fresh(M.FOE_LINES, "foe_lines"), v)
+end
+
 -- Before a fight: someone scouts ahead (or tries to talk first). The result sets who's surprised.
 local SCOUT = {
-    rogue = { "{actor_char} creeps ahead to scout.", "{actor_char} slips off the path to see what's waiting.",
+    rogue = { "{actor_char} creeps ahead to scout.", "{actor_char} slips away to see what's waiting.",
               "{actor_char} goes on ahead, quiet as a cat." },
     fighter = { "{actor_char} stands watch at the front.", "{actor_char} takes the lead, shield up.",
                 "{actor_char} plants their feet and watches the dark." },
@@ -3259,7 +3349,11 @@ local SPOTTED = {
                 "A glint of steel in the dark. They're ready first." },
     fail = { "A twig snaps. Every head turns their way.", "Something clatters underfoot. So much for surprise.",
              "Too late: they've been seen." },
+    -- Under a roof (the story playtest: twigs in a tavern).
+    fail_in = { "A floorboard creaks. Every head turns their way.", "Something clatters underfoot. So much for surprise.",
+                "Too late: they've been seen." },
 }
+local INDOORS = { indoor = true, tavern = true, shop = true, under = true }
 
 M.SURRENDER_TALK = {
     "{Boss} drops to their knees and talks fast. It was {lead}. It's always been {lead}.",
@@ -4201,15 +4295,20 @@ function M:scout_roller(sc)
 end
 
 function M:scout(sc)
+    local indoors = false
+    for _, set in ipairs(sc.comps.location and sc.comps.location.setting or {}) do
+        indoors = indoors or INDOORS[set] or false
+    end
     local best = self:scout_roller(sc)
     self.actor = best
     self.other = nil
     self:say(self:fresh(SCOUT[best.class] or SCOUT.rogue, "scout_" .. best.class), "goal")
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "stealth", "perception" },
+                   act = "scout", fail_replaces = true, quiet = true,     -- (spotting them first isn't a recap beat)
                    success = { log = self:fresh(SPOTTED.success, "spot_yes"),
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
-                   fail = { log = self:fresh(SPOTTED.fail, "spot_no"),
+                   fail = { log = self:fresh(indoors and SPOTTED.fail_in or SPOTTED.fail, "spot_no"),
                             effects = { { "all", challenge = 6 }, { "arch:butt_kicker", fun = 2 } } } }
     table.insert(self.decisions, { card = "scout", option = 0, rolls = {} })
     local ok = self:big_roll(spec)
@@ -4511,7 +4610,18 @@ function M:climax(sc)
     local ok = self:big_roll(spec)
     sc.outcome = ok and "win" or "lose"
     sc.goal_said = true
+    self:goal_event(sc)
     self:pay_goal_clue(sc)
+end
+
+-- What the scene's goal came to, for the recap ("In the scramble, the relic is gone").
+function M:goal_event(sc)
+    local goal = sc.comps.goal
+    if goal and goal.win and not self:muted(goal) then
+        local text = sc.outcome == "win" and goal.win or (goal.lose or goal.win)
+        text = util.sentence_case(util.fill(text, self:vars()))     -- as it was said ({Cast}, {deal}...)
+        self:event("goal", { who = "party", text = text, weight = sc.outcome == "win" and 6 or 7 })
+    end
 end
 
 -- The goal's story clue, held back from the scene's first line, lands now: when it pays off,
@@ -4541,6 +4651,7 @@ function M:settle_scene(sc)
     if goal and goal.win and not sc.goal_said and not self:muted(goal) and not self.end_early then
         sc.goal_said = true
         self:say(sc.outcome == "win" and goal.win or (goal.lose or goal.win), sc.outcome == "win" and "good" or "bad")
+        self:goal_event(sc)
     end
     self:pay_goal_clue(sc)
     self:note_outcome(sc)
@@ -4732,29 +4843,27 @@ function M:bridge(sc)
     end
     local lines = content.scene_beats.bridge
     local nxt = self.scenes[sc.index + 1]
+    -- Where they're headed, when the board says (an open scene or an improvised place: nowhere yet).
     local next_place
     local nl = nxt.comps.location
-    if nl and not self:muted(nl) then
+    if nl and not self:muted(nl) and not nxt.open then
         next_place = soft_lower(nl.short or nl.name)
-    elseif nxt.comps.goal and not self:muted(nxt.comps.goal) then
-        next_place = "the next job (" .. soft_lower(nxt.comps.goal.name) .. ")"
-    else
-        next_place = "wherever the trail leads"
     end
     local loc = sc.comps.location
     local here = loc and soft_lower(loc.short or loc.name) or "this place"
-    local got
+    local got, set
     if sc.outcome == "win" then
         local goal, reward = sc.comps.goal, sc.comps.reward
-        if goal and goal.got and not self:muted(goal) then
-            got = goal.got
-        elseif reward and not self:muted(reward) then
-            got = soft_lower(reward.got or reward.name)
+        if reward and not self:muted(reward) then
+            got, set = soft_lower(reward.got or reward.name), "got"
+        elseif goal and goal.got and not self:muted(goal) then
+            got, set = goal.got, "goal"
         end
     end
-    local pool = got and lines.got or (sc.outcome == "win" and lines.won or lines.lost)
-    local text = util.fill(self:fresh(pool, "bridge_" .. (got and "got" or sc.outcome or "lost")),
-        { got = got or "", Got = util.capitalize(got or ""), next = next_place, here = here })
+    set = set or (sc.outcome == "win" and "won" or "lost")
+    local key = next_place and set or (set .. "_here")
+    local text = util.fill(self:fresh(lines[key], "bridge_" .. key),
+        { got = got or "", Got = util.capitalize(got or ""), next = next_place or "", here = here })
     self:say(text, "bridge")
 end
 
@@ -4841,6 +4950,10 @@ function M:play_scene(sc)
         end
     end
     self:story_beat(sc)
+    -- The storylines this scene moves (game/model/storylines.lua): a dropped one coming back,
+    -- two scenes on the same one, or more than the table can follow tonight.
+    require("game.model.storylines").on_scene(self, sc)
+    require("game.model.handouts").on_scene(self, sc)        -- a handout you made lands now
     -- Backstory threads in this scene.
     local announced = {}
     for _, kind in ipairs(content.kinds) do
@@ -4973,7 +5086,14 @@ function M:play_scene(sc)
     -- A cliffhanger is the last thing that happens in its scene.
     if sc.comps.complication and sc.comps.complication.cliffhanger and not self:muted(sc.comps.complication) then
         self:describe(sc.comps.complication, "twist")
-        self.ended_on_cliff = sc.index == #self.scenes
+        -- And the last thing tonight (the story playtest: two more scenes after the horns sounded
+        -- made the cliffhanger a shrug). The rest of the plan keeps for next week.
+        self.ended_on_cliff = true
+        if sc.index < #self.scenes then
+            self.cliff_stop = true
+            self:say("You stop right there. \"And that's where we leave it for tonight.\" The groan is the best review you'll get.", "dm")
+            return
+        end
     end
     -- What the characters do to each other (A17): a rub, or a bond.
     self:party_moment(sc)
@@ -5001,6 +5121,7 @@ function M:intro()
     -- Before the session starts: new dice (a gift from last week, or a set someone treated
     -- themselves to and has to show everyone).
     self:dice_moment()
+    require("game.model.keepsakes").at_night(self)   -- the gifts on your side of the table
     self:say("Everyone's here. Dice out.", "system")
     self:table_behavior("start")
     if self.campaign.week == 1 then
@@ -5092,7 +5213,7 @@ function M:here_today()
         and not util.contains(set, "crowd")) then
         prep = "in"
     end
-    local text = "And here we are today: you're " .. prep .. " " .. (loc.short or util.lower_first(loc.name))
+    local text = "And here we are today: you're " .. (loc.here or (prep .. " " .. (loc.short or util.lower_first(loc.name))))
     if obj then
         text = text .. ", and you're out to " .. obj
     end
@@ -5141,7 +5262,7 @@ end
 function M:run()
     self:intro()
     for i, sc in ipairs(self.scenes) do
-        if self.end_early then
+        if self.end_early or self.cliff_stop then
             break
         end
         -- The escape valve: running long before the last scene.
@@ -5222,6 +5343,11 @@ function M:run()
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")
     elseif last and last.comps.complication and last.comps.complication.cliffhanger then
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")
+    elseif pv.finish_high and next(self.dead_handled or {}) then
+        -- Not "applause" after someone's hero died tonight (the story playtest).
+        self:say("Nobody's in a hurry to pack up. It was a big night, and a sad one.", "good")
+    elseif pv.finish_high and last and last.outcome == "lose" then
+        self:say("It ends on a loss, and somehow nobody's sorry they came.", "good")
     elseif pv.finish_high then
         self:say("It ends on a high. Somebody actually applauds.", "good")
     elseif pv.flat then

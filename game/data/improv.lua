@@ -39,12 +39,14 @@ return {
     },
 
     -- The party goes off-script.
+    -- where: only at a place with one of these settings (the story playtest: a bartender in a
+    -- carters' yard). A plain string goes anywhere.
     drift = {
-        "{actor_char} ignores the hook completely and heads for the mill instead.",
+        { "{actor_char} ignores the hook completely and heads for the mill instead.", where = { "town", "crowd", "road" } },
         "{actor_char} decides the real adventure is following that suspicious cat.",
-        "{actor_char} wants to know what's behind the door you described as boring.",
-        "{actor_char} befriends the first enemy and asks for a tour of their hideout.",
-        "{actor_char} asks the bartender's name, then their life story. You have neither.",
+        { "{actor_char} wants to know what's behind the door nobody mentioned.", where = { "indoor", "town", "under", "ruin" } },
+        "{actor_char} spots someone watching the party from a distance, and goes to say hello.",
+        { "{actor_char} asks the bartender's name, then their life story. You have neither.", where = { "tavern" } },
     },
 
     -- How an improvised bit lands. great and good are your own asides (the log only); poor

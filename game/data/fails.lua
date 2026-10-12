@@ -109,6 +109,8 @@ M.FRAMED = {
     move = { "Can {char} fall off something? I really want {char} to fall off something.",
              "What if {char} gets stuck. Halfway. In front of everyone.",
              "Can {char} land in {prop}? Please?" },
+    scout = { "Can {char} trip over something really loud? Like a bucket. A bucket would be good.",
+              "What if {char} hides in the one bush that's already got someone in it?" },
     know = { "What if {char} is confidently, completely wrong, and tells everyone?",
              "Can {char} get distracted by {prop} at the worst moment?",
              "What if {char} finds something, but it's the wrong something?" },
@@ -131,8 +133,17 @@ M.LINES = {
         { "{char} sniffs the strange powder to identify it. It's pepper. It's a lot of pepper.", act = "know" },
         { "A pigeon chooses this moment, and {char}, specifically." },
         { "{char} strikes a heroic pose on {prop}. {prop} has other plans." },
+        { "{char} steps on the one dry stick in the whole of {place}. Crack. Every head turns.", act = "scout" },
+        { "{char} waves the others forward, very confidently, into plain sight.", act = "scout" },
+        { "{char} creeps up perfectly, then sneezes. Three times.", act = "scout" },
     },
     forward = {
+        -- Scouting ahead before a fight (the story playtest: a riddle line on an ambush read as nonsense).
+        scout = {
+            { "They're seen, but {char} saw the way out first: a gap on the far side nobody's watching." },
+            { "No surprise for anyone, but {char} got a good count of them before the shout went up." },
+            { "Spotted, and whoever's waiting shouts a name as they come. Now the party knows who sent them." },
+        },
         talk = {
             { "{Cast} won't budge, but {lets|let} slip who would: there's someone else to ask.", cast = true },
             { "No deal. But on the way out, {cast}'s assistant whispers a name and a time.", cast = true },
@@ -171,6 +182,10 @@ M.LINES = {
         },
     },
     costly = {
+        scout = {
+            { "{char} spots them first, and pays for it: a crossbow bolt grazes an arm on the way back." },
+            { "They get the jump, but {char} dropped something getting back, and it's gone." },
+        },
         talk = {
             { "{Cast} {agrees|agree}, for a favour, to be named later. That's never good.", cast = true },
             { "It works, and {cast} now {considers|consider} {char} a close personal friend. A clingy one.", cast = true },
@@ -209,6 +224,11 @@ M.LINES = {
         },
     },
     dramatic = {
+        scout = {
+            { "Too late: {char} walks right into the middle of them." },
+            { "Seen, and there are more of them than anyone thought." },
+            { "Spotted, and someone runs to fetch help. This is going to get bigger." },
+        },
         talk = {
             { "{Cast} {goes|go} white, then very calm, then {calls|call} for the guard.", cast = true },
             { "The word {char} chose was the one word nobody says at {place}. Every head turns." },
@@ -247,6 +267,10 @@ M.LINES = {
         },
     },
     near = {
+        scout = {
+            { "Almost: {char} sees them a heartbeat before they see {char}. Nobody gets the jump." },
+            { "{char} catches the glint of a blade just as the shout goes up." },
+        },
         talk = {
             { "{Cast} almost {goes|go} for it. One more push might do it.", cast = true },
             { "So close: {cast} {hesitates|hesitate}, and {char} sees exactly where the crack is.", cast = true },

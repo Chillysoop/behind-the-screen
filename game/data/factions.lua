@@ -16,6 +16,8 @@
 --   wants    what they bring when the DM brings them in (S6): warm, a favour or a job for a
 --            party they like (a goal: win and lose say how it pays off); cold, trouble for a
 --            party they don't (a complication); back, a villain who got away coming back.
+--            at: the place a want has to happen (the abbot's candles are in the chapel). A warm
+--            want that's been played is done: they don't ask for the same thing twice.
 --
 -- factions: order, then by id:
 --   tier     how strong it is off screen: d6s rolled for its moves, keep the highest
@@ -67,7 +69,7 @@ return {
             } },
         stranger = { faction = "millbrook", att = 0, sprite = "npc_stranger", cards = { "stranger", "wren" },
             wants = {
-                warm = { name = "Wren asks for an escort",
+                warm = { name = "Wren asks for an escort", at = "bell_paths",
                     line = "Goal: Wren wants to climb to the bell paths and look for Tobin's marks. She's not going alone.",
                     win = "Wren finds one of Tobin's chalk marks, fresh, and laughs for the first time since he left.",
                     lose = "The path's washed out. Wren goes quiet the whole way back." },
@@ -95,7 +97,7 @@ return {
             } },
         abbot_ghost = { faction = "old_faith", att = 1, warm = { sam = 2 }, sprite = "npc_ghost",
             wants = {
-                warm = { name = "The abbot's last wish",
+                warm = { name = "The abbot's last wish", at = "chapel",
                     line = "Goal: the abbot's ghost asks Oswin to light a candle in every niche of the old chapel, the way they used to.",
                     win = "Every candle lit. The abbot's voice, warm: 'Thank you, my boy.' The chapel feels lighter.",
                     lose = "The candles keep guttering out. The abbot says nothing, and that's worse." },

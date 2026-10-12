@@ -35,6 +35,7 @@ local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
 local DICE = "/dice#dice"
 local TABLE = "/table#table"
+local KEEPSAKES = "/keepsakes#keepsakes"   -- the players' gifts on your side of the table
 
 local A = {
     touch = hash("touch"),
@@ -379,6 +380,24 @@ function init(self)
     app.paint_dice = function()
         msg.post(DICE, "sets", { sets = dice_sets.by_tray(app.campaign) })
     end
+    -- The players' gifts (game/model/keepsakes.lua) on your side of the table; the new one drops in.
+    app.place_keepsakes = function(new)
+        msg.post(KEEPSAKES, "place", { list = require("game.model.keepsakes").on_table(app.campaign), new = new })
+    end
+    -- Handouts at the players' seats (game/model/handouts.lua); `new` is the seat that just got one.
+    app.place_handouts = function(new)
+        local seats = require("game.model.handouts").at_seats(app.campaign)
+        -- Tonight's, landed but not yet filed with the campaign (finish_night), go out too.
+        local night = app.campaign.night
+        for card, key in pairs(night and night.handouts_landed or {}) do
+            local c = require("game.model.content").components[card]
+            if c and not night.filed then
+                seats[key] = seats[key] or {}
+                table.insert(seats[key], require("game.model.handouts").kind(c))
+            end
+        end
+        msg.post(KEEPSAKES, "handouts", { seats = seats, new = new })
+    end
     app.jail_die = function(tray)
         msg.post(DICE, "jail", { tray = tray })
     end
@@ -413,6 +432,8 @@ function init(self)
             msg.post(TABLE, "vignette")
             app.paint_dice()
             app.update_shelf()
+            app.place_keepsakes(require("game.model.keepsakes").new_this_week(app.campaign))
+            app.place_handouts()
             msg.post(TABLE, "seats", {})
             app.zoom(2)
         elseif screen == "night" then
@@ -426,6 +447,8 @@ function init(self)
             kit.clear_all()
             app.layers = {}
             app.paint_dice()
+            app.place_keepsakes()
+            app.place_handouts()
             night_view.start(app)
             block_camera(false)
             if app.debug then
@@ -437,6 +460,7 @@ function init(self)
             app.s0 = nil
         elseif screen == "slice_end" then
             app.slice = nil
+            app.awards = nil      -- picked fresh when the scrapbook opens
             app.zoom(1)
         elseif screen == "report" then
             msg.post(TABLE, "track", { on = false })

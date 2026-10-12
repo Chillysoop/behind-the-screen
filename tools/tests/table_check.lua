@@ -73,6 +73,8 @@ end
 -- Nights: intros, recap, show-offs, the clock -------------------------------------------------
 local T = { intros = 0, intro_nights = 0, story_lines = 0, reacts = 0, recaps = 0, here = 0, later_nights = 0,
             shows = 0, show_bad = 0, clock_bad = 0, prompts = 0, cut_kept = 0, cut_tests = 0 }
+local keepsakes = require "game.model.keepsakes"
+local K = { gifts = 0, bad = 0, fits = 0, used = 0, notices = 0, expect = 0, campaigns = 0, dupes = 0, landed = {} }
 for ci = 1, 6 do
     local style = styles.balanced
     local seed = 5300 + ci * 17
@@ -123,6 +125,8 @@ for ci = 1, 6 do
                     end
                 elseif ev.kind == "narrate" and ev.style == "recap" then
                     table.insert(opening, ev.text)
+                elseif ev.kind == "keepsake" then
+                    K.notices = K.notices + 1
                 end
             end
             -- The table clock doesn't move while a choice waits for the DM.
@@ -158,10 +162,62 @@ for ci = 1, 6 do
             end
         end
         c:finish_night()
+        -- A full heart brings the DM a gift: it suits the giver, their heart starts over, and how
+        -- the DM takes it lands differently with different people.
+        local g = c.report.keepsake
+        if g then
+            K.gifts = K.gifts + 1
+            local giver = c:player(g.from)
+            local def = keepsakes.def(g.id)
+            if def.from[giver.primary] or def.from[giver.secondary] then
+                K.fits = K.fits + 1
+            end
+            if keepsakes.goodwill(c, g.from) ~= 0 or not giver.present or keepsakes.waiting(c) ~= g then
+                K.bad = K.bad + 1
+            end
+            local how = ({ "gush", "use", "cool" })[(w + ci) % 3 + 1]
+            local said, landed = keepsakes.react(c, how)
+            if not said or not landed or string.find(said .. landed, "{", 1, true) or keepsakes.waiting(c) then
+                K.bad = K.bad + 1
+            else
+                K.landed[g.landed] = true
+            end
+            if how == "use" then
+                K.used = K.used + 1
+                if w < 4 then
+                    K.expect = K.expect + 1
+                end
+            end
+        end
         -- A gift for whoever loved it most, now and then.
         if w % 2 == 1 then
             dice_sets.gift(c, c.players[(w % #c.players) + 1].key)
         end
+    end
+    K.campaigns = K.campaigns + 1
+    local had = {}
+    for _, id in ipairs(keepsakes.on_table(c)) do
+        if had[id] then
+            K.dupes = K.dupes + 1
+        end
+        had[id] = true
+    end
+    -- The table awards at the end of the first act: one each, all different, all filled in.
+    local awarded = require("game.model.awards").pick(c)
+    local seen = {}
+    for _, p in ipairs(c.players) do
+        local a = awarded[p.key]
+        if not a or seen[a.title] or string.find(a.reason or "{", "{", 1, true) then
+            T.award_bad = (T.award_bad or 0) + 1
+        else
+            seen[a.title] = true
+            T.award_titles = T.award_titles or {}
+            T.award_titles[a.title] = true
+            if a.id ~= "fallback" then
+                T.award_earned = (T.award_earned or 0) + 1
+            end
+        end
+        T.award_n = (T.award_n or 0) + 1
     end
 end
 check(T.intros == 4 * T.intro_nights and T.story_lines >= 4 * T.intro_nights,
@@ -176,4 +232,21 @@ check(T.show_bad == 0, "Only a player who's all in and loved last session shows 
     string.format("%d show-offs", T.shows))
 check(T.prompts > 0 and T.clock_bad == 0, "The table clock never moves while a choice waits",
     string.format("%d choices", T.prompts))
+local kinds = 0
+for _ in pairs(T.award_titles or {}) do
+    kinds = kinds + 1
+end
+check((T.award_bad or 0) == 0 and kinds >= 6 and (T.award_earned or 0) >= 0.6 * (T.award_n or 1),
+    "Table awards: one each, all different, mostly earned at the table, and plenty of kinds",
+    string.format("%d of %d earned, %d different awards", T.award_earned or 0, T.award_n or 0, kinds))
+local spread = 0
+for _ in pairs(K.landed) do
+    spread = spread + 1
+end
+check(K.gifts >= 3 and K.bad == 0 and K.dupes == 0 and K.fits == K.gifts,
+    "Gifts from the table: a full heart brings one, picked for the giver, never the same thing twice",
+    string.format("%d gifts over %d campaigns (%d suit the giver)", K.gifts, K.campaigns, K.fits))
+check(spread >= 2 and K.notices <= K.expect and (K.expect == 0 or K.notices >= 1),
+    "How the DM takes a gift lands differently, and a gift put to work is noticed next session",
+    string.format("%d different landings; %d noticed of %d put to work", spread, K.notices, K.expect))
 os.exit(ok_all and 0 or 1)

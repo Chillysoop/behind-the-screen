@@ -172,6 +172,46 @@ function M.showcase(app, a)
     end
 end
 
+-- Any mode on game night: the giver spots last week's gift on your side of the table. A shot
+-- from the table camera once it's dropped in, then one from the room.
+function M.keepsake_shots(app, a)
+    if a.keep_step == 1 then
+        shot(a, "keepsake_noticed")
+        a.keep_step = 2
+        return true
+    elseif a.keep_step == 2 then
+        app.zoom(1)
+        a.keep_step = 3
+        a.wait = 2.4
+        return true
+    elseif a.keep_step == 3 then
+        shot(a, "keepsake_room")
+        a.keep_step = 4
+        return true
+    elseif a.keep_step == 4 then
+        app.zoom(2)
+        a.keep_step = 5
+        return false
+    end
+    if not a.keep_step and app.keepsake_seen then
+        a.keep_step = 1
+        a.wait = 1.4
+        return true
+    end
+    -- A handout lands at a player's seat: a shot once it's settled.
+    if a.hand_step == 1 then
+        shot(a, "handout_landed")
+        a.hand_step = 2
+        return true
+    end
+    if not a.hand_step and app.handout_seen then
+        a.hand_step = 1
+        a.wait = 1.6
+        return true
+    end
+    return false
+end
+
 -- Mode 4 on game night: one shot of each new thing as it first happens.
 function M.night_shots(app, a)
     local ev = app.last_ev
@@ -425,6 +465,14 @@ function M.update(app, dt)
                 p:set_type(i, "social")
             end
         end
+        -- Mode 1, the first week: Gus on the first scene, with a handout made for him (a letter).
+        if a.mode == 1 and wk == 1 and not a.handout_made then
+            a.handout_made = true
+            if p:can_place(1, "gus") then
+                p:place(1, "gus")
+            end
+            require("game.model.handouts").toggle(p, "gus")
+        end
         app.refresh()
         if not by_label("Run game night") then
             return finish(a, false, "no Run game night button")
@@ -437,6 +485,16 @@ function M.update(app, dt)
         local nv = require "game.ui.night_view"
         if app.night_done then
             if not shot(a, "night_done_" .. app.campaign.week) then
+                -- Mode 1: someone's Goodwill is full after the first night, so the report has a gift.
+                if a.mode == 1 and app.campaign.week == 1 then
+                    local ks = require "game.model.keepsakes"
+                    for _, p in ipairs(app.campaign.players) do
+                        if p.present then
+                            ks.get(app.campaign).goodwill[p.key] = ks.data.FULL
+                            break
+                        end
+                    end
+                end
                 by_label("See how everyone felt")
             end
         elseif app.pending and a.mode == 5 then
@@ -468,6 +526,9 @@ function M.update(app, dt)
             if a.mode == 4 and M.night_shots(app, a) then
                 return
             end
+            if M.keepsake_shots(app, a) then
+                return
+            end
             if a.t - (a.last_night_shot or 0) > 25 and shot(a, "night_" .. app.campaign.week .. "_" .. math.floor(a.t)) then
                 a.last_night_shot = a.t
                 return
@@ -492,6 +553,19 @@ function M.update(app, dt)
         end
         if (a.mode == 3 or a.mode == 4) and a.shots["report_" .. app.campaign.week] then
             return finish(a, true, "saw the first report")
+        end
+        -- A gift from the table: its shot, put it to work, its shot, put it away.
+        local ks = require "game.model.keepsakes"
+        if ks.waiting(app.campaign) then
+            if not shot(a, "keepsake_" .. app.campaign.week) then
+                by_key("keepsake_use")
+            end
+            return
+        elseif app.keepsake_shown then
+            if not shot(a, "keepsake_taken_" .. app.campaign.week) then
+                by_key("keepsake_done")
+            end
+            return
         end
         if app.quick then
             local wk = app.campaign.week

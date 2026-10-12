@@ -1029,34 +1029,89 @@ end
 local STEP = { done = { "Done", theme.green }, open = { "In your deck", theme.gold }, coming = { "Next week", theme.teal },
                locked = { "Not opened yet", theme.faint } }
 
+-- Storylines (game/model/storylines.lua): the major and minor stories up top, how each stands,
+-- then every hero's own story with its steps. A loose end says what it's costing.
+local HEAT = { warm = { "Moving", theme.green }, cooling = { "Cooling", theme.gold },
+               cold = { "Touch it this week", theme.orange }, loose = { "Loose end", theme.red },
+               unopened = { "Not started", theme.faint }, resolved = { "Tied off", theme.teal }, ended = { "Over", theme.faint } }
+
+local function heat_chip(x, y, heat)
+    local hc = HEAT[heat] or HEAT.unopened
+    kit.text(x, y, hc[1], "ui14", hc[2])
+end
+
 function M.threads(app, x, y, w, h)
     local c = app.campaign
-    local threads = deck.threads(c)
+    local storylines = require "game.model.storylines"
+    local defs = storylines.defs(c)
+    local s = storylines.get(c)
+    -- The major and minor stories: tiles, four to a row.
     local gap = 14
+    local tw = math.floor((w - 3 * gap) / 4)
+    local th = 132
+    local k = 0
+    for _, d in ipairs(defs) do
+        if d.kind ~= "backstory" then
+            local col, row = k % 4, math.floor(k / 4)
+            local tx, ty = x + col * (tw + gap), y + row * (th + 10)
+            local heat, since = storylines.heat(c, d.id)
+            local st = s[d.id]
+            kit.box(tx, ty, tw, th, theme.panel2, { radius = 10 })
+            kit.box(tx, ty, 6, th, kit.rgba(d.color), { radius = 3 })
+            kit.text(tx + 16, ty + 10, string.upper(d.kind), "ui14", theme.faint)
+            heat_chip(tx + tw - 12 - kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14"), ty + 10, heat)
+            kit.text(tx + 16, ty + 30, d.name, "ui18b", theme.text, { w = tw - 28, lines = 1 })
+            kit.text(tx + 16, ty + 56, d.about or "", "ui14", theme.dim, { w = tw - 28, lines = 2 })
+            local line
+            if st and st.state == "open" then
+                if st.loose then
+                    line = "Dropped since session " .. util.int(st.loose) .. ". Costing the table every week."
+                elseif (st.moves or 0) > 0 then
+                    line = "Moved " .. util.int(st.moves) .. (st.moves == 1 and " night" or " nights") .. ", last in session "
+                        .. util.int(st.last) .. "."
+                else
+                    line = "Open since session " .. util.int(st.opened) .. "."
+                end
+            elseif st and st.state == "resolved" then
+                line = "Tied off in session " .. util.int(st.resolved) .. "."
+            else
+                line = "Opens when one of its cards plays."
+            end
+            kit.text(tx + 16, ty + th - 26, line, "ui14", (st and st.loose) and theme.red or theme.faint, { w = tw - 28, lines = 1 })
+            k = k + 1
+        end
+    end
+    -- Every hero's own story.
+    local by = y + (math.floor((k + 3) / 4)) * (th + 10) + 4
+    local threads = deck.threads(c)
     local cw = math.floor((w - 3 * gap) / 4)
-    for k, p in ipairs(c.players) do
-        local px = x + (k - 1) * (cw + gap)
-        kit.box(px, y, cw, h, theme.panel2, { radius = 10 })
-        kit.dot(px + 30, y + 30, 40, panels.COLORS[p.key] or theme.panel3)
-        kit.picture(px + 12, y + 12, 36, 36, panels.face(p.key))
-        kit.text(px + 58, y + 12, p.char, "ui18b", theme.text, { w = cw - 66 })
+    local bh = y + h - by
+    for i, p in ipairs(c.players) do
+        local px = x + (i - 1) * (cw + gap)
+        kit.box(px, by, cw, bh, theme.panel2, { radius = 10 })
+        kit.dot(px + 30, by + 30, 40, panels.COLORS[p.key] or theme.panel3)
+        kit.picture(px + 12, by + 12, 36, 36, panels.face(p.key))
+        local heat = storylines.heat(c, "bs_" .. p.key)
+        local hw = kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14")
+        kit.text(px + 58, by + 10, p.char, "ui18b", theme.text, { w = cw - 82 - hw, lines = 1 })
+        heat_chip(px + cw - 12 - hw, by + 13, heat)
         local featured = planner.featured(c, p.key)
-        kit.text(px + 58, y + 34, p.name .. (featured and ", featured" or ""), "ui14", featured and theme.gold or theme.dim)
-        local ty = y + 64
+        kit.text(px + 58, by + 32, p.name .. (featured and ", featured" or ""), "ui14", featured and theme.gold or theme.dim)
+        local ty = by + 60
         ty = para(px + 12, ty, cw - 24, util.capitalize(p.thread or ""), "ui14", theme.text)
         ty = ty + 4
         for _, st in ipairs(threads[p.key] or {}) do
-            local s = STEP[st.state]
+            local sp = STEP[st.state]
             local name = st.state == "locked" and "?" or st.card.name
             local nh = kit.text_height(name, "ui14", cw - 40)
-            if ty + nh + 22 > y + h - 8 then
+            if ty + nh + 22 > by + bh - 8 then
                 break
             end
-            kit.dot(px + 18, ty + 9, 12, s[2])
+            kit.dot(px + 18, ty + 9, 12, sp[2])
             kit.text(px + 30, ty, name, "ui14", st.state == "locked" and theme.faint or theme.text, { w = cw - 40 })
             ty = ty + nh
             local how = st.how and (" (" .. (st.how == "win" and "won" or (st.how == "lose" and "lost" or st.how)) .. ")") or ""
-            kit.text(px + 30, ty, s[1] .. how, "ui14", s[2])
+            kit.text(px + 30, ty, sp[1] .. how, "ui14", sp[2])
             ty = ty + 24
         end
     end

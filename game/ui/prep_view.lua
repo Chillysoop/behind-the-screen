@@ -329,6 +329,8 @@ local function scene_card(app, prep, i)
     local sel = app.sel
     kit.box(x, y, CARD_W, CARD_H, theme.paper, { radius = 10 })
     kit.text(x + 12, y + 9, "SCENE " .. util.int(i), "ui14", theme.ink_dim)
+    -- The storylines this scene moves (game/model/storylines.lua): a colored pip each, hover to name them.
+    M.scene_storylines(app, prep, s, x + 82, y + 17)
     -- Tension pips.
     local t = prep_mod.tension(s.type, s.slots, i == #prep.scenes)
     for k = 1, 5 do
@@ -401,13 +403,20 @@ local function scene_card(app, prep, i)
             local owner = app.campaign:player(c.thread)
             label = label .. "  -  " .. owner.name .. "'s thread"
         end
-        kit.text(x + 20, sy + 6, label, "ui14", c and c.thread and kit.rgba("#6a4f8f") or theme.ink_dim)
+        kit.text(x + 20, sy + 6, kit.ellipsize(label, "ui14", CARD_W - 96), "ui14", c and c.thread and kit.rgba("#6a4f8f") or theme.ink_dim)
         if c then
             local tag = util.int(prep:cost_of(c)) .. "h"
             if s.module then
                 tag = s.module.swaps[kind] and "Yours" or "Book"     -- a published adventure (A13)
             end
             kit.text(x + CARD_W - 20, sy + 6, tag, "ui14", theme.ink_dim, { pivot = gui.PIVOT_NE })
+            if prep.handouts and prep.handouts[c.id] then
+                -- A handout's made for it: a little folded letter by the cost.
+                local hx = x + CARD_W - 28 - kit.width(tag, "ui14") - 20
+                kit.box(hx - 1, sy + 7, 20, 15, kit.rgba("#8a5a0e"), { radius = 2 })
+                kit.box(hx + 1, sy + 9, 16, 11, theme.paper, { radius = 1 })
+                kit.dot(hx + 9, sy + 15, 6, kit.rgba("#a8463a"))
+            end
             kit.text(x + 20, sy + 25, c.name, "ui18b", theme.ink, { w = CARD_W - 40, lines = 2 })
         else
             kit.text(x + 20, sy + 30, "Empty: improvise it at the table", "ui14", kit.rgba("#9a8a72"))
@@ -470,9 +479,10 @@ local function pacing_panel(app, prep)
     if sk > 0 then
         table.insert(notes, { util.int(sk) .. (sk == 1 and " empty slot" or " empty slots") .. ": you'll improvise one per scene.", theme.dim })
     end
-    local threads = prep:threads()
-    if next(threads) == nil then
-        table.insert(notes, { "Nobody's backstory comes up this week.", theme.dim })
+    -- The storylines (game/model/storylines.lua): too many at once, ones about to be dropped,
+    -- loose ends wearing the table down, or simply which ones this week moves.
+    for k, n in ipairs(M.storyline_notes(app, prep)) do
+        table.insert(notes, k, n)
     end
     -- Session Zero: what's on the board that someone asked about.
     local board = {}
@@ -824,6 +834,20 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
             prep:clear(sel.scene, kind)
             app.refresh()
         end, { font = "ui14", key = "slot_remove" })
+        -- A handout for it (game/model/handouts.lua): an hour making the real thing.
+        local handouts = require "game.model.handouts"
+        if handouts.worth_it(app.campaign, current) then
+            local made = prep.handouts and prep.handouts[current.id]
+            kit.button(x + w - 400, y + 8, 156, 28, made and "Handout made" or ("Make a handout  " .. util.int(handouts.data.COST) .. "h"),
+                function()
+                    local ok, why = handouts.toggle(prep, current.id)
+                    if not ok then
+                        app.toast = why
+                    end
+                    app.refresh()
+                end, { font = "ui14", color = made and theme.go or theme.button, key = "handout_toggle",
+                       enabled = made or (handouts.count(prep) < handouts.data.PER_WEEK and prep:left() >= handouts.data.COST) })
+        end
     end
     kit.button(x + w - 122, y + 8, 106, 28, "Close", function()
         app.sel = nil
@@ -994,6 +1018,7 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
             hand_note(cx + 10, ty + 2, note, HCW - 20, ncol)
         end
         lean_dots(app, cx + 8, cy + HCH - 18, card_leans(app, c))
+        M.card_storylines(app, c, cx + HCW - 8, cy + HCH - 18)
         -- Shelve it: the x in the corner (not for pins, story cards or cards on the board).
         if not at and not (prep.pins and prep.pins[c.id]) and deck.can_shelve(app.campaign, c.id) then
             kit.button(cx + HCW - 24, cy + 4, 20, 20, "x", function()
@@ -1085,6 +1110,190 @@ local function short_notes(p)
     return d and d.short or p.notes
 end
 
+-- Goodwill (game/model/keepsakes.lua): a heart that fills with every good night, never a number.
+-- Full, and they bring you something as they pack up. Hover for what it is.
+function M.goodwill(app, p, gx, gy)
+    local keepsakes = require "game.model.keepsakes"
+    local gw = keepsakes.goodwill(app.campaign, p.key)
+    local fill = math.min(1, gw / keepsakes.data.FULL)
+    kit.text(gx, gy, "Goodwill", "ui14", theme.dim)
+    -- The heart: a faint one, and a warm one inside it growing from the middle as it fills.
+    local hx, hy, size = gx + 66, gy - 3, 22
+    kit.icon(hx, hy, size, "heart", theme.panel3)
+    if fill > 0 then
+        local s = math.floor(6 + (size - 6) * fill + 0.5)
+        kit.icon(hx + (size - s) / 2, hy + (size - s) / 2, s, "heart", theme.heart)
+    end
+    kit.button(gx - 4, gy - 5, 98, 26, "", nil, { color = kit.rgba("#000000", 0), hover = kit.rgba("#ffffff", 0.05),
+        key = "goodwill_" .. p.key,
+        on_hover = function(_, on)
+            drop_hover(app)
+            if on then
+                M.goodwill_hover(app, p, gw, gx, gy)
+            end
+        end })
+end
+
+function M.goodwill_hover(app, p, gw, x0, y0)
+    local keepsakes = require "game.model.keepsakes"
+    local lines = { "Every good night fills it, and their own story moving fills it more. A moment that's all "
+        .. "theirs, or dice from you, fills it a lot." }
+    local got = keepsakes.from(app.campaign, p.key)
+    if #got > 0 then
+        local def = keepsakes.def(got[#got].id)
+        table.insert(lines, "They gave you " .. def.name .. " in session " .. util.int(got[#got].week) .. ".")
+    else
+        table.insert(lines, "When it's full, they'll bring you something as they pack up.")
+    end
+    local w = 360
+    local h = 46
+    for _, r in ipairs(lines) do
+        h = h + kit.text_height(r, "ui14", w - 32) + 6
+    end
+    local x = util.clamp(x0 - w - 40, 8, kit.W - w - 8)
+    local y = util.clamp(y0 - 16, 8, kit.H - h - 8)
+    local l = kit.layer("prep_hover")
+    app.hover_layer = l
+    kit.box(x - 2, y - 2, w + 4, h + 4, theme.heart, { radius = 12 })
+    kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
+    kit.text(x + 16, y + 12, p.name .. "'s heart is " .. keepsakes.heart_words(gw) .. ".", "ui18b", theme.heart, { w = w - 32 })
+    local ry = y + 42
+    for _, r in ipairs(lines) do
+        kit.text(x + 16, ry, r, "ui14", theme.dim, { w = w - 32 })
+        ry = ry + kit.text_height(r, "ui14", w - 32) + 6
+    end
+end
+
+-- Storylines on the prep board ----------------------------------------------------------------
+
+local function storyline_color(d)
+    return kit.rgba(d.color or "#e8b04a")
+end
+
+-- A pip per storyline this scene's cards move, with a hover that names them and how they stand.
+function M.scene_storylines(app, prep, s, x, y)
+    local storylines = require "game.model.storylines"
+    local ids, seen = {}, {}
+    for _, kind in ipairs(content.kinds) do
+        local c = s.slots[kind]
+        for _, id in ipairs(c and storylines.of_card(app.campaign, c) or {}) do
+            if not seen[id] then
+                seen[id] = true
+                table.insert(ids, id)
+            end
+        end
+    end
+    if #ids == 0 then
+        return
+    end
+    local defs = {}
+    for k, id in ipairs(ids) do
+        local d = storylines.def(app.campaign, id)
+        if d and k <= 6 then
+            table.insert(defs, d)
+            kit.dot(x + (k - 1) * 12, y, 10, storyline_color(d))
+        end
+    end
+    kit.button(x - 6, y - 9, math.max(24, #defs * 12 + 6), 18, "", nil, {
+        color = kit.rgba("#000000", 0), hover = kit.rgba("#000000", 0.08), key = "scene_storylines_" .. tostring(s.index or x),
+        on_hover = function(_, on)
+            drop_hover(app)
+            if on then
+                M.storyline_hover(app, defs, x, y + 14)
+            end
+        end })
+end
+
+local HEAT_WORDS = { warm = "moving", cooling = "cooling: touch it within a week", cold = "this week, or the table notices",
+                     loose = "a loose end", unopened = "not started yet", resolved = "tied off", ended = "over" }
+
+function M.storyline_hover(app, defs, x0, y0)
+    local storylines = require "game.model.storylines"
+    local w = 380
+    local rows = {}
+    for _, d in ipairs(defs) do
+        local heat = storylines.heat(app.campaign, d.id)
+        table.insert(rows, { d = d, text = d.name .. ": " .. (HEAT_WORDS[heat] or heat), heat = heat })
+    end
+    local h = 40
+    for _, r in ipairs(rows) do
+        h = h + kit.text_height(r.text, "ui14", w - 44) + 6
+    end
+    local x = util.clamp(x0, 8, kit.W - w - 8)
+    local y = util.clamp(y0, 8, kit.H - h - 8)
+    app.hover_layer = kit.layer("prep_hover")
+    kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
+    kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
+    kit.text(x + 16, y + 10, "STORYLINES THIS SCENE MOVES", "ui14", theme.gold)
+    local ry = y + 34
+    for _, r in ipairs(rows) do
+        kit.dot(x + 22, ry + 9, 10, storyline_color(r.d))
+        local col = (r.heat == "loose" and theme.red) or (r.heat == "cold" and theme.orange) or theme.text
+        kit.text(x + 34, ry, r.text, "ui14", col, { w = w - 44 })
+        ry = ry + kit.text_height(r.text, "ui14", w - 44) + 6
+    end
+end
+
+-- A hand card's storylines, bottom right of the tile: the first by name, the rest as pips.
+function M.card_storylines(app, c, right, y)
+    local storylines = require "game.model.storylines"
+    local defs = {}
+    for _, id in ipairs(storylines.of_card(app.campaign, c)) do
+        local d = storylines.def(app.campaign, id)
+        if d and d.kind ~= "backstory" then      -- (the badge already says whose past it is)
+            table.insert(defs, d)
+        end
+    end
+    if #defs == 0 then
+        return
+    end
+    local x = right
+    for k = #defs, 2, -1 do
+        x = x - 12
+        kit.dot(x + 5, y + 6, 9, storyline_color(defs[k]))
+    end
+    local name = kit.ellipsize(defs[1].short, "ui14", 74)
+    local nw = kit.width(name, "ui14")
+    x = x - nw - 2
+    -- Darker on the card's paper, so it reads.
+    local col = storyline_color(defs[1])
+    kit.text(x, y - 2, name, "ui14", vmath.vector4(col.x * 0.6, col.y * 0.6, col.z * 0.6, 1))
+    kit.dot(x - 8, y + 6, 9, col)
+end
+
+-- The pacing panel's storyline notes, most urgent first.
+function M.storyline_notes(app, prep)
+    local storylines = require "game.model.storylines"
+    local f = storylines.forecast(app.campaign, prep)
+    local out = {}
+    local function names(list)
+        local n = {}
+        for _, d in ipairs(list) do
+            table.insert(n, d.kind == "backstory" and (d.short .. "'s story") or util.lower_first(d.short))
+        end
+        return util.join_names(n)
+    end
+    if f.thin then
+        table.insert(out, { util.int(#f.touched) .. " storylines on the board. Too many for the table to follow in one night.",
+                            theme.orange })
+    end
+    if #f.loose > 0 then
+        table.insert(out, { "Loose end: " .. names(f.loose) .. ". It wears the table down every week until it comes back.",
+                            theme.red })
+    end
+    if #f.cold > 0 then
+        table.insert(out, { "Going cold: " .. names(f.cold) .. ". Leave it this week and the table notices.", theme.orange })
+    end
+    if #out == 0 then
+        if #f.touched > 0 then
+            table.insert(out, { "Storylines this week: " .. names(f.touched) .. ".", theme.teal })
+        else
+            table.insert(out, { "No storyline moves this week.", theme.dim })
+        end
+    end
+    return out
+end
+
 local function player_card(app, prep, p, i, forecast)
     local x, w = 1196, 380
     local y = 106 + (i - 1) * 196
@@ -1152,6 +1361,7 @@ local function player_card(app, prep, p, i, forecast)
         kit.icon(x + 14, y + 87, 14, "mood", p.mood_known and theme.gold or theme.faint)
         local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
         kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
+        M.goodwill(app, p, x + 262, y + 86)
         -- Forecast for Thursday, from the board as it stands.
         kit.text(x + 14, y + 108, "Thursday", "ui14", theme.dim)
         local f = forecast[p.key]

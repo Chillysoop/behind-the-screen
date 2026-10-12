@@ -84,6 +84,7 @@ function M.week_record(campaign, prep_seconds, night_seconds)
             mood = p.mood,
             fun = row.fun and math.floor(row.fun + 0.5) or nil,
             long = long,
+            goodwill = math.floor(require("game.model.keepsakes").goodwill(campaign, row.key) + 0.5),
         }
     end
     local talked = {}
@@ -158,6 +159,10 @@ function M.week_record(campaign, prep_seconds, night_seconds)
         safety = safety,
         level = campaign.level,
         subclasses = campaign.subclasses,
+        -- Storylines (the story playtest): what moved, what the table noticed was dropped.
+        storylines = rep.storylines and { moved = rep.storylines.moved, noticed = rep.storylines.noticed,
+                                          back = rep.storylines.back, opened = rep.storylines.opened,
+                                          thin = rep.storylines.thin } or nil,
     })
 end
 
@@ -186,6 +191,19 @@ function M.slice_survey(campaign, answers)
             on_break = p.on_break,
             subclass = campaign.subclasses and campaign.subclasses[p.class] or nil,
         }
+    end
+    -- The table awards they were handed (which ones land is worth knowing).
+    local awarded = require("game.model.awards").pick(campaign)
+    for key, a in pairs(awarded) do
+        if players[key] then
+            players[key].award = a.title
+        end
+    end
+    -- The gifts they brought, and how the DM took each one.
+    for _, g in ipairs(require("game.model.keepsakes").get(campaign).given) do
+        if players[g.from] then
+            players[g.from].gift = g.id .. ":" .. tostring(g.how or "kept")
+        end
     end
     local fixes, payoffs = {}, {}
     for _, e in ipairs(campaign.journal or {}) do

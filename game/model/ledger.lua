@@ -346,6 +346,14 @@ function M.after_night(campaign, night)
             M.shift(campaign, e.to, e.d, M.entry_text(campaign, e))
         end
     end
+    -- A want that played is done: Corin doesn't find the same coded page twice (the story playtest).
+    for _, sc in ipairs(night.scenes or {}) do
+        local g = sc.comps and sc.comps.goal
+        if g and g.agenda and g.agenda_kind == "warm" and sc.terrain and nb.people[g.agenda] then
+            nb.people[g.agenda].wants_done = nb.people[g.agenda].wants_done or {}
+            nb.people[g.agenda].wants_done.warm = campaign.week
+        end
+    end
     -- Factions crossed or helped tonight: by their cards in scenes the party won.
     for _, sc in ipairs(night.scenes or {}) do
         local deck = require "game.model.deck"
@@ -529,12 +537,24 @@ function M.agenda_kind(campaign, pid)
     end
     if M.status(campaign, pid) == "got away" and wants.back then
         return "back"
-    elseif p.att >= 1 and wants.warm then
+    elseif p.att >= 1 and wants.warm and not (p.wants_done and p.wants_done.warm) then
         return "warm"
     elseif p.att <= -1 and wants.cold then
         return "cold"
     end
     return nil
+end
+
+-- What an agenda card comes with: the person, and the place it has to happen (if any).
+local function with_list(cast, at)
+    local out = {}
+    if cast then
+        table.insert(out, cast.id)
+    end
+    if at then
+        table.insert(out, at)
+    end
+    return #out > 0 and out or nil
 end
 
 function M.agenda_card(campaign, pid)
@@ -571,7 +591,8 @@ function M.agenda_card(campaign, pid)
         tags = warm and { "heart", "talk" } or { "danger", "talk" },
         meters = warm and { social = 4, story = 3 } or { challenge = 4, story = 3 },
         line = line, win = w.win, lose = w.lose,
-        with = cast and { cast.id } or nil, suits = cast and cast.suits or nil, where = cast and cast.where or nil,
+        with = with_list(cast, w.at),
+        suits = (cast and not w.at) and cast.suits or nil, where = cast and cast.where or nil,
         thread = cast and cast.thread or nil,
     })
     campaign.registered = campaign.registered or {}

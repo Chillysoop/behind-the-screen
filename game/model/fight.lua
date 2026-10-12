@@ -308,12 +308,13 @@ function M.plan(night, sc)
             boss_name = cfam.name
         end
         local meter = encounter.meter(level, n, ids, hz_opts(sc))
-        return { ids = ids, boss_name = boss_name, aim = 0, meter = meter,
+        return { ids = ids, boss_name = boss_name, aim = 0, meter = meter, crew = cfam and cfam.crew or nil,
                  cast = cast and enc.by_cast[cast.id] and cast.id, built = true }
     end
     local ids, _, aim = M.suggest(sc, level, n)
     local meter = encounter.meter(level, n, ids, hz_opts(sc))
-    return { ids = ids, boss_name = fam.name, aim = aim, meter = meter, cast = cast and enc.by_cast[cast.id] and cast.id }
+    return { ids = ids, boss_name = fam.name, aim = aim, meter = meter, crew = fam.crew,
+             cast = cast and enc.by_cast[cast.id] and cast.id }
 end
 
 -- Running it -----------------------------------------------------------------------------------
@@ -1072,6 +1073,7 @@ function M.run(night, sc, plan)
     end
     local result = b:run(opts)
     night:flush_turn()
+    require("game.model.awards").after_fight(night)   -- toward the table awards (each hero's fight)
     for _, c in ipairs(night.pc_list or {}) do
         local p = player_of(night, c)
         if p and p.heroic and not c.heroic then

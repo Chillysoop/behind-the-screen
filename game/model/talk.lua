@@ -18,8 +18,10 @@ end
 -- Who's at the table: lines that name someone only play when they're here.
 function M:set_present(players)
     self.present = {}
+    self.chars = {}
     for _, p in ipairs(players or {}) do
         self.present[p.key] = true
+        self.chars[p.key] = p.char
     end
 end
 
@@ -95,7 +97,8 @@ function M:line(trigger, p, vars)
         end
     end
     local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
-                  present = self.present }
+                  present = self.present, chars = self.chars,
+                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1 }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
         -- Some things always get said (a warning before someone takes a break), even if it's a repeat.
@@ -111,7 +114,7 @@ end
 
 -- An NPC line (what: greet, good, bad, taunt, down): text, line.
 function M:npc(cast_id, what, vars)
-    local l = self.lib:pick("npc_" .. what, cast_id, { recent = self:skip(), rng = self.rng, present = self.present })
+    local l = self.lib:pick("npc_" .. what, cast_id, { recent = self:skip(), rng = self.rng, present = self.present, chars = self.chars })
     if not l then
         return nil
     end
@@ -132,7 +135,7 @@ function M:banter(players)
     end
     self.rng:shuffle(speakers)
     for _, p in ipairs(speakers) do
-        local l = self.lib:pick("banter", p.key, { present = present, recent = self:skip(), rng = self.rng })
+        local l = self.lib:pick("banter", p.key, { present = present, recent = self:skip(), rng = self.rng, chars = self.chars })
         if l then
             self:remember(l.id)
             return l, p

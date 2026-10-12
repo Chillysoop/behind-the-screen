@@ -215,6 +215,9 @@ function M.start_week(campaign)
             p.pregen = pick.id
             p.mini = pick.mini
             p.hook = pick.hook
+            -- The fallen hero's backstory ended with them (deck.thread_live); the new one's starts here.
+            p.thread = util.lower_first(pick.hook)
+            p.thread_progress = 0
             nc.done = true
             nc.joins = campaign.week
             nc.pregen = pick.id
@@ -238,6 +241,9 @@ function M.intro(night)
             end
             if p and g and p.present then
                 nc.introduced = true
+                -- Who this is, before the scene introduces them (the story playtest: a new name
+                -- turning up with no word of who they are lost the table).
+                night:say(p.name .. " has a new character tonight: " .. p.char .. ". " .. (g.hook or ""), "system")
                 night:say(util.fill(data.INTRO[g.intro] or data.INTRO.hired, { new = p.char, old = nc.was }), "opening")
                 score.add(p, "spotlight", data.INTRO_SPOTLIGHT)
                 score.add(p, "fun", 4)

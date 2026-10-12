@@ -289,8 +289,29 @@ local function dump_once(name)
     end
 end
 
+-- A gift from the table waiting on the report (game/model/keepsakes.lua): take it, then put it away.
+local has_text_fn
+local function take_gift(where, n)
+    local keepsakes = require "game.model.keepsakes"
+    local g = keepsakes.waiting(app.campaign)
+    if not g then
+        return
+    end
+    dump_once("7k_keepsake")
+    if not has_text_fn("hands you something") then problem("the gift doesn't say who it's from" .. where) end
+    if click_key("next_week") and app.quick then problem("the report moved on under the gift" .. where) end
+    local how = ({ "gush", "use", "cool" })[((n or 0) % 3) + 1]
+    if not click_key("keepsake_" .. how) then problem("no way to take the gift (" .. how .. ")" .. where) end
+    if g.how ~= how or not app.keepsake_shown then problem("taking the gift didn't stick" .. where) end
+    dump_once("7l_keepsake_taken")
+    if not click_key("keepsake_done") then problem("no way to put the gift away" .. where) end
+    if app.keepsake_shown or keepsakes.waiting(app.campaign) then problem("the gift wouldn't go away" .. where) end
+    if not has_text_fn("A gift from") then problem("the report doesn't list the gift" .. where) end
+end
+
 -- Leave the report: the quick playtest questions, then the next week or the end of the slice.
 local function leave_report(where)
+    take_gift(where)
     if not click_key("next_week") then problem("no next-week button" .. where) return false end
     if app.quick then
         dump_once("18_quick_questions")
@@ -307,7 +328,7 @@ end
 
 local stats = { clicks = 0, weeks = 0, rolls = 0, modals = 0, max_nodes = 0 }
 
-local function has_text_fn(fragment)
+function has_text_fn(fragment)
     for _, n in ipairs(order) do
         if n.alive and n.text and string.find(n.text, fragment, 1, true) then return true end
     end
@@ -538,6 +559,54 @@ check_tip_absorbs(" (week 2 prep)")
         problem("prep not ready after picking types: " .. table.concat(t, " ") .. " (overlay " .. tostring(app.overlay)
             .. ", ask " .. tostring(app.ask and true) .. ", talk " .. tostring(app.talk and true) .. ", convo " .. tostring(app.convo and true) .. ")")
         break
+    end
+    -- Goodwill: the heart on each card, and what it means on hover (and who gave you what).
+    if week == 2 then
+        local keepsakes = require "game.model.keepsakes"
+        local given = keepsakes.get(app.campaign).given
+        local from = given[1] and given[1].from
+        if not from then problem("week two with no gift on the table") end
+        local hovered = false
+        for _, b in ipairs(buttons()) do
+            if from and b.key == "goodwill_" .. from then
+                local x, y = center(b)
+                call(on_input, self, nil, { x = x, y = y })
+                hovered = true
+                break
+            end
+        end
+        if from and not hovered then problem("no Goodwill heart on " .. from .. "'s card") end
+        dump("15d_goodwill_hover")
+        if hovered and not has_text_fn("They gave you") then problem("the Goodwill hover doesn't say what they gave you") end
+        call(on_input, self, nil, { x = 4, y = 4 })
+    end
+    -- A handout (game/model/handouts.lua): open a story card's slot and make one.
+    if week == 1 or week == 3 then
+        local handouts = require "game.model.handouts"
+        local pr = app.campaign.prep
+        local found
+        for i, sc in ipairs(pr.scenes) do
+            for _, kind in ipairs(require("game.model.content").kinds) do
+                local c = sc.slots[kind]
+                if not found and c and handouts.worth_it(app.campaign, c) then
+                    found = { i, kind, c }
+                end
+            end
+        end
+        if found then
+            pr.extra = (pr.extra or 0) - 2      -- (time for it, whatever the random clicks spent)
+            app.sel = { scene = found[1], kind = found[2] }
+            app.refresh()
+            if not click_key("handout_toggle") then
+                problem("no handout button on a story card's slot")
+            elseif not (pr.handouts and pr.handouts[found[3].id]) then
+                problem("making a handout didn't stick")
+            else
+                dump_once("15e_handout_made")
+            end
+            app.sel = nil
+            app.refresh()
+        end
     end
     -- The slice rework: the one-page hand, and the notebook later in the campaign.
     if week == 3 or week == 1 then
@@ -1013,8 +1082,20 @@ check_tip_absorbs(" (week 2 prep)")
         break
     end
     if week == 1 then dump("6_night_done") end
+    -- Gifts from the table: one player's Goodwill is full, so they bring something tonight.
+    local keepsakes = require "game.model.keepsakes"
+    if week == 1 then
+        for _, p in ipairs(app.campaign.players) do
+            if p.present then
+                app.campaign.keepsakes = { goodwill = { [p.key] = keepsakes.data.FULL }, given = {} }
+                break
+            end
+        end
+    end
     if not click_label("See how everyone felt") then problem("no report button") break end
     if app.screen ~= "report" then problem("expected report") break end
+    if week == 1 and not keepsakes.waiting(app.campaign) then problem("a full heart brought no gift") end
+    take_gift(" (week " .. week .. ")", week)
     if week == 1 then
         dump("7_report")
         -- The recap is the DM's (B7): another title, pin a beat, cut one, write a note.
@@ -1081,6 +1162,19 @@ check_tip_absorbs(" (week 2 prep)")
         -- The end of the slice: scrapbook, survey, thanks, keep playing.
         dump("19_slice_scrapbook")
         if #app.campaign.journal ~= app.campaign.week then problem("the journal missed a week") end
+        -- The table awards: one each, all different.
+        local titles = {}
+        for _, p in ipairs(app.campaign.players) do
+            local a = app.awards and app.awards[p.key]
+            if not a then
+                problem("no table award for " .. p.name)
+            elseif titles[a.title] then
+                problem("two players got the same award: " .. a.title)
+            elseif not has_text_fn(a.title) then
+                problem("the award isn't on the scrapbook: " .. a.title)
+            end
+            titles[a and a.title or "?"] = true
+        end
         if not click_key("to_survey") then problem("no survey button on the scrapbook") end
         dump("20_survey_empty")
         if click_key("save_survey") then problem("the survey saved with nothing answered") end

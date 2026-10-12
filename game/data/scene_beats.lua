@@ -66,13 +66,20 @@ return {
 
     -- The bridge at the end of every scene but the last (A2): what they got, and where they
     -- go next. {got}/{Got} what they won, {next} the next scene's place (or its goal), {here}.
+    -- Between scenes. got: a reward they carry off; goal: what they did ("the relic, still safe");
+    -- won/lost: neither. The _here sets are for when the next place isn't settled yet (the DM
+    -- will make it up), so the line doesn't promise somewhere it can't name.
     bridge = {
-        got = { "They walk away with {got}. Next: {next}.", "{Got}, and on to {next}.",
-                "With {got} in hand, they make for {next}." },
+        got = { "They walk away with {got}. Next: {next}.", "With {got} in hand, they make for {next}." },
+        goal = { "They come away with {got}, and on to {next}.", "{Got}. Next stop: {next}." },
         won = { "Done at {here}. Next: {next}.", "That's {here} settled. On to {next}.",
                 "They leave {here} better than they found it. Next: {next}." },
         lost = { "They come away from {here} with nothing but bruises. Next: {next}.", "Empty-handed, they head for {next}.",
                  "Not their night at {here}. On to {next}." },
+        got_here = { "They walk away from {here} with {got}.", "With {got} in hand, they leave {here} behind." },
+        goal_here = { "They come away from {here} with {got}.", "They leave {here} behind with {got}." },
+        won_here = { "That's {here} settled.", "They leave {here} better than they found it." },
+        lost_here = { "They come away from {here} with nothing but bruises.", "Not their night at {here}." },
     },
 
     -- The heroes talking to each other, in character, between checks.

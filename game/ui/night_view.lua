@@ -166,6 +166,8 @@ function M.start(app)
     app.pending = nil
     app.rolling = false
     app.night_done = false
+    app.keepsake_seen = nil
+    app.handout_seen = nil
     app.speed_i = app.speed_i or 1
     app.log_open = false
     app.timer = 0.8
@@ -1381,6 +1383,37 @@ function M.handle(app, ev)
         end
         if app.tumble_die then
             app.tumble_die(ev.who, 20)
+        end
+        post("pose", { who = ev.who, pose = "cheer", hold = true })
+    elseif k == "handout" then
+        -- A handout you made in prep lands in front of a player (game/model/handouts.lua).
+        app.handout_seen = true
+        local p = player(app, ev.who)
+        if p then
+            M.float(app, ev.who, "A handout!", theme.gold)
+            M.push(app, p.name .. " gets " .. (ev.what or "a handout") .. ". It stays at their seat.", "reward")
+        end
+        if app.place_handouts then
+            app.place_handouts(ev.who)
+        end
+        post("pose", { who = ev.who, pose = "lean", hold = true })
+    elseif k == "story_back" then
+        -- A storyline the table thought was dropped comes back (game/model/storylines.lua).
+        if ev.who then
+            M.float(app, ev.who, "It's back!", theme.gold)
+        end
+        M.push(app, (ev.name or "A dropped storyline") .. " is back. Nobody saw that coming.", "thread")
+    elseif k == "keepsake" then
+        -- Their gift from last week, put to work on your side of the table: they spot it.
+        app.keepsake_seen = true
+        local p = player(app, ev.who)
+        if p then
+            M.float(app, ev.who, "Their " .. (ev.short or "gift") .. ", all set up!", theme.heart)
+            M.push(app, p.name .. " spots the " .. (ev.short or "gift") .. " they gave you, out on your side of the table.",
+                "reaction")
+        end
+        if app.place_keepsakes then
+            app.place_keepsakes(ev.id)
         end
         post("pose", { who = ev.who, pose = "cheer", hold = true })
     elseif k == "token" then

@@ -249,6 +249,17 @@ function M.belongs_at(card, location)
     return false
 end
 
+-- The place a card is tied to (its first location in `with`), or nil.
+function M.tied_place(card)
+    for _, w in ipairs(card and card.with or {}) do
+        local other = M.components[w]
+        if other and other.kind == "location" then
+            return other
+        end
+    end
+    return nil
+end
+
 -- Is anything already on this scene at odds with the card (either way round)?
 -- Returns the clashing card, or nil.
 function M.setting_clash(card, slots)

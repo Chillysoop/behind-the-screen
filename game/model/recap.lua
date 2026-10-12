@@ -12,6 +12,8 @@ local M = {}
 -- Templates per event kind. {who} the player's name, {char} their hero, {text} the event's own
 -- line, {place} where it happened, {boss} the one who fell.
 M.TEMPLATES = {
+    -- What a scene's goal came to (the story playtest: losing the relic never reached the recap).
+    goal = { "{text}" },
     start = { "It started at {place}.", "The night opened at {place}.", "First stop: {place}.",
               "They began at {place}, as planned.", "{place} first, where it all kicked off." },
     crit = { "{char} rolled a natural 20 and the table lost its mind.", "A natural 20 from {char}, right when it counted.",
@@ -31,7 +33,7 @@ M.TEMPLATES = {
     killing_blow = { "{char} landed the killing blow. {who} described every second of it.", "{text}.",
                      "The final hit went to {char}.", "{who} got to finish it, and did it in style.",
                      "{char} ended the fight." },
-    villain_falls = { "{text}.", "The villain fell.", "Down went the one they came for.", "The fight's big name hit the floor." },
+    villain_falls = { "{text}.", "The one leading them went down, and the rest lost heart.", "The fight's big name hit the floor." },
     escape = { "{text}.", "The villain got away, and will remember.", "Someone slipped out the back, swearing revenge.",
                "One of them escaped. That's a Grudge now." },
     defeat = { "They lost the fight. {text}", "A defeat, and they lived.", "Not every fight is won: this one wasn't.",
@@ -187,9 +189,9 @@ M.SPOKEN = {
     clue = "{clue}", killing_blow = "{past}.", villain_falls = "{past}", escape = "{text}.",
     defeat = "You lost a fight, and lived to tell it.", death = "We lost {char}.", goodbye = "You said goodbye to {char}.",
     new_character = "{past}", crit = "{past}, right when it counted.", retort = "{char} finally got the last word in.",
-    theory = "{past}.", payoff = "{text}.",
+    theory = "{past}.", payoff = "{text}.", goal = "{text}",
 }
-M.SPOKEN_CAP = { clue = 2 }
+M.SPOKEN_CAP = { clue = 2, goal = 3 }
 
 local PAST = { { " lands ", " landed " }, { " rolls ", " rolled " }, { " falls%.", " fell." }, { " falls$", " fell" },
                { " joins ", " joined " }, { " comes true", " came true" }, { " goes down", " went down" },
@@ -218,7 +220,7 @@ function M.spoken_beats(campaign, night)
             end
             if #text > 2 then
                 per[e.ev] = (per[e.ev] or 0) + 1
-                table.insert(out, { kind = e.ev, order = i, weight = e.weight or 3, text = text })
+                table.insert(out, { kind = e.ev, order = i, weight = e.weight or 3, text = text, clue = e.clue })
             end
         end
     end
@@ -261,8 +263,11 @@ function M.last_session(campaign)
             table.insert(pool, s)
         end
     end
+    -- A clue that came with a handout sticks (game/model/handouts.lua): it leads.
+    local handed = require("game.model.handouts").last_week_cards(campaign)
     local function rank(s)
-        return (pinned[s.order] and 100 or 0) + (s.kind == "clue" and 20 or 0) + (s.weight or 0)
+        return (pinned[s.order] and 100 or 0) + ((s.clue and handed[s.clue]) and 60 or 0) + (s.kind == "clue" and 20 or 0)
+            + (s.kind == "goal" and 15 or 0) + (s.weight or 0)
     end
     table.sort(pool, function(a, b)
         if rank(a) ~= rank(b) then

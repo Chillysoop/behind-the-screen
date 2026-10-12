@@ -27,7 +27,7 @@ local pages = require "game.ui.notebook_pages"
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
 local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
-               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" }, { "threads", "Threads" },
+               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" }, { "threads", "Storylines" },
                { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }

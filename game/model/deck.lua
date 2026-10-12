@@ -235,6 +235,17 @@ local is_story = is_story_card
 
 -- This week's hand from the deck: every kind on one page, story cards first, then cards that
 -- just joined, then the rest. Backstory cards of someone who isn't here wait in the deck.
+-- A backstory card whose hero is still the one at the table: once a hero falls and their player
+-- rolls up someone new, that hero's own story cards leave with them (the story playtest: Pip's
+-- debt kept coming up after Pip died). A way back for them is the exception.
+function M.thread_live(campaign, c)
+    if not c.thread or c.way_back then
+        return true
+    end
+    local p = campaign.player and campaign:player(c.thread)
+    return not (p and p.pregen)
+end
+
 function M.hand(campaign)
     local hand = {}
     local present = {}
@@ -245,7 +256,7 @@ function M.hand(campaign)
     for _, kind in ipairs(content.kinds) do
         local list = {}
         for _, c in ipairs(M.cards(campaign, kind)) do
-            if not c.thread or present[c.thread] then
+            if (not c.thread or present[c.thread]) and M.thread_live(campaign, c) then
                 local e = M.entry(campaign, c.id)
                 local rank
                 if is_story(campaign, c) then

@@ -1,0 +1,100 @@
+-- The gifts on the DM's side of the table (game/model/keepsakes.lua): every keepsake a player has
+-- given you, set out right of the DM screen in the order you got them. "place" { list = { id, ... },
+-- new = id } puts them out; the new one drops in. And the handouts in front of the players
+-- (game/model/handouts.lua): "handouts" { seats = { [key] = { kind... } }, new = key }.
+-- The meshes are tools/gen_keepsakes.py.
+
+local scene = require "main.scene_data"
+
+-- Where they go, right of the screen first (x, z, and a turn toward the DM's chair).
+local SLOTS = {
+    { 28, 38, -0.35 },
+    { 42, 33.5, -0.6 },
+    { 37, 47, -0.5 },
+    { 57, 44, -0.8 },
+    { 14, 35, -0.15 },
+    { 52, 30, -0.7 },
+}
+
+-- Handouts (game/model/handouts.lua) stay in front of the player who got them, beside their tray.
+local SEATS = {
+    mara = { -36, -42, 0.3 },
+    jess = { 30, -42, -0.25 },
+    dev = { -66, -12, 1.4 },
+    sam = { 64, -7, -1.5 },
+}
+
+local function clear(self)
+    for _, id in pairs(self.out or {}) do
+        go.delete(id)
+    end
+    self.out = {}
+end
+
+local function clear_paper(self)
+    for _, id in ipairs(self.paper or {}) do
+        go.delete(id)
+    end
+    self.paper = {}
+end
+
+-- seats = { [player key] = { kind... } } (oldest first); new = the seat that just got one.
+local function handouts(self, seats, new)
+    clear_paper(self)
+    local y = scene.grid.y - 0.15
+    for key, kinds in pairs(seats or {}) do
+        local s = SEATS[key]
+        if s then
+            for i, kind in ipairs(kinds) do
+                -- A little pile: each one a touch higher, turned a little, nudged over.
+                local pos = vmath.vector3(s[1] + (i - 1) * 1.6, y + (i - 1) * 0.2, s[2] + (i - 1) * 1.2)
+                local fresh = key == new and i == #kinds
+                local ok, id = pcall(factory.create, "#handout_" .. kind, pos + vmath.vector3(0, fresh and 10 or 0, 0),
+                    vmath.quat_rotation_y(s[3] + (i - 1) * 0.35))
+                if ok and id then
+                    table.insert(self.paper, id)
+                    if fresh then
+                        go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, pos.y, go.EASING_OUTQUAD, 0.5, 0.1)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function place(self, list, new)
+    clear(self)
+    local y = scene.grid.y - 0.15
+    for i, kind in ipairs(list or {}) do
+        local s = SLOTS[i]
+        if s then
+            local pos = vmath.vector3(s[1], y, s[2])
+            local ok, id = pcall(factory.create, "#" .. kind, pos + vmath.vector3(0, kind == new and 14 or 0, 0),
+                vmath.quat_rotation_y(s[3]))
+            if ok and id then
+                self.out[kind] = id
+                if kind == new then
+                    go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, y, go.EASING_OUTBOUNCE, 0.7, 0.25)
+                end
+            end
+        end
+    end
+end
+
+function init(self)
+    self.out = {}
+    self.paper = {}
+end
+
+function final(self)
+    clear(self)
+    clear_paper(self)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("place") then
+        place(self, message.list, message.new)
+    elseif message_id == hash("handouts") then
+        handouts(self, message.seats, message.new)
+    end
+end

@@ -171,6 +171,22 @@ local function mentions(l)
 end
 M.mentions = mentions
 
+-- The characters a line names, the speaker's own included ("Pip takes a bow"): once that
+-- character has fallen and their player plays someone new, the line is retired (the story
+-- playtest: Jess kept talking about Pip after Pip died).
+local function char_mentions(l)
+    local out
+    local text = (l.text or "") .. " " .. (l.reply or "")
+    for key, names in pairs(M.NAMES) do
+        if string.find(text, "%f[%a]" .. names[2] .. "%f[%A]") then
+            out = out or {}
+            out[key] = names[2]
+        end
+    end
+    return out
+end
+M.char_mentions = char_mentions
+
 function M:index()
     self.by_id = {}
     self.cells = {}
@@ -179,6 +195,10 @@ function M:index()
         l.status = l.status or "draft"
         self.by_id[l.id] = l
         l.mentions = mentions(l)
+        l.chars = char_mentions(l)
+        local lt = string.lower((l.text or "") .. " " .. (l.reply or ""))
+        l.looks_back = string.find(lt, "last week", 1, true) or string.find(lt, "last session", 1, true)
+            or string.find(lt, "last time", 1, true) or nil
         local t = self.trigger[l.trigger]
         local split = t and t.split and l[t.split.field] or nil
         local key = cell_key(l.trigger, l.speaker, split)
@@ -262,6 +282,15 @@ function M:pick(trigger, speaker, ctx)
         if ok and l.mentions and ctx.present then
             for key in pairs(l.mentions) do
                 ok = ok and ctx.present[key] == true
+            end
+        end
+        -- "What you said last week" can't be said in the first session.
+        if ok and ctx.first_week and l.looks_back then
+            ok = false
+        end
+        if ok and l.chars and ctx.chars then
+            for key, name in pairs(l.chars) do
+                ok = ok and (ctx.chars[key] == nil or ctx.chars[key] == name)
             end
         end
         if ok and l.to then

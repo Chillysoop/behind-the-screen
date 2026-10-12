@@ -143,7 +143,7 @@ return {
                     .. "a key.'",
             },
             goal = "The party finds Tobin's map and learns the hush came from inside the tower.",
-            objective = "find out who hushed Millbrook's bells, and where Old Tobin went",
+            objective = "find out who hushed Millbrook's bells, and why",
             objective_if = { clue = "stranger", text = "follow Old Tobin up the north road and find out what happened to him" },
             lead = "a scarred man with a wolf badge",
             culprit = { name = "the scarred man with the wolf badge", secret = "he's been watching the north road for Kessrick" },

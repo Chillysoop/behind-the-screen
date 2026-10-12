@@ -7,6 +7,8 @@ local score = require "game.model.score"
 local empathy = require "game.model.empathy"
 local util = require "game.model.util"
 local levelup_view = require "game.ui.levelup_view"
+local keepsakes = require "game.model.keepsakes"
+local panels = require "game.ui.panels"
 
 local M = {}
 
@@ -60,6 +62,42 @@ local function wrapup_items(app, rep)
     end
     if rep.table_text then
         table.insert(items, { rep.table_text, theme.dim })
+    end
+    -- The storylines (game/model/storylines.lua): dropped long enough for the table to notice,
+    -- back from the dead, spread too thin, and what moved.
+    local sl = rep.storylines
+    if sl then
+        local storylines = require "game.model.storylines"
+        local function names(ids)
+            local n = {}
+            for _, id in ipairs(ids) do
+                local d = storylines.def(app.campaign, id)
+                if d then
+                    table.insert(n, d.kind == "backstory" and (d.short .. "'s story") or util.lower_first(d.short))
+                end
+            end
+            return util.join_names(n)
+        end
+        if #sl.noticed > 0 then
+            table.insert(items, { "The table noticed you dropped " .. names(sl.noticed) .. ". It'll wear on them until it comes back.",
+                                  theme.red })
+        end
+        if #sl.back > 0 then
+            table.insert(items, { "Back from the dead: " .. names(sl.back) .. ". Nobody saw it coming.", theme.gold })
+        end
+        if sl.thin then
+            table.insert(items, { "Spread thin: " .. util.int(sl.thin) .. " separate storylines in one night. The table lost the thread.",
+                                  theme.orange })
+        end
+        if #sl.cold > 0 then
+            table.insert(items, { "Cooling: " .. names(sl.cold) .. ". Next week, or the table notices.", theme.orange })
+        end
+        if #sl.resolved > 0 then
+            table.insert(items, { "Tied off: " .. names(sl.resolved) .. ".", theme.teal })
+        end
+        if #sl.opened > 0 then
+            table.insert(items, { "A new storyline: " .. names(sl.opened) .. ".", theme.green })
+        end
     end
     -- The story: what they found, what's still open, what moved, what tonight opened.
     for _, c in ipairs(rep.clues or {}) do
@@ -322,6 +360,12 @@ function M.build(app)
         ey = ey + 40
     end
     local earned = {}
+    local gift = rep.keepsake
+    if gift then
+        local gp = app.campaign:player(gift.from)
+        table.insert(earned, { "A gift from " .. (gp and gp.name or "the table") .. ": " .. keepsakes.def(gift.id).name
+            .. ". It's on your side of the table now.", theme.heart })
+    end
     for _, e in ipairs(rep.inspiration or {}) do
         table.insert(earned, { e.text, e.spent and theme.dim or theme.gold })
     end
@@ -379,7 +423,84 @@ function M.build(app)
         "ui14", theme.faint, { pivot = gui.PIVOT_N })
     if app.quick then
         M.quick_modal(app)
+    elseif app.keepsake_shown or keepsakes.waiting(app.campaign) then
+        M.keepsake_modal(app)
     end
+end
+
+-- A gift from the table (game/model/keepsakes.lua): as everyone packs up, the player whose
+-- Goodwill filled hands you something. You choose how to take it; then it's on your side of
+-- the table for good.
+local function wrapped(x, y, w, h, open)
+    if open then
+        kit.box(x, y + h * 0.35, w, h * 0.65, kit.rgba("#8a5e38"), { radius = 4 })
+        kit.box(x - 6, y + h * 0.35 - 10, w + 12, 14, kit.rgba("#a07848"), { radius = 3 })
+        kit.box(x + w / 2 - 5, y + h * 0.35 - 10, 10, h * 0.65 + 10, theme.gold, { round = false })
+        return
+    end
+    kit.box(x, y, w, h, kit.rgba("#9a3a3a"), { radius = 5 })
+    kit.box(x + w / 2 - 6, y, 12, h, theme.gold, { round = false })
+    kit.box(x, y + h / 2 - 6, w, 12, theme.gold, { round = false })
+    kit.dot(x + w / 2 - 12, y - 4, 22, theme.gold)
+    kit.dot(x + w / 2 + 12, y - 4, 22, theme.gold)
+    kit.dot(x + w / 2, y - 2, 12, kit.rgba("#c8902e"))
+end
+
+function M.keepsake_modal(app)
+    local camp = app.campaign
+    local shown = app.keepsake_shown
+    local g = shown and shown.g or keepsakes.waiting(camp)
+    if not g then
+        app.keepsake_shown = nil
+        return
+    end
+    local def = keepsakes.def(g.id)
+    local p = camp:player(g.from)
+    local name = p and p.name or "Someone"
+    kit.layer("keepsake", true)
+    kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.6), { round = false })
+    local x, y, w, h = 450, 190, 700, 500
+    kit.box(x - 2, y - 2, w + 4, h + 4, theme.heart, { radius = 16 })
+    kit.box(x, y, w, h, theme.bg, { radius = 14 })
+    kit.text(x + 30, y + 24, "AS EVERYONE PACKS UP", "ui14", theme.heart)
+    kit.dot(x + 50, y + 74, 40, panels.COLORS[g.from] or theme.panel3)
+    kit.picture(x + 31, y + 55, 38, 38, panels.face(g.from))
+    kit.text(x + 82, y + 52, name .. " hangs back and hands you something.", "ui22b", theme.text, { w = w - 112 })
+    kit.text(x + 82, y + 82, "Their Goodwill filled up this week.", "ui14", theme.dim)
+    wrapped(x + 40, y + 136, 96, 76, shown ~= nil)
+    kit.text(x + 160, y + 128, util.sentence_case(def.name) .. ".", "story22", theme.gold, { w = w - 190 })
+    kit.text(x + 160, y + 128 + kit.text_height(util.sentence_case(def.name) .. ".", "story22", w - 190) + 10,
+        '"' .. def.line .. '"', "ui18", kit.rgba("#ffd890"), { w = w - 190 })
+    if shown then
+        kit.text(x + 40, y + 268, shown.said, "ui18", theme.text, { w = w - 80 })
+        kit.text(x + 40, y + 268 + kit.text_height(shown.said, "ui18", w - 80) + 12, shown.landed, "ui18b",
+            (g.landed or 0) >= 1 and theme.heart or ((g.landed or 0) < 0 and theme.orange or theme.dim), { w = w - 80 })
+        kit.text(x + 40, y + h - 120, "It's on your side of the table from now on, every session.", "ui14", theme.faint)
+        kit.button(x + w - 260, y + h - 76, 230, 48, "Put it with your things", function()
+            app.keepsake_shown = nil
+            if app.place_keepsakes then
+                app.place_keepsakes(g.id)
+            end
+            app.refresh()
+        end, { color = theme.go, hover = theme.go_hover, font = "ui18b", key = "keepsake_done" })
+        return
+    end
+    kit.text(x + 40, y + 270, "How do you take it?", "ui18b", theme.text)
+    for k, r in ipairs(keepsakes.data.REACTIONS) do
+        local bx = x + 40 + (k - 1) * 212
+        kit.button(bx, y + 306, 200, 54, r.label, function()
+            local said, landed = keepsakes.react(camp, r.id)
+            if said then
+                app.keepsake_shown = { g = g, said = said, landed = landed }
+                if app.save_campaign then
+                    app.save_campaign()
+                end
+            end
+            app.refresh()
+        end, { font = "ui18b", key = "keepsake_" .. r.id })
+    end
+    kit.text(x + 40, y + 376, "Some players want a fuss made. Some would rather you just use the thing.", "ui14", theme.faint,
+        { w = w - 80 })
 end
 
 -- New dice for someone who earned it (dice_sets): once a week, after the session. The table
@@ -479,6 +600,7 @@ end
 function M.next(app)
     local c = app.campaign
     app.gift_line = nil
+    app.keepsake_shown = nil
     if app.playtest ~= false and not app.quick_done then
         app.quick = app.quick or { week = c.week }
         app.refresh()

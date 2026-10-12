@@ -830,6 +830,7 @@ def main():
     col += instance("lamp_halo", "/main/fx/halo.go", (bulb[0], bulb[1] - 2, bulb[2]), scale=0.22)
     col += instance("dice", "/main/dice/dice.go")
     col += instance("board", "/main/board/board.go")
+    col += instance("keepsakes", "/main/keepsakes/keepsakes.go")  # the players' gifts: tools/gen_keepsakes.py
     col += instance("table", "/main/table/table.go")
     col += instance("dice_blob", "/main/dice/dice_blob.go", (0, -500, 0))
     flame_scale = 0.055

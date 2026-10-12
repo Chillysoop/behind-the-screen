@@ -161,6 +161,9 @@ function M:start_week()
         end
         best.present = true
     end
+    -- Death (B3): whoever fell rolls up someone new (before the hand is dealt: the fallen hero's
+    -- own story cards leave with them).
+    self.new_chars = death.start_week(self)
     world.start_week(self)     -- the world turns: last week's undecided moves play out, new ones are proposed
     planner.start_week(self)   -- the campaign planner: fronts move unless they were pushed back
     deck.start_week(self)      -- the story deck: follow-ups join, the beat deals its cards
@@ -172,8 +175,7 @@ function M:start_week()
     self.showers = jokes.shower_thoughts(self, self.prep, rng)
     fails.start_week(self)
     require("game.model.villains").start_week(self)     -- Vendetta fades for villains who stay away
-    -- Death (B3): whoever fell rolls up someone new; a way back waits in the hand.
-    self.new_chars = death.start_week(self)
+    -- A way back (B3) waits in the hand.
     for key in pairs(self.death_quest or {}) do
         local card = death.quest_card(self, key)
         if card then
@@ -188,6 +190,14 @@ function M:start_week()
     social.start_week(self)
     progression.start_week(self)
     self.chat = self:write_chat()
+    -- A storyline dropped long enough for the table to notice: someone says so in the chat.
+    for _, n in ipairs(self.story_noticed or {}) do
+        local p = self:player(n.key)
+        if p then
+            table.insert(self.chat, 1, { who = p.name, key = p.key, loose = n.id, text = n.text })
+        end
+    end
+    self.story_noticed = nil
     -- A new character (B3): the player tells the group chat who they rolled up.
     for _, nc in ipairs(self.new_chars or {}) do
         local p = self:player(nc.key)
@@ -443,6 +453,10 @@ function M:finish_night()
     planner.after_night(self, night)
     -- The notebook: what the party did to whom tonight, and how it changed things.
     ledger.after_night(self, night)
+    require("game.model.awards").after_night(self, night)   -- fights and lines in character, for the awards
+    rep.keepsake = require("game.model.keepsakes").after_night(self, rep, night)   -- a full heart brings a gift
+    rep.handouts = require("game.model.handouts").after_night(self, night)       -- they stay at the players' seats
+    rep.storylines = require("game.model.storylines").after_night(self, night)   -- what moved, what's been dropped
     world.after_night(self, night)
     -- Every place prepped or visited tonight is one of yours now (A15).
     require("game.model.places").after_night(self, night)
