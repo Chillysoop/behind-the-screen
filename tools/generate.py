@@ -756,14 +756,17 @@ def main():
     gen_props.main()
 
     # dynamic minis: the table script spawns them from these prototypes
-    for side in ("party", "foe", "npc"):
+    # A party mini's base is its player's shirt colour: "party" is Mara's, and Dev, Jess and Sam
+    # have their own (main/minis/mini.script picks one by the player).
+    for side in ("party", "foe", "npc", "dev", "jess", "sam"):
         base = gm.Mesh()
         base.add(gm.cylinder((0, 0, 0), 2.25, 2.1, 0.6, 20, gm.swatch(PAL("base_" + side))))
         base.add(gm.cylinder((0, 0.6, 0), 1.6, 1.6, 0.01, 20, gm.swatch(PAL("base")), caps=(False, True)))
         gm.write_glb(path("assets/meshes", f"base_{side}.glb"), base, f"base_{side}")
         w(f"main/minis/base_{side}.model", model_file(f"base_{side}", T + "palette.png"))
     w("main/minis/mini_base.go", go_file([("party", "/main/minis/base_party.model"), ("foe", "/main/minis/base_foe.model"),
-                                          ("npc", "/main/minis/base_npc.model")]))
+                                          ("npc", "/main/minis/base_npc.model"), ("dev", "/main/minis/base_dev.model"),
+                                          ("jess", "/main/minis/base_jess.model"), ("sam", "/main/minis/base_sam.model")]))
     w("main/minis/mini.go", go_file([("sprite", "/main/minis/mini.sprite"), ("mini", "/main/minis/mini.script")]))
     w("main/minis/mini.sprite", sprite_file("fighter", "/materials/standee.material"))
     w("main/fx/spark.go", go_file([("sprite", "/main/fx/halo.sprite"), ("spark", "/main/fx/spark.script")]))

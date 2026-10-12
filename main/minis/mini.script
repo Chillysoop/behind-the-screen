@@ -10,6 +10,9 @@ local scene = require "main.scene_data"
 go.property("tilt", 0)          -- 0 standing, 1 lying flat on its back
 go.property("lift", 0)          -- extra height (spawn drop, hops)
 
+-- Players with a base of their own colour (Mara's is the "party" base).
+local PLAYER_BASE = { dev = true, jess = true, sam = true }
+
 local function base_y()
     return scene.grid.base_top
 end
@@ -125,8 +128,13 @@ function on_message(self, message_id, message)
         go.set_scale(vmath.vector3(s, s, s))
         sprite.play_flipbook("#sprite", message.anim)
         if self.base then
-            for _, side in ipairs({ "party", "foe", "npc" }) do
-                msg.post(msg.url(nil, self.base, side), side == (message.side or "foe") and "enable" or "disable")
+            -- A player's mini stands on a base the colour of their shirt; anyone else's by side.
+            local want = message.side or "foe"
+            if want == "party" and PLAYER_BASE[message.who or ""] then
+                want = message.who
+            end
+            for _, side in ipairs({ "party", "foe", "npc", "dev", "jess", "sam" }) do
+                msg.post(msg.url(nil, self.base, side), side == want and "enable" or "disable")
             end
             go.set_scale(vmath.vector3(self.size, 1, self.size), self.base)
         end

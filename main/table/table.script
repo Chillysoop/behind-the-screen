@@ -34,7 +34,7 @@ local function spawn(self, m)
     local shadow = factory.create("#shadow_factory", vmath.vector3(pos.x, scene.grid.y + 0.05, pos.z), nil, nil,
         vmath.vector3(0.01, 1, 0.01))
     msg.post(msg.url(nil, id, "mini"), "setup", { base = base, shadow = shadow, anim = hash(m.sprite), side = m.side,
-                                                 size = size, drop = m.drop, delay = m.delay })
+                                                 who = m.id, size = size, drop = m.drop, delay = m.delay })
     self.minis[m.id] = { go = id, x = m.x, y = m.y, side = m.side, size = size, sprite = m.sprite }
 end
 

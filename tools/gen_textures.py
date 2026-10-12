@@ -26,7 +26,9 @@ PALETTE = {
     "bottle_green": "#3d6b4a", "bottle_amber": "#b07a2a", "barrel": "#7a5232", "metal": "#6a6e74",
     "awning_red": "#b2483a", "awning_blue": "#3f6a9a", "awning_yellow": "#d6a23d", "water": "#3a6f86",
     "crate": "#a07848", "hay": "#c9a95a", "chasm": "#16110e", "rope": "#a88b5a",
-    "base_party": "#c9a24c", "base_foe": "#8a3a32", "base_npc": "#5a7a8a",
+    "base_party": "#d0a040", "base_foe": "#8a3a32", "base_npc": "#5a7a8a",
+    # Each player's mini stands on a base the colour of their shirt (base_party is Mara's mustard).
+    "base_dev": "#3f5f9a", "base_jess": "#3f8a84", "base_sam": "#a83a32",
 }
 PALETTE_COLS = 8
 
