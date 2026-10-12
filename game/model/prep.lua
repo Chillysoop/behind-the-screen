@@ -1229,6 +1229,48 @@ function M:bring_in(id)
     return true, cards
 end
 
+-- Someone's feelings changed while the DM was still prepping (the world turned): what they
+-- bring this week changes with them. The old agenda card comes off (and off the board, if it was
+-- placed); a new one comes in if they want something now.
+function M:refresh_guest(pid)
+    local g = self.guests and self.guests[pid]
+    if not g then
+        return
+    end
+    local ledger = ledger_mod()
+    local old
+    for _, cid in ipairs(g.cards) do
+        local c = content.components[cid]
+        if c and c.agenda == pid then
+            old = c
+        end
+    end
+    local want = ledger.agenda_kind(self.campaign, pid)
+    if (old and old.agenda_kind) == want then
+        return
+    end
+    if old then
+        local i, kind = self:placed_at(old.id)
+        if i then
+            self:clear(i, kind)
+        end
+        self:unpin(old.id)
+        for k = #g.cards, 1, -1 do
+            if g.cards[k] == old.id then
+                table.remove(g.cards, k)
+            end
+        end
+    end
+    local agenda = want and ledger.agenda_card(self.campaign, pid)
+    if agenda then
+        local person = ledger.card_of(self.campaign, pid)
+        local note = ledger.about(pid).name .. ": " .. ledger.label(ledger.att(self.campaign, pid))
+        deck_mod().add(self.campaign, agenda.id, self.campaign.week, person and person.id, "agenda")
+        self:pin(agenda.id, "guest", note, { guest = pid, added = true })
+        table.insert(g.cards, agenda.id)
+    end
+end
+
 function M:send_home(id)
     local g = self.guests[id]
     if not g then

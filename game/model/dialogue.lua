@@ -198,7 +198,9 @@ function M:index()
         l.chars = char_mentions(l)
         local lt = string.lower((l.text or "") .. " " .. (l.reply or ""))
         l.looks_back = string.find(lt, "last week", 1, true) or string.find(lt, "last session", 1, true)
-            or string.find(lt, "last time", 1, true) or nil
+            or string.find(lt, "last time", 1, true) or string.find(lt, "where did we leave off", 1, true) or nil
+        -- "Another fight?": only when there's been one before.
+        l.again = string.find(lt, "^another ") or string.find(lt, "%f[%a]again%f[%A]") or nil
         local t = self.trigger[l.trigger]
         local split = t and t.split and l[t.split.field] or nil
         local key = cell_key(l.trigger, l.speaker, split)
@@ -286,6 +288,9 @@ function M:pick(trigger, speaker, ctx)
         end
         -- "What you said last week" can't be said in the first session.
         if ok and ctx.first_week and l.looks_back then
+            ok = false
+        end
+        if ok and l.again and ctx.again == false then
             ok = false
         end
         if ok and l.chars and ctx.chars then

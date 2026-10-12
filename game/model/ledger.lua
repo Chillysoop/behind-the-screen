@@ -239,6 +239,12 @@ function M.adjust(campaign, pid, d, why, key)
     if before ~= after then
         note_change(nb, campaign.week, "att", pid, before, after, why)
     end
+    -- A guest the DM already brought in this week brings what fits how they feel now.
+    local prep = campaign.prep
+    local played = campaign.night and campaign.night.prep == prep     -- this week's night has started
+    if prep and prep.refresh_guest and not played and not campaign.at_night and prep.guests and prep.guests[pid] then
+        prep:refresh_guest(pid)
+    end
 end
 
 function M.set_status(campaign, pid, status, why)

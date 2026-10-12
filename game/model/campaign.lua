@@ -457,6 +457,13 @@ function M:finish_night()
     rep.keepsake = require("game.model.keepsakes").after_night(self, rep, night)   -- a full heart brings a gift
     rep.handouts = require("game.model.handouts").after_night(self, night)       -- they stay at the players' seats
     rep.storylines = require("game.model.storylines").after_night(self, night)   -- what moved, what's been dropped
+    -- The kinds of scene that played tonight ("Another fight?" next week only if there was one).
+    local types = {}
+    for t in pairs(night.types_seen or {}) do
+        table.insert(types, t)
+    end
+    table.sort(types)
+    self.last_scene_types = types
     world.after_night(self, night)
     -- Every place prepped or visited tonight is one of yours now (A15).
     require("game.model.places").after_night(self, night)

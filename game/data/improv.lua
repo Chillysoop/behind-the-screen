@@ -46,7 +46,8 @@ return {
         "{actor_char} decides the real adventure is following that suspicious cat.",
         { "{actor_char} wants to know what's behind the door nobody mentioned.", where = { "indoor", "town", "under", "ruin" } },
         "{actor_char} spots someone watching the party from a distance, and goes to say hello.",
-        { "{actor_char} asks the bartender's name, then their life story. You have neither.", where = { "tavern" } },
+        { "{actor_char} asks the bartender's name, then their life story. You have neither.", where = { "tavern" },
+          unnamed_keeper = true },
     },
 
     -- How an improvised bit lands. great and good are your own asides (the log only); poor

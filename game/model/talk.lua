@@ -98,7 +98,7 @@ function M:line(trigger, p, vars)
     end
     local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
                   present = self.present, chars = self.chars,
-                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1 }
+                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
         -- Some things always get said (a warning before someone takes a break), even if it's a repeat.

@@ -168,6 +168,11 @@ function M.start(app)
     app.night_done = false
     app.keepsake_seen = nil
     app.handout_seen = nil
+    -- A clean mat to start: tonight's first scene lays its place's map, if it has one.
+    if app.pieces_key and app.pieces_key ~= "" then
+        post("pieces", { cells = nil })
+    end
+    app.pieces_key = nil
     app.speed_i = app.speed_i or 1
     app.log_open = false
     app.timer = 0.8
@@ -1028,6 +1033,20 @@ local function party_list(list, app)
     return out
 end
 
+-- A short fingerprint of a map's pieces, so the same map isn't laid twice.
+local function pieces_key(cells)
+    if not cells then
+        return ""
+    end
+    local out = {}
+    for _, kind in ipairs({ "wall", "cover", "rough", "trap" }) do
+        for _, sq in ipairs(cells[kind] or {}) do
+            table.insert(out, kind .. sq[1] .. "," .. sq[2])
+        end
+    end
+    return table.concat(out, ";")
+end
+
 local function stage(app, ev)
     local fresh = ev.terrain ~= app.terrain
     if fresh then
@@ -1049,10 +1068,12 @@ local function stage(app, ev)
     end
     app.on_table = { npc = npc and true or nil }
     post("stage", { party = app.stage_party, npc = npc, fresh = fresh })
-    -- The DM's map for this place (B9), or a clean mat.
-    if ev.pieces or app.pieces_on then
+    -- The DM's map for this place (B9), or a clean mat. The same map again (another scene at the
+    -- same place, or the scenery shifting under the same map) stays put instead of being re-laid.
+    local key = pieces_key(ev.pieces)
+    if key ~= (app.pieces_key or "") then
         post("pieces", { cells = ev.pieces })
-        app.pieces_on = ev.pieces ~= nil
+        app.pieces_key = key
     end
 end
 

@@ -457,7 +457,7 @@ return {
 
     {
         id = "bartender_name", type = "story", scenes = { "social", "downtime", "mystery" },
-        where = { "tavern" },
+        where = { "tavern" }, unnamed_keeper = true,      -- not where the barkeep is a character (Gus)
         actor = { "method_actor", "explorer", "instigator" },
         title = "What's the bartender's name?",
         text = "{actor} asks the bartender's name. Then where he grew up. Then his greatest regret. You wrote none of this.",
@@ -545,7 +545,7 @@ return {
         id = "pizza", type = "table", table_only = true,
         actor = { "casual", "butt_kicker" },
         title = "The pizza's here",
-        text = "The doorbell. Pizza. {lowest} is already halfway out of their chair, and the scene is just getting going.",
+        text = "The doorbell. Pizza. {lowest} is already halfway out of their chair.",
         options = {
             { label = "Break now. Pizza waits for no one.", table_min = 20,
               log = "Twenty minutes of pizza and gossip. Everyone comes back happy and a bit sleepy.",
@@ -553,8 +553,8 @@ return {
             { label = "Eat at the table and keep playing.",
               log = "Greasy fingers on character sheets. The game goes on.",
               effects = { { "all", fun = 2 }, { "arch:tactician", fun = -2 }, { "arch:casual", fun = 3 } } },
-            { label = "Finish the scene first.",
-              log = "'Five more minutes!' The pizza goes cold on the counter.",
+            { label = "One more scene first.",
+              log = "'One more scene!' The pizza goes cold on the counter.",
               effects = { { "arch:storyteller", fun = 2 }, { "lowest", fun = -3, boredom = 4 } } },
         },
     },

@@ -147,7 +147,7 @@ local function turn(night, step, info)
     if o.line then
         night.talk:remember(o.line.id)
     end
-    night:emit({ kind = "npc", name = info.cast.name, cast = info.cast.id, text = o.said, line = o.line and o.line.id, voiced = true })
+    night:emit({ kind = "npc", name = night:cast_label(info.cast), cast = info.cast.id, text = o.said, line = o.line and o.line.id, voiced = true })
     return o.stance
 end
 

@@ -51,6 +51,7 @@ return {
       line = "Rain-slick planks creak over a gorge that has no bottom anyone has found.",
       again = "The old rope bridge again. Someone has replaced two of the planks. Not the important ones." },
     { id = "tavern", kind = "location", short = "the Kettle", deck = "arc", setting = { "town", "indoor", "crowd", "tavern", "shop" }, name = "The Crooked Kettle", cost = 1,
+      keeper = "Gus",          -- whoever runs the place has a name (no "what's the bartender's name?")
       fits = { "social", "downtime", "mystery" }, tags = { "cozy", "talk" },
       line = "Warm light, sticky tables, and a bard murdering a ballad by the fire.",
       again = "The Crooked Kettle. Gus has their usual table cleared before they've shaken off the rain." },
@@ -138,7 +139,7 @@ return {
       again = "Gus slides four mugs down the bar before anyone asks.",
       deal = "a room, a hot meal, and everything he's heard about the bells",
       secret = "he saw a scarred man in the Kettle the night the bells stopped, and kept quiet" },
-    { id = "stranger", kind = "cast", suits = { "tavern", "crowd" }, with = { "tavern" }, short = "the hooded stranger", deck = "arc", recurring = false, pronoun = "she", name = "A hooded stranger", cost = 1, difficulty = 1,
+    { id = "stranger", kind = "cast", suits = { "tavern", "crowd" }, with = { "tavern" }, short = "the hooded stranger", deck = "arc", recurring = false, pronoun = "she", name = "A hooded stranger", named = "Wren, the bell-ringer's apprentice", cost = 1, difficulty = 1,
       fits = { "social", "mystery" }, tags = { "mystery" },
       alt = { outdoor = "Someone in a hooded cloak has been keeping pace with them all day, saying nothing.", under = "Someone in a hooded cloak is already down here, waiting in the dark." },
       line = "Someone in the corner has not touched their drink all night.",

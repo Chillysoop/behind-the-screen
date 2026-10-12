@@ -14,6 +14,7 @@ M.PLAYERS = {
                       .. "still wet, and never came back. I'm going to find out where she went.",
                   "Ilsa was always the brave one. I was the one who read about brave people. Now she's missing, and "
                       .. "I'm the one who has to go looking." },
+        grim = { true, true },          -- which story lines are sad (the table answers kindly)
         all_in = { "I wrote her a whole notebook. Ilsa's handwriting is on the first page. I practised it.",
                    "And I have a list of every question I'm going to ask anyone who's seen her." },
     },
@@ -24,6 +25,7 @@ M.PLAYERS = {
                       .. "Oswin dragged me.",
                   "I was a soldier once. I went home to Hale's Crossing to stop being one. Then Kessrick came, and "
                       .. "now I'm going to find him." },
+        grim = { true, true },
         all_in = { "I worked out his whole build. And the greatsword has a name. It's Ember.",
                    "Also, I drew the village. Where everyone lived. It's on the back of my sheet." },
     },
@@ -41,6 +43,7 @@ M.PLAYERS = {
         story = { "My temple burned. I carry what was left of it. And I pulled Brannoc out of the ashes, so he's my "
                       .. "problem now.",
                   "Oswin heals people. He's not very good at talking about himself. Neither am I." },
+        grim = { true, false },
         all_in = { "He makes tea for everyone at camp. That's his whole thing. I'll be describing the tea.",
                    "I looked up what clerics do. He's going to be the one who keeps everyone standing." },
     },
@@ -59,6 +62,9 @@ M.REACT = {
     all_in = { "Oh, I love her already.", "Okay, that's amazing.", "You made a whole backstory! I love it.",
                "Chills. Actual chills.", "Okay, now I have to try harder." },
     warm = { "Love it.", "Ooh, I like that.", "That's great.", "Oh, that's a good one.", "Nice!" },
+    -- After a sad backstory (a burned village, a missing sister): nobody says "Nice!".
+    grim = { "Oof. That's heavy.", "Oh no. Okay, I'm invested.", "That's a good hook. Sad, but good.",
+             "Okay, that hit me.", "Aw. We've got you." },
     short = { "Short and sweet. Love it.", "Hey, that's perfect.", "Tea guy! Love tea guy.", "We'll find out the rest." },
 }
 

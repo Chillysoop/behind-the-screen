@@ -27,6 +27,14 @@ function M.run(night)
     if n == 0 then
         return
     end
+    -- They introduce themselves where the story starts: scene 1's place goes down on the mat
+    -- (its floor and walls), not the campfire the table rests on between nights.
+    local first = night.scenes and night.scenes[1]
+    if first and first.comps and first.comps.location then
+        local t = night:terrain_for(first)
+        night:board_set(t, first)
+        night:emit({ kind = "stage", terrain = t, party = {} })
+    end
     -- Their own stream: who says what doesn't shift anything else that happens tonight.
     local rng = rng_mod.new((night.campaign.seed or 1) * 31 + 4111)
     local function pick(list)
@@ -48,7 +56,9 @@ function M.run(night)
             local keen = M.all_in(p)
             local short = p.shy and not keen
             night:emit({ kind = "say", who = p.key, text = pick(d.hello), ic = false })
-            night:emit({ kind = "say", who = p.key, text = pick(d.story), ic = true })
+            local si = rng:int(1, #d.story)
+            local grim = d.grim and d.grim[si]
+            night:emit({ kind = "say", who = p.key, text = d.story[si], ic = true })
             if keen and d.all_in then
                 night:emit({ kind = "say", who = p.key, text = pick(d.all_in), ic = false })
             end
@@ -69,7 +79,7 @@ function M.run(night)
             rng:shuffle(others)
             local tone = keen and "all_in" or (short and "short" or "warm")
             local reacts = {}
-            for _, l in ipairs(data.REACT[tone]) do
+            for _, l in ipairs(data.REACT[(grim and tone ~= "all_in") and "grim" or tone]) do
                 table.insert(reacts, l)
             end
             rng:shuffle(reacts)

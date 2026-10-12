@@ -78,7 +78,9 @@ return {
         { id = "loot_split", archetype = "power_gamer", when = "end", mood = "engaged", lines = { "okay, how are we splitting the gold?", "i call the ring. i called it first.", "the cleric gets the potions, that's just maths." }, effect = "fun+ speaker" },
     
         -- table life
-        { id = "arrival_chatter", archetype = "any", when = "start", mood = "any", lines = { "sorry i'm late, traffic was awful.", "did i miss anything? we haven't started? great.", "wait, where did we leave off?" }, effect = "social+ group" },
+        { id = "arrival_chatter", archetype = "any", when = "start", mood = "any", lines = { "sorry i'm late, traffic was awful.", "did i miss anything? we haven't started? great." }, effect = "social+ group" },
+        -- Only once there's a last session to have left off from.
+        { id = "arrival_recap", archetype = "any", when = "start", mood = "any", min_week = 2, lines = { "wait, where did we leave off?" }, effect = "social+ group" },
         { id = "food_order", archetype = "casual", when = "start", mood = "any", lines = { "before we start: pizza or tacos?", "i'm not doing pineapple again.", "order now so it gets here before the boss fight." }, effect = "social+ group" },
         { id = "snack_share", archetype = "casual", when = "idle", mood = "any", lines = { "anyone want chips? i brought the good chips.", "pass the salsa down?", "who ate all the pretzels? i'm not mad. i'm a bit mad." }, effect = "social+ group" }, -- snack exists
         { id = "side_chat", archetype = "casual", when = "long_scene", mood = "bored", lines = { "did you see the game last night?", "wait, are you still doing that pottery class?", "sorry, what did i miss?" }, effect = "social+ speaker" },

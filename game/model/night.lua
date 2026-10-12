@@ -478,6 +478,15 @@ function M:fresh(list, key)
 end
 
 -- A speech bubble from a player, picked from the table talk for this trigger.
+-- What the table calls a person now: a stranger who has given their name goes by it
+-- ("A hooded stranger" becomes Wren once she lowers her hood).
+function M:cast_label(cast)
+    if cast.named and ((self.revealed and self.revealed[cast.id]) or story.has_clue(self.campaign, cast.id)) then
+        return cast.named
+    end
+    return cast.name
+end
+
 function M:bark(p, trigger, extra)
     if not p then
         return
@@ -499,7 +508,7 @@ function M:npc_line(what, extra)
     end
     local text, line = self.talk:npc(cast.id, what, self:vars(extra))
     if text then
-        self:emit({ kind = "npc", name = cast.name, cast = cast.id, text = text, line = line.id })
+        self:emit({ kind = "npc", name = self:cast_label(cast), cast = cast.id, text = text, line = line.id })
     end
 end
 
@@ -513,7 +522,7 @@ function M:module_line(sc, i)
     end
     local who = cast.short or cast.name
     local text = util.capitalize(util.fill(line, { npc = who }))
-    self:emit({ kind = "npc", name = cast.name, cast = cast.id, text = text })
+    self:emit({ kind = "npc", name = self:cast_label(cast), cast = cast.id, text = text })
 end
 
 -- After a module scene: run straight from the book, the storyteller notices it didn't touch the
@@ -898,10 +907,14 @@ function M:describe(c, style)
     if state then
         text = state.line
     end
-    -- Back somewhere they were earlier tonight (a place on two scenes, A6).
+    -- Back somewhere they were earlier tonight (a place on two scenes, A6). Straight after a
+    -- scene there, they never left: the place isn't described again.
     self.described = self.described or {}
     if not text and c.kind == "location" and self.described[c.id] then
-        text = c.again or ("Back to " .. soft_lower(c.name) .. ".")
+        if self.last_location == c.id then
+            return
+        end
+        text = "Back at " .. soft_lower(c.name) .. "."
     end
     if not text then
         if c.again and deck.returning(self.campaign, c) then
@@ -911,6 +924,9 @@ function M:describe(c, style)
         end
     end
     self.described[c.id] = true
+    if c.kind == "location" then
+        self.last_location = c.id
+    end
     self:say(text, style or "narration")
     if rev then
         self.revealed[c.id] = true
@@ -1276,7 +1292,10 @@ function M:restage(sc, force)
     if shifted then
         self:board_set(t, sc)
     end
-    self:emit({ kind = "stage", terrain = t, party = party, npc = npc, title = shifted and self:scene_title(sc) or nil })
+    -- The DM's map for this place stays on the table through the whole scene (B9).
+    local map = self:map_for(sc)
+    self:emit({ kind = "stage", terrain = t, party = party, npc = npc, title = shifted and self:scene_title(sc) or nil,
+                pieces = map and map.template == t and maps.cells(map) or nil })
     if shifted then
         self:dress_board()
     end
@@ -1328,7 +1347,7 @@ function M:drift()
     for _, d in ipairs(content.improv.drift) do
         if type(d) == "string" then
             table.insert(fitting, d)
-        elseif loc then
+        elseif loc and not (d.unnamed_keeper and loc.keeper) then
             for _, w in ipairs(d.where or {}) do
                 if util.contains(loc.setting or {}, w) then
                     table.insert(fitting, d[1])
@@ -2164,6 +2183,7 @@ function M:pick_decision(sc, kinds)
             or (d.once and camp.cards_once and camp.cards_once[d.id])
         if not settled and not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
             and (not kinds or kinds[d.type]) and content.fits_setting(d, sc.comps.location)
+            and not (d.unnamed_keeper and sc.comps.location and sc.comps.location.keeper)
             and (not d.actor_class or self:by_class(d.actor_class))
             and (not d.needs_class or self:by_class(d.needs_class))
             and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
@@ -4912,10 +4932,13 @@ function M:play_scene(sc)
                 npc_hidden = npc ~= nil,
                 pieces = map and map.template == sc.terrain and maps.cells(map) or nil,
                 cast = cast and cast.name, goal = goal and goal.name, story = is_story })
+    -- An empty slot is improvised once the scene is set (the place described, the person named),
+    -- never before the table knows where they are (the October 12 UI playtest).
+    local improv_slot
     if improvised_first then
         sc.quality = sc.quality - 0.03 * #sc.missing
     elseif #sc.missing > 0 then
-        self:improvise(sc.missing[1])
+        improv_slot = sc.missing[1]
         sc.quality = sc.quality - 0.03 * (#sc.missing - 1)
     end
     self:safety_check(sc)
@@ -4928,6 +4951,10 @@ function M:play_scene(sc)
         self:describe(sc.comps.location, "narration")
     end
     self:dress_board()
+    if improv_slot == "cast" then
+        self:improvise("cast")
+        improv_slot = nil
+    end
     self:note_meeting(sc)
     -- Taking over (B8): a key person's first big scene tonight, and the DM speaks for them.
     local talk_now = takeover.talk_ready(self, sc)
@@ -4940,6 +4967,9 @@ function M:play_scene(sc)
         end
     end
     self:describe(sc.comps.goal, "goal")
+    if improv_slot then
+        self:improvise(improv_slot)
+    end
     if sc.index == 1 then
         self:plant_seed()
     end
@@ -5004,8 +5034,13 @@ function M:play_scene(sc)
         self:bark(self.rng:pick(fans), "scene_like")
     end
     if #grumps > 0 and self.rng:chance(0.6) then
-        self:bark(self.rng:pick(grumps), "scene_dislike")
+        -- "Another fight?" only when there's been one: earlier tonight, or last week.
+        local last = self.campaign.last_scene_types
+        local before = (self.types_seen and self.types_seen[sc.type]) or (last ~= nil and util.contains(last, sc.type))
+        self:bark(self.rng:pick(grumps), "scene_dislike", { again = before and true or false })
     end
+    self.types_seen = self.types_seen or {}
+    self.types_seen[sc.type] = true
     if not self.drift_used and sc.index >= 2 and self:room(12) then
         local pull = 0.2
         for _, p in ipairs(self.players) do
