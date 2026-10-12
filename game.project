@@ -41,3 +41,6 @@ max_instances = 2048
 
 [factory]
 max_count = 256
+
+[resource]
+max_resources = 2048
