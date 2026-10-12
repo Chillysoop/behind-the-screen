@@ -122,6 +122,11 @@ local function cover_from(b, x, y, foes)
     return n
 end
 
+-- In range of t from (x, y), with a clear line to it (walls and shut doors are Total Cover).
+local function in_shot(b, x, y, t, range)
+    return b:dist_xy(x, y, t.x, t.y) <= range and b:los_xy(x, y, t.x, t.y)
+end
+
 -- Step away from enemies to a square at least `want` feet from all of them, if possible.
 local function back_off(b, c, want, keep_in_range_of, range)
     if c.turn.move <= 0 then
@@ -134,7 +139,7 @@ local function back_off(b, c, want, keep_in_range_of, range)
             nearest = math.min(nearest, b:dist_xy(x, y, e.x, e.y))
         end
         local s = math.min(nearest, want) + 4 * cover_from(b, x, y, foes)
-        if keep_in_range_of and b:dist_xy(x, y, keep_in_range_of.x, keep_in_range_of.y) > range then
+        if keep_in_range_of and not in_shot(b, x, y, keep_in_range_of, range) then
             s = s - 100
         end
         return s
@@ -146,20 +151,20 @@ end
 
 -- Get within range of a target without walking into melee.
 local function get_in_range(b, c, t, range)
-    if b:dist(c, t) <= range then
+    if in_shot(b, c.x, c.y, t, range) then
         return true
     end
     local foes = enemies(b, c)
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
-        local s = (d <= range) and 100 or -d
+        local s = in_shot(b, x, y, t, range) and 100 or -d
         s = s - adjacent_enemies(b, c, x, y, foes) * 20 + 6 * cover_from(b, x, y, foes)
         return s
     end)
     if x then
         b:move_to(c, x, y)
     end
-    return not c.dead and b:dist(c, t) <= range
+    return not c.dead and in_shot(b, c.x, c.y, t, range)
 end
 
 local function stand_if_prone(b, c)
@@ -275,6 +280,22 @@ end
 
 local function cast(b, c, id, target, prefer_level)
     local s = S[id]
+    -- A spell that targets someone needs a clear path to them (p. 104: not behind Total Cover).
+    if type(target) == "table" and target.x and target ~= c and c.x and not b:los_xy(c.x, c.y, target.x, target.y) then
+        local alt
+        local pool = target.side == c.side and b:allies_of(c, true) or b:enemies_of(c)
+        for _, o in ipairs(pool) do
+            if b:los_xy(c.x, c.y, o.x, o.y) and (not alt or b:dist(c, o) < b:dist(c, alt)) then
+                alt = o
+            end
+        end
+        if not alt then
+            b:log("%s can't find a clear line for %s.", c.name, s.name)
+            if s.casting == "bonus" then c.turn.bonus = false else c.turn.action = false end
+            return
+        end
+        target = alt
+    end
     local slot = pay(c, id, prefer_level)
     if s.casting == "bonus" then
         c.turn.bonus = false
@@ -534,6 +555,18 @@ local function monster_turn(b, c)
             get_in_range(b, c, nearest, ranged.range[1])
         end
         foes = by_distance(b, c, enemies(b, c))
+        -- Only shoot at what they can see (a wall is Total Cover); nobody in sight: go round.
+        local seen = {}
+        for _, f in ipairs(foes) do
+            if in_shot(b, c.x, c.y, f, ranged.range[2]) then
+                table.insert(seen, f)
+            end
+        end
+        if #seen == 0 then
+            if (c.turn.move or 0) > 0 and nearest then approach(b, c, nearest, 5) end
+            return
+        end
+        foes = seen
         local t = focus_target(b, c, foes, ranged.range[1]) or pick_target(b, c, foes, 6)
         for _ = 1, count do
             if not t or t.down or t.dead then
@@ -571,7 +604,7 @@ local function monster_turn(b, c)
         local near = by_distance(b, c, enemies(b, c))[1]
         if near and b:dist(c, near) <= reach and melee then
             t, in_reach = near, true
-        elseif ranged and near and b:dist(c, near) <= ranged.range[2] then
+        elseif ranged and near and in_shot(b, c.x, c.y, near, ranged.range[2]) then
             for _ = 1, count do
                 if near.dead or near.down then break end
                 if not monster_attack_with(b, c, near, ranged, true) then break end
@@ -708,7 +741,7 @@ local function fighter_turn(b, c)
             -- Out of reach: Magic Missile (Spellguard), a thrown weapon, or the bow.
             do
                 local r = weapon_profile(c, "thrown") or weapon_profile(c, "ranged")
-                if r and b:dist(c, t) <= r.range[2] then
+                if r and in_shot(b, c.x, c.y, t, r.range[2]) then
                     if r.id == c.weapons.thrown then c.res.thrown = c.res.thrown - 1 end
                     attack_action(b, c, r, t)
                 else
@@ -862,8 +895,21 @@ local function rogue_turn(b, c)
     -- Ranged: Steady Aim (no movement) or Feint, then shoot.
     if ranged then
         local t = pick_target(b, c, foes, 9)
-        if b:dist(c, t) > ranged.range[1] then
+        if not in_shot(b, c.x, c.y, t, ranged.range[1]) then
             get_in_range(b, c, t, ranged.range[1])
+        end
+        if not in_shot(b, c.x, c.y, t, ranged.range[2]) then
+            -- Still no clear shot (a wall in the way): anyone else in sight?
+            local alt
+            for _, e in ipairs(by_distance(b, c, foes)) do
+                if in_shot(b, c.x, c.y, e, ranged.range[2]) then
+                    alt = alt or e
+                end
+            end
+            if not alt then
+                return
+            end
+            t = alt
         end
         if c.sub and c.sub.feint and c.turn.bonus then
             AI.feint(b, c, t)
@@ -1312,6 +1358,72 @@ local function dodge_hazards(b, c)
     end
 end
 
+-- A locked door between a hero and the fight (Set the stage): when nobody's reachable or in sight
+-- without it, they go to the door and pick the lock (a rogue's Thieves' Tools: Dexterity, DC 15)
+-- or force it (Strength (Athletics), DC 20). A picked or forced door is shut, not locked: it
+-- opens as they walk through. Returns true if that was the turn.
+function AI.work_lock(b, c)
+    local locked = {}
+    for _, d in pairs(b.doors) do
+        if d.state == "locked" then
+            table.insert(locked, d)
+        end
+    end
+    if #locked == 0 then
+        return false
+    end
+    local foes = enemies(b, c)
+    local dist = b:paths(c, 400)
+    for _, e in ipairs(foes) do
+        if b:los_xy(c.x, c.y, e.x, e.y) then
+            return false
+        end
+        for dx = -1, 1 do
+            for dy = -1, 1 do
+                if dist[(e.x + dx) * 1000 + e.y + dy] then
+                    return false
+                end
+            end
+        end
+    end
+    local best, bd
+    for _, d in ipairs(locked) do
+        for dx = -1, 1 do
+            for dy = -1, 1 do
+                local k = (d.x + dx) * 1000 + d.y + dy
+                if (dx ~= 0 or dy ~= 0) and dist[k] and (not bd or dist[k] < bd) then
+                    best, bd = d, dist[k]
+                end
+            end
+        end
+    end
+    if not best then
+        return false
+    end
+    if b:dist_xy(c.x, c.y, best.x, best.y) > 5 and (c.turn.move or 0) > 0 then
+        local x, y = b:best_square(c, c.turn.move, function(x, y)
+            return -b:dist_xy(x, y, best.x, best.y)
+        end)
+        if x then
+            b:move_to(c, x, y)
+        end
+    end
+    if b:dist_xy(c.x, c.y, best.x, best.y) <= 5 and c.turn.action and not c.dead and not c.down then
+        c.turn.action = false
+        local pick = c.class == "rogue"
+        local dc = pick and 15 or 20
+        local total = b:check(c, pick and "dex" or "str", (pick or c.class == "fighter") and c.pb or 0, { kind = "lock" })
+        b:emit({ kind = "feature", who = c, name = pick and "Picks the lock" or "Shoulders the door" })
+        if total >= dc then
+            b:set_door(best.x, best.y, "closed", c)
+            b:log("  %s %s (%d vs DC %d).", c.name, pick and "picks the lock" or "forces the door", total, dc)
+        else
+            b:log("  The lock holds (%d vs DC %d).", total, dc)
+        end
+    end
+    return true
+end
+
 function AI.take_turn(b, c)
     dodge_hazards(b, c)
     if c.turn and not c.turn.action and c.pc and b:find_effect(c, "Prone") and not c.down then
@@ -1335,6 +1447,9 @@ function AI.take_turn(b, c)
     local g = b:find_grapple(c)
     if g and (c.class == "wizard" or c.class == "cleric" or (c.class == "rogue" and b:dist(c, g.grapple_by) > 5)) then
         b:escape_grapple(c)            -- the action goes on it
+        return
+    end
+    if b.doors and AI.work_lock(b, c) then
         return
     end
     if c.class == "fighter" then

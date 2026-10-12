@@ -263,7 +263,7 @@ function on_message(self, message_id, message)
         self.tracking = message.on
     elseif message_id == hash("terrain") then
         -- (Older callers name a terrain set: it's a board now.)
-        msg.post(BOARD, "board", { id = message.set, show = message.show or "all", animate = message.animate ~= false })
+        msg.post(BOARD, "board", { id = message.set, show = message.show or "all", animate = message.animate ~= false, def = message.def })
     elseif message_id == hash("pieces") then
         lay_pieces(self, message.cells)
     elseif message_id == hash("stage") then

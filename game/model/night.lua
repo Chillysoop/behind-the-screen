@@ -964,6 +964,17 @@ function M:terrain_for(sc)
     return maps.template(self.campaign, sc.comps.location, sc.type)
 end
 
+-- The board the table sets out for a scene: the place's map when the DM drew one on this
+-- template (Set the stage: the DM's pieces are part of the place), else the template itself.
+function M:board_for(sc, t)
+    t = t or sc.terrain or self:terrain_for(sc)
+    local map = self:map_for(sc)
+    if map and map.template == t then
+        return maps.board_id(map)
+    end
+    return t
+end
+
 -- The place's map, if there is one (B9).
 function M:map_for(sc)
     local loc = sc and sc.comps.location
@@ -1288,13 +1299,14 @@ function M:restage(sc, force)
     local shifted = t ~= sc.terrain
     sc.terrain = t
     local party, npc = self:staging(sc)
-    self.stage_now = { terrain = t, party = party, npc = npc }
+    self.stage_now = { terrain = t, board = self:board_for(sc, t), party = party, npc = npc }
     if shifted then
-        self:board_set(t, sc)
+        self:board_set(self:board_for(sc, t), sc)
     end
     -- The DM's map for this place stays on the table through the whole scene (B9).
     local map = self:map_for(sc)
-    self:emit({ kind = "stage", terrain = t, party = party, npc = npc, title = shifted and self:scene_title(sc) or nil,
+    self:emit({ kind = "stage", terrain = t, board = self:board_for(sc, t), party = party, npc = npc,
+                title = shifted and self:scene_title(sc) or nil,
                 pieces = map and map.template == t and maps.cells(map) or nil })
     if shifted then
         self:dress_board()
@@ -1659,7 +1671,7 @@ function M:quick_checks(sc)
     end
     local dc = (content.actions.DC[util.clamp(sc.difficulty, 1, 3)] or 12) + ((comp and comp.difficulty > 0) and 1 or 0)
     sc.dc = dc
-    local layout = content.terrain_layout.sets[sc.terrain] or content.terrain_layout.sets.blank
+    local layout = board_mod.layout(self:board_for(sc))
     local spots = layout.spots or {}
     sc.progress = { wins = 0, setbacks = 0, need = need }
     -- What the heroes have already tried tonight, by scene type: nobody repeats a move until
@@ -4768,7 +4780,7 @@ function M:snapshot(caption, weight, who, by_dm)
             end
         end
     end
-    local snap = { week = self.campaign.week, scene = self.scene and self.scene.index, terrain = st.terrain, minis = minis,
+    local snap = { week = self.campaign.week, scene = self.scene and self.scene.index, terrain = st.board or st.terrain, minis = minis,
                    camera = 2, caption = caption or "", weight = weight or 5, who = who, by_dm = by_dm or nil,
                    title = self.scene and self.scene.title }
     table.insert(self.snapshots, snap)
@@ -4924,10 +4936,10 @@ function M:play_scene(sc)
             is_story = true
         end
     end
-    self.stage_now = { terrain = sc.terrain, party = party, npc = npc }
+    self.stage_now = { terrain = sc.terrain, board = self:board_for(sc), party = party, npc = npc }
     local map = self:map_for(sc)
-    self:board_set(sc.terrain, sc)
-    self:emit({ kind = "scene", index = sc.index, total = #self.scenes, title = sc.title, type = sc.type,
+    self:board_set(self:board_for(sc), sc)
+    self:emit({ kind = "scene", index = sc.index, total = #self.scenes, title = sc.title, type = sc.type, board = self:board_for(sc),
                 type_name = content.scenes[sc.type].name, terrain = sc.terrain, party = party, npc = npc,
                 npc_hidden = npc ~= nil,
                 pieces = map and map.template == sc.terrain and maps.cells(map) or nil,

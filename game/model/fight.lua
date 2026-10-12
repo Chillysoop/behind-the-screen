@@ -69,10 +69,14 @@ function M.blocked_set(set_name, map)
     for _, sq in ipairs(layout.blocked) do
         blocked[sq[1] * 1000 + sq[2]] = true
     end
-    -- The board's own cover (low walls, crates, tables) and rough ground (brush, rubble, webs).
-    local extras = { cover = {}, rough = {}, traps = {}, planks = layout.planks, sources = layout.sources }
+    -- The board's own cover (low walls, crates, tables: Half or Three-Quarters), what can't be
+    -- seen through (walls), doors, rough ground (brush, rubble, webs), ice and its fires.
+    local extras = { cover = {}, deg = {}, rough = {}, traps = {}, planks = layout.planks, sources = layout.sources,
+                     opaque = layout.opaque or {}, doors = layout.doors or {}, slippery = layout.slippery or {},
+                     lights = layout.lights or {} }
     for k, what in pairs(layout.cover or {}) do
         extras.cover[k] = what           -- true, or what the piece is called ("crate")
+        extras.deg[k] = layout.deg and layout.deg[k]
     end
     for k in pairs(layout.rough or {}) do
         extras.rough[k] = true
@@ -468,6 +472,8 @@ function M.step(night, ev)
         s.zone, s.what, s.cells = ev.zone, ev.what, ev.cells
     elseif k == "feature" then
         s.id, s.name, s.target = ref(ev.who), ev.name, target_ref(ev.target)
+    elseif k == "door" then
+        s.id, s.x, s.y, s.state, s.fid = ev.who and ref(ev.who), ev.x, ev.y, ev.state, ev.fid
     elseif k == "save" then
         s.id, s.ok, s.roll, s.dc, s.total, s.ab = ref(ev.who), ev.ok, ev.roll, ev.dc, ev.total, ev.ab
         s.dm = ev.who.side ~= "party"
@@ -717,12 +723,36 @@ function M.run(night, sc, plan)
     local enc = content.encounters
     f.plan_fam = (sc.comps.cast and enc.by_cast[sc.comps.cast.id]) or (sc.comps.location and enc.by_location[sc.comps.location.id])
         or enc.default
+    -- Doors aren't scenery in a fight: a shut one opens as someone walks through (Set the stage).
+    local fight_blocked = blocked
+    local doors
+    if extras and extras.doors and #extras.doors > 0 then
+        fight_blocked, doors = {}, {}
+        for k in pairs(blocked) do
+            fight_blocked[k] = true
+        end
+        for _, d in ipairs(extras.doors) do
+            doors[d.x .. "," .. d.y] = { state = d.state, x = d.x, y = d.y, fid = d.fid }
+            fight_blocked[d.x * 1000 + d.y] = nil
+        end
+    end
     local b = battle.new({ seed = night.rng:int(1, 2147483000), ai = ai, width = content.terrain_layout.W,
-                           height = content.terrain_layout.H, blocked = blocked })
+                           height = content.terrain_layout.H, blocked = fight_blocked })
     night.battle = b
     -- The board's cover and rough ground, and the DM's map (B9) on top: its own cover, rough
     -- ground and traps.
     if extras then
+        b.doors = doors
+        b.deg = extras.deg
+        b.opaque = extras.opaque and next(extras.opaque) and extras.opaque or nil
+        if extras.slippery and next(extras.slippery) then
+            require("game.rules.hazards").slip_zone(b, extras.slippery)
+        end
+        -- The dark (SRD 5.2.1 "Light"): only the map's lights, the board's fires and the heroes'
+        -- torches show anyone; Darkvision sees past them.
+        if extras.light == "dark" then
+            b.light = { ambient = "dark", sources = extras.lights or {} }
+        end
         b.cover = extras.cover
         b.planks = extras.planks or layout.planks     -- a bridge's planks: where a crumbling bridge gives way
         b.sources = extras.sources or layout.sources  -- where a fire, a flood or the ice starts (hazards.lua)
@@ -740,6 +770,7 @@ function M.run(night, sc, plan)
     for i, c in ipairs(night.pc_list) do
         if not c.dead then
             ready_for_battle(c)
+            c.torch = (b.light and not c.darkvision) or nil   -- a Torch in the dark (Bright 20 ft, Dim 20 ft more)
             local sq = party_spots[i] or { 2, i + 3 }
             b:add(c, sq[1], sq[2])
             f.by_ref[c.mini] = c

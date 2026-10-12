@@ -32,8 +32,9 @@ function M.run(night)
     local first = night.scenes and night.scenes[1]
     if first and first.comps and first.comps.location then
         local t = night:terrain_for(first)
-        night:board_set(t, first)
-        night:emit({ kind = "stage", terrain = t, party = {} })
+        local id = night:board_for(first, t)
+        night:board_set(id, first)
+        night:emit({ kind = "stage", terrain = t, board = id, party = {} })
     end
     -- Their own stream: who says what doesn't shift anything else that happens tonight.
     local rng = rng_mod.new((night.campaign.seed or 1) * 31 + 4111)

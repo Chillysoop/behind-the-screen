@@ -410,3 +410,23 @@ components {
   id: "pier"
   component: "/main/board/props/pier.factory"
 }
+components {
+  id: "door"
+  component: "/main/board/props/door.factory"
+}
+components {
+  id: "door_open"
+  component: "/main/board/props/door_open.factory"
+}
+components {
+  id: "door_locked"
+  component: "/main/board/props/door_locked.factory"
+}
+components {
+  id: "ice"
+  component: "/main/board/props/ice.factory"
+}
+components {
+  id: "torch_post"
+  component: "/main/board/props/torch_post.factory"
+}

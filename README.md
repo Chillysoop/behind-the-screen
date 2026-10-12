@@ -275,9 +275,15 @@ mini lit, everyone seated at the table with their own dice tray, and traps and h
 - B8 Taking over: once a night you talk as a key person (warm, guarded or a lie, two turns, and the
   table's Insight against your lie), and once a night you run the boss's turn (who it goes for, or a
   speech). Each stands in for a card.
-- B9 Quick maps: the fight builder's map tab. Lay walls, cover, rough ground, a trap and where everyone
-  starts on the place's terrain; the meter moves as you draw; the map is saved with the place and is
-  what the fight there plays on.
+- B9 Set the stage (the map builder, rebuilt on the SRD in October): the fight builder's map tab lays real
+  set pieces from the prop kit, each with its SRD 5.2.1 rule. Tables, benches and crates are Half Cover;
+  pillars, statues and trees Three-Quarters; walls and bookshelves Total Cover (no line of sight); a door
+  opens as someone walks through it (click it again: open, locked; a hero cut off picks or forces a lock);
+  rubble, brush and webs are Difficult Terrain; ice is Slippery Ice; torches, braziers, candles and lamps
+  light a map set to Dark. The map's own light (Bright, Dim, Dark) and the place's own scenery (Clear takes
+  it off) are part of it. The map is saved with the place and is the place from then on: it's registered
+  as a board of its own (`board.register`, sent to the table's scripts as a short string) and every scene
+  there stands on it. Version 1 maps' painted squares turn into the matching pieces on load.
 - B10 The big questions, each with at least three roads to its answer.
 
 **Villains who remember.** A villain keeps a ledger of what they were there for: who knocked them down, who
@@ -301,8 +307,9 @@ sets out the rest in a line ("Around them: the bar, mugs lined up, sticky tables
 door."). The person in the scene steps onto the mat when they're named or speak, where they'd be (Gus behind
 the bar, the stranger at a corner table), and the slice's people have their own minis, a story villain leading
 a fight as themselves. Fights play on the whole board: low walls, tables, crates and rocks give Half Cover
-from attacks across them (a shot the cover stops "hits the crate instead" in the log), brush, rubble and webs
-are Difficult Terrain, archers look for cover, and a crumbling bridge gives way under its planks. Hazards start
+and pillars and trees Three-Quarters Cover from attacks across them (a shot the cover stops "hits the crate
+instead" in the log), walls block sight, doors open as people walk through, brush, rubble and webs are
+Difficult Terrain, archers look for cover and a clear shot, and a crumbling bridge gives way under its planks. Hazards start
 from the board's own scenery: a fire catches by the hearth or the campfire, a flood rises out of the stream or
 the harbour, ice forms where the frost was; the fight builder marks the hazards a place has the makings of. The
 campaign styles' people (the sea captain, the merfolk envoy, the canal gossip, the white stag, the hedge witch
@@ -490,9 +497,11 @@ The meter reads the SRD XP budget plus each stat block's Hit Points and damage, 
 without new simulations. Fights bigger or smaller than the simulated range (more than 2.5 monsters per
 character, or far outside the XP budget) come back with `extrapolated = true`.
 
-What it simplifies: every creature takes one square on a 5-foot grid, scenery blocks squares, a map's cover
-square gives Half Cover (+2 AC) against attacks from more than 5 feet away (not to saves), simple readable
-tactics on both sides, and monsters leave fallen characters alone unless the DM runs the boss's turn and says
+What it simplifies: every creature takes one square on a 5-foot grid, scenery blocks squares, cover comes
+from the best piece a straight line from square to square crosses (not pieces beside the attacker, not
+creatures, and not to saves), line of sight is that same line (a corner blocks only when both sides do),
+light is by distance from each source (blocked by walls), doors can't be broken by attacks and monsters
+don't pick locks, simple readable tactics on both sides, and monsters leave fallen characters alone unless the DM runs the boss's turn and says
 otherwise. Hiding, grappling, shoving,
 readied actions and non-combat spells aren't modeled yet.
 

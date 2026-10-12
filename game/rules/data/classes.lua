@@ -73,10 +73,10 @@ C.wizard = {
 -- Species (pp. 84-86), only the traits that matter at the table.
 C.species = {
     human = { name = "Human", size = "medium", speed = 30, traits = { "resourceful", "versatile" } },
-    dwarf = { name = "Dwarf", size = "medium", speed = 30, traits = { "dwarven_resilience", "dwarven_toughness" },
+    dwarf = { name = "Dwarf", size = "medium", speed = 30, darkvision = 120, traits = { "dwarven_resilience", "dwarven_toughness" },
               resist = { "poison" } },
     halfling = { name = "Halfling", size = "small", speed = 30, traits = { "brave", "halfling_luck", "halfling_nimbleness" } },
-    elf = { name = "Elf", size = "medium", speed = 30, traits = { "fey_ancestry", "trance" } },
+    elf = { name = "Elf", size = "medium", speed = 30, darkvision = 60, traits = { "fey_ancestry", "trance" } },
 }
 
 -- Backgrounds (p. 83): three abilities (+2/+1 to two of them) and an Origin feat.

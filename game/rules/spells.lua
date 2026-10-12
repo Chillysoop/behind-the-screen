@@ -45,7 +45,8 @@ end
 function M.sphere(b, cx, cy, radius)
     local out = {}
     for _, o in ipairs(b.creatures) do
-        if not o.dead and b:dist_xy(o.x, o.y, cx, cy) <= radius then
+        -- An area spreads from its point of origin, and a wall stops it (Total Cover).
+        if not o.dead and b:dist_xy(o.x, o.y, cx, cy) <= radius and (not b.los_xy or b:los_xy(cx, cy, o.x, o.y)) then
             table.insert(out, o)
         end
     end
@@ -64,7 +65,7 @@ function M.cone(b, c, tx, ty, length)
         if o ~= c and not o.dead then
             local ox, oy = o.x - c.x, o.y - c.y
             local ol = math.sqrt(ox * ox + oy * oy)
-            if ol > 0 and b:dist(c, o) <= length then
+            if ol > 0 and b:dist(c, o) <= length and (not b.los_xy or b:los_xy(c.x, c.y, o.x, o.y)) then
                 local cosang = (ox * dx + oy * dy) / (ol * dl)
                 if cosang >= 0.86 then
                     table.insert(out, o)

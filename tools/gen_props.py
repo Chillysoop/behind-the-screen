@@ -1047,6 +1047,65 @@ def b_drum(P, rng):
         P.paint.add(st.transformed(roll=s * 0.9, offset=(s * 0.6, 3.4, 0.4)))
 
 
+def door_frame(P):
+    """A doorway in a wall line: two stone jambs, a lintel and the wall above, in line with
+    stone_wall (z = -0.4), so a door sits flush in a wall the DM drew."""
+    h, z, t = 12.0, -0.4, 3.4
+    for sx in (-1, 1):
+        P.stone.add(gm.box((sx * 2.15, h / 2, z), (0.75, h, t), STONE))
+    P.stone.add(gm.box((0, (h + 8.6) / 2, z), (SQ + 0.05, h - 8.6, t), STONE))
+    P.paint.add(gm.box((0, 8.45, z), (3.7, 0.3, t + 0.1), sw("timber")))
+    # A timber cap on top, so a door in a wall line reads from above even when it's seen edge-on.
+    P.paint.add(gm.box((0, h + 0.15, z), (SQ + 0.05, 0.3, t + 0.3), sw("door")))
+
+
+def door_leaf(state):
+    """The door itself, 3.5 wide: planks, two iron bands, a ring; locked adds a hasp and padlock."""
+    m = gm.Mesh()
+    m.add(gm.box((0, 4.2, 0), (3.5, 8.3, 0.55), sw("door")))
+    for y in (2.0, 6.4):
+        m.add(gm.box((0, y, 0), (3.55, 0.35, 0.65), sw("iron")))
+    for k in range(4):
+        m.add(gm.box((-1.3 + k * 0.87, 4.2, 0.3), (0.06, 8.0, 0.05), sw("wood_dark")))
+    m.add(gm.sphere((1.2, 4.0, 0.42), 0.22, 5, 3, sw("iron")))
+    if state == "locked":
+        m.add(gm.box((1.15, 4.6, 0.4), (0.9, 0.3, 0.2), sw("iron")))
+        m.add(gm.box((1.15, 4.1, 0.55), (0.55, 0.6, 0.3), sw("bronze")))
+    return m
+
+
+def b_door(P, rng):
+    door_frame(P)
+    P.paint.add(door_leaf("closed").transformed(offset=(0, 0, -0.4)))
+
+
+def b_door_locked(P, rng):
+    door_frame(P)
+    P.paint.add(door_leaf("locked").transformed(offset=(0, 0, -0.4)))
+
+
+def b_door_open(P, rng):
+    """Swung a quarter turn on its hinge (the west jamb), into the square to the south."""
+    door_frame(P)
+    leaf = door_leaf("open").transformed(offset=(1.75, 0, 0))
+    P.paint.add(leaf.transformed(yaw=-math.pi / 2, offset=(-1.75, 0, -0.4)))
+
+
+def b_ice(P, rng):
+    P.paint.add(blob(0, 0, 2.4, 2.3, 0.16, "frost", 233, n=12, jag=0.2))
+    P.paint.add(blob(0.3, -0.2, 1.4, 1.2, 0.2, "water_light", 239, n=9, jag=0.3))
+    for k in range(3):
+        x, z = rng.uniform(-1.5, 1.5), rng.uniform(-1.5, 1.5)
+        P.paint.add(gm.box((x, 0.22, z), (rng.uniform(0.8, 1.6), 0.04, 0.08), sw("white")).transformed(yaw=rng.uniform(0, 3)))
+
+
+def b_torch_post(P, rng):
+    P.paint.add(gm.cylinder((0, 0, 0), 0.7, 0.5, 0.6, 8, sw("iron")))
+    P.paint.add(gm.cylinder((0, 0.6, 0), 0.22, 0.2, 6.4, 6, sw("wood_dark")))
+    P.paint.add(gm.cylinder((0, 6.8, 0), 0.5, 0.65, 0.9, 8, sw("iron")))
+    P.paint.add(gm.cylinder((0, 7.7, 0), 0.55, 0.0, 1.8, 6, sw("flame"), smooth=False))
+
+
 def b_water_strip(P, rng):
     w, d = 20 * SQ, 4 * SQ
     P.paint.add(rect(-w / 2, -d / 2, w / 2, d / 2 - 0.6, 0.16, "water_deep"))
@@ -1080,6 +1139,25 @@ def K(fn, fw=1, fh=1, blocks=True, cover=False, rough=False, mask=None, light=0.
     return dict(fn=fn, fw=fw, fh=fh, blocks=blocks, cover=cover, rough=rough, mask=mask, light=light, words=list(words), say=say)
 
 
+# SRD 5.2.1 for each piece (Rules Glossary: Cover, Breaking Objects; Equipment: light sources).
+# Cover: a piece that covers at least half of a creature is Half Cover (+2 AC and Dex saves); at
+# least three-quarters (a thick tree trunk, an arrow slit) is Three-Quarters Cover (+5). A piece
+# you can't see through is Total Cover: nobody targets a creature directly through it.
+THREE_QUARTERS = {"pine", "oak", "dead_tree", "standing_stone", "boulder", "pillar", "statue", "great_bell", "wall_window"}
+OPAQUE = {"wall_room", "wall_door", "wall_shelf", "wall_notes", "house", "cottage", "shop", "house_burned", "town_wall",
+          "gate", "watchtower", "tent", "bookshelf", "scroll_rack", "wardrobe", "curtain", "ruin_wall", "stone_wall",
+          "stairs_spiral", "mound", "cliff", "vault_door", "hearth", "door", "door_locked"}
+# Light: Bright Light out to the first radius, Dim Light for the second beyond it (feet). A
+# Candle is 5 + 5, a Torch 20 + 20, a Lamp 15 + 30; a campfire, a hearth and a brazier burn like
+# a torch.
+LIGHT_FT = {"campfire": (20, 20), "hearth": (20, 20), "brazier": (20, 20), "torch_post": (20, 20),
+            "candelabra": (5, 5), "lamp_post": (15, 30)}
+# Doors: wood (AC 15), a Medium resilient object (18 HP); a Lock is DC 15 to pick with Thieves'
+# Tools (Sleight of Hand), and forcing one is a Strength (Athletics) check, DC 20 (Hard).
+DOORS = {"door": "closed", "door_open": "open", "door_locked": "locked"}
+SLIPPERY = {"ice"}           # Slippery Ice: Difficult Terrain, DC 10 Dex save or Prone (p. 195)
+
+
 # What one piece of cover is called when a shot or a swing hits it instead ("the arrow thuds into
 # the crate"). Every kind that gives cover has one.
 ONE = {
@@ -1090,7 +1168,7 @@ ONE = {
     "counter": "counter", "table_round": "table", "table_long": "long table", "bed": "bed", "desk": "desk",
     "chest": "chest", "strongbox": "strongbox", "pillar": "pillar", "broken_pillar": "broken pillar",
     "ruin_wall_low": "low wall", "altar": "altar", "pew": "pew", "sarcophagus": "tomb", "gravestone": "gravestone",
-    "great_bell": "great bell", "bell": "bell", "drum": "war drum",
+    "great_bell": "great bell", "bell": "bell", "drum": "war drum", "wall_window": "window",
 }
 
 
@@ -1158,7 +1236,7 @@ KINDS = {
     "floor_ash": K(b_floor_ash, 20, 13, blocks=False, words=("ash", "ashes", "scorched"), say="scorched ground"),
     "floor_sand": K(b_floor_sand, 20, 13, blocks=False, words=("sand", "shore", "beach"), say="sand"),
     "wall_room": K(b_wall_room, words=("wall", "walls", "room"), say="walls"),
-    "wall_window": K(b_wall_window, words=("window", "windows", "shutters", "rain"), say="shuttered windows"),
+    "wall_window": K(b_wall_window, cover=True, words=("window", "windows", "shutters", "rain"), say="shuttered windows"),
     "wall_door": K(b_wall_door, words=("door", "doorway"), say="a door"),
     "wall_shelf": K(b_wall_shelf, words=("shelf", "shelves", "bottles", "mugs"), say="shelves"),
     "bar": K(b_bar, cover=True, words=("bar", "counter", "mugs", "ale", "bottles", "taps"), say="the bar"),
@@ -1210,12 +1288,18 @@ KINDS = {
     "water_strip": K(b_water_strip, 20, 4, words=("water", "harbour", "harbor", "river", "sea", "lake", "bay"),
                      say="dark water"),
     "pier": K(b_pier, 3, 4, blocks=False, words=("pier", "jetty", "dock", "boats", "planks"), say="a pier"),
+    # the DM's set pieces (Set the stage): a door that opens, ice, a torch on a post
+    "door": K(b_door, words=("door", "doorway"), say="a door"),
+    "door_open": K(b_door_open, blocks=False, words=("door", "doorway", "open door"), say="an open door"),
+    "door_locked": K(b_door_locked, words=("door", "locked door", "lock"), say="a locked door"),
+    "ice": K(b_ice, blocks=False, rough=True, words=("ice", "frozen", "slippery"), say="a sheet of ice"),
+    "torch_post": K(b_torch_post, light=0.5, words=("torch", "torches", "torchlight"), say="a torch on a post"),
 }
 # A piece you can walk on even where another blocks the square (a pier over the water).
 CLEAR = {"pier", "rope_bridge"}
 # Pieces that lie flat on the mat: they're laid down rather than dropped.
 FLAT = {"floor_boards", "floor_flags", "floor_cobbles", "floor_grass", "floor_dirt", "floor_ash", "floor_sand", "road_ew", "path_ns", "path_patch", "ash", "sand_ring", "puddle",
-        "stream_ns", "water_strip", "frost", "tracks", "rug", "pit_ring", "flowers", "tall_grass"}
+        "stream_ns", "water_strip", "frost", "tracks", "rug", "pit_ring", "flowers", "tall_grass", "ice"}
 
 
 # ------------------------------------------------------------------ output
@@ -1285,9 +1369,23 @@ def main():
         lua.append(f"    {name} = {{ fw = {k['fw']}, fh = {k['fh']}, blocks = {str(k['blocks']).lower()}, "
                    f"cover = {str(k['cover']).lower()}, rough = {str(k['rough']).lower()}, light = {k['light']}{mask}{clear},")
         one = f", one = {lua_str(ONE[name])}" if k["cover"] else ""
+        rules = ""
+        if k["cover"]:
+            rules += ', deg = "three_quarters"' if name in THREE_QUARTERS else ', deg = "half"'
+        if name in OPAQUE:
+            rules += ", opaque = true"
+        if name in LIGHT_FT:
+            rules += f", bright = {LIGHT_FT[name][0]}, dim = {LIGHT_FT[name][1]}"
+        if name in DOORS:
+            rules += f', door = "{DOORS[name]}", ac = 15, hp = 18'
+        if name in SLIPPERY:
+            rules += ", slippery = true"
+        one += rules
         lua.append(f"        words = {{ {words} }}, say = {lua_str(k['say'])}{one} }},")
     lua.append("}")
     missing = [n for n, k in KINDS.items() if k["cover"] and n not in ONE]
+    unknown = (THREE_QUARTERS | OPAQUE | set(LIGHT_FT) | set(DOORS) | SLIPPERY) - set(KINDS)
+    assert not unknown, "rules for kinds that don't exist: " + ", ".join(sorted(unknown))
     assert not missing, "cover pieces with no ONE name: " + ", ".join(missing)
     w("main/board/board.go", go_file(board_comps))
     # Anything left over from a kind or a part that's gone.

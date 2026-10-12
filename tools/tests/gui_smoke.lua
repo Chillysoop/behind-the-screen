@@ -898,10 +898,9 @@ check_tip_absorbs(" (week 2 prep)")
             if not (m and m.party and m.foes and m.trap) then problem("the map's starts or trap didn't stick") end
             local blocked = maps.layout(m)
             local walls = 0
-            for k, kind in pairs(m.pieces) do
-                if kind == "wall" then
-                    local x, y = maps.split(k)
-                    walls = walls + (blocked[x * 1000 + y] and 1 or 0)
+            for _, p in ipairs(m.props) do
+                if p.kind == "stone_wall" or p.kind == "wall_room" then
+                    walls = walls + (blocked[p.x * 1000 + p.y] and 1 or 0)
                 end
             end
             if walls == 0 then problem("the map's walls don't block") end

@@ -95,6 +95,96 @@ M.SOURCE = SOURCE
 
 local cache = {}
 
+-- The DM's maps (Set the stage): a map is a board of its own, registered while the game runs.
+-- def = { base = board id, add = { { kind, x, y, r } }, removed = { [feature id] = true } }.
+-- Its id carries a fingerprint of the pieces, so a registered id never changes meaning.
+local dynamic = {}
+
+function M.register(id, def)
+    if not dynamic[id] then
+        dynamic[id] = def
+    end
+    return id
+end
+
+function M.registered(id)
+    return dynamic[id]
+end
+
+-- A registered map as a short string, for a message to the table's scripts (the GUI and the
+-- game objects run in separate Lua states in Defold, so the table can't see this registry).
+-- "base|kind,x,y,r;...|fid,fid|px,py|fx,fy"
+function M.encode(id)
+    local d = dynamic[id]
+    if not d then
+        return nil
+    end
+    local add = {}
+    for _, p in ipairs(d.add or {}) do
+        table.insert(add, p.kind .. "," .. p.x .. "," .. p.y .. "," .. (p.r or 0))
+    end
+    local rem = {}
+    for fid in pairs(d.removed or {}) do
+        table.insert(rem, fid)
+    end
+    table.sort(rem)
+    local function pt(v)
+        return v and (v[1] .. "," .. v[2]) or ""
+    end
+    return d.base .. "|" .. table.concat(add, ";") .. "|" .. table.concat(rem, ",") .. "|" .. pt(d.party) .. "|" .. pt(d.foes)
+end
+
+function M.decode(str)
+    local base, adds, rems, party, foes = string.match(str or "", "^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)$")
+    if not base then
+        return nil
+    end
+    local d = { base = base, add = {}, removed = {} }
+    for k, x, y, r in string.gmatch(adds, "([%w_]+),(%d+),(%d+),(%d+)") do
+        table.insert(d.add, { kind = k, x = tonumber(x), y = tonumber(y), r = tonumber(r) })
+    end
+    for fid in string.gmatch(rems, "[^,]+") do
+        d.removed[fid] = true
+    end
+    local px, py = string.match(party, "^(%d+),(%d+)$")
+    if px then
+        d.party = { tonumber(px), tonumber(py) }
+    end
+    local fx, fy = string.match(foes, "^(%d+),(%d+)$")
+    if fx then
+        d.foes = { tonumber(fx), tonumber(fy) }
+    end
+    return d
+end
+
+-- The board a registered map stands on ("blank" for anything unknown).
+function M.base_of(id)
+    local d = dynamic[id]
+    if d then
+        return d.base
+    end
+    return boards[id] and id or "blank"
+end
+
+local function board_def(id)
+    local d = dynamic[id]
+    if not d then
+        return boards[id]
+    end
+    local b = boards[d.base] or boards.blank
+    local out = { title = b.title, light = b.light, party = d.party or b.party, npc = b.npc, npc_at = b.npc_at,
+                  foes = d.foes or b.foes, features = {} }
+    for _, f in ipairs(b.features) do
+        if not (d.removed and d.removed[f.id]) then
+            table.insert(out.features, f)
+        end
+    end
+    for i, pc in ipairs(d.add or {}) do
+        table.insert(out.features, { id = "dm" .. i, kind = pc.kind, at = { { pc.x, pc.y, pc.r or 0 } }, base = true, dm = true })
+    end
+    return out
+end
+
 -- A board, compiled: its pieces, features, and what they mean for the rules.
 --   pieces   { kind, x, y, r, fid } in the order they were written
 --   features { id, words, say, base, light, pieces = { indexes } }
@@ -103,16 +193,17 @@ function M.compile(id)
     if cache[id] then
         return cache[id]
     end
-    local b = boards[id] or boards.blank
-    local out = { id = boards[id] and id or "blank", title = b.title, light = b.light, party = b.party, npc = b.npc,
+    local b = board_def(id) or boards.blank
+    local known = boards[id] or dynamic[id]
+    local out = { id = known and id or "blank", title = b.title, light = b.light, party = b.party, npc = b.npc,
                   npc_at = b.npc_at or {}, foes = b.foes, pieces = {}, features = {}, by_id = {}, blocked = {}, cover = {}, rough = {}, spots = {},
-                  planks = {}, sources = {} }
+                  planks = {}, sources = {}, deg = {}, opaque = {}, doors = {}, slippery = {}, lights = {} }
     local block, clear = {}, {}
     for _, f in ipairs(b.features) do
         local parts = f.parts or { { kind = f.kind, at = f.at } }
         local first = parts[1].kind
         local feat = { id = f.id, words = merged_words(f, first), say = f.say or (props[first] and props[first].say) or f.id,
-                       base = f.base == true, light = 0, pieces = {}, first = nil }
+                       base = f.base == true, dm = f.dm, light = 0, pieces = {}, first = nil }
         for _, part in ipairs(parts) do
             local k = props[part.kind]
             assert(k, "board " .. tostring(id) .. ": no prop kind " .. tostring(part.kind))
@@ -127,8 +218,16 @@ function M.compile(id)
                     out.sources[src[1]] = list
                     table.insert(list, { squares = M.squares(part.kind, pc.x, pc.y, pc.r), name = src[2] })
                 end
+                if k.bright then
+                    local w, h = M.size(part.kind, pc.r)
+                    table.insert(out.lights, { x = pc.x + (w - 1) / 2, y = pc.y + (h - 1) / 2, bright = k.bright, dim = k.dim or 0,
+                                               fid = f.id })
+                end
                 for _, sq in ipairs(M.squares(part.kind, pc.x, pc.y, pc.r)) do
                     local kk = key(sq[1], sq[2])
+                    if k.door then
+                        table.insert(out.doors, { x = sq[1], y = sq[2], state = k.door, fid = f.id, kind = part.kind, r = pc.r })
+                    end
                     if k.clear then
                         clear[kk] = true
                         out.planks[kk] = true
@@ -136,9 +235,16 @@ function M.compile(id)
                         block[kk] = true
                         if k.cover then
                             out.cover[kk] = k.one or true      -- what it's called when a shot hits it
+                            out.deg[kk] = k.deg or "half"
+                        end
+                        if k.opaque then
+                            out.opaque[kk] = true
                         end
                     elseif k.rough then
                         out.rough[kk] = true
+                    end
+                    if k.slippery then
+                        out.slippery[kk] = true
                     end
                 end
                 feat.first = feat.first or { pc.x, pc.y }
@@ -150,6 +256,7 @@ function M.compile(id)
     for kk in pairs(clear) do
         block[kk] = nil
         out.rough[kk] = nil
+        out.opaque[kk] = nil
     end
     local keys = {}
     for kk in pairs(block) do
@@ -190,7 +297,8 @@ end
 function M.layout(id)
     local c = M.compile(id)
     return { title = c.title, light = c.light, party = c.party, npc = c.npc, npc_at = c.npc_at, foes = c.foes,
-             blocked = c.blocked, spots = c.spots, cover = c.cover, rough = c.rough, planks = c.planks, sources = c.sources }
+             blocked = c.blocked, spots = c.spots, cover = c.cover, rough = c.rough, planks = c.planks, sources = c.sources,
+             deg = c.deg, opaque = c.opaque, doors = c.doors, slippery = c.slippery, lights = c.lights }
 end
 
 -- Every board's layout, keyed by id (content.terrain_layout).
@@ -203,7 +311,7 @@ function M.all_layouts()
 end
 
 function M.exists(id)
-    return boards[id] ~= nil
+    return boards[id] ~= nil or dynamic[id] ~= nil
 end
 
 -- What the DM's words put on the table ------------------------------------------------------

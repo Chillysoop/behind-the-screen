@@ -20,6 +20,7 @@ local theme = require "game.ui.theme"
 local empathy = require "game.model.empathy"
 local pacing = require "game.model.pacing"
 local night_mod = require "game.model.night"
+local board_mod = require "game.model.board"
 local util = require "game.model.util"
 local review = require "game.ui.review_view"
 local panels = require "game.ui.panels"
@@ -81,7 +82,7 @@ local MONSTER_SPRITES = {
 }
 local BLOCKED = {
     sanctuary = "Sanctuary", decoy = "Hit the decoy", mirror_image = "Hit an image", shield = "Shield!",
-    warding_flash = "Warding Flare", parry = "Parried", cover = "Cover!",
+    warding_flash = "Warding Flare", parry = "Parried", cover = "Cover!", no_line = "No line of sight",
 }
 local TIER_TITLE = { triumph = "A triumph!", success = "It works.", near = "So close...", flop = "That's a flop." }
 local FIT_HAND = { great = "Fits this scene", good = "Always works", poor = "A stretch" }
@@ -446,7 +447,7 @@ function M.restage_snapshot(app, sn)
     end
     if sn.terrain then
         app.terrain = sn.terrain
-        post("terrain", { set = sn.terrain, animate = false })
+        post("terrain", { set = sn.terrain, animate = false, def = board_mod.encode(sn.terrain) })
     end
     local list, n = {}, 0
     for _, m in ipairs(sn.minis or {}) do
@@ -1039,7 +1040,7 @@ local function pieces_key(cells)
         return ""
     end
     local out = {}
-    for _, kind in ipairs({ "wall", "cover", "rough", "trap" }) do
+    for _, kind in ipairs({ "trap" }) do
         for _, sq in ipairs(cells[kind] or {}) do
             table.insert(out, kind .. sq[1] .. "," .. sq[2])
         end
@@ -1048,11 +1049,13 @@ local function pieces_key(cells)
 end
 
 local function stage(app, ev)
-    local fresh = ev.terrain ~= app.terrain
+    local id = ev.board or ev.terrain
+    local fresh = id ~= app.terrain
     if fresh then
-        app.terrain = ev.terrain
-        -- A new place: its floor and walls go down; the rest comes as the DM describes it.
-        post_board("board", { id = ev.terrain, show = ev.show or "base" })
+        app.terrain = id
+        -- A new place: its floor and walls go down (and the DM's own set pieces, Set the stage);
+        -- the rest comes as the DM describes it.
+        post_board("board", { id = id, show = ev.show or "base", def = board_mod.encode(id) })
     end
     local npc
     if ev.npc then
@@ -1163,7 +1166,9 @@ function M.play_step(app, s, pace)
                 nums = " (" .. util.int(s.roll) .. signed(s.total - s.roll) .. " = " .. util.int(s.total) .. " vs AC "
                     .. util.int(s.ac) .. ")"
             end
-            if s.blocked == "cover" then
+            if s.blocked == "no_line" then
+                M.push(app, name_of(app, s.id) .. " can't see " .. name_of(app, s.target) .. " from there: there's a wall in the way.", "system")
+            elseif s.blocked == "cover" then
                 -- The board earning its keep: the shot that would have landed hits the scenery.
                 M.push(app, name_of(app, s.target) .. " ducks behind " .. (s.cover_what and ("the " .. s.cover_what) or "cover")
                     .. ". " .. name_of(app, s.id) .. "'s " .. string.lower(s.weapon or "attack") .. " hits that instead" .. nums .. ".",
@@ -1246,6 +1251,14 @@ function M.play_step(app, s, pace)
         battle_hud.area(app, s.cells, col, s.zone)
     elseif k == "zone_end" then
         battle_hud.zone_end(app, s.zone)
+    elseif k == "door" then
+        -- Set the stage: a door swings open on the mat as someone walks through, or a lock gives.
+        post_board("door", { fid = s.fid, state = s.state })
+        if s.state == "open" then
+            M.push(app, (s.id and name_of(app, s.id) or "Someone") .. " opens the door.", "system")
+        elseif s.state == "closed" then
+            M.push(app, "The lock gives.", "good")
+        end
     elseif k == "feature" then
         if s.name == "Potion of Healing" then
             M.float(app, s.id, "Potion!", theme.teal)

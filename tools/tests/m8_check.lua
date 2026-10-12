@@ -475,7 +475,7 @@ do
         B9.maps = B9.maps + 1
         local night = c:start_night()
         bots.play_night(night, rng, bots.DMS.careful, function(ev, nt)
-            if ev.kind == "scene" and ev.index == 1 and ev.pieces and #ev.pieces.wall > 0 then
+            if ev.kind == "scene" and ev.index == 1 and ev.board and string.sub(ev.board, 1, 4) == "map:" then
                 B9.scene_pieces = B9.scene_pieces + 1
             elseif ev.kind == "battle" and ev.phase == "start" and nt.scene and nt.scene.index == 1 then
                 B9.fights = B9.fights + 1
@@ -498,7 +498,11 @@ do
         c:finish_night()
         local back = save.load(save.dump(c))
         local m2 = back and back.maps and back.maps[loc.id]
-        if m2 and m2.pieces["14,6"] == "cover" and m2.party and m2.party[1] == 3 then
+        local crate = false
+        for _, p in ipairs(m2 and m2.props or {}) do
+            crate = crate or (p.kind == "crate" and p.x == 14 and p.y == 6)
+        end
+        if crate and m2.party and m2.party[1] == 3 then
             B9.kept = B9.kept + 1
         end
     end
@@ -507,7 +511,7 @@ do
     maps.place(tm, "cover", 16, 6)
     maps.place(tm, "trap", 9, 7)
     local t1 = maps.tilt(tm)
-    maps.place(tm, "cover", 16, 6)
+    maps.place(tm, "erase", 16, 6)
     maps.place(tm, "cover", 4, 7)
     B9.tilt_ok = t1 > 0 and maps.tilt(tm) < t1
     -- (A fight talked down before it starts is fine: the map only has to hold for the fights that happen.)

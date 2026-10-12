@@ -1077,6 +1077,153 @@ case("map-trap", "A trap on the map springs on whoever steps on it, once", "p. 2
         t:eq("the next one walks over the open pit's lid unharmed", g2.hp, g2.hp_max)
     end)
 
+-- Set the stage: the DM's set pieces, by SRD 5.2.1 ----------------------------------------------
+
+local function bow_of(g)
+    for _, a in ipairs(g.attacks) do
+        if a.kind == "ranged" then
+            return require("game.rules.creature").monster_attack(g, a, true)
+        end
+    end
+end
+
+case("cover-degrees", "A pillar is Three-Quarters Cover; a crate halfway along still covers", "Rules Glossary: Cover",
+    "Half Cover is +2 to AC, Three-Quarters Cover +5. A target has cover when the attack comes from the far side of it; "
+        .. "only the best cover counts. (Here: pieces right beside the attacker don't count; they lean over them.)",
+    function(t)
+        local b = fresh()
+        b.blocked = { [9 * 1000 + 5] = true, [6 * 1000 + 8] = true, [4 * 1000 + 11] = true }
+        b.cover = { ["9,5"] = "pillar", ["6,8"] = "crate", ["4,11"] = "crate" }
+        b.deg = { ["9,5"] = "three_quarters", ["6,8"] = "half", ["4,11"] = "half" }
+        local f = at(b, pc("fighter", 2), 10, 5)
+        local g = at(b, mon("goblin_warrior"), 3, 5)
+        t:eq("behind a pillar: +5", (b:cover_bonus(g, f)), 5)
+        f.x, f.y = 10, 8
+        g.x, g.y = 3, 8
+        t:eq("a crate in the middle of the line: +2", (b:cover_bonus(g, f)), 2)
+        f.x, f.y = 10, 11
+        g.x, g.y = 3, 11
+        t:eq("a crate right beside the archer: no cover", (b:cover_bonus(g, f)), 0)
+    end)
+
+case("total-cover", "A wall between them is Total Cover: no attack through it", "Rules Glossary: Cover",
+    "Total Cover: a target can't be targeted directly by an attack or a spell. (Here: the attacker goes for someone it "
+        .. "can see in range, or the attack doesn't happen.)",
+    function(t)
+        local b = fresh()
+        b.opaque = { ["6,4"] = true, ["6,5"] = true, ["6,6"] = true }
+        local f = at(b, pc("fighter", 2), 10, 5)
+        local g = at(b, mon("goblin_warrior"), 3, 5)
+        local prof = bow_of(g)
+        local r = b:attack(g, f, prof)
+        t:eq("behind the wall: the shot never happens", r.blocked, "no_line")
+        t:eq("and the fighter is untouched", f.hp, f.hp_max)
+        t:eq("the wall blocks sight too", b:can_see(g, f), false)
+        local w = at(b, pc("wizard", 2), 4, 9)
+        b.dice:force(19, 3, 3)
+        r = b:attack(g, f, prof)
+        t:eq("with someone else in sight, it shoots at them instead", r.target, w)
+        t:eq("a line past the end of the wall is clear", b:los_xy(3, 5, 7, 9), true)
+        t:eq("a line exactly through a corner between two wall squares is blocked", b:los_xy(5, 5, 7, 5) or b:los_xy(5, 4, 7, 6), false)
+    end)
+
+case("doors", "A shut door opens as a hero walks through; a wolf can't open it; a locked one holds",
+    "p. 13 (Interacting with Things)",
+    "You can interact with one object for free during your move: open a door as you stride toward a foe. A Lock is DC 15 "
+        .. "to pick with Thieves' Tools (Dexterity (Sleight of Hand)).",
+    function(t)
+        local b = fresh()
+        b.blocked = {}
+        for y = 1, 9 do
+            if y ~= 5 then b.blocked[6 * 1000 + y] = true end
+        end
+        b.opaque = {}
+        for y = 1, 9 do
+            if y ~= 5 then b.opaque["6," .. y] = true end
+        end
+        b.H = 9
+        b.doors = { ["6,5"] = { state = "closed", x = 6, y = 5, fid = "dm1" } }
+        local f = at(b, pc("fighter", 2), 4, 5)
+        t:eq("the shut door blocks sight", b:los_xy(4, 5, 9, 5), false)
+        local ok = b:move_to(f, 8, 5)
+        t:eq("the fighter walks through", ok and f.x == 8, true)
+        t:eq("and the door is open now", b.doors["6,5"].state, "open")
+        t:eq("so it doesn't block sight any more", b:los_xy(4, 5, 9, 5), true)
+        b.doors["6,5"].state = "closed"
+        local w = at(b, mon("wolf"), 3, 3)
+        local dist = b:paths(w, 60)
+        t:eq("a wolf can't open it", dist[8 * 1000 + 5], nil)
+        b.doors["6,5"].state = "locked"
+        w.removed = true                                -- (the wolf wanders off: nobody on this side to fight)
+        local r = at(b, pc("rogue", 2), 4, 6)
+        local g = at(b, mon("goblin_warrior"), 9, 5)
+        f.x, f.y = 2, 2
+        dist = b:paths(r, 60)
+        t:eq("a locked door holds for everyone", dist[8 * 1000 + 5], nil)
+        b.dice:force(15)
+        ai.work_lock(b, r)
+        t:eq("the rogue picks it (15 + Dex + proficiency vs DC 15)", b.doors["6,5"].state, "closed")
+        t:eq("that took the action", r.turn.action, false)
+    end)
+
+case("darkness", "In the dark, an unseen attacker has Advantage, and Darkvision sees",
+    "p. 14 (Unseen Attackers and Targets); Rules Glossary: Darkvision",
+    "When a creature can't see you, you have Advantage on attack rolls against it; attacking a target you can't see is "
+        .. "at Disadvantage. Darkness is Heavily Obscured; Darkvision sees in it as if it were Dim Light.",
+    function(t)
+        local b = fresh()
+        b.light = { ambient = "dark", sources = {} }
+        local f = at(b, pc("fighter", 2), 10, 5)
+        local g = at(b, mon("goblin_warrior"), 3, 5)
+        local prof = bow_of(g)
+        local mode = b:attack_mode(g, f, prof)
+        t:eq("the goblin (Darkvision 60 ft) shoots the fighter it sees, who can't see it: Advantage", mode, 1)
+        local fm = b:attack_mode(f, g, melee(f))
+        t:eq("the fighter swings at what it can't see: Disadvantage", fm, -1)
+        f.torch = true
+        t:eq("with a torch, the goblin 35 ft off is in its Dim Light", b:can_see(f, g), true)
+        local c = at(b, pc("cleric", 2), 12, 5)
+        t:eq("the dwarf cleric sees in the dark anyway", c.darkvision ~= nil, true)
+        f.torch = nil
+        b.light.sources = { { x = 3, y = 4, bright = 20, dim = 20 } }
+        t:eq("a brazier by the goblin lights it up for everyone", b:can_see(f, g), true)
+    end)
+
+case("ice", "Ice on the map: Difficult Terrain, and a DC 10 Dex save or Prone", "p. 195 (Slippery Ice)",
+    "Slippery Ice is Difficult Terrain. When a creature moves onto it for the first time on a turn or starts its turn "
+        .. "there, it must succeed on a DC 10 Dexterity saving throw or have the Prone condition.",
+    function(t)
+        local b = fresh()
+        require("game.rules.hazards").slip_zone(b, { ["6,5"] = true })
+        local g = at(b, mon("goblin_warrior"), 5, 5)
+        t:eq("crossing it costs double", b:step_cost(6, 5), 10)
+        b.dice:force(2)
+        b:move_to(g, 6, 5)
+        t:eq("a low save: down it goes", b:has(g, "prone"), true)
+    end)
+
+case("map-v2", "The DM's map is a board: its pieces block, cover and open", "Set the stage (game/model/maps.lua)",
+    "Pieces from the prop kit: a table is Half Cover, a wall Total Cover, a door opens; a version 1 map's painted squares "
+        .. "turn into the pieces that do the same thing.",
+    function(t)
+        local maps = require "game.model.maps"
+        local campaign_mod = require "game.model.campaign"
+        local c = campaign_mod.new(3)
+        local m = maps.new(c, "x", "blank")
+        t:eq("a table goes down", maps.place(m, "table_round", 10, 6, 0), true)
+        t:eq("a door goes down", maps.place(m, "door", 12, 6, 0), true)
+        t:eq("clicking the door again opens it", maps.place(m, "door", 12, 6, 0), true)
+        t:eq("so it's an open door now", m.props[2].kind, "door_open")
+        local blocked, layout, extras = maps.layout(m)
+        t:eq("the table blocks", blocked[10 * 1000 + 6], true)
+        t:eq("and is Half Cover", extras.deg["10,6"], "half")
+        t:eq("the door is a door", #extras.doors, 1)
+        t:eq("the map is a board of its own", string.sub(extras.board, 1, 4), "map:")
+        local old = { template = "blank", pieces = { ["5,5"] = "wall", ["6,5"] = "cover", ["7,5"] = "rough", ["8,5"] = "trap" } }
+        maps.migrate(old)
+        t:eq("a version 1 map turns into pieces", #old.props .. ":" .. tostring(old.traps["8,5"]), "3:true")
+    end)
+
 local passed, results = 0, {}
 for _, cs in ipairs(cases) do
     local r = run_case(cs)

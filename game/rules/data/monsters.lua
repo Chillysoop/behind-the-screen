@@ -13,6 +13,7 @@ end
 add("goblin_warrior", {
     name = "Goblin Warrior", page = 290, size = "small", type = "fey", tags = { "goblinoid" },
     ac = 15, hp = 10, hit_dice = "3d6", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 8, dex = 15, con = 10, int = 10, wis = 8, cha = 8 },
     cr = "1/4", xp = 50, pb = 2,
     attacks = {
@@ -28,6 +29,7 @@ add("goblin_warrior", {
 add("goblin_boss", {
     name = "Goblin Boss", page = 290, size = "small", type = "fey", tags = { "goblinoid" },
     ac = 17, hp = 21, hit_dice = "6d6", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 10, dex = 15, con = 10, int = 10, wis = 8, cha = 10 },
     cr = "1", xp = 200, pb = 2,
     multiattack = { count = 2, any_of = { "scimitar", "shortbow" } },
@@ -100,6 +102,7 @@ add("cultist", {
 add("wolf", {
     name = "Wolf", page = 364, size = "medium", type = "beast",
     ac = 12, hp = 11, hit_dice = "2d8+2", speed = 40,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 14, dex = 15, con = 12, int = 3, wis = 12, cha = 6 },
     cr = "1/4", xp = 50, pb = 2,
     traits = { "pack_tactics" },
@@ -113,6 +116,7 @@ add("wolf", {
 add("dire_wolf", {
     name = "Dire Wolf", page = 347, size = "large", type = "beast",
     ac = 14, hp = 22, hit_dice = "3d10+6", speed = 50,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 17, dex = 15, con = 15, int = 3, wis = 12, cha = 7 },
     cr = "1", xp = 200, pb = 2,
     traits = { "pack_tactics" },
@@ -126,6 +130,7 @@ add("dire_wolf", {
 add("skeleton", {
     name = "Skeleton", page = 325, size = "medium", type = "undead",
     ac = 14, hp = 13, hit_dice = "2d8+4", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 10, dex = 16, con = 15, int = 6, wis = 8, cha = 5 },
     cr = "1/4", xp = 50, pb = 2,
     vulnerable = { "bludgeoning" },
@@ -141,6 +146,7 @@ add("skeleton", {
 add("zombie", {
     name = "Zombie", page = 343, size = "medium", type = "undead",
     ac = 8, hp = 15, hit_dice = "2d8+6", speed = 20,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 13, dex = 6, con = 16, int = 3, wis = 6, cha = 5 },
     saves = { wis = 0 },
     cr = "1/4", xp = 50, pb = 2,
@@ -156,6 +162,7 @@ add("zombie", {
 add("ghoul", {
     name = "Ghoul", page = 288, size = "medium", type = "undead",
     ac = 12, hp = 22, hit_dice = "5d8", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 13, dex = 15, con = 10, int = 7, wis = 10, cha = 6 },
     cr = "1", xp = 200, pb = 2,
     immune = { "poison" },
@@ -174,6 +181,7 @@ add("ghoul", {
 add("ogre", {
     name = "Ogre", page = 312, size = "large", type = "giant",
     ac = 11, hp = 68, hit_dice = "8d10+24", speed = 40,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 19, dex = 8, con = 16, int = 5, wis = 7, cha = 7 },
     cr = "2", xp = 450, pb = 2,
     attacks = {
@@ -210,6 +218,7 @@ add("pirate", {
 add("merrow", {
     name = "Merrow", page = 308, size = "large", type = "monstrosity",
     ac = 13, hp = 45, hit_dice = "6d10+12", speed = 10, swim = 40,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 18, dex = 15, con = 15, int = 8, wis = 10, cha = 9 },
     cr = "2", xp = 450, pb = 2,
     multiattack = { count = 2, any_of = { "bite", "claw", "harpoon" }, seq = { "bite", "harpoon" } },
@@ -265,6 +274,7 @@ add("spy", {
 add("swarm_of_rats", {
     name = "Swarm of Rats", page = 362, size = "medium", type = "beast", tags = { "swarm" },
     ac = 10, hp = 14, hit_dice = "4d8-4", speed = 30,
+    darkvision = 30,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 9, dex = 11, con = 9, int = 2, wis = 10, cha = 3 },
     saves = { dex = 2 },
     cr = "1/4", xp = 50, pb = 2,
@@ -295,6 +305,7 @@ add("animated_armor", {
 add("giant_spider", {
     name = "Giant Spider", page = 353, size = "large", type = "beast",
     ac = 14, hp = 26, hit_dice = "4d10+4", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 14, dex = 16, con = 12, int = 2, wis = 11, cha = 4 },
     cr = "1", xp = 200, pb = 2,
     traits = { "spider_climb", "web_walker" },
@@ -311,6 +322,7 @@ add("giant_spider", {
 add("specter", {
     name = "Specter", page = 327, size = "medium", type = "undead",
     ac = 12, hp = 22, hit_dice = "5d8", speed = 30, fly = 50,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 1, dex = 14, con = 11, int = 10, wis = 10, cha = 11 },
     cr = "1", xp = 200, pb = 2,
     resist = { "acid", "bludgeoning", "cold", "fire", "lightning", "piercing", "slashing", "thunder" },
@@ -328,6 +340,7 @@ add("specter", {
 add("brown_bear", {
     name = "Brown Bear", page = 346, size = "large", type = "beast",
     ac = 11, hp = 22, hit_dice = "3d10+6", speed = 40,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 17, dex = 12, con = 15, int = 2, wis = 13, cha = 7 },
     cr = "1", xp = 200, pb = 2,
     multiattack = { count = 2, any_of = { "bite", "claw" }, seq = { "bite", "claw" } },
@@ -342,6 +355,7 @@ add("brown_bear", {
 add("gnoll_warrior", {
     name = "Gnoll Warrior", page = 289, size = "medium", type = "fiend",
     ac = 15, hp = 27, hit_dice = "6d8", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 14, dex = 12, con = 11, int = 6, wis = 10, cha = 7 },
     cr = "1/2", xp = 100, pb = 2,
     attacks = {
@@ -353,8 +367,9 @@ add("gnoll_warrior", {
 })
 
 add("worg", {
-    name = "Worg", page = 342, size = "large", type = "fey",
+    name = "Worg", page = 342, size = "large", type = "fey", no_hands = true,     -- a wolf: no opening doors
     ac = 13, hp = 26, hit_dice = "4d10+4", speed = 50,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 16, dex = 13, con = 13, int = 7, wis = 11, cha = 8 },
     cr = "1/2", xp = 100, pb = 2,
     attacks = {
@@ -367,6 +382,7 @@ add("worg", {
 add("bugbear_warrior", {
     name = "Bugbear Warrior", page = 272, size = "medium", type = "fey", tags = { "goblinoid" },
     ac = 14, hp = 33, hit_dice = "6d8+6", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 15, dex = 14, con = 13, int = 8, wis = 11, cha = 9 },
     cr = "1", xp = 200, pb = 2,
     traits = { "abduct" },
@@ -397,6 +413,7 @@ add("warrior_veteran", {
 add("kobold_warrior", {
     name = "Kobold Warrior", page = 302, size = "small", type = "dragon",
     ac = 14, hp = 7, hit_dice = "3d6-3", speed = 30,
+    darkvision = 60,                    -- Senses (Set the stage: who sees in the dark)
     abilities = { str = 7, dex = 15, con = 9, int = 8, wis = 7, cha = 8 },
     cr = "1/8", xp = 25, pb = 2,
     traits = { "pack_tactics" },                 -- (Sunlight Sensitivity: the Vale's kobolds keep to the dark)

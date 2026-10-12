@@ -173,7 +173,7 @@ function M.new_pc(sheet)
     local c = base({
         name = sheet.name, player = sheet.player, side = "party", pc = true,
         class = sheet.class, class_name = cls.name, level = level, subclass = sheet.subclass,
-        species = sheet.species, size = species.size, type = "humanoid",
+        species = sheet.species, size = species.size, type = "humanoid", darkvision = species.darkvision,
         abilities = {}, pb = row.pb, speed = species.speed,
         save_prof = set_of(cls.saves), save_override = nil,
         armor = sheet.armor, shield = sheet.shield or false,

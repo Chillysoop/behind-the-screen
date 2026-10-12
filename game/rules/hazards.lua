@@ -396,6 +396,26 @@ function M.start_turn(b, c)
     end
 end
 
+-- Ice the DM put on the map (Set the stage): SRD 5.2.1 Slippery Ice (p. 195), Difficult Terrain,
+-- and a DC 10 Dexterity save or Prone on stepping in or starting a turn there.
+function M.slip_zone(b, cells)
+    local function slip(bb, z, c)
+        if c.dead or c.down or bb:has(c, "prone") or (c.turn and c.turn.slipped) then
+            return
+        end
+        if c.turn then
+            c.turn.slipped = true
+        end
+        if not bb:save(c, "dex", 10, { kind = "prone" }) then
+            bb:knock_prone(c, "slippery ice")
+            bb:log("  %s goes down on the ice.", c.name)
+        end
+    end
+    local z = { kind = "ice", difficult = true, cells = cells, on_enter = slip, on_start = slip, map = true }
+    table.insert(b.zones, z)
+    return z
+end
+
 -- What the meter adds for a hazard: { xp, dpr } (game/rules/encounter.lua).
 -- Traps the DM put on a map (B9): the first creature to step on the square springs it, using the
 -- SRD trap's own numbers (game/rules/data/hazards.lua). One square, one trap; it's spent once sprung.

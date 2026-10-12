@@ -133,15 +133,16 @@ function M.showcase(app, a)
         local maps = require "game.model.maps"
         local loc = s3.slots.location
         local m = maps.new(app.campaign, loc.id, maps.auto_template(app.campaign, loc, "combat"))
+        -- Set the stage: a wall with a door in it, a table and a pillar by the monsters, ice, a torch.
         for y = 4, 9 do
-            maps.place(m, "wall", 11, y)
+            maps.place(m, y == 7 and "door" or "wall", 11, y)
         end
-        for _, sq in ipairs({ { 15, 5 }, { 15, 9 } }) do
-            maps.place(m, "cover", sq[1], sq[2])
-        end
+        maps.place(m, "table_round", 15, 5)
+        maps.place(m, "pillar", 15, 9)
         for x = 6, 8 do
-            maps.place(m, "rough", x, 10)
+            maps.place(m, "ice", x, 10)
         end
+        maps.place(m, "torch_post", 16, 7)
         maps.place(m, "trap", 9, 7)
         app.sel = { scene = 2, kind = "cast" }
         app.refresh()

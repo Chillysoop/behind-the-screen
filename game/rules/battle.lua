@@ -319,7 +319,9 @@ function B:speed(c)
     return math.max(0, s)
 end
 
--- Can a creature see another? Open ground; Blinded and Invisible matter.
+-- Can a creature see another? Blinded and Invisible matter; on a staged board, so do walls (Total
+-- Cover) and the dark (SRD 5.2.1 "Light": Darkness is Heavily Obscured, and a creature trying to
+-- see into it is effectively Blinded, unless Darkvision or Blindsight reaches).
 function B:can_see(a, b)
     if self:has(a, "blinded") then
         return false
@@ -327,7 +329,160 @@ function B:can_see(a, b)
     if self:has(b, "invisible") then
         return false
     end
+    if a.x and b.x then
+        if not self:los_xy(a.x, a.y, b.x, b.y) then
+            return false
+        end
+        if self.light and not self:sees_square(a, b.x, b.y) then
+            return false
+        end
+    end
     return true
+end
+
+-- The stage (Set the stage): what the board's pieces do in a fight, by SRD 5.2.1.
+--   b.opaque[k]  squares nobody sees through (a wall, a shut door): Total Cover. k = "x,y"
+--   b.cover[k]   cover pieces and what they're called; b.deg[k] = "half" | "three_quarters"
+--   b.doors[k]   { state = "closed" | "open" | "locked", x, y, fid }
+--   b.light      nil (everyone sees), or { ambient = "bright" | "dim" | "dark", sources = { { x, y, bright, dim } } }
+local function sqk(x, y)
+    return x .. "," .. y
+end
+
+function B:opaque_at(x, y)
+    local k = sqk(x, y)
+    local d = self.doors and self.doors[k]
+    if d then
+        return d.state ~= "open"
+    end
+    return self.opaque ~= nil and self.opaque[k] == true
+end
+
+-- The squares a straight line from the middle of one square to the middle of another crosses,
+-- neither end counted. A line exactly through a corner passes between the two squares there:
+-- { corner = { a, b } }.
+function B:line(x1, y1, x2, y2)
+    local out = {}
+    local dx, dy = x2 - x1, y2 - y1
+    local sx = dx > 0 and 1 or (dx < 0 and -1 or 0)
+    local sy = dy > 0 and 1 or (dy < 0 and -1 or 0)
+    local adx, ady = math.abs(dx), math.abs(dy)
+    local tx = adx > 0 and 0.5 / adx or math.huge
+    local ty = ady > 0 and 0.5 / ady or math.huge
+    local ddx = adx > 0 and 1 / adx or math.huge
+    local ddy = ady > 0 and 1 / ady or math.huge
+    local x, y, guard = x1, y1, 0
+    while (x ~= x2 or y ~= y2) and guard < 100 do
+        guard = guard + 1
+        if math.abs(tx - ty) < 1e-9 then
+            table.insert(out, { corner = { { x + sx, y }, { x, y + sy } } })
+            x, y = x + sx, y + sy
+            tx, ty = tx + ddx, ty + ddy
+        elseif tx < ty then
+            x, tx = x + sx, tx + ddx
+        else
+            y, ty = y + sy, ty + ddy
+        end
+        if x ~= x2 or y ~= y2 then
+            table.insert(out, { x, y })
+        end
+    end
+    return out
+end
+
+-- Line of sight between two squares: nothing opaque in the way (a corner blocks only when both
+-- squares beside it do). Cached until a door opens or shuts.
+function B:los_xy(x1, y1, x2, y2)
+    if (not self.opaque and not self.doors) or (x1 == x2 and y1 == y2) then
+        return true
+    end
+    local ck = self.los_cache
+    if not ck or ck.v ~= (self.stage_v or 0) then
+        ck = { v = self.stage_v or 0 }
+        self.los_cache = ck
+    end
+    local key = ((x1 * 64 + y1) * 64 + x2) * 64 + y2
+    local v = ck[key]
+    if v ~= nil then
+        return v
+    end
+    v = true
+    for _, s in ipairs(self:line(x1, y1, x2, y2)) do
+        if s.corner then
+            if self:opaque_at(s.corner[1][1], s.corner[1][2]) and self:opaque_at(s.corner[2][1], s.corner[2][2]) then
+                v = false
+                break
+            end
+        elseif self:opaque_at(s[1], s[2]) then
+            v = false
+            break
+        end
+    end
+    ck[key] = v
+    return v
+end
+
+-- How lit a square is: "bright", "dim" or "dark" (the map's light, its fires and lamps, and the
+-- torches heroes without Darkvision carry; light doesn't go through walls).
+function B:light_at(x, y)
+    local L = self.light
+    if not L then
+        return "bright"
+    end
+    local best = L.ambient == "bright" and 3 or (L.ambient == "dim" and 2 or 1)
+    if best == 3 then
+        return "bright"
+    end
+    local function from(sx, sy, bright, dim)
+        local d = self:dist_xy(sx, sy, x, y)
+        if d <= bright + dim and self:los_xy(math.floor(sx + 0.5), math.floor(sy + 0.5), x, y) then
+            best = math.max(best, d <= bright and 3 or 2)
+        end
+    end
+    for _, src in ipairs(L.sources or {}) do
+        from(src.x, src.y, src.bright, src.dim)
+    end
+    for _, o in ipairs(self.creatures) do
+        if o.torch and not o.dead and not o.removed then
+            from(o.x, o.y, 20, 20)       -- a Torch: Bright Light 20 ft, Dim Light 20 ft more
+        end
+    end
+    return best == 3 and "bright" or (best == 2 and "dim" or "dark")
+end
+
+-- Can this creature make out what's on that square, by the light?
+function B:sees_square(a, x, y)
+    local d = self:dist_xy(a.x, a.y, x, y)
+    local bs = a.data and a.data.blindsight
+    if bs and d <= bs then
+        return true
+    end
+    if self:light_at(x, y) ~= "dark" then
+        return true
+    end
+    local dv = a.darkvision or (a.data and a.data.darkvision)
+    return dv ~= nil and d <= dv
+end
+
+-- Can this creature open a door? Heroes, and monsters with hands to do it.
+local HANDS = { humanoid = true, fey = true, undead = true, giant = true, fiend = true, construct = true, celestial = true }
+function B:opens_doors(c)
+    if c.pc or c.side == "party" then
+        return true
+    end
+    local d = c.data
+    return d ~= nil and HANDS[d.type or ""] == true and not d.no_hands
+end
+
+-- A door opens (someone walked through it) or a lock gives.
+function B:set_door(x, y, state, who)
+    local d = self.doors and self.doors[sqk(x, y)]
+    if not d or d.state == state then
+        return
+    end
+    d.state = state
+    self.stage_v = (self.stage_v or 0) + 1
+    self:emit({ kind = "door", x = x, y = y, state = state, fid = d.fid, who = who })
 end
 
 -- Attack rolls (pp. 7-8, 14-15, Rules Glossary) -------------------------------------------------
@@ -374,6 +529,12 @@ function B:attack_mode(att, tgt, prof, opts)
         if e.dodge and self:can_see(tgt, att) and not self:incapacitated(tgt) then table.insert(dis, "Dodge") end
         if e.blur then table.insert(dis, "Blur") end
         if e.marked_adv then table.insert(adv, e.name or "Marked") end
+    end
+    -- Unseen Attackers and Targets (p. 14): in the dark (a staged board's light), a target you
+    -- can't see means Disadvantage; an attacker the target can't see has Advantage.
+    if self.light then
+        if not self:can_see(att, tgt) then table.insert(dis, "can't see the target") end
+        if not self:can_see(tgt, att) then table.insert(adv, "unseen attacker") end
     end
     -- Ranged attacks in close combat (p. 15): Disadvantage within 5 feet of a visible, active enemy.
     if prof.kind == "ranged" or prof.spell_ranged then
@@ -485,11 +646,41 @@ local SIZE_RANK = creature.SIZE_RANK
 -- opts: adv/dis (extra reasons), extra_parts (added on hit), on_hit(b, att, tgt, res), no_sneak,
 --       opportunity (true for OAs), reaction (made with a Reaction).
 -- Returns { hit, crit, roll, total, damage, target }.
+-- Someone else this attacker can actually see and reach with this attack (for a target that
+-- turned out to be behind Total Cover).
+function B:visible_alternative(att, tgt, prof)
+    local reach = prof.kind == "ranged" and prof.range and prof.range[2] or (prof.reach or 5)
+    local best
+    for _, o in ipairs(self:enemies_of(att)) do
+        if o ~= tgt and self:dist(att, o) <= reach and self:los_xy(att.x, att.y, o.x, o.y)
+            and (not best or self:dist(att, o) < self:dist(att, best)) then
+            best = o
+        end
+    end
+    return best
+end
+
 function B:attack(att, tgt, prof, opts)
     opts = opts or {}
     local res = { hit = false, crit = false, damage = 0, target = tgt }
     if tgt.dead then
         return res
+    end
+    -- Total Cover (Rules Glossary): nobody targets a creature directly through a wall or a shut
+    -- door. The attacker goes for someone they can see, or the attack doesn't happen.
+    if att.x and tgt.x and not self:los_xy(att.x, att.y, tgt.x, tgt.y) then
+        local alt = self:visible_alternative(att, tgt, prof)
+        if alt then
+            self:log("%s can't see %s from there, and goes for %s instead.", att.name, tgt.name, alt.name)
+            tgt = alt
+            res.target = alt
+        else
+            self:log("%s has no line to %s (Total Cover).", att.name, tgt.name)
+            res.blocked = "no_line"
+            self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit,
+                        hit = false, blocked = "no_line", ranged = prof.kind == "ranged" })
+            return res
+        end
     end
     -- Sanctuary (p. 159): Wisdom save or lose the attack.
     local sanct = self:any_effect(tgt, "sanctuary_dc")
@@ -1355,14 +1546,13 @@ end
 
 local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
 
--- Cover from the board and the map (B9). SRD 5.2.1, Rules Glossary "Cover": Half Cover gives +2
--- to AC and Dexterity saves. Simplified: against attacks from more than 5 feet away, a creature
--- has it standing on a cover square (the map's), or tucked in behind a piece of the board's
--- scenery (a low wall, a table, a crate) that sits between it and the attacker (the save bonus
--- isn't modelled). Also returns what the piece is called, when the board says ("crate").
-local function sign(v)
-    return v > 0 and 1 or (v < 0 and -1 or 0)
-end
+-- Cover from the board's pieces (Set the stage). SRD 5.2.1, Rules Glossary "Cover": Half Cover
+-- (a table, a low wall, a crate) is +2 to AC and Dexterity saves, Three-Quarters Cover (a pillar,
+-- a thick tree trunk, an arrow slit) +5, and Total Cover (a wall, a shut door) can't be targeted
+-- directly at all (line of sight, above). Against attacks from more than 5 feet away; creatures
+-- in the way don't count here, and the save bonus isn't modelled. Also returns what the piece is
+-- called, when the board says ("crate").
+local DEG = { half = 2, three_quarters = 5 }
 
 function B:cover_bonus(att, tgt)
     if not self.cover or not tgt or not tgt.x then
@@ -1374,23 +1564,41 @@ function B:cover_bonus(att, tgt)
     if self.cover[tgt.x .. "," .. tgt.y] then
         return 2, self.cover[tgt.x .. "," .. tgt.y]
     end
-    if att and att.x then
-        local dx, dy = sign(att.x - tgt.x), sign(att.y - tgt.y)
-        local function behind(x, y)
-            return self.cover[x .. "," .. y] and self.blocked and self.blocked[x * 1000 + y]
+    if not (att and att.x) then
+        return 0
+    end
+    -- Every piece of cover the line crosses counts, the best one only (the degrees don't add);
+    -- what's right beside the attacker doesn't (they lean over or around it). Through a corner,
+    -- the shooter takes the clearer side.
+    local function deg(x, y)
+        if math.max(math.abs(x - att.x), math.abs(y - att.y)) <= 1 then
+            return 0
         end
-        if behind(tgt.x + dx, tgt.y + dy) then
-            return 2, self.cover[(tgt.x + dx) .. "," .. (tgt.y + dy)]
+        local k = x .. "," .. y
+        if self.cover[k] and self.blocked and self.blocked[x * 1000 + y] then
+            return DEG[self.deg and self.deg[k] or "half"] or 2, self.cover[k]
         end
-        -- Coming in at a slant, the piece beside them still covers them.
-        local adx, ady = math.abs(att.x - tgt.x), math.abs(att.y - tgt.y)
-        if adx > ady and dx ~= 0 and behind(tgt.x + dx, tgt.y) then
-            return 2, self.cover[(tgt.x + dx) .. "," .. tgt.y]
-        elseif ady > adx and dy ~= 0 and behind(tgt.x, tgt.y + dy) then
-            return 2, self.cover[tgt.x .. "," .. (tgt.y + dy)]
+        return 0
+    end
+    local best, name = 0, nil
+    for _, s in ipairs(self:line(att.x, att.y, tgt.x, tgt.y)) do
+        local v, nm
+        if s.corner then
+            local a, an = deg(s.corner[1][1], s.corner[1][2])
+            local b2, bn = deg(s.corner[2][1], s.corner[2][2])
+            if a <= b2 then
+                v, nm = a, an
+            else
+                v, nm = b2, bn
+            end
+        else
+            v, nm = deg(s[1], s[2])
+        end
+        if v > best then
+            best, name = v, nm
         end
     end
-    return 0
+    return best, name
 end
 
 function B:zone_at(x, y)
@@ -1437,6 +1645,8 @@ function B:paths(c, max_ft, occ)
     local buckets = { [0] = { start } }
     local W, H = self.W, self.H
     local zones = #self.zones > 0
+    local doors = self.doors
+    local opener = doors and self:opens_doors(c)
     for d = 0, max_ft, 5 do
         local bucket = buckets[d]
         if bucket then
@@ -1449,6 +1659,10 @@ function B:paths(c, max_ft, occ)
                         if nx >= 1 and ny >= 1 and nx <= W and ny <= H then
                             local nk = nx * 1000 + ny
                             local o = occ[nk]
+                            local dr = doors and doors[nx .. "," .. ny]
+                            if dr and dr.state ~= "open" and (dr.state == "locked" or not opener) then
+                                o = TERRAIN         -- a locked door, or a shut one for a wolf
+                            end
                             if not (o and o.side ~= c.side and not o.down) then
                                 local nd = d + ((zones and self:step_cost(nx, ny)) or 5)
                                 if nd <= max_ft and (dist[nk] == nil or nd < dist[nk]) then
@@ -1532,6 +1746,13 @@ function B:move_to(c, tx, ty, opts)
                     end
                 end
             end
+        end
+        -- A shut door on the way opens as they go (a free interaction, p. 13).
+        local dr = self.doors and self.doors[x .. "," .. y]
+        if dr and dr.state == "closed" then
+            flush()
+            self:set_door(x, y, "open", c)
+            self:log("  %s opens the door.", c.name)
         end
         c.x, c.y = x, y
         table.insert(walked, { x, y })
