@@ -7,6 +7,7 @@
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local data = require "game.data.guide"
+local keepsakes = require "game.model.keepsakes"
 
 local M = {}
 
@@ -28,10 +29,21 @@ end
 
 -- Screens where a tip may show, and what keeps tips away (a conversation or the level-up
 -- moment over the prep board, the sandbox, an error, the dialogue review queue, the DM's
--- notes, a character sheet or the encounter builder).
+-- notes, a character sheet or the encounter builder), or a player's gift waiting in the report.
+local function gift_open(app)
+    if app.screen ~= "report" or not app.campaign then
+        return false
+    end
+    if app.keepsake_shown then
+        return true
+    end
+    local ok, g = pcall(keepsakes.waiting, app.campaign)
+    return ok and g ~= nil
+end
+
 local function quiet(app)
     return app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
-        or (app.review and app.review.queue_open)
+        or (app.review and app.review.queue_open) or gift_open(app)
 end
 
 -- The tip that should be showing now, or nil.
