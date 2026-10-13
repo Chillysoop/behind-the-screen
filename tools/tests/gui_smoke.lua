@@ -385,12 +385,12 @@ for week = 1, WEEKS do
             if app.guide_step ~= "s0_asks" then problem("Got it didn't move to the next tip (" .. tostring(app.guide_step) .. ")") end
             dump("1d_session_zero_tip")
         end
-        if click_label("Start week 1") then problem("Session Zero let you start with nothing decided") end
+        if click_label("Backstories") or click_label("Start week 1") then problem("Session Zero let you go on with nothing decided") end
         -- Click around, then make sure every question has an answer.
         for _ = 1, 30 do
             local bs = random_buttons()
             local pick = bs[rng:int(1, #bs)]
-            if pick and not string.find(label_of(pick), "Start week", 1, true) then click(pick) end
+            if pick and not string.find(label_of(pick), "Start week", 1, true) and not string.find(label_of(pick), "Backstories", 1, true) then click(pick) end
         end
         app.s0 = app.s0 or { asks = {}, rules = {} }
         app.s0.tone = app.s0.tone or "mixed"
@@ -404,7 +404,38 @@ for week = 1, WEEKS do
         app.s0.rules.death = app.s0.rules.death or "cost"
         app.refresh()
         dump("1c_session_zero_done")
-        if not click_label("Start week 1") then problem("no start button after Session Zero") end
+        -- Their backstories (October 13): a page of their own.
+        if not click_label("Backstories") then problem("no way on to the backstories after Session Zero") end
+        if not (app.s0 and app.s0.page == "backstories") then problem("the backstories page didn't open") end
+        dump("1e_backstories")
+        if click_label("Start week 1") and app.screen ~= "session_zero" then problem("Session Zero started with no backstories written") end
+        if app.guide_step ~= "s0_backstories" then problem("no tip on the backstories page (" .. tostring(app.guide_step) .. ")") end
+        local backstory = require "game.model.backstory"
+        for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+            if not click_key("bs_tab_" .. k) then problem("no backstory tab for " .. k) end
+            -- Ask everything: the evening runs out of questions, and the button says so.
+            for _, q in ipairs(backstory.data[k].questions) do
+                click_key("bs_q_" .. q.id)
+            end
+            if rng:chance(0.5) then click_key("bs_idea_yes") else click_key("bs_idea_no") end
+            local hooks = backstory.data[k].hooks
+            if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook buttons for " .. k) end
+            dump("1f_backstory_" .. k)
+        end
+        if backstory.asked(app.s0.backstories) > backstory.data.QUESTIONS then problem("more questions asked than the evening has") end
+        if backstory.left(app.s0.backstories) ~= 0 then problem("asking everything left questions over") end
+        local written = app.s0.backstories
+        if not click_label("Start week 1") then problem("no start button after the backstories") end
+        if not (app.campaign.backstories and app.campaign.backstories.sam and app.campaign.backstories.sam.hook) then
+            problem("the backstories weren't written into the campaign")
+        end
+        -- What turns up first waits at the front of the first hand.
+        for k, ch in pairs(written or {}) do
+            local p = app.campaign:player(k)
+            if p and p.present and not (app.campaign.prep and app.campaign.prep:pinned(ch.hook)) then
+                problem("week 1's hand doesn't hold " .. k .. "'s hook (" .. tostring(ch.hook) .. ")")
+            end
+        end
         if not (app.campaign.table and app.campaign.table.held) then problem("Session Zero didn't settle the table") end
     end
     if app.screen ~= "prep" then problem("expected prep, got " .. tostring(app.screen)) break end
@@ -509,7 +540,7 @@ check_tip_absorbs(" (week 2 prep)")
             if not click_key("convo_done") then
                 local keys = {}
                 for _, b in ipairs(buttons()) do table.insert(keys, tostring(b.key)) end
-                local th = c.prep.convos[by.id]
+                local th = c.prep.convos[by.id] or {}
                 problem("no Done button after the conversation ended: " .. by.id .. " done=" .. tostring(th.done)
                     .. " convo=" .. tostring(app.convo) .. " keys " .. table.concat(keys, " "))
             end
@@ -578,6 +609,20 @@ check_tip_absorbs(" (week 2 prep)")
         if not hovered then problem("no keywords lit in the Story log panel") end
         dump("15u_story_keyword_hover")
         if hovered and not (app.story_hover and #app.story_hover.nodes > 0) then problem("hovering a Story log keyword showed nothing") end
+        call(on_input, self, nil, { x = 4, y = 4 })
+        -- The storyline's name: the whole story at a glance.
+        local titled
+        for _, b in ipairs(buttons()) do
+            if b.key == "story_panel_title" then
+                local x, y = center(b)
+                call(on_input, self, nil, { x = x, y = y })
+                titled = true
+                break
+            end
+        end
+        if not titled then problem("no title to point at on the Story log panel") end
+        dump("15v_story_glance")
+        if titled and not has_text_fn("AT A GLANCE") then problem("pointing at a storyline's name didn't show it at a glance") end
         call(on_input, self, nil, { x = 4, y = 4 })
         key("story")
         if app.story_panel then problem("S didn't close the Story log panel") end

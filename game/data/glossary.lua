@@ -42,6 +42,8 @@ return {
         set_piece = "A big, flashy showdown: a fight with something going on around it.",
         won = "The scene went the party's way: its goal paid off, its fight was theirs.",
         lost = "The scene went against them. The story carries on anyway, from somewhere worse.",
+        written = "What you wrote into their past at Session Zero: what they told you, what you said yes to, and what "
+            .. "turns up first.",
         tonight = "Happening at the table right now. It's filed in the Story log when the night is over.",
         planned = "On your prep board for this week. It's only a plan until the table gets there.",
         moving = "The storyline moved within the last week or two. The table is following it.",

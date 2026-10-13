@@ -1,6 +1,7 @@
 -- Session Zero (M6): before week 1 the table talks it through. Pitch a tone, hear
 -- each player's ask, set the table rules. People say what they think, so their
--- reactions are shown plainly. Rebuilt from scratch on every click.
+-- reactions are shown plainly. Rebuilt from scratch on every click. Then (October 13)
+-- their backstories, on a page of their own (game/ui/backstory_view.lua).
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -41,14 +42,18 @@ function M.complete(app)
     return true
 end
 
+-- On to their backstories (October 13), then week 1.
 function M.start(app)
     if not M.complete(app) then
         return false
     end
-    app.campaign:session_zero(app.s0)
-    app.s0 = nil
-    app.go("prep")
-    return true
+    local backstory_view = require "game.ui.backstory_view"
+    if app.s0.page ~= "backstories" then
+        app.s0.page = "backstories"
+        app.refresh()
+        return true
+    end
+    return backstory_view.start(app)
 end
 
 local function like_color(v)
@@ -278,6 +283,9 @@ end
 
 function M.build(app)
     local c = choices(app)
+    if c.page == "backstories" then
+        return require("game.ui.backstory_view").build(app)
+    end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
     kit.text(280, 24, "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
@@ -287,10 +295,10 @@ function M.build(app)
     rules(app, c)
     feelings(app, c, 108 + 4 * 176)
     local ready = M.complete(app)
-    kit.button(1356, 830, 220, 50, "Start week 1  >", function()
+    kit.button(1356, 830, 220, 50, "Backstories  >", function()
         M.start(app)
-    end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b" })
-    kit.text(1340, 846, ready and "You can revisit this later if the table needs it."
+    end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_next" })
+    kit.text(1340, 846, ready and "Next: each player's backstory, and what you write into the world."
         or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
 end
 

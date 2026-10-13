@@ -76,11 +76,28 @@ return {
             id = "s0_rules", screen = "session_zero", at = S0,
             anchor = { 1062, 84, 520, 594 },
             title = "Table rules",
-            text = "Three house rules, and everyone has an opinion. When you've answered everything, start week 1 (bottom right).",
+            text = "Three house rules, and everyone has an opinion. When you've answered everything, go on to their backstories (bottom right).",
             done = function(app)
                 local r = app.s0 and app.s0.rules or {}
                 return r.xcard ~= nil and r.dice ~= nil and r.rulings ~= nil
             end,
+        },
+
+        {
+            id = "s0_backstories", screen = "session_zero", at = { 808, 600 },
+            when = function(app) return app.s0 ~= nil and app.s0.page == "backstories" end,
+            done = function(app)
+                -- Gone once you've asked something or written something in.
+                for _, ch in pairs(app.s0 and app.s0.backstories or {}) do
+                    if ch.hook or #(ch.asked or {}) > 0 then
+                        return true
+                    end
+                end
+                return false
+            end,
+            anchor = { 20, 64, 1086, 68 },
+            title = "Their backstories",
+            text = "Each player brings their hero's past. Ask what you want to know (six questions, all told), answer their idea, and pick what turns up first. It goes in their Story log, and in your first hand.",
         },
 
         -- The first prep ----------------------------------------------------------------------

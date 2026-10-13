@@ -190,6 +190,19 @@ local function card_detail(app, prep, c, s, x0, why)
         end
         if #names > 0 then
             table.insert(rows, { "Moves " .. util.join_names(names) .. ". Place it to see the story so far.", "ui14", theme.teal })
+            -- The story it moves, at a glance (a backstory first).
+            local ids = storylines.of_card(camp, c)
+            table.sort(ids, function(a, b)
+                local ba, bb = string.sub(a, 1, 3) == "bs_", string.sub(b, 1, 3) == "bs_"
+                if ba ~= bb then
+                    return ba
+                end
+                return false
+            end)
+            local line = ids[1] and require("game.model.chronicle").glance_line(camp, ids[1], 1)
+            if line then
+                table.insert(rows, { "So far: " .. line, "ui14", theme.dim })
+            end
         end
     end
     local fits = {}
@@ -1220,41 +1233,17 @@ function M.scene_storylines(app, prep, s, x, y)
         color = kit.rgba("#000000", 0), hover = kit.rgba("#000000", 0.08), key = "scene_storylines_" .. tostring(s.index or x),
         on_hover = function(_, on)
             drop_hover(app)
+            local slv = require "game.ui.story_log_view"
+            slv.drop_hover(app)
             if on then
-                M.storyline_hover(app, defs, x, y + 14)
+                -- Each storyline at a glance, and a click opens its Story log.
+                local list = {}
+                for _, d in ipairs(defs) do
+                    table.insert(list, d.id)
+                end
+                slv.show_glance(app, list, x, y + 14, "Click for the Story log.")
             end
         end })
-end
-
-local HEAT_WORDS = { warm = "moving", cooling = "cooling: touch it within a week", cold = "this week, or the table notices",
-                     loose = "a loose end", unopened = "not started yet", resolved = "tied off", ended = "over" }
-
-function M.storyline_hover(app, defs, x0, y0)
-    local storylines = require "game.model.storylines"
-    local w = 380
-    local rows = {}
-    for _, d in ipairs(defs) do
-        local heat = storylines.heat(app.campaign, d.id)
-        table.insert(rows, { d = d, text = d.name .. ": " .. (HEAT_WORDS[heat] or heat), heat = heat })
-    end
-    local h = 40 + 24
-    for _, r in ipairs(rows) do
-        h = h + kit.text_height(r.text, "ui14", w - 44) + 6
-    end
-    local x = util.clamp(x0, 8, kit.W - w - 8)
-    local y = util.clamp(y0, 8, kit.H - h - 8)
-    app.hover_layer = kit.layer("prep_hover")
-    kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
-    kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
-    kit.text(x + 16, y + 10, "STORYLINES THIS SCENE MOVES", "ui14", theme.gold)
-    local ry = y + 34
-    for _, r in ipairs(rows) do
-        kit.dot(x + 22, ry + 9, 10, storyline_color(r.d))
-        local col = (r.heat == "loose" and theme.red) or (r.heat == "cold" and theme.orange) or theme.text
-        kit.text(x + 34, ry, r.text, "ui14", col, { w = w - 44 })
-        ry = ry + kit.text_height(r.text, "ui14", w - 44) + 6
-    end
-    kit.text(x + 16, ry + 2, "Click for the Story log.", "ui14", theme.faint)
 end
 
 -- A hand card's storylines, bottom right of the tile: the first by name, the rest as pips.

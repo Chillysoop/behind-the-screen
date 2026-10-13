@@ -320,8 +320,28 @@ local function tab_party(app, x, y, w, h)
         py = para(px + 14, py, cw - 28, line, "ui18", theme.text)
         py = head(px + 14, py + 6, "Backstory hook")
         py = para(px + 14, py, cw - 28, util.capitalize(p.thread or ""), "ui18", theme.text)
+        -- What Session Zero wrote in, and everything since: their Story log.
+        local written = require("game.model.backstory").written(c, p.key, p.char)
+        kit.button(px + 14, py, cw - 28, 26, written and "Their past, as you wrote it" or "Their Story log", function()
+            app.storylog_id = "bs_" .. p.key
+            app.storylog_scroll = nil
+            app.notes_tab = "storylog"
+            M.draw(app)
+        end, { font = "ui14", color = theme.panel3, hover = theme.button_hover, key = "party_storylog_" .. p.key })
+        py = py + 32
         py = head(px + 14, py + 6, "At the table")
         py = para(px + 14, py, cw - 28, p.notes or "", "ui14", theme.dim)
+        -- What Session Zero wrote into their past (as much as there's room for; the Story log has it all).
+        local lines = require("game.model.backstory").lines(c, p.key, p.char)
+        if lines and #lines > 0 and py + 60 < y + h - 140 then
+            py = head(px + 14, py + 6, "Written at Session Zero")
+            for _, l in ipairs(lines) do
+                if py + kit.text_height(l, "ui14", cw - 28) > y + h - 140 then
+                    break
+                end
+                py = para(px + 14, py, cw - 28, l, "ui14", theme.text)
+            end
+        end
         -- How they get on with the others (A17).
         local rapport = require "game.model.rapport"
         local bits = {}

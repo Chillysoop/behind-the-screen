@@ -11,6 +11,8 @@
 -- Each storyline:
 --   name, short    what the DM's notes and the prep board call it
 --   kind           "major", "minor" or (made for each player) "backstory"
+--   about, gist    what it's about; gist is the same in a few words (the Story log at a glance;
+--                  a backstory's gist is the player's, in game/data/players.lua)
 --   cards          the story deck cards that move it (a card can move more than one: the
 --                  Velvet Hand's back room is the bells' story, the Hand's, and Pip's)
 --   people         people whose agenda cards (game/model/ledger.lua) move it
@@ -63,6 +65,7 @@ return {
     bells = {
         name = "The Silent Bells", short = "The bells", kind = "major", open = "start", cold = 2, color = "#c8a24a",
         about = "Who hushed Millbrook's bells, and what Kessrick's warband does when they wake.",
+        gist = "Someone hushed Millbrook's bells",
         cards = { "stranger", "wren", "forest_road", "hidden_map", "hush_holds", "riddle", "bell_tower", "wolf_lieutenant",
                   "cliffhanger", "vask_key", "wolves_watching", "grey_coat", "kessrick_trail", "muster_valley", "hales_crossing",
                   "hales_bell", "carry_relic", "key_for_sale", "velvet_den", "corin", "abbot_ghost", "follow_ilsa" },
@@ -74,6 +77,7 @@ return {
     velvet = {
         name = "The Velvet Hand's debts", short = "The Velvet Hand", kind = "major", cold = 2, color = "#b0506a",
         about = "Madame Sable's guild is buying up every debt in Millbrook, and the Kettle is next.",
+        gist = "The Velvet Hand is buying up Millbrook's debts",
         cards = { "madame_sable", "velvet_den", "collectors", "owe_more", "key_for_sale", "purse_lifted", "cutpurses",
                   "sable_job", "steal_ledger", "save_kettle", "debt_deal", "debt_cleared", "rooftops" },
         people = { "madame_sable", "cutpurses" },
@@ -84,6 +88,7 @@ return {
     dead = {
         name = "The restless dead", short = "The dead", kind = "major", cold = 2, color = "#7a8ab0",
         about = "Something under the roadside chapel wants its bell rung, and the dead won't stay put.",
+        gist = "The dead under the chapel won't stay put",
         cards = { "crypt", "restless_dead", "dead_walk", "silence_crypt", "lay_to_rest", "shrine", "bone_choir",
                   "barrow", "explore_barrow", "restless_ghost" },
         people = { "hermit" },
@@ -94,6 +99,7 @@ return {
     tobin = {
         name = "Where is Old Tobin?", short = "Old Tobin", kind = "minor", cold = 3, color = "#8aa060",
         about = "The bell-ringer took the north road nine days before the campaign, and never came back.",
+        gist = "Old Tobin, the bell-ringer, is missing",
         cards = { "wren", "find_tobin", "find_wren", "bell_paths", "map_thief", "torn_map", "torn_map_goal" },
         people = { "stranger" },
         ends = { "find_tobin" },
@@ -103,6 +109,7 @@ return {
     wool_roads = {
         name = "Bandits on the wool roads", short = "The wool roads", kind = "minor", cold = 3, color = "#a0784a",
         about = "Carts go missing between Millbrook and the hill farms, and Captain Rook's bandits know why.",
+        gist = "Rook's bandits are taking the wool carts",
         cards = { "merchant", "caravan", "toll", "rook", "ransom", "old_bridge", "trade_writ" },
         people = { "merchant", "rook" },
         ends = { "caravan" },
@@ -112,6 +119,7 @@ return {
     traitor = {
         name = "Who's selling secrets?", short = "The traitor", kind = "minor", cold = 3, color = "#6a9a9a",
         about = "Somebody in Millbrook is passing the party's business to whoever pays.",
+        gist = "Someone is selling the party's secrets",
         cards = { "traitor", "traitor_warned", "traitor_ledger", "turncoat_guide", "turncoat" },
         ends = { "traitor" },
         noticed = { "We never found out who the traitor was. That's going to bite us." },
@@ -120,6 +128,7 @@ return {
     spurs = {
         name = "The Silver Spurs", short = "The Spurs", kind = "minor", cold = 3, color = "#9a9aa8",
         about = "A rival party who want to be the valley's famous heroes, whatever it takes.",
+        gist = "Rival heroes want the valley's glory",
         cards = { "rivals", "fair", "safe_conduct" },
         people = { "rivals" },
         ends = { "rivals", "safe_conduct" },

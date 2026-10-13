@@ -54,6 +54,10 @@ function M.feelings(choices)
                 total = total + (opt.like[key] or 0)
             end
         end
+        -- Their backstory (October 13): what you asked, their idea, what you wrote in.
+        if choices.backstories then
+            total = total + require("game.model.backstory").like(key, choices.backstories[key])
+        end
         out[key] = total
     end
     return out
@@ -94,6 +98,8 @@ function M.apply_session_zero(campaign, choices, held)
         end
     end
     campaign.table = t
+    -- Their backstories, written into the campaign (October 13).
+    require("game.model.backstory").settle(campaign, choices.backstories)
     -- Where the conflicts start.
     local start = {}
     for _, id in ipairs(defs().order) do

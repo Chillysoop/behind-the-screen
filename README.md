@@ -251,7 +251,16 @@ the leads it opened), this week's plans and tonight's scenes as they play, the l
 the people, places, factions and heroes it involves. Names are lit: hover one for who or what it is and which
 stories it's part of; click a storyline's name to read that one. Place a card that moves a storyline and its
 log opens beside the prep board, the card you just placed marked; S opens it any time (on game night and the
-report, it's the Story log page in your notes).
+report, it's the Story log page in your notes). For deciding fast, point at any storyline's name for the story at a
+glance: its gist, then one short step per scene ("S1 Kettle (showdown): Sable's collectors come calling, won"),
+what's waiting in the deck and how urgent it is.
+
+**Their backstories, at Session Zero (October 13).** After the tone, the asks and the table rules, each
+player gets a page of their own: they pitch their hero's past, you ask what you want to know (six questions,
+all told, and Sam doesn't love being put on the spot), answer the idea they bring, and choose what from that
+past turns up first (a person, a place, a thing they carry). The page you write opens their Story log, the
+piece you chose waits at the front of your first hand, and how it went counts toward how they leave Session
+Zero. The notebook's party page keeps what you wrote.
 
 **Players play like people (A12, A15 to A17).** Actions by archetype, table habits, curveballs and stunts;
 open scenes where the players pick where to go; rests by the SRD rules with the party's hit points carrying
@@ -438,6 +447,7 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
 | `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
 | `game/model/chronicle.lua`, `game/ui/story_log_view.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, its notebook page and prep panel, the keywords and what they mean |
+| `game/data/backstories.lua`, `game/model/backstory.lua`, `game/ui/backstory_view.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
 | `main/audio/`, `main/snacks/`, `assets/audio/` | M7: the sound player and sounds; the pizza and chips |
 | `tools/playtest/` | M7: tester package script, tester readme, log analyzer, pretend logs |
@@ -471,7 +481,8 @@ with any Lua 5.1+ or LuaJIT interpreter:
     lua tools/tests/story_check.lua    # the story playtest: foes named, places and favours consistent, cliffhangers end
                                        # the night; storylines (loose ends wear down, come back), handouts
     lua tools/tests/chronicle_check.lua  # the Story log: every scene filed under its storylines, logs that read,
-                                       # live and planned entries, keywords, saves, old saves rebuilt, fallen heroes
+                                       # live and planned entries, keywords, saves, old saves rebuilt, fallen heroes,
+                                       # and the backstories Session Zero writes in
     python3 tools/tests/require_check.py  # no require cycles (the engine's builder refuses them)
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)

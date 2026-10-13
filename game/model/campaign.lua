@@ -170,6 +170,7 @@ function M:start_week()
     self.prep = prep_mod.new(self)
     self.leveled_now = nil
     self:deal_arc_cards(self.prep)
+    require("game.model.backstory").start_week(self, self.prep)   -- what Session Zero wrote in turns up first
     self.stale_now = seeds.start_week(self, self.prep)
     -- M8: shower thoughts drop into the hand (B5); table reputations fade or rub (B2).
     self.showers = jokes.shower_thoughts(self, self.prep, rng)

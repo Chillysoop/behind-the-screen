@@ -1062,7 +1062,10 @@ function M.threads(app, x, y, w, h)
                 app.storylog_scroll = nil
                 app.notes_tab = "storylog"
                 app.refresh_notes()
-            end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_tile_" .. d.id })
+            end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_tile_" .. d.id,
+                   on_hover = hover_with(app, function()
+                       return util.lazy("game.ui.story_log_view").glance_rows(app, d.id, { hint = "Click to read it all." })
+                   end, col < 2 and (tx + tw + 10) or (tx - 550), ty, 540) })
             kit.box(tx, ty, 6, th, kit.rgba(d.color), { radius = 3 })
             kit.text(tx + 16, ty + 10, string.upper(d.kind), "ui14", theme.faint)
             heat_chip(tx + tw - 12 - kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14"), ty + 10, heat)
@@ -1099,7 +1102,10 @@ function M.threads(app, x, y, w, h)
             app.storylog_scroll = nil
             app.notes_tab = "storylog"
             app.refresh_notes()
-        end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_hero_" .. p.key })
+        end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_hero_" .. p.key,
+               on_hover = hover_with(app, function()
+                   return util.lazy("game.ui.story_log_view").glance_rows(app, "bs_" .. p.key, { hint = "Click to read it all." })
+               end, i <= 2 and (px + cw + 10) or (px - 550), by, 540) })
         kit.dot(px + 30, by + 30, 40, panels.COLORS[p.key] or theme.panel3)
         kit.picture(px + 12, by + 12, 36, 36, panels.face(p.key))
         local heat = storylines.heat(c, "bs_" .. p.key)

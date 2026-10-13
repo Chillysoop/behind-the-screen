@@ -167,6 +167,19 @@ function M.story_shots(app, a)
             end
         end
         return true
+    elseif step == 4 then
+        -- The storyline's name: the whole story at a glance.
+        for i = #kit.layers, 1, -1 do
+            for _, b in ipairs(kit.layers[i].buttons) do
+                if b.key == "story_panel_title" then
+                    local r = b.rect
+                    kit.on_move(r[1] + r[3] / 2, kit.H - (r[2] + r[4] / 2))
+                    shot(a, "story_glance")
+                    return true
+                end
+            end
+        end
+        return true
     end
     return false
 end
@@ -499,8 +512,32 @@ function M.update(app, dt)
         app.s0.rules.rulings = app.s0.rules.rulings or "quick"
         app.s0.rules.length = app.s0.rules.length or "half"
         app.s0.rules.death = app.s0.rules.death or "meaningful"
+        if app.s0.page ~= "backstories" then
+            app.refresh()
+            if not shot(a, "session_zero") then
+                by_label("Backstories")
+            end
+            return
+        end
+        -- Their backstories (October 13): a few questions, an idea taken up, and a hook for each.
+        local backstory = require "game.model.backstory"
+        local all = app.s0.backstories or {}
+        app.s0.backstories = all
+        if not all.mara then
+            backstory.toggle_question(all, "mara", "last_words")
+            backstory.toggle_question(all, "mara", "afraid")
+            backstory.toggle_question(all, "dev", "plan")
+            backstory.toggle_question(all, "jess", "how")
+            all.jess.idea = "yes"
+            all.mara.idea = "yes"
+            for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+                all[k] = all[k] or { asked = {} }
+                all[k].hook = all[k].hook or backstory.data[k].hooks[2].card
+            end
+            app.s0.bs_key = "mara"
+        end
         app.refresh()
-        if not shot(a, "session_zero") then
+        if not shot(a, "backstories") then
             by_label("Start week")
         end
     elseif s == "prep" then

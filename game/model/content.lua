@@ -15,6 +15,7 @@ M.terrain_layout = require "game.data.terrain_layout"
 M.scene_beats = require "game.data.scene_beats"
 -- The social layer and progression (M6).
 M.session_zero = require "game.data.session_zero"
+M.backstories = require "game.data.backstories"
 M.conflicts = require "game.data.conflicts"
 M.convos = require "game.data.convos"
 M.seeds = require "game.data.seeds"

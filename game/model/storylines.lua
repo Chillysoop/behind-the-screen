@@ -51,7 +51,7 @@ function M.defs(campaign)
     local out = {}
     for _, id in ipairs(data.order) do
         local d = data[id]
-        table.insert(out, { id = id, name = d.name, short = d.short, kind = d.kind, about = d.about, open = d.open,
+        table.insert(out, { id = id, name = d.name, short = d.short, kind = d.kind, about = d.about, gist = d.gist, open = d.open,
                             cold = d.cold, color = d.color, ends = d.ends, noticed = d.noticed, back = d.back })
     end
     local bs = data.backstory

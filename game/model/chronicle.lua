@@ -607,6 +607,18 @@ function M.story(campaign, id, opts)
     else
         view.premise = d.about
     end
+    -- What Session Zero wrote into a hero's past (game/model/backstory.lua) opens their log.
+    if d.kind == "backstory" then
+        local char = d.ended and d.char or (campaign:player(d.key) or {}).char
+        local lines = require("game.model.backstory").lines(campaign, d.key, char)
+        if lines and #lines > 0 then
+            local parts = {}
+            for _, l in ipairs(lines) do
+                table.insert(parts, sentence(l))
+            end
+            table.insert(view.entries, { tag = "zero", w = 0, s = 0, parts = parts, whos = { [d.key] = true } })
+        end
+    end
     -- Every scene that moved it, oldest first.
     local cards = M.cards_of(campaign, filed)
     view.cards = cards
@@ -850,6 +862,218 @@ function M.list(campaign, prep, night)
         end
     end
     return out
+end
+
+-- At a glance (October 13) -------------------------------------------------------------------
+-- The whole story as a chain of short steps, to read in a second and decide what to do with it:
+-- "Pip owes the Velvet Hand -> S1 The Kettle: Sable's collectors come calling. Won. -> ...".
+
+local VERB = { combat = "fight", set_piece = "showdown", social = "talk", mystery = "mystery", exploration = "exploring",
+               puzzle = "puzzle", downtime = "downtime" }
+
+local function words(text, n)
+    local out, k = {}, 0
+    for w in string.gmatch(text or "", "%S+") do
+        k = k + 1
+        if k > n then
+            return table.concat(out, " ") .. "..."
+        end
+        table.insert(out, w)
+    end
+    return table.concat(out, " ")
+end
+
+-- A sentence cut to its first clause, a few words long.
+function M.squeeze(text, n)
+    n = n or 9
+    text = string.gsub(text or "", "^They found out: ", "")
+    text = string.gsub(text, "^Goal: ", "")
+    local first = string.match(text, "^(.-[%.!?])%s") or text
+    local count = select(2, string.gsub(first, "%S+", ""))
+    if count > n then
+        local clause = string.match(first, "^(.-)[,:;]%s")
+        if clause and select(2, string.gsub(clause, "%S+", "")) >= 3 then
+            first = clause
+        end
+    end
+    first = string.gsub(first, "[%.!?,:;]+$", "")
+    return words(first, n)
+end
+
+local function place_short(id)
+    local c = id and content.components[id]
+    if not c then
+        return nil
+    end
+    local s = c.short and string.gsub(c.short, "^the ", "") or (string.match(c.name, "^([^,]+)") or c.name)
+    s = string.gsub(s, "^The ", "")
+    return util.capitalize(s)
+end
+
+-- A card's name mid-sentence: lower case, unless it starts with a name ("Pip owes the Hand").
+local proper_cache
+local function soft(campaign, name)
+    name = name or ""
+    if not proper_cache then
+        proper_cache = { I = true }
+        for _, k in ipairs(M.keywords(campaign)) do
+            local first = string.match(k.term, "^(%u[%w]*)")
+            if first then
+                proper_cache[first] = true
+            end
+        end
+    end
+    local first = string.match(name, "^([%a]+)")
+    if first and proper_cache[first] then
+        return name
+    end
+    return (string.gsub(name, "^%u", string.lower))
+end
+
+local function card_gist(campaign, c, rec)
+    local card = content.components[c.id]
+    if c.kind == "goal" then
+        return soft(campaign, c.name)
+    elseif c.kind == "complication" then
+        return soft(campaign, c.name)
+    elseif c.kind == "cast" then
+        local short = card and card.short or c.name
+        local met = false
+        for _, b in ipairs(rec and rec.beats or {}) do
+            met = met or (b.k == "did" and b.did == "met")
+        end
+        if c.foe then
+            return "against " .. short
+        end
+        return (met and "met " or "with ") .. short
+    elseif c.kind == "reward" then
+        local got = soft(campaign, c.got or c.name)
+        if rec and rec.out == "lose" then
+            return "missed " .. got
+        end
+        return "got " .. got
+    end
+    return nil
+end
+
+-- One step: "S2 Hale's Crossing (talk): met the abbot; learned Oswin's relic is the tongue... Won."
+local function glance_step(campaign, d, rec, id, planned_cards)
+    local where = place_short(rec.loc) or rec.title or "Somewhere"
+    local bits = {}
+    local order = { goal = 1, complication = 2, cast = 3, reward = 4, location = 5 }
+    local mine = {}
+    for _, c in ipairs(planned_cards or rec.cards or {}) do
+        if planned_cards or util.contains(c.stories or {}, id) then
+            table.insert(mine, c)
+        end
+    end
+    table.sort(mine, function(a, b)
+        return (order[a.kind] or 9) < (order[b.kind] or 9)
+    end)
+    for _, c in ipairs(mine) do
+        local g = card_gist(campaign, c, rec)
+        if g and #bits < 2 then
+            table.insert(bits, g)
+        end
+    end
+    if #bits == 0 and mine[1] and mine[1].kind == "location" then
+        -- Been there before this scene?
+        local before = 0
+        local at = (rec.w or campaign.week + 1) * 100 + (rec.s or 0)
+        for _, r in ipairs(M.get(campaign).scenes) do
+            if r.loc == rec.loc and r.w * 100 + r.s < at then
+                before = before + 1
+            end
+        end
+        table.insert(bits, before > 0 and "back again" or "first visit")
+    end
+    -- The first thing they learned about it.
+    for _, b in ipairs(rec.beats or {}) do
+        if b.k == "clue" and #bits < 3 then
+            local cc = b.card and content.components[b.card]
+            if cc and util.contains(storylines.of_card(campaign, cc), id) then
+                table.insert(bits, "clue: " .. M.squeeze(b.text, 10))
+                break
+            end
+        end
+    end
+    local text = table.concat(bits, "; ")
+    if text == "" then
+        text = "the story moved"
+    end
+    local kind = rec.type and VERB[rec.type]
+    return where .. (kind and (" (" .. kind .. ")") or "") .. ": " .. text
+end
+
+-- { title, gist, steps = { { label, text, tag, out } }, next = { names }, heat }
+function M.glance(campaign, id, opts)
+    opts = opts or {}
+    local d = M.def(campaign, id)
+    if not d then
+        return nil
+    end
+    local view = M.story(campaign, id, opts)
+    local out = { title = d.name, heat = view.heat, steps = {}, next = {} }
+    if d.kind == "backstory" then
+        local pd = content.players[d.key] or {}
+        local p = campaign:player(d.key)
+        local char = d.ended and d.char or (p and p.char)
+        out.gist = (pd.char == char and pd.gist) or M.squeeze(view.premise or "", 10)
+    else
+        out.gist = d.gist or M.squeeze(d.about or "", 10)
+    end
+    local filed = d.ended and ("bs_" .. d.key) or id
+    for _, e in ipairs(view.entries) do
+        if e.tag == "zero" then
+            local b = require("game.model.backstory").written(campaign, d.key)
+            local c = b and b.hook and content.components[b.hook]
+            if c then
+                table.insert(out.steps, { label = "S0", text = "you wrote in " .. soft(campaign, c.name), tag = "zero" })
+            end
+        elseif e.tag == "past" or e.tag == "tonight" then
+            local label = e.tag == "past" and ("S" .. util.int(e.w)) or "Tonight"
+            table.insert(out.steps, { label = label, text = glance_step(campaign, d, e.rec, filed), tag = e.tag, out = e.out,
+                                      now = e.now })
+        elseif e.tag == "planned" or e.tag == "later" then
+            local rec = { loc = e.loc, type = e.type, title = e.where, beats = {} }
+            local cards = {}
+            for _, c in ipairs(e.cards or {}) do
+                table.insert(cards, { id = c.id, kind = c.kind, name = c.name, got = c.got, foe = (c.foe or c.villain) and true or nil })
+            end
+            table.insert(out.steps, { label = e.tag == "planned" and "This week" or "Later tonight",
+                                      text = glance_step(campaign, d, rec, filed, cards), tag = e.tag, focus = e.focus })
+        end
+    end
+    for k, l in ipairs(view.leads or {}) do
+        if k <= 3 then
+            table.insert(out.next, l.name)
+        end
+    end
+    return out
+end
+
+-- The same in one line, for a card's hover: the gist, then the last few steps.
+function M.glance_line(campaign, id, n)
+    local g = M.glance(campaign, id)
+    if not g then
+        return nil
+    end
+    local parts = { g.gist }
+    local past = {}
+    for _, st in ipairs(g.steps) do
+        if st.tag == "past" or st.tag == "zero" or st.tag == "tonight" then
+            table.insert(past, st)
+        end
+    end
+    n = n or 2
+    if #past > n then
+        table.insert(parts, "...")
+    end
+    for i = math.max(1, #past - n + 1), #past do
+        local st = past[i]
+        table.insert(parts, st.label .. " " .. st.text .. (st.out == "win" and ", won" or (st.out == "lose" and ", lost" or "")))
+    end
+    return table.concat(parts, " -> ")
 end
 
 -- Keywords -------------------------------------------------------------------------------------
@@ -1096,6 +1320,11 @@ function M.define(campaign, kw, night)
         out.sub = p and ((p.class_name or "") .. ", played by " .. p.name) or nil
         local pd = content.players[kw.id] or {}
         line(not (p and p.pregen) and pd.premise or util.capitalize(p and p.thread or ""))
+        for k, l in ipairs(require("game.model.backstory").lines(campaign, kw.id, p and p.char) or {}) do
+            if k <= 3 then
+                line(l, "dim")
+            end
+        end
         local heat = storylines.heat(campaign, "bs_" .. kw.id)
         line("Their story: " .. (M.HEAT_WORDS[heat] or heat) .. ".", heat == "loose" and "bad" or "dim")
     elseif kw.kind == "person" then

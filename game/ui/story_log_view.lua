@@ -100,6 +100,9 @@ local TONE = { text = theme.text, dim = theme.dim, good = theme.green, bad = the
 
 -- What a keyword means: the notebook's own card for someone it keeps, else the Story log's.
 function M.rows_for(app, kw)
+    if kw.kind == "story" then
+        return M.glance_rows(app, kw.id, { hint = "Click to read it all." })
+    end
     if kw.kind == "term" then
         local def = chronicle.glossary.terms[kw.id]
         return { { kw.title or util.capitalize(kw.term), "ui18b", theme.text, 2 }, { def or "", "ui14", theme.dim } }
@@ -126,6 +129,93 @@ function M.rows_for(app, kw)
         table.insert(rows, { util.join_names(d.stories), "ui14", theme.text })
     end
     return rows
+end
+
+-- At a glance (October 13): the whole story as a short chain, to read in a second. compact:
+-- the gist and the last two steps (several storylines in one hover).
+local OUT_SHORT = { win = ", won", lose = ", lost" }
+
+function M.glance_rows(app, id, opts)
+    opts = opts or {}
+    local g = chronicle.glance(app.campaign, id, { night = live_night(app), prep = this_prep(app) })
+    if not g then
+        return {}
+    end
+    local rows = {}
+    local hw, hc = M.heat_label(g.heat)
+    table.insert(rows, { g.title, opts.compact and "ui18b" or "ui22b", theme.text, 0 })
+    table.insert(rows, { (opts.compact and "" or "AT A GLANCE  -  ") .. hw, "ui14", hc, 6 })
+    table.insert(rows, { g.gist, "ui18", theme.gold, 6 })
+    local steps = {}
+    for _, st in ipairs(g.steps) do
+        if not (opts.compact and (st.tag == "planned" or st.tag == "later")) then
+            table.insert(steps, st)
+        end
+    end
+    local keep = {}
+    local limit = opts.compact and 2 or 7
+    if #steps > limit then
+        if not opts.compact then
+            table.insert(keep, steps[1])
+        end
+        table.insert(keep, { skip = #steps - limit + (opts.compact and 0 or 1) })
+        for i = #steps - (opts.compact and limit or limit - 2) + 1, #steps do
+            table.insert(keep, steps[i])
+        end
+    else
+        keep = steps
+    end
+    for _, st in ipairs(keep) do
+        if st.skip then
+            table.insert(rows, { "   ... " .. util.int(st.skip) .. (st.skip == 1 and " more scene" or " more scenes"), "ui14", theme.faint, 4 })
+        else
+            local col = (st.tag == "past" and theme.text) or (st.tag == "zero" and theme.gold) or (st.tag == "tonight" and theme.teal)
+                or (st.focus and theme.orange or theme.gold)
+            local text = "-> " .. st.label .. "  " .. st.text .. (OUT_SHORT[st.out or ""] or (st.now and ", playing now" or ""))
+            table.insert(rows, { text, "ui14", col, 4 })
+        end
+    end
+    if #steps == 0 then
+        table.insert(rows, { "Nothing's happened yet.", "ui14", theme.faint, 4 })
+    end
+    if not opts.compact and #g.next > 0 then
+        table.insert(rows, { "Waiting in your deck: " .. table.concat(g.next, "; ") .. ".", "ui14", theme.dim, 4 })
+    end
+    if opts.hint then
+        table.insert(rows, { opts.hint, "ui14", theme.faint })
+    end
+    return rows
+end
+
+-- One storyline's glance (or several, compact) in a popup near a point.
+function M.show_glance(app, ids, x, y, hint)
+    local rows = {}
+    local compact = #ids > 1
+    for k, id in ipairs(ids) do
+        if k <= 3 then
+            if k > 1 then
+                table.insert(rows, { " ", "ui14", theme.faint, 0 })
+            end
+            for _, r in ipairs(M.glance_rows(app, id, { compact = compact })) do
+                table.insert(rows, r)
+            end
+        end
+    end
+    if hint then
+        table.insert(rows, { hint, "ui14", theme.faint })
+    end
+    popup(app, rows, x, y, compact and 460 or 540)
+end
+
+-- A hover that shows a storyline at a glance.
+function M.glance_hover(app, id, x, y, hint)
+    return function(_, on)
+        if on then
+            pcall(M.show_glance, app, { id }, x, y, hint)
+        else
+            M.drop_hover(app)
+        end
+    end
 end
 
 -- A keyword's hot spot: its underline is the button (hit-tested by its rectangle, so it costs
@@ -265,7 +355,9 @@ local function entry_block(app, e, w, st, kws, d, last, on_story)
     local tw = w - st.indent
     local text = table.concat(e.parts or {}, " ")
     local head
-    if e.tag == "past" then
+    if e.tag == "zero" then
+        head = "SESSION ZERO"
+    elseif e.tag == "past" then
         head = "SESSION " .. util.int(e.w) .. "  -  SCENE " .. util.int(e.s)
     elseif e.tag == "tonight" then
         head = "TONIGHT  -  SCENE " .. util.int(e.s)
@@ -283,9 +375,14 @@ local function entry_block(app, e, w, st, kws, d, last, on_story)
         right, rcol, rterm = e.focus and "Just placed" or "Planned", e.focus and theme.orange or theme.gold, "planned"
     elseif e.tag == "tonight" then
         right, rcol, rterm = "Tonight", theme.teal, "tonight"
+    elseif e.tag == "zero" then
+        right, rcol, rterm = "Written in", theme.gold, "written"
     end
     local type_name = e.type and content.scenes[e.type] and content.scenes[e.type].name or nil
     local where = (e.loc or e.tag == "past" or e.tag == "tonight") and (e.where or "") or "No place yet"
+    if e.tag == "zero" then
+        where = "Around the table, before week 1"
+    end
     local where_line = where .. (type_name and ("  -  " .. type_name) or "")
     local lh_head = kit.line_height(st.head)
     local h = lh_head + 2 + M.height(where_line, st.place, tw) + 4 + M.height(text, st.body, tw) + 8
@@ -301,9 +398,10 @@ local function entry_block(app, e, w, st, kws, d, last, on_story)
         if not last then
             kit.box(x + 6, y + 14, 2, h - 6, vmath.vector4(col.x, col.y, col.z, 0.35), { round = false })
         end
-        kit.dot(x + 7, y + 9, (e.tag == "past") and 12 or 14, (e.tag == "past") and col or (e.focus and theme.orange or theme.gold))
+        local settled = e.tag == "past" or e.tag == "zero"
+        kit.dot(x + 7, y + 9, settled and 12 or 14, settled and col or (e.focus and theme.orange or theme.gold))
         local tx = x + st.indent
-        kit.text(tx, y, head, st.head, e.tag == "past" and theme.dim or theme.gold)
+        kit.text(tx, y, head, st.head, settled and theme.dim or theme.gold)
         if right then
             local rw = kit.width(right, st.head)
             local rx = x + w - rw
@@ -321,7 +419,7 @@ local function entry_block(app, e, w, st, kws, d, last, on_story)
             table.insert(place_kws, 1, term_kw(e.type, type_name))
         end
         yy = M.rich(app, tx, yy, tw, where_line, st.place, theme.text, place_kws, { on_story = on_story })
-        yy = M.rich(app, tx, yy + 4, tw, text, st.body, e.tag == "past" and theme.text or kit.rgba("#e9dcc3"), kws,
+        yy = M.rich(app, tx, yy + 4, tw, text, st.body, (e.tag == "past" or e.tag == "zero") and theme.text or kit.rgba("#e9dcc3"), kws,
             { on_story = on_story })
     end }
 end
@@ -543,7 +641,8 @@ function M.page(app, x, y, w, h)
         end
         kit.button(x, by, lw, bh, "", function()
             pick(d.id)
-        end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "storylog_pick_" .. d.id })
+        end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "storylog_pick_" .. d.id,
+               on_hover = M.glance_hover(app, d.id, x + lw + 12, by, not on and "Click to read it all." or nil) })
         kit.box(x, by, 6, bh, story_color(d), { radius = 3 })
         local nfont = kit.width(d.name, "ui18b") <= lw - 50 and "ui18b" or "ui14"
         kit.text(x + 16, by + 6, d.name, nfont, it.started and theme.text or theme.dim, { w = lw - 44 })
@@ -569,6 +668,10 @@ function M.page(app, x, y, w, h)
         tx = tx + 50
     end
     kit.text(tx, y - 2, d.name, "title30", theme.text, { w = mx + mw - tx })
+    -- Point at the title: the whole story at a glance.
+    kit.button(tx, y - 2, math.min(kit.width(d.name, "title30"), mx + mw - tx), 40, "", nil,
+        { color = kit.rgba("#000000", 0), hover = kit.rgba("#ffffff", 0.04), key = "storylog_title",
+          on_hover = M.glance_hover(app, id, tx, y + 42) })
     local hw, hc = heat_label(view.heat)
     local kind = string.upper(d.kind == "backstory" and "Backstory" or (d.kind or "story"))
     kit.text(tx, y + 38, kind .. "  -", "ui14", theme.faint)
@@ -745,7 +848,8 @@ function M.panel(app)
                 end
                 kit.button(tx, ty, bw, 26, "", function()
                     choose(id)
-                end, { color = id == sp.id and theme.go or theme.panel2, hover = theme.button_hover, key = "story_tab_" .. id })
+                end, { color = id == sp.id and theme.go or theme.panel2, hover = theme.button_hover, key = "story_tab_" .. id,
+                       on_hover = M.glance_hover(app, id, x - 560, ty) })
                 kit.dot(tx + 12, ty + 13, 9, story_color(td))
                 kit.text(tx + 22, ty + 4, label, "ui14", theme.text)
                 tx = tx + bw + 6
@@ -761,6 +865,9 @@ function M.panel(app)
         tx = tx + 40
     end
     kit.text(tx, ty, d.name, "ui22b", theme.text, { w = ix + iw - tx })
+    kit.button(tx, ty, math.min(kit.width(d.name, "ui22b"), ix + iw - tx), 30, "", nil,
+        { color = kit.rgba("#000000", 0), hover = kit.rgba("#ffffff", 0.05), key = "story_panel_title",
+          on_hover = M.glance_hover(app, sp.id, x - 560, ty) })
     ty = ty + kit.text_height(d.name, "ui22b", ix + iw - tx)
     local hw, hc = heat_label(view.heat)
     kit.text(tx, ty, hw, "ui14", hc)

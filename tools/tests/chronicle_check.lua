@@ -221,6 +221,33 @@ for n = 1, CAMPAIGNS do
             problem(string.format("seed %d: %s moved %d nights, its log has %d scenes", seed, d.id, st.moves, past))
         end
         table.insert(texts, v.premise or "")
+        -- At a glance: the whole story in short steps.
+        local g = chronicle.glance(c, d.id, {})
+        if not g or not g.gist or g.gist == "" then
+            problem("seed " .. seed .. ": " .. d.id .. " has no gist")
+        else
+            check_text("glance " .. d.id, g.gist)
+            for _, st in ipairs(g.steps) do
+                check_text("glance " .. d.id, st.text)
+                local n = select(2, string.gsub(st.text, "%S+", ""))
+                if n > 32 then
+                    problem("a glance step that isn't short (" .. n .. " words): " .. st.text)
+                end
+                stats.glance = (stats.glance or 0) + 1
+            end
+            local past = 0
+            for _, e in ipairs(v.entries) do
+                past = past + ((e.tag == "past") and 1 or 0)
+            end
+            local gp = 0
+            for _, st in ipairs(g.steps) do
+                gp = gp + ((st.tag == "past") and 1 or 0)
+            end
+            if gp ~= past then
+                problem(d.id .. ": the glance has " .. gp .. " scenes, the log " .. past)
+            end
+            check_text("glance line " .. d.id, chronicle.glance_line(c, d.id))
+        end
     end
     check_keywords(c, texts)
     -- A save keeps the log.
@@ -315,9 +342,89 @@ do
     end
 end
 
+-- Their backstories, written at Session Zero (game/model/backstory.lua): six questions at most,
+-- one too many puts Sam on the spot, every hero needs something written in, and what you wrote
+-- opens their Story log and waits at the front of the first hand.
+do
+    local backstory = require "game.model.backstory"
+    local social = require "game.model.social"
+    local all = {}
+    local asked = 0
+    for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+        for _, q in ipairs(backstory.data[k].questions) do
+            if backstory.toggle_question(all, k, q.id) then
+                asked = asked + 1
+            end
+        end
+    end
+    if asked ~= backstory.data.QUESTIONS or backstory.left(all) ~= 0 then
+        problem("the evening's questions don't run out at " .. backstory.data.QUESTIONS .. " (" .. asked .. " asked)")
+    end
+    -- Taking one back frees it for someone else.
+    local first = all.mara.asked[1]
+    backstory.toggle_question(all, "mara", first)
+    if backstory.left(all) ~= 1 or not backstory.toggle_question(all, "sam", "looks") then
+        problem("taking a question back didn't free it")
+    end
+    local one = backstory.like("sam", { asked = { "looks" } })
+    local three = backstory.like("sam", { asked = { "looks", "abbot", "why" } })
+    if not (three < one) then
+        problem("three questions don't put Sam on the spot (" .. one .. " vs " .. three .. ")")
+    end
+    if backstory.complete(all) then
+        problem("Session Zero is complete with no hooks written in")
+    end
+    local ch = social.default_choices()
+    ch.backstories = all
+    for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+        all[k] = all[k] or { asked = {} }
+        all[k].hook = backstory.data[k].hooks[3].card
+    end
+    all.dev.idea = "yes"
+    if not backstory.complete(all) then
+        problem("Session Zero isn't complete with every hook written in")
+    end
+    local c = campaign_mod.new(777)
+    c:session_zero(ch)
+    local prep = c:start_week()
+    for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local hook = all[k].hook
+        if c:player(k).present and not prep:pinned(hook) then
+            problem(k .. "'s hook (" .. hook .. ") isn't waiting in the first hand")
+        end
+        local v = chronicle.story(c, "bs_" .. k, { prep = prep })
+        local e = v.entries[1]
+        if not (e and e.tag == "zero") then
+            problem(k .. "'s Story log doesn't open with what Session Zero wrote")
+        else
+            check_view(c, v, "backstory " .. k)
+            local text = table.concat(e.parts, " ")
+            if not string.find(text, backstory.hook_of(k, hook).text, 1, true) then
+                problem(k .. "'s Story log doesn't say what turns up first")
+            end
+        end
+    end
+    if not string.find(table.concat(chronicle.story(c, "bs_dev", {}).entries[1].parts, " "), "father's sword", 1, true) then
+        problem("Dev's idea, taken up, isn't in Brannoc's story")
+    end
+    -- A week later the hook isn't forced in again.
+    bots.prep(bots.DMS.careful, c, prep, rng_mod.new(6))
+    local night = c:start_night()
+    bots.play_night(night, rng_mod.new(5), bots.DMS.careful)
+    c:finish_night()
+    local prep2 = c:start_week()
+    for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local pin = prep2:pinned(all[k].hook)
+        if pin and pin.why == "backstory" then
+            problem(k .. "'s Session Zero hook was pinned again in week 2")
+        end
+    end
+end
+
 print(string.format("chronicle: %d campaigns x %d weeks, %d scenes filed, %d entries read (%d live, %d planned, %d marked as "
-    .. "just placed), %d words, %d keywords lit, %d scenes rebuilt from old notebooks", CAMPAIGNS, WEEKS, stats.scenes,
-    stats.entries, stats.live, stats.planned, stats.focus, stats.words, stats.keywords, stats.backfilled))
+    .. "just placed), %d words, %d keywords lit, %d glance steps, %d scenes rebuilt from old notebooks", CAMPAIGNS, WEEKS,
+    stats.scenes, stats.entries, stats.live, stats.planned, stats.focus, stats.words, stats.keywords, stats.glance or 0,
+    stats.backfilled))
 if stats.live == 0 then
     problem("no live entries were ever checked")
 end
