@@ -99,6 +99,78 @@ local function finish(a, ok, why)
     sys.exit(ok and 0 or 1)
 end
 
+-- Mode 1, at the prep for session 3: the Story log (October 13) after two real nights. The page
+-- in the notes on the storyline with the most scenes, then the panel the prep board opens when a
+-- story card goes on a scene, then a keyword's hover. One step per call.
+function M.story_shots(app, a)
+    a.ss = (a.ss or 0) + 1
+    local step = a.ss
+    local chronicle = require "game.model.chronicle"
+    local storylines = require "game.model.storylines"
+    local content = require "game.model.content"
+    local kit = require "game.ui.kit"
+    local c = app.campaign
+    if step == 1 then
+        local best, most = nil, -1
+        for _, it in ipairs(chronicle.list(c, c.prep, nil)) do
+            local v = chronicle.story(c, it.def.id, {})
+            if v and #v.entries > most then
+                best, most = it.def.id, #v.entries
+            end
+        end
+        say("story log: " .. tostring(best) .. " with " .. tostring(most) .. " scenes, " .. #chronicle.get(c).scenes .. " filed")
+        app.storylog_id = best
+        app.storylog_scroll = nil
+        app.open_notes("storylog")
+        shot(a, "storylog_page")
+        return true
+    elseif step == 2 then
+        app.close_overlay()
+        local p = c.prep
+        if not p.scenes[1].type then
+            p:set_type(1, "social")
+        end
+        local placed
+        for _, kind in ipairs(content.kinds) do
+            for _, card in ipairs(p.hand[kind] or {}) do
+                if not placed and kind ~= "location" and #storylines.of_card(c, card) > 0 and not p:placed_at(card.id)
+                    and p:can_place(1, card.id) then
+                    for _, sid in ipairs(storylines.of_card(c, card)) do
+                        placed = placed or (string.sub(sid, 1, 3) == "bs_" and card) or nil
+                    end
+                    if placed then
+                        p:place(1, card.id)
+                    end
+                end
+            end
+        end
+        say("story panel: placed " .. tostring(placed and placed.id))
+        if placed then
+            require("game.ui.story_log_view").on_placed(app, placed)
+        else
+            require("game.ui.story_log_view").toggle_panel(app)
+        end
+        app.refresh()
+        shot(a, "story_panel")
+        return true
+    elseif step == 3 then
+        -- Point at the first lit name in the panel.
+        for i = #kit.layers, 1, -1 do
+            for _, b in ipairs(kit.layers[i].buttons) do
+                if b.rect_hit and string.sub(b.key or "", 1, 3) == "kw_" and string.sub(b.key, 1, 8) ~= "kw_term_" then
+                    local r = b.rect
+                    kit.on_move(r[1] + r[3] / 2, kit.H - (r[2] + r[4] / 2))
+                    say("story keyword: " .. b.key)
+                    shot(a, "story_keyword")
+                    return true
+                end
+            end
+        end
+        return true
+    end
+    return false
+end
+
 -- Mode 4: a board that tells this week's story, a fight built for the party, and a look at
 -- the notes, a sheet and the builder. One step per call, so each screen gets its shot.
 function M.showcase(app, a)
@@ -449,6 +521,9 @@ function M.update(app, dt)
             end
         end
         if a.mode == 1 and wk >= 3 then
+            if M.story_shots(app, a) then
+                return
+            end
             return finish(a, true, "reached the prep for session 3")
         end
         if a.mode == 2 and a.weeks >= 1 then

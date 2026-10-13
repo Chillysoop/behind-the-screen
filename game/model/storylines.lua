@@ -312,6 +312,8 @@ function M.on_scene(night, sc)
             end
         end
     end
+    -- What this scene moved, for the Story log (game/model/chronicle.lua).
+    sc.stories = here
     -- Threads the table has to hold apart: storylines one card ties together count as one (the
     -- Velvet Hand's back room is the bells' story and Pip's at once), so weaving stories is
     -- easier to follow than juggling them side by side.

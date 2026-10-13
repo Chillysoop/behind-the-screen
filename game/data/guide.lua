@@ -219,6 +219,14 @@ return {
             text = "Private messages settle table arguments before they boil over. Each conversation costs a little prep time.",
         },
         {
+            id = "prep_story_log", screen = "prep", at = LEFT, timeout = 30, leave = true,
+            when = function(app) return app.story_panel ~= nil and not app.convo end,
+            done = function(app) return app.story_panel == nil end,
+            anchor = { 1186, 68, 408, 826 },
+            title = "The Story log",
+            text = "A storyline so far, scene by scene, with this week's plans at the end. Point at a lit name for who or what it is. S opens and closes it.",
+        },
+        {
             id = "prep_drawer", screen = "prep", at = { 840, 572 },
             when = function(app, c) return c.week >= 2 and not app.sel and not app.convo end,
             anchor = { 360, 676, 820, 214 },

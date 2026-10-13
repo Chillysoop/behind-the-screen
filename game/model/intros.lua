@@ -58,6 +58,9 @@ function M.run(night)
             local short = p.shy and not keen
             night:emit({ kind = "say", who = p.key, text = pick(d.hello), ic = false })
             local si = rng:int(1, #d.story)
+            -- The Story log quotes it under their backstory.
+            night.campaign.intro_told = night.campaign.intro_told or {}
+            night.campaign.intro_told[p.key] = si
             local grim = d.grim and d.grim[si]
             night:emit({ kind = "say", who = p.key, text = d.story[si], ic = true })
             if keen and d.all_in then

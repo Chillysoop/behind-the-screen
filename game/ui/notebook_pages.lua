@@ -1056,7 +1056,13 @@ function M.threads(app, x, y, w, h)
             local tx, ty = x + col * (tw + gap), y + row * (th + 10)
             local heat, since = storylines.heat(c, d.id)
             local st = s[d.id]
-            kit.box(tx, ty, tw, th, theme.panel2, { radius = 10 })
+            -- Click a storyline to read it in the Story log.
+            kit.button(tx, ty, tw, th, "", function()
+                app.storylog_id = d.id
+                app.storylog_scroll = nil
+                app.notes_tab = "storylog"
+                app.refresh_notes()
+            end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_tile_" .. d.id })
             kit.box(tx, ty, 6, th, kit.rgba(d.color), { radius = 3 })
             kit.text(tx + 16, ty + 10, string.upper(d.kind), "ui14", theme.faint)
             heat_chip(tx + tw - 12 - kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14"), ty + 10, heat)
@@ -1088,7 +1094,12 @@ function M.threads(app, x, y, w, h)
     local bh = y + h - by
     for i, p in ipairs(c.players) do
         local px = x + (i - 1) * (cw + gap)
-        kit.box(px, by, cw, bh, theme.panel2, { radius = 10 })
+        kit.button(px, by, cw, bh, "", function()
+            app.storylog_id = "bs_" .. p.key
+            app.storylog_scroll = nil
+            app.notes_tab = "storylog"
+            app.refresh_notes()
+        end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_hero_" .. p.key })
         kit.dot(px + 30, by + 30, 40, panels.COLORS[p.key] or theme.panel3)
         kit.picture(px + 12, by + 12, 36, 36, panels.face(p.key))
         local heat = storylines.heat(c, "bs_" .. p.key)

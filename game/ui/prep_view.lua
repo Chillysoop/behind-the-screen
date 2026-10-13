@@ -178,6 +178,20 @@ local function card_detail(app, prep, c, s, x0, why)
                 "ui14", (a <= -1) and theme.red or ((a >= 1) and theme.green or theme.dim) })
         end
     end
+    -- The storylines it moves: placing it opens their Story log beside the board.
+    do
+        local storylines = require "game.model.storylines"
+        local names = {}
+        for _, id in ipairs(storylines.of_card(camp, c)) do
+            local d = storylines.def(camp, id)
+            if d then
+                table.insert(names, d.name)
+            end
+        end
+        if #names > 0 then
+            table.insert(rows, { "Moves " .. util.join_names(names) .. ". Place it to see the story so far.", "ui14", theme.teal })
+        end
+    end
     local fits = {}
     for _, f in ipairs(c.fits or {}) do
         table.insert(fits, content.scenes[f] and content.scenes[f].name or f)
@@ -906,6 +920,8 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
         local function place_it()
             local placed, why2 = prep:place(sel.scene, c.id)
             if placed then
+                -- A card that moves a storyline opens its Story log beside the board.
+                require("game.ui.story_log_view").on_placed(app, c)
                 for _, k2 in ipairs(content.kinds) do
                     if not s.slots[k2] then
                         app.sel = { scene = sel.scene, kind = k2 }
@@ -943,6 +959,7 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
                         local placed = prep:place(sel.scene, c.id)
                         if placed then
                             prep:cast_leads(sel.scene)
+                            require("game.ui.story_log_view").on_placed(app, c)
                         end
                         app.refresh()
                     end })
@@ -1194,7 +1211,12 @@ function M.scene_storylines(app, prep, s, x, y)
             kit.dot(x + (k - 1) * 12, y, 10, storyline_color(d))
         end
     end
-    kit.button(x - 6, y - 9, math.max(24, #defs * 12 + 6), 18, "", nil, {
+    kit.button(x - 6, y - 9, math.max(24, #defs * 12 + 6), 18, "", function()
+        -- Click for their Story log.
+        drop_hover(app)
+        require("game.ui.story_log_view").open_panel(app, ids)
+        app.refresh()
+    end, {
         color = kit.rgba("#000000", 0), hover = kit.rgba("#000000", 0.08), key = "scene_storylines_" .. tostring(s.index or x),
         on_hover = function(_, on)
             drop_hover(app)
@@ -1215,7 +1237,7 @@ function M.storyline_hover(app, defs, x0, y0)
         local heat = storylines.heat(app.campaign, d.id)
         table.insert(rows, { d = d, text = d.name .. ": " .. (HEAT_WORDS[heat] or heat), heat = heat })
     end
-    local h = 40
+    local h = 40 + 24
     for _, r in ipairs(rows) do
         h = h + kit.text_height(r.text, "ui14", w - 44) + 6
     end
@@ -1232,6 +1254,7 @@ function M.storyline_hover(app, defs, x0, y0)
         kit.text(x + 34, ry, r.text, "ui14", col, { w = w - 44 })
         ry = ry + kit.text_height(r.text, "ui14", w - 44) + 6
     end
+    kit.text(x + 16, ry + 2, "Click for the Story log.", "ui14", theme.faint)
 end
 
 -- A hand card's storylines, bottom right of the tile: the first by name, the rest as pips.
@@ -1697,6 +1720,8 @@ function M.build(app)
     for i, p in ipairs(app.campaign.players) do
         player_card(app, prep, p, i, forecast)
     end
+    -- The Story log, over the table column while it's open.
+    require("game.ui.story_log_view").panel(app)
 end
 
 return M

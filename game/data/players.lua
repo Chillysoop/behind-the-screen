@@ -4,6 +4,7 @@
 -- notes: what the DM learned at Session Zero; shown on the prep board.
 -- thread: the character's backstory hook; components tagged with this
 --         player's key advance it and give them the spotlight.
+-- premise: their backstory in a sentence or two, told about the party (the Story log's opening).
 
 return {
     order = { "mara", "dev", "jess", "sam" },
@@ -21,6 +22,8 @@ return {
         thread = "her missing sister, Ilsa",
         -- How Session Zero introduces the character (A8): who they are, their hook, how they know the others.
         intro = "Hunting for her sister Ilsa, who vanished from the scriptorium. Pip picked her pocket at the Kettle; they've been friends since.",
+        -- The Story log's first line about their backstory, told about the party.
+        premise = "Thessaly is hunting for her sister Ilsa, a scribe who walked out of her room above Millbrook's scriptorium two months ago, ink still wet, and never came back.",
         sprite = "mara",
     },
 
@@ -36,6 +39,7 @@ return {
         hours = 4.5,       -- would play until two
         thread = "the warlord Kessrick, who burned his village",
         intro = "Kessrick's warband burned his village, Hale's Crossing. Oswin pulled him out of the ashes and he's never left his side.",
+        premise = "Kessrick's warband burned Hale's Crossing, Brannoc's village. Oswin dragged him out of the ashes, and Brannoc means to find Kessrick.",
         sprite = "dev",
     },
 
@@ -51,6 +55,7 @@ return {
         hours = 3.5,
         thread = "her debt to the Velvet Hand",
         intro = "Owes the Velvet Hand more than she'll admit. Thessaly caught her picking a pocket and bought her supper instead.",
+        premise = "Pip owes the Velvet Hand more than she'll admit, and Madame Sable knows the sum to the copper.",
         sprite = "jess",
     },
 
@@ -66,6 +71,7 @@ return {
         hours = 3,         -- work on Friday
         thread = "the relic from his burned temple",
         intro = "Carries the last relic of his burned temple. Found Brannoc in the ashes of Hale's Crossing and patched him up.",
+        premise = "Oswin carries the last relic of his burned temple. He doesn't know why it matters yet, only that it does.",
         sprite = "sam",
     },
 }

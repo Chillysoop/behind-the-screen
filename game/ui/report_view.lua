@@ -405,6 +405,17 @@ function M.build(app)
     if more > 0 then
         kit.text(1172, y + 12, "+" .. util.int(more) .. " in your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     end
+    -- The Story log: tonight's scenes, filed under the storylines they moved.
+    kit.button(904, y + 8, 124, 24, "Story log (S)", function()
+        local moved = rep.storylines and rep.storylines.moved or {}
+        if moved[1] then
+            app.storylog_id = moved[1]
+            app.storylog_scroll = nil
+        end
+        if app.open_notes then
+            app.open_notes("storylog")
+        end
+    end, { font = "ui14", color = theme.panel3, key = "report_story_log" })
     -- Empathy, and on to next week.
     local e = rep.empathy
     if e then

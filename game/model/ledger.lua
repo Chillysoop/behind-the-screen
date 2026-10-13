@@ -34,6 +34,17 @@ M.ACTS = {
     sleight_of_hand = { 0, -1, "picked the pocket of", "was caught picking the pocket of" },
     deception = { 0, -1, "lied to", "was caught lying to" },
     performance = { 1, 0, "won over", "bored" },
+    -- Checks that aren't influence still say what happened (the Story log reads these).
+    arcana = { 0, 0, "read the magic around", "couldn't make sense of the magic around" },
+    religion = { 0, 0, "said the old rites over", "fumbled the old rites over" },
+    investigation = { 0, 0, "found something out about", "found nothing on" },
+    perception = { 0, 0, "spotted what mattered about", "missed what mattered about" },
+    athletics = { 0, 0, "kept up with", "couldn't keep up with" },
+    acrobatics = { 0, 0, "kept up with", "couldn't keep up with" },
+    stealth = { 0, 0, "slipped past", "was spotted by" },
+    survival = { 0, 0, "tracked", "lost the trail of" },
+    nature = { 0, 0, "read the signs around", "misread the signs around" },
+    animal_handling = { 0, 0, "calmed", "spooked" },
 }
 -- Scene-level things: { delta, words }.
 M.EVENTS = {

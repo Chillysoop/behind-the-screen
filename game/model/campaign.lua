@@ -450,6 +450,8 @@ function M:finish_night()
             end
         end
     end
+    -- The Story log: every scene that played, filed under the storylines it moved.
+    rep.chronicle = require("game.model.chronicle").after_night(self, night, rep.opened)
     planner.after_night(self, night)
     -- The notebook: what the party did to whom tonight, and how it changed things.
     ledger.after_night(self, night)

@@ -928,6 +928,7 @@ function M:describe(c, style)
         self.last_location = c.id
     end
     self:say(text, style or "narration")
+    self:told_line(c, text)
     if rev then
         self.revealed[c.id] = true
         if clue and not story.has_clue(self.campaign, c.id) then
@@ -943,6 +944,13 @@ function M:describe(c, style)
         self.met = self.met or {}
         self.met[c.id] = rev and "revealed" or (self.met[c.id] or true)
     end
+end
+
+-- The Story log keeps what the table heard about each card, scene by scene.
+function M:told_line(c, text)
+    local sc = self.scene
+    self.told = self.told or {}
+    table.insert(self.told, { s = sc and sc.index, card = c.id, text = text })
 end
 
 -- The party learns something: into the DM's notes (once a night).
@@ -1698,7 +1706,9 @@ function M:quick_checks(sc)
             end
         end
         if i == 1 and comp and not comp.cliffhanger and not self:muted(comp) and self:fits_here(comp) then
-            self:say(content.line_for(comp, sc.comps.location), "twist")
+            local line = content.line_for(comp, sc.comps.location)
+            self:say(line, "twist")
+            self:told_line(comp, line)
         elseif i == 2 then
             self:banter()
             if not sc.cut and not self.end_early then
@@ -2448,6 +2458,10 @@ function M:big_roll(spec, record)
     if card then
         -- The fail card picked: it says which branch plays, and how the table takes it.
         success = fails_mod.play(self, p, card, fan, tier)
+        local last = self.ledger[#self.ledger]
+        if last and last.ev == "fail_card" and skill then
+            last.skill = skill    -- which check it was, for the Story log ("Pip failed a Stealth check")
+        end
         ro = { tone = card.kind ~= "flat" and card.tone ~= "twist" and card.tone or nil, effects = {},
                fail_line = card.kind ~= "flat" and card.text or nil }
     end
@@ -5107,6 +5121,7 @@ function M:play_scene(sc)
                 self:describe(r, "reward")
             else
                 self:say("They earn " .. soft_lower(r.line), "reward")
+                self:told_line(r, r.line)
             end
         end
         if r.payoff_of then

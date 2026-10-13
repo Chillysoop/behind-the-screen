@@ -95,6 +95,10 @@ key_trigger {
   action: "next_cell"
 }
 key_trigger {
+  input: KEY_S
+  action: "story"
+}
+key_trigger {
   input: KEY_P
   action: "prev_cell"
 }

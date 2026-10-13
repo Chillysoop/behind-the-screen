@@ -254,8 +254,20 @@ function M.draw_frame(app)
             app.open_notes()
         end
     end, { font = "ui14", key = "night_notes" })
+    -- The Story log: each storyline so far, tonight's scenes filling in as they play (S). (The
+    -- buttons say their own keys, so the key line beside them leaves N and S out.)
+    kit.button(896, 10, 112, 38, "Stories (S)", function()
+        local sc = app.night and app.night.scene
+        if sc and sc.stories and sc.stories[1] then
+            app.storylog_id = sc.stories[1]
+            app.storylog_scroll = nil
+        end
+        if app.open_notes then
+            app.open_notes("storylog")
+        end
+    end, { font = "ui14", key = "night_stories" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip    F speed    Tab log    N notes    H your rolls    T timer    C photo    1-4 camera or options", "ui14", theme.faint,
+    kit.text(1576, 32, "Space skip   F speed   Tab log   H your rolls   T timer   C photo   1-4 camera or options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)

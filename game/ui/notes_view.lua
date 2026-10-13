@@ -8,6 +8,7 @@
 --   Factions       standing, projects and fronts, members, what they've been up to
 --   Places         where the party has been, what changed, what happened there
 --   Threads        each backstory as a chain of cards
+--   Story log      each storyline told so far, scene by scene (game/ui/story_log_view.lua)
 --   Story so far   the campaign's secrets, every session's clues and moments, seeds in play
 --   The party      who's playing whom, their backstory hooks, and their character sheets
 -- The data is game/model/story.lua; the story itself game/data/arc.lua.
@@ -28,7 +29,7 @@ local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
 local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
                { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" }, { "threads", "Storylines" },
-               { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
+               { "storylog", "Story log" }, { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
 
@@ -44,6 +45,7 @@ end
 
 function M.close(app)
     pages.drop_hover(app)
+    require("game.ui.story_log_view").drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
         app.notes_layer = nil
@@ -407,6 +409,7 @@ end
 
 function M.draw(app)
     pages.drop_hover(app)
+    require("game.ui.story_log_view").drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
     end
@@ -480,6 +483,8 @@ function M.draw(app)
         pages.places(app, cx, cy, cw, ch)
     elseif tab == "threads" then
         pages.threads(app, cx, cy, cw, ch)
+    elseif tab == "storylog" then
+        require("game.ui.story_log_view").page(app, cx, cy, cw, ch)
     elseif tab == "story" then
         tab_story(app, cx, cy, cw)
     elseif tab == "log" then

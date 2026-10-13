@@ -244,6 +244,15 @@ people, factions, places, threads, the campaign, the web of who's tied to whom a
 attitudes that move on what the party does. The world turns between sessions: factions move on clocks,
 rumours come in, places change, and you can bring people in as guests or shelve cards for later.
 
+**The Story log (October 13).** Every storyline told so far, scene by scene, in one place: the hero's
+backstory (or the story's hook) and what their player said at the first session, a bullet per scene that moved
+it (where, what kind of scene, how it went, what the table heard, what the heroes did, what it turned up and
+the leads it opened), this week's plans and tonight's scenes as they play, the leads waiting in the deck, and
+the people, places, factions and heroes it involves. Names are lit: hover one for who or what it is and which
+stories it's part of; click a storyline's name to read that one. Place a card that moves a storyline and its
+log opens beside the prep board, the card you just placed marked; S opens it any time (on game night and the
+report, it's the Story log page in your notes).
+
 **Players play like people (A12, A15 to A17).** Actions by archetype, table habits, curveballs and stunts;
 open scenes where the players pick where to go; rests by the SRD rules with the party's hit points carrying
 over; and party tension, with friction between players you can defuse or let slide.
@@ -377,6 +386,7 @@ and they always come back with a fresh start. Nobody leaves without warning.
 | Esc | Close a conversation, the level-up moment, your notes, a sheet or the fight builder | |
 | C | Take a snapshot of the table on game night (three a night) | |
 | N | Your notes: this session, the story so far, who's who, the party | |
+| S | The Story log: beside the prep board, or in your notes on game night and the report (the wheel scrolls it) | |
 | M | Music off or on (rain and sounds stay) | |
 | Space | Skip to the next beat of game night | Roll the d20 |
 | F | Game night speed: 1x, 2x, 4x | |
@@ -427,6 +437,7 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/model/deck.lua`, `planner.lua`, `ledger.lua`, `world.lua` | The story deck, the campaign planner, the notebook's ledger and attitudes, the world's moves |
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
 | `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
+| `game/model/chronicle.lua`, `game/ui/story_log_view.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, its notebook page and prep panel, the keywords and what they mean |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
 | `main/audio/`, `main/snacks/`, `assets/audio/` | M7: the sound player and sounds; the pizza and chips |
 | `tools/playtest/` | M7: tester package script, tester readme, log analyzer, pretend logs |
@@ -459,6 +470,8 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # table awards, gifts from the table (Goodwill)
     lua tools/tests/story_check.lua    # the story playtest: foes named, places and favours consistent, cliffhangers end
                                        # the night; storylines (loose ends wear down, come back), handouts
+    lua tools/tests/chronicle_check.lua  # the Story log: every scene filed under its storylines, logs that read,
+                                       # live and planned entries, keywords, saves, old saves rebuilt, fallen heroes
     python3 tools/tests/require_check.py  # no require cycles (the engine's builder refuses them)
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)

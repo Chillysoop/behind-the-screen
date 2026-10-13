@@ -228,7 +228,21 @@ local function click_key(k)
         finish_talk()
     end
     for _, b in ipairs(buttons()) do
-        if b.key == k then click(b); return true end
+        if b.key == k then
+            -- The Story log panel sits over the table column: close it if it's in the way.
+            local x, y = center(b)
+            if self.app.story_panel and kit.hit(x, y) ~= b and string.sub(k, 1, 6) ~= "story_" then
+                for _, c in ipairs(buttons()) do
+                    if c.key == "story_panel_close" then click(c); break end
+                end
+                for _, c in ipairs(buttons()) do
+                    if c.key == k then click(c); return true end
+                end
+                return false
+            end
+            click(b)
+            return true
+        end
     end
     return false
 end
@@ -539,6 +553,35 @@ check_tip_absorbs(" (week 2 prep)")
     if app.book then click_key("book_done") end
     if app.ask then click_key("ask_no") end
     if app.overlay then key("back") end
+    -- The Story log panel the random clicks opened (placing a story card opens it): look, then
+    -- close it, so the table column is free for the checks below.
+    if app.debug then key("debug") end     -- (the numbers overlay would hide the panel in the dumps)
+    if app.story_panel then
+        dump("15s_story_panel_w" .. week)
+        if not click_key("story_panel_close") then problem("no Close on the Story log panel") end
+        if app.story_panel then problem("the Story log panel didn't close") end
+    end
+    -- S opens the panel on the most pressing storyline; a keyword in it explains itself on hover.
+    if week == 3 then
+        key("story")
+        if not app.story_panel then problem("S didn't open the Story log panel on the prep board") end
+        dump("15t_story_panel_s")
+        local hovered
+        for _, b in ipairs(buttons()) do
+            if string.sub(b.key or "", 1, 3) == "kw_" and b.rect_hit then
+                local x, y = center(b)
+                call(on_input, self, nil, { x = x, y = y })
+                hovered = b
+                break
+            end
+        end
+        if not hovered then problem("no keywords lit in the Story log panel") end
+        dump("15u_story_keyword_hover")
+        if hovered and not (app.story_hover and #app.story_hover.nodes > 0) then problem("hovering a Story log keyword showed nothing") end
+        call(on_input, self, nil, { x = 4, y = 4 })
+        key("story")
+        if app.story_panel then problem("S didn't close the Story log panel") end
+    end
     for i = 1, 3 do
         if not app.campaign.prep.scenes[i].type then
             app.sel = { scene = i, kind = "type" }
@@ -883,8 +926,23 @@ check_tip_absorbs(" (week 2 prep)")
         else
             local map_view = require "game.ui.map_view"
             click_key("map_piece_wall")
-            click_key("map_grid")
             local maps = require "game.model.maps"
+            -- Click squares on the grid until one takes a wall (the place's own scenery, a campfire
+            -- or a bar, refuses one where it stands).
+            local LW = content.terrain_layout.W
+            for _, cell in ipairs({ { 10, 7 }, { 6, 3 }, { 14, 11 }, { 4, 10 }, { 16, 4 }, { 8, 12 } }) do
+                local m0 = maps.get(c, loc.id)
+                if m0 and maps.count(m0) > 0 then break end
+                for _, b in ipairs(buttons()) do
+                    if b.key == "map_grid" then
+                        local C = b.node.size.x / LW
+                        local x, y = b.node.pos.x + (cell[1] - 0.5) * C, b.node.pos.y - (cell[2] - 0.5) * C
+                        call(on_input, self, nil, { x = x, y = y })
+                        call(on_input, self, "touch", { pressed = true, x = x, y = y })
+                        break
+                    end
+                end
+            end
             local m = maps.get(c, loc.id)
             if not m or maps.count(m) == 0 then problem("clicking the map grid laid no wall") end
             for _, step in ipairs({ { "cover", 12, 4 }, { "cover", 13, 9 }, { "rough", 8, 6 }, { "trap", 9, 8 },
