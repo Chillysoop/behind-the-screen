@@ -94,6 +94,11 @@ local function talker(night, sc, cast)
             end
         end
     end
+    -- The one you just turned to ("What are you doing while this happens?") walks up.
+    local owed = night.take_owed and night:take_owed("cards")
+    if owed then
+        return owed
+    end
     -- Whoever likes talking to people, the ones short on the spotlight tonight first: the same
     -- player doing every voice is how one player ends up running the show.
     local list, weights = {}, {}

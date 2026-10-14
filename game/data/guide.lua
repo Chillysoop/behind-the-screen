@@ -10,7 +10,8 @@
 --   done     function(app, c) -> true once the player has done what it asks (optional)
 --   timeout  seconds on screen (in total) before it quietly goes (optional)
 --   leave    true: counts as seen once the player leaves the screen while it shows
---   anchor   { x, y, w, h } to outline on screen (top-left coordinates, 1600x900), optional
+--   anchor   { x, y, w, h } to outline on screen (top-left coordinates, 1600x900), optional; or
+--            function(app) -> that, for something that moves
 --   at       { x, y } where the tip panel goes
 --   title, text
 -- Data only: tune freely. The view is game/ui/guide_view.lua.
@@ -144,7 +145,7 @@ return {
             when = function(app, c) return week(c, 1) and filled_slots(c) >= 2 end,
             anchor = { 1192, 76, 388, 812 },
             title = "Your players",
-            text = "What each one wants, how they feel, and the forecast for Thursday. The bars at the bottom of each card decide whether they keep coming.",
+            text = "What each one wants, the kinds of scene they love and the ones that bore them, and the forecast for Thursday as the board stands.",
         },
         {
             id = "prep_run", screen = "prep", at = LEFT, leave = true,
@@ -231,7 +232,7 @@ return {
                 return #(c.open_convos or {}) > 0 and app.chat_tab ~= "messages" and not app.convo
             end,
             done = function(app) return app.chat_tab == "messages" or app.convo ~= nil end,
-            anchor = { 184, 74, 160, 32 },
+            anchor = function(app) return { 184, (app.chat_tab_y or 78) - 4, 160, 32 } end,
             title = "Someone messaged you",
             text = "Private messages settle table arguments before they boil over. Each conversation costs a little prep time.",
         },
@@ -243,12 +244,31 @@ return {
             title = "The Story log",
             text = "A storyline so far, scene by scene, with this week's plans at the end. Point at a lit name for who or what it is. S opens and closes it.",
         },
+        -- Week 2 brings what the first prep board left out (the October 13 playtest: week 1 was a
+        -- wall), one tip each.
         {
             id = "prep_drawer", screen = "prep", at = { 840, 572 },
             when = function(app, c) return c.week >= 2 and not app.sel and not app.convo end,
             anchor = { 360, 676, 820, 214 },
-            title = "Evenings and seeds",
-            text = "Spare prep time? An evening off draws fresh cards. Plant a seed now and pay it off in a week or three.",
+            title = "New: evenings off",
+            text = "Spare prep time? An evening off (a novel, movie night, rereading a backstory) draws fresh cards. Two a week.",
+        },
+        {
+            id = "prep_long_game", screen = "prep", at = LEFT, leave = true, timeout = 30,
+            when = function(app, c) return c.week >= 2 and not app.sel and not app.convo end,
+            anchor = { 1192, 76, 388, 812 },
+            title = "New: the long game",
+            text = "Each player now shows Commitment, Trust, Investment and Suspicion. Weeks of low Commitment and they take a break. Talk (2h) is a one-on-one: how their week is going, and a chance to fix things.",
+        },
+        {
+            id = "prep_world", screen = "prep", at = LEFT, leave = true, timeout = 25,
+            when = function(app, c)
+                return c.week >= 2 and not app.sel and not app.convo and require("game.model.world").pending(c) > 0
+            end,
+            done = function(app) return app.overlay == "notes" end,
+            anchor = { 908, 4, 320, 30 },
+            title = "New: the world moves",
+            text = "Every faction makes a move off screen each week. Open it (top of the board) to let it happen, bring one on screen as a card, or hold it a week.",
         },
         {
             id = "prep_levelup", screen = "prep", at = LEFT,

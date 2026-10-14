@@ -55,8 +55,8 @@ return {
     outcomes = {
         great = { "Nice save. Nobody can tell you made that up.", "Smooth. That sounded planned.",
                   "That fit like it was in your notes all along." },
-        good = { "It holds together. Mostly.", "Good enough. Nobody's asking questions.",
-                 "It'll do. The table rolls with it." },
+        good = { "Solid. It holds together.", "Good enough. Nobody's asking questions.",
+                 "The table rolls with it." },
         poor = { "{critic} squints. That didn't quite fit.", "{critic} tilts their head. Hm.",
                  "{critic} opens their mouth, then decides to let it go.", "A beat of silence from {critic}. Close enough?" },
     },

@@ -72,6 +72,36 @@ function M.why(p, night)
     return SOME[best] .. ", not quite enough."
 end
 
+-- How they felt, as the table saw it (playtest, October 13: Dev "eyeing his phone" all night,
+-- then "Loved it"). Fun at the end of the night, less what the night looked like from their
+-- chair: a long stretch of drifting can't come out as a night they loved.
+-- soft: the average engagement below which it starts to cost; per: Fun per point under it;
+-- low: Fun for the whole night spent drifting; fun_at / fine_at: the share of the night spent
+-- drifting from which the verdict is at best Fun / Fine.
+M.LIVED = { soft = 0.48, per = 100, low = 15, fun_at = 0.35, fine_at = 0.6 }
+
+function M.felt(night, p, fun)
+    local l = night and night.lived
+    if not (l and l.time > 0) then
+        return fun, nil
+    end
+    local L = M.LIVED
+    local avg = (l.sum[p.key] or 0) / l.time
+    local low = (l.low[p.key] or 0) / l.time
+    local f = fun - math.max(0, L.soft - avg) * L.per - low * L.low
+    if low >= L.fine_at then
+        f = math.min(f, 54)
+    elseif low >= L.fun_at then
+        f = math.min(f, 71)
+    end
+    f = util.clamp(f, 0, 100)
+    local note
+    if fun - f >= 4 then
+        note = low >= L.fun_at and "Drifted off for a lot of the night." or "Never quite got into it."
+    end
+    return f, note
+end
+
 -- Settle a finished night. Returns the report table the screen draws.
 function M.build(campaign, night)
     local rep = {
@@ -96,8 +126,9 @@ function M.build(campaign, night)
         local before = night.before[p.key]
         local row = { key = p.key, name = p.name, char = p.char, present = p.present }
         if p.present then
-            local fun = score.fun(p)
+            local fun, drift = M.felt(night, p, score.fun(p))
             row.fun = fun
+            row.drift = drift
             row.tier = score.tier(fun)
             row.meters = {}
             for _, k in ipairs(score.METERS) do
@@ -187,6 +218,11 @@ function M.build(campaign, night)
         local p = campaign:player(row.key)
         if row.fun and p then
             row.why = M.why(p, night)
+            -- What the table saw outranks a meter, not a death or a theory come true.
+            if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Their theory")
+                and not string.find(row.why, "^Landed") then
+                row.why = row.drift
+            end
         end
     end
     rep.order = {}

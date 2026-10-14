@@ -807,38 +807,8 @@ check_tip_absorbs(" (week 2 prep)")
         end
         key("next_cell")
     end
-    if week == 3 then
-        key("next_cell")
-        if app.overlay ~= "notes" then problem("N didn't open the notes in week 3") end
-        for _, t in ipairs(require("game.ui.notes_view").TABS) do
-            if not click_key("notes_tab_" .. t[1]) then problem("no notes tab " .. t[1]) end
-            dump("30_notes_w3_" .. t[1])
-        end
-        key("next_cell")
-    end
-    if week == 1 then
-        -- The real-session pass: the DM's notes (N), every tab; every character sheet, both pages.
-        key("next_cell")
-        if app.overlay ~= "notes" then problem("N didn't open the notes on the prep board") end
-        for _, t in ipairs(require("game.ui.notes_view").TABS) do
-            local tab = t[1]
-            if not click_key("notes_tab_" .. tab) then problem("no notes tab " .. tab) end
-            dump("26_notes_" .. tab)
-        end
-        if not click_key("notes_sheet_mara") then problem("no sheet button on the party page") end
-        if app.overlay ~= "sheet" then problem("the party page didn't open a sheet") end
-        for _, who in ipairs({ "dev", "jess", "sam", "mara" }) do
-            click_key("sheet_who_" .. who)
-            click_key("sheet_page_sheet")
-            dump("27_sheet_" .. who)
-            click_key("sheet_page_features")
-            dump("27_sheet_" .. who .. "_features")
-        end
-        key("back")
-        if app.overlay then problem("Esc didn't close the sheet") end
-        if not click_key("sheet_jess") then problem("no sheet link on Jess's prep card") end
-        if app.overlay ~= "sheet" then problem("Jess's prep card didn't open her sheet") end
-        click_key("sheet_close")
+    if week == 2 then
+        -- (One-on-ones arrive in week 2: the first prep board keeps to scenes, hand and players.)
         -- Talk 2h is a one-on-one (A6): three questions, an answer to the worry, what you learned.
         local talker
         local pr = app.campaign.prep
@@ -874,6 +844,39 @@ check_tip_absorbs(" (week 2 prep)")
             local n = app.campaign.prep.talk_notes and app.campaign.prep.talk_notes[talker.key]
             if not (n and n.mood and n.want) then problem("the one-on-one didn't note a mood and a want") end
         end
+    end
+    if week == 3 then
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes in week 3") end
+        for _, t in ipairs(require("game.ui.notes_view").TABS) do
+            if not click_key("notes_tab_" .. t[1]) then problem("no notes tab " .. t[1]) end
+            dump("30_notes_w3_" .. t[1])
+        end
+        key("next_cell")
+    end
+    if week == 1 then
+        -- The real-session pass: the DM's notes (N), every tab; every character sheet, both pages.
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes on the prep board") end
+        for _, t in ipairs(require("game.ui.notes_view").TABS) do
+            local tab = t[1]
+            if not click_key("notes_tab_" .. tab) then problem("no notes tab " .. tab) end
+            dump("26_notes_" .. tab)
+        end
+        if not click_key("notes_sheet_mara") then problem("no sheet button on the party page") end
+        if app.overlay ~= "sheet" then problem("the party page didn't open a sheet") end
+        for _, who in ipairs({ "dev", "jess", "sam", "mara" }) do
+            click_key("sheet_who_" .. who)
+            click_key("sheet_page_sheet")
+            dump("27_sheet_" .. who)
+            click_key("sheet_page_features")
+            dump("27_sheet_" .. who .. "_features")
+        end
+        key("back")
+        if app.overlay then problem("Esc didn't close the sheet") end
+        if not click_key("sheet_jess") then problem("no sheet link on Jess's prep card") end
+        if app.overlay ~= "sheet" then problem("Jess's prep card didn't open her sheet") end
+        click_key("sheet_close")
         -- An open scene (A15): the players choose. Sketch spots from Your places and suggestions.
         do
             local pr = app.campaign.prep

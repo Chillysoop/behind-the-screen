@@ -1059,6 +1059,105 @@ function M.glance(campaign, id, opts)
     return out
 end
 
+-- "Previously on" for the prep board (playtest, October 13: the veteran needed 14 actions to say
+-- what the story was). Last session, a line a scene, in the glance's shorthand; before week 2,
+-- what Session Zero wrote into each hero's past.
+-- { title, sub, lines = { { text, out, id } }, open = a storyline id }, or nil.
+local function scene_step(campaign, rec)
+    local where = place_short(rec.loc) or rec.title or "Somewhere"
+    local order = { goal = 1, cast = 2, complication = 3, reward = 4 }
+    local cards = {}
+    for _, c in ipairs(rec.cards or {}) do
+        if order[c.kind] then
+            table.insert(cards, c)
+        end
+    end
+    table.sort(cards, function(a, b)
+        return order[a.kind] < order[b.kind]
+    end)
+    -- What it was about, then what they learned (else a second card): two bits, kept short.
+    local clue
+    for _, b in ipairs(rec.beats or {}) do
+        if b.k == "clue" and b.text then
+            clue = "clue: " .. M.squeeze(b.text, 9)
+            break
+        end
+    end
+    local bits = {}
+    for _, c in ipairs(cards) do
+        local g = card_gist(campaign, c, rec)
+        local short = c.kind == "cast" and content.components[c.id] and content.components[c.id].short
+        local said = short and string.find(string.lower(table.concat(bits, " ")), string.lower(short), 1, true)
+        if g and not said and #bits < (clue and 1 or 2) then
+            table.insert(bits, g)
+        end
+    end
+    if clue then
+        table.insert(bits, clue)
+    end
+    -- Nothing on the cards to say: what the table heard first.
+    if #bits == 0 then
+        for _, b in ipairs(rec.beats or {}) do
+            if b.k == "told" and b.text then
+                table.insert(bits, soft(campaign, M.squeeze(b.text, 9)))
+                break
+            end
+        end
+    end
+    local kind = rec.type and VERB[rec.type]
+    return where .. (kind and (" (" .. kind .. ")") or "") .. ": " .. (#bits > 0 and table.concat(bits, "; ") or "the story moved")
+end
+
+function M.previously(campaign)
+    local week = campaign.week or 0
+    if week <= 1 then
+        local lines = {}
+        for _, p in ipairs(campaign.players or {}) do
+            local b = require("game.model.backstory").written(campaign, p.key)
+            local c = b and b.hook and content.components[b.hook]
+            if c and p.present ~= false then
+                table.insert(lines, { text = p.char .. ": " .. c.name, id = "bs_" .. p.key })
+            end
+        end
+        if #lines == 0 then
+            return nil
+        end
+        return { title = "SESSION ZERO", sub = "What turns up first from each past. It's at the front of your hand.",
+                 lines = lines, open = lines[1].id, zero = true, label = "SESSION ZERO: what you wrote in" }
+    end
+    local recs = {}
+    for _, r in ipairs(M.get(campaign).scenes) do
+        if r.w == week - 1 then
+            table.insert(recs, r)
+        end
+    end
+    if #recs == 0 then
+        return nil
+    end
+    table.sort(recs, function(a, b)
+        return (a.s or 0) < (b.s or 0)
+    end)
+    local title
+    for _, le in ipairs(campaign.session_log or {}) do
+        if le.week == week - 1 and le.recap and le.recap.titles then
+            title = le.recap.titles[le.recap.title or 1]
+        end
+    end
+    local lines, open = {}, nil
+    for _, r in ipairs(recs) do
+        local out = (r.out == "win" and " Won.") or (r.out == "lose" and " Lost.") or ""
+        local id = r.stories and r.stories[1] or nil
+        open = open or id
+        local t = scene_step(campaign, r)
+        if not string.find(t, "[%.!?]$") then
+            t = t .. "."
+        end
+        table.insert(lines, { text = "S" .. util.int(r.s or 0) .. " " .. t .. out, out = r.out, id = id })
+    end
+    return { title = "LAST TIME", sub = "Session " .. util.int(week - 1) .. (title and (": \"" .. title .. "\"") or ""),
+             lines = lines, open = open, label = "LAST TIME: session " .. util.int(week - 1) }
+end
+
 -- The same in one line, for a card's hover: the gist, then the last few steps.
 function M.glance_line(campaign, id, n)
     local g = M.glance(campaign, id)

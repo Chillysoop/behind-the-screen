@@ -202,7 +202,7 @@ function M.on_wheel(app, x, y, dir)
     if app.screen ~= "prep" or app.overlay or app.ask or app.convo or (app.chat_tab or "group") ~= "group" then
         return false
     end
-    if x < X or x > X + W or ly < 112 or ly > bottom(app) then
+    if x < X or x > X + W or ly < (app.chat_body_y or 112) or ly > bottom(app) then
         return false
     end
     local n = #(app.campaign.chat or {})
@@ -217,12 +217,21 @@ function M.column(app)
     if app.chat_week ~= app.campaign.week then
         app.chat_week, app.chat_back = app.campaign.week, 0
     end
+    -- "Previously on" sits on top (October 13); the chat starts under it.
+    local ty = 78
+    if app.screen == "prep" then
+        local ph = require("game.ui.previously_view").draw(app, 78)
+        if ph > 0 then
+            ty = 78 + ph + 8
+        end
+    end
+    app.chat_tab_y, app.chat_body_y = ty, ty + 34
     local unread = M.unread(app)
     local tabs = { { "group", "GROUP CHAT" }, { "messages", unread > 0 and ("MESSAGES  " .. util.int(unread)) or "MESSAGES" } }
     for i, t in ipairs(tabs) do
         local on = app.chat_tab == t[1]
         local bx = X + (i - 1) * 164
-        kit.button(bx, 78, 156, 26, t[2], function()
+        kit.button(bx, ty, 156, 26, t[2], function()
             app.chat_tab = t[1]
             app.refresh()
         end, { font = "ui14", color = on and theme.panel3 or theme.bg, hover = theme.button_hover,
@@ -230,13 +239,13 @@ function M.column(app)
                key = "tab_" .. t[1] })
         -- A dot for anything waiting on you there (the slice rework: easy to miss otherwise).
         if (t[1] == "messages" and unread > 0) or (t[1] == "group" and M.unanswered(app) > 0) then
-            kit.dot(bx + 150, 80, 12, theme.orange)
+            kit.dot(bx + 150, ty + 2, 12, theme.orange)
         end
     end
     if app.chat_tab == "messages" then
-        message_list(app, 112)
+        message_list(app, ty + 34)
     else
-        group_chat(app, 112)
+        group_chat(app, ty + 34)
     end
 end
 

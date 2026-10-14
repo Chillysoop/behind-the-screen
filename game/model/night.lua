@@ -232,6 +232,20 @@ function M:emit(ev)
     end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
+    -- Each player's night as the table saw it (their tells), for the report's verdict.
+    if ev.t > 0 and self.players then
+        local lived = self.lived or { time = 0, sum = {}, low = {} }
+        self.lived = lived
+        lived.time = lived.time + ev.t
+        for _, p in ipairs(self.players) do
+            local e = p.engagement or 0.5
+            lived.sum[p.key] = (lived.sum[p.key] or 0) + e * ev.t
+            -- A bad tell on show: drifting, or a bad mood showing (see M:tells).
+            if e < M.LOW_TELL or (e < M.MOOD_TELL and ((score.mood(p).fun or 0) < 0)) then
+                lived.low[p.key] = (lived.low[p.key] or 0) + ev.t
+            end
+        end
+    end
     -- The table clock moves with the session being played, never while a choice waits for you:
     -- a call's minutes are the table playing it out, so they land once you've made it.
     local minutes = (M.TABLE_MIN[ev.kind] or 0) + (ev.table_min or 0)
@@ -563,7 +577,37 @@ end
 -- Who rolls a big moment (A4): the thread owner in their own story scene first; otherwise the
 -- best modifier among players at or below the table's average Spotlight, never a negative
 -- modifier while someone good at it is here, and nobody past 40% of tonight's big rolls.
+-- The spotlight you handed someone (a "Turn to them" call): the next roll or card is theirs, until
+-- it's used or the scene after next. kind is "rolls" or "cards".
+function M:take_owed(kind)
+    local o = self.owed
+    if not o then
+        return nil
+    end
+    if self.scene and o.scene and self.scene.index > o.scene + 1 then
+        self.owed = nil
+        return nil
+    end
+    if (o[kind] or 0) <= 0 then
+        return nil
+    end
+    local p = find_present(self.players, o.key)
+    if not p then
+        self.owed = nil
+        return nil
+    end
+    o[kind] = o[kind] - 1
+    if (o.rolls or 0) <= 0 and (o.cards or 0) <= 0 then
+        self.owed = nil
+    end
+    return p
+end
+
 function M:pick_roller(skill_list, sc, prefer)
+    local owed = self:take_owed("rolls")
+    if owed then
+        return owed
+    end
     local players = self.players
     self.big_rolls = self.big_rolls or {}
     local total = 0
@@ -848,6 +892,11 @@ function M:poses()
     return out
 end
 
+-- Below LOW_TELL a player is visibly drifting (doodling, on their phone); a bad mood's tell shows
+-- below MOOD_TELL.
+M.LOW_TELL = 0.32
+M.MOOD_TELL = 0.42
+
 -- Live view for the screen: everyone's tell and rough Fun right now.
 function M:tells()
     local out = {}
@@ -861,9 +910,15 @@ function M:tells()
                 break
             end
         end
+        -- Their mood shows when it agrees with how they're doing (playtest, October 13: a
+        -- Distracted player was "eyeing their phone" half the night while having a great time).
         local mood = score.mood(p)
-        if mood.tell and p.engagement < 0.5 then
-            text = mood.tell
+        if mood.tell then
+            if (mood.fun or 0) < 0 and p.engagement < M.MOOD_TELL then
+                text = mood.tell
+            elseif (mood.fun or 0) >= 0 and p.engagement >= 0.5 then
+                text = mood.tell
+            end
         end
         out[p.key] = { text = text, engagement = p.engagement, fun = score.fun(p), pose = poses[p.key] }
     end
@@ -1256,14 +1311,20 @@ function M:play_improv(picks, kind, replace)
             if ck == "cast" or ck == "location" then
                 table.insert(self.canon, card.comp.name)
             end
-            self:say("You improvise: " .. card.comp.name .. ".", "dm")
+            -- When it lands, if not now: a complication strikes partway through, a reward comes at
+            -- the end (playtest, October 13: "You improvise: Someone was lying. It'll do." and
+            -- nothing else, so the card seemed to do nothing).
+            local later = sc and not replace and ck == kind
+                and ((ck == "complication" and " It hits partway through the scene.")
+                     or (ck == "reward" and " They'll find it at the end of the scene.")) or ""
+            self:say("You improvise: " .. card.comp.name .. "." .. later, "dm")
             -- Mid-scene cards get the same Session Zero care as prepped ones.
             local mid = replace or not (sc and ck == kind)
             if sc and mid then
                 self:safety_check(sc, { card.comp })
             end
             local function describe()
-                self:describe(card.comp, "narration")
+                self:describe(card.comp, ck == "goal" and "goal" or "narration")
             end
             if sc and (ck == kind or replace) and (ck == kind or ck == "location" or ck == "cast") then
                 sc.comps[ck] = card.comp
@@ -1271,8 +1332,9 @@ function M:play_improv(picks, kind, replace)
                     moved = true
                 end
                 new_cast = new_cast or ck == "cast"
-                -- The scene narrates its own slots once it's set up; mid-scene, say it now.
-                if replace then
+                -- The scene narrates its own slots once it's set up; mid-scene, say it now. A goal
+                -- is improvised after the scene's goal line would have played, so it's said now.
+                if replace or ck == "goal" then
                     describe()
                 end
             elseif sc and not sc.comps[ck] and (ck == "cast" or ck == "location") then
@@ -2645,9 +2707,21 @@ function M:decision(card, extra)
         self.actor = self:pick_actor(card.actor)
         self.other = card.other and self:pick_actor(card.other, self.actor) or nil
     end
+    -- The spotlight you handed someone: the next card that could be anyone's is theirs.
+    local owed_card = false
+    if not card.actor_class and not card.trigger and card.type ~= "table" and card.type ~= "boss" and card.type ~= "talk" then
+        local owed = self:take_owed("cards")
+        if owed then
+            self.actor = owed
+            if self.other == owed then
+                self.other = card.other and self:pick_actor(card.other, owed) or nil
+            end
+            owed_card = true
+        end
+    end
     -- A card with a roll in someone's own story scene goes to them first (A4); and nobody
     -- hogs the big rolls just because the card suits their style.
-    if not card.actor_class and self.scene then
+    if not card.actor_class and self.scene and not owed_card then
         local has_roll, roll_skill = false, nil
         for _, o in ipairs(card.options) do
             if o.roll then
@@ -2722,6 +2796,11 @@ function M:decision(card, extra)
     if o.spotlight_lowest then
         local low = self:lowest()
         if low then
+            -- You turned to them: the next big roll and the next card are theirs (playtest, October
+            -- 13: "Turn to Oswin", then Pip got the next two rolls).
+            if not low.shy then
+                self.owed = { key = low.key, rolls = 1, cards = 1, scene = self.scene and self.scene.index or 0 }
+            end
             if low.shy then
                 score.add(low, "fun", -5)
                 if not self:bark(low, "spotlight_shy") then
@@ -3797,7 +3876,9 @@ function M:friction_act(sc, def, doer)
         for _, p in ipairs(rapport.objectors(self.campaign, doer, def, self.players, target and target.key)) do
             table.insert(names, p.name)
         end
-        local text = #names > 0 and (doer.name .. " is having fun. " .. util.join_names(names) .. (#names == 1 and " isn't." or " aren't."))
+        -- Who minds this, not who's unhappy tonight (playtest, October 13: "Mara isn't having fun"
+        -- while Mara cheered).
+        local text = #names > 0 and (doer.name .. " is having fun. " .. util.join_names(names) .. (#names == 1 and " doesn't love it." or " don't love it."))
             or (doer.name .. " is having fun. The rest of the table is watching to see what you do.")
         local card = { id = "friction_" .. def.id, type = "table", title = "At the table", text = text, options = opts }
         self.actor = doer

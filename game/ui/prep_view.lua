@@ -30,6 +30,14 @@ local ledger = require "game.model.ledger"
 local M = {}
 
 local CARD_X, CARD_Y, CARD_W, CARD_H, CARD_GAP = 364, 84, 256, 472, 22
+
+-- The first prep board keeps to the scenes, the hand, seeds and the players (playtest, October
+-- 13: week 1 was a wall of about 60 controls). Evenings off, the world's moves, one-on-ones,
+-- Empathy and the long-term bars arrive in week 2, each with a tip. Nothing is gone: the world
+-- still moves off screen in week 1, it just isn't asked about.
+function M.staged(app)
+    return (app.campaign.week or 0) <= 1
+end
 local SLOT_H = 70
 
 local function tier_color(fun)
@@ -274,7 +282,7 @@ local function top_bar(app, prep)
     else
         kit.text(300, 24, "Game night is Thursday. Write three scenes.", "ui18", theme.dim)
     end
-    local pending = world.pending(app.campaign)
+    local pending = M.staged(app) and 0 or world.pending(app.campaign)
     local moved = notes_view_mod().threads_moved(app)
     -- All three are links into your notes (playtest, October 13: "5 world moves to decide" read
     -- as a label, and nobody found where to decide them).
@@ -599,7 +607,11 @@ local function drawer(app, prep)
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
     local sel = app.sel
     if not sel then
-        M.inspiration(app, prep, x, y)
+        if M.staged(app) then
+            M.first_prep(app, prep, x, y)
+        else
+            M.inspiration(app, prep, x, y)
+        end
         M.seeds(app, prep, x + 430, y)
         M.draw_toast(app, x + w / 2, y)
         return
@@ -1113,7 +1125,7 @@ function M.attention(app)
         table.insert(items, theories == 1 and "A theory in the group chat you haven't answered."
             or (util.int(theories) .. " theories in the group chat you haven't answered."))
     end
-    local moves = world.pending(c)
+    local moves = M.staged(app) and 0 or world.pending(c)
     if moves > 0 then
         table.insert(items, util.int(moves) .. (moves == 1 and " faction move" or " faction moves")
             .. " you haven't decided (This week, in your notes). They'll play out on their own.")
@@ -1380,9 +1392,11 @@ local function player_card(app, prep, p, i, forecast)
         end
     else
         local talked = prep.talked[p.key]
-        kit.button(x + w - 108, y + 10, 94, 30, talked and "Talked" or "Talk  2h", function()
-            talk_view.open(app, p.key)
-        end, { font = "ui14", enabled = (not talked) and prep:can_talk(p.key), key = "talk_" .. p.key })
+        if not M.staged(app) then
+            kit.button(x + w - 108, y + 10, 94, 30, talked and "Talked" or "Talk  2h", function()
+                talk_view.open(app, p.key)
+            end, { font = "ui14", enabled = (not talked) and prep:can_talk(p.key), key = "talk_" .. p.key })
+        end
         local warn = empathy.warning(level, p)
         local feud = M.feud_line(app, p)
         -- What a one-on-one told you (A6) takes the notes line.
@@ -1423,7 +1437,37 @@ local function player_card(app, prep, p, i, forecast)
             kit.text(x + 86, y + 108, "Finish the scene types to see a forecast", "ui14", theme.faint)
         end
     end
-    do
+    if M.staged(app) then
+        -- Week 1: what kind of scene they love and which bore them, where the long-term bars go
+        -- from week 2 (what you need for picking this week's scene types).
+        if p.present and not p.on_break then
+            local loves, bored = {}, {}
+            for _, id in ipairs(content.scenes.order) do
+                local t = score.taste(p, id)
+                if t >= 1 then
+                    table.insert(loves, { id, t })
+                elseif t < 0 then
+                    table.insert(bored, { id, t })
+                end
+            end
+            table.sort(loves, function(a, b) return a[2] > b[2] end)
+            table.sort(bored, function(a, b) return a[2] < b[2] end)
+            local function names(list, n)
+                local out = {}
+                for k, e in ipairs(list) do
+                    if k <= n then
+                        table.insert(out, content.scenes[e[1]].name)
+                    end
+                end
+                return #out > 0 and table.concat(out, ", ") or nil
+            end
+            local lv = names(loves, 2)
+            local bd = names(bored, 2)
+            kit.text(x + 14, y + 138, "Loves: " .. (lv or "a bit of everything"), "ui14", theme.green, { w = w - 28, lines = 1 })
+            kit.text(x + 14, y + 160, "Bored by: " .. (bd or "nothing much"), "ui14", bd and theme.orange or theme.dim,
+                { w = w - 28, lines = 1 })
+        end
+    else
         -- Long-term bars, as well as your Empathy lets you read them.
         local bars = {
             { "commitment", x + 14 }, { "trust", x + 196 },
@@ -1509,6 +1553,34 @@ function M.feud_line(app, p)
                 return f.other
             end
         end
+    end
+end
+
+-- Week 1's drawer, where evenings off go later: the whole of prep in four steps, ticked as you go.
+function M.first_prep(app, prep, x, y)
+    kit.text(x + 16, y + 10, "YOUR FIRST PREP", "ui14", theme.gold)
+    local typed, filled = 0, 0
+    for _, s in ipairs(prep.scenes) do
+        if s.type then
+            typed = typed + 1
+        end
+        for _ in pairs(s.slots or {}) do
+            filled = filled + 1
+        end
+    end
+    local steps = {
+        { "Pick a type for each scene. The table (right) says who'll love it.", typed == #prep.scenes },
+        { "Click a slot, then a card from your hand. Story cards move a story.", filled >= 2 },
+        { "Plant a seed (right) with an hour spare. It pays off in a week or three.", prep.planted ~= nil },
+        { "Run game night. Empty slots get improvised.", false },
+    }
+    local ty = y + 36
+    for i, st in ipairs(steps) do
+        local done = st[2]
+        kit.dot(x + 26, ty + 9, 18, done and theme.green or theme.panel3)
+        kit.text(x + 26, ty + 9, done and "" or util.int(i), "ui14", theme.text, { pivot = gui.PIVOT_CENTER })
+        kit.text(x + 44, ty, st[1], "ui14", done and theme.faint or theme.text, { w = 360, lines = 2 })
+        ty = ty + kit.text_height(st[1], "ui14", 360) + 7
     end
 end
 
@@ -1738,7 +1810,9 @@ function M.build(app)
                 "ui14", theme.orange, { pivot = gui.PIVOT_N })
         end
     end
-    empathy_meter(app)
+    if not M.staged(app) then
+        empathy_meter(app)
+    end
     local forecast = prep:forecast()
     for i, p in ipairs(app.campaign.players) do
         player_card(app, prep, p, i, forecast)

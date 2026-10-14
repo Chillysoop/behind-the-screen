@@ -249,4 +249,63 @@ check(K.gifts >= 3 and K.bad == 0 and K.dupes == 0 and K.fits == K.gifts,
 check(spread >= 2 and K.notices <= K.expect and (K.expect == 0 or K.notices >= 1),
     "How the DM takes a gift lands differently, and a gift put to work is noticed next session",
     string.format("%d different landings; %d noticed of %d put to work", spread, K.notices, K.expect))
+-- The October 13 playtest pass. The verdict reads the night as the table saw it: a player who
+-- drifted most of the night can't have loved it, and one who never did keeps their score.
+do
+    local report = require "game.model.report"
+    local p = { key = "dev" }
+    local drifted = { lived = { time = 100, sum = { dev = 38 }, low = { dev = 80 } } }
+    local fine = { lived = { time = 100, sum = { dev = 55 }, low = { dev = 0 } } }
+    local f1, why1 = report.felt(drifted, p, 85)
+    local f2, why2 = report.felt(fine, p, 85)
+    local f3 = report.felt({}, p, 85)
+    check(f1 < 55 and why1 ~= nil and f2 == 85 and why2 == nil and f3 == 85,
+        "The verdict follows the tells: drifting all night caps it, a good night keeps its score",
+        string.format("drifted 85 -> %.0f (%s), engaged 85 -> %.0f", f1, tostring(why1), f2))
+end
+-- "Turn to them": the next roll and the next card go to the player you turned to.
+do
+    local night_mod = require "game.model.night"
+    local players = { { key = "mara", m = { spotlight = 50 } }, { key = "sam", m = { spotlight = 10 } } }
+    local n = setmetatable({ players = players, scene = { index = 2 }, owed = { key = "sam", rolls = 1, cards = 1, scene = 2 } },
+        { __index = night_mod })
+    local r = n:take_owed("rolls")
+    local c = n:take_owed("cards")
+    local again = n:take_owed("rolls")
+    local m = setmetatable({ players = players, scene = { index = 5 }, owed = { key = "sam", rolls = 1, cards = 1, scene = 2 } },
+        { __index = night_mod })
+    check(r == players[2] and c == players[2] and again == nil and n.owed == nil and m:take_owed("rolls") == nil,
+        "A spotlight handed over: Sam gets the next roll and card, once, and it lapses after the next scene", "")
+end
+-- "Previously on": last session a line a scene, at the top of the prep board.
+do
+    local chronicle = require "game.model.chronicle"
+    local c = campaign_mod.new(41)
+    local style = styles.balanced
+    local rng = rng_mod.new(41)
+    local lines_ok, weeks = true, 0
+    for w = 1, 3 do
+        local prep = c:start_week()
+        local pv = chronicle.previously(c)
+        if w >= 2 then
+            weeks = weeks + 1
+            if not (pv and #pv.lines >= 1 and pv.title == "LAST TIME") then
+                lines_ok = false
+            end
+            for _, l in ipairs(pv and pv.lines or {}) do
+                if not string.find(l.text, "^S%d ") or #l.text > 170 then
+                    lines_ok = false
+                end
+            end
+        end
+        style.prep(prep, rng, c)
+        local night = c:start_night()
+        local ev = night:advance()
+        while ev.kind ~= "done" do
+            ev = night:advance(answer(ev, rng, style))
+        end
+        c:finish_night()
+    end
+    check(lines_ok and weeks == 2, "Previously on: a short line for every scene last session", "")
+end
 os.exit(ok_all and 0 or 1)

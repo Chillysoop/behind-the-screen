@@ -266,6 +266,18 @@ before you click; notes on the board ("in your hand", "In your deck") follow wha
 place (no doors sealing on a forest road), boss options say only what's true, and the hidden DC stays off the
 player's card. Full notes: the design doc's "Playtest, October 13" tab.
 
+**Reading the story, and a gentler start (October 14).** The four fixes the playtest pointed to first.
+*Previously on*: the top of the prep board's left column shows last session a line a scene ("S1 Kettle (talk):
+met Wren; clue: Old Tobin came down white as milk. Won."), each line opening that storyline's log; in week 1 it
+shows what Session Zero wrote into each past. *Calls that stick*: "Turn to Oswin" gives Oswin the next big roll and
+the next card that could be anyone's (and he walks up for the next Talk as them); an improvised goal is said at once,
+and an improvised complication or reward says when it lands. *The first prep board* keeps to the scenes, the hand,
+seeds and the players (with the kinds of scene each loves and finds boring); evenings off, the world's moves,
+one-on-ones, Empathy and the long-term bars arrive in week 2 with a tip each. *The verdict follows the tells*: the
+report reads each player's night as the table saw it, so someone drifting or showing a bad mood for most of it can't
+come out "Loved it", and a bad mood only shows when it agrees with how they're doing (`game/model/report.lua`
+LIVED; `game/model/night.lua` LOW_TELL, MOOD_TELL).
+
 **Their backstories, at Session Zero (October 13).** After the tone, the asks and the table rules, each
 player gets a page of their own: they pitch their hero's past, you ask what you want to know (six questions,
 all told, and Sam doesn't love being put on the spot), answer the idea they bring, and choose what from that
@@ -457,6 +469,7 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/model/deck.lua`, `planner.lua`, `ledger.lua`, `world.lua` | The story deck, the campaign planner, the notebook's ledger and attitudes, the world's moves |
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
 | `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
+| `game/ui/previously_view.lua` | "Previously on" at the top of the prep board's left column (from `chronicle.previously`) |
 | `game/model/chronicle.lua`, `game/ui/story_log_view.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, its notebook page and prep panel, the keywords and what they mean |
 | `game/data/backstories.lua`, `game/model/backstory.lua`, `game/ui/backstory_view.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |

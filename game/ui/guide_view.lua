@@ -84,6 +84,9 @@ local function draw(app, step)
     app.guide_layer = l
     kit.into(l, function()
         local a = step.anchor
+        if type(a) == "function" then
+            a = a(app)
+        end
         if a then
             local gold = kit.rgba("#e8b04a", 0.95)
             kit.box(a[1], a[2], a[3], BORDER, gold, { round = false })
