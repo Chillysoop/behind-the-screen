@@ -28,7 +28,7 @@ local M = {}
 M.glossary = glossary
 
 local KEEP = { clue = true, goal = true, fail_card = true, killing_blow = true, villain_falls = true, escape = true,
-               defeat = true, death = true, payoff = true, theory = true, retort = true, thread_back = true }
+               defeat = true, death = true, payoff = true, theory = true, retort = true, thread_back = true, down = true }
 
 local function deck()
     return require "game.model.deck"
@@ -451,8 +451,12 @@ function M.compose(campaign, d, rec, story_people, filed)
         for _, c in ipairs(rec.cards or {}) do
             local card = content.components[c.id]
             if mine[c.id] and not heard[c.id] and card and c.kind ~= "reward" and c.kind ~= "location" and told < 3 then
-                local line = content.line_for(card, loc)
-                if line then
+                -- Nobody read it out word for word: say what it was, not the DM's prep line (the
+                -- table never heard that).
+                local name = card.name or ""
+                local line = (c.kind == "goal" and ("Goal: " .. util.lower_first(name)))
+                    or (c.kind == "cast" and ("With " .. util.lower_first(name))) or name
+                if line ~= "" then
                     told = told + 1
                     add(line)
                 end
@@ -475,6 +479,8 @@ function M.compose(campaign, d, rec, story_people, filed)
             and (by_hero or people[b.to] or b.k == "thread_back") then
             add(b.text, b.who)
         elseif (b.k == "defeat" or b.k == "death") and (by_hero or has_foe or not hero) then
+            add(b.text, b.who)
+        elseif b.k == "down" and by_hero then
             add(b.text, b.who)
         elseif b.k == "did" and people[b.to] and not dealt[b.to] then
             dealt[b.to] = true
@@ -517,7 +523,8 @@ function M.compose(campaign, d, rec, story_people, filed)
         for _, n in ipairs(next_names) do
             table.insert(quoted, '"' .. n .. '"')
         end
-        add((#quoted == 1 and "New lead: " or "New leads: ") .. util.join_names(quoted) .. ".")
+        -- Cards it opened for the weeks ahead: what could come next, not what happened.
+        add("Could come next: " .. util.join_names(quoted) .. ".")
     end
     -- Nothing kept but that it moved (a backfilled week): say where at least.
     if #parts == 0 then

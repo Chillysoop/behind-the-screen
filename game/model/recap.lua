@@ -156,16 +156,20 @@ function M.build(campaign, night, rng)
         local e = x.e
         local cap = e.ev == "moment" and 2 or 1
         if (per[e.ev] or 0) < cap and #beats < 6 and not used_text[e.text or e.ev] then
-            per[e.ev] = (per[e.ev] or 0) + 1
-            used_text[e.text or e.ev] = true
-            top = top or e
             local tpl = pick(M.TEMPLATES[e.ev], rng)
             local text = util.sentence_case(util.fill(tpl, vars_for(campaign, night, e)))
             text = string.gsub(text, "%.%.", ".")
             if not string.find(text, "[%.!?\"]$") then
                 text = text .. "."
             end
-            table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who })
+            -- Two events can come out as the same sentence (playtest, October 13: one beat twice).
+            if not used_text[text] then
+                per[e.ev] = (per[e.ev] or 0) + 1
+                used_text[e.text or e.ev] = true
+                used_text[text] = true
+                top = top or e
+                table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who })
+            end
         end
     end
     -- In the order they happened.

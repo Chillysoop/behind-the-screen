@@ -2033,7 +2033,8 @@ function M:give_inspiration(p)
     score.add(p, "fun", 4)
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "token", who = p.key, what = "inspiration" })
-    self:say("You flick the Heroic Inspiration token across the table. It lands in front of " .. p.name .. ".", "dm")
+    self:say("You flick the Heroic Inspiration token across the table. It lands in front of " .. p.name
+        .. ": one reroll, to spend whenever " .. p.char .. " needs it.", "dm")
     self:event("inspiration", { who = p.key, text = p.char .. " earned Heroic Inspiration." })
     if again then
         self:fairness_noticed(p, "inspiration")
@@ -2419,9 +2420,11 @@ function M:big_roll(spec, record)
         card = fan[util.clamp(math.floor(tonumber(pick) or 1), 1, #fan)]
         pick = 1
     end
+    local inspired = false
     if inspire_at and tonumber(pick) == inspire_at then
         self:give_inspiration(p)
         pick = 1
+        inspired = true   -- the token is the extra
     end
     pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #rule.options)
     local reported_total = reported + mod
@@ -2471,26 +2474,39 @@ function M:big_roll(spec, record)
         success = ro.success
     end
     local branch = success and spec.success or spec.fail
+    -- A triumph never reads as a near thing (playtest, October 13: a natural 20 came out
+    -- "Handled. Barely").
+    local branch_log = (success and tier == "triumph" and branch.big) or branch.log
     -- How the fail card says it went, then what it means (the story playtest: "They've been seen"
     -- followed by a near-miss line read as two different stories). A plain check's fail line says
     -- it all on its own.
     if ro.fail_line and not success then
         self:say(ro.fail_line, "bad")
-        if not spec.fail_replaces then
-            self:say(branch.log, "bad")
+        -- Their own idea is how it went: the roll's own fail line would contradict it (playtest,
+        -- October 13: "it's the wrong something", then "Nobody notices a thing").
+        if not spec.fail_replaces and not (card and card.kind == "framed") then
+            self:say(branch_log, "bad")
         end
     else
-        self:say(branch.log, success and "good" or "bad")
+        self:say(branch_log, success and "good" or "bad")
         if ro.fail_line then
             self:say(ro.fail_line, "twist")
         end
     end
     self:apply(branch.effects)
     self:apply(ro.effects)
+    -- What the DM's call added: the extra, the cost or the new problem, by name.
+    local ruled = ro.lines and self.rng:pick(ro.lines) or ro.log
     if ro.tone == "good" then
+        if ruled and not inspired then
+            self:say(ruled, "good")
+        end
         self:react({ [self.actor and self.actor.key or self.players[1].key] = "cheer" })
         self:bark(self.actor, "ruling_good")
     elseif ro.tone == "bad" then
+        if ruled then
+            self:say(ruled, "bad")
+        end
         local poses = {}
         for _, q in ipairs(self.players) do
             poses[q.key] = "gasp"
@@ -2498,10 +2514,10 @@ function M:big_roll(spec, record)
         self:react(poses)
         self:bark(self:pick_actor({ "butt_kicker", "instigator" }), "ruling_bad")
     elseif ro.tone == "twist" then
-        self:say(ro.log, "twist")
+        self:say(ruled, "twist")
     end
     if success and self.actor and not spec.quiet then
-        self:highlight(6, M.moment_of(util.fill(branch.log, self:vars())), { self.actor })
+        self:highlight(6, M.moment_of(util.fill(branch_log, self:vars())), { self.actor })
     end
     local rec = record or (self.decisions[#self.decisions] and self.decisions[#self.decisions].rolls)
     if rec then
@@ -2654,7 +2670,8 @@ function M:decision(card, extra)
         end
         if has_roll then
             self.scene.owners_rolled = self.scene.owners_rolled or {}
-            for _, c in pairs(self.scene.comps) do
+            -- In a fixed order: with two stories on the scene, the first match decides.
+            for _, c in util.sorted_pairs(self.scene.comps) do
                 local owner = c.thread and not self:muted(c) and not self.scene.owners_rolled[c.thread]
                     and find_present(self.players, c.thread)
                 if owner then
@@ -4551,13 +4568,13 @@ function M:trap_scene(sc, tid)
     local passive_ok = find_skill == "perception"
     local card = {
         id = "trap_" .. tid, type = "rules",
-        title = "A " .. string.lower(t.name) .. " ahead",
+        title = "Trap ahead: " .. string.lower(t.name),
         text = "Only you know it's there: " .. t.about .. " (" .. t.src .. ") How do they go in?",
         options = {
             { label = "{actor_char} checks ahead (" .. skills.name(find_skill) .. ", DC " .. util.int(dc) .. ")",
               log = "{actor_char} goes first, slowly, looking at everything.", mode = "search",
               effects = { { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 } } },
-            { label = passive_ok and "Everyone watches where they step (passive Perception)" or "Everyone just walks carefully",
+            { label = passive_ok and "Everyone watches where they step (passive Perception: no roll, their best eye)" or "Everyone just walks carefully",
               log = "You ask what everyone's watching, and check it against the trap.", mode = "passive",
               effects = { { "arch:casual", fun = 2 } } },
             { label = "Keep it moving: they walk right in",
@@ -5223,11 +5240,11 @@ function M:intro()
                 table.insert(bits, util.int(left) .. (left == 1 and " spell slot" or " spell slots") .. " left")
             end
             if #bits > 0 then
-                table.insert(hurt, c.name .. " " .. table.concat(bits, ", "))
+                table.insert(hurt, c.name .. ": " .. table.concat(bits, ", "))
             end
         end
         if #hurt > 0 then
-            self:say("Where we left off, no rest since: " .. table.concat(hurt, "; ") .. ".", "recap")
+            self:say("They haven't rested since last session. " .. table.concat(hurt, "; ") .. ".", "recap")
         end
     end
     local beat = self.campaign:arc_beat()

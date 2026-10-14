@@ -68,12 +68,38 @@ local function line_key(kind, act, i)
 end
 
 -- A line of this kind for this action, fitted to the scene, and not used in the last weeks.
-local function pick_line(night, kind, act, has_cast)
+-- Somewhere with walls and doors, and whether there's anything to fight (playtest, October 13:
+-- "the doors seal" on a forest road, "the creature" in front of a secret door).
+local INSIDE = { tavern = true, shop = true, indoor = true, under = true, bells = true, ship = true }
+
+local function inside(sc)
+    local loc = sc and sc.comps and sc.comps.location
+    for _, set in ipairs(loc and loc.setting or {}) do
+        if INSIDE[set] then
+            return true
+        end
+    end
+    return false
+end
+
+local function has_foe(sc)
+    if not sc then
+        return false
+    end
+    if sc.type == "combat" or sc.type == "set_piece" then
+        return true
+    end
+    local cast = sc.comps and sc.comps.cast
+    return cast ~= nil and cast.foe == true
+end
+
+local function pick_line(night, kind, act, has_cast, sc)
     local f = M.get(night.campaign)
     local pool, keys = {}, {}
     local list = kind == "pratfall" and data.LINES.pratfall or (data.LINES[kind] and data.LINES[kind][act]) or {}
+    local walls, foe = inside(sc), has_foe(sc)
     for i, l in ipairs(list) do
-        local ok = (not l.act or l.act == act) and (has_cast or not l.cast)
+        local ok = (not l.act or l.act == act) and (has_cast or not l.cast) and (walls or not l.inside) and (foe or not l.foe)
         local key = line_key(kind, kind == "pratfall" and "any" or act, i)
         local rec = f.lines[key]
         if ok and not (rec and stale.too_soon(rec, night.campaign.week, 3)) and not (night.fail_used and night.fail_used[key]) then
@@ -152,7 +178,7 @@ function M.fan(night, p, skill, sc, tier, act)
             idx[j] = j
         end
         local kind = table.remove(kinds, night.rng:weighted(idx, wl))
-        local text, key = pick_line(night, kind, act, cast ~= nil)
+        local text, key = pick_line(night, kind, act, cast ~= nil, sc)
         if text then
             text = util.sentence_case(util.fill(text, vars))
             used[kind] = true
@@ -166,8 +192,11 @@ function M.fan(night, p, skill, sc, tier, act)
     -- Trust 75 and up: they ask to describe their own fail.
     if p and (p.trust or 0) >= data.FRAME_TRUST then
         local list = data.FRAMED[act] or data.FRAMED.know
-        local idea = util.fill(list[night.rng:int(1, #list)], vars)
-        table.insert(cards, { kind = "framed", text = idea, ask = idea, label = p.name .. " asks: \"" .. idea .. "\" Let them.",
+        local pair = list[night.rng:int(1, #list)]
+        local idea = util.fill(pair[1], vars)
+        -- When you let them, the table hears what happens (not the question again).
+        local told = p.name .. " tells it: " .. util.fill(pair[2], vars)
+        table.insert(cards, { kind = "framed", text = told, ask = idea, label = p.name .. " asks: \"" .. idea .. "\" Let them.",
                               tone = "good" })
     end
     return cards, act

@@ -499,7 +499,7 @@ function M.after_night(campaign, night)
     local deck = require "game.model.deck"
     for _, sc in ipairs(night.scenes or {}) do
         if deck.outcome_of(sc) == "win" then
-            for _, c in pairs(sc.comps) do
+            for _, c in util.sorted_pairs(sc.comps) do
                 for _, d in ipairs(M.defs(campaign)) do
                     local st = s[d.id]
                     if st and st.state == "open" and d.ends and util.contains(d.ends, c.id) then

@@ -270,7 +270,15 @@ local function tab_story(app, x, y, w)
         end
         if week then
             if #week.scenes > 0 then
-                ry = para(rx + 22, ry, rw - 22, "Where they went: " .. table.concat(week.scenes, ", "), "ui14", theme.text)
+                -- (A place two scenes shared is said once.)
+                local places, seen = {}, {}
+                for _, name in ipairs(week.scenes) do
+                    if not seen[name] then
+                        seen[name] = true
+                        table.insert(places, name)
+                    end
+                end
+                ry = para(rx + 22, ry, rw - 22, "Where they went: " .. table.concat(places, ", "), "ui14", theme.text)
             end
             for _, m in ipairs(week.moments or {}) do
                 ry = para(rx + 22, ry, rw - 22, "Moment: " .. m, "ui14", theme.text)

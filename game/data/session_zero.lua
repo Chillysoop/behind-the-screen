@@ -107,7 +107,7 @@ local S0 = {
         },
         dice = {
             name = "Your screen",
-            about = "What stays behind the DM screen: the DCs you set and your own rolls.",
+            about = "Behind your screen: your rolls, and the DCs (the number to beat).",
             order = { "big_open", "open", "screen" },
             big_open = { name = "Big moments in the open", like = { mara = 1, dev = 1, jess = 0, sam = 1 },
                          says = { dev = "Crits and deaths where I can see them. Good." } },

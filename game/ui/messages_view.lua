@@ -81,26 +81,65 @@ end
 local function group_chat(app, y0)
     local c = app.campaign
     local msgs = c.chat or {}
+    -- Private messages wait behind the other tab: say so here, where you're already looking
+    -- (playtest, October 13: a player's message sat unseen until every hour was spent).
+    local new = {}
+    for _, r in ipairs(M.rows(app)) do
+        if r.state == "New" then
+            table.insert(new, r.title)
+        end
+    end
+    if #new > 0 then
+        local label = (#new == 1 and (new[1] .. " sent you a private message.") or (util.int(#new) .. " private messages for you."))
+            .. "  Read"
+        kit.button(X, y0, W, 30, "", function()
+            app.chat_tab = "messages"
+            app.refresh()
+        end, { color = kit.rgba("#4a3a1c"), hover = theme.button_hover, key = "chat_unread" })
+        kit.text(X + 12, y0 + 6, label, "ui14", theme.gold, { w = W - 24, lines = 1 })
+        y0 = y0 + 38
+    end
     -- Like any chat: the newest messages at the bottom; older ones scroll off the top.
     local heights = {}
     for i, m in ipairs(msgs) do
         heights[i] = 30 + kit.text_height(m.text, "ui18", W - 24) + (m.choices and 34 or 0)
     end
     local room = bottom(app) - y0
-    local first, used = #msgs + 1, 0
-    for i = #msgs, 1, -1 do
-        if used + heights[i] + 8 > room - (i > 1 and 22 or 0) then
+    -- Scrolled back (the wheel, or "earlier messages"): app.chat_back messages hidden at the bottom.
+    local back = util.clamp(app.chat_back or 0, 0, math.max(0, #msgs - 1))
+    app.chat_back = back
+    local newest = #msgs - back
+    local below = back > 0 and 30 or 0
+    local first, used = newest + 1, 0
+    for i = newest, 1, -1 do
+        if used + heights[i] + 8 > room - below - (i > 1 and 26 or 0) then
             break
         end
         used = used + heights[i] + 8
         first = i
     end
+    if first > newest and newest >= 1 then
+        first = newest   -- one tall message: show it anyway
+    end
+    app.chat_first, app.chat_newest = first, newest
     local y = y0
     if first > 1 then
-        kit.text(X, y, util.int(first - 1) .. (first == 2 and " earlier message" or " earlier messages"), "ui14", theme.faint)
-        y = y + 22
+        local label = util.int(first - 1) .. (first == 2 and " earlier message" or " earlier messages") .. "  (scroll up)"
+        kit.button(X, y - 2, W, 22, "", function()
+            app.chat_back = #msgs - (first - 1)
+            app.refresh()
+        end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "chat_earlier" })
+        kit.text(X, y, label, "ui14", theme.faint)
+        y = y + 26
     end
-    for i = first, #msgs do
+    if back > 0 then
+        kit.button(X, bottom(app) - 26, W, 24, util.int(back) .. (back == 1 and " newer message" or " newer messages")
+            .. "  (back to the newest)", function()
+            app.chat_back = 0
+            app.refresh()
+        end, { font = "ui14", color = theme.panel3, key = "chat_newer" })
+    end
+    for i = first, newest do
         local m = msgs[i]
         local h = heights[i]
         local th = h - (m.choices and 34 or 0)
@@ -111,7 +150,8 @@ local function group_chat(app, y0)
         if m.choices then
             local by = y + th
             if m.answered then
-                kit.text(X + 12, by + 4, "You: " .. m.answered, "ui14", theme.teal)
+                kit.text(X + 12, by + 4, m.made_true and "You made it true. They don't know yet." or ("You: " .. m.answered),
+                    "ui14", theme.teal)
             else
                 local bw = (W - 24 - 12) / 3
                 for k, label in ipairs(m.choices) do
@@ -148,12 +188,35 @@ local function message_list(app, y0)
         kit.text(X + W - 12, y + 10, r.state, "ui14", sc, { pivot = gui.PIVOT_NE })
         kit.text(X + 12, y + 34, r.preview, "ui14", theme.dim, { w = W - 24, lines = 2 })
         y = y + h + 8
+        -- Why it wouldn't open, right under it.
+        if app.convo_why and app.convo_why.id == r.id then
+            kit.text(X + 12, y - 4, app.convo_why.text, "ui14", theme.orange, { w = W - 24 })
+            y = y + kit.text_height(app.convo_why.text, "ui14", W - 24) + 6
+        end
     end
+end
+
+-- The wheel over the group chat scrolls it: true if it took the wheel.
+function M.on_wheel(app, x, y, dir)
+    local ly = kit.H - y
+    if app.screen ~= "prep" or app.overlay or app.ask or app.convo or (app.chat_tab or "group") ~= "group" then
+        return false
+    end
+    if x < X or x > X + W or ly < 112 or ly > bottom(app) then
+        return false
+    end
+    local n = #(app.campaign.chat or {})
+    app.chat_back = util.clamp((app.chat_back or 0) - dir, 0, math.max(0, n - 1))
+    app.refresh()
+    return true
 end
 
 -- The left column of the prep board.
 function M.column(app)
     app.chat_tab = app.chat_tab or "group"
+    if app.chat_week ~= app.campaign.week then
+        app.chat_week, app.chat_back = app.campaign.week, 0
+    end
     local unread = M.unread(app)
     local tabs = { { "group", "GROUP CHAT" }, { "messages", unread > 0 and ("MESSAGES  " .. util.int(unread)) or "MESSAGES" } }
     for i, t in ipairs(tabs) do
@@ -184,9 +247,11 @@ function M.open(app, id)
     local thread, why = prep:open_convo(id)
     if not thread then
         app.toast = why
+        app.convo_why = { id = id, text = why or "You can't open that one now." }
         app.refresh()
         return
     end
+    app.convo_why = nil
     app.convo = id
     app.convo_note = nil
     app.refresh()

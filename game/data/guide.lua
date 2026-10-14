@@ -76,7 +76,7 @@ return {
             id = "s0_rules", screen = "session_zero", at = S0,
             anchor = { 1062, 84, 520, 594 },
             title = "Table rules",
-            text = "Three house rules, and everyone has an opinion. When you've answered everything, go on to their backstories (bottom right).",
+            text = "The house rules, and everyone has an opinion. When you've answered everything, go on to their backstories (bottom right).",
             done = function(app)
                 local r = app.s0 and app.s0.rules or {}
                 return r.xcard ~= nil and r.dice ~= nil and r.rulings ~= nil

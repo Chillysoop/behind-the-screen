@@ -246,7 +246,7 @@ function M.after_night(campaign, night)
     local seen = {}
     for _, sc in ipairs(night.scenes or {}) do
         if sc.terrain and sc.outcome then
-            for _, c in pairs(sc.comps) do
+            for _, c in util.sorted_pairs(sc.comps) do
                 for _, t in ipairs(c.cross or {}) do
                     if t ~= home and M.def(t) and not seen[t] then
                         seen[t] = true
@@ -269,7 +269,7 @@ function M.course_after(campaign, night)
     end
     for _, sc in ipairs(night.scenes or {}) do
         if sc.terrain and sc.outcome then
-            for _, c in pairs(sc.comps) do
+            for _, c in util.sorted_pairs(sc.comps) do
                 if c.gateway == course.target then
                     if c.id == course.force then
                         M.set_home(campaign, course.target, "force")

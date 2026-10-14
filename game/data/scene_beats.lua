@@ -60,7 +60,7 @@ return {
                      fail = { log = "It goes wrong in the funniest possible way.", effects = { { "all", social = 4 }, { "actor", fun = 1 } } } },
         complication = { text = "{actor_char} tries to handle it: {complication}.", dc = 13,
                          skill = { "athletics", "acrobatics", "insight" },   -- unless the complication names its own
-                         success = { log = "Handled. Barely, but handled.", effects = { { "actor", spotlight = 8 }, { "all", challenge = 3 } } },
+                         success = { log = "Handled. Barely, but handled.", big = "Handled, and handsomely.", effects = { { "actor", spotlight = 8 }, { "all", challenge = 3 } } },
                          fail = { log = "It gets away from them. The scene just got harder.", effects = { { "all", challenge = 7, story = 2 } } } },
     },
 

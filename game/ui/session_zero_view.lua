@@ -248,12 +248,16 @@ local function rules(app, c)
             y = y + 34
         end
         end
-        -- What people said about the chosen option.
+        -- What people said about the chosen option: whoever feels most strongly about it.
         local o = c.rules[rk] and r[c.rules[rk]]
-        local said
+        local said, strongest
         for _, key in ipairs(content.players.order) do
-            if o and o.says and o.says[key] and not said then
-                said = content.players[key].name .. ': "' .. o.says[key] .. '"'
+            if o and o.says and o.says[key] then
+                local v = math.abs((o.like or {})[key] or 0)
+                if not strongest or v > strongest then
+                    strongest = v
+                    said = content.players[key].name .. ': "' .. o.says[key] .. '"'
+                end
             end
         end
         kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
@@ -298,8 +302,9 @@ function M.build(app)
     kit.button(1356, 830, 220, 50, "Backstories  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_next" })
-    kit.text(1340, 846, ready and "Next: each player's backstory, and what you write into the world."
-        or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+    -- (Short, so it clears how everyone feels, on the left.)
+    kit.text(1340, 846, ready and "Next: their backstories." or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim,
+        { pivot = gui.PIVOT_NE })
 end
 
 return M

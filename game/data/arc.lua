@@ -55,7 +55,7 @@ return {
         { id = "stranger", name = "Wren", role = "The bell-ringer's apprentice", sprite = "npc_stranger", reveal_only = true,
           about = "Watched her master come down from the tower white as milk, the night the bells went quiet." },
         { id = "tobin", name = "Old Tobin", role = "Bell-ringer of Millbrook, missing", sprite = nil, known = true,
-          about = "Rang the bells for forty years. Took the north road nine days ago and never came back." },
+          about = "Rang the bells for forty years. Took the north road the night they went quiet, and never came back." },
         { id = "corin", name = "Corin", role = "Ilsa's assistant", sprite = "npc_corin",
           about = "Kept Ilsa's notes after she vanished. Flinches when anyone says her name." },
         { id = "madame_sable", name = "Madame Sable", role = "Collector for the Velvet Hand", sprite = "npc_sable",
@@ -117,15 +117,15 @@ return {
                 .. "toward the hills the bells used to watch.",
             -- When the party found this last week, the DM opens with what it means.
             open_if = { clue = "stranger", text = "Morning, and the rain has finally stopped. The north road climbs out "
-                .. "of Millbrook into the pines: the way Old Tobin went nine days ago, and never came back." },
+                .. "of Millbrook into the pines: the way Old Tobin went the night the bells stopped, and never came back." },
             open_place = "forest_road",
             open_else = "Morning, and the rain has finally stopped. Above Millbrook, the bells are still silent.",
-            open_else_if = "Morning, and the rain has finally stopped. Nine days ago, Old Tobin took the north road "
+            open_else_if = "Morning, and the rain has finally stopped. The night the bells stopped, Old Tobin took the north road "
                 .. "into the pines, and never came back.",
             -- They've walked it before: no "the north road climbs" as if it were new (A11).
             open_again = "Morning, and the rain has finally stopped. Back up the north road, then, into the pines.",
             open_again_if = "Morning, and the rain has finally stopped. Back up the north road, then: the way Old Tobin "
-                .. "went nine days ago, and never came back.",
+                .. "went the night the bells stopped, and never came back.",
             cards = { "forest_road", "chapel", "hidden_map" },
             pressure = { spotlight = 18, rules = 8 },     -- Jess has found her groove; the first rules calls
             reveal = {

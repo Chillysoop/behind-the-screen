@@ -75,7 +75,20 @@ function M.draw(app, on_click)
             if on_click then
                 on_click(p.key)
             end
-        end, { color = theme.bg_glass, hover = kit.rgba("#2a1f18", 0.92), radius = 10, key = "panel_" .. p.key })
+        end, { color = theme.bg_glass, hover = kit.rgba("#2a1f18", 0.92), radius = 10, key = "panel_" .. p.key,
+               -- What the two bars are (playtest, October 13: "unlabelled meters").
+               on_hover = function(_, entering)
+                   for _, n in ipairs({ chip.tip_bg, chip.tip }) do
+                       if n then
+                           pcall(gui.set_enabled, n, entering and true or false)   -- gone after a rebuild
+                       end
+                   end
+               end })
+        local tip_text = "Gold bar: fun tonight.  Blue bar: spotlight."
+        chip.tip_bg = kit.box(x, y - 30, kit.width(tip_text, "ui14") + 20, 24, theme.bg, { radius = 8 })
+        chip.tip = kit.text(x + 10, y - 27, tip_text, "ui14", theme.text)
+        gui.set_enabled(chip.tip_bg, false)
+        gui.set_enabled(chip.tip, false)
         local col = M.COLORS[p.key] or theme.panel3
         local dim = p.present and 1 or 0.35
         kit.dot(x + 40, y + 41, 66, alpha(col, 0.55 * dim))

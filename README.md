@@ -249,11 +249,22 @@ backstory (or the story's hook) and what their player said at the first session,
 it (where, what kind of scene, how it went, what the table heard, what the heroes did, what it turned up and
 the leads it opened), this week's plans and tonight's scenes as they play, the leads waiting in the deck, and
 the people, places, factions and heroes it involves. Names are lit: hover one for who or what it is and which
-stories it's part of; click a storyline's name to read that one. Place a card that moves a storyline and its
-log opens beside the prep board, the card you just placed marked; S opens it any time (on game night and the
+stories it's part of; click a storyline's name to read that one. It opens on the latest scenes ("More above" for
+the start). The first card each week that moves a storyline opens its log beside the prep board, the card you
+just placed marked (and an open log follows what you place); S opens it any time (on game night and the
 report, it's the Story log page in your notes). For deciding fast, point at any storyline's name for the story at a
 glance: its gist, then one short step per scene ("S1 Kettle (showdown): Sable's collectors come calling, won"),
 what's waiting in the deck and how urgent it is.
+
+**Ease-of-understanding pass (October 13 playtest).** Two fresh-eyes playtests (a newcomer and a veteran
+DM) found the game charming but hard to read; this pass fixes what was quick. Rulings name what they add ("Yes,
+and" names the extra, "Yes, but" the cost), a natural 20 never reads "Barely", and a player's own idea for their
+failure is what happens. Private messages announce themselves in the group chat, which scrolls back (wheel, or
+"earlier messages"); "Make it true" answers the theory's chat post too. The world-moves line at the top of prep
+opens your notes; the Session Zero pick leads "Who's this session for?"; cards tied to another place say so
+before you click; notes on the board ("in your hand", "In your deck") follow what's placed. Fail lines fit the
+place (no doors sealing on a forest road), boss options say only what's true, and the hidden DC stays off the
+player's card. Full notes: the design doc's "Playtest, October 13" tab.
 
 **Their backstories, at Session Zero (October 13).** After the tone, the asks and the table rules, each
 player gets a page of their own: they pitch their hero's past, you ask what you want to know (six questions,

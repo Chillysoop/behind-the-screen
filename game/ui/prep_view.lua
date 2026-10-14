@@ -276,16 +276,30 @@ local function top_bar(app, prep)
     end
     local pending = world.pending(app.campaign)
     local moved = notes_view_mod().threads_moved(app)
+    -- All three are links into your notes (playtest, October 13: "5 world moves to decide" read
+    -- as a label, and nobody found where to decide them).
+    local nw = kit.width("Your notes (N)", "ui14")
+    kit.button(808 - nw - 4, 8, nw + 8, 22, "", function()
+        app.open_notes()
+    end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "prep_notes" })
     kit.text(808, 12, "Your notes (N)", "ui14", (pending > 0 or moved) and theme.orange or theme.faint, { pivot = gui.PIVOT_NE })
+    local function link(text, tab, key)
+        local tw = kit.width(text, "ui14")
+        kit.button(912, 8, tw + 8, 22, "", function()
+            app.open_notes(tab)
+        end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = key })
+        kit.text(916, 12, text, "ui14", theme.orange)
+        kit.box(916, 12 + kit.line_height("ui14") - 3, tw, 1.5, theme.orange, { round = false })
+    end
     if moved and pending == 0 then
-        kit.dot(808 - kit.width("Your notes (N)", "ui14") - 10, 20, 10, theme.orange)
-        kit.text(916, 12, "A thread moved (Threads, in your notes)", "ui14", theme.orange)
+        kit.dot(808 - nw - 10, 20, 10, theme.orange)
+        link("A storyline moved: see Storylines", "threads", "prep_threads_moved")
     end
     if pending > 0 then
         -- The world's moves wait in your notes (This week): a dot until you've decided them.
-        kit.dot(808 - kit.width("Your notes (N)", "ui14") - 10, 20, 10, theme.orange)
-        kit.text(916, 12, util.int(pending) .. (pending == 1 and " world move to decide" or " world moves to decide"), "ui14",
-            theme.orange)
+        kit.dot(808 - nw - 10, 20, 10, theme.orange)
+        link(util.int(pending) .. (pending == 1 and " world move to decide" or " world moves to decide") .. ": open", "week",
+            "prep_world_moves")
     end
     -- Prep hours as pips.
     local left = math.max(0, prep:left())
@@ -337,7 +351,9 @@ local function theory_pins(app)
         kit.text(34, y + h - 38, under, "ui14", theme.ink_dim, { w = 172, lines = 2 })
         kit.button(214, y + h - 34, 120, 28, "Make it true", function()
             local done, msg = seeds_mod.steal(c, th)
-            app.toast = done and ((p and p.name or "They") .. " is going to be insufferable about this.") or msg
+            local who = p and p.name or "They"
+            app.toast = done and ("Canon now: when \"" .. content.seeds[th.seed].name .. "\" pays off, it proves " .. who
+                .. " right. " .. who .. " is going to be insufferable about this.") or msg
             app.refresh()
         end, { font = "ui14", enabled = ok, color = theme.go, hover = theme.go_hover, key = "steal_" .. th.seed })
         y = y + messages_view.PIN_H
@@ -561,6 +577,23 @@ local function fit_text(c, scene_type)
     return "A stretch here", kit.rgba("#a0522d")
 end
 
+-- A short note about what just happened (or why it couldn't), as a pill on the drawer's top edge
+-- so it never sits on top of the cards' own text (playtest, October 13).
+function M.draw_toast(app, cx, y)
+    if not app.toast then
+        return
+    end
+    local text = app.toast
+    app.toast = nil
+    local maxw = 780
+    local tw = math.min(kit.width(text, "ui14"), maxw)
+    local th = kit.text_height(text, "ui14", maxw)
+    local bw, bh = tw + 32, th + 12
+    kit.box(cx - bw / 2, y - bh / 2, bw, bh, theme.bg, { radius = bh / 2 })
+    kit.box(cx - bw / 2, y - bh / 2, bw, 2, theme.orange, { round = false })
+    kit.text(cx, y - bh / 2 + 6, text, "ui14", theme.orange, { pivot = gui.PIVOT_N, w = maxw })
+end
+
 local function drawer(app, prep)
     local x, y, w, h = CARD_X, 680, 812, 206
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
@@ -568,10 +601,7 @@ local function drawer(app, prep)
     if not sel then
         M.inspiration(app, prep, x, y)
         M.seeds(app, prep, x + 430, y)
-        if app.toast then
-            kit.text(x + w / 2, y + h - 2, app.toast, "ui14", theme.orange, { pivot = gui.PIVOT_S })
-            app.toast = nil
-        end
+        M.draw_toast(app, x + w / 2, y)
         return
     end
     local s = prep.scenes[sel.scene]
@@ -1030,6 +1060,9 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
         local note, ncol
         if why and string.find(why, "can't happen", 1, true) then
             note, ncol = "can't happen here", kit.rgba("#a0322d")
+        elseif why and string.find(why, "\" happens at ", 1, true) then
+            -- Tied to another place: say so before the click, not after (playtest, October 13).
+            note, ncol = "belongs elsewhere", kit.rgba("#a0322d")
         else
             local _, aff = content.affinity(c, s.slots, s.type)
             -- "odd here?" only once the scene has somewhere (or someone) to be odd against.
@@ -1064,10 +1097,7 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
                    text_color = theme.ink_dim, radius = 4, key = "shelve_" .. c.id })
         end
     end
-    if app.toast then
-        kit.text(x + w / 2, y + h - 2, app.toast, "ui14", theme.orange, { pivot = gui.PIVOT_S })
-        app.toast = nil
-    end
+    M.draw_toast(app, x + w / 2, y)
 end
 
 -- Things still waiting on you this week: the check before game night (the slice rework).
@@ -1658,12 +1688,15 @@ function M.seeds(app, prep, x, y)
         local def = sd[s.id]
         local left = s.week + sd.PAYOFF_WEEKS - app.campaign.week
         local in_hand = prep.payoffs[def.payoff]
-        if in_hand then
+        local on_board = in_hand and prep:placed_at(def.payoff)
+        if in_hand and not on_board then
             ready = ready + 1
         end
-        table.insert(parts, def.name .. (in_hand and left <= 0 and " (last week!)" or ""))
+        table.insert(parts, def.name .. (on_board and (" (pays off in scene " .. util.int(on_board) .. ")")
+            or (in_hand and left <= 0 and " (last week!)" or "")))
     end
     local text = "Growing: " .. table.concat(parts, ", ") .. "."
+    -- Once it's placed, the hand no longer has it (playtest, October 13: stale "in your hand").
     if ready > 0 then
         text = text .. " " .. (ready == 1 and "A payoff is" or (util.int(ready) .. " payoffs are")) .. " in your hand."
     end
@@ -1698,8 +1731,9 @@ function M.build(app)
                 end
             end
         end
-        if hpm > 0 and hp < hpm then
-            -- (Where "or press Enter" usually sits, under Run game night.)
+        if hpm > 0 and hp < hpm and prep:ready() then
+            -- (Where "or press Enter" usually sits, under Run game night; until the board is
+            -- ready, "Pick a type" has that spot: one line there, never two on top of each other.)
             kit.text(1466, 56, "Not rested: the party's at " .. util.int(math.floor(100 * hp / hpm + 0.5)) .. "% HP",
                 "ui14", theme.orange, { pivot = gui.PIVOT_N })
         end

@@ -666,6 +666,7 @@ function on_input(self, action_id, action)
         local took = false
         guard(self, function()
             took = story_log_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
+                or messages_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
         end)
         if took then
             return true

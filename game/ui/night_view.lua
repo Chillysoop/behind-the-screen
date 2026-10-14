@@ -46,7 +46,9 @@ local CARD_BOTTOM = 760
 -- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in, the
 -- bridge between scenes. It gets the boxed-passage look; the DM's own notes ("You improvise")
 -- and the table's reactions stay plain captions, and asides go to the log only.
-local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, goal = true, twist = true, seed = true }
+-- A goal line is the DM's own aim ("Pip wants to know what's behind the door"), not something
+-- you'd read to the table, so it stays a plain caption (playtest, October 13).
+local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, twist = true, seed = true }
 local LOG_X, LOG_Y, LOG_W, LOG_H = 24, 70, 520, 690
 local STRIP_RIGHT, STRIP_Y, DIE = 1576, 66, 30
 
@@ -130,11 +132,6 @@ end
 
 local function alpha_of(c, a)
     return vmath.vector4(c.x, c.y, c.z, (c.w or 1) * a)
-end
-
-local function clock_text(seconds)
-    local s = math.floor(seconds or 0)
-    return util.int(math.floor(s / 60)) .. ":" .. string.format("%02d", s % 60)
 end
 
 local function monster_sprite(id, n)
@@ -1544,7 +1541,9 @@ function M.handle(app, ev)
         local label = ev.crit and "Natural 20!" or (ev.fumble and "Natural 1" or (ev.success and "Success" or "Miss"))
         local color = ev.crit and theme.gold or (ev.success and theme.green or theme.red)
         schedule(app, 0.8, function()
-            M.float(app, ev.actor, label .. "  " .. util.int(total), color, ev.crit or ev.fumble)
+            -- "Natural 1  8" read as "Natural 18": say which number is the total.
+            M.float(app, ev.actor, label .. ((ev.crit or ev.fumble) and (" (total " .. util.int(total) .. ")")
+                or ("  " .. util.int(total))), color, ev.crit or ev.fumble)
             if ev.crit then
                 spark(app, ev.actor, SPARK.crit)
             end
@@ -1669,8 +1668,10 @@ function M.handle(app, ev)
         M.show_done(app)
     elseif k == "decision" or k == "improv" or k == "ruling" or k == "roll_where" or k == "cook" then
         if k == "ruling" and ev.by ~= "dm" and ev.actor then
+            -- A DC behind the screen stays there on their card (playtest, October 13): the table
+            -- sees the roll, not the number it had to beat.
             panels.roll(app, ev.actor, { roll = ev.value, mod = ev.mod, total = ev.total, what = ev.skill_name,
-                                         against = "DC " .. util.int(ev.dc or 0),
+                                         against = ev.where == "hidden" and "DC ?" or ("DC " .. util.int(ev.dc or 0)),
                                          success = ev.tier == "success" or ev.tier == "triumph",
                                          crit = ev.value == 20, fumble = ev.value == 1 })
         end
@@ -2057,6 +2058,11 @@ function M.draw_leans(app, x, y, leans)
     end
 end
 
+-- What kind of card it is, as the night counts them: one of each plays.
+local function improv_kind(c)
+    return c and ((c.comp and c.comp.kind) or (c.quantum and "quantum") or (c.stock and c.stock.id)) or nil
+end
+
 -- The improv hand: pick one to three cards, then play them.
 function M.draw_improv(app, ev)
     local sel = app.improv_sel or {}
@@ -2074,7 +2080,7 @@ function M.draw_improv(app, ev)
     badge(px + 20, py + 18, ev.drift and "OFF SCRIPT" or "IMPROVISE", theme.orange)
     kit.text(px + 20, py + 50, ev.drift and "The party wandered off" or ("Empty slot: " .. (ev.slot or "")), "title30", theme.ink)
     kit.text(px + 20, py + 94, ev.prompt or "", "ui18", theme.ink, { w = pw - 40 })
-    kit.text(px + 20, py + 100 + prompt_h, "Pick 1 to 3 cards. Your best card counts fully; one that doesn't fit always hurts.",
+    kit.text(px + 20, py + 100 + prompt_h, "Pick 1 to 3 cards, one of each kind. Your best card counts fully; one that doesn't fit always hurts.",
         "ui14", theme.ink_dim, { w = pw - 40 })
     local picked = {}
     local x0 = mid - total / 2
@@ -2088,6 +2094,13 @@ function M.draw_improv(app, ev)
             if sel[i] then
                 sel[i] = nil
             else
+                -- One of each kind (the night keeps only one): a second goal swaps out the first
+                -- rather than vanishing when it plays (playtest, October 13).
+                for j in pairs(sel) do
+                    if improv_kind(ev.cards[j]) == improv_kind(c) then
+                        sel[j] = nil
+                    end
+                end
                 local count = 0
                 for _ in pairs(sel) do
                     count = count + 1
@@ -2160,8 +2173,12 @@ function M.show_done(app)
     local x, y, w, h = 800 - 230, 560, 460, 132
     kit.box(x, y, w, h, theme.paper, { radius = 12 })
     kit.text(x + w / 2, y + 18, "That's a wrap for tonight.", "ui18b", theme.ink, { pivot = gui.PIVOT_N })
-    kit.text(x + w / 2, y + 44, clock_text(n and n.clock or 0) .. " at the table, " .. util.int(n and n:decision_count() or 0)
-        .. " calls made", "ui14", theme.ink_dim, { pivot = gui.PIVOT_N })
+    -- The evening as the table lived it (playtest, October 13: "16:48 at the table" read as a clock).
+    local mins = math.floor((n and n.table_min) or 0)
+    local spent = util.int(math.floor(mins / 60)) .. "h " .. string.format("%02d", mins % 60) .. "m"
+    local ends = (n and n.clock_text) and (", wrapping up at " .. n:clock_text()) or ""
+    kit.text(x + w / 2, y + 44, spent .. " at the table" .. ends .. ". " .. util.int(n and n:decision_count() or 0)
+        .. " calls made.", "ui14", theme.ink_dim, { pivot = gui.PIVOT_N, w = w - 24 })
     kit.button(x + 50, y + 76, w - 100, 40, "See how everyone felt  >", function()
         app.go("report")
     end, { color = theme.go, hover = theme.go_hover })

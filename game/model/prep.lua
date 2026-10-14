@@ -626,7 +626,7 @@ end
 -- the DM was inspired by (or that pay off a seed) a little more again.
 function M.quality(scene_type, slots, inspired)
     local q = M.BASE_QUALITY
-    for _, c in pairs(slots) do
+    for _, c in util.sorted_pairs(slots) do
         q = q + 0.06
         if scene_type and util.contains(c.fits, scene_type) then
             q = q + 0.03
@@ -692,7 +692,7 @@ function M:open_convo(id)
     end
     local cost = convo.cost(self.campaign, id)
     if cost > self:left() then
-        return nil, "Not enough prep time left."
+        return nil, "Not enough prep time left: this one takes " .. util.int(cost) .. "h."
     end
     local thread = convo.open(self.campaign, id)
     thread.cost = cost
@@ -947,7 +947,7 @@ function M:forecast_reasons(key)
             by_type[s.type] = by_type[s.type] or {}
             table.insert(by_type[s.type], i)
         end
-        for _, c in pairs(s.slots) do
+        for _, c in util.sorted_pairs(s.slots) do
             if c.thread == key then
                 add(1.3, "Scene " .. util.int(i) .. " is about " .. p.char .. "'s past.")
             end
@@ -1115,6 +1115,18 @@ end
 -- Who's this session for? The next open card of their backstory thread.
 function M:spotlight_card(key)
     local deck = deck_mod()
+    -- What you wrote in at Session Zero comes first, until it's played (playtest, October 13:
+    -- "Next" showed the thread's first card, whatever you'd chosen to lead with).
+    local bs = self.campaign.backstories and self.campaign.backstories[key]
+    if bs and bs.hook and deck.available(self.campaign, bs.hook) then
+        local e = deck.entry(self.campaign, bs.hook)
+        if not (e and (e.plays or 0) > 0) then
+            local c = content.components[bs.hook]
+            if c then
+                return c
+            end
+        end
+    end
     for _, st in ipairs(deck.threads(self.campaign)[key] or {}) do
         if st.state == "open" and deck.available(self.campaign, st.card.id) then
             return st.card
@@ -1142,7 +1154,12 @@ function M:spotlight(key)
         return false, "Nothing in " .. p.char .. "'s story is ready to come up this week."
     end
     self:clear_spotlight()
-    self:pin(c.id, "spotlight", "Spotlight: " .. p.name, { key = key })
+    if self.pins[c.id] then
+        -- Already at the front of the hand (what you wrote in at Session Zero): keep that pin.
+        self.pins[c.id].spot = key
+    else
+        self:pin(c.id, "spotlight", "Spotlight: " .. p.name, { key = key })
+    end
     self.spot = key
     return true
 end
@@ -1151,6 +1168,8 @@ function M:clear_spotlight()
     for id, pin in pairs(self.pins) do
         if pin.why == "spotlight" then
             self:unpin(id)
+        else
+            pin.spot = nil
         end
     end
     self.spot = nil

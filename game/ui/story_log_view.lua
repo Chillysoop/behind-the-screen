@@ -21,7 +21,7 @@ local panels = require "game.ui.panels"
 
 local M = {}
 
-M.PANEL = { x = 1188, y = 70, w = 404, h = 822 }
+M.PANEL = { x = 1188, y = 78, w = 404, h = 814 }
 
 local KIND_COLOR = {
     person = kit.rgba("#f0c987"), place = kit.rgba("#8cc7bf"), faction = kit.rgba("#e6a06a"),
@@ -475,7 +475,7 @@ local function story_blocks(app, view, w, mode, kws, on_story)
             or "Not started yet. It opens the first time one of its cards plays."
         add(para_block(app, none, st.body, theme.faint, w, kws, on_story))
     end
-    local live_focus
+    local live_focus, newest
     for i, e in ipairs(view.entries) do
         local idx = add(entry_block(app, e, w, st, kws, d, i == #view.entries, on_story))
         if e.focus then
@@ -484,8 +484,13 @@ local function story_blocks(app, view, w, mode, kws, on_story)
         if e.tag == "tonight" then
             live_focus = idx
         end
+        if e.tag == "past" or e.tag == "tonight" or e.tag == "zero" then
+            newest = idx
+        end
     end
-    focus = focus or live_focus
+    -- Left to itself, the log opens on what happened last (playtest, October 13: it opened on
+    -- Session Zero every time, and the latest session sat out of sight below it).
+    focus = focus or live_focus or newest
     if #view.leads > 0 then
         local hb = heading("WAITING IN YOUR DECK", st.head)
         local lw = kit.width("WAITING IN YOUR DECK", st.head)
@@ -545,7 +550,7 @@ local function cast_lines(app, view)
 end
 
 -- Scrolled blocks between top and bottom: the first block shown is scroll (or, left to itself,
--- whatever keeps `focus` in view). Returns the first and last shown, for the buttons.
+-- whatever keeps `focus` in view). Returns the first and last shown, and where the drawing stopped.
 local function draw_scrolled(blocks, x, top, bottom, gap, first, focus)
     local avail = bottom - top
     if not first then
@@ -572,18 +577,64 @@ local function draw_scrolled(blocks, x, top, bottom, gap, first, focus)
         y = y + b.h + gap
         last = i
     end
-    return first, last
+    return first, last, y
 end
 
-local function scroll_buttons(app, x, top, bottom, w, first, last, total, key, on_move)
+-- A page up or down: the block the page should start at next.
+local function page_from(blocks, first, last, avail, gap, dir)
+    if dir > 0 then
+        return math.min(#blocks, math.max(first + 1, last))
+    end
+    local n, sum = first, 0
+    for i = first, 1, -1 do
+        sum = sum + blocks[i].h + gap
+        if sum > avail then
+            break
+        end
+        n = i
+    end
+    return math.max(1, math.min(n, first - 1))
+end
+M.page_from = page_from
+
+-- A notch of the wheel: at least a few lines' worth, however small the blocks are.
+local function notch_from(heights, first, dir)
+    local n, moved = first, 0
+    repeat
+        local nxt = n + dir
+        if nxt < 1 or nxt > #heights then
+            break
+        end
+        moved = moved + (heights[dir > 0 and n or nxt] or 0)
+        n = nxt
+    until moved >= 90
+    return n
+end
+
+local function heights_of(blocks)
+    local hs = {}
+    for i, b in ipairs(blocks) do
+        hs[i] = b.h
+    end
+    return hs
+end
+
+-- "More above" over the top, "More below" right where the drawing stopped, so the blank under a
+-- block too tall to fit never reads as the end (playtest, October 13: "Later" read as "remind me
+-- later", and the gap read as the end of the story).
+local function scroll_buttons(app, x, top, stop, w, first, last, total, key, on_move)
     if first > 1 then
-        kit.button(x + w - 92, top - 30, 92, 24, "Earlier", function()
-            on_move(first - 1)
+        local label = "More above"
+        local bw = kit.width(label, "ui14") + 24
+        kit.button(x + w - bw, top - 30, bw, 24, label, function()
+            on_move(-1)
         end, { font = "ui14", key = key .. "_up", color = theme.panel3 })
     end
     if last < total then
-        kit.button(x + w - 92, bottom + 4, 92, 24, "Later", function()
-            on_move(first + 1)
+        local label = "More below"
+        local bw = kit.width(label, "ui14") + 24
+        kit.button(x + w - bw, stop - 4, bw, 24, label, function()
+            on_move(1)
         end, { font = "ui14", key = key .. "_down", color = theme.panel3 })
     end
 end
@@ -681,15 +732,16 @@ function M.page(app, x, y, w, h)
     hotspot(app, term_kw(view.heat, hw), kx, y + 38, kit.width(hw, "ui14"), kit.line_height("ui14"), under)
     local top, bottom = y + 74, y + h - 32
     local blocks, focus = story_blocks(app, view, mw, "page", kws, pick)
-    local first, last = draw_scrolled(blocks, mx, top, bottom, STYLE.page.gap, app.storylog_scroll, focus)
+    local first, last, stop = draw_scrolled(blocks, mx, top, bottom, STYLE.page.gap, app.storylog_scroll, focus)
     app.storylog_first = first
     app.storylog_count = #blocks
-    scroll_buttons(app, mx, top, bottom, mw, first, last, #blocks, "storylog", function(n)
-        app.storylog_scroll = n
+    app.storylog_heights = heights_of(blocks)
+    scroll_buttons(app, mx, top, math.min(stop, bottom + 4), mw, first, last, #blocks, "storylog", function(dir)
+        app.storylog_scroll = page_from(blocks, first, last, bottom - top, STYLE.page.gap, dir)
         redraw()
     end)
     if first > 1 or last < #blocks then
-        kit.text(mx, bottom + 8, "Wheel to scroll", "ui14", theme.faint)
+        kit.text(mx, bottom + 8, (last < #blocks and "More below. " or "") .. "Wheel to scroll", "ui14", theme.faint)
     end
     app.storylog_area = { mx, top - 30, mw, bottom - top + 60 }
     -- Who and where, down the right.
@@ -717,7 +769,8 @@ function M.on_wheel(app, x, y, dir)
     end
     if app.overlay == "notes" and app.notes_tab == "storylog" then
         if inside(app.storylog_area) then
-            local n = util.clamp((app.storylog_first or 1) + dir, 1, math.max(1, app.storylog_count or 1))
+            local n = util.clamp(notch_from(app.storylog_heights or {}, app.storylog_first or 1, dir), 1,
+                math.max(1, app.storylog_count or 1))
             if n ~= app.storylog_first then
                 app.storylog_scroll = n
                 if app.refresh_notes then
@@ -731,7 +784,7 @@ function M.on_wheel(app, x, y, dir)
         local p = M.PANEL
         if inside({ p.x, p.y, p.w, p.h }) then
             local sp = app.story_panel
-            local n = util.clamp((sp.first or 1) + dir, 1, math.max(1, sp.count or 1))
+            local n = util.clamp(notch_from(sp.heights or {}, sp.first or 1, dir), 1, math.max(1, sp.count or 1))
             if n ~= sp.first then
                 sp.scroll = n
                 app.refresh()
@@ -763,13 +816,29 @@ function M.open_panel(app, ids, focus)
     app.story_panel = { ids = list, id = list[1], focus = focus }
 end
 
--- A placed card that moves a storyline opens the panel (unless the DM turned that off).
+-- A placed card that moves a storyline opens the panel (unless the DM turned that off): the first
+-- time each storyline moves this week, or whenever the panel is already open. Playtest, October
+-- 13: opening on every placement kept the table's forecasts covered all through prep.
 function M.on_placed(app, c)
     if not c or app.campaign.story_auto_off then
         return
     end
     local ids = storylines.of_card(app.campaign, c)
-    if #ids > 0 then
+    if #ids == 0 then
+        return
+    end
+    local week = app.campaign.week
+    if not app.story_shown or app.story_shown.week ~= week then
+        app.story_shown = { week = week, ids = {} }
+    end
+    local fresh = false
+    for _, id in ipairs(ids) do
+        if not app.story_shown.ids[id] then
+            fresh = true
+        end
+        app.story_shown.ids[id] = true
+    end
+    if fresh or app.story_panel then
         M.open_panel(app, ids, c.id)
     end
 end
@@ -886,10 +955,10 @@ function M.panel(app)
         end })
     end
     local top, bottom = ty + 4, y + h - 62
-    local first, last = draw_scrolled(blocks, ix, top, bottom, STYLE.panel.gap, sp.scroll, focus)
-    sp.first, sp.count = first, #blocks
-    scroll_buttons(app, ix, top + 4, bottom - 2, iw, first, last, #blocks, "story_panel", function(n)
-        sp.scroll = n
+    local first, last, stop = draw_scrolled(blocks, ix, top, bottom, STYLE.panel.gap, sp.scroll, focus)
+    sp.first, sp.count, sp.heights = first, #blocks, heights_of(blocks)
+    scroll_buttons(app, ix, top + 4, math.min(stop, bottom + 2), iw, first, last, #blocks, "story_panel", function(dir)
+        sp.scroll = page_from(blocks, first, last, bottom - top, STYLE.panel.gap, dir)
         app.refresh()
     end)
     -- Whether it opens by itself.
@@ -898,7 +967,7 @@ function M.panel(app)
         c.story_auto_off = auto or nil
         app.refresh()
     end, { font = "ui14", color = theme.panel3, key = "story_panel_auto" })
-    kit.text(ix + 30, y + h - 32, "Open when I place a story card", "ui14", theme.dim)
+    kit.text(ix + 30, y + h - 32, "Open by itself (once a week per story)", "ui14", theme.dim)
     kit.text(x + w - 16, y + h - 32, "S", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
 end
 

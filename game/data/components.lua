@@ -320,7 +320,7 @@ return {
     -- Opened by other cards:
     { id = "find_tobin", kind = "goal", suits = { "road", "forest", "bells" }, with = { "forest_road", "chapel" }, deck = "follow", name = "Follow Old Tobin's trail", cost = 1,
       fits = { "exploration", "mystery", "social" }, tags = { "mystery", "explore" },
-      line = "Goal: Old Tobin took the north road nine days ago. Find out how far he got.",
+      line = "Goal: Old Tobin took the north road the night the bells went quiet. Find out how far he got.",
       win = "Tobin's boot prints, then his walking stick, then a bell rope cut clean: he went north, and he was in a hurry.",
       lose = "The trail goes cold in the rain, but up the north road a bell rope is swinging from a pine.",
       got = "Tobin's trail north", on = { played = { "forest_road", "chapel" } } },

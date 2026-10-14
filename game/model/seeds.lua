@@ -258,6 +258,13 @@ function M.steal(campaign, th)
     s.stolen = { key = th.key, claim = th.claim }
     th.state = "stolen"
     th.stolen_week = campaign.week
+    -- Its post in the group chat counts as answered: you did better than answer it.
+    for _, m in ipairs(campaign.chat or {}) do
+        if m.theory and campaign.theories and campaign.theories[m.theory] == th and not m.answered then
+            m.answered = "Made it true"
+            m.made_true = true
+        end
+    end
     local p = campaign:player(th.key)
     if p then
         score.add(p, "investment", M.STEAL_INVESTMENT)

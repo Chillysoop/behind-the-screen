@@ -132,4 +132,25 @@ function M.lazy(name)
     return require(name)
 end
 
+-- Iterate a table in sorted key order: for code whose result depends on the order (a first
+-- match, a running float sum). Plain pairs() order differs between a campaign played and the
+-- same campaign loaded from a save, so the two could drift apart.
+function M.sorted_pairs(t)
+    local keys = {}
+    for k in pairs(t or {}) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys, function(a, b)
+        return tostring(a) < tostring(b)
+    end)
+    local i = 0
+    return function()
+        i = i + 1
+        local k = keys[i]
+        if k ~= nil then
+            return k, t[k]
+        end
+    end
+end
+
 return M

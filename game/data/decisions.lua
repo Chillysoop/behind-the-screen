@@ -355,7 +355,7 @@ return {
         where = { "indoor", "ruin", "under" },
         actor = { "explorer", "tactician", "storyteller" },
         title = "They're walking past it",
-        text = "The party is about to walk right past the secret door you spent an hour designing.",
+        text = "The party is about to walk right past a secret door. You know it's there. They don't.",
         options = {
             { label = "Let them miss it.",
               log = "The party moves on. The door stays a secret, for now.",

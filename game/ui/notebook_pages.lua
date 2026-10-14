@@ -20,7 +20,8 @@ local ATT_COLOR = {
     Hostile = theme.red, Wary = theme.orange, Indifferent = theme.dim, Warm = theme.teal, Friendly = theme.green,
 }
 M.ATT_COLOR = ATT_COLOR
-local RESULT_WORDS = { full = "It works.", half = "It half works.", bad = "It goes badly.", done = "Done.",
+-- How a faction's move went, from the party's side of it (red: they pulled it off).
+local RESULT_WORDS = { full = "They pull it off.", half = "Half of it works.", bad = "It backfires on them.", done = "Done.",
                        pushed = "Set back.", helped = "Helped." }
 local RESULT_COLOR = { full = theme.red, half = theme.orange, bad = theme.teal }
 
@@ -169,7 +170,7 @@ function M.person_rows(app, pid)
     -- Grudge (B6): what a villain who got away holds against the party.
     local g = ledger.grudge_level(c, pid)
     if g > 0 then
-        table.insert(rows, { "Grudge: " .. string.rep("*", g) .. string.rep(".", ledger.GRUDGE_MAX - g)
+        table.insert(rows, { "Grudge: " .. util.int(g) .. " of " .. util.int(ledger.GRUDGE_MAX)
             .. (g >= 3 and "  It's personal now. When they fall, it'll mean something." or ""), "ui14", theme.red })
     end
     -- What the villain said, the retort that answered it, and who wants them (villain monologues).
@@ -248,8 +249,9 @@ local function move_row(app, x, y, w, i, m)
         kit.button(x, ty, 150, 34, "Let it happen", act("let"), { font = "ui14", color = theme.button,
             key = "world_let_" .. util.int(i),
             on_hover = hover_with(app, function()
-                return { { "You roll for it behind the screen: " .. util.int(fd.tier) .. (fd.tier == 1 and " die" or " dice")
-                    .. ", keep the highest. 6 works, 4 or 5 half works, 1 to 3 goes badly.", "ui14", theme.text } }
+                return { { "You roll for it behind the screen: " .. (fd.tier == 1 and "one die" or (util.int(fd.tier)
+                    .. " dice, keep the highest")) .. ". On a 6 they pull it off, on a 4 or 5 half of it works, and on 1 to 3 it "
+                    .. "backfires on them.", "ui14", theme.text } }
             end, x, ty + 40, 380) })
         kit.button(x + 158, ty, 170, 34, "Bring on screen", act("screen"), { font = "ui14", color = theme.button,
             enabled = card ~= nil and not screen_taken, key = "world_screen_" .. util.int(i),
@@ -1119,6 +1121,11 @@ function M.threads(app, x, y, w, h)
         ty = ty + 4
         for _, st in ipairs(threads[p.key] or {}) do
             local sp = STEP[st.state]
+            -- On the board this week says so (playtest, October 13: placed cards read "In your deck").
+            local at = st.state == "open" and c.prep and c.prep.placed_at and c.prep:placed_at(st.card.id)
+            if at then
+                sp = { "On scene " .. util.int(at) .. " this week", theme.orange }
+            end
             local name = st.state == "locked" and "?" or st.card.name
             local nh = kit.text_height(name, "ui14", cw - 40)
             if ty + nh + 22 > by + bh - 8 then

@@ -85,7 +85,7 @@ end
 
 -- Who walks up to them: the hero whose story this is, else whoever at the table talks to everyone.
 local function talker(night, sc, cast)
-    for _, c in pairs(sc.comps) do
+    for _, c in util.sorted_pairs(sc.comps) do
         if c.thread and not night:muted(c) then
             for _, p in ipairs(night.players) do
                 if p.key == c.thread then
@@ -110,19 +110,32 @@ local function talker(night, sc, cast)
     return night.rng:weighted(list, weights)
 end
 
+-- What the party calls them now: their own name once they've given it (playtest, October 13:
+-- "the hooded stranger" after she'd said she was Wren).
+local function talk_name(night, info)
+    local c = info.cast
+    if c.named and night:cast_label(c) == c.named then
+        return string.match(c.named, "^([^,]+)") or c.named
+    end
+    return info.name
+end
+
 -- One turn: three lines, the DM picks one. Returns the stance picked.
 local function turn(night, step, info)
     local trigger = step == 1 and "talk_open" or "talk_ask"
     local vars = { char = info.p.char }
     local card = { id = "talk_" .. info.id .. "_" .. step, type = "talk", cast = info.cast.id, options = {} }
+    local name = talk_name(night, info)
     if step == 1 then
-        card.title = "Talk as " .. info.name
-        card.text = info.p.char .. " walks up to " .. info.name .. ". " .. info.feel
+        card.title = "Talk as " .. name
+        card.text = info.p.char .. " walks up to " .. name .. ". " .. info.feel
             .. (info.knows and " They know something the party needs." or "")
             .. " You speak for them: what are their first words?"
     else
         card.title = info.p.char .. " asks"
-        card.text = info.p.char .. " asks " .. info.name .. " about " .. info.about .. ". "
+        -- A goal card's name is an instruction ("Find old Dunnet"), not a topic: say it as the goal.
+        card.text = info.p.char .. " asks " .. name .. " what they know"
+            .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")
             .. (info.knows and "Warm, and they tell what they know. Guarded keeps it back for now. A lie sends them the wrong way, unless someone sees through it."
                 or "Warm, and they open up. Guarded keeps their secrets. A lie might get caught.")
     end
@@ -209,6 +222,7 @@ function M.talk(night, sc)
         id = pid or cast.id, cast = cast, p = p, name = cast.short or cast.name, speaker = M.speaker(night.talk.lib, cast),
         feel = feel, knows = sc.goal_clue ~= nil, fits = M.in_character(cast, att),
         about = goal and util.lower_first(goal.short or goal.name) or "what's going on",
+        goal = goal and goal.name or nil,
     }
     -- The hero opens, the DM answers as them, twice.
     night:bark(p, "npc_talk")
@@ -313,7 +327,8 @@ function M.boss_turn(night, f, b, c)
                 downed = downed or e
             else
                 table.insert(standing, e)
-                if not weakest or e.hp / e.hp_max < weakest.hp / weakest.hp_max then
+                local fe, fw = e.hp / e.hp_max, weakest and weakest.hp / weakest.hp_max
+                if not weakest or fe < fw or (fe == fw and e.hp < weakest.hp) then
                     weakest = e
                 end
             end
@@ -346,11 +361,17 @@ function M.boss_turn(night, f, b, c)
     local threat_p = player_of(night, threat)
     local piled = cruel_p and M.piled(night.campaign, cruel_p.key) or 0
     local opts = {}
-    table.insert(opts, { label = "Go for " .. threat.name .. ", who's been hurting it most" .. attack_words(c) .. ".",
+    -- Say only what's true (playtest, October 13: "who's been hurting it most" before anyone had
+    -- touched it, and "barely standing" at full hit points).
+    local why_threat = (hurt[threat] or 0) > 0 and ", who's been hurting it most" or ", the biggest threat on their feet"
+    table.insert(opts, { label = "Go for " .. threat.name .. why_threat .. attack_words(c) .. ".",
                          effects = data.BOSS.clever, target = threat, kind = "clever", who = threat_p })
+    local frac = weakest and weakest.hp / math.max(1, weakest.hp_max) or 1
+    local how_weak = (frac <= 0.34 and ", who's barely standing") or (frac < 1 and ", who's already hurt")
+        or ", who has the fewest hit points"
     if threat ~= cruel then
         table.insert(opts, { label = downed and ("Stand over " .. downed.name .. " and strike while they're down.")
-                                 or ("Go after " .. weakest.name .. ", who's barely standing."),
+                                 or ("Go after " .. weakest.name .. how_weak .. "."),
                              effects = downed and data.BOSS.finish or data.BOSS.cruel, target = cruel, kind = "cruel", who = cruel_p })
     end
     table.insert(opts, { label = "Whoever's closest. No plan, just fury.", effects = data.BOSS.closest, kind = "closest" })

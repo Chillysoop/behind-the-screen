@@ -11,6 +11,8 @@
 --   dramatic      dramatic fail: it goes wrong in a way that raises the stakes
 --   near          near miss: so close that their next try gets a bonus
 -- Action types (from the skill rolled): talk, move, know.
+-- Line flags: cast = true needs the scene's person; inside = true needs walls and doors (a
+-- tavern, a shop, a tower, underground); foe = true needs something to fight in the scene.
 -- Fill-ins: {char} the hero who rolled, {other_char} another hero, {Cast}/{cast} the scene's
 -- person (only lines marked cast = true), {place} where they are, {prop} something at that kind
 -- of place (PROPS below).
@@ -103,17 +105,28 @@ M.COSTS = {
 
 -- A player who trusts you offers their own fail (Trust 75+): what they ask to happen.
 M.FRAMED = {
-    talk = { "Can {char} just completely lose the thread and start talking about their childhood?",
-             "What if {char} accidentally insults their mother? Like, really specifically.",
-             "Can {char} panic and agree to something terrible?" },
-    move = { "Can {char} fall off something? I really want {char} to fall off something.",
-             "What if {char} gets stuck. Halfway. In front of everyone.",
-             "Can {char} land in {prop}? Please?" },
-    scout = { "Can {char} trip over something really loud? Like a bucket. A bucket would be good.",
-              "What if {char} hides in the one bush that's already got someone in it?" },
-    know = { "What if {char} is confidently, completely wrong, and tells everyone?",
-             "Can {char} get distracted by {prop} at the worst moment?",
-             "What if {char} finds something, but it's the wrong something?" },
+    -- { what they ask, what happens when you let them }
+    talk = { { "Can {char} just completely lose the thread and start talking about their childhood?",
+               "{char} completely loses the thread and starts talking about their childhood. At length." },
+             { "What if {char} accidentally insults their mother? Like, really specifically.",
+               "{char} accidentally insults their mother. Really specifically." },
+             { "Can {char} panic and agree to something terrible?",
+               "{char} panics and agrees to something terrible." } },
+    move = { { "Can {char} fall off something? I really want {char} to fall off something.",
+               "{char} falls off something, magnificently." },
+             { "What if {char} gets stuck. Halfway. In front of everyone.",
+               "{char} gets stuck. Halfway. In front of everyone." },
+             { "Can {char} land in {prop}? Please?", "{char} lands in {prop}." } },
+    scout = { { "Can {char} trip over something really loud? Like a bucket. A bucket would be good.",
+                "{char} trips over a bucket. A very loud bucket." },
+              { "What if {char} hides in the one bush that's already got someone in it?",
+                "{char} hides in the one bush that's already got someone in it." } },
+    know = { { "What if {char} is confidently, completely wrong, and tells everyone?",
+               "{char} is confidently, completely wrong, and tells everyone." },
+             { "Can {char} get distracted by {prop} at the worst moment?",
+               "{char} gets distracted by {prop} at the worst possible moment." },
+             { "What if {char} finds something, but it's the wrong something?",
+               "{char} finds something. It's the wrong something, and now they have to carry it." } },
 }
 
 M.LINES = {
@@ -129,7 +142,7 @@ M.LINES = {
         { "{char} creeps in perfectly, then sneezes. Three times.", act = "move" },
         { "{char} reaches for the handhold and grabs {other_char}'s face instead.", act = "move" },
         { "{char} studies the clue very seriously. It is upside down.", act = "know" },
-        { "{char} announces the answer, proudly, to an empty room. Everyone else went the other way.", act = "know" },
+        { "{char} announces the answer, proudly, to an empty room. Everyone else went the other way.", act = "know", inside = true },
         { "{char} sniffs the strange powder to identify it. It's pepper. It's a lot of pepper.", act = "know" },
         { "A pigeon chooses this moment, and {char}, specifically." },
         { "{char} strikes a heroic pose on {prop}. {prop} has other plans." },
@@ -147,9 +160,9 @@ M.LINES = {
         talk = {
             { "{Cast} won't budge, but {lets|let} slip who would: there's someone else to ask.", cast = true },
             { "No deal. But on the way out, {cast}'s assistant whispers a name and a time.", cast = true },
-            { "{Cast} {shuts|shut} the door on them. A note slides under it a minute later.", cast = true },
+            { "{Cast} {shuts|shut} the door on them. A note slides under it a minute later.", cast = true, inside = true },
             { "It doesn't land. But everyone in earshot now knows exactly what the party wants, and someone follows them out." },
-            { "{char} talks themselves into a corner, and out of it into a different room, which is where the answer was." },
+            { "{char} talks themselves into a corner, and out of it into a different room, which is where the answer was.", inside = true },
             { "The bluff falls flat, and the laugh it gets buys them a seat at the table anyway." },
             { "{Cast} {says|say} no. Loudly. The person they glance at while saying it is the real answer.", cast = true },
             { "Nobody's convinced, but the argument wakes up the one person at {place} who knows something." },
@@ -204,7 +217,7 @@ M.LINES = {
             { "They get through. {prop} doesn't." },
             { "{char} lands the jump and leaves a boot behind on the other side." },
             { "Quiet enough to get in. Not quiet enough to get out the same way." },
-            { "The lock opens, and the pick snaps off inside it. That door's not locking again." },
+            { "The lock opens, and the pick snaps off inside it. That door's not locking again.", inside = true },
             { "{char} holds it shut long enough, and their shoulder will complain about it all week." },
             { "Done, but {char} is soaked, scratched and smells strongly of {prop}." },
             { "They make it across, and {cost}." },
@@ -246,7 +259,7 @@ M.LINES = {
             { "The ledge goes, and {char} with it. They catch the edge. For now." },
             { "Spotted. Not by a guard, by the thing guards are afraid of." },
             { "{char} slips, and {prop} goes over with them, along with any hope of quiet." },
-            { "The door bursts open on the wrong side, into a room full of the wrong people." },
+            { "The door bursts open on the wrong side, into a room full of the wrong people.", inside = true },
             { "{char} misjudges it, and now {other_char} is on one side and everyone else on the other." },
             { "The rope holds. The beam it's tied to doesn't." },
             { "{char} tumbles out of hiding into the middle of exactly what they were hiding from." },
@@ -255,12 +268,12 @@ M.LINES = {
         },
         know = {
             { "{char} pulls the wrong lever. Something old and heavy starts to move." },
-            { "Wrong answer. The doors seal, and the air starts to thin." },
+            { "Wrong answer. The doors seal, and the air starts to thin.", inside = true },
             { "{char} reads the words aloud to check them. That was a mistake." },
             { "They follow the trail confidently, straight into the camp of whoever left it." },
             { "{char} touches the strange mark. It touches back." },
             { "The ritual was not a ritual of warding. {char} realises this a little late." },
-            { "{char} identifies the creature as harmless. The creature disagrees." },
+            { "{char} identifies the creature as harmless. The creature disagrees.", foe = true },
             { "The trap they were sure was disarmed was the second trap." },
             { "{char} finds the secret: it's worse than anyone guessed, and now it knows they know." },
             { "The map was a fake, and the people who made it are waiting where it leads." },
@@ -276,7 +289,7 @@ M.LINES = {
             { "So close: {cast} {hesitates|hesitate}, and {char} sees exactly where the crack is.", cast = true },
             { "Not quite, but {cast} {is|are} listening now, which they weren't before.", cast = true },
             { "{char} loses them on the last line. The first half was perfect." },
-            { "The room's half won over. The other half is the half that matters, but it's half." },
+            { "The room's half won over. The other half is the half that matters, but it's half.", inside = true },
             { "{Cast} {shakes|shake} their head, slowly, like they want to be convinced.", cast = true },
             { "It doesn't land, quite. {char} knows exactly what to try next." },
             { "A no, but a soft one. A door left open a crack." },
@@ -285,7 +298,7 @@ M.LINES = {
         },
         move = {
             { "Fingertips on the ledge, and then not. Next time they'll have it." },
-            { "{char} gets three steps from the door before the floorboard creaks." },
+            { "{char} gets three steps from the door before the floorboard creaks.", inside = true },
             { "Just short. {char} knows the distance now." },
             { "The lock nearly gives. {char} can feel the last pin." },
             { "{char} slips at the top, but grabs {prop} and hangs on." },

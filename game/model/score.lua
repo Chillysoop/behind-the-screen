@@ -156,7 +156,7 @@ function M.scene_gains(p, scene, mood)
     for k, v in pairs(st.meters) do
         g[k] = g[k] + v * mult * q
     end
-    for _, c in pairs(scene.comps) do
+    for _, c in util.sorted_pairs(scene.comps) do
         for k, v in pairs(c.meters or {}) do
             g[k] = (g[k] or 0) + v * q * 0.8
         end
@@ -170,7 +170,7 @@ function M.scene_gains(p, scene, mood)
     for _, t in ipairs(st.tags) do
         enjoy = enjoy + M.like(p, t)
     end
-    for _, c in pairs(scene.comps) do
+    for _, c in util.sorted_pairs(scene.comps) do
         for _, t in ipairs(c.tags or {}) do
             enjoy = enjoy + 0.6 * M.like(p, t)
         end
@@ -181,7 +181,7 @@ function M.scene_gains(p, scene, mood)
     -- Spotlight: being there, their class shining, their backstory.
     local shine = st.shine[p.class] or 0
     g.spotlight = g.spotlight + 3 + 10 * shine * q
-    for _, c in pairs(scene.comps) do
+    for _, c in util.sorted_pairs(scene.comps) do
         if c.thread == p.key then
             g.spotlight = g.spotlight + 14
             g.story = g.story + 10

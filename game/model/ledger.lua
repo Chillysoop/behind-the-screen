@@ -31,7 +31,7 @@ M.ACTS = {
     medicine = { 1, 0, "patched up", "tried to patch up" },
     insight = { 0, 0, "saw through", "couldn't read" },
     intimidation = { -1, -1, "threatened", "tried to scare" },
-    sleight_of_hand = { 0, -1, "picked the pocket of", "was caught picking the pocket of" },
+    sleight_of_hand = { 0, -1, "pickpocketed", "was caught pickpocketing" },
     deception = { 0, -1, "lied to", "was caught lying to" },
     performance = { 1, 0, "won over", "bored" },
     -- Checks that aren't influence still say what happened (the Story log reads these).
@@ -50,7 +50,7 @@ M.ACTS = {
 M.EVENTS = {
     met = { 0, "met" },
     helped = { 1, "helped" },
-    let_down = { 0, "let down" },
+    let_down = { 0, "disappointed" },
     deal = { 1, "made a deal with" },
     no_deal = { 0, "couldn't strike a deal with" },
     exposed = { -2, "exposed" },
