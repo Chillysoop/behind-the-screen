@@ -67,6 +67,8 @@ M.TEMPLATES = {
 -- Title suggestions, by the night's biggest event.
 M.TITLES = {
     death = { "The Night We Lost {char}", "{char}'s Last Stand", "Goodbye, {char}" },
+    death_back = { "{char} Comes Back", "The Price of Coming Back", "Not Yet, {char}" },
+    death_quest = { "The Way Back for {char}", "{char} Falls", "Not the End of {char}" },
     villain_falls = { "The Fall of {boss}", "{char} and the Final Blow", "Down Goes {boss}" },
     killing_blow = { "{char} Finishes It", "The Final Hit", "How {char} Ended It" },
     escape = { "The One That Got Away", "{boss} Runs", "Unfinished Business" },
@@ -127,6 +129,23 @@ end
 
 -- Build the recap for a finished night: { titles = {3}, title = 1, beats = { {kind, text, weight} },
 -- note = "", snapshots = {...} }.
+-- Drops any beat whose sentence is the opening of another's.
+function M.drop_echoes(beats)
+    local function stem(t)
+        return string.lower((string.gsub(t or "", "[%.!?\"'%s]+$", "")))
+    end
+    for i = #beats, 1, -1 do
+        local a = stem(beats[i].text)
+        for j, b in ipairs(beats) do
+            if j ~= i and #a > 0 and #stem(b.text) > #a and string.sub(stem(b.text), 1, #a) == a then
+                table.remove(beats, i)
+                break
+            end
+        end
+    end
+    return beats
+end
+
 function M.build(campaign, night, rng)
     local beats = {}
     -- Where it started.
@@ -156,10 +175,10 @@ function M.build(campaign, night, rng)
         local e = x.e
         local cap = e.ev == "moment" and 2 or 1
         if (per[e.ev] or 0) < cap and #beats < 6 and not used_text[e.text or e.ev] then
-            local tpl = pick(M.TEMPLATES[e.ev], rng)
+            local tpl = (e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or pick(M.TEMPLATES[e.ev], rng)
             local text = util.sentence_case(util.fill(tpl, vars_for(campaign, night, e)))
             text = string.gsub(text, "%.%.", ".")
-            if not string.find(text, "[%.!?\"]$") then
+            if not string.find(text, "[%.!?\"']$") then   -- ("'This wall is hollow.'", no extra full stop)
                 text = text .. "."
             end
             -- Two events can come out as the same sentence (playtest, October 13: one beat twice).
@@ -168,14 +187,21 @@ function M.build(campaign, night, rng)
                 used_text[e.text or e.ev] = true
                 used_text[text] = true
                 top = top or e
-                table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who })
+                table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who,
+                                      clue = e.clue })
             end
         end
     end
+    -- One beat that's the start of another says it twice ("The relic, wrapped in the thief's own
+    -- cloak." and the same with what Oswin did next): keep the longer (October 15).
+    M.drop_echoes(beats)
     -- In the order they happened.
     table.sort(beats, function(a, b) return a.order < b.order end)
     -- Titles from the biggest event.
     local tk = top and (M.TITLES[top.ev] and top.ev or "moment") or "moment"
+    if top and top.ev == "death" and M.DEATH_BACK[top.outcome or ""] then
+        tk = top.outcome == "scar" and "death_back" or "death_quest"
+    end
     local tv = vars_for(campaign, night, top or {})
     tv.boss = util.title_case(tv.boss)
     local titles = {}
@@ -196,6 +222,8 @@ M.SPOKEN = {
     theory = "{past}.", payoff = "{text}.", goal = "{text}",
 }
 M.SPOKEN_CAP = { clue = 2, goal = 3 }
+-- A death that didn't stick: the recap says so (the report beat and the spoken line alike).
+M.DEATH_BACK = { scar = "{char} died, and came back at a cost.", quest = "{char} fell. There may still be a way back." }
 
 local PAST = { { " lands ", " landed " }, { " rolls ", " rolled " }, { " falls%.", " fell." }, { " falls$", " fell" },
                { " joins ", " joined " }, { " comes true", " came true" }, { " goes down", " went down" },
@@ -211,7 +239,7 @@ end
 function M.spoken_beats(campaign, night)
     local out, per = {}, {}
     for i, e in ipairs(night.ledger or {}) do
-        local tpl = e.ev and M.SPOKEN[e.ev]
+        local tpl = e.ev and ((e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or M.SPOKEN[e.ev])
         if tpl and (per[e.ev] or 0) < (M.SPOKEN_CAP[e.ev] or 1) then
             local v = vars_for(campaign, night, e)
             v.past = past(v.text)
@@ -224,10 +252,11 @@ function M.spoken_beats(campaign, night)
             end
             if #text > 2 then
                 per[e.ev] = (per[e.ev] or 0) + 1
-                table.insert(out, { kind = e.ev, order = i, weight = e.weight or 3, text = text, clue = e.clue })
+                table.insert(out, { kind = e.ev, order = i, weight = e.weight or 3, text = text, clue = e.clue, who = e.who })
             end
         end
     end
+    M.drop_echoes(out)
     -- The killing blow says the villain fell; don't say it twice.
     if per.killing_blow and per.villain_falls then
         for i = #out, 1, -1 do
@@ -293,6 +322,43 @@ function M.last_session(campaign)
     end
     return "Last session: " .. table.concat(parts, " ")
 end
+
+-- What last session added to the story, for the card that opens the next one (October 15): the
+-- clues they found, in the order they found them (the beats the DM cut stay out). Each
+-- { text, clue = its card's id }. Empty in week 1, or when they found nothing. And, second, the
+-- biggest thing that happened (a spoken beat: { text, kind, who, weight }), or nil.
+function M.last_learned(campaign)
+    local entry
+    for _, le in ipairs(campaign.session_log or {}) do
+        if le.week == campaign.week - 1 then
+            entry = le
+        end
+    end
+    local rc = entry and entry.recap
+    local out = {}
+    if not (rc and rc.spoken) then
+        return out
+    end
+    local cut = {}
+    for _, b in ipairs(rc.beats or {}) do
+        if b.cut then
+            cut[b.order] = true
+        end
+    end
+    local happened
+    for _, s in ipairs(rc.spoken) do
+        if not cut[s.order] and s.kind == "clue" then
+            table.insert(out, { text = s.text, clue = s.clue })
+        elseif not cut[s.order] and M.HAPPENED[s.kind] and (not happened or (s.weight or 0) > (happened.weight or 0)) then
+            happened = s
+        end
+    end
+    return out, happened
+end
+
+-- What counts as "what happened" on that card: how the night's big moments ended, not a lucky roll.
+M.HAPPENED = { killing_blow = true, villain_falls = true, goal = true, escape = true, defeat = true, death = true,
+               payoff = true, goodbye = true }
 
 -- The session log (B7): every report, kept with the campaign so the notebook can reopen it.
 function M.file(campaign, rep)

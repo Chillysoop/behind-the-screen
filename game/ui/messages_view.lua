@@ -175,8 +175,19 @@ local function message_list(app, y0)
         kit.text(X, y, "No messages this week. The table is happy, or quiet.", "ui18", theme.faint, { w = W })
         return
     end
+    -- Waiting on you first (October 15: with five open, Mara's new message fell off the bottom
+    -- and never showed); and when they don't all fit, each row shrinks to its title and a line.
+    local order = {}
+    for i, r in ipairs(rows) do
+        order[r] = (r.state == "New" and 0 or 1) * 100 + i
+    end
+    table.sort(rows, function(a, b) return order[a] < order[b] end)
+    local h = 76
+    if y + #rows * (h + 8) > bottom(app) then
+        h = math.max(52, math.floor((bottom(app) - y) / #rows) - 8)
+    end
+    local plines = h >= 76 and 2 or 1
     for _, r in ipairs(rows) do
-        local h = 76
         if y + h > bottom(app) then
             break
         end
@@ -186,7 +197,7 @@ local function message_list(app, y0)
         kit.text(X + 12, y + 8, r.title, "ui18b", r.state == "New" and theme.gold or theme.text, { w = W - 90, lines = 1 })
         local sc = (r.state == "New" or r.state == "Free") and theme.gold or ((r.state == "Sent" or r.state == "Answered") and theme.faint or theme.dim)
         kit.text(X + W - 12, y + 10, r.state, "ui14", sc, { pivot = gui.PIVOT_NE })
-        kit.text(X + 12, y + 34, r.preview, "ui14", theme.dim, { w = W - 24, lines = 2 })
+        kit.text(X + 12, y + (plines == 2 and 34 or 30), r.preview, "ui14", theme.dim, { w = W - 24, lines = plines })
         y = y + h + 8
         -- Why it wouldn't open, right under it.
         if app.convo_why and app.convo_why.id == r.id then

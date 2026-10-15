@@ -75,26 +75,28 @@ return {
             title = "Strangers at the Kettle",
             about = "Bring the party together and give them something to chase.",
             hint = "Open warm, then drop the hook.",
-            open = "Rain over the Vale of Millbrook. Four travellers, four reasons to be on the road, and one inn with "
+            open = "Rain over the Vale of Millbrook. Travellers, each with a reason to be on the road, and one inn with "
                 .. "its lamps still lit: the Crooked Kettle. Somewhere above the town, the bells that should be "
                 .. "ringing the hour are silent.",
             -- The opening names a place: it's only used when scene 1 is there (A11); else open_else.
             open_place = "tavern",
-            open_else = "Rain over the Vale of Millbrook. Four travellers, four reasons to be on the road. Somewhere "
+            open_else = "Rain over the Vale of Millbrook. Travellers, each with a reason to be on the road. Somewhere "
                 .. "above the town, the bells that should be ringing the hour are silent.",
             cards = { "tavern", "gus", "stranger" },
             reveal = {
-                tavern = "The Crooked Kettle, the only inn in Millbrook. Rain on the shutters, a fire that needs "
-                    .. "feeding, and a whole room that goes quiet every hour, listening for bells that don't ring.",
-                gus = "Gus sets down four mugs. 'Nine days those bells have been quiet. Nine. My gran said it never "
-                    .. "happened in her lifetime, nor her gran's.'",
+                tavern = "The Crooked Kettle, the only inn in Millbrook. Rain on the shutters, and a whole room that goes "
+                    .. "quiet every hour, listening for bells that don't ring. A carter swears he saw wolves at the edge of "
+                    .. "town last night, and there was no bell to warn anyone.",
+                gus = "Gus sets down a round of mugs. 'Nine days. And the tower's locked up tight: Tobin had the only key, "
+                    .. "and he never let it out of his sight.'",
                 stranger = "The stranger in the corner lowers her hood: Wren, the bell-ringer's apprentice. 'Old Tobin "
                     .. "came down from the tower white as milk, said they'd hushed the bells, and took the north road. "
                     .. "He never came back.'",
             },
             clues = {
-                tavern = "Millbrook listens for its bells every hour. They haven't rung in nine days.",
-                gus = "The bells have never gone quiet before, not in living memory.",
+                -- (October 15: the opening already says the bells stopped; each card here adds something.)
+                tavern = "Wolves were seen at the edge of town last night, and there was no bell to warn anyone.",
+                gus = "The bell tower is locked, and Old Tobin had the only key.",
                 stranger = "Old Tobin, the bell-ringer, said someone 'hushed' the bells, then took the north road "
                     .. "and vanished.",
             },
@@ -137,13 +139,13 @@ return {
                     .. "for it.",
             },
             clues = {
-                forest_road = "Kessrick's wolves have been on the north road, and recently.",
+                forest_road = "Kessrick's wolves have been on the north road, not long ago.",
                 chapel = "Tobin made it as far as the roadside chapel. Its bell was cut down too.",
                 hidden_map = "Tobin's map of the old bell paths: 'The hush was laid from inside the tower. They had "
                     .. "a key.'",
             },
             goal = "The party finds Tobin's map and learns the hush came from inside the tower.",
-            objective = "find out who hushed Millbrook's bells, and why",
+            objective = "find out who silenced Millbrook's bells, and why",
             objective_if = { clue = "stranger", text = "follow Old Tobin up the north road and find out what happened to him" },
             lead = "a scarred man with a wolf badge",
             culprit = { name = "the scarred man with the wolf badge", secret = "he's been watching the north road for Kessrick" },
@@ -184,7 +186,7 @@ return {
                     .. "then he comes.",
             },
             goal = "The party learns who holds the tower, and what it will take to wake the bells.",
-            objective = "find out who's holding the bell tower, and what it'll take to wake the bells",
+            objective = "find out who's behind the silent bells, and what it'll take to wake them",
             objective_if = { clue = "hidden_map", text = "follow Tobin's map and find out who had a key to the tower" },
             lead = "Vask, Kessrick's lieutenant",
             culprit = { name = "Vask, Kessrick's lieutenant", secret = "Vask bought a copy of the tower key in Lowmarket" },
@@ -192,7 +194,7 @@ return {
         {
             title = "The silent bell",
             about = "The first act turns: the bell tower, and who silenced it.",
-            hint = "End high: a big fight or a cliffhanger into session 5.",
+            hint = "End high: a big fight, or a cliffhanger they'll talk about all week.",
             open = "A hundred and twelve steps up the bell tower above Millbrook. Tonight, somebody finally climbs "
                 .. "them.",
             open_place = "bell_tower",

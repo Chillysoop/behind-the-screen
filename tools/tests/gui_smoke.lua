@@ -7,6 +7,9 @@ package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local SEED = tonumber(arg and arg[1]) or 1
+-- Seeds 1 to 4 play a full table; 5 and 6 start small (October 15) and skip the checks that need
+-- a particular player there from the start (Jess's spotlight conflict in week 2, say).
+local FULL = SEED < 5
 -- The game seeds a new campaign from the clock: pin it, so a run is repeatable by its seed.
 do
     local real_time = os.time
@@ -324,6 +327,33 @@ local function take_gift(where, n)
 end
 
 -- Leave the report: the quick playtest questions, then the next week or the end of the slice.
+-- Someone joins a small table (October 15): their page, then the week.
+local function handle_join(where)
+    if app.screen ~= "join" then
+        return
+    end
+    local key = app.join and app.join.key
+    dump_once("1g_join_" .. tostring(key))
+    click_key("join_start")
+    if app.screen ~= "join" then problem("the join page let you on with nothing written" .. where) return end
+    local backstory = require "game.model.backstory"
+    for _, q in ipairs(backstory.data[key].questions) do
+        click_key("bs_q_" .. q.id)
+    end
+    if backstory.asked(app.join.backstories) > backstory.data.JOIN_QUESTIONS then problem("a joiner got more questions than there's time for") end
+    click_key(rng:chance(0.5) and "bs_idea_yes" or "bs_idea_no")
+    click_key("join_ask_agree")
+    local hooks = backstory.data[key].hooks
+    if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook buttons on the join page" .. where) end
+    dump_once("1h_join_done_" .. tostring(key))
+    if not click_key("join_start") then problem("no welcome button on the join page" .. where) return end
+    if app.screen ~= "prep" then problem("the welcome didn't go on to prep" .. where) return end
+    if not app.campaign:player(key) then problem(key .. " didn't join the table" .. where) end
+    local b = app.campaign.backstories and app.campaign.backstories[key]
+    if not (b and b.hook and app.campaign.prep:pinned(b.hook)) then problem(key .. "'s hook isn't at the front of the hand" .. where) end
+    if not (app.campaign.table.asks[key]) then problem(key .. "'s ask wasn't settled" .. where) end
+end
+
 local function leave_report(where)
     take_gift(where)
     if not click_key("next_week") then problem("no next-week button" .. where) return false end
@@ -337,6 +367,7 @@ local function leave_report(where)
         end
         if app.quick then problem("quick questions didn't close" .. where) return false end
     end
+    handle_join(where)
     return true
 end
 
@@ -368,10 +399,14 @@ for week = 1, WEEKS do
             local order = require("game.model.content").styles.order
             click_key("style_" .. order[(SEED / 3) % #order + 1])
         end
+        -- Who's at the table (October 15): seeds 1 to 4 play all four, 5 and 6 start with two and
+        -- welcome Jess (session 2) and Sam (session 3) on the join page.
+        if not click_key(SEED >= 5 and "table_small" or "table_full") then problem("no table-size buttons in the planner") end
         dump("1a2_planner_picked")
         if not click_key("plan_done") then
             app.plan_choices = nil
             app.refresh()
+            click_key(SEED >= 5 and "table_small" or "table_full")
             if not click_key("plan_done") then problem("the planner wouldn't go on with its defaults") end
         end
         if not (app.campaign.plan and #app.campaign.plan.truths == 3) then problem("the planner didn't lay down three truths") end
@@ -411,7 +446,9 @@ for week = 1, WEEKS do
         if click_label("Start week 1") and app.screen ~= "session_zero" then problem("Session Zero started with no backstories written") end
         if app.guide_step ~= "s0_backstories" then problem("no tip on the backstories page (" .. tostring(app.guide_step) .. ")") end
         local backstory = require "game.model.backstory"
-        for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+        if SEED >= 5 and #app.campaign.players ~= 2 then problem("a small table should start with two, not " .. #app.campaign.players) end
+        if SEED < 5 and #app.campaign.players ~= 4 then problem("a full table should start with four, not " .. #app.campaign.players) end
+        for _, k in ipairs(app.campaign:table_keys()) do
             if not click_key("bs_tab_" .. k) then problem("no backstory tab for " .. k) end
             -- Ask everything: the evening runs out of questions, and the button says so.
             for _, q in ipairs(backstory.data[k].questions) do
@@ -426,9 +463,11 @@ for week = 1, WEEKS do
         if backstory.left(app.s0.backstories) ~= 0 then problem("asking everything left questions over") end
         local written = app.s0.backstories
         if not click_label("Start week 1") then problem("no start button after the backstories") end
-        if not (app.campaign.backstories and app.campaign.backstories.sam and app.campaign.backstories.sam.hook) then
+        local last_key = app.campaign:table_keys()[#app.campaign:table_keys()]
+        if not (app.campaign.backstories and app.campaign.backstories[last_key] and app.campaign.backstories[last_key].hook) then
             problem("the backstories weren't written into the campaign")
         end
+        if SEED >= 5 and app.campaign.table.asks.jess then problem("Session Zero settled the ask of someone who isn't there yet") end
         -- What turns up first waits at the front of the first hand.
         for k, ch in pairs(written or {}) do
             local p = app.campaign:player(k)
@@ -443,6 +482,10 @@ for week = 1, WEEKS do
         if not (app.campaign.guide and app.campaign.guide.seen.s0_pitch) then problem("Session Zero tips weren't kept in the campaign") end
         if app.guide_step ~= "prep_story" then problem("the first prep doesn't open with its tip (" .. tostring(app.guide_step) .. ")") end
         dump("2b_prep_tip")
+    end
+    -- Each week's board as it opens, before anything's clicked (the story review reads these).
+    if week >= 2 and week <= 4 then
+        dump_once("2w" .. week .. "_prep")
     end
     -- Random clicking on the prep board, then make sure it's ready.
     for i = 1, 60 do
@@ -505,10 +548,23 @@ for week = 1, WEEKS do
         c.prep.inspirations = 0
         c.prep.inspired_by.novel = nil
         app.refresh()
-        if not click_key("inspire_novel") then problem("no inspiration button") end
+        for _ = 1, 4 do
+            if not click_key("guide_ok") then break end
+        end
+        -- (The random clicks may have left the supplement open.)
+        if app.book then click_key("book_done") end
+        if not click_key("inspire_novel") then
+            local keys = {}
+            for _, b in ipairs(buttons()) do
+                if b.key and (string.find(b.key, "insp", 1, true) or string.find(b.key, "guide", 1, true)) then table.insert(keys, b.key) end
+            end
+            problem("no inspiration button (" .. tostring(app.screen) .. ", week " .. tostring(c.week) .. ", tip "
+                .. tostring(app.guide_step) .. ": " .. table.concat(keys, " ") .. ")")
+        end
         local after = 0
         for _, k in ipairs(content.kinds) do after = after + #c.prep.hand[k] end
         if after <= before then problem("inspiration drew no cards") end
+        if FULL then
         -- Messages: the spotlight conflict was pushed live last week.
         local tip_was = app.guide_step
 check_tip_absorbs(" (week 2 prep)")
@@ -564,6 +620,7 @@ check_tip_absorbs(" (week 2 prep)")
             local th = c.prep.convos.spotlight_jess
             while th and not th.done and click_key("convo_opt_1") do end
             click_key("convo_done")
+        end
         end
         -- Answer a theory in the group chat if there is one.
         click_key("tab_group")
@@ -796,10 +853,17 @@ check_tip_absorbs(" (week 2 prep)")
             end
             if not click_key("course_style_" .. target) then problem("no course style button for " .. target) end
             local chat_before = #(app.campaign.chat or {})
-            if not click_key("course_ask") then problem("no Ask the table button") end
-            if #(app.campaign.chat or {}) <= chat_before then problem("asking the table posted nothing") end
-            if not click_key("course_nudge") then problem("no Nudge button") end
-            local nudge = app.campaign.course and app.campaign.course.nudge
+            -- (The random clicks may have asked, or nudged, already.)
+            local co = app.campaign.course or {}
+            if not (co.target == target and co.asked) then
+                if not click_key("course_ask") then problem("no Ask the table button") end
+                if #(app.campaign.chat or {}) <= chat_before then problem("asking the table posted nothing") end
+            end
+            co = app.campaign.course or {}
+            if not (co.target == target and (co.nudge or co.force)) and not click_key("course_nudge") then
+                problem("no Nudge button")
+            end
+            local nudge = app.campaign.course and (app.campaign.course.nudge or app.campaign.course.force)
             if not (nudge and app.campaign.prep:pinned(nudge)) then problem("the nudge card isn't in the hand") end
             dump("31_change_course")
         else
@@ -874,8 +938,9 @@ check_tip_absorbs(" (week 2 prep)")
         end
         key("back")
         if app.overlay then problem("Esc didn't close the sheet") end
-        if not click_key("sheet_jess") then problem("no sheet link on Jess's prep card") end
-        if app.overlay ~= "sheet" then problem("Jess's prep card didn't open her sheet") end
+        local sk = app.campaign.players[#app.campaign.players].key
+        if not click_key("sheet_" .. sk) then problem("no sheet link on " .. sk .. "'s prep card") end
+        if app.overlay ~= "sheet" then problem(sk .. "'s prep card didn't open their sheet") end
         click_key("sheet_close")
         -- An open scene (A15): the players choose. Sketch spots from Your places and suggestions.
         do
@@ -1117,7 +1182,7 @@ check_tip_absorbs(" (week 2 prep)")
             dumped_talk = true
             dump("4a_night_talk")
         end
-        if rng:chance(0.1) then key("roll") end
+        if rng:chance(0.1) and not (app.pending and app.pending.kind == "cinematic") then key("roll") end
         if app.rolling then
             stats.rolls = stats.rolls + 1
             call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
@@ -1145,6 +1210,36 @@ check_tip_absorbs(" (week 2 prep)")
                 dumped_improv = true
                 dump("5_night_improv")
             end
+            -- The opening (October 15): the world, slide by slide, then the briefing after the
+            -- introductions; and the catch-up briefing when someone joins.
+            if app.pending.kind == "cinematic" then
+                local ev = app.pending
+                local tag = ev.id .. "_w" .. week .. "_" .. tostring(app.cine_i)
+                if not dumped_once[tag] then
+                    dumped_once[tag] = true
+                    dump("3c_" .. tag)
+                end
+                stats.cine = (stats.cine or 0) + 1
+                stats.briefs = stats.briefs or {}
+                if ev.id == "briefing" then stats.briefs[week] = true end
+                local s = ev.slides and ev.slides[app.cine_i or 1]
+                if not s then problem("a cinematic with no slide " .. tostring(app.cine_i)) end
+                local fin = ev.slides and ev.slides[#ev.slides]
+                local obj = require("game.model.lore").objective(app.campaign)
+                if ev.id == "briefing" and not (fin and fin.where and (fin.first or not obj)) then
+                    problem("the briefing doesn't end on where they are and what's first")
+                end
+                if ev.id == "briefing" and week == 1 and s and not (s.rows and #s.rows > 0) then
+                    problem("the first briefing doesn't say what matters")
+                end
+                -- Every card fits on its paper (October 15: a catch-up ran off the bottom).
+                if s and s.briefing then
+                    local fit = require("game.ui.night_view").briefing_layout(s, 980)
+                    if fit.h > 700 then problem("a briefing card too tall to fit (" .. math.floor(fit.h) .. ")") end
+                end
+                if week == 1 and ev.id == "opening" and #ev.slides < 4 then problem("the opening has only " .. #ev.slides .. " slides") end
+                if not has_key("cine_next") then problem("a cinematic slide with no way on") end
+            end
             stats.modals = stats.modals + 1
             -- The log stays out of the way (A11): with it open, a DC or ruling card sits beside it.
             if (app.pending.kind == "ruling" or app.pending.kind == "roll_where") then
@@ -1168,6 +1263,8 @@ check_tip_absorbs(" (week 2 prep)")
                 for _ = 1, 30 do call(update, self, 2) if not app.pending then break end end
                 if not app.pending then goto continue end
             end
+            -- Seeds 1 and 5 sit through every card, a slide at a time (the others click anything).
+            if app.pending.kind == "cinematic" and (SEED == 1 or SEED == 5) and click_key("cine_next") then goto continue end
             local bs = buttons()
             if #bs == 0 then problem("modal with no buttons: " .. app.pending.kind) break end
             if rng:chance(0.2) then key("debug") end
@@ -1190,10 +1287,11 @@ check_tip_absorbs(" (week 2 prep)")
     -- Gifts from the table: one player's Goodwill is full, so they bring something tonight.
     local keepsakes = require "game.model.keepsakes"
     if week == 1 then
+        -- (Everyone's, so a bad night for one of them can't empty it below full.)
+        app.campaign.keepsakes = { goodwill = {}, given = {} }
         for _, p in ipairs(app.campaign.players) do
             if p.present then
-                app.campaign.keepsakes = { goodwill = { [p.key] = keepsakes.data.FULL }, given = {} }
-                break
+                app.campaign.keepsakes.goodwill[p.key] = keepsakes.data.FULL
             end
         end
     end
@@ -1580,6 +1678,11 @@ if (kinds.week or 0) ~= stats.weeks then problem("playtest log has " .. tostring
 if (kinds.week_survey or 0) ~= stats.weeks then problem("playtest log has " .. tostring(kinds.week_survey) .. " quick-question records for " .. stats.weeks .. " weeks") end
 if WEEKS >= 4 and (kinds.slice_survey or 0) ~= 1 then problem("expected one slice survey in the log, got " .. tostring(kinds.slice_survey)) end
 if kinds["?"] then problem(kinds["?"] .. " playtest log lines without a type") end
+if (stats.cine or 0) == 0 then problem("session 1 never opened on the world") end
+local briefs = stats.briefs or {}
+if not briefs[1] then problem("no briefing after the introductions") end
+if not FULL and not (briefs[2] and briefs[3]) then problem("no catch-up briefing when someone joined") end
+if not briefs[2] then problem("session 2 didn't open on the recap card") end
 os.remove(save)
 
 print(string.format("seed %d: weeks %d, prep clicks %d, modals %d, rolls %d, lines reviewed %d, peak nodes %d/%d, messages %d",

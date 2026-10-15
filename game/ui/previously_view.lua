@@ -23,7 +23,34 @@ local function folded(app)
 end
 
 local function line_h(text)
-    return math.min(kit.text_height(text, LINE_FONT, W - 2 * PAD), MAX_LINES * kit.line_height(LINE_FONT))
+    return math.min(kit.text_height(text, LINE_FONT, W - 2 * PAD - 20), MAX_LINES * kit.line_height(LINE_FONT))
+end
+
+-- This week's objective, under the story so far (October 15): the label, then the sentence.
+local NEXT_FONT = "ui18b"
+local new_h
+local function next_h(text)
+    return 8 + 20 + math.min(kit.text_height(text, NEXT_FONT, W - 2 * PAD - 20), 3 * kit.line_height(NEXT_FONT)) + 8
+end
+
+-- New in the story this week: a line each, under its icon.
+local function new_line_h(text)
+    return math.min(kit.text_height(text, LINE_FONT, W - 2 * PAD - 20), 2 * kit.line_height(LINE_FONT)) + 4
+end
+
+new_h = function(pv)
+    local h = 0
+    if pv.new and #pv.new > 0 then
+        h = 8 + 20
+        for _, n in ipairs(pv.new) do
+            h = h + new_line_h(n.text)
+        end
+    end
+    -- The key to the other stories' marks, two to a row.
+    if pv.legend and #pv.legend > 0 then
+        h = h + 8 + 20 + math.ceil(#pv.legend / 2) * 22
+    end
+    return h
 end
 
 -- How tall it draws (0 when there's nothing to show).
@@ -42,14 +69,17 @@ function M.height(app, pv)
     for _, l in ipairs(pv.lines) do
         h = h + line_h(l.text) + 6
     end
+    h = h + new_h(pv)
+    if pv.next then
+        h = h + next_h(pv.next)
+    end
     return h + 24 + PAD
 end
 
 local function open_log(app, id)
-    if not id then
-        return
+    if id then
+        app.storylog_id = id
     end
-    app.storylog_id = id
     app.storylog_scroll = nil
     if app.open_notes then
         app.open_notes("storylog")
@@ -91,8 +121,60 @@ function M.draw(app, y)
             open_log(app, l.id or pv.open)
         end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "prev_line_" .. i })
         local col = (l.out == "lose") and theme.orange or theme.text
-        kit.text(X + PAD, ty, l.text, LINE_FONT, col, { w = W - 2 * PAD, lines = MAX_LINES })
+        -- The storyline's icon in front (October 15), the same one it wears on the cards.
+        local tx = X + PAD
+        if l.id and require("game.ui.lore_marks").storyline(app, l.id, X + PAD - 2, ty + 1, 16) then
+            tx = X + PAD + 20
+        end
+        kit.text(tx, ty, l.text, LINE_FONT, col, { w = W - PAD - (tx - X), lines = MAX_LINES })
         ty = ty + lh + 6
+    end
+    if pv.new and #pv.new > 0 then
+        -- New in the story this week: a line each, under its icon (and a click opens its log).
+        kit.box(X + PAD, ty + 2, W - 2 * PAD, 1, theme.panel3, { round = false })
+        ty = ty + 8
+        kit.text(X + PAD, ty, "NEW IN THE STORY", LINE_FONT, theme.gold)
+        ty = ty + 20
+        local marks = require "game.ui.lore_marks"
+        for i, n in ipairs(pv.new) do
+            local lh = new_line_h(n.text)
+            kit.button(X + 4, ty - 2, W - 8, lh, "", function()
+                open_log(app, n.id)
+            end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "prev_new_" .. i })
+            marks.storyline(app, n.id, X + PAD - 2, ty + 1, 16)
+            kit.text(X + PAD + 20, ty, n.text, LINE_FONT, theme.text, { w = W - 2 * PAD - 20, lines = 2 })
+            ty = ty + lh
+        end
+    end
+    if pv.legend and #pv.legend > 0 then
+        kit.box(X + PAD, ty + 2, W - 2 * PAD, 1, theme.panel3, { round = false })
+        ty = ty + 8
+        kit.text(X + PAD, ty, "ALSO IN YOUR HAND", LINE_FONT, theme.gold)
+        ty = ty + 20
+        local marks = require "game.ui.lore_marks"
+        local cw = (W - 2 * PAD) / 2
+        for i, n in ipairs(pv.legend) do
+            local cx = X + PAD + ((i - 1) % 2) * cw
+            local cy = ty + math.floor((i - 1) / 2) * 22
+            kit.button(cx - 4, cy - 2, cw - 4, 20, "", function()
+                open_log(app, n.id)
+            end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "prev_legend_" .. i })
+            marks.storyline(app, n.id, cx - 2, cy, 16)
+            kit.text(cx + 18, cy, n.text, LINE_FONT, theme.text, { w = cw - 26, lines = 1 })
+        end
+        ty = ty + math.ceil(#pv.legend / 2) * 22
+    end
+    if pv.next then
+        -- What they're out to do this week, under the main story's icon.
+        local ld = require("game.model.content").lore.briefing
+        kit.box(X + PAD, ty + 2, W - 2 * PAD, 1, theme.panel3, { round = false })
+        ty = ty + 8
+        local marks = require "game.ui.lore_marks"
+        marks.storyline(app, ld.next_story, X + PAD - 2, ty, 16)
+        kit.text(X + PAD + 20, ty, ld.next, LINE_FONT, theme.gold)
+        ty = ty + 20
+        kit.text(X + PAD + 20, ty, pv.next, NEXT_FONT, theme.text, { w = W - 2 * PAD - 20, lines = 3 })
+        ty = ty + next_h(pv.next) - 28
     end
     local link = "Read it all in the Story log  >"
     kit.button(X + PAD - 4, ty, kit.width(link, LINE_FONT) + 8, 22, "", function()

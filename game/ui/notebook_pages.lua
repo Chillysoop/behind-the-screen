@@ -905,7 +905,9 @@ function M.factions(app, x, y, w, h)
             end, x + 380, ry + rh - 4, 560) })
         -- Who they are and where they stand.
         local col1 = 360
-        kit.text(x + 14, ry + 10, fd.name, "ui22b", theme.text, { w = col1 })
+        -- Its icon (October 15): the one from the opening and the cards.
+        util.lazy("game.ui.lore_marks").faction(fid, x + 14, ry + 10, 28)
+        kit.text(x + 50, ry + 10, fd.name, "ui22b", theme.text, { w = col1 - 36 })
         local gy = ry + 40
         kit.text(x + 14, gy, fd.goal, "ui14", theme.dim, { w = col1 })
         local st = ledger.standing(c, fid)
@@ -1069,9 +1071,10 @@ function M.threads(app, x, y, w, h)
                        return util.lazy("game.ui.story_log_view").glance_rows(app, d.id, { hint = "Click to read it all." })
                    end, col < 2 and (tx + tw + 10) or (tx - 550), ty, 540) })
             kit.box(tx, ty, 6, th, kit.rgba(d.color), { radius = 3 })
+            util.lazy("game.ui.lore_marks").storyline(app, d.id, tx + tw - 40, ty + 28, 26)
             kit.text(tx + 16, ty + 10, string.upper(d.kind), "ui14", theme.faint)
             heat_chip(tx + tw - 12 - kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14"), ty + 10, heat)
-            kit.text(tx + 16, ty + 30, d.name, "ui18b", theme.text, { w = tw - 28, lines = 1 })
+            kit.text(tx + 16, ty + 30, d.name, "ui18b", theme.text, { w = tw - 64, lines = 1 })
             kit.text(tx + 16, ty + 56, d.about or "", "ui14", theme.dim, { w = tw - 28, lines = 2 })
             local line
             if st and st.state == "open" then

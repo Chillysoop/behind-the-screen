@@ -13,24 +13,47 @@ local backstory = require "game.model.backstory"
 
 local M = {}
 
-local function choices(app)
+-- Two uses (October 15): Session Zero's backstories for everyone at the table, or one player
+-- joining a small table later (app.join = { key, backstories, ask }).
+local function state(app)
+    if app.join then
+        app.join.backstories = app.join.backstories or {}
+        return app.join
+    end
     app.s0 = app.s0 or { asks = {}, rules = {} }
     app.s0.backstories = app.s0.backstories or {}
-    return app.s0.backstories
+    return app.s0
+end
+
+local function choices(app)
+    return state(app).backstories
+end
+
+local function keys(app)
+    if app.join then
+        return { app.join.key }
+    end
+    return app.campaign:table_keys()
+end
+
+local function budget(app)
+    return app.join and backstory.data.JOIN_QUESTIONS or backstory.data.QUESTIONS
 end
 
 local function current(app)
     local all = choices(app)
-    local key = app.s0.bs_key
-    if not (key and backstory.data[key]) then
+    local st = state(app)
+    local key = st.bs_key
+    if not (key and backstory.data[key] and util.contains(keys(app), key)) then
+        key = nil
         -- The first hero whose past isn't written yet.
-        for _, k in ipairs(content.players.order) do
+        for _, k in ipairs(keys(app)) do
             if not key and backstory.data[k] and not (all[k] and all[k].hook) then
                 key = k
             end
         end
-        key = key or content.players.order[1]
-        app.s0.bs_key = key
+        key = key or keys(app)[1]
+        st.bs_key = key
     end
     return key
 end
@@ -62,7 +85,7 @@ local function tabs(app, key)
     local all = choices(app)
     local planner = require "game.model.planner"
     local tw = 262
-    for i, k in ipairs(content.players.order) do
+    for i, k in ipairs(keys(app)) do
         local d = content.players[k]
         local x, y = 24 + (i - 1) * (tw + 10), 70
         local on = k == key
@@ -71,7 +94,7 @@ local function tabs(app, key)
             kit.box(x - 3, y - 3, tw + 6, 62, theme.select, { radius = 11 })
         end
         kit.button(x, y, tw, 56, "", function()
-            app.s0.bs_key = k
+            state(app).bs_key = k
             app.refresh()
         end, { color = on and theme.panel3 or theme.panel2, hover = theme.button_hover, key = "bs_tab_" .. k })
         kit.dot(x + 28, y + 28, 40, panels.COLORS[k] or theme.panel3)
@@ -85,14 +108,13 @@ local function tabs(app, key)
         end
     end
     -- How many questions the evening has left.
-    local left = backstory.left(all)
+    local left = backstory.left(all, budget(app))
     local px = 1140
     kit.text(px, 74, "QUESTIONS LEFT", "ui14", theme.dim)
-    for i = 1, backstory.data.QUESTIONS do
+    for i = 1, budget(app) do
         kit.box(px + (i - 1) * 26, 98, 20, 20, i <= left and theme.gold or theme.panel3, { radius = 5 })
     end
-    kit.text(px + backstory.data.QUESTIONS * 26 + 6, 98, util.int(left) .. " of " .. util.int(backstory.data.QUESTIONS),
-        "ui14", theme.text)
+    kit.text(px + budget(app) * 26 + 6, 98, util.int(left) .. " of " .. util.int(budget(app)), "ui14", theme.text)
 end
 
 local function head(x, y, text, sub)
@@ -118,10 +140,11 @@ local function talk(app, key, x, y, w, h)
     kit.text(ix, ty, "You know " .. pd.name .. ": " .. pd.notes, "ui14", theme.dim, { w = iw })
     ty = ty + kit.text_height("You know " .. pd.name .. ": " .. pd.notes, "ui14", iw) + 14
     -- Your questions.
-    local left = backstory.left(all)
+    local left = backstory.left(all, budget(app))
     local none_here = #(ch.asked or {}) == 0
     ty = head(ix, ty, "ASK", (left == 0 and none_here) and "No time left for questions. Take one back from someone else to ask here."
-        or "Each answer goes in their story. The evening has time for six, all told.")
+        or (app.join and "Each answer goes in their story. There's time for three."
+            or "Each answer goes in their story. The evening has time for six, all told."))
     local order = {}
     for i, id in ipairs(ch.asked or {}) do
         order[id] = i
@@ -133,7 +156,7 @@ local function talk(app, key, x, y, w, h)
             kit.box(ix - 3, ty - 3, iw + 6, 38, theme.select, { radius = 9 })
         end
         kit.button(ix, ty, iw, 32, q.ask, function()
-            backstory.toggle_question(all, key, q.id)
+            backstory.toggle_question(all, key, q.id, budget(app))
             app.refresh()
         end, { font = "ui18", align = "left", pad_y = 5, color = asked and theme.panel3 or theme.button,
                hover = theme.button_hover, enabled = asked or left > 0, key = "bs_q_" .. q.id })
@@ -172,7 +195,40 @@ local function talk(app, key, x, y, w, h)
         local o = d.idea[ch.idea]
         local reply = '"' .. o.reply .. '"'
         kit.text(ix + 14, ty, reply, "ui18", o.like >= 1 and theme.green or theme.orange, { w = iw - 14 })
+        ty = ty + kit.text_height(reply, "ui18", iw - 14) + 8
     end
+end
+
+-- Joining later (October 15): their ask for the table, the one Session Zero would have heard.
+-- Top of the right column (the conversation on the left is full). Returns where it ends.
+local function ask_block(app, key, ix, ty, iw)
+    local a = content.session_zero.asks[key]
+    if not a then
+        return ty
+    end
+    local bw = (iw - 10) / 2
+    ty = head(ix, ty, "THEIR ASK", a.kind == "promise" and "A promise" or (a.kind == "line" and "A line" or "A veil"))
+    local said = '"' .. a.text .. '"'
+    kit.text(ix, ty, said, "ui18", theme.text, { w = iw })
+    ty = ty + kit.text_height(said, "ui18", iw) + 8
+    for i, which in ipairs({ "agree", "push" }) do
+        local o = a[which]
+        local on = app.join.ask == which
+        local bx = ix + (i - 1) * (bw + 10)
+        if on then
+            kit.box(bx - 3, ty - 3, bw + 6, 38, theme.select, { radius = 9 })
+        end
+        kit.button(bx, ty, bw, 32, o.label, function()
+            app.join.ask = which
+            app.refresh()
+        end, { font = "ui14", color = on and theme.panel3 or theme.button, hover = theme.button_hover, key = "join_ask_" .. which })
+    end
+    ty = ty + 40
+    if app.join.ask then
+        local o = a[app.join.ask]
+        kit.text(ix + 14, ty, '"' .. o.reply .. '"', "ui18", o.like >= 1 and theme.green or theme.orange, { w = iw - 14, lines = 1 })
+    end
+    return ty + 30
 end
 
 -- Right: what turns up first, and the page you're writing.
@@ -182,11 +238,15 @@ local function write(app, key, x, y, w, h)
     local d = backstory.data[key]
     local pd = content.players[key]
     local ix, iw = x, w
-    local ty = head(ix, y + 16, "WHAT TURNS UP FIRST")
-    kit.text(ix, ty, "Pick the piece of " .. pd.char .. "'s past you'll bring in. It waits at the front of your first hand.",
-        "ui14", theme.dim, { w = iw })
-    ty = ty + kit.text_height("Pick the piece of " .. pd.char .. "'s past you'll bring in. It waits at the front of your first hand.",
-        "ui14", iw) + 8
+    local ty = y + 16
+    if app.join then
+        ty = ask_block(app, key, ix, ty, iw)
+    end
+    ty = head(ix, ty, "WHAT TURNS UP FIRST")
+    local pick_text = "Pick the piece of " .. pd.char .. "'s past you'll bring in. It waits at the front of your "
+        .. (app.join and "hand this week." or "first hand.")
+    kit.text(ix, ty, pick_text, "ui14", theme.dim, { w = iw })
+    ty = ty + kit.text_height(pick_text, "ui14", iw) + 8
     for _, hk in ipairs(d.hooks) do
         local on = ch.hook == hk.card
         local c = content.components[hk.card]
@@ -261,14 +321,20 @@ end
 -- How everyone's feeling about Session Zero, backstories and all.
 local function feelings(app)
     local social = require "game.model.social"
-    local s0 = app.s0
+    local s0 = app.join and { asks = { [app.join.key] = app.join.ask } } or app.s0
     local full = { tone = s0.tone or "mixed", asks = s0.asks or {}, rules = s0.rules or {}, backstories = choices(app) }
     local f = social.feelings(full)
     local x = 230
-    kit.text(x, 850, "HOW EVERYONE FEELS", "ui14", theme.dim)
-    x = x + kit.width("HOW EVERYONE FEELS", "ui14") + 18
-    for _, key in ipairs(content.players.order) do
+    kit.text(x, 850, app.join and "HOW THEY FEEL" or "HOW EVERYONE FEELS", "ui14", theme.dim)
+    x = x + kit.width(app.join and "HOW THEY FEEL" or "HOW EVERYONE FEELS", "ui14") + 18
+    for _, key in ipairs(keys(app)) do
         local v = f[key] or 0
+        if app.join then
+            -- (No tone or rules to react to: only what you asked and wrote.)
+            v = backstory.like(key, choices(app)[key])
+            local a = content.session_zero.asks[key]
+            v = v + ((a and app.join.ask and a[app.join.ask].like) or 0) + 1
+        end
         local word = v >= 3 and "Heard" or (v >= 1 and "Happy" or (v >= -1 and "Okay" or "Uneasy"))
         local col = v >= 1 and theme.green or (v <= -2 and theme.orange or theme.dim)
         local name = content.players[key].name
@@ -280,7 +346,23 @@ local function feelings(app)
 end
 
 function M.ready(app)
-    return backstory.complete(choices(app))
+    if app.join then
+        local ch = choices(app)[app.join.key]
+        return (ch and ch.hook ~= nil) and (app.join.ask ~= nil or not content.session_zero.asks[app.join.key])
+    end
+    return backstory.complete(choices(app), keys(app))
+end
+
+-- A player joining a small table: welcome them, and on to the week (October 15).
+function M.welcome(app)
+    if not (app.join and M.ready(app)) then
+        return false
+    end
+    local key = app.join.key
+    app.campaign:welcome(key, { ask = app.join.ask, backstory = choices(app)[key] })
+    app.join = nil
+    app.go("prep", { welcomed = true })
+    return true
 end
 
 -- Settle Session Zero, backstories and all, and on to week 1. (Only reached from the first page,
@@ -297,18 +379,37 @@ end
 
 function M.build(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
-    kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, "Their backstories: hear each one, ask what you want to know, and write it into the world.", "ui18", theme.dim)
     local key = current(app)
+    if app.join then
+        local pd = content.players[key]
+        local week = app.campaign.week + 1
+        kit.text(24, 14, string.upper(pd.name) .. " JOINS THE TABLE", "title30", theme.gold)
+        kit.text(24 + kit.width(string.upper(pd.name) .. " JOINS THE TABLE", "title30") + 24, 24,
+            "Before session " .. util.int(week) .. ": hear " .. pd.char .. "'s story, and write it into the world.", "ui18", theme.dim)
+    else
+        kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
+        kit.text(280, 24, "Their backstories: hear each one, ask what you want to know, and write it into the world.", "ui18", theme.dim)
+    end
     tabs(app, key)
     talk(app, key, 24, 140, 760, 680)
     write(app, key, 808, 140, 768, 680)
-    kit.button(24, 836, 180, 44, "<  The table", function()
-        app.s0.page = nil
-        app.refresh()
-    end, { font = "ui18b", key = "bs_back" })
+    if not app.join then
+        kit.button(24, 836, 180, 44, "<  The table", function()
+            app.s0.page = nil
+            app.refresh()
+        end, { font = "ui18b", key = "bs_back" })
+    end
     feelings(app)
     local ready = M.ready(app)
+    if app.join then
+        kit.button(1356, 830, 220, 50, "Welcome " .. content.players[key].name .. "  >", function()
+            M.welcome(app)
+        end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "join_start" })
+        if not ready then
+            kit.text(1340, 852, "Answer their ask and choose what turns up first.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+        end
+        return
+    end
     kit.button(1356, 830, 220, 50, "Start week 1  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_start" })

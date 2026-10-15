@@ -117,6 +117,114 @@ function M:gain_empathy(kind)
     end
 end
 
+-- Who's at the table (October 15) ---------------------------------------------------------------
+-- A small table starts with two players; the others wait in self.waiting until their week, then
+-- join in seat order. Everything that goes round the table goes round self.players, so a player
+-- who hasn't joined is in nothing: not the chat, the forecasts, the deck's backstory cards or
+-- the night.
+
+function M:set_table(kind)
+    local t = planner.data.tables[kind or "full"] or planner.data.tables.full
+    self.roster = { kind = kind or "full", joins = {} }
+    if self.waiting then
+        -- Laid down again (the planner, twice): everyone back at the table first.
+        for _, key in ipairs(content.players.order) do
+            local p = self.waiting[key]
+            if p then
+                table.insert(self.players, p)
+            end
+        end
+        self.waiting = nil
+        table.sort(self.players, function(a, b)
+            return util.index_of(content.players.order, a.key) < util.index_of(content.players.order, b.key)
+        end)
+    end
+    local keep, waiting = {}, {}
+    for _, p in ipairs(self.players) do
+        if util.contains(t.start, p.key) then
+            table.insert(keep, p)
+        else
+            waiting[p.key] = p
+        end
+    end
+    for _, j in ipairs(t.join or {}) do
+        if waiting[j.key] then
+            table.insert(self.roster.joins, { key = j.key, week = j.week })
+        end
+    end
+    if next(waiting) then
+        self.players = keep
+        self.waiting = waiting
+    end
+end
+
+function M:table_keys()
+    local out = {}
+    for _, p in ipairs(self.players) do
+        table.insert(out, p.key)
+    end
+    return out
+end
+
+-- Who's still to join: { { key, week } }, soonest first.
+function M:joining()
+    local out = {}
+    for _, j in ipairs(self.roster and self.roster.joins or {}) do
+        if not j.joined then
+            table.insert(out, { key = j.key, week = j.week })
+        end
+    end
+    table.sort(out, function(a, b) return a.week < b.week end)
+    return out
+end
+
+-- Whoever's due to join next week (start_week counts this week + 1): the screen asks the DM to
+-- welcome them before the board.
+function M:joiner_due()
+    for _, j in ipairs(self:joining()) do
+        if j.week <= self.week + 1 then
+            return j.key
+        end
+    end
+    return nil
+end
+
+-- The DM's welcome, made on the join page before the week starts (or the defaults, if not).
+function M:welcome(key, choices)
+    self.welcomes = self.welcomes or {}
+    self.welcomes[key] = choices
+end
+
+-- Start of a week: anyone due takes their seat, with their backstory and their ask settled.
+function M:join_due()
+    local joined = {}
+    for _, j in ipairs(self.roster and self.roster.joins or {}) do
+        local p = self.waiting and self.waiting[j.key]
+        if not j.joined and j.week <= self.week and p then
+            self.waiting[j.key] = nil
+            j.joined = self.week
+            p.joined_week = self.week
+            local at = #self.players + 1
+            local mine = util.index_of(content.players.order, p.key)
+            for i, q in ipairs(self.players) do
+                if util.index_of(content.players.order, q.key) > mine then
+                    at = i
+                    break
+                end
+            end
+            table.insert(self.players, at, p)
+            local ch = self.welcomes and self.welcomes[p.key]
+            social.welcome(self, p.key, ch)
+            table.insert(joined, p.key)
+        end
+    end
+    if self.waiting and not next(self.waiting) then
+        self.waiting = nil
+    end
+    self.joined_now = #joined > 0 and joined or nil
+    return joined
+end
+
 function M:player(key)
     for _, p in ipairs(self.players) do
         if p.key == key then
@@ -131,13 +239,16 @@ function M:start_week()
     local rng = self.rng
     self.empathy_up = nil
     self.looked = nil   -- notes and sheets opened this week (playtest log)
+    self:join_due()     -- a small table grows (October 15)
     for _, p in ipairs(self.players) do
         p.mood = rng:pick(content.moods.order)
         p.mood_known = false
         bars.tick_break(p)
         if p.on_break then
             p.present = false
-        elseif self.week == 1 or p.back then
+        elseif self.week == 1 or p.back or p.joined_week == self.week or (self.waiting and next(self.waiting)) then
+            -- (A small table holds together while it's still growing, October 15: one player
+            -- out of two or three and the story stalls.)
             p.present = true
         else
             local mood = score.mood(p)

@@ -77,9 +77,14 @@ end
 function M.apply(campaign, choices)
     choices = choices or {}
     local d = data.default
+    -- Who's at the table, and who joins when (October 15): before the threads, which need them.
+    if campaign.set_table then
+        campaign:set_table(choices.table or d.table)
+    end
     local plan = {
         truths = {}, threads = {}, fronts = {},
         front = choices.front or d.front,
+        table = choices.table or d.table,
     }
     for _, id in ipairs(choices.truths or d.truths) do
         if truth_def(id) and #plan.truths < data.PICK_TRUTHS then

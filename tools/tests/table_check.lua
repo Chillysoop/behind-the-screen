@@ -13,6 +13,14 @@ local dice_sets = require "game.model.dice_sets"
 local pacing = require "game.model.pacing"
 
 local ok_all = true
+local function util_contains(t, v)
+    for _, x in ipairs(t or {}) do
+        if x == v then
+            return true
+        end
+    end
+    return false
+end
 local function check(cond, what, detail)
     print(string.format("  [%s] %s  -  %s", cond and "PASS" or "FAIL", what, detail or ""))
     ok_all = ok_all and cond
@@ -307,5 +315,113 @@ do
         c:finish_night()
     end
     check(lines_ok and weeks == 2, "Previously on: a short line for every scene last session", "")
+end
+-- A small table (October 15): Mara and Dev start, Jess joins in session 2 and Sam in session 3.
+-- Session 1 opens on the world, a card at a time, and after the introductions the briefing: the
+-- key lore, the heroes, where they are, what's first. Every later session opens on the DM's recap
+-- card; whoever joins is caught up over two cards. The story's scope grows with the table.
+do
+    local planner = require "game.model.planner"
+    local bots = require "slice_bots"
+    local storylines = require "game.model.storylines"
+    local chronicle = require "game.model.chronicle"
+    local c = campaign_mod.new(43)
+    planner.apply(c, { table = "small" })
+    c:session_zero(bots.DMS.careful.s0)
+    local style = styles.balanced
+    local rng = rng_mod.new(43)
+    local seats, opening, briefs, scope, objective, fits = {}, nil, {}, {}, true, true
+    local early_feud, legend1, new2 = false, nil, nil
+    local social = require "game.model.social"
+    local nv_ok, nv = pcall(require, "game.ui.night_view")
+    for w = 1, 4 do
+        local prep = c:start_week()
+        seats[w] = #c.players
+        local live = {}
+        for _, it in ipairs(chronicle.list(c, prep)) do
+            live[#live + 1] = it.def.id
+        end
+        scope[w] = #live
+        local pv = chronicle.previously(c)
+        objective = objective and pv ~= nil and pv.next ~= nil
+        if w == 1 then
+            legend1 = pv and pv.legend
+        elseif w == 2 then
+            new2 = pv and pv.new
+        end
+        -- Nobody's friction shows before they're at the table.
+        for id, cf in pairs(c.conflicts or {}) do
+            if social.is_live(cf) and not social.seated(c, id) then
+                early_feud = true
+            end
+        end
+        style.prep(prep, rng, c)
+        local night = c:start_night()
+        local ev = night:advance()
+        while ev.kind ~= "done" do
+            if ev.kind == "cinematic" and ev.id == "opening" then
+                opening = ev
+            elseif ev.kind == "cinematic" and ev.id == "briefing" then
+                briefs[w] = ev
+            end
+            ev = night:advance(answer(ev, rng, style))
+        end
+        c:finish_night()
+    end
+    check(seats[1] == 2 and seats[2] == 3 and seats[3] == 4 and seats[4] == 4,
+        "A small table starts with two and grows: Jess in session 2, Sam in session 3", table.concat(seats, ","))
+    check(scope[1] <= 3 and scope[1] < scope[2] and scope[2] <= scope[4],
+        "The story starts small (the main story and the heroes' pasts) and opens up with the table", table.concat(scope, ","))
+    local o_ok = opening and #opening.slides >= 4
+    for _, sl in ipairs(opening and opening.slides or {}) do
+        o_ok = o_ok and (sl.icon ~= nil) and (sl.title ~= nil)
+    end
+    check(o_ok, "Session 1 opens on the world: the town, the story, the danger, a card each, with its icon",
+        tostring(opening and #opening.slides))
+    local b1 = briefs[1] and briefs[1].slides[1]
+    local faces = 0
+    for _, r in ipairs(b1 and b1.rows or {}) do
+        faces = faces + (r.face and 1 or 0)
+    end
+    check(b1 and faces == 2 and #b1.rows >= 4 and b1.where and b1.first,
+        "After the introductions: the key lore, both heroes, where they are and what's first", tostring(b1 and b1.first))
+    local b2 = briefs[2] and briefs[2].slides
+    check(b2 and #b2 == 2 and string.find(b2[1].kicker, "JESS", 1, true) and b2[2].where and b2[2].first,
+        "Jess joins in session 2 and gets caught up over two cards", tostring(b2 and b2[1].kicker))
+    local b4 = briefs[4] and briefs[4].slides
+    local icons = true
+    for _, r in ipairs(b4 and b4[1].rows or {}) do
+        icons = icons and (r.icon ~= nil or r.face ~= nil)
+    end
+    check(b4 and #b4 == 1 and string.find(b4[1].kicker, "SESSION 3", 1, true) and b4[1].first and icons,
+        "Every later session opens on the recap card: what they found, under its storyline's icon, and what's next",
+        tostring(b4 and b4[1].kicker))
+    for _, ev in pairs(briefs) do
+        for _, sl in ipairs(ev.slides) do
+            if nv_ok and nv.briefing_layout and nv.briefing_layout(sl, 980).h > 700 then
+                fits = false
+            end
+        end
+    end
+    check(objective, "The prep board's story box says what they're out to do this week", "")
+    check(not early_feud, "A table conflict stays quiet until everyone in it has joined", "")
+    local names = {}
+    for _, n in ipairs(new2 or {}) do
+        names[#names + 1] = n.id
+    end
+    check((legend1 == nil or #legend1 == 0) and util_contains(names, "velvet"),
+        "Session 1 is the main story and the heroes; session 2's story box names what's new (the Velvet Hand)",
+        table.concat(names, ","))
+    if nv_ok and nv.briefing_layout then
+        check(fits, "Every briefing card fits on its paper", "")
+    end
+    -- A card that touches a storyline the small table hasn't met yet shows only the ones in play.
+    local c2 = campaign_mod.new(44)
+    planner.apply(c2, { table = "small" })
+    c2.week = 2
+    local touched = storylines.of_card_all(c2, { id = "key_for_sale" })
+    local shown = storylines.of_card(c2, { id = "key_for_sale" })
+    check(#shown <= #touched and not util_contains(shown, "traitor"),
+        "At a small table a card shows only the storylines in play yet", table.concat(shown, ","))
 end
 os.exit(ok_all and 0 or 1)

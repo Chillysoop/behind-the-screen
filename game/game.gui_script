@@ -213,6 +213,11 @@ local function build_screen(self)
         kit.layer("session_zero")
         session_zero_view.build(app)
         block_camera(true)
+    elseif s == "join" then
+        -- Someone joins a small table (October 15): their backstory page, then the week.
+        kit.layer("join")
+        require("game.ui.backstory_view").build(app)
+        block_camera(true)
     elseif s == "slice_end" then
         kit.layer("slice_end")
         slice_end_view.build(app)
@@ -418,6 +423,15 @@ function init(self)
     app.go = function(screen, opts)
         guide_view.left_screen(app, app.screen)
         app.overlay = nil
+        if screen == "prep" and not (opts and (opts.resume or opts.welcomed)) and app.campaign.joiner_due
+            and app.campaign:joiner_due() then
+            -- A player joins this week (a small table, October 15): welcome them first.
+            app.join = { key = app.campaign:joiner_due() }
+            app.screen = "join"
+            build_screen(self)
+            ambience.screen(app, "session_zero")
+            return
+        end
         if screen == "prep" then
             if not (opts and opts.resume) then
                 app.campaign.at_prep = nil
@@ -436,7 +450,12 @@ function init(self)
             app.update_shelf()
             app.place_keepsakes(require("game.model.keepsakes").new_this_week(app.campaign))
             app.place_handouts()
-            msg.post(TABLE, "seats", {})
+            -- Everyone at the table in their chair; a chair waits for whoever joins later (October 15).
+            local seated = {}
+            for _, key in ipairs(require("game.model.content").players.order) do
+                seated[key] = app.campaign:player(key) ~= nil
+            end
+            msg.post(TABLE, "seats", { present = seated })
             app.zoom(2)
         elseif screen == "night" then
             -- Save the board first (the fix pass): quitting anywhere in the night, or a night
@@ -777,6 +796,12 @@ function on_input(self, action_id, action)
         if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
             and app.pending.kind == "improv" then
             guard(self, night_view.play_improv, app)
+            return true
+        end
+        -- The opening and the briefing: Space or Enter turns the page.
+        if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
+            and app.pending.kind == "cinematic" then
+            guard(self, night_view.cinematic_next, app)
             return true
         end
         -- The mouse wheel scrolls the open log when it's over it (and zooms the camera elsewhere).

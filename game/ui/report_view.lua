@@ -136,8 +136,9 @@ local function wrapup_items(app, rep)
         end
         for to, g in pairs(by) do
             local via = content.components[g.via]
-            table.insert(items, { (via and (via.name .. " leads on: ") or "A way on: ") .. util.join_names(g.names)
-                .. " (" .. styles.def(to).name .. ") join the deck.", theme.teal })
+            -- (October 15: "Find old Dunnet the prospector leads on: ..." read as one garbled line.)
+            table.insert(items, { "New in your deck" .. (via and (", from " .. util.lower_first(via.short or via.name)) or "")
+                .. " (" .. styles.def(to).name .. "): " .. util.join_names(g.names) .. ".", theme.teal })
         end
         if rep.course then
             table.insert(items, { "The campaign changes course: from now on it's " .. styles.def(rep.course).name .. ".", theme.gold })
@@ -179,11 +180,19 @@ local function recap_panel(app, rep, x, y, w, h)
     end
     local bw = w - 32 - 120
     for k, b in ipairs(r.beats) do
-        local th = kit.text_height(b.text, "ui18", bw)
+        local th = kit.text_height(b.text, "ui18", b.clue and (bw - 26) or bw)
         if ty + th > y + h - 166 then
             break
         end
-        kit.text(x + 16, ty, b.text, "ui18", b.cut and theme.faint or (b.pinned and theme.gold or theme.text), { w = bw })
+        -- What they found out wears its storyline's icon (October 15), as on the cards.
+        local mk = b.clue and require("game.model.lore").clue_mark(app.campaign, b.clue)
+        local tx = x + 16
+        if mk then
+            require("game.ui.lore_marks").mark(mk, x + 14, ty + 1, 20)
+            tx = x + 42
+        end
+        kit.text(tx, ty, b.text, "ui18", b.cut and theme.faint or (b.pinned and theme.gold or theme.text),
+            { w = bw - (tx - x - 16) })
         kit.button(x + w - 128, ty - 2, 54, 26, b.pinned and "Pinned" or "Pin", function()
             b.pinned = not b.pinned
             b.cut = nil
@@ -312,7 +321,7 @@ function M.build(app)
         return M.snapshot_overlay(app)
     end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
-    kit.text(24, 12, "WEEK " .. util.int(rep.week) .. "  -  SESSION REPORT", "ui14", theme.gold)
+    kit.text(24, 12, "SESSION " .. util.int(rep.week) .. "  -  REPORT", "ui14", theme.gold)
     -- The title: one of three suggestions.
     local r = rep.recap
     local title = r and r.titles[r.title] or rep.headline

@@ -8,8 +8,17 @@ local theme = require "game.ui.theme"
 local panels = require "game.ui.panels"
 local content = require "game.model.content"
 local social = require "game.model.social"
+local util = require "game.model.util"
 
 local M = {}
+
+-- Who's at the table for Session Zero (October 15: a small table starts with two; the others
+-- settle their asks and backstories when they join). Set at the top of each build.
+local ORDER = content.players.order
+local function at_table(app)
+    ORDER = app and app.campaign and app.campaign.table_keys and app.campaign:table_keys() or content.players.order
+    return ORDER
+end
 
 local KIND = { line = "A line", veil = "A veil", promise = "A promise" }
 local KIND_ABOUT = {
@@ -29,8 +38,9 @@ function M.complete(app)
     if not c.tone then
         return false
     end
+    at_table(app)
     for _, key in ipairs(content.session_zero.asks.order) do
-        if not c.asks[key] then
+        if util.contains(ORDER, key) and not c.asks[key] then
             return false
         end
     end
@@ -68,7 +78,7 @@ end
 -- Little name chips: who likes this option, who doesn't.
 local function chips(x, y, like, max_w)
     local cx = x
-    for _, key in ipairs(content.players.order) do
+    for _, key in ipairs(ORDER) do
         local v = like[key] or 0
         if v ~= 0 then
             local name = content.players[key].name
@@ -135,7 +145,7 @@ local function pitch(app, c)
     local function party(py)
         kit.text(x, py, "THE PARTY", "ui14", theme.dim)
         py = py + 22
-        for _, key in ipairs(content.players.order) do
+        for _, key in ipairs(ORDER) do
             local d = content.players[key]
             kit.dot(x + 18, py + 18, 36, panels.COLORS[key] or theme.panel3)
             kit.picture(x + 2, py + 2, 32, 32, panels.face(key))
@@ -143,13 +153,22 @@ local function pitch(app, c)
             kit.text(x + 44, py + 21, d.intro or d.notes, "ui14", theme.dim, { w = w - 50, lines = 2 })
             py = py + 62
         end
+        -- Who joins later (a small table): they settle their asks and backstories when they arrive.
+        local later = {}
+        for _, j in ipairs(app.campaign.joining and app.campaign:joining() or {}) do
+            local d = content.players[j.key]
+            table.insert(later, d.name .. " (" .. d.char .. ") in session " .. util.int(j.week))
+        end
+        if #later > 0 then
+            kit.text(x, py, "Joining later: " .. table.concat(later, ", ") .. ".", "ui14", theme.gold, { w = w })
+        end
     end
     if not t then
         kit.text(x, y, "Pitch a tone and see how it lands.", "ui18", theme.faint)
         party(y + 40)
         return
     end
-    for _, key in ipairs(content.players.order) do
+    for _, key in ipairs(ORDER) do
         local v = t.like[key] or 0
         kit.dot(x + 8, y + 10, 12, like_color(v))
         kit.text(x + 22, y, content.players[key].name, "ui18b", theme.text)
@@ -166,6 +185,7 @@ local function asks(app, c)
     kit.text(x, 84, "LINES, VEILS AND ASKS", "ui14", theme.dim)
     local y = 108
     for _, key in ipairs(s0.asks.order) do
+      if util.contains(ORDER, key) then
         local a = s0.asks[key]
         local answer = c.asks[key]
         local h = 168
@@ -197,6 +217,7 @@ local function asks(app, c)
             kit.text(x + 14, y + 136, KIND_ABOUT[a.kind], "ui14", theme.faint, { w = w - 28, lines = 1 })
         end
         y = y + h + 8
+      end
     end
 end
 
@@ -251,7 +272,7 @@ local function rules(app, c)
         -- What people said about the chosen option: whoever feels most strongly about it.
         local o = c.rules[rk] and r[c.rules[rk]]
         local said, strongest
-        for _, key in ipairs(content.players.order) do
+        for _, key in ipairs(ORDER) do
             if o and o.says and o.says[key] then
                 local v = math.abs((o.like or {})[key] or 0)
                 if not strongest or v > strongest then
@@ -275,7 +296,7 @@ local function feelings(app, c, y)
     y = y + 22
     local full = { tone = c.tone or "mixed", asks = c.asks, rules = c.rules }
     local f = social.feelings(full)
-    for i, key in ipairs(content.players.order) do
+    for i, key in ipairs(ORDER) do
         local v = f[key] or 0
         local bx = x + ((i - 1) % 2) * (w / 2)
         local by = y + math.floor((i - 1) / 2) * 26
@@ -286,6 +307,7 @@ local function feelings(app, c, y)
 end
 
 function M.build(app)
+    at_table(app)
     local c = choices(app)
     if c.page == "backstories" then
         return require("game.ui.backstory_view").build(app)

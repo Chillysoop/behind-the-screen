@@ -26,6 +26,7 @@ local function choices(app)
             th[i] = k
         end
         app.plan_choices = { truths = t, front = d.front, threads = th, style = "frontier",
+                             table = planner.data.screen_table or d.table,
                              dice = dice_sets.get(app.campaign).dm or dice_sets.offer(app.campaign)[1] }
     end
     return app.plan_choices
@@ -163,7 +164,7 @@ function M.build(app)
     -- A second front: the picked one shows its portents, the others stay short.
     local fy = sy + 10
     kit.text(fx, fy, "A SECOND FRONT", "ui14", theme.gold)
-    kit.text(fx + 130, fy, "Kessrick's warband is the main one.", "ui14", theme.faint)
+    kit.text(fx + 130, fy, "One more threat, alongside Kessrick's warband.", "ui14", theme.faint)
     local y = fy + 26
     for _, id in ipairs(planner.fronts_for(c.style or "frontier")) do
         local f = data.fronts[id]
@@ -181,7 +182,16 @@ function M.build(app)
             c.front = id
             app.refresh()
         end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "front_" .. id })
-        kit.text(fx + 14, y + 8, f.name, "ui18b", theme.text, { w = fw - 160 })
+        -- Its icon (October 15), the one it wears in the opening, on the cards and in the Story log.
+        local lo = require("game.model.content").lore
+        local ic = lo.icons.fronts[id]
+        local nx = fx + 14
+        if ic then
+            local col = lo.opening.fronts[id] and lo.opening.fronts[id].color
+            kit.icon(fx + 12, y + 8, 22, ic, col and kit.rgba(col) or theme.gold)
+            nx = fx + 42
+        end
+        kit.text(nx, y + 8, f.name, "ui18b", theme.text, { w = fw - 160 - (nx - fx - 14) })
         if f.style then
             kit.text(fx + fw - 12, y + 10, styles.styles[f.style].name, "ui14", theme.gold, { pivot = gui.PIVOT_NE })
         end
@@ -194,6 +204,36 @@ function M.build(app)
         end
         kit.text(fx + 14, by, "Doom: " .. f.doom, "ui14", theme.orange, { w = fw - 28 })
         y = y + h + 8
+    end
+    -- Who's at the table (October 15): two to start, the others joining one at a time, or all four.
+    do
+        local ty2 = math.max(y + 12, 668)
+        -- With a third front there's no room for the full cards above the footer (October 15:
+        -- they ran under it): a row of two buttons, the faces and the name.
+        local compact = ty2 + 26 + 92 > 822
+        kit.text(fx, ty2, "WHO'S AT THE TABLE", "ui14", theme.gold)
+        kit.text(fx + 168, ty2, "A first campaign is easier to follow with fewer stories at once.", "ui14", theme.faint,
+            { w = fw - 168, lines = 1 })
+        local bw = (fw - 10) / 2
+        local bh = compact and 44 or 92
+        for k, tid in ipairs(data.tables.order) do
+            local t = data.tables[tid]
+            local on = (c.table or data.default.table) == tid
+            local bx = fx + (k - 1) * (bw + 10)
+            kit.button(bx, ty2 + 26, bw, bh, "", function()
+                c.table = tid
+                app.refresh()
+            end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "table_" .. tid })
+            local fx2 = bx + 12
+            for i, key in ipairs(t.start) do
+                kit.dot(fx2 + 14 + (i - 1) * 24, ty2 + 26 + 22, 26, panels.COLORS[key] or theme.panel3)
+                kit.picture(fx2 + 3 + (i - 1) * 24, ty2 + 26 + 11, 22, 22, panels.face(key))
+            end
+            kit.text(fx2 + #t.start * 24 + 16, ty2 + 26 + 12, t.name, "ui18b", theme.text)
+            if not compact then
+                kit.text(fx2, ty2 + 26 + 42, t.about, "ui14", on and theme.text or theme.dim, { w = bw - 24, lines = 2 })
+            end
+        end
     end
     -- Two featured threads.
     local hy = 546

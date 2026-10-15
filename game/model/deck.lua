@@ -246,9 +246,20 @@ function M.thread_live(campaign, c)
     return not (p and p.pregen)
 end
 
+-- How many of each kind the hand shows: fewer while a small table is starting out (October 15).
+function M.hand_cap(campaign)
+    if campaign.roster and campaign.roster.kind == "small" then
+        local w = campaign.week or 1
+        return (w <= 1 and 5) or (w == 2 and 6) or M.HAND_CAP
+    end
+    return M.HAND_CAP
+end
+
 function M.hand(campaign)
     local hand = {}
     local present = {}
+    local cap = M.hand_cap(campaign)
+    local storylines = util.lazy("game.model.storylines")
     for _, p in ipairs(campaign.players) do
         present[p.key] = p.present and true or false
     end
@@ -256,7 +267,8 @@ function M.hand(campaign)
     for _, kind in ipairs(content.kinds) do
         local list = {}
         for _, c in ipairs(M.cards(campaign, kind)) do
-            if (not c.thread or present[c.thread]) and M.thread_live(campaign, c) then
+            if (not c.thread or present[c.thread]) and M.thread_live(campaign, c)
+                and (is_story(campaign, c) or storylines.card_in_scope(campaign, c)) then
                 local e = M.entry(campaign, c.id)
                 local rank
                 if is_story(campaign, c) then
@@ -293,7 +305,7 @@ function M.hand(campaign)
         -- Far-off cards fill out a thin hand, but only a couple of them.
         local picked, off = {}, 0
         for _, it in ipairs(list) do
-            if #picked >= M.HAND_CAP then
+            if #picked >= cap then
                 break
             end
             if not it.off or off < OFF_CAP or #picked < 4 then

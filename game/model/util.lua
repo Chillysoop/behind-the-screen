@@ -33,6 +33,16 @@ function M.copy(t)
     return o
 end
 
+-- Where value is in list (nil if it isn't).
+function M.index_of(list, value)
+    for i, v in ipairs(list or {}) do
+        if v == value then
+            return i
+        end
+    end
+    return nil
+end
+
 function M.contains(list, value)
     if not list then
         return false

@@ -30,6 +30,10 @@ local KIND_COLOR = {
 
 local OUT_WORD = { win = { "Won", theme.green }, lose = { "Lost", theme.red } }
 
+local function marks()
+    return require "game.ui.lore_marks"
+end
+
 local function story_color(d)
     return kit.rgba((d and d.color) or "#e8b04a")
 end
@@ -695,11 +699,14 @@ function M.page(app, x, y, w, h)
         end, { color = on and theme.go or theme.panel2, hover = theme.button_hover, key = "storylog_pick_" .. d.id,
                on_hover = M.glance_hover(app, d.id, x + lw + 12, by, not on and "Click to read it all." or nil) })
         kit.box(x, by, 6, bh, story_color(d), { radius = 3 })
-        local nfont = kit.width(d.name, "ui18b") <= lw - 50 and "ui18b" or "ui14"
-        kit.text(x + 16, by + 6, d.name, nfont, it.started and theme.text or theme.dim, { w = lw - 44 })
+        -- Its icon (October 15), the one it wears on the cards.
+        marks().storyline(app, d.id, x + 14, by + 9, 30)
+        local nx = x + 52
+        local nfont = kit.width(d.name, "ui18b") <= lw - 64 and "ui18b" or "ui14"
+        kit.text(nx, by + 6, d.name, nfont, it.started and theme.text or theme.dim, { w = lw - 64 })
         local heat = storylines.heat(c, d.id)
         local hw, hc = heat_label(heat)
-        kit.text(x + 16, by + 28, hw, "ui14", hc)
+        kit.text(nx, by + 28, hw, "ui14", hc)
         if it.touched then
             local tag = night and "Tonight" or "On the board"
             kit.text(x + lw - 12, by + 28, tag, "ui14", theme.gold, { pivot = gui.PIVOT_NE })
@@ -713,11 +720,8 @@ function M.page(app, x, y, w, h)
     local d = view.def
     kit.box(mx, y, 6, 40, story_color(d), { radius = 3 })
     local tx = mx + 18
-    if d.kind == "backstory" then
-        kit.dot(tx + 20, y + 20, 40, panels.COLORS[d.key] or theme.panel3)
-        kit.picture(tx + 2, y + 2, 36, 36, panels.face(d.key))
-        tx = tx + 50
-    end
+    marks().storyline(app, d.id, tx, y, 40)
+    tx = tx + 50
     kit.text(tx, y - 2, d.name, "title30", theme.text, { w = mx + mw - tx })
     -- Point at the title: the whole story at a glance.
     kit.button(tx, y - 2, math.min(kit.width(d.name, "title30"), mx + mw - tx), 40, "", nil,
@@ -919,8 +923,8 @@ function M.panel(app)
                     choose(id)
                 end, { color = id == sp.id and theme.go or theme.panel2, hover = theme.button_hover, key = "story_tab_" .. id,
                        on_hover = M.glance_hover(app, id, x - 560, ty) })
-                kit.dot(tx + 12, ty + 13, 9, story_color(td))
-                kit.text(tx + 22, ty + 4, label, "ui14", theme.text)
+                marks().storyline(app, id, tx + 5, ty + 5, 16)
+                kit.text(tx + 24, ty + 4, label, "ui14", theme.text)
                 tx = tx + bw + 6
             end
         end
@@ -928,11 +932,8 @@ function M.panel(app)
     end
     -- The title.
     local tx = ix
-    if d.kind == "backstory" then
-        kit.dot(tx + 16, ty + 16, 32, panels.COLORS[d.key] or theme.panel3)
-        kit.picture(tx + 2, ty + 2, 28, 28, panels.face(d.key))
-        tx = tx + 40
-    end
+    marks().storyline(app, sp.id, tx, ty, 30)
+    tx = tx + 40
     kit.text(tx, ty, d.name, "ui22b", theme.text, { w = ix + iw - tx })
     kit.button(tx, ty, math.min(kit.width(d.name, "ui22b"), ix + iw - tx), 30, "", nil,
         { color = kit.rgba("#000000", 0), hover = kit.rgba("#ffffff", 0.05), key = "story_panel_title",

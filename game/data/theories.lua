@@ -52,8 +52,8 @@ return {
     watching_eyes = {
         { says = "the thing following us is a goblin kid. and it's lonely. we should adopt it.",
           truth = "It's a goblin scout, barely grown, and it's been following them because it has nowhere else to go. {char} knew." },
-        { says = "whatever's in the treeline works for vask.",
-          truth = "The watcher in the trees reports to Vask, every night. {char} was right to worry." },
+        { says = "whatever's in the treeline works for kessrick. it's watching us for him.",
+          truth = "The watcher in the trees reports to Kessrick's camp, every night. {char} was right to worry." },
     },
     healers_vigil = {
         { says = "the hospital never closes because it's run by ghosts. nice ghosts.",

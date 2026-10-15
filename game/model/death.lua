@@ -128,7 +128,20 @@ function M.on_death(night, p, c, sc)
     rec.rep = require("game.model.fails").reputation(campaign, p.key)
     rec.fair = fair
     table.insert(campaign.deaths, rec)
-    night:event("death", { who = p.key, text = p.char .. " died. " .. util.capitalize(rec.how) .. ".", weight = 10 })
+    local dev = { who = p.key, text = p.char .. " died. " .. util.capitalize(rec.how) .. ".", weight = 10 }
+    night:event("death", dev)
+    -- What came of it, for the recap (October 15: "We lost Brannoc", when he came back), and the
+    -- canon line the death save wrote ("Brannoc died at ...") says how it ended.
+    dev.outcome = outcome
+    local after = (outcome == "scar" and ", and came back") or (outcome == "quest" and ", and there may be a way back") or nil
+    if after then
+        for i = #(night.canon or {}), 1, -1 do
+            if string.find(night.canon[i], p.char .. " died", 1, true) then
+                night.canon[i] = night.canon[i] .. after
+                break
+            end
+        end
+    end
     if outcome == "goodbye" or outcome == "quick" then
         M.fall(night, p, rec, outcome == "goodbye")
     elseif outcome == "scar" then

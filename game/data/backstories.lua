@@ -7,6 +7,7 @@
 -- game/ui/backstory_view.lua; Session Zero settles it in game/model/social.lua.
 --
 -- QUESTIONS   how many questions Session Zero has time for, all told
+-- JOIN_QUESTIONS  how many there's time for when a player joins a small table later (October 15)
 -- per player:
 --   pitch     what they tell the table about their hero, in character
 --   tires     questions they enjoy; each one past it is one too many (-1)
@@ -18,6 +19,7 @@
 
 return {
     QUESTIONS = 6,
+    JOIN_QUESTIONS = 3,
 
     mara = {
         pitch = "My sister Ilsa copied books at the scriptorium in Millbrook. Two months ago she left her room, her ink "
@@ -71,7 +73,7 @@ return {
             no = { label = "Not yet", reply = "Fine. It's still a cool sword.", like = -1 },
         },
         hooks = {
-            { card = "kessrick_trail", text = "Kessrick's men were near Millbrook, and recently: fresh tracks and a wolf badge on the road.",
+            { card = "kessrick_trail", text = "Kessrick's men were near Millbrook, not long ago: fresh tracks and a wolf badge on the road.",
               like = 1 },
             { card = "wolves_watching", text = "Kessrick's wolves are already watching the party. They know Brannoc's face.", like = 1 },
             { card = "hales_crossing", text = "The road home: the ashes of Hale's Crossing, a day's walk from Millbrook.", like = 0 },

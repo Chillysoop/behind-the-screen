@@ -540,6 +540,22 @@ function M.update(app, dt)
         if not shot(a, "backstories") then
             by_label("Start week")
         end
+    elseif s == "join" then
+        -- A small table (October 15): someone joins this week. Their questions, their idea taken
+        -- up, the ask agreed and the first hook; then the welcome.
+        local backstory = require "game.model.backstory"
+        local key = app.join and app.join.key
+        if key then
+            app.join.backstories = app.join.backstories or {}
+            app.join.backstories[key] = app.join.backstories[key] or backstory.default_choice(key)
+            app.join.ask = app.join.ask or "agree"
+            app.refresh()
+        end
+        if not shot(a, "join_" .. tostring(key)) then
+            if not by_key("join_start") then
+                return finish(a, false, "no welcome button on the join page")
+            end
+        end
     elseif s == "prep" then
         if app.levelup then
             by_label("Back to the table")
@@ -628,6 +644,13 @@ function M.update(app, dt)
             if a.mode == 4 and (ct == "talk" or ct == "boss") and not a.shots["takeover_" .. ct] then
                 shot(a, "takeover_" .. ct)
                 return
+            end
+            -- The opening and the briefings (October 15): a shot of each, the first time.
+            if app.pending.kind == "cinematic" then
+                local name = "cinematic_" .. tostring(app.pending.id) .. "_" .. app.campaign.week .. "_" .. tostring(app.cine_i or 1)
+                if (app.cine_i or 1) <= 2 and shot(a, name) then
+                    return
+                end
             end
             if not by_label("Play") then
                 local bs = buttons()

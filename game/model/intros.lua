@@ -3,6 +3,7 @@
 -- up, they give a little backstory in character, their partner chimes in, and the table reacts,
 -- warmly, because people love a player who's all in. Pure Lua.
 
+local util = require "game.model.util"
 local score = require "game.model.score"
 local rng_mod = require "game.model.rng"
 local data = require "game.data.intros"
@@ -21,8 +22,10 @@ local function spot(i, n)
     return 10 - (n - 1) + 2 * (i - 1), 7
 end
 
-function M.run(night)
-    local players = night.players
+-- who: just these players (someone joining a small table, October 15); the others at the table
+-- are already introduced, and can chime in.
+function M.run(night, who)
+    local players = who or night.players
     local n = #players
     if n == 0 then
         return
@@ -42,7 +45,21 @@ function M.run(night)
         return list[rng:int(1, #list)]
     end
     local party, done = {}, {}
-    night:say("Before we start: who are you? Introduce yourselves, and your characters.", "system")
+    if who then
+        local names = {}
+        for _, p in ipairs(who) do
+            table.insert(names, p.name)
+        end
+        night:say(table.concat(names, " and ") .. (#who == 1 and " joins" or " join") .. " the table tonight. Introductions first.",
+            "system")
+        for _, q in ipairs(night.players) do
+            if not util.contains(who, q) then
+                done[q.key] = true
+            end
+        end
+    else
+        night:say("Before we start: who are you? Introduce yourselves, and your characters.", "system")
+    end
     for i, p in ipairs(players) do
         local d = data.PLAYERS[p.key]
         if d then
@@ -67,7 +84,7 @@ function M.run(night)
                 night:emit({ kind = "say", who = p.key, text = pick(d.all_in), ic = false })
             end
             -- Their partner chimes in, in character, if they've already been introduced.
-            for _, q in ipairs(players) do
+            for _, q in ipairs(night.players) do
                 local bond = data.BOND[q.key] and data.BOND[q.key][p.key]
                 if bond and done[q.key] then
                     night:emit({ kind = "say", who = q.key, text = bond, ic = true })
@@ -75,7 +92,7 @@ function M.run(night)
             end
             -- The table reacts: warm, or delighted when someone's all in.
             local others = {}
-            for _, q in ipairs(players) do
+            for _, q in ipairs(night.players) do
                 if q ~= p then
                     table.insert(others, q)
                 end
@@ -97,7 +114,7 @@ function M.run(night)
             -- What it does: a moment in the light for them, and everyone warms to the table.
             score.add(p, "spotlight", data.EFFECT.spotlight)
             score.add(p, "investment", data.EFFECT.investment)
-            for _, q in ipairs(players) do
+            for _, q in ipairs(night.players) do
                 score.add(q, "social", data.EFFECT.social_all)
                 if keen then
                     score.add(q, "fun", data.EFFECT.all_in_fun)

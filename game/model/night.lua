@@ -54,6 +54,7 @@ local villains = require "game.model.villains"
 local intros = require "game.model.intros"
 local dice_sets = require "game.model.dice_sets"
 local recap_mod = require "game.model.recap"
+local lore = require "game.model.lore"
 local board_mod = require "game.model.board"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
@@ -221,7 +222,7 @@ end
 -- The table clock (A14): minutes of real table time, apart from the screen's playback time.
 -- Only what happens moves it: a fight's rounds, each check and call, a lookup, a break.
 M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, improv = 3.5, ruling = 2.5,
-                roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6, dice = 1, intro = 0.5 }
+                roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6, dice = 1, intro = 0.5, cinematic = 3 }
 
 function M:emit(ev)
     if self.board_id then
@@ -1155,7 +1156,7 @@ function M:improv_pool()
     local function add(c)
         if c and not seen[c.id] and not self.improvised[c.id] and not self.on_board[c.id]
             and (not c.thread or present[c.thread]) and deck.thread_live(self.campaign, c)
-            and not deck.is_spent(self.campaign, c.id) then
+            and not deck.is_spent(self.campaign, c.id) and util.lazy("game.model.storylines").card_in_scope(self.campaign, c) then
             seen[c.id] = true
             table.insert(pool, c)
         end
@@ -4387,6 +4388,12 @@ function M:length_text()
     local function hm(m)
         local h = math.floor(m / 60)
         local mm = math.floor(m % 60 + 0.5)
+        if mm == 60 then
+            h, mm = h + 1, 0
+        end
+        if h == 0 then
+            return util.int(mm) .. "m"    -- "43m", not "0h 43m"
+        end
         return util.int(h) .. "h" .. (mm > 0 and (" " .. util.int(mm) .. "m") or "")
     end
     local diff = r.minutes - r.planned
@@ -5285,9 +5292,24 @@ function M:intro()
     self:say("Everyone's here. Dice out.", "system")
     self:table_behavior("start")
     if self.campaign.week == 1 then
-        -- The first session: everyone introduces themselves and their hero.
+        -- The first session (October 15): the DM sets up the world, everyone introduces themselves
+        -- and their hero, then the short version: what matters, where they are, what's first.
+        self:opening()
         intros.run(self)
+        self:briefing()
     else
+        -- Someone joins a small table tonight (October 15): they introduce their hero first, and
+        -- after the recap the DM catches them up.
+        local joined = {}
+        for _, key in ipairs(self.campaign.joined_now or {}) do
+            local p = self.campaign:player(key)
+            if p and p.present and util.contains(self.players, p) then
+                table.insert(joined, p)
+            end
+        end
+        if #joined > 0 then
+            intros.run(self, joined)
+        end
         -- The DM's opening: last session's big beats, then where they are and what they're after.
         local recap = recap_mod.last_session(self.campaign) or story.recap(self.campaign)
         if recap then
@@ -5301,6 +5323,9 @@ function M:intro()
         if here then
             self:say(here, "recap")
         end
+        -- And the same on a card (October 15): what they found out, where they are, what's next;
+        -- for anyone joining tonight, the story so far and who they're travelling with first.
+        self:briefing(joined, recap)
     end
     -- Where they left off, if they haven't rested since (A16): what the sheets say.
     local ps = self.campaign.party_state
@@ -5351,6 +5376,101 @@ function M:intro()
     death_mod.intro(self)   -- a new character joins (B3)
 end
 
+-- The opening of session 1 (game/model/lore.lua): the world a card at a time, before the
+-- introductions. The cards go into the log too, for anyone who wants to read them back.
+function M:opening()
+    local slides = lore.opening(self.campaign)
+    self:emit({ kind = "cinematic", id = "opening", slides = slides })
+    for _, sl in ipairs(slides) do
+        if sl.text then
+            self:say(sl.title .. ". " .. sl.text, "aside")
+        end
+    end
+end
+
+-- After the introductions: the key lore, where the heroes are, and what to do first. joined:
+-- catching up someone who joined tonight.
+function M:briefing(joined, recap)
+    local first_sc = self.scenes[1]
+    local loc = first_sc and first_sc.comps.location
+    local where = loc and ("You're " .. self:here_phrase(loc, true) .. ".") or self:open_where(first_sc)
+    local obj = lore.objective(self.campaign)
+    local first
+    if obj then
+        first = obj
+        local cast = first_sc and first_sc.comps.cast
+        if cast and not self:muted(cast) then
+            local who = cast.short or util.lower_first(cast.name)
+            first = first .. (cast.foe and (" Watch out for " .. who .. ".") or (" Start with " .. who .. "."))
+        end
+    end
+    local camp = self.campaign
+    local slides
+    if (camp.week or 1) <= 1 then
+        slides = { lore.briefing(camp, where, first) }
+    elseif joined and #joined > 0 then
+        slides = lore.catch_up(camp, joined, where, first, recap)
+    else
+        slides = { lore.previously(camp, where, first, recap) }
+    end
+    self:emit({ kind = "cinematic", id = "briefing", slides = slides })
+    -- Into the log too. (After the first session the recap and "here we are today" are there
+    -- already: only the world and the heroes, for whoever just joined.)
+    if (camp.week or 1) <= 1 then
+        for _, r in ipairs(slides[1].rows) do
+            self:say(r.text, "aside")
+        end
+        if where then
+            self:say(where, "aside")
+        end
+        if first then
+            self:say(first, "aside")
+        end
+    elseif #slides > 1 then
+        for _, sl in ipairs(slides) do
+            for _, r in ipairs(sl.rows) do
+                if not r.found then
+                    self:say(r.text, "aside")
+                end
+            end
+        end
+    end
+end
+
+-- Where they are when scene 1 is open (A15) and they'll choose the place themselves: "It's up to
+-- you where to start: the mill, the chapel or the market." (Or, with nothing sketched, the town.)
+function M:open_where(sc)
+    local names = {}
+    for _, id in ipairs(sc and sc.spots or {}) do
+        local c = content.components[id]
+        if c then
+            table.insert(names, util.lower_first(c.short or string.match(c.name, "^([^,]+)") or c.name))
+        end
+    end
+    if #names == 0 then
+        return lore.data.briefing.where_town
+    end
+    local list = names[#names]
+    if #names > 1 then
+        list = table.concat(names, ", ", 1, #names - 1) .. " or " .. names[#names]
+    end
+    return "It's up to you where to start: " .. list .. "."
+end
+
+-- "at the Crooked Kettle", "on the forest road", "in the old mine": where scene 1 is, said the
+-- way the table would.
+function M:here_phrase(loc, full)
+    local set = loc.setting or {}
+    local prep = "at"
+    if util.contains(set, "road") then
+        prep = "on"
+    elseif util.contains(set, "under") or (util.contains(set, "indoor") and not util.contains(set, "tavern")
+        and not util.contains(set, "crowd")) then
+        prep = "in"
+    end
+    return loc.here or (prep .. " " .. ((not full and loc.short) or util.lower_first(string.match(loc.name, "^([^,]+)") or loc.name)))
+end
+
 -- "And here we are today: you're at <place>, and you're out to <objective>." Where scene 1 is,
 -- and what this week's story is after (game/data/arc.lua objective; objective_if once they know
 -- the clue it hangs on).
@@ -5365,15 +5485,7 @@ function M:here_today()
     if not loc then
         return obj and ("And here we are today: you're out to " .. obj .. ".") or nil
     end
-    local set = loc.setting or {}
-    local prep = "at"
-    if util.contains(set, "road") then
-        prep = "on"
-    elseif util.contains(set, "under") or (util.contains(set, "indoor") and not util.contains(set, "tavern")
-        and not util.contains(set, "crowd")) then
-        prep = "in"
-    end
-    local text = "And here we are today: you're " .. (loc.here or (prep .. " " .. (loc.short or util.lower_first(loc.name))))
+    local text = "And here we are today: you're " .. self:here_phrase(loc)
     if obj then
         text = text .. ", and you're out to " .. obj
     end

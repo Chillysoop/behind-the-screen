@@ -23,19 +23,19 @@ M.ENJOY = 1.5                 -- rapport per severity point between a doer and s
 M.BREWING, M.ACTIVE = 40, 70  -- the table conflicts' stages
 
 function M.get(campaign)
-    if not campaign.rel then
-        campaign.rel = {}
-        for _, a in ipairs(campaign.players) do
-            campaign.rel[a.key] = {}
-            for _, b in ipairs(campaign.players) do
-                if a ~= b then
-                    local r = M.SEED[a.key .. "_" .. b.key] or M.BASE
-                    campaign.rel[a.key][b.key] = { rapport = r, heat = 0, base = r }
-                end
+    -- Every pair at the table, including anyone who's joined since (a small table, October 15).
+    campaign.rel = campaign.rel or {}
+    local rel = campaign.rel
+    for _, a in ipairs(campaign.players) do
+        rel[a.key] = rel[a.key] or {}
+        for _, b in ipairs(campaign.players) do
+            if a ~= b and not rel[a.key][b.key] then
+                local r = M.SEED[a.key .. "_" .. b.key] or M.BASE
+                rel[a.key][b.key] = { rapport = r, heat = 0, base = r }
             end
         end
     end
-    return campaign.rel
+    return rel
 end
 
 function M.rel(campaign, a, b)

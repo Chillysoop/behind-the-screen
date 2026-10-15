@@ -78,6 +78,20 @@ return {
     },
     second_fronts = { "velvet_hand", "under_chapel" },
 
+    -- Who's at the table (October 15): a first campaign starts small and the others join one at a
+    -- time, so the DM learns two heroes' stories before juggling four. start: who plays session 1;
+    -- join: who arrives when (a page of their backstory first, then they introduce their hero).
+    tables = {
+        order = { "small", "full" },
+        small = { name = "Two to start", about = "Mara and Dev play session 1. Jess joins in session 2, Sam in session 3.",
+                  start = { "mara", "dev" }, join = { { key = "jess", week = 2 }, { key = "sam", week = 3 } } },
+        full = { name = "All four", about = "Mara, Dev, Jess and Sam, all from session 1.",
+                 start = { "mara", "dev", "jess", "sam" } },
+    },
+    -- The planner screen starts on this one; a plan made without the screen (old saves, the
+    -- simulations) gets the default's table.
+    screen_table = "small",
+
     -- What a fresh plan starts on (and what saves from before the planner get).
-    default = { truths = { "wolves", "old_faith", "trade" }, front = "velvet_hand", threads = { "mara", "dev" } },
+    default = { truths = { "wolves", "old_faith", "trade" }, front = "velvet_hand", threads = { "mara", "dev" }, table = "full" },
 }

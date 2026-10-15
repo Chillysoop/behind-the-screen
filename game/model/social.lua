@@ -85,16 +85,11 @@ function M.apply_session_zero(campaign, choices, held)
         t.rules[k] = v
     end
     for _, key in ipairs(s0.asks.order) do
-        local ask = s0.asks[key]
-        local agreed = t.asks[key] == "agree"
-        if ask.content then
-            if agreed then
-                t[ask.kind == "line" and "lines" or "veils"][ask.content] = key
-            else
-                t.pushed[ask.content] = key
-            end
-        elseif ask.promise and agreed then
-            t.promises[ask.promise] = key
+        -- Only what someone at the table asked (a player joining later asks when they join).
+        if campaign:player(key) then
+            M.settle_ask(t, key, t.asks[key])
+        else
+            t.asks[key] = nil
         end
     end
     campaign.table = t
@@ -112,7 +107,7 @@ function M.apply_session_zero(campaign, choices, held)
     end
     add(s0.tones[t.tone].pressure)
     for _, key in ipairs(s0.asks.order) do
-        local a = s0.asks[key][t.asks[key] or "agree"]
+        local a = t.asks[key] and s0.asks[key][t.asks[key]]
         add(a and a.pressure)
     end
     for _, rk in ipairs(s0.rules.order) do
@@ -125,7 +120,7 @@ function M.apply_session_zero(campaign, choices, held)
     -- Talking it all through up front: people start out feeling heard (or not).
     if held then
         local f = M.feelings(choices)
-        for _, p in ipairs(campaign.players) do
+        for _, p in ipairs(campaign.players) do   -- (only who's at the table: joiners settle on joining)
             local like = f[p.key] or 0
             score.add(p, "trust", 1.5 * like + 2)
             score.add(p, "investment", like + 2)
@@ -134,6 +129,65 @@ function M.apply_session_zero(campaign, choices, held)
         campaign:gain_empathy("session_zero")
     end
     return t
+end
+
+-- One player's ask, written into the table's rules: a line, a veil, a promise, or pushed back.
+function M.settle_ask(t, key, answer)
+    local ask = content.session_zero.asks[key]
+    if not ask then
+        return
+    end
+    t.asks[key] = answer
+    local agreed = answer == "agree"
+    if ask.content then
+        if agreed then
+            t[ask.kind == "line" and "lines" or "veils"][ask.content] = key
+        else
+            t.pushed[ask.content] = key
+        end
+    elseif ask.promise and agreed then
+        t.promises[ask.promise] = key
+    end
+end
+
+-- A player joins a small table (October 15): their ask and their backstory, settled the way
+-- Session Zero settles them, and how they feel about it to start. choices = { ask = "agree" |
+-- "push", backstory = { asked, idea, hook } }; anything missing takes a default.
+function M.welcome(campaign, key, choices)
+    choices = choices or {}
+    -- Their friction starts fresh (October 15: "tired of the Pip show" before Pip had played a
+    -- scene): whatever Session Zero piled on while they weren't here comes back to where it starts.
+    for _, id in ipairs(defs().order) do
+        local d, c = defs()[id], campaign.conflicts and campaign.conflicts[id]
+        if c and util.contains(d.side or {}, key) and c.state ~= "fixed" then
+            c.pressure = math.min(c.pressure, d.start or 0)
+            c.state = "calm"
+        end
+    end
+    local s0 = content.session_zero
+    local t = campaign.table
+    local answer = choices.ask or s0.defaults.asks[key] or "agree"
+    if t and s0.asks[key] then
+        M.settle_ask(t, key, answer)
+        local a = s0.asks[key][answer]
+        for id, v in pairs(a and a.pressure or {}) do
+            if campaign.conflicts[id] then
+                campaign.conflicts[id].pressure = util.clamp(campaign.conflicts[id].pressure + v, 0, 100)
+            end
+        end
+    end
+    local backstory = require "game.model.backstory"
+    local ch = choices.backstory or backstory.default_choice(key)
+    backstory.settle_one(campaign, key, ch)
+    local p = campaign:player(key)
+    if p then
+        local like = backstory.like(key, ch)
+        local a = s0.asks[key] and s0.asks[key][answer]
+        like = like + (a and a.like or 0)
+        score.add(p, "trust", 1.5 * like + 2)
+        score.add(p, "investment", like + 2)
+        p.lag.trust, p.lag.investment = p.trust, p.investment
+    end
 end
 
 -- Conflicts -------------------------------------------------------------------------------
@@ -161,9 +215,27 @@ local function is_live(c)
 end
 M.is_live = is_live
 
+-- A conflict needs its people at the table (October 15: at a small table, "Dev and Sam keep
+-- arguing" before Sam had joined). Until everyone on its side is seated it neither builds nor shows.
+function M.seated(campaign, id)
+    local d = defs()[id]
+    for _, k in ipairs(d and d.side or {}) do
+        if not campaign:player(k) then
+            return false
+        end
+    end
+    return true
+end
+
 -- Recompute a conflict's state from its pressure.
 local function restate(campaign, c)
     local d = defs()
+    if not M.seated(campaign, c.id) then
+        if c.state ~= "fixed" then
+            c.state = "calm"
+        end
+        return
+    end
     local before = c.state
     if c.state == "fixed" and c.pressure < d.BREWING then
         return
@@ -193,6 +265,9 @@ function M.push(campaign, id, amount)
     end
     if amount > 0 and #c.fixes > 0 then
         amount = amount * defs().RECUR_RATE
+    end
+    if amount > 0 and not M.seated(campaign, id) then
+        amount = 0
     end
     c.pressure = util.clamp(c.pressure + amount, 0, 100)
     restate(campaign, c)

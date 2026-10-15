@@ -93,7 +93,9 @@ function M.get(campaign)
                 end
             end
             if not st and not s[d.id] and p then
-                s[d.id] = { state = "open", opened = 1, last = 0, moves = 0, char = p.char, eroded = {} }
+                -- From the week they joined (a small table, October 15): not already overdue.
+                local w = p.joined_week or 1
+                s[d.id] = { state = "open", opened = w, last = w - 1, moves = 0, char = p.char, eroded = {} }
             end
         elseif d.open == "start" and not st then
             s[d.id] = { state = "open", opened = 1, last = 0, moves = 0, eroded = {} }
@@ -106,9 +108,64 @@ function M.state(campaign, id)
     return M.get(campaign)[id]
 end
 
+-- A small table's story grows with it (October 15): which storylines are in play yet. Every
+-- storyline is, at a full table. A hero's own story is while they're at the table; a world story
+-- from its small_from session (the second front's a week early), or as soon as it opens anyway.
+function M.in_scope(campaign, id)
+    if not (campaign.roster and campaign.roster.kind == "small") then
+        return true
+    end
+    if string.sub(id, 1, 3) == "bs_" then
+        return campaign:player(string.sub(id, 4)) ~= nil
+    end
+    local d = data[id]
+    if not d then
+        return true
+    end
+    local st = campaign.storylines and campaign.storylines[id]
+    if st and st.state and st.state ~= "waiting" then
+        return true
+    end
+    return (campaign.week or 0) >= (d.small_from or 1)
+end
+
+-- Is a card in play yet: no storyline, or one of its storylines is.
+function M.card_in_scope(campaign, c)
+    if not (campaign.roster and campaign.roster.kind == "small") then
+        return true
+    end
+    local ids = M.of_card_all(campaign, c)
+    if #ids == 0 then
+        return true
+    end
+    for _, id in ipairs(ids) do
+        if M.in_scope(campaign, id) then
+            return true
+        end
+    end
+    return false
+end
+
 -- Which storylines a card moves. A backstory card moves its hero's story only while that hero
--- is still the one at the table.
+-- is still the one at the table. At a small table, only the storylines in play yet (October 15:
+-- a week-2 card that also touches the traitor shows and moves the Velvet Hand, not a story the
+-- table hasn't met).
 function M.of_card(campaign, c)
+    local all = M.of_card_all(campaign, c)
+    if not (campaign.roster and campaign.roster.kind == "small") then
+        return all
+    end
+    local out = {}
+    for _, id in ipairs(all) do
+        if M.in_scope(campaign, id) then
+            table.insert(out, id)
+        end
+    end
+    return out
+end
+
+-- Every storyline a card touches, in play or not.
+function M.of_card_all(campaign, c)
     index()
     if not c then
         return {}
@@ -132,6 +189,15 @@ function M.of_card(campaign, c)
         local deck = require "game.model.deck"
         if deck.thread_live(campaign, c) then
             add("bs_" .. c.thread)
+        end
+    end
+    -- This week's story cards that are no storyline's own (the Kettle and Gus in session 1, the
+    -- chapel in session 2) move the main story (October 15: the bells were "going cold" while the
+    -- table chased them every week).
+    if #out == 0 and campaign.arc_beat then
+        local beat = campaign:arc_beat()
+        if beat and util.contains(beat.cards or {}, c.id) then
+            add(content.lore.briefing.next_story)
         end
     end
     return out

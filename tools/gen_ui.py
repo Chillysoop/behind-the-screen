@@ -72,6 +72,10 @@ ICON_SIZE = 48
 ICON_NAMES = ["spotlight", "challenge", "story", "social", "reward", "fun", "commitment", "investment",
               "trust", "suspicion", "up", "down", "warn", "empathy", "mood", "d20", "heart", "clock", "tail", "speed",
               "hourglass"]
+# The world's iconography (October 15): one icon per storyline, faction and truth, the same
+# everywhere (the opening, story cards, the board, the Story log). game/data/lore.lua maps them.
+LORE_ICONS = ["bell", "wolf", "hand", "skull", "candle", "house", "spur", "trail", "wheel", "mask", "coin", "cloud",
+              "grave", "crown", "paw"]
 
 
 def _icon_canvas():
@@ -207,19 +211,123 @@ def draw_icon(name):
         d.rectangle([S * 0.16, S * 0.86, S * 0.84, S * 0.96], fill=255)
         d.polygon([(S * 0.22, S * 0.14), (S * 0.78, S * 0.14), (c + 10, c), (S * 0.78, S * 0.86), (S * 0.22, S * 0.86),
                    (c - 10, c)], fill=255)
+    elif name in LORE_ICONS:
+        draw_lore(d, name, S, c)
     alpha = img.resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
     out = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (255, 255, 255, 0))
     out.putalpha(alpha)
     out.save(path("assets/ui", "icon_" + name + ".png"))
 
 
+def draw_lore(d, name, S, c):
+    """The lore icons, white on black at 4x (S = 192): simple silhouettes that read at 16px."""
+    k = S / 192.0
+
+    def P(pts):
+        return [(x * k, y * k) for x, y in pts]
+
+    def box(x0, y0, x1, y1):
+        return [x0 * k, y0 * k, x1 * k, y1 * k]
+
+    if name == "bell":
+        d.ellipse(box(52, 26, 140, 112), fill=255)
+        d.polygon(P([(52, 70), (140, 70), (150, 120), (170, 148), (22, 148), (42, 120)]), fill=255)
+        d.rounded_rectangle(box(14, 140, 178, 160), radius=8 * k, fill=255)
+        d.ellipse(box(80, 150, 112, 182), fill=255)
+        d.ellipse(box(84, 6, 108, 34), outline=255, width=int(8 * k))
+    elif name == "wolf":
+        d.polygon(P([(30, 18), (74, 70), (118, 70), (162, 18), (170, 96), (140, 128), (114, 178), (78, 178),
+                     (52, 128), (22, 96)]), fill=255)
+        d.polygon(P([(58, 96), (86, 104), (80, 116), (62, 110)]), fill=0)
+        d.polygon(P([(134, 96), (106, 104), (112, 116), (130, 110)]), fill=0)
+        d.ellipse(box(84, 150, 108, 168), fill=0)
+    elif name == "hand":
+        d.rounded_rectangle(box(52, 92, 144, 182), radius=26 * k, fill=255)
+        for i, (x, top) in enumerate([(56, 30), (80, 14), (104, 18), (128, 36)]):
+            d.rounded_rectangle(box(x, top, x + 20, 112), radius=10 * k, fill=255)
+        thumb = [(54, 132), (24, 92), (36, 80), (70, 112)]
+        d.polygon(P(thumb), fill=255)
+        d.ellipse(box(20, 76, 44, 100), fill=255)
+    elif name == "skull":
+        d.ellipse(box(36, 14, 156, 130), fill=255)
+        d.rounded_rectangle(box(62, 104, 130, 172), radius=12 * k, fill=255)
+        d.ellipse(box(60, 62, 92, 96), fill=0)
+        d.ellipse(box(100, 62, 132, 96), fill=0)
+        d.polygon(P([(96, 102), (86, 124), (106, 124)]), fill=0)
+        for x in (80, 96, 112):
+            d.line(P([(x, 140), (x, 172)]), fill=0, width=int(6 * k))
+    elif name == "candle":
+        d.rounded_rectangle(box(70, 78, 122, 172), radius=6 * k, fill=255)
+        d.rounded_rectangle(box(46, 164, 146, 184), radius=8 * k, fill=255)
+        d.polygon(P([(96, 8), (118, 46), (110, 64), (96, 70), (82, 64), (74, 46)]), fill=255)
+        d.line(P([(96, 66), (96, 80)]), fill=255, width=int(6 * k))
+    elif name == "house":
+        d.polygon(P([(96, 16), (176, 86), (154, 86), (154, 176), (38, 176), (38, 86), (16, 86)]), fill=255)
+        d.rectangle(box(82, 124, 112, 176), fill=0)
+        d.rectangle(box(54, 102, 74, 122), fill=0)
+        d.rectangle(box(120, 102, 140, 122), fill=0)
+    elif name == "spur":
+        pts = []
+        for i in range(16):
+            r = 88 if i % 2 == 0 else 38
+            a = math.radians(-90 + i * 22.5)
+            pts.append((96 + r * math.cos(a), 96 + r * math.sin(a)))
+        d.polygon(P(pts), fill=255)
+        d.ellipse(box(78, 78, 114, 114), fill=0)
+    elif name == "trail":
+        d.ellipse(box(36, 84, 78, 150), fill=255)
+        d.ellipse(box(42, 152, 72, 182), fill=255)
+        d.ellipse(box(114, 16, 156, 82), fill=255)
+        d.ellipse(box(120, 84, 150, 114), fill=255)
+    elif name == "wheel":
+        d.ellipse(box(16, 16, 176, 176), fill=255)
+        d.ellipse(box(36, 36, 156, 156), fill=0)
+        for i in range(8):
+            a = math.radians(i * 45)
+            d.line(P([(96, 96), (96 + 66 * math.cos(a), 96 + 66 * math.sin(a))]), fill=255, width=int(12 * k))
+        d.ellipse(box(76, 76, 116, 116), fill=255)
+    elif name == "mask":
+        d.polygon(P([(14, 70), (60, 54), (96, 70), (132, 54), (178, 70), (170, 120), (130, 138), (96, 118),
+                     (62, 138), (22, 120)]), fill=255)
+        d.ellipse(box(42, 78, 82, 108), fill=0)
+        d.ellipse(box(110, 78, 150, 108), fill=0)
+    elif name == "coin":
+        # A purse of coin, tied at the neck.
+        d.ellipse(box(26, 70, 166, 184), fill=255)
+        d.polygon(P([(70, 76), (60, 30), (96, 50), (132, 30), (122, 76)]), fill=255)
+        d.rectangle(box(66, 64, 126, 76), fill=0)
+    elif name == "cloud":
+        d.ellipse(box(20, 74, 92, 146), fill=255)
+        d.ellipse(box(62, 36, 146, 120), fill=255)
+        d.ellipse(box(110, 70, 176, 140), fill=255)
+        d.rectangle(box(52, 104, 150, 146), fill=255)
+        for x in (60, 96, 132):
+            d.line(P([(x, 156), (x - 10, 182)]), fill=255, width=int(10 * k))
+    elif name == "grave":
+        d.rounded_rectangle(box(48, 24, 144, 170), radius=46 * k, fill=255)
+        d.rectangle(box(48, 80, 144, 170), fill=255)
+        d.rectangle(box(20, 166, 172, 184), fill=255)
+        d.rectangle(box(90, 52, 102, 112), fill=0)
+        d.rectangle(box(74, 66, 118, 78), fill=0)
+    elif name == "crown":
+        d.polygon(P([(18, 60), (60, 104), (96, 30), (132, 104), (174, 60), (156, 156), (36, 156)]), fill=255)
+        d.rectangle(box(36, 160, 156, 178), fill=255)
+    elif name == "paw":
+        # A wild animal's print: the hills' wolves, not Kessrick's (October 15).
+        d.ellipse(box(50, 92, 142, 172), fill=255)
+        d.ellipse(box(18, 62, 56, 108), fill=255)
+        d.ellipse(box(56, 22, 94, 72), fill=255)
+        d.ellipse(box(98, 22, 136, 72), fill=255)
+        d.ellipse(box(136, 62, 174, 108), fill=255)
+
+
 def icons():
-    for n in ICON_NAMES:
+    for n in ICON_NAMES + LORE_ICONS:
         draw_icon(n)
 
 
 def atlas():
-    images = ["vignette", "panel", "dot"] + ["icon_" + n for n in ICON_NAMES]
+    images = ["vignette", "panel", "dot"] + ["icon_" + n for n in ICON_NAMES + LORE_ICONS]
     body = "".join(f'images {{\n  image: "/assets/ui/{n}.png"\n}}\n' for n in images)
     with open(path("assets/ui", "ui.atlas"), "w", newline="\n") as f:
         f.write(body + "margin: 2\nextrude_borders: 2\n")

@@ -20,6 +20,10 @@
 --   ends           cards that close it when their scene is won (a minor story resolved)
 --   cold           weeks without moving before the table notices it's been dropped
 --   color          its color on the prep board and in the notes
+--   small_from     a small table (October 15): the session it comes into play. Before that its
+--                  cards stay out of the hand and it stays out of the Story log, unless it opens
+--                  anyway (one of its cards played). A hero's own story is in play while
+--                  they're at the table.
 --   noticed        what someone at the table says when they notice it's been dropped
 --   back           what they say when it comes back after being dropped
 
@@ -63,7 +67,7 @@ return {
     order = { "bells", "velvet", "dead", "tobin", "wool_roads", "traitor", "spurs" },
 
     bells = {
-        name = "The Silent Bells", short = "The bells", kind = "major", open = "start", cold = 2, color = "#c8a24a",
+        name = "The Silent Bells", short = "The bells", kind = "major", open = "start", cold = 2, color = "#c8a24a", small_from = 1,
         about = "Who hushed Millbrook's bells, and what Kessrick's warband does when they wake.",
         gist = "Someone hushed Millbrook's bells",
         cards = { "stranger", "wren", "forest_road", "hidden_map", "hush_holds", "riddle", "bell_tower", "wolf_lieutenant",
@@ -75,7 +79,7 @@ return {
         back = { "The BELLS. We're back on the bells. Yes.", "Oh, I'd forgotten about Kessrick. That's not good, is it." },
     },
     velvet = {
-        name = "The Velvet Hand's debts", short = "The Velvet Hand", kind = "major", cold = 2, color = "#b0506a",
+        name = "The Velvet Hand's debts", short = "The Velvet Hand", kind = "major", cold = 2, color = "#b0506a", small_from = 2,
         about = "Madame Sable's guild is buying up every debt in Millbrook, and the Kettle is next.",
         gist = "The Velvet Hand is buying up Millbrook's debts",
         cards = { "madame_sable", "velvet_den", "collectors", "owe_more", "key_for_sale", "purse_lifted", "cutpurses",
@@ -86,7 +90,7 @@ return {
         back = { "Ugh, Sable. I missed her. Is that weird?", "The Hand's back. Of course the Hand's back." },
     },
     dead = {
-        name = "The restless dead", short = "The dead", kind = "major", cold = 2, color = "#7a8ab0",
+        name = "The restless dead", short = "The dead", kind = "major", cold = 2, color = "#7a8ab0", small_from = 3,
         about = "Something under the roadside chapel wants its bell rung, and the dead won't stay put.",
         gist = "The dead under the chapel won't stay put",
         cards = { "crypt", "restless_dead", "dead_walk", "silence_crypt", "lay_to_rest", "shrine", "bone_choir",
@@ -97,7 +101,7 @@ return {
         back = { "The chapel thing! I KNEW that was coming back.", "Oh no, the dead. I'd honestly forgotten. Oh no." },
     },
     tobin = {
-        name = "Where is Old Tobin?", short = "Old Tobin", kind = "minor", cold = 3, color = "#8aa060",
+        name = "Where is Old Tobin?", short = "Old Tobin", kind = "minor", cold = 3, color = "#8aa060", small_from = 2,
         about = "The bell-ringer took the north road nine days before the campaign, and never came back.",
         gist = "Old Tobin, the bell-ringer, is missing",
         cards = { "wren", "find_tobin", "find_wren", "bell_paths", "map_thief", "torn_map", "torn_map_goal" },
@@ -107,7 +111,7 @@ return {
         back = { "Tobin! Is he alive? Tell me he's alive." },
     },
     wool_roads = {
-        name = "Bandits on the wool roads", short = "The wool roads", kind = "minor", cold = 3, color = "#a0784a",
+        name = "Bandits on the wool roads", short = "The wool roads", kind = "minor", cold = 3, color = "#a0784a", small_from = 4,
         about = "Carts go missing between Millbrook and the hill farms, and Captain Rook's bandits know why.",
         gist = "Rook's bandits are taking the wool carts",
         cards = { "merchant", "caravan", "toll", "rook", "ransom", "old_bridge", "trade_writ" },
@@ -117,7 +121,7 @@ return {
         back = { "Ottilie! And the wool! Okay, I'm weirdly invested in the wool." },
     },
     traitor = {
-        name = "Who's selling secrets?", short = "The traitor", kind = "minor", cold = 3, color = "#6a9a9a",
+        name = "Who's selling secrets?", short = "The traitor", kind = "minor", cold = 3, color = "#6a9a9a", small_from = 4,
         about = "Somebody in Millbrook is passing the party's business to whoever pays.",
         gist = "Someone is selling the party's secrets",
         cards = { "traitor", "traitor_warned", "traitor_ledger", "turncoat_guide", "turncoat" },
@@ -126,7 +130,7 @@ return {
         back = { "The traitor! Okay, everyone's a suspect. Everyone." },
     },
     spurs = {
-        name = "The Silver Spurs", short = "The Spurs", kind = "minor", cold = 3, color = "#9a9aa8",
+        name = "The Silver Spurs", short = "The Spurs", kind = "minor", cold = 3, color = "#9a9aa8", small_from = 4,
         about = "A rival party who want to be the valley's famous heroes, whatever it takes.",
         gist = "Rival heroes want the valley's glory",
         cards = { "rivals", "fair", "safe_conduct" },

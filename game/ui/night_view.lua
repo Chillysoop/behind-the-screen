@@ -22,6 +22,7 @@ local pacing = require "game.model.pacing"
 local night_mod = require "game.model.night"
 local board_mod = require "game.model.board"
 local util = require "game.model.util"
+local content = require "game.model.content"
 local review = require "game.ui.review_view"
 local panels = require "game.ui.panels"
 local battle_hud = require "game.ui.battle_hud"
@@ -195,9 +196,11 @@ function M.start(app)
     for _, p in ipairs(app.campaign.players) do
         app.names[p.key] = p.char
     end
+    -- An empty chair for anyone who's out, or hasn't joined the table yet (October 15).
     local present = {}
-    for _, p in ipairs(app.campaign.players) do
-        present[p.key] = p.present and true or false
+    for _, key in ipairs(content.players.order) do
+        local p = app.campaign:player(key)
+        present[key] = (p and p.present) and true or false
     end
     post("seats", { present = present })
     post("clear", { how = "sweep" })
@@ -239,12 +242,13 @@ end
 function M.draw_frame(app)
     kit.use(app.layers.base)
     kit.box(0, 0, kit.W, 58, theme.bg_glass, { round = false })
-    kit.text(24, 6, "WEEK " .. util.int(app.campaign.week), "ui22b", theme.gold)
+    kit.text(24, 6, "SESSION " .. util.int(app.campaign.week), "ui22b", theme.gold)
     kit.text(24, 35, "GAME NIGHT", "ui14", theme.faint)
     app.n_label = kit.text(160, 6, kit.ellipsize(app.scene_label, "ui18b", 600), "ui18b", theme.text)
-    app.n_sub = kit.text(160, 32, app.scene_sub or "", "ui14", theme.dim)
+    app.n_sub = kit.text(160, 32, kit.ellipsize(app.scene_sub or "", "ui14", 360), "ui14", theme.dim)
     -- Anything from an earlier build is gone with its layer.
-    app.pip_nodes, app.strip_nodes = {}, {}
+    app.pip_nodes, app.strip_nodes, app.goal_nodes = {}, {}, {}
+    M.draw_goal(app)
     -- Your notes: the story so far, who's who, the party's sheets (N).
     kit.button(776, 10, 112, 38, "Notes (N)", function()
         if app.open_notes then
@@ -274,6 +278,40 @@ function M.draw_frame(app)
     end)
     M.draw_strip(app)
     M.draw_pips(app)
+end
+
+-- What they're out to do this week, after the scene's line in the header (October 15: so the DM
+-- never has to open a menu to know): the main story's icon and the objective, which changes when
+-- they find the clue it hangs on.
+function M.draw_goal(app)
+    if not app.layers.base then
+        return
+    end
+    kit.use(app.layers.base)
+    kit.remove(app.goal_nodes or {})
+    app.goal_nodes = {}
+    local lore = require "game.model.lore"
+    local obj = lore.objective(app.campaign)
+    if not obj then
+        return
+    end
+    local sub = kit.ellipsize(app.scene_sub or "", "ui14", 360)
+    local x = 160 + (sub ~= "" and (kit.width(sub, "ui14") + 22) or 0)
+    -- (After a challenge's pips, when there are any.)
+    local pr = app.progress
+    if pr then
+        x = 160 + kit.width(app.scene_sub or "", "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16
+    end
+    local avail = 766 - x - 20
+    if avail < 140 then
+        return
+    end
+    local m = lore.storyline(app.campaign, content.lore.briefing.next_story)
+    if m and m.icon then
+        table.insert(app.goal_nodes, kit.icon(x, 33, 15, m.icon, m.color and kit.rgba(m.color) or theme.gold))
+    end
+    local text = kit.ellipsize("This week: " .. util.lower_first(obj), "ui14", avail)
+    table.insert(app.goal_nodes, kit.text(x + 20, 32, text, "ui14", theme.gold))
 end
 
 function M.refresh_status(app)
@@ -355,6 +393,7 @@ function M.draw_pips(app)
     for i = 1, pr.max do
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.setbacks and theme.red or kit.rgba("#ffffff", 0.1)))
     end
+    M.draw_goal(app)    -- moves along to make room
 end
 
 -- The log: compact (last few lines) or open (Tab) -------------------------------------------
@@ -1371,6 +1410,7 @@ function M.handle(app, ev)
         gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
         app.progress = nil
         M.draw_pips(app)
+        M.draw_goal(app)
         M.push(app, app.scene_label .. "  (" .. app.scene_sub .. ")", "scene")
         local sub = (ev.type_name or "") .. who
         if ev.goal then
@@ -1386,6 +1426,11 @@ function M.handle(app, ev)
             M.title(app, "THE SCENE SHIFTS", ev.title, "")
         end
         cam(app, 2)
+    elseif k == "cinematic" then
+        -- The opening of session 1 and the briefing after the introductions (October 15).
+        app.pending = ev
+        app.cine_i = 1
+        M.show_cinematic(app, ev)
     elseif k == "narrate" then
         -- A DM-only aside goes to the log, never the big caption (A2).
         if ev.style ~= "aside" then
@@ -1730,6 +1775,154 @@ function M.answer(app, value)
     M.step(app, value)
 end
 
+-- The opening and the briefing (game/model/lore.lua) -------------------------------------------
+-- The DM setting up the world, a card at a time, with the table behind it: each storyline,
+-- faction and truth with its icon, the same icon it wears on the cards from here on.
+
+local function lore_icon(x, y, size, row)
+    if row.face then
+        kit.dot(x + size / 2, y + size / 2, size, panels.COLORS[row.face] or theme.panel3)
+        kit.picture(x + 2, y + 2, size - 4, size - 4, panels.face(row.face))
+    else
+        local col = row.color and kit.rgba(row.color) or theme.gold
+        kit.dot(x + size / 2, y + size / 2, size, alpha_of(col, 0.25))
+        kit.icon(x + size * 0.18, y + size * 0.18, size * 0.64, row.icon or "story", col)
+    end
+end
+
+-- A briefing row's text height (capped at its lines).
+function M.row_h(r, w)
+    return math.min(kit.text_height(r.text, "ui18", w - 150), (r.lines or 2) * kit.line_height("ui18"))
+end
+
+-- How tall a briefing card needs to be, and how far apart its rows can sit.
+function M.briefing_layout(sl, w)
+    local function total(gap)
+        local hh = 70 + (sl.sub and 18 or 0)
+        for _, r in ipairs(sl.rows or {}) do
+            hh = hh + math.max(gap, M.row_h(r, w) + 16)
+        end
+        hh = hh + 6
+        if sl.where then
+            hh = hh + math.max(34, kit.text_height(sl.where, "story22", w - 260) + 10)
+        end
+        if sl.first then
+            hh = hh + kit.text_height(sl.first, "story22", w - 260) + 18
+        end
+        return hh + 96     -- the dots and the button
+    end
+    local gap = 46
+    while gap > 36 and total(gap) > 700 do
+        gap = gap - 2
+    end
+    return { h = total(gap), gap = gap }
+end
+
+function M.show_cinematic(app, ev)
+    M.close_modal(app)
+    M.clear_fx(app)
+    app.layers.modal = kit.layer("night_modal", true)
+    local slides = ev.slides or {}
+    local i = util.clamp(app.cine_i or 1, 1, math.max(1, #slides))
+    local sl = slides[i] or {}
+    kit.box(0, 0, kit.W, kit.H, kit.rgba("#0c0806", 0.62), { round = false })
+    local w, h = 980, 560
+    -- A briefing grows to fit what it has to say (October 15: four heroes and a long recap ran
+    -- off the bottom), up to the player panels; past that its rows sit closer.
+    local fit = sl.briefing and M.briefing_layout(sl, w) or nil
+    if fit then
+        h = util.clamp(fit.h, 340, 700)
+    end
+    local x, y = (kit.W - w) / 2, math.max(64, math.min(150, 760 - h))
+    kit.box(x - 3, y - 3, w + 6, h + 6, sl.color and kit.rgba(sl.color) or theme.gold, { radius = 15 })
+    kit.box(x, y, w, h, theme.paper, { radius = 13 })
+    -- Buttons first: the first one is the way on (number keys and the test drivers press it).
+    local last = i >= #slides
+    kit.button(x + w - 236, y + h - 64, 210, 44, last and (ev.id == "opening" and "Introductions  >" or "Let's play  >")
+        or "Continue  >", function()
+        M.cinematic_next(app)
+    end, { color = theme.go, hover = theme.go_hover, key = "cine_next" })
+    if not last then
+        kit.button(x + 26, y + h - 58, 150, 32, ev.id == "opening" and "Skip the opening" or "Skip ahead", function()
+            if ev.id == "opening" then
+                app.cine_i = #slides
+                M.cinematic_next(app)
+            else
+                -- (A catch-up skips to its last card: where they are and what's first.)
+                app.cine_i = #slides
+                M.show_cinematic(app, ev)
+            end
+        end, { font = "ui14", color = theme.panel3, key = "cine_skip" })
+    end
+    -- Which card of how many.
+    for k = 1, #slides do
+        kit.dot(x + w / 2 - (#slides - 1) * 12 + (k - 1) * 24, y + h - 42, k == i and 14 or 10,
+            k == i and theme.ink or kit.rgba("#8a7a62"))
+    end
+    if sl.briefing then
+        -- The briefing: the lore in a line each, the heroes, then where they are and what's first.
+        -- (The recap after the first session: what they found, each under its storyline's icon.)
+        kit.text(x + 40, y + 30, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"), { w = w - 80, lines = 1 })
+        local ry = y + 70
+        if sl.sub then
+            kit.text(x + 40, ry - 8, sl.sub, "ui14", kit.rgba("#8a5a20"))
+            ry = ry + 18
+        end
+        local gap = fit.gap
+        for _, r in ipairs(sl.rows or {}) do
+            local th = M.row_h(r, w)
+            lore_icon(x + 40, ry - 4, 40, r)
+            kit.text(x + 96, ry + 4, r.text, "ui18", theme.ink, { w = w - 150, lines = r.lines or 2 })
+            ry = ry + math.max(gap, th + 16)
+        end
+        ry = ry + 6
+        if sl.where then
+            kit.text(x + 40, ry, sl.where_label or "WHERE YOU ARE", "ui14", kit.rgba("#8a5a20"))
+            kit.text(x + 220, ry - 3, sl.where, "story22", theme.ink, { w = w - 260, lines = 2 })
+            ry = ry + math.max(34, kit.text_height(sl.where, "story22", w - 260) + 10)
+        end
+        if sl.first then
+            kit.box(x + 28, ry - 8, w - 56, kit.text_height(sl.first, "story22", w - 260) + 18, kit.rgba("#e8b04a", 0.22),
+                { radius = 8 })
+            kit.text(x + 40, ry, sl.first_label or "WHAT'S FIRST", "ui14", kit.rgba("#8a5a20"))
+            kit.text(x + 220, ry - 3, sl.first, "story22", theme.ink, { w = w - 260, lines = 3 })
+        end
+    elseif sl.rows then
+        kit.text(x + 40, y + 30, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"))
+        kit.text(x + 40, y + 56, sl.title or "", "title30", theme.ink)
+        local ry = y + 120
+        for _, r in ipairs(sl.rows) do
+            lore_icon(x + 40, ry, 64, r)
+            kit.text(x + 124, ry + 2, r.title or "", "ui22b", theme.ink, { w = w - 170, lines = 1 })
+            kit.text(x + 124, ry + 32, r.text or "", "ui18", theme.ink, { w = w - 170, lines = 2 })
+            ry = ry + 104
+        end
+    else
+        lore_icon(x + 50, y + 70, 180, sl)
+        kit.text(x + 280, y + 64, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"))
+        kit.text(x + 280, y + 94, sl.title or "", "title30", theme.ink, { w = w - 320, lines = 2 })
+        kit.text(x + 280, y + 152, sl.text or "", "read26", theme.ink, { w = w - 330 })
+    end
+    if sl.footer then
+        kit.text(x + w / 2, y + h - 108, sl.footer, "story22", kit.rgba("#8a5a20"), { pivot = gui.PIVOT_N })
+    end
+end
+
+-- The next card, or back to the table after the last one.
+function M.cinematic_next(app)
+    local ev = app.pending
+    if not (ev and ev.kind == "cinematic") then
+        return
+    end
+    app.cine_i = (app.cine_i or 1) + 1
+    if app.cine_i > #(ev.slides or {}) then
+        app.cine_i = nil
+        M.answer(app, true)
+    else
+        M.show_cinematic(app, ev)
+    end
+end
+
 -- Number keys pick a card's options (the fix pass): 1 to 4 on any card, and on the improv hand
 -- they pick cards (Enter plays them). A fallback that works even when a click doesn't.
 function M.pick_key(app, n)
@@ -1737,7 +1930,10 @@ function M.pick_key(app, n)
     if not ev then
         return false
     end
-    if ev.kind == "decision" then
+    if ev.kind == "cinematic" then
+        M.cinematic_next(app)
+        return true
+    elseif ev.kind == "decision" then
         if ev.card and ev.card.options[n] then
             M.answer(app, n)
             return true

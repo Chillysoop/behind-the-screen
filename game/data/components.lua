@@ -136,7 +136,7 @@ return {
       fits = { "social", "downtime", "mystery" }, tags = { "cozy", "funny" },
       alt = { outdoor = "Gus is out with his shopping basket, still somehow polishing a mug." },
       line = "Gus polishes the same mug he has been polishing for eleven years.",
-      again = "Gus slides four mugs down the bar before anyone asks.",
+      again = "Gus slides a round of mugs down the bar before anyone asks.",
       deal = "a room, a hot meal, and everything he's heard about the bells",
       secret = "he saw a scarred man in the Kettle the night the bells stopped, and kept quiet" },
     { id = "stranger", kind = "cast", suits = { "tavern", "crowd" }, with = { "tavern" }, short = "the hooded stranger", deck = "arc", recurring = false, pronoun = "she", name = "A hooded stranger", named = "Wren, the bell-ringer's apprentice", cost = 1, difficulty = 1,

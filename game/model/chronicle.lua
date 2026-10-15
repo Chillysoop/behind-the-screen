@@ -839,7 +839,10 @@ function M.list(campaign, prep, night)
         local s = st[d.id]
         local open = s and (s.state == "open" or s.state == "resolved")
         local rank = (touched[d.id] and 3) or ((last[d.id] or 0) > 0 and 2) or (open and 1) or 0
-        table.insert(order, { d = d, rank = rank, last = last[d.id] or 0, i = i, touched = touched[d.id] })
+        -- A small table's story grows with it (October 15): what isn't in play yet isn't listed.
+        if rank > 0 or storylines.in_scope(campaign, d.id) then
+            table.insert(order, { d = d, rank = rank, last = last[d.id] or 0, i = i, touched = touched[d.id] })
+        end
     end
     table.sort(order, function(a, b)
         if a.rank ~= b.rank then
@@ -1108,6 +1111,54 @@ local function scene_step(campaign, rec)
     return where .. (kind and (" (" .. kind .. ")") or "") .. ": " .. (#bits > 0 and table.concat(bits, "; ") or "the story moved")
 end
 
+-- The storylines new to the DM this week, a line each (October 15: the wool-road bandits turned up
+-- on cards with an icon nobody had explained). At a small table, the ones coming into play this
+-- week; at any table, the ones the party opened last session. Each { id, text }.
+function M.new_storylines(campaign)
+    local storylines = util.lazy("game.model.storylines")
+    local data = require "game.data.storylines"
+    local week = campaign.week or 1
+    local small = campaign.roster and campaign.roster.kind == "small"
+    local main = content.lore.briefing.next_story
+    local out = {}
+    for _, id in ipairs(data.order) do
+        local d = data[id]
+        local st = storylines.get(campaign)[id]
+        local fresh = (small and week >= 2 and d.small_from == week)
+            or (week >= 2 and st and st.opened == week - 1 and st.state ~= "waiting")
+        if fresh and id ~= main and d.gist then
+            table.insert(out, { id = id, text = d.gist .. "." })
+        end
+    end
+    return out
+end
+
+-- The other storylines already in play in session 1, by icon and short name: a key to the marks
+-- on the cards (October 15: the wheel and the mask turned up on cards with no word of what they
+-- were). Empty at a small table, where session 1 is the main story and the heroes' pasts.
+function M.legend(campaign)
+    local storylines = util.lazy("game.model.storylines")
+    local data = require "game.data.storylines"
+    local main = content.lore.briefing.next_story
+    local out = {}
+    for _, id in ipairs(data.order) do
+        if id ~= main and storylines.in_scope(campaign, id) then
+            table.insert(out, { id = id, text = data[id].short })
+        end
+    end
+    return out
+end
+
+-- Nothing to look back on: just what they're out to do this week (or nil past the slice).
+function M.next_only(campaign)
+    local obj = util.lazy("game.model.lore").objective(campaign)
+    if not obj then
+        return nil
+    end
+    return { title = "SESSION " .. util.int(campaign.week or 1), lines = {}, next = obj,
+             label = "SESSION " .. util.int(campaign.week or 1) .. ": this week" }
+end
+
 function M.previously(campaign)
     local week = campaign.week or 0
     if week <= 1 then
@@ -1120,10 +1171,11 @@ function M.previously(campaign)
             end
         end
         if #lines == 0 then
-            return nil
+            return M.next_only(campaign)
         end
         return { title = "SESSION ZERO", sub = "What turns up first from each past. It's at the front of your hand.",
-                 lines = lines, open = lines[1].id, zero = true, label = "SESSION ZERO: what you wrote in" }
+                 lines = lines, open = lines[1].id, zero = true, label = "SESSION ZERO: what you wrote in",
+                 next = util.lazy("game.model.lore").objective(campaign), legend = M.legend(campaign) }
     end
     local recs = {}
     for _, r in ipairs(M.get(campaign).scenes) do
@@ -1132,7 +1184,7 @@ function M.previously(campaign)
         end
     end
     if #recs == 0 then
-        return nil
+        return M.next_only(campaign)
     end
     table.sort(recs, function(a, b)
         return (a.s or 0) < (b.s or 0)
@@ -1155,7 +1207,8 @@ function M.previously(campaign)
         table.insert(lines, { text = "S" .. util.int(r.s or 0) .. " " .. t .. out, out = r.out, id = id })
     end
     return { title = "LAST TIME", sub = "Session " .. util.int(week - 1) .. (title and (": \"" .. title .. "\"") or ""),
-             lines = lines, open = open, label = "LAST TIME: session " .. util.int(week - 1) }
+             lines = lines, open = open, label = "LAST TIME: session " .. util.int(week - 1),
+             next = util.lazy("game.model.lore").objective(campaign), new = M.new_storylines(campaign) }
 end
 
 -- The same in one line, for a card's hover: the gist, then the last few steps.

@@ -40,12 +40,13 @@ function M.asked(all)
     return n
 end
 
-function M.left(all)
-    return math.max(0, M.data.QUESTIONS - M.asked(all))
+function M.left(all, budget)
+    return math.max(0, (budget or M.data.QUESTIONS) - M.asked(all))
 end
 
--- Ask a question (or take it back). Returns true if it changed.
-function M.toggle_question(all, key, qid)
+-- Ask a question (or take it back). Returns true if it changed. budget: the questions there's
+-- time for (Session Zero's six, or a joining player's own three).
+function M.toggle_question(all, key, qid, budget)
     all[key] = all[key] or { asked = {} }
     local ch = all[key]
     ch.asked = ch.asked or {}
@@ -55,7 +56,7 @@ function M.toggle_question(all, key, qid)
             return true
         end
     end
-    if M.left(all) <= 0 or not M.question(key, qid) then
+    if M.left(all, budget) <= 0 or not M.question(key, qid) then
         return false
     end
     table.insert(ch.asked, qid)
@@ -138,6 +139,43 @@ function M.settle(campaign, all)
     end
 end
 
+-- One hero's past, written in on its own: a player joining a small table (October 15), or the
+-- defaults when nobody chose. Replaces what was there; the hook joins the deck this week.
+function M.settle_one(campaign, key, ch)
+    local p = campaign:player(key)
+    if not (p and ch and M.data[key]) then
+        return
+    end
+    local deck = require "game.model.deck"
+    campaign.backstories = campaign.backstories or {}
+    local h = ch.hook and M.hook_of(key, ch.hook)
+    local asked = {}
+    for i, id in ipairs(ch.asked or {}) do
+        asked[i] = id
+    end
+    campaign.backstories[key] = { char = p.char, asked = asked, idea = ch.idea, hook = h and h.card or nil,
+                                  hook_text = h and h.text or nil, facts = facts_of(key, ch), joined = campaign.week }
+    if h then
+        deck.add(campaign, h.card, math.max(1, campaign.week), "session_zero", "backstory")
+    end
+end
+
+-- What a hero's page says when nobody wrote it: the questions they enjoy, a yes to their idea,
+-- and the first thing that could turn up.
+function M.default_choice(key)
+    local d = M.data[key]
+    if not d then
+        return nil
+    end
+    local asked = {}
+    for i, q in ipairs(d.questions or {}) do
+        if i <= math.min(2, d.tires or 2) then
+            table.insert(asked, q.id)
+        end
+    end
+    return { asked = asked, idea = "yes", hook = d.hooks and d.hooks[1] and d.hooks[1].card or nil }
+end
+
 -- What was written for a hero, if it's still that hero (a new character starts their own story).
 function M.written(campaign, key, char)
     local b = campaign.backstories and campaign.backstories[key]
@@ -152,16 +190,24 @@ end
 
 -- The first prep after Session Zero: each hero's hook waits at the front of the hand.
 function M.start_week(campaign, prep)
-    if not campaign.backstories or campaign.backstories_dealt then
+    if not campaign.backstories then
         return
     end
-    campaign.backstories_dealt = campaign.week
+    -- Each hero's hook is pinned once: week 1 for Session Zero's, the week they join for a player
+    -- who joins later (October 15). (Saves from before kept one flag for everyone.)
+    local old_flag = campaign.backstories_dealt
+    campaign.backstories_dealt = campaign.backstories_dealt or campaign.week
     local deck = require "game.model.deck"
     for _, p in ipairs(campaign.players or {}) do
         local b = M.written(campaign, p.key, p.char)
-        local c = b and b.hook and content.components[b.hook]
+        local due = b and not b.dealt and not (old_flag and not b.joined)
+        local c = due and b.hook and content.components[b.hook]
+        if due then
+            b.dealt = campaign.week
+        end
         if c and p.present and deck.available(campaign, c.id) and not prep:pinned(c.id) then
-            prep:pin(c.id, "backstory", "Session Zero: you wrote this into " .. p.char .. "'s past.", { key = p.key })
+            local when = b.joined and b.joined > 1 and "When they joined" or "Session Zero"
+            prep:pin(c.id, "backstory", when .. ": you wrote this into " .. p.char .. "'s past.", { key = p.key })
         end
     end
 end

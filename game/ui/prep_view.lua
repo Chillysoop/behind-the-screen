@@ -262,7 +262,9 @@ end
 
 local function top_bar(app, prep)
     kit.box(0, 0, kit.W, 66, theme.bg, { round = false })
-    kit.text(24, 14, "WEEK " .. util.int(app.campaign.week) .. "  -  PREP", "title30", theme.gold)
+    -- "Session", everywhere the DM looks (October 15: week and session were the same number by two
+    -- names).
+    kit.text(24, 14, "SESSION " .. util.int(app.campaign.week), "title30", theme.gold)
     -- The slice's story beat (M7), or the plain reminder once the slice is over.
     local beat = app.campaign:arc_beat()
     -- The story beat is the way into your notes (N).
@@ -272,7 +274,7 @@ local function top_bar(app, prep)
         end
     end, { color = theme.bg, hover = theme.panel, radius = 8, key = "notes_open" })
     if beat then
-        kit.text(300, 12, "SESSION " .. util.int(app.campaign.week) .. " OF " .. util.int(content.arc.SESSIONS) .. ":  "
+        kit.text(300, 12, "PREP  -  " .. util.int(app.campaign.week) .. " OF " .. util.int(content.arc.SESSIONS) .. ":  "
             .. string.upper(beat.title), "ui14", theme.gold, { w = 400, lines = 1 })
         local hint = beat.hint .. " Story cards are in your hand."
         if kit.width(hint, "ui18") > 510 then
@@ -1248,7 +1250,11 @@ function M.scene_storylines(app, prep, s, x, y)
     local ids, seen = {}, {}
     for _, kind in ipairs(content.kinds) do
         local c = s.slots[kind]
-        for _, id in ipairs(c and storylines.of_card(app.campaign, c) or {}) do
+        local of = c and storylines.of_card(app.campaign, c) or {}
+        if c and #of == 0 and prep.arc_cards and prep.arc_cards[c.id] then
+            of = { content.lore.briefing.next_story }   -- a story card that's no storyline's own
+        end
+        for _, id in ipairs(of) do
             if not seen[id] then
                 seen[id] = true
                 table.insert(ids, id)
@@ -1258,15 +1264,19 @@ function M.scene_storylines(app, prep, s, x, y)
     if #ids == 0 then
         return
     end
+    -- Each storyline's own icon (October 15): the bell, the wolf, the hand, a hero's face.
     local defs = {}
+    local marks = require "game.ui.lore_marks"
     for k, id in ipairs(ids) do
         local d = storylines.def(app.campaign, id)
         if d and k <= 6 then
             table.insert(defs, d)
-            kit.dot(x + (k - 1) * 12, y, 10, storyline_color(d))
+            if not marks.storyline(app, id, x - 6 + (k - 1) * 17, y - 8, 16, true) then
+                kit.dot(x + (k - 1) * 17, y, 10, storyline_color(d))
+            end
         end
     end
-    kit.button(x - 6, y - 9, math.max(24, #defs * 12 + 6), 18, "", function()
+    kit.button(x - 6, y - 9, math.max(24, #defs * 17 + 6), 18, "", function()
         -- Click for their Story log.
         drop_hover(app)
         require("game.ui.story_log_view").open_panel(app, ids)
@@ -1298,21 +1308,32 @@ function M.card_storylines(app, c, right, y)
             table.insert(defs, d)
         end
     end
+    -- This week's story cards that aren't any storyline's own (the Kettle, Gus, the chapel) move
+    -- the main story: they wear its bell too (October 15).
+    local prep = app.campaign.prep
+    if #defs == 0 and prep and prep.arc_cards and prep.arc_cards[c.id] then
+        local d = storylines.def(app.campaign, content.lore.briefing.next_story)
+        if d then
+            table.insert(defs, d)
+        end
+    end
     if #defs == 0 then
         return
     end
+    -- Each storyline's icon, the first one named (October 15: the same icon as the opening).
+    local marks = require "game.ui.lore_marks"
     local x = right
     for k = #defs, 2, -1 do
-        x = x - 12
-        kit.dot(x + 5, y + 6, 9, storyline_color(defs[k]))
+        x = x - 15
+        marks.storyline(app, defs[k].id, x, y - 1, 14, true)
     end
-    local name = kit.ellipsize(defs[1].short, "ui14", 74)
+    local name = kit.ellipsize(defs[1].short, "ui14", 70)
     local nw = kit.width(name, "ui14")
     x = x - nw - 2
     -- Darker on the card's paper, so it reads.
     local col = storyline_color(defs[1])
     kit.text(x, y - 2, name, "ui14", vmath.vector4(col.x * 0.6, col.y * 0.6, col.z * 0.6, 1))
-    kit.dot(x - 8, y + 6, 9, col)
+    marks.storyline(app, defs[1].id, x - 17, y - 1, 15, true)
 end
 
 -- The pacing panel's storyline notes, most urgent first.
@@ -1816,6 +1837,23 @@ function M.build(app)
     local forecast = prep:forecast()
     for i, p in ipairs(app.campaign.players) do
         player_card(app, prep, p, i, forecast)
+    end
+    -- Who's joining later (a small table, October 15): their chair, waiting.
+    for k, j in ipairs(app.campaign.joining and app.campaign:joining() or {}) do
+        local i = #app.campaign.players + k
+        if i <= 4 then
+            local d = content.players[j.key]
+            local x, y, w, h = 1196, 106 + (i - 1) * 196, 380, 186
+            kit.box(x, y, w, h, kit.rgba("#000000", 0.18), { radius = 10 })
+            kit.dot(x + 29, y + 23, 34, panels.COLORS[j.key] or theme.panel3)
+            kit.picture(x + 13, y + 7, 32, 32, panels.face(j.key))
+            kit.text(x + 52, y + 10, d.name, "ui22b", theme.dim)
+            kit.text(x + 52 + kit.width(d.name, "ui22b") + 10, y + 14, d.char .. ", " .. d.class_name, "ui18", theme.faint)
+            kit.text(x + 14, y + 56, "Joins the table in session " .. util.int(j.week) .. ".", "ui18", theme.gold)
+            kit.text(x + 14, y + 84, d.gist and (d.gist .. ".") or "", "ui14", theme.faint, { w = w - 28, lines = 2 })
+            kit.text(x + 14, y + 130, "You'll hear their story and write it in before that week starts.", "ui14", theme.faint,
+                { w = w - 28, lines = 2 })
+        end
     end
     -- The Story log, over the table column while it's open.
     require("game.ui.story_log_view").panel(app)
