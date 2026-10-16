@@ -1257,6 +1257,41 @@ check_tip_absorbs(" (week 2 prep)")
                 dumped_improv = true
                 dump("5_night_improv")
             end
+            -- The clarity pass (October 16): the odds beside a DC, what you agreed at Session Zero,
+            -- how bad a fight call could get, and the week's story on the improv hand, all on screen.
+            local function shown(fragment)
+                for _, n in ipairs(order) do
+                    if n.alive and n.text and string.find(n.text, fragment, 1, true) then return true end
+                end
+                return false
+            end
+            local pv = app.pending
+            if pv.kind == "roll_where" then
+                stats.odds = (stats.odds or 0) + 1
+                if not (shown("on the d20") or shown("natural 20 makes it") or shown("almost any roll")) then
+                    problem("a big roll's card without the odds: " .. tostring(pv.text))
+                end
+                if pv.promise and not shown("You agreed at Session Zero") then problem("a big roll's Session Zero line isn't shown") end
+            elseif pv.kind == "decision" and pv.card then
+                if pv.card.danger then
+                    stats.danger = (stats.danger or 0) + 1
+                    if not shown(string.sub(pv.card.danger, 1, 24)) then problem("a fight call's danger line isn't shown") end
+                    if stats.danger == 1 then dump("5c_danger_line") end
+                end
+                if pv.card.promise and not shown("You agreed at Session Zero") then problem("a rules call's Session Zero line isn't shown") end
+            elseif pv.kind == "improv" and pv.cards then
+                for _, cd in ipairs(pv.cards) do
+                    if cd.story then
+                        stats.story_cards = (stats.story_cards or 0) + 1
+                        if not shown("This week's story") then problem("a story card on the improv hand isn't marked") end
+                        break
+                    end
+                end
+            end
+            if app.progress and app.pip_nodes and #app.pip_nodes > 0 then
+                stats.last_roll = (stats.last_roll or 0) + 1
+                if not shown("last roll:") then problem("the scene's dots without the last roll's label") end
+            end
             -- A rules word in a tip, or on a card, keeps its card up while you read it (the re-test,
             -- October 16: "improv hand" in the tip showed nothing).
             if not dumped_once.tip_word then
@@ -1771,6 +1806,8 @@ if (stats.scene_cards or 0) == 0 then problem("no scene ended on its card") end
 if (stats.boss_bars or 0) > 0 and (stats.fight_cards or 0) == 0 then problem("fights with a boss, but none ended on its card") end
 if (stats.gloss or 0) == 0 then problem("never found a rules word to point at in the log") end
 if (stats.card_words or 0) == 0 then problem("never found a rules word to point at on a card or tip") end
+if (stats.odds or 0) == 0 then problem("never saw a big roll's DC card") end
+if (stats.last_roll or 0) == 0 then problem("never saw the scene's dots with the last roll's label") end
 local briefs = stats.briefs or {}
 if not briefs[1] then problem("no briefing after the introductions") end
 if not FULL and not (briefs[2] and briefs[3]) then problem("no catch-up briefing when someone joined") end

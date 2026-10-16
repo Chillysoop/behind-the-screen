@@ -669,6 +669,32 @@ local function react(night, f, steps, who)
     end
 end
 
+-- How bad it could get, said on the call that decides it (the newcomer playtest, October 16: a
+-- tactics card with no idea whether "go for the squishy one" could kill someone): what every
+-- standing monster's turn adds up to when it all hits, against the hero's hit points.
+function M.danger_line(bb, hero)
+    local together = 0
+    for _, e in ipairs(bb.creatures) do
+        if e.side == "foes" and not e.dead and not e.removed and not e.down and e.monster_id then
+            together = together + require("game.model.matchup").round_damage(e.monster_id)
+        end
+    end
+    together = math.floor(together + 0.5)
+    if together <= 0 or not hero then
+        return nil
+    end
+    local hp = util.int(math.max(0, hero.hp or 0))
+    if hero.down or (hero.hp or 0) <= 0 then
+        return hero.name .. " is down already: every hit on them counts as a failed death save."
+    end
+    if together >= (hero.hp or 0) then
+        return "Careful: if they all go for " .. hero.name .. " and hit, that's about " .. util.int(together)
+            .. " damage, and " .. hero.name .. " has " .. hp .. " hit points left. " .. hero.name .. " could go down this round."
+    end
+    return "If they all go for " .. hero.name .. " and hit, that's about " .. util.int(together) .. " damage. "
+        .. hero.name .. " has " .. hp .. " hit points left."
+end
+
 -- The DM's call on a moment the fight created. Returns the chosen option.
 local MAX_CARDS_PER_FIGHT = 3
 -- The nice-to-have calls wait for room under the night's decisions (B8: the boss's turn and the
@@ -998,7 +1024,7 @@ function M.run(night, sc, plan)
             if squishy and big then
                 local bigp = player_of(night, big)
                 local o = moment(night, f, "tactics", { boss = f.boss_name, squishy_char = squishy.name,
-                    big_char = big.name, big = bigp and bigp.name or big.name })
+                    big_char = big.name, big = bigp and bigp.name or big.name, danger = M.danger_line(bb, squishy) })
                 if o and o.battle then
                     bb.focus = o.battle
                     -- Every call shows (A11): the hero the monsters turn on wears a tag on the mat.

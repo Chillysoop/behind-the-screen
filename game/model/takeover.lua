@@ -389,8 +389,32 @@ function M.boss_turn(night, f, b, c)
                        .. util.int(c.hp_max) .. " hit points left." .. (downed and (" " .. downed.name .. " is down.") or "")
                        .. " Who does it go for?",
                    options = opts }
+    -- How bad its turn could be (the newcomer playtest, October 16): one turn of its attacks
+    -- when they hit, and who that could drop.
+    local per = math.floor(require("game.model.matchup").round_damage(c.monster_id) + 0.5)
+    local danger
+    if per > 0 then
+        local low = {}
+        for _, e in ipairs(standing) do
+            if e.hp <= per then
+                table.insert(low, e.name .. " (" .. util.int(e.hp) .. " left)")
+            end
+        end
+        local who
+        if #low > 1 and #low == #standing then
+            who = "That's enough to drop any of them."
+        elseif #low > 0 then
+            who = "Enough to drop " .. util.join_names(low) .. "."
+        else
+            who = "Nobody on their feet is that low yet."
+        end
+        danger = "One turn of its attacks does about " .. util.int(per) .. " damage when they all hit. " .. who
+        if downed then
+            danger = danger .. " A hit on " .. downed.name .. " while they're down counts as a failed death save."
+        end
+    end
     night.actor = threat_p or night.actor
-    local o = night:decision(card, { boss = boss }) or opts[1]
+    local o = night:decision(card, { boss = boss, danger = danger }) or opts[1]
     -- The one it goes for is in the middle of it: the spotlight, if they're short of it tonight.
     if o.who then
         local sum = 0

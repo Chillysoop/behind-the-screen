@@ -25,7 +25,8 @@
 -- The story deck (the slice rework):
 -- deck:       how the card gets into a campaign's deck. "start": there from week 1 (the
 --             default); "spare": joins when its kind runs short; "arc": this week's story beat
---             deals it (arc.lua); "follow": only when another card opens it.
+--             deals it (arc.lua); "follow": only when another card opens it; "story": never in the
+--             deck, the improv hand offers it in its week (arc.lua's story_goal).
 -- recurring:  places and people come back after they've played (remembering what happened);
 --             everything else is spent once it plays. foe: a fighting cast that's spent once
 --             beaten. villain: spent once beaten, back again if they get away.
@@ -63,7 +64,7 @@ return {
       fits = { "combat", "exploration" }, tags = { "explore", "action" },
       line = "The pines close in on the road. It is far too quiet for midday.",
       again = "The north road again. The wolf tracks are fresher than last time." },
-    { id = "archive", kind = "location", short = "the archive", setting = { "town", "indoor", "ruin", "water" }, name = "The flooded archive", cost = 2,
+    { id = "archive", kind = "location", bystander = "the old archivist", short = "the archive", setting = { "town", "indoor", "ruin", "water" }, name = "The flooded archive", cost = 2,
       fits = { "exploration", "puzzle", "mystery" }, tags = { "lore", "explore" },
       line = "Knee-deep water, floating ledgers, and a lantern that is somehow still lit.",
       again = "The flooded archive. The water's gone down a hand's width; the ledgers haven't dried." },
@@ -87,12 +88,12 @@ return {
       line = "Brannoc's old village. He knows every burnt fencepost by name.",
       again = "Hale's Crossing. Brannoc has started rebuilding the well, a stone at a time.",
       on = { played = { "hales_bell" } } },
-    { id = "velvet_den", kind = "location", short = "the Velvet Hand", deck = "arc", setting = { "town", "indoor" }, name = "The Velvet Hand's back room", cost = 2, thread = "jess", step = 3,
+    { id = "velvet_den", kind = "location", bystander = "one of Sable's clerks", short = "the Velvet Hand", deck = "arc", setting = { "town", "indoor" }, name = "The Velvet Hand's back room", cost = 2, thread = "jess", step = 3,
       fits = { "social", "combat", "mystery" }, tags = { "talk", "danger" },
       line = "Velvet curtains, sharp smiles, and Pip's name in a very large ledger.",
       again = "The Velvet Hand's back room. Madame Sable has had a chair brought for Pip. That's worse." },
     -- Town spots for open scenes (A15): somewhere for a party with ideas.
-    { id = "counting_house", kind = "location", short = "the counting house", setting = { "town", "indoor", "shop" }, name = "The counting house", cost = 1,
+    { id = "counting_house", kind = "location", bystander = "a clerk at the counting house", short = "the counting house", setting = { "town", "indoor", "shop" }, name = "The counting house", cost = 1,
       fits = { "mystery", "set_piece", "social" }, tags = { "loot", "danger" },
       line = "Brass scales, a clerk who counts everything twice, and a vault door the size of a cart.",
       again = "The counting house. The clerk counts the party twice now, just to be safe." },
@@ -101,7 +102,7 @@ return {
       line = "A sawdust ring behind the tannery, a chalkboard of odds, and a crowd that cheers for anyone bleeding.",
       again = "The pit behind the tannery. The chalkboard has their names on it now." },
     -- Opened by other cards:
-    { id = "ilsa_room", kind = "location", short = "Ilsa's room", deck = "follow", setting = { "town", "indoor" }, name = "Ilsa's room above the scriptorium", cost = 1, thread = "mara", step = 3,
+    { id = "ilsa_room", kind = "location", bystander = "the copyist from the scriptorium downstairs", short = "Ilsa's room", deck = "follow", setting = { "town", "indoor" }, name = "Ilsa's room above the scriptorium", cost = 1, thread = "mara", step = 3,
       fits = { "mystery", "exploration", "social" }, tags = { "heart", "lore" },
       line = "Ilsa's room above the scriptorium: two months of dust, a window left open, and drawings of the bell tower pinned to every wall.",
       again = "Ilsa's room. Thessaly has started sleeping here some nights." },
@@ -317,6 +318,23 @@ return {
       line = "Goal: the harvest fair, a blue ribbon, and a pie-judging that has ended friendships.",
       win = "A blue ribbon, a free pie, and three new friends who'll never shut up about it.",
       lose = "No ribbon, but somebody has to carry the giant marrow home, and it's them.", got = "a blue ribbon" },
+    -- The week's story as a goal, for an improvised goal slot (the newcomer playtest, October 16:
+    -- with the slot left empty, the improv hand offered goals that had nothing to do with the week,
+    -- and "my notes say the goal is Old Tobin; no card says that"). Never in the deck: the improv
+    -- hand deals it in its week (arc.lua's story_goal). pays: the story clue it finds (the one the
+    -- next week's plans hang on) as the scene settles, won or lost: the story keeps moving.
+    { id = "story_bells", kind = "goal", deck = "story", name = "Find out why the bells went silent", cost = 1,
+      fits = { "social", "mystery", "exploration", "downtime", "puzzle" }, tags = { "mystery", "heart" }, pays = "stranger",
+      line = "Goal: find out why the bells stopped ringing, and where Old Tobin went.",
+      win = "Piece by piece it comes out: Old Tobin went up the north road the night the bells stopped, and never came back.",
+      lose = "It takes too long and costs them some goodwill, but one name keeps coming up: Old Tobin, and the north road.",
+      got = "a lead on Old Tobin" },
+    { id = "story_key", kind = "goal", deck = "story", name = "Find out who had a key to the tower", cost = 1,
+      fits = { "social", "mystery", "exploration", "downtime", "puzzle" }, tags = { "mystery", "lore" }, pays = "velvet_den",
+      line = "Goal: Tobin had the only key to the bell tower, and somebody got in anyway. Who had a copy made?",
+      win = "The trail of the key leads to Lowmarket: the Velvet Hand cut a copy, and sold it to a scarred man with a wolf badge.",
+      lose = "Doors slam, and word gets round that they're asking. But a frightened clerk lets one name slip first: the Velvet Hand.",
+      got = "the trail of the tower key" },
     -- Opened by other cards:
     { id = "find_tobin", kind = "goal", suits = { "road", "forest", "bells" }, with = { "forest_road", "chapel" }, deck = "follow", name = "Follow Old Tobin's trail", cost = 1,
       fits = { "exploration", "mystery", "social" }, tags = { "mystery", "explore" },
@@ -595,7 +613,7 @@ return {
       line = "A writ of credit, good at any stall from here to the coast.", got = "a writ of credit" },
 
     -- Inspiration (M6): drawn by the DM's evenings off, never in the deck until drawn ------
-    { id = "lighthouse", kind = "location", short = "the lighthouse", setting = { "indoor", "high", "water" }, name = "The lighthouse at Gull's Rest", cost = 1, reserve = "inspiration",
+    { id = "lighthouse", kind = "location", bystander = "the lighthouse keeper", short = "the lighthouse", setting = { "indoor", "high", "water" }, name = "The lighthouse at Gull's Rest", cost = 1, reserve = "inspiration",
       fits = { "exploration", "mystery", "set_piece" }, tags = { "explore", "lore" },
       line = "A dead lighthouse on a black rock. Its lamp lit itself last night." },
     { id = "masquerade", kind = "location", short = "the masquerade", setting = { "town", "indoor", "crowd" }, name = "The Duke's masquerade", cost = 2, reserve = "inspiration",
@@ -679,7 +697,7 @@ return {
       fits = { "social", "exploration", "mystery" }, tags = { "funny", "talk" },
       line = "The eyes in the treeline belong to a very small goblin with a very large notebook.",
       deal = "Nib's notebook, for a promise not to tell his chief" },
-    { id = "field_hospital", kind = "location", short = "the hospital", setting = { "town", "indoor", "crowd" }, name = "The field hospital at Ashford", cost = 1, reserve = "payoff",
+    { id = "field_hospital", kind = "location", bystander = "an orderly", short = "the hospital", setting = { "town", "indoor", "crowd" }, name = "The field hospital at Ashford", cost = 1, reserve = "payoff",
       payoff_of = "healers_vigil",
       fits = { "social", "downtime", "mystery" }, tags = { "heart", "cozy" },
       line = "Lanterns in every window. The healers here haven't slept in a week." },

@@ -91,7 +91,7 @@ end
 local T = {
     callouts = 0, callouts_named = 0, sus_rows = 0, sus_named = 0,
     big_rolls = 0, rulings = 0, cooks_events = 0, hidden_rulings = 0, hidden_with_cook = 0, open_with_cook = 0, cooked = 0,
-    cast_improv = 0, cast_improv_bad = 0,
+    cast_improv = 0, cast_improv_bad = 0, goal_story_due = 0, goal_story_missing = 0, story_clues = 0,
     openings = 0, opening_bad = 0, opening_new_again = 0,
     befriend = 0, befriend_bad = 0,
     friction = 0, friction_named = 0,
@@ -159,6 +159,23 @@ for _, dm_key in ipairs(bots.ORDER) do
                             fail("week " .. c.week .. ": the opening presents " .. loc.id .. " as new, but they've been there")
                         end
                     end
+                elseif ev.kind == "improv" and ev.slot == content.kind_names.goal and not ev.drift then
+                    -- An empty goal slot offers the week's story when it has a clue to find
+                    -- (the newcomer playtest, October 16).
+                    if nt:story_goal_card() then
+                        T.goal_story_due = T.goal_story_due + 1
+                        local any = false
+                        for _, cd in ipairs(ev.cards or {}) do
+                            any = any or cd.story
+                        end
+                        if not any then
+                            T.goal_story_missing = T.goal_story_missing + 1
+                            fail("week " .. c.week .. ": an improvised goal slot left out the week's story")
+                        end
+                    end
+                elseif ev.kind == "clue" and (ev.id == "stranger" or ev.id == "velvet_den") and nt.scene
+                    and nt.scene.comps.goal and nt.scene.comps.goal.pays == ev.id then
+                    T.story_clues = T.story_clues + 1
                 elseif ev.kind == "improv" and ev.slot == content.kind_names.cast then
                     T.cast_improv = T.cast_improv + 1
                     for _, cd in ipairs(ev.cards or {}) do
@@ -244,6 +261,8 @@ check(T.cooks_events == 0 and T.big_rolls > 0 and T.rulings == T.big_rolls and T
     "One card per big roll: the DC, then one ruling; cooking is the ruling's last button behind the screen",
     string.format("%d big rolls, %d rulings, %d cooked, %d separate cook cards", T.big_rolls, T.rulings, T.cooked, T.cooks_events))
 check(T.cast_improv_bad == 0, "An improv Cast slot offers people, never stock moves", T.cast_improv .. " cast slots")
+check(T.goal_story_missing == 0, "An improvised goal slot offers the week's story while it has a clue to find",
+    T.goal_story_due .. " slots, " .. T.story_clues .. " clues found by a story goal")
 check(T.openings > 0 and T.opening_bad == 0 and T.opening_new_again == 0,
     "Read-alouds agree with the board: a named place is scene 1's, and never new once they've been there",
     T.openings .. " openings")

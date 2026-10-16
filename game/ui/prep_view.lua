@@ -603,14 +603,16 @@ function M.draw_toast(app, cx, y)
         return
     end
     local text = app.toast
-    app.toast = nil
+    -- A note (a story moved) in teal; why something couldn't happen in orange.
+    local col = app.toast_tone == "info" and theme.teal or theme.orange
+    app.toast, app.toast_tone = nil, nil
     local maxw = 780
     local tw = math.min(kit.width(text, "ui14"), maxw)
     local th = kit.text_height(text, "ui14", maxw)
     local bw, bh = tw + 32, th + 12
     kit.box(cx - bw / 2, y - bh / 2, bw, bh, theme.bg, { radius = bh / 2 })
-    kit.box(cx - bw / 2, y - bh / 2, bw, 2, theme.orange, { round = false })
-    kit.text(cx, y - bh / 2 + 6, text, "ui14", theme.orange, { pivot = gui.PIVOT_N, w = maxw })
+    kit.box(cx - bw / 2, y - bh / 2, bw, 2, col, { round = false })
+    kit.text(cx, y - bh / 2 + 6, text, "ui14", col, { pivot = gui.PIVOT_N, w = maxw })
 end
 
 local function drawer(app, prep)
@@ -1235,7 +1237,9 @@ function M.goodwill_hover(app, p, gw, x0, y0)
     for _, r in ipairs(lines) do
         h = h + kit.text_height(r, "ui14", w - 32) + 6
     end
-    local x = util.clamp(x0 - w - 40, 8, kit.W - w - 8)
+    -- Beside the player's card, not over it (the newcomer playtest, October 16: it covered their
+    -- Mood line). The heart sits 262 in from the card's left edge.
+    local x = util.clamp(x0 - 262 - w - 14, 8, kit.W - w - 8)
     local y = util.clamp(y0 - 16, 8, kit.H - h - 8)
     local l = kit.layer("prep_hover")
     app.hover_layer = l

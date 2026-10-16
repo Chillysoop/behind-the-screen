@@ -399,14 +399,7 @@ function M:vars(extra)
         v.plural = cast and cast.group and true or false
         -- Who gets caught in a lie: the scene's person, or someone the place would have (A2).
         local loc = sc.comps.location
-        local by = "a stallholder who saw too much"
-        for _, set in ipairs(loc and loc.setting or {}) do
-            local b = M.BYSTANDER[set]
-            if b then
-                by = b
-                break
-            end
-        end
+        local by = M.bystander(loc)
         v.witness = person and soft_lower(cast.short or cast.name) or by
         v.Witness = util.capitalize(v.witness)
         -- What the big moment turns up when no goal says (A2): the scene's reward, or the lead.
@@ -463,6 +456,28 @@ M.BYSTANDER = {
     bells = "the bell-ringers' old porter", ruin = "a scavenger in the ruins", wild = "a shepherd",
     under = "a tunnel rat", indoor = "a servant", outdoor = "a passer-by", water = "a boatman",
 }
+-- The most telling kind of place first: "town" says least (the newcomer playtest, October 16: "a
+-- shopkeeper" caught in a lie in Ilsa's empty room, a town place).
+M.BYSTANDER_ORDER = { "tavern", "market", "crowd", "shop", "camp", "ruin", "bells", "water", "under", "road", "forest",
+                      "wild", "indoor", "outdoor", "town" }
+
+-- Who's around to be caught in a lie at a place: the place's own (its bystander), else the
+-- likeliest someone for the kind of place it is.
+function M.bystander(loc)
+    if loc and loc.bystander then
+        return loc.bystander
+    end
+    local has = {}
+    for _, set in ipairs(loc and loc.setting or {}) do
+        has[set] = true
+    end
+    for _, set in ipairs(M.BYSTANDER_ORDER) do
+        if has[set] and M.BYSTANDER[set] then
+            return M.BYSTANDER[set]
+        end
+    end
+    return "a stallholder who saw too much"
+end
 
 -- A caption. Every sentence starts with a capital, whatever was substituted (A3).
 function M:say(text, style, extra)
@@ -1001,6 +1016,14 @@ function M:describe(c, style)
             end
         end
     end
+    -- The week's story as a goal (story_goal): the clue it's after lands as the scene settles.
+    if c.pays and sc and not self:knows_clue(c.pays) then
+        local beat = self.campaign:arc_beat()
+        local clue_text = beat and beat.clues and beat.clues[c.pays]
+        if clue_text then
+            sc.goal_clue = { id = c.pays, text = clue_text }
+        end
+    end
     if c.kind == "cast" then
         self.met = self.met or {}
         self.met[c.id] = rev and "revealed" or (self.met[c.id] or true)
@@ -1158,8 +1181,20 @@ function M:improv_pool()
         present[p.key] = true
     end
     local pool, seen = {}, {}
+    -- One favour per person a night: an older card of someone's wants stays out while another of
+    -- theirs is on the board or already played (a test, October 16: Gus asked for the same
+    -- favour twice in one night, last week's card improvised and this week's prepped).
+    local asked = {}
+    for _, set in ipairs({ self.on_board, self.improvised }) do
+        for id in pairs(set) do
+            local o = content.components[id]
+            if o and o.agenda then
+                asked[o.agenda] = true
+            end
+        end
+    end
     local function add(c)
-        if c and not seen[c.id] and not self.improvised[c.id] and not self.on_board[c.id]
+        if c and not seen[c.id] and not self.improvised[c.id] and not self.on_board[c.id] and not (c.agenda and asked[c.agenda])
             and (not c.thread or present[c.thread]) and deck.thread_live(self.campaign, c)
             and not deck.is_spent(self.campaign, c.id) and util.lazy("game.model.storylines").card_in_scope(self.campaign, c) then
             seen[c.id] = true
@@ -1199,6 +1234,38 @@ function M:won_before(sc)
         end
     end
     return false
+end
+
+-- Does the party know this clue already: found in an earlier week, found tonight, or about to be
+-- (a scene's goal that pays it as it settles)?
+function M:knows_clue(id)
+    if story.has_clue(self.campaign, id) then
+        return true
+    end
+    for _, f in ipairs(self.story_found or {}) do
+        if f.id == id then
+            return true
+        end
+    end
+    for _, o in ipairs(self.scenes or {}) do
+        if o.goal_clue and o.goal_clue.id == id then
+            return true
+        end
+    end
+    return false
+end
+
+-- The week's story as a goal card (arc.lua's story_goal), while it still has something to find.
+function M:story_goal_card()
+    local beat = self.campaign.arc_beat and self.campaign:arc_beat()
+    local c = beat and beat.story_goal and content.components[beat.story_goal]
+    if not c or self.improvised[c.id] or self.on_board[c.id] or deck.is_spent(self.campaign, c.id) then
+        return nil
+    end
+    if c.pays and self:knows_clue(c.pays) then
+        return nil
+    end
+    return c
 end
 
 function M:improv_cards(kind)
@@ -1259,6 +1326,23 @@ function M:improv_cards(kind)
         end
         table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = fit,
                               payoff = c.payoff_of ~= nil, warn = warn, story = pool[i].rank == 1 })
+    end
+    -- This week's story as a goal (the newcomer playtest, October 16: an empty goal slot offered
+    -- goals that had nothing to do with the week, while the notes said the goal was Old Tobin).
+    -- When nothing on the hand is the story already, the week's story goal leads it.
+    if kind == "goal" then
+        local sg = self:story_goal_card()
+        local any = false
+        for _, card in ipairs(cards) do
+            any = any or card.story
+        end
+        if sg and not any and fits(sg) then
+            table.insert(cards, 1, { comp = sg, name = sg.name, kind_name = content.kind_names[sg.kind],
+                                     fit = util.contains(sg.fits, sc.type) and "great" or "poor", story = true })
+            while #cards > want do
+                table.remove(cards)
+            end
+        end
     end
     if kind == "location" or kind == "cast" then
         -- Somewhere to be, or someone to talk to: no stock moves. Short of three, any place or
@@ -2343,6 +2427,36 @@ local function tier_of(total, dc, natural)
     return "near"
 end
 
+-- What a DC means for this roller, in words a newcomer can weigh: the number they need on the
+-- d20 and how often that comes up. (A natural 20 always makes it: tier_of.)
+function M.odds_line(dc, mod)
+    local need = dc - (mod or 0)
+    if need <= 2 then
+        return "They make it on almost any roll."
+    elseif need >= 20 then
+        return "Only a natural 20 makes it (1 in 20)."
+    end
+    local chance = (21 - need) / 20
+    local word = (chance >= 0.85 and "very likely") or (chance >= 0.6 and "likely") or (chance >= 0.4 and "a coin flip")
+        or (chance >= 0.2 and "unlikely") or "a long shot"
+    return "They need " .. util.int(need) .. " or more on the d20: about " .. util.int(math.floor(chance * 100 + 0.5))
+        .. "%, " .. word .. "."
+end
+
+-- What the table agreed about your screen at Session Zero, said on the card where it matters
+-- (the newcomer playtest, October 16: "did I promise something about this?").
+function M:dice_promise()
+    local dice = self.campaign.table and self.campaign.table.rules.dice
+    if dice == "open" then
+        return "You agreed at Session Zero: everything in the open. A roll behind your screen will raise eyebrows."
+    elseif dice == "big_open" then
+        return "You agreed at Session Zero: big moments in the open, when a life is on the line. A roll like this is your call."
+    elseif dice == "screen" then
+        return "You agreed at Session Zero: behind the screen is fine. This table trusts you."
+    end
+    return nil
+end
+
 -- Big rolls are checks the table stops for. Raw DCs in the card data are on the old d20-only
 -- scale; a hero adds their modifier now, so the DC the DM sets is this much higher.
 M.DC_SHIFT = 4
@@ -2376,8 +2490,10 @@ function M:big_roll(spec, record)
         text = util.fill("A secret " .. name .. " check for {actor_char} (" .. skills.signed(mod) .. "), DC {dc}. You roll it for them.",
             self:vars({ dc = util.int(dc) }))
     end
+    -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
+    text = text .. " " .. M.odds_line(dc, mod)
     local where = self:emit({ kind = "roll_where", dc = dc, text = text, actor = p and p.key, char = p and p.char,
-                              skill = skill, skill_name = name, mod = mod, by = by })
+                              skill = skill, skill_name = name, mod = mod, by = by, promise = self:dice_promise() })
     if where ~= "hidden" then
         where = "open"
     end
@@ -2801,15 +2917,25 @@ function M:decision(card, extra)
         type = card.type,
         cast = card.cast, monster = card.monster,      -- who's speaking or acting (B8): their mini on the card
         turn_of = card.turn_of,                         -- whose turn it is in the fight, when it's someone's
+        danger = extra and extra.danger,                -- how bad a fight call could get (fight.danger_line)
         type_name = content.decision_types[card.type],
         title = util.sentence_case(util.fill(card.title, vars)),
         text = util.sentence_case(util.fill(card.text, vars)),
         options = {},
     }
+    -- A rules call says what you agreed at Session Zero, and which answer keeps to it (the
+    -- newcomer playtest, October 16).
+    local rul = card.type == "rules" and self.campaign.table and self.campaign.table.rules.rulings
+    local rul_def = rul and content.session_zero.rules.rulings[rul]
+    if rul_def then
+        view.promise = "You agreed at Session Zero: " .. string.lower(string.sub(rul_def.name, 1, 1)) .. string.sub(rul_def.name, 2) .. "."
+            .. (rul == "quick" and " A quick call now means looking it up before next session." or "")
+    end
     for i, o in ipairs(card.options) do
+        local keeps = (rul == "book" and (o.leans == "book" or o.leans == "strict")) or (rul == "cool" and o.leans == "cool")
         view.options[i] = { label = util.sentence_case(util.fill(o.label, vars)), roll = o.roll ~= nil, cooked = o.cooked,
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
-                            leans = self:leans(o.preview or o.effects) }
+                            leans = self:leans(o.preview or o.effects), promise = keeps or nil }
     end
     if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")

@@ -83,6 +83,8 @@ return {
             open_else = "Rain over the Vale of Millbrook. Travellers, each with a reason to be on the road. Somewhere "
                 .. "above the town, the bells that should be ringing the hour are silent.",
             cards = { "tavern", "gus", "stranger" },
+            -- The goal the improv hand offers when a goal slot was left empty (components.lua).
+            story_goal = "story_bells",
             reveal = {
                 tavern = "The Crooked Kettle, the only inn in Millbrook. Rain on the shutters, and a whole room that goes "
                     .. "quiet every hour, listening for bells that don't ring. A carter swears he saw wolves at the edge of "
@@ -167,6 +169,7 @@ return {
             open_else = "The trail runs three ways from here, and every one of them is somebody's past.",
             open_else_if = "Tobin's map points three ways, and every one of them is somebody's past.",
             cards = { "velvet_den", "corin", "abbot_ghost", "hales_crossing" },
+            story_goal = "story_key",
             pressure = { tone = 22 },                     -- backstory week: the serious stuff arrives
             reveal = {
                 velvet_den = "The Velvet Hand's back room. Madame Sable doesn't look up from her ledger: 'A copy of "

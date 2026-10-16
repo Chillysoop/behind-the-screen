@@ -45,8 +45,8 @@ return {
       text = "A hero at 0 health rolls a d20 each turn: 10 or more is a success. Three successes and they're stable; "
           .. "three failures and they die.", dnd = "Death saving throw" },
     { id = "inspiration", match = { "Heroic Inspiration" }, plain = "A reroll token",
-      text = "The DM hands it out for great play. The hero can spend it to reroll one die, once. Here it saves "
-          .. "a miss against the boss.", dnd = "Heroic Inspiration" },
+      text = "The DM hands it out for great play. The hero can spend it to reroll one die, once. Here they spend "
+          .. "it on a big roll that missed, or a miss against the boss.", dnd = "Heroic Inspiration" },
     { id = "proficiency", match = { "PROFICIENCY BONUS", "Proficiency Bonus", "%f[%w]proficient%f[%W]", "%f[%w]expertise%f[%W]" },
       plain = "Trained", text = "A hero adds a bonus (+2 at these levels) to what they're trained in. Expertise doubles it.",
       dnd = "Proficiency bonus", tags = { "sheet" } },
@@ -106,7 +106,8 @@ return {
     { id = "minions", match = { "%f[%w]minions%f[%W]" }, plain = "The small fry",
       text = "The ordinary monsters in a fight, not the boss.", tags = { "fight", "table" } },
     { id = "pack", match = { "Pack Tactics" }, plain = "Pack hunters",
-      text = "Wolves fight together: Advantage on an attack when a packmate is next to the target.", dnd = "Pack Tactics" },
+      text = "Advantage on an attack when one of its allies is right next to the target. Wolves, thugs and kobolds "
+          .. "fight this way: keep them from ganging up.", dnd = "Pack Tactics" },
     { id = "action_surge", match = { "Action Surge" }, plain = "A burst of action",
       text = "A fighter pushes hard: one extra action this turn. Once until they rest.", dnd = "Action Surge" },
     { id = "second_wind", match = { "Second Wind" }, plain = "Catching their breath",

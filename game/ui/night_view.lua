@@ -7,7 +7,7 @@
 -- time; this view stages it (messages to main/table/table.script), times it, and
 -- answers the beats that need the DM.
 --
--- Keys: Space skip   F speed 1x/2x/4x   Tab log   H your rolls hidden/open
+-- Keys: Space skip   F faster (1x/2x/4x)   G slower (down to 0.5x)   Tab log   H your rolls hidden/open
 --       T gentle timer on decisions   1-4 camera, or a card's options   N your notes
 --
 -- The real-session pass: the player panels (game/ui/panels.lua) show who's who, their faces
@@ -33,7 +33,10 @@ local M = {}
 
 local TABLE = "/table#table"
 local H = 900
-local SPEEDS = { 1, 2, 4 }
+-- Half speed for a newcomer reading every line (the newcomer playtest, October 16: "the fight went
+-- by too fast to follow"). The night starts at 1x (index 2).
+local SPEEDS = { 0.5, 1, 2, 4 }
+M.SPEED_1X = 2
 -- The gentle timer (T): seconds before the safe default plays itself.
 local TIMERS = { decision = 30, improv = 45, ruling = 25, roll_where = 15, cook = 15 }
 local ROLL_PATIENCE = 9          -- seconds to wait for the physical die before rolling for it
@@ -129,7 +132,7 @@ local function post_board(id, data)
 end
 
 local function speed(app)
-    return SPEEDS[app.speed_i or 1]
+    return SPEEDS[app.speed_i or 2]
 end
 
 local function place(n, x, y)
@@ -193,7 +196,7 @@ function M.start(app)
         post("pieces", { cells = nil })
     end
     app.pieces_key = nil
-    app.speed_i = app.speed_i or 1
+    app.speed_i = app.speed_i or M.SPEED_1X
     app.log_open = false
     app.timer = 0.8
     app.beat_t = 0
@@ -257,7 +260,7 @@ local function status_text(app)
     -- The table clock (A14): what time it is at the table, and when you said you'd stop.
     local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
     return tc .. "      Calls " .. util.int(n and (n.answered or 0) or 0)
-        .. "      Speed " .. util.int(speed(app)) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
+        .. "      Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app))) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
         .. "      Timer: " .. (app.timer_on and "on" or "off")
 end
 
@@ -290,12 +293,12 @@ function M.draw_frame(app)
         end
     end, { font = "ui14", key = "night_stories" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip   F speed   Tab log   H your rolls   T timer   C photo   1-4 camera or options", "ui14", theme.faint,
+    kit.text(1576, 32, "Space skip   F/G speed   Tab log   H your rolls   T timer   C photo   1-4 camera or options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     -- What the counters are (the newcomer playtest, October 16: "Calls 0", "Your rolls: hidden").
     gloss.card_spot(1040, 4, 536, 24, "The evening at a glance",
-        "The time at the table, and when you said you'd stop. Calls: the decisions you've made tonight. Speed (F): "
-        .. "how fast the night plays. Your rolls (H): whether you roll for the monsters behind your screen or in the "
+        "The time at the table, and when you said you'd stop. Calls: the decisions you've made tonight. Speed: "
+        .. "how fast the night plays (F faster, G slower, down to half speed). Your rolls (H): whether you roll for the monsters behind your screen or in the "
         .. "open. Timer (T): a gentle countdown on each call.")
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
@@ -327,7 +330,7 @@ function M.draw_goal(app)
     -- (After a challenge's pips, when there are any.)
     local pr = app.progress
     if pr then
-        x = 160 + kit.width(sub, "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16
+        x = 160 + kit.width(sub, "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16 + (app.pips_label_w or 0)
     end
     local full = "This week: " .. obj
     local y = 32
@@ -460,13 +463,34 @@ function M.draw_pips(app)
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.setbacks and theme.red or kit.rgba("#ffffff", 0.1)))
     end
     -- What the dots are (the newcomer playtest, October 16).
+    app.pips_label_w = 0
     if #app.pip_nodes == 0 then
         M.draw_goal(app)
         return
     end
-    gloss.card_spot(x0 - 2, 32, x + pr.max * 14 - x0 + 4, 18, "How the scene is going",
-        "Gold dots: good moments, building toward the scene's big roll. Red dots: setbacks. Every setback makes the big "
-        .. "roll harder; good moments make it easier.", nil, app.pip_nodes[1])
+    -- Where the scene's last roll stands right now (the newcomer playtest, October 16: the dots
+    -- said nothing about what they were doing to it until the scene's end).
+    local lx = x + pr.max * 14 + 8
+    local word, col, short
+    if pr.wins >= pr.need then
+        word, short, col = "last roll: easier (DC -2)", "last roll: easier", theme.green
+    elseif pr.setbacks >= pr.max then
+        word, short, col = "last roll: harder (DC +2)", "last roll: harder", theme.red
+    else
+        word, short, col = "last roll: no change yet", "last roll: normal", theme.dim
+    end
+    if lx + kit.width(word, "ui14") > 760 then
+        word = short
+    end
+    local lw = kit.width(word, "ui14")
+    if lx + lw <= 760 then
+        table.insert(app.pip_nodes, kit.text(lx, 32, word, "ui14", col))
+        app.pips_label_w = 8 + lw
+    end
+    gloss.card_spot(x0 - 2, 32, x + pr.max * 14 - x0 + 4 + app.pips_label_w, 18, "How the scene is going",
+        "Gold dots: good moments. Fill every gold dot and the scene's last roll gets easier (DC -2). Red dots: "
+        .. "setbacks. Fill every red one first and it gets harder (DC +2). The words beside the dots say where "
+        .. "it stands right now.", nil, app.pip_nodes[1])
     M.draw_goal(app)    -- moves along to make room
 end
 
@@ -1109,6 +1133,21 @@ function M.float(app, id, text, color, big)
     local font = big and "ui22b" or "ui18b"
     local w, h = kit.width(text, font) + 18, big and 34 or 28
     local x, y = ax - w / 2, ay - h - stack * (h + 4)
+    -- Clear of the speech bubbles (the newcomer playtest, October 16: a "-7" rose behind what
+    -- someone was saying): beside the bubble instead, on the side the mini is on.
+    for _, b in ipairs(app.bubbles or {}) do
+        if b.x and x < b.x + b.w + 4 and b.x < x + w + 4 and y - 40 < b.y + b.h + 4 and b.y < y + h + 4 then
+            if ax < b.x + b.w / 2 then
+                x = b.x - w - 8
+            else
+                x = b.x + b.w + 8
+            end
+            if x < 8 or x + w > kit.W - 8 then
+                x = util.clamp(x, 8, kit.W - 8 - w)
+                y = b.y + b.h + 8 + 40
+            end
+        end
+    end
     -- (A big one, "Beaten!" or "Down!", stays a little longer: the re-test never caught one.)
     local f = { id = id, x = x, y = y, w = w, h = h, age = 0, life = (big and 2.2 or 1.3) / math.sqrt(speed(app)) }
     local bg = kit.rgba("#140e0b", 0.8)
@@ -1290,8 +1329,15 @@ function M.skip(app)
     end
 end
 
+-- F: faster, and from the top back round to 1x. G: slower, down to half speed.
 function M.cycle_speed(app)
-    app.speed_i = ((app.speed_i or 1) % #SPEEDS) + 1
+    local i = app.speed_i or M.SPEED_1X
+    app.speed_i = (i >= #SPEEDS) and M.SPEED_1X or (i + 1)
+    M.refresh_status(app)
+end
+
+function M.slow_down(app)
+    app.speed_i = math.max(1, (app.speed_i or M.SPEED_1X) - 1)
     M.refresh_status(app)
 end
 
@@ -2520,11 +2566,15 @@ function M.draw_modal(app, ev, instant)
         local tw = portrait and (w - 120) or (w - 40)
         local title_h = math.max(math.min(80, kit.text_height(card.title, "title30", tw)), portrait and 40 or 0)
         local text_h = kit.text_height(card.text, "ui18", w - 40)
-        local labels, h = {}, 62 + title_h + 12 + text_h + 18
+        -- How bad it could get, on a fight's call (the newcomer playtest, October 16).
+        local danger_h = card.danger and (kit.text_height(card.danger, "ui18", w - 64) + 16) or 0
+        -- What you agreed at Session Zero, on the call it's about.
+        local promise_h = card.promise and (kit.text_height(card.promise, "ui14", w - 40) + 8) or 0
+        local labels, h = {}, 62 + title_h + 12 + text_h + 18 + (danger_h > 0 and (danger_h + 10) or 0) + promise_h
         local lean_h = {}
         for i, o in ipairs(card.options) do
             labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or "d20") .. " check)") or "")
-                .. (o.cooked and "  (overrules the die)" or "")
+                .. (o.cooked and "  (overrules the die)" or "") .. (o.promise and "  (as agreed)" or "")
             lean_h[i] = (o.leans and next(o.leans)) and 30 or 0
             h = h + option_height(labels[i], w - 40) + lean_h[i] + 10
         end
@@ -2538,6 +2588,15 @@ function M.draw_modal(app, ev, instant)
         end
         kit.text(x + 20, y + 62 + title_h, card.text, "ui18", theme.ink, { w = w - 40 })
         local oy = y + 62 + title_h + 12 + text_h + 8
+        if promise_h > 0 then
+            kit.text(x + 20, oy - 4, card.promise, "ui14", theme.ink_dim, { w = w - 40 })
+            oy = oy + promise_h
+        end
+        if danger_h > 0 then
+            kit.box(x + 20, oy, w - 40, danger_h, kit.rgba("#b0473a", 0.14), { radius = 8 })
+            kit.text(x + 32, oy + 8, card.danger, "ui18", kit.rgba("#8a2e22"), { w = w - 64 })
+            oy = oy + danger_h + 10
+        end
         for i, label in ipairs(labels) do
             local oh = option_height(label, w - 40) + lean_h[i]
             kit.button(x + 20, oy, w - 40, oh, label, function()
@@ -2629,14 +2688,18 @@ function M.draw_modal(app, ev, instant)
     elseif ev.kind == "roll_where" then
         local x, w = left_x(app), LEFT_W
         local text_h = kit.text_height(ev.text or "", "ui18", w - 40)
-        local h = 110 + text_h + 136 + 10 + (app.pending_left and 34 or 0)
+        local promise_h = ev.promise and (kit.text_height(ev.promise, "ui14", w - 40) + 8) or 0
+        local h = 110 + text_h + promise_h + 136 + 10 + (app.pending_left and 34 or 0)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
         local player_roll = ev.by ~= "dm"
         badge(x + 20, y + 18, player_roll and "BIG ROLL" or "SECRET CHECK", theme.decision.screen)
         kit.text(x + 20, y + 52, player_roll and "Set the DC" or "Where do you roll it?", "title30", theme.ink)
         kit.text(x + 20, y + 96, ev.text or "", "ui18", theme.ink, { w = w - 40 })
-        local oy = y + 110 + text_h
+        if ev.promise then
+            kit.text(x + 20, y + 102 + text_h, ev.promise, "ui14", theme.ink_dim, { w = w - 40 })
+        end
+        local oy = y + 110 + text_h + promise_h
         local open_label = player_roll and ("Say it out loud: DC " .. util.int(ev.dc or 0) .. "\nThey know what they need. The table trusts it.")
             or "Roll it in the open\nEveryone sees the die. The table trusts it."
         local hidden_label = player_roll and "Keep the DC behind your screen\nOnly you know it. You could move it..."
@@ -2750,6 +2813,9 @@ function M.draw_improv(app, ev)
                 wt = c.warn
             end
             kit.text(cx + 12, cy + 120, wt, "ui14", theme.orange, { w = cw - 24, lines = 1 })
+        elseif c.story then
+            -- (The newcomer playtest, October 16: which of these is the week's story?)
+            kit.text(cx + 12, cy + 120, "This week's story", "ui14", theme.gold, { w = cw - 24, lines = 1 })
         elseif c.payoff then
             kit.text(cx + 12, cy + 120, "Pays off a seed", "ui14", theme.green, { w = cw - 24, lines = 1 })
         else

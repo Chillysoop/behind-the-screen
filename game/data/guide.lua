@@ -186,7 +186,7 @@ return {
             done = function(app) return app.night_done end,
             anchor = { 10, 772, 1580, 126 },
             title = "It plays itself",
-            text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. Space skips ahead, F speeds it up.",
+            text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. Space skips ahead, F speeds it up and G slows it down.",
         },
         {
             id = "night_decision", screen = "night", at = NIGHT,

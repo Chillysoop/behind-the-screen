@@ -628,7 +628,7 @@ function M.update(app, dt)
             end
         elseif app.pending and a.mode == 5 then
             -- The harness clicks the card; just keep the night at 2x.
-            app.speed_i = 2
+            app.speed_i = 3
             if not a.handed then
                 a.handed = true
                 say("handover")
@@ -671,7 +671,7 @@ function M.update(app, dt)
             end
             if a.mode == 5 then
                 -- 2x like the playtest; skipping ahead between cards unless autotest_skip = 0.
-                app.speed_i = 2
+                app.speed_i = 3
                 local ok, sk = pcall(sys.get_config_int, "behind_the_screen.autotest_skip", 1)
                 if not ok or sk ~= 0 then
                     nv.skip(app)

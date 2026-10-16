@@ -43,6 +43,7 @@ local A = {
     touch = hash("touch"),
     roll = hash("roll"),
     fast = hash("fast"),
+    slow = hash("slow"),         -- G: half speed and back (the newcomer playtest, October 16)
     debug = hash("debug"),
     sandbox = hash("sandbox"),
     confirm = hash("confirm"),
@@ -823,6 +824,9 @@ function on_input(self, action_id, action)
         if action.pressed then
             if action_id == A.fast then
                 guard(self, night_view.cycle_speed, app)
+                return true
+            elseif action_id == A.slow then
+                guard(self, night_view.slow_down, app)
                 return true
             elseif action_id == A.log then
                 guard(self, night_view.toggle_log, app)

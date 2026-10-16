@@ -29,6 +29,20 @@ local function chance(need)
     return util.clamp((21 - need) / 20, 0.05, 0.95)
 end
 
+-- What one monster's turn does when everything hits: its best attack's average damage, times its
+-- multiattack (the danger line on the fight's calls: the newcomer playtest, October 16).
+function M.round_damage(id)
+    local m = monsters[id]
+    if not m then
+        return 0
+    end
+    local best = 0
+    for _, a in ipairs(m.attacks or {}) do
+        best = math.max(best, avg(a.damage))
+    end
+    return best * (m.multiattack and m.multiattack.count or 1)
+end
+
 local function pct(x)
     return util.int(math.floor(x * 100 + 0.5)) .. "%"
 end

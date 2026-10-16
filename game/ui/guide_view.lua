@@ -42,8 +42,23 @@ local function gift_open(app)
     return ok and g ~= nil
 end
 
+-- A card's hover popup is up on the prep board (the newcomer playtest, October 16: the tip sat
+-- on top of the card being read). The tip steps aside until it goes.
+local function hover_up(app)
+    local h = app.hover_layer
+    if not h then
+        return false
+    end
+    for _, l in ipairs(kit.layers) do
+        if l == h then
+            return true
+        end
+    end
+    return false
+end
+
 local function quiet(app)
-    return app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
+    return hover_up(app) or app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
         or (app.review and app.review.queue_open) or gift_open(app)
         or (app.pending and app.pending.kind == "cinematic")   -- the opening has the floor
 end

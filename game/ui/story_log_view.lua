@@ -824,14 +824,15 @@ end
 -- time each storyline moves this week, or whenever the panel is already open. Playtest, October
 -- 13: opening on every placement kept the table's forecasts covered all through prep.
 function M.on_placed(app, c)
-    if not c or app.campaign.story_auto_off then
+    if not c then
         return
     end
-    local ids = storylines.of_card(app.campaign, c)
+    local camp = app.campaign
+    local ids = storylines.of_card(camp, c)
     if #ids == 0 then
         return
     end
-    local week = app.campaign.week
+    local week = camp.week
     if not app.story_shown or app.story_shown.week ~= week then
         app.story_shown = { week = week, ids = {} }
     end
@@ -842,9 +843,29 @@ function M.on_placed(app, c)
         end
         app.story_shown.ids[id] = true
     end
-    if fresh or app.story_panel then
+    if app.story_panel then
         M.open_panel(app, ids, c.id)
+        return
     end
+    if not fresh then
+        return
+    end
+    -- It opens by itself the first time a card moves a story (so you know it's there), then only
+    -- when asked to every week; after that, a note on the drawer says which story moved (the
+    -- newcomer playtest, October 16: the panel kept covering the board mid-prep).
+    local weekly = camp.story_auto == "weekly"
+    if not camp.story_auto_off and (weekly or not camp.story_auto_seen) then
+        camp.story_auto_seen = true
+        M.open_panel(app, ids, c.id)
+        return
+    end
+    local names = {}
+    for _, id in ipairs(ids) do
+        local d = storylines.def(camp, id)
+        table.insert(names, d and (d.short or d.name) or id)
+    end
+    app.toast = "This card moves " .. util.join_names(names) .. ". Press S to read the story so far."
+    app.toast_tone = "info"
 end
 
 -- S on the prep board: the panel on whatever's most pressing, or closed again.
@@ -963,12 +984,13 @@ function M.panel(app)
         app.refresh()
     end)
     -- Whether it opens by itself.
-    local auto = not c.story_auto_off
+    local auto = c.story_auto == "weekly" and not c.story_auto_off
     kit.button(ix, y + h - 34, 22, 22, auto and "x" or "", function()
-        c.story_auto_off = auto or nil
+        c.story_auto = (not auto) and "weekly" or nil
+        c.story_auto_off = nil
         app.refresh()
     end, { font = "ui14", color = theme.panel3, key = "story_panel_auto" })
-    kit.text(ix + 30, y + h - 32, "Open by itself (once a week per story)", "ui14", theme.dim)
+    kit.text(ix + 30, y + h - 32, "Open by itself each week a story moves", "ui14", theme.dim)
     kit.text(x + w - 16, y + h - 32, "S", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
 end
 
