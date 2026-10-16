@@ -138,7 +138,19 @@ function M.build(campaign, night)
             bars.settle_played(p, fun, { hype = rep.hype })
             if p.thread_hits > 0 then
                 p.thread_progress = p.thread_progress + p.thread_hits
-                table.insert(rep.threads, p.char .. ": " .. p.thread .. " (" .. util.int(p.thread_progress) .. ")")
+                -- (No bare count: "(2)" meant nothing to anyone, October 15.)
+                table.insert(rep.threads, p.char .. "'s story moved tonight: " .. p.thread .. ".")
+            elseif p.thread then
+                -- And whose didn't, so a hero going quiet shows the night it happens (or died).
+                local fell
+                for _, d in ipairs(campaign.deaths or {}) do
+                    if d.key == p.key and d.char == p.char and d.week == campaign.week then
+                        fell = d
+                    end
+                end
+                table.insert(rep.threads, fell and (p.char .. ((fell.outcome == "scar" and " died tonight, and came back at a cost.")
+                    or (fell.outcome == "quest" and " fell tonight. There may be a way back.") or " died tonight."))
+                    or (p.char .. "'s story didn't come up tonight."))
             end
             local moment = p.best and p.best.text or nil
             row.moment = moment

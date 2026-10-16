@@ -95,7 +95,7 @@ return {
             },
             clues = {
                 -- (October 15: the opening already says the bells stopped; each card here adds something.)
-                tavern = "Wolves were seen at the edge of town last night, and there was no bell to warn anyone.",
+                tavern = "Wolves were seen at the edge of town, and there was no bell to warn anyone.",
                 gus = "The bell tower is locked, and Old Tobin had the only key.",
                 stranger = "Old Tobin, the bell-ringer, said someone 'hushed' the bells, then took the north road "
                     .. "and vanished.",
@@ -105,6 +105,7 @@ return {
             -- What the party is out to do tonight, as the DM tells the table after the recap ("And
             -- here we are today: you're at ..., out to ..."); objective_if when they found the clue.
             objective = "find out why Millbrook's bells went silent",
+            objective_short = "why did the bells go silent?",
             -- Who's behind it this week, when a scene needs a name and nobody in it fits (the
             -- slice rework: outcomes always name someone).
             lead = "Old Tobin, the bell-ringer",
@@ -139,14 +140,16 @@ return {
                     .. "for it.",
             },
             clues = {
-                forest_road = "Kessrick's wolves have been on the north road, not long ago.",
+                forest_road = "Kessrick's wolves passed along the north road not long ago.",
                 chapel = "Tobin made it as far as the roadside chapel. Its bell was cut down too.",
                 hidden_map = "Tobin's map of the old bell paths: 'The hush was laid from inside the tower. They had "
                     .. "a key.'",
             },
             goal = "The party finds Tobin's map and learns the hush came from inside the tower.",
             objective = "find out who silenced Millbrook's bells, and why",
-            objective_if = { clue = "stranger", text = "follow Old Tobin up the north road and find out what happened to him" },
+            objective_short = "who silenced the bells, and why?",
+            objective_if = { clue = "stranger", text = "follow Old Tobin up the north road and find out what happened to him",
+                             short = "follow Tobin up the north road" },
             lead = "a scarred man with a wolf badge",
             culprit = { name = "the scarred man with the wolf badge", secret = "he's been watching the north road for Kessrick" },
         },
@@ -187,12 +190,14 @@ return {
             },
             goal = "The party learns who holds the tower, and what it will take to wake the bells.",
             objective = "find out who's behind the silent bells, and what it'll take to wake them",
-            objective_if = { clue = "hidden_map", text = "follow Tobin's map and find out who had a key to the tower" },
+            objective_short = "who's behind the silent bells?",
+            objective_if = { clue = "hidden_map", text = "follow Tobin's map and find out who had a key to the tower",
+                             short = "who else had a key to the tower?" },
             lead = "Vask, Kessrick's lieutenant",
             culprit = { name = "Vask, Kessrick's lieutenant", secret = "Vask bought a copy of the tower key in Lowmarket" },
         },
         {
-            title = "The silent bell",
+            title = "Up the bell tower",   -- (not "The Silent Bell", next to the campaign's "The Silent Bells")
             about = "The first act turns: the bell tower, and who silenced it.",
             hint = "End high: a big fight, or a cliffhanger they'll talk about all week.",
             open = "A hundred and twelve steps up the bell tower above Millbrook. Tonight, somebody finally climbs "
@@ -221,7 +226,9 @@ return {
             },
             goal = "The bells ring again, and the first act ends on Kessrick's horns.",
             objective = "climb the bell tower and wake the bells",
-            objective_if = { clue = "velvet_den", text = "climb the bell tower, deal with whoever has that key, and wake the bells" },
+            objective_short = "climb the tower, wake the bells",
+            objective_if = { clue = "velvet_den", text = "climb the bell tower, deal with whoever has that key, and wake the bells",
+                             short = "take the tower, wake the bells" },
             lead = "Kessrick the Wolf",
             culprit = { name = "Vask", secret = "Vask has been holding the tower for Kessrick all along" },
         },

@@ -3295,6 +3295,14 @@ function M:combat_scene(sc)
         return
     end
     local plan = fight.plan(self, sc)
+    -- A nameless boss brought down in an earlier session is somebody new this time (October 15: "the
+    -- Velvet Hand's enforcer" fell in session 1 and surrendered in session 4).
+    local down = self.campaign.bosses_down
+    local bn = plan.boss_name
+    if bn and down and down[bn] and down[bn] < self.campaign.week and string.sub(bn, 1, 4) == "the "
+        and string.sub(bn, 1, 8) ~= "the new " then
+        plan.boss_name = "the new " .. string.sub(bn, 5)
+    end
     sc.boss_name = plan.boss_name
     self.battle_boss_name = plan.boss_name
     sc.plan = plan
@@ -3351,7 +3359,7 @@ function M:combat_scene(sc)
         self:say(self:fresh(M.SURRENDER_TALK, "surrender_talk"), "goal")
         local beat = self.campaign:arc_beat()
         if beat and beat.lead then
-            self:found_clue("surrender_" .. tostring(self.campaign.week), util.fill("{Boss} named {lead}.", self:vars()))
+            self:found_clue("surrender_" .. tostring(self.campaign.week), util.fill("{Boss} talked, and pointed the party to {lead}.", self:vars()))
         end
     end
     -- A hero died (B3): what happens next, by what Session Zero agreed.
@@ -4405,17 +4413,36 @@ function M:length_text()
     else
         head = "Right on time (" .. hm(r.minutes) .. ")."
     end
-    local parts = {}
+    -- Grouped, so it reads "Jess and Sam were fading by 10:30 pm", not the same clause twice.
+    local groups, order = {}, {}
     for _, p in ipairs(self.players) do
         local v = r.players[p.key]
+        local tail
         if v and v.verdict == "long" then
-            table.insert(parts, p.name .. " was fading" .. (v.fading_at and (" by " .. self:clock_text(v.fading_at)) or ""))
+            tail = "fading" .. (v.fading_at and (" by " .. self:clock_text(v.fading_at)) or "")
         elseif v and v.verdict == "short" then
-            table.insert(parts, p.name .. " wanted more")
+            tail = "time to spare"   -- (not "wanted more" beside "checked out")
+        end
+        if tail then
+            if not groups[tail] then
+                groups[tail] = {}
+                table.insert(order, tail)
+            end
+            table.insert(groups[tail], p.name)
         end
     end
-    if #parts == 0 then
+    if #order == 0 then
         return head .. " It suited everyone."
+    end
+    local parts = {}
+    for _, tail in ipairs(order) do
+        local who = groups[tail]
+        local many = #who > 1
+        if string.sub(tail, 1, 6) == "fading" then
+            table.insert(parts, util.join_names(who) .. (many and " were " or " was ") .. tail)
+        else
+            table.insert(parts, util.join_names(who) .. (many and " had " or " had ") .. tail)
+        end
     end
     return head .. " " .. table.concat(parts, "; ") .. "."
 end
@@ -5253,6 +5280,10 @@ function M:play_scene(sc)
     -- A cliffhanger is the last thing that happens in its scene.
     if sc.comps.complication and sc.comps.complication.cliffhanger and not self:muted(sc.comps.complication) then
         self:describe(sc.comps.complication, "twist")
+        -- What it was, for next week's recap ("And it ended on a cliffhanger: ...").
+        local cc = sc.comps.complication
+        local loc = sc.comps.location
+        self.cliff_text = (cc.alt and loc and util.contains(loc.setting or {}, "outdoor") and cc.alt.outdoor) or cc.line
         -- And the last thing tonight (the story playtest: two more scenes after the horns sounded
         -- made the cliffhanger a shrug). The rest of the plan keeps for next week.
         self.ended_on_cliff = true
@@ -5315,7 +5346,8 @@ function M:intro()
         if recap then
             local last = story.init(self.campaign).weeks[self.campaign.week - 1]
             if last and last.cliff and not string.find(recap, "cliffhanger") then
-                recap = recap .. " And it ended on a cliffhanger."
+                recap = recap .. (last.cliff_text and (" And it ended on a cliffhanger: " .. util.lower_first(last.cliff_text))
+                    or " And it ended on a cliffhanger.")
             end
             self:say(recap, "recap")
         end
@@ -5393,14 +5425,28 @@ end
 function M:briefing(joined, recap)
     local first_sc = self.scenes[1]
     local loc = first_sc and first_sc.comps.location
-    local where = loc and ("You're " .. self:here_phrase(loc, true) .. ".") or self:open_where(first_sc)
+    local reason, saw = "", false
+    if loc then
+        reason, saw = self:here_reason(first_sc, loc)
+    end
+    local where = loc and ("You're " .. self:here_phrase(loc, true) .. reason .. ".") or self:open_where(first_sc)
     local obj = lore.objective(self.campaign)
     local first
     if obj then
         first = obj
         local cast = first_sc and first_sc.comps.cast
-        if cast and not self:muted(cast) then
+        if cast and not self:muted(cast) and not saw then
             local who = cast.short or util.lower_first(cast.name)
+            -- Who they are, the first time anyone hears the name (October 15: "Start with the abbot").
+            local ledger = require "game.model.ledger"
+            local pid = ledger.person_of(cast)
+            local role = pid and ledger.about(pid).role or ""
+            if role ~= "" and not string.find(string.lower(who), string.lower(string.match(role, "^(%S+)") or "~"), 1, true) then
+                -- "the hermit, who talks to his kettle"; "Madame Sable, collector for the Velvet Hand".
+                local w1 = string.match(role, "^(%a+)") or ""
+                local verb = string.find(w1, "[^s]s$") ~= nil and not string.find(w1, "ss$")
+                who = who .. ", " .. (verb and "who " or "") .. string.lower(string.sub(role, 1, 1)) .. string.sub(role, 2)
+            end
             first = first .. (cast.foe and (" Watch out for " .. who .. ".") or (" Start with " .. who .. "."))
         end
     end
@@ -5411,7 +5457,7 @@ function M:briefing(joined, recap)
     elseif joined and #joined > 0 then
         slides = lore.catch_up(camp, joined, where, first, recap)
     else
-        slides = { lore.previously(camp, where, first, recap) }
+        slides = lore.previously(camp, where, first, recap)
     end
     self:emit({ kind = "cinematic", id = "briefing", slides = slides })
     -- Into the log too. (After the first session the recap and "here we are today" are there
@@ -5426,15 +5472,26 @@ function M:briefing(joined, recap)
         if first then
             self:say(first, "aside")
         end
-    elseif #slides > 1 then
-        for _, sl in ipairs(slides) do
-            for _, r in ipairs(sl.rows) do
-                if not r.found then
-                    self:say(r.text, "aside")
-                end
-            end
-        end
     end
+    -- (After the first session the cards carry the rest: the log already has the recap and
+    -- "here we are today", and a night shouldn't run longer for being explained.)
+end
+
+-- Why they're there (October 15): scene 1's goal when it's a deed (", to find the map"), else what
+-- the place is to the story (", where Ilsa lived before she vanished"). "" when there's nothing.
+function M:here_reason(sc, loc)
+    local g = sc and sc.comps.goal
+    local first = g and g.name and string.lower(string.match(g.name, "^(%a+)") or "")
+    if first and util.contains(lore.data.deed_verbs or {}, first) then
+        return ", to " .. string.lower(string.sub(g.name, 1, 1)) .. string.sub(g.name, 2)
+    end
+    -- Someone they've come to see (October 15: "in the flooded archive", and no reason why).
+    local cast = sc and sc.comps.cast
+    if cast and not cast.foe and not cast.villain and not self:muted(cast) then
+        return ", to see " .. (cast.short or util.lower_first(cast.name)), true
+    end
+    local why = loc and (lore.data.place_why or {})[loc.id]
+    return why and (", " .. why) or ""
 end
 
 -- Where they are when scene 1 is open (A15) and they'll choose the place themselves: "It's up to
@@ -5448,6 +5505,25 @@ function M:open_where(sc)
         end
     end
     if #names == 0 then
+        -- Nothing sketched: where they left off last session (October 15: every later session
+        -- said "in Millbrook, in the shadow of the silent bell tower"), else the town.
+        local last
+        for _, r in ipairs(require("game.model.chronicle").get(self.campaign).scenes) do
+            if r.w == (self.campaign.week or 1) - 1 and r.loc and (not last or (r.s or 0) > (last.s or 0)) then
+                last = r
+            end
+        end
+        local loc = last and content.components[last.loc]
+        if loc and not (sc and sc.open) then
+            local here = self:here_phrase(loc, true)
+            local k = ((self.campaign.week or 1) - 2) % 3 + 1
+            if k == 1 then
+                return "You pick up where you left off, " .. here .. self:here_reason(nil, loc) .. "."
+            elseif k == 2 then
+                return "Last session ended " .. here .. ", and that's where tonight starts."
+            end
+            return "You're still " .. here .. ", right where last session left you."
+        end
         return lore.data.briefing.where_town
     end
     local list = names[#names]
@@ -5468,7 +5544,8 @@ function M:here_phrase(loc, full)
         and not util.contains(set, "crowd")) then
         prep = "in"
     end
-    return loc.here or (prep .. " " .. ((not full and loc.short) or util.lower_first(string.match(loc.name, "^([^,]+)") or loc.name)))
+    return loc.here or (full and (lore.data.place_here or {})[loc.id])
+        or (prep .. " " .. ((not full and loc.short) or util.lower_first(string.match(loc.name, "^([^,]+)") or loc.name)))
 end
 
 -- "And here we are today: you're at <place>, and you're out to <objective>." Where scene 1 is,
@@ -5482,10 +5559,13 @@ function M:here_today()
     if beat and beat.objective_if and story.has_clue(self.campaign, beat.objective_if.clue) then
         obj = beat.objective_if.text
     end
+    -- (Not the same words every week, October 15.)
+    local lead = ({ "And here we are today: you're ", "Which brings us to today: you're ", "So, tonight you're " })
+        [((self.campaign.week or 1) - 1) % 3 + 1]
     if not loc then
-        return obj and ("And here we are today: you're out to " .. obj .. ".") or nil
+        return obj and (lead .. "out to " .. obj .. ".") or nil
     end
-    local text = "And here we are today: you're " .. self:here_phrase(loc)
+    local text = lead .. self:here_phrase(loc)
     if obj then
         text = text .. ", and you're out to " .. obj
     end
@@ -5549,6 +5629,11 @@ function M:run()
                 local prev = self.scenes[i - 1]
                 prev.ended_on_cliffhanger = true
                 self.ended_on_cliff = true
+                -- What the cliffhanger was, for next week's recap.
+                local ploc = prev and prev.comps and prev.comps.location
+                self.cliff_text = self.cliff_text or ("They stopped mid-story" .. (ploc and (", " .. self:here_phrase(ploc)) or "")
+                    .. ", with " .. ((self.scenes[i] and self.scenes[i].title) and util.lower_first(self.scenes[i].title) or "the next scene")
+                    .. " still to come.")
                 break
             end
         end

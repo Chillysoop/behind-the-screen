@@ -178,6 +178,7 @@ function M.build(campaign, night, rng)
             local tpl = (e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or pick(M.TEMPLATES[e.ev], rng)
             local text = util.sentence_case(util.fill(tpl, vars_for(campaign, night, e)))
             text = string.gsub(text, "%.%.", ".")
+            text = string.gsub(text, "([%.!?]['\"])%.$", "%1")   -- ("hollow.'." from a "{text}." template)
             if not string.find(text, "[%.!?\"']$") then   -- ("'This wall is hollow.'", no extra full stop)
                 text = text .. "."
             end
@@ -204,11 +205,23 @@ function M.build(campaign, night, rng)
     end
     local tv = vars_for(campaign, night, top or {})
     tv.boss = util.title_case(tv.boss)
+    -- One name per session (October 15: "Strangers at the Kettle" in prep, "Brannoc Comes Back" on the
+    -- report and a third after a click were three names for one night). The name it was planned
+    -- under comes first and stays unless the DM picks another, which then names it everywhere.
     local titles = {}
-    for _, t in ipairs(M.TITLES[tk]) do
-        table.insert(titles, util.title_case(util.fill(t, tv)))
+    local beat = campaign.arc_beat and campaign:arc_beat()
+    local planned = beat and beat.title and util.title_case(beat.title)
+    if planned then
+        table.insert(titles, planned)
     end
-    return { titles = titles, title = 1, beats = beats, note = "", spoken = M.spoken_beats(campaign, night) }
+    for _, t in ipairs(M.TITLES[tk]) do
+        local name = util.title_case(util.fill(t, tv))
+        if not util.contains(titles, name) then
+            table.insert(titles, name)
+        end
+    end
+    return { titles = titles, title = 1, planned = planned, beats = beats, note = "",
+             spoken = M.spoken_beats(campaign, night) }
 end
 
 -- What the DM says out loud at the start of next session (the session-start recap): the story
@@ -217,7 +230,7 @@ end
 -- tense; {clue} what they found out.
 M.SPOKEN = {
     clue = "{clue}", killing_blow = "{past}.", villain_falls = "{past}", escape = "{text}.",
-    defeat = "You lost a fight, and lived to tell it.", death = "We lost {char}.", goodbye = "You said goodbye to {char}.",
+    defeat = "You lost a fight, and lived to tell it.", death = "We lost {char}.", defeat_death = "You lost a fight, and not everyone walked away.", goodbye = "You said goodbye to {char}.",
     new_character = "{past}", crit = "{past}, right when it counted.", retort = "{char} finally got the last word in.",
     theory = "{past}.", payoff = "{text}.", goal = "{text}",
 }
@@ -227,7 +240,8 @@ M.DEATH_BACK = { scar = "{char} died, and came back at a cost.", quest = "{char}
 
 local PAST = { { " lands ", " landed " }, { " rolls ", " rolled " }, { " falls%.", " fell." }, { " falls$", " fell" },
                { " joins ", " joined " }, { " comes true", " came true" }, { " goes down", " went down" },
-               { " brings down ", " brought down " } }
+               { " brings down ", " brought down " }, { " comes ", " came " }, { " cries ", " cried " },
+               { " stays ", " stayed " }, { " rolls ", " rolled " }, { " walks ", " walked " } }
 
 local function past(text)
     for _, r in ipairs(PAST) do
@@ -240,6 +254,10 @@ function M.spoken_beats(campaign, night)
     local out, per = {}, {}
     for i, e in ipairs(night.ledger or {}) do
         local tpl = e.ev and ((e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or M.SPOKEN[e.ev])
+        -- A lost fight that cost a hero isn't "lived to tell it" (October 15).
+        if e.ev == "defeat" and (per.death or 0) > 0 then
+            tpl = M.SPOKEN.defeat_death
+        end
         if tpl and (per[e.ev] or 0) < (M.SPOKEN_CAP[e.ev] or 1) then
             local v = vars_for(campaign, night, e)
             v.past = past(v.text)
@@ -345,14 +363,22 @@ function M.last_learned(campaign)
             cut[b.order] = true
         end
     end
-    local happened
+    local happened = {}
     for _, s in ipairs(rc.spoken) do
         if not cut[s.order] and s.kind == "clue" then
             table.insert(out, { text = s.text, clue = s.clue })
-        elseif not cut[s.order] and M.HAPPENED[s.kind] and (not happened or (s.weight or 0) > (happened.weight or 0)) then
-            happened = s
+        elseif not cut[s.order] and M.HAPPENED[s.kind] then
+            table.insert(happened, s)
         end
     end
+    -- The biggest first (a pinned beat leads), then in the order they happened.
+    table.sort(happened, function(a, b)
+        local pa, pb = (a.weight or 0), (b.weight or 0)
+        if pa ~= pb then
+            return pa > pb
+        end
+        return a.order < b.order
+    end)
     return out, happened
 end
 

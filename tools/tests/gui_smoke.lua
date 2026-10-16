@@ -420,12 +420,12 @@ for week = 1, WEEKS do
             if app.guide_step ~= "s0_asks" then problem("Got it didn't move to the next tip (" .. tostring(app.guide_step) .. ")") end
             dump("1d_session_zero_tip")
         end
-        if click_label("Backstories") or click_label("Start week 1") then problem("Session Zero let you go on with nothing decided") end
+        if click_label("Backstories") or click_label("Start session 1") then problem("Session Zero let you go on with nothing decided") end
         -- Click around, then make sure every question has an answer.
         for _ = 1, 30 do
             local bs = random_buttons()
             local pick = bs[rng:int(1, #bs)]
-            if pick and not string.find(label_of(pick), "Start week", 1, true) and not string.find(label_of(pick), "Backstories", 1, true) then click(pick) end
+            if pick and not string.find(label_of(pick), "Start session", 1, true) and not string.find(label_of(pick), "Backstories", 1, true) then click(pick) end
         end
         app.s0 = app.s0 or { asks = {}, rules = {} }
         app.s0.tone = app.s0.tone or "mixed"
@@ -443,7 +443,7 @@ for week = 1, WEEKS do
         if not click_label("Backstories") then problem("no way on to the backstories after Session Zero") end
         if not (app.s0 and app.s0.page == "backstories") then problem("the backstories page didn't open") end
         dump("1e_backstories")
-        if click_label("Start week 1") and app.screen ~= "session_zero" then problem("Session Zero started with no backstories written") end
+        if click_label("Start session 1") and app.screen ~= "session_zero" then problem("Session Zero started with no backstories written") end
         if app.guide_step ~= "s0_backstories" then problem("no tip on the backstories page (" .. tostring(app.guide_step) .. ")") end
         local backstory = require "game.model.backstory"
         if SEED >= 5 and #app.campaign.players ~= 2 then problem("a small table should start with two, not " .. #app.campaign.players) end
@@ -462,7 +462,7 @@ for week = 1, WEEKS do
         if backstory.asked(app.s0.backstories) > backstory.data.QUESTIONS then problem("more questions asked than the evening has") end
         if backstory.left(app.s0.backstories) ~= 0 then problem("asking everything left questions over") end
         local written = app.s0.backstories
-        if not click_label("Start week 1") then problem("no start button after the backstories") end
+        if not click_label("Start session 1") then problem("no start button after the backstories") end
         local last_key = app.campaign:table_keys()[#app.campaign:table_keys()]
         if not (app.campaign.backstories and app.campaign.backstories[last_key] and app.campaign.backstories[last_key].hook) then
             problem("the backstories weren't written into the campaign")

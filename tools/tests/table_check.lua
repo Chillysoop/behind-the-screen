@@ -159,7 +159,8 @@ for ci = 1, 6 do
             if string.find(all, "^Last session: ") then
                 T.recaps = T.recaps + 1
             end
-            if string.find(all, "And here we are today: you're") then
+            if string.find(all, "And here we are today: you're") or string.find(all, "Which brings us to today: you're")
+                or string.find(all, "So, tonight you're") then
                 T.here = T.here + 1
             end
             if cut_text then
@@ -232,7 +233,7 @@ check(T.intros == 4 * T.intro_nights and T.story_lines >= 4 * T.intro_nights,
     "Session one: everyone introduces themselves and their hero, with a bit of backstory in character",
     string.format("%d intros over %d first nights, %d lines in character", T.intros, T.intro_nights, T.story_lines))
 check(T.recaps == T.later_nights and T.here == T.later_nights,
-    "Every later session opens with \"Last session: ...\" and \"And here we are today: you're ...\"",
+    "Every later session opens with \"Last session: ...\" and where they are today (\"And here we are today: you're ...\")",
     string.format("%d recaps, %d here-we-ares over %d nights", T.recaps, T.here, T.later_nights))
 check(T.cut_tests > 0 and T.cut_kept == T.cut_tests, "A beat the DM cut from the report stays out of the recap",
     string.format("%d of %d", T.cut_kept, T.cut_tests))
@@ -393,9 +394,29 @@ do
     for _, r in ipairs(b4 and b4[1].rows or {}) do
         icons = icons and (r.icon ~= nil or r.face ~= nil)
     end
-    check(b4 and #b4 == 1 and string.find(b4[1].kicker, "SESSION 3", 1, true) and b4[1].first and icons,
-        "Every later session opens on the recap card: what they found, under its storyline's icon, and what's next",
+    local heroes = b4 and b4[2]
+    local stood = true
+    for _, r in ipairs(heroes and heroes.rows or {}) do
+        local said = false
+        for _, w in ipairs({ "Last time, ", "hasn't moved since", "hasn't come up", "came up last session", "moved last session",
+                             "fell in session", "Came back", "Joins the party" }) do
+            said = said or string.find(r.text, w, 1, true) ~= nil
+        end
+        stood = stood and r.face ~= nil and said
+    end
+    check(b4 and #b4 == 2 and string.find(b4[1].kicker, "SESSION 3", 1, true) and icons and heroes.first and heroes.where
+        and #heroes.rows >= 3 and stood,
+        "Every later session opens on the recap: what happened and what they found, then each hero's story, where and what's next",
         tostring(b4 and b4[1].kicker))
+    -- Where they are comes with a reason.
+    local why = true
+    for _, ev in pairs(briefs) do
+        local fin = ev.slides[#ev.slides]
+        if fin.where and string.find(fin.where, "^You're ") and not string.find(fin.where, ",") then
+            why = false
+        end
+    end
+    check(why, "\"You're at ...\" always says why they're there", "")
     for _, ev in pairs(briefs) do
         for _, sl in ipairs(ev.slides) do
             if nv_ok and nv.briefing_layout and nv.briefing_layout(sl, 980).h > 700 then
@@ -404,6 +425,10 @@ do
         end
     end
     check(objective, "The prep board's story box says what they're out to do this week", "")
+    local pv = chronicle.previously(c)
+    check(pv and pv.behind and #pv.behind >= 1 and string.find(pv.behind[1].text, "Kessrick", 1, true),
+        "Behind the screen: the prep board says what Kessrick is really after, and his next step",
+        pv and pv.behind and pv.behind[1] and pv.behind[1].text)
     check(not early_feud, "A table conflict stays quiet until everyone in it has joined", "")
     local names = {}
     for _, n in ipairs(new2 or {}) do

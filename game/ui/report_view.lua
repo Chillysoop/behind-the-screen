@@ -137,7 +137,7 @@ local function wrapup_items(app, rep)
         for to, g in pairs(by) do
             local via = content.components[g.via]
             -- (October 15: "Find old Dunnet the prospector leads on: ..." read as one garbled line.)
-            table.insert(items, { "New in your deck" .. (via and (", from " .. util.lower_first(via.short or via.name)) or "")
+            table.insert(items, { "New in your deck" .. (via and (", from \"" .. (via.short or via.name) .. "\"") or "")
                 .. " (" .. styles.def(to).name .. "): " .. util.join_names(g.names) .. ".", theme.teal })
         end
         if rep.course then
@@ -233,12 +233,21 @@ local function recap_panel(app, rep, x, y, w, h)
         local sn = snaps[k]
         local sx = x + 16 + (k - 1) * (sw + 10)
         -- A polaroid: the place on the photo, the moment written underneath (two lines, nothing cut).
-        kit.box(sx, sy, sw, 96, kit.rgba("#f7f1e3"), { radius = 4 })
+        kit.box(sx, sy, sw, 108, kit.rgba("#f7f1e3"), { radius = 4 })
         kit.box(sx + 6, sy + 6, sw - 12, 40, kit.rgba("#2a3a2c"), { radius = 2 })
         local tt = sn.title or ""
         local two = kit.width(tt, "ui14") > sw - 84
         kit.text(sx + 12, two and sy + 8 or sy + 14, tt, "ui14", kit.rgba("#e8e0c8"), { w = sw - 84, lines = 2 })
-        kit.text(sx + 8, sy + 52, sn.caption or "", "ui14", theme.ink, { w = sw - 16, lines = 2 })
+        -- A caption too long for two lines keeps its first sentence (October 15: they were cut).
+        local cap = sn.caption or ""
+        if kit.text_height(cap, "ui14", sw - 16) > 3 * kit.line_height("ui14") + 1 then
+            cap = string.match(cap, "^(.-[%.!?])%s") or cap
+        end
+        if kit.text_height(cap, "ui14", sw - 16) > 3 * kit.line_height("ui14") + 1 then
+            local head = string.match(cap, "^(.-)[:;]%s")   -- "A stranger drags them out before the end."
+            cap = head and (head .. ".") or cap
+        end
+        kit.text(sx + 8, sy + 50, cap, "ui14", theme.ink, { w = sw - 16, lines = 3 })
         kit.button(sx + sw - 62, sy + 14, 50, 24, "Look", function()
             M.view_snapshot(app, sn)
         end, { font = "ui14", key = "snapshot_" .. k })
@@ -272,6 +281,10 @@ local function felt_panel(app, rep, x, y, w, h)
         local tw = w - 330
         local ty = ry + 52
         local lines = {}
+        -- Someone leaving says so first: it's the one line the DM can't miss.
+        if standing == "left" then
+            table.insert(lines, { "Says they need a break.", theme.orange, 1 })
+        end
         if row.present and not row.on_break then
             table.insert(lines, { '"' .. (row.quote or "") .. '"', theme.text, 2 })
             if row.why then
@@ -280,9 +293,6 @@ local function felt_panel(app, rep, x, y, w, h)
         end
         if row.suspicion_why then
             table.insert(lines, { "Suspicious of " .. row.suspicion_why .. ".", theme.red, 1 })
-        end
-        if standing == "left" then
-            table.insert(lines, { "Says they need a break.", theme.orange, 1 })
         end
         for _, ln in ipairs(lines) do
             local lh = math.min(kit.text_height(ln[1], "ui14", tw), ln[3] * 19)
@@ -332,7 +342,13 @@ function M.build(app)
             app.refresh()
         end, { font = "ui14", key = "recap_title" })
     end
-    kit.text(24 + kit.width(title, "title30") + 152, 42, rep.headline, "ui14", theme.dim)
+    -- Renamed: say what it was planned as, so it reads as one session with a new name.
+    local sub = rep.headline
+    if r and r.planned and title ~= r.planned then
+        sub = "Planned as \"" .. r.planned .. "\".  " .. (rep.headline or "")
+    end
+    kit.text(24 + kit.width(title, "title30") + 152, 42, sub, "ui14", theme.dim, { w = 1576 - (24 + kit.width(title, "title30") + 152),
+        lines = 1 })
     recap_panel(app, rep, 24, 84, 736, 556)
     felt_panel(app, rep, 776, 84, 800, 556)
     -- 3. The verdict.
@@ -344,7 +360,7 @@ function M.build(app)
     kit.bar(40, y + 86, 328, 12, rep.score or 0, 100, vc)
     kit.text(40, y + 104, "Table Score: everyone's Fun, pulled toward whoever had the worst night.", "ui14", theme.faint, { w = 328 })
     local rr = rep.rolls
-    local dice = "Big rolls: " .. util.int(rr.open) .. " in the open, " .. util.int(rr.hidden) .. " behind the screen"
+    local dice = "Your own big rolls: " .. util.int(rr.open) .. " in the open, " .. util.int(rr.hidden) .. " behind the screen"
         .. (rr.cooked > 0 and (", " .. util.int(rr.cooked) .. " cooked") or "") .. "." .. (rep.callouts > 0 and " Someone asked to see a roll." or "")
     kit.text(40, y + 150, dice, "ui14", theme.dim, { w = 328 })
     if rep.hype > 0 then
@@ -434,7 +450,7 @@ function M.build(app)
     end
     M.gift_row(app, rep, 1204, 708)
     local closing = M.closing_chapter(app)
-    kit.button(1204, 790, 372, 56, closing and "Close the first act  >" or ("On to week " .. util.int(rep.week + 1) .. "  >"),
+    kit.button(1204, 790, 372, 56, closing and "Close the first act  >" or ("On to session " .. util.int(rep.week + 1) .. "  >"),
         function()
             app.report_note = nil
             M.next(app)

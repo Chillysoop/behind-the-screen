@@ -48,7 +48,7 @@ return {
             impulse = "Burn the valley the way he burned Hale's Crossing.",
             doom = "Kessrick's warband comes down from the hills, and Millbrook burns.",
             -- The arc's own beats are this front's portents (arc.lua); shown, not dealt.
-            portents = { "The bells fall silent.", "Wolves on the north road.", "Vask holds the tower.",
+            portents = { "The bells fall silent.", "Wolves on the north road.", "Vask, his lieutenant, holds the tower.",
                          "The horns sound in the hills." },
         },
         velvet_hand = {
@@ -59,7 +59,8 @@ return {
             portents = {
                 { text = "Sable's collectors start asking after Pip.", cards = { "collectors" } },
                 { text = "The Hand buys up the Kettle's debts.", cards = { "save_kettle" } },
-                { text = "The Hand puts the tower's second key up for sale.", cards = { "key_for_sale" } },
+                { text = "The Hand puts the tower's second key up for sale.", cards = { "key_for_sale" },
+                  done_if = "velvet_den" },   -- (the clue that says it already happened)
             },
             cards = { "madame_sable", "velvet_den", "collectors", "save_kettle", "key_for_sale", "sable_job", "steal_ledger", "cutpurses" },
         },

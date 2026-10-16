@@ -296,6 +296,7 @@ function M.after_night(campaign, night)
             for _, sc in ipairs(night.scenes or {}) do
                 if sc.comps.goal and sc.comps.goal.id == q.card and sc.outcome then
                     q.done = true
+                    q.won, q.done_week = sc.outcome == "win", campaign.week   -- (for the next recap)
                     local p = campaign:player(key)
                     if sc.outcome == "win" then
                         p.scar = util.fill(data.SCARS[1], { char = q.char })

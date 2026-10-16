@@ -576,13 +576,23 @@ local function react(night, f, steps, who)
         for _, p in ipairs(night.players) do
             poses[p.key] = "cheer"
         end
+        if f.boss_name then
+            night.campaign.bosses_down = night.campaign.bosses_down or {}
+            night.campaign.bosses_down[f.boss_name] = night.campaign.bosses_down[f.boss_name] or night.campaign.week
+        end
         -- The villain gets a last word, played for fun.
         if night.scene and night.scene.comps.cast and not f.last_words then
             night:npc_line("down")
         end
         if P then
             line = { P, "kill" }
-            night:highlight(8, P.char .. " brings down " .. (f.boss_name or "the boss"), { P }, "villain_falls")
+            -- (When the killing blow was handed to someone, that's the moment: one hero gets the
+            -- credit, October 15: "Thessaly brings down" and "Pip lands the killing blow" on one boss.)
+            if not f.used.killing_blow then
+                night:highlight(8, P.char .. " brings down " .. (f.boss_name or "the boss"), { P }, "villain_falls")
+            else
+                line = nil
+            end
             -- The final hit answers a villain's taunt, even without the killing-blow card.
             local boss = f.boss
             if boss and boss.person and not f.used.killing_blow then

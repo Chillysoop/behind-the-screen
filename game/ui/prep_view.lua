@@ -439,7 +439,8 @@ local function scene_card(app, prep, i)
                 table.insert(names, sc and (sc.short or sc.name) or id)
             end
             kit.text(x + 20, sy + 6, label, "ui14", kit.rgba("#2f6f5a"))
-            local spots = #names > 0 and util.capitalize(table.concat(names, ", ")) or "Sketch a few places they might go"
+            -- (A dot between them: "Ilsa's room, Hale's Crossing" read as one address, October 15.)
+            local spots = #names > 0 and util.capitalize(table.concat(names, "  /  ")) or "Sketch a few places they might go"
             -- (Long place names drop to the small type rather than get cut off, A8.)
             local sfont = (#names > 0 and kit.text_height(spots, "ui18b", CARD_W - 40) <= 2 * kit.text_height("A", "ui18b", CARD_W - 40))
                 and "ui18b" or "ui14"
@@ -1353,7 +1354,8 @@ function M.storyline_notes(app, prep)
                             theme.orange })
     end
     if #f.loose > 0 then
-        table.insert(out, { "Loose end: " .. names(f.loose) .. ". It wears the table down every week until it comes back.",
+        table.insert(out, { (#f.loose > 1 and "Loose ends: " or "Loose end: ") .. names(f.loose)
+            .. (#f.loose > 1 and ". They wear the table down every week until they come back." or ". It wears the table down every week until it comes back."),
                             theme.red })
     end
     if #f.cold > 0 then

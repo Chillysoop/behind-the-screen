@@ -410,7 +410,7 @@ function M.build(app)
         end
         return
     end
-    kit.button(1356, 830, 220, 50, "Start week 1  >", function()
+    kit.button(1356, 830, 220, 50, "Start session 1  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_start" })
     if not ready then

@@ -214,8 +214,10 @@ function M.summary(campaign)
                 track[i] = { text = text, done = i <= math.min(campaign.week, #f.portents) }
             end
         else
+            local story = util.lazy("game.model.story")
             for i, p in ipairs(f.portents) do
-                track[i] = { text = p.text, done = st and st.portents[i] ~= nil, week = st and st.portents[i] }
+                local told = p.done_if and story.has_clue(campaign, p.done_if)
+                track[i] = { text = p.text, done = (st and st.portents[i] ~= nil) or told or false, week = st and st.portents[i] }
             end
         end
         table.insert(out.fronts, { id = id, name = f.name, impulse = f.impulse, doom = f.doom, track = track,

@@ -538,7 +538,7 @@ function M.update(app, dt)
         end
         app.refresh()
         if not shot(a, "backstories") then
-            by_label("Start week")
+            by_label("Start session")
         end
     elseif s == "join" then
         -- A small table (October 15): someone joins this week. Their questions, their idea taken

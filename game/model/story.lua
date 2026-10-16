@@ -111,6 +111,7 @@ function M.after_night(campaign, night)
         table.insert(w.moments, hl[i].text)
     end
     w.cliff = night.ended_on_cliff or false
+    w.cliff_text = night.ended_on_cliff and night.cliff_text or nil
     st.weeks[campaign.week] = w
 end
 

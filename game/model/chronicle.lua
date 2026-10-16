@@ -943,7 +943,13 @@ end
 local function card_gist(campaign, c, rec)
     local card = content.components[c.id]
     if c.kind == "goal" then
-        return soft(campaign, c.name)
+        -- (A deed that failed says so: "tried to celebrate a hard-won win", not the deed and "Lost.")
+        local name = soft(campaign, c.name)
+        if rec and rec.out == "lose" and string.find(name, "^%l") and not string.find(name, "^the ")
+            and not string.find(name, "^a ") then
+            return "tried to " .. name
+        end
+        return name
     elseif c.kind == "complication" then
         return soft(campaign, c.name)
     elseif c.kind == "cast" then
@@ -964,6 +970,78 @@ local function card_gist(campaign, c, rec)
         return "got " .. got
     end
     return nil
+end
+
+-- What a storyline did in one session, said the way the DM would say it to the table (October 15:
+-- the recap's heroes card): "managed to keep the relic safe", "met Corin", "learned that ...".
+-- Up to `n` phrases, the weightiest first; {} when it didn't move.
+function M.spoken_moves(campaign, id, week, n, skip_clues)
+    local found = {}
+    local skipped = false
+    local function add(rank, text, order)
+        table.insert(found, { rank = rank, text = text, order = order })
+    end
+    for _, rec in ipairs(M.get(campaign).scenes) do
+        if rec.w == week and util.contains(rec.stories or {}, id) then
+            for _, c in ipairs(rec.cards or {}) do
+                if util.contains(c.stories or {}, id) then
+                    local card = content.components[c.id]
+                    local name = soft(campaign, c.name)
+                    local at = (rec.s or 0) * 10
+                    -- (A goal named as a deed, "find the map", takes "managed to"; one named as what
+                    -- happened, "Corin found something", is said as it is.)
+                    local first = string.match(name, "^(%S+)") or ""
+                    local deed = string.find(first, "^%l") and first ~= "a" and first ~= "the" and first ~= "who"
+                    if c.kind == "goal" and (first == "the" or first == "a") then
+                        -- "The way back (Brannoc)": something they went after.
+                        add(1, "went after " .. string.gsub(name, "%s*%b()", ""), at)
+                    elseif c.kind == "goal" and not deed then
+                        add(1, name, at)
+                    elseif c.kind == "goal" then
+                        add(1, rec.out == "win" and ("managed to " .. name)
+                            or (rec.out == "lose" and ("tried to " .. name .. ", and couldn't") or ("set out to " .. name)), at)
+                    elseif c.kind == "reward" then
+                        local got = soft(campaign, c.got or c.name)
+                        add(3, rec.out == "lose" and ("missed " .. got) or ("got " .. got), at + 1)
+                    elseif c.kind == "cast" then
+                        local short = card and card.short or c.name
+                        if c.foe then
+                            add(4, rec.out == "win" and ("beat " .. short) or (rec.out == "lose" and ("lost to " .. short)
+                                or ("faced " .. short)), at + 2)
+                        else
+                            add(5, "met " .. short, at + 2)
+                        end
+                    elseif c.kind == "complication" then
+                        add(6, "trouble: " .. name, at + 3)
+                    end
+                end
+            end
+            for _, b in ipairs(rec.beats or {}) do
+                local cc = b.k == "clue" and b.card and content.components[b.card]
+                if cc and util.contains(storylines.of_card(campaign, cc), id) and skip_clues and skip_clues[b.card] then
+                    skipped = true
+                elseif cc and util.contains(storylines.of_card(campaign, cc), id) then
+                    local t = string.gsub(b.text or "", "^They found out: ", "")
+                    add(2, "found out " .. util.lower_first(M.squeeze(t, 18)), (rec.s or 0) * 10 + 4)
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b)
+        if a.rank ~= b.rank then
+            return a.rank < b.rank
+        end
+        return a.order < b.order
+    end)
+    local out, seen = {}, {}
+    for _, f in ipairs(found) do
+        -- (One of each kind: two troubles in a row reads like a list, not a recap.)
+        if #out < (n or 2) and not seen[f.text] and not seen[f.rank] then
+            seen[f.text], seen[f.rank] = true, true
+            table.insert(out, f.text)
+        end
+    end
+    return out, skipped
 end
 
 -- One step: "S2 Hale's Crossing (talk): met the abbot; learned Oswin's relic is the tongue... Won."
@@ -1043,7 +1121,7 @@ function M.glance(campaign, id, opts)
         elseif e.tag == "past" or e.tag == "tonight" then
             local label = e.tag == "past" and ("S" .. util.int(e.w)) or "Tonight"
             table.insert(out.steps, { label = label, text = glance_step(campaign, d, e.rec, filed), tag = e.tag, out = e.out,
-                                      now = e.now })
+                                      now = e.now, w = e.w })
         elseif e.tag == "planned" or e.tag == "later" then
             local rec = { loc = e.loc, type = e.type, title = e.where, beats = {} }
             local cards = {}
@@ -1082,7 +1160,7 @@ local function scene_step(campaign, rec)
     local clue
     for _, b in ipairs(rec.beats or {}) do
         if b.k == "clue" and b.text then
-            clue = "clue: " .. M.squeeze(b.text, 9)
+            clue = "clue: " .. M.squeeze(b.text, 22)
             break
         end
     end
@@ -1101,8 +1179,13 @@ local function scene_step(campaign, rec)
     -- Nothing on the cards to say: what the table heard first.
     if #bits == 0 then
         for _, b in ipairs(rec.beats or {}) do
-            if b.k == "told" and b.text then
-                table.insert(bits, soft(campaign, M.squeeze(b.text, 9)))
+            -- (Not the place's own description: "Ilsa's room: Ilsa's room above the scriptorium.")
+            local t = b.k == "told" and b.text and soft(campaign, M.squeeze(b.text, 14))
+            local c = rec.loc and content.components[rec.loc]
+            local same = t and c and (string.find(string.lower(t), string.lower(string.match(c.name, "^([^,]+)") or c.name), 1, true)
+                or (c.short and string.find(string.lower(t), string.lower(c.short), 1, true) == 1))
+            if t and not same then
+                table.insert(bits, t)
                 break
             end
         end
@@ -1124,8 +1207,16 @@ function M.new_storylines(campaign)
     for _, id in ipairs(data.order) do
         local d = data[id]
         local st = storylines.get(campaign)[id]
-        local fresh = (small and week >= 2 and d.small_from == week)
-            or (week >= 2 and st and st.opened == week - 1 and st.state ~= "waiting")
+        -- New once: at a small table the week it comes into play; at a full one the week after
+        -- the party opened it, unless the opening already told it (the second front).
+        local fresh
+        if small then
+            fresh = week >= 2 and d.small_from == week
+        else
+            local plan = campaign.plan or {}
+            fresh = week >= 2 and st and st.opened == week - 1 and st.state ~= "waiting"
+                and not (plan.front and content.lore.front_story[plan.front] == id)
+        end
         if fresh and id ~= main and d.gist then
             table.insert(out, { id = id, text = d.gist .. "." })
         end
@@ -1149,6 +1240,46 @@ function M.legend(campaign)
     return out
 end
 
+-- Behind the screen: what each front is really after, and its next step, for the DM's eyes only
+-- (October 15: Kessrick's plan was only in the notebook). Each { icon, color, text }.
+function M.behind(campaign)
+    local planner = util.lazy("game.model.planner")
+    local storylines = util.lazy("game.model.storylines")
+    local fdata = require "game.data.factions"
+    local lo = content.lore
+    local out = {}
+    local ok, sum = pcall(planner.summary, campaign)
+    if not ok or not sum then
+        return out
+    end
+    for _, f in ipairs(sum.fronts or {}) do
+        local sid = lo.front_story[f.id]
+        if not sid or storylines.in_scope(campaign, sid) then
+            local goal = f.impulse
+            for _, fid in ipairs(fdata.order or {}) do
+                if fdata[fid] and fdata[fid].front == f.id and fdata[fid].goal then
+                    goal = fdata[fid].goal
+                end
+            end
+            local nxt
+            for _, t in ipairs(f.track or {}) do
+                if not t.done then
+                    nxt = t.text
+                    break
+                end
+            end
+            local slide = lo.opening[f.id] or (lo.opening.fronts or {})[f.id] or {}
+            local who = (f.id == "kessrick") and "Kessrick" or (slide.title or f.name)
+            goal = goal or ""
+            goal = string.lower(string.sub(goal, 1, 1)) .. string.sub(goal, 2)
+            table.insert(out, { icon = lo.icons.fronts[f.id] or "crown", color = slide.color or "#a08ab0",
+                                text = who .. " means to " .. goal .. (nxt and (" Next: " .. nxt) or ""),
+                                id = sid or lo.briefing.next_story })
+        end
+    end
+    return out
+end
+
 -- Nothing to look back on: just what they're out to do this week (or nil past the slice).
 function M.next_only(campaign)
     local obj = util.lazy("game.model.lore").objective(campaign)
@@ -1156,7 +1287,7 @@ function M.next_only(campaign)
         return nil
     end
     return { title = "SESSION " .. util.int(campaign.week or 1), lines = {}, next = obj,
-             label = "SESSION " .. util.int(campaign.week or 1) .. ": this week" }
+             label = "SESSION " .. util.int(campaign.week or 1) .. ": this week", behind = M.behind(campaign) }
 end
 
 function M.previously(campaign)
@@ -1175,7 +1306,8 @@ function M.previously(campaign)
         end
         return { title = "SESSION ZERO", sub = "What turns up first from each past. It's at the front of your hand.",
                  lines = lines, open = lines[1].id, zero = true, label = "SESSION ZERO: what you wrote in",
-                 next = util.lazy("game.model.lore").objective(campaign), legend = M.legend(campaign) }
+                 next = util.lazy("game.model.lore").objective(campaign), legend = M.legend(campaign),
+                 behind = M.behind(campaign) }
     end
     local recs = {}
     for _, r in ipairs(M.get(campaign).scenes) do
@@ -1189,10 +1321,12 @@ function M.previously(campaign)
     table.sort(recs, function(a, b)
         return (a.s or 0) < (b.s or 0)
     end)
-    local title
+    local title, planned_note
     for _, le in ipairs(campaign.session_log or {}) do
         if le.week == week - 1 and le.recap and le.recap.titles then
             title = le.recap.titles[le.recap.title or 1]
+            -- Renamed on the report: say what it was planned as, so it's one session, not two.
+            planned_note = (le.recap.planned and title ~= le.recap.planned) and (" (planned as " .. le.recap.planned .. ")") or nil
         end
     end
     local lines, open = {}, nil
@@ -1206,9 +1340,12 @@ function M.previously(campaign)
         end
         table.insert(lines, { text = "S" .. util.int(r.s or 0) .. " " .. t .. out, out = r.out, id = id })
     end
-    return { title = "LAST TIME", sub = "Session " .. util.int(week - 1) .. (title and (": \"" .. title .. "\"") or ""),
+    return { title = "LAST TIME", sub = "Session " .. util.int(week - 1) .. (title and (": \"" .. title .. "\"") or "")
+                 .. (planned_note or ""),
              lines = lines, open = open, label = "LAST TIME: session " .. util.int(week - 1),
-             next = util.lazy("game.model.lore").objective(campaign), new = M.new_storylines(campaign) }
+             next = util.lazy("game.model.lore").objective(campaign), new = M.new_storylines(campaign),
+             new_label = (campaign.roster and campaign.roster.kind == "small") and "NOW IN PLAY" or "NEW IN THE STORY",
+             behind = M.behind(campaign) }
 end
 
 -- The same in one line, for a card's hover: the gist, then the last few steps.

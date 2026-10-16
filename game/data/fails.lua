@@ -323,15 +323,19 @@ M.LINES = {
     },
 }
 
+-- After one defeat in a night, a second ends with the party still where they were (October 15).
+M.STAY_PUT = { retreat = true, spared = true, dragged_off = true }
+
 -- Defeat scenes (B2): a lost fight ends in one of these instead of "wake up robbed". The party
 -- loses without anyone dying. where: place settings it fits (nil = anywhere); story: what it
 -- leaves the party (a lead, a debt, a grudge).
 M.DEFEATS = {
-    { id = "retreat", line = "They break and run, carrying whoever can't. Nobody's proud of it. Everyone's alive.",
+    { id = "retreat", line = "They break and run, carrying whoever can't. Nobody's proud of it. Everyone's alive.", alive = true,
       effects = { { "all", challenge = 4, story = 2 }, { "arch:butt_kicker", fun = -3 } } },
     { id = "captured", line = "They wake up in a cell, bound and stripped of their weapons. Someone wants them alive. That's worth knowing.",
       effects = { { "all", story = 6, challenge = 4 }, { "arch:storyteller", fun = 3 } } },
     { id = "left_for_dead", line = "They come to in the mud, where they were left for dead. Their purses are gone. Their grudge isn't.",
+      where = { "outdoor", "wild", "road" },   -- (no mud upstairs, October 15)
       effects = { { "all", story = 4 }, { "arch:butt_kicker", fun = 2 } } },
     { id = "rescued", line = "A stranger drags them out before the end: a debt, and a new face who now knows too much.",
       effects = { { "all", story = 5, social = 3 } } },

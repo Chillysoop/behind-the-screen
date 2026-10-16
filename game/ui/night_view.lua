@@ -291,7 +291,7 @@ function M.draw_goal(app)
     kit.remove(app.goal_nodes or {})
     app.goal_nodes = {}
     local lore = require "game.model.lore"
-    local obj = lore.objective(app.campaign)
+    local obj = lore.objective(app.campaign, nil, true)
     if not obj then
         return
     end
@@ -300,18 +300,31 @@ function M.draw_goal(app)
     -- (After a challenge's pips, when there are any.)
     local pr = app.progress
     if pr then
-        x = 160 + kit.width(app.scene_sub or "", "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16
+        x = 160 + kit.width(sub, "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16
     end
+    local full = "This week: " .. obj
+    local y = 32
     local avail = 766 - x - 20
+    -- Too long for beside the scene's line: beside its title instead, when that has the room
+    -- (October 15: the goal was cut short whenever the scene's line was long).
+    if kit.width(full, "ui14") > avail - 20 then
+        local x1 = 160 + kit.width(kit.ellipsize(app.scene_label or "", "ui18b", 600), "ui18b") + 24
+        if 766 - x1 - 20 > avail then
+            x, y, avail = x1, 10, 766 - x1 - 20
+        end
+    end
     if avail < 140 then
         return
     end
+    if kit.width(full, "ui14") > avail - 20 then
+        full = obj    -- (the bell icon says "this week" well enough when room is short)
+    end
     local m = lore.storyline(app.campaign, content.lore.briefing.next_story)
     if m and m.icon then
-        table.insert(app.goal_nodes, kit.icon(x, 33, 15, m.icon, m.color and kit.rgba(m.color) or theme.gold))
+        table.insert(app.goal_nodes, kit.icon(x, y + 1, 15, m.icon, m.color and kit.rgba(m.color) or theme.gold))
     end
-    local text = kit.ellipsize("This week: " .. util.lower_first(obj), "ui14", avail)
-    table.insert(app.goal_nodes, kit.text(x + 20, 32, text, "ui14", theme.gold))
+    local text = kit.ellipsize(full, "ui14", avail - 20)
+    table.insert(app.goal_nodes, kit.text(x + 20, y, text, "ui14", theme.gold))
 end
 
 function M.refresh_status(app)
@@ -385,7 +398,7 @@ function M.draw_pips(app)
     if not pr or not app.n_sub then
         return
     end
-    local x = 160 + kit.width(app.scene_sub or "", "ui14") + 16
+    local x = 160 + kit.width(kit.ellipsize(app.scene_sub or "", "ui14", 360), "ui14") + 16
     for i = 1, pr.need do
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.wins and theme.gold or kit.rgba("#ffffff", 0.18)))
     end
@@ -1404,7 +1417,7 @@ function M.handle(app, ev)
     end
     if k == "scene" then
         app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
-        local who = ev.cast and (" with " .. ev.cast) or ""
+        local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
         app.scene_sub = (ev.type_name or "") .. who
         gui.set_text(app.n_label, kit.ellipsize(app.scene_label, "ui18b", 600))
         gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))

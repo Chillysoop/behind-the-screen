@@ -328,6 +328,15 @@ end
 -- A lost fight's defeat scene, fitted to the place.
 function M.defeat(night, sc)
     local loc = sc and sc.comps.location
+    -- A second lost fight in one night can't end somewhere else entirely (October 15: "wake up in a
+    -- cell" and "come to in the mud" in one recap): the night goes on, so only the endings that
+    -- leave the party where they were.
+    local again = night.defeated
+    -- Nobody claims "everyone's alive" over a hero who just died (October 15).
+    local died = false
+    for _, d in ipairs(night.campaign.deaths or {}) do
+        died = died or d.week == night.campaign.week
+    end
     local pool = {}
     for _, d in ipairs(data.DEFEATS) do
         local fits = not d.where
@@ -335,15 +344,20 @@ function M.defeat(night, sc)
             fits = fits or (loc and util.contains(loc.setting or {}, set))
         end
         local seen = night.campaign.defeats_seen and night.campaign.defeats_seen[d.id]
-        if fits and not seen then
+        if fits and not seen and (not again or data.STAY_PUT[d.id]) and not (died and d.alive) then
             table.insert(pool, d)
         end
     end
     if #pool == 0 then
         night.campaign.defeats_seen = {}
-        pool = data.DEFEATS
+        for _, d in ipairs(data.DEFEATS) do
+            if (not again or (data.STAY_PUT[d.id] and d.id ~= again)) and not (died and d.alive) then
+                table.insert(pool, d)
+            end
+        end
     end
     local d = pool[night.rng:int(1, #pool)]
+    night.defeated = d.id
     night.campaign.defeats_seen = night.campaign.defeats_seen or {}
     night.campaign.defeats_seen[d.id] = night.campaign.week
     return d
