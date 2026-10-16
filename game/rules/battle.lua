@@ -781,8 +781,10 @@ function B:attack(att, tgt, prof, opts)
     local ac = self:ac(tgt) + cover
     res.cover = cover > 0 or nil
     -- Heroic Inspiration on a miss that matters: against the boss.
+    local rerolled
     if att.heroic and roll < crit_range and (roll == 1 or total < ac) and tgt.boss then
         local riders = total - roll
+        rerolled = roll
         roll = self:heroic_reroll(att, roll, true, "attack", mode, luck)
         total = roll + riders
         res.roll, res.total = roll, total
@@ -844,7 +846,7 @@ function B:attack(att, tgt, prof, opts)
                 end
                 res.mirror = true
                 self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit, hit = false, roll = roll, total = total,
-                            ac = ac, blocked = "mirror_image", ranged = prof.kind == "ranged", mode = mode })
+                            ac = ac, blocked = "mirror_image", ranged = prof.kind == "ranged", mode = mode, cover = cover })
                 return res
             end
         end
@@ -870,10 +872,12 @@ function B:attack(att, tgt, prof, opts)
             mode > 0 and ", Advantage" or (mode < 0 and ", Disadvantage" or ""))
         self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit, hit = false, roll = roll, total = total,
                     ac = ac, mode = mode, blocked = res.blocked, ranged = prof.kind == "ranged",
-                    opportunity = opts.opportunity, spell = prof.spell, cover_what = res.cover_what })
+                    opportunity = opts.opportunity, spell = prof.spell, cover = cover,
+                    cover_what = type(cover_what) == "string" and cover_what or nil,
+                    heroic = rerolled })
         -- Graze (p. 90): miss still deals the ability modifier.
         if prof.mastery == "graze" and (prof.ability or 0) > 0 then
-            self:deal(att, tgt, { { prof.ability, prof.damage[1][4] } }, { graze = true })
+            self:deal(att, tgt, { { prof.ability, prof.damage[1][4] } }, { graze = true, weapon = prof.name })
         end
         if opts.on_miss then
             opts.on_miss(self, att, tgt, res)
@@ -938,7 +942,8 @@ function B:attack(att, tgt, prof, opts)
         mode > 0 and ", Advantage" or (mode < 0 and ", Disadvantage" or ""))
     self:emit({ kind = "attack", att = att, tgt = tgt, weapon = prof.name, dmg = dice_text(prof.damage), to_hit = prof.to_hit, hit = true, crit = crit, roll = roll,
                 total = total, ac = ac, mode = mode, ranged = prof.kind == "ranged", sneak = res.sneak,
-                opportunity = opts.opportunity, spell = prof.spell })
+                opportunity = opts.opportunity, spell = prof.spell, cover = cover,
+                cover_what = type(cover_what) == "string" and cover_what or nil, heroic = rerolled })
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
     res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon })
@@ -1265,14 +1270,14 @@ function B:deal(src, tgt, parts, info)
     if through <= 0 then
         self:log("  %s's Temporary Hit Points soak %d.", tgt.name, absorbed)
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = tgt.hp,
-                    hp_max = tgt.hp_max, crit = info.crit })
+                    hp_max = tgt.hp_max, crit = info.crit, graze = info.graze })
         self:after_damage(tgt, total, info)
         return total
     end
     -- Damage at 0 Hit Points (p. 18).
     if tgt.down then
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = 0,
-                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell })
+                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
         if through >= tgt.hp_max then
             self:kill(tgt, src, "massive damage")
         else
@@ -1283,7 +1288,7 @@ function B:deal(src, tgt, parts, info)
     tgt.hp = tgt.hp - through
     self:log("  %s takes %d damage (%d/%d).", tgt.name, total, math.max(tgt.hp, 0), tgt.hp_max)
     self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = math.max(tgt.hp, 0),
-                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell })
+                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
     if tgt.hp <= 0 then
         local overflow = -tgt.hp
         tgt.hp = 0
@@ -1409,7 +1414,7 @@ function B:heroic_reroll(c, roll, want, what, mode, luck)
     c.heroic = nil
     local new = self.dice:d20(mode or 0, luck)
     self:log("  %s spends Heroic Inspiration to reroll the %s: %d becomes %d.", c.name, what or "die", roll, new)
-    self:emit({ kind = "feature", who = c, name = "Heroic Inspiration" })
+    self:emit({ kind = "feature", who = c, name = "Heroic Inspiration", from = roll, to = new })
     self.heroic_used = (self.heroic_used or 0) + 1
     return new
 end

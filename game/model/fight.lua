@@ -257,12 +257,26 @@ end
 -- The fight a scene suggests (what game night builds if the DM doesn't build their own):
 -- add monsters until the meter's "someone drops" forecast reaches what the scene asks for.
 -- scene: { comps, type, difficulty }; level, n: the party's level and size.
+-- A lead too big for a small party on its own (a bandit captain against two level 2 heroes is
+-- past High before anyone else joins): a lighter one of the same kind leads instead. Story
+-- villains keep their own stat block. (The newcomer playtest, October 16: the first fight's
+-- suggestion was over High, and nothing on the screen said how to make it easier.)
+M.LIGHT = { bandit_captain = "tough" }
+
 function M.suggest(sc, level, n)
     local enc = content.encounters
     local fam = M.family(sc)
     local step = util.clamp(sc.difficulty or 2, 1, 3) + ((sc.type == "set_piece") and 1 or 0)
     local aim = M.AIM[util.clamp(step, 1, 3)]
     local ids = { fam.boss }
+    local cast0 = sc.comps and sc.comps.cast
+    local light = M.LIGHT[fam.boss]
+    if light and not (cast0 and enc.by_cast[cast0.id]) then
+        local m0 = encounter.meter(level, n, ids, hz_opts(sc))
+        if m0.budget and m0.xp > m0.budget[3] then
+            ids = { light }
+        end
+    end
     local k = 0
     while #ids < enc.max_monsters do
         local id = fam.minion[(k % #fam.minion) + 1]
@@ -451,8 +465,13 @@ function M.step(night, ev)
         s.dm = ev.att.side ~= "party"
         s.hidden = s.dm and night.dm_rolls == "hidden"
         s.mode = ev.mode
+        -- Why it landed or didn't (the newcomer playtest, October 16): the cover in the AC, and a
+        -- Heroic Inspiration reroll.
+        s.cover, s.heroic = (ev.cover or 0) > 0 and ev.cover or nil, ev.heroic
     elseif k == "damage" then
         s.id, s.amount, s.hp, s.hp_max, s.crit = ref(ev.tgt), ev.amount, ev.hp, ev.hp_max, ev.crit
+        s.graze, s.spell = ev.graze, ev.spell
+        s.src = ev.src and ev.src ~= ev.tgt and ev.src.mini or nil
     elseif k == "heal" then
         s.id, s.amount, s.hp, s.hp_max = ref(ev.tgt), ev.amount, ev.hp, ev.hp_max
         s.by = ev.src and ref(ev.src)
@@ -472,6 +491,7 @@ function M.step(night, ev)
         s.zone, s.what, s.cells = ev.zone, ev.what, ev.cells
     elseif k == "feature" then
         s.id, s.name, s.target = ref(ev.who), ev.name, target_ref(ev.target)
+        s.from, s.to = ev.from, ev.to
     elseif k == "door" then
         s.id, s.x, s.y, s.state, s.fid = ev.who and ref(ev.who), ev.x, ev.y, ev.state, ev.fid
     elseif k == "save" then
@@ -1128,8 +1148,44 @@ function M.run(night, sc, plan)
     end
     night.battle = nil
     night.fights = night.fights + 1
-    night:emit({ kind = "battle", phase = "end", winner = result.winner, rounds = result.rounds })
+    night:emit({ kind = "battle", phase = "end", winner = result.winner, rounds = result.rounds,
+                 summary = M.summary(b, f, result) })
     return result, f
+end
+
+-- How the fight went, for the card when it's over (the newcomer playtest, October 16: no fight
+-- summary, and "runs for it" with "the last one falls" left it unclear whether they'd won).
+--   how     won, fled (the foes ran), surrendered, escaped (the villain got away), lost
+--   heroes  { id, name, hp, hp_max, hits, swings, dealt, beaten, downs, dead }
+--   beaten, ran: the foes' names; boss: the boss's name, and how it ended for them
+function M.summary(b, f, result)
+    local how = "won"
+    if result.winner ~= "party" then
+        how = "lost"
+    elseif f.surrendered then
+        how = "surrendered"
+    elseif f.fled then
+        how = (f.boss and f.boss.villain and f.boss.removed) and "escaped" or "fled"
+    end
+    local out = { how = how, rounds = result.rounds or b.round or 0, heroes = {}, beaten = {}, ran = {} }
+    for _, c in ipairs(b.creatures) do
+        local st = c.stats or {}
+        if c.side == "party" then
+            table.insert(out.heroes, { id = c.mini, name = c.name, hp = math.max(0, c.hp or 0), hp_max = c.hp_max,
+                                       hits = st.hits or 0, swings = (st.hits or 0) + (st.misses or 0),
+                                       dealt = st.dealt or 0, beaten = st.kills or 0, downs = st.downs or 0,
+                                       dead = c.dead or nil })
+        elseif c.dead then
+            table.insert(out.beaten, c.name)
+        elseif c.removed then
+            table.insert(out.ran, c.name)
+        end
+        if c == f.boss then
+            out.boss = { name = c.name, state = c.dead and "beaten" or (c.removed and "gone") or "standing",
+                         hp = math.max(0, c.hp or 0), hp_max = c.hp_max }
+        end
+    end
+    return out
 end
 
 return M

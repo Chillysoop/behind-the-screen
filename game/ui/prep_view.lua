@@ -3,6 +3,7 @@
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
+local gloss = require "game.ui.gloss"
 local content = require "game.model.content"
 local score = require "game.model.score"
 local prep_mod = require "game.model.prep"
@@ -315,6 +316,10 @@ local function top_bar(app, prep)
     local left = math.max(0, prep:left())
     local x0 = 820
     kit.text(x0, 12, "PREP TIME", "ui14", theme.dim)
+    -- What the hours are, and what the level is (the newcomer playtest, October 16).
+    gloss.card_spot(x0 - 4, 30, prep.budget * 22 + 8, 26, "Prep time",
+        "The hours you have this week to get ready. Each card you put on a scene costs some. Whatever you leave "
+        .. "empty, you'll make up at the table.")
     for i = 1, prep.budget do
         local filled = i <= left
         kit.box(x0 + (i - 1) * 22, 34, 18, 18, filled and theme.gold or theme.panel3, { radius = 4 })
@@ -330,7 +335,7 @@ local function top_bar(app, prep)
         kit.text(1276, 56, lv.overdue and "Overdue!" or ("Level " .. util.int(lv.level + 1) .. " is ready"), "ui14",
             lv.overdue and theme.orange or theme.dim, { pivot = gui.PIVOT_N })
     else
-        kit.text(1276, 24, "LEVEL " .. util.int(lv.level), "ui18b", theme.dim, { pivot = gui.PIVOT_N })
+        kit.text(1276, 24, "LEVEL " .. util.int(lv.level), "ui18b", theme.dim, { pivot = gui.PIVOT_N, gloss = { story = true } })
     end
     local ready = prep:ready()
     kit.button(1356, 12, 220, 42, "Run game night  >", function()
@@ -389,6 +394,9 @@ local function scene_card(app, prep, i)
     for k = 1, 5 do
         kit.dot(x + CARD_W - 16 - (5 - k) * 12, y + 17, 9, k <= t and theme.red or kit.rgba("#000000", 0.15))
     end
+    gloss.card_spot(x + CARD_W - 16 - 4 * 12 - 8, y + 9, 5 * 12 + 8, 18, "Tension",
+        "How intense the scene is, from 1 (calm) to 5 (edge of their seats). The pacing graph below plots it: a "
+        .. "good night rises and falls, and ends high.")
     -- Scene type.
     local selected_type = sel and sel.scene == i and sel.kind == "type"
     if selected_type then
@@ -677,6 +685,8 @@ local function drawer(app, prep)
             for d = 1, 5 do
                 kit.dot(cx + 12 + (d - 1) * 11, cy + 38, 8, d <= st.tension and theme.text or kit.rgba("#000000", 0.25))
             end
+            gloss.card_spot(cx + 6, cy + 32, 5 * 11 + 8, 14, "Tension",
+                "How intense this kind of scene runs, from 1 (calm) to 5 (edge of their seats).")
             kit.text(cx + 8, cy + 50, st.short or st.blurb, "ui14", theme.text, { w = cw - 14 })
             faces(app, cx + 6, cy + 120, type_leans(app, key), 18)
             if usual[key] then
@@ -1440,6 +1450,9 @@ local function player_card(app, prep, p, i, forecast)
         kit.icon(x + 14, y + 87, 14, "mood", p.mood_known and theme.gold or theme.faint)
         local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
         kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
+        gloss.card_spot(x + 10, y + 82, kit.width(mood_text, "ui14") + 28, 22, "Mood this week",
+            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how they'll take Thursday.")
+            or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. A one-on-one (Talk) finds out."))
         M.goodwill(app, p, x + 262, y + 86)
         -- Forecast for Thursday, from the board as it stands.
         kit.text(x + 14, y + 108, "Thursday", "ui14", theme.dim)
@@ -1455,7 +1468,7 @@ local function player_card(app, prep, p, i, forecast)
                     end
                 end })
             kit.bar(x + 86, y + 111, 190, 10, f, 100, tier_color(f))
-            kit.text(x + 286, y + 106, content.chat.verdicts[score.tier(f)], "ui14", tier_color(f))
+            kit.text(x + 286, y + 106, kit.ellipsize(content.chat.forecasts[score.tier(f)], "ui14", w - 296), "ui14", tier_color(f))
         else
             kit.text(x + 86, y + 108, "Finish the scene types to see a forecast", "ui14", theme.faint)
         end
@@ -1518,7 +1531,7 @@ function M.forecast_hover(app, prep, p, f, x0, y0)
     app.hover_layer = l
     kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
     kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
-    kit.text(x + 16, y + 12, p.name .. " on Thursday: " .. string.lower(content.chat.verdicts[score.tier(f)]), "ui18b", tier_color(f),
+    kit.text(x + 16, y + 12, p.name .. " on Thursday: " .. string.lower(content.chat.forecasts[score.tier(f)]), "ui18b", tier_color(f),
         { w = w - 32 })
     local ry = y + 42
     for i, r in ipairs(reasons) do

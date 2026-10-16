@@ -4,6 +4,7 @@
 -- night with terrain, minis and the players' poses.
 
 local kit = require "game.ui.kit"
+local gloss = require "game.ui.gloss"   -- rules words explained on hover (sets kit's text hook)
 local campaign_mod = require "game.model.campaign"
 local telemetry = require "game.model.telemetry"
 local dialogue = require "game.model.dialogue"
@@ -185,6 +186,7 @@ local function build_screen(self)
     local app = self.app
     kit.clear_all()
     kit.reset_hover()
+    kit.gloss_tags = nil     -- (a screen that broke mid-draw never leaves the glossary on)
     app.layers = {}
     if app.sandbox then
         return
@@ -524,6 +526,9 @@ function update(self, dt)
     end
     if not app.sandbox then
         guard(self, guide_view.update, app)
+        -- A rules word's card: back after its text redraws under a still pointer, and on top.
+        guard(self, kit.rehover)
+        guard(self, gloss.raise)
     end
     if not self.refocused then
         -- Make sure the UI sits above the camera on the input stack.

@@ -306,7 +306,14 @@ local function feelings(app, c, y)
     end
 end
 
+-- Rules and table words explain themselves on hover (the newcomer playtest, October 16).
 function M.build(app)
+    kit.gloss_scope({ table = true }, function()
+        M.build_all(app)
+    end)
+end
+
+function M.build_all(app)
     at_table(app)
     local c = choices(app)
     if c.page == "backstories" then

@@ -31,6 +31,14 @@ class X:
         self.d = x11.XOpenDisplay(display.encode())
         if not self.d:
             raise SystemExit("can't open display " + display)
+        # A slow software-rendered game (1 or 2 frames a second) misses a press and release that
+        # both land between two frames: XHOLD holds keys and buttons longer, and with it held that
+        # long, key autorepeat goes off so a held key isn't pressed twice.
+        self.hold = float(os.environ.get("XHOLD", "0") or 0)
+        if self.hold > 0:
+            x11.XAutoRepeatOff.argtypes = [ctypes.c_void_p]
+            x11.XAutoRepeatOff(self.d)
+            x11.XFlush(self.d)
 
     def move(self, x, y):
         self.xt.XTestFakeMotionEvent(self.d, -1, int(x), int(y), 0)
@@ -41,6 +49,7 @@ class X:
         self.x11.XFlush(self.d)
 
     def click(self, x, y, hold=0.1, b=1, settle=0.0):
+        hold = max(hold, self.hold)
         self.move(x, y)
         if settle:
             time.sleep(settle)
@@ -49,6 +58,7 @@ class X:
         self.button(b, False)
 
     def key(self, name, hold=0.1):
+        hold = max(hold, self.hold)
         kc = self.x11.XKeysymToKeycode(self.d, self.x11.XStringToKeysym(name.encode()))
         self.xt.XTestFakeKeyEvent(self.d, kc, 1, 0)
         self.x11.XFlush(self.d)

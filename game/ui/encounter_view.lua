@@ -24,6 +24,7 @@ end
 function M.open(app, scene)
     app.overlay = "encounter"
     app.enc_scene = scene
+    app.enc_msg = nil
     M.draw(app)
 end
 
@@ -51,6 +52,7 @@ end
 
 -- Change the fight, then redraw the board underneath (which redraws this on top).
 local function set(app, ids)
+    app.enc_msg = nil
     app.campaign.prep:set_encounter(app.enc_scene, ids)
     if app.refresh then
         app.refresh()
@@ -83,6 +85,13 @@ function M.board_hazards(campaign, s)
 end
 
 function M.draw(app)
+    -- Every rules word in here explains itself on hover (the newcomer playtest, October 16).
+    kit.gloss_scope({ fight = true }, function()
+        M.draw_all(app)
+    end)
+end
+
+function M.draw_all(app)
     if app.enc_layer then
         kit.drop(app.enc_layer)
     end
@@ -226,6 +235,14 @@ function M.draw(app)
         kit.text(fx + 50, ly + 28, matchup.blurb(id), "ui14", theme.dim)
         local cx = fx + fw - 210
         kit.button(cx, ly + 10, 32, 32, "-", function()
+            -- The last one can't go (a fight needs someone to fight): say so, rather than nothing
+            -- happening (the newcomer playtest, October 16).
+            if #ids <= 1 then
+                app.enc_msg = "A fight needs at least one monster. Add a different one from the left first, then take this one off."
+                M.draw(app)
+                return
+            end
+            app.enc_msg = nil
             for j = #ids, 1, -1 do
                 if ids[j] == id then
                     table.remove(ids, j)
@@ -258,6 +275,10 @@ function M.draw(app)
         ly = ly + 58
     end
 
+    if app.enc_msg then
+        kit.text(fx, ly + 2, app.enc_msg, "ui14", theme.orange, { w = fw })
+        ly = ly + kit.text_height(app.enc_msg, "ui14", fw) + 6
+    end
     -- A hazard on the mat (A10): from the SRD's traps and environment. The ones this board's own
     -- scenery brings (a hearth to catch, a stream to flood, a bridge to give way) are marked.
     ly = math.max(ly + 4, fy + 26 + 4 * 58 + 4)

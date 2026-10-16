@@ -382,7 +382,9 @@ function M.boss_turn(night, f, b, c)
     table.insert(opts, { label = "Whoever's closest. No plan, just fury.", effects = data.BOSS.closest, kind = "closest" })
     table.insert(opts, { label = "Stop and gloat. " .. util.capitalize(boss) .. " has a speech ready.", effects = data.BOSS.gloat,
                          kind = "gloat" })
-    local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id,
+    -- turn_of: the turn order lights the boss while you decide (the newcomer playtest, October 16:
+    -- it still lit whoever went before).
+    local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id, turn_of = c.mini,
                    text = util.capitalize(boss) .. "'s turn, and you're running it. " .. util.int(c.hp) .. " of "
                        .. util.int(c.hp_max) .. " hit points left." .. (downed and (" " .. downed.name .. " is down.") or "")
                        .. " Who does it go for?",

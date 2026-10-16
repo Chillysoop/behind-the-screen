@@ -286,7 +286,7 @@ local function felt_panel(app, rep, x, y, w, h)
             table.insert(lines, { "Says they need a break.", theme.orange, 1 })
         end
         if row.present and not row.on_break then
-            table.insert(lines, { '"' .. (row.quote or "") .. '"', theme.text, 2 })
+            table.insert(lines, { '"' .. (row.quote or "") .. '"', theme.text, 2, true })     -- (their words: no glossary)
             if row.why then
                 table.insert(lines, { row.why, theme.dim, 1 })
             end
@@ -299,19 +299,23 @@ local function felt_panel(app, rep, x, y, w, h)
             if ty + lh > ry + rh - 2 then
                 break
             end
-            kit.text(x + 92, ty, ln[1], "ui14", ln[2], { w = tw, lines = ln[3] })
+            kit.text(x + 92, ty, ln[1], "ui14", ln[2], { w = tw, lines = ln[3], gloss = (not ln[4]) and nil or false })
             ty = ty + lh + 1
         end
-        -- Their long-term bars and which way they moved.
+        -- Their long-term bars and which way they moved, named as on the prep board (the newcomer
+        -- playtest, October 16: four unlabelled icons).
         local bx = x + w - 220
+        require("game.ui.gloss").card_spot(bx + 186, ry + 2, 20, 82, "Which way it moved",
+            "+ went up tonight, - went down, = about the same. Your Empathy decides how sure you can be.")
         for k, key in ipairs(score.LONG) do
             local by = ry + 10 + (k - 1) * 20
             local read = empathy.long(level, p, key, app.campaign.week, i)
             kit.icon(bx, by - 3, 14, key, theme.long[key])
+            kit.text(bx + 19, by - 6, score.LONG_NAMES[key], "ui14", theme.dim)
             if read.lo then
-                kit.bar(bx + 20, by, 150, 7, 0, 100, theme.long[key], { range = { read.lo, read.hi } })
+                kit.bar(bx + 112, by, 74, 7, 0, 100, theme.long[key], { range = { read.lo, read.hi } })
             else
-                kit.bar(bx + 20, by, 150, 7, read.fill, 100, theme.long[key])
+                kit.bar(bx + 112, by, 74, 7, read.fill, 100, theme.long[key])
             end
             local mark = row.long and row.long[key] and empathy.mark(level, row.long[key].delta)
             if mark then
@@ -350,7 +354,10 @@ function M.build(app)
     kit.text(24 + kit.width(title, "title30") + 152, 42, sub, "ui14", theme.dim, { w = 1576 - (24 + kit.width(title, "title30") + 152),
         lines = 1 })
     recap_panel(app, rep, 24, 84, 736, 556)
-    felt_panel(app, rep, 776, 84, 800, 556)
+    kit.gloss_scope({ report = true }, function()
+        felt_panel(app, rep, 776, 84, 800, 556)
+    end)
+    kit.gloss_tags = { report = true, table = true }     -- the boxes along the bottom too
     -- 3. The verdict.
     local y = 652
     kit.box(24, y, 360, 234, theme.panel, { radius = 10 })
@@ -360,7 +367,7 @@ function M.build(app)
     kit.bar(40, y + 86, 328, 12, rep.score or 0, 100, vc)
     kit.text(40, y + 104, "Table Score: everyone's Fun, pulled toward whoever had the worst night.", "ui14", theme.faint, { w = 328 })
     local rr = rep.rolls
-    local dice = "Your own big rolls: " .. util.int(rr.open) .. " in the open, " .. util.int(rr.hidden) .. " behind the screen"
+    local dice = "Big rolls tonight: " .. util.int(rr.open) .. " in the open, " .. util.int(rr.hidden) .. " behind your screen"
         .. (rr.cooked > 0 and (", " .. util.int(rr.cooked) .. " cooked") or "") .. "." .. (rep.callouts > 0 and " Someone asked to see a roll." or "")
     kit.text(40, y + 150, dice, "ui14", theme.dim, { w = 328 })
     if rep.hype > 0 then
@@ -448,6 +455,7 @@ function M.build(app)
         local text = "Empathy: " .. empathy.NAMES[e.level] .. (e.up and ". You read the table better now." or "")
         kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 2 })
     end
+    kit.gloss_tags = nil
     M.gift_row(app, rep, 1204, 708)
     local closing = M.closing_chapter(app)
     kit.button(1204, 790, 372, 56, closing and "Close the first act  >" or ("On to session " .. util.int(rep.week + 1) .. "  >"),

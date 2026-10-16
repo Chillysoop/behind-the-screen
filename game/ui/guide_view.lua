@@ -8,6 +8,7 @@ local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local data = require "game.data.guide"
 local keepsakes = require "game.model.keepsakes"
+local util = require "game.model.util"
 
 local M = {}
 
@@ -95,14 +96,32 @@ local function draw(app, step)
             kit.box(a[1], a[2], BORDER, a[4], gold, { round = false })
             kit.box(a[1] + a[3] - BORDER, a[2], BORDER, a[4], gold, { round = false })
         end
-        local x, y, w = step.at[1], step.at[2], data.WIDTH
+        local at = type(step.at) == "function" and step.at(app) or step.at
+        local x, y, w = at[1], at[2], data.WIDTH
         local th = kit.text_height(step.text, "ui18", w - 32)
         local h = 16 + 26 + th + 14 + 34 + 14
         -- The panel swallows clicks, so nothing hidden under it can be pressed by accident.
         l.blockers = { kit.box(x - 2, y - 2, w + 4, h + 4, kit.rgba("#e8b04a", 0.9), { radius = 12 }) }
         kit.box(x, y, w, h, kit.rgba("#241a14", 0.97), { radius = 11 })
-        kit.text(x + 16, y + 14, step.title, "ui18b", theme.gold, { w = w - 32, lines = 1 })
-        kit.text(x + 16, y + 42, step.text, "ui18", theme.text, { w = w - 32 })
+        -- In a run of tips, which one this is (so the end is in sight).
+        local count = ""
+        if step.seq then
+            local k, n = 0, 0
+            for _, st in ipairs(data.steps) do
+                if st.seq == step.seq then
+                    n = n + 1
+                    if st == step then
+                        k = n
+                    end
+                end
+            end
+            count = util.int(k) .. " of " .. util.int(n)
+            kit.text(x + w - 16, y + 16, count, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+        end
+        kit.text(x + 16, y + 14, step.title, "ui18b", theme.gold,
+            { w = w - 32 - (count ~= "" and (kit.width(count, "ui14") + 10) or 0), lines = 1 })
+        -- Rules words in a tip explain themselves too (the newcomer playtest, October 16).
+        kit.text(x + 16, y + 42, step.text, "ui18", theme.text, { w = w - 32, gloss = { table = true, story = true, fight = true } })
         local by = y + h - 14 - 34
         kit.button(x + 16, by, 110, 34, "Got it", function()
             mark(app, step)

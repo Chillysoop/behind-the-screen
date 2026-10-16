@@ -236,6 +236,7 @@ function M.draw(app, x, y, w, h, ids, hazard)
         kit.text(x, ly + 48, "The world changed this place since you set it" .. (st and (": " .. string.lower(st.label)) or "")
             .. ". Check the map still fits.", "ui14", theme.orange, { w = W * C - 200 })
     end
+    M.key(x, ly + 84, W * C)
     if m then
         kit.button(x + W * C - 150, ly + 44, 150, 28, "Clear the map", function()
             maps.remove(app.campaign, loc.id)
@@ -360,6 +361,32 @@ function M.side(app, x, y, w, ids, hazard)
         kit.text(x, ty, line, "ui14", theme.text, { w = w, lines = 2 })
     else
         kit.text(x, ty, "No monsters yet: add them on The fight tab.", "ui14", theme.faint)
+    end
+end
+
+-- What the marks on the map are (the newcomer playtest, October 16: "P and M, no legend"), under
+-- the grid: x, y its top left, w the grid's width.
+function M.key(x, y, w)
+    kit.text(x, y, "ON THE MAP", "ui14", theme.gold)
+    local key = {
+        { "P", theme.gold, "The heroes start here" },
+        { "M", theme.red, "The monsters start here" },
+        { "", TRAP, "A trap, hidden till stepped on" },
+        { "", kit.rgba("#4a3626", 0.85), "Cover: +2 to AC, +5 at 3/4" },
+        { "", kit.rgba("#1b1714", 0.75), "Blocks the way and the view" },
+    }
+    local kw = (w - 24) / 3
+    for k, row in ipairs(key) do
+        local col, r = (k - 1) % 3, math.floor((k - 1) / 3)
+        local kx, ky = x + col * (kw + 12), y + 22 + r * 26
+        if row[1] ~= "" then
+            kit.dot(kx + 9, ky + 9, 18, row[2])
+            kit.text(kx + 9, ky + 9, row[1], "ui14", theme.ink, { pivot = gui.PIVOT_CENTER })
+        else
+            kit.box(kx - 1, ky - 1, 20, 20, kit.rgba("#ffffff", 0.25), { radius = 5 })
+            kit.box(kx, ky, 18, 18, row[2], { radius = 4 })
+        end
+        kit.text(kx + 26, ky, row[3], "ui14", theme.dim, { w = kw - 28, lines = 1 })
     end
 end
 

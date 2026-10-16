@@ -66,7 +66,14 @@ function M.start(app)
     return true
 end
 
+-- Rules and table words explain themselves on hover (the newcomer playtest, October 16).
 function M.build(app)
+    kit.gloss_scope({ story = true }, function()
+        M.build_all(app)
+    end)
+end
+
+function M.build_all(app)
     local c = choices(app)
     local data = planner.data
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })

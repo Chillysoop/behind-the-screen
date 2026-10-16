@@ -25,6 +25,7 @@ local util = require "game.model.util"
 local content = require "game.model.content"
 local review = require "game.ui.review_view"
 local panels = require "game.ui.panels"
+local gloss = require "game.ui.gloss"
 local battle_hud = require "game.ui.battle_hud"
 local input_trace = require "game.ui.input_trace"
 
@@ -88,6 +89,10 @@ local BLOCKED = {
     warding_flash = "Warding Flare", parry = "Parried", cover = "Cover!", no_line = "No line of sight",
 }
 local TIER_TITLE = { triumph = "A triumph!", success = "It works.", near = "So close...", flop = "That's a flop." }
+-- A ruling's stripe: how kind the option is to the heroes.
+local TONES = { good = { theme.green, "generous" }, twist = { theme.gold, "comes with a catch" }, bad = { theme.red, "harsh" },
+                plain = { kit.rgba("#8a7c6a"), "plain" } }
+local TONE_ORDER = { "good", "plain", "twist", "bad" }
 local FIT_HAND = { great = "Fits this scene", good = "Always works", poor = "A stretch" }
 local FIT_DRIFT = { great = "They'll love this", good = "Solid", poor = "Not their thing" }
 local FIT_TOGETHER = { great = "Together: this will sing", good = "Together: solid", poor = "Together: a stretch" }
@@ -133,6 +138,22 @@ end
 
 local function alpha_of(c, a)
     return vmath.vector4(c.x, c.y, c.z, (c.w or 1) * a)
+end
+
+-- A name in the middle of a sentence: "the road's bandit chief", not "The road's bandit chief".
+local function mid(name)
+    if type(name) == "string" and string.match(name, "^The %l") then
+        return "the" .. string.sub(name, 4)
+    end
+    return name
+end
+
+local function mid_names(list)
+    local out = {}
+    for i, n in ipairs(list or {}) do
+        out[i] = i == 1 and n or mid(n)
+    end
+    return out
 end
 
 local function monster_sprite(id, n)
@@ -216,6 +237,7 @@ function M.build(app)
     M.draw_log(app)
     app.layers.fx = kit.layer("night_fx")
     app.bubbles, app.floaters = {}, {}
+    app.side, app.toast_card = nil, nil     -- (their nodes went with the old layers)
     M.draw_caption(app)
     battle_hud.draw(app)
     app.speed_now = function()
@@ -234,7 +256,7 @@ local function status_text(app)
     local n = app.night
     -- The table clock (A14): what time it is at the table, and when you said you'd stop.
     local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
-    return tc .. "      Calls " .. util.int(n and n:decision_count() or 0)
+    return tc .. "      Calls " .. util.int(n and (n.answered or 0) or 0)
         .. "      Speed " .. util.int(speed(app)) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
         .. "      Timer: " .. (app.timer_on and "on" or "off")
 end
@@ -270,6 +292,11 @@ function M.draw_frame(app)
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
     kit.text(1576, 32, "Space skip   F speed   Tab log   H your rolls   T timer   C photo   1-4 camera or options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
+    -- What the counters are (the newcomer playtest, October 16: "Calls 0", "Your rolls: hidden").
+    gloss.card_spot(1040, 4, 536, 24, "The evening at a glance",
+        "The time at the table, and when you said you'd stop. Calls: the decisions you've made tonight. Speed (F): "
+        .. "how fast the night plays. Your rolls (H): whether you roll for the monsters behind your screen or in the "
+        .. "open. Timer (T): a gentle countdown on each call.")
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
         if app.open_sheet then
@@ -359,12 +386,35 @@ function M.draw_strip(app)
     kit.use(app.layers.base)
     kit.remove(app.strip_nodes or {})
     app.strip_nodes = {}
-    local n = math.min(#app.strip, 16)
+    -- In a fight the turn order has the middle of the screen: fewer dice, so the two never meet
+    -- (the newcomer playtest, October 16: the label ran under the turn order).
+    local n = math.min(#app.strip, app.in_battle and 12 or 16)
     if n > 0 then
         -- What the strip is (A7).
         local left = STRIP_RIGHT - n * (DIE + 4)
-        table.insert(app.strip_nodes, kit.text(left - 8, STRIP_Y + DIE / 2, "Rolls tonight  (? = behind your screen)", "ui14",
-            theme.faint, { pivot = gui.PIVOT_E }))
+        local label = "Rolls tonight  (? = behind your screen)"
+        local lnode
+        if app.in_battle and left - 8 - kit.width(label, "ui14") < 1060 then
+            lnode = kit.text(STRIP_RIGHT - 4, STRIP_Y + DIE + 4, label, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+        else
+            lnode = kit.text(left - 8, STRIP_Y + DIE / 2, label, "ui14", theme.faint, { pivot = gui.PIVOT_E })
+        end
+        table.insert(app.strip_nodes, lnode)
+        -- One spot, kept across redraws (a roll redraws the strip), over the dice and their label.
+        local lx = app.in_battle and (STRIP_RIGHT - kit.width("Rolls tonight  (? = behind your screen)", "ui14") - 8)
+            or (left - 8 - kit.width("Rolls tonight  (? = behind your screen)", "ui14"))
+        local x0 = math.min(lx, left - 4)
+        local rect = { x0, STRIP_Y - 4, STRIP_RIGHT + 4 - x0, DIE + 8 + (app.in_battle and 22 or 0) }
+        local sp = app.strip_spot
+        if sp and sp.layer == app.layers.base then
+            sp.rect = rect
+        else
+            kit.unspot(sp)
+            app.strip_spot = gloss.card_spot(rect[1], rect[2], rect[3], rect[4], "Rolls tonight",
+                "Every d20 rolled tonight, newest on the right. Green worked, red didn't, gold is a natural 20 (or a "
+                .. "big roll still being decided), purple is yours for the monsters. A grey ? was rolled behind your "
+                .. "screen: only you saw it.")
+        end
     end
     for k = 1, n do
         local d = app.strip[#app.strip - n + k]
@@ -372,8 +422,10 @@ function M.draw_strip(app)
         local col, label, ink = theme.teal, util.int(d.roll or 0), theme.bg
         if d.hidden then
             col, label, ink = theme.panel3, "?", theme.dim
+        elseif d.big and (d.roll == 20 or d.success == nil) then
+            col = theme.gold      -- (a big roll goes green or red once it's decided: the re-test, a gold 2)
         elseif d.big then
-            col = theme.gold
+            col = d.success and theme.teal or theme.red
         elseif d.dm then
             col, ink = theme.purple, theme.bg
         elseif d.crit then
@@ -399,6 +451,7 @@ function M.draw_pips(app)
         return
     end
     local x = 160 + kit.width(kit.ellipsize(app.scene_sub or "", "ui14", 360), "ui14") + 16
+    local x0 = x
     for i = 1, pr.need do
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.wins and theme.gold or kit.rgba("#ffffff", 0.18)))
     end
@@ -406,20 +459,35 @@ function M.draw_pips(app)
     for i = 1, pr.max do
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.setbacks and theme.red or kit.rgba("#ffffff", 0.1)))
     end
+    -- What the dots are (the newcomer playtest, October 16).
+    if #app.pip_nodes == 0 then
+        M.draw_goal(app)
+        return
+    end
+    gloss.card_spot(x0 - 2, 32, x + pr.max * 14 - x0 + 4, 18, "How the scene is going",
+        "Gold dots: good moments, building toward the scene's big roll. Red dots: setbacks. Every setback makes the big "
+        .. "roll harder; good moments make it easier.", nil, app.pip_nodes[1])
     M.draw_goal(app)    -- moves along to make room
 end
 
 -- The log: compact (last few lines) or open (Tab) -------------------------------------------
 
 function M.draw_log(app)
+    kit.gloss_scope({ fight = true, table = true }, function()
+        M.draw_log_now(app)
+    end)
+end
+
+function M.draw_log_now(app)
     local l = app.layers.log
     if not l then
         return
     end
+    kit.release_spots(l)
     for _, n in ipairs(l.nodes) do
         gui.delete_node(n)
     end
-    l.nodes, l.buttons = {}, {}
+    l.nodes, l.buttons, l.spots, l.gloss_seen = {}, {}, {}, nil
     kit.use(l)
     if app.log_open then
         kit.box(LOG_X, LOG_Y, LOG_W, LOG_H, theme.bg_glass, { radius = 10 })
@@ -709,6 +777,175 @@ function M.drop_toast(app)
     end
 end
 
+-- A card on the right that stays up while the night goes on (the newcomer playtest, October 16):
+-- how a scene went, or a fight. rows: { { text, color, font } }. It goes when a call comes up, the
+-- next scene starts, or its time is up; everything on it is in the log too.
+local SIDE_X, SIDE_Y, SIDE_W = 1176, 126, 400
+
+function M.side_card(app, top, title, rows, life)
+    M.drop_side(app)
+    if not app.layers.fx then
+        return
+    end
+    kit.use(app.layers.fx)
+    local w = SIDE_W
+    local h = 14 + 20 + kit.text_height(title, "ui22b", w - 32) + 8
+    for _, r in ipairs(rows) do
+        h = h + kit.text_height(r[1], r[3] or "ui14", w - 32) + 6
+    end
+    h = h + 10
+    local x, y = SIDE_X, SIDE_Y
+    local t = { age = 0, life = life / math.sqrt(speed(app)), nodes = {}, colors = {} }
+    local function add(n, c)
+        table.insert(t.nodes, n)
+        table.insert(t.colors, c)
+    end
+    add(kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 }), theme.gold)
+    add(kit.box(x, y, w, h, kit.rgba("#201813", 0.96), { radius = 11 }), kit.rgba("#201813", 0.96))
+    add(kit.text(x + 16, y + 12, top, "ui14", theme.gold), theme.gold)
+    add(kit.text(x + 16, y + 32, title, "ui22b", theme.text, { w = w - 32 }), theme.text)
+    local ry = y + 32 + kit.text_height(title, "ui22b", w - 32) + 8
+    for _, r in ipairs(rows) do
+        local font = r[3] or "ui14"
+        add(kit.text(x + 16, ry, r[1], font, r[2] or theme.text, { w = w - 32 }), r[2] or theme.text)
+        ry = ry + kit.text_height(r[1], font, w - 32) + 6
+    end
+    app.side = t
+end
+
+function M.drop_side(app)
+    if app.side then
+        kit.remove(app.side.nodes)
+        app.side = nil
+    end
+end
+
+-- How the table is taking it right now, in a few words each, as the panels' fun bars read it.
+local function table_words(app)
+    local level = app.campaign:empathy()
+    local tells = app.night and app.night:tells() or {}
+    local parts, best = {}, 0
+    for _, p in ipairs(app.campaign.players) do
+        local t = tells[p.key]
+        if p.present and t then
+            local fun = empathy.fill(level, t.fun)
+            local word = fun >= 72 and "loving it" or fun >= 55 and "having a good time" or fun >= 40 and "doing fine"
+                or fun >= 25 and "drifting" or "not enjoying it"
+            best = math.max(best, fun)
+            table.insert(parts, p.name .. " " .. word)
+        end
+    end
+    return table.concat(parts, ", "), best
+end
+
+local HOW = { won = "They won.", fled = "The foes ran.", surrendered = "They surrendered.", lost = "The party fell back.",
+              escaped = "The boss got away." }
+
+-- The scene's card: what the heroes set out to do and whether they did, what they found, and how
+-- the table feels, which is what the night is scored on.
+function M.scene_card(app, ev)
+    local rows = {}
+    local won = ev.outcome == "win"
+    if ev.goal then
+        table.insert(rows, { "Goal: " .. ev.goal .. ".  " .. (won and "Made it." or "Not this time."), won and theme.green or theme.orange,
+            "ui18b" })
+    else
+        table.insert(rows, { won and "It went their way." or "It went against them.", won and theme.green or theme.orange, "ui18b" })
+    end
+    local found = {}
+    if ev.reward then
+        table.insert(found, ev.reward)
+    end
+    for _, c in ipairs(app.scene_found or {}) do
+        table.insert(found, c)
+    end
+    if #found > 0 then
+        local more = #found > 1 and ("  (+" .. util.int(#found - 1) .. " more in your notes)") or ""
+        local first = kit.ellipsize("Found: " .. found[1], "ui14", (SIDE_W - 32) * 2 - 30 - kit.width(more, "ui14"))
+        table.insert(rows, { first .. more, theme.text })
+    end
+    -- A fight scene: the fight's card is still up, so this one carries what it said (the re-test,
+    -- October 16: the fight card was gone two seconds after it came up).
+    local fight = app.side and app.side.fight and app.last_fight
+    if fight then
+        for _, r in ipairs(M.fight_rows(fight)) do
+            table.insert(rows, r)
+        end
+    end
+    local words, best = table_words(app)
+    if words ~= "" then
+        table.insert(rows, { "The table: " .. words .. ".", best >= 55 and theme.teal or theme.dim })
+    end
+    -- Once: the heroes and the table are two different scores.
+    local g = app.campaign.guide
+    if g and g.seen and not g.seen.scene_card_teach and (not won or app.campaign.week == 1) and not (g.off) then
+        g.seen.scene_card_teach = true
+        table.insert(rows, { won and "Heroes win some scenes and lose others. The night is scored on how the table feels."
+            or "The heroes don't have to win every scene. The night is scored on how the table feels: that's the bars along "
+            .. "the bottom, not this.", theme.gold })
+    end
+    local top = "SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. " DONE"
+    if fight then
+        top = top .. ":  " .. string.upper(HOW[fight.how] or "the fight's over")
+    end
+    M.side_card(app, top, ev.title or "", rows, fight and 18 or 13)
+    M.push(app, "Scene " .. util.int(ev.index) .. " done: " .. (ev.goal and (ev.goal .. ", " .. (won and "made it" or "not this time"))
+        or (won and "it went their way" or "it went against them")) .. ". " .. (words ~= "" and ("The table: " .. words .. ".") or ""),
+        won and "good" or "system")
+end
+
+
+-- The fight's card, when it's over.
+function M.fight_card(app, sm)
+    local rows = M.fight_rows(sm)
+    local title = HOW[sm.how] or "It's over."
+    if sm.how == "escaped" then
+        title = ((sm.boss and sm.boss.name) or "The boss") .. " got away."
+    end
+    local rounds = util.int(sm.rounds or 0) .. ((sm.rounds or 0) == 1 and " ROUND" or " ROUNDS")
+    M.side_card(app, "FIGHT OVER, AFTER " .. rounds, title, rows, 13)
+    app.side.fight = true
+    app.last_fight = sm
+    local parts = {}
+    for _, r in ipairs(rows) do
+        table.insert(parts, r[1])
+    end
+    M.push(app, "Fight over after " .. string.lower(rounds) .. ": " .. string.lower(string.sub(title, 1, 1)) .. string.sub(title, 2)
+        .. " " .. table.concat(parts, " "), sm.how == "lost" and "bad" or "good")
+end
+
+-- What each hero did in the fight, and who was beaten or ran: rows for a side card.
+function M.fight_rows(sm)
+    local rows = {}
+    for _, h in ipairs(sm.heroes or {}) do
+        local bits = {}
+        if (h.swings or 0) > 0 then
+            table.insert(bits, "hit " .. util.int(h.hits) .. " of " .. util.int(h.swings))
+        end
+        if (h.dealt or 0) > 0 then
+            table.insert(bits, util.int(h.dealt) .. " damage")
+        end
+        if (h.beaten or 0) > 0 then
+            table.insert(bits, "beat " .. util.int(h.beaten))
+        end
+        if h.dead then
+            table.insert(bits, "fell")
+        elseif (h.downs or 0) > 0 then
+            table.insert(bits, "went down " .. (h.downs == 1 and "once" or (util.int(h.downs) .. " times")))
+        end
+        local health = h.dead and "" or ("  " .. util.int(h.hp) .. " of " .. util.int(h.hp_max) .. " health left.")
+        table.insert(rows, { (h.name or "?") .. ": " .. (#bits > 0 and table.concat(bits, ", ") or "kept their head down") .. "."
+            .. health, (h.dead or (h.hp or 0) <= (h.hp_max or 1) * 0.35) and theme.orange or theme.text })
+    end
+    if #(sm.beaten or {}) > 0 then
+        table.insert(rows, { "Beaten: " .. util.join_names(mid_names(sm.beaten)) .. ".", theme.green })
+    end
+    if #(sm.ran or {}) > 0 then
+        table.insert(rows, { (sm.how == "surrendered" and "Gave up: " or "Ran: ") .. util.join_names(mid_names(sm.ran)) .. ".", theme.dim })
+    end
+    return rows
+end
+
 function M.drop_title(app)
     if app.title_card then
         kit.remove(app.title_card.nodes)
@@ -872,7 +1109,8 @@ function M.float(app, id, text, color, big)
     local font = big and "ui22b" or "ui18b"
     local w, h = kit.width(text, font) + 18, big and 34 or 28
     local x, y = ax - w / 2, ay - h - stack * (h + 4)
-    local f = { id = id, x = x, y = y, w = w, h = h, age = 0, life = 1.3 / math.sqrt(speed(app)) }
+    -- (A big one, "Beaten!" or "Down!", stays a little longer: the re-test never caught one.)
+    local f = { id = id, x = x, y = y, w = w, h = h, age = 0, life = (big and 2.2 or 1.3) / math.sqrt(speed(app)) }
     local bg = kit.rgba("#140e0b", 0.8)
     f.nodes = { kit.box(x, y, w, h, bg, { radius = 8 }), kit.text(x + w / 2, y + h / 2, text, font, color, { pivot = gui.PIVOT_CENTER }) }
     f.colors = { bg, color }
@@ -959,6 +1197,27 @@ function M.update_fx(app, dt)
             M.drop_toast(app)
         elseif tc.life - tc.age < 0.5 then
             fade(tc.nodes, tc.colors, (tc.life - tc.age) / 0.5)
+        end
+    end
+    -- The side card steps aside for a call that needs the space (a card on the right, the improv
+    -- hand, the opening) and waits; it comes back after.
+    local sd = app.side
+    if sd then
+        local pk = app.pending and app.pending.kind
+        local hide = pk == "decision" or pk == "improv" or pk == "cinematic"
+        if hide ~= (sd.hidden or false) then
+            sd.hidden = hide
+            for _, n in ipairs(sd.nodes) do
+                gui.set_enabled(n, not hide)
+            end
+        end
+        if not hide then
+            sd.age = sd.age + dt
+            if sd.age >= sd.life then
+                M.drop_side(app)
+            elseif sd.life - sd.age < 0.6 then
+                fade(sd.nodes, sd.colors, (sd.life - sd.age) / 0.6)
+            end
         end
     end
 end
@@ -1183,6 +1442,74 @@ local function signed(n)
     return (n >= 0 and "+" or "") .. util.int(n)
 end
 
+-- Why an attack landed or didn't, in one line anyone can follow (the newcomer playtest, October
+-- 16: "a 9 against 15 both missed and hit", three ACs for one bandit, no reason given).
+-- "Thessaly's Fire Bolt" / "the road's bandit chief's scimitar"
+-- A spell's name from its id ("sacred_flame" is Sacred Flame); a name stays as it is.
+local function spell_name(id)
+    local ok, spells = pcall(require, "game.rules.spells")
+    local sp = ok and spells.list and spells.list[id]
+    return (type(sp) == "table" and sp.name) or (string.gsub(tostring(id), "_", " "))
+end
+
+local spell_names
+local function is_spell(name)
+    if not spell_names then
+        spell_names = {}
+        local ok, spells = pcall(require, "game.rules.spells")
+        for _, sp in pairs(ok and spells.list or {}) do
+            if type(sp) == "table" and sp.name then
+                spell_names[sp.name] = true
+            end
+        end
+    end
+    return spell_names[name] or false
+end
+
+local function weapon_of(app, a)
+    local who = name_of(app, a.id)
+    local w = a.weapon or "attack"
+    if not (a.spell or is_spell(w)) then
+        w = string.lower(w)
+    end
+    return who .. (string.sub(who, -1) == "s" and "' " or "'s ") .. w
+end
+
+local function target_of(app, id)
+    return mid(name_of(app, id))
+end
+
+-- "8 + 5 = 13 against AC 20 (15, +5 behind the boulder), with Advantage"
+local function versus(a)
+    local bonus = (a.total or a.roll or 0) - (a.roll or 0)
+    local out = util.int(a.roll or 0) .. " " .. (bonus < 0 and "- " or "+ ") .. util.int(math.abs(bonus)) .. " = "
+        .. util.int(a.total or 0) .. " against AC " .. util.int(a.ac or 0)
+    if a.cover then
+        out = out .. " (" .. util.int((a.ac or 0) - a.cover) .. ", +" .. util.int(a.cover)
+            .. (a.cover_what and (" behind the " .. a.cover_what) or " for cover") .. ")"
+    end
+    if (a.mode or 0) > 0 then
+        out = out .. ", with Advantage"
+    elseif (a.mode or 0) < 0 then
+        out = out .. ", with Disadvantage"
+    end
+    if a.heroic then
+        out = out .. " (a reroll: Heroic Inspiration)"
+    end
+    return out
+end
+
+-- "45 of 52 left", or "down to 0"
+local function left_of(s)
+    if not s.hp or not s.hp_max then
+        return ""
+    end
+    if s.hp <= 0 then
+        return " Down to 0."
+    end
+    return " " .. util.int(s.hp) .. " of " .. util.int(s.hp_max) .. " left."
+end
+
 -- One step of a combat turn on the mat.
 function M.play_step(app, s, pace)
     local k = s.kind
@@ -1222,21 +1549,22 @@ function M.play_step(app, s, pace)
         end
         if not s.hit then
             M.float(app, s.target, s.blocked and (BLOCKED[s.blocked] or "Blocked") or "miss", theme.dim)
-            local nums = ""
-            if s.roll and s.total and s.ac and not s.hidden then
-                nums = " (" .. util.int(s.roll) .. signed(s.total - s.roll) .. " = " .. util.int(s.total) .. " vs AC "
-                    .. util.int(s.ac) .. ")"
-            end
+            local tgt = target_of(app, s.target)
             if s.blocked == "no_line" then
-                M.push(app, name_of(app, s.id) .. " can't see " .. name_of(app, s.target) .. " from there: there's a wall in the way.", "system")
+                M.push(app, name_of(app, s.id) .. " can't see " .. tgt .. " from there: there's a wall in the way.", "system")
+            elseif s.hidden then
+                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. " (you rolled it behind your screen).", "system")
             elseif s.blocked == "cover" then
                 -- The board earning its keep: the shot that would have landed hits the scenery.
-                M.push(app, name_of(app, s.target) .. " ducks behind " .. (s.cover_what and ("the " .. s.cover_what) or "cover")
-                    .. ". " .. name_of(app, s.id) .. "'s " .. string.lower(s.weapon or "attack") .. " hits that instead" .. nums .. ".",
-                    "system")
+                M.push(app, util.capitalize(tgt) .. " ducks behind " .. (s.cover_what and ("the " .. s.cover_what) or "cover")
+                    .. ", and " .. mid(weapon_of(app, s)) .. " hits that instead: " .. versus(s) .. ".", "system")
+            elseif s.blocked then
+                M.push(app, util.capitalize(weapon_of(app, s)) .. " would have hit " .. tgt .. " (" .. versus(s) .. "), but it's stopped: "
+                    .. (BLOCKED[s.blocked] or "blocked") .. ".", "system")
+            elseif s.roll == 1 then
+                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. ": a natural 1 always misses.", "system")
             else
-                M.push(app, name_of(app, s.id) .. (s.blocked and " is stopped: " .. (BLOCKED[s.blocked] or "blocked") .. "."
-                    or (" misses " .. name_of(app, s.target) .. nums .. ".")), "system")
+                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. ": " .. versus(s) .. ".", "system")
             end
         end
     elseif k == "damage" then
@@ -1244,17 +1572,29 @@ function M.play_step(app, s, pace)
         M.float(app, s.id, "-" .. util.int(s.amount or 0), s.crit and theme.gold or theme.red, s.crit)
         set_hp(app, s.id, s.hp, s.hp_max)
         local a = app.last_attack
-        if a and a.target == s.id then
-            local nums = ""
-            if a.roll and a.total and a.ac and not a.hidden then
-                nums = " (" .. util.int(a.total) .. " vs AC " .. util.int(a.ac) .. ")"
+        local amount = util.int(s.amount or 0)
+        if s.graze and a and a.target == s.id then
+            -- A miss that still hurts: say it's the weapon's trick, not a hit.
+            M.push(app, "Even missing, " .. mid(weapon_of(app, a)) .. " grazes " .. target_of(app, s.id) .. " for " .. amount
+                .. ": a graze weapon always nicks." .. left_of(s), "system")
+            app.last_attack = nil
+        elseif a and a.target == s.id and a.hit then
+            local dice = (a.dmg and a.dmg ~= "") and (" (" .. a.dmg .. (s.crit and ", doubled" or "") .. ")") or ""
+            if a.hidden then
+                M.push(app, util.capitalize(weapon_of(app, a)) .. " hits " .. target_of(app, s.id) .. " (your roll, behind the screen): "
+                    .. amount .. " damage" .. dice .. "." .. left_of(s), "system")
+            elseif s.crit then
+                M.push(app, util.capitalize(weapon_of(app, a)) .. " crits " .. target_of(app, s.id) .. ": a natural 20, so the damage "
+                    .. "dice double. " .. amount .. " damage" .. dice .. "!" .. left_of(s), "good")
+            else
+                local tie = (a.total and a.ac and a.total == a.ac) and " (matching the AC is enough)" or ""
+                M.push(app, util.capitalize(weapon_of(app, a)) .. " hits " .. target_of(app, s.id) .. ": " .. versus(a) .. tie .. ". "
+                    .. amount .. " damage" .. dice .. "." .. left_of(s), "system")
             end
-            M.push(app, name_of(app, a.id) .. (s.crit and " crits " or " hits ") .. name_of(app, s.id) .. nums .. " for "
-                .. util.int(s.amount or 0) .. (a.dmg and a.dmg ~= "" and (" (" .. a.dmg .. ")") or "") .. (s.crit and "!" or "."),
-                s.crit and "good" or "system")
             app.last_attack = nil
         else
-            M.push(app, name_of(app, s.id) .. " takes " .. util.int(s.amount or 0) .. " damage.", "system")
+            local from = s.spell and (" from " .. spell_name(s.spell)) or ""
+            M.push(app, name_of(app, s.id) .. " takes " .. amount .. " damage" .. from .. "." .. left_of(s), "system")
         end
     elseif k == "heal" then
         M.float(app, s.id, "+" .. util.int(s.amount or 0), theme.green)
@@ -1276,7 +1616,14 @@ function M.play_step(app, s, pace)
         post("down", { id = s.id })
         M.float(app, s.id, "Down!", theme.orange, true)
         set_hp(app, s.id, 0)
-        M.push(app, name_of(app, s.id) .. " goes down!", "bad")
+        -- The first time, what it means (a newcomer thinks "down" is "dead").
+        if is_party(app, s.id) and not app.down_said then
+            app.down_said = true
+            M.push(app, name_of(app, s.id) .. " goes down! At 0 health a hero isn't dead yet: they roll each turn to stay "
+                .. "alive, and any healing brings them back up.", "bad")
+        else
+            M.push(app, name_of(app, s.id) .. " goes down!", "bad")
+        end
     elseif k == "up" then
         post("up", { id = s.id })
         M.float(app, s.id, "Back up!", theme.green, true)
@@ -1284,9 +1631,12 @@ function M.play_step(app, s, pace)
         if app.hp[s.id] then
             post("down", { id = s.id })
         else
+            -- A beat for it before the mini goes (the newcomer playtest, October 16: the wolf just vanished).
+            M.float(app, s.id, "Beaten!", theme.gold, true)
+            spark(app, s.id, SPARK.crit)
             post("die", { id = s.id })
             battle_hud.gone(app, s.id)
-            M.push(app, name_of(app, s.id) .. " is out of the fight.", "good")
+            M.push(app, name_of(app, s.id) .. " is beaten: out of the fight.", "good")
         end
     elseif k == "spell" then
         local col = SPARK[s.spell] or rgba(1.0, 0.8, 0.5)
@@ -1328,6 +1678,10 @@ function M.play_step(app, s, pace)
             else
                 M.push(app, name_of(app, s.id) .. " drinks a Potion of Healing.", "good")
             end
+        elseif s.name == "Heroic Inspiration" and s.from and s.to then
+            M.float(app, s.id, s.name, theme.gold)
+            M.push(app, name_of(app, s.id) .. " spends Heroic Inspiration to reroll the die: " .. util.int(s.from) .. " becomes "
+                .. util.int(s.to) .. ".", "good")
         elseif s.name then
             M.float(app, s.id, s.name, theme.teal)
             M.push(app, name_of(app, s.id) .. ": " .. s.name .. ".", "system")
@@ -1342,6 +1696,16 @@ function M.play_step(app, s, pace)
     elseif k == "save" then
         M.add_die(app, { roll = s.roll, success = s.ok, dm = s.dm, hidden = s.hidden })
         M.float(app, s.id, s.ok and "Saved" or "Failed save", s.ok and theme.teal or theme.orange)
+        -- A roll to resist, said in the log like an attack (the newcomer playtest, October 16).
+        local ab = s.ab and (string.upper(s.ab) .. " save") or "save"
+        if s.hidden or not (s.roll and s.total and s.dc) then
+            M.push(app, name_of(app, s.id) .. (s.ok and " resists it" or " fails to resist") .. " (a " .. ab
+                .. (s.hidden and ", behind your screen)." or ")."), "system")
+        else
+            M.push(app, name_of(app, s.id) .. (s.ok and " resists it" or " fails to resist") .. " (a " .. ab .. "): "
+                .. util.int(s.roll) .. " " .. ((s.total - s.roll) < 0 and "- " or "+ ") .. util.int(math.abs(s.total - s.roll))
+                .. " = " .. util.int(s.total) .. " against DC " .. util.int(s.dc) .. ".", "system")
+        end
         if is_party(app, s.id) and s.roll then
             panels.roll(app, s.id, { roll = s.roll, mod = (s.total or s.roll) - s.roll, total = s.total,
                                      against = s.dc and ("DC " .. util.int(s.dc)) or nil,
@@ -1416,6 +1780,7 @@ function M.handle(app, ev)
         npc_steps_in(app)
     end
     if k == "scene" then
+        app.scene_found = {}
         app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
         app.scene_sub = (ev.type_name or "") .. who
@@ -1539,6 +1904,10 @@ function M.handle(app, ev)
         -- The party learned something: it goes in the DM's notes.
         M.toast(app, "NEW IN YOUR NOTES", ev.text)
         M.push(app, "Noted: " .. ev.text, "clue")
+        app.scene_found = app.scene_found or {}
+        table.insert(app.scene_found, ev.text)
+    elseif k == "scene_end" then
+        M.scene_card(app, ev)
     elseif k == "npc" then
         local anchor
         if app.on_table.npc then
@@ -1640,6 +2009,7 @@ function M.handle(app, ev)
             app.on_table = {}
             post("spawn", { list = list })
             battle_hud.start(app, ev.party, ev.foes, foe_sprite)
+            M.draw_strip(app)     -- fewer dice while the turn order has the middle
             local n = #(ev.foes or {})
             M.caption(app, "Roll for initiative!  " .. util.int(n) .. (n == 1 and " foe" or " foes")
                 .. (ev.danger and ("  (" .. ev.danger .. ")") or ""), "warn")
@@ -1657,13 +2027,22 @@ function M.handle(app, ev)
             app.boss_id = nil
             M.refresh_hp(app)
             local won = ev.winner == "party"
-            M.caption(app, won and "The fight is over. The party stands." or "The party falls back.", won and "good" or "bad")
+            local how = ev.summary and ev.summary.how
+            M.caption(app, (how == "fled" and "The foes break and run. The fight is over.")
+                or (how == "surrendered" and "They throw down their weapons. The fight is over.")
+                or (how == "escaped" and "The boss gets away. The fight is over.")
+                or (won and "The fight is over. The party stands.") or "The party falls back.", won and "good" or "bad")
+            if ev.summary then
+                M.fight_card(app, ev.summary)
+            end
+            M.draw_strip(app)     -- (the full row of dice again, now the turn order's gone)
             cam(app, 2)
         end
     elseif k == "round" then
         if (ev.round or 1) > 1 then
             M.push(app, "Round " .. util.int(ev.round), "system")
         end
+        battle_hud.round(app, ev.round or 1)
         -- Fights stay on the mat (A7).
         app.battle_cam = 2
         cam(app, app.battle_cam)
@@ -1725,6 +2104,19 @@ function M.handle(app, ev)
         cam(app, 1)
         M.show_done(app)
     elseif k == "decision" or k == "improv" or k == "ruling" or k == "roll_where" or k == "cook" then
+        if k == "ruling" and ev.tier then
+            -- The big roll's die in the strip takes its colour now it's decided.
+            for i = #app.strip, 1, -1 do
+                local d = app.strip[i]
+                if d.big then
+                    if d.success == nil then
+                        d.success = ev.tier == "success" or ev.tier == "triumph"
+                        M.draw_strip(app)
+                    end
+                    break
+                end
+            end
+        end
         if k == "ruling" and ev.by ~= "dm" and ev.actor then
             -- A DC behind the screen stays there on their card (playtest, October 13): the table
             -- sees the roll, not the number it had to beat.
@@ -1736,6 +2128,9 @@ function M.handle(app, ev)
         app.pending = ev
         app.improv_sel = {}
         app.pending_left = app.timer_on and TIMERS[k] or nil
+        if k == "decision" and ev.card and ev.card.turn_of and app.in_battle then
+            battle_hud.turn(app, ev.card.turn_of)
+        end
         M.clear_fx(app)
         if k == "decision" then
             cam(app, app.in_battle and 2 or 1)   -- a card mid-fight keeps the mat in view (A7)
@@ -1760,7 +2155,10 @@ function M.on_roll(app, value)
     local ev = app.roll_ev
     app.roll_ev = nil
     if value then
-        M.add_die(app, { roll = value, big = true, hidden = ev and ev.by == "dm" and ev.where == "hidden" })
+        -- Out loud, everyone knows at once whether it made it; behind the screen, the ruling says.
+        local known = ev and ev.by == "player" and ev.where == "open" and ev.dc
+        M.add_die(app, { roll = value, big = true, hidden = ev and ev.by == "dm" and ev.where == "hidden",
+                         success = known and (value + (ev.mod or 0) >= ev.dc) or nil })
         -- A player's own roll lands on their panel; whether it's enough depends on the DC.
         if ev and ev.by == "player" and ev.actor then
             panels.roll(app, ev.actor, { roll = value, mod = ev.mod, total = value + (ev.mod or 0), what = ev.skill_name,
@@ -2098,6 +2496,12 @@ local function dodge_caption(app, x0, x1)
 end
 
 function M.show_modal(app, ev, instant)
+    kit.gloss_scope({ table = true, fight = true }, function()
+        M.draw_modal(app, ev, instant)
+    end)
+end
+
+function M.draw_modal(app, ev, instant)
     M.close_modal(app)
     app.layers.modal = kit.layer("night_modal", true)
     if ev.kind == "decision" then
@@ -2180,7 +2584,7 @@ function M.show_modal(app, ev, instant)
         if cook_label then
             h = h + 58 + 10
         end
-        h = h + 10 + (app.pending_left and 34 or 0)
+        h = h + 10 + 22 + (app.pending_left and 34 or 0)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
         badge(x + 20, y + 18, ev.by == "dm" and "SECRET CHECK" or "BIG ROLL", theme.decision.screen)
@@ -2194,8 +2598,7 @@ function M.show_modal(app, ev, instant)
             kit.button(x + 20, oy, w - 40, oh, label, function()
                 M.answer(app, i)
             end, { align = "left", color = theme.button, hover = theme.button_hover, key_hint = i })
-            kit.box(x + 20, oy, 6, oh, tone == "good" and theme.green or (tone == "bad" and theme.red or theme.gold),
-                { round = false })
+            kit.box(x + 20, oy, 6, oh, (TONES[tone or "plain"] or TONES.plain)[1], { round = false })
             oy = oy + oh + 10
         end
         if cook_label then
@@ -2205,6 +2608,21 @@ function M.show_modal(app, ev, instant)
                    key_hint = #labels + 1, key = "ruling_cook" })
             oy = oy + 58 + 10
         end
+        -- What the stripes are (the newcomer playtest, October 16): the ones on this card.
+        local lx = x + 20
+        local here = {}
+        for _, o in ipairs(ev.options) do
+            here[TONES[o.tone or "plain"] and (o.tone or "plain") or "plain"] = true
+        end
+        for _, tone in ipairs(TONE_ORDER) do
+            if here[tone] then
+                local st = TONES[tone]
+                kit.box(lx, oy + 4, 6, 14, st[1], { round = false })
+                kit.text(lx + 12, oy + 1, st[2], "ui14", theme.ink_dim)
+                lx = lx + 12 + kit.width(st[2], "ui14") + 18
+            end
+        end
+        oy = oy + 22
         timer_bar(app, x + 20, oy + 2, w - 40, "the first option")
         -- The same card as the DC it follows: it turns over in place rather than sliding in again.
         slide = app.roll_card_up and 0 or -640
@@ -2386,7 +2804,7 @@ function M.show_done(app)
     local mins = math.floor((n and n.table_min) or 0)
     local spent = util.int(math.floor(mins / 60)) .. "h " .. string.format("%02d", mins % 60) .. "m"
     local ends = (n and n.clock_text) and (", wrapping up at " .. n:clock_text()) or ""
-    kit.text(x + w / 2, y + 44, spent .. " at the table" .. ends .. ". " .. util.int(n and n:decision_count() or 0)
+    kit.text(x + w / 2, y + 44, spent .. " at the table" .. ends .. ". " .. util.int(n and (n.answered or 0) or 0)
         .. " calls made.", "ui14", theme.ink_dim, { pivot = gui.PIVOT_N, w = w - 24 })
     kit.button(x + 50, y + 76, w - 100, 40, "See how everyone felt  >", function()
         app.go("report")

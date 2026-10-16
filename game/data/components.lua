@@ -282,7 +282,7 @@ return {
       lose = "The traitor slips away in the crowd, and whoever it was knows they're onto them now.",
       got = "the traitor's name",
       on = { win = { "traitor_ledger" }, lose = { "traitor_warned" } } },
-    { id = "celebrate", kind = "goal", suits = { "tavern", "crowd" }, name = "Celebrate a hard-won win", cost = 1,
+    { id = "celebrate", kind = "goal", suits = { "tavern", "crowd" }, name = "Celebrate a hard-won win", cost = 1, after_win = true,
       fits = { "downtime", "social" }, tags = { "cozy", "funny" },
       alt = { wild = "Goal: none, really. A fire, a song, and enjoying being alive." },
       line = "Goal: none, really. Rest, eat, and enjoy being alive.",

@@ -78,15 +78,20 @@ function M.draw(app, on_click)
         end, { color = theme.bg_glass, hover = kit.rgba("#2a1f18", 0.92), radius = 10, key = "panel_" .. p.key,
                -- What the two bars are (playtest, October 13: "unlabelled meters").
                on_hover = function(_, entering)
+                   chip.tip_on = entering and true or false
                    for _, n in ipairs({ chip.tip_bg, chip.tip }) do
                        if n then
                            pcall(gui.set_enabled, n, entering and true or false)   -- gone after a rebuild
                        end
                    end
                end })
-        local tip_text = "Gold bar: fun tonight.  Blue bar: spotlight."
-        chip.tip_bg = kit.box(x, y - 30, kit.width(tip_text, "ui14") + 20, 24, theme.bg, { radius = 8 })
-        chip.tip = kit.text(x + 10, y - 27, tip_text, "ui14", theme.text)
+        -- Named by their icons, the way they look (the newcomer playtest, October 16: "Gold bar,
+        -- Blue bar" when both are gold, and the fun bar changes colour as it fills).
+        local tip_text = "Smile bar: how much fun they're having (green is great, red is bad). "
+            .. "Star bar: their share of the spotlight. Click for their character sheet."
+        local tip_h = kit.text_height(tip_text, "ui14", w - 20) + 8
+        chip.tip_bg = kit.box(x, y - tip_h - 6, w, tip_h, theme.bg, { radius = 8 })
+        chip.tip = kit.text(x + 10, y - tip_h - 2, tip_text, "ui14", theme.text, { w = w - 20 })
         gui.set_enabled(chip.tip_bg, false)
         gui.set_enabled(chip.tip, false)
         local col = M.COLORS[p.key] or theme.panel3
@@ -99,6 +104,10 @@ function M.draw(app, on_click)
         -- The Heroic Inspiration token in front of them (B4).
         chip.token = kit.dot(x + TEXT_X + kit.width(p.name, "ui18b") + 14, y + 17, 14, theme.gold)
         gui.set_enabled(chip.token, p.heroic and true or false)
+        -- (The re-test, October 16: "the gold dot by Mara's name" meant nothing.)
+        require("game.ui.gloss").card_spot(x + TEXT_X + kit.width(p.name, "ui18b") + 5, y + 8, 18, 18,
+            "Heroic Inspiration", "A token you gave " .. p.name .. " for great play. " .. p.char .. " can spend it to reroll "
+            .. "one die, and it goes back to you when they do.", nil, chip.token)
         local role = p.char .. ", " .. p.class_name .. " " .. util.int(level)
         if kit.width(role, "ui14") > TEXT_W then
             -- A long name (a new hero after a death): their first name is enough here.
@@ -293,7 +302,25 @@ function M.lit(app, key)
     return chip and chip.lit ~= nil
 end
 
+-- Is the pointer over this player's panel? (The bars' caption goes when it isn't: the re-test,
+-- October 16, it stayed up all night after a card closed under a still pointer.)
+local function pointer_on(chip)
+    local m = kit.mouse
+    if not m then
+        return false
+    end
+    local ly = kit.H - m[2]
+    return m[1] >= chip.x and m[1] <= chip.x + M.W and ly >= chip.y and ly <= chip.y + M.H
+end
+
 function M.update(app, dt)
+    for _, chip in pairs(app.chips or {}) do
+        if chip.tip and chip.tip_on and not pointer_on(chip) then
+            chip.tip_on = false
+            pcall(gui.set_enabled, chip.tip, false)
+            pcall(gui.set_enabled, chip.tip_bg, false)
+        end
+    end
     for key, chip in pairs(app.chips or {}) do
         local l = chip.lit
         if l then

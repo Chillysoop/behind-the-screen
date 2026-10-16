@@ -28,7 +28,7 @@ end
 -- A pinned layer (the first-session tips) sits above everything for clicks, even a modal,
 -- and never becomes the layer other screens draw into: draw into it with M.into(l, fn).
 function M.layer(name, modal, pinned)
-    local l = { name = name, modal = modal, pinned = pinned, nodes = {}, buttons = {} }
+    local l = { name = name, modal = modal, pinned = pinned, nodes = {}, buttons = {}, spots = {} }
     table.insert(M.layers, l)
     if not pinned then
         M.current = l
@@ -60,10 +60,18 @@ function M.drop(l)
     if not l then
         return
     end
+    -- A word being pointed at in this layer lets go first, while its underline is still there.
+    local hs = M.spot_hovered
+    if hs and hs.layer == l then
+        M.spot_hovered = nil
+        if hs.on_hover then
+            pcall(hs.on_hover, hs, false)
+        end
+    end
     for _, n in ipairs(l.nodes) do
         gui.delete_node(n)
     end
-    l.nodes, l.buttons = {}, {}
+    l.nodes, l.buttons, l.spots = {}, {}, {}
     for i = #M.layers, 1, -1 do
         if M.layers[i] == l then
             table.remove(M.layers, i)
@@ -83,6 +91,15 @@ function M.remove(nodes)
     local doomed = {}
     for _, n in ipairs(nodes) do
         doomed[n] = true
+    end
+    local hs = M.spot_hovered
+    if hs and hs.node and doomed[hs.node] then
+        M.spot_hovered = nil
+        if hs.on_hover then
+            pcall(hs.on_hover, hs, false)
+        end
+    end
+    for _, n in ipairs(nodes) do
         gui.delete_node(n)
     end
     for _, l in ipairs(M.layers) do
@@ -93,6 +110,16 @@ function M.remove(nodes)
             end
         end
         l.nodes = keep
+        -- A word's hover spot goes with its underline.
+        if l.spots and #l.spots > 0 then
+            local spots = {}
+            for _, s in ipairs(l.spots) do
+                if not (s.node and doomed[s.node]) then
+                    table.insert(spots, s)
+                end
+            end
+            l.spots = spots
+        end
     end
 end
 
@@ -188,6 +215,11 @@ function M.text(x, y, str, font, color, opts)
             lines = keep
         end
         str = table.concat(lines, "\n")
+    end
+    -- Rules words in it light up for a hover explanation (game/ui/gloss.lua), where asked.
+    local tags = opts.gloss or M.gloss_tags
+    if tags and M.gloss_hook and not opts.scale and opts.gloss ~= false and str ~= "" then
+        M.gloss_hook(x, y, str, font, color, opts.pivot or gui.PIVOT_NW, tags)
     end
     local n = gui.new_text_node(vmath.vector3(x, M.H - y, 0), str)
     gui.set_font(n, font)
@@ -410,7 +442,117 @@ function M.over_layer(l, x, y)
     return false
 end
 
+-- Hover spots (game/ui/gloss.lua): a rules word with an explanation. They never take a click
+-- and never change which button is lit; they're a second hover, under the same pointer.
+-- spot = { rect = { x, y, w, h }, node = its underline, on_hover = function(spot, on) }
+function M.spot(x, y, w, h, on_hover, node)
+    local s = { rect = { x, y, w, h }, on_hover = on_hover, node = node, layer = M.current }
+    table.insert(M.current.spots, s)
+    return s
+end
+
+M.spot_hovered = nil
+
+-- A layer's words let go of the pointer (before its nodes are deleted by hand).
+function M.release_spots(l)
+    local hs = M.spot_hovered
+    if hs and hs.layer == l then
+        M.spot_hovered = nil
+        if hs.on_hover then
+            pcall(hs.on_hover, hs, false)
+        end
+    end
+end
+
+local function on_spot(s, x, y)
+    local r = s.rect
+    local ly = M.H - y
+    if s.node and not gui.is_enabled(s.node) then
+        return false
+    end
+    return x >= r[1] and x <= r[1] + r[3] and ly >= r[2] and ly <= r[2] + r[4]
+end
+
+local function over_nodes(l, x, y)
+    for _, n in ipairs(l.nodes) do
+        if gui.is_enabled(n) and gui.pick_node(n, x, y) then
+            return true
+        end
+    end
+    return false
+end
+
+function M.spot_hit(x, y)
+    -- Pinned layers first (a tip over everything), then the rest top down. A modal layer stops the
+    -- search only where it's actually drawn: the log beside a call's card still explains itself (the
+    -- newcomer playtest, October 16), while a full-screen overlay hides everything under it.
+    local pinned_panel = over_pinned_panel(x, y)
+    for pass = 1, 2 do
+        for i = #M.layers, 1, -1 do
+            local l = M.layers[i]
+            if (pass == 1) == (l.pinned and true or false) then
+                if pass == 2 and pinned_panel then
+                    return nil
+                end
+                for j = #(l.spots or {}), 1, -1 do
+                    if on_spot(l.spots[j], x, y) then
+                        return l.spots[j]
+                    end
+                end
+                if pass == 2 and l.modal and over_nodes(l, x, y) then
+                    break
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Take one spot away (a strip that keeps its spot across redraws, when it goes for good).
+function M.unspot(s)
+    if not s then
+        return
+    end
+    if M.spot_hovered == s then
+        M.spot_hovered = nil
+        if s.on_hover then
+            pcall(s.on_hover, s, false)
+        end
+    end
+    local l = s.layer
+    for i = #(l and l.spots or {}), 1, -1 do
+        if l.spots[i] == s then
+            table.remove(l.spots, i)
+        end
+    end
+end
+
+
+local function move_spot(x, y)
+    local s = M.spot_hit(x, y)
+    if s ~= M.spot_hovered then
+        local old = M.spot_hovered
+        M.spot_hovered = s
+        if old and old.on_hover then
+            pcall(old.on_hover, old, false)
+        end
+        if s and s.on_hover then
+            s.on_hover(s, true)
+        end
+    end
+end
+
+-- Every frame: text that was redrawn under a still pointer (the log, the dice, the turn order)
+-- gets its word's card back without the mouse having to move.
+function M.rehover()
+    if M.mouse and not M.spot_hovered then
+        move_spot(M.mouse[1], M.mouse[2])
+    end
+end
+
 function M.on_move(x, y)
+    M.mouse = { x, y }
+    move_spot(x, y)
     local b = M.hit(x, y)
     if b == nil then
         -- A disabled card still explains itself when you point at it.
@@ -463,6 +605,11 @@ end
 -- Forget hover state when nodes are rebuilt.
 function M.reset_hover()
     M.hovered = nil
+    local s = M.spot_hovered
+    M.spot_hovered = nil
+    if s and s.on_hover then
+        pcall(s.on_hover, s, false)
+    end
 end
 
 return M

@@ -1172,6 +1172,53 @@ check_tip_absorbs(" (week 2 prep)")
             dumped_battle = true
             dump("4b_night_battle")
         end
+        -- The newcomer playtest (October 16): the fight shows the round and the boss's health with
+        -- numbers; scenes and fights end on a card; rules words explain themselves on hover.
+        if app.in_battle and app.hud then
+            local boss
+            for _, m in pairs(app.hud.minis or {}) do
+                if m.boss and not m.gone then boss = m end
+            end
+            if boss and #(app.hud.order or {}) > 0 then
+                stats.boss_bars = (stats.boss_bars or 0) + 1
+                if not app.hud.boss_nodes then problem("a boss on the mat with no health bar") end
+            end
+        end
+        if app.side and app.side.nodes and app.side.nodes[3] then
+            local top = app.side.nodes[3].text or ""
+            if string.find(top, "^SCENE") then
+                stats.scene_cards = (stats.scene_cards or 0) + 1
+                if not dumped_once.scene_card then
+                    dumped_once.scene_card = true
+                    dump("4f_scene_card")
+                end
+            elseif string.find(top, "^FIGHT OVER") then
+                stats.fight_cards = (stats.fight_cards or 0) + 1
+                if not dumped_once.fight_card then
+                    dumped_once.fight_card = true
+                    dump("4g_fight_card")
+                end
+            end
+        end
+        if app.log_open and not app.pending and not dumped_once.gloss and app.layers.log then
+            local spot = app.layers.log.spots and app.layers.log.spots[1]
+            if spot then
+                dumped_once.gloss = true
+                local r = spot.rect
+                call(on_input, self, nil, { x = r[1] + r[3] / 2, y = H - (r[2] + r[4] / 2) })
+                local open
+                for _, l in ipairs(kit.layers) do
+                    if l.name == "gloss_card" then open = l end
+                end
+                if not open then problem("pointing at a rules word in the log brought up no card") end
+                dump("4h_gloss_card")
+                call(on_input, self, nil, { x = 1590, y = 450 })
+                for _, l in ipairs(kit.layers) do
+                    if l.name == "gloss_card" then problem("the rules word's card stayed after the pointer left") end
+                end
+                stats.gloss = (stats.gloss or 0) + 1
+            end
+        end
         -- The read-aloud box (A9): the DM's narration has a look of its own.
         if app.caption and app.caption.read and app.caption.life > 0 and app.caption.age > 0.3 and not dumped_read then
             dumped_read = true
@@ -1209,6 +1256,28 @@ check_tip_absorbs(" (week 2 prep)")
             if app.pending.kind == "improv" and not dumped_improv then
                 dumped_improv = true
                 dump("5_night_improv")
+            end
+            -- A rules word in a tip, or on a card, keeps its card up while you read it (the re-test,
+            -- October 16: "improv hand" in the tip showed nothing).
+            if not dumped_once.tip_word then
+                local spot
+                for _, l in ipairs({ app.guide_layer, app.layers.modal }) do
+                    if l and l.spots and l.spots[1] then spot = spot or l.spots[1] end
+                end
+                if spot then
+                    dumped_once.tip_word = true
+                    local r = spot.rect
+                    call(on_input, self, nil, { x = r[1] + r[3] / 2, y = H - (r[2] + r[4] / 2) })
+                    for _ = 1, 5 do call(update, self, 0.2) end
+                    local open
+                    for _, l in ipairs(kit.layers) do
+                        if l.name == "gloss_card" then open = l end
+                    end
+                    if not open then problem("a rules word on a card or tip lost its card while pointed at") end
+                    dump("5b_card_word")
+                    call(on_input, self, nil, { x = 1590, y = 450 })
+                    stats.card_words = (stats.card_words or 0) + 1
+                end
             end
             -- The opening (October 15): the world, slide by slide, then the briefing after the
             -- introductions; and the catch-up briefing when someone joins.
@@ -1284,6 +1353,25 @@ check_tip_absorbs(" (week 2 prep)")
         break
     end
     if week == 1 then dump("6_night_done") end
+    -- Every attack says why it landed or didn't (the newcomer playtest, October 16).
+    do
+        local fought, why, contradiction = false, false, nil
+        local prev
+        for _, e in ipairs(app.log or {}) do
+            local t = e.text or ""
+            if string.find(t, "^A fight!") then fought = true end
+            if string.find(t, "against AC") then why = true end
+            -- "misses X (10 vs AC 12)" then "hits X (10 vs AC 12)": the graze bug.
+            if prev and string.find(prev, " misses ") and string.find(t, " hits ") and string.find(t, "against AC") then
+                local tg1, a1, ac1 = string.match(prev, " misses (.-): %d+ [%+%-] %d+ = (%d+) against AC (%d+)")
+                local tg2, a2, ac2 = string.match(t, " hits (.-): %d+ [%+%-] %d+ = (%d+) against AC (%d+)")
+                if tg1 and tg1 == tg2 and a1 == a2 and ac1 == ac2 then contradiction = prev .. " / " .. t end
+            end
+            prev = t
+        end
+        if fought and not why then problem("a fight with no attack explained in the log") end
+        if contradiction then problem("a miss then a hit on the same roll: " .. contradiction) end
+    end
     -- Gifts from the table: one player's Goodwill is full, so they bring something tonight.
     local keepsakes = require "game.model.keepsakes"
     if week == 1 then
@@ -1679,6 +1767,10 @@ if (kinds.week_survey or 0) ~= stats.weeks then problem("playtest log has " .. t
 if WEEKS >= 4 and (kinds.slice_survey or 0) ~= 1 then problem("expected one slice survey in the log, got " .. tostring(kinds.slice_survey)) end
 if kinds["?"] then problem(kinds["?"] .. " playtest log lines without a type") end
 if (stats.cine or 0) == 0 then problem("session 1 never opened on the world") end
+if (stats.scene_cards or 0) == 0 then problem("no scene ended on its card") end
+if (stats.boss_bars or 0) > 0 and (stats.fight_cards or 0) == 0 then problem("fights with a boss, but none ended on its card") end
+if (stats.gloss or 0) == 0 then problem("never found a rules word to point at in the log") end
+if (stats.card_words or 0) == 0 then problem("never found a rules word to point at on a card or tip") end
 local briefs = stats.briefs or {}
 if not briefs[1] then problem("no briefing after the introductions") end
 if not FULL and not (briefs[2] and briefs[3]) then problem("no catch-up briefing when someone joined") end

@@ -264,6 +264,11 @@ function M:emit(ev)
     if prompt then
         self.table_min = (self.table_min or 0) + minutes
     end
+    -- The calls you've answered, as the screen counts them (the newcomer playtest, October 16: the
+    -- counter went up when a card came up, and once went down).
+    if pacing.DECISION_KINDS[ev.kind] then
+        self.answered = (self.answered or 0) + 1
+    end
     return answer
 end
 
@@ -1183,6 +1188,19 @@ function M:improv_rank(c)
     return 4
 end
 
+-- Has the party won anything yet: a scene tonight before this one, or a night before this one?
+function M:won_before(sc)
+    if (self.campaign.week or 1) > 1 then
+        return true
+    end
+    for _, o in ipairs(self.scenes or {}) do
+        if o ~= sc and o.index and sc and o.index < sc.index and o.outcome == "win" then
+            return true
+        end
+    end
+    return false
+end
+
 function M:improv_cards(kind)
     local sc = self.scene
     local cards = {}
@@ -1191,6 +1209,11 @@ function M:improv_cards(kind)
     local function fits(c)
         -- A cliffhanger only closes the night's last scene.
         if c.cliffhanger and sc.index < #self.scenes then
+            return false
+        end
+        -- Celebrating a win needs a win to celebrate (the newcomer playtest, October 16: offered as
+        -- the very first scene's goal, where it "fit the scene").
+        if c.after_win and not self:won_before(sc) then
             return false
         end
         if c.kind == "location" then
@@ -1466,8 +1489,10 @@ function M:drift()
         local c = pool[i]
         table.insert(cards, { comp = c, name = c.name, kind_name = content.kind_names[c.kind], fit = fit_for(c.tags) })
     end
-    -- The quantum ogre: move an unused fight onto their new path.
-    for _, c in ipairs(self:improv_pool()) do
+    -- The quantum ogre: move an unused fight onto their new path. Never over a fight the DM built for
+    -- this scene (the newcomer playtest, October 16: it quietly replaced the one they'd made).
+    local built = self.scene and self.scene.encounter and self.scene.encounter.ids and #self.scene.encounter.ids > 0
+    for _, c in ipairs(built and {} or self:improv_pool()) do
         if c.kind == "cast" and content.encounters.by_cast[c.id] then
             table.insert(cards, { quantum = true, comp_id = c.id, name = "Quantum ogre: " .. c.name, kind_name = "Unused encounter",
                                   fit = "good", line = "Wherever they go, " .. soft_lower(c.name) .. " turns out to be there too." })
@@ -1789,10 +1814,12 @@ function M:quick_checks(sc)
     -- The track sets up the big moment: ahead makes it easier, behind makes it harder.
     sc.edge = (sc.progress.wins >= need) and -2 or ((sc.progress.setbacks >= beats.setbacks) and 2 or 0)
     -- Your own read on the scene: an aside for the log, not something the table hears (A2).
+    -- (Said the way the dots on the top bar show it, so it reads as the same thing: the newcomer
+    -- playtest, October 16, read "the big moment" as the big roll they had just made.)
     if sc.edge < 0 then
-        self:say("They've done the groundwork. The big moment is within reach.", "aside")
+        self:say("They've done the groundwork: the scene's last roll will be easier (DC -2).", "aside")
     elseif sc.edge > 0 then
-        self:say("Too many setbacks. The big moment will be hard now.", "aside")
+        self:say("Too many setbacks: the scene's last roll will be harder (DC +2).", "aside")
     end
 end
 
@@ -1884,6 +1911,12 @@ function M:behavior_fits(b, sc, week)
     return true
 end
 
+-- Is this player's hero hurt (under 60% of their hit points) right now?
+function M:hurt(p)
+    local c = self.pcs and p and self.pcs[p.key]
+    return c ~= nil and not c.dead and (c.hp or 0) < (c.hp_max or 1) * 0.6
+end
+
 function M:table_behavior(when, roller, sure)
     self.tb = self.tb or { n = 0, used = {}, hooks = {} }
     local tb = self.tb
@@ -1928,6 +1961,8 @@ function M:table_behavior(when, roller, sure)
                         w = 0
                     elseif b.mood == "engaged" and p.engagement < 0.4 then
                         w = 0
+                    elseif b.hurt and not self:hurt(p) then
+                        w = 0      -- "please heal me" from someone at full health (the newcomer playtest)
                     elseif b.mood == "bored" and p.engagement >= 0.45 then
                         w = 0
                     end
@@ -2765,6 +2800,7 @@ function M:decision(card, extra)
         id = card.id,
         type = card.type,
         cast = card.cast, monster = card.monster,      -- who's speaking or acting (B8): their mini on the card
+        turn_of = card.turn_of,                         -- whose turn it is in the fight, when it's someone's
         type_name = content.decision_types[card.type],
         title = util.sentence_case(util.fill(card.title, vars)),
         text = util.sentence_case(util.fill(card.text, vars)),
@@ -3381,7 +3417,10 @@ function M:combat_scene(sc)
         sc.escaped = { [cast.id] = true }
     end
     if result.winner == "party" then
-        self:say(self.talk:fight("party_win", self:vars()), "good")
+        -- Won is won, but say how: the foes ran, or gave up (the newcomer playtest, October 16:
+        -- "runs for it" then "the last one falls" read as two different endings).
+        local how = (f and f.surrendered and "party_win_surrender") or (f and f.fled and "party_win_fled") or "party_win"
+        self:say(self.talk:fight(how, self:vars()), "good")
         local poses = {}
         for _, p in ipairs(self.players) do
             poses[p.key] = "cheer"
@@ -5276,6 +5315,18 @@ function M:play_scene(sc)
         if #fans2 > 0 then
             self:bark(self.rng:pick(fans2), "reward_like")
         end
+    end
+    -- How the scene went, as a card beside the table while the night moves on (the newcomer
+    -- playtest, October 16: "damp squib" and "empty-handed" in the log, then "Loved it" in the
+    -- report; the card keeps what the heroes did apart from how the table took it).
+    if not self.end_early then
+        local goal = sc.comps.goal
+        local r = sc.comps.reward
+        self:emit({ kind = "scene_end", index = sc.index, total = #self.scenes, title = sc.title,
+                    type_name = content.scenes[sc.type] and content.scenes[sc.type].name or nil,
+                    goal = goal and not self:muted(goal) and goal.name or nil, outcome = sc.outcome,
+                    reward = r and sc.outcome == "win" and not self:muted(r) and util.capitalize(soft_lower(r.got or r.name)) or nil,
+                    fight = (sc.type == "combat" or sc.type == "set_piece") or nil })
     end
     -- A cliffhanger is the last thing that happens in its scene.
     if sc.comps.complication and sc.comps.complication.cliffhanger and not self:muted(sc.comps.complication) then

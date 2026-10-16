@@ -5,6 +5,10 @@
 
 return {
     verdicts = { loved = "Loved it", fun = "Had fun", fine = "It was fine", bored = "A bit bored", out = "Checked out" },
+    -- The same, said ahead of time (the prep board's forecast for Thursday: the re-test, October 16,
+    -- "it was fine" in the past tense before the night had happened).
+    forecasts = { loved = "Will love it", fun = "Should enjoy it", fine = "Probably fine", bored = "May be bored",
+                  out = "May check out" },
 
     -- Tells shown under each player during game night, by engagement.
     tells = {

@@ -8,13 +8,14 @@
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
+local gloss = require "game.ui.gloss"
 
 local M = {}
 
 local TABLE = "/table#table"
 local H = 900
 local BAR_W, BAR_H = 44, 6
-local INIT_X0, INIT_X1, INIT_Y = 556, 1020, 64
+local INIT_X0, INIT_X1, INIT_Y = 640, 1020, 64
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
 
 local COND_NAMES = {
@@ -51,7 +52,15 @@ function M.start(app, party, foes, sprite_of)
         st.minis[f.id] = { id = f.id, side = "foe", hp = f.hp, max = f.hp_max, conds = {}, boss = f.boss,
                            pic = "mini_" .. (sprite_of and sprite_of(f, i) or "bandit"), name = f.name }
     end
+    st.round = 1
     M.draw(app)
+end
+
+-- A new round (the newcomer playtest, October 16: the rounds were only in the log).
+function M.round(app, r)
+    local st = state(app)
+    st.round = r
+    M.draw_order(app)
 end
 
 -- Someone joins mid-fight (reinforcements).
@@ -66,7 +75,10 @@ end
 function M.stop(app)
     local st = state(app)
     M.clear_nodes(app)   -- before the list goes, or its bars and tags stay on screen
-    st.minis, st.order, st.turn = {}, {}, nil
+    kit.unspot(st.order_spot)
+    kit.unspot(st.boss_spot)
+    st.order_spot, st.boss_spot = nil, nil
+    st.minis, st.order, st.turn, st.round = {}, {}, nil, nil
     post("area_end", {})
     M.draw(app)
 end
@@ -155,6 +167,7 @@ function M.clear_nodes(app)
         kit.remove(st.order_nodes)
         st.order_nodes = nil
     end
+    st.boss_nodes = nil
 end
 
 -- (Re)create every node in the fx layer.
@@ -210,6 +223,7 @@ function M.draw(app)
 end
 
 function M.refresh(app)
+    M.refresh_boss(app)
     for _, m in pairs(state(app).minis) do
         if m.n then
             local f = util.clamp((m.hp or 0) / math.max(1, m.max or 1), 0, 1)
@@ -281,7 +295,43 @@ function M.place(app)
     end
 end
 
--- The turn order along the top: a small mini per combatant, their initiative, whose turn it is.
+-- The boss's health, with numbers, under the turn order (the newcomer playtest, October 16: "a
+-- tiny red sliver; I can't read how close we are to winning").
+local BOSS_W = 220
+
+local function boss_of(st)
+    for _, m in pairs(st.minis) do
+        if m.boss and m.side == "foe" then
+            return m
+        end
+    end
+    return nil
+end
+
+function M.refresh_boss(app)
+    local st = state(app)
+    local b = st.boss_nodes
+    local m = boss_of(st)
+    if not b or not m then
+        return
+    end
+    local f = util.clamp((m.hp or 0) / math.max(1, m.max or 1), 0, 1)
+    pcall(gui.set_size, b.fill, vmath.vector3(math.max(0.01, BOSS_W * f), 8, 0))
+    pcall(gui.set_text, b.text, util.int(math.max(0, m.hp or 0)) .. " / " .. util.int(m.max or 0))
+end
+
+-- A hover card's spot that stays put across redraws: made once in the fx layer, then moved.
+function M.keep_spot(app, spot, x, y, w, h, title, text, dnd)
+    if spot and spot.layer == app.layers.fx then
+        spot.rect = { x, y, w, h }
+        return spot
+    end
+    kit.unspot(spot)
+    return gloss.card_spot(x, y, w, h, title, text, dnd)
+end
+
+-- The turn order along the top: a small mini per combatant, their initiative, whose turn it is;
+-- the round at its left, and the boss's health under it.
 function M.draw_order(app)
     if not app.layers or not app.layers.fx then
         return
@@ -291,6 +341,7 @@ function M.draw_order(app)
         kit.remove(st.order_nodes)
     end
     st.order_nodes = {}
+    st.boss_nodes = nil
     if #st.order == 0 then
         return
     end
@@ -299,7 +350,41 @@ function M.draw_order(app)
     local step = math.min(46, math.floor((INIT_X1 - INIT_X0) / n))
     local x0 = math.floor((INIT_X0 + INIT_X1) / 2 - step * n / 2)
     local nodes = st.order_nodes
-    table.insert(nodes, kit.box(x0 - 8, INIT_Y, step * n + 16, 60, kit.rgba("#140e0b", 0.7), { radius = 8 }))
+    local box = kit.box(x0 - 8 - 62, INIT_Y, step * n + 16 + 62, 60, kit.rgba("#140e0b", 0.7), { radius = 8 })
+    table.insert(nodes, box)
+    table.insert(nodes, kit.text(x0 - 39, INIT_Y + 8, "ROUND", "ui14", theme.faint, { pivot = gui.PIVOT_N }))
+    table.insert(nodes, kit.text(x0 - 39, INIT_Y + 26, util.int(st.round or 1), "ui22b", theme.gold, { pivot = gui.PIVOT_N }))
+    table.insert(nodes, kit.box(x0 - 8, INIT_Y + 8, 1, 44, kit.rgba("#ffffff", 0.15), { round = false }))
+    table.insert(nodes, kit.text(x0 + step * n / 2, INIT_Y + 64, "Turn order: left goes first", "ui14", theme.faint,
+        { pivot = gui.PIVOT_N }))
+    -- Their hover cards outlive the redraws (a turn redraws the strip every second or two): one spot
+    -- each, moved, rather than a new one that would drop the card mid-read (the re-test, October 16).
+    st.order_spot = M.keep_spot(app, st.order_spot, x0 - 8 - 62, INIT_Y, step * n + 16 + 62, 60 + 22, "Turn order",
+        "Everyone in the fight, in the order they act. When the fight started, each rolled a d20 (the number "
+        .. "under them); highest goes first. The lit one is acting now. Once everyone has gone, it's the next round.",
+        "Initiative")
+    local boss = boss_of(st)
+    if not (boss and not boss.gone) then
+        kit.unspot(st.boss_spot)
+        st.boss_spot = nil
+    end
+    if boss and not boss.gone then
+        local bx = x0 + step * n / 2 - BOSS_W / 2
+        local by = INIT_Y + 94
+        st.boss_spot = M.keep_spot(app, st.boss_spot, bx - 10, by - 4, BOSS_W + 20, 40, "The boss's health",
+            "How much the boss can still take before it's beaten: what's left, out of what it started with. "
+            .. "Every hit takes some off.", "Hit points (HP)")
+        local name = kit.ellipsize(boss.name or "The boss", "ui14", BOSS_W)
+        table.insert(nodes, kit.box(bx - 10, by - 4, BOSS_W + 20, 40, kit.rgba("#140e0b", 0.7), { radius = 8 }))
+        table.insert(nodes, kit.text(bx, by, name, "ui14", theme.text))
+        local text = kit.text(bx + BOSS_W, by, "", "ui14", theme.gold, { pivot = gui.PIVOT_NE })
+        table.insert(nodes, text)
+        table.insert(nodes, kit.box(bx, by + 22, BOSS_W, 8, kit.rgba("#000000", 0.5), { round = false }))
+        local fill = kit.box(bx, by + 22, BOSS_W, 8, theme.red, { round = false })
+        table.insert(nodes, fill)
+        st.boss_nodes = { fill = fill, text = text }
+        M.refresh_boss(app)
+    end
     for i, o in ipairs(st.order) do
         local m = st.minis[o.id]
         local x = x0 + (i - 1) * step

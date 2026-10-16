@@ -12,7 +12,8 @@
 --   leave    true: counts as seen once the player leaves the screen while it shows
 --   anchor   { x, y, w, h } to outline on screen (top-left coordinates, 1600x900), optional; or
 --            function(app) -> that, for something that moves
---   at       { x, y } where the tip panel goes
+--   at       { x, y } where the tip panel goes, or function(app) -> that
+--   seq      a run of tips that belong together ("first_prep"): the panel says which one of how many
 --   title, text
 -- Data only: tune freely. The view is game/ui/guide_view.lua.
 
@@ -35,6 +36,13 @@ local function filled_slots(c)
 end
 
 local LEFT = { 24, 540 }          -- prep: bottom of the chat column
+-- The first prep's tips sit over the "Your first prep" checklist, which says the same things, and
+-- leave the group chat in view (the newcomer playtest, October 16: six tips, one after another, all
+-- over the chat).
+-- While the drawer there shows cards to pick, it goes back to the chat column.
+local function FIRST(app)
+    return app.sel and LEFT or { 364, 676 }
+end
 local MIDDLE = { 364, 572 }       -- prep: over the pacing panel
 local S0 = { 40, 600 }            -- Session Zero: under the pitch
 local NIGHT = { 608, 330 }        -- game night: between the left and right decision cards, above the narration
@@ -75,7 +83,7 @@ return {
         },
         {
             id = "s0_rules", screen = "session_zero", at = S0,
-            anchor = { 1062, 84, 520, 594 },
+            anchor = { 1062, 84, 520, 712 },     -- (down to "When a hero dies": the re-test, cut through a row)
             title = "Table rules",
             text = "The house rules, and everyone has an opinion. When you've answered everything, go on to their backstories (bottom right).",
             done = function(app)
@@ -103,7 +111,7 @@ return {
 
         -- The first prep ----------------------------------------------------------------------
         {
-            id = "prep_story", screen = "prep", at = LEFT, leave = true,
+            id = "prep_story", screen = "prep", at = FIRST, seq = "first_prep", leave = true,
             when = function(app, c) return week(c, 1) end,
             done = function(app, c)
                 for _, s in ipairs(c.prep and c.prep.scenes or {}) do
@@ -118,7 +126,7 @@ return {
             text = "This week's story beat. Click it (or press N) for your notes: what tonight is for and what to read out. Its story cards are in your hand.",
         },
         {
-            id = "prep_types", screen = "prep", at = LEFT,
+            id = "prep_types", screen = "prep", at = FIRST, seq = "first_prep",
             when = function(app, c) return week(c, 1) end,
             anchor = { 360, 80, 820, 82 },
             title = "Three scenes",
@@ -133,7 +141,7 @@ return {
             end,
         },
         {
-            id = "prep_slots", screen = "prep", at = LEFT,
+            id = "prep_slots", screen = "prep", at = FIRST, seq = "first_prep",
             when = function(app, c) return week(c, 1) end,
             anchor = { 360, 160, 820, 400 },
             title = "Fill the slots",
@@ -141,14 +149,14 @@ return {
             done = function(app, c) return filled_slots(c) >= 2 end,
         },
         {
-            id = "prep_table", screen = "prep", at = LEFT, leave = true, timeout = 25,
+            id = "prep_table", screen = "prep", at = FIRST, seq = "first_prep", leave = true, timeout = 25,
             when = function(app, c) return week(c, 1) and filled_slots(c) >= 2 end,
             anchor = { 1192, 76, 388, 812 },
             title = "Your players",
             text = "What each one wants, the kinds of scene they love and the ones that bore them, and the forecast for Thursday as the board stands.",
         },
         {
-            id = "prep_run", screen = "prep", at = LEFT, leave = true,
+            id = "prep_run", screen = "prep", at = FIRST, seq = "first_prep", leave = true,
             when = function(app, c) return week(c, 1) and filled_slots(c) >= 2 end,
             anchor = { 1352, 8, 228, 50 },
             title = "Game night",
@@ -187,9 +195,19 @@ return {
             title = "Your call",
             text = "Only the DM can make this one. There's no right answer: pick what fits your table, and watch how they take it.",
         },
+        -- Two kinds of improvising (the newcomer playtest, October 16: "Off the map" came up for a
+        -- slot left empty in a planned scene, and read as the players wandering off).
         {
-            id = "night_improv", screen = "night", at = { 1236, 100 },   -- the improv hand fills the middle
-            when = function(app) return pending(app, "improv") end,
+            id = "night_improv_slot", screen = "night", at = { 1236, 100 },   -- the improv hand fills the middle
+            when = function(app) return pending(app, "improv") and not app.pending.drift end,
+            done = function(app) return not pending(app, "improv") end,
+            title = "Make it up",
+            text = "You left this slot empty in prep, so now you invent it on the spot. Pick cards that fit this scene "
+                .. "(green), then Play. Two that fit beat three that don't.",
+        },
+        {
+            id = "night_improv", screen = "night", at = { 1236, 100 },
+            when = function(app) return pending(app, "improv") and app.pending.drift end,
             done = function(app) return not pending(app, "improv") end,
             title = "Off the map",
             text = "They went somewhere you didn't plan. Pick cards from your improv hand that fit the moment, then Play.",
