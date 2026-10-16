@@ -77,6 +77,9 @@ function M.screen(app, screen)
         if c and c.chat and #c.chat > 0 then
             M.sfx("ping", 0.9)
         end
+    elseif screen == "lore" then
+        -- (The table's still setting up: prep's dusk and music carry on.)
+        M.sfx("page")
     elseif screen == "night" then
         M.mood("late", M.NIGHT_SECONDS)
         M.music("night")

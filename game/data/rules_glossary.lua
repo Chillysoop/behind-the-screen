@@ -233,6 +233,16 @@ return {
     { id = "session_zero", match = { "Session Zero", "SESSION ZERO" }, plain = "The talk before the first game",
       text = "Everyone agrees what the game will be like: the tone, what's off limits, the house rules.",
       dnd = "Session Zero", tags = { "table", "story" } },
+    -- The lore screen's words (the lore playtest, October 16).
+    { id = "hand_of_cards", match = { "hand of cards", "your hand" }, plain = "Your hand of cards",
+      text = "The cards you prep from: places, people, goals, twists and rewards the story has dealt you. Scenes won and "
+          .. "lost add new ones for the next session.", tags = { "story" } },
+    { id = "world_moves", match = { "%f[%w][Ww]orld moves?%f[%W]" }, plain = "World moves",
+      text = "Every session each faction does something off screen. On the prep board you let it happen (it rolls), "
+          .. "play it out tonight as a card, or hold one back.", tags = { "story" } },
+    { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]" }, plain = "A loose end",
+      text = "A story left alone so long the table noticed. Until a card brings it back, the players who care lose a "
+          .. "little Investment every session.", tags = { "story" } },
     { id = "lines", match = { "%f[%w]LINES%f[%W]", "A line:" }, plain = "A line",
       text = "Something that never happens in the game, full stop.", dnd = "Lines (and veils)", tags = { "table" } },
     { id = "veils", match = { "%f[%w]VEILS%f[%W]", "%f[%w]veils?%f[%W]", "A veil:" }, plain = "A veil",

@@ -214,6 +214,20 @@ local function card_detail(app, prep, c, s, x0, why)
             end
         end
     end
+    -- What it can change for next session (the lore screen's lines, October 16): what a win or a
+    -- loss puts in your hand, a story it ties off, a front it holds back.
+    do
+        local ok, items = pcall(require("game.model.lore_screen").card_items, camp, prep, nil, c, nil)
+        local TONES = { good = theme.green, bad = theme.orange, front = theme.purple }
+        local n = 0
+        for _, it in ipairs(ok and items or {}) do
+            if n < 3 and (it.kind == "opens_win" or it.kind == "opens_lose" or it.kind == "opens" or it.kind == "resolve"
+                or it.kind == "front" or it.kind == "move") then
+                n = n + 1
+                table.insert(rows, { it.text, "ui14", TONES[it.tone] or theme.dim })
+            end
+        end
+    end
     local fits = {}
     for _, f in ipairs(c.fits or {}) do
         table.insert(fits, content.scenes[f] and content.scenes[f].name or f)

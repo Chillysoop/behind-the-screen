@@ -293,7 +293,7 @@ function M.draw_frame(app)
         end
     end, { font = "ui14", key = "night_stories" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip   F/G speed   Tab log   H your rolls   T timer   C photo   1-4 camera or options", "ui14", theme.faint,
+    kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  1-4 camera or options", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     -- What the counters are (the newcomer playtest, October 16: "Calls 0", "Your rolls: hidden").
     gloss.card_spot(1040, 4, 536, 24, "The evening at a glance",
@@ -877,11 +877,16 @@ function M.scene_card(app, ev)
         table.insert(rows, { won and "It went their way." or "It went against them.", won and theme.green or theme.orange, "ui18b" })
     end
     local found = {}
+    if app.scene_hinge then
+        table.insert(found, app.scene_hinge)    -- what next session hangs on, first
+    end
     if ev.reward then
         table.insert(found, ev.reward)
     end
     for _, c in ipairs(app.scene_found or {}) do
-        table.insert(found, c)
+        if c ~= app.scene_hinge then
+            table.insert(found, c)
+        end
     end
     if #found > 0 then
         local more = #found > 1 and ("  (+" .. util.int(#found - 1) .. " more in your notes)") or ""
@@ -1826,7 +1831,7 @@ function M.handle(app, ev)
         npc_steps_in(app)
     end
     if k == "scene" then
-        app.scene_found = {}
+        app.scene_found, app.scene_hinge = {}, nil
         app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
         app.scene_sub = (ev.type_name or "") .. who
@@ -1952,6 +1957,9 @@ function M.handle(app, ev)
         M.push(app, "Noted: " .. ev.text, "clue")
         app.scene_found = app.scene_found or {}
         table.insert(app.scene_found, ev.text)
+        if ev.hinge then
+            app.scene_hinge = ev.text
+        end
     elseif k == "scene_end" then
         M.scene_card(app, ev)
     elseif k == "npc" then
@@ -2157,6 +2165,11 @@ function M.handle(app, ev)
                 if d.big then
                     if d.success == nil then
                         d.success = ev.tier == "success" or ev.tier == "triumph"
+                        -- A reroll (Heroic Inspiration, an item's Advantage) is the roll that counts
+                        -- (the lore playtest, October 16: the strip kept the 8 the text said became a 6).
+                        if ev.value and not d.hidden then
+                            d.roll = ev.value
+                        end
                         M.draw_strip(app)
                     end
                     break

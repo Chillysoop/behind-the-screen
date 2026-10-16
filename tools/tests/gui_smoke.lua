@@ -213,6 +213,7 @@ end
 local function key(action) call(on_input, self, action, { pressed = true }) end
 
 -- "Run game night" may ask "are you sure?" (the slice rework): answer it like a player who's done.
+local on_lore   -- (set once dump is defined, below)
 local function run_night_click()
     if not click_label("Run game night") then return false end
     local app = self.app
@@ -220,6 +221,17 @@ local function run_night_click()
         for _, b in ipairs(buttons()) do
             if b.key == "ask_yes" then click(b); break end
         end
+    end
+    -- The lore screen comes between the board and the night (October 16).
+    if app.screen == "lore" then
+        if on_lore then on_lore(app) end
+        local go
+        for _, b in ipairs(buttons()) do
+            if b.key == "lore_go" then go = b end
+        end
+        if not go then problem("no way on from the lore screen") return false end
+        click(go)
+        if app.screen ~= "night" then problem("the lore screen's button didn't start the night (" .. tostring(app.screen) .. ")") end
     end
     return true
 end
@@ -306,6 +318,7 @@ local function dump_once(name)
     end
 end
 
+
 -- A gift from the table waiting on the report (game/model/keepsakes.lua): take it, then put it away.
 local has_text_fn
 local function take_gift(where, n)
@@ -372,6 +385,43 @@ local function leave_report(where)
 end
 
 local stats = { clicks = 0, weeks = 0, rolls = 0, modals = 0, max_nodes = 0 }
+
+-- The lore screen (October 16): it says what it is, every scene has its column, and Back to prep
+-- keeps the board (once, in session 2).
+on_lore = function(app)
+    stats.lore = (stats.lore or 0) + 1
+    local v = app.lore_view
+    if not v then problem("the lore screen drew nothing") return end
+    if #v.scenes ~= 3 then problem("the lore screen has " .. #v.scenes .. " scene columns") end
+    dump_once("2l_lore_w" .. tostring(app.campaign.week))
+    local seen_title = false
+    for _, n in ipairs(order) do
+        if n.alive and n.text == "What tonight can change in the story" then seen_title = true end
+    end
+    if not seen_title then problem("the lore screen doesn't say what it is") end
+    if app.campaign.week == 2 and not stats.lore_back then
+        stats.lore_back = true
+        local before = {}
+        for i, sc in ipairs(app.campaign.prep.scenes) do before[i] = sc.type end
+        local back
+        for _, b in ipairs(buttons()) do
+            if b.key == "lore_back" then back = b end
+        end
+        if not back then problem("no way back to prep from the lore screen") return end
+        click(back)
+        if app.screen ~= "prep" then problem("Back to prep didn't go back (" .. tostring(app.screen) .. ")") return end
+        for i, sc in ipairs(app.campaign.prep.scenes) do
+            if sc.type ~= before[i] then problem("going back to prep changed scene " .. i) end
+        end
+        if not click_label("Run game night") then problem("no run button after coming back from the lore screen") return end
+        if app.ask then
+            for _, b in ipairs(buttons()) do
+                if b.key == "ask_yes" then click(b); break end
+            end
+        end
+        if app.screen ~= "lore" then problem("running the night again skipped the lore screen") end
+    end
+end
 
 function has_text_fn(fragment)
     for _, n in ipairs(order) do
@@ -1807,6 +1857,7 @@ if (stats.boss_bars or 0) > 0 and (stats.fight_cards or 0) == 0 then problem("fi
 if (stats.gloss or 0) == 0 then problem("never found a rules word to point at in the log") end
 if (stats.card_words or 0) == 0 then problem("never found a rules word to point at on a card or tip") end
 if (stats.odds or 0) == 0 then problem("never saw a big roll's DC card") end
+if (stats.lore or 0) < stats.weeks then problem("the lore screen showed " .. tostring(stats.lore or 0) .. " times in " .. stats.weeks .. " sessions") end
 if (stats.last_roll or 0) == 0 then problem("never saw the scene's dots with the last roll's label") end
 local briefs = stats.briefs or {}
 if not briefs[1] then problem("no briefing after the introductions") end

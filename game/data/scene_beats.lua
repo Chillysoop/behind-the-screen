@@ -80,6 +80,12 @@ return {
         goal_here = { "They come away from {here} with {got}.", "They leave {here} behind with {got}." },
         won_here = { "That's {here} settled.", "They leave {here} better than they found it." },
         lost_here = { "They come away from {here} with nothing but bruises.", "Not their night at {here}." },
+        -- Lost, but they found something out there (the lore playtest, October 16: "nothing but
+        -- bruises" straight after they'd read Tobin's map).
+        lead = { "Not the win they wanted at {here}, but they leave with a lead. Next: {next}.",
+                 "They lost that one, but they know more than they did. On to {next}." },
+        lead_here = { "Not the win they wanted at {here}, but they leave with a lead.",
+                      "They lost that one, but they know more than they did." },
     },
 
     -- The heroes talking to each other, in character, between checks.

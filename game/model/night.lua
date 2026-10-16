@@ -1046,8 +1046,15 @@ function M:found_clue(id, text)
         end
     end
     table.insert(self.story_found, { id = id, text = text })
+    if self.scene then
+        self.scene.clues_found = (self.scene.clues_found or 0) + 1
+    end
     self:event("clue", { who = self.actor and self.actor.key or "party", clue = id, text = "They found out: " .. text })
-    self:emit({ kind = "clue", id = id, text = text })
+    -- The clue next session hangs on (the lore screen's "Next session hangs on this clue") leads the
+    -- scene's card (the lore playtest, October 16: it was behind "+1 more in your notes").
+    local nb = content.arc.beats[(self.campaign.week or 1) + 1]
+    local hinge = nb and ((nb.objective_if and nb.objective_if.clue == id) or (nb.open_if and nb.open_if.clue == id)) or nil
+    self:emit({ kind = "clue", id = id, text = text, hinge = hinge })
 end
 
 -- The terrain set on the table: the place's map if the DM drew one (B9), else the place's own set,
@@ -2446,7 +2453,11 @@ end
 -- What the table agreed about your screen at Session Zero, said on the card where it matters
 -- (the newcomer playtest, October 16: "did I promise something about this?").
 function M:dice_promise()
-    local dice = self.campaign.table and self.campaign.table.rules.dice
+    return M.dice_promise_for(self.campaign)
+end
+
+function M.dice_promise_for(campaign)
+    local dice = campaign.table and campaign.table.rules.dice
     if dice == "open" then
         return "You agreed at Session Zero: everything in the open. A roll behind your screen will raise eyebrows."
     elseif dice == "big_open" then
@@ -5203,7 +5214,7 @@ function M:bridge(sc)
             got, set = goal.got, "goal"
         end
     end
-    set = set or (sc.outcome == "win" and "won" or "lost")
+    set = set or (sc.outcome == "win" and "won" or ((sc.clues_found or 0) > 0 and "lead" or "lost"))
     local key = next_place and set or (set .. "_here")
     local text = util.fill(self:fresh(lines[key], "bridge_" .. key),
         { got = got or "", Got = util.capitalize(got or ""), next = next_place or "", here = here })

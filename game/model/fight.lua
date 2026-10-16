@@ -675,7 +675,9 @@ end
 function M.danger_line(bb, hero)
     local together = 0
     for _, e in ipairs(bb.creatures) do
-        if e.side == "foes" and not e.dead and not e.removed and not e.down and e.monster_id then
+        -- (Asleep or otherwise out of it, a monster isn't hitting anyone this round.)
+        if e.side == "foes" and not e.dead and not e.removed and not e.down and e.monster_id
+            and not (bb.incapacitated and bb:incapacitated(e)) then
             together = together + require("game.model.matchup").round_damage(e.monster_id)
         end
     end

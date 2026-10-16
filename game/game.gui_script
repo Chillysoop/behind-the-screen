@@ -27,6 +27,7 @@ local ask_view = require "game.ui.ask_view"
 local talk_view = require "game.ui.talk_view"
 local book_view = require "game.ui.book_view"
 local planner_view = require "game.ui.planner_view"
+local lore_view = require "game.ui.lore_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
@@ -215,6 +216,11 @@ local function build_screen(self)
     elseif s == "session_zero" then
         kit.layer("session_zero")
         session_zero_view.build(app)
+        block_camera(true)
+    elseif s == "lore" then
+        -- Between the prep board and the night (October 16): what tonight can change in the story.
+        kit.layer("lore")
+        lore_view.build(app)
         block_camera(true)
     elseif s == "join" then
         -- Someone joins a small table (October 15): their backstory page, then the week.
@@ -435,6 +441,14 @@ function init(self)
             ambience.screen(app, "session_zero")
             return
         end
+        -- From the prep board, the lore screen first (October 16: "this should help telegraph what
+        -- upcoming lore decisions will mean for the DM"); its button runs the night.
+        if screen == "night" and app.screen == "prep" and not (opts and opts.lore_seen) and app.campaign.prep then
+            app.screen = "lore"
+            build_screen(self)
+            ambience.screen(app, "lore")
+            return
+        end
         if screen == "prep" then
             if not (opts and opts.resume) then
                 app.campaign.at_prep = nil
@@ -446,7 +460,10 @@ function init(self)
             app.save_campaign()
             app.prep_dirty = nil
             app.sel = nil
-            app.prep_started = app.time
+            -- (Back from the lore screen, prep's clock keeps running from where it started.)
+            if not (opts and opts.from_lore and app.prep_started) then
+                app.prep_started = app.time
+            end
             -- Back to the campfire vignette, everyone in their chair.
             msg.post(TABLE, "vignette")
             app.paint_dice()
@@ -700,6 +717,11 @@ function on_input(self, action_id, action)
     if app.overlay and (action_id == A.confirm or action_id == A.roll) and action.pressed then
         return true   -- the table waits while you read
     end
+    -- The lore screen: Esc goes back to the prep board.
+    if action_id == A.back and action.pressed and app.screen == "lore" and not app.ask then
+        guard(self, lore_view.back, app)
+        return true
+    end
     if action_id == A.back and action.pressed and (app.convo or app.levelup) then
         -- Esc closes a conversation or the level-up moment.
         if app.levelup then
@@ -753,6 +775,9 @@ function on_input(self, action_id, action)
             return true
         elseif s == "planner" then
             guard(self, planner_view.start, app)
+            return true
+        elseif s == "lore" then
+            guard(self, lore_view.go, app)
             return true
         elseif s == "session_zero" then
             guard(self, session_zero_view.start, app)

@@ -610,6 +610,13 @@ function M.update(app, dt)
             by_label(app.ask.yes or "Run game night")
         end
         say("night " .. wk)
+    elseif s == "lore" then
+        -- What tonight can change in the story (October 16): a shot, then on to the night.
+        if not shot(a, "lore_week_" .. tostring(app.campaign.week)) then
+            if not by_key("lore_go") then
+                return finish(a, false, "no way on from the lore screen")
+            end
+        end
     elseif s == "night" then
         local nv = require "game.ui.night_view"
         if app.night_done then

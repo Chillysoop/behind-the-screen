@@ -5,7 +5,7 @@
 --
 -- Each step:
 --   id       unique; seen steps are kept in the campaign (and its save)
---   screen   the screen it belongs to ("session_zero", "prep", "night", "report")
+--   screen   the screen it belongs to ("session_zero", "prep", "lore", "night", "report")
 --   when     function(app, c) -> true when it should show (optional)
 --   done     function(app, c) -> true once the player has done what it asks (optional)
 --   timeout  seconds on screen (in total) before it quietly goes (optional)
@@ -232,6 +232,15 @@ return {
             done = function(app) return not pending(app, "ruling") end,
             title = "How does it land?",
             text = "The die says how well it went. You decide how generous to be: a yes with strings, or a no that still gives them something.",
+        },
+
+        -- The lore screen (October 16): what tonight can change, before the table sits down.
+        {
+            id = "lore_first", screen = "lore", at = { 798, 610 }, leave = true, timeout = 60,
+            anchor = { 24, 108, 1128, 412 },
+            title = "What tonight can change",
+            text = "Each scene's clues, and what a win (green) or a loss (orange) puts in next session's hand. "
+                .. "Point at a line for more. Want a different night? Back to prep.",
         },
 
         -- The first report ------------------------------------------------------------------------
