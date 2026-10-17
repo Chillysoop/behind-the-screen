@@ -279,6 +279,22 @@ local function has_key(k)
     return false
 end
 
+local function util_contains(list, v)
+    for _, x in ipairs(list or {}) do
+        if x == v then return true end
+    end
+    return false
+end
+
+-- The prep board's scene card for stop n (the valley map, October 17): close any place's card
+-- beside the map, then the stop's tab.
+local function show_stop(n)
+    if has_key("place_close") then
+        click_key("place_close")
+    end
+    return click_key("stop_" .. n)
+end
+
 local DUMP = os.getenv("DUMP_DIR")
 -- AUDIT=1: list every piece of text the screens had to cut short.
 if os.getenv("AUDIT") then
@@ -734,15 +750,120 @@ check_tip_absorbs(" (week 2 prep)")
         key("story")
         if app.story_panel then problem("S didn't close the Story log panel") end
     end
+    -- The valley map (October 17): a place on every stop from the map, and a goal on stop 1, the
+    -- way a player does it: click a pin (a town's place in its list), then Make it stop N.
+    do
+        local valley = require "game.model.valley"
+        local pr = app.campaign.prep
+        app.sel = nil
+        app.refresh()
+        for i = 1, #pr.scenes do
+            local s = pr.scenes[i]
+            if not s.open and not s.module and not s.slots.location then
+                for _, n in ipairs(app.valley_map and app.valley_map.nodes or {}) do
+                    if s.slots.location then break end
+                    for _, pc in ipairs(n.places) do
+                        if s.slots.location then break end
+                        if #valley.stops_at(pr, pc.id) == 0 and pr:can_place(i, pc.id) then
+                            if not click_key("pin_" .. n.id) then problem("no pin on the map for " .. n.id) break end
+                            if n.hub and not click_key("hub_place_" .. pc.id) then
+                                problem("no row for " .. pc.id .. " in " .. n.id .. "'s card")
+                                break
+                            end
+                            if not click_key("make_stop_" .. i) then problem("no stop " .. i .. " button on " .. pc.id .. "'s card") break end
+                            if not (s.slots.location and s.slots.location.id == pc.id) then
+                                problem("Make it stop " .. i .. " didn't put " .. pc.id .. " on scene " .. i)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        local m = app.valley_map
+        for i, s in ipairs(pr.scenes) do
+            local loc = s.slots.location
+            if loc and not s.open then
+                local n = m and m.by_id[valley.node_of(loc.id)]
+                if not (n and util_contains(n.stops, i)) then problem("stop " .. i .. " (" .. loc.id .. ") isn't numbered on the map") end
+            end
+        end
+        if week == 1 or week == 3 then dump("2m_valley_route_w" .. week) end
+        -- A card that happens at a stop's place goes onto that stop from the place's card.
+        do
+            local done_one = false
+            for i, s in ipairs(pr.scenes) do
+                local loc = s.slots.location
+                if not done_one and loc and not s.open and not s.module then
+                    for _, hc in ipairs(valley.cards_for(pr, loc.id)) do
+                        if not done_one and not s.slots[hc.kind] and pr:can_place(i, hc.id) then
+                            done_one = true
+                            local node = valley.node_of(loc.id)
+                            click_key("pin_" .. node)
+                            if node ~= loc.id then click_key("hub_place_" .. loc.id) end
+                            if not click_key("here_" .. hc.id) then
+                                problem("no row for " .. hc.id .. " on " .. loc.id .. "'s card")
+                            elseif not (s.slots[hc.kind] and s.slots[hc.kind].id == hc.id) then
+                                problem("clicking " .. hc.id .. " on " .. loc.id .. "'s card didn't put it on stop " .. i)
+                            end
+                            if week == 2 then dump("2q_place_card_stop") end
+                            click_key("place_close")
+                        end
+                    end
+                end
+            end
+        end
+        -- A goal on stop 1, through its slot and the hand.
+        if not pr.scenes[1].slots.goal and not pr.scenes[1].module and not pr.scenes[1].open and show_stop(1) then
+            if not click_key("slot_1_goal") then problem("no goal slot on stop 1's card") end
+            for _, b in ipairs(buttons()) do
+                local id = b.key and string.sub(b.key, 1, 5) == "hand_" and string.sub(b.key, 6)
+                if id and b.key ~= "hand_close" and b.enabled and not pr:placed_at(id) then
+                    click(b)
+                    break
+                end
+            end
+            -- (No goal in the hand may fit the place: the cards say why, and the night improvises it.)
+            if app.ask then click_key("ask_no") end
+            app.sel = nil
+            app.refresh()
+        end
+        -- A place's card, opened from the map, says what it is.
+        for _, n in ipairs(m and m.nodes or {}) do
+            if not n.hub and #n.stops == 0 then
+                click_key("pin_" .. n.id)
+                if not has_key("make_stop") then problem("a place's card has no Make it stop button (" .. n.id .. ")") end
+                if week == 2 then dump("2p_place_card") end
+                click_key("place_close")
+                break
+            end
+        end
+        -- Millbrook's card lists its places in play; a row opens that place's card.
+        if click_key("pin_millbrook") then
+            if week == 2 then dump("2h_town_card") end
+            local n = app.valley_map and app.valley_map.by_id.millbrook
+            local first = n and n.places[1]
+            if first then
+                if not click_key("hub_place_" .. first.id) then problem("no row for " .. first.id .. " on Millbrook's card") end
+                if not has_key("place_back") then problem("a town's place has no way back to the town") end
+            end
+            click_key("place_close")
+        else
+            problem("no Millbrook pin on the map")
+        end
+        -- (Placing a story card opens the Story log over the table column: close it.)
+        if app.story_panel then key("story") end
+    end
     for i = 1, 3 do
         if not app.campaign.prep.scenes[i].type then
             app.sel = { scene = i, kind = "type" }
             app.refresh()
-            -- the type cards are the 7 big buttons in the drawer
-            local bs = buttons()
-            for _, b in ipairs(bs) do
-                if b.node.size.y == 150 and b.node.size.x == 105 then click(b) break end
+            -- the type cards are the 7 big buttons in the drawer; a different one per stop and week
+            -- (October 17: with one scene card showing at a time, the random clicks pick fewer types)
+            local cards = {}
+            for _, b in ipairs(buttons()) do
+                if b.node.size.y == 150 and b.node.size.x == 105 then table.insert(cards, b) end
             end
+            if #cards > 0 then click(cards[(week + i) % #cards + 1]) end
         end
     end
     if not app.campaign.prep:ready() then
@@ -760,7 +881,17 @@ check_tip_absorbs(" (week 2 prep)")
         local keepsakes = require "game.model.keepsakes"
         local given = keepsakes.get(app.campaign).given
         local from = given[1] and given[1].from
+        -- (Someone who can't make it this week has no card to point at.)
         if not from then problem("week two with no gift on the table") end
+        local giver = from and app.campaign:player(from)
+        if giver and not giver.present then
+            from = nil
+            for _, g in ipairs(given) do
+                local gp = app.campaign:player(g.from)
+                if gp and gp.present then from = g.from break end
+            end
+            if not from then print("  (Goodwill hover skipped: every gift-giver is away this week)") end
+        end
         local hovered = false
         for _, b in ipairs(buttons()) do
             if from and b.key == "goodwill_" .. from then
@@ -870,7 +1001,7 @@ check_tip_absorbs(" (week 2 prep)")
             if not can then
                 -- The random clicks spent the hours on talks and reading: nothing to clear makes room.
                 print("  (module step skipped: " .. tostring(why) .. ")")
-            elseif click_key("type_3") then
+            elseif show_stop(3) and click_key("type_3") then
                 for _ = 1, 4 do
                     if not click_key("guide_ok") then break end
                 end
@@ -1005,6 +1136,7 @@ check_tip_absorbs(" (week 2 prep)")
                 end
             end
             app.refresh()
+            if not show_stop(3) then problem("no stop 3 tab on the scene card") end
             if not click_key("type_3") then problem("no type button on scene 3") end
             for _ = 1, 4 do
                 if not click_key("guide_ok") then break end
@@ -1054,6 +1186,7 @@ check_tip_absorbs(" (week 2 prep)")
         local type_before = c.prep.scenes[1].type
         c.prep:set_type(1, "combat")
         app.refresh()
+        if not show_stop(1) then problem("no stop 1 tab on the scene card") end
         if not click_key("fight_1") then problem("no fight button on a combat scene") end
         if app.overlay ~= "encounter" then problem("the fight button didn't open the builder") end
         dump("28_encounter_suggested")
@@ -1113,10 +1246,24 @@ check_tip_absorbs(" (week 2 prep)")
                 app.map_piece = step[1]
                 map_view.paint(app, step[2], step[3])
             end
+            -- (The place's own scenery refuses a start or a trap where it stands: try a few squares.)
+            for _, alt in ipairs({ { 4, 4 }, { 16, 9 }, { 5, 11 }, { 15, 3 }, { 10, 12 }, { 7, 2 }, { 13, 6 } }) do
+                local m1 = maps.get(c, loc.id)
+                for _, piece in ipairs({ "party", "foes", "trap" }) do
+                    if m1 and not m1[piece] then
+                        app.map_piece = piece
+                        map_view.paint(app, alt[1], alt[2])
+                        break
+                    end
+                end
+            end
             app.refresh()
             click_key("map_trap")
             m = maps.get(c, loc.id)
-            if not (m and m.party and m.foes and m.trap) then problem("the map's starts or trap didn't stick") end
+            if not (m and m.party and m.foes and m.trap) then
+                problem("the map's starts or trap didn't stick (" .. loc.id .. ": party " .. tostring(m and m.party ~= nil)
+                    .. ", foes " .. tostring(m and m.foes ~= nil) .. ", trap " .. tostring(m and m.trap ~= nil) .. ")")
+            end
             local blocked = maps.layout(m)
             local walls = 0
             for _, p in ipairs(m.props) do
@@ -1346,9 +1493,28 @@ check_tip_absorbs(" (week 2 prep)")
             -- A rules word in a tip, or on a card, keeps its card up while you read it (the re-test,
             -- October 16: "improv hand" in the tip showed nothing).
             if not dumped_once.tip_word then
-                local spot
-                for _, l in ipairs({ app.guide_layer, app.layers.modal }) do
-                    if l and l.spots and l.spots[1] then spot = spot or l.spots[1] end
+                local function find_spot()
+                    local found, hidden
+                    for _, l in ipairs({ app.guide_layer, app.layers.modal }) do
+                        for _, sp in ipairs(l and l.spots or {}) do
+                            -- (Not a word the tip panel sits over: that one can't be pointed at.)
+                            local r = sp.rect
+                            local panel = l ~= app.guide_layer and app.guide_layer and app.guide_layer.blockers
+                                and app.guide_layer.blockers[1]
+                            if panel and gui.pick_node(panel, r[1] + r[3] / 2, H - (r[2] + r[4] / 2)) then
+                                hidden = true
+                            else
+                                found = found or sp
+                            end
+                        end
+                    end
+                    return found, hidden
+                end
+                local spot, hidden = find_spot()
+                if not spot and hidden then
+                    -- The tip sits over the card's words: read it, close it, then point.
+                    click_key("guide_ok")
+                    spot = find_spot()
                 end
                 if spot then
                     dumped_once.tip_word = true

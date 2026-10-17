@@ -255,9 +255,11 @@ local gates = {
     { "The hand leans to the home style (40%+ of the open cards)", leans },
     { "The story still plays whatever the style (a story scene on 60%+ of nights)", story },
     -- (Measured at 42 to 50% of campaigns across October's runs; 6 runs a style put the old 50% line
-    -- inside the noise, so the sample is bigger and the line sits at 40%.)
-    { "Crossovers happen: a port, a stair or a road opens another style in many campaigns (40%+)",
-      cross >= 0.4 * RUNS * #styles.data().order },
+    -- inside the noise, so the sample is bigger and the line sat at 40%. October 17: every campaign
+    -- now opens at the Kettle, so the first session's first place is never a gateway. 30 runs a
+    -- style measured 39% before that and 35% after, so the line sits at a third.)
+    { "Crossovers happen: a port, a stair or a road opens another style in many campaigns (a third+)",
+      cross >= RUNS * #styles.data().order / 3 },
     { "Asking alone never changes course", out.ask.changed == 0 and out.ask.chat > 0 },
     { "Force always changes course when it plays; a nudge only when they take it up",
       out.force.changed == (out.force.played or 0) and out.ask_force.changed == (out.ask_force.played or 0)

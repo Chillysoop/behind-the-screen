@@ -35,6 +35,32 @@ local function filled_slots(c)
     return n
 end
 
+-- Cards on the board besides the places (the valley map, October 17: a stop's place is a slot too).
+local function filled_cards(c)
+    local n = 0
+    for _, s in ipairs(c.prep and c.prep.scenes or {}) do
+        for kind in pairs(s.slots or {}) do
+            if kind ~= "location" then
+                n = n + 1
+            end
+        end
+    end
+    return n
+end
+
+-- A stop has a place, and its scene card shows beside the map (no place's card open over it).
+local function stop_card_showing(app, c)
+    if app.valley and app.valley.open then
+        return false
+    end
+    for _, s in ipairs(c.prep and c.prep.scenes or {}) do
+        if s.slots and s.slots.location then
+            return true
+        end
+    end
+    return false
+end
+
 local LEFT = { 24, 540 }          -- prep: bottom of the chat column
 -- The first prep's tips sit over the "Your first prep" checklist, which says the same things, and
 -- leave the group chat in view (the newcomer playtest, October 16: six tips, one after another, all
@@ -125,12 +151,30 @@ return {
             title = "Your first session",
             text = "This week's story beat. Click it (or press N) for your notes: what tonight is for and what to read out. Its story cards are in your hand.",
         },
+        -- The valley map (October 17): prep starts on the map.
+        {
+            id = "prep_map", screen = "prep", at = FIRST, seq = "first_prep",
+            when = function(app, c) return week(c, 1) end,
+            done = function(app, c)
+                local n = 0
+                for _, s in ipairs(c.prep and c.prep.scenes or {}) do
+                    if s.slots and s.slots.location then
+                        n = n + 1
+                    end
+                end
+                return n >= 2
+            end,
+            anchor = { 360, 80, 544, 480 },
+            title = "The valley",
+            text = "Every campaign starts at the Kettle: it's stop 1. Click a place to see what's there, then make it stop 2. A green number counts your cards that happen there.",
+        },
         {
             id = "prep_types", screen = "prep", at = FIRST, seq = "first_prep",
-            when = function(app, c) return week(c, 1) end,
-            anchor = { 360, 80, 820, 82 },
-            title = "Three scenes",
-            text = "Pick a type for each scene. Every player loves some types and gets bored in others; the table on the right forecasts it.",
+            -- (Once there's a stop, and its scene card is showing beside the map.)
+            when = function(app, c) return week(c, 1) and stop_card_showing(app, c) end,
+            anchor = { 916, 80, 264, 82 },
+            title = "What kind of scene",
+            text = "Pick a type for each stop (the tabs switch stops). Every player loves some types and gets bored in others; the table on the right forecasts it.",
             done = function(app, c)
                 for _, s in ipairs(c.prep and c.prep.scenes or {}) do
                     if not s.type then
@@ -142,11 +186,11 @@ return {
         },
         {
             id = "prep_slots", screen = "prep", at = FIRST, seq = "first_prep",
-            when = function(app, c) return week(c, 1) end,
-            anchor = { 360, 160, 820, 400 },
+            when = function(app, c) return week(c, 1) and stop_card_showing(app, c) end,
+            anchor = { 916, 160, 264, 400 },
             title = "Fill the slots",
             text = "Click a slot, then pick a card below. The faces show who'd love it (green) or not (red); point at a card for the details. Empty slots get improvised.",
-            done = function(app, c) return filled_slots(c) >= 2 end,
+            done = function(app, c) return filled_cards(c) >= 2 end,
         },
         {
             id = "prep_table", screen = "prep", at = FIRST, seq = "first_prep", leave = true, timeout = 25,

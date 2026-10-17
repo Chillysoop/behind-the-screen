@@ -14,6 +14,8 @@
 --                         damage, down, death, up, heal, save, spell, condition, flee
 --   b.hooks.before_damage(b, src, tgt, total, info) -> total   change damage before it lands
 --   b.hooks.before_pc_death(b, c, why) -> "stable" | "revive"   overrule a hero's death
+--   b.gentle_deaths = true   a hero at 0 Hit Points always gets their death saves (no massive-damage
+--                            death); game night sets it
 --   b.hooks.before_turn(b, c)   the DM runs a creature's turn (sets c.dm_target or c.dm_skip)
 --   b.blocked[x * 1000 + y] = true                              terrain squares nobody can enter
 --   b.force_end = "party" | "foes"                              end the fight after this turn
@@ -1278,7 +1280,7 @@ function B:deal(src, tgt, parts, info)
     if tgt.down then
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = 0,
                     hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
-        if through >= tgt.hp_max then
+        if through >= tgt.hp_max and not (tgt.pc and self.gentle_deaths) then
             self:kill(tgt, src, "massive damage")
         else
             self:death_failure(tgt, info.crit and 2 or 1, src)
@@ -1293,7 +1295,8 @@ function B:deal(src, tgt, parts, info)
         local overflow = -tgt.hp
         tgt.hp = 0
         if tgt.pc then
-            if overflow >= tgt.hp_max then
+            -- (Game night keeps heroes to their death saves: no one-hit deaths, October 17.)
+            if overflow >= tgt.hp_max and not self.gentle_deaths then
                 self:kill(tgt, src, "massive damage")
             else
                 self:drop(tgt, src)

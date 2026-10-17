@@ -970,11 +970,16 @@ function M.run(night, sc, plan)
         end
     end
     -- The last death save.
+    -- No hero dies without a run of bad dice and the DM's say-so (October 17): a hero at 0 Hit
+    -- Points always gets their death saves (no one-hit deaths), every death comes to the DM as this
+    -- card, and if the card can't come up, the hero is stable instead.
+    b.gentle_deaths = true
     b.hooks.before_pc_death = function(bb, c, why)
-        if f.used.last_save then
-            return nil
-        end
+        f.used.last_save = nil
         local o = moment(night, f, "last_save", { location = sc.comps.location and sc.comps.location.name or "the table" }, c)
+        if not o then
+            return "stable"
+        end
         if o then
             night.last_save_for = c.mini     -- what happens next is the same moment (B3), not another card
         end

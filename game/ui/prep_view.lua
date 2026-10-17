@@ -1,5 +1,6 @@
--- The prep board: group chat, three scene cards, the pacing curve, the
--- card drawer and the players. Rebuilt from scratch whenever something changes.
+-- The prep board: group chat, the valley map with tonight's route and a stop's scene card beside
+-- it, the pacing curve, the card drawer and the players. Rebuilt from scratch whenever something
+-- changes.
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -13,6 +14,7 @@ local social = require "game.model.social"
 local seeds_mod = require "game.model.seeds"
 local one_on_one = require "game.model.one_on_one"
 local places_mod = require "game.model.places"
+local valley_view = require "game.ui.valley_view"
 local function notes_view_mod()
     return require "game.ui.notes_view"
 end
@@ -297,7 +299,7 @@ local function top_bar(app, prep)
         end
         kit.text(300, 32, hint, "ui18", theme.dim)
     else
-        kit.text(300, 24, "Game night is Thursday. Write three scenes.", "ui18", theme.dim)
+        kit.text(300, 24, "Game night is Thursday. Plan tonight's route.", "ui18", theme.dim)
     end
     local pending = M.staged(app) and 0 or world.pending(app.campaign)
     local moved = notes_view_mod().threads_moved(app)
@@ -332,7 +334,7 @@ local function top_bar(app, prep)
     kit.text(x0, 12, "PREP TIME", "ui14", theme.dim)
     -- What the hours are, and what the level is (the newcomer playtest, October 16).
     gloss.card_spot(x0 - 4, 30, prep.budget * 22 + 8, 26, "Prep time",
-        "The hours you have this week to get ready. Each card you put on a scene costs some. Whatever you leave "
+        "The hours you have this week to get ready. Each card you put on a stop costs some. Whatever you leave "
         .. "empty, you'll make up at the table.")
     for i = 1, prep.budget do
         local filled = i <= left
@@ -356,7 +358,7 @@ local function top_bar(app, prep)
         M.run_night(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, key = "run_night" })
     if not (ready and M.party_not_rested(app)) then
-        kit.text(1466, 56, ready and "or press Enter" or "Pick a type for every scene first.", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+        kit.text(1466, 56, ready and "or press Enter" or "Pick a type for every stop first.", "ui14", theme.dim, { pivot = gui.PIVOT_N })
     end
 end
 
@@ -394,15 +396,26 @@ local function chat_column(app)
     theory_pins(app)
 end
 
+-- A stop's scene card, beside the valley map (October 17: the map replaced the three cards in a
+-- row). Its tabs switch between the stops.
 local function scene_card(app, prep, i)
     local s = prep.scenes[i]
-    local x = CARD_X + (i - 1) * (CARD_W + CARD_GAP)
+    local x = valley_view.SIDE_X
     local y = CARD_Y
     local sel = app.sel
     kit.box(x, y, CARD_W, CARD_H, theme.paper, { radius = 10 })
-    kit.text(x + 12, y + 9, "SCENE " .. util.int(i), "ui14", theme.ink_dim)
+    kit.text(x + 12, y + 9, "STOP", "ui14", theme.ink_dim)
+    for k = 1, #prep.scenes do
+        local on = k == i
+        local done = prep.scenes[k].type ~= nil
+        kit.button(x + 56 + (k - 1) * 26, y + 5, 22, 22, util.int(k), function()
+            valley_view.show_stop(app, k)
+            app.refresh()
+        end, { font = "ui14", color = on and kit.rgba("#e8b04a") or theme.paper_dim, hover = kit.rgba("#f6edd6"),
+               text_color = (on or done) and theme.ink or theme.ink_dim, radius = 6, key = "stop_" .. util.int(k) })
+    end
     -- The storylines this scene moves (game/model/storylines.lua): a colored pip each, hover to name them.
-    M.scene_storylines(app, prep, s, x + 82, y + 17)
+    M.scene_storylines(app, prep, s, x + 142, y + 17, 2)
     -- Tension pips.
     local t = prep_mod.tension(s.type, s.slots, i == #prep.scenes)
     for k = 1, 5 do
@@ -450,7 +463,7 @@ local function scene_card(app, prep, i)
         kit.button(x + 10, sy, CARD_W - 20, SLOT_H, "", function()
             app.sel = { scene = i, kind = kind }
             app.refresh()
-        end, { color = theme.paper_dim, hover = kit.rgba("#f6edd6") })
+        end, { color = theme.paper_dim, hover = kit.rgba("#f6edd6"), key = "slot_" .. util.int(i) .. "_" .. kind })
         local label = string.upper(content.kind_names[kind])
         if s.open and kind == "location" then
             -- An open scene's spots instead of one place (A15).
@@ -553,7 +566,7 @@ local function pacing_panel(app, prep)
     end
     local sk = prep:sketched()
     if sk > 0 then
-        table.insert(notes, { util.int(sk) .. (sk == 1 and " empty slot" or " empty slots") .. ": you'll improvise one per scene.", theme.dim })
+        table.insert(notes, { util.int(sk) .. (sk == 1 and " empty slot" or " empty slots") .. ": you'll improvise them at the table.", theme.dim })
     end
     -- The storylines (game/model/storylines.lua): too many at once, ones about to be dropped,
     -- loose ends wearing the table down, or simply which ones this week moves.
@@ -645,7 +658,7 @@ local function drawer(app, prep)
     end
     local s = prep.scenes[sel.scene]
     if sel.kind == "type" then
-        kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
+        kit.text(x + 16, y + 12, "Stop " .. util.int(sel.scene) .. ": what kind of scene?", "ui18b", theme.text)
         -- What this campaign's style mostly plays (A18).
         -- What this campaign usually plays (A18): a gold corner on those types, named once here.
         local usual = {}
@@ -656,7 +669,7 @@ local function drawer(app, prep)
                 usual[t] = true
             end
             if #types > 0 then
-                local q = kit.width("Scene 1: what kind of scene?", "ui18b") + 34
+                local q = kit.width("Stop 1: what kind of scene?", "ui18b") + 34
                 kit.dot(x + q + 6, y + 23, 10, theme.gold)
                 kit.text(x + q + 16, y + 15, kit.ellipsize("Usual in " .. sm.def(sm.current(app.campaign)).name, "ui14",
                     w - q - 366), "ui14", theme.faint)
@@ -758,7 +771,7 @@ function M.module_drawer(app, prep, s, sel, kind)
     local m = books_mod.module(s.module.id)
     local bk = books_mod.book(m.book)
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
-    kit.text(x + 16, y + 12, "Scene " .. util.int(sel.scene) .. ": " .. m.name .. ", from " .. bk.name, "ui18b", theme.text,
+    kit.text(x + 16, y + 12, "Stop " .. util.int(sel.scene) .. ": " .. m.name .. ", from " .. bk.name, "ui18b", theme.text,
         { w = w - 260, lines = 1 })
     kit.button(x + w - 122, y + 8, 106, 28, "Close", function()
         app.sel = nil
@@ -841,9 +854,9 @@ local function badge(app, prep, c, at, sel)
     local camp = app.campaign
     local pin = prep.pins and prep.pins[c.id]
     if at and at ~= sel.scene and c.kind == "location" then
-        return "Also scene " .. util.int(at) .. " (no extra time)", kit.rgba("#2f5f8a")
+        return "Also stop " .. util.int(at) .. " (no extra time)", kit.rgba("#2f5f8a")
     elseif at and at ~= sel.scene then
-        return "On scene " .. util.int(at), theme.ink_dim
+        return "On stop " .. util.int(at), theme.ink_dim
     elseif pin then
         local tag = pin.why == "spotlight" and "Spotlight" or (pin.why == "screen" and "Off screen, now on"
             or (pin.why == "course" and "Change course" or "Brought in"))
@@ -905,8 +918,8 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
     prep.seen_kinds[kind] = true
     kit.box(x, y, w, h, theme.panel, { radius = 8 })
     local open = s.open and kind == "location"
-    local title = open and ("Scene " .. util.int(sel.scene) .. ": spots (" .. util.int(#s.spots) .. " of "
-        .. util.int(content.open_scenes.SPOTS) .. ")") or ("Scene " .. util.int(sel.scene) .. ": choose a " .. content.kind_names[kind])
+    local title = open and ("Stop " .. util.int(sel.scene) .. ": spots (" .. util.int(#s.spots) .. " of "
+        .. util.int(content.open_scenes.SPOTS) .. ")") or ("Stop " .. util.int(sel.scene) .. ": choose a " .. string.lower(content.kind_names[kind]))
     kit.text(x + 16, y + 12, title, "ui18b", theme.text)
     -- Places: the hand, Your places (free, no card needed), and for open scenes, suggestions (A15).
     local tab = "hand"
@@ -1037,7 +1050,7 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
             if kind == "cast" and prep:cast_would_lead(sel.scene, c) then
                 -- Cast and fight stay in sync (A7): ask before they take over a fight you built.
                 local fam = content.encounters.by_cast[c.id]
-                ask_view.ask(app, { title = "They lead the fight?", text = "You built scene " .. util.int(sel.scene)
+                ask_view.ask(app, { title = "They lead the fight?", text = "You built stop " .. util.int(sel.scene)
                     .. "'s fight yourself. Cast \"" .. c.name .. "\" and " .. fam.name .. " leads it, with the rest of your monsters.",
                     yes = "Cast them", no = "Leave it", on_yes = function()
                         local placed = prep:place(sel.scene, c.id)
@@ -1050,8 +1063,8 @@ function M.hand_drawer(app, prep, s, sel, kind, current)
                 return
             end
             if elsewhere then
-                ask_view.ask(app, { title = "Move this card?", text = "\"" .. c.name .. "\" is already on scene " .. util.int(at)
-                    .. ". Move it to scene " .. util.int(sel.scene) .. "? Scene " .. util.int(at) .. " will have to improvise it.",
+                ask_view.ask(app, { title = "Move this card?", text = "\"" .. c.name .. "\" is already on stop " .. util.int(at)
+                    .. ". Move it to stop " .. util.int(sel.scene) .. "? Stop " .. util.int(at) .. " will have to improvise it.",
                     yes = "Move it", no = "Leave it", on_yes = place_it })
                 return
             end
@@ -1274,7 +1287,7 @@ local function storyline_color(d)
 end
 
 -- A pip per storyline this scene's cards move, with a hover that names them and how they stand.
-function M.scene_storylines(app, prep, s, x, y)
+function M.scene_storylines(app, prep, s, x, y, most)
     local storylines = require "game.model.storylines"
     local ids, seen = {}, {}
     for _, kind in ipairs(content.kinds) do
@@ -1298,7 +1311,7 @@ function M.scene_storylines(app, prep, s, x, y)
     local marks = require "game.ui.lore_marks"
     for k, id in ipairs(ids) do
         local d = storylines.def(app.campaign, id)
-        if d and k <= 6 then
+        if d and k <= (most or 6) then
             table.insert(defs, d)
             if not marks.storyline(app, id, x - 6 + (k - 1) * 17, y - 8, 16, true) then
                 kit.dot(x + (k - 1) * 17, y, 10, storyline_color(d))
@@ -1488,7 +1501,7 @@ local function player_card(app, prep, p, i, forecast)
             kit.bar(x + 86, y + 111, 190, 10, f, 100, tier_color(f))
             kit.text(x + 286, y + 106, kit.ellipsize(content.chat.forecasts[score.tier(f)], "ui14", w - 296), "ui14", tier_color(f))
         else
-            kit.text(x + 86, y + 108, "Finish the scene types to see a forecast", "ui14", theme.faint)
+            kit.text(x + 86, y + 108, "Pick every stop's type to see a forecast", "ui14", theme.faint)
         end
     end
     if M.staged(app) then
@@ -1622,9 +1635,15 @@ function M.first_prep(app, prep, x, y)
             filled = filled + 1
         end
     end
+    local stops = 0
+    for _, s in ipairs(prep.scenes) do
+        if s.slots.location or (s.open and #(s.spots or {}) > 0) then
+            stops = stops + 1
+        end
+    end
     local steps = {
-        { "Pick a type for each scene. The table (right) says who'll love it.", typed == #prep.scenes },
-        { "Click a slot, then a card from your hand. Story cards move a story.", filled >= 2 },
+        { "Stop 1 is the Kettle. Click a place on the map and make it stop 2, then stop 3.", stops >= 2 },
+        { "Pick each stop's type, then fill its slots from your hand (click a slot).", typed == #prep.scenes and filled >= 2 },
         { "Plant a seed (right) with an hour spare. It pays off in a week or three.", prep.planted ~= nil },
         { "Run game night. Empty slots get improvised.", false },
     }
@@ -1818,7 +1837,7 @@ function M.seeds(app, prep, x, y)
         if in_hand and not on_board then
             ready = ready + 1
         end
-        table.insert(parts, def.name .. (on_board and (" (pays off in scene " .. util.int(on_board) .. ")")
+        table.insert(parts, def.name .. (on_board and (" (pays off at stop " .. util.int(on_board) .. ")")
             or (in_hand and left <= 0 and " (last week!)" or "")))
     end
     local text = "Growing: " .. table.concat(parts, ", ") .. "."
@@ -1834,8 +1853,10 @@ function M.build(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     top_bar(app, prep)
     chat_column(app)
-    for i = 1, #prep.scenes do
-        scene_card(app, prep, i)
+    -- The valley map, and beside it the open place's card or the stop's scene card.
+    valley_view.draw(app, prep)
+    if not valley_view.side(app, prep) then
+        scene_card(app, prep, valley_view.shown_stop(app, prep))
     end
     pacing_panel(app, prep)
     drawer(app, prep)

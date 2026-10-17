@@ -12,7 +12,7 @@ function M.build(app)
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })
     kit.text(x + w / 2, y + 74, "A cozy game about running the table for your friends", "ui18", theme.dim, { pivot = gui.PIVOT_N })
     local lines = {
-        { "Prep", "Pick a type for each of three scenes, then fill their slots from your hand. Prep time is limited, so some slots stay empty and get improvised at the table." },
+        { "Prep", "Plan tonight on a map of the valley: three places make three stops. Give each a kind of scene and fill it from your hand. Prep time is limited, so some slots stay empty and get improvised." },
         { "Game night", "It plays itself. When a card slides across your screen, you make the call. Big rolls can go in the open or behind the screen." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
         { "Between", "Answer messages, settle arguments, plant mysteries and pay them off. Level the party up when it feels earned." },

@@ -320,6 +320,18 @@ function M.draw_frame(app)
     M.draw_pips(app)
 end
 
+-- How wide the scene's line under its name may run: all of its 360 unless the dots and the final
+-- roll's word need the room (the valley map, October 17: a long goal pushed the word off the header).
+local function sub_room(app)
+    local pr = app.progress
+    if not pr then
+        return 360
+    end
+    local pips = pr.need * 14 + 10 + pr.max * 14 + 8
+    return math.max(120, math.min(360, 760 - 176 - pips - kit.width("final roll: normal", "ui14")))
+end
+M.sub_room = sub_room
+
 -- What they're out to do this week, after the scene's line in the header (October 15: so the DM
 -- never has to open a menu to know): the main story's icon and the objective, which changes when
 -- they find the clue it hangs on.
@@ -337,7 +349,7 @@ function M.draw_goal(app)
     if not obj or app.scene_has_goal then
         return
     end
-    local sub = kit.ellipsize(app.scene_sub or "", "ui14", 360)
+    local sub = kit.ellipsize(app.scene_sub or "", "ui14", sub_room(app))
     local x = 160 + (sub ~= "" and (kit.width(sub, "ui14") + 22) or 0)
     -- (After a challenge's pips, when there are any.)
     local pr = app.progress
@@ -454,6 +466,7 @@ function M.draw_strip(app)
     end
 end
 
+
 -- Scene progress: gold pips for wins needed, red for setbacks.
 function M.draw_pips(app)
     if not app.layers.base then
@@ -466,7 +479,11 @@ function M.draw_pips(app)
     if not pr or not app.n_sub then
         return
     end
-    local x = 160 + kit.width(kit.ellipsize(app.scene_sub or "", "ui14", 360), "ui14") + 16
+    local room = sub_room(app)
+    if app.n_sub then
+        gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub or "", "ui14", room))
+    end
+    local x = 160 + kit.width(kit.ellipsize(app.scene_sub or "", "ui14", room), "ui14") + 16
     local x0 = x
     for i = 1, pr.need do
         table.insert(app.pip_nodes, kit.dot(x + (i - 1) * 14 + 5, 41, 10, i <= pr.wins and theme.gold or kit.rgba("#ffffff", 0.18)))

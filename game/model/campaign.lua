@@ -320,6 +320,11 @@ function M:start_week()
     end
     self.night = nil
     self.report = nil
+    -- Every campaign starts at the tavern (October 17: one place to start keeps the first night
+    -- simple): the first session's stop 1 is the Kettle when the board opens. It can still move.
+    if self.week == 1 and content.components.tavern and not self.prep.scenes[1].slots.location then
+        self.prep:place(1, "tavern")
+    end
     return self.prep
 end
 

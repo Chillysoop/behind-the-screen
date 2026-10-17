@@ -774,7 +774,7 @@ function M.pacing(scenes, players)
         types[i] = s.type
     end
     if not (types[1] and types[2] and types[3]) then
-        table.insert(out.warnings, "Pick a type for every scene to see the full curve.")
+        table.insert(out.warnings, "Pick a type for every stop to see the full curve.")
         return out
     end
     local t1, t2, t3 = out.tensions[1], out.tensions[2], out.tensions[3]
