@@ -34,7 +34,8 @@ return {
         location = "You never decided where this happens. Everyone is looking at you.",
         cast = "They want to talk to someone. You haven't written anyone.",
         goal = "'So... what are we doing here?' asks {lowest}.",
-        complication = "It's going too smoothly. You need a twist, now.",
+        -- (Not "it's going too smoothly": it comes up before the first roll. The card-led playtest.)
+        complication = "Nothing's in their way yet. What could go wrong here?",
         reward = "They won. What do they get? You never wrote that down.",
     },
 

@@ -26,6 +26,7 @@ M.progression = require "game.data.progression"
 M.arc = require "game.data.arc"
 -- What the heroes do in a scene, and the checks they roll (real-session pass).
 M.actions = require "game.data.actions"
+M.goal_play = require "game.data.goal_play"   -- how the heroes play each goal card (October 16)
 -- More of what real players try (the slice rework, A12), appended to each scene type's list.
 for scene_type, list in pairs(require "game.data.actions_more") do
     M.actions[scene_type] = M.actions[scene_type] or {}

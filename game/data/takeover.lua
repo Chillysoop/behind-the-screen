@@ -75,4 +75,12 @@ M.BOSS_LOG = {
     closest = "{boss} swung at whoever was closest.",
 }
 
+-- The speech, for a boss with no lines of their own.
+M.GLOAT_LINES = {
+    "Is that all? I was told you were dangerous.",
+    "Look at you. Tired already, and I've barely started.",
+    "Go home. Tell them who beat you. Tell them slowly.",
+    "Every step you took to get here, I knew about.",
+}
+
 return M

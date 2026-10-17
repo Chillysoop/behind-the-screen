@@ -68,6 +68,7 @@ local function opens(campaign, ids)
     end
     return out
 end
+M.opens = opens
 
 -- The cards of a prepped scene, in slot order (an open scene's spots after its slots).
 function M.scene_cards(prep, i)
@@ -211,7 +212,7 @@ function M.card_items(campaign, prep, i, c, hinge)
         local d = storylines.def(campaign, id)
         local st = storylines.state(campaign, id)
         if d and d.ends and util.contains(d.ends, c.id) and not (st and (st.state == "resolved" or st.state == "ended")) then
-            add("resolve", "Win and " .. (d.short or d.name) .. " is tied off for good.", "good")
+            add("resolve", "Win and " .. util.lower_first(d.short or d.name) .. " is tied off for good.", "good")
         end
     end
     -- A front's card: winning holds it back a week.
@@ -683,7 +684,8 @@ function M.calls(campaign, prep)
     if sg and not (sg.pays and story.has_clue(campaign, sg.pays)) and not deck.is_spent(campaign, sg.id) then
         local empty = {}
         for i, s in ipairs(prep and prep.scenes or {}) do
-            if not (s.slots and s.slots.goal) and not s.module then
+            -- (A fight doesn't ask what they're there for: night.play_scene.)
+            if not (s.slots and s.slots.goal) and not s.module and s.type ~= "combat" and s.type ~= "set_piece" then
                 table.insert(empty, util.int(i))
             end
         end

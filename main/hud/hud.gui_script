@@ -65,6 +65,7 @@ end
 
 function on_message(self, message_id, message)
     if message_id == hash("game_mode") then
+        self.game_mode = message.on
         -- The game screens bring their own titles and hints.
         for _, n in ipairs(self.sandbox_nodes) do
             gui.set_enabled(n, not message.on)
@@ -74,6 +75,11 @@ function on_message(self, message_id, message)
             gui.set_color(n, i == message.index and GOLD or DIM)
         end
         gui.animate(self.vignette, "color.w", VIGNETTE[message.index] or 0.5, gui.EASING_INOUTSINE, 1.2)
+    elseif (message_id == hash("rolling") or message_id == hash("roll_result")) and self.game_mode then
+        -- In the game the die's number is on the hero's panel, the card and the strip: a big "d20 19"
+        -- and a "rolling..." beside the tray made six copies of one roll (the card-led playtest,
+        -- October 16). The sandbox keeps them.
+        return
     elseif message_id == hash("rolling") then
         gui.set_text(self.result_note, "rolling...")
         show(self.result_note, DIM, 5)

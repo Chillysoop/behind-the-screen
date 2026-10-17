@@ -495,6 +495,10 @@ return {
                                    effects = { { "actor", fun = 6, spotlight = 6 }, { "all", social = 4 } } },
                        fail = { log = "It hisses and vanishes into the dark.",
                                 effects = { { "actor", fun = -2 }, { "all", story = 2 } } } } },
+            -- The way back to the card (the second card-led playtest, October 17).
+            { label = "Not now. The job first: {goal}.",
+              log = "'It'll still be here later.' {actor_char} sulks for a minute, then gets back to it.",
+              effects = { { "actor", fun = -2 }, { "arch:tactician", fun = 2 }, { "all", story = 2 } } },
         },
     },
 
@@ -509,9 +513,10 @@ return {
             { label = "Let them split and cut between them.",
               log = "You cut back and forth like a heist movie.",
               effects = { { "arch:explorer", fun = 5 }, { "arch:method_actor", fun = 3 }, { "all", boredom = 3 } } },
-            { label = "Something makes them regroup.",
-              log = "A scream from up ahead. Everyone runs the same way.",
-              effects = { { "all", challenge = 4 }, { "arch:tactician", fun = 2 }, { "arch:explorer", fun = -2 } } },
+            -- The way back to the card (the card-led playtest, October 16: none of the three named it).
+            { label = "Steer them back: {goal}.",
+              log = "You give it a minute, then remind them why they're here. They regroup.",
+              effects = { { "all", story = 3 }, { "arch:tactician", fun = 2 }, { "arch:explorer", fun = -2 } } },
             { label = "Call a vote at the table.",
               log = "Hands go up. {actor_char}'s way wins, narrowly.",
               effects = { { "all", social = 4 }, { "arch:casual", fun = 3 } } },

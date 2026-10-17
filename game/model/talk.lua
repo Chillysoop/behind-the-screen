@@ -12,7 +12,7 @@ M.__index = M
 local RECENT = 60
 
 function M.new(rng, lib)
-    return setmetatable({ rng = rng, lib = lib or content.dialogue, recent = {}, order = {} }, M)
+    return setmetatable({ rng = rng, lib = lib or content.dialogue, recent = {}, order = {}, openers = {} }, M)
 end
 
 -- Who's at the table: lines that name someone only play when they're here.
@@ -97,18 +97,24 @@ function M:line(trigger, p, vars)
         end
     end
     local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
-                  present = self.present, chars = self.chars,
+                  present = self.present, chars = self.chars, openers = self.openers,
                   first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
         -- Some things always get said (a warning before someone takes a break), even if it's a repeat.
         ctx.recent = nil
+        ctx.openers = nil
         l = self.lib:pick(trigger, p.key, ctx)
     end
     if not l then
         return nil
     end
     self:remember(l.id)
+    -- Two people asking "Is there more soda?" in one night is one too many (the card-led playtest,
+    -- October 16): a line that opens like one said tonight waits for another night.
+    if self.lib.opener then
+        self.openers[self.lib.opener(l.text)] = true
+    end
     return fill(l.text, p, vars), l
 end
 

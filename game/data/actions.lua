@@ -140,7 +140,7 @@ return {
           say = "Nobody touch anything. Let me look at the room first.",
           win = "The timeline is starting to make sense.",
           lose = "A red herring. A very convincing one." },
-        { skill = "insight", cast = true,
+        { skill = "insight", cast = true, suspect = true,      -- (not after the DM played them telling the truth)
           say = "They're lying. Watch their eyes when they answer.",
           win = "{char} is right: {cast}'s story doesn't hold.",
           lose = "{char} could swear {cast} {is|are} telling the truth. Wrong." },

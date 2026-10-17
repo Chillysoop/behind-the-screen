@@ -55,6 +55,7 @@ local CARD_BOTTOM = 760
 -- you'd read to the table, so it stays a plain caption (playtest, October 13).
 local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, twist = true, seed = true }
 local LOG_X, LOG_Y, LOG_W, LOG_H = 24, 70, 520, 690
+local STRIP_LABEL = "This scene's rolls  (? = behind your screen)"
 local STRIP_RIGHT, STRIP_Y, DIE = 1576, 66, 30
 
 local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
@@ -205,8 +206,12 @@ function M.start(app)
     app.last_roll = {}
     app.chip_pose = {}
     app.clock_t = 0
-    app.scene_label = "Everyone's here. Dice out."
-    app.scene_sub = "Getting settled"
+    -- (Not the model's first line: the card-led playtest, October 16, read "Everyone's here. Dice
+    -- out." three times at once, in the header, the log and the caption.)
+    app.scene_label = "Before the first scene"
+    app.scene_sub = ""
+    app.scene_has_goal = nil
+    app.keys_hidden = nil
     app.progress = nil
     app.hp = {}
     app.in_battle = false
@@ -293,8 +298,13 @@ function M.draw_frame(app)
         end
     end, { font = "ui14", key = "night_stories" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  1-4 camera or options", "ui14", theme.faint,
-        { pivot = gui.PIVOT_NE })
+    -- The keys: until the second scene (the card-led playtest, October 16: one more line nobody read
+    -- after the first scene).
+    app.n_keys = nil
+    if not app.keys_hidden then
+        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  1-4 camera or options", "ui14",
+            theme.faint, { pivot = gui.PIVOT_NE })
+    end
     -- What the counters are (the newcomer playtest, October 16: "Calls 0", "Your rolls: hidden").
     gloss.card_spot(1040, 4, 536, 24, "The evening at a glance",
         "The time at the table, and when you said you'd stop. Calls: the decisions you've made tonight. Speed: "
@@ -322,7 +332,9 @@ function M.draw_goal(app)
     app.goal_nodes = {}
     local lore = require "game.model.lore"
     local obj = lore.objective(app.campaign, nil, true)
-    if not obj then
+    -- A scene with a goal says what it's for under its name: the week's goal beside it made three
+    -- aims on screen at once (the card-led playtest, October 16).
+    if not obj or app.scene_has_goal then
         return
     end
     local sub = kit.ellipsize(app.scene_sub or "", "ui14", 360)
@@ -372,8 +384,9 @@ function M.refresh_hp(app)
     battle_hud.refresh(app)
 end
 
--- Dice strip: every d20 rolled tonight, newest on the right. The DM's own rolls show
--- as a face-down "?" while they stay behind the screen.
+-- Dice strip: every d20 rolled this scene, newest on the right (it was the whole night, and by
+-- the second scene it buried its own label: the card-led playtest, October 16). The DM's own
+-- rolls show as a face-down "?" while they stay behind the screen.
 function M.add_die(app, d)
     table.insert(app.strip, d)
     if #app.strip > 40 then
@@ -395,7 +408,7 @@ function M.draw_strip(app)
     if n > 0 then
         -- What the strip is (A7).
         local left = STRIP_RIGHT - n * (DIE + 4)
-        local label = "Rolls tonight  (? = behind your screen)"
+        local label = STRIP_LABEL
         local lnode
         if app.in_battle and left - 8 - kit.width(label, "ui14") < 1060 then
             lnode = kit.text(STRIP_RIGHT - 4, STRIP_Y + DIE + 4, label, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
@@ -404,8 +417,8 @@ function M.draw_strip(app)
         end
         table.insert(app.strip_nodes, lnode)
         -- One spot, kept across redraws (a roll redraws the strip), over the dice and their label.
-        local lx = app.in_battle and (STRIP_RIGHT - kit.width("Rolls tonight  (? = behind your screen)", "ui14") - 8)
-            or (left - 8 - kit.width("Rolls tonight  (? = behind your screen)", "ui14"))
+        local lx = app.in_battle and (STRIP_RIGHT - kit.width(STRIP_LABEL, "ui14") - 8)
+            or (left - 8 - kit.width(STRIP_LABEL, "ui14"))
         local x0 = math.min(lx, left - 4)
         local rect = { x0, STRIP_Y - 4, STRIP_RIGHT + 4 - x0, DIE + 8 + (app.in_battle and 22 or 0) }
         local sp = app.strip_spot
@@ -413,8 +426,8 @@ function M.draw_strip(app)
             sp.rect = rect
         else
             kit.unspot(sp)
-            app.strip_spot = gloss.card_spot(rect[1], rect[2], rect[3], rect[4], "Rolls tonight",
-                "Every d20 rolled tonight, newest on the right. Green worked, red didn't, gold is a natural 20 (or a "
+            app.strip_spot = gloss.card_spot(rect[1], rect[2], rect[3], rect[4], "This scene's rolls",
+                "Every d20 rolled this scene, newest on the right. Green worked, red didn't, gold is a natural 20 (or a "
                 .. "big roll still being decided), purple is yours for the monsters. A grey ? was rolled behind your "
                 .. "screen: only you saw it.")
         end
@@ -472,12 +485,15 @@ function M.draw_pips(app)
     -- said nothing about what they were doing to it until the scene's end).
     local lx = x + pr.max * 14 + 8
     local word, col, short
-    if pr.wins >= pr.need then
-        word, short, col = "last roll: easier (DC -2)", "last roll: easier", theme.green
-    elseif pr.setbacks >= pr.max then
-        word, short, col = "last roll: harder (DC +2)", "last roll: harder", theme.red
+    -- (A warm word from someone in the scene counts too: the second playtest, October 17, saw
+    -- "normal" straight after the card promised "easier".)
+    local edge = ((pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)) + (pr.lead and -2 or 0)
+    if edge < 0 then
+        word, short, col = "final roll: easier (DC " .. util.int(edge) .. ")", "final roll: easier", theme.green
+    elseif edge > 0 then
+        word, short, col = "final roll: harder (DC +" .. util.int(edge) .. ")", "final roll: harder", theme.red
     else
-        word, short, col = "last roll: no change yet", "last roll: normal", theme.dim
+        word, short, col = "final roll: normal", "final roll: normal", theme.dim
     end
     if lx + kit.width(word, "ui14") > 760 then
         word = short
@@ -488,9 +504,9 @@ function M.draw_pips(app)
         app.pips_label_w = 8 + lw
     end
     gloss.card_spot(x0 - 2, 32, x + pr.max * 14 - x0 + 4 + app.pips_label_w, 18, "How the scene is going",
-        "Gold dots: good moments. Fill every gold dot and the scene's last roll gets easier (DC -2). Red dots: "
-        .. "setbacks. Fill every red one first and it gets harder (DC +2). The words beside the dots say where "
-        .. "it stands right now.", nil, app.pip_nodes[1])
+        "Gold dots: good moments. Fill every gold dot and the scene's final roll gets easier (DC -2). Red dots: "
+        .. "setbacks. Fill every red one first and it gets harder (DC +2). Someone in the scene telling them where "
+        .. "to look makes it 2 easier again. The words beside the dots say where it stands right now.", nil, app.pip_nodes[1])
     M.draw_goal(app)    -- moves along to make room
 end
 
@@ -554,18 +570,26 @@ function M.draw_log_now(app)
     else
         -- The last few lines, small and fading, out of the way of the table. Long lines wrap
         -- (nothing gets cut); older ones drop off the top.
+        -- Only what nothing else on screen said: a line that was a caption, a speech bubble, a card
+        -- or a note is in the open log (Tab), not here (the card-led playtest, October 16: the log
+        -- repeated every caption word for word, at the same moment).
         local lines = {}
-        for i = #app.log, 1, -1 do
+        local age = 0
+        -- (Forty lines back is another moment: an aside from the last scene isn't news now.)
+        for i = #app.log, math.max(1, #app.log - 40), -1 do
             local e = app.log[i]
-            local wrapped = kit.wrap(e.text, "ui14", 446)
-            if #lines + #wrapped > 5 and #lines > 0 then
-                break
-            end
-            for k = #wrapped, 1, -1 do
-                table.insert(lines, 1, { text = wrapped[k], style = e.style, age = #app.log - i })
-            end
-            if #lines >= 5 then
-                break
+            if not e.shown then
+                local wrapped = kit.wrap(e.text, "ui14", 446)
+                if #lines + #wrapped > 5 and #lines > 0 then
+                    break
+                end
+                for k = #wrapped, 1, -1 do
+                    table.insert(lines, 1, { text = wrapped[k], style = e.style, age = age })
+                end
+                age = age + 1
+                if #lines >= 5 then
+                    break
+                end
             end
         end
         local y = LOG_Y + 8
@@ -580,9 +604,10 @@ function M.draw_log_now(app)
     end
 end
 
-function M.push(app, text, style)
-    -- The log keeps the whole night (the fix pass); scrolled back, the view stays put.
-    table.insert(app.log, { text = text, style = style })
+function M.push(app, text, style, shown)
+    -- The log keeps the whole night (the fix pass); scrolled back, the view stays put. shown: the
+    -- line is on screen already (a caption, a bubble, a card), so only the open log has it.
+    table.insert(app.log, { text = text, style = style, shown = shown or nil })
     if (app.log_scroll or 0) > 0 then
         app.log_scroll = app.log_scroll + 1
     end
@@ -679,7 +704,7 @@ function M.draw_caption(app)
     -- A read-aloud passage (A9) is a boxed passage of its own: parchment, a gold rule down its
     -- left side, a small "Read aloud" tag, and the text large and set left.
     c.rule = kit.box(0, 0, 6, 40, theme.gold, { round = false })
-    c.tag = kit.text(0, 0, "READ ALOUD", "ui14", theme.ink_dim)
+    c.tag = kit.text(0, 0, "READ ALOUD      Space: next", "ui14", theme.ink_dim)   -- (the second playtest: "is it waiting for me?")
     c.text = kit.text(0, 0, "", "story22", theme.text, { pivot = gui.PIVOT_N })
     c.life, c.age, c.color = 0, 0, theme.text
     for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
@@ -893,6 +918,12 @@ function M.scene_card(app, ev)
         local first = kit.ellipsize("Found: " .. found[1], "ui14", (SIDE_W - 32) * 2 - 30 - kit.width(more, "ui14"))
         table.insert(rows, { first .. more, theme.text })
     end
+    -- What the lore screen said this scene would open, now that it has (the card-led playtest,
+    -- October 16: "joins your hand next session" was promised, and never mentioned again).
+    if ev.opens and #ev.opens > 0 then
+        table.insert(rows, { "Next session: " .. util.join_names(ev.opens) .. (#ev.opens == 1 and " joins" or " join")
+            .. " your hand.", theme.gold })
+    end
     -- A fight scene: the fight's card is still up, so this one carries what it said (the re-test,
     -- October 16: the fight card was gone two seconds after it came up).
     local fight = app.side and app.side.fight and app.last_fight
@@ -920,7 +951,7 @@ function M.scene_card(app, ev)
     M.side_card(app, top, ev.title or "", rows, fight and 18 or 13)
     M.push(app, "Scene " .. util.int(ev.index) .. " done: " .. (ev.goal and (ev.goal .. ", " .. (won and "made it" or "not this time"))
         or (won and "it went their way" or "it went against them")) .. ". " .. (words ~= "" and ("The table: " .. words .. ".") or ""),
-        won and "good" or "system")
+        won and "good" or "system", true)
 end
 
 
@@ -940,7 +971,7 @@ function M.fight_card(app, sm)
         table.insert(parts, r[1])
     end
     M.push(app, "Fight over after " .. string.lower(rounds) .. ": " .. string.lower(string.sub(title, 1, 1)) .. string.sub(title, 2)
-        .. " " .. table.concat(parts, " "), sm.how == "lost" and "bad" or "good")
+        .. " " .. table.concat(parts, " "), sm.how == "lost" and "bad" or "good", true)
 end
 
 -- What each hero did in the fight, and who was beaten or ran: rows for a side card.
@@ -1832,19 +1863,36 @@ function M.handle(app, ev)
     end
     if k == "scene" then
         app.scene_found, app.scene_hinge = {}, nil
+        app.scene_has_goal = ev.goal ~= nil
+        -- This scene's rolls only (the card-led playtest, October 16: last scene's dice stayed up), and
+        -- last scene's card goes (the second playtest, October 17: it was still up under the new
+        -- scene's title).
+        app.strip = {}
+        M.draw_strip(app)
+        M.drop_side(app)
+        if panels.clear_rolls then
+            panels.clear_rolls(app)
+        end
+        if (ev.index or 1) >= 2 and not app.keys_hidden then
+            app.keys_hidden = true
+            if app.n_keys then
+                gui.set_enabled(app.n_keys, false)
+            end
+        end
+        app.scene_type_name = ev.type_name
         app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
-        app.scene_sub = (ev.type_name or "") .. who
+        -- What the scene is for, under its name (the card-led night, October 16).
+        app.scene_sub = ev.goal and ((ev.type_name or "") .. ": " .. util.lower_first(ev.goal)) or ((ev.type_name or "") .. who)
         gui.set_text(app.n_label, kit.ellipsize(app.scene_label, "ui18b", 600))
         gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
         app.progress = nil
         M.draw_pips(app)
         M.draw_goal(app)
-        M.push(app, app.scene_label .. "  (" .. app.scene_sub .. ")", "scene")
+        M.push(app, app.scene_label .. "  (" .. app.scene_sub .. ")", "scene", true)
+        -- (The goal is under the scene's name in the header, right above: the title card says where
+        -- and who.)
         local sub = (ev.type_name or "") .. who
-        if ev.goal then
-            sub = sub .. "   Goal: " .. util.lower_first(ev.goal)
-        end
         M.title(app, "SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. (ev.story and "   -   THIS WEEK'S STORY" or ""),
             ev.title, sub)
         stage(app, ev)
@@ -1861,11 +1909,12 @@ function M.handle(app, ev)
         app.cine_i = 1
         M.show_cinematic(app, ev)
     elseif k == "narrate" then
-        -- A DM-only aside goes to the log, never the big caption (A2).
-        if ev.style ~= "aside" then
+        -- A DM-only aside goes to the log, never the big caption (A2). A record (what a card or a die
+        -- already showed: "Thessaly rolls a 19, +5: 24") is for the open log only.
+        if ev.style ~= "aside" and ev.style ~= "record" then
             M.caption(app, ev.text, ev.style)
         end
-        M.push(app, ev.text, ev.style)
+        M.push(app, ev.text, ev.style == "record" and "dice" or ev.style, ev.style ~= "aside")
     elseif k == "intro" then
         -- First-session intros: their mini goes down on the mat and lights up while they talk.
         while app.bubbles and #app.bubbles > 0 do
@@ -1879,7 +1928,7 @@ function M.handle(app, ev)
             spark(app, ev.who, SPARK.crit)
         end)
         M.title(app, "MEET THE PARTY   " .. util.int(ev.index) .. " OF " .. util.int(ev.total), ev.char, ev.sub or "")
-        M.push(app, "Meet " .. ev.char .. " (" .. (ev.sub or "") .. ").", "scene")
+        M.push(app, "Meet " .. ev.char .. " (" .. (ev.sub or "") .. ").", "scene", true)
         post("pose", { who = ev.who, pose = "cheer", hold = true })
         panels.pose(app, ev.who, "cheer")
         cam(app, 2)
@@ -1896,7 +1945,7 @@ function M.handle(app, ev)
             M.float(app, ev.who, ev.gift and ("The dice you gave: " .. (ev.name or "")) or ("New dice! " .. (ev.name or "")),
                 theme.gold)
             M.push(app, ev.gift and (p.name .. " brought the dice you gave them: " .. (ev.name or "") .. ".")
-                or (p.name .. " shows off a new set of dice: " .. (ev.name or "") .. "."), "reaction")
+                or (p.name .. " shows off a new set of dice: " .. (ev.name or "") .. "."), "reaction", true)
         end
         if app.tumble_die then
             app.tumble_die(ev.who, 20)
@@ -1944,17 +1993,30 @@ function M.handle(app, ev)
         -- B2: the die that rolled a 1 goes to dice jail, to the table's delight.
         local p = player(app, ev.who)
         if p then
-            M.push(app, p.name .. "'s d20 goes to dice jail.", "reaction")
+            M.push(app, p.name .. "'s d20 goes to dice jail.", "reaction", true)
             M.float(app, ev.who, "Dice jail!", theme.orange)
         end
         post("pose", { who = ev.who, pose = "laugh", hold = true })
         if app.jail_die then
             app.jail_die(ev.who)
         end
+    elseif k == "scene_goal" then
+        -- An improvised goal: the header says it too.
+        app.scene_has_goal = true
+        app.scene_sub = (app.scene_type_name or "Scene") .. ": " .. util.lower_first(ev.goal or "")
+        if app.n_sub then
+            gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
+        end
+        M.draw_pips(app)
+        M.draw_goal(app)
+    elseif k == "progress" then
+        -- A mid-scene big roll moved the dots too (the card-led playtest: a triumph left them be).
+        app.progress = ev.progress
+        M.draw_pips(app)
     elseif k == "clue" then
         -- The party learned something: it goes in the DM's notes.
         M.toast(app, "NEW IN YOUR NOTES", ev.text)
-        M.push(app, "Noted: " .. ev.text, "clue")
+        M.push(app, "Noted: " .. ev.text, "clue", true)
         app.scene_found = app.scene_found or {}
         table.insert(app.scene_found, ev.text)
         if ev.hinge then
@@ -1974,7 +2036,7 @@ function M.handle(app, ev)
         else
             M.caption(app, ev.name .. ": \"" .. ev.text .. "\"", "quote")
         end
-        M.push(app, ev.name .. ": \"" .. ev.text .. "\"", "quote")
+        M.push(app, ev.name .. ": \"" .. ev.text .. "\"", "quote", true)
         review.on_line(app, ev)
     elseif k == "say" then
         local p = player(app, ev.who)
@@ -1991,7 +2053,7 @@ function M.handle(app, ev)
             end
         end
         M.bubble(app, anchor, speaker, ev.text, ev.ic)
-        M.push(app, speaker .. ": \"" .. ev.text .. "\"", ev.ic and "quote" or "reaction")
+        M.push(app, speaker .. ": \"" .. ev.text .. "\"", ev.ic and "quote" or "reaction", true)
         review.on_line(app, ev)
     elseif k == "react" then
         for who, pose in pairs(ev.poses or {}) do
@@ -2004,10 +2066,12 @@ function M.handle(app, ev)
             app.progress = ev.progress
             M.draw_pips(app)
         end
-        -- The DM calls the check; the player rolls it (their panel's die tumbles and lands).
+        -- The DM calls the check; the player rolls it (their panel's die tumbles and lands). What they
+        -- try is their own line, just before; the numbers are on their panel's die. (A caption
+        -- calling the roll stayed up while the result was already showing: the card-led playtest,
+        -- October 16, counted five copies of every roll.)
         local total = ev.total or (ev.roll + (ev.bonus or 0))
-        M.caption(app, (ev.char or "") .. ", roll " .. (ev.skill_name or "it") .. ". DC " .. util.int(ev.dc or 0) .. ".", "check")
-        M.push(app, ev.text, ev.crit and "good" or (ev.fumble and "bad" or "check"))
+        M.push(app, ev.text, ev.crit and "good" or (ev.fumble and "bad" or "check"), true)
         post("pose", { who = ev.actor, pose = "think", hold = true })
         panels.pose(app, ev.actor, "think")
         -- They roll it themselves (A9): a quick tumble in their own tray.
@@ -2022,9 +2086,8 @@ function M.handle(app, ev)
         local label = ev.crit and "Natural 20!" or (ev.fumble and "Natural 1" or (ev.success and "Success" or "Miss"))
         local color = ev.crit and theme.gold or (ev.success and theme.green or theme.red)
         schedule(app, 0.8, function()
-            -- "Natural 1  8" read as "Natural 18": say which number is the total.
-            M.float(app, ev.actor, label .. ((ev.crit or ev.fumble) and (" (total " .. util.int(total) .. ")")
-                or ("  " .. util.int(total))), color, ev.crit or ev.fumble)
+            -- The word only: the number is on their panel's die.
+            M.float(app, ev.actor, label, color, ev.crit or ev.fumble)
             if ev.crit then
                 spark(app, ev.actor, SPARK.crit)
             end
@@ -2068,7 +2131,7 @@ function M.handle(app, ev)
             M.caption(app, "Roll for initiative!  " .. util.int(n) .. (n == 1 and " foe" or " foes")
                 .. (ev.danger and ("  (" .. ev.danger .. ")") or ""), "warn")
             M.push(app, "A fight! " .. util.int(n) .. (n == 1 and " foe" or " foes") .. (ev.danger and (", " .. ev.danger) or "")
-                .. (ev.srd and (". SRD says " .. ev.srd) or "") .. ".", "warn")
+                .. (ev.srd and (". SRD says " .. ev.srd) or "") .. ".", "warn", true)
             M.refresh_hp(app)
             cam(app, 2)
         else
@@ -2110,7 +2173,7 @@ function M.handle(app, ev)
             local p = player(app, say.who)
             local name = p and (say.ic and p.char or p.name) or "Someone"
             M.bubble(app, { head = say.who }, name, say.text, say.ic)
-            M.push(app, name .. ": \"" .. say.text .. "\"", say.ic and "quote" or "reaction")
+            M.push(app, name .. ": \"" .. say.text .. "\"", say.ic and "quote" or "reaction", true)
             review.on_line(app, say)
         end
         if say and say.at ~= "end" then
@@ -2139,12 +2202,12 @@ function M.handle(app, ev)
         if ev.by == "player" and p then
             -- The player throws the d20 themselves, in front of everyone.
             M.caption(app, p.name .. " rolls the d20 for " .. p.char .. "'s " .. (ev.skill_name or "check") .. "...", "dice")
-            M.push(app, p.name .. " rolls " .. (ev.skill_name or "the check") .. ".", "dice")
+            M.push(app, p.name .. " rolls " .. (ev.skill_name or "the check") .. ".", "dice", true)
             post("pose", { who = p.key, pose = "lean", hold = true })
             panels.pose(app, p.key, "lean")
         else
             M.caption(app, ev.where == "open" and "You roll the d20 where everyone can see it..." or "You roll the d20 behind your screen...", "dice")
-            M.push(app, ev.where == "open" and "You roll in the open." or "You roll behind the screen.", "dice")
+            M.push(app, ev.where == "open" and "You roll in the open." or "You roll behind the screen.", "dice", true)
         end
         -- Into the right tray (A9): theirs at their seat, or yours, in the open or behind the screen.
         local tray = (ev.by == "player" and p) and p.key or (ev.where == "hidden" and "dm_hidden" or "dm_open")
@@ -2628,12 +2691,19 @@ function M.draw_modal(app, ev, instant)
         slide = 0
     elseif ev.kind == "ruling" then
         local x, w = left_x(app), LEFT_W
+        -- The die's on this card now: "Mara rolls the d20..." has had its moment (the second card-led
+        -- playtest, October 17: the roll was on five things at once).
+        local cap = app.caption
+        if cap and cap.style == "dice" and (cap.life or 0) > 0 then
+            cap.age = math.max(cap.age or 0, cap.life)
+        end
         local prompt_h = kit.text_height(ev.prompt or "", "ui18", w - 40)
         local total = ev.total or ev.value or 0
         local shown
         if ev.by ~= "dm" then
-            shown = (ev.char or "They") .. " rolled " .. util.int(ev.value or 0) .. " + " .. util.int(ev.mod or 0) .. " = "
-                .. util.int(total) .. (ev.skill_name and (" " .. ev.skill_name) or "") .. " against DC " .. util.int(ev.dc or 0) .. "."
+            local mod = ev.mod or 0
+            shown = (ev.char or "They") .. " rolled " .. util.int(ev.value or 0) .. (mod < 0 and " - " or " + ") .. util.int(math.abs(mod))
+                .. " = " .. util.int(total) .. (ev.skill_name and (" " .. ev.skill_name) or "") .. " against DC " .. util.int(ev.dc or 0) .. "."
         else
             shown = (ev.where == "hidden" and "Behind the screen: " or "On the table: ") .. "the die says "
                 .. util.int(ev.value or 0) .. " (" .. util.int(total) .. "), DC " .. util.int(ev.dc or 0) .. "."
@@ -2645,6 +2715,10 @@ function M.draw_modal(app, ev, instant)
             if (ev.cooks or 0) > 0 then
                 shown = shown .. " You've cooked " .. util.int(ev.cooks) .. (ev.cooks == 1 and " roll" or " rolls") .. " tonight."
             end
+        end
+        -- The scene's final roll stays the final roll, for its goal, on the card that rules on it.
+        if ev.final and ev.final.goal then
+            shown = "The scene's final roll: " .. ev.final.goal .. ". " .. shown
         end
         local shown_h = kit.text_height(shown, "ui18b", w - 40)
         local labels, h = {}, 106 + shown_h + prompt_h + 34
@@ -2659,7 +2733,8 @@ function M.draw_modal(app, ev, instant)
         h = h + 10 + 22 + (app.pending_left and 34 or 0)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
-        badge(x + 20, y + 18, ev.by == "dm" and "SECRET CHECK" or "BIG ROLL", theme.decision.screen)
+        badge(x + 20, y + 18, ev.by == "dm" and "SECRET CHECK" or (ev.final and "THE SCENE'S FINAL ROLL" or "BIG ROLL"),
+            theme.decision.screen)
         kit.text(x + 20, y + 52, TIER_TITLE[ev.tier] or "How does it land?", "title30", theme.ink, { w = w - 40 })
         kit.text(x + 20, y + 98, shown, "ui18b", theme.ink_dim, { w = w - 40 })
         kit.text(x + 20, y + 106 + shown_h, ev.prompt or "", "ui18", theme.ink, { w = w - 40 })
@@ -2706,7 +2781,8 @@ function M.draw_modal(app, ev, instant)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
         local player_roll = ev.by ~= "dm"
-        badge(x + 20, y + 18, player_roll and "BIG ROLL" or "SECRET CHECK", theme.decision.screen)
+        badge(x + 20, y + 18, player_roll and (ev.final and "THE SCENE'S FINAL ROLL" or "BIG ROLL") or "SECRET CHECK",
+            theme.decision.screen)
         kit.text(x + 20, y + 52, player_roll and "Set the DC" or "Where do you roll it?", "title30", theme.ink)
         kit.text(x + 20, y + 96, ev.text or "", "ui18", theme.ink, { w = w - 40 })
         if ev.promise then
@@ -2852,7 +2928,7 @@ function M.draw_improv(app, ev)
     end
     kit.text(bx + 16, by + 8, verdict, "ui18b", vcolor)
     local hint = app.pending_left and ("Timer (T): " .. util.int(math.ceil(math.max(0, app.pending_left))) .. "s, then your best card")
-        or "Tip: two cards that fit beat three that don't."
+        or ""      -- (the rule is under the prompt already: the second playtest, October 17, read it twice)
     app.timer_bar = nil
     local hint_node = kit.text(bx + 16, by + 32, hint, "ui14", theme.faint)
     if app.pending_left then

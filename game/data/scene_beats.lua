@@ -58,26 +58,23 @@ return {
                      skill = { "performance", "acrobatics", "athletics" },
                      success = { log = "They pull it off. Legendary.", effects = { { "actor", spotlight = 8, fun = 3 }, { "all", social = 4 } } },
                      fail = { log = "It goes wrong in the funniest possible way.", effects = { { "all", social = 4 }, { "actor", fun = 1 } } } },
-        complication = { text = "{actor_char} tries to handle it: {complication}.", dc = 13,
+        -- (Not "tries to handle it: <the card's name>": the card-led playtest, October 16.)
+        complication = { text = "{Complication}. {actor_char} has to deal with it, now.", dc = 13,
                          skill = { "athletics", "acrobatics", "insight" },   -- unless the complication names its own
                          success = { log = "Handled. Barely, but handled.", big = "Handled, and handsomely.", effects = { { "actor", spotlight = 8 }, { "all", challenge = 3 } } },
                          fail = { log = "It gets away from them. The scene just got harder.", effects = { { "all", challenge = 7, story = 2 } } } },
     },
 
-    -- The bridge at the end of every scene but the last (A2): what they got, and where they
-    -- go next. {got}/{Got} what they won, {next} the next scene's place (or its goal), {here}.
-    -- Between scenes. got: a reward they carry off; goal: what they did ("the relic, still safe");
-    -- won/lost: neither. The _here sets are for when the next place isn't settled yet (the DM
-    -- will make it up), so the line doesn't promise somewhere it can't name.
+    -- The bridge at the end of every scene but the last (A2): where they go next. {next} the next
+    -- scene's place (or its goal), {here}. What they won isn't said again: the scene's last line
+    -- and its card have it (the card-led playtest, October 16). won/lost/lead: how it went. The
+    -- _here sets are for when the next place isn't settled yet (the DM will make it up), so the
+    -- line doesn't promise somewhere it can't name.
     bridge = {
-        got = { "They walk away with {got}. Next: {next}.", "With {got} in hand, they make for {next}." },
-        goal = { "They come away with {got}, and on to {next}.", "{Got}. Next stop: {next}." },
         won = { "Done at {here}. Next: {next}.", "That's {here} settled. On to {next}.",
                 "They leave {here} better than they found it. Next: {next}." },
         lost = { "They come away from {here} with nothing but bruises. Next: {next}.", "Empty-handed, they head for {next}.",
                  "Not their night at {here}. On to {next}." },
-        got_here = { "They walk away from {here} with {got}.", "With {got} in hand, they leave {here} behind." },
-        goal_here = { "They come away from {here} with {got}.", "They leave {here} behind with {got}." },
         won_here = { "That's {here} settled.", "They leave {here} better than they found it." },
         lost_here = { "They come away from {here} with nothing but bruises.", "Not their night at {here}." },
         -- Lost, but they found something out there (the lore playtest, October 16: "nothing but
@@ -91,7 +88,8 @@ return {
     -- The heroes talking to each other, in character, between checks.
     -- The DM narrating fights (captions, not character dialogue). {tgt}, {round}.
     fight_captions = {
-        start = { "Roll initiative!", "Weapons out. Here we go.", "Everyone grab a d20." },
+        -- (Not "Roll initiative!": the fight's own caption says it next. The second playtest.)
+        start = { "Weapons out. Here we go.", "Here they come.", "Chairs scrape. Here we go." },
         round = { "Round {round}.", "Top of round {round}." },
         flee = { "{tgt} breaks and runs.", "{tgt} bolts for the trees." },
         party_win = { "The last one falls. Silence, then cheering.", "It's over. Everyone breathes out." },

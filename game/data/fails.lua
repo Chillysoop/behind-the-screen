@@ -95,11 +95,11 @@ M.PROPS = {
 
 -- Costs a costly success names (one is picked and filled in).
 M.COSTS = {
-    "{char}'s pack strap snaps and half of it rolls away",
+    "a pack strap snaps and half of it rolls away",
     "the noise brings company",
     "it takes the last of the lamp oil",
-    "{char} turns an ankle doing it",
-    "{char}'s lucky charm doesn't survive it",
+    "someone turns an ankle doing it",
+    "a lucky charm doesn't survive it",
     "it takes an hour nobody had",
 }
 
@@ -170,10 +170,10 @@ M.LINES = {
             { "{char}'s pitch fails, but the reaction tells them exactly what {cast} {is|are} afraid of.", cast = true },
         },
         move = {
-            { "{char} doesn't make the jump, but the fall lands them on the ledge below, by a door nobody mentioned." },
+            { "{char} doesn't make the jump, but the fall lands them on the ledge below, by a door nobody mentioned.", inside = true },
             { "The climb fails halfway, and from halfway {char} can see where the path really goes." },
             { "{char} is spotted, runs, and the only way to run is the way they needed to go." },
-            { "The lock wins. The hinges, it turns out, were never fixed." },
+            { "The lock wins. The hinges, it turns out, were never fixed.", inside = true },
             { "{char} slips, grabs {prop}, and {prop} turns out to be a lever." },
             { "They don't get past quietly. They get past loudly, and now everyone's looking the wrong way." },
             { "{char} can't force it. But the noise draws out whoever was hiding behind it." },
@@ -213,7 +213,7 @@ M.LINES = {
         },
         move = {
             { "{char} makes it, and {cost}." },
-            { "Over the wall, and the wall comes with them, loudly." },
+            { "Over the wall, and the wall comes with them, loudly.", inside = true },
             { "They get through. {prop} doesn't." },
             { "{char} lands the jump and leaves a boot behind on the other side." },
             { "Quiet enough to get in. Not quiet enough to get out the same way." },
@@ -232,7 +232,7 @@ M.LINES = {
             { "{char} identifies the poison by tasting it. Correctly. Mostly." },
             { "The tracks are clear now, and so is the fact that whatever made them is very big." },
             { "{char} figures out the mechanism and loses a fingernail to it." },
-            { "They find the hidden door, and {cost}." },
+            { "They find the hidden door, and {cost}.", inside = true },
             { "{char} remembers the old story, and the part where the heroes in it don't come back." },
         },
     },
@@ -256,7 +256,7 @@ M.LINES = {
         },
         move = {
             { "{char} falls, and the noise of it wakes the whole of {place}." },
-            { "The ledge goes, and {char} with it. They catch the edge. For now." },
+            { "The ledge goes, and {char} with it. They catch the edge. For now.", inside = true },
             { "Spotted. Not by a guard, by the thing guards are afraid of." },
             { "{char} slips, and {prop} goes over with them, along with any hope of quiet." },
             { "The door bursts open on the wrong side, into a room full of the wrong people.", inside = true },
@@ -297,12 +297,15 @@ M.LINES = {
             { "Almost. {other_char} catches {char}'s eye: one more try." },
         },
         move = {
-            { "Fingertips on the ledge, and then not. Next time they'll have it." },
+            -- (Doors, locks, walls and ledges only where there are some: the second card-led playtest,
+            -- October 17, got a ledge and a door on a forest road.)
+            { "Fingertips on the ledge, and then not. Next time they'll have it.", inside = true },
             { "{char} gets three steps from the door before the floorboard creaks.", inside = true },
             { "Just short. {char} knows the distance now." },
-            { "The lock nearly gives. {char} can feel the last pin." },
+            { "The lock nearly gives. {char} can feel the last pin.", inside = true },
             { "{char} slips at the top, but grabs {prop} and hangs on." },
-            { "Seen, almost: the guard looks right at {char}, and decides it was a cat." },
+            -- (Someone has to be there to look: "the guard" in a storm on a forest road, the card-led playtest.)
+            { "Seen, almost: {cast} {looks|look} right at {char}, and {decides|decide} it was a cat.", cast = true },
             { "The rope burns through {char}'s hands, and holds, just." },
             { "{char} trips a step from the finish. Everyone saw how close it was." },
             { "Not quite through. {char} found the gap, though." },

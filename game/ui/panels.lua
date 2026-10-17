@@ -236,6 +236,22 @@ function M.roll(app, key, r)
     gui.set_text(chip.res, "")
 end
 
+-- A new scene: last scene's rolls come off the panels (the second card-led playtest, October 17:
+-- "Stealth 20 vs DC 14" stayed up deep into the next scene).
+function M.clear_rolls(app)
+    app.last_roll = {}
+    for _, chip in pairs(app.chips or {}) do
+        if chip.die then
+            chip.spin = nil
+            gui.set_color(chip.die, kit.rgba("#ffffff", 0.12))
+            gui.set_text(chip.num, "")
+            gui.set_text(chip.what, "no rolls yet")
+            gui.set_color(chip.what, theme.faint)
+            gui.set_text(chip.res, "")
+        end
+    end
+end
+
 local function result_color(r)
     if r.crit then
         return theme.gold
@@ -258,7 +274,10 @@ function M.show_roll(app, key, r, quiet)
     gui.set_text(chip.what, kit.ellipsize(r.what or "", "ui14", ROLL_W - 6))
     gui.set_color(chip.what, theme.text)
     local res
-    if r.total and r.mod and r.mod ~= 0 then
+    if r.total and r.mod and r.mod < 0 and not r.hidden then
+        -- (A die showing 14 beside a 13 read as a mistake: the second playtest. Say the minus.)
+        res = util.int(r.roll or 0) .. util.int(r.mod) .. "=" .. util.int(r.total)
+    elseif r.total and r.mod and r.mod ~= 0 then
         res = util.int(r.total)
     elseif r.total then
         res = util.int(r.total)

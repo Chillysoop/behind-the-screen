@@ -16,6 +16,12 @@ local storylines = require "game.model.storylines"
 local handouts = require "game.model.handouts"
 local content = require "game.model.content"
 
+-- How a fight starts, in the DM's words (game/data/scene_beats.lua).
+local FIGHT_START = {}
+for _, l in ipairs(content.scene_beats.fight_captions and content.scene_beats.fight_captions.start or {}) do
+    FIGHT_START[l] = true
+end
+
 local ok_all = true
 local function check(cond, what, detail)
     print(string.format("  [%s] %s  -  %s", cond and "PASS" or "FAIL", what, detail or ""))
@@ -44,8 +50,7 @@ for _, dmk in ipairs({ "careful", "plain", "careless" }) do
                 fallen[f.char] = true
             end
             bots.play_night(night, rng, dm, function(ev)
-                if ev.kind == "narrate" and ev.style == "dm" and (ev.text == "Roll initiative!" or ev.text == "Weapons out. Here we go."
-                    or ev.text == "Everyone grab a d20.") then
+                if ev.kind == "narrate" and ev.style == "dm" and FIGHT_START[ev.text] then
                     T.fights = T.fights + 1
                     if night.scene and night.scene.foes_said then
                         T.named = T.named + 1

@@ -268,6 +268,19 @@ local function needs_missing(l, missing)
     return false
 end
 
+-- A line's first three words, plain: "Is there more soda?" and "Is there more tea? Asking for
+-- Thessaly." open the same way.
+function M.opener(text)
+    local words = {}
+    for w in string.gmatch(string.lower(text or ""), "[%a{}_']+") do
+        table.insert(words, w)
+        if #words == 3 then
+            break
+        end
+    end
+    return table.concat(words, " ")
+end
+
 function M:pick(trigger, speaker, ctx)
     ctx = ctx or {}
     local t = self.trigger[trigger]
@@ -281,6 +294,7 @@ function M:pick(trigger, speaker, ctx)
     local fresh, aimed = {}, {}
     for _, l in ipairs(pool) do
         local ok = self:usable(l) and not (ctx.recent and ctx.recent[l.id]) and not needs_missing(l, ctx.missing)
+            and not (ctx.openers and ctx.openers[M.opener(l.text)])
         if ok and l.mentions and ctx.present then
             for key in pairs(l.mentions) do
                 ok = ok and ctx.present[key] == true

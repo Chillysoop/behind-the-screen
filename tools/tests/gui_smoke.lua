@@ -1311,7 +1311,8 @@ check_tip_absorbs(" (week 2 prep)")
             -- how bad a fight call could get, and the week's story on the improv hand, all on screen.
             local function shown(fragment)
                 for _, n in ipairs(order) do
-                    if n.alive and n.text and string.find(n.text, fragment, 1, true) then return true end
+                    -- (a wrapped line breaks where a space was: the final roll's longer card)
+                    if n.alive and n.text and string.find(string.gsub(n.text, "\n", " "), fragment, 1, true) then return true end
                 end
                 return false
             end
@@ -1340,7 +1341,7 @@ check_tip_absorbs(" (week 2 prep)")
             end
             if app.progress and app.pip_nodes and #app.pip_nodes > 0 then
                 stats.last_roll = (stats.last_roll or 0) + 1
-                if not shown("last roll:") then problem("the scene's dots without the last roll's label") end
+                if not shown("final roll:") then problem("the scene's dots without the final roll's label") end
             end
             -- A rules word in a tip, or on a card, keeps its card up while you read it (the re-test,
             -- October 16: "improv hand" in the tip showed nothing).
@@ -1858,7 +1859,7 @@ if (stats.gloss or 0) == 0 then problem("never found a rules word to point at in
 if (stats.card_words or 0) == 0 then problem("never found a rules word to point at on a card or tip") end
 if (stats.odds or 0) == 0 then problem("never saw a big roll's DC card") end
 if (stats.lore or 0) < stats.weeks then problem("the lore screen showed " .. tostring(stats.lore or 0) .. " times in " .. stats.weeks .. " sessions") end
-if (stats.last_roll or 0) == 0 then problem("never saw the scene's dots with the last roll's label") end
+if (stats.last_roll or 0) == 0 then problem("never saw the scene's dots with the final roll's label") end
 local briefs = stats.briefs or {}
 if not briefs[1] then problem("no briefing after the introductions") end
 if not FULL and not (briefs[2] and briefs[3]) then problem("no catch-up briefing when someone joined") end

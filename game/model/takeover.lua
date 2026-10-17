@@ -141,7 +141,8 @@ local function turn(night, step, info)
         -- A goal card's name is an instruction ("Find old Dunnet"), not a topic: say it as the goal.
         card.text = info.p.char .. " asks " .. name .. " what they know"
             .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")
-            .. (info.knows and "Warm, and they tell what they know. Guarded keeps it back for now. A lie sends them the wrong way, unless someone sees through it."
+            .. (info.knows and "Warm, and they point the party the right way: the scene's final roll gets easier. Guarded keeps it "
+                .. "back for now. A lie sends them the wrong way, unless someone sees through it."
                 or "Warm, and they open up. Guarded keeps their secrets. A lie might get caught.")
     end
     local fits = info.fits
@@ -245,8 +246,15 @@ function M.talk(night, sc)
     if second == "warm" then
         reply(night, p, "warm")
         entry.did, entry.d = "talk_warm", (first == "lie" and 0 or 1)
+        sc.talked_warm = true                -- (nobody "catches them in a lie" after this)
         if sc.goal_clue then
-            night:pay_goal_clue(sc)          -- they tell what they know, now
+            -- They point the way; the scene's final roll finds it, as the lore screen said (the card-led
+            -- playtest, October 16: the map went into the notes before a single roll, then was found
+            -- again at the end).
+            sc.warm_lead = util.capitalize(info.name)
+            night:say(util.capitalize(info.name) .. " tells " .. p.char .. " where to look. The scene's final roll will be easier.",
+                "good")
+            night:progress_event(sc)     -- the top bar says so at once
         end
         night:highlight(6, util.capitalize(info.name) .. " told " .. p.char .. " the truth", { p }, "talk")
     elseif second == "guarded" then
@@ -458,7 +466,13 @@ function M.boss_turn(night, f, b, c)
     elseif o.kind == "gloat" then
         c.dm_skip = true
         c.dm_skip_name = "Gloats"
-        night:npc_line("taunt")
+        -- The speech the card promised, even from someone with no lines of their own (the second
+        -- card-led playtest, October 17: "Chief Nettle: Gloats." and nothing else).
+        if not night:npc_line("taunt") then
+            local cast = night.scene and night.scene.comps.cast
+            night:emit({ kind = "npc", name = cast and night:cast_label(cast) or util.capitalize(boss),
+                         text = night.rng:pick(data.GLOAT_LINES) })
+        end
         M.react(night, "gloat", { "storyteller", "method_actor" })
         if downed then
             local dp = player_of(night, downed)

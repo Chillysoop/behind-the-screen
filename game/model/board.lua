@@ -375,7 +375,9 @@ function M.hidden(id, shown)
     return out
 end
 
-M.FRAMES = { "{list}", "around them: {list}", "{list}", "you set out the rest: {list}" }
+-- (Read aloud: "you set out the rest" was a note to the DM in a box marked READ ALOUD, the card-led
+-- playtest, October 16.)
+M.FRAMES = { "{list}", "around them: {list}", "{list}", "close by: {list}" }
 
 -- The DM setting out the rest of the place in a line: "A rug by the fire, round tables and
 -- barrels in the corner." Returns the line and the features it puts down ({ id, at }, at: how

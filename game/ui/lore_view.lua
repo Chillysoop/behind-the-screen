@@ -283,7 +283,14 @@ local function next_box(app, view, x, y, w, h)
         say("Found: " .. n.with, theme.green, 3)
     end
     if n.without then
-        say("Missed: " .. n.without, theme.orange, 3)
+        -- A goal card's clue is found won or lost: it's only missed if its scene never plays (the
+        -- card-led playtest, October 16: "found either way, so how can it be missed?").
+        local cc = content.components[n.clue]
+        if n.at and cc and cc.kind == "goal" then
+            say("Only if scene " .. util.int(n.at) .. " doesn't play: " .. util.lower_first(n.without), theme.orange, 3)
+        else
+            say("If they miss it: " .. util.lower_first(n.without), theme.orange, 3)
+        end
     end
 end
 
