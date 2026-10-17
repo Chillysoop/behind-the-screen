@@ -328,6 +328,7 @@ function M:write_chat()
     -- One talker for the whole campaign, so the chat doesn't repeat itself week to week.
     self.chat_talk = self.chat_talk or talk_mod.new(rng)
     local talk = self.chat_talk
+    talk.openers = nil      -- (a save from d8bd251 carried a night's opener list into the chat)
     local around = {}
     for _, p in ipairs(self.players) do
         if not p.on_break then

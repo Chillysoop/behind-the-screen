@@ -136,6 +136,7 @@ function M.new(campaign, prep, opts)
     self.unused = prep:unused()
     self.improvised = {}
     self.talk = talk_mod.new(self.rng)
+    self.talk.openers = {}      -- lines that open alike, once a night (dialogue.opener)
     self.talk:set_present(self.players)
     self.talk:remember_weeks(campaign, 3)   -- a speaker doesn't repeat a line for three weeks (A5)
     self.clock = 0

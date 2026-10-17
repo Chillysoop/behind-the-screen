@@ -318,6 +318,29 @@ do
     check(b and not b.at_night, "a game-night save without its board loads as a between-weeks save")
     c.prep = saved_prep
 end
+-- A save from an older build (October 16, mid-prep in week 2) still plays on: its night, and the
+-- next week's start (the group chat's talker from that build had no "openers": d8bd251 crashed
+-- there).
+do
+    local f = io.open("tools/tests/fixtures/save_oct16_week2.txt")
+    local src = f and f:read("a")
+    if f then
+        f:close()
+    end
+    local old = src and save.load(src)
+    local ok, err = false, "no fixture"
+    if old then
+        local rng = rng_mod.new(9)
+        ok, err = pcall(function()
+            bots.prep(bots.DMS.careful, old, old.prep, rng)
+            local night = old:start_night()
+            bots.play_night(night, rng, bots.DMS.careful)
+            old:finish_night()
+            old:start_week()
+        end)
+    end
+    check(ok, "a save from an older build plays its night and starts the next week (" .. tostring(err) .. ")")
+end
 local head = save.peek(save.dump(campaign_mod.new(5)))
 check(head and head.week == 0 and head.seed == 5, "the header says the week and seed")
 

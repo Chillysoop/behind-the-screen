@@ -12,7 +12,7 @@ M.__index = M
 local RECENT = 60
 
 function M.new(rng, lib)
-    return setmetatable({ rng = rng, lib = lib or content.dialogue, recent = {}, order = {}, openers = {} }, M)
+    return setmetatable({ rng = rng, lib = lib or content.dialogue, recent = {}, order = {} }, M)
 end
 
 -- Who's at the table: lines that name someone only play when they're here.
@@ -112,7 +112,8 @@ function M:line(trigger, p, vars)
     self:remember(l.id)
     -- Two people asking "Is there more soda?" in one night is one too many (the card-led playtest,
     -- October 16): a line that opens like one said tonight waits for another night.
-    if self.lib.opener then
+    -- (Only a night's talker keeps openers: game night sets them up, the group chat's never does.)
+    if self.openers and self.lib.opener then
         self.openers[self.lib.opener(l.text)] = true
     end
     return fill(l.text, p, vars), l
