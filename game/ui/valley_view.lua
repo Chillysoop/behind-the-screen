@@ -186,21 +186,27 @@ local function place_labels(map)
     for _, n in ipairs(map.nodes) do
         local px, py = to_px(n)
         local font = n.hub and "ui18b" or "ui14"
-        local best
+        -- The first side that's clear; else the side that covers the least of what's there.
+        local best, least
         for _, side in ipairs({ n.label, "r", "l", "b", "t" }) do
             local x, y, w, h = label_rect(n, px, py, side, font)
             local r = { x, y, w, h }
-            local clear = inside_map(r)
-            for _, t in ipairs(taken) do
-                if clear and overlaps(r, t) then
-                    clear = false
+            if inside_map(r) then
+                local covered = 0
+                for _, t in ipairs(taken) do
+                    if overlaps(r, t) then
+                        covered = covered + (math.min(r[1] + r[3], t[1] + t[3]) - math.max(r[1], t[1]))
+                            * (math.min(r[2] + r[4], t[2] + t[4]) - math.max(r[2], t[2]))
+                    end
+                end
+                if covered == 0 then
+                    best = r
+                    break
+                end
+                if not least or covered < least then
+                    best, least = r, covered
                 end
             end
-            if clear then
-                best = r
-                break
-            end
-            best = best or (inside_map(r) and r)
         end
         if not best then
             local x, y, w, h = label_rect(n, px, py, n.label, font)
@@ -222,8 +228,8 @@ local function legend(x, y)
     x = x + 32 + kit.width("A storyline", "ui14") + 18
     kit.dot(x + 8, y + 9, 20, GLOW)
     kit.dot(x + 8, y + 9, 10, INK)
-    kit.text(x + 22, y, "Going cold", "ui14", theme.ink_dim)
-    x = x + 22 + kit.width("Going cold", "ui14") + 18
+    kit.text(x + 22, y, "Cold or owed", "ui14", theme.ink_dim)
+    x = x + 22 + kit.width("Cold or owed", "ui14") + 18
     kit.dot(x + 8, y + 9, 13, INK)
     kit.dot(x + 8, y + 9, 7, theme.paper)
     kit.text(x + 22, y, "Not prepped", "ui14", theme.ink_dim)
@@ -319,7 +325,7 @@ function M.draw(app, prep)
         if selected then
             kit.dot(px, py, #n.stops > 0 and 46 or 34, kit.rgba("#e8b04a", 0.45))
         end
-        if n.glow == "cold" or n.glow == "loose" then
+        if n.glow == "cold" or n.glow == "loose" or #(n.owed or {}) > 0 then
             kit.dot(px, py, #n.stops > 0 and 42 or 30, GLOW)
         end
         if #n.stops > 0 then
@@ -406,6 +412,8 @@ local function status_line(app, prep, c)
         return "One of your places: free to use again.", theme.ink
     elseif why == "lead" then
         return "A card in your hand happens here. " .. util.int(cost) .. "h to prep.", theme.ink
+    elseif why == "owed" then
+        return "Not prepped yet. " .. util.int(cost) .. "h to prep.", theme.ink
     end
     return "In your hand. " .. util.int(cost) .. "h to prep.", theme.ink
 end
@@ -470,6 +478,17 @@ local function place_card(app, prep, id)
     local line, col = status_line(app, prep, c)
     kit.text(x + 14, cy, line, "ui14", col, { w = w - 28, lines = 2 })
     cy = cy + kit.text_height(line, "ui14", w - 28) + 10
+    -- A pull you parked here: whose, and by when.
+    for _, o in ipairs(require("game.model.pulls").owed_at(app.campaign, prep, id)) do
+        local p = app.campaign:player(o.key)
+        local owed = "Owed to " .. (p and p.name or "a player") .. ": you parked " .. o.name .. " in session "
+            .. util.int(o.week) .. ". Make it a stop by session " .. util.int(o.due) .. "."
+        local oh = kit.text_height(owed, "ui14", w - 28)
+        if cy + oh <= limit then
+            kit.text(x + 14, cy, owed, "ui14", kit.rgba("#9a4a1a"), { w = w - 28 })
+            cy = cy + oh + 8
+        end
+    end
     -- The cards in your hand that happen here.
     local here = valley.cards_for(prep, id)
     if #here > 0 and cy + 22 + 44 <= limit then

@@ -36,7 +36,7 @@
 return {
     types = {
         story = "Story", combat = "Combat", rules = "Rules", screen = "Behind the screen",
-        pacing = "Pacing", table = "Table",
+        pacing = "Pacing", table = "Table", skew = "A player's pull",
     },
 
     {

@@ -282,6 +282,12 @@ function init(self)
         log_path = sys.get_save_file("behind_the_screen", "playtest_log.jsonl"),
         tester_build = dialogue.playtest_build(), -- testers' build: no developer keys
     }
+    -- The old night, for comparison (game.project [behind_the_screen] old_night = 1): the wander-off
+    -- and split-the-party cards instead of the players' pulls (game/model/pulls.lua).
+    local ok_old, old_night = pcall(sys.get_config_int, "behind_the_screen.old_night", 0)
+    if ok_old and old_night == 1 then
+        app.campaign.old_night = true
+    end
     self.app = app
     app.save_path = sys.get_save_file("behind_the_screen", "campaign_save.txt")
     app.resume = find_save(app)

@@ -310,6 +310,10 @@ function M:start_week()
         end
     end
     self.story_noticed = nil
+    -- A pull you parked (game/model/pulls.lua): its player brings it up, or it sours.
+    for _, post in ipairs(require("game.model.pulls").start_week(self)) do
+        table.insert(self.chat, 1, post)
+    end
     -- A new character (B3): the player tells the group chat who they rolled up.
     for _, nc in ipairs(self.new_chars or {}) do
         local p = self:player(nc.key)
@@ -533,6 +537,7 @@ function M:finish_night()
     rep.table_text = night.clock_text and night:length_text()
     rep.payoffs = night.payoffs
     rep.planted = night.planted
+    rep.pulls = require("game.model.pulls").after_night(self, night)   -- the hidden layer: who pulled, your calls
     rep.jokes = jokes.after_night(self, night)   -- running jokes born tonight (B5)
     death.after_night(self, night)                -- a way back that played (B3)
     rep.snapshots = night.snapshots or {}          -- the night's framed moments (B1, B7)

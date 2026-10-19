@@ -652,6 +652,11 @@ function M.update(app, dt)
                 shot(a, "takeover_" .. ct)
                 return
             end
+            -- A player's pull (October 18): the card with its four answers, once.
+            if a.mode == 4 and ct == "skew" and not a.shots.pull_card then
+                shot(a, "pull_card")
+                return
+            end
             -- The opening and the briefings (October 15): a shot of each, the first time.
             if app.pending.kind == "cinematic" then
                 local name = "cinematic_" .. tostring(app.pending.id) .. "_" .. app.campaign.week .. "_" .. tostring(app.cine_i or 1)

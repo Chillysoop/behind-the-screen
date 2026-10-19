@@ -56,6 +56,7 @@ local dice_sets = require "game.model.dice_sets"
 local recap_mod = require "game.model.recap"
 local lore = require "game.model.lore"
 local board_mod = require "game.model.board"
+local pulls = require "game.model.pulls"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -2686,7 +2687,8 @@ function M:pick_decision(sc, kinds)
             and (not d.actor_class or self:by_class(d.actor_class))
             and (not d.needs_class or self:by_class(d.needs_class))
             and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
-            and (not d.needs or self:headache_ok(d.needs, sc)) then
+            and (not d.needs or self:headache_ok(d.needs, sc))
+            and not (d.id == "split_party" and pulls.enabled(self.campaign)) then   -- (a pull, now)
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
             for _, a in ipairs(d.actor or {}) do
@@ -3266,13 +3268,24 @@ function M:decision(card, extra)
         local keeps = (rul == "book" and (o.leans == "book" or o.leans == "strict")) or (rul == "cool" and o.leans == "cool")
         view.options[i] = { label = util.sentence_case(util.fill(o.label, vars)), roll = o.roll ~= nil, cooked = o.cooked,
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
-                            leans = self:leans(o.preview or o.effects), promise = keeps or nil }
+                            leans = self:leans(o.preview or o.effects), promise = keeps or nil,
+                            sub = o.sub, disabled = o.disabled, answer = o.answer }   -- (a pull's answers)
     end
+    view.who = card.who
     if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
     end
     local pick = self:emit({ kind = "decision", card = view, actor = self.actor and self.actor.key })
     pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #card.options)
+    -- (An answer that can't be given here is never taken: the first one that can.)
+    if card.options[pick].disabled then
+        for i, oo in ipairs(card.options) do
+            if not oo.disabled then
+                pick = i
+                break
+            end
+        end
+    end
     local o = card.options[pick]
     table.insert(self.decisions, { card = card.id, option = pick, rolls = {} })
     self.why = "your call on \"" .. card.title .. "\""
@@ -3802,7 +3815,8 @@ function M:combat_scene(sc)
     -- A card for this fight: a rules question waits for round two, anything else comes first.
     -- Or the boss's turn is yours to run (B8), in place of that card.
     sc.boss_turn_planned = takeover.plan_boss(self, sc)
-    local card = ((not sc.boss_turn_planned and not sc.talked) or self:idle() > 75) and self:pick_decision(sc)
+    local card = not sc.card_done and ((not sc.boss_turn_planned and not sc.talked) or self:idle() > 75)
+        and self:pick_decision(sc)
     if card and card.type == "rules" then
         sc.rules_card = card
     elseif card then
@@ -3816,7 +3830,12 @@ function M:combat_scene(sc)
         owner_here = owner_here or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil and not self:muted(c))
     end
     local scouted = false
-    if ((owner_here and self.rng:chance(0.5)) or self.rng:chance(0.45) or self:idle() > 50) and self:decision_count() < 13 then
+    if sc.slip then
+        -- You followed a player's pull first (game/model/pulls.lua): they're late, and seen first.
+        sc.surprise = "party"
+        scouted = true
+        self:say("They're late getting here, after " .. sc.slip .. ". The other side sees them first.", "bad")
+    elseif ((owner_here and self.rng:chance(0.5)) or self.rng:chance(0.45) or self:idle() > 50) and self:decision_count() < 13 then
         self:scout(sc)
         scouted = true
     end
@@ -5070,7 +5089,7 @@ function M:progress_view(sc)
     end
     local need = pr.need or 3
     return { wins = math.min(pr.wins, need), setbacks = pr.setbacks, need = need, max = content.scene_beats.setbacks,
-             lead = sc.warm_lead and true or nil }
+             lead = sc.warm_lead and true or nil, slip = sc.slip and true or nil }
 end
 
 function M:progress_event(sc)
@@ -5325,6 +5344,11 @@ function M:climax(sc)
         edge = edge - 2
         table.insert(whys, sc.warm_lead .. " told them where to look")
     end
+    -- You followed a player's pull: the plan slipped (game/model/pulls.lua).
+    if sc.slip then
+        edge = edge + require("game.data.skews").SLIP
+        table.insert(whys, "they spent time on " .. sc.slip)
+    end
     local why = #whys > 0 and util.join_names(whys) or nil
     local spec = { dc = cl.dc + (sc.difficulty - 2) + edge, convenient = "success", success = success,
                    fail = fail, skill = cl.skill,
@@ -5333,6 +5357,7 @@ function M:climax(sc)
     table.insert(self.decisions, { card = "climax_" .. sc.type, option = 0, rolls = {} })
     local ok = self:big_roll(spec)
     sc.outcome = ok and "win" or "lose"
+    sc.final_by = best and best.key or nil      -- who moved the story (game/model/pulls.lua)
     sc.goal_said = true
     self:goal_event(sc)
     self:pay_goal_clue(sc)
@@ -5665,6 +5690,25 @@ function M:bridge(sc)
     self:say(text, "bridge")
 end
 
+-- A player pulls toward something they care about (game/model/pulls.lua): at most once a stop,
+-- never on the very first stop of a campaign, and not once the night is full of calls.
+function M:maybe_pull(sc)
+    if not pulls.enabled(self.campaign) or sc.skewed or self.end_early then
+        return
+    end
+    local d = pulls.data
+    if (self.campaign.week or 1) <= 1 and sc.index == 1 then
+        return
+    end
+    -- (It takes the place of the stop's card, so it only needs that card not to have come yet.)
+    if sc.card_done or self:decision_count() >= d.ROOM then
+        return
+    end
+    if self.rng:chance(sc.index == 1 and d.CHANCE_FIRST or d.CHANCE) then
+        pulls.skew(self, sc)
+    end
+end
+
 function M:play_scene(sc)
     self.scene = sc
     self.actor, self.other = nil, nil
@@ -5773,6 +5817,9 @@ function M:play_scene(sc)
     -- The storylines this scene moves (game/model/storylines.lua): a dropped one coming back,
     -- two scenes on the same one, or more than the table can follow tonight.
     require("game.model.storylines").on_scene(self, sc)
+    if pulls.enabled(self.campaign) then
+        pulls.on_stop(self, sc)       -- a pull you parked, paid off here
+    end
     require("game.model.handouts").on_scene(self, sc)        -- a handout you made lands now
     -- Backstory threads in this scene.
     local announced = {}
@@ -5834,7 +5881,8 @@ function M:play_scene(sc)
     -- (Not off out of a fight with nothing else to do there: the second playtest, October 17,
     -- wandered from a bandit chief to Ilsa's room.)
     local fight_only = (sc.type == "combat" or sc.type == "set_piece") and not (sc.comps.goal and not self:muted(sc.comps.goal))
-    if not self.drift_used and sc.index >= 2 and self:room(12) and not fight_only then
+    -- (With pulls on, a player's pull is how the table goes off the plan: game/model/pulls.lua.)
+    if not pulls.enabled(self.campaign) and not self.drift_used and sc.index >= 2 and self:room(12) and not fight_only then
         local pull = 0.2
         for _, p in ipairs(self.players) do
             pull = pull + 0.1 * (score.arch(p, "instigator") + score.arch(p, "explorer"))
@@ -5852,6 +5900,8 @@ function M:play_scene(sc)
         end
         if talk_now then
             takeover.talk(self, sc)        -- a word before the fight (B8), in place of the fight's card
+        else
+            self:maybe_pull(sc)            -- or a player's pull, before weapons are out
         end
         self:combat_scene(sc)
     else
@@ -5862,6 +5912,7 @@ function M:play_scene(sc)
             self:conversation(sc)
         end
         self:conflict_spotlight(sc)
+        self:maybe_pull(sc)
         self:quick_checks(sc)
         if not self.end_early then
             self:climax(sc)

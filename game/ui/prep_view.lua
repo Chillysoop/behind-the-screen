@@ -1176,6 +1176,24 @@ function M.attention(app)
     if lv.ready then
         table.insert(items, "The party can level up.")
     end
+    -- A pull you parked, due tonight and not on the route (game/model/pulls.lua): it sours.
+    for _, o in ipairs(require("game.model.pulls").open_owed(c)) do
+        if o.due <= (c.week or 1) then
+            local on = false
+            for _, s in ipairs(c.prep.scenes) do
+                for _, card in pairs(s.slots or {}) do
+                    if card.id == o.id or card.id == o.place or card.id == o.card then
+                        on = true
+                    end
+                end
+            end
+            local p = c:player(o.key)
+            if not on and p then
+                table.insert(items, "You owe " .. p.name .. " " .. o.name .. ", parked in session " .. util.int(o.week)
+                    .. ". It isn't on tonight's route, and after tonight it sours.")
+            end
+        end
+    end
     return items
 end
 

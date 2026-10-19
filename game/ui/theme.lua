@@ -63,6 +63,7 @@ return {
         agency = c("#2f6f5a"),
         talk = c("#5a6f2f"),
         boss = c("#7a2f2f"),
+        skew = c("#2f5f6f"),
     },
     log = {
         narration = c("#e9dcc3"),

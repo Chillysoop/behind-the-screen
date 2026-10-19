@@ -255,10 +255,120 @@ local function recap_panel(app, rep, x, y, w, h)
 end
 
 -- 2. How the table felt: a card per player, the least happy first.
+-- Behind the screen (the rebuild's second milestone, October 18): the hidden layer, after the
+-- fact. Who moved the story tonight and over the sessions (fills, never numbers), what each player
+-- pulled toward and your call on it, what's still owed, and whether the table felt railroaded.
+local ANSWER_WORDS = { follow = "You followed it.", weave = "You wove it in.", park = "You parked it", steer = "You steered them back." }
+
+local function pull_line(app, e)
+    local text = "Pulled toward " .. e.name .. ". " .. (ANSWER_WORDS[e.answer] or "")
+    if e.answer == "park" then
+        local o
+        for _, x in ipairs(require("game.model.pulls").get(app.campaign).owed) do
+            if x.id == e.id and x.key == e.key and x.week == e.week then
+                o = x
+            end
+        end
+        text = text .. (o and o.state == "paid" and ", and paid it off." or (": owed by session "
+            .. util.int((e.week or 0) + require("game.data.skews").OWED_SESSIONS) .. "."))
+    end
+    if e.made_true then
+        text = text .. " Their theory came true."
+    end
+    return text
+end
+
+local function behind_panel(app, rep, x, y, w, h)
+    local pr = rep.pulls or {}
+    kit.text(x + w - 16, y + 12, "What only you could see: who moved the story, and what they pulled toward.", "ui14",
+        theme.faint, { pivot = gui.PIVOT_NE, w = w - 260, lines = 1 })
+    local rh = (h - 48 - 40) / 4
+    local by_key = {}
+    for _, e in ipairs(pr.pulls or {}) do
+        by_key[e.key] = by_key[e.key] or {}
+        table.insert(by_key[e.key], e)
+    end
+    local paid_by = {}
+    for _, o in ipairs(pr.paid or {}) do
+        paid_by[o.key] = o
+    end
+    for i, row in ipairs(rep.players or {}) do
+        local ry = y + 40 + (i - 1) * rh
+        kit.dot(x + 50, ry + 34, 56, kit.rgba("#000000", 0.3))
+        kit.picture(x + 24, ry + 8, 52, 52, panels.face(row.key))
+        kit.text(x + 92, ry + 4, row.name, "ui18b", theme.text)
+        kit.text(x + 92 + kit.width(row.name, "ui18b") + 8, ry + 6, row.char, "ui14", theme.dim)
+        -- Who moved the story: tonight, and over the sessions so far.
+        local bx = x + w - 236
+        kit.text(bx, ry + 4, "Moved the story", "ui14", theme.dim)
+        kit.text(bx, ry + 24, "Tonight", "ui14", theme.faint)
+        kit.bar(bx + 70, ry + 30, 140, 8, math.floor(100 * ((pr.tonight or {})[row.key] or 0) + 0.5), 100, theme.gold)
+        kit.text(bx, ry + 44, "So far", "ui14", theme.faint)
+        kit.bar(bx + 70, ry + 50, 140, 8, math.floor(100 * ((pr.slice or {})[row.key] or 0) + 0.5), 100, theme.teal)
+        local tw = w - 92 - 260
+        local ty = ry + 28
+        local lines = {}
+        for _, e in ipairs(by_key[row.key] or {}) do
+            table.insert(lines, { pull_line(app, e), theme.text })
+            if e.railroad then
+                table.insert(lines, { "That was the second time you steered them back tonight: it felt like railroading.", theme.orange })
+            end
+        end
+        if paid_by[row.key] then
+            table.insert(lines, { "You came back to " .. paid_by[row.key].name .. ", like you promised.", theme.green })
+        end
+        if #lines == 0 then
+            table.insert(lines, { row.present == false and "Wasn't at the table." or "No pull tonight.", theme.faint })
+        end
+        for _, ln in ipairs(lines) do
+            local lh = kit.text_height(ln[1], "ui14", tw)
+            if ty + lh > ry + rh - 2 then
+                break
+            end
+            kit.text(x + 92, ty, ln[1], "ui14", ln[2], { w = tw })
+            ty = ty + lh + 2
+        end
+    end
+    -- What's still owed.
+    local owed = pr.owed or {}
+    local foot = #owed == 0 and "Nothing owed: no parked pulls waiting." or ""
+    if #owed > 0 then
+        local parts = {}
+        for _, o in ipairs(owed) do
+            local p = app.campaign:player(o.key)
+            table.insert(parts, (p and p.name or "?") .. ": " .. o.name .. " (by session " .. util.int(o.due) .. ")")
+        end
+        foot = "Still owed. " .. table.concat(parts, ", ") .. ". They glow on the map."
+    end
+    kit.text(x + 16, y + h - 34, foot, "ui14", #owed > 0 and theme.orange or theme.faint, { w = w - 32, lines = 1 })
+end
+
 local function felt_panel(app, rep, x, y, w, h)
     kit.box(x, y, w, h, theme.panel, { radius = 10 })
     local level = app.campaign:empathy()
-    head(x + 16, y + 12, 2, "HOW THE TABLE FELT")
+    -- Two views of the table: how they felt, and behind the screen.
+    local behind = app.report_tab == "behind"
+    local n_pulls = #((rep.pulls or {}).pulls or {})
+    local t1, t2 = "2  HOW THE TABLE FELT", "BEHIND THE SCREEN" .. (n_pulls > 0 and ("  (" .. util.int(n_pulls)
+        .. (n_pulls == 1 and " pull)" or " pulls)")) or "")
+    local w1, w2 = kit.width(t1, "ui14") + 20, kit.width(t2, "ui14") + 20
+    kit.button(x + 8, y + 6, w1, 26, t1, function()
+        app.report_tab = nil
+        app.refresh()
+    end, { font = "ui14", color = behind and theme.panel or theme.panel3, hover = theme.button_hover,
+           text_color = behind and theme.dim or theme.gold, key = "report_tab_felt" })
+    kit.button(x + 14 + w1, y + 6, w2, 26, t2, function()
+        app.report_tab = "behind"
+        app.refresh()
+    end, { font = "ui14", color = behind and theme.panel3 or theme.panel, hover = theme.button_hover,
+           text_color = behind and theme.gold or theme.dim, key = "report_tab_behind" })
+    if n_pulls > 0 and not behind then
+        kit.dot(x + 14 + w1 + w2 - 6, y + 10, 10, theme.orange)
+    end
+    if behind then
+        behind_panel(app, rep, x, y, w, h)
+        return
+    end
     kit.text(x + w - 16, y + 12, "The least happy first.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local rh = (h - 48) / 4
     for i, row in ipairs(rep.order or rep.players) do
@@ -642,6 +752,7 @@ end
 
 -- On to next week, by way of two quick playtest questions (M7).
 function M.next(app)
+    app.report_tab = nil
     local c = app.campaign
     app.gift_line = nil
     app.keepsake_shown = nil

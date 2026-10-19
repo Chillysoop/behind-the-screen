@@ -504,7 +504,9 @@ function M.draw_pips(app)
     local word, col, short
     -- (A warm word from someone in the scene counts too: the second playtest, October 17, saw
     -- "normal" straight after the card promised "easier".)
+    -- (And a player's pull you followed: the plan slipped, game/model/pulls.lua.)
     local edge = ((pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)) + (pr.lead and -2 or 0)
+        + (pr.slip and 2 or 0)
     if edge < 0 then
         word, short, col = "final roll: easier (DC " .. util.int(edge) .. ")", "final roll: easier", theme.green
     elseif edge > 0 then
@@ -2484,7 +2486,7 @@ function M.pick_key(app, n)
         M.cinematic_next(app)
         return true
     elseif ev.kind == "decision" then
-        if ev.card and ev.card.options[n] then
+        if ev.card and ev.card.options[n] and not ev.card.options[n].disabled then
             M.answer(app, n)
             return true
         end
@@ -2656,7 +2658,9 @@ function M.draw_modal(app, ev, instant)
         local card = ev.card
         -- Taking over (B8): the one you're speaking or acting for, as their paper mini.
         local portrait = (card.cast and CAST_SPRITE[card.cast]) or (card.monster and monster_sprite(card.monster, 1)) or nil
-        local tw = portrait and (w - 120) or (w - 40)
+        -- A player's pull (game/model/pulls.lua): their face, top right.
+        local face = card.who and panels.face(card.who)
+        local tw = (portrait or face) and (w - 120) or (w - 40)
         local title_h = math.max(math.min(80, kit.text_height(card.title, "title30", tw)), portrait and 40 or 0)
         local text_h = kit.text_height(card.text, "ui18", w - 40)
         -- How bad it could get, on a fight's call (the newcomer playtest, October 16).
@@ -2665,11 +2669,14 @@ function M.draw_modal(app, ev, instant)
         local promise_h = card.promise and (kit.text_height(card.promise, "ui14", w - 40) + 8) or 0
         local labels, h = {}, 62 + title_h + 12 + text_h + 18 + (danger_h > 0 and (danger_h + 10) or 0) + promise_h
         local lean_h = {}
+        local sub_h = {}
         for i, o in ipairs(card.options) do
             labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or "d20") .. " check)") or "")
                 .. (o.cooked and "  (overrules the die)" or "") .. (o.promise and "  (as agreed)" or "")
             lean_h[i] = (o.leans and next(o.leans)) and 30 or 0
-            h = h + option_height(labels[i], w - 40) + lean_h[i] + 10
+            -- What an answer costs and gives, under it (a pull's four answers).
+            sub_h[i] = o.sub and (kit.text_height(o.sub, "ui14", w - 68 - KEY_PAD) + 4) or 0
+            h = h + option_height(labels[i], w - 40) + lean_h[i] + sub_h[i] + 10
         end
         h = h + 10 + (app.pending_left and 34 or 0)
         local y = card_y(h)
@@ -2678,6 +2685,9 @@ function M.draw_modal(app, ev, instant)
         kit.text(x + 20, y + 52, card.title, "title30", theme.ink, { w = tw, lines = 2 })
         if portrait then
             kit.picture(x + w - 86, y + 10, 64, 80, "mini_" .. portrait)
+        elseif face then
+            kit.dot(x + w - 54, y + 46, 70, panels.COLORS[card.who] or theme.panel3)
+            kit.picture(x + w - 86, y + 14, 64, 64, face)
         end
         kit.text(x + 20, y + 62 + title_h, card.text, "ui18", theme.ink, { w = w - 40 })
         local oy = y + 62 + title_h + 12 + text_h + 8
@@ -2691,13 +2701,20 @@ function M.draw_modal(app, ev, instant)
             oy = oy + danger_h + 10
         end
         for i, label in ipairs(labels) do
-            local oh = option_height(label, w - 40) + lean_h[i]
+            local oh = option_height(label, w - 40) + lean_h[i] + sub_h[i]
+            local opt = card.options[i]
             kit.button(x + 20, oy, w - 40, oh, label, function()
                 M.answer(app, i)
-            end, { align = "left", color = card.options[i].cooked and theme.decision.screen or theme.button,
-                   hover = theme.button_hover, key_hint = i })
+            end, { align = "left", color = opt.cooked and theme.decision.screen or theme.button,
+                   hover = theme.button_hover, key_hint = i, enabled = not opt.disabled,
+                   key = opt.answer and ("pull_" .. opt.answer) or nil })
+            if sub_h[i] > 0 then
+                local ly = oy + 10 + kit.text_height(label, "ui18b", w - 68 - KEY_PAD)
+                kit.text(x + 34, ly, opt.sub, "ui14", opt.disabled and kit.rgba("#8a7c6a") or theme.dim,
+                    { w = w - 68 - KEY_PAD })
+            end
             if lean_h[i] > 0 then
-                M.draw_leans(app, x + 34, oy + oh - 32, card.options[i].leans)
+                M.draw_leans(app, x + 34, oy + oh - 32, opt.leans)
             end
             oy = oy + oh + 10
         end

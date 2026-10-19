@@ -1586,6 +1586,40 @@ check_tip_absorbs(" (week 2 prep)")
             end
             -- Seeds 1 and 5 sit through every card, a slide at a time (the others click anything).
             if app.pending.kind == "cinematic" and (SEED == 1 or SEED == 5) and click_key("cine_next") then goto continue end
+            -- A player's pull (October 18): who, what, why, and the four answers with their costs.
+            if app.pending.kind == "decision" and app.pending.card and app.pending.card.type == "skew" then
+                local card = app.pending.card
+                stats.pulls = (stats.pulls or 0) + 1
+                for _, a in ipairs({ "follow", "park", "steer" }) do
+                    if not has_key("pull_" .. a) then problem("a pull's card has no " .. a .. " answer") end
+                end
+                local weave
+                for _, o in ipairs(card.options) do
+                    if o.answer == "weave" then weave = o end
+                end
+                if not weave then
+                    problem("a pull's card has no Weave it in")
+                elseif weave.disabled then
+                    if has_key("pull_weave") then problem("Weave it in can be pressed with nothing to tie it") end
+                    if not shown("Nothing on this stop ties to it") then problem("a pull's card doesn't say why it can't be woven in") end
+                elseif not shown("Ties in through") then
+                    problem("Weave it in doesn't say what ties it in")
+                end
+                if not (shown("plan slips") and shown("buy-in") and shown("or it sours")) then
+                    problem("a pull's answers don't say what they cost")
+                end
+                if not shown(card.text) then problem("a pull's card doesn't say why they pull") end
+                dump_once("5p_pull_card")
+                if weave and weave.disabled then
+                    -- Pressing the number of an answer that can't be given does nothing.
+                    local before = app.pending
+                    local NUM = { "zoom_room", "zoom_table", "zoom_imagination", "zoom_dice", "key5", "key6" }
+                    for i, o in ipairs(card.options) do
+                        if o.disabled then call(on_input, self, NUM[i], { pressed = true }) end
+                    end
+                    if app.pending ~= before then problem("the number key of an answer that can't be given answered the card") end
+                end
+            end
             local bs = buttons()
             if #bs == 0 then problem("modal with no buttons: " .. app.pending.kind) break end
             if rng:chance(0.2) then key("debug") end
@@ -1639,6 +1673,22 @@ check_tip_absorbs(" (week 2 prep)")
     if app.screen ~= "report" then problem("expected report") break end
     if week == 1 and not keepsakes.waiting(app.campaign) then problem("a full heart brought no gift") end
     take_gift(" (week " .. week .. ")", week)
+    -- Behind the screen (October 18): who moved the story, every pull and your call.
+    do
+        local rp = app.campaign.report.pulls
+        if not rp then problem("the report has no hidden layer") end
+        if click_key("report_tab_behind") then
+            if not has_text_fn("Moved the story") then problem("Behind the screen doesn't show who moved the story") end
+            for _, e in ipairs(rp and rp.pulls or {}) do
+                if not has_text_fn("Pulled toward " .. e.name) then problem("Behind the screen leaves out the pull toward " .. e.name) end
+            end
+            if rp and #rp.pulls > 0 then dump_once("7p_report_behind") end
+            click_key("report_tab_felt")
+            if not has_text_fn("HOW THE TABLE FELT") then problem("no way back from Behind the screen") end
+        else
+            problem("the report has no Behind the screen tab")
+        end
+    end
     if week == 1 then
         dump("7_report")
         -- The recap is the DM's (B7): another title, pin a beat, cut one, write a note.

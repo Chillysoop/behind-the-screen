@@ -289,6 +289,10 @@ local function carers(campaign, d)
     return out
 end
 
+M.carers = function(campaign, d)
+    return carers(campaign, d)
+end
+
 -- What every loose end together has taken from one player so far.
 local function eroded_total(campaign, key)
     local ti, tt = 0, 0
@@ -419,6 +423,34 @@ function M.on_scene(night, sc)
         night.story_thin_said = n - data.ACTIVE_CAP
         M.spread_thin(night, n)
     end
+end
+
+-- One storyline moves tonight outside a scene's cards (a player's pull the DM followed or wove
+-- in, game/model/pulls.lua): it opens, comes back if it was dropped, and counts as moved. With
+-- link_to, it's woven into that storyline, so the two count as one thread tonight.
+function M.move(night, id, link_to)
+    local campaign = night.campaign
+    local s = M.get(campaign)
+    local d = M.def(campaign, id)
+    local st = s[id]
+    if not d or (st and st.state ~= "open" and st.state ~= "waiting") then
+        return false
+    end
+    night.story_moved = night.story_moved or {}
+    if not st or st.state == "waiting" then
+        s[id] = { state = "open", opened = campaign.week, last = campaign.week, moves = 0, eroded = {},
+                  char = st and st.char or nil }
+        night.story_opened = night.story_opened or {}
+        night.story_opened[id] = true
+    elseif st.loose then
+        M.come_back(night, d, st)
+    end
+    night.story_moved[id] = (night.story_moved[id] or 0) + 1
+    if link_to and link_to ~= id then
+        night.story_links = night.story_links or {}
+        table.insert(night.story_links, { link_to, id })
+    end
+    return true
 end
 
 -- How many separate threads tonight's storylines make (linked ones count once).

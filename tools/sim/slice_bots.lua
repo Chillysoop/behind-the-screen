@@ -154,6 +154,29 @@ B.DMS = {
 B.ORDER = { "careful", "plain", "careless" }
 
 -- watch(ev, night), if given, sees every event before the bot answers it (tests use it).
+-- A player's pull (game/model/pulls.lua): the careful DM weaves it in when something ties it to
+-- the stop, else parks it and comes back to it; the plain DM answers any way at all; the careless
+-- DM mostly steers back. Returns the option's number.
+function B.answer_pull(dm, card, rng)
+    local by = {}
+    for i, o in ipairs(card.options) do
+        if not o.disabled then
+            by[o.answer or i] = i
+        end
+    end
+    if dm.tend then
+        return by.weave or by.park or by.follow
+    elseif dm.random then
+        return rng:chance(0.6) and by.steer or by.follow
+    end
+    local open = {}
+    for _, i in pairs(by) do
+        table.insert(open, i)
+    end
+    table.sort(open)
+    return open[rng:int(1, #open)]
+end
+
 function B.play_night(night, rng, dm, watch)
     local ev = night:advance()
     local guard = 0
@@ -167,7 +190,9 @@ function B.play_night(night, rng, dm, watch)
         if ev.kind == "decision" then
             decisions = decisions + 1
             local card = ev.card
-            if dm.tend and (card.id == "pip_show" or card.id == "joke_moment") then
+            if card.type == "skew" then
+                a = B.answer_pull(dm, card, rng)
+            elseif dm.tend and (card.id == "pip_show" or card.id == "joke_moment") then
                 a = 2
             elseif dm.tend and card.id == "rules_spat" then
                 a = 2
@@ -343,6 +368,25 @@ function B.open_scene(c, prep, rng)
     end
 end
 
+-- A pull you parked (game/model/pulls.lua): the careful DM puts its place on the route before
+-- it's due, on the last stop that has room for it.
+function B.pay_owed(c, prep)
+    local pulls = require "game.model.pulls"
+    for _, o in ipairs(pulls.open_owed(c)) do
+        if o.place then
+            for i = #prep.scenes, 1, -1 do
+                local s = prep.scenes[i]
+                local here = s.slots.location and s.slots.location.id == o.place
+                if not here and not s.open and not s.module and prep:can_place(i, o.place) then
+                    if prep:place(i, o.place) then
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
 function B.prep(dm, c, prep, rng)
     if dm.open and c.week >= 2 and rng:chance(dm.open) then
         B.open_scene(c, prep, rng)
@@ -369,6 +413,9 @@ function B.prep(dm, c, prep, rng)
     end
     if not dm.random then
         B.place_pins(c, prep)
+    end
+    if dm.tend then
+        B.pay_owed(c, prep)
     end
     if dm.seeds then
         B.plant_and_pay(c, prep)

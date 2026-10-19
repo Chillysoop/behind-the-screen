@@ -14,7 +14,9 @@ local rng_mod = require "game.model.rng"
 local social = require "game.model.social"
 local json = require "game.model.jsonlite"
 
-local RUNS = tonumber(arg and arg[1]) or 40
+-- (80 a DM since October 18: at 40, the conflict gate's 60% line sat inside the noise of a true
+-- 69%, measured over 120 slices with and without the players' pulls alike.)
+local RUNS = tonumber(arg and arg[1]) or 80
 local SEED0 = 7070
 local t0 = os.clock()
 

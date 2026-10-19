@@ -200,6 +200,12 @@ function M.visible(campaign, prep)
     for id in pairs(places_mod().get(campaign)) do
         add(id, "known")
     end
+    -- A pull you parked there (game/model/pulls.lua): it stays on the map, glowing, till it's paid.
+    for _, o in ipairs(util.lazy("game.model.pulls").open_owed(campaign)) do
+        if o.place then
+            add(o.place, "owed")
+        end
+    end
     for _, c in ipairs(prep and prep.hand and prep.hand.location or {}) do
         add(c.id, "hand")
     end
@@ -345,6 +351,14 @@ local function node_info(campaign, prep, node, member_ids, why_of)
     n.lead = not known and #n.stops == 0 and not n.hub
     if worst >= HEAT_RANK.cooling then
         n.glow = n.heat
+    end
+    -- A pull you parked, owed to a player here (game/model/pulls.lua): it glows too.
+    n.owed = {}
+    local pulls = util.lazy("game.model.pulls")
+    for _, id in ipairs(member_ids) do
+        for _, o in ipairs(pulls.owed_at(campaign, prep, id)) do
+            table.insert(n.owed, o)
+        end
     end
     return n
 end
