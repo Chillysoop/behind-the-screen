@@ -431,7 +431,7 @@ function M.card(night, sc, p, t)
             o.disabled = true
             o.sub = a.none
         else
-            o.sub = fill((fight and a.cost_fight) or a.cost, v) .. "  " .. fill(a.gives, v)
+            o.sub = fill((fight and a.cost_fight) or a.cost, v) .. "  " .. fill((fight and a.gives_fight) or a.gives, v)
         end
         table.insert(options, o)
     end
@@ -525,6 +525,9 @@ function M.skew(night, sc, p, t)
                     why = card.text, answer = answer, tie = card.tie }
     local log_line = fill(night.rng:pick(data.AFTER[answer]), v)
     night:say(log_line, "record")
+    if answer == "follow" or answer == "weave" then
+        sc.pull_lead = p.key       -- they take this stop's final roll (night:climax)
+    end
     if answer == "follow" then
         sc.slip = t.name
         night:progress_event(sc)       -- the dots' word: the final roll is harder now

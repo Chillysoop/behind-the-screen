@@ -240,8 +240,10 @@ function M.showcase(app, a)
         app.open_notes("people")
         shot(a, "notes_people")
     elseif step == 4 then
-        app.open_sheet("jess")
-        shot(a, "sheet_jess")
+        -- (Whoever's at the table: a small table starts without Jess, October 15.)
+        local who = app.campaign.players[#app.campaign.players].key
+        app.open_sheet(who)
+        shot(a, "sheet_" .. who)
     elseif step == 5 then
         app.close_overlay()
         app.open_encounter(3)

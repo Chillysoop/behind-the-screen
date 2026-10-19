@@ -2173,6 +2173,9 @@ function M:quick_checks(sc)
             self:say(line, "twist")
             self:told_line(comp, line)
         elseif i == 2 then
+            -- A player's pull, once the stop is under way (the screenshot tour, October 18: one
+            -- right as the scene's title came up read as an interruption): it's this stop's card.
+            self:maybe_pull(sc)
             if not (self.rng:chance(0.6) and self:card_talk(sc)) then
                 self:banter()
             end
@@ -5319,7 +5322,8 @@ function M:climax(sc)
         sc.moment_led = true
     end
     -- Whoever this scene is made for steps up (and is good at what it asks) (A4).
-    local best = self:pick_roller(cl.skill, sc, cl.prefer)
+    -- A player's pull you followed or wove in: they take the stop's big moment (game/model/pulls.lua).
+    local best = (sc.pull_lead and find_present(self.players, sc.pull_lead)) or self:pick_roller(cl.skill, sc, cl.prefer)
     self.actor = best
     self.other = nil
     self:say(cl.text, "goal", gvars)
@@ -5912,8 +5916,7 @@ function M:play_scene(sc)
             self:conversation(sc)
         end
         self:conflict_spotlight(sc)
-        self:maybe_pull(sc)
-        self:quick_checks(sc)
+        self:quick_checks(sc)       -- (a player's pull comes partway through: maybe_pull)
         if not self.end_early then
             self:climax(sc)
         end

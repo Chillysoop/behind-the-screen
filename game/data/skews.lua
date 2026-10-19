@@ -61,9 +61,11 @@ return {
     ANSWERS = {
         follow = { label = "Follow it", cost = "This stop's plan slips: its final roll gets 2 harder.",
                    cost_fight = "The plan slips: they're late to the fight, and the other side sees them first.",
-                   gives = "{Name} shapes the story tonight." },
+                   gives = "{Name} shapes the story tonight, and takes this stop's final roll.",
+                   gives_fight = "{Name} shapes the story tonight." },
         weave = { label = "Weave it in", cost = "Ties in through {tie}.",
-                  gives = "Both move: the plan holds, and {name} gets their moment too.",
+                  gives = "Both move: the plan holds, and {name} takes this stop's final roll.",
+                  gives_fight = "Both move: the plan holds, and {name}'s story moves too.",
                   none = "Nothing on this stop ties to it." },
         park = { label = "Park it", cost = "You owe {name}: play {target} by session {due}, or it sours.",
                  gives = "Nothing lost tonight." },
