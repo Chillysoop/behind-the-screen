@@ -67,10 +67,9 @@ function M.build(app)
         foot = "Click again to start over. Your saved campaign is replaced once you finish the new Session Zero."
     elseif saved then
         foot = "A new campaign replaces the saved one once you finish its Session Zero."
-    elseif app.tester_build then
-        foot = "The game saves after every session, so you can stop and pick it up later."
     else
-        foot = "F2: free camera sandbox    F3: show the numbers    The game saves after every session."
+        -- (The developer keys aren't the player's business: October 20.)
+        foot = "The game saves after every session, so you can stop and pick it up later."
     end
     kit.text(x + w / 2, y + h - 40, foot, "ui14", app.resume_error and theme.orange or theme.faint,
         { pivot = gui.PIVOT_N, w = w - 60 })

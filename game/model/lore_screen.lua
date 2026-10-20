@@ -325,7 +325,7 @@ local function storyline_row(campaign, d, scenes, fix)
         row.who = p and (p.name .. "'s hero") or nil
     end
     local n = #scenes
-    local where = n > 0 and ("Scene" .. (n > 1 and "s " or " ") .. table.concat((function()
+    local where = n > 0 and ("Stop" .. (n > 1 and "s " or " ") .. table.concat((function()
         local t = {}
         for k, i in ipairs(scenes) do
             t[k] = util.int(i)
@@ -342,7 +342,7 @@ local function storyline_row(campaign, d, scenes, fix)
             row.line, row.tone, row.after = where .. " brings it back: what it's cost the table comes back, and they cheer.",
                 "good", "back"
         elseif n >= 2 then
-            row.line, row.tone, row.after = where .. ": two scenes on one story builds momentum. The players who love a "
+            row.line, row.tone, row.after = where .. ": two stops on one story builds momentum. The players who love a "
                 .. "story lean in.", "good", "moves"
         else
             row.line, row.tone, row.after = where .. " moves it tonight.", "good", "moves"
@@ -560,7 +560,7 @@ function M.fronts(campaign, prep)
                 local holds = {}
                 for _, cid in ipairs(fdef and fdef.cards or {}) do
                     if at[cid] then
-                        table.insert(holds, "scene " .. util.int(at[cid]) .. " (" .. short_of(content.components[cid]) .. ")")
+                        table.insert(holds, "stop " .. util.int(at[cid]) .. " (" .. short_of(content.components[cid]) .. ")")
                     end
                 end
                 if #holds > 0 then
@@ -643,7 +643,7 @@ function M.calls(campaign, prep)
                                 .. "their character sheet." })
     end
     if cliff then
-        table.insert(out, { text = "Scene " .. util.int(cliff) .. " ends the night on a cliffhanger: next session opens on it.",
+        table.insert(out, { text = "Stop " .. util.int(cliff) .. " ends the night on a cliffhanger: next session opens on it.",
                             tone = "story", pri = 2 })
     end
     -- What every night asks of you, and what you agreed to (Session Zero).
@@ -690,7 +690,7 @@ function M.calls(campaign, prep)
             end
         end
         if #empty > 0 then
-            table.insert(out, { text = "Goal left empty in scene " .. util.join_names(empty) .. ": the improv hand will offer "
+            table.insert(out, { text = "Goal left empty at " .. (#empty > 1 and "stops " or "stop ") .. util.join_names(empty) .. ": the improv hand will offer "
                 .. "this week's story, \"" .. sg.name .. "\".", tone = "story", pri = 3 })
         end
     end

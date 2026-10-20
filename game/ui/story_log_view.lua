@@ -475,7 +475,7 @@ local function story_blocks(app, view, w, mode, kws, on_story)
     add(heading("THE STORY SO FAR", st.head))
     if #view.entries == 0 then
         local none = d.kind == "backstory"
-            and ("Not on the table yet. Put one of " .. (d.short or "their") .. "'s cards on a scene and it starts here.")
+            and ("Not on the table yet. Put one of " .. (d.short or "their") .. "'s cards on a stop and it starts here.")
             or "Not started yet. It opens the first time one of its cards plays."
         add(para_block(app, none, st.body, theme.faint, w, kws, on_story))
     end

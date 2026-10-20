@@ -162,8 +162,10 @@ local function wrapup_items(app, rep)
     return items
 end
 
+-- (The GDD's part numbers came off the headings, October 20: one of the five, what it earned,
+-- has no heading, so they read 1, 2, 3, 5.)
 local function head(x, y, n, text)
-    kit.text(x, y, util.int(n) .. "  " .. text, "ui14", theme.gold)
+    kit.text(x, y, text, "ui14", theme.gold)
     return y + 24
 end
 
@@ -280,8 +282,8 @@ end
 
 local function behind_panel(app, rep, x, y, w, h)
     local pr = rep.pulls or {}
-    kit.text(x + w - 16, y + 12, "What only you could see: who moved the story, and what they pulled toward.", "ui14",
-        theme.faint, { pivot = gui.PIVOT_NE, w = w - 260, lines = 1 })
+    kit.text(x + w - 16, y + 12, "Only you see this: what they pulled toward.", "ui14",
+        theme.faint, { pivot = gui.PIVOT_NE, w = w - 460, lines = 1 })
     local rh = (h - 48 - 40) / 4
     local by_key = {}
     for _, e in ipairs(pr.pulls or {}) do
@@ -349,7 +351,9 @@ local function felt_panel(app, rep, x, y, w, h)
     -- Two views of the table: how they felt, and behind the screen.
     local behind = app.report_tab == "behind"
     local n_pulls = #((rep.pulls or {}).pulls or {})
-    local t1, t2 = "2  HOW THE TABLE FELT", "BEHIND THE SCREEN" .. (n_pulls > 0 and ("  (" .. util.int(n_pulls)
+    -- (Not "Behind the screen", October 20: prep and the lore screen use that for the villains'
+    -- plans, which only you know.)
+    local t1, t2 = "HOW THE TABLE FELT", "WHO MOVED THE STORY" .. (n_pulls > 0 and ("  (" .. util.int(n_pulls)
         .. (n_pulls == 1 and " pull)" or " pulls)")) or "")
     local w1, w2 = kit.width(t1, "ui14") + 20, kit.width(t2, "ui14") + 20
     kit.button(x + 8, y + 6, w1, 26, t1, function()
@@ -580,6 +584,12 @@ function M.build(app)
     elseif app.keepsake_shown or keepsakes.waiting(app.campaign) then
         M.keepsake_modal(app)
     end
+end
+
+-- Something on top of the report that Enter mustn't skip past: the quick questions, a gift, a
+-- snapshot (October 20: Enter went on to next week under the gift and dropped it).
+function M.busy(app)
+    return app.quick or app.snapshot_view or app.keepsake_shown or keepsakes.waiting(app.campaign)
 end
 
 -- A gift from the table (game/model/keepsakes.lua): as everyone packs up, the player whose

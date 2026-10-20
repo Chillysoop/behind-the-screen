@@ -1,5 +1,5 @@
--- HUD for the engine spike: zoom tabs, controls, a vignette that deepens in
--- the imagination zoom, and the d20 result card.
+-- The HUD: a vignette that deepens in the imagination zoom, and for the free-camera sandbox (F2,
+-- debug builds only) its zoom tabs, controls and d20 result card.
 
 local CREAM = vmath.vector4(0.96, 0.89, 0.74, 1)
 local DIM = vmath.vector4(0.96, 0.89, 0.74, 0.45)
@@ -38,7 +38,7 @@ function init(self)
 
     self.sandbox_nodes = {}
     table.insert(self.sandbox_nodes, text("BEHIND THE SCREEN", 40, 866, "body", gui.PIVOT_NW, CREAM, gui.ANCHOR_LEFT, gui.ANCHOR_TOP))
-    table.insert(self.sandbox_nodes, text("M0 sandbox  -  F2 to go back to the game", 40, 838, "body", gui.PIVOT_NW, DIM, gui.ANCHOR_LEFT, gui.ANCHOR_TOP))
+    table.insert(self.sandbox_nodes, text("Free camera (debug builds)  -  F2 to go back to the game", 40, 838, "body", gui.PIVOT_NW, DIM, gui.ANCHOR_LEFT, gui.ANCHOR_TOP))
 
     self.tabs = {}
     for i, label in ipairs(ZOOMS) do
@@ -101,7 +101,7 @@ function on_message(self, message_id, message)
         cancel(self.result, "scale")
         gui.set_scale(self.result, vmath.vector3(1.35, 1.35, 1))
         gui.animate(self.result, "scale", vmath.vector3(1, 1, 1), gui.EASING_OUTBACK, 0.35)
-    elseif message_id == hash("fell") then
+    elseif message_id == hash("fell") and not self.game_mode then   -- (the sandbox's card)
         gui.set_text(self.result_note, "The die rolled off the table!")
         show(self.result_note, RED)
     end

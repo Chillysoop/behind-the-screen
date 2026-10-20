@@ -103,8 +103,9 @@ function on_input(self, action_id, action)
     if self.blocked then
         return false
     end
-    if self.game_mode and action_id == ACTIONS.roll then
-        -- Space belongs to game night (next line), not the sandbox roll.
+    if self.game_mode and (action_id == ACTIONS.roll or action_id == ACTIONS.lamp) then
+        -- Space belongs to game night (next line), not the sandbox roll; L (the sandbox's lamp
+        -- switch) fought the evening's own light (October 20).
         return false
     end
     if action_id == nil then

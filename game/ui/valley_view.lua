@@ -474,7 +474,11 @@ local function place_card(app, prep, id)
         kit.text(x + 14, cy, tags, "ui14", theme.ink_dim, { w = w - 28, lines = 1 })
         cy = cy + 22
     end
-    local limit = y + SIDE_H - 120      -- the route buttons sit below
+    -- On a planned stop, and worth a handout: a row for it above the route buttons.
+    local on_stops = valley.stops_at(prep, id)
+    local handout = #on_stops > 0 and not prep.scenes[on_stops[1]].open
+        and require("game.model.handouts").worth_it(app.campaign, c)
+    local limit = y + SIDE_H - 120 - (handout and 36 or 0)      -- the route buttons sit below
     local line, col = status_line(app, prep, c)
     kit.text(x + 14, cy, line, "ui14", col, { w = w - 28, lines = 2 })
     cy = cy + kit.text_height(line, "ui14", w - 28) + 10
@@ -592,6 +596,23 @@ local function place_card(app, prep, id)
             end
         end, { font = "ui18b", color = on and theme.go or theme.button, hover = theme.button_hover,
                key = "make_stop_" .. util.int(i) })
+    end
+    if handout then
+        -- A handout of the place (game/model/handouts.lua), when it's worth one: here now that the
+        -- place card is where a stop's place is set (October 20).
+        local handouts = require "game.model.handouts"
+        local made = prep.handouts and prep.handouts[id]
+        kit.button(x + 12, by - 34, w - 24, 28, made and "Handout made (undo)" or ("Make a handout  " .. util.int(handouts.data.COST) .. "h"),
+            function()
+                local ok, why = handouts.toggle(prep, id)
+                if not ok then
+                    app.toast = why
+                    app.toast_where = "map"
+                end
+                app.refresh()
+            end, { font = "ui14", color = made and theme.go or theme.button, hover = theme.button_hover, pad_y = 4,
+                   key = "handout_toggle",
+                   enabled = made or (handouts.count(prep) < handouts.data.PER_WEEK and prep:left() >= handouts.data.COST) })
     end
     if #stops > 0 then
         kit.button(x + 12, by + 80, w - 24, 26, "Take it off the route", function()

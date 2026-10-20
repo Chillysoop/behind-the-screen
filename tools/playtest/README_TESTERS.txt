@@ -26,15 +26,20 @@ its title bar to maximize it: the game scales to fit any size.
 
 CONTROLS
 --------
-Almost everything is the mouse. A few keys help on game night:
-  Space or Enter   skip ahead / roll the die
-  F                speed up the night
-  Tab              the night's log
-  T                the timer
-  1  2  3  4       camera: the room, the table, the imagination, the dice
-  Right mouse drag look around    Mouse wheel  zoom    R  reset the camera
-  Esc              close a conversation or a pop-up
+Almost everything is the mouse. A few keys help:
+  Enter            the next step (run game night, see the report, next session)
+  N                your notes (the Notes button)      S   the Story log
+  Esc              close your notes, a sheet, a conversation or a pop-up
   M                music on / off
+On game night:
+  Space            skip ahead
+  F / G            faster / slower
+  Tab              the night's log
+  H                your own rolls: behind your screen or in the open
+  T                a gentle timer on each call
+  C                a photo of the table
+  1 to 6           pick a card's option
+  Right mouse drag look around    Mouse wheel  zoom    R  reset the camera
 
 
 WHAT WE'D LIKE FROM YOU

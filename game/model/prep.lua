@@ -363,7 +363,7 @@ function M:can_place_module(i, mid)
     end
     for j, o in ipairs(self.scenes) do
         if j ~= i and o.module and o.module.id == mid then
-            return false, "It's already on scene " .. util.int(j) .. "."
+            return false, "It's already on stop " .. util.int(j) .. "."
         end
     end
     -- What this scene's cards cost now comes back.
@@ -920,16 +920,16 @@ function M:forecast()
 end
 
 -- Why the forecast says what it says (A6): the reasons that move this player's night most,
--- strongest first, e.g. "Long talky scenes lose Dev, and scenes 1 and 2 are social."
+-- strongest first, e.g. "Long talky scenes lose Dev, and stops 1 and 2 are social."
 local function scene_list(idx)
     if #idx == 1 then
-        return "scene " .. util.int(idx[1]) .. " is"
+        return "stop " .. util.int(idx[1]) .. " is"
     end
     local parts = {}
     for k, i in ipairs(idx) do
         parts[k] = util.int(i)
     end
-    return "scenes " .. table.concat(parts, ", ", 1, #parts - 1) .. " and " .. parts[#parts] .. " are"
+    return "stops " .. table.concat(parts, ", ", 1, #parts - 1) .. " and " .. parts[#parts] .. " are"
 end
 
 function M:forecast_reasons(key)
@@ -949,14 +949,14 @@ function M:forecast_reasons(key)
         end
         for _, c in util.sorted_pairs(s.slots) do
             if c.thread == key then
-                add(1.3, "Scene " .. util.int(i) .. " is about " .. p.char .. "'s past.")
+                add(1.3, "Stop " .. util.int(i) .. " is about " .. p.char .. "'s past.")
             end
             for _, t in ipairs(c.tags or {}) do
                 local v = score.like(p, t)
                 if v <= -0.5 then
-                    add(0.6 + -v * 0.3, p.name .. " isn't keen on " .. t .. " (" .. c.name .. ", scene " .. util.int(i) .. ").")
+                    add(0.6 + -v * 0.3, p.name .. " isn't keen on " .. t .. " (" .. c.name .. ", stop " .. util.int(i) .. ").")
                 elseif v >= 1 then
-                    add(0.4 + v * 0.2, p.name .. " loves " .. t .. " (" .. c.name .. ", scene " .. util.int(i) .. ").")
+                    add(0.4 + v * 0.2, p.name .. " loves " .. t .. " (" .. c.name .. ", stop " .. util.int(i) .. ").")
                 end
             end
         end

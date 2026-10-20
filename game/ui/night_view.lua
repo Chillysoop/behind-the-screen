@@ -264,8 +264,8 @@ local function status_text(app)
     local n = app.night
     -- The table clock (A14): what time it is at the table, and when you said you'd stop.
     local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
-    return tc .. "      Calls " .. util.int(n and (n.answered or 0) or 0)
-        .. "      Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app))) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
+    -- (No call count up here: the night's end card has it, October 20.)
+    return tc .. "      Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app))) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
         .. "      Timer: " .. (app.timer_on and "on" or "off")
 end
 
@@ -279,37 +279,30 @@ function M.draw_frame(app)
     -- Anything from an earlier build is gone with its layer.
     app.pip_nodes, app.strip_nodes, app.goal_nodes = {}, {}, {}
     M.draw_goal(app)
-    -- Your notes: the story so far, who's who, the party's sheets (N).
-    kit.button(776, 10, 112, 38, "Notes (N)", function()
+    -- Your notes: the story so far, who's who, the party's sheets, the Story log (N; S opens the
+    -- Story log on this scene's storyline). One button: a second, "Stories (S)", opened the same
+    -- notes on another tab (October 20).
+    kit.button(840, 10, 112, 38, "Notes (N)", function()
         if app.open_notes then
             app.open_notes()
         end
     end, { font = "ui14", key = "night_notes" })
-    -- The Story log: each storyline so far, tonight's scenes filling in as they play (S). (The
-    -- buttons say their own keys, so the key line beside them leaves N and S out.)
-    kit.button(896, 10, 112, 38, "Stories (S)", function()
-        local sc = app.night and app.night.scene
-        if sc and sc.stories and sc.stories[1] then
-            app.storylog_id = sc.stories[1]
-            app.storylog_scroll = nil
-        end
-        if app.open_notes then
-            app.open_notes("storylog")
-        end
-    end, { font = "ui14", key = "night_stories" })
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
-    -- The keys: until the second scene (the card-led playtest, October 16: one more line nobody read
-    -- after the first scene).
+    -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
+    -- line nobody read after the first scene; October 20: back at the start of every night). The
+    -- hover card below keeps them. (No "1-4 camera": the night aims the camera itself, and a card's
+    -- options show their own numbers.)
     app.n_keys = nil
-    if not app.keys_hidden then
-        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  1-4 camera or options", "ui14",
+    if not app.keys_hidden and app.campaign.week <= 1 then
+        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  S story log", "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
-    -- What the counters are (the newcomer playtest, October 16: "Calls 0", "Your rolls: hidden").
-    gloss.card_spot(1040, 4, 536, 24, "The evening at a glance",
-        "The time at the table, and when you said you'd stop. Calls: the decisions you've made tonight. Speed: "
-        .. "how fast the night plays (F faster, G slower, down to half speed). Your rolls (H): whether you roll for the monsters behind your screen or in the "
-        .. "open. Timer (T): a gentle countdown on each call.")
+    -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
+    gloss.card_spot(1100, 4, 476, 24, "The evening at a glance",
+        "The time at the table, and when you said you'd stop. Speed: how fast the night plays (F faster, G slower, "
+        .. "down to half speed; Space skips ahead). Your rolls (H): whether you roll for the monsters behind your screen "
+        .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo, S opens "
+        .. "the Story log.")
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
         if app.open_sheet then
@@ -2637,6 +2630,11 @@ local function dodge_caption(app, x0, x1)
 end
 
 function M.show_modal(app, ev, instant)
+    -- A cinematic draws itself (October 20: Tab for the log, or a rebuild, during the opening or a
+    -- briefing redrew it as an empty card, and the night waited on a card that wasn't there).
+    if ev.kind == "cinematic" then
+        return M.show_cinematic(app, ev)
+    end
     kit.gloss_scope({ table = true, fight = true }, function()
         M.draw_modal(app, ev, instant)
     end)

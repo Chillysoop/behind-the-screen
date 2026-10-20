@@ -110,7 +110,8 @@ function M.modal(app)
             kit.text(cx + 32, qy + 12, line, "hand24", theme.ink, { w = cw - 64 })
         end
     end
-    kit.button(x + w / 2 - 140, y + h - 76, 280, 52, "Back to the table", function()
+    -- (Not "Back to the table": it opens from the prep board and the report, October 20.)
+    kit.button(x + w / 2 - 140, y + h - 76, 280, 52, "Done", function()
         M.close(app)
     end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "levelup_close" })
 end

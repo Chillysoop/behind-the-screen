@@ -615,7 +615,7 @@ function M.update(app, dt)
         end
     elseif s == "prep" then
         if app.levelup then
-            by_label("Back to the table")
+            by_key("levelup_close")
             return
         end
         if app.convo then

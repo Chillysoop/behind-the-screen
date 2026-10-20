@@ -280,7 +280,10 @@ function init(self)
         sandbox = false,
         time = 0,
         log_path = sys.get_save_file("behind_the_screen", "playtest_log.jsonl"),
-        tester_build = dialogue.playtest_build(), -- testers' build: no developer keys
+        tester_build = dialogue.playtest_build(), -- testers' build
+        -- The developer keys (F2 free camera, F3 the numbers) only in a debug build, like F4's review
+        -- (October 20: a release export showed and enabled them).
+        dev_keys = dialogue.dev_build() and not dialogue.playtest_build(),
     }
     -- The old night, for comparison (game.project [behind_the_screen] old_night = 1): the wander-off
     -- and split-the-party cards instead of the players' pulls (game/model/pulls.lua).
@@ -609,7 +612,7 @@ function on_input(self, action_id, action)
     if action_id == A.touch and input_trace.on then
         input_trace.touch(action)
     end
-    if action_id == A.sandbox and action.pressed and not app.tester_build then
+    if action_id == A.sandbox and action.pressed and app.dev_keys then
         toggle_sandbox(self)
         return true
     end
@@ -671,13 +674,27 @@ function on_input(self, action_id, action)
         ambience.toggle_music()
         return true
     end
+    -- Esc on what's on top: the "are you sure?" (its no), a book you're reading, a finished
+    -- one-on-one (October 20: these three ignored it).
+    if action_id == A.back and action.pressed and (app.ask or app.book or (app.talk and app.talk.done)) then
+        if app.ask then
+            guard(self, ask_view.cancel, app)
+        elseif app.book then
+            guard(self, book_view.close, app)
+        else
+            app.talk = nil
+            app.refresh()
+        end
+        return true
+    end
     -- The DM's notes, a character sheet or the encounter builder: Esc closes, N opens the notes.
     if app.overlay and action_id == A.back and action.pressed then
         guard(self, app.close_overlay)
         return true
     end
     if action_id == A.notes and action.pressed and not (app.review and app.review.queue_open)
-        and (app.screen == "prep" or app.screen == "night" or app.screen == "report") and not app.convo then
+        and (app.screen == "prep" or app.screen == "night" or app.screen == "report") and not app.convo
+        and not app.ask and not app.talk and not app.book then   -- (not under an open book or talk, October 20)
         if app.overlay == "notes" then
             guard(self, app.close_overlay)
         else
@@ -741,7 +758,7 @@ function on_input(self, action_id, action)
         guard(self, review_view.open_queue, app)
         return true
     end
-    if action_id == A.debug and action.pressed and not app.tester_build then
+    if action_id == A.debug and action.pressed and app.dev_keys then
         app.debug = not app.debug
         if app.debug then
             debug_view.build(app)
@@ -789,7 +806,7 @@ function on_input(self, action_id, action)
             guard(self, session_zero_view.start, app)
             return true
         elseif s == "report" then
-            if not app.quick then
+            if not report_view.busy(app) then
                 guard(self, report_view.next, app)
             end
             return true

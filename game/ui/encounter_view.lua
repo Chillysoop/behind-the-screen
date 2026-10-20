@@ -109,7 +109,7 @@ function M.draw_all(app)
     local where = s.slots.location and (" at " .. util.lower_first(s.slots.location.name)) or ", place to be improvised"
     kit.text(X + 24, Y + 14, "BUILD THE FIGHT", "title30", theme.gold)
     kit.text(X + 24 + kit.width("BUILD THE FIGHT", "title30") + 36, Y + 22,
-        "Scene " .. util.int(i) .. ": " .. (s.type and content.scenes[s.type].name or "") .. where, "ui18", theme.dim)
+        "Stop " .. util.int(i) .. ": " .. (s.type and content.scenes[s.type].name or "") .. where, "ui18", theme.dim)
     local undo = app.enc_undo and app.enc_undo.scene == i and not enc.built and app.enc_undo.ids
     if undo then
         -- "Use the suggestion" can be undone (A7).

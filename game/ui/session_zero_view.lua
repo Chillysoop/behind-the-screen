@@ -32,24 +32,34 @@ local function choices(app)
     return app.s0
 end
 
--- Ready when every question has an answer.
-function M.complete(app)
+-- Every ask from who's at the table answered (the tips use it too, October 20: "Their asks"
+-- counted all four, and a small table has two).
+function M.asks_done(app)
     local c = choices(app)
-    if not c.tone then
-        return false
-    end
     at_table(app)
     for _, key in ipairs(content.session_zero.asks.order) do
         if util.contains(ORDER, key) and not c.asks[key] then
             return false
         end
     end
+    return true
+end
+
+-- Every table rule answered (all five: the tip only knew the first three).
+function M.rules_done(app)
+    local c = choices(app)
     for _, rk in ipairs(content.session_zero.rules.order) do
         if not c.rules[rk] then
             return false
         end
     end
     return true
+end
+
+-- Ready when every question has an answer.
+function M.complete(app)
+    local c = choices(app)
+    return c.tone ~= nil and M.asks_done(app) and M.rules_done(app)
 end
 
 -- On to their backstories (October 13), then week 1.

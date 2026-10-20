@@ -184,7 +184,7 @@ maximized.
     python tools\playtest\analyze.py playtest\logs   # every tester's log -> playtest_report.html and the verdict
 
 The package is a release build with `tools/playtest/playtest.ini` over `game.project`: the draft dialogue still
-plays (`drafts = 1`), F2, F3 and F4 are off (`playtest = 1`), and no debug ports open, so Windows Firewall stays
+plays (`drafts = 1`), F2, F3 and F4 are off (they're debug-build keys, and `playtest = 1`), and no debug ports open, so Windows Firewall stays
 quiet. `tools/playtest/sample_logs.lua` writes pretend logs to try the analyzer on.
 
 ## A real session at the table (the real-session pass)
@@ -415,22 +415,24 @@ and they always come back with a fresh start. Nobody leaves without warning.
 | --- | --- | --- |
 | Mouse | Click cards, slots and options; click a player's panel or prep card for their sheet; right-drag to look around at game night | Right-drag to orbit |
 | Enter | Next step: Session Zero, start the week, run game night, see the report, next week | |
-| Esc | Close a conversation, the level-up moment, your notes, a sheet or the fight builder | |
+| Esc | Close a conversation, the level-up moment, your notes, a sheet, the fight builder, a book, an "are you sure?" or a finished one-on-one | |
 | C | Take a snapshot of the table on game night (three a night) | |
-| N | Your notes: this session, the story so far, who's who, the party | |
+| N | Your notes: this session, the story so far, who's who, the Story log, the party (the Notes button on prep and game night) | |
 | S | The Story log: beside the prep board, or in your notes on game night and the report (the wheel scrolls it) | |
 | M | Music off or on (rain and sounds stay) | |
 | Space | Skip to the next beat of game night | Roll the d20 |
-| F | Game night speed: 1x, 2x, 4x | |
+| F / G | Game night speed: faster (up to 4x) / slower (down to half speed) | |
 | Tab | Open or close the game night log | |
 | H | Your own rolls (monster attacks and saves): behind the screen or in the open | |
 | T | Gentle timer on decision cards, on or off | |
-| 1 / 2 / 3 / 4 | Camera during game night (it also moves on its own) | Room / Table / Imagination / Dice tray |
-| F3 | Show every hidden number | |
+| 1 to 6 | Pick a card's option on game night (the options show their numbers) | Room / Table / Imagination / Dice tray (1-4) |
+| F2 | The free-camera sandbox (debug builds only) | Back to the game |
+| F3 | Show every hidden number (debug builds only) | |
 | F4 | Dialogue review mode (development builds) | |
 | Q | Dialogue review queue, during game night with F4 on | |
 | A / E / R | In the review queue: approve, edit, reject the line | |
 | L | | Dim the lamp |
+| R | | Reset the view |
 
 ## Playtesting
 

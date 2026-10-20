@@ -113,9 +113,9 @@ end
 local function scene_column(app, sv, x, y, w, h)
     panel(x, y, w, h)
     local iw = w - 2 * PAD
-    label(x + PAD, y + 10, "SCENE " .. util.int(sv.i), theme.gold)
+    label(x + PAD, y + 10, "STOP " .. util.int(sv.i), theme.gold)
     -- The stories it moves, by their marks.
-    local mx = x + PAD + kit.width("SCENE " .. util.int(sv.i), "ui14") + 10
+    local mx = x + PAD + kit.width("STOP " .. util.int(sv.i), "ui14") + 10
     for _, id in ipairs(sv.stories or {}) do
         if mx < x + w - 140 and marks.storyline(app, id, mx, y + 11, 16) then
             mx = mx + 20
@@ -214,7 +214,7 @@ local function storylines_column(app, view, x, y, w, h)
         shown = shown + 1
     end
     if shown < #rows then
-        kit.text(x + PAD, bottom - LH, "+" .. util.int(#rows - shown) .. " more in the Story log (S on the prep board)",
+        kit.text(x + PAD, bottom - LH, "+" .. util.int(#rows - shown) .. " more in the Story log (in your notes)",
             "ui14", theme.faint)
     end
     if wait_text then
@@ -268,7 +268,7 @@ local function next_box(app, view, x, y, w, h)
     end
     say("It hangs on one clue: " .. lore_screen.card_words(n.clue) .. ".", theme.gold, 2)
     if n.at then
-        say("It's on tonight's board, in scene " .. util.int(n.at) .. ".", theme.text, 2)
+        say("It's on tonight's board, at stop " .. util.int(n.at) .. ".", theme.text, 2)
     elseif n.goal_slot then
         say("It isn't on tonight's board, but an empty goal slot's improv hand offers \"" .. n.goal_slot
             .. "\", which finds it.", theme.text, 3)
@@ -287,7 +287,7 @@ local function next_box(app, view, x, y, w, h)
         -- card-led playtest, October 16: "found either way, so how can it be missed?").
         local cc = content.components[n.clue]
         if n.at and cc and cc.kind == "goal" then
-            say("Only if scene " .. util.int(n.at) .. " doesn't play: " .. util.lower_first(n.without), theme.orange, 3)
+            say("Only if stop " .. util.int(n.at) .. " doesn't play: " .. util.lower_first(n.without), theme.orange, 3)
         else
             say("If they miss it: " .. util.lower_first(n.without), theme.orange, 3)
         end
@@ -365,7 +365,7 @@ function M.build(app)
         -- What this page is.
         kit.text(24, 10, "SESSION " .. util.int(view.week) .. (view.title and (": \"" .. view.title .. "\"") or ""), "ui14", theme.gold)
         kit.text(24, 30, "What tonight can change in the story", "title30", theme.text)
-        kit.text(24, 74, "Only you see this. Tonight's board, the stories it moves, and what each scene's outcome "
+        kit.text(24, 74, "Only you see this. Tonight's board, the stories it moves, and what each stop's outcome "
             .. "will mean next session. Not what you want? Go back and change the board.", "ui14", theme.dim, { w = 1100 })
         if view.objective then
             local ox, ow = RIGHT_X, RIGHT_W

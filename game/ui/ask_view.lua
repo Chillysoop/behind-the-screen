@@ -17,6 +17,15 @@ function M.close(app)
     app.refresh()
 end
 
+-- Esc: the same as the "no" button.
+function M.cancel(app)
+    local fn = app.ask and app.ask.on_no
+    M.close(app)
+    if fn then
+        fn()
+    end
+end
+
 function M.draw(app)
     local a = app.ask
     if not a then

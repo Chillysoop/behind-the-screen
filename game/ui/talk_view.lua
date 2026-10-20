@@ -73,7 +73,7 @@ function M.draw(app)
             kit.button(x + 32, ty, tw, oh, o, function()
                 one_on_one.choose(camp, camp.prep, t, i)
                 app.refresh()
-            end, { align = "left", color = theme.button, hover = theme.button_hover, key = "talk_opt_" .. i, key_hint = i })
+            end, { align = "left", color = theme.button, hover = theme.button_hover, key = "talk_opt_" .. i })   -- (no number hints: the number keys are game night's)
             ty = ty + oh + 8
         end
     end

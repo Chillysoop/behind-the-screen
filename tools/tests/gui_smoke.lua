@@ -346,6 +346,8 @@ local function take_gift(where, n)
     dump_once("7k_keepsake")
     if not has_text_fn("hands you something") then problem("the gift doesn't say who it's from" .. where) end
     if click_key("next_week") and app.quick then problem("the report moved on under the gift" .. where) end
+    key("confirm")
+    if app.quick or app.screen ~= "report" then problem("Enter moved the report on under the gift" .. where) end
     local how = ({ "gush", "use", "cool" })[((n or 0) % 3) + 1]
     if not click_key("keepsake_" .. how) then problem("no way to take the gift (" .. how .. ")" .. where) end
     if g.how ~= how or not app.keepsake_shown then problem("taking the gift didn't stick" .. where) end
@@ -577,7 +579,7 @@ for week = 1, WEEKS do
         click_label("Close"); click_label("Done")
         if app.convo then problem("conversation modal wouldn't close") end
     end
-    if app.levelup then click_label("Back to the table") end
+    if app.levelup then click_key("levelup_close") end
     if app.levelup then problem("level-up modal wouldn't close") end
     if week == 1 then
         app.sel = nil
@@ -921,16 +923,25 @@ check_tip_absorbs(" (week 2 prep)")
         end
         if found then
             pr.extra = (pr.extra or 0) - 2      -- (time for it, whatever the random clicks spent)
-            app.sel = { scene = found[1], kind = found[2] }
+            -- (A stop's place makes its handout on the map's place card, October 20.)
+            local vv = require "game.ui.valley_view"
+            if found[2] == "location" and not pr.scenes[found[1]].open then
+                show_stop(found[1])
+                if not click_key("slot_" .. found[1] .. "_location") then problem("no place slot on stop " .. found[1]) end
+                if vv.state(app).open ~= found[3].id then problem("the place slot didn't open its place on the map") end
+            else
+                app.sel = { scene = found[1], kind = found[2] }
+            end
             app.refresh()
             if not click_key("handout_toggle") then
-                problem("no handout button on a story card's slot")
+                problem("no handout button on a story card's slot (" .. found[2] .. ")")
             elseif not (pr.handouts and pr.handouts[found[3].id]) then
                 problem("making a handout didn't stick")
             else
                 dump_once("15e_handout_made")
             end
             app.sel = nil
+            vv.state(app).open = nil
             app.refresh()
         end
     end
@@ -1091,8 +1102,14 @@ check_tip_absorbs(" (week 2 prep)")
         end
     end
     if week == 3 then
+        -- One way into the notes on the board (October 20): the Notes button, as on game night.
+        if not click_key("prep_notes") then problem("no Notes button on the prep board") end
+        if app.overlay ~= "notes" then problem("the Notes button didn't open the notes") end
+        key("next_cell")
+        if has_key("notes_open") then problem("the story beat is still a second way into the notes") end
         key("next_cell")
         if app.overlay ~= "notes" then problem("N didn't open the notes in week 3") end
+        if has_text_fn("Storylines") and has_key("notes_tab_threads") then problem("the Storylines tab is back") end
         for _, t in ipairs(require("game.ui.notes_view").TABS) do
             if not click_key("notes_tab_" .. t[1]) then problem("no notes tab " .. t[1]) end
             dump("30_notes_w3_" .. t[1])
@@ -1344,6 +1361,13 @@ check_tip_absorbs(" (week 2 prep)")
             dump("29_night_notes")
             key("next_cell")
             if app.overlay then problem("N didn't close the notes") end
+            -- One Notes button on game night (October 20), and S still opens the Story log.
+            if not has_key("night_notes") then problem("no Notes button on game night") end
+            if has_key("night_stories") then problem("game night still has a second notes button") end
+            key("story")
+            if not (app.overlay == "notes" and app.notes_tab == "storylog") then problem("S didn't open the Story log on game night") end
+            key("story")
+            if app.overlay then problem("S didn't close the Story log") end
             if click_key("panel_sam") then
                 if app.overlay ~= "sheet" then problem("clicking Sam's panel didn't open his sheet") end
                 dump("29_night_sheet")
@@ -1560,6 +1584,14 @@ check_tip_absorbs(" (week 2 prep)")
                 end
                 if week == 1 and ev.id == "opening" and #ev.slides < 4 then problem("the opening has only " .. #ev.slides .. " slides") end
                 if not has_key("cine_next") then problem("a cinematic slide with no way on") end
+                -- The log opened over a slide leaves the slide up (October 20: it blanked the card).
+                if not dumped_once.cine_log then
+                    dumped_once.cine_log = true
+                    key("log")
+                    if not has_key("cine_next") then problem("opening the log blanked a cinematic slide") end
+                    key("log")
+                    if not has_key("cine_next") then problem("closing the log blanked a cinematic slide") end
+                end
             end
             stats.modals = stats.modals + 1
             -- The log stays out of the way (A11): with it open, a DC or ruling card sits beside it.
@@ -1678,6 +1710,7 @@ check_tip_absorbs(" (week 2 prep)")
         local rp = app.campaign.report.pulls
         if not rp then problem("the report has no hidden layer") end
         if click_key("report_tab_behind") then
+            if not has_text_fn("WHO MOVED THE STORY") then problem("the report's second tab isn't called Who moved the story") end
             if not has_text_fn("Moved the story") then problem("Behind the screen doesn't show who moved the story") end
             for _, e in ipairs(rp and rp.pulls or {}) do
                 if not has_text_fn("Pulled toward " .. e.name) then problem("Behind the screen leaves out the pull toward " .. e.name) end

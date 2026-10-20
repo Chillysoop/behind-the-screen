@@ -7,9 +7,11 @@
 --   People         everyone the party has met: attitude, status, history (hover for it all)
 --   Factions       standing, projects and fronts, members, what they've been up to
 --   Places         where the party has been, what changed, what happened there
---   Threads        each backstory as a chain of cards
---   Story log      each storyline told so far, scene by scene (game/ui/story_log_view.lua)
+--   The web        the big questions, and who's tied to whom
+--   Story log      each storyline told so far, scene by scene (game/ui/story_log_view.lua); the
+--                  Storylines tab (a tile per storyline that only led here) went into it, October 20
 --   Story so far   the campaign's secrets, every session's clues and moments, seeds in play
+--   Session log    every session's report, kept
 --   The party      who's playing whom, their backstory hooks, and their character sheets
 -- The data is game/model/story.lua; the story itself game/data/arc.lua.
 
@@ -28,7 +30,7 @@ local pages = require "game.ui.notebook_pages"
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
 local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
-               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" }, { "threads", "Storylines" },
+               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" },
                { "storylog", "Story log" }, { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
@@ -138,7 +140,7 @@ local function tab_session(app, x, y, w)
             if got then
                 state, scol = got.tonight and "Played tonight" or "Played", theme.green
             elseif placed then
-                state, scol = "On scene " .. util.int(placed), theme.gold
+                state, scol = "On stop " .. util.int(placed), theme.gold
             elseif prep and prep.arc_cards and prep.arc_cards[id] then
                 state, scol = "In your hand", theme.dim
             else
@@ -161,7 +163,7 @@ local function tab_session(app, x, y, w)
     local prep = c.prep
     for i, s in ipairs(prep and prep.scenes or {}) do
         local tname = s.type and content.scenes[s.type].name or "No type yet"
-        kit.text(rx, ry, "Scene " .. util.int(i) .. ":  " .. tname, "ui18b", s.type and theme.text or theme.faint)
+        kit.text(rx, ry, "Stop " .. util.int(i) .. ":  " .. tname, "ui18b", s.type and theme.text or theme.faint)
         ry = ry + 24
         for _, kind in ipairs(content.kinds) do
             local card = s.slots[kind]
@@ -404,13 +406,13 @@ end
 
 -- Anything in the binder waiting on you this week (the dot on its tab and on the prep board).
 -- A thread that moved this week (a story card that follows from how one went): a dot on the
--- Threads tab until you've looked (A6).
+-- Story log tab until you've looked (A6).
 function M.threads_moved(app)
     local camp = app.campaign
     if not (camp and camp.prep) then
         return false
     end
-    if app.notes_seen and app.notes_seen.threads == camp.week then
+    if app.notes_seen and app.notes_seen.storylog == camp.week then
         return false
     end
     local deck = require "game.model.deck"
@@ -430,7 +432,7 @@ function M.attention(app)
         out.week = true
     end
     if M.threads_moved(app) then
-        out.threads = true
+        out.storylog = true
     end
     return out
 end
@@ -453,6 +455,10 @@ function M.draw(app)
     kit.box(X, Y, W, 60, theme.panel, { radius = 14 })
     kit.text(X + 24, Y + 14, "YOUR NOTES", "title30", theme.gold)
     local tab = app.notes_tab or "session"
+    if tab == "threads" then
+        tab = "storylog"     -- (the old Storylines tab)
+        app.notes_tab = tab
+    end
     local known = false
     for _, t in ipairs(TABS) do
         known = known or t[1] == tab
@@ -461,6 +467,9 @@ function M.draw(app)
         tab = "session"
         app.notes_tab = tab
     end
+    -- Seen (its dot goes), however you got here: a tab, S, a link on the board.
+    app.notes_seen = app.notes_seen or {}
+    app.notes_seen[tab] = app.campaign and app.campaign.week
     -- The tabs down the left, like a binder's dividers.
     local attn = M.attention(app)
     local ty = Y + 76
@@ -509,8 +518,6 @@ function M.draw(app)
         pages.factions(app, cx, cy, cw, ch)
     elseif tab == "places" then
         pages.places(app, cx, cy, cw, ch)
-    elseif tab == "threads" then
-        pages.threads(app, cx, cy, cw, ch)
     elseif tab == "storylog" then
         require("game.ui.story_log_view").page(app, cx, cy, cw, ch)
     elseif tab == "story" then

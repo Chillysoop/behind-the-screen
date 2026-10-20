@@ -121,7 +121,7 @@ function M.draw(app, x, y, w, h, ids, hazard)
     local gx, gy = x, y + 26
     if not loc then
         kit.text(x, y, "SET THE STAGE", "ui14", theme.gold)
-        kit.text(x, y + 30, "Put a place on this scene first. A map is saved with its place, so going back there uses it.",
+        kit.text(x, y + 30, "Put a place on this stop first. A map is saved with its place, so going back there uses it.",
             "ui18", theme.faint, { w = W * C })
         return
     end

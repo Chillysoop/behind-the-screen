@@ -261,7 +261,7 @@ local function move_row(app, x, y, w, i, m)
                 elseif screen_taken then
                     return { { "One move on screen a week.", "ui14", theme.dim } }
                 end
-                return { { "It comes into your hand as \"" .. card.name .. "\". Put it on a scene: if the party wins it, the move goes badly for "
+                return { { "It comes into your hand as \"" .. card.name .. "\". Put it on a stop: if the party wins it, the move goes badly for "
                     .. fd.short .. "; if they lose, it works.", "ui14", theme.text } }
             end, x + 158, ty + 40, 400) })
         kit.button(x + 336, ty, 90, 34, "Hold", act("hold"), { font = "ui14", color = theme.button,
@@ -1024,122 +1024,6 @@ function M.places(app, x, y, w, h)
         local line = st and st.label or (hist[1] and ("Last: " .. ledger.entry_text(c, hist[1])) or nil)
         if line and kit.text_height(line, "ui14", cw - 24) <= rh - 36 then
             kit.text(px + 12, py + 32, line, "ui14", st and theme.orange or theme.dim, { w = cw - 24 })
-        end
-    end
-end
-
--- Threads -----------------------------------------------------------------------------------
-
-local STEP = { done = { "Done", theme.green }, open = { "In your deck", theme.gold }, coming = { "Next week", theme.teal },
-               locked = { "Not opened yet", theme.faint } }
-
--- Storylines (game/model/storylines.lua): the major and minor stories up top, how each stands,
--- then every hero's own story with its steps. A loose end says what it's costing.
-local HEAT = { warm = { "Moving", theme.green }, cooling = { "Cooling", theme.gold },
-               cold = { "Touch it this week", theme.orange }, loose = { "Loose end", theme.red },
-               unopened = { "Not started", theme.faint }, resolved = { "Tied off", theme.teal }, ended = { "Over", theme.faint } }
-
-local function heat_chip(x, y, heat)
-    local hc = HEAT[heat] or HEAT.unopened
-    kit.text(x, y, hc[1], "ui14", hc[2])
-end
-
-function M.threads(app, x, y, w, h)
-    local c = app.campaign
-    local storylines = require "game.model.storylines"
-    local defs = storylines.defs(c)
-    local s = storylines.get(c)
-    -- The major and minor stories: tiles, four to a row.
-    local gap = 14
-    local tw = math.floor((w - 3 * gap) / 4)
-    local th = 132
-    local k = 0
-    for _, d in ipairs(defs) do
-        if d.kind ~= "backstory" then
-            local col, row = k % 4, math.floor(k / 4)
-            local tx, ty = x + col * (tw + gap), y + row * (th + 10)
-            local heat, since = storylines.heat(c, d.id)
-            local st = s[d.id]
-            -- Click a storyline to read it in the Story log.
-            kit.button(tx, ty, tw, th, "", function()
-                app.storylog_id = d.id
-                app.storylog_scroll = nil
-                app.notes_tab = "storylog"
-                app.refresh_notes()
-            end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_tile_" .. d.id,
-                   on_hover = hover_with(app, function()
-                       return util.lazy("game.ui.story_log_view").glance_rows(app, d.id, { hint = "Click to read it all." })
-                   end, col < 2 and (tx + tw + 10) or (tx - 550), ty, 540) })
-            kit.box(tx, ty, 6, th, kit.rgba(d.color), { radius = 3 })
-            util.lazy("game.ui.lore_marks").storyline(app, d.id, tx + tw - 40, ty + 28, 26)
-            kit.text(tx + 16, ty + 10, string.upper(d.kind), "ui14", theme.faint)
-            heat_chip(tx + tw - 12 - kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14"), ty + 10, heat)
-            kit.text(tx + 16, ty + 30, d.name, "ui18b", theme.text, { w = tw - 64, lines = 1 })
-            kit.text(tx + 16, ty + 56, d.about or "", "ui14", theme.dim, { w = tw - 28, lines = 2 })
-            local line
-            if st and st.state == "open" then
-                if st.loose then
-                    line = "Dropped since session " .. util.int(st.loose) .. ". Costing the table every week."
-                elseif (st.moves or 0) > 0 then
-                    line = "Moved " .. util.int(st.moves) .. (st.moves == 1 and " night" or " nights") .. ", last in session "
-                        .. util.int(st.last) .. "."
-                else
-                    line = "Open since session " .. util.int(st.opened) .. "."
-                end
-            elseif st and st.state == "resolved" then
-                line = "Tied off in session " .. util.int(st.resolved) .. "."
-            else
-                line = "Opens when one of its cards plays."
-            end
-            kit.text(tx + 16, ty + th - 26, line, "ui14", (st and st.loose) and theme.red or theme.faint, { w = tw - 28, lines = 1 })
-            k = k + 1
-        end
-    end
-    -- Every hero's own story.
-    local by = y + (math.floor((k + 3) / 4)) * (th + 10) + 4
-    local threads = deck.threads(c)
-    local cw = math.floor((w - 3 * gap) / 4)
-    local bh = y + h - by
-    for i, p in ipairs(c.players) do
-        local px = x + (i - 1) * (cw + gap)
-        kit.button(px, by, cw, bh, "", function()
-            app.storylog_id = "bs_" .. p.key
-            app.storylog_scroll = nil
-            app.notes_tab = "storylog"
-            app.refresh_notes()
-        end, { color = theme.panel2, hover = theme.panel3, radius = 10, key = "thread_hero_" .. p.key,
-               on_hover = hover_with(app, function()
-                   return util.lazy("game.ui.story_log_view").glance_rows(app, "bs_" .. p.key, { hint = "Click to read it all." })
-               end, i <= 2 and (px + cw + 10) or (px - 550), by, 540) })
-        kit.dot(px + 30, by + 30, 40, panels.COLORS[p.key] or theme.panel3)
-        kit.picture(px + 12, by + 12, 36, 36, panels.face(p.key))
-        local heat = storylines.heat(c, "bs_" .. p.key)
-        local hw = kit.width((HEAT[heat] or HEAT.unopened)[1], "ui14")
-        kit.text(px + 58, by + 10, p.char, "ui18b", theme.text, { w = cw - 82 - hw, lines = 1 })
-        heat_chip(px + cw - 12 - hw, by + 13, heat)
-        local featured = planner.featured(c, p.key)
-        kit.text(px + 58, by + 32, p.name .. (featured and ", featured" or ""), "ui14", featured and theme.gold or theme.dim)
-        local ty = by + 60
-        ty = para(px + 12, ty, cw - 24, util.capitalize(p.thread or ""), "ui14", theme.text)
-        ty = ty + 4
-        for _, st in ipairs(threads[p.key] or {}) do
-            local sp = STEP[st.state]
-            -- On the board this week says so (playtest, October 13: placed cards read "In your deck").
-            local at = st.state == "open" and c.prep and c.prep.placed_at and c.prep:placed_at(st.card.id)
-            if at then
-                sp = { "On scene " .. util.int(at) .. " this week", theme.orange }
-            end
-            local name = st.state == "locked" and "?" or st.card.name
-            local nh = kit.text_height(name, "ui14", cw - 40)
-            if ty + nh + 22 > by + bh - 8 then
-                break
-            end
-            kit.dot(px + 18, ty + 9, 12, sp[2])
-            kit.text(px + 30, ty, name, "ui14", st.state == "locked" and theme.faint or theme.text, { w = cw - 40 })
-            ty = ty + nh
-            local how = st.how and (" (" .. (st.how == "win" and "won" or (st.how == "lose" and "lost" or st.how)) .. ")") or ""
-            kit.text(px + 30, ty, sp[1] .. how, "ui14", sp[2])
-            ty = ty + 24
         end
     end
 end

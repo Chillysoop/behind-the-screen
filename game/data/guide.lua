@@ -82,7 +82,7 @@ return {
         {
             id = "plan_intro", screen = "planner", at = { 24, 626 }, leave = true,
             title = "Plan the campaign",
-            text = "Real DMs sketch a campaign before the first game. Pick three truths about the world, a second front and two players' stories to feature. The defaults are fine too.",
+            text = "Real DMs sketch a campaign before the first game: three truths about the world, where it happens, a second front, two players' stories to feature, who's at the table and your dice. The defaults are fine too.",
         },
         -- Session Zero ------------------------------------------------------------------------
         {
@@ -100,11 +100,7 @@ return {
             title = "Their asks",
             text = "Each player asks for one thing. Agree and it holds all campaign; push back and they'll remember. Either is fine.",
             done = function(app)
-                local n = 0
-                for _ in pairs(app.s0 and app.s0.asks or {}) do
-                    n = n + 1
-                end
-                return n >= 4
+                return app.s0 ~= nil and require("game.ui.session_zero_view").asks_done(app)
             end,
         },
         {
@@ -113,8 +109,7 @@ return {
             title = "Table rules",
             text = "The house rules, and everyone has an opinion. When you've answered everything, go on to their backstories (bottom right).",
             done = function(app)
-                local r = app.s0 and app.s0.rules or {}
-                return r.xcard ~= nil and r.dice ~= nil and r.rulings ~= nil
+                return app.s0 ~= nil and require("game.ui.session_zero_view").rules_done(app)
             end,
         },
 
@@ -149,7 +144,7 @@ return {
             end,
             anchor = { 292, 4, 524, 58 },
             title = "Your first session",
-            text = "This week's story beat. Click it (or press N) for your notes: what tonight is for and what to read out. Its story cards are in your hand.",
+            text = "This week's story beat. Your notes (the Notes button, or N) say what tonight is for and what to read out. Its story cards are in your hand.",
         },
         -- The valley map (October 17): prep starts on the map.
         {
@@ -230,7 +225,7 @@ return {
             done = function(app) return app.night_done end,
             anchor = { 10, 772, 1580, 126 },
             title = "It plays itself",
-            text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. Space skips ahead, F speeds it up and G slows it down.",
+            text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. The keys for skipping and speed are top right.",
         },
         {
             id = "night_decision", screen = "night", at = NIGHT,

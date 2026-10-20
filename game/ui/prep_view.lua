@@ -284,12 +284,6 @@ local function top_bar(app, prep)
     kit.text(24, 14, "SESSION " .. util.int(app.campaign.week), "title30", theme.gold)
     -- The slice's story beat (M7), or the plain reminder once the slice is over.
     local beat = app.campaign:arc_beat()
-    -- The story beat is the way into your notes (N).
-    kit.button(292, 4, 524, 58, "", function()
-        if app.open_notes then
-            app.open_notes("session")
-        end
-    end, { color = theme.bg, hover = theme.panel, radius = 8, key = "notes_open" })
     if beat then
         kit.text(300, 12, "PREP  -  " .. util.int(app.campaign.week) .. " OF " .. util.int(content.arc.SESSIONS) .. ":  "
             .. string.upper(beat.title), "ui14", theme.gold, { w = 400, lines = 1 })
@@ -304,12 +298,14 @@ local function top_bar(app, prep)
     local pending = M.staged(app) and 0 or world.pending(app.campaign)
     local moved = notes_view_mod().threads_moved(app)
     -- All three are links into your notes (playtest, October 13: "5 world moves to decide" read
-    -- as a label, and nobody found where to decide them).
-    local nw = kit.width("Your notes (N)", "ui14")
-    kit.button(808 - nw - 4, 8, nw + 8, 22, "", function()
+    -- as a label, and nobody found where to decide them). One Notes button, the same as game
+    -- night's (October 20: the whole story beat was a second, hidden way in, and the button a
+    -- faint label on top of it).
+    local nw = kit.width("Notes (N)", "ui14") + 20
+    kit.button(812 - nw, 6, nw, 24, "Notes (N)", function()
         app.open_notes()
-    end, { color = kit.rgba("#000000", 0), hover = theme.button_hover, key = "prep_notes" })
-    kit.text(808, 12, "Your notes (N)", "ui14", (pending > 0 or moved) and theme.orange or theme.faint, { pivot = gui.PIVOT_NE })
+    end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, radius = 6, pad_y = 2,
+           text_color = (pending > 0 or moved) and theme.orange or theme.text, key = "prep_notes" })
     local function link(text, tab, key)
         local tw = kit.width(text, "ui14")
         kit.button(912, 8, tw + 8, 22, "", function()
@@ -319,12 +315,12 @@ local function top_bar(app, prep)
         kit.box(916, 12 + kit.line_height("ui14") - 3, tw, 1.5, theme.orange, { round = false })
     end
     if moved and pending == 0 then
-        kit.dot(808 - nw - 10, 20, 10, theme.orange)
-        link("A storyline moved: see Storylines", "threads", "prep_threads_moved")
+        kit.dot(812 - nw - 8, 18, 10, theme.orange)
+        link("A storyline moved: see the Story log", "storylog", "prep_threads_moved")
     end
     if pending > 0 then
         -- The world's moves wait in your notes (This week): a dot until you've decided them.
-        kit.dot(808 - nw - 10, 20, 10, theme.orange)
+        kit.dot(812 - nw - 8, 18, 10, theme.orange)
         link(util.int(pending) .. (pending == 1 and " world move to decide" or " world moves to decide") .. ": open", "week",
             "prep_world_moves")
     end
@@ -461,6 +457,20 @@ local function scene_card(app, prep, i)
             kit.box(x + 7, sy - 3, CARD_W - 14, SLOT_H + 6, theme.select, { radius = 9 })
         end
         kit.button(x + 10, sy, CARD_W - 20, SLOT_H, "", function()
+            if kind == "location" and not s.open and not s.module then
+                -- A stop's place is the map's business (October 20: the slot opened a second place
+                -- picker, the hand's, beside the map's own): its card on the map, or where to pick one.
+                app.sel = nil
+                if s.slots.location then
+                    valley_view.open_place(app, s.slots.location.id)
+                else
+                    app.toast = "Pick stop " .. util.int(i) .. "'s place on the map: click a place, then make it stop "
+                        .. util.int(i) .. "."
+                    app.toast_where = "map"
+                end
+                app.refresh()
+                return
+            end
             app.sel = { scene = i, kind = kind }
             app.refresh()
         end, { color = theme.paper_dim, hover = kit.rgba("#f6edd6"), key = "slot_" .. util.int(i) .. "_" .. kind })
@@ -700,11 +710,11 @@ local function drawer(app, prep)
                     prep:clear_module(sel.scene)
                 end
                 prep:set_type(sel.scene, key)
-                -- Move on to the first empty slot.
-                app.sel = { scene = sel.scene, kind = "location" }
+                -- Move on to the first empty slot (not the place: that's the map's, October 20).
+                app.sel = nil
                 for _, kind in ipairs(content.kinds) do
-                    if not s.slots[kind] then
-                        app.sel.kind = kind
+                    if kind ~= "location" and not s.slots[kind] then
+                        app.sel = { scene = sel.scene, kind = kind }
                         break
                     end
                 end
