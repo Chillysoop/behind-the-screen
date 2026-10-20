@@ -80,6 +80,9 @@ end
 
 function M.start(app, mode)
     app.autotest = { mode = mode, t = 0, wait = 1.5, shots = {}, weeks = 0 }
+    -- Key art (behind_the_screen.keyart = 1, with mode 4): clean shots of the table too.
+    local ok, ka = pcall(sys.get_config_int, "behind_the_screen.keyart", 0)
+    app.autotest.keyart = ok and ka == 1 or nil
     say("start mode " .. mode)
 end
 
@@ -91,6 +94,52 @@ local function shot(a, name)
         return true
     end
     return false
+end
+
+-- Key art (behind_the_screen.keyart = 1, with mode 4): the first time the night waits on a card in
+-- a story scene, again on a fight's card, and once a fight's minis are on the mat, the screens go
+-- and the table is shot from the room, the table and the imagination cameras (for store pages and
+-- the website). Then the screens come back and the night goes on.
+local KEYART_ZOOMS = { 1, 2, 3 }
+
+-- The render script leaves out every screen (the game's and the HUD's) while this is on.
+local function set_ui(on, a)
+    msg.post("@render:", "clean", { on = not on })
+end
+
+function M.keyart(app, a, tag)
+    local k = a.ka
+    if not k then
+        a.ka = { tag = tag, i = 0, zoom0 = app.camera_index or 2, speed = app.speed_i }
+        app.speed_i = 1     -- (the slowest: a fight barely moves while it's shot)
+        set_ui(false, a)
+        a.wait = 0.5
+        return true
+    end
+    if k.pend then
+        say("shot " .. k.pend)
+        k.pend = nil
+        a.wait = SHOT_WAIT
+        return true
+    end
+    k.i = k.i + 1
+    local z = KEYART_ZOOMS[k.i]
+    if not z then
+        app.zoom(k.zoom0)
+        set_ui(true, a)
+        if k.speed then
+            app.speed_i = k.speed
+        end
+        a.ka_done = a.ka_done or {}
+        a.ka_done[k.tag] = true
+        a.ka = nil
+        a.wait = 1.0
+        return true
+    end
+    app.zoom(z)
+    k.pend = "keyart_" .. k.tag .. "_z" .. z
+    a.wait = 3.0     -- (the camera glides there)
+    return true
 end
 
 local function finish(a, ok, why)
@@ -499,6 +548,12 @@ function M.update(app, dt)
         end
     elseif s == "planner" then
         if not shot(a, "planner") then
+            -- Key art wants the whole table: all four from session 1.
+            if a.keyart and not a.ka_table then
+                a.ka_table = true
+                by_key("table_full")
+                return
+            end
             if not by_key("plan_done") then
                 return finish(a, false, "the planner has no way on")
             end
@@ -643,6 +698,16 @@ function M.update(app, dt)
                 say("handover")
             end
         elseif app.pending then
+            -- Key art: clean shots, a story scene's and a fight's, while the night waits on a card.
+            if a.mode == 4 and a.keyart and (a.ka or app.pending.kind == "decision") then
+                local kt = app.pending.card and app.pending.card.type
+                local tag = (kt == "combat" or kt == "boss") and "fight" or "story"
+                if a.ka or not (a.ka_done or {})[tag] then
+                    if M.keyart(app, a, a.ka and a.ka.tag or tag) then
+                        return
+                    end
+                end
+            end
             if a.mode == 4 and (app.pending.kind == "decision" or app.pending.kind == "roll_where" or app.pending.kind == "ruling")
                 and not a.shots[app.pending.kind] then
                 shot(a, app.pending.kind)
@@ -673,6 +738,18 @@ function M.update(app, dt)
                 end
             end
         elseif not app.rolling then
+            -- Key art: carry on with the shots, or start the fight's once its minis are on the mat.
+            if a.mode == 4 and a.keyart then
+                local ev = app.last_ev
+                if a.ka then
+                    if M.keyart(app, a, a.ka.tag) then
+                        return
+                    end
+                elseif ev and ev.kind == "battle" and a.shots.battle_board and not (a.ka_done or {}).battle then
+                    M.keyart(app, a, "battle")
+                    return
+                end
+            end
             if a.mode == 4 and M.night_shots(app, a) then
                 return
             end

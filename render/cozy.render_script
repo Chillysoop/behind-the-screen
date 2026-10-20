@@ -105,8 +105,10 @@ function update(self, dt)
     render.disable_state(graphics.STATE_DEPTH_TEST)
     render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
     render.enable_state(graphics.STATE_STENCIL_TEST)
-    render.draw(self.pred.gui)
-    render.draw(self.pred.text)
+    if not self.clean then     -- (key-art captures draw the table alone)
+        render.draw(self.pred.gui)
+        render.draw(self.pred.text)
+    end
     render.disable_state(graphics.STATE_STENCIL_TEST)
     render.set_depth_mask(true)
 end
@@ -114,6 +116,7 @@ end
 local MSG_CAMERA = hash("camera")
 local MSG_LIGHTS = hash("lights")
 local MSG_MOOD = hash("mood")
+local MSG_CLEAN = hash("clean")
 
 function on_message(self, message_id, message)
     if message_id == MSG_CAMERA then
@@ -124,6 +127,8 @@ function on_message(self, message_id, message)
     elseif message_id == MSG_LIGHTS then
         self.cb.lamp_pos = message.lamp
         self.cb.fire_pos = message.fire
+    elseif message_id == MSG_CLEAN then
+        self.clean = message.on
     elseif message_id == MSG_MOOD then
         local lamp = self.lamp_color
         self.mood = {
