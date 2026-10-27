@@ -64,7 +64,7 @@ function M.screen(app, screen)
     if screen == "intro" then
         M.mood("dusk", 0.1)
         M.music("prep")
-    elseif screen == "session_zero" then
+    elseif screen == "session_zero" or screen == "setup" or screen == "join" then
         M.mood("dusk", 2)
         M.music("prep")
         M.sfx("page")

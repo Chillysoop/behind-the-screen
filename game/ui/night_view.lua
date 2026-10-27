@@ -821,7 +821,7 @@ function M.toast(app, top, text)
     -- With the log open, it sits on the rest of the screen (A11).
     local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
     local x, y = cx - w / 2, 136
-    local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {} }
+    local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {}, rect = { x = x, y = y, w = w, h = h } }
     t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
     t.nodes[2] = kit.box(x, y, w, h, kit.rgba("#201813", 0.96), { radius = 11 })
     t.nodes[3] = kit.text(x + 20, y + 12, top, "ui14", theme.gold)
@@ -1080,17 +1080,39 @@ local function same_anchor(a, b)
     return (a.head and a.head == b.head) or (a.mini and a.mini == b.mini)
 end
 
+-- How long a line stays up (October 26: "make their text stay up longer so they can be easily
+-- read"), and how long a line someone has moved on from takes to fade.
+local BUBBLE_READ, BUBBLE_MIN, BUBBLE_FADE, BUBBLE_MOVED_ON = 1.4, 2.2, 0.3, 1.2
+
 function M.bubble(app, anchor, speaker, text, ic)
     if not app.layers.fx then
         return
     end
+    -- Someone says something new: it goes just over their head, and what they said before moves
+    -- up over it and fades ("other text can maybe appear under it and the previous one fades
+    -- away"). One line back at most.
     for i = #app.bubbles, 1, -1 do
-        if same_anchor(app.bubbles[i].anchor, anchor) then
-            drop_bubble(app, i)
+        local o = app.bubbles[i]
+        if same_anchor(o.anchor, anchor) then
+            if o.moved_on then
+                drop_bubble(app, i)
+            else
+                o.moved_on = true
+                o.fade = BUBBLE_MOVED_ON
+                o.life = math.min(o.life, o.age + BUBBLE_MOVED_ON)
+            end
         end
     end
-    while #app.bubbles >= 4 do
-        drop_bubble(app, 1)
+    while #app.bubbles >= 6 do
+        -- The oldest line someone's moved on from goes first, then the oldest.
+        local gone = 1
+        for i, o in ipairs(app.bubbles) do
+            if o.moved_on then
+                gone = i
+                break
+            end
+        end
+        drop_bubble(app, gone)
     end
     kit.use(app.layers.fx)
     local lines = kit.wrap(text, "ui18", 300)
@@ -1110,7 +1132,7 @@ function M.bubble(app, anchor, speaker, text, ic)
     local ink = ic and theme.ink or theme.text
     local label = ic and theme.ink_dim or theme.dim
     local b = { anchor = anchor, w = tw + 26, h = 30 + #lines * 23 + 8, age = 0,
-                life = math.max(1.4, (pacing.read(text) + 0.4) / speed(app)) }
+                life = math.max(BUBBLE_MIN, (pacing.read(text) * BUBBLE_READ + 0.6) / speed(app)) }
     b.nodes = {
         kit.box(0, 0, b.w, b.h, bg, { radius = 10 }),
         kit.icon(0, 0, 18, "tail", bg),
@@ -1122,10 +1144,23 @@ function M.bubble(app, anchor, speaker, text, ic)
     M.place_bubbles(app)
 end
 
-function M.place_bubbles(app)
+function M.place_bubbles(app, dt)
     local placed = {}
     local cap = app.caption_rect
+    -- What's being said now first, in the order it was said; lines someone has moved on from
+    -- after, so they go over the new ones rather than push them aside.
+    local order = {}
     for _, b in ipairs(app.bubbles) do
+        if not b.moved_on then
+            table.insert(order, b)
+        end
+    end
+    for _, b in ipairs(app.bubbles) do
+        if b.moved_on then
+            table.insert(order, b)
+        end
+    end
+    for _, b in ipairs(order) do
         local ax, ay, col_x, col_w = anchor_xy(app, b.anchor)
         local show = ax ~= nil
         for _, n in ipairs(b.nodes) do
@@ -1142,21 +1177,59 @@ function M.place_bubbles(app)
             if cap and x < cap.x + cap.w + 6 and cap.x < x + b.w + 6 and y < cap.y + cap.h + 6 and cap.y < y + b.h + 6 then
                 y = cap.y - b.h - 8
             end
-            -- Don't stack on top of a bubble that's already up.
-            for _, o in ipairs(placed) do
-                if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
-                    y = o.y - b.h - 8
-                    if y < 64 then
-                        y = o.y + o.h + 8
+            if not b.moved_on then
+                -- Don't stack on top of a bubble that's already up.
+                for _, o in ipairs(placed) do
+                    if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
+                        y = o.y - b.h - 8
+                        if y < 64 then
+                            y = o.y + o.h + 8
+                        end
                     end
                 end
+            else
+                -- A line someone's moved on from goes over whatever's in the way (the new line first of
+                -- all), clear of the caption; with no room left up there, it's had its moment.
+                local tc = app.toast_card and app.toast_card.rect
+                local function in_way()
+                    for _, r in ipairs({ cap or false, tc or false }) do
+                        if r and x < r.x + r.w + 6 and r.x < x + b.w + 6 and y < r.y + r.h + 6 and r.y < y + b.h + 6 then
+                            return r
+                        end
+                    end
+                    for _, o in ipairs(placed) do
+                        if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
+                            return o
+                        end
+                    end
+                end
+                for _ = 1, 8 do
+                    local o = in_way()
+                    if not o then
+                        break
+                    end
+                    y = o.y - b.h - 8
+                end
+                if y < 64 or in_way() then
+                    show = false
+                    for _, n in ipairs(b.nodes) do
+                        gui.set_enabled(n, false)
+                    end
+                end
+                gui.set_enabled(b.nodes[2], false)      -- (no tail: the new line has it)
             end
-            b.x, b.y = x, y
-            table.insert(placed, b)
-            place(b.nodes[1], x, y)
-            place(b.nodes[2], util.clamp(ax - 9, x + 10, x + b.w - 28), y + b.h - 2)
-            place(b.nodes[3], x + 13, y + 6)
-            place(b.nodes[4], x + 13, y + 28)
+            if show then
+                -- A line that's moved up slides there rather than jumps.
+                if b.y and dt and math.abs(b.y - y) > 1 then
+                    y = b.y + (y - b.y) * math.min(1, dt * 10)
+                end
+                b.x, b.y = x, y
+                table.insert(placed, b)
+                place(b.nodes[1], x, y)
+                place(b.nodes[2], util.clamp(ax - 9, x + 10, x + b.w - 28), y + b.h - 2)
+                place(b.nodes[3], x + 13, y + 6)
+                place(b.nodes[4], x + 13, y + 28)
+            end
         end
     end
 end
@@ -1228,13 +1301,14 @@ function M.update_fx(app, dt)
     for i = #app.bubbles, 1, -1 do
         local b = app.bubbles[i]
         b.age = b.age + dt
+        local f = b.fade or BUBBLE_FADE
         if b.age >= b.life then
             drop_bubble(app, i)
-        elseif b.life - b.age < 0.3 then
-            fade(b.nodes, b.colors, (b.life - b.age) / 0.3)
+        elseif b.life - b.age < f then
+            fade(b.nodes, b.colors, (b.life - b.age) / f)
         end
     end
-    M.place_bubbles(app)
+    M.place_bubbles(app, dt)
     for i = #app.floaters, 1, -1 do
         local f = app.floaters[i]
         f.age = f.age + dt
@@ -2671,7 +2745,7 @@ function M.draw_modal(app, ev, instant)
         for i, o in ipairs(card.options) do
             labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or "d20") .. " check)") or "")
                 .. (o.cooked and "  (overrules the die)" or "") .. (o.promise and "  (as agreed)" or "")
-            lean_h[i] = (o.leans and next(o.leans)) and 30 or 0
+            lean_h[i] = (o.leans and next(o.leans) and require("game.ui.prefs").chill()) and 30 or 0
             -- What an answer costs and gives, under it (a pull's four answers).
             sub_h[i] = o.sub and (kit.text_height(o.sub, "ui14", w - 68 - KEY_PAD) + 4) or 0
             h = h + option_height(labels[i], w - 40) + lean_h[i] + sub_h[i] + 10
@@ -2853,6 +2927,9 @@ end
 -- the DM's read. Dots, not faces: the same marks as the prep board's hovers.
 function M.draw_leans(app, x, y, leans)
     local fx = x
+    if not require("game.ui.prefs").chill() then
+        return        -- (Chill mode only: October 26)
+    end
     for _, group in ipairs({ { 1, theme.green, " would love it" }, { -1, theme.red, " wouldn't" } }) do
         local names = {}
         for _, p in ipairs(app.campaign.players) do

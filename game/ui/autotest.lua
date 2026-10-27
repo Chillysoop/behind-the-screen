@@ -278,26 +278,39 @@ function M.showcase(app, a)
         end
         maps.place(m, "torch_post", 16, 7)
         maps.place(m, "trap", 9, 7)
-        app.sel = { scene = 2, kind = "cast" }
-        app.refresh()
-        shot(a, "prep_board")
+        -- Prep, a step at a time (October 26): where the story stands, in their heads.
+        require("game.ui.prep_steps").go(app, "story")
+        a.wait = 1.0
     elseif step == 2 then
-        app.sel = nil
+        shot(a, "prep_story")
+    elseif step <= 8 then
+        -- The rest of the week's steps worth seeing, and Chill mode's faces on the kinds of scene.
+        local prefs = require "game.ui.prefs"
+        local tour = { "friends", "route_2", "type_2", "slot_2_cast", "ready", "type_2" }
+        local id = tour[step - 2]
+        if step == 8 then
+            prefs.set_chill(true)
+        end
+        require("game.ui.prep_steps").go(app, id)
+        shot(a, "prep_" .. id .. (step == 8 and "_chill" or ""))
+    elseif step == 9 then
+        require("game.ui.prefs").set_chill(false)
+        require("game.ui.prep_steps").go(app, "ready")
         app.open_notes("session")
         shot(a, "notes_session")
-    elseif step == 3 then
+    elseif step == 10 then
         app.open_notes("people")
         shot(a, "notes_people")
-    elseif step == 4 then
+    elseif step == 11 then
         -- (Whoever's at the table: a small table starts without Jess, October 15.)
         local who = app.campaign.players[#app.campaign.players].key
         app.open_sheet(who)
         shot(a, "sheet_" .. who)
-    elseif step == 5 then
+    elseif step == 12 then
         app.close_overlay()
         app.open_encounter(3)
         shot(a, "encounter")
-    elseif step == 6 then
+    elseif step == 13 then
         app.enc_tab = "map"
         app.refresh()
         shot(a, "map_builder")
@@ -546,72 +559,67 @@ function M.update(app, dt)
                 end
             end
         end
-    elseif s == "planner" then
-        if not shot(a, "planner") then
-            -- Key art wants the whole table: all four from session 1.
-            if a.keyart and not a.ka_table then
-                a.ka_table = true
-                by_key("table_full")
-                return
-            end
-            if not by_key("plan_done") then
-                return finish(a, false, "the planner has no way on")
-            end
+    elseif s == "setup" or s == "join" then
+        -- Setting up, one decision at a time (October 26): answer each step like a player who
+        -- takes the defaults where there are some, shoot the ones worth seeing, and go on.
+        local steps_mod = require "game.ui.steps"
+        local sv = require "game.ui.setup_view"
+        local backstory = require "game.model.backstory"
+        local flow = s == "setup" and sv.flow or sv.join_flow
+        local st = steps_mod.current(app, flow)
+        if not st then
+            return finish(a, false, "no setup step")
         end
-    elseif s == "session_zero" then
-        app.s0 = app.s0 or { asks = {}, rules = {} }
-        app.s0.tone = app.s0.tone or "mixed"
-        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do
-            app.s0.asks[k] = app.s0.asks[k] or "agree"
-        end
-        app.s0.rules.xcard = app.s0.rules.xcard or "on"
-        app.s0.rules.dice = app.s0.rules.dice or "big_open"
-        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
-        app.s0.rules.length = app.s0.rules.length or "half"
-        app.s0.rules.death = app.s0.rules.death or "meaningful"
-        if app.s0.page ~= "backstories" then
-            app.refresh()
-            if not shot(a, "session_zero") then
-                by_label("Backstories")
-            end
+        -- (The room camera glides in first: the first shot waits for it.)
+        local who = s == "join" and tostring(app.join and app.join.key) or "setup"
+        if a.settled_for ~= who then
+            a.settled_for = who
+            a.wait = 2.5
             return
         end
-        -- Their backstories (October 13): a few questions, an idea taken up, and a hook for each.
-        local backstory = require "game.model.backstory"
-        local all = app.s0.backstories or {}
-        app.s0.backstories = all
-        if not all.mara then
-            backstory.toggle_question(all, "mara", "last_words")
-            backstory.toggle_question(all, "mara", "afraid")
-            backstory.toggle_question(all, "dev", "plan")
-            backstory.toggle_question(all, "jess", "how")
-            all.jess.idea = "yes"
-            all.mara.idea = "yes"
-            for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
-                all[k] = all[k] or { asked = {} }
-                all[k].hook = all[k].hook or backstory.data[k].hooks[2].card
+        a.answered = a.answered or {}
+        if not a.answered[who .. ":" .. st.id] then
+            a.answered[who .. ":" .. st.id] = true
+            local id = st.id
+            if id == "table" and a.keyart then
+                by_key("table_full")      -- key art wants the whole table
+            elseif id == "tone" then
+                by_key("tone_mixed")
+            elseif id:find("^ask_") then
+                by_key(id .. "_agree")
+            elseif id:find("^rule_") then
+                local rk = id:sub(6)
+                by_key(id .. "_" .. (require("game.model.content").session_zero.defaults.rules[rk] or "meaningful"))
+            elseif id:find("^bs_q_") or id == "join_q" then
+                local k = id == "join_q" and app.join.key or id:sub(6)
+                local ask = ({ mara = { "last_words", "afraid" }, dev = { "plan" }, jess = { "how" } })[k]
+                    or { backstory.data[k].questions[1].id }
+                for _, q in ipairs(ask) do
+                    by_key("bs_q_" .. q)
+                end
+            elseif id:find("^bs_idea_") or id == "join_idea" then
+                by_key("bs_idea_yes")
+            elseif id == "join_ask" then
+                by_key("join_ask_agree")
+            elseif id:find("^bs_hook_") or id == "join_hook" then
+                local k = id == "join_hook" and app.join.key or id:sub(9)
+                local hooks = backstory.data[k].hooks
+                by_key("bs_hook_" .. (hooks[2] or hooks[1]).card)
+            elseif id == "featured" then
+                by_key("thread_mara")
+                by_key("thread_dev")
             end
-            app.s0.bs_key = "mara"
+            a.wait = 1.0       -- (their poses and bubbles change)
+            return
         end
-        app.refresh()
-        if not shot(a, "backstories") then
-            by_label("Start session")
+        local worth = { table = true, style = true, truths = true, front = true, tone = true, ask_mara = true,
+                        rule_death = true, bs_q_mara = true, bs_idea_mara = true, bs_hook_mara = true, featured = true,
+                        ready = true, join_q = true, join_hook = true }
+        if worth[st.id] and shot(a, (s == "join" and ("join_" .. tostring(app.join and app.join.key) .. "_") or "setup_") .. st.id) then
+            return
         end
-    elseif s == "join" then
-        -- A small table (October 15): someone joins this week. Their questions, their idea taken
-        -- up, the ask agreed and the first hook; then the welcome.
-        local backstory = require "game.model.backstory"
-        local key = app.join and app.join.key
-        if key then
-            app.join.backstories = app.join.backstories or {}
-            app.join.backstories[key] = app.join.backstories[key] or backstory.default_choice(key)
-            app.join.ask = app.join.ask or "agree"
-            app.refresh()
-        end
-        if not shot(a, "join_" .. tostring(key)) then
-            if not by_key("join_start") then
-                return finish(a, false, "no welcome button on the join page")
-            end
+        if not steps_mod.next(app, flow) then
+            return finish(a, false, "couldn't go on from the " .. st.id .. " step")
         end
     elseif s == "prep" then
         if app.levelup then
@@ -659,6 +667,8 @@ function M.update(app, dt)
             end
             require("game.model.handouts").toggle(p, "gus")
         end
+        -- Prep is a step at a time (October 26): game night is the last step's button.
+        require("game.ui.prep_steps").go(app, "ready")
         app.refresh()
         if not by_label("Run game night") then
             return finish(a, false, "no Run game night button")

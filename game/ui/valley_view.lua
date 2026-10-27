@@ -389,6 +389,10 @@ end
 
 -- The stop to offer first: the first one with no place, else the one showing.
 local function next_free_stop(app, prep)
+    -- In prep's steps, the stop the step is about (October 26).
+    if app.route_stop and prep.scenes[app.route_stop] then
+        return app.route_stop
+    end
     for i, s in ipairs(prep.scenes) do
         if not s.open and not s.slots.location and not s.module then
             return i
@@ -565,7 +569,7 @@ local function place_card(app, prep, id)
         local ok, why = valley.make_stop(prep, i, id)
         if ok then
             M.show_stop(app, i)
-            app.toast, app.toast_tone = c.name .. " is stop " .. util.int(i) .. ". Now pick its type.", "info"
+            app.toast, app.toast_tone = c.name .. " is stop " .. util.int(i) .. ".", "info"
         else
             app.toast = why
         end
@@ -580,8 +584,11 @@ local function place_card(app, prep, id)
     else
         kit.button(x + 12, by, w - 24, 40, "Open stop " .. util.int(stops[1]), function()
             M.show_stop(app, stops[1])
+            if app.route_stop then
+                util.lazy("game.ui.prep_steps").go(app, "route_" .. stops[1])    -- (lazy: it draws this map)
+            end
             app.refresh()
-        end, { color = theme.go, hover = theme.go_hover, key = "open_stop" })
+        end, { color = theme.go, hover = theme.go_hover, key = "open_stop", enabled = stops[1] ~= app.route_stop })
     end
     kit.text(x + 14, by + 50, "Or stop:", "ui14", theme.ink_dim)
     for i = 1, #prep.scenes do

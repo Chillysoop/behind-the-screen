@@ -7,12 +7,12 @@ local content = require "game.model.content"
 local M = {}
 
 function M.build(app)
-    local x, y, w, h = 470, 120, 660, 660
+    local x, y, w, h = 470, 90, 660, 720
     kit.box(x, y, w, h, kit.rgba("#1b1411", 0.92), { radius = 14 })
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })
     kit.text(x + w / 2, y + 74, "A cozy game about running the table for your friends", "ui18", theme.dim, { pivot = gui.PIVOT_N })
     local lines = {
-        { "Prep", "Plan tonight on a map of the valley: three places make three stops. Give each a kind of scene and fill it from your hand. Prep time is limited, so some slots stay empty and get improvised." },
+        { "Prep", "A step at a time: where the story stands, how everyone's doing, then three stops on the valley map, each with a kind of scene and cards from your hand. Some get improvised." },
         { "Game night", "It plays itself. When a card slides across your screen, you make the call. Big rolls can go in the open or behind the screen." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
         { "Between", "Answer messages, settle arguments, plant mysteries and pay them off. Level the party up when it feels earned." },
@@ -24,6 +24,14 @@ function M.build(app)
         kit.text(x + 160, ly, l[2], "ui18", theme.text, { w = w - 200 })
         ly = ly + kit.text_height(l[2], "ui18", w - 200) + 18
     end
+    -- Chill mode (October 26): off by default.
+    local prefs = require "game.ui.prefs"
+    local sw = prefs.switch(x + 50, y + h - 170, { changed = function()
+        app.refresh()
+    end })
+    kit.text(x + 50 + sw + 16, y + h - 170 + 19, prefs.chill() and "On: green and red faces show who'd love each choice."
+        or "Off: read the table from what they say and how they sit.", "ui14", theme.dim,
+        { pivot = gui.PIVOT_W, w = w - 100 - sw - 16, lines = 2 })
     local saved = app.resume and app.resume.head
     if saved then
         -- A campaign saved between sessions (M7): carry on, or start a new one.
@@ -49,7 +57,7 @@ function M.build(app)
         kit.button(x + 410, y + h - 110, 200, 56, app.confirm_new and "Yes, start over" or "New campaign", function()
             if app.confirm_new then
                 app.confirm_new = nil
-                app.go("planner")
+                app.go("setup")
             else
                 app.confirm_new = true
                 app.refresh()
@@ -57,7 +65,7 @@ function M.build(app)
         end, { font = "ui18b", key = "new_campaign", color = app.confirm_new and theme.red or nil })
     else
         kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Plan the campaign  >", function()
-            app.go("planner")
+            app.go("setup")
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "session_zero" })
     end
     local foot
