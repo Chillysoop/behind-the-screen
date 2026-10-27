@@ -119,10 +119,10 @@ def main():
         build.mkdir(parents=True, exist_ok=True)
         stage.mkdir(parents=True, exist_ok=True)
         log = build / "bob.log"
-        cmd = [java, "-Xmx3g", "-jar", str(bob), "--root", str(ROOT),
+        cmd = [java, "-Xmx3g", "-jar", str(bob), "--root", ".",
                "--output", str(build.relative_to(ROOT)), "--platform", TARGETS[target],
                "--variant", args.variant, "--max-cpu-threads", "4", "--archive",
-               "--settings", str(ROOT / "tools/build/streamlined.ini"),
+               "--settings", "tools/build/streamlined.ini",
                "--bundle-output", str(stage)]
         if target == "html5":
             cmd.extend(["--architectures", "wasm-web"])
