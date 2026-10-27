@@ -3,37 +3,40 @@
 -- the camera, the HUD, the physical d20 and (M4) the table, which stages game
 -- night with terrain, minis and the players' poses.
 
+local config_ok, config_value = pcall(sys.get_config_int, "streamlined.enabled", 0)
+local STREAMLINED = config_ok and config_value == 1
+
 local kit = require "game.ui.kit"
-local gloss = require "game.ui.gloss"   -- rules words explained on hover (sets kit's text hook)
-local campaign_mod = require "game.model.campaign"
-local telemetry = require "game.model.telemetry"
-local dialogue = require "game.model.dialogue"
-local save = require "game.model.save"
-local content = require "game.model.content"
-local ambience = require "game.ui.ambience"
-local guide_view = require "game.ui.guide_view"
-local intro_view = require "game.ui.intro_view"
-local prep_view = require "game.ui.prep_view"
-local prep_steps = require "game.ui.prep_steps"
-local night_view = require "game.ui.night_view"
-local report_view = require "game.ui.report_view"
-local debug_view = require "game.ui.debug_view"
-local review_view = require "game.ui.review_view"
-local setup_view = require "game.ui.setup_view"
-local steps_view = require "game.ui.steps"
-local messages_view = require "game.ui.messages_view"
-local levelup_view = require "game.ui.levelup_view"
-local slice_end_view = require "game.ui.slice_end_view"
-local notes_view = require "game.ui.notes_view"
-local ask_view = require "game.ui.ask_view"
-local talk_view = require "game.ui.talk_view"
-local book_view = require "game.ui.book_view"
-local lore_view = require "game.ui.lore_view"
-local sheet_view = require "game.ui.sheet_view"
-local encounter_view = require "game.ui.encounter_view"
-local input_trace = require "game.ui.input_trace"
-local story_log_view = require "game.ui.story_log_view"
-local dice_sets = require "game.model.dice_sets"
+local gloss = not STREAMLINED and require "game.ui.gloss"   -- rules words explained on hover (sets kit's text hook)
+local campaign_mod = not STREAMLINED and require "game.model.campaign"
+local telemetry = not STREAMLINED and require "game.model.telemetry"
+local dialogue = not STREAMLINED and require "game.model.dialogue"
+local save = not STREAMLINED and require "game.model.save"
+local content = not STREAMLINED and require "game.model.content"
+local ambience = not STREAMLINED and require "game.ui.ambience"
+local guide_view = not STREAMLINED and require "game.ui.guide_view"
+local intro_view = not STREAMLINED and require "game.ui.intro_view"
+local prep_view = not STREAMLINED and require "game.ui.prep_view"
+local prep_steps = not STREAMLINED and require "game.ui.prep_steps"
+local night_view = not STREAMLINED and require "game.ui.night_view"
+local report_view = not STREAMLINED and require "game.ui.report_view"
+local debug_view = not STREAMLINED and require "game.ui.debug_view"
+local review_view = not STREAMLINED and require "game.ui.review_view"
+local setup_view = not STREAMLINED and require "game.ui.setup_view"
+local steps_view = not STREAMLINED and require "game.ui.steps"
+local messages_view = not STREAMLINED and require "game.ui.messages_view"
+local levelup_view = not STREAMLINED and require "game.ui.levelup_view"
+local slice_end_view = not STREAMLINED and require "game.ui.slice_end_view"
+local notes_view = not STREAMLINED and require "game.ui.notes_view"
+local ask_view = not STREAMLINED and require "game.ui.ask_view"
+local talk_view = not STREAMLINED and require "game.ui.talk_view"
+local book_view = not STREAMLINED and require "game.ui.book_view"
+local lore_view = not STREAMLINED and require "game.ui.lore_view"
+local sheet_view = not STREAMLINED and require "game.ui.sheet_view"
+local encounter_view = not STREAMLINED and require "game.ui.encounter_view"
+local input_trace = not STREAMLINED and require "game.ui.input_trace"
+local story_log_view = not STREAMLINED and require "game.ui.story_log_view"
+local dice_sets = not STREAMLINED and require "game.model.dice_sets"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
@@ -265,6 +268,13 @@ local function build_screen(self)
 end
 
 function init(self)
+    -- The separate Streamlined build has its own campaign, interface and save namespace.
+    -- Ordinary builds keep the original game and its saves exactly as before.
+    if STREAMLINED then
+        self.guided_app = require "game.ui.guided_app"
+        self.guided_app.init(self)
+        return
+    end
     msg.post(".", "acquire_input_focus")
     gui.set_render_order(4)
     self.refocused = false
@@ -561,6 +571,9 @@ function init(self)
 end
 
 function update(self, dt)
+    if self.guided_app then
+        return self.guided_app.update(self, dt)
+    end
     local app = self.app
     app.time = app.time + dt
     input_trace.tick(dt)
@@ -591,6 +604,9 @@ end
 
 -- Quitting mid-prep keeps the board (A11).
 function final(self)
+    if self.guided_app then
+        return self.guided_app.final(self)
+    end
     local app = self.app
     if app and app.screen == "prep" and app.campaign and app.campaign.at_prep then
         app.save_campaign()
@@ -598,6 +614,9 @@ function final(self)
 end
 
 function on_message(self, message_id, message, sender)
+    if self.guided_app then
+        return self.guided_app.on_message(self, message_id, message, sender)
+    end
     local app = self.app
     if message_id == hash("anchors") then
         -- Where heads and minis are on screen, from the table, every frame of game night.
@@ -627,6 +646,9 @@ local function toggle_sandbox(self)
 end
 
 function on_input(self, action_id, action)
+    if self.guided_app then
+        return self.guided_app.on_input(self, action_id, action)
+    end
     local app = self.app
     if action_id == A.touch and input_trace.on then
         input_trace.touch(action)
