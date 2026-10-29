@@ -452,6 +452,13 @@ local seeds_mod = require "game.model.seeds"
 
 for week = 1, WEEKS do
     if app.screen == "intro" then
+        if has_key("agree") then
+            dump("0_notice")
+            if has_key("session_zero") or has_key("continue") then problem("the welcome card showed under the prototype notice") end
+            click_key("agree")
+        elseif week == 1 then
+            problem("no prototype notice on launch")
+        end
         dump("1_intro")
         if not click_label("Plan the campaign") then problem("no Plan the campaign button") end
         if app.screen ~= "planner" then problem("expected the planner, got " .. tostring(app.screen)) end
@@ -1895,6 +1902,8 @@ local function restart()
     self = {}
     call(init, self)
     app = self.app
+    -- The prototype notice shows on every launch (October 29).
+    if not click_key("agree") then problem("no prototype notice on a fresh launch") end
 end
 local function play_resumed_night(where)
     local c = app.campaign

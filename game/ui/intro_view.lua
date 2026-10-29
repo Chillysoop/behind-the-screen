@@ -6,7 +6,40 @@ local content = require "game.model.content"
 
 local M = {}
 
+-- The prototype notice (October 29, for outside playtesters): on every launch, before the
+-- welcome card. One click to agree, then the welcome card as before.
+local NOTICE = {
+    "This is a prototype of an engine for running all kinds of tabletop RPG campaigns.",
+    "The story is placeholder. It won't always fit together, and it can be hard to follow.",
+    "This demo tests the play loop and mechanics. A crafted story comes later.",
+}
+
+local function notice(app)
+    local x, y, w = 500, 0, 600
+    local tw = w - 100
+    local body = 0
+    for _, line in ipairs(NOTICE) do
+        body = body + kit.text_height(line, "ui18", tw) + 18
+    end
+    local h = 100 + body + 100
+    y = math.floor((900 - h) / 2)
+    kit.box(x, y, w, h, kit.rgba("#1b1411", 0.94), { radius = 14 })
+    kit.text(x + w / 2, y + 30, "BEFORE YOU PLAY", "title30", theme.gold, { pivot = gui.PIVOT_N })
+    local ly = y + 96
+    for _, line in ipairs(NOTICE) do
+        kit.text(x + 50, ly, line, "ui18", theme.text, { w = tw })
+        ly = ly + kit.text_height(line, "ui18", tw) + 18
+    end
+    kit.button(x + w / 2 - 110, y + h - 84, 220, 56, "Agree", function()
+        app.notice_ok = true
+        app.refresh()
+    end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "agree" })
+end
+
 function M.build(app)
+    if not app.notice_ok then
+        return notice(app)
+    end
     local x, y, w, h = 470, 120, 660, 660
     kit.box(x, y, w, h, kit.rgba("#1b1411", 0.92), { radius = 14 })
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })

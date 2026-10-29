@@ -531,6 +531,13 @@ function M.update(app, dt)
     a.wait = STEP
     local s = app.screen
     if s == "intro" then
+        -- The prototype notice on launch: agree first.
+        if not app.notice_ok then
+            if not shot(a, "notice") then
+                by_key("agree")
+            end
+            return
+        end
         if a.mode == 2 then
             if not shot(a, "intro_continue") then
                 if not by_key("continue") then
