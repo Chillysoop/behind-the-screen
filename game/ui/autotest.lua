@@ -69,6 +69,22 @@ local function by_key(k)
     return false
 end
 
+-- A button on a pinned layer (the thought clouds over the panels): the game's own clicks reach them
+-- under any card or tip, so the harness looks there too.
+local function pinned_key(k)
+    for _, l in ipairs(kit.layers) do
+        if l.pinned then
+            for _, b in ipairs(l.buttons) do
+                if b.key == k and b.enabled then
+                    press(b)
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 local function by_label(prefix)
     for _, b in ipairs(buttons()) do
         local text = b.label and gui.get_text(b.label) or ""
@@ -782,8 +798,8 @@ function M.update(app, dt)
                 by_key("thought_let")
             end
         elseif a.mode ~= 5 and not app.pending and app.thinking and next(app.thinking) and not a.thought_opened then
-            a.thought_opened = true
-            by_key("thought_" .. next(app.thinking))
+            local k = "thought_" .. next(app.thinking)
+            a.thought_opened = by_key(k) or pinned_key(k)
         elseif app.pending and a.mode == 5 then
             -- The harness clicks the card; just keep the night at 2x.
             app.speed_i = 3
