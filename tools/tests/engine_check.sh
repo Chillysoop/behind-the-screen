@@ -6,6 +6,7 @@
 #   tools/tests/engine_check.sh [out_dir]
 #   VARIANT=release PLAYTEST=1 tools/tests/engine_check.sh [out_dir]   # the testers' build settings
 #   MODES=4 tools/tests/engine_check.sh [out_dir]                       # screenshots of the real-session pass
+#   MODES=8 TIMEOUT=2500 tools/tests/engine_check.sh [out_dir]          # v2: the whole museum prologue
 #
 # Needs BOB (bob.jar), JAVA (Java 25 for Bob 1.13.2), Xvfb, and ImageMagick's `import`
 # for the screenshots. Builds a Linux bundle with tools/tests/autotest1.ini, plays
@@ -53,7 +54,7 @@ run() {  # mode
     al=$(autolog)
     [ -n "$al" ] && start=$(wc -l < "$al")
     (cd "$GAME_DIR" && HOME="$WORK/home" XDG_DATA_HOME="$WORK/home/.local/share" LD_LIBRARY_PATH="$WORK/lib" \
-        DISPLAY=$DISPLAY_N timeout 900 "$GAME" > "$log" 2>&1) &
+        DISPLAY=$DISPLAY_N timeout "${TIMEOUT:-900}" "$GAME" > "$log" 2>&1) &
     local pid=$! seen=0
     while kill -0 $pid 2>/dev/null; do
         sleep 0.3
@@ -97,7 +98,7 @@ for m in ${MODES:-1 2}; do
     run "$m" || ok=1
 done
 if [ "${MODES:-1 2}" != "6" ]; then   # (the board gallery plays no session: nothing to save)
-SAVE=$(find "$WORK/home" -name campaign_save.txt | head -1)
+SAVE=$(find "$WORK/home" -name campaign_save.txt -o -name museum_save.txt | head -1)   # (v2: the museum saves to its own slot)
 [ -n "$SAVE" ] && echo "  save: $(head -c 40 "$SAVE" | tr '\n' ' ')... $(wc -c < "$SAVE") bytes" || { echo "  no save file written"; ok=1; }
 LOGF=$(find "$WORK/home" -name playtest_log.jsonl | head -1)
 [ -n "$LOGF" ] && echo "  playtest log: $(wc -l < "$LOGF") lines" || { echo "  no playtest log"; ok=1; }

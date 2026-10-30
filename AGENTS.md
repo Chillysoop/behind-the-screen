@@ -69,7 +69,9 @@ least:
     for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
                                           # the prologue headless, three kinds of DM
                                           # (add "log" after the style to read every line the table hears)
-    lua tools/tests/museum_fights.lua     # the museum's fights on the rules engine
+    lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
+    lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them
+    lua tools/tests/save_check.lua        # saves load back, mid-prologue too
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
 
@@ -94,10 +96,12 @@ without the engine.
           --settings tools/playtest/playtest.ini build bundle
 
 - **Real engine on Linux:** `tools/tests/engine_check.sh` plays the game with Xvfb (it needs `BOB` and `JAVA` set).
+  On this branch, `MODES=8 TIMEOUT=2500 tools/tests/engine_check.sh out` plays the whole prologue and screenshots
+  each screen into `out`.
 
 ## Status
 
-v2's prologue plays end to end through the real UI and headless: every seeded run reaches one of the four
-endings in three to five sessions. What's open: bespoke boards and minis for the museum's rooms and monsters
+v2's prologue plays end to end through the real UI, the real engine and headless: every seeded run reaches an
+ending in three to five sessions, and the fights use the book's own monsters (`game/rules/museum.lua`). What's open: bespoke boards and minis for the museum's rooms and monsters
 (it borrows the closest existing ones), a free tie-and-lock editor for adventures, the "just the adventure" mode,
 and the full campaign that follows the prologue.
