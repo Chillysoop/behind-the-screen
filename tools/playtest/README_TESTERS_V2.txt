@@ -26,9 +26,10 @@ HOW IT GOES
 - Euryale's card: every room the party clears, skips or botches leaves a mark on
   the boss's card. The last session is built from what they did.
 - What they're thinking: now and then a pale cloud appears over a player's panel.
-  That's something they're thinking and not saying. Click it to read it, then answer
-  it or let it be. The better you get at reading your table (Empathy), the more of
-  these you catch.
+  Something's on their mind. Click it and roll to read them (Insight): the better
+  you know that friend and the better you read your table (Empathy), the easier it
+  is. A good read hears the thought; a near miss gets the gist; a miss means you
+  ask them straight out or let it be. Then answer it, or let it be.
 - Maps: "All maps" on the planning board (and "Maps" on game night) opens every map
   you can put on the table. Give a room a different map, open a side room off any
   room for the party to wander into, change the next scene's map mid-game, or make
