@@ -728,6 +728,13 @@ function on_input(self, action_id, action)
         guard(self, app.close_overlay)
         return true
     end
+    -- v2: Esc closes a friend's thought you're reading (it stays there to answer).
+    if app.screen == "night" and app.thought_card and action_id == A.back and action.pressed then
+        guard(self, function()
+            night_view.close_thought(app)
+        end)
+        return true
+    end
     if action_id == A.notes and action.pressed and not (app.review and app.review.queue_open)
         and (app.screen == "prep" or app.screen == "night" or app.screen == "report") and not app.convo
         and not app.ask and not app.talk and not app.book then   -- (not under an open book or talk, October 20)

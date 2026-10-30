@@ -135,6 +135,7 @@ function M.week_record(campaign, prep_seconds, night_seconds)
         players = players,
         average_fun = math.floor(rep.average + 0.5),
         empathy = campaign:empathy(),
+        thoughts = rep.thoughts,            -- v2: the friends' thoughts the DM caught and answered
         session_zero = campaign.table and { tone = campaign.table.tone, rules = campaign.table.rules,
                                             asks = campaign.table.asks, held = campaign.table.held } or nil,
         conflicts = conflicts,

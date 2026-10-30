@@ -57,6 +57,7 @@ local recap_mod = require "game.model.recap"
 local lore = require "game.model.lore"
 local board_mod = require "game.model.board"
 local pulls = require "game.model.pulls"
+local thoughts = require "game.model.thoughts"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -227,6 +228,14 @@ M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, de
                 roll_where = 1.5, cook = 1, turn = 1.0, clue = 0.6, round = 0.6, dice = 1, intro = 0.5, cinematic = 3 }
 
 function M:emit(ev)
+    -- What you did about a friend's thought (game/model/thoughts.lua) lands at the next beat.
+    if self.th and not self.th.flushing and #self.th.queue > 0 then
+        self.th.flushing = true
+        for _, q in ipairs(thoughts.take_queue(self) or {}) do
+            self:emit(q)
+        end
+        self.th.flushing = false
+    end
     if self.board_id then
         self:board_hear(ev)
     end
@@ -2224,6 +2233,10 @@ end
 
 -- Little things that happen around the table between beats: snacks, phones, yawns.
 function M:table_life()
+    -- What someone's thinking and not saying (v2): a want that's been nagging at them.
+    if thoughts.brew(self, false) then
+        return
+    end
     if not self.rng:chance(0.3) then
         return
     end
@@ -3142,6 +3155,8 @@ function M:add_cook_suspicion(convenient, what)
     if sharp and sharp.suspicion > 30 and self.rng:chance(0.5) then
         self:react({ [sharp.key] = "arms" })
         self:bark(sharp, "suspicious")
+    elseif sharp then
+        thoughts.doubt(self, sharp)          -- they don't say it; they think it
     end
 end
 
@@ -3223,6 +3238,11 @@ end
 -- Show a card, take the DM's pick, play it out. Returns the chosen option.
 function M:decision(card, extra)
     self.used_cards[card.id] = true
+    -- How everyone felt going in, for what they think of the call afterwards (game/model/thoughts.lua).
+    local fun_before = {}
+    for _, p in ipairs(self.players) do
+        fun_before[p.key] = score.fun(p)
+    end
     if card.actor_class and self:by_class(card.actor_class) then
         self.actor = self:by_class(card.actor_class)
         self.other = card.other and self:pick_actor(card.other, self.actor) or nil
@@ -3232,7 +3252,9 @@ function M:decision(card, extra)
     end
     -- The spotlight you handed someone: the next card that could be anyone's is theirs.
     local owed_card = false
-    if not card.actor_class and not card.trigger and card.type ~= "table" and card.type ~= "boss" and card.type ~= "talk" then
+    -- (A museum moment counts: the adventure's own calls are where the spotlight is in v2.)
+    if not card.actor_class and (not card.trigger or card.trigger == "museum") and card.type ~= "table"
+        and card.type ~= "boss" and card.type ~= "talk" then
         local owed = self:take_owed("cards")
         if owed then
             self.actor = owed
@@ -3241,6 +3263,18 @@ function M:decision(card, extra)
             end
             owed_card = true
         end
+    end
+    -- You promised a friend the next one would go to someone else (a thought you answered).
+    if self.spare and self.actor and self.actor.key == self.spare and not card.actor_class and not owed_card
+        and card.trigger ~= "museum_fixed" then
+        local other = self:pick_actor(card.actor, self.actor)
+        if other and other ~= self.actor then
+            if self.other == other then
+                self.other = self.actor
+            end
+            self.actor = other
+        end
+        self.spare = nil
     end
     -- A card with a roll in someone's own story scene goes to them first (A4); and nobody
     -- hogs the big rolls just because the card suits their style.
@@ -3418,6 +3452,8 @@ function M:decision(card, extra)
     if card.type == "rules" then
         self:conflict_rules(card)
     end
+    -- What someone thought of that, and didn't say.
+    thoughts.after(self, fun_before, card, o)
     return o
 end
 
@@ -6378,6 +6414,7 @@ function M:run()
         return util.lazy("game.model.museum_night").run(self)
     end
     self:intro()
+    thoughts.mood(self)
     for i, sc in ipairs(self.scenes) do
         if self.end_early or self.cliff_stop then
             break

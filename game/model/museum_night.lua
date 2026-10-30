@@ -9,6 +9,7 @@ local score = require "game.model.score"
 local adventure = require "game.model.adventure"
 local prep_mod = require "game.model.prep"
 local map_repo = require "game.model.map_repo"
+local thoughts = require "game.model.thoughts"
 
 local MODULE = adventure.data
 local M = {}
@@ -139,6 +140,14 @@ function M.harsh(night, sc)
         end
         night:apply({ { "all", fun = -3 } })
         night:emit({ kind = "warning", bank = st.bank, unearned = true })
+        -- The one who minds most keeps it to themselves (what they think, game/model/thoughts.lua).
+        local sharp
+        for _, p in ipairs(night.players) do
+            if not sharp or p.perception > sharp.perception then
+                sharp = p
+            end
+        end
+        thoughts.doubt(night, sharp)
     end
     table.insert(mus.harsh_log, { room = sc and sc.room, earned = earned })
     return earned
@@ -501,11 +510,17 @@ local function left_on_floor(c, options)
     return n
 end
 
-local function want_new(p, id, c, steps, floor_left)
+-- early: how much of the evening is still ahead (0..1). With most of it ahead and rooms left on the
+-- floor, nobody's in a hurry to meet the boss: "we've got all night, let's see the rest first".
+-- (The sweep, October 30: a table that went up after one room had a night of one room, scored 17.)
+local function want_new(p, id, c, steps, floor_left, early)
     local n = want(p, id, c) - 0.6 * math.max(0, (steps or 1) - 1)
     if id == "stairs" then
         n = n + 1.5 * score.arch(p, "butt_kicker")
             - floor_left * (1.2 * score.arch(p, "explorer") + 0.8 * score.arch(p, "storyteller") + 0.4)
+        if floor_left > 0 and (early or 0) > 0.4 then
+            n = n - 6 * ((early or 0) - 0.4)
+        end
     end
     return n
 end
@@ -678,6 +693,7 @@ function M.fork(night, options, backs, sides)
     local pos = st.pos or st.last_room
     local fresh = pos and adventure.reachable(c, pos) or {}
     local floor_left = left_on_floor(c, options)
+    local early = 1 - (night.table_min or 0) / math.max(1, night.table_planned or 210)
     local choices = {}
     for _, id in ipairs(options) do
         table.insert(choices, { id = id, steps = fresh[id] or 1 })
@@ -694,7 +710,7 @@ function M.fork(night, options, backs, sides)
         local best, bv
         for i, ch in ipairs(choices) do
             local v = (ch.back and want_back(p, ch.back, night)) or (ch.side and want_side(p, ch.side))
-                or want_new(p, ch.id, c, ch.steps, floor_left)
+                or want_new(p, ch.id, c, ch.steps, floor_left, early)
             v = v + night.rng:next() * 0.6
             if not bv or v > bv then
                 best, bv = i, v
@@ -812,6 +828,7 @@ function M.fork(night, options, backs, sides)
     local jess = present(night, "jess")
     if not ch.back and not ch.side and ch.id == "stairs" and jess and not st.flags.seen and night.rng:chance(0.6) then
         st.flags.pip_alone = true
+        thoughts.plan(night, jess)         -- a beat before she goes: what she's thinking, if you catch it
     end
     if ch.side then
         return { side = ch.side }
@@ -1086,6 +1103,7 @@ function M.run(night)
     night.mus.total = math.max(1, #ahead)
     c.last_cliff = nil
     M.intro(night)
+    thoughts.mood(night)
     if adventure.boss_week(c) then
         M.boss_night(night)
     else

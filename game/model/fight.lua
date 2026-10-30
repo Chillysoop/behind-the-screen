@@ -1153,6 +1153,10 @@ function M.run(night, sc, plan)
     opts.before_round = function(bb, r)
         night:flush_turn()
         night:emit({ kind = "round", round = r })
+        -- A long fight loses the story lovers (v2: what they think and don't say).
+        if r >= 4 then
+            require("game.model.thoughts").brew(night, true)
+        end
         -- Table chatter and the villain's taunts between rounds.
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
             -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.

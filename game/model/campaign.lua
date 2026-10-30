@@ -667,6 +667,7 @@ function M:finish_night()
     end
     self:gain_empathy("night")
     rep.empathy = { level = self:empathy(), up = self.empathy_up }
+    rep.thoughts = require("game.model.thoughts").summary(night)   -- v2: the friends' thoughts you caught
     self.report = rep
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)
@@ -703,6 +704,7 @@ function M:finish_module_night(night, rep)
     end
     self:gain_empathy("night")
     rep.empathy = { level = self:empathy(), up = self.empathy_up }
+    rep.thoughts = require("game.model.thoughts").summary(night)   -- v2: the friends' thoughts you caught
     self.report = rep
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)

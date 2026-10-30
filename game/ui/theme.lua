@@ -88,5 +88,8 @@ return {
         clue = c("#e8b04a"),
         bridge = c("#e9dcc3"),
         aside = c("#8a7c6a"),
+        thought = c("#cdbcf0"),        -- v2: what a friend is thinking and not saying
     },
+    -- v2: a friend's thought (the cloud above their panel, its bubble and its card).
+    think = { bg = c("#e7def3"), hover = c("#f4eefb"), ink = c("#2e2440"), dim = c("#6c5d86") },
 }

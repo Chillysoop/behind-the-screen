@@ -227,6 +227,15 @@ return {
             title = "It plays itself",
             text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. The keys for skipping and speed are top right.",
         },
+        -- v2: what a friend is thinking and not saying (game/model/thoughts.lua).
+        {
+            id = "night_thought", screen = "night", at = NIGHT_WATCH, timeout = 25, leave = true,
+            when = function(app) return app.thinking ~= nil and next(app.thinking) ~= nil and not app.thought_card end,
+            done = function(app) return app.thought_card ~= nil or app.thought_answered end,
+            title = "What they're thinking",
+            text = "A cloud over a player's panel is something they're thinking and not saying. Click it to read it "
+                .. "and answer, or let it be. The more Empathy you have, the more of these you catch.",
+        },
         {
             id = "night_decision", screen = "night", at = NIGHT,
             when = function(app) return pending(app, "decision") end,

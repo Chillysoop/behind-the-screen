@@ -13,7 +13,7 @@ M.MAX = 5
 M.XP = { 0, 4, 10, 18, 28 }        -- xp needed for levels 1..5
 M.STEPS = { 4, 5, 8, 10, 20 }      -- fill steps a bar snaps to
 M.BAND = { 44, 36, 28, 22, 16 }    -- width of the Suspicion band
-M.GAIN = { night = 1, talk = 2, check_in = 2, session_zero = 3 }
+M.GAIN = { night = 1, talk = 2, check_in = 2, session_zero = 3, read = 1 }   -- read: a thought answered well
 M.NAMES = { "Clueless", "Getting a feel", "Attentive", "Perceptive", "Reads minds" }
 
 function M.level(xp)

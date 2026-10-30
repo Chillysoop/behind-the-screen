@@ -60,6 +60,8 @@ function M.duration(ev)
         return M.read(ev.text) + 0.4
     elseif k == "say" then
         return M.read(ev.text)
+    elseif k == "thought" then
+        return M.read(ev.text) + 1.2     -- a beat longer than a line said out loud: it's there to be read
     elseif k == "check" then
         return 2.0
     elseif k == "clue" then

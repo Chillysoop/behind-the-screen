@@ -601,7 +601,13 @@ function M.build(app)
     if e then
         kit.icon(1204, y + 6, 18, "empathy", theme.teal)
         local text = "Empathy: " .. empathy.NAMES[e.level] .. (e.up and ". You read the table better now." or "")
-        kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 2 })
+        -- v2: the friends' thoughts you caught tonight, and what you did about them.
+        local th = rep.thoughts
+        if th and th.shown > 0 then
+            text = text .. (e.up and " " or ". ") .. "You caught " .. util.int(th.shown)
+                .. (th.shown == 1 and " thought" or " thoughts") .. " and answered " .. util.int(th.answered) .. "."
+        end
+        kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 3 })
     end
     kit.gloss_tags = nil
     M.gift_row(app, rep, 1204, 708)

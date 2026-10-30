@@ -49,6 +49,8 @@ end
 -- The fights, with the book's monsters (game/rules/museum.lua): how many, lost, heroes dropped,
 -- and the big moments that happened.
 local fights = { n = 0, lost = 0, downs = 0, moments = {}, boss = "none" }
+-- The friends' thoughts tonight: how many showed, of what, and what the DM did about them.
+local thoughts_seen = { n = 0, answered = 0, backfired = 0, needs = {} }
 
 local function play_night(night)
     local ev = night:advance()
@@ -87,6 +89,31 @@ local function play_night(night)
         elseif ev.kind == "mark" then
             if show then
                 print("  ** EURYALE'S CARD: " .. ev.name .. " (" .. ev.why .. ")")
+            end
+        elseif ev.kind == "thought" then
+            -- What a friend is thinking (game/model/thoughts.lua): the DM answers it, or doesn't.
+            text_ok(ev.text, "thought")
+            text_ok(ev.want, "thought want")
+            for _, a in ipairs(ev.answers) do
+                text_ok(a.label, "thought answer")
+            end
+            local th = require "game.model.thoughts"
+            local aid = th.bot_answer(night, ev, style, rng)
+            thoughts_seen.n = thoughts_seen.n + 1
+            thoughts_seen.needs[ev.need] = (thoughts_seen.needs[ev.need] or 0) + 1
+            local ok, good = false, nil
+            if aid then
+                ok, good = th.respond(night, ev.id, aid)
+                if ok and aid ~= "let_be" then
+                    thoughts_seen.answered = thoughts_seen.answered + 1
+                    if good == false then
+                        thoughts_seen.backfired = thoughts_seen.backfired + 1
+                    end
+                end
+            end
+            if show then
+                print(string.format("  (%s thinks) %s  [%s]%s", ev.name, ev.text, ev.need,
+                    aid and ("  -> " .. aid .. (good == false and " (backfired)" or "")) or ""))
             end
         elseif ev.kind == "decision" then
             text_ok(ev.card.text, "decision " .. ev.card.id)
@@ -187,4 +214,11 @@ end
 table.sort(mk)
 print(string.format("  fights %d, lost %d, downs %d, boss %s; moments %s", fights.n, fights.lost, fights.downs, fights.boss,
     table.concat(mk, " ")))
+local tn = {}
+for k, n in pairs(thoughts_seen.needs) do
+    table.insert(tn, k .. "=" .. n)
+end
+table.sort(tn)
+print(string.format("  thoughts %d (%.1f a night), answered %d, backfired %d; %s", thoughts_seen.n,
+    thoughts_seen.n / math.max(1, weeks), thoughts_seen.answered, thoughts_seen.backfired, table.concat(tn, " ")))
 os.exit(failures == 0 and 0 or 1)

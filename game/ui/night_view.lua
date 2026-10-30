@@ -19,6 +19,7 @@ local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
 local empathy = require "game.model.empathy"
 local pacing = require "game.model.pacing"
+local thoughts = require "game.model.thoughts"
 local night_mod = require "game.model.night"
 local board_mod = require "game.model.board"
 local util = require "game.model.util"
@@ -283,6 +284,7 @@ function M.build(app)
     app.side, app.toast_card = nil, nil     -- (their nodes went with the old layers)
     M.draw_caption(app)
     battle_hud.draw(app)
+    M.draw_thinks(app)
     app.speed_now = function()
         return speed(app)
     end
@@ -290,6 +292,9 @@ function M.build(app)
         M.show_modal(app, app.pending, true)
     elseif app.night_done then
         M.show_done(app)
+    end
+    if app.thought_card then
+        M.draw_thought_card(app)
     end
 end
 
@@ -1125,7 +1130,7 @@ local function same_anchor(a, b)
     return (a.head and a.head == b.head) or (a.mini and a.mini == b.mini)
 end
 
-function M.bubble(app, anchor, speaker, text, ic)
+function M.bubble(app, anchor, speaker, text, ic, thought)
     if not app.layers.fx then
         return
     end
@@ -1154,6 +1159,10 @@ function M.bubble(app, anchor, speaker, text, ic)
     local bg = ic and theme.paper or theme.bubble
     local ink = ic and theme.ink or theme.text
     local label = ic and theme.ink_dim or theme.dim
+    if thought then
+        -- What they're thinking: a pale cloud, not their voice (v2).
+        bg, ink, label = theme.think.bg, theme.think.ink, theme.think.dim
+    end
     local b = { anchor = anchor, w = tw + 26, h = 30 + #lines * 23 + 8, age = 0,
                 life = math.max(1.4, (pacing.read(text) + 0.4) / speed(app)) }
     b.nodes = {
@@ -1182,7 +1191,12 @@ function M.place_bubbles(app)
                 -- Over a player's panel: stay in their column.
                 x = util.clamp(ax - b.w / 2, col_x, col_x + col_w - b.w)
             end
-            local y = util.clamp(ay - b.h - 16, 64, (col_x and CHIP_Y - 8 or CARD_BOTTOM) - b.h)
+            -- (Above a friend's thought cloud, when there's one over their panel.)
+            local floor = col_x and (CHIP_Y - 8) or CARD_BOTTOM
+            if col_x and b.anchor.head and app.thinking and app.thinking[b.anchor.head] then
+                floor = CHIP_Y - 38
+            end
+            local y = util.clamp(ay - b.h - 16, 64, floor - b.h)
             -- Never over the DM's caption: go above it.
             if cap and x < cap.x + cap.w + 6 and cap.x < x + b.w + 6 and y < cap.y + cap.h + 6 and cap.y < y + b.h + 6 then
                 y = cap.y - b.h - 8
@@ -1379,6 +1393,10 @@ function M.update(app, dt)
     battle_hud.update(app, dt)
     -- The DM's notes or a character sheet is open: the table waits.
     if app.overlay then
+        return
+    end
+    -- So does a friend's thought you're reading (v2).
+    if app.thought_card then
         return
     end
     if app.night_done then
@@ -1927,6 +1945,7 @@ function M.handle(app, ev)
         npc_steps_in(app)
     end
     if k == "scene" then
+        M.prune_thinks(app)        -- a thought about the last scene has passed with it
         app.scene_found, app.scene_hinge = {}, nil
         app.scene_has_goal = ev.goal ~= nil
         -- This scene's rolls only (the card-led playtest, October 16: last scene's dice stayed up), and
@@ -2134,6 +2153,21 @@ function M.handle(app, ev)
         M.bubble(app, anchor, speaker, ev.text, ev.ic)
         M.push(app, speaker .. ": \"" .. ev.text .. "\"", ev.ic and "quote" or "reaction", true)
         review.on_line(app, ev)
+    elseif k == "thought" then
+        -- What a friend is thinking and not saying (v2, game/model/thoughts.lua): a pale cloud at
+        -- their head, and one over their panel to click and answer until the moment passes.
+        M.bubble(app, { head = ev.who }, ev.name .. ", thinking", ev.text, false, true)
+        M.push(app, ev.name .. ", thinking: \"" .. ev.text .. "\"", "thought", true)
+        post("pose", { who = ev.who, pose = "think", hold = true })
+        panels.pose(app, ev.who, "think")
+        if not ev.glow and #(ev.answers or {}) > 0 then
+            app.thinking = app.thinking or {}
+            app.thinking[ev.who] = ev
+            M.draw_thinks(app)
+            if ev.need == "plan" then
+                M.open_thought(app, ev.who)      -- it's about to happen: it can't wait for a click
+            end
+        end
     elseif k == "react" then
         for who, pose in pairs(ev.poses or {}) do
             post("pose", { who = who, pose = pose, hold = true })
@@ -2313,6 +2347,9 @@ function M.handle(app, ev)
         cam(app, 4)
     elseif k == "done" then
         app.night_done = true
+        app.thinking = nil
+        M.close_thought(app)
+        M.draw_thinks(app)
         post("track", { on = false })
         M.clear_fx(app)
         cam(app, 1)
@@ -2556,6 +2593,17 @@ end
 -- Number keys pick a card's options (the fix pass): 1 to 4 on any card, and on the improv hand
 -- they pick cards (Enter plays them). A fallback that works even when a click doesn't.
 function M.pick_key(app, n)
+    if app.thought_card then
+        local ev = app.thought_card
+        if ev.answers[n] then
+            M.answer_thought(app, ev.answers[n].id)
+            return true
+        elseif n == #ev.answers + 1 then
+            M.answer_thought(app, "let_be")
+            return true
+        end
+        return false
+    end
     local ev = app.pending
     if not ev then
         return false
@@ -2614,6 +2662,143 @@ function M.find_button(app, key)
         end
     end
     return nil
+end
+
+-- What the friends think and don't say (v2) ------------------------------------------------------
+-- A cloud over a friend's panel while their thought can still be answered; click it for the card:
+-- the thought, what's behind it, and two things you could do (or let it be). The table waits while
+-- the card is open.
+
+function M.draw_thinks(app)
+    if app.layers.thinks then
+        kit.drop(app.layers.thinks)
+    end
+    app.layers.thinks = kit.layer("night_thinks", false, true)
+    kit.into(app.layers.thinks, function()
+        for _, p in ipairs(app.campaign.players) do
+            local ev = app.thinking and app.thinking[p.key]
+            local chip = app.chips and app.chips[p.key]
+            if ev and chip then
+                local label = "Thinking..."
+                local w = kit.width(label, "ui14") + 44
+                local x, y = chip.x + 8, chip.y - 30
+                kit.button(x, y, w, 24, "", function()
+                    M.open_thought(app, p.key)
+                end, { color = theme.think.bg, hover = theme.think.hover, radius = 12, key = "thought_" .. p.key })
+                kit.dot(x + 13, y + 15, 9, theme.think.dim)
+                kit.dot(x + 21, y + 8, 5, theme.think.dim)
+                kit.text(x + 30, y + 4, label, "ui14", theme.think.ink)
+            end
+        end
+    end)
+end
+
+-- Clouds whose moment has gone (the scene moved on, or what it was about happened).
+function M.prune_thinks(app)
+    if not app.thinking then
+        return
+    end
+    local changed = false
+    for key, ev in pairs(app.thinking) do
+        if not thoughts.is_open(app.night, ev.id) then
+            app.thinking[key] = nil
+            changed = true
+        end
+    end
+    if changed then
+        M.draw_thinks(app)
+    end
+end
+
+function M.open_thought(app, key)
+    local ev = app.thinking and app.thinking[key]
+    if not ev then
+        return
+    end
+    if not thoughts.is_open(app.night, ev.id) then
+        app.thinking[key] = nil
+        M.draw_thinks(app)
+        M.toast(app, "THAT MOMENT PASSED", ev.name .. "'s thought has moved on. There'll be others.")
+        return
+    end
+    app.thought_card = ev
+    M.draw_thought_card(app)
+end
+
+function M.close_thought(app)
+    if app.layers.thought then
+        kit.drop(app.layers.thought)
+        app.layers.thought = nil
+    end
+    app.thought_card = nil
+    kit.reset_hover()
+end
+
+function M.draw_thought_card(app)
+    local ev = app.thought_card
+    if app.layers.thought then
+        kit.drop(app.layers.thought)
+    end
+    app.layers.thought = kit.layer("night_thought", true)
+    local x, w = LEFT_X, 480
+    local tw = w - 32
+    local quote = "\"" .. ev.text .. "\""
+    local want = ev.want .. "."
+    local level = app.campaign:empathy()
+    local foot = "Empathy: " .. (empathy.NAMES[level] or "") .. ". You catch about " .. util.int(thoughts.CAP[level] or 2)
+        .. " of these a night, more as you learn to read your table."
+    local quote_h = kit.text_height(quote, "ui22b", tw)
+    local want_h = kit.text_height(want, "ui18", tw)
+    local foot_h = kit.text_height(foot, "ui14", tw)
+    local n = #ev.answers + 1
+    local h = 16 + 60 + 12 + quote_h + 10 + want_h + 16 + n * 48 + 44 + foot_h + 14
+    local y = math.max(76, CHIP_Y - 40 - h)
+    kit.box(x - 3, y - 3, w + 6, h + 6, kit.rgba("#000000", 0.35), { radius = 16 })
+    kit.box(x, y, w, h, theme.think.bg, { radius = 14 })
+    kit.dot(x + 44, y + 46, 64, alpha_of(panels.COLORS[ev.who] or theme.gold, 0.6))
+    kit.picture(x + 12, y + 14, 64, 64, panels.face(ev.who, "think"), kit.rgba("#ffffff"))
+    kit.text(x + 90, y + 18, ev.name .. " is thinking", "ui22b", theme.think.ink)
+    kit.text(x + 90, y + 48, "Not out loud. You caught it.", "ui14", theme.think.dim)
+    local ty = y + 16 + 60 + 12
+    kit.text(x + 16, ty, quote, "ui22b", theme.think.ink, { w = tw })
+    ty = ty + quote_h + 10
+    kit.text(x + 16, ty, want, "ui18", theme.think.dim, { w = tw })
+    ty = ty + want_h + 16
+    for i, a in ipairs(ev.answers) do
+        kit.button(x + 16, ty, tw, 40, a.label, function()
+            M.answer_thought(app, a.id)
+        end, { key = "thought_ans_" .. i, key_hint = i })
+        ty = ty + 48
+    end
+    kit.button(x + 16, ty, tw, 40, "Let it be", function()
+        M.answer_thought(app, "let_be")
+    end, { key = "thought_let", key_hint = n, color = theme.panel2 })
+    ty = ty + 48
+    kit.button(x + w - 136, ty, 120, 32, "Not now", function()
+        M.close_thought(app)
+    end, { key = "thought_close", color = theme.think.dim })
+    kit.text(x + 16, ty + 40, foot, "ui14", theme.think.dim, { w = tw })
+end
+
+function M.answer_thought(app, aid)
+    local ev = app.thought_card
+    M.close_thought(app)
+    if not ev then
+        return
+    end
+    local ok = thoughts.respond(app.night, ev.id, aid)
+    if app.thinking then
+        app.thinking[ev.who] = nil
+    end
+    M.draw_thinks(app)
+    if not ok then
+        M.toast(app, "THAT MOMENT PASSED", ev.name .. "'s thought has moved on. There'll be others.")
+        return
+    end
+    if aid ~= "let_be" then
+        app.thought_answered = true
+    end
+    M.refresh_chips(app)
 end
 
 -- Cards ------------------------------------------------------------------------------------------

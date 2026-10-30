@@ -772,6 +772,18 @@ function M.update(app, dt)
                 end
                 by_label("See how everyone felt")
             end
+        elseif app.thought_card then
+            -- v2: a friend's thought, open (one you clicked, or Pip about to go off alone): a shot
+            -- of the card the first time, then answer it.
+            if shot(a, "thought_card") then
+                return
+            end
+            if not by_key("thought_ans_1") then
+                by_key("thought_let")
+            end
+        elseif a.mode ~= 5 and not app.pending and app.thinking and next(app.thinking) and not a.thought_opened then
+            a.thought_opened = true
+            by_key("thought_" .. next(app.thinking))
         elseif app.pending and a.mode == 5 then
             -- The harness clicks the card; just keep the night at 2x.
             app.speed_i = 3

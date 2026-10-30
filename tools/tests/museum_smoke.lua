@@ -409,6 +409,7 @@ if not click_key("hooks_start") then problem("no start button on the hooks page"
 if app.screen ~= "prep" then problem("the hooks didn't go on to prep (" .. tostring(app.screen) .. ")") end
 
 local nights, boss_seen, marks_seen = 0, false, 0
+local thoughts_seen, thoughts_opened, thoughts_answered = 0, 0, 0
 for week = 1, WEEKS do
     if app.screen ~= "prep" then break end
     local c = app.campaign
@@ -503,6 +504,24 @@ for week = 1, WEEKS do
     while app.screen == "night" and not app.night_done and g < 12000 do
         g = g + 1
         call(update, self, 0.4)
+        -- v2: a friend's thought. Read the first few and answer them; a card that opened by itself
+        -- (Pip about to go off alone) gets an answer too, or the night would wait on it forever.
+        if app.thought_card then
+            dump_once("5t_thought_card")
+            scan("a thought card" .. where)
+            local th = app.night.th
+            local before = th and th.answered or 0
+            if not click_key(rng:chance(0.5) and "thought_ans_1" or "thought_let") then
+                problem("a thought card with no answers" .. where)
+                click_key("thought_close")
+            end
+            if app.thought_card then problem("answering a thought didn't close its card" .. where) end
+            thoughts_answered = thoughts_answered + ((th and th.answered or 0) - before)
+        elseif app.thinking and next(app.thinking) and thoughts_opened < 4 then
+            local key = next(app.thinking)
+            if not click_key("thought_" .. key) then problem("no cloud to click over " .. key .. "'s panel" .. where) end
+            thoughts_opened = thoughts_opened + 1
+        end
         if app.rolling then
             call(on_message, self, "roll_result", { value = rng:d20() }, "dice")
         elseif app.pending then
@@ -512,6 +531,9 @@ for week = 1, WEEKS do
         if g % 400 == 0 then scan("game night" .. where) end
     end
     if not app.night_done then problem("night never finished" .. where) break end
+    if app.night.th then
+        thoughts_seen = thoughts_seen + app.night.th.shown
+    end
     nights = nights + 1
     dump("5_night_end_w" .. week)
     if not click_label("See how everyone felt") then problem("no report button" .. where) break end
@@ -543,8 +565,10 @@ if not boss_seen then problem("there was never a boss night") end
 if app.campaign.level < 3 then problem("the party never levelled up (level " .. tostring(app.campaign.level) .. ")") end
 
 -- A fresh launch offers to carry on (the museum's own save slot).
-print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d", SEED, nights,
-    tostring(app.campaign.adv and app.campaign.adv.ending), marks_seen, app.campaign.level))
+if thoughts_seen == 0 then problem("nobody at the table ever had a thought") end
+print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d, thoughts %d (opened %d, answered %d)", SEED, nights,
+    tostring(app.campaign.adv and app.campaign.adv.ending), marks_seen, app.campaign.level, thoughts_seen, thoughts_opened,
+    thoughts_answered))
 if #problems > 0 then
     for _, p in ipairs(problems) do print("PROBLEM: " .. p) end
     os.exit(1)
