@@ -25,6 +25,10 @@ HOW IT GOES
   chances knowingly (the "fair warning" count on the planning board).
 - Euryale's card: every room the party clears, skips or botches leaves a mark on
   the boss's card. The last session is built from what they did.
+- What they're thinking: now and then a pale cloud appears over a player's panel.
+  That's something they're thinking and not saying. Click it to read it, then answer
+  it or let it be. The better you get at reading your table (Empathy), the more of
+  these you catch.
 - Maps: "All maps" on the planning board (and "Maps" on game night) opens every map
   you can put on the table. Give a room a different map, open a side room off any
   room for the party to wander into, change the next scene's map mid-game, or make
@@ -64,7 +68,7 @@ On game night:
   H                your own rolls: behind your screen or in the open
   T                a gentle timer on each call
   C                a photo of the table
-  1 to 6           pick a card's option
+  1 to 6           pick a card's option (or an answer to a thought you opened)
   Right mouse drag look around    Mouse wheel  zoom    R  reset the camera
 
 
