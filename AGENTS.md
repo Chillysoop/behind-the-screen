@@ -20,11 +20,12 @@ Where v2 lives:
 
 | Path | What it holds |
 | --- | --- |
-| `game/data/museum/module.lua` | The adventure: rooms and the ways between them, knobs, room moments, Euryale's marks, requests, loose ends, favors, the showdown, endings. Every line in our own words. |
+| `game/data/museum/module.lua` | The adventure: rooms, the doors between them (`links`), what a second look can still find, knobs, room moments, Euryale's marks, requests, loose ends, favors, the showdown, endings. Every line in our own words. |
 | `game/data/museum/cards.lua` | Its places, people, goals, snags and prizes as ordinary cards, plus how the heroes play each goal. |
 | `game/model/adventure.lua` | The adventure's state: the map, marks, flags, Francs, the fair-warning bank, hooks, prompts. It also switches the shared content over (`adventure.enter`) and filters out anything from the old story. |
-| `game/model/museum_week.lua`, `game/model/museum_night.lua` | The week (prep hours, knobs) and the night (rooms, forks, moments, Euryale's interludes, boss night). |
-| `game/ui/museum_*.lua` | The hooks page, the prep board and showdown board, the journey recap. |
+| `game/model/museum_week.lua`, `game/model/museum_night.lua` | The week (prep hours, knobs) and the night (rooms, forks where the table picks the way, trips back with a reason, side rooms, moments, Euryale's interludes, boss night). |
+| `game/model/map_repo.lua`, `game/ui/map_repo_view.lua` | The map repository: every map the DM can put on the table; a room's map, side rooms, the next scene's map, the DM's own maps (edited in `game/ui/map_view.lua`). |
+| `game/ui/museum_*.lua` | The hooks page, the prep board (the museum as the book's floor plans) and showdown board, the journey recap. |
 | `game/rules/museum.lua` | The museum's monsters' special rules (with the stat blocks in `game/rules/data/monsters.lua`). |
 
 ## Where things live
@@ -72,6 +73,7 @@ least:
     for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
                                           # the prologue headless, three kinds of DM
                                           # (add "log" after the style to read every line the table hears)
+    lua tools/tests/map_repo_check.lua    # the map repository and the open floors
     lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
     lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them
     lua tools/tests/save_check.lua        # saves load back, mid-prologue too

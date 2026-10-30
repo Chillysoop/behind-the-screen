@@ -412,11 +412,11 @@ local function room_row(app, prep, id, x, y, w)
     if not r.virtual then
         local ref = map_repo.room_map(c, id)
         local e = ref and map_repo.find(c, ref)
-        local label = "Map: " .. (e and e.title or "the book's")
+        local label = e and ("Map: " .. e.title) or "Book's map"
         local mx = nx + kit.width(tl, "ui14") + 12
-        local mw = math.min(kit.width(label, "ui14") + 16, x + w - 196 - mx)
-        if mw > 60 then
-            kit.button(mx, y + 8, mw, 22, kit.ellipsize(label, "ui14", mw - 12), function()
+        local mw = math.min(kit.width(label, "ui14") + 30, x + w - 196 - mx)
+        if mw > 70 then
+            kit.button(mx, y + 8, mw, 22, kit.ellipsize(label, "ui14", mw - 28), function()
                 if app.open_maps then
                     local lid = r.comps and r.comps.location
                     local own = content.terrain.by_location[lid or ""]

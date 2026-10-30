@@ -744,7 +744,20 @@ function M.fork(night, options, backs, sides)
     local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum", title = fk.title,
                    actor = { "instigator", "explorer", "butt_kicker" },
                    text = fk.text .. " " .. table.concat(parts, " "), options = {} }
-    for i, ch in ipairs(choices) do
+    -- What the table wants most, first (following them is the top option).
+    local order = {}
+    for i in ipairs(choices) do
+        table.insert(order, i)
+    end
+    table.sort(order, function(a, b)
+        local na, nb = #(by[a] or {}), #(by[b] or {})
+        if na ~= nb then
+            return na > nb
+        end
+        return a < b
+    end)
+    for _, i in ipairs(order) do
+        local ch = choices[i]
         local effs = {}
         for _, p in ipairs(night.players) do
             table.insert(effs, { "key:" .. p.key, fun = (first[p.key] == i) and 3 or -2 })

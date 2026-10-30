@@ -848,7 +848,20 @@ end
 
 local function spawn_reinforcements(night, f, b)
     local fam = f.plan_fam
-    local id = fam and fam.minion and fam.minion[1] or "goblin_warrior"
+    local id = fam and fam.minion and fam.minion[1]
+    if not id then
+        -- More of what's already here (more huntlings from the dioramas), not goblins from nowhere.
+        local count, best, bn = {}, nil, 0
+        for _, c in ipairs(b.creatures) do
+            if c.side == "foes" and c ~= f.boss and c.monster_id and not c.ally then
+                count[c.monster_id] = (count[c.monster_id] or 0) + 1
+                if count[c.monster_id] > bn then
+                    best, bn = c.monster_id, count[c.monster_id]
+                end
+            end
+        end
+        id = best or (night.campaign.module and "giant_scarab_swarm") or "goblin_warrior"
+    end
     local taken = {}
     for _, c in ipairs(b.creatures) do
         if not c.dead and not c.removed then

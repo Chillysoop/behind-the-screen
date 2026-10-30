@@ -213,6 +213,20 @@ end
 -- Death in the museum: the wake, the way back and the new heroes belong to this story.
 function M.museum_death()
     local d = require "game.data.death"
+    -- Last words that name the old valley's people go; the museum adds its own.
+    for _, list in pairs(d.LAST_WORDS or {}) do
+        for i = #list, 1, -1 do
+            if M.foreign(list[i]) then
+                table.remove(list, i)
+            end
+        end
+    end
+    for cls, line in pairs({ wizard = "Don't let her put me in the collection.", rogue = "Tell the boot it still owes me a Franc." }) do
+        local list = d.LAST_WORDS and d.LAST_WORDS[cls]
+        if list and not util.contains(list, line) then
+            table.insert(list, line)
+        end
+    end
     d.WAKE = "They hold the wake in the gift shop. Telpur leaves a candle burning on the counter for {char} all night."
     d.QUEST = { name = "The way back", line = "There's a way to bring {char} back: Flitwidget swears one of his exhibits can do it, for a price.",
                 win = "{char} opens their eyes on the gift shop floor. They're back, and they remember the dark.",
