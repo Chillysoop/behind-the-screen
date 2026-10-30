@@ -586,7 +586,11 @@ function M.update(app, dt)
             end
             return
         end
-        app.s0.hooks = app.s0.hooks or { mara = "sage", dev = "soldier", jess = "charlatan", sam = "acolyte" }
+        -- (The page made its own empty pick list when it drew: fill it, don't replace it.)
+        app.s0.hooks = app.s0.hooks or {}
+        for k, id in pairs({ mara = "sage", dev = "soldier", jess = "charlatan", sam = "acolyte" }) do
+            app.s0.hooks[k] = app.s0.hooks[k] or id
+        end
         app.refresh()
         if not shot(a, "hooks") then
             by_key("hooks_start")
