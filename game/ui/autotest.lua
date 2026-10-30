@@ -637,6 +637,30 @@ function M.update(app, dt)
         if shot(a, "prep_week_" .. wk) then
             return
         end
+        -- v2: the tie-and-lock editor, once: opened, a room's cards, closed.
+        if a.mode == 8 and wk == 1 and not a.ties_done then
+            if app.overlay ~= "ties" then
+                if a.ties_opened or not by_key("open_ties") then
+                    a.ties_done = true
+                end
+                a.ties_opened = true
+                return
+            end
+            if shot(a, "ties_editor") then
+                return
+            end
+            if not a.ties_room then
+                a.ties_room = true
+                by_key("tl_room_paintings")
+                return
+            end
+            if shot(a, "ties_room") then
+                return
+            end
+            by_key("tl_done")
+            a.ties_done = true
+            return
+        end
         if not a.prepped_week or a.prepped_week ~= wk then
             a.prepped_week = wk
             local mw = require "game.model.museum_week"
