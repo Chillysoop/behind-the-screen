@@ -90,7 +90,10 @@ if (-not $game) { Stop-WithMessage "The build finished but no game .exe turned u
 $folder = $game.DirectoryName
 
 # --- What goes in next to the game ----------------------------------------------------------
-Copy-Item -Path (Join-Path $Here 'README_TESTERS.txt') -Destination (Join-Path $folder 'READ ME FIRST.txt')
+# (v2: the museum build has its own readme.)
+$readme = Join-Path $Here 'README_TESTERS_V2.txt'
+if (-not (Test-Path -LiteralPath $readme)) { $readme = Join-Path $Here 'README_TESTERS.txt' }
+Copy-Item -Path $readme -Destination (Join-Path $folder 'READ ME FIRST.txt')
 Copy-Item -Path (Join-Path $Here 'Open my playtest log folder.bat') -Destination $folder
 # The dialogue review mode looks for this; testers don't have it, and shouldn't.
 Remove-Item -Path (Join-Path $folder 'project_path.txt') -ErrorAction SilentlyContinue
