@@ -467,7 +467,8 @@ for week = 1, WEEKS do
         if app.overlay ~= "mapmaker" then problem("New map didn't open the map maker (" .. tostring(app.overlay) .. ")") end
         dump_once("4m_mapmaker_w" .. week)
         scan("the map maker" .. where)
-        click_key("map_piece_pillar")
+        click_key("map_group_cover")
+        if not click_key("map_piece_pillar") then problem("no Pillar in the Cover pieces") end
         local before = 0
         for _, mm in pairs(c.my_maps or {}) do before = before + 1 end
         if before ~= 1 then problem("New map didn't make a map (" .. before .. ")") end

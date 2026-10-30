@@ -1245,6 +1245,7 @@ check_tip_absorbs(" (week 2 prep)")
             problem("no place to draw a map for")
         else
             local map_view = require "game.ui.map_view"
+            click_key("map_group_walls_and_doors")
             click_key("map_piece_wall")
             local maps = require "game.model.maps"
             -- Click squares on the grid until one takes a wall (the place's own scenery, a campfire

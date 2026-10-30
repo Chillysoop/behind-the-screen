@@ -1194,11 +1194,11 @@ def b_wall_diag(P, rng):
     north-west corner. Each quarter turn moves it on round the room: r 1 the north-east corner,
     r 2 the south-east, r 3 the south-west. A post at each end meets the wall_room along the edge."""
     h, t = 11.0, 1.6
-    L = SQ * math.sqrt(2)
+    L = 2 * (SQ / 2 * math.sqrt(2) - t / 2)      # its ends' corners stay in the square
     wall = gm.Mesh()
     wall.add(gm.box((0, h / 2, 0), (L, h, t), sw("plaster")))
-    wall.add(gm.box((0, 0.5, t / 2 + 0.05), (L - 1.6, 1.0, 0.2), sw("timber")))
-    wall.add(gm.box((0, h - 0.4, t / 2 + 0.05), (L - 1.6, 0.8, 0.2), sw("timber")))
+    wall.add(gm.box((0, 0.5, t / 2 + 0.05), (L - 1.2, 1.0, 0.2), sw("timber")))
+    wall.add(gm.box((0, h - 0.4, t / 2 + 0.05), (L - 1.2, 0.8, 0.2), sw("timber")))
     P.paint.add(wall.transformed(yaw=math.pi / 4))
     for s in (-1, 1):
         c = s * (SQ / 2 - 0.9)
@@ -1248,9 +1248,9 @@ def b_wall_portrait(P, rng):
 def b_tapestry(P, rng):
     """A stretch of wall hung with a tapestry: three sisters with snakes for hair, gold border, tassels."""
     z = picture_wall(P)
-    P.paint.add(gm.box((0, 10.0, z + 0.4), (4.6, 0.3, 0.3), sw("iron")))
+    P.paint.add(gm.box((0, 10.0, z + 0.4), (4.3, 0.3, 0.3), sw("iron")))
     for s in (-1, 1):
-        P.paint.add(gm.sphere((s * 2.35, 10.0, z + 0.4), 0.3, 6, 4, sw("gold")))
+        P.paint.add(gm.sphere((s * 2.15, 10.0, z + 0.4), 0.3, 6, 4, sw("gold")))
     top, bot = 9.8, 3.0
     P.paint.add(gm.box((0, (top + bot) / 2, z + 0.3), (4.0, top - bot, 0.15), sw("rug_c")))
     for y in (top - 0.25, bot + 0.25):
@@ -1335,11 +1335,11 @@ def b_topiary(P, rng):
             P.paint.add(gm.cylinder((x, 0.9, z), 0.5, 0.45, 1.5, 6, sw("leaf_b")))
     P.paint.add(gm.sphere((-0.6, 3.3, 0), 1.6, 9, 6, sw("leaf_b"), squash=0.85))
     P.paint.add(gm.sphere((0.8, 3.5, 0), 1.5, 9, 6, sw("leaf_a"), squash=0.9))
-    P.paint.add(gm.sphere((2.0, 4.4, 0.1), 0.95, 8, 5, sw("leaf_b")))
-    P.paint.add(limb((2.4, 4.2, 0.1), (3.1, 3.9, 0.15), 0.6, 0.45, sw("leaf_c"), seg=7))
+    P.paint.add(gm.sphere((1.55, 4.4, 0.1), 0.9, 8, 5, sw("leaf_b")))
+    P.paint.add(limb((1.9, 4.2, 0.1), (2.3, 3.95, 0.15), 0.55, 0.4, sw("leaf_c"), seg=7))
     for s in (-1, 1):
-        P.paint.add(limb((2.2, 5.0, s * 0.55), (2.6, 6.0, s * 1.1), 0.25, 0.05, sw("leaf_c"), seg=5))
-    P.paint.add(gm.sphere((-2.2, 3.9, 0), 0.5, 6, 4, sw("leaf_a")))
+        P.paint.add(limb((1.75, 5.0, s * 0.55), (2.1, 6.0, s * 1.1), 0.25, 0.05, sw("leaf_c"), seg=5))
+    P.paint.add(gm.sphere((-2.0, 3.9, 0), 0.5, 6, 4, sw("leaf_a")))
 
 
 def b_garden_steps(P, rng):
@@ -1363,10 +1363,10 @@ def b_garden_steps(P, rng):
             hh = (i + 1) * rise + 0.9
             P.paint.add(gm.box((x, hh / 2, z1 - tread / 2), (0.8, hh, tread), sw("stone_light")))
         P.paint.add(gm.box((x, (top + 0.9) / 2, -d / 2 + terrace / 2), (0.8, top + 0.9, terrace), sw("stone_light")))
-        uz = -d / 2 + terrace - 0.6
-        P.paint.add(gm.cylinder((x, top + 0.9, uz), 0.45, 0.75, 0.9, 8, sw("pale_stone")))
-        P.paint.add(gm.cylinder((x, top + 1.8, uz), 0.75, 0.5, 0.5, 8, sw("pale_stone")))
-        P.paint.add(gm.sphere((x, top + 2.5, uz), 0.55, 7, 4, sw("leaf_b")))
+        uz, ux = -d / 2 + terrace - 0.6, s * (w / 2 - 0.6)
+        P.paint.add(gm.cylinder((ux, top + 0.9, uz), 0.4, 0.6, 0.9, 8, sw("pale_stone")))
+        P.paint.add(gm.cylinder((ux, top + 1.8, uz), 0.6, 0.45, 0.5, 8, sw("pale_stone")))
+        P.paint.add(gm.sphere((ux, top + 2.45, uz), 0.5, 7, 4, sw("leaf_b")))
 
 
 def b_stairs_straight(P, rng):
@@ -1628,17 +1628,17 @@ def b_stuffed_bird(P, rng):
         P.paint.add(limb((-0.2 + s * 0.15, 0.7, s * 0.55), (-0.3, 3.7, s * 0.4), 0.18, 0.28, sw("rust"), seg=5))
         P.paint.add(gm.box((0.2 + s * 0.15, 0.78, s * 0.55), (1.0, 0.15, 0.5), sw("rust")))
     P.paint.add(gm.sphere((-0.5, 4.6, 0), 1.6, 9, 6, sw("coin"), squash=0.85))
-    P.paint.add(gm.sphere((-1.6, 4.9, 0), 1.0, 7, 5, sw("awning_yellow")))
+    P.paint.add(gm.sphere((-1.4, 4.9, 0), 1.0, 7, 5, sw("awning_yellow")))
     for k in range(4):
-        P.paint.add(limb((-2.2, 5.0, -0.6 + k * 0.4), (-3.0, 6.2 + (k % 2) * 0.4, -0.8 + k * 0.53), 0.25, 0.05,
+        P.paint.add(limb((-1.9, 5.0, -0.6 + k * 0.4), (-2.4, 6.2 + (k % 2) * 0.4, -0.8 + k * 0.53), 0.25, 0.05,
                          sw("awning_yellow"), seg=4))
     for s in (-1, 1):
         P.paint.add(gm.sphere((-0.6, 4.9, s * 1.35), 0.75, 6, 4, sw("awning_yellow"), squash=0.6))
-    P.paint.add(limb((0.6, 5.2, 0), (1.3, 8.1, 0.15), 0.6, 0.38, sw("coin"), seg=7))
-    P.paint.add(gm.sphere((1.45, 8.35, 0.15), 0.62, 8, 5, sw("coin")))
-    P.paint.add(limb((1.9, 8.3, 0.15), (2.9, 7.9, 0.2), 0.36, 0.08, sw("bronze"), seg=6))
+    P.paint.add(limb((0.5, 5.2, 0), (1.05, 8.1, 0.15), 0.6, 0.38, sw("coin"), seg=7))
+    P.paint.add(gm.sphere((1.15, 8.35, 0.15), 0.62, 8, 5, sw("coin")))
+    P.paint.add(limb((1.6, 8.3, 0.15), (2.45, 7.95, 0.2), 0.36, 0.08, sw("bronze"), seg=6))
     for s in (-1, 1):
-        P.paint.add(gm.sphere((1.6, 8.55, 0.15 + s * 0.5), 0.12, 4, 3, sw("ink")))
+        P.paint.add(gm.sphere((1.3, 8.55, 0.15 + s * 0.5), 0.12, 4, 3, sw("ink")))
 
 
 def b_lectern(P, rng):
@@ -1690,9 +1690,9 @@ def b_couch(P, rng):
     P.paint.add(gm.box((0, 1.4, 0), (9.0, 0.8, 3.4), sw("wood_dark")))
     P.paint.add(gm.box((0.4, 2.2, 0.05), (8.2, 0.9, 3.1), sw("purple_cloth")))
     head = gm.box((0, 0, 0), (0.9, 3.4, 3.2), sw("purple_cloth"))
-    P.paint.add(head.transformed(roll=0.28, offset=(-4.0, 3.0, 0.05)))
-    scroll = gm.cylinder((0, -1.6, 0), 0.7, 0.7, 3.2, 8, sw("purple_cloth"))
-    P.paint.add(scroll.transformed(pitch=math.pi / 2, offset=(-4.4, 4.7, 0.05)))
+    P.paint.add(head.transformed(roll=0.28, offset=(-3.8, 3.0, 0.05)))
+    scroll = gm.cylinder((0, -1.6, 0), 0.65, 0.65, 3.2, 8, sw("purple_cloth"))
+    P.paint.add(scroll.transformed(pitch=math.pi / 2, offset=(-4.2, 4.65, 0.05)))
     back = gm.box((0, 0, 0), (5.2, 1.9, 0.6), sw("purple_cloth"))
     P.paint.add(back.transformed(roll=-0.12, offset=(-1.2, 3.3, -1.35)))
     P.paint.add(gm.box((0, 0, 0), (5.4, 0.25, 0.75), sw("wood_dark")).transformed(roll=-0.12, offset=(-1.2, 4.3, -1.35)))
@@ -1734,7 +1734,7 @@ def b_statue_victim(P, rng):
 
 def b_statue_victim_b(P, rng):
     """A visitor turned to stone, cowering: down on the knees, curled over, arms over the head."""
-    figure(P, {"lfoot": (-0.6, 0.35, -1.4), "rfoot": (0.6, 0.35, -1.3), "lknee": (-0.6, 0.55, 0.5), "rknee": (0.6, 0.55, 0.6),
+    figure(P, {"lfoot": (-0.6, 0.45, -1.4), "rfoot": (0.6, 0.45, -1.3), "lknee": (-0.6, 0.55, 0.5), "rknee": (0.6, 0.55, 0.6),
                "lhip": (-0.45, 1.9, -0.7), "rhip": (0.45, 1.9, -0.7), "hips": (0, 2.0, -0.8), "neck": (0, 3.5, 0.6),
                "head": (0, 3.55, 1.35), "lsh": (-0.9, 3.5, 0.4), "lel": (-1.1, 4.3, 1.0), "lhand": (-0.25, 4.25, 1.45),
                "rsh": (0.9, 3.5, 0.4), "rel": (1.1, 4.2, 1.1), "rhand": (0.3, 4.3, 1.4)})
@@ -1751,24 +1751,24 @@ def b_statue_victim_c(P, rng):
 def b_mech_dais(P, rng):
     """A raised round iron platform with gears set round its rim, where a war machine stands on show."""
     h = 1.0
-    P.paint.add(gm.cylinder((0, 0, 0), 4.3, 4.1, h, 16, sw("iron")))
-    P.paint.add(gm.cylinder((0, h, 0), 3.7, 3.7, 0.06, 16, sw("metal")))
+    P.paint.add(gm.cylinder((0, 0, 0), 4.0, 3.8, h, 16, sw("iron")))
+    P.paint.add(gm.cylinder((0, h, 0), 3.4, 3.4, 0.06, 16, sw("metal")))
     P.paint.add(gm.cylinder((0, h + 0.06, 0), 1.5, 1.5, 0.06, 12, sw("bronze")))
     for k in range(8):
         a = k / 8 * 2 * math.pi
-        P.paint.add(gm.box((math.cos(a) * 3.0, h + 0.12, math.sin(a) * 3.0), (0.3, 0.12, 0.3), sw("bronze"), skip=("-y",)))
+        P.paint.add(gm.box((math.cos(a) * 2.8, h + 0.12, math.sin(a) * 2.8), (0.3, 0.12, 0.3), sw("bronze"), skip=("-y",)))
     for k in range(7):
         a = (k + 0.5) / 7 * 2 * math.pi
-        r = 1.15 if k % 2 else 0.9
-        cx, cz = math.cos(a) * 4.2, math.sin(a) * 4.2
-        y = 0.45 + 0.05 * (k % 2)
+        r = 0.8 if k % 2 else 0.65
+        cx, cz = math.cos(a) * 3.9, math.sin(a) * 3.9
+        y = 0.5 + 0.05 * (k % 2)
         gear = gm.Mesh()
-        gear.add(gm.cylinder((0, 0, 0), r, r, 0.6, 10, sw("bronze" if k % 2 else "bronze_dark"), caps=(False, True)))
+        gear.add(gm.cylinder((0, 0, 0), r, r, 0.75, 10, sw("bronze" if k % 2 else "bronze_dark"), caps=(False, True)))
         for t in range(7):
             b = t / 7 * 2 * math.pi
-            gear.add(gm.box((0, 0, 0), (0.35, 0.6, 0.35), sw("bronze" if k % 2 else "bronze_dark"), skip=("-y",)).transformed(
-                yaw=-b, offset=(math.cos(b) * (r + 0.15), 0.3, math.sin(b) * (r + 0.15))))
-        gear.add(gm.cylinder((0, 0.6, 0), 0.3, 0.3, 0.05, 6, sw("iron")))
+            gear.add(gm.box((0, 0, 0), (0.3, 0.75, 0.3), sw("bronze" if k % 2 else "bronze_dark"), skip=("-y",)).transformed(
+                yaw=-b, offset=(math.cos(b) * (r + 0.1), 0.375, math.sin(b) * (r + 0.1))))
+        gear.add(gm.cylinder((0, 0.75, 0), 0.25, 0.25, 0.05, 6, sw("iron")))
         P.paint.add(gear.transformed(yaw=a * 0.7, offset=(cx, y, cz)))
 
 

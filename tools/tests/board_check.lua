@@ -24,6 +24,12 @@ local GROUND = { floor_boards = true, floor_flags = true, floor_cobbles = true, 
                  path_patch = true, ash = true, sand_ring = true, puddle = true, stream_ns = true, water_strip = true,
                  frost = true, tracks = true, rug = true, tall_grass = true, flowers = true, pit_ring = true,
                  pier = true, rope_bridge = true }
+-- ...and whatever the kit itself says lies flat (the museum's marble floor and paving).
+for kind, k in pairs(props) do
+    if k.flat or k.clear then
+        GROUND[kind] = true
+    end
+end
 
 local function draw(id)
     local c = board.compile(id)

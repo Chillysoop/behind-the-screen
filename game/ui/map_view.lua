@@ -19,13 +19,14 @@ local M = {}
 M.CELL = 38
 local GROUP_COLOR = {
     Furniture = kit.rgba("#9a7442"), ["Walls and doors"] = kit.rgba("#8a8178"), Cover = kit.rgba("#b08a5a"),
-    Ground = kit.rgba("#5c7a42"), Light = kit.rgba("#e0a640"), ["Traps, starts"] = kit.rgba("#8a52a0"),
+    Ground = kit.rgba("#5c7a42"), Light = kit.rgba("#e0a640"), Museum = kit.rgba("#5a86a0"),
+    ["Traps, starts"] = kit.rgba("#8a52a0"),
 }
 local ICE = kit.rgba("#9cc6d8")
 local TRAP = kit.rgba("#8a52a0")
 local TEMPLATE_NAME = { camp = "Camp", forest = "Woods", road = "Road", ruins = "Ruins", underground = "Underground",
                         tavern = "Tavern", town = "Street", market_generic = "Market", bridge = "Bridge", dock = "Waterside",
-                        blank = "Open ground" }
+                        museum_hall = "Museum hall", blank = "Open ground" }
 local FACING = { [0] = "facing south", "facing west", "facing north", "facing east" }
 
 local function group_of(kind)
@@ -40,6 +41,22 @@ local function group_of(kind)
         return "Walls and doors"
     end
     return "Furniture"
+end
+
+-- The palette group a tool is in (a piece's kind, or a tool's id such as "wall" or "trap").
+local function group_holding(key)
+    for _, grp in ipairs(maps.PALETTE) do
+        for _, it in ipairs(grp.items) do
+            if (it.id or it.kind) == key then
+                return grp.group
+            end
+        end
+    end
+    return nil
+end
+
+local function slug(name)
+    return (string.gsub(string.gsub(string.lower(name), "[^%w]+", "_"), "_+$", ""))
 end
 
 -- The boards on offer for a place: its own first (when it has one), then the general ones.
@@ -234,7 +251,10 @@ function M.draw(app, x, y, w, h, ids, hazard)
         kit.button(x + W * C - 150, ly - 4, 150, 26, "Turn (" .. FACING[app.map_rot or 0] .. ")", function()
             app.map_rot = ((app.map_rot or 0) + 1) % 4
             redraw(app)
-        end, { font = "ui14", key = "map_turn", enabled = fw ~= fh or props[kind].door ~= nil or kind == "stone_wall" or kind == "wall_room" })
+        -- (Walls and what hangs on them face a way, a corner wall turns round the room, and the
+        -- museum's statues and exhibits face a way too.)
+        end, { font = "ui14", key = "map_turn", enabled = fw ~= fh or props[kind].door ~= nil or props[kind].opaque == true
+            or group_holding(kind) == "Museum" })
     end
     local hint = app.map_why or "Click a square to set it down. Click your piece again to turn it; a door goes shut, open, locked."
     kit.text(x, ly + 26, hint, "ui14", app.map_why and theme.orange or theme.faint, { w = W * C })
@@ -301,15 +321,52 @@ function M.side(app, x, y, w, ids, hazard)
         kit.text(x, ty, lt.about, "ui14", theme.dim, { w = w, lines = 1 })
         ty = ty + 20
     end
-    -- The set pieces, by what they're for.
+    -- The set pieces, by what they're for: a tab for each group, that group's pieces under it, and the
+    -- traps and starts always there below. (One group at a time since the museum's pieces came,
+    -- October 30: every group open at once ran off the bottom of the builder.)
     local sel = app.map_piece or "table_round"
-    local iw = (w - 110 - 18) / 4
+    local groups, tools = {}, {}
     for _, grp in ipairs(maps.PALETTE) do
-        kit.text(x, ty + 5, grp.group, "ui14", theme.dim, { w = 104, lines = 2 })
+        table.insert(grp.tools and tools or groups, grp)
+    end
+    local open
+    local want = app.map_group or group_holding(sel)
+    for _, grp in ipairs(groups) do
+        if grp.group == want then
+            open = grp
+        end
+    end
+    open = open or groups[1]
+    kit.text(x, ty, "PIECES", "ui14", theme.gold)
+    ty = ty + 20
+    -- The tabs, each as wide as its name, spread to fill the row (on to a second row if they don't fit).
+    local widths, total = {}, 0
+    for i, grp in ipairs(groups) do
+        widths[i] = kit.width(grp.group, "ui14") + 30
+        total = total + widths[i]
+    end
+    local spare = math.max(0, (w - total - 6 * (#groups - 1)) / #groups)
+    local tx = x
+    for i, grp in ipairs(groups) do
+        local tw = widths[i] + spare
+        if tx > x and tx + tw > x + w + 0.5 then
+            tx, ty = x, ty + 30
+        end
+        kit.button(tx, ty, tw, 26, "", function()
+            app.map_group = grp.group
+            redraw(app)
+        end, { color = grp == open and theme.go or theme.panel2, hover = theme.button_hover, key = "map_group_" .. slug(grp.group) })
+        kit.box(tx + 7, ty + 8, 10, 10, GROUP_COLOR[grp.group] or theme.dim, { radius = 3 })
+        kit.text(tx + 22, ty + 4, grp.group, "ui14", theme.text, { w = tw - 26, lines = 1 })
+        tx = tx + tw + 6
+    end
+    ty = ty + 34
+    local iw = (w - 18) / 4
+    local function pieces(grp)
         for k, it in ipairs(grp.items) do
             local col, row = (k - 1) % 4, math.floor((k - 1) / 4)
             local key = it.id or it.kind
-            local bx, by = x + 110 + col * (iw + 6), ty + row * 30
+            local bx, by = x + col * (iw + 6), ty + row * 30
             kit.button(bx, by, iw, 26, "", function()
                 app.map_piece = key
                 app.map_why = nil
@@ -320,9 +377,15 @@ function M.side(app, x, y, w, ids, hazard)
                 or (key == "erase" and theme.faint) or GROUP_COLOR[grp.group], { radius = 3 })
             kit.text(bx + 22, by + 4, it.name, "ui14", theme.text, { w = iw - 26, lines = 1 })
         end
-        ty = ty + math.ceil(#grp.items / 4) * 30 + 4
+        ty = ty + math.ceil(#grp.items / 4) * 30
     end
-    ty = ty + 4
+    pieces(open)
+    for _, grp in ipairs(tools) do
+        kit.text(x, ty + 2, grp.group, "ui14", theme.dim)
+        ty = ty + 22
+        pieces(grp)
+    end
+    ty = ty + 8
     -- Which SRD trap the trap squares are.
     local hz = require "game.rules.data.hazards"
     local trap = (m and m.trap) or maps.TRAP
