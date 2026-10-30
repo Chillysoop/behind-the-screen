@@ -1,6 +1,7 @@
 -- The DM's notes (real-session pass, grown into the campaign notebook in the slice rework):
 -- the binder behind the screen. Open it with N or the Notes button on prep, game night and
 -- the report; game night waits while it's open.
+--   This week      the world's moves off screen, who this session is for, who shows up
 --   This session   what tonight is for, the opening to read, the story cards and the board
 --   Campaign       the plan: premise, truths, fronts and their portents, shelved cards
 --   People         everyone the party has met: attitude, status, history (hover for it all)
@@ -28,9 +29,7 @@ local pages = require "game.ui.notebook_pages"
 
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
--- (This week's decisions, the world's moves, who the session is for and who shows up, are prep's own
--- steps since October 26: game/ui/prep_steps.lua.)
-local TABS = { { "session", "This session" }, { "campaign", "Campaign" },
+local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
                { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" },
                { "storylog", "Story log" }, { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
@@ -429,6 +428,9 @@ end
 
 function M.attention(app)
     local out = {}
+    if app.campaign and app.campaign.prep and pages.week_pending(app) > 0 then
+        out.week = true
+    end
     if M.threads_moved(app) then
         out.storylog = true
     end
@@ -502,7 +504,9 @@ function M.draw(app)
     kit.text(X + W - 144, Y + 22, "N or Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local cx, cy = X + 204, Y + 76
     local cw, ch = W - 204 - 24, H - 76 - 22
-    if tab == "session" then
+    if tab == "week" then
+        pages.week(app, cx, cy, cw, ch)
+    elseif tab == "session" then
         tab_session(app, cx, cy, cw)
     elseif tab == "campaign" then
         pages.campaign(app, cx, cy, cw, ch)

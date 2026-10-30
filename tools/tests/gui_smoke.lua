@@ -215,12 +215,8 @@ local function key(action) call(on_input, self, action, { pressed = true }) end
 -- "Run game night" may ask "are you sure?" (the slice rework): answer it like a player who's done.
 local on_lore   -- (set once dump is defined, below)
 local function run_night_click()
-    local app = self.app
-    -- Prep is a step at a time (October 26): game night is the last step's button.
-    if app.screen == "prep" then
-        require("game.ui.prep_steps").go(app, "ready")
-    end
     if not click_label("Run game night") then return false end
+    local app = self.app
     if app.ask then
         for _, b in ipairs(buttons()) do
             if b.key == "ask_yes" then click(b); break end
@@ -369,28 +365,19 @@ local function handle_join(where)
     end
     local key = app.join and app.join.key
     dump_once("1g_join_" .. tostring(key))
-    -- Their steps (October 26): their story, their idea, their ask, what turns up first.
-    local steps_mod = require "game.ui.steps"
-    local sv = require "game.ui.setup_view"
+    click_key("join_start")
+    if app.screen ~= "join" then problem("the join page let you on with nothing written" .. where) return end
     local backstory = require "game.model.backstory"
-    for _ = 1, 12 do
-        if app.screen ~= "join" then break end
-        local s = steps_mod.current(app, sv.join_flow)
-        if s.id == "join_q" then
-            for _, q in ipairs(backstory.data[key].questions) do click_key("bs_q_" .. q.id) end
-            if backstory.asked(app.join.backstories) > backstory.data.JOIN_QUESTIONS then problem("a joiner got more questions than there's time for") end
-        elseif s.id == "join_idea" then
-            if click_key("step_next") then problem("the join steps went on with no answer to their idea" .. where) end
-            click_key(rng:chance(0.5) and "bs_idea_yes" or "bs_idea_no")
-        elseif s.id == "join_ask" then
-            click_key("join_ask_agree")
-        elseif s.id == "join_hook" then
-            local hooks = backstory.data[key].hooks
-            if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook choices on the join steps" .. where) end
-            dump_once("1h_join_done_" .. tostring(key))
-        end
-        if not click_key("step_next") then problem("couldn't go on from " .. s.id .. where) return end
+    for _, q in ipairs(backstory.data[key].questions) do
+        click_key("bs_q_" .. q.id)
     end
+    if backstory.asked(app.join.backstories) > backstory.data.JOIN_QUESTIONS then problem("a joiner got more questions than there's time for") end
+    click_key(rng:chance(0.5) and "bs_idea_yes" or "bs_idea_no")
+    click_key("join_ask_agree")
+    local hooks = backstory.data[key].hooks
+    if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook buttons on the join page" .. where) end
+    dump_once("1h_join_done_" .. tostring(key))
+    if not click_key("join_start") then problem("no welcome button on the join page" .. where) return end
     if app.screen ~= "prep" then problem("the welcome didn't go on to prep" .. where) return end
     if not app.campaign:player(key) then problem(key .. " didn't join the table" .. where) end
     local b = app.campaign.backstories and app.campaign.backstories[key]
@@ -465,700 +452,272 @@ local seeds_mod = require "game.model.seeds"
 
 for week = 1, WEEKS do
     if app.screen == "intro" then
+        if has_key("agree") then
+            dump("0_notice")
+            if has_key("session_zero") or has_key("continue") then problem("the welcome card showed under the prototype notice") end
+            click_key("agree")
+        elseif week == 1 then
+            problem("no prototype notice on launch")
+        end
         dump("1_intro")
         if not click_label("Plan the campaign") then problem("no Plan the campaign button") end
-        if app.screen ~= "setup" then problem("expected the setup steps, got " .. tostring(app.screen)) end
-        -- Setting up, one decision at a time (October 26): walk every step. Each asks one thing;
-        -- Next stays off until it's answered; your friends say something about it in bubbles.
-        local steps_mod = require "game.ui.steps"
-        local sv = require "game.ui.setup_view"
+        if app.screen ~= "planner" then problem("expected the planner, got " .. tostring(app.screen)) end
+        dump("1a_planner")
+        -- Click a few truths and threads around, then go on with whatever's picked (or the defaults).
+        for _ = 1, 6 do
+            local bs = random_buttons()
+            local pick = bs[rng:int(1, #bs)]
+            if pick and pick.key ~= "plan_done" then click(pick) end
+        end
+        -- Every few seeds, a campaign in another style (A18), with its truths and front.
+        if SEED % 3 == 0 then
+            local order = require("game.model.content").styles.order
+            click_key("style_" .. order[(SEED / 3) % #order + 1])
+        end
+        -- Who's at the table (October 15): seeds 1 to 4 play all four, 5 and 6 start with two and
+        -- welcome Jess (session 2) and Sam (session 3) on the join page.
+        if not click_key(SEED >= 5 and "table_small" or "table_full") then problem("no table-size buttons in the planner") end
+        dump("1a2_planner_picked")
+        if not click_key("plan_done") then
+            app.plan_choices = nil
+            app.refresh()
+            click_key(SEED >= 5 and "table_small" or "table_full")
+            if not click_key("plan_done") then problem("the planner wouldn't go on with its defaults") end
+        end
+        if not (app.campaign.plan and #app.campaign.plan.truths == 3) then problem("the planner didn't lay down three truths") end
+        if app.screen ~= "session_zero" then problem("expected Session Zero, got " .. tostring(app.screen)) end
+        dump("1b_session_zero")
+        -- The first-session tips: one shows, "Got it" moves to the next, and they stay clickable.
+        if app.guide_step ~= "s0_pitch" or not has_key("guide_ok") then
+            problem("no first tip on Session Zero (" .. tostring(app.guide_step) .. ")")
+        else
+            click_key("guide_ok")
+            if app.guide_step ~= "s0_asks" then problem("Got it didn't move to the next tip (" .. tostring(app.guide_step) .. ")") end
+            dump("1d_session_zero_tip")
+        end
+        if click_label("Backstories") or click_label("Start session 1") then problem("Session Zero let you go on with nothing decided") end
+        -- Click around, then make sure every question has an answer.
+        for _ = 1, 30 do
+            local bs = random_buttons()
+            local pick = bs[rng:int(1, #bs)]
+            if pick and not string.find(label_of(pick), "Start session", 1, true) and not string.find(label_of(pick), "Backstories", 1, true) then click(pick) end
+        end
+        app.s0 = app.s0 or { asks = {}, rules = {} }
+        app.s0.tone = app.s0.tone or "mixed"
+        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do app.s0.asks[k] = app.s0.asks[k] or "agree" end
+        app.s0.rules.xcard = app.s0.rules.xcard or "on"
+        app.s0.rules.dice = app.s0.rules.dice or "big_open"
+        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.s0.rules.length = app.s0.rules.length or "half"
+        -- When a hero dies (B3): click it, so the compact row is exercised.
+        if not app.s0.rules.death and not click_key("rule_death_cost") then problem("no death rule buttons in Session Zero") end
+        app.s0.rules.death = app.s0.rules.death or "cost"
+        app.refresh()
+        dump("1c_session_zero_done")
+        -- Their backstories (October 13): a page of their own.
+        if not click_label("Backstories") then problem("no way on to the backstories after Session Zero") end
+        if not (app.s0 and app.s0.page == "backstories") then problem("the backstories page didn't open") end
+        dump("1e_backstories")
+        if click_label("Start session 1") and app.screen ~= "session_zero" then problem("Session Zero started with no backstories written") end
+        if app.guide_step ~= "s0_backstories" then problem("no tip on the backstories page (" .. tostring(app.guide_step) .. ")") end
         local backstory = require "game.model.backstory"
-        local seen, n = {}, 0
-        local order = require("game.model.content").styles.order
-        while app.screen == "setup" and n < 80 do
-            n = n + 1
-            local s = steps_mod.current(app, sv.flow)
-            if not s then problem("no setup step") break end
-            if seen[s.id] then problem("the setup came back to " .. s.id) break end
-            seen[s.id] = true
-            dump_once("1s_" .. s.id)
-            if s.talk and not s.id:find("^bs_") and not s.id:find("^ask_") then
-                local said = 0
-                for _, k in ipairs(app.campaign:table_keys()) do
-                    local t = s.talk(app, k)
-                    if t and t.text and t.text ~= "" then said = said + 1 end
-                end
-                if said == 0 then problem("nobody says anything on the " .. s.id .. " step") end
+        if SEED >= 5 and #app.campaign.players ~= 2 then problem("a small table should start with two, not " .. #app.campaign.players) end
+        if SEED < 5 and #app.campaign.players ~= 4 then problem("a full table should start with four, not " .. #app.campaign.players) end
+        for _, k in ipairs(app.campaign:table_keys()) do
+            if not click_key("bs_tab_" .. k) then problem("no backstory tab for " .. k) end
+            -- Ask everything: the evening runs out of questions, and the button says so.
+            for _, q in ipairs(backstory.data[k].questions) do
+                click_key("bs_q_" .. q.id)
             end
-            if not steps_mod.done(app, s) and click_key("step_next") then problem("Next went on from " .. s.id .. " with nothing chosen") end
-            if s.id == "table" then
-                -- Seeds 1 to 4 play all four; 5 and 6 start with two and welcome Jess (session 2)
-                -- and Sam (session 3) on the join steps.
-                if not click_key(SEED >= 5 and "table_small" or "table_full") then problem("no table-size choices") end
-                if SEED >= 5 and #app.campaign.players ~= 2 then problem("a small table should start with two, not " .. #app.campaign.players) end
-                if SEED < 5 and #app.campaign.players ~= 4 then problem("a full table should start with four, not " .. #app.campaign.players) end
-            elseif s.id == "style" then
-                -- Every few seeds, a campaign in another style (A18), with its truths and front.
-                if SEED % 3 == 0 then click_key("style_" .. order[(SEED / 3) % #order + 1]) end
-            elseif s.id == "truths" then
-                local st = sv.state(app)
-                for _, t in ipairs(require("game.model.planner").truths_for(st.plan.style)) do
-                    if rng:chance(0.4) then click_key("truth_" .. t.id) end
-                end
-                for _, t in ipairs(require("game.model.planner").truths_for(st.plan.style)) do
-                    if #st.plan.truths < 3 then click_key("truth_" .. t.id) end
-                end
-            elseif s.id == "rule_death" then
-                if not click_key("rule_death_cost") then problem("no death rule choices") end
-            elseif s.id:find("^bs_q_") then
-                -- Ask everything: the evening runs out of questions, and the buttons say so.
-                local k = s.id:sub(6)
-                for _, q in ipairs(backstory.data[k].questions) do click_key("bs_q_" .. q.id) end
-                if backstory.asked(sv.state(app).s0.backstories) > backstory.data.QUESTIONS then
-                    problem("more questions asked than the evening has")
-                end
-            elseif s.id:find("^bs_hook_") then
-                local k = s.id:sub(9)
-                local hooks = backstory.data[k].hooks
-                if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook choices for " .. k) end
-            elseif not steps_mod.done(app, s) then
-                -- Anything else: one of its choices, at random.
-                local opts = {}
-                for _, b in ipairs(buttons()) do
-                    if b.key and not b.key:find("^step_") and not b.key:find("^section_") and b.key ~= "chill_mode" then table.insert(opts, b) end
-                end
-                for _ = 1, 6 do
-                    if steps_mod.done(app, s) or #opts == 0 then break end
-                    click(opts[rng:int(1, #opts)])
-                end
-            end
-            if not steps_mod.done(app, s) then problem("couldn't answer the " .. s.id .. " step") break end
-            -- Once, back and forward again: the answer stays.
-            if n == 4 then
-                click_key("step_back")
-                if steps_mod.current(app, sv.flow).id == s.id then problem("Back didn't go back") end
-                click_key("step_next")
-                if steps_mod.current(app, sv.flow).id ~= s.id then problem("Next after Back didn't come back to " .. s.id) end
-            end
-            -- Enter goes on too.
-            if n == 6 then key("confirm") else click_key("step_next") end
+            if rng:chance(0.5) then click_key("bs_idea_yes") else click_key("bs_idea_no") end
+            local hooks = backstory.data[k].hooks
+            if not click_key("bs_hook_" .. hooks[rng:int(1, #hooks)].card) then problem("no hook buttons for " .. k) end
+            dump("1f_backstory_" .. k)
         end
-        for _, id in ipairs({ "table", "style", "truths", "front", "dice", "tone", "rule_xcard", "rule_death", "ready" }) do
-            if not seen[id] then problem("the setup skipped its " .. id .. " step") end
-        end
-        if SEED < 5 and not seen.featured then problem("a full table wasn't asked whose stories come first") end
-        if SEED >= 5 and seen.featured then problem("a table of two was asked whose stories come first") end
-        if not (app.campaign.plan and #app.campaign.plan.truths == 3) then problem("the setup didn't lay down three truths") end
-        if SEED < 5 and #app.campaign.plan.threads ~= 2 then problem("the plan doesn't feature two heroes") end
+        if backstory.asked(app.s0.backstories) > backstory.data.QUESTIONS then problem("more questions asked than the evening has") end
+        if backstory.left(app.s0.backstories) ~= 0 then problem("asking everything left questions over") end
+        local written = app.s0.backstories
+        if not click_label("Start session 1") then problem("no start button after the backstories") end
         local last_key = app.campaign:table_keys()[#app.campaign:table_keys()]
         if not (app.campaign.backstories and app.campaign.backstories[last_key] and app.campaign.backstories[last_key].hook) then
             problem("the backstories weren't written into the campaign")
         end
         if SEED >= 5 and app.campaign.table.asks.jess then problem("Session Zero settled the ask of someone who isn't there yet") end
         -- What turns up first waits at the front of the first hand.
-        for k, ch in pairs(app.campaign.backstories or {}) do
+        for k, ch in pairs(written or {}) do
             local p = app.campaign:player(k)
-            if p and p.present and ch.hook and not (app.campaign.prep and app.campaign.prep:pinned(ch.hook)) then
+            if p and p.present and not (app.campaign.prep and app.campaign.prep:pinned(ch.hook)) then
                 problem("week 1's hand doesn't hold " .. k .. "'s hook (" .. tostring(ch.hook) .. ")")
             end
         end
         if not (app.campaign.table and app.campaign.table.held) then problem("Session Zero didn't settle the table") end
     end
     if app.screen ~= "prep" then problem("expected prep, got " .. tostring(app.screen)) break end
-    -- The week's prep, a step at a time (October 26): walk every step, answering each the way a
-    -- player would, with a few random clicks along the way.
-    local steps_mod = require "game.ui.steps"
-    local ps = require "game.ui.prep_steps"
-    local c = app.campaign
-    local pr = c.prep
-    local valley = require "game.model.valley"
-    local function close_all()
-        finish_talk()
-        if app.convo then
-            if not (click_key("convo_done") or click_key("convo_close")) then click_label("Close"); click_label("Done") end
-            if app.convo then problem("conversation modal wouldn't close"); app.convo = nil end
-        end
-        if app.book then click_key("book_done") end
-        if app.ask then click_key("ask_no") end
-        if app.levelup then click_key("levelup_close") end
-        if app.levelup then problem("level-up modal wouldn't close"); app.levelup = nil end
-        if app.overlay then
-            local was = app.overlay
-            if not (click_key("notes_close") or click_key("sheet_close") or click_key("enc_done")) then key("back") end
-            if app.overlay then problem(was .. " wouldn't close"); app.overlay = nil end
-        end
-        if app.story_panel and not click_key("story_panel_close") then key("story") end
-        app.refresh()
-    end
-    -- A few random clicks on a step: anything but the way on, the way back, and the switch.
-    local function random_clicks(nclicks)
-        for _ = 1, nclicks do
-            local bs = {}
-            for _, b in ipairs(random_buttons()) do
-                local k = b.key or ""
-                if not (k:find("^step_") or k:find("^section_") or k == "chill_mode" or k:find("^ready_stop_") or k == "open_stop") then
-                    table.insert(bs, b)
-                end
-            end
-            if #bs == 0 then break end
-            click(bs[rng:int(1, #bs)])
-            stats.clicks = stats.clicks + 1
-            stats.max_nodes = math.max(stats.max_nodes, alive_count)
-            close_all()
-        end
-    end
-    -- Make place pid stop i from the map: its pin (a town's place in its list), then the button.
-    local function map_stop(i)
-        local s = pr.scenes[i]
-        for _, n in ipairs(app.valley_map and app.valley_map.nodes or {}) do
-            for _, pc in ipairs(n.places) do
-                if s.slots.location then return true end
-                if #valley.stops_at(pr, pc.id) == 0 and pr:can_place(i, pc.id) then
-                    if not click_key("pin_" .. n.id) then problem("no pin on the map for " .. n.id) return false end
-                    if n.hub and not click_key("hub_place_" .. pc.id) then
-                        problem("no row for " .. pc.id .. " in " .. n.id .. "'s card")
-                        return false
-                    end
-                    if not click_key("make_stop") then problem("no Make it stop button on " .. pc.id .. "'s card") return false end
-                    if not (s.slots.location and s.slots.location.id == pc.id) then
-                        problem("Make it stop " .. i .. " didn't put " .. pc.id .. " on stop " .. i)
-                    end
-                end
-            end
-        end
-        return s.slots.location ~= nil
-    end
-    local seen, n = {}, 0
-    local module_pick
-    local did_encounter, did_handout = false, false
-    while app.screen == "prep" and n < 120 do
-        n = n + 1
-        close_all()
-        local s = steps_mod.current(app, ps.flow)
-        if not s then problem("no prep step") break end
-        if seen[s.id] then problem("prep came back to its " .. s.id .. " step (week " .. week .. ")") break end
-        seen[s.id] = true
-        if week == 1 then dump_once("2s_" .. s.id) end
-        if s.id ~= "ready" then random_clicks(s.id:find("^route_") and 2 or 3) end
-        s = steps_mod.current(app, ps.flow)
-        if s.id == "story" then
-            if week == 1 then dump("2b_prep_story") end
-            -- Each week's first look (the story review reads these).
-            if week >= 2 and week <= 4 then dump_once("2w" .. week .. "_prep") end
-            if week >= 2 then
-                local thinks = 0
-                for _, p in ipairs(c.players) do
-                    local t = p.present and s.talk(app, p.key)
-                    if t and t.think and t.text ~= "" then thinks = thinks + 1 end
-                end
-                if thinks == 0 then problem("nobody at the table is thinking about the story (week " .. week .. ")") end
-            end
-        elseif s.id == "chat" then
-            if week == 2 and FULL then
-                -- Messages: the spotlight conflict was pushed live last week.
-                dump("13_prep_messages")
-                local rows = require("game.ui.messages_view").rows(app)
-                if #rows == 0 then problem("no conversations open with a live conflict") end
-                local by, answered
-                for _, r in ipairs(rows) do
-                    if r.def.opener == "player" then
-                        if r.state == "New" then by = r else answered = true end
-                    end
-                end
-                if by then
-                    if not click_key("convo_" .. by.id) then problem("couldn't open " .. by.id) end
-                    if app.convo ~= by.id then problem("conversation didn't open") end
-                    dump("14_convo")
-                    if not click_key("convo_opt_1") then problem("no reply options in the conversation") end
-                    if not (pr.convos[by.id] and #pr.convos[by.id].log >= 3) then problem("they didn't answer") end
-                    dump("14b_convo_answered")
-                    if not click_key("convo_done") then problem("no Done button after the conversation ended: " .. by.id) end
-                elseif not answered then
-                    problem("no bystander message for a live conflict")
-                end
-                -- Starting one yourself costs prep time only when you send.
-                local jess_row
-                for _, r in ipairs(require("game.ui.messages_view").rows(app)) do
-                    if r.id == "spotlight_jess" then jess_row = r end
-                end
-                if jess_row and not pr.convos.spotlight_jess and pr:left() >= 1 then
-                    local left = pr:left()
-                    click_key("convo_spotlight_jess")
-                    if pr:left() ~= left then problem("opening a conversation charged before sending") end
-                    click_key("convo_close")
-                    if pr:left() ~= left then problem("closing an unsent conversation cost time") end
-                    click_key("convo_spotlight_jess")
-                    click_key("convo_opt_2")
-                    if pr:left() ~= left - 1 then problem("sending to Jess didn't cost an hour") end
-                    local th = pr.convos.spotlight_jess
-                    while th and not th.done and click_key("convo_opt_1") do end
-                    click_key("convo_done")
-                end
-            end
-            -- Answer a theory in the group chat if there is one.
-            for i, m in ipairs(c.chat) do
-                if m.choices and not m.answered then
-                    if click_key("chat_" .. i .. "_1") and not m.answered then problem("answering a theory didn't stick") end
-                    break
-                end
-            end
-        elseif s.id == "friends" then
-            if week <= 2 then dump("2f_friends_w" .. week) end
-            if week == 1 then
-                local sk = c.players[#c.players].key
-                if not click_key("sheet_" .. sk) then problem("no sheet link on " .. sk .. "'s card") end
-                if app.overlay ~= "sheet" then problem(sk .. "'s card didn't open their sheet") end
-                click_key("sheet_close")
-            end
-            if week == 2 then
-                -- Goodwill: the heart on each card, and what it means on hover (and who gave you what).
-                local keepsakes = require "game.model.keepsakes"
-                local given = keepsakes.get(c).given
-                local from = given[1] and given[1].from
-                if not from then problem("week two with no gift on the table") end
-                local giver = from and c:player(from)
-                if giver and not giver.present then
-                    from = nil
-                    for _, g in ipairs(given) do
-                        local gp = c:player(g.from)
-                        if gp and gp.present then from = g.from break end
-                    end
-                end
-                local hovered = false
-                for _, b in ipairs(buttons()) do
-                    if from and b.key == "goodwill_" .. from then
-                        local x, y = center(b)
-                        call(on_input, self, nil, { x = x, y = y })
-                        hovered = true
-                        break
-                    end
-                end
-                if from and not hovered then problem("no Goodwill heart on " .. from .. "'s card") end
-                dump("15d_goodwill_hover")
-                if hovered and not has_text_fn("They gave you") then problem("the Goodwill hover doesn't say what they gave you") end
-                call(on_input, self, nil, { x = 4, y = 4 })
-                -- Coffee (2h) is a one-on-one (A6): three questions, an answer to the worry, what you learned.
-                local talker
-                for _, p in ipairs(c.players) do
-                    if p.present and pr:can_talk(p.key) and has_key("talk_" .. p.key) then
-                        talker = p
-                        break
-                    end
-                end
-                if talker then
-                    click_key("talk_" .. talker.key)
-                    if not app.talk then problem("Coffee didn't open a one-on-one") end
-                    local guard_t = 0
-                    while app.talk and not app.talk.done and guard_t < 8 do
-                        guard_t = guard_t + 1
-                        if guard_t == 3 then dump("28_one_on_one") end
-                        if not click_key("talk_opt_1") then problem("no answer to pick in the one-on-one"); break end
-                    end
-                    dump("28_one_on_one_done")
-                    if not click_key("talk_done") then problem("the one-on-one has no Done button") end
-                    if app.talk then problem("the one-on-one didn't close") end
-                    local nt = pr.talk_notes and pr.talk_notes[talker.key]
-                    if not (nt and nt.mood and nt.want) then problem("the one-on-one didn't note a mood and a want") end
-                else
-                    problem("nobody to have coffee with in week 2")
-                end
-            end
-        elseif s.id:find("^world_") then
-            local i = s.id:sub(7)
-            local pick = ({ "world_let_", "world_hold_", "world_screen_" })[rng:int(1, 3)] .. i
-            if not steps_mod.done(app, s) and not click_key(pick) then click_key("world_let_" .. i) end
-            if week == 2 then dump_once("2x_world_move") end
-        elseif s.id == "levelup" then
-            if has_key("level_up") then
-                click_key("level_up")
-                close_all()
-                if c:level_status().ready then problem("levelling up from its step didn't take") end
-            end
-        elseif s.id == "spotlight" then
-            local opts = {}
-            for _, b in ipairs(buttons()) do
-                if b.key and b.key:find("^spot_") then table.insert(opts, b.key) end
-            end
-            if #opts > 0 then click_key(opts[rng:int(1, #opts)]) end
-            if not steps_mod.done(app, s) then click_key("spot_none") end
-        elseif s.id == "guests" then
-            if rng:chance(0.5) then
-                for _, b in ipairs(buttons()) do
-                    if b.key and b.key:find("^guest_") then click(b) break end
-                end
-            end
-        elseif s.id == "evening" then
-            local books_mod = require "game.model.books"
-            if week == 2 then
-                -- An evening off draws cards.
-                local before = 0
-                for _, k in ipairs(content.kinds) do before = before + #pr.hand[k] end
-                pr.inspirations = 0
-                pr.inspired_by.novel = nil
-                app.refresh()
-                if not click_key("inspire_novel") then problem("no novel on the evening step (week 2)") end
-                local after = 0
-                for _, k in ipairs(content.kinds) do after = after + #pr.hand[k] end
-                if after <= before then problem("inspiration drew no cards") end
-            end
-            if (week == 2 or week == 4) and books_mod.newest(c) then
-                -- A new book (A13): the supplement evening opens it; pull an entry and see it in the game.
-                pr.inspired_by.supplement = nil
-                pr.inspirations = 0
-                pr.reading = nil
-                app.refresh()
-                if not click_key("inspire_supplement") then problem("no supplement on the evening step in week " .. week) end
-                if not app.book then problem("the supplement evening didn't open the new book (week " .. week .. ")") end
-                local r = pr.reading
-                local bk = r and books_mod.book(r.book)
-                local want = week == 4 and "module" or "monster"
-                local pick
-                for _, e in ipairs(bk and bk.entries or {}) do
-                    if e.kind == want and not books_mod.get(c).pulled[e.id] then
-                        pick = pick or e
-                    end
-                end
-                if pick then
-                    click_key("book_entry_" .. pick.id)
-                    dump("32_book_page_w" .. week)
-                    if not click_key("book_pull") then problem("no Pull it in button") end
-                    if not books_mod.get(c).pulled[pick.id] then problem("pulling " .. pick.id .. " did nothing") end
-                    if pick.card and not pr.inspired[pick.card.id] then problem("a pulled card isn't in the hand: " .. pick.card.id) end
-                    if week == 4 and pick.module then module_pick = pick.module end
-                end
-                if not click_key("book_done") then problem("no Done reading button") end
-                if app.book then problem("the book didn't close") end
-            end
-            if not steps_mod.done(app, s) then
-                if rng:chance(0.4) then
-                    for _, b in ipairs(buttons()) do
-                        if b.key and b.key:find("^inspire_") then click(b) break end
-                    end
-                    close_all()
-                end
-                if not steps_mod.done(app, s) then click_key("evening_none") end
-            end
-        elseif s.id:find("^route_") then
-            local i = tonumber(s.id:sub(7))
-            local sc = pr.scenes[i]
-            if week == 1 and i == 3 then
-                -- An open scene (A15): the players choose. Sketch spots from Your places and suggestions.
-                if not click_key("open_scene") then problem("no Open scene button on the route") end
-                if not sc.open then problem("Open scene didn't open stop 3") end
-                dump("29_open_scene")
-                local tried = {}
-                for _, tab in ipairs({ "places", "suggested", "hand" }) do
-                    if click_key("loc_tab_" .. tab) then
-                        for _ = 1, 8 do
-                            if #(sc.spots or {}) >= 2 then break end
-                            local hit
-                            for _, b in ipairs(buttons()) do
-                                if b.key and b.key:find("^hand_") and b.key ~= "hand_prev" and b.key ~= "hand_next" and not tried[b.key] then
-                                    hit = b
-                                    break
-                                end
-                            end
-                            if not hit then break end
-                            tried[hit.key] = true
-                            click(hit)
-                            if app.ask then click_key("ask_no") end
-                        end
-                    end
-                end
-                dump("29_open_scene_spots")
-                if #(sc.spots or {}) == 0 then problem("couldn't sketch any spots on the open scene (left " .. tostring(pr:left()) .. ")") end
-            elseif not steps_mod.done(app, s) then
-                -- (The random clicks may have made it an open scene with nothing sketched: back to a place.)
-                if sc.open then click_key("open_scene") end
-                if not sc.open and not sc.module then map_stop(i) end
-            end
-            -- A card that happens at the stop's place goes onto it from the place's card.
-            local loc = sc.slots.location
-            if week == 2 and loc and not sc.open and not sc.module then
-                for _, hc in ipairs(valley.cards_for(pr, loc.id)) do
-                    if not sc.slots[hc.kind] and pr:can_place(i, hc.id) then
-                        local node = valley.node_of(loc.id)
-                        click_key("pin_" .. node)
-                        if node ~= loc.id then click_key("hub_place_" .. loc.id) end
-                        if not click_key("here_" .. hc.id) then
-                            problem("no row for " .. hc.id .. " on " .. loc.id .. "'s card")
-                        elseif not (sc.slots[hc.kind] and sc.slots[hc.kind].id == hc.id) then
-                            problem("clicking " .. hc.id .. " on " .. loc.id .. "'s card didn't put it on stop " .. i)
-                        end
-                        dump_once("2q_place_card_stop")
-                        click_key("place_close")
-                        break
-                    end
-                end
-            end
-            if i == 3 or i == #pr.scenes then
-                -- Every stop with a place is numbered on the map.
-                for k, sk in ipairs(pr.scenes) do
-                    local l = sk.slots.location
-                    if l and not sk.open then
-                        local node = app.valley_map and app.valley_map.by_id[valley.node_of(l.id)]
-                        if not (node and util_contains(node.stops, k)) then problem("stop " .. k .. " (" .. l.id .. ") isn't numbered on the map") end
-                    end
-                end
-                if week == 1 or week == 3 then dump("2m_valley_route_w" .. week) end
-                if week == 2 then
-                    -- A place's card, opened from the map, says what it is; Millbrook's lists its places.
-                    for _, nd in ipairs(app.valley_map and app.valley_map.nodes or {}) do
-                        if not nd.hub and #nd.stops == 0 then
-                            click_key("pin_" .. nd.id)
-                            if not has_key("make_stop") then problem("a place's card has no Make it stop button (" .. nd.id .. ")") end
-                            dump("2p_place_card")
-                            click_key("place_close")
-                            break
-                        end
-                    end
-                    if click_key("pin_millbrook") then
-                        dump("2h_town_card")
-                        local nd = app.valley_map and app.valley_map.by_id.millbrook
-                        local first = nd and nd.places[1]
-                        if first then
-                            if not click_key("hub_place_" .. first.id) then problem("no row for " .. first.id .. " on Millbrook's card") end
-                            if not has_key("place_back") then problem("a town's place has no way back to the town") end
-                        end
-                        click_key("place_close")
-                    else
-                        problem("no Millbrook pin on the map")
-                    end
-                end
-            end
-        elseif s.id:find("^type_") then
-            local i = tonumber(s.id:sub(6))
-            if week == 4 and i == 3 and module_pick then
-                -- A published adventure on stop 3: it fills the stop; its reward can be swapped.
-                for k = 1, 3 do
-                    for kind in pairs(pr.scenes[k].slots) do
-                        if kind ~= "location" and pr:left() < 3 then pr:clear(k, kind) end
-                    end
-                end
-                app.refresh()
-                local can, why = pr:can_place_module(3, module_pick)
-                if not can then
-                    print("  (module step skipped: " .. tostring(why) .. ")")
-                else
-                    if not click_key("module_" .. module_pick) then problem("no module button on stop 3's kind of scene") end
-                    if not (pr.scenes[3].module and pr.scenes[3].module.id == module_pick) then problem("the module didn't fill stop 3") end
-                    dump("33_module_scene")
-                end
-            end
-            if not steps_mod.done(app, s) or (week == 1 and i == 1) then
-                local order = content.scenes.order
-                local t = (week == 1 and i == 1) and "combat" or order[(week + i) % #order + 1]
-                if not click_key("type_" .. i .. "_" .. t) then problem("no " .. t .. " on stop " .. i .. "'s kinds of scene") end
-            end
-        elseif s.id:find("^slot_") then
-            local i, kind = s.id:match("^slot_(%d+)_(%a+)$")
-            i = tonumber(i)
-            local sc = pr.scenes[i]
-            if sc.module then
-                if week == 4 then dump_once("33b_module_" .. kind) end
-            else
-                if (week == 1 or week == 3) and i == 1 and kind == "cast" then dump("15b_prep_hand_w" .. week) end
-                if (week == 1 or week == 3) and i == 2 and kind == "complication" then dump("15c_prep_hand_comp_w" .. week) end
-                if not sc.slots[kind] and rng:chance(0.75) then
-                    for _, b in ipairs(buttons()) do
-                        local id = b.key and b.key:match("^hand_(.+)$")
-                        if id and id ~= "prev" and id ~= "next" and not pr:placed_at(id) then
-                            click(b)
-                            break
-                        end
-                    end
-                    if app.ask then click_key("ask_no") end
-                end
-                if not steps_mod.done(app, s) and not click_key("improvise_" .. kind) then problem("no Improvise on the " .. s.id .. " step") end
-                -- A handout (game/model/handouts.lua) for a story card on a stop.
-                local cur = sc.slots[kind]
-                if (week == 1 or week == 3) and not did_handout and cur and require("game.model.handouts").worth_it(c, cur) then
-                    did_handout = true
-                    pr.extra = (pr.extra or 0) - 2      -- (time for it, whatever the random clicks spent)
-                    app.refresh()
-                    if not click_key("handout_toggle") then
-                        problem("no handout button on a story card's slot (" .. kind .. ")")
-                    elseif not (pr.handouts and pr.handouts[cur.id]) then
-                        problem("making a handout didn't stick")
-                    else
-                        dump_once("15e_handout_made")
-                    end
-                end
-            end
-        elseif s.id:find("^fight_") then
-            local i = tonumber(s.id:sub(7))
-            if week == 1 and not did_encounter then
-                did_encounter = true
-                -- The encounter builder on a combat scene.
-                if not click_key("fight_" .. i) then problem("no Build the fight button on a combat stop") end
-                if app.overlay ~= "encounter" then problem("the fight button didn't open the builder") end
-                dump("28_encounter_suggested")
-                click_key("enc_add_ogre")
-                click_key("enc_add_goblin_warrior")
-                click_key("enc_lead_ogre")
-                local enc = pr:encounter(i)
-                if not enc.built or enc.ids[1] ~= "ogre" then problem("the builder didn't take the ogre as the lead: " .. table.concat(enc.ids, ",")) end
-                -- A hazard on the mat (A10).
-                if not click_key("enc_hazard_spreading_fire") then problem("no hazard buttons in the builder") end
-                if pr:hazard(i) ~= "spreading_fire" then problem("the builder didn't set the hazard") end
-                dump("28_encounter_built")
-                -- The map (B9): lay a wall from the grid, then cover, a trap and the starts.
-                if not click_key("enc_tab_map") then problem("no map tab in the builder") end
-                local loc = pr.scenes[i].slots.location
-                if not loc then
-                    problem("no place on the combat stop to draw a map for")
-                else
-                    local map_view = require "game.ui.map_view"
-                    click_key("map_piece_wall")
-                    local maps = require "game.model.maps"
-                    local LW = content.terrain_layout.W
-                    for _, cell in ipairs({ { 10, 7 }, { 6, 3 }, { 14, 11 }, { 4, 10 }, { 16, 4 }, { 8, 12 } }) do
-                        local m0 = maps.get(c, loc.id)
-                        if m0 and maps.count(m0) > 0 then break end
-                        for _, b in ipairs(buttons()) do
-                            if b.key == "map_grid" then
-                                local C = b.node.size.x / LW
-                                local x, y = b.node.pos.x + (cell[1] - 0.5) * C, b.node.pos.y - (cell[2] - 0.5) * C
-                                call(on_input, self, nil, { x = x, y = y })
-                                call(on_input, self, "touch", { pressed = true, x = x, y = y })
-                                break
-                            end
-                        end
-                    end
-                    local m = maps.get(c, loc.id)
-                    if not m or maps.count(m) == 0 then problem("clicking the map grid laid no wall") end
-                    for _, step in ipairs({ { "cover", 12, 4 }, { "cover", 13, 9 }, { "rough", 8, 6 }, { "trap", 9, 8 },
-                                            { "party", 3, 7 }, { "foes", 17, 6 } }) do
-                        app.map_piece = step[1]
-                        map_view.paint(app, step[2], step[3])
-                    end
-                    for _, alt in ipairs({ { 4, 4 }, { 16, 9 }, { 5, 11 }, { 15, 3 }, { 10, 12 }, { 7, 2 }, { 13, 6 } }) do
-                        local m1 = maps.get(c, loc.id)
-                        for _, piece in ipairs({ "party", "foes", "trap" }) do
-                            if m1 and not m1[piece] then
-                                app.map_piece = piece
-                                map_view.paint(app, alt[1], alt[2])
-                                break
-                            end
-                        end
-                    end
-                    app.refresh()
-                    click_key("map_trap")
-                    m = maps.get(c, loc.id)
-                    if not (m and m.party and m.foes and m.trap) then
-                        problem("the map's starts or trap didn't stick (" .. loc.id .. ")")
-                    end
-                    local blocked = maps.layout(m)
-                    local walls = 0
-                    for _, p in ipairs(m.props) do
-                        if p.kind == "stone_wall" or p.kind == "wall_room" then
-                            walls = walls + (blocked[p.x * 1000 + p.y] and 1 or 0)
-                        end
-                    end
-                    if walls == 0 then problem("the map's walls don't block") end
-                    dump("28b_map")
-                    click_key("map_template_ruins")
-                    if maps.get(c, loc.id).template ~= "ruins" then problem("the template didn't change") end
-                    click_key("enc_tab_fight")
-                end
-                click_key("enc_done")
-                if app.overlay then problem("the builder wouldn't close") end
-            end
-        elseif s.id == "seed" then
-            if week == 1 then
-                local id = pr.seed_ideas[1]
-                if not pr.planted then
-                    if pr:left() < 1 then pr.extra = (pr.extra or 0) - 1 end
-                    app.refresh()
-                    if not click_key("seed_" .. id) then problem("no seed card for " .. tostring(id) .. " (left " .. pr:left() .. ")") end
-                    if pr.planted ~= id then problem("clicking a seed didn't plant it") end
-                end
-                dump("15_prep_drawer")
-            elseif not steps_mod.done(app, s) and rng:chance(0.5) then
-                for _, b in ipairs(buttons()) do
-                    if b.key and b.key:find("^seed_") and b.key ~= "seed_none" then click(b) break end
-                end
-            end
-            if not steps_mod.done(app, s) then click_key("seed_none") end
-            if week == 2 and next(pr.payoffs) == nil then problem("the week 1 seed's payoff card isn't in the hand") end
-        elseif s.id == "ready" then
-            dump("2r_ready_w" .. week)
-        end
-        close_all()
-        s = steps_mod.current(app, ps.flow)
-        if not steps_mod.done(app, s) then
-            local t = {}
-            for i, sc in ipairs(pr.scenes) do
-                table.insert(t, i .. ":" .. tostring(sc.type) .. (sc.open and "(open)" or "") .. (sc.module and "(module)" or ""))
-            end
-            dump("x_prep_stuck")
-            problem("couldn't answer prep's " .. s.id .. " step in week " .. week .. " (" .. table.concat(t, " ") .. ")")
-            break
-        end
-        if s.id == "ready" then break end
-        -- Once a week, back and on again; Enter goes on as well as Next.
-        if n == 3 then
-            click_key("step_back")
-            if steps_mod.current(app, ps.flow).id == s.id then problem("Back didn't go back in prep") end
-            click_key("step_next")
-            if steps_mod.current(app, ps.flow).id ~= s.id then problem("Next after Back didn't come back to " .. s.id) end
-        end
-        if n % 4 == 0 then key("confirm") else click_key("step_next") end
-    end
-    if steps_mod.current(app, ps.flow).id ~= "ready" then problem("prep never got to the ready step in week " .. week) break end
-    if not pr:ready() then problem("prep isn't ready on the ready step in week " .. week) break end
-    -- Chill mode (October 26): off, no faces on the kinds of scene; on, they're back.
     if week == 1 then
-        local prefs = require "game.ui.prefs"
-        prefs.set_chill(false)
-        ps.go(app, "type_2")
-        local function faces_shown()
-            for _, nd in ipairs(order) do
-                if nd.alive and nd.enabled and nd.image and string.find(nd.image, "^face_") and nd.size.x <= 22 then return true end
-            end
-            return false
+        if not (app.campaign.guide and app.campaign.guide.seen.s0_pitch) then problem("Session Zero tips weren't kept in the campaign") end
+        if app.guide_step ~= "prep_story" then problem("the first prep doesn't open with its tip (" .. tostring(app.guide_step) .. ")") end
+        dump("2b_prep_tip")
+    end
+    -- Each week's board as it opens, before anything's clicked (the story review reads these).
+    if week >= 2 and week <= 4 then
+        dump_once("2w" .. week .. "_prep")
+    end
+    -- Random clicking on the prep board, then make sure it's ready.
+    for i = 1, 60 do
+        local bs = random_buttons()
+        local pick = bs[rng:int(1, #bs)]
+        if pick and not string.find(label_of(pick), "Run game night", 1, true) then
+            click(pick)
+            stats.clicks = stats.clicks + 1
         end
-        if faces_shown() then problem("the like-it faces show with Chill mode off") end
-        if not click_key("chill_mode") then problem("no Chill mode switch on prep's steps") end
-        if not prefs.chill() then problem("the Chill mode switch didn't turn it on") end
-        dump("2c_chill_on")
-        if not faces_shown() then problem("Chill mode on shows no faces on the kinds of scene") end
-        click_key("chill_mode")
-        if prefs.chill() then problem("the Chill mode switch didn't turn it off") end
-        ps.go(app, "ready")
+        if i == 20 then key("debug") end
+        if i == 40 then key("debug") end
+        stats.max_nodes = math.max(stats.max_nodes, alive_count)
+    end
+    if app.overlay then
+        -- Random clicks opened the notes, a sheet or the encounter builder: close it like a player would.
+        local was = app.overlay
+        if not (click_key("notes_close") or click_key("sheet_close") or click_key("enc_done")) then
+            problem("no way to close the " .. was)
+        end
+        if app.overlay then problem(was .. " wouldn't close") end
+    end
+    if app.convo then
+        click_label("Close"); click_label("Done")
+        if app.convo then problem("conversation modal wouldn't close") end
+    end
+    if app.levelup then click_key("levelup_close") end
+    if app.levelup then problem("level-up modal wouldn't close") end
+    if week == 1 then
+        app.sel = nil
+        app.refresh()
+        local c = app.campaign
+        if not c.prep.planted then
+            local id = c.prep.seed_ideas[1]
+            if c.prep:left() < 1 then c.prep.extra = c.prep.extra - 1 end
+            app.refresh()
+            if not click_key("seed_" .. id) then
+                local keys = {}
+                for i = #kit.layers, 1, -1 do
+                    for _, b in ipairs(kit.layers[i].buttons) do
+                        table.insert(keys, tostring(b.key) .. (b.enabled and "" or "(off)"))
+                    end
+                end
+                problem("no seed button in the drawer for " .. tostring(id) .. " (left " .. c.prep:left() .. "): " .. table.concat(keys, " "))
+            end
+            if c.prep.planted ~= id then problem("clicking a seed didn't plant it") end
+        end
+        dump("15_prep_drawer")
     end
     if week == 2 then
-        -- Changing course (A18): on the notebook's campaign page, pick another style, ask the
-        -- table, then nudge: the gateway card goes into this week's hand.
-        key("next_cell")
-        if app.overlay ~= "notes" then problem("N didn't open the notes in week 2") end
-        if click_key("notes_tab_campaign") then
-            local styles_mod = require "game.model.styles"
-            local home = styles_mod.current(c)
-            local target
-            for _, sid in ipairs(styles_mod.data().order) do
-                if sid ~= home and not target then target = sid end
-            end
-            if not click_key("course_style_" .. target) then problem("no course style button for " .. target) end
-            local chat_before = #(c.chat or {})
-            local co = c.course or {}
-            if not (co.target == target and co.asked) then
-                if not click_key("course_ask") then problem("no Ask the table button") end
-                if #(c.chat or {}) <= chat_before then problem("asking the table posted nothing") end
-            end
-            co = c.course or {}
-            if not (co.target == target and (co.nudge or co.force)) and not click_key("course_nudge") then
-                problem("no Nudge button")
-            end
-            local nudge = c.course and (c.course.nudge or c.course.force)
-            if not (nudge and pr:pinned(nudge)) then problem("the nudge card isn't in the hand") end
-            dump("31_change_course")
-        else
-            problem("no campaign tab in the notes")
+        local c = app.campaign
+        app.sel = nil
+        app.convo = nil
+        app.refresh()
+        -- The seed from week 1 is ready to pay off: its card is in the hand.
+        if next(c.prep.payoffs) == nil then problem("the week 1 seed's payoff card isn't in the hand") end
+        -- An evening off draws cards.
+        local before = 0
+        for _, k in ipairs(content.kinds) do before = before + #c.prep.hand[k] end
+        c.prep.extra = c.prep.extra - 1 -- room for it
+        c.prep.inspirations = 0
+        c.prep.inspired_by.novel = nil
+        app.refresh()
+        for _ = 1, 4 do
+            if not click_key("guide_ok") then break end
         end
-        key("next_cell")
+        -- (The random clicks may have left the supplement open.)
+        if app.book then click_key("book_done") end
+        if not click_key("inspire_novel") then
+            local keys = {}
+            for _, b in ipairs(buttons()) do
+                if b.key and (string.find(b.key, "insp", 1, true) or string.find(b.key, "guide", 1, true)) then table.insert(keys, b.key) end
+            end
+            problem("no inspiration button (" .. tostring(app.screen) .. ", week " .. tostring(c.week) .. ", tip "
+                .. tostring(app.guide_step) .. ": " .. table.concat(keys, " ") .. ")")
+        end
+        local after = 0
+        for _, k in ipairs(content.kinds) do after = after + #c.prep.hand[k] end
+        if after <= before then problem("inspiration drew no cards") end
+        if FULL then
+        -- Messages: the spotlight conflict was pushed live last week.
+        local tip_was = app.guide_step
+check_tip_absorbs(" (week 2 prep)")
+                finish_talk()
+                if not click_key("tab_messages") then problem("no messages tab") end
+        if tip_was == "prep_messages" and not (app.campaign.guide and app.campaign.guide.seen.prep_messages) then
+            problem("opening Messages didn't retire the tip that asked for it")
+        end
+        dump("13_prep_messages")
+        local rows = require("game.ui.messages_view").rows(app)
+        if #rows == 0 then problem("no conversations open with a live conflict") end
+        local by, answered
+        for _, r in ipairs(rows) do
+            if r.def.opener == "player" then
+                if r.state == "New" then by = r else answered = true end
+            end
+        end
+        if by then
+            finish_talk()
+            for _ = 1, 4 do
+                if not click_key("guide_ok") then break end
+            end
+            if not click_key("convo_" .. by.id) then problem("couldn't open " .. by.id) end
+            if app.convo ~= by.id then problem("conversation didn't open") end
+            dump("14_convo")
+            if not click_key("convo_opt_1") then problem("no reply options in the conversation") end
+            if not (c.prep.convos[by.id] and #c.prep.convos[by.id].log >= 3) then problem("they didn't answer") end
+            dump("14b_convo_answered")
+            if not click_key("convo_done") then
+                local keys = {}
+                for _, b in ipairs(buttons()) do table.insert(keys, tostring(b.key)) end
+                local th = c.prep.convos[by.id] or {}
+                problem("no Done button after the conversation ended: " .. by.id .. " done=" .. tostring(th.done)
+                    .. " convo=" .. tostring(app.convo) .. " keys " .. table.concat(keys, " "))
+            end
+        elseif not answered then
+            problem("no bystander message for a live conflict")
+        end
+        -- Starting one yourself costs prep time only when you send.
+        local jess_row
+        for _, r in ipairs(require("game.ui.messages_view").rows(app)) do
+            if r.id == "spotlight_jess" then jess_row = r end
+        end
+        if jess_row and not c.prep.convos.spotlight_jess and c.prep:left() >= 1 then
+            local left = c.prep:left()
+            click_key("convo_spotlight_jess")
+            if c.prep:left() ~= left then problem("opening a conversation charged before sending") end
+            click_key("convo_close")
+            if c.prep:left() ~= left then problem("closing an unsent conversation cost time") end
+            click_key("convo_spotlight_jess")
+            click_key("convo_opt_2")
+            if c.prep:left() ~= left - 1 then problem("sending to Jess didn't cost an hour") end
+            local th = c.prep.convos.spotlight_jess
+            while th and not th.done and click_key("convo_opt_1") do end
+            click_key("convo_done")
+        end
+        end
+        -- Answer a theory in the group chat if there is one.
+        click_key("tab_group")
+        for i, m in ipairs(c.chat) do
+            if m.choices and not m.answered then
+                -- (A long chat can scroll it off the top; only check when it's on screen.)
+                if click_key("chat_" .. i .. "_1") and not m.answered then problem("answering a theory didn't stick") end
+                break
+            end
+        end
     end
-    -- The Story log panel: look, then close it.
+    -- A one-on-one the random clicks opened (A6): play it through.
+    for _ = 1, 8 do
+        if not app.talk then break end
+        if not (click_key("talk_opt_1") or click_key("talk_done")) then break end
+    end
+    -- Whatever the random clicks left open (the new book, a talk, the notebook) closes first.
+    if app.book then click_key("book_done") end
+    if app.ask then click_key("ask_no") end
+    if app.overlay then key("back") end
+    -- The Story log panel the random clicks opened (placing a story card opens it): look, then
+    -- close it, so the table column is free for the checks below.
     if app.debug then key("debug") end     -- (the numbers overlay would hide the panel in the dumps)
     if app.story_panel then
         dump("15s_story_panel_w" .. week)
@@ -1200,6 +759,355 @@ for week = 1, WEEKS do
         key("story")
         if app.story_panel then problem("S didn't close the Story log panel") end
     end
+    -- The valley map (October 17): a place on every stop from the map, and a goal on stop 1, the
+    -- way a player does it: click a pin (a town's place in its list), then Make it stop N.
+    do
+        local valley = require "game.model.valley"
+        local pr = app.campaign.prep
+        app.sel = nil
+        app.refresh()
+        for i = 1, #pr.scenes do
+            local s = pr.scenes[i]
+            if not s.open and not s.module and not s.slots.location then
+                for _, n in ipairs(app.valley_map and app.valley_map.nodes or {}) do
+                    if s.slots.location then break end
+                    for _, pc in ipairs(n.places) do
+                        if s.slots.location then break end
+                        if #valley.stops_at(pr, pc.id) == 0 and pr:can_place(i, pc.id) then
+                            if not click_key("pin_" .. n.id) then problem("no pin on the map for " .. n.id) break end
+                            if n.hub and not click_key("hub_place_" .. pc.id) then
+                                problem("no row for " .. pc.id .. " in " .. n.id .. "'s card")
+                                break
+                            end
+                            if not click_key("make_stop_" .. i) then problem("no stop " .. i .. " button on " .. pc.id .. "'s card") break end
+                            if not (s.slots.location and s.slots.location.id == pc.id) then
+                                problem("Make it stop " .. i .. " didn't put " .. pc.id .. " on scene " .. i)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        local m = app.valley_map
+        for i, s in ipairs(pr.scenes) do
+            local loc = s.slots.location
+            if loc and not s.open then
+                local n = m and m.by_id[valley.node_of(loc.id)]
+                if not (n and util_contains(n.stops, i)) then problem("stop " .. i .. " (" .. loc.id .. ") isn't numbered on the map") end
+            end
+        end
+        if week == 1 or week == 3 then dump("2m_valley_route_w" .. week) end
+        -- A card that happens at a stop's place goes onto that stop from the place's card.
+        do
+            local done_one = false
+            for i, s in ipairs(pr.scenes) do
+                local loc = s.slots.location
+                if not done_one and loc and not s.open and not s.module then
+                    for _, hc in ipairs(valley.cards_for(pr, loc.id)) do
+                        if not done_one and not s.slots[hc.kind] and pr:can_place(i, hc.id) then
+                            done_one = true
+                            local node = valley.node_of(loc.id)
+                            click_key("pin_" .. node)
+                            if node ~= loc.id then click_key("hub_place_" .. loc.id) end
+                            if not click_key("here_" .. hc.id) then
+                                problem("no row for " .. hc.id .. " on " .. loc.id .. "'s card")
+                            elseif not (s.slots[hc.kind] and s.slots[hc.kind].id == hc.id) then
+                                problem("clicking " .. hc.id .. " on " .. loc.id .. "'s card didn't put it on stop " .. i)
+                            end
+                            if week == 2 then dump("2q_place_card_stop") end
+                            click_key("place_close")
+                        end
+                    end
+                end
+            end
+        end
+        -- A goal on stop 1, through its slot and the hand.
+        if not pr.scenes[1].slots.goal and not pr.scenes[1].module and not pr.scenes[1].open and show_stop(1) then
+            if not click_key("slot_1_goal") then problem("no goal slot on stop 1's card") end
+            for _, b in ipairs(buttons()) do
+                local id = b.key and string.sub(b.key, 1, 5) == "hand_" and string.sub(b.key, 6)
+                if id and b.key ~= "hand_close" and b.enabled and not pr:placed_at(id) then
+                    click(b)
+                    break
+                end
+            end
+            -- (No goal in the hand may fit the place: the cards say why, and the night improvises it.)
+            if app.ask then click_key("ask_no") end
+            app.sel = nil
+            app.refresh()
+        end
+        -- A place's card, opened from the map, says what it is.
+        for _, n in ipairs(m and m.nodes or {}) do
+            if not n.hub and #n.stops == 0 then
+                click_key("pin_" .. n.id)
+                if not has_key("make_stop") then problem("a place's card has no Make it stop button (" .. n.id .. ")") end
+                if week == 2 then dump("2p_place_card") end
+                click_key("place_close")
+                break
+            end
+        end
+        -- Millbrook's card lists its places in play; a row opens that place's card.
+        if click_key("pin_millbrook") then
+            if week == 2 then dump("2h_town_card") end
+            local n = app.valley_map and app.valley_map.by_id.millbrook
+            local first = n and n.places[1]
+            if first then
+                if not click_key("hub_place_" .. first.id) then problem("no row for " .. first.id .. " on Millbrook's card") end
+                if not has_key("place_back") then problem("a town's place has no way back to the town") end
+            end
+            click_key("place_close")
+        else
+            problem("no Millbrook pin on the map")
+        end
+        -- (Placing a story card opens the Story log over the table column: close it.)
+        if app.story_panel then key("story") end
+    end
+    for i = 1, 3 do
+        if not app.campaign.prep.scenes[i].type then
+            app.sel = { scene = i, kind = "type" }
+            app.refresh()
+            -- the type cards are the 7 big buttons in the drawer; a different one per stop and week
+            -- (October 17: with one scene card showing at a time, the random clicks pick fewer types)
+            local cards = {}
+            for _, b in ipairs(buttons()) do
+                if b.node.size.y == 150 and b.node.size.x == 105 then table.insert(cards, b) end
+            end
+            if #cards > 0 then click(cards[(week + i) % #cards + 1]) end
+        end
+    end
+    if not app.campaign.prep:ready() then
+        local t = {}
+        for i, sc in ipairs(app.campaign.prep.scenes) do
+            table.insert(t, i .. ":" .. tostring(sc.type) .. (sc.open and "(open)" or "") .. (sc.module and "(module)" or ""))
+        end
+        dump("x_prep_not_ready")
+        problem("prep not ready after picking types: " .. table.concat(t, " ") .. " (overlay " .. tostring(app.overlay)
+            .. ", ask " .. tostring(app.ask and true) .. ", talk " .. tostring(app.talk and true) .. ", convo " .. tostring(app.convo and true) .. ")")
+        break
+    end
+    -- Goodwill: the heart on each card, and what it means on hover (and who gave you what).
+    if week == 2 then
+        local keepsakes = require "game.model.keepsakes"
+        local given = keepsakes.get(app.campaign).given
+        local from = given[1] and given[1].from
+        -- (Someone who can't make it this week has no card to point at.)
+        if not from then problem("week two with no gift on the table") end
+        local giver = from and app.campaign:player(from)
+        if giver and not giver.present then
+            from = nil
+            for _, g in ipairs(given) do
+                local gp = app.campaign:player(g.from)
+                if gp and gp.present then from = g.from break end
+            end
+            if not from then print("  (Goodwill hover skipped: every gift-giver is away this week)") end
+        end
+        local hovered = false
+        for _, b in ipairs(buttons()) do
+            if from and b.key == "goodwill_" .. from then
+                local x, y = center(b)
+                call(on_input, self, nil, { x = x, y = y })
+                hovered = true
+                break
+            end
+        end
+        if from and not hovered then problem("no Goodwill heart on " .. from .. "'s card") end
+        dump("15d_goodwill_hover")
+        if hovered and not has_text_fn("They gave you") then problem("the Goodwill hover doesn't say what they gave you") end
+        call(on_input, self, nil, { x = 4, y = 4 })
+    end
+    -- A handout (game/model/handouts.lua): open a story card's slot and make one.
+    if week == 1 or week == 3 then
+        local handouts = require "game.model.handouts"
+        local pr = app.campaign.prep
+        local found
+        for i, sc in ipairs(pr.scenes) do
+            for _, kind in ipairs(require("game.model.content").kinds) do
+                local c = sc.slots[kind]
+                if not found and c and handouts.worth_it(app.campaign, c) then
+                    found = { i, kind, c }
+                end
+            end
+        end
+        if found then
+            pr.extra = (pr.extra or 0) - 2      -- (time for it, whatever the random clicks spent)
+            -- (A stop's place makes its handout on the map's place card, October 20.)
+            local vv = require "game.ui.valley_view"
+            if found[2] == "location" and not pr.scenes[found[1]].open then
+                show_stop(found[1])
+                if not click_key("slot_" .. found[1] .. "_location") then problem("no place slot on stop " .. found[1]) end
+                if vv.state(app).open ~= found[3].id then problem("the place slot didn't open its place on the map") end
+            else
+                app.sel = { scene = found[1], kind = found[2] }
+            end
+            app.refresh()
+            if not click_key("handout_toggle") then
+                problem("no handout button on a story card's slot (" .. found[2] .. ")")
+            elseif not (pr.handouts and pr.handouts[found[3].id]) then
+                problem("making a handout didn't stick")
+            else
+                dump_once("15e_handout_made")
+            end
+            app.sel = nil
+            vv.state(app).open = nil
+            app.refresh()
+        end
+    end
+    -- The slice rework: the one-page hand, and the notebook later in the campaign.
+    if week == 3 or week == 1 then
+        app.sel = { scene = 1, kind = "cast" }
+        app.refresh()
+        dump("15b_prep_hand_w" .. week)
+        app.sel = { scene = 2, kind = "complication" }
+        app.refresh()
+        dump("15c_prep_hand_comp_w" .. week)
+        app.sel = nil
+        app.refresh()
+    end
+    if (week == 2 or week == 4) and app.campaign.prep and require("game.model.books").newest(app.campaign) then
+        -- A new book (A13): the supplement evening opens it; pull an entry and see it in the game.
+        local books_mod = require "game.model.books"
+        local pr = app.campaign.prep
+        pr.inspired_by.supplement = nil
+        pr.inspirations = 0
+        pr.reading = nil
+        -- The random clicks may have spent every hour: clear cards until the evening is affordable.
+        for i = 1, #pr.scenes do
+            for kind in pairs(pr.scenes[i].slots) do
+                if not pr:can_inspire("supplement") then
+                    pr:clear(i, kind)
+                end
+            end
+        end
+        app.sel = nil
+        app.refresh()
+        if not click_key("inspire_supplement") then problem("no supplement button in week " .. week) end
+        if not app.book then problem("the supplement evening didn't open the new book (week " .. week .. ")") end
+        local r = pr.reading
+        local bk = r and books_mod.book(r.book)
+        local want = week == 4 and "module" or "monster"
+        local pick
+        for _, e in ipairs(bk and bk.entries or {}) do
+            if e.kind == want and not books_mod.get(app.campaign).pulled[e.id] then
+                pick = pick or e
+            end
+        end
+        if pick then
+            click_key("book_entry_" .. pick.id)
+            dump("32_book_page_w" .. week)
+            if not click_key("book_pull") then problem("no Pull it in button") end
+            if not books_mod.get(app.campaign).pulled[pick.id] then problem("pulling " .. pick.id .. " did nothing") end
+            if pick.card and not pr.inspired[pick.card.id] then problem("a pulled card isn't in the hand: " .. pick.card.id) end
+        end
+        if not click_key("book_done") then problem("no Done reading button") end
+        if app.book then problem("the book didn't close") end
+        -- A published adventure on scene 3 (week 4): it fills the scene; its reward can be swapped.
+        if week == 4 and pick and pick.module then
+            -- Room for it: scene 3 closed and cleared.
+            pr:set_open(3, false)
+            for kind in pairs(pr.scenes[3].slots) do
+                pr:clear(3, kind)
+            end
+            for i = 1, 2 do
+                for kind in pairs(pr.scenes[i].slots) do
+                    if pr:left() < 3 then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+            local can, why = pr:can_place_module(3, pick.module)
+            if not can then
+                -- The random clicks spent the hours on talks and reading: nothing to clear makes room.
+                print("  (module step skipped: " .. tostring(why) .. ")")
+            elseif show_stop(3) and click_key("type_3") then
+                for _ = 1, 4 do
+                    if not click_key("guide_ok") then break end
+                end
+                if not click_key("module_" .. pick.module) then problem("no module button in the type picker") end
+                if not (pr.scenes[3].module and pr.scenes[3].module.id == pick.module) then
+                    problem("the module didn't fill scene 3")
+                end
+                dump("33_module_scene")
+                app.sel = { scene = 3, kind = "reward" }
+                app.refresh()
+                dump("33b_module_reward")
+                app.sel = nil
+                app.refresh()
+            else
+                problem("no type button on scene 3")
+            end
+        end
+    end
+    if week == 2 then
+        -- Changing course (A18): on the notebook's campaign page, pick another style, ask the
+        -- table, then nudge: the gateway card goes into this week's hand.
+        key("next_cell")
+        if app.overlay ~= "notes" then problem("N didn't open the notes in week 2") end
+        if click_key("notes_tab_campaign") then
+            local styles_mod = require "game.model.styles"
+            local home = styles_mod.current(app.campaign)
+            local target
+            for _, sid in ipairs(styles_mod.data().order) do
+                if sid ~= home and not target then target = sid end
+            end
+            if not click_key("course_style_" .. target) then problem("no course style button for " .. target) end
+            local chat_before = #(app.campaign.chat or {})
+            -- (The random clicks may have asked, or nudged, already.)
+            local co = app.campaign.course or {}
+            if not (co.target == target and co.asked) then
+                if not click_key("course_ask") then problem("no Ask the table button") end
+                if #(app.campaign.chat or {}) <= chat_before then problem("asking the table posted nothing") end
+            end
+            co = app.campaign.course or {}
+            if not (co.target == target and (co.nudge or co.force)) and not click_key("course_nudge") then
+                problem("no Nudge button")
+            end
+            local nudge = app.campaign.course and (app.campaign.course.nudge or app.campaign.course.force)
+            if not (nudge and app.campaign.prep:pinned(nudge)) then problem("the nudge card isn't in the hand") end
+            dump("31_change_course")
+        else
+            problem("no campaign tab in the notes")
+        end
+        key("next_cell")
+    end
+    if week == 2 then
+        -- (One-on-ones arrive in week 2: the first prep board keeps to scenes, hand and players.)
+        -- Talk 2h is a one-on-one (A6): three questions, an answer to the worry, what you learned.
+        local talker
+        local pr = app.campaign.prep
+        if pr:left() < 2 then
+            -- Free up two hours for the talk: take a card back off the board.
+            for i, sc in ipairs(pr.scenes) do
+                for kind, c in pairs(sc.slots) do
+                    if pr:left() < 2 and kind ~= "goal" then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+        end
+        for _, p in ipairs(app.campaign.players) do
+            if p.present and app.campaign.prep:can_talk(p.key) and has_key("talk_" .. p.key) then
+                talker = p
+                break
+            end
+        end
+        if talker then
+            click_key("talk_" .. talker.key)
+            if not app.talk then problem("Talk 2h didn't open a one-on-one") end
+            local guard_t = 0
+            while app.talk and not app.talk.done and guard_t < 8 do
+                guard_t = guard_t + 1
+                if guard_t == 3 then dump("28_one_on_one") end
+                if not click_key("talk_opt_1") then problem("no answer to pick in the one-on-one"); break end
+            end
+            dump("28_one_on_one_done")
+            if not click_key("talk_done") then problem("the one-on-one has no Done button") end
+            if app.talk then problem("the one-on-one didn't close") end
+            local n = app.campaign.prep.talk_notes and app.campaign.prep.talk_notes[talker.key]
+            if not (n and n.mood and n.want) then problem("the one-on-one didn't note a mood and a want") end
+        end
+    end
     if week == 3 then
         -- One way into the notes on the board (October 20): the Notes button, as on game night.
         if not click_key("prep_notes") then problem("no Notes button on the prep board") end
@@ -1235,6 +1143,168 @@ for week = 1, WEEKS do
         end
         key("back")
         if app.overlay then problem("Esc didn't close the sheet") end
+        local sk = app.campaign.players[#app.campaign.players].key
+        if not click_key("sheet_" .. sk) then problem("no sheet link on " .. sk .. "'s prep card") end
+        if app.overlay ~= "sheet" then problem(sk .. "'s prep card didn't open their sheet") end
+        click_key("sheet_close")
+        -- An open scene (A15): the players choose. Sketch spots from Your places and suggestions.
+        do
+            local pr = app.campaign.prep
+            click_key("guide_ok")
+            -- Room for a couple of sketches.
+            for i, sc in ipairs(pr.scenes) do
+                for kind in pairs(sc.slots) do
+                    if pr:left() < 2 then
+                        pr:clear(i, kind)
+                    end
+                end
+            end
+            app.refresh()
+            if not show_stop(3) then problem("no stop 3 tab on the scene card") end
+            if not click_key("type_3") then problem("no type button on scene 3") end
+            for _ = 1, 4 do
+                if not click_key("guide_ok") then break end
+            end
+            if not click_key("open_scene") then problem("no Open scene button in the type picker") end
+            if not pr.scenes[3].open then problem("Open scene didn't open scene 3") end
+            dump("29_open_scene")
+            local tried = {}
+            for _, tab in ipairs({ "places", "suggested", "hand" }) do
+                if click_key("loc_tab_" .. tab) then
+                    -- One card at a time, from a fresh look at the screen after each click.
+                    for _ = 1, 8 do
+                        if #(pr.scenes[3].spots or {}) >= 2 then break end
+                        local hit
+                        for _, b in ipairs(buttons()) do
+                            if b.key and string.sub(b.key, 1, 5) == "hand_" and b.key ~= "hand_close" and b.enabled ~= false
+                                and not tried[b.key] then
+                                hit = b
+                                break
+                            end
+                        end
+                        if not hit then break end
+                        tried[hit.key] = true
+                        local before = #(pr.scenes[3].spots or {})
+                        click(hit)
+                        if #(pr.scenes[3].spots or {}) == before and os.getenv("SMOKE_DEBUG") then
+                            print("spot click did nothing: " .. hit.key .. " toast=" .. tostring(app.toast) .. " ask=" .. tostring(app.ask ~= nil))
+                        end
+                    end
+                end
+            end
+            dump("29_open_scene_spots")
+            if #(pr.scenes[3].spots or {}) == 0 then
+                local why = {}
+                for _, cd in ipairs(pr.hand.location or {}) do
+                    local ok, w = pr:can_add_spot(3, cd.id)
+                    table.insert(why, cd.id .. "=" .. tostring(ok) .. (w and (":" .. w) or ""))
+                end
+                problem("couldn't sketch any spots on the open scene (left " .. tostring(pr:left()) .. "; " .. table.concat(why, ", ") .. ")")
+            end
+            app.sel = nil
+            app.refresh()
+        end
+        -- The encounter builder on a combat scene.
+        local c = app.campaign
+        app.sel = nil
+        local type_before = c.prep.scenes[1].type
+        c.prep:set_type(1, "combat")
+        app.refresh()
+        if not show_stop(1) then problem("no stop 1 tab on the scene card") end
+        if not click_key("fight_1") then problem("no fight button on a combat scene") end
+        if app.overlay ~= "encounter" then problem("the fight button didn't open the builder") end
+        dump("28_encounter_suggested")
+        click_key("enc_add_ogre")
+        click_key("enc_add_goblin_warrior")
+        click_key("enc_lead_ogre")
+        local enc = c.prep:encounter(1)
+        if not enc.built or enc.ids[1] ~= "ogre" then problem("the builder didn't take the ogre as the lead: " .. table.concat(enc.ids, ",")) end
+        -- A hazard on the mat (A10).
+        if not click_key("enc_hazard_spreading_fire") then problem("no hazard buttons in the builder") end
+        if c.prep:hazard(1) ~= "spreading_fire" then problem("the builder didn't set the hazard") end
+        dump("28_encounter_built")
+        -- The map (B9): lay a wall from the grid, then cover, a trap and the starts.
+        if not click_key("enc_tab_map") then problem("no map tab in the builder") end
+        local loc = c.prep.scenes[1].slots.location
+        if not loc then
+            -- Put a place on it: a map lives with its place.
+            for _, card in ipairs((c.prep.hand or {}).location or {}) do
+                if not loc then
+                    c.prep:place(1, card.id)
+                    loc = c.prep.scenes[1].slots.location
+                end
+            end
+            if not loc then
+                c.prep.scenes[1].slots.location = content.components.forest_road
+                loc = c.prep.scenes[1].slots.location
+            end
+            app.refresh()
+            click_key("enc_tab_map")
+        end
+        if not loc then
+            problem("no place to draw a map for")
+        else
+            local map_view = require "game.ui.map_view"
+            click_key("map_piece_wall")
+            local maps = require "game.model.maps"
+            -- Click squares on the grid until one takes a wall (the place's own scenery, a campfire
+            -- or a bar, refuses one where it stands).
+            local LW = content.terrain_layout.W
+            for _, cell in ipairs({ { 10, 7 }, { 6, 3 }, { 14, 11 }, { 4, 10 }, { 16, 4 }, { 8, 12 } }) do
+                local m0 = maps.get(c, loc.id)
+                if m0 and maps.count(m0) > 0 then break end
+                for _, b in ipairs(buttons()) do
+                    if b.key == "map_grid" then
+                        local C = b.node.size.x / LW
+                        local x, y = b.node.pos.x + (cell[1] - 0.5) * C, b.node.pos.y - (cell[2] - 0.5) * C
+                        call(on_input, self, nil, { x = x, y = y })
+                        call(on_input, self, "touch", { pressed = true, x = x, y = y })
+                        break
+                    end
+                end
+            end
+            local m = maps.get(c, loc.id)
+            if not m or maps.count(m) == 0 then problem("clicking the map grid laid no wall") end
+            for _, step in ipairs({ { "cover", 12, 4 }, { "cover", 13, 9 }, { "rough", 8, 6 }, { "trap", 9, 8 },
+                                    { "party", 3, 7 }, { "foes", 17, 6 } }) do
+                app.map_piece = step[1]
+                map_view.paint(app, step[2], step[3])
+            end
+            -- (The place's own scenery refuses a start or a trap where it stands: try a few squares.)
+            for _, alt in ipairs({ { 4, 4 }, { 16, 9 }, { 5, 11 }, { 15, 3 }, { 10, 12 }, { 7, 2 }, { 13, 6 } }) do
+                local m1 = maps.get(c, loc.id)
+                for _, piece in ipairs({ "party", "foes", "trap" }) do
+                    if m1 and not m1[piece] then
+                        app.map_piece = piece
+                        map_view.paint(app, alt[1], alt[2])
+                        break
+                    end
+                end
+            end
+            app.refresh()
+            click_key("map_trap")
+            m = maps.get(c, loc.id)
+            if not (m and m.party and m.foes and m.trap) then
+                problem("the map's starts or trap didn't stick (" .. loc.id .. ": party " .. tostring(m and m.party ~= nil)
+                    .. ", foes " .. tostring(m and m.foes ~= nil) .. ", trap " .. tostring(m and m.trap ~= nil) .. ")")
+            end
+            local blocked = maps.layout(m)
+            local walls = 0
+            for _, p in ipairs(m.props) do
+                if p.kind == "stone_wall" or p.kind == "wall_room" then
+                    walls = walls + (blocked[p.x * 1000 + p.y] and 1 or 0)
+                end
+            end
+            if walls == 0 then problem("the map's walls don't block") end
+            dump("28b_map")
+            click_key("map_template_ruins")
+            if maps.get(c, loc.id).template ~= "ruins" then problem("the template didn't change") end
+            click_key("enc_tab_fight")
+        end
+        click_key("enc_done")
+        if app.overlay then problem("the builder wouldn't close") end
+        c.prep:set_type(1, type_before)
+        app.refresh()
         -- Dialogue review (F4): work a few cells by keyboard and mouse.
         local lib = content.dialogue
         local function count(status)
@@ -1262,11 +1332,12 @@ for week = 1, WEEKS do
         if app.review.queue_open then problem("Esc didn't close the review queue") end
         if not app.review.on then problem("closing the queue turned review mode off") end
         stats.reviewed = drafts - count("draft")
-        ps.go(app, "slot_2_cast")
+        app.sel = { scene = 2, kind = "cast" }
+        app.refresh()
         dump("2_prep")
-        ps.go(app, "type_1")
+        app.sel = { scene = 1, kind = "type" }
+        app.refresh()
         dump("3_prep_types")
-        ps.go(app, "ready")
     end
     if not run_night_click() then problem("no run button") break end
     if app.screen ~= "night" then problem("expected night") break end
@@ -1780,7 +1851,7 @@ if app.screen == "prep" and #problems == 0 then
     mara.wavering, mara.present = 1, false -- wavering and away: the warning must still show
     dev.on_break, dev.break_left, dev.present = true, 4, false
     jess.commitment, jess.delta.commitment = 30, -4
-    require("game.ui.prep_steps").go(app, "friends")
+    app.refresh()
     dump("8_prep_hard_times")
     if not has_text("losing steam") then problem("wavering warning not shown") end
     if not has_text("drifting away") then problem("early warning not shown at high Empathy") end
@@ -1831,6 +1902,8 @@ local function restart()
     self = {}
     call(init, self)
     app = self.app
+    -- The prototype notice shows on every launch (October 29).
+    if not click_key("agree") then problem("no prototype notice on a fresh launch") end
 end
 local function play_resumed_night(where)
     local c = app.campaign
@@ -1948,7 +2021,7 @@ if #problems == 0 then
         if app.screen ~= "intro" or not app.confirm_new then problem("one click on New campaign already started over") end
         if not has_text("Click again to start over") then problem("no note before starting over") end
         click_key("new_campaign")
-        if app.screen ~= "setup" then problem("two clicks on New campaign didn't start setting up") end
+        if app.screen ~= "planner" then problem("two clicks on New campaign didn't start the planner") end
         -- Stopped after the first act, before its survey: continuing goes back to the survey.
         if app.campaign.week >= content.arc.SESSIONS then
             local c = save_mod.load(save_mod.dump(app.campaign))

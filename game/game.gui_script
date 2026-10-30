@@ -14,13 +14,11 @@ local ambience = require "game.ui.ambience"
 local guide_view = require "game.ui.guide_view"
 local intro_view = require "game.ui.intro_view"
 local prep_view = require "game.ui.prep_view"
-local prep_steps = require "game.ui.prep_steps"
 local night_view = require "game.ui.night_view"
 local report_view = require "game.ui.report_view"
 local debug_view = require "game.ui.debug_view"
 local review_view = require "game.ui.review_view"
-local setup_view = require "game.ui.setup_view"
-local steps_view = require "game.ui.steps"
+local session_zero_view = require "game.ui.session_zero_view"
 local messages_view = require "game.ui.messages_view"
 local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
@@ -28,6 +26,7 @@ local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
 local talk_view = require "game.ui.talk_view"
 local book_view = require "game.ui.book_view"
+local planner_view = require "game.ui.planner_view"
 local lore_view = require "game.ui.lore_view"
 local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
@@ -210,10 +209,13 @@ local function build_screen(self)
         kit.layer("report")
         report_view.build(app)
         block_camera(true)
-    elseif s == "setup" then
-        -- Setting up the campaign, one decision at a time (October 26), at the table with your friends.
-        kit.layer("setup")
-        setup_view.build(app)
+    elseif s == "planner" then
+        kit.layer("planner")
+        planner_view.build(app)
+        block_camera(true)
+    elseif s == "session_zero" then
+        kit.layer("session_zero")
+        session_zero_view.build(app)
         block_camera(true)
     elseif s == "lore" then
         -- Between the prep board and the night (October 16): what tonight can change in the story.
@@ -221,9 +223,9 @@ local function build_screen(self)
         lore_view.build(app)
         block_camera(true)
     elseif s == "join" then
-        -- Someone joins a small table (October 15): their backstory, a step at a time, then the week.
+        -- Someone joins a small table (October 15): their backstory page, then the week.
         kit.layer("join")
-        setup_view.build_join(app)
+        require("game.ui.backstory_view").build(app)
         block_camera(true)
     elseif s == "slice_end" then
         kit.layer("slice_end")
@@ -376,10 +378,6 @@ function init(self)
     app.log_line = function(line)
         write_playtest_line(app, line)
     end
-    -- Anything for the table (the people's poses and seats, its tracking): steps.lua's bubbles.
-    app.table_post = function(name, data)
-        msg.post(TABLE, name, data)
-    end
     app.zoom = function(index)
         -- Always ask: the player may have moved the camera with the number keys.
         app.camera_index = index
@@ -448,9 +446,6 @@ function init(self)
             -- A player joins this week (a small table, October 15): welcome them first.
             app.join = { key = app.campaign:joiner_due() }
             app.screen = "join"
-            -- The room, everyone in their chairs and the newcomer pulling one up.
-            app.zoom(1)
-            msg.post(TABLE, "track", { on = true })
             build_screen(self)
             ambience.screen(app, "session_zero")
             return
@@ -490,10 +485,7 @@ function init(self)
                 seated[key] = app.campaign:player(key) ~= nil
             end
             msg.post(TABLE, "seats", { present = seated })
-            -- The room, a step at a time (October 26): your friends' heads tracked for their bubbles.
-            app.posed = nil
-            app.zoom(1)
-            msg.post(TABLE, "track", { on = true })
+            app.zoom(2)
         elseif screen == "night" then
             -- Save the board first (the fix pass): quitting anywhere in the night, or a night
             -- that gets stuck, comes back to the start of this night with the prep intact.
@@ -514,16 +506,8 @@ function init(self)
             end
             ambience.screen(app, "night")
             return
-        elseif screen == "setup" then
-            -- A fresh start: the first step, the room, and your friends' heads tracked for their bubbles.
-            app.setup = nil
-            steps_view.reset(app, setup_view.flow)
-            app.zoom(1)
-            msg.post(TABLE, "track", { on = true })
-            app.screen = "setup"
-            build_screen(self)
-            ambience.screen(app, "session_zero")
-            return
+        elseif screen == "session_zero" then
+            app.s0 = nil
         elseif screen == "slice_end" then
             app.slice = nil
             app.awards = nil      -- picked fresh when the scrapbook opens
@@ -603,9 +587,6 @@ function on_message(self, message_id, message, sender)
         -- Where heads and minis are on screen, from the table, every frame of game night.
         if app.screen == "night" then
             night_view.on_anchors(app, message)
-        elseif app.screen == "setup" or app.screen == "join" or app.screen == "prep" then
-            -- Setting up and prep, a step at a time: their bubbles follow their heads (October 26).
-            steps_view.on_anchors(app, message)
         end
     elseif message_id == hash("roll_result") then
         -- In the sandbox the night is paused; it rolls for itself if the die never comes back.
@@ -750,6 +731,7 @@ function on_input(self, action_id, action)
         local took = false
         guard(self, function()
             took = story_log_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
+                or messages_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
         end)
         if took then
             return true
@@ -811,17 +793,17 @@ function on_input(self, action_id, action)
             if app.resume then
                 guard(self, app.continue_campaign)
             else
-                guard(self, app.go, "setup")
+                guard(self, app.go, "planner")
             end
             return true
-        elseif s == "setup" then
-            guard(self, setup_view.next, app)
-            return true
-        elseif s == "join" then
-            guard(self, setup_view.next_join, app)
+        elseif s == "planner" then
+            guard(self, planner_view.start, app)
             return true
         elseif s == "lore" then
             guard(self, lore_view.go, app)
+            return true
+        elseif s == "session_zero" then
+            guard(self, session_zero_view.start, app)
             return true
         elseif s == "report" then
             if not report_view.busy(app) then
@@ -845,10 +827,12 @@ function on_input(self, action_id, action)
             end
             return true
         elseif s == "prep" then
-            if app.ask or app.talk or app.book or app.overlay then
-                return true   -- the "are you sure?", the one-on-one, the book and your notes answer with their buttons
+            if app.ask or app.talk or app.book then
+                return true   -- the "are you sure?", the one-on-one and the book answer with their buttons
             end
-            guard(self, prep_steps.next, app)     -- the next step, or game night from the last (October 26)
+            if app.campaign.prep:ready() then
+                guard(self, app.run_night)
+            end
             return true
         elseif s == "night" and app.night_done then
             guard(self, app.go, "report")

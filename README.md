@@ -1,6 +1,14 @@
 # Behind the Screen
 
-A cozy DM simulator in Defold. This build has eight milestones from the prototype plan:
+A cozy DM simulator in Defold.
+
+**The current build (October 29)** is the October 20 version with a prototype notice on launch ("Before you
+play": a prototype engine for tabletop RPG campaigns, placeholder story, a demo of the play loop and mechanics;
+one Agree button). This is the base to build on. The step-by-step rework of setup and prep from October 26
+(one decision at a time, Chill mode, longer speech bubbles) was set aside and lives on the `step-by-step` branch;
+Codex's guided four-session edition is on `streamlined-edition`, which was built on that rework.
+
+This build has eight milestones from the prototype plan:
 
 - **M7 the vertical slice, ready for outside testers:** Session Zero plus the first four sessions of "The Silent
   Bells", each with a story beat and story cards in your hand, a first act that lands or falls flat, and an
@@ -52,15 +60,14 @@ so the editor doesn't need to be open.
 
 ## How a week plays
 
-0. **Setting up** (once, before week 1). The campaign, then Session Zero: pitch a tone, hear each player's ask,
-   set the table rules, hear their backstories. One decision at a time, at the table with your friends.
-1. **This week.** Where the story stands, in each hero's head; the group chat and your messages (theories about
-   your mysteries come with replies you can send, and when something's brewing someone messages you); how
-   everyone's doing; the world's moves; who the session is for.
-2. **Prep.** Three stops on the valley map, then for each a kind of scene and its cards (who's there, what
-   they're after, what gets in the way, what they can win) from this week's hand. You have 12 hours of prep, so
-   some slots stay empty and get improvised at the table. Coffee with a player costs 2 hours and tells you how
-   their week went.
+0. **Session Zero** (once, before week 1). Pitch a tone, hear each player's ask, set the table rules.
+1. **Group chat and messages.** Your friends react to last week and drop hints about what they want and how
+   their week went. Theories about your mysteries come with replies you can send. When something's brewing at the
+   table, someone messages you about it.
+2. **Prep.** Pick a type for each of three scenes, then fill their five slots (location, cast, goal,
+   complication, reward) from this week's hand. You have 12 hours of prep, so some slots stay empty and
+   get improvised at the table. Watch the pacing curve and each player's forecast for Thursday. Talking to a
+   player costs 2 hours and tells you their mood.
 3. **Game night.** It plays out on the table (see below). You step in for decision cards, improv hands when
    an empty slot comes up or the party wanders off, big d20 rolls and how they land. A big roll can go in the
    open or behind the screen, where you can cook it. Cook too often and someone will ask to see the dice.
@@ -95,27 +102,10 @@ minis.
 A night runs about 15 minutes at normal speed with 8 to 15 calls. The gentle timer (T) gives each card 15 to 45
 seconds before the safe default plays, if you want to keep the night moving; it's off unless you turn it on.
 
-## A step at a time (October 26)
-
-Setting up a campaign and each week's prep ask one thing at a time (`game/ui/steps.lua`): a question, the
-choices, Back and Next (or Enter), and your friends at the table above it, saying or thinking what they make of
-it in bubbles over their heads and sitting the way they feel. Setting up (`game/ui/setup_view.lua`) is the
-campaign (who's playing, the style, three truths, the second front, the dice), then Session Zero (the tone, each
-player's ask, the table rules), each player's backstory (your questions, their idea, what turns up first), whose
-stories come first and a summary. The week (`game/ui/prep_steps.lua`) is This week (the story so far, with each
-hero's own memory of last session and how their story stands; the group chat; how everyone's doing; each of the
-world's moves; levelling up; who the session is for; who shows up; an evening off), The route (each stop on the
-valley map), each stop (its kind of scene, its four cards, its fight) and Before the night (a seed, then tonight
-at a glance). What your friends say is `game/data/setup_talk.lua`.
-
-**Chill mode** (off by default; the switch is on the title screen and top right of every step, and the game
-remembers it) brings back the faces: green for who'd love an option and red for who wouldn't, on scene types,
-hand cards, Session Zero's options and game night's calls, and the bubbles' edges in the same colours. Off, you
-read your friends from what they say and how they sit (`game/ui/prefs.lua`).
-
 ## Session Zero, the table and leveling up (M6)
 
-**Session Zero.** Before week 1 the table talks it through, and people say what they think. Pitch a tone (serious story with silly downtime, warm and heroic, dark and dangerous, or loose and
+**Session Zero.** Before week 1 the table talks it through, and people say what they think, so every option shows
+who likes it. Pitch a tone (serious story with silly downtime, warm and heroic, dark and dangerous, or loose and
 silly). Hear each player's ask: Mara draws a **line** (nothing bad happens to kids), Sam asks for a **veil**
 (spiders stay off screen), Dev and Jess ask for **promises** (roll his death in the open; don't cut her NPC
 chats short). Set the table rules: the X-card, where your dice land, and how rules calls work. What you agree
@@ -123,10 +113,10 @@ to holds for the whole campaign: the prep board warns you when a card touches a 
 veiled content out on its own, the X-card catches what slips through, and breaking a promise costs Trust. The
 tone and the rules also decide which conflicts start warm.
 
-**The group chat and your messages.** The week's group chat step has everyone's latest post over their heads;
-when someone theorizes about one of your mysteries you can play along, deflect or shoot it down. **Messages**
-beside it has private messages from players (answering is free) and conversations you can start yourself, a DM
-or a post to the whole group, which cost an hour of prep when you send them. Some replies
+**The group chat and your messages.** The prep board's left column has two tabs. **Group chat** is the week's
+chat, newest at the bottom; when someone theorizes about one of your mysteries you can play along, deflect or
+shoot it down. **Messages** has private messages from players (answering is free) and conversations you can
+start yourself, a DM or a post to the whole group, which cost an hour of prep when you send them. Some replies
 depend on how much the player trusts you.
 
 **Table conflicts.** Three can come up in the slice, each built from what actually happens at the table:
@@ -149,7 +139,7 @@ Some seeds nudge a subclass (the retired captain makes Banner Captain tempting f
 store's new supplement, rereading a backstory, a callback to last week's canon, or a walk in the rain. Each draws
 cards you wouldn't otherwise get, and inspired cards play a little better.
 
-**Level-ups.** The slice starts at level 2. After two nights at a level the report (and a step of prep) offers
+**Level-ups.** The slice starts at level 2. After two nights at a level the report (and the prep board) offers
 the level-up; after four the table starts asking. At level 3 every player picks their own subclass, for their own
 reasons: who they are as a player, what their nights have been like, or a seed that stuck with them. You don't
 get a say. At level 4 everyone takes an Ability Score Improvement. Game night fights use the new level and
@@ -185,8 +175,9 @@ payoffs and level-ups (all made by `tools/gen_audio.py`). The light drifts from 
 over game night, the window darkens and the fairy lights come up, and big moments make the lamp swell. A pizza
 and a bowl of chips on the table empty over the night and come back for the next session.
 
-**First-session tips.** Someone who has never seen the game gets one short tip at a time: the first game night
-and its decision cards and the first report. (Setting up and prep explain themselves a step at a time.) Tips outline what they talk about and never block; doing what a tip
+**First-session tips.** Someone who has never seen the game gets one short tip at a time: Session Zero, the
+first prep board, the first game night and its decision cards, the first report, then messages, the drawer and
+levelling up the first time each matters. Tips outline what they talk about and never block; doing what a tip
 asks moves it on, "Got it" dismisses it, "Hide tips" turns them off for that campaign. They're data
 (`game/data/guide.lua`), saved with the campaign, and the playtest log notes how many were seen and whether they
 were turned off.
@@ -226,14 +217,14 @@ way" on a forest road, and some cards change their line to suit the place.
 
 **A story you can follow.** Each night opens with a recap of last week and the session's opening, read aloud. Story
 cards reveal something when played and add clues to your notes ("New in your notes" slides in); clues open later
-beats. **Your notes** (N, or the Notes button on game night and prep) have this session (scenes, goal,
+beats. **Your notes** (N, or the Notes button on game night and the prep board) have this session (scenes, goal,
 cast), the story so far, who's who, and the party with their character sheets. Game night waits while they're open.
 
-**Character sheets** from a player's panel, their card on prep's "How's everyone doing?" step or the notes: Armor Class, hit points,
+**Character sheets** from a player's panel, their card on the prep board or the notes: Armor Class, hit points,
 abilities and saves, all 18 skills with proficiency and Expertise marked, attacks, spells and slots, every feature
 in full, gear and their backstory hook. The numbers are the rules engine's, the same ones the table rolls with.
 
-**Fights built for this party.** A combat or set-piece stop has a step of its own, **The fight**: pick from
+**Fights built for this party.** A combat or set-piece scene on the prep board has a **The fight** button: pick from
 twelve SRD monsters, see the XP against the Low, Moderate and High budgets with the engine's forecast, and notes on
 how that lineup plays against these four (who it's good against, who gets to shine). Game night fights what you
 built.
@@ -244,8 +235,8 @@ lasting zones (Web, Grease) staying there until they end. A long fight plays fas
 watching, the small table talk thins out, and if the walk into the fight was long you get the monsters' tactics
 call at the start.
 
-**Who a choice is for.** In Chill mode, faces on decision options, scene types and hand cards show who'd love it
-and who wouldn't; hovering a card in your hand shows its full text, where it fits and why. The hand is paged five at a time so names
+**Who a choice is for.** Faces on decision options, scene types and hand cards show who'd love it and who wouldn't;
+hovering a card in your hand shows its full text, where it fits and why. The hand is paged five at a time so names
 never get cut.
 
 Everything at the table runs on the rules engine (`game/model/sheet.lua`, `game/rules/`), so a mode where real
@@ -431,11 +422,11 @@ and they always come back with a fresh start. Nobody leaves without warning.
 | Key | Game | Sandbox (F2) |
 | --- | --- | --- |
 | Mouse | Click cards, slots and options; click a player's panel or prep card for their sheet; right-drag to look around at game night | Right-drag to orbit |
-| Enter | Next step: setting up and prep a step at a time, run game night, see the report, next week | |
+| Enter | Next step: Session Zero, start the week, run game night, see the report, next week | |
 | Esc | Close a conversation, the level-up moment, your notes, a sheet, the fight builder, a book, an "are you sure?" or a finished one-on-one | |
 | C | Take a snapshot of the table on game night (three a night) | |
 | N | Your notes: this session, the story so far, who's who, the Story log, the party (the Notes button on prep and game night) | |
-| S | The Story log: beside prep's steps, or in your notes on game night and the report (the wheel scrolls it) | |
+| S | The Story log: beside the prep board, or in your notes on game night and the report (the wheel scrolls it) | |
 | M | Music off or on (rain and sounds stay) | |
 | Space | Skip to the next beat of game night | Roll the d20 |
 | F / G | Game night speed: faster (up to 4x) / slower (down to half speed) | |
@@ -466,7 +457,7 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/data/` | All content as plain data: players, archetypes, scene types, scene cards, decision cards, improv, moods |
 | `game/data/dialogue/` | The dialogue library (M5): triggers, voice sheets, lines |
 | `game/model/` | The rules, in engine-free Lua: prep budget and pacing, game night, player meters, long-term bars (`bars.lua`), Empathy (`empathy.lua`), the report |
-| `game/ui/` | The screens: setting up and prep a step at a time, game night, report, debug numbers |
+| `game/ui/` | The greybox screens: prep board, game night, report, debug numbers |
 | `game/rules/` | M3 rules engine, engine-free Lua: dice, creatures, the battle (attacks, saves, damage, conditions, concentration, death saves, movement), spells, subclasses, tactics, the slice party and encounter building |
 | `game/rules/data/` | SRD 5.2.1 data with page references: classes, weapons and armor, monsters; plus the fitted difficulty meter (`difficulty_fit.lua`, generated) |
 | `game/game.gui_script` | Ties the screens to the camera, the HUD and the d20 |
@@ -481,16 +472,16 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/data/seeds.lua`, `inspiration.lua`, `progression.lua` | M6: seeds and their payoffs, inspiration activities, level pacing and what pulls each subclass |
 | `game/model/social.lua`, `convo.lua` | M6: Session Zero, conflict pressure and fixes, promises; running a conversation |
 | `game/model/seeds.lua`, `progression.lua` | M6: seeds, inspiration draws, chat theories; level-ups and subclass picks |
-| `game/ui/messages_view.lua`, `levelup_view.lua` | M6 screens: the conversation modal and its list, the level-up moment |
-| `game/ui/steps.lua`, `setup_view.lua`, `prep_steps.lua`, `prefs.lua`, `game/data/setup_talk.lua` | A step at a time (October 26): the frame, setting up, the week's prep, Chill mode, what your friends say |
+| `game/ui/session_zero_view.lua`, `messages_view.lua`, `levelup_view.lua` | M6 screens: Session Zero, the chat column and conversation modal, the level-up moment |
 | `game/data/arc.lua` | M7: the slice's four story beats and the first-act finale |
 | `game/model/save.lua` | M7: saving and loading the campaign between sessions |
 | `game/ui/slice_end_view.lua`, `ambience.lua`, `autotest.lua` | M7: the scrapbook and survey; sound, light and snacks; the in-engine autotest |
 | `game/model/deck.lua`, `planner.lua`, `ledger.lua`, `world.lua` | The story deck, the campaign planner, the notebook's ledger and attitudes, the world's moves |
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
 | `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
+| `game/ui/previously_view.lua` | "Previously on" at the top of the prep board's left column (from `chronicle.previously`) |
 | `game/model/chronicle.lua`, `game/ui/story_log_view.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, its notebook page and prep panel, the keywords and what they mean |
-| `game/data/backstories.lua`, `game/model/backstory.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
+| `game/data/backstories.lua`, `game/model/backstory.lua`, `game/ui/backstory_view.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
 | `main/audio/`, `main/snacks/`, `assets/audio/` | M7: the sound player and sounds; the pizza and chips |
 | `tools/playtest/` | M7: tester package script, tester readme, log analyzer, pretend logs |

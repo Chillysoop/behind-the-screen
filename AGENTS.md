@@ -6,7 +6,13 @@ A cozy single-player game where you are the Dungeon Master for four simulated fr
 1. `docs/OVERVIEW.md`: what the game is, the weekly loop, how stories work, how the systems overlap,
    progression, and what's still open.
 2. `README.md`: every system in detail, controls, the project layout, and every test.
-3. `docs/design/`: notes on the latest changes (the newest is the step-by-step setup and prep, October 26).
+3. `docs/design/`: notes on changes, including the step-by-step rework that was set aside.
+
+**Which version is current (October 29).** `main` is the October 20 build plus a prototype notice on launch.
+It is the base to build on. Setup and prep are full-page screens: the campaign planner, Session Zero, backstories,
+and the prep board with its drawer. The October 26 step-by-step rework (one decision at a time, Chill mode,
+longer speech bubbles) was set aside and lives on the `step-by-step` branch; parts of `docs/OVERVIEW.md` still
+describe it, as its note at the top says. Don't bring it back unless asked.
 
 ## Where things live
 
@@ -34,9 +40,8 @@ A cozy single-player game where you are the Dungeon Master for four simulated fr
   generator and rerun it (README, "Regenerating assets").
 - **Player-facing text is plain and warm.** Short sentences and everyday words, no designer jargon.
   Every screen says what it's for.
-- **Chill mode is off by default.** With it off, choices show no green or red "who'd like it" faces. The player
-  reads the table from what the friends say, think and how they sit. Gate any new "who'd love it" hint behind
-  `game/ui/prefs.lua`'s `chill()`.
+- **The prototype notice stays.** Every launch opens on "Before you play" (`game/ui/intro_view.lua`) until the
+  player clicks Agree. Tests agree to it first (`tools/tests/gui_smoke.lua`, `game/ui/autotest.lua`).
 
 ## Checking your work
 
@@ -69,6 +74,7 @@ without the engine.
 
 ## Status
 
-The vertical slice (Session Zero plus four sessions) plays end to end. "Where it stands, and what's still open" in
-`docs/OVERVIEW.md` lists what simulated playtests found and the open design questions. The weakest area right now
-is the story the game plays back to the DM between sessions.
+The vertical slice (Session Zero plus four sessions) plays end to end, and this build is going out to outside
+playtesters. "Where it stands, and what's still open" in `docs/OVERVIEW.md` lists what simulated playtests found
+(on the step-by-step version; most findings about the story, card fit and game night apply here too) and the open
+design questions. The weakest area right now is the story the game plays back to the DM between sessions.

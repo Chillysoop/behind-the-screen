@@ -19,19 +19,16 @@ STARTING
 2. Open "BehindtheScreen.exe" (in the "Behind the Screen" folder).
 3. Windows may say "Windows protected your PC", because this test build isn't signed.
    Click "More info", then "Run anyway".
+4. A short note says what this prototype is (and isn't). Click "Agree" to start.
 
 It needs 64-bit Windows 10 or 11. If the window is bigger than your screen, double-click
 its title bar to maximize it: the game scales to fit any size.
-
-Setting up and each session's prep go one question at a time; your friends at the table
-tell you what they think. If you'd rather see at a glance who'd like each choice, turn on
-"Chill mode" (on the title card, or top right while you prep).
 
 
 CONTROLS
 --------
 Almost everything is the mouse. A few keys help:
-  Enter            the next step (while you prep, run game night, see the report)
+  Enter            the next step (run game night, see the report, next session)
   N                your notes (the Notes button)      S   the Story log
   Esc              close your notes, a sheet, a conversation or a pop-up
   M                music on / off

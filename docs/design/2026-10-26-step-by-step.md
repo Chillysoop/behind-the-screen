@@ -1,5 +1,7 @@
 # Step by step, October 26
 
+> Set aside on October 29: the current build is the October 20 version plus a prototype notice. This rework lives on the `step-by-step` branch.
+
 The pre-session menus were full pages with everything at once. Now setting up a campaign and each week's prep ask one thing at a time, at the table with your friends in view. Duplicates are merged: the campaign planner, Session Zero and the backstories are one walk; the notebook's "This week" page is part of prep.
 
 ## The frame

@@ -14,9 +14,6 @@
 --                  behind_the_screen.autotest_weeks sessions (default 6)
 --   autotest = 6   the board gallery: every board (game/data/boards.lua) set out in full on the
 --                  table, with a party and some foes on it, one shot each from the table camera
---   autotest = 7   the whole first act, shown off: a DM who follows the arc and levels the party
---                  up; with keyart = 1, clean shots of every night from the second on, the last
---                  week's prep and notebook, the gifts on the table, and the scrapbook; quit there
 
 local kit = require "game.ui.kit"
 
@@ -236,176 +233,6 @@ function M.story_shots(app, a)
     return false
 end
 
--- Mode 7: the whole first act, shown off (October 27, for store and pitch shots). Every week the
--- DM follows the arc the way tools/sim/slice_bots.lua's careful DM does: this week's story cards
--- where they fit, and a fight at the last stop. The party levels up when it's earned (the
--- moment gets a shot), and the last week's prep and notebook are shot a step at a time.
-local function act_board(app)
-    local content = require "game.model.content"
-    local c, p = app.campaign, app.campaign.prep
-    p.extra = (p.extra or 0) - 10     -- (time for the whole story)
-    p:set_type(1, "social")
-    p:set_type(2, "exploration")
-    p:set_type(3, "combat")
-    local beat = c:arc_beat()
-    if not beat then
-        return
-    end
-    local first = content.components[beat.cards[1]]
-    local fits_any = false
-    for i = 1, 3 do
-        for _, f in ipairs(first and first.fits or {}) do
-            fits_any = fits_any or f == p.scenes[i].type
-        end
-    end
-    if first and not fits_any and p.arc_cards[first.id] then
-        p:set_type(1, first.fits[1])
-    end
-    for _, id in ipairs(beat.cards) do
-        local card = content.components[id]
-        if card and p.arc_cards[id] and not p:placed_at(id) then
-            for i = 1, 3 do
-                local s = p.scenes[i]
-                local fits = false
-                for _, f in ipairs(card.fits) do
-                    fits = fits or f == s.type
-                end
-                fits = fits and content.belongs_at(card, s.slots.location)
-                for _, other in pairs(s.slots) do
-                    if card.kind == "location" and other.kind ~= "location" then
-                        fits = fits and content.belongs_at(other, card)
-                    end
-                end
-                if fits and not s.slots[card.kind] and p:can_place(i, id) then
-                    p:place(i, id)
-                    break
-                end
-            end
-        end
-    end
-    if beat.finale and p.arc_cards.cliffhanger and not p:placed_at("cliffhanger") then
-        p:clear(3, "complication")
-        p:place(3, "cliffhanger")
-    end
-end
-
-local function last_week(app)
-    return app.campaign.week >= require("game.model.content").arc.SESSIONS
-end
-
--- This week's prep, one action per call.
-function M.act_plan(app, a)
-    local c = app.campaign
-    local steps = require "game.ui.prep_steps"
-    local plan = {}
-    local function add(fn)
-        table.insert(plan, fn)
-    end
-    add(function()
-        app.close_overlay()
-        act_board(app)
-        a.wait = 0.5
-    end)
-    if c:level_status().ready then
-        add(function()
-            steps.go(app, "levelup")
-            a.wait = 0.8
-        end)
-        add(function()
-            by_key("level_up")
-            a.wait = 2.5      -- (the moment's sound and their lines)
-        end)
-        add(function()
-            if app.levelup then
-                shot(a, "act_levelup_" .. tostring(app.levelup.level))
-            end
-        end)
-        add(function()
-            by_key("levelup_close")
-            a.wait = 0.8
-        end)
-    end
-    if last_week(app) then
-        for _, id in ipairs({ "story", "friends", "route_1", "ready" }) do
-            add(function()
-                steps.go(app, id)
-                a.wait = 1.4
-            end)
-            add(function()
-                shot(a, "act_prep_" .. id)
-            end)
-        end
-        for _, tab in ipairs({ "storylog", "web", "party" }) do
-            add(function()
-                if tab == "storylog" then
-                    local chronicle = require "game.model.chronicle"
-                    local best, most = nil, -1
-                    for _, it in ipairs(chronicle.list(c, c.prep, nil)) do
-                        local v = chronicle.story(c, it.def.id, {})
-                        if v and #v.entries > most then
-                            best, most = it.def.id, #v.entries
-                        end
-                    end
-                    app.storylog_id = best
-                    app.storylog_scroll = nil
-                end
-                app.open_notes(tab)
-                a.wait = 1.2
-            end)
-            add(function()
-                shot(a, "act_notes_" .. tab)
-            end)
-        end
-        add(function()
-            app.close_overlay()
-            a.wait = 0.5
-        end)
-    end
-    add(function()
-        steps.go(app, "ready")
-        app.refresh()
-        if not by_label("Run game night") then
-            return finish(a, false, "no Run game night button")
-        end
-        if app.ask then
-            by_label(app.ask.yes or "Run game night")
-        end
-        say("night " .. c.week)
-    end)
-    return plan
-end
-
-function M.act_prep(app, a)
-    if app.convo then
-        app.convo = nil
-        app.refresh()
-        return
-    end
-    local wk = app.campaign.week
-    if not a.act or a.act.week ~= wk then
-        a.act = { week = wk, plan = M.act_plan(app, a), i = 0 }
-    end
-    a.act.i = a.act.i + 1
-    local fn = a.act.plan[a.act.i]
-    if fn then
-        return fn()
-    end
-end
-
--- Key art on game night: mode 4's one night, or mode 7's nights from the second on (each week's
--- shots tagged with the week); the rest of the showing off on mode 7's last night only.
-local function keyart_on(app, a)
-    return a.keyart and (a.mode == 4 or (a.mode == 7 and app.campaign.week >= 2))
-end
-
-local function ka_tag(app, a, tag)
-    return a.mode == 7 and (tag .. "_w" .. app.campaign.week) or tag
-end
-
-local function showy(app, a)
-    return a.mode == 4 or (a.mode == 7 and last_week(app))
-end
-
 -- Mode 4: a board that tells this week's story, a fight built for the party, and a look at
 -- the notes, a sheet and the builder. One step per call, so each screen gets its shot.
 function M.showcase(app, a)
@@ -451,39 +278,26 @@ function M.showcase(app, a)
         end
         maps.place(m, "torch_post", 16, 7)
         maps.place(m, "trap", 9, 7)
-        -- Prep, a step at a time (October 26): where the story stands, in their heads.
-        require("game.ui.prep_steps").go(app, "story")
-        a.wait = 1.0
+        app.sel = { scene = 2, kind = "cast" }
+        app.refresh()
+        shot(a, "prep_board")
     elseif step == 2 then
-        shot(a, "prep_story")
-    elseif step <= 8 then
-        -- The rest of the week's steps worth seeing, and Chill mode's faces on the kinds of scene.
-        local prefs = require "game.ui.prefs"
-        local tour = { "friends", "route_2", "type_2", "slot_2_cast", "ready", "type_2" }
-        local id = tour[step - 2]
-        if step == 8 then
-            prefs.set_chill(true)
-        end
-        require("game.ui.prep_steps").go(app, id)
-        shot(a, "prep_" .. id .. (step == 8 and "_chill" or ""))
-    elseif step == 9 then
-        require("game.ui.prefs").set_chill(false)
-        require("game.ui.prep_steps").go(app, "ready")
+        app.sel = nil
         app.open_notes("session")
         shot(a, "notes_session")
-    elseif step == 10 then
+    elseif step == 3 then
         app.open_notes("people")
         shot(a, "notes_people")
-    elseif step == 11 then
+    elseif step == 4 then
         -- (Whoever's at the table: a small table starts without Jess, October 15.)
         local who = app.campaign.players[#app.campaign.players].key
         app.open_sheet(who)
         shot(a, "sheet_" .. who)
-    elseif step == 12 then
+    elseif step == 5 then
         app.close_overlay()
         app.open_encounter(3)
         shot(a, "encounter")
-    elseif step == 13 then
+    elseif step == 6 then
         app.enc_tab = "map"
         app.refresh()
         shot(a, "map_builder")
@@ -707,7 +521,7 @@ function M.update(app, dt)
         end
         return
     end
-    if a.t > (a.mode == 7 and 4000 or 600) then
+    if a.t > 600 then
         return finish(a, false, "timed out on " .. tostring(app.screen))
     end
     a.wait = a.wait - dt
@@ -716,12 +530,14 @@ function M.update(app, dt)
     end
     a.wait = STEP
     local s = app.screen
-    -- Key art: no first-session tips over the shots.
-    if a.keyart and app.campaign then
-        app.campaign.guide = app.campaign.guide or { seen = {}, off = false, shown = 0 }
-        app.campaign.guide.off = true
-    end
     if s == "intro" then
+        -- The prototype notice on launch: agree first.
+        if not app.notice_ok then
+            if not shot(a, "notice") then
+                by_key("agree")
+            end
+            return
+        end
         if a.mode == 2 then
             if not shot(a, "intro_continue") then
                 if not by_key("continue") then
@@ -737,72 +553,74 @@ function M.update(app, dt)
                 end
             end
         end
-    elseif s == "setup" or s == "join" then
-        -- Setting up, one decision at a time (October 26): answer each step like a player who
-        -- takes the defaults where there are some, shoot the ones worth seeing, and go on.
-        local steps_mod = require "game.ui.steps"
-        local sv = require "game.ui.setup_view"
-        local backstory = require "game.model.backstory"
-        local flow = s == "setup" and sv.flow or sv.join_flow
-        local st = steps_mod.current(app, flow)
-        if not st then
-            return finish(a, false, "no setup step")
-        end
-        -- (The room camera glides in first: the first shot waits for it.)
-        local who = s == "join" and tostring(app.join and app.join.key) or "setup"
-        if a.settled_for ~= who then
-            a.settled_for = who
-            a.wait = 2.5
-            return
-        end
-        a.answered = a.answered or {}
-        if not a.answered[who .. ":" .. st.id] then
-            a.answered[who .. ":" .. st.id] = true
-            local id = st.id
-            if id == "table" and a.keyart then
-                by_key("table_full")      -- key art wants the whole table
-            elseif id == "tone" then
-                by_key("tone_mixed")
-            elseif id:find("^ask_") then
-                by_key(id .. "_agree")
-            elseif id:find("^rule_") then
-                local rk = id:sub(6)
-                by_key(id .. "_" .. (require("game.model.content").session_zero.defaults.rules[rk] or "meaningful"))
-            elseif id:find("^bs_q_") or id == "join_q" then
-                local k = id == "join_q" and app.join.key or id:sub(6)
-                local ask = ({ mara = { "last_words", "afraid" }, dev = { "plan" }, jess = { "how" } })[k]
-                    or { backstory.data[k].questions[1].id }
-                for _, q in ipairs(ask) do
-                    by_key("bs_q_" .. q)
-                end
-            elseif id:find("^bs_idea_") or id == "join_idea" then
-                by_key("bs_idea_yes")
-            elseif id == "join_ask" then
-                by_key("join_ask_agree")
-            elseif id:find("^bs_hook_") or id == "join_hook" then
-                local k = id == "join_hook" and app.join.key or id:sub(9)
-                local hooks = backstory.data[k].hooks
-                by_key("bs_hook_" .. (hooks[2] or hooks[1]).card)
-            elseif id == "featured" then
-                by_key("thread_mara")
-                by_key("thread_dev")
+    elseif s == "planner" then
+        if not shot(a, "planner") then
+            -- Key art wants the whole table: all four from session 1.
+            if a.keyart and not a.ka_table then
+                a.ka_table = true
+                by_key("table_full")
+                return
             end
-            a.wait = 1.0       -- (their poses and bubbles change)
+            if not by_key("plan_done") then
+                return finish(a, false, "the planner has no way on")
+            end
+        end
+    elseif s == "session_zero" then
+        app.s0 = app.s0 or { asks = {}, rules = {} }
+        app.s0.tone = app.s0.tone or "mixed"
+        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do
+            app.s0.asks[k] = app.s0.asks[k] or "agree"
+        end
+        app.s0.rules.xcard = app.s0.rules.xcard or "on"
+        app.s0.rules.dice = app.s0.rules.dice or "big_open"
+        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.s0.rules.length = app.s0.rules.length or "half"
+        app.s0.rules.death = app.s0.rules.death or "meaningful"
+        if app.s0.page ~= "backstories" then
+            app.refresh()
+            if not shot(a, "session_zero") then
+                by_label("Backstories")
+            end
             return
         end
-        local worth = { table = true, style = true, truths = true, front = true, tone = true, ask_mara = true,
-                        rule_death = true, bs_q_mara = true, bs_idea_mara = true, bs_hook_mara = true, featured = true,
-                        ready = true, join_q = true, join_hook = true }
-        if a.mode ~= 7 and worth[st.id] and shot(a, (s == "join" and ("join_" .. tostring(app.join and app.join.key) .. "_") or "setup_") .. st.id) then
-            return
+        -- Their backstories (October 13): a few questions, an idea taken up, and a hook for each.
+        local backstory = require "game.model.backstory"
+        local all = app.s0.backstories or {}
+        app.s0.backstories = all
+        if not all.mara then
+            backstory.toggle_question(all, "mara", "last_words")
+            backstory.toggle_question(all, "mara", "afraid")
+            backstory.toggle_question(all, "dev", "plan")
+            backstory.toggle_question(all, "jess", "how")
+            all.jess.idea = "yes"
+            all.mara.idea = "yes"
+            for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
+                all[k] = all[k] or { asked = {} }
+                all[k].hook = all[k].hook or backstory.data[k].hooks[2].card
+            end
+            app.s0.bs_key = "mara"
         end
-        if not steps_mod.next(app, flow) then
-            return finish(a, false, "couldn't go on from the " .. st.id .. " step")
+        app.refresh()
+        if not shot(a, "backstories") then
+            by_label("Start session")
+        end
+    elseif s == "join" then
+        -- A small table (October 15): someone joins this week. Their questions, their idea taken
+        -- up, the ask agreed and the first hook; then the welcome.
+        local backstory = require "game.model.backstory"
+        local key = app.join and app.join.key
+        if key then
+            app.join.backstories = app.join.backstories or {}
+            app.join.backstories[key] = app.join.backstories[key] or backstory.default_choice(key)
+            app.join.ask = app.join.ask or "agree"
+            app.refresh()
+        end
+        if not shot(a, "join_" .. tostring(key)) then
+            if not by_key("join_start") then
+                return finish(a, false, "no welcome button on the join page")
+            end
         end
     elseif s == "prep" then
-        if a.mode == 7 then
-            return M.act_prep(app, a)
-        end
         if app.levelup then
             by_key("levelup_close")
             return
@@ -848,8 +666,6 @@ function M.update(app, dt)
             end
             require("game.model.handouts").toggle(p, "gus")
         end
-        -- Prep is a step at a time (October 26): game night is the last step's button.
-        require("game.ui.prep_steps").go(app, "ready")
         app.refresh()
         if not by_label("Run game night") then
             return finish(a, false, "no Run game night button")
@@ -870,18 +686,12 @@ function M.update(app, dt)
         if app.night_done then
             if not shot(a, "night_done_" .. app.campaign.week) then
                 -- Mode 1: someone's Goodwill is full after the first night, so the report has a gift.
-                -- Mode 7: the first player's after the first night, and the next one's after the third.
-                local wk = app.campaign.week
-                if (a.mode == 1 and wk == 1) or (a.mode == 7 and (wk == 1 or wk == 3)) then
+                if a.mode == 1 and app.campaign.week == 1 then
                     local ks = require "game.model.keepsakes"
-                    local nth = wk == 3 and 2 or 1
                     for _, p in ipairs(app.campaign.players) do
                         if p.present then
-                            nth = nth - 1
-                            if nth == 0 then
-                                ks.get(app.campaign).goodwill[p.key] = ks.data.FULL
-                                break
-                            end
+                            ks.get(app.campaign).goodwill[p.key] = ks.data.FULL
+                            break
                         end
                     end
                 end
@@ -896,28 +706,28 @@ function M.update(app, dt)
             end
         elseif app.pending then
             -- Key art: clean shots, a story scene's and a fight's, while the night waits on a card.
-            if keyart_on(app, a) and (a.ka or app.pending.kind == "decision") then
+            if a.mode == 4 and a.keyart and (a.ka or app.pending.kind == "decision") then
                 local kt = app.pending.card and app.pending.card.type
-                local tag = ka_tag(app, a, (kt == "combat" or kt == "boss") and "fight" or "story")
+                local tag = (kt == "combat" or kt == "boss") and "fight" or "story"
                 if a.ka or not (a.ka_done or {})[tag] then
                     if M.keyart(app, a, a.ka and a.ka.tag or tag) then
                         return
                     end
                 end
             end
-            if showy(app, a) and (app.pending.kind == "decision" or app.pending.kind == "roll_where" or app.pending.kind == "ruling")
+            if a.mode == 4 and (app.pending.kind == "decision" or app.pending.kind == "roll_where" or app.pending.kind == "ruling")
                 and not a.shots[app.pending.kind] then
                 shot(a, app.pending.kind)
                 return
             end
             -- Taking over (B8): the talk card and the boss's turn, once each.
             local ct = app.pending.kind == "decision" and app.pending.card and app.pending.card.type
-            if showy(app, a) and (ct == "talk" or ct == "boss") and not a.shots["takeover_" .. ct] then
+            if a.mode == 4 and (ct == "talk" or ct == "boss") and not a.shots["takeover_" .. ct] then
                 shot(a, "takeover_" .. ct)
                 return
             end
             -- A player's pull (October 18): the card with its four answers, once.
-            if showy(app, a) and ct == "skew" and not a.shots.pull_card then
+            if a.mode == 4 and ct == "skew" and not a.shots.pull_card then
                 shot(a, "pull_card")
                 return
             end
@@ -936,27 +746,24 @@ function M.update(app, dt)
             end
         elseif not app.rolling then
             -- Key art: carry on with the shots, or start the fight's once its minis are on the mat.
-            if keyart_on(app, a) then
+            if a.mode == 4 and a.keyart then
                 local ev = app.last_ev
-                local btag = ka_tag(app, a, "battle")
                 if a.ka then
                     if M.keyart(app, a, a.ka.tag) then
                         return
                     end
-                elseif ev and not (a.ka_done or {})[btag] and ((a.mode == 4 and ev.kind == "battle" and a.shots.battle_board)
-                    or (a.mode == 7 and ev.kind == "turn" and app.in_battle)) then
-                    M.keyart(app, a, btag)
+                elseif ev and ev.kind == "battle" and a.shots.battle_board and not (a.ka_done or {}).battle then
+                    M.keyart(app, a, "battle")
                     return
                 end
             end
-            if showy(app, a) and M.night_shots(app, a) then
+            if a.mode == 4 and M.night_shots(app, a) then
                 return
             end
             if M.keepsake_shots(app, a) then
                 return
             end
-            if (a.mode ~= 7 or showy(app, a)) and a.t - (a.last_night_shot or 0) > 25
-                and shot(a, "night_" .. app.campaign.week .. "_" .. math.floor(a.t)) then
+            if a.t - (a.last_night_shot or 0) > 25 and shot(a, "night_" .. app.campaign.week .. "_" .. math.floor(a.t)) then
                 a.last_night_shot = a.t
                 return
             end
@@ -1004,12 +811,6 @@ function M.update(app, dt)
             by_key("next_week")
         end
     elseif s == "slice_end" then
-        if a.mode == 7 then
-            if not shot(a, "act_scrapbook") then
-                return finish(a, true, "the first act, shown off")
-            end
-            return
-        end
         by_key("keep_playing")
     end
 end

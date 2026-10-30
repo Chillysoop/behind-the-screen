@@ -2,6 +2,8 @@
 
 October 27, 2026. Exported from the project's Claude Doc; this copy is for anyone working in the code. If it and the code disagree, the code is what ships.
 
+> **Which version this describes (updated October 29).** The current build (`main`) is the October 20 version plus a prototype notice on launch. Its setup and prep are full-page screens: the campaign planner, Session Zero, the backstories, and the prep board (the valley map, three scenes with their slots, "Previously on" in the left column, a drawer for seeds and evenings off, a column for the group chat and messages, and the notebook's "This week" page for the world's moves, who the session is for and who shows up). Faces on choices and cards always show who'd love each option. This overview was written for the October 26 step-by-step rework (one decision at a time, Chill mode, longer speech bubbles), which was set aside and lives on the `step-by-step` branch. Where they differ, the step-by-step and Chill mode details below don't apply to the current build; the systems, the story, game night and the findings mostly do.
+
 ## What the game is
 
 Behind the Screen is a cozy single-player game where you are the Dungeon Master for four simulated friends who meet every Thursday to play a fantasy tabletop game. You don't play a hero; you run the table. You plan each session, make the calls when game night needs you, read how your friends are feeling, and keep a story going that they care about week after week.
@@ -10,11 +12,11 @@ The fantasy is being a good DM: the friend who makes Thursday the best night of 
 
 - **Engine:** Defold 1.13.2, Lua. Every model and rule is engine-free Lua, so the whole campaign can be simulated headlessly.
 - **Scope today:** a vertical slice of Session Zero plus the first four sessions of a 20-session campaign, *The Silent Bells*, with "Keep playing" beyond it.
-- **Direction:** fewer, clearer decisions with more character. The latest rework (October 26) turned the pre-session menus into one decision at a time, with your friends reacting in speech and thought bubbles. A "Chill mode" switch shows who'd like each option; by default you read the table from what people say and how they sit.
+- **Direction:** fewer, clearer decisions with more character. The current build opens on a short prototype notice and uses full-page screens for setup and prep, with faces showing who'd like each option. An October 26 rework that asked one decision at a time (with Chill mode hiding the faces) was set aside and is on the `step-by-step` branch.
 
 ## The loop
 
-A campaign is set up once, then every week runs prep, game night and a report. Prep and setup now ask one decision at a time: a question, its choices, Back and Next, with the four friends at the table above it reacting in bubbles and posture.
+A campaign is set up once, then every week runs prep, game night and a report. In the current build, setup is the campaign planner, then Session Zero, then the backstories, and prep is one board (see the note at the top). The step counts below are from the set-aside step-by-step version; the decisions are the same.
 
 1. **Setting up (once).** About 20 steps (two players) to 29 (all four):
    - **The campaign:** who's at the table (two to start, the others joining in sessions 2 and 3, or all four), the campaign style (frontier town, seafaring, urban, dungeon, wilderness), three truths about the world, a second threat ("front") beside the main villain, and your dice.
