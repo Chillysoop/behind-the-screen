@@ -113,9 +113,9 @@ M.heroes = {
 }
 
 -- The museum's rooms. part: which floor of the story. type: the scene type it plays as.
--- quick: a short room (a hook, a beat, a rest). cost: prep hours. next: where the party can go
--- from here (several = a fork they choose). needs: any of these rooms done first. closes: rooms
--- left behind for good when the party goes here. stop: the night ends after this room.
+-- quick: a short room (a hook, a beat, a rest). cost: prep hours. next: the way the story runs on
+-- from here (prep reads ahead along it; the doors themselves are M.links below). stop: the night
+-- can end after this room.
 -- encounter: the fight (monster ids from game/rules/data/monsters.lua; the first is the boss).
 -- optional_fight: the fight only happens if a moment says so. at: where it sits on the map (0-100).
 M.start = "street"
@@ -164,7 +164,6 @@ M.rooms = {
         comps = { location = "mus_gift_shop", cast = "mus_telpur", goal = "mus_shop", complication = "mus_no_refunds", reward = "mus_shop_goods" },
         read = "A quiet little shop at the foot of the stairs, and a boot asleep on the counter.",
         sum = "A rest, Telpur the talking boot, and somewhere to spend Flitwidget Francs. The book's place to stop for the night.",
-        needs = { "chamber", "paintings" }, closes = { "chamber", "paintings" },
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
     },
     hunting = {
@@ -202,7 +201,6 @@ M.rooms = {
         name = "The stairs up", part = 2, type = "exploration", quick = true, cost = 0, at = { 50, 12 }, map = "Stairs", stop = true, virtual = true,
         read = "Between the studies, a narrow stair climbs toward a smell of smoke and wine.",
         sum = "Up to Euryale. The night stops at the top step.",
-        needs = { "hunting" }, closes = { "offices", "tomorrow", "lecture" },
         next = { "lair" },
     },
     lair = {
@@ -222,6 +220,35 @@ M.rooms = {
         sum = "The reward, a pick from the shop, and what comes next.",
     },
 }
+-- How the rooms join, door to door, as on the book's maps (each way). The party walks through
+-- rooms it has cleared without stopping; going back to one has to be for a reason (museum_night:
+-- a second look, a hint, a rest or the shop, fleeing). Once inside the caravan nobody goes back
+-- out to the street.
+M.links = {
+    { "street", "garden" }, { "garden", "entrance" },
+    { "entrance", "chamber" }, { "entrance", "paintings" },
+    { "chamber", "gift_shop" }, { "paintings", "gift_shop" },
+    { "gift_shop", "hunting" },
+    { "hunting", "offices" }, { "hunting", "tomorrow" }, { "hunting", "lecture" },
+    { "hunting", "stairs" }, { "offices", "stairs" },
+    { "stairs", "lair" },
+}
+M.no_return = { street = true }
+-- What a second look at a cleared room can still turn up: its moments that hand out something
+-- (a weapon from a painting, the key in the pond, the polished door). A room has "something
+-- missed" while one of these was never played or was passed up.
+M.second_look = {
+    garden = { "mus_pond" }, entrance = { "mus_box" }, chamber = { "mus_tidy" },
+    paintings = { "mus_reach" }, hunting = { "mus_mirror" }, tomorrow = { "mus_code" },
+}
+-- Why the table would go back somewhere ({names}, {want}, {room}).
+M.revisit_why = {
+    missed = "{names} {want} another look at {room}. Something in there got away from them.",
+    hint = "You let slip that {room} still has something in it.",
+    passed = "{names} {want} to see {room}. They walked right past it.",
+    shop = "{names} {want} to nip back to the gift shop and spend some Francs.",
+    rest = "Everyone's hurting. {names} {want} to fall back to the gift shop for a breather.",
+}
 M.order = { "street", "garden", "entrance", "chamber", "paintings", "gift_shop", "hunting", "offices", "tomorrow", "lecture", "stairs", "lair" }
 
 -- A fork's question, by the rooms on offer.
@@ -230,9 +257,13 @@ M.forks = {
               title = "Which wing?" },
     second_wing = { text = "One wing done. The other is right there, and so is the gift shop at the foot of the stairs.", title = "The other wing?" },
     hub = { text = "Three doors off the hunting floor, and a narrow stair going up. Everyone has an opinion.", title = "Where next?" },
+    roam = { text = "There's a way on. There's also a reason to go back.", title = "Onward, or back?" },
 }
 -- What each room promises at a fork, and who it pulls (archetype weights add to each friend's tastes).
 M.pull = {
+    garden = { label = "Through the curtains, into the garden", want = "to get into the garden", tags = { "explore", "danger" } },
+    entrance = { label = "On into the museum", want = "to get inside", tags = { "explore" } },
+    hunting = { label = "Up the stairs to the second floor", want = "to see what's upstairs", tags = { "explore", "danger" } },
     chamber = { label = "The Chamber of Ancients", want = "the Chamber of Ancients", tags = { "puzzle", "lore", "danger" } },
     paintings = { label = "The Hall of Paintings", want = "the Hall of Paintings", tags = { "explore", "mystery", "funny" } },
     gift_shop = { label = "On to the gift shop", want = "to head on to the gift shop", tags = { "cozy", "loot" } },

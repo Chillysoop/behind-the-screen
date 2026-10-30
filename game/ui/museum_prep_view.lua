@@ -11,6 +11,7 @@ local content = require "game.model.content"
 local util = require "game.model.util"
 local adventure = require "game.model.adventure"
 local museum_week = require "game.model.museum_week"
+local map_repo = require "game.model.map_repo"
 
 local MODULE = adventure.data
 local M = {}
@@ -184,13 +185,19 @@ local function between(app)
 end
 
 -- The museum map --------------------------------------------------------------------------------
+-- The book's three floor plans, simplified: the garden and the ground floor (entrance, the two wings,
+-- the gift shop and its stairs), the second floor (the Hunting Grounds round the studies, the World
+-- of Tomorrow and the lecture theatre), and her lair at the top. Each room sits where the book's
+-- map has it; colour says where the party has been.
 
 local function room_state(c, id)
-    local st = c.adv
+    local st = adventure.fill(c.adv)
     if st.done[id] then
         return "done"
     elseif st.skipped[id] then
         return "skipped"
+    elseif st.passed[id] then
+        return "passed"
     end
     local prep = c.prep
     if prep and prep.museum and util.contains(prep.museum.ahead, id) then
@@ -199,57 +206,141 @@ local function room_state(c, id)
     return "later"
 end
 
+-- Each floor: its title, and every room as a box in the floor's own 0..1 frame.
+local FLOORS = {
+    { title = "GROUND FLOOR", rooms = {
+        { "garden", 0.17, 0.0, 1.0, 0.40 }, { "street", 0.0, 0.08, 0.15, 0.32 },
+        { "entrance", 0.30, 0.44, 0.70, 0.57 }, { "chamber", 0.04, 0.59, 0.48, 0.84 },
+        { "paintings", 0.52, 0.59, 0.96, 0.84 }, { "gift_shop", 0.26, 0.86, 0.74, 1.0 } },
+      pond = { 0.44, 0.07, 0.74, 0.22 } },
+    { title = "SECOND FLOOR", rooms = {
+        { "hunting", 0.0, 0.0, 1.0, 1.0 }, { "lecture", 0.04, 0.10, 0.40, 0.34 },
+        { "tomorrow", 0.04, 0.40, 0.40, 0.64 }, { "offices", 0.44, 0.10, 0.70, 0.40 },
+        { "stairs", 0.44, 0.46, 0.70, 0.64 } },
+      label = { "hunting", 0.5, 0.78 }, down = { 0.80, 0.30, 0.96, 0.56 } },
+    { title = "TOP FLOOR", rooms = { { "lair", 0.0, 0.0, 1.0, 1.0 } } },
+}
+
+local function state_colour(s, r)
+    if r and r.boss and s ~= "done" then
+        return kit.rgba("#6a2e26")
+    end
+    return (s == "done" and kit.rgba("#4f6a3e")) or (s == "skipped" and kit.rgba("#2a201b"))
+        or (s == "passed" and kit.rgba("#6a4a2a")) or (s == "ahead" and theme.panel3) or theme.panel
+end
+
+local function floor_room(app, c, id, x, y, w, h, here, backdrop, inner, pond)
+    local r = MODULE.rooms[id]
+    local s = room_state(c, id)
+    if s == "ahead" or here then
+        kit.box(x - 2, y - 2, w + 4, h + 4, here and theme.teal or theme.gold, { radius = 7 })
+    end
+    local col = state_colour(s, r)
+    if inner and (s == "later" or s == "ahead") then
+        col = s == "ahead" and theme.panel3 or kit.rgba("#4a3a30")   -- (a room inside the big hall shows up on it)
+    end
+    kit.box(x, y, w, h, col, { radius = 6 })
+    if backdrop then
+        return s
+    end
+    if pond then
+        kit.box(pond[1], pond[2], pond[3], pond[4], kit.rgba("#3a6f86", 0.55), { radius = 12 })
+    end
+    local label = r.map or (string.gsub(r.name, "^The ", ""))
+    local font = "ui14"
+    if kit.width(label, font) > w - 6 then
+        label = kit.ellipsize(label, font, w - 6)
+    end
+    local ty = pond and (pond[2] + pond[4] + 2) or (y + math.max(1, (h - 18) / 2))
+    kit.text(x + w / 2, ty, label, font, (s == "skipped") and theme.faint or theme.text, { pivot = gui.PIVOT_N })
+    if s == "done" and w > 34 then
+        kit.text(x + w - 4, y + 1, "v", "ui14", theme.green, { pivot = gui.PIVOT_NE })
+    end
+    return s
+end
+
+-- The heroes whose reason for coming pays off in a room: their faces in its corner.
+local function faces(c, id, x, y)
+    local hx = x + 9
+    for _, p in ipairs(adventure.hooked(c, id)) do
+        kit.dot(hx, y + 9, 16, panels.COLORS[p.key] or theme.panel3)
+        kit.picture(hx - 7, y + 2, 14, 14, panels.face(p.key))
+        hx = hx + 15
+    end
+end
+
+-- Where the party stands: four little dots in their colours.
+local function party_dots(c, x, y)
+    for i, key in ipairs(content.players.order) do
+        if c:player(key) then
+            kit.dot(x + (i - 1) * 8, y, 8, panels.COLORS[key] or theme.text)
+        end
+    end
+end
+
+local function draw_floor(app, c, fl, x, y, w, h)
+    kit.text(x, y, fl.title, "ui14", theme.dim)
+    y, h = y + 18, h - 18
+    local st = adventure.fill(c.adv)
+    local here = st.pos or st.last_room
+    local function rect(rr)
+        return x + rr[1] * w, y + rr[2] * h, (rr[3] - rr[1]) * w, (rr[4] - rr[2]) * h
+    end
+    for i, rm in ipairs(fl.rooms) do
+        local id = rm[1]
+        local rx, ry, rw, rh = rect({ rm[2], rm[3], rm[4], rm[5] })
+        local backdrop = (i == 1 and fl.label ~= nil)
+        local pond
+        if id == "garden" and fl.pond then
+            pond = { rect(fl.pond) }
+        end
+        floor_room(app, c, id, rx, ry, rw, rh, here == id, backdrop, fl.label ~= nil and i > 1, pond)
+        if backdrop then
+            -- The big hall the other rooms open off: its name at the bottom.
+            local lx, ly = x + fl.label[2] * w, y + fl.label[3] * h
+            local r = MODULE.rooms[id]
+            kit.text(lx, ly, r.map or r.name, "ui14", theme.text, { pivot = gui.PIVOT_N })
+            if room_state(c, id) == "done" then
+                kit.text(lx + kit.width(r.map or r.name, "ui14") / 2 + 4, ly, "v", "ui14", theme.green)
+            end
+        end
+        faces(c, id, rx, ry)
+        if here == id then
+            party_dots(c, rx + rw - 34, ry + rh - 8)
+        end
+    end
+    if fl.down then
+        local dx, dy, dw, dh = rect(fl.down)
+        kit.box(dx, dy, dw, dh, kit.rgba("#000000", 0.25), { radius = 4 })
+        kit.text(dx + dw / 2, dy + dh / 2 - 9, "down", "ui14", theme.faint, { pivot = gui.PIVOT_N })
+    end
+end
+
 function M.draw_map(app, x, y, w, h, opts)
     local c = app.campaign
     opts = opts or {}
     kit.box(x, y, w, h, kit.rgba("#000000", 0.22), { radius = 10 })
-    local function pos(r)
-        return x + 40 + (w - 80) * r.at[1] / 100, y + 26 + (h - 52) * (r.at[2] / 100)
-    end
-    -- The ways between rooms, drawn once each.
-    local drawn = {}
-    for _, id in ipairs(MODULE.order) do
-        local r = MODULE.rooms[id]
-        local x1, y1 = pos(r)
-        for _, nid in ipairs(r.next or {}) do
-            local key = id < nid and (id .. nid) or (nid .. id)
-            if not drawn[key] then
-                drawn[key] = true
-                local x2, y2 = pos(MODULE.rooms[nid])
-                kit.line(x1, y1, x2, y2, 2, kit.rgba("#b9a88e", 0.35))
-            end
+    local pad = 10
+    local ix, iy, iw, ih = x + pad, y + 8, w - 2 * pad, h - 16 - (opts.legend and 20 or 0)
+    if w / h >= 2.2 then
+        -- Wide (the prep board): the three floors side by side, the ground floor biggest.
+        local shares = { 0.40, 0.36, 0.24 }
+        local fx = ix
+        for i, fl in ipairs(FLOORS) do
+            local fw = iw * shares[i] - (i < 3 and 14 or 0)
+            draw_floor(app, c, fl, fx, iy, fw, ih)
+            fx = fx + iw * shares[i]
         end
-    end
-    for _, id in ipairs(MODULE.order) do
-        local r = MODULE.rooms[id]
-        local cx, cy = pos(r)
-        local s = room_state(c, id)
-        local label = r.map or (string.gsub(r.name, "^The ", ""))
-        local tw = kit.width(label, "ui14") + 16
-        local col = (s == "done" and kit.rgba("#4f6a3e")) or (s == "skipped" and kit.rgba("#2a201b"))
-            or (s == "ahead" and theme.panel3) or theme.panel
-        if r.boss then
-            col = s == "done" and kit.rgba("#4f6a3e") or kit.rgba("#6a2e26")
-        end
-        if s == "ahead" then
-            kit.box(cx - tw / 2 - 2, cy - 13, tw + 4, 26, theme.gold, { radius = 8 })
-        end
-        kit.box(cx - tw / 2, cy - 11, tw, 22, col, { radius = 7 })
-        kit.text(cx, cy - 9, label, "ui14", s == "skipped" and theme.faint or theme.text, { pivot = gui.PIVOT_N })
-        if s == "done" then
-            kit.text(cx + tw / 2 + 3, cy - 10, "v", "ui14", theme.green)
-        end
-        -- Whose hook pays off here: their face beside the room.
-        local hx = cx - tw / 2 - 14
-        for _, p in ipairs(adventure.hooked(c, id)) do
-            kit.dot(hx, cy, 18, panels.COLORS[p.key] or theme.panel3)
-            kit.picture(hx - 8, cy - 8, 16, 16, panels.face(p.key))
-            hx = hx - 18
-        end
+    else
+        -- Squarer (the showdown, the notes, the recap): the ground floor left, the rest stacked.
+        local lw = iw * 0.48
+        draw_floor(app, c, FLOORS[1], ix, iy, lw - 10, ih)
+        draw_floor(app, c, FLOORS[2], ix + lw, iy, iw - lw, ih * 0.58 - 6)
+        draw_floor(app, c, FLOORS[3], ix + lw + (iw - lw) * 0.2, iy + ih * 0.58, (iw - lw) * 0.6, ih * 0.42)
     end
     if opts.legend then
-        kit.text(x + 12, y + h - 22, "Gold: tonight's rooms.  Green: done.  Faded: left behind.  Faces: a hero's reason for coming.",
-            "ui14", theme.faint)
+        kit.text(x + 12, y + h - 22, "Gold: tonight.  Green: done.  Brown: walked past.  Teal: where they are.  "
+            .. "Faces: why a hero came.", "ui14", theme.faint, { w = w - 24, lines = 1 })
     end
 end
 
@@ -315,8 +406,35 @@ local function room_row(app, prep, id, x, y, w)
     kit.text(x + 18, y + 8, r.name, "ui18b", theme.text)
     local nx = x + 18 + kit.width(r.name, "ui18b") + 10
     local tn = content.scenes[r.type] and content.scenes[r.type].name or r.type
-    kit.text(nx, y + 11, tn .. (r.quick and ", short" or ""), "ui14", theme.dim)
-    kit.text(x + 18, y + 30, r.sum, "ui14", theme.dim, { w = w - 220, lines = 1 })
+    local tl = tn .. (r.quick and ", short" or "")
+    kit.text(nx, y + 11, tl, "ui14", theme.dim)
+    -- The map it plays on (v2: any map from the repository); a click opens the repository on it.
+    if not r.virtual then
+        local ref = map_repo.room_map(c, id)
+        local e = ref and map_repo.find(c, ref)
+        local label = "Map: " .. (e and e.title or "the book's")
+        local mx = nx + kit.width(tl, "ui14") + 12
+        local mw = math.min(kit.width(label, "ui14") + 16, x + w - 196 - mx)
+        if mw > 60 then
+            kit.button(mx, y + 8, mw, 22, kit.ellipsize(label, "ui14", mw - 12), function()
+                if app.open_maps then
+                    local lid = r.comps and r.comps.location
+                    local own = content.terrain.by_location[lid or ""]
+                    app.open_maps(ref or (own and ("board:" .. own)) or nil)
+                end
+            end, { font = "ui14", color = e and theme.go or theme.panel2, hover = theme.button_hover, key = "room_map_" .. id })
+        end
+    end
+    local sides = map_repo.side_rooms_off(c, id)
+    local sum = r.sum
+    if #sides > 0 then
+        local names = {}
+        for _, sid in ipairs(sides) do
+            table.insert(names, c.adv.side_rooms[sid].name)
+        end
+        sum = "Side room off here: " .. util.join_names(names) .. ". " .. sum
+    end
+    kit.text(x + 18, y + 30, sum, "ui14", #sides > 0 and theme.gold or theme.dim, { w = w - 220, lines = 1 })
     if not r.virtual and (r.cost or 0) > 0 then
         local on = pm.prepped[id]
         local label = on and ("Prepped  (" .. util.int(r.cost) .. "h)") or ("Prep it  (" .. util.int(r.cost) .. "h)")
@@ -364,8 +482,13 @@ end
 local function rooms(app, prep, x, y, w, max_y)
     local pm = prep.museum
     kit.text(x, y, "TONIGHT'S ROOMS", "ui14", theme.dim)
-    kit.text(x + w, y, "The party picks the way at forks. Prep the side you think they'll take, or both.", "ui14", theme.faint,
+    kit.text(x + w - 150, y, "The party picks the way at forks. Prep where you think they'll go.", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
+    kit.button(x + w - 140, y - 6, 140, 26, "All maps", function()
+        if app.open_maps then
+            app.open_maps()
+        end
+    end, { font = "ui14", key = "open_maps" })
     y = y + 22
     for _, id in ipairs(pm.ahead) do
         if y > max_y - 40 then

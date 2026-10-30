@@ -32,6 +32,7 @@ local sheet_view = require "game.ui.sheet_view"
 local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
 local story_log_view = require "game.ui.story_log_view"
+local map_repo_view = require "game.ui.map_repo_view"
 local dice_sets = require "game.model.dice_sets"
 -- (Game night reaches the museum's night only through util.lazy, to keep the require graph free of
 -- cycles; this literal require is what makes the builder pack it. tools/tests/require_check.py.)
@@ -256,6 +257,8 @@ local function build_screen(self)
         sheet_view.draw(app)
     elseif app.overlay == "encounter" and s == "prep" then
         encounter_view.draw(app)
+    elseif (app.overlay == "maps" or app.overlay == "mapmaker") and (s == "prep" or s == "night") then
+        map_repo_view.draw(app)       -- v2: the map repository, and the map maker on the DM's own maps
     else
         app.overlay = nil
     end
@@ -383,11 +386,23 @@ function init(self)
     app.run_night = function()
         prep_view.run_night(app)
     end
+    app.open_maps = function(ref)
+        looked("maps")
+        if app.overlay == "notes" then
+            notes_view.close(app)
+        end
+        map_repo_view.open(app, ref)
+        guide_view.refresh(app)
+    end
     app.close_overlay = function()
         local was_notes = app.overlay == "notes"
         notes_view.close(app)
         sheet_view.close(app)
         encounter_view.close(app)
+        if app.overlay == "maps" or app.overlay == "mapmaker" then
+            app.map_target = nil
+            map_repo_view.close(app)
+        end
         app.overlay = nil
         if was_notes and app.screen == "prep" then
             build_screen(self)   -- the notes can change the hand (pins, shelves, the world's cards)

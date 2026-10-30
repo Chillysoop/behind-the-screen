@@ -442,6 +442,39 @@ for week = 1, WEEKS do
         end
         call(app.close_overlay)
     end
+    -- The map repository (v2): browse, set a room's map, open a side room, make a map and paint on it.
+    if week == 1 then
+        if not click_key("open_maps") then problem("no way into the map repository" .. where) end
+        if app.overlay ~= "maps" then problem("the map repository didn't open" .. where) end
+        dump_once("4m_maps_w" .. week)
+        scan("the map repository" .. where)
+        local repo = require "game.model.map_repo"
+        local entries = repo.entries(c)
+        if #entries < 5 then problem("the map repository is nearly empty (" .. #entries .. ")") end
+        for _, e in ipairs(entries) do
+            if adventure.foreign(e.title) then problem("the old valley in the map repository: " .. e.title) end
+        end
+        click_key("mr_group_basics")
+        click_key("mr_use_room")
+        if not click_key("mr_room_chamber") then problem("no room to set a map for") end
+        if not repo.room_map(c, "chamber") then problem("setting a room's map didn't stick") end
+        click_key("mr_room_chamber")       -- and back to the book's board
+        if repo.room_map(c, "chamber") then problem("couldn't put a room's own board back") end
+        click_key("mr_side_room")
+        if not click_key("mr_room_entrance") then problem("no room to open a side room off") end
+        if #repo.side_rooms_off(c, "entrance") ~= 1 then problem("the side room didn't open") end
+        if not click_key("mr_new") then problem("no New map button") end
+        if app.overlay ~= "mapmaker" then problem("New map didn't open the map maker (" .. tostring(app.overlay) .. ")") end
+        dump_once("4m_mapmaker_w" .. week)
+        scan("the map maker" .. where)
+        click_key("map_piece_pillar")
+        local before = 0
+        for _, mm in pairs(c.my_maps or {}) do before = before + 1 end
+        if before ~= 1 then problem("New map didn't make a map (" .. before .. ")") end
+        if not click_key("mr_back") then problem("no way back from the map maker") end
+        if not click_key("mr_done") then problem("no Done in the map repository") end
+        if app.overlay then problem("the map repository didn't close") end
+    end
     if not has_text("UPSTAIRS") and not c.prep.museum.boss then problem("no Euryale card on the board" .. where) end
     if c.prep.museum.boss then
         boss_seen = true

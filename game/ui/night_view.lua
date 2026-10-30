@@ -322,6 +322,14 @@ function M.draw_frame(app)
             app.open_notes()
         end
     end, { font = "ui14", key = "night_notes" })
+    -- v2: the map repository: where the next scene plays out.
+    if app.campaign.module then
+        kit.button(960, 10, 90, 38, "Maps", function()
+            if app.open_maps then
+                app.open_maps()
+            end
+        end, { font = "ui14", key = "night_maps" })
+    end
     app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
     -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
     -- line nobody read after the first scene; October 20: back at the start of every night). The

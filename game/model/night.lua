@@ -1071,6 +1071,9 @@ end
 -- The terrain set on the table: the place's map if the DM drew one (B9), else the place's own set,
 -- else one borrowed by what the place is, else by the scene (game/model/maps.lua).
 function M:terrain_for(sc)
+    if sc.board_override then
+        return sc.board_override        -- (v2: a map the DM picked from the map repository)
+    end
     return maps.template(self.campaign, sc.comps.location, sc.type)
 end
 
@@ -1087,6 +1090,9 @@ end
 
 -- The place's map, if there is one (B9).
 function M:map_for(sc)
+    if sc and sc.custom_map then
+        return sc.custom_map            -- (v2: one of the DM's own maps)
+    end
     local loc = sc and sc.comps.location
     return loc and maps.get(self.campaign, loc.id) or nil
 end
@@ -2491,7 +2497,12 @@ function M:stunt(sc)
                 skill = st.skill, skill_name = name, crit = roll == 20, fumble = roll == 1 })
     self:say(util.capitalize(util.fill(success and st.win or st.lose, vars)), success and "good" or "bad")
     if success then
-        sc.surprise = (sc.surprise == "party") and nil or "foes"
+        -- (A stunt that spots an ambush cancels it; otherwise the foes are the ones caught out.)
+        if sc.surprise == "party" then
+            sc.surprise = nil
+        else
+            sc.surprise = "foes"
+        end
         score.add(p, "spotlight", 6)
         score.add(p, "fun", 3)
         self:react({ [p.key] = "cheer" })

@@ -54,8 +54,16 @@ local function templates_for(auto)
     return list
 end
 
--- The scene's place, and its map (nil until the first piece goes down).
+-- The scene's place, and its map (nil until the first piece goes down). (v2: aimed at one of the
+-- DM's own maps from the map repository, the "place" is that map: game/model/map_repo.lua keeps
+-- its pieces at campaign.maps["mine:<id>"].)
 local function place_of(app)
+    local t = app.map_target
+    if t and t.mine then
+        local meta = app.campaign.my_maps and app.campaign.my_maps[t.mine]
+        local name = meta and meta.name or "your map"
+        return { id = "mine:" .. t.mine, name = name, short = name }, { type = "exploration", slots = {}, own = true }
+    end
     local s = app.campaign.prep.scenes[app.enc_scene]
     return s and s.slots.location, s
 end
@@ -250,7 +258,7 @@ end
 function M.side(app, x, y, w, ids, hazard)
     local loc, s = place_of(app)
     local m = loc and maps.get(app.campaign, loc.id)
-    local auto = loc and maps.auto_template(app.campaign, loc, s.type)
+    local auto = loc and ((s.own and m and m.template) or maps.auto_template(app.campaign, loc, s.type))
     local function get_map(t)
         return maps.get(app.campaign, loc.id) or maps.new(app.campaign, loc.id, t or auto)
     end
@@ -338,6 +346,12 @@ function M.side(app, x, y, w, ids, hazard)
         redraw(app)
     end, { font = "ui14", enabled = loc ~= nil, key = "map_trap" })
     ty = ty + 30
+    if s and s.own then
+        -- (One of the DM's own maps: no fight to weigh yet. The repository sets it for a room.)
+        kit.text(x, ty, "Saved in your maps. Back in the map repository, set it for a room or open it as a side room.",
+            "ui14", theme.faint, { w = w })
+        return
+    end
     -- How hard, with the map.
     local tilt, why = maps.tilt(m)
     local a = matchup.analyze(app.campaign, ids, hazard, tilt)

@@ -261,7 +261,16 @@ function M.new_state()
     return {
         at = MODULE.start,          -- the next room the party reaches
         done = {},                  -- room -> "win" | "lose"
-        skipped = {},               -- rooms left behind for good
+        skipped = {},               -- rooms left behind for good (anything unseen once they're in the lair)
+        passed = {},                -- rooms they walked past: the floor they're on was left behind
+        pos = nil,                  -- the room the party is standing in
+        floor = 1,                  -- the highest floor reached
+        took = {},                  -- second-look moments they got something out of
+        seen = {},                  -- moments played
+        hints = {},                 -- rooms the DM hinted still have something in them
+        rehomed = {},               -- room -> marks a loose end moved out of it
+        looked = {},                -- rooms they've had their second look at
+        hinted = {},                -- rooms the DM has hinted at (once each)
         path = {},                  -- rooms in the order they played: { room, week, outcome }
         marks = {}, mark_list = {}, -- Euryale's marks: id -> { week, room }
         flags = {},
@@ -320,27 +329,86 @@ end
 
 -- The map: where the party can go next ---------------------------------------------------------
 
-local function needs_met(st, room)
-    if not room.needs then
-        return true
-    end
-    for _, id in ipairs(room.needs) do
-        if st.done[id] then
-            return true
+-- Older saves (before the floors opened up, October 30) lack the roaming fields.
+local function fill(st)
+    st.passed = st.passed or {}
+    st.took = st.took or {}
+    st.seen = st.seen or {}
+    st.hints = st.hints or {}
+    st.rehomed = st.rehomed or {}
+    st.looked = st.looked or {}
+    st.hinted = st.hinted or {}
+    st.floor = st.floor or 1
+    return st
+end
+M.fill = fill
+
+-- The rooms one door away (MODULE.links, both ways).
+function M.neighbors(id)
+    local out = {}
+    for _, l in ipairs(MODULE.links or {}) do
+        if l[1] == id then
+            table.insert(out, l[2])
+        elseif l[2] == id then
+            table.insert(out, l[1])
         end
     end
-    return false
+    return out
 end
 
--- From a room just played, the rooms the party can go to now (unplayed, not left behind, ready).
+-- Where the party can walk from `from` without a fight on the way: through rooms already cleared.
+-- Returns the rooms they'd arrive in, not cleared yet ({ [id] = doors walked }), and the cleared
+-- rooms on the way ({ [id] = doors walked }).
+function M.reachable(campaign, from)
+    local st = fill(campaign.adv)
+    local dist, fresh, cleared = { [from] = 0 }, {}, {}
+    local queue = { from }
+    while #queue > 0 do
+        local id = table.remove(queue, 1)
+        for _, n in ipairs(M.neighbors(id)) do
+            if dist[n] == nil and not (MODULE.no_return or {})[n] and MODULE.rooms[n] then
+                dist[n] = dist[id] + 1
+                if st.done[n] then
+                    cleared[n] = dist[n]
+                    table.insert(queue, n)
+                else
+                    fresh[n] = dist[n]
+                end
+            end
+        end
+    end
+    return fresh, cleared
+end
+
+-- From a room just played, the new rooms the party would head for: reachable, not seen yet, not
+-- walked past (a room on a floor they've left needs a reason: museum_night's second looks).
 function M.options_after(campaign, from)
-    local st = campaign.adv
-    local r = MODULE.rooms[from]
+    local st = fill(campaign.adv)
+    local fresh = M.reachable(campaign, from)
     local out = {}
-    for _, id in ipairs(r and r.next or {}) do
-        local nr = MODULE.rooms[id]
-        if nr and not st.done[id] and not st.skipped[id] and needs_met(st, nr) then
+    for _, id in ipairs(MODULE.order) do
+        if fresh[id] and not st.skipped[id] and not st.passed[id] and not MODULE.rooms[id].boss then
             table.insert(out, id)
+        end
+    end
+    return out
+end
+
+-- Does a cleared room still hold something worth a second look? (MODULE.second_look: a moment
+-- that hands something out, never played or passed up.) Returns the moment ids.
+function M.missed(campaign, room)
+    local st = fill(campaign.adv)
+    local out = {}
+    if not st.done[room] or (st.looked or {})[room] then
+        return out
+    end
+    for _, mid in ipairs((MODULE.second_look or {})[room] or {}) do
+        if not st.took[mid] then
+            for _, m in ipairs(MODULE.moments) do
+                if m.id == mid and M.test(campaign, m.when, {}) then
+                    table.insert(out, mid)
+                end
+            end
         end
     end
     return out
@@ -369,7 +437,7 @@ function M.ahead(campaign)
     while #queue > 0 and guard < 30 do
         guard = guard + 1
         local id = table.remove(queue, 1)
-        if not seen[id] and not st.done[id] and not st.skipped[id] then
+        if not seen[id] and not st.done[id] and not st.skipped[id] and not (st.passed or {})[id] then
             seen[id] = true
             local r = MODULE.rooms[id]
             table.insert(out, id)
@@ -381,8 +449,9 @@ function M.ahead(campaign)
             -- it) lets them catch their breath and go on, so the rooms past it are tonight's too.
             -- The stairs always end it.
             if not r.stop or (id ~= "stairs" and #out < 3) then
-                for _, nid in ipairs(r.next or {}) do
-                    if not seen[nid] then
+                for _, nid in ipairs(M.neighbors(id)) do
+                    local nr = MODULE.rooms[nid]
+                    if not seen[nid] and nr and not nr.boss and not (MODULE.no_return or {})[nid] then
                         table.insert(queue, nid)
                     end
                 end
@@ -418,18 +487,43 @@ end
 
 -- Moving through the museum ---------------------------------------------------------------------
 
--- The party goes into a room: anything it closes off is left behind for good.
+-- The party goes into a room. Going up a floor walks past whatever they didn't see below (still
+-- there if someone wants to go back); going into the lair leaves anything unseen behind for good
+-- (returned, so the night can mark Euryale's card: MODULE.left_behind).
 function M.enter_room(campaign, id, week)
-    local st = campaign.adv
+    local st = fill(campaign.adv)
     local r = MODULE.rooms[id]
     st.choices = nil
     st.at = id
+    st.pos = id
     local left = {}
-    for _, cid in ipairs(r.closes or {}) do
-        if not st.done[cid] and not st.skipped[cid] then
-            st.skipped[cid] = week or true
-            table.insert(left, cid)
+    local part = r.part or 1
+    if part > st.floor then
+        for _, oid in ipairs(MODULE.order) do
+            local o = MODULE.rooms[oid]
+            if (o.part or 1) < part and not st.done[oid] and not o.virtual and oid ~= MODULE.start then
+                st.passed[oid] = st.passed[oid] or week or true
+            end
         end
+        st.floor = part
+    end
+    if r.boss then
+        for _, oid in ipairs(MODULE.order) do
+            local o = MODULE.rooms[oid]
+            if oid ~= id and not st.done[oid] and not st.skipped[oid] and not o.virtual then
+                st.skipped[oid] = week or true
+                st.passed[oid] = nil
+                table.insert(left, oid)
+            end
+        end
+    end
+    -- Back for a room they'd walked past: whatever a loose end moved out of it is here after all.
+    if st.passed[id] then
+        st.passed[id] = nil
+        for _, m in ipairs(st.rehomed[id] or {}) do
+            M.remove_mark(campaign, m)
+        end
+        st.rehomed[id] = nil
     end
     return left
 end
@@ -440,6 +534,14 @@ function M.leave_room(campaign, id, outcome, week)
     st.done[id] = outcome or "win"
     table.insert(st.path, { room = id, week = week, outcome = outcome or "win" })
     local opts = M.options_after(campaign, id)
+    -- At the top of the stairs there's only one way on: her.
+    local r = MODULE.rooms[id]
+    for _, nid in ipairs(r and r.next or {}) do
+        if MODULE.rooms[nid] and MODULE.rooms[nid].boss and not st.done[nid] then
+            st.at, st.choices = nid, nil
+            return { nid }
+        end
+    end
     if #opts == 1 then
         st.at, st.choices = opts[1], nil
     elseif #opts > 1 then
@@ -598,7 +700,8 @@ function M.prompts(campaign)
         return out
     end
     for _, le in ipairs(MODULE.loose_ends) do
-        if not st.answered[le.id] and le.when.skipped and st.skipped[le.when.skipped] then
+        local gone = le.when.skipped
+        if not st.answered[le.id] and gone and (st.skipped[gone] or (st.passed or {})[gone]) and not st.done[gone] then
             table.insert(out, { kind = "loose", def = le, id = le.id })
         end
     end
@@ -670,6 +773,12 @@ function M.answer_loose(campaign, id, i)
             local o = le.options[i]
             st.answered[id] = i
             M.apply(campaign, o.mus, "loose")
+            -- (If they go back for the room after all, the mark it moved goes back with it.)
+            if o.mus and o.mus.mark and le.when.skipped then
+                fill(st)
+                st.rehomed[le.when.skipped] = st.rehomed[le.when.skipped] or {}
+                table.insert(st.rehomed[le.when.skipped], o.mus.mark)
+            end
             for _, p in ipairs(campaign.players) do
                 score.add(p, "investment", ((o.like or {})[p.key] or 0) * 1.5)
             end

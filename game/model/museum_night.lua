@@ -8,12 +8,15 @@ local util = require "game.model.util"
 local score = require "game.model.score"
 local adventure = require "game.model.adventure"
 local prep_mod = require "game.model.prep"
+local map_repo = require "game.model.map_repo"
 
 local MODULE = adventure.data
 local M = {}
 
 M.STOP_BEFORE_END = 25     -- table minutes: no new room this close to the agreed end
 M.FINISH_FLOOR = 20        -- ...unless it's the floor's last room, and the night isn't this far past its end
+M.MAX_BACKS = 2            -- trips back to a cleared room in one night (a second look, a rest, fleeing)
+M.KEEN = 0.5               -- how much someone has to want a trip back before it's even raised
 
 local function present(night, key)
     for _, p in ipairs(night.players) do
@@ -24,7 +27,7 @@ local function present(night, key)
 end
 
 local function st_of(night)
-    return night.campaign.adv
+    return adventure.fill(night.campaign.adv)
 end
 
 local function knobs_of(night)
@@ -72,6 +75,15 @@ function M.build_scene(night, id)
     }
     if r.encounter then
         sc.encounter = { ids = util.copy(r.encounter), boss_name = r.boss_name, built = true }
+    end
+    -- The DM's choice of map from the repository: for this room (prep), or the next scene (tonight).
+    local ref = night.map_next or map_repo.room_map(night.campaign, id)
+    if ref then
+        local t, m = map_repo.terrain_of(night.campaign, ref)
+        if t then
+            sc.board_override, sc.custom_map = t, m
+        end
+        night.map_next = nil
     end
     return sc
 end
@@ -228,6 +240,11 @@ local function option_ok(night, o)
 end
 
 -- Play one moment card: the options that apply here, the DM's pick, its roll, its consequences.
+-- Did an option hand the party something (a weapon, a Franc, a mark on her card)?
+local function gained(mus)
+    return mus ~= nil and (mus.flag or mus.francs or mus.mark or mus.careful or mus.favor) ~= nil
+end
+
 function M.play_moment(night, card, sc)
     local st = st_of(night)
     local copy = {}
@@ -266,9 +283,15 @@ function M.play_moment(night, card, sc)
         return nil
     end
     M.handle(night, o.mus, sc)
+    local got = gained(o.mus)
     if o.roll then
         local out = night.last_roll and o.roll.success or o.roll.fail
         M.handle(night, out and out.mus, sc)
+        got = out ~= nil and gained(out.mus) and night.last_roll and true or false
+    end
+    st.seen[card.id] = true
+    if got then
+        st.took[card.id] = true
     end
     return o
 end
@@ -359,21 +382,30 @@ function M.has_fight(sc)
 end
 
 -- A short room: the hook, a beat, a rest. No checks or big finish, just its moments.
+-- Put a room on the table: its board, the minis, the scene's title card.
+function M.stage(night, sc, title)
+    night.scene = sc
+    night.actor, night.other = nil, nil
+    sc.terrain = night:terrain_for(sc)
+    sc.title = title or night:scene_title(sc)
+    local party, npc = night:staging(sc)
+    local cast, goal = sc.comps.cast, sc.comps.goal
+    night.stage_now = { terrain = sc.terrain, board = night:board_for(sc), party = party, npc = npc }
+    night:board_set(night:board_for(sc), sc)
+    night:emit({ kind = "scene", index = sc.index, title = sc.title, type = sc.type,
+                 board = night:board_for(sc), type_name = content.scenes[sc.type].name, terrain = sc.terrain,
+                 party = party, npc = npc, npc_hidden = npc ~= nil, cast = cast and cast.name,
+                 goal = goal and goal.name })
+    night.npc_pending = npc ~= nil or nil
+    return party, npc
+end
+
 function M.quick_room(night, sc)
     night.scene = sc
     night.actor, night.other = nil, nil
     if not sc.virtual then
-        sc.terrain = night:terrain_for(sc)
-        sc.title = night:scene_title(sc)
-        local party, npc = night:staging(sc)
+        M.stage(night, sc)
         local cast, goal = sc.comps.cast, sc.comps.goal
-        night.stage_now = { terrain = sc.terrain, board = night:board_for(sc), party = party, npc = npc }
-        night:board_set(night:board_for(sc), sc)
-        night:emit({ kind = "scene", index = sc.index, title = sc.title, type = sc.type,
-                     board = night:board_for(sc), type_name = content.scenes[sc.type].name, terrain = sc.terrain,
-                     party = party, npc = npc, npc_hidden = npc ~= nil, cast = cast and cast.name,
-                     goal = goal and goal.name })
-        night.npc_pending = npc ~= nil or nil
         M.read(night, sc)
         night:dress_board()
         night:note_meeting(sc)
@@ -423,9 +455,30 @@ function M.quick_room(night, sc)
 end
 
 -- Forks: the table says where it wants to go ----------------------------------------------------
+-- The party goes where the table wants: new rooms by what each friend likes and the reason their
+-- hero came, the nearest first (nobody wanders the long way round for nothing). Going back to a
+-- room they've cleared needs a reason: something in it got away from them (and the explorer at
+-- the table minds), the DM hinted there's more, they're hurt and the gift shop is a rest, they
+-- have Francs to spend, or a room they walked past on the floor below. Fleeing a lost fight is
+-- its own trip back (M.flee).
+
+local function hurt(night)
+    local hp, max = 0, 0
+    for _, c in ipairs(night.pc_list or {}) do
+        hp = hp + math.max(0, c.hp or 0)
+        max = max + (c.hp_max or 0)
+    end
+    return max > 0 and (1 - hp / max) or 0
+end
+
+-- What a room promises at a fork (MODULE.pull, or plainly its name).
+local function pull_of(id)
+    local r = MODULE.rooms[id]
+    return MODULE.pull[id] or { label = "On to " .. util.lower_first(r.name), want = "to go on to " .. util.lower_first(r.name), tags = {} }
+end
 
 local function want(p, id, c)
-    local pl = MODULE.pull[id]
+    local pl = pull_of(id)
     local n = 0
     for _, t in ipairs(pl and pl.tags or {}) do
         n = n + score.like(p, t)
@@ -437,78 +490,413 @@ local function want(p, id, c)
     return n
 end
 
-function M.fork(night, options)
+-- New rooms still waiting on this floor (the stairs up wait for the rest, for most tables).
+local function left_on_floor(c, options)
+    local n = 0
+    for _, id in ipairs(options) do
+        if id ~= "stairs" then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+local function want_new(p, id, c, steps, floor_left)
+    local n = want(p, id, c) - 0.6 * math.max(0, (steps or 1) - 1)
+    if id == "stairs" then
+        n = n + 1.5 * score.arch(p, "butt_kicker")
+            - floor_left * (1.2 * score.arch(p, "explorer") + 0.8 * score.arch(p, "storyteller") + 0.4)
+    end
+    return n
+end
+
+local function want_back(p, b, night)
+    local st = st_of(night)
+    local n = -2.5 - 0.6 * math.max(0, (b.steps or 1) - 1)
+    if b.why == "missed" then
+        n = n + 6 * score.arch(p, "explorer") + 1.5 * score.arch(p, "power_gamer")
+    elseif b.why == "hint" then
+        n = n + 4.5
+    elseif b.why == "passed" then
+        n = n + 6 * score.arch(p, "explorer") + 1.5 * score.arch(p, "storyteller") - 0.3 * (b.steps or 1)
+    elseif b.why == "shop" then
+        n = n + 4 * score.arch(p, "power_gamer") + 2.5 * score.arch(p, "casual") + math.min(2, (st.francs or 0) / 4)
+    elseif b.why == "rest" then
+        n = n + 3 + 2 * score.arch(p, "tactician") + 2 * score.arch(p, "casual") + 3 * (hurt(night) - 0.45)
+    end
+    return n
+end
+
+-- The trips back worth raising right now: { id, why, steps }.
+function M.second_looks(night)
     local c = night.campaign
     local st = st_of(night)
+    local out = {}
+    local pos = st.pos or st.last_room
+    if not pos or st.ending or (night.mus.backs or 0) >= M.MAX_BACKS then
+        return out
+    end
+    local fresh, cleared = adventure.reachable(c, pos)
+    local been = night.mus.been or {}
+    for _, id in ipairs(MODULE.order) do
+        local steps = cleared[id]
+        if steps and not been[id] then
+            if #adventure.missed(c, id) > 0 then
+                table.insert(out, { id = id, why = st.hints[id] and "hint" or "missed", steps = steps })
+            end
+            if id == "gift_shop" then
+                if hurt(night) >= 0.45 then
+                    table.insert(out, { id = id, why = "rest", steps = steps })
+                elseif (st.francs or 0) >= 3 and not night.mus.shopped then
+                    table.insert(out, { id = id, why = "shop", steps = steps })
+                end
+            end
+        end
+        if fresh[id] and st.passed[id] and not been[id] then
+            table.insert(out, { id = id, why = "passed", steps = fresh[id] })
+        end
+    end
+    -- Only the ones someone at the table actually wants (or the DM hinted at).
+    local keen = {}
+    for _, b in ipairs(out) do
+        local best = -99
+        for _, p in ipairs(night.players) do
+            best = math.max(best, want_back(p, b, night))
+        end
+        if b.why == "hint" or best >= M.KEEN then
+            b.keen = best
+            table.insert(keen, b)
+        end
+    end
+    return keen
+end
+
+-- Side rooms the DM opened from the map repository (map_repo.add_side_room): off the room the
+-- party stands in, or one door away through cleared rooms. Each once.
+function M.side_options(night)
+    local c = night.campaign
+    local st = st_of(night)
+    local out = {}
+    local pos = st.pos or st.last_room
+    if not pos or not st.side_rooms then
+        return out
+    end
+    local _, cleared = adventure.reachable(c, pos)
+    cleared[pos] = 0
+    st.side_done = st.side_done or {}
+    local ids = {}
+    for sid in pairs(st.side_rooms) do
+        table.insert(ids, sid)
+    end
+    table.sort(ids)
+    for _, sid in ipairs(ids) do
+        local sr = st.side_rooms[sid]
+        local steps = cleared[sr.off]
+        if steps and steps <= 1 and not st.side_done[sid] then
+            table.insert(out, { side = sid, id = sr.off, steps = steps, name = sr.name })
+        end
+    end
+    return out
+end
+
+local function want_side(p, sd)
+    return 0.3 + 2.5 * score.arch(p, "explorer") + 1.0 * score.arch(p, "storyteller") + 0.8 * score.like(p, "explore")
+        - 0.8 * score.arch(p, "butt_kicker") - 0.4 * (sd.steps or 0)
+end
+
+-- A side room: the map the DM chose, a look round its places of interest, and back out.
+function M.side_room(night, sd)
+    local c = night.campaign
+    local st = st_of(night)
+    local sr = st.side_rooms and st.side_rooms[sd.side]
+    if not sr then
+        return
+    end
+    st.side_done = st.side_done or {}
+    st.side_done[sd.side] = true
+    local off = MODULE.rooms[sr.off]
+    local sc = { type = "exploration", comps = { location = content.components[off.comps and off.comps.location or ""] },
+                 missing = {}, room = sr.off, side = sd.side, quick = true, prepped = true, quality = 0.6,
+                 difficulty = 1 }
+    sc.board_override, sc.custom_map = map_repo.terrain_of(c, sr.ref)
+    if not sc.board_override then
+        return
+    end
+    table.insert(night.scenes, sc)
+    sc.index = #night.scenes
+    night.mus.total = math.max(night.mus.total or 1, sc.index)
+    M.stage(night, sc, sr.name)
+    night:say("Off " .. util.lower_first(off.name) .. ", a door nobody noticed before: " .. sr.name .. ".", "narration")
+    night.table_min = night.table_min + 6
+    -- Its places of interest, two at most: a closer look each.
+    local places = sr.places or {}
+    local shown = 0
+    for _, pl in ipairs(places) do
+        if shown >= 2 or night.end_early then
+            break
+        end
+        shown = shown + 1
+        local card = { id = "mus_side_" .. sd.side .. "_" .. util.int(shown), type = "story", trigger = "museum",
+                       actor = { "explorer", "storyteller", "instigator" },
+                       title = pl.name or "A closer look",
+                       text = (pl.line and (pl.line .. " ") or "") .. "{actor_char} wants a closer look.",
+                       options = {
+                           { label = "Let them look.", roll = { dc = 12, skill = { "investigation", "perception" }, convenient = "success",
+                               success = { log = "{actor_char} turns up something: a Flitwidget Franc, wedged where nobody looked.",
+                                           effects = { { "actor", spotlight = 8, fun = 4 }, { "arch:explorer", fun = 3 } },
+                                           mus = { francs = 1, aspect = "Found a side room nobody else noticed" } },
+                               fail = { log = "Dust, and the feeling of being watched.", effects = { { "actor", challenge = 3 } } } } },
+                           { label = "Nothing in here for us. Move on.", log = "{actor_char} shrugs and follows the others out.",
+                             effects = { { "arch:explorer", fun = -2 }, { "arch:butt_kicker", fun = 2 } } },
+                       } }
+        M.play_moment(night, card, sc)
+    end
+    if shown == 0 and not night.end_early then
+        night:say("They poke around. It's quiet in here. Almost too quiet.", "dm")
+    end
+    sc.outcome, sc.had_roll = "win", true
+    if not night.end_early then
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = "win" })
+    end
+    table.insert(night.mus.rooms, { room = sr.off, outcome = "win", side = sr.name })
+    return sc
+end
+
+local function back_label(b)
+    local r = MODULE.rooms[b.id]
+    local why = { missed = "a second look", hint = "the thing you hinted at", passed = "they walked past it",
+                  shop = "to spend Francs", rest = "a breather" }
+    return "Back to " .. util.lower_first(r.name) .. " (" .. (why[b.why] or "") .. ")"
+end
+
+-- The fork: new rooms and any trip back worth raising. Returns { id = room } or { back = trip }.
+function M.fork(night, options, backs, sides)
+    local c = night.campaign
+    local st = st_of(night)
+    backs = backs or {}
+    sides = sides or {}
+    local pos = st.pos or st.last_room
+    local fresh = pos and adventure.reachable(c, pos) or {}
+    local floor_left = left_on_floor(c, options)
+    local choices = {}
+    for _, id in ipairs(options) do
+        table.insert(choices, { id = id, steps = fresh[id] or 1 })
+    end
+    for _, b in ipairs(backs) do
+        table.insert(choices, { back = b, id = b.id })
+    end
+    for _, sd in ipairs(sides) do
+        table.insert(choices, { side = sd, id = sd.id })
+    end
     -- Each friend's first choice (a little noise: people are people).
-    local first, by_room = {}, {}
+    local first, by = {}, {}
     for _, p in ipairs(night.players) do
         local best, bv
-        for _, id in ipairs(options) do
-            local v = want(p, id, c) + night.rng:next() * 0.6
+        for i, ch in ipairs(choices) do
+            local v = (ch.back and want_back(p, ch.back, night)) or (ch.side and want_side(p, ch.side))
+                or want_new(p, ch.id, c, ch.steps, floor_left)
+            v = v + night.rng:next() * 0.6
             if not bv or v > bv then
-                best, bv = id, v
+                best, bv = i, v
             end
         end
         first[p.key] = best
-        by_room[best] = by_room[best] or {}
-        table.insert(by_room[best], p)
+        by[best] = by[best] or {}
+        table.insert(by[best], p)
     end
     local top, top_n
-    for _, id in ipairs(options) do
-        local n = #(by_room[id] or {})
+    for i in ipairs(choices) do
+        local n = #(by[i] or {})
         if not top_n or n > top_n then
-            top, top_n = id, n
+            top, top_n = i, n
         end
     end
+    -- What the table says.
     local key = "hub"
     if util.contains(options, "chamber") or util.contains(options, "paintings") then
         key = (st.done.chamber or st.done.paintings) and "second_wing" or "wings"
+    elseif #options <= 1 then
+        key = "roam"
     end
-    local fk = MODULE.forks[key]
+    local fk = MODULE.forks[key] or { title = "Where next?", text = "The table looks at the map." }
     local parts = {}
-    for _, id in ipairs(options) do
+    for i, ch in ipairs(choices) do
         local names = {}
-        for _, p in ipairs(by_room[id] or {}) do
+        for _, p in ipairs(by[i] or {}) do
             table.insert(names, p.name)
         end
-        if #names > 0 then
-            table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ")
-                .. MODULE.pull[id].want .. ".")
+        if ch.side then
+            if #names > 0 then
+                table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ") .. "to poke into "
+                    .. ch.side.name .. ".")
+            end
+        elseif ch.back then
+            local line = MODULE.revisit_why[ch.back.why]
+            if line and (#names > 0 or ch.back.why == "hint") then
+                table.insert(parts, util.fill(line, { names = util.join_names(names), want = #names == 1 and "wants" or "want",
+                                                     room = util.lower_first(MODULE.rooms[ch.id].name) }))
+            end
+        elseif #names > 0 then
+            table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ") .. pull_of(ch.id).want .. ".")
         end
     end
     local pm = night.prep and night.prep.museum
     local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum", title = fk.title,
                    actor = { "instigator", "explorer", "butt_kicker" },
                    text = fk.text .. " " .. table.concat(parts, " "), options = {} }
-    for _, id in ipairs(options) do
+    for i, ch in ipairs(choices) do
         local effs = {}
         for _, p in ipairs(night.players) do
-            local f = (first[p.key] == id) and 3 or -2
-            table.insert(effs, { "key:" .. p.key, fun = f })
+            table.insert(effs, { "key:" .. p.key, fun = (first[p.key] == i) and 3 or -2 })
         end
-        local steer = id ~= top and #(by_room[id] or {}) < top_n
+        local steer = i ~= top and #(by[i] or {}) < top_n
         if steer and (night.mus.steered or 0) >= 1 then
             table.insert(effs, { "all", trust = -2 })
         end
-        local r = MODULE.rooms[id]
-        local note = (r.cost == 0 and "") or ((pm and pm.prepped and pm.prepped[id]) and "  (you prepped it)" or "  (not prepped)")
-        table.insert(card.options, { label = MODULE.pull[id].label .. note, effects = effs, room = id, steer = steer,
+        local label
+        if ch.side then
+            label = "Into " .. ch.side.name .. " (a side room)"
+        elseif ch.back then
+            label = back_label(ch.back)
+        else
+            local r = MODULE.rooms[ch.id]
+            local note = (r.cost == 0 and "") or ((pm and pm.prepped and pm.prepped[ch.id]) and "  (you prepped it)" or "  (not prepped)")
+            label = pull_of(ch.id).label .. note
+        end
+        table.insert(card.options, { label = label, effects = effs, choice = i, steer = steer,
                                      log = steer and "You nudge them the other way. A couple of looks across the table." or nil })
     end
+    -- The DM's own move: a hint that a room they cleared still has something in it.
+    if not night.mus.hinted and (night.mus.backs or 0) < M.MAX_BACKS then
+        for _, id in ipairs(MODULE.order) do
+            local cl = select(2, adventure.reachable(c, pos or id))
+            if cl[id] and not st.hinted[id] and #adventure.missed(c, id) > 0 and not (night.mus.been or {})[id] then
+                table.insert(card.options, {
+                    label = "Hint they missed something in " .. util.lower_first(MODULE.rooms[id].name),
+                    effects = { { "arch:explorer", fun = 4 }, { "arch:butt_kicker", fun = -1 } },
+                    log = "\"You know, you never did look properly at " .. util.lower_first(MODULE.rooms[id].name)
+                        .. ".\" Someone groans. Someone grabs their pencil.",
+                    hint = id })
+                break
+            end
+        end
+    end
     local o = night:decision(card)
+    if o and o.hint then
+        night.mus.hinted = true
+        st.hints[o.hint] = true
+        st.hinted[o.hint] = true
+        return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+    end
     if o and o.steer then
         night.mus.steered = (night.mus.steered or 0) + 1
         if night.mus.steered >= 2 then
             night:say("Twice tonight you've steered them. It's starting to feel like a railroad.", "warn")
         end
     end
+    local ch = choices[(o and o.choice) or top] or choices[1]
     -- The friend who runs off (the BBQ story): the instigator, outvoted, heads for the stairs alone.
     local jess = present(night, "jess")
-    if o and o.room == "stairs" and jess and not st.flags.seen and night.rng:chance(0.6) then
+    if not ch.back and not ch.side and ch.id == "stairs" and jess and not st.flags.seen and night.rng:chance(0.6) then
         st.flags.pip_alone = true
     end
-    return o and o.room or options[1]
+    if ch.side then
+        return { side = ch.side }
+    end
+    if ch.back then
+        return { back = ch.back }
+    end
+    return { id = ch.id }
+end
+
+-- A trip back to a room they've cleared: a short scene there, no fight (what was there is dealt
+-- with), whatever brought them back, and on. A room they walked past plays in full instead.
+function M.go_back(night, b)
+    local c = night.campaign
+    local st = st_of(night)
+    night.mus.backs = (night.mus.backs or 0) + 1
+    night.mus.been = night.mus.been or {}
+    night.mus.been[b.id] = true
+    local r = MODULE.rooms[b.id]
+    if b.why == "passed" then
+        night:say("Back down they go, for " .. util.lower_first(r.name) .. ". They walked right past it.", "dm")
+        night.table_min = night.table_min + 6
+        return M.play(night, b.id)
+    end
+    st.pos = b.id
+    st.last_room = b.id
+    local sc = M.build_scene(night, b.id)
+    sc.revisit = b.why
+    sc.encounter, sc.optional_fight = nil, nil
+    table.insert(night.scenes, sc)
+    sc.index = #night.scenes
+    night.mus.total = math.max(night.mus.total or 1, sc.index)
+    M.stage(night, sc, r.name .. ", again")
+    local walk = (b.steps or 1) > 1 and ("They cut back through the rooms they've cleared to " .. util.lower_first(r.name) .. ".")
+        or ("Back to " .. util.lower_first(r.name) .. ".")
+    night:say(walk, "dm")
+    night.table_min = night.table_min + 4 + 2 * (b.steps or 1)
+    if b.why == "missed" or b.why == "hint" then
+        for _, mid in ipairs(adventure.missed(c, b.id)) do
+            for _, m in ipairs(MODULE.moments) do
+                if m.id == mid and not night.end_early then
+                    M.play_moment(night, m, sc)
+                end
+            end
+        end
+        st.hints[b.id] = nil
+        st.looked[b.id] = true      -- (one second look per room: whatever they pass up now stays)
+    elseif b.why == "shop" or b.why == "rest" or b.why == "flee" then
+        if b.why == "shop" then
+            night.mus.shopped = true
+            for _, m in ipairs(MODULE.moments) do
+                if m.room == b.id and m.id == "mus_shopping" and not night.end_early then
+                    M.play_moment(night, m, sc)
+                end
+            end
+        end
+        if not night.end_early and (b.why ~= "shop" or hurt(night) > 0.2) then
+            night:say(b.why == "flee" and "They slam the door behind them and catch their breath: a short rest."
+                or "They sit down among the souvenirs and catch their breath: a short rest.", "aside")
+            if not night.pc_list then
+                require("game.model.fight").party(night)
+            end
+            night:do_rest({ rest = "short" }, "short", "town", sc)
+        end
+    end
+    sc.outcome = "win"
+    sc.had_roll = true
+    if not night.end_early then
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = "win" })
+    end
+    table.insert(night.mus.rooms, { room = b.id, outcome = "win", back = b.why })
+    return sc
+end
+
+-- A fight lost in a room: they get out, back to the nearest room they've cleared (the gift shop if
+-- it's close), and patch themselves up. The room counts as got through, roughly.
+function M.flee(night, sc)
+    local c = night.campaign
+    local st = st_of(night)
+    if night.end_early or (night.mus.backs or 0) >= M.MAX_BACKS + 1 then
+        return
+    end
+    local _, cleared = adventure.reachable(c, sc.room)
+    local best, bs
+    for _, id in ipairs(MODULE.order) do
+        local steps = cleared[id]
+        if steps and not MODULE.rooms[id].virtual then
+            local v = steps - ((id == "gift_shop" and steps <= 2) and 2 or 0)
+            if not bs or v < bs then
+                best, bs = id, v
+            end
+        end
+    end
+    if not best then
+        return
+    end
+    night:say("Nobody wants to stay. They fall back to " .. util.lower_first(MODULE.rooms[best].name) .. ", fast.", "bad")
+    M.go_back(night, { id = best, why = "flee", steps = cleared[best] })
 end
 
 -- After a room: what it left behind, and Euryale upstairs ------------------------------------------
@@ -636,9 +1024,9 @@ function M.out_of_time(night, next_name)
     night.ended_on_cliff = true
 end
 
-function M.play(night, id)
+-- Into a room: anything that leaves behind for good marks her card (the lair, for rooms unseen).
+function M.enter(night, id)
     local c = night.campaign
-    local st = st_of(night)
     local left = adventure.enter_room(c, id, c.week)
     for _, lid in ipairs(left) do
         local lb = MODULE.left_behind[lid]
@@ -646,6 +1034,13 @@ function M.play(night, id)
             table.insert(night.mus.pending, lb.mark)
         end
     end
+    return left
+end
+
+function M.play(night, id)
+    local c = night.campaign
+    local st = st_of(night)
+    M.enter(night, id)
     local sc = M.build_scene(night, id)
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
@@ -657,6 +1052,9 @@ function M.play(night, id)
     end
     if not night.end_early then
         M.after_room(night, sc)
+    end
+    if sc.fought and sc.outcome == "lose" and not MODULE.rooms[id].boss then
+        M.flee(night, sc)
     end
     if id == "stairs" then
         night:say("Upstairs, Euryale: \"" .. MODULE.thoughts.arrive .. "\"", "interlude")
@@ -683,14 +1081,16 @@ function M.run(night)
                 break
             end
             local options = adventure.frontier(c)
-            if #options == 0 then
+            local backs = M.second_looks(night)
+            local sides = M.side_options(night)
+            if #options == 0 and #backs == 0 and #sides == 0 then
                 break
             end
-            local nxt = MODULE.rooms[options[1]]
+            local nxt = MODULE.rooms[options[1] or (backs[1] or sides[1]).id]
             if nxt.boss then
                 break
             end
-            if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END then
+            if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
                 -- One room left on the floor before the stairs: finish the floor tonight rather than
                 -- leave next week a night of one room and a staircase (a little late is the lesser evil).
                 local rest = {}
@@ -718,16 +1118,23 @@ function M.run(night)
                 end
                 options = keep
             end
-            local id = options[1]
-            if #options > 1 then
-                id = M.fork(night, options)
+            local pick = { id = options[1] }
+            if #options + #backs + #sides > 1 or #options == 0 then
+                pick = M.fork(night, options, backs, sides)
             end
-            local r = MODULE.rooms[id]
-            M.play(night, id)
-            if r.stop and (id == "stairs" or #night.scenes >= 3 or night.table_min > night.table_planned * 0.55) then
-                break
-            elseif r.stop then
-                night:say("They catch their breath, check their packs, and keep going.", "dm")
+            if pick.side then
+                M.side_room(night, pick.side)
+            elseif pick.back then
+                M.go_back(night, pick.back)
+            else
+                local id = pick.id
+                local r = MODULE.rooms[id]
+                M.play(night, id)
+                if r.stop and (id == "stairs" or #night.scenes >= 3 or night.table_min > night.table_planned * 0.55) then
+                    break
+                elseif r.stop then
+                    night:say("They catch their breath, check their packs, and keep going.", "dm")
+                end
             end
             if #night.scenes > 0 then
                 night:clock_tells()
@@ -749,7 +1156,8 @@ function M.boss_night(night)
             return
         end
     end
-    adventure.enter_room(c, "lair", c.week)
+    M.enter(night, "lair")
+    M.interlude(night)
     local sc = M.build_scene(night, "lair")
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
