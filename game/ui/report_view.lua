@@ -606,12 +606,15 @@ function M.build(app)
     kit.gloss_tags = nil
     M.gift_row(app, rep, 1204, 708)
     local closing = M.closing_chapter(app)
-    kit.button(1204, 790, 372, 56, closing and "Close the first act  >" or ("On to session " .. util.int(rep.week + 1) .. "  >"),
+    local museum = app.campaign.module ~= nil   -- (v2: the prologue ends on its journey recap)
+    kit.button(1204, 790, 372, 56, closing and (museum and "Your table's journey  >" or "Close the first act  >")
+        or ("On to session " .. util.int(rep.week + 1) .. "  >"),
         function()
             app.report_note = nil
             M.next(app)
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "next_week" })
-    kit.text(1390, 852, closing and "A look back at the first four sessions." or "Playtest notes are saved after every week.",
+    kit.text(1390, 852, closing and (museum and "The whole prologue, room by room." or "A look back at the first four sessions.")
+        or "Playtest notes are saved after every week.",
         "ui14", theme.faint, { pivot = gui.PIVOT_N })
     if app.quick then
         M.quick_modal(app)

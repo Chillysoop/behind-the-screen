@@ -876,6 +876,23 @@ function M.update(app, dt)
             end
             return
         end
+        -- v2: the museum's milestone levels are taken from the report (a shot of the first page).
+        if a.mode == 8 then
+            a.leveled = a.leveled or {}
+            local wk = app.campaign.week
+            if app.levelup then
+                if not shot(a, "levelup_" .. wk) then
+                    local bs = buttons()
+                    if #bs > 0 then
+                        press(bs[#bs])
+                    end
+                end
+                return
+            elseif not a.leveled[wk] and by_key("level_up") then
+                a.leveled[wk] = true
+                return
+            end
+        end
         if app.quick then
             local wk = app.campaign.week
             by_key("quick_prep_1")

@@ -272,16 +272,30 @@ function M.boss_card(app, x, y, w, h, big)
     end
     kit.text(x + 16, ty, "MARKS FROM THE BUILD-UP  (" .. util.int(#card.marks) .. ")", "ui14", theme.dim)
     ty = ty + 22
+    -- Every mark, always inside the card (the engine run, October 30: the sixth spilled out over the
+    -- showdown's rows): each with what it changes and why, or one line each when that won't fit.
+    local full = 0
     for _, m in ipairs(card.marks) do
-        if ty > y + h - 30 then
-            kit.text(x + 16, ty, "...and more", "ui14", theme.faint)
+        full = full + 24 + kit.text_height(m.showdown .. ". (" .. m.why .. ".)", "ui14", w - 46) + 6
+    end
+    local compact = ty + full > y + h - 10
+    for i, m in ipairs(card.marks) do
+        local rowh = compact and 22 or (24 + kit.text_height(m.showdown .. ". (" .. m.why .. ".)", "ui14", w - 46) + 6)
+        if ty + (compact and 18 or rowh - 6) > y + h - 8 then
+            kit.text(x + w - 16, y + 10, "+" .. util.int(#card.marks - i + 1) .. " more in your notes", "ui14", theme.faint,
+                { pivot = gui.PIVOT_NE })
             break
         end
-        kit.box(x + 16, ty + 4, 6, 6, theme.gold, { radius = 3 })
-        kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
-        local line = m.showdown .. ". (" .. m.why .. ".)"
-        kit.text(x + 30, ty + 22, line, "ui14", theme.dim, { w = w - 46, lines = big and 2 or 2 })
-        ty = ty + 24 + kit.text_height(line, "ui14", w - 46) + 6
+        kit.box(x + 16, ty + (compact and 7 or 4), 6, 6, theme.gold, { radius = 3 })
+        if compact then
+            local nw = kit.width(m.name, "ui18b")
+            kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
+            kit.text(x + 30 + nw + 10, ty + 3, m.showdown .. ".", "ui14", theme.dim, { w = math.max(40, w - 56 - nw), lines = 1 })
+        else
+            kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
+            kit.text(x + 30, ty + 22, m.showdown .. ". (" .. m.why .. ".)", "ui14", theme.dim, { w = w - 46, lines = 2 })
+        end
+        ty = ty + rowh
     end
 end
 
@@ -364,6 +378,9 @@ end
 
 -- Boss night: the showdown board --------------------------------------------------------------
 
+local ONE_OF_A_KIND = { knight_of_shades = "the Knight of Shades", the_lecturer = "the Lecturer", sentinel = "the Sentinel",
+    bone_construct = "the Bone Construct" }
+
 local function showdown(app, prep, x, y, w)
     local c = app.campaign
     local st = c.adv
@@ -396,7 +413,9 @@ local function showdown(app, prep, x, y, w)
         if not seen[id] then
             seen[id] = true
             local name = (string.gsub(id, "_", " "))
-            table.insert(with, count[id] > 1 and (util.int(count[id]) .. " " .. name .. "s") or ("a " .. name))
+            -- The book's one-of-a-kind foes go by their names ("the Knight of Shades").
+            local one = ONE_OF_A_KIND[id]
+            table.insert(with, one or (count[id] > 1 and (util.int(count[id]) .. " " .. name .. "s") or ("a " .. name)))
         end
     end
     kit.text(x, y, "WHAT THE PARTY BRINGS", "ui14", theme.dim)
@@ -449,6 +468,14 @@ local function top_bar(app, prep)
     kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
     kit.text(1130, 14, "FAIR WARNING", "ui14", theme.dim)
     kit.text(1130, 32, util.int(c.adv.bank or 0) .. " in the bank", "ui18b", theme.teal)
+    -- A milestone level the report offered and you left for later (level 3 after the gift shop).
+    local lv = c:level_status()
+    if lv.ready then
+        kit.button(1252, 12, 92, 42, "Level up", function()
+            util.lazy("game.ui.levelup_view").level_up(app)
+        end, { font = "ui18b", color = lv.overdue and kit.rgba("#8a4a2a") or theme.button, key = "level_up" })
+        kit.dot(1256, 16, 12, theme.orange)
+    end
     kit.button(1356, 10, 220, 46, "Run game night  >", function()
         app.go("night")
     end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "run_night" })
