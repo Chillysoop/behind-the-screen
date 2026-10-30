@@ -207,11 +207,19 @@ M.rooms = {
     },
     lair = {
         name = "The Gorgon's lair", part = 3, type = "set_piece", cost = 2, at = { 50, 1 }, map = "Gorgon's lair", boss = true,
-        comps = { location = "mus_lair", cast = "mus_euryale", goal = "mus_face_her", complication = "mus_stare", reward = "mus_thanks" },
+        comps = { location = "mus_lair", cast = "mus_euryale", goal = "mus_face_her", complication = "mus_stare", reward = "mus_quiet" },
         encounter = { "euryale" }, boss_name = "Euryale",
         read = "The stairs end in a room like a temple, full of statues that were people once.",
         sum = "Euryale, and everything the party did on the way up.",
         next = {},
+    },
+    -- Not on the map: boss night's last scene, back downstairs, once she's dealt with (the book's
+    -- ending, played as a scene so the finale is a whole evening and not one fight and a goodbye).
+    thanks = {
+        name = "Flitwidget's thanks", part = 3, type = "social", cost = 0, epilogue = true,
+        comps = { location = "mus_gift_shop", cast = "mus_flitwidget", goal = "mus_settle_up", reward = "mus_thanks" },
+        read = "Back down in the gift shop, Flitwidget has put out tea, a plate of biscuits and a very small cash box.",
+        sum = "The reward, a pick from the shop, and what comes next.",
     },
 }
 M.order = { "street", "garden", "entrance", "chamber", "paintings", "gift_shop", "hunting", "offices", "tomorrow", "lecture", "stairs", "lair" }
@@ -886,8 +894,7 @@ M.endings = {
                 flit = "\"Perhaps we come back to this one.\"" },
 }
 M.epilogue = {
-    "Flitwidget sweeps the wreckage of the Hunting Grounds and pays them thirty gold apiece, plus a pick from the gift shop.",
-    "Then the invitation: he needs guards for the road, and he's heard strange news from the mountains. A murder, and a conspiracy.",
+    "And an invitation: Flitwidget needs guards for the road, and he's heard strange news from the mountains. A murder, and a conspiracy.",
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {

@@ -13,6 +13,7 @@ local MODULE = adventure.data
 local M = {}
 
 M.STOP_BEFORE_END = 25     -- table minutes: no new room this close to the agreed end
+M.FINISH_FLOOR = 20        -- ...unless it's the floor's last room, and the night isn't this far past its end
 
 local function present(night, key)
     for _, p in ipairs(night.players) do
@@ -52,6 +53,12 @@ function M.build_scene(night, id)
     end
     local pm = night.prep and night.prep.museum
     local prepped = pm and pm.prepped and pm.prepped[id] or false
+    if id == "lair" and pm and pm.boss then
+        prepped = true          -- (boss week's hours already went on the lair: museum_week.spent)
+    end
+    if MODULE.rooms[id].epilogue then
+        prepped = true
+    end
     local q = r.virtual and 0.6 or prep_mod.quality(r.type, comps, night.prep and night.prep.inspired or {})
     local sc = {
         type = r.type, comps = comps, missing = {}, room = id, quick = r.quick, virtual = r.virtual,
@@ -60,6 +67,7 @@ function M.build_scene(night, id)
         difficulty = prep_mod.difficulty(comps),
         optional_fight = r.optional_fight,
         boss = r.boss,
+        epilogue = r.epilogue,
         rest_here = r.rest or nil,
     }
     if r.encounter then
@@ -683,8 +691,32 @@ function M.run(night)
                 break
             end
             if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END then
-                M.out_of_time(night, #options == 1 and nxt.name or "the next room")
-                break
+                -- One room left on the floor before the stairs: finish the floor tonight rather than
+                -- leave next week a night of one room and a staircase (a little late is the lesser evil).
+                local rest = {}
+                for _, oid in ipairs(options) do
+                    if oid ~= "stairs" then
+                        table.insert(rest, oid)
+                    end
+                end
+                local last_one = util.contains(options, "stairs") and #rest == 1
+                    and night.table_min <= night.table_planned + M.FINISH_FLOOR
+                if not last_one then
+                    M.out_of_time(night, #options == 1 and nxt.name or "the next room")
+                    break
+                end
+                night:say("You glance at the clock. One room left before the stairs. \"Let's finish the floor.\"", "dm")
+            end
+            -- A night doesn't open by going straight up the stairs while rooms are still waiting:
+            -- that night would be the stairs and nothing else. (Up they go after the next room.)
+            if #night.scenes == 0 and #options > 1 and util.contains(options, "stairs") then
+                local keep = {}
+                for _, oid in ipairs(options) do
+                    if oid ~= "stairs" then
+                        table.insert(keep, oid)
+                    end
+                end
+                options = keep
             end
             local id = options[1]
             if #options > 1 then
@@ -709,11 +741,19 @@ end
 
 function M.boss_night(night)
     local c = night.campaign
+    local st = st_of(night)
+    -- Only the stairs left between them and her: they climb them first, as the night's way in.
+    if st.at == "stairs" and not st.done.stairs then
+        M.play(night, "stairs")
+        if night.end_early then
+            return
+        end
+    end
     adventure.enter_room(c, "lair", c.week)
     local sc = M.build_scene(night, "lair")
     table.insert(night.scenes, sc)
-    sc.index = 1
-    night.mus.total = 1
+    sc.index = #night.scenes
+    night.mus.total = #night.scenes
     local enc = adventure.boss_encounter(c)
     sc.encounter = { ids = enc.ids, boss_name = "Euryale", built = true, allies = enc.allies, opts = enc.opts }
     for k, v in pairs(enc.opts) do
@@ -768,6 +808,22 @@ function M.showdown_start(night, sc)
     end
 end
 
+-- The book's ending, played as boss night's last scene: back in the gift shop with Flitwidget, the
+-- reward, and the first hint of what comes next. Not a room on the map.
+function M.thanks(night)
+    if night.end_early then
+        return
+    end
+    local sc = M.build_scene(night, "thanks")
+    table.insert(night.scenes, sc)
+    sc.index = #night.scenes
+    night.mus.total = #night.scenes
+    night:play_scene(sc)
+    if not night.end_early then
+        table.insert(night.mus.rooms, { room = "thanks", outcome = "win" })
+    end
+end
+
 function M.after_showdown(night, sc)
     local c = night.campaign
     local st = st_of(night)
@@ -780,6 +836,8 @@ function M.after_showdown(night, sc)
             st.ending = st.ending or "fallen"
         elseif sc.fought then
             night:say("They tumble back down the stairs with her laughter behind them. She lets them go. She wants them to come back.", "bad")
+            night:say("They limp out of the caravan, sleep for a day, and come back angry.", "dm")
+            sc.rest_here = true      -- (home to rest: next week's try starts whole, not where this one broke)
             st.at, st.choices = "lair", nil
             st.lost_once = true
             return
@@ -789,13 +847,14 @@ function M.after_showdown(night, sc)
     table.insert(night.mus.rooms, { room = "lair", outcome = e and "win" or "lose" })
     if e then
         night:say(e.line, "good")
-        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = string.gsub(e.flit, "^\"(.*)\"$", "%1") })
-        for _, line in ipairs(MODULE.epilogue) do
-            night:say(line, "narration")
-        end
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(e.flit, "^\"(.*)\"$", "%1")) })
         st.done.lair = "win"
         table.insert(st.path, { room = "lair", week = c.week, outcome = "win" })
         st.at, st.choices = nil, nil
+        M.thanks(night)
+        for _, line in ipairs(MODULE.epilogue) do
+            night:say(line, "narration")
+        end
         for _, p in ipairs(night.players) do
             local lines = MODULE.want_more[p.key]
             if lines then

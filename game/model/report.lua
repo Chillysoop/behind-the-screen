@@ -140,7 +140,7 @@ function M.build(campaign, night)
                 p.thread_progress = p.thread_progress + p.thread_hits
                 -- (No bare count: "(2)" meant nothing to anyone, October 15.)
                 table.insert(rep.threads, p.char .. "'s story moved tonight: " .. p.thread .. ".")
-            elseif p.thread then
+            elseif p.thread and not campaign.module then   -- (v2: the prologue has no hero threads)
                 -- And whose didn't, so a hero going quiet shows the night it happens (or died).
                 local fell
                 for _, d in ipairs(campaign.deaths or {}) do

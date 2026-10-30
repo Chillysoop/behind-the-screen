@@ -193,6 +193,10 @@ end
 function M.after_night(c, night, rep)
     local st = c.adv
     local mus = night.mus or {}
+    -- Out of sessions with Euryale still upstairs: the book's quiet ending (Flitwidget moves on).
+    if not st.ending and c.week >= MODULE.MAX_WEEKS then
+        st.ending = "timeout"
+    end
     rep.museum = {
         rooms = mus.rooms or {},
         marks = mus.added or {},

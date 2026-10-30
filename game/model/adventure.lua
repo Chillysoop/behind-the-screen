@@ -16,9 +16,9 @@ M.data = MODULE
 
 -- The words that belong to the old Silent Bells story: lines that mention them never play in the
 -- prologue (it's strictly the book).
-M.FOREIGN = { "Ilsa", "Kessrick", "Velvet Hand", "Millbrook", "Sable", "relic", "abbot", "Tobin", "Kettle", "Gus",
+M.FOREIGN = { "Ilsa", "Kessrick", "Velvet Hand", "Millbrook", "Sable", "relic", "abbot", "Tobin", "Kettle", "kettle", "Gus",
               "bells", "Bells", "bell tower", "bell%-ringer", "bell paths", "Vask", "Hale's", "Wren", "Corin",
-              "warband", "scriptorium", "Lowmarket", "Silver Spurs", "Lamplighters", "Vale" }
+              "warband", "scriptorium", "Lowmarket", "Silver Spurs", "Lamplighters", "Vale", "farmhand" }
 
 function M.foreign(text)
     if type(text) ~= "string" then
@@ -128,6 +128,13 @@ function M.enter(campaign)
         end
         if content.improv then
             strip_list(content.improv.stock)
+        end
+        -- Each campaign style's own table habits (back to the tavern, the goblin chief) belong to the
+        -- old valley: none of them in the museum.
+        for i = #content.table_behaviors, 1, -1 do
+            if content.table_behaviors[i].style then
+                table.remove(content.table_behaviors, i)
+            end
         end
         local seen = {}
         scrub(content.curveballs, seen)
@@ -397,9 +404,12 @@ function M.ahead(campaign)
     return out, stopped
 end
 
+-- Boss night: the party is at the lair, or only the stairs stand between them and it (the stairs
+-- then play as the night's way in, so a session is never just the stairs).
 function M.boss_week(campaign)
     local st = campaign.adv
-    return not st.ending and st.at == "lair" and not (st.choices and #st.choices > 0)
+    return not st.ending and (st.at == "lair" or (st.at == "stairs" and not st.done.stairs))
+        and not (st.choices and #st.choices > 0)
 end
 
 function M.over(campaign)

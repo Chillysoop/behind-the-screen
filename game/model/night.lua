@@ -5977,7 +5977,7 @@ function M:play_scene(sc)
     if mus then
         mus.moments(self, sc, "end")
     end
-    if sc.comps.reward and not self.end_early and sc.outcome == "lose" then
+    if sc.comps.reward and not self.end_early and sc.outcome == "lose" and not sc.epilogue then   -- (v2: an ending's thanks always pays)
         -- A reward they didn't win is still out there (it stays in the story deck).
         local r = sc.comps.reward
         if not self:muted(r) then
