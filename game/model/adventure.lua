@@ -522,12 +522,17 @@ function M.boss_encounter(campaign)
                 end
             end
             if m.ally then
-                table.insert(allies, m.ally)
+                -- (The Mech answers to whoever woke it: Euryale goes for them, and it stops if they drop.)
+                table.insert(allies, { id = m.ally, name = (id == "mech") and st.mech_name or nil,
+                                       commander = (id == "mech") and st.mech_commander or nil })
             end
             if m.opt then
                 opts[m.opt] = true
             end
         end
+    end
+    if st.flags.paint_dagger then
+        opts.paint = true          -- (the loose end: Telpur sold them a paint-touched dagger)
     end
     return { ids = ids, allies = allies, opts = opts, boss_name = "Euryale" }
 end

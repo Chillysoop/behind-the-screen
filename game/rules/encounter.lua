@@ -9,6 +9,7 @@ local monsters = require "game.rules.data.monsters"
 local party_mod = require "game.rules.party"
 local spells = require "game.rules.spells"
 local ai = require "game.rules.ai"
+local museum = require "game.rules.museum"
 
 local M = {}
 
@@ -59,6 +60,9 @@ end
 -- What a monster dishes out per round: its best attack's average damage times the chance
 -- to hit Armor Class 16 (about the party's average), times its Multiattack.
 function M.monster_dpr(m)
+    if m.meter_dpr then
+        return m.meter_dpr             -- what a turn of it really does (a lecture: The Museum of Nightmares)
+    end
     local best = 0
     for _, a in ipairs(m.attacks) do
         local avg = 0
@@ -70,6 +74,47 @@ function M.monster_dpr(m)
     end
     return best * (m.multiattack and m.multiattack.count or 1)
 end
+
+-- A fight's monsters with whatever they bring along (the bone construct's scarabs burst out of it
+-- halfway through): the meter counts those too.
+function M.expand(monster_ids)
+    local out, any = {}, false
+    for _, id in ipairs(monster_ids) do
+        table.insert(out, id)
+        local sp = monsters[id] and monsters[id].spawn
+        if sp then
+            any = true
+            for _ = 1, sp.n or 1 do
+                table.insert(out, sp.id)
+            end
+        end
+    end
+    return any and out or monster_ids
+end
+
+-- Every one of them hides in plain sight (False Appearance) or lies in wait: the party starts the
+-- fight surprised (game/rules/museum.lua).
+function M.ambush(monster_ids)
+    if #monster_ids == 0 then
+        return false
+    end
+    for _, id in ipairs(monster_ids) do
+        local t = {}
+        for _, x in ipairs(monsters[id] and monsters[id].traits or {}) do
+            t[x] = true
+        end
+        if not (t.false_appearance or t.ambusher) then
+            return false
+        end
+    end
+    return true
+end
+
+-- An ally entry: "steam_mech", or { id = "steam_mech", name = "Hans", commander = "wizard" }.
+local function ally_id(a)
+    return type(a) == "table" and a.id or a
+end
+M.ally_id = ally_id
 
 -- The slice party's total Hit Points at a level (default subclasses).
 local party_hp_cache = {}
@@ -98,23 +143,53 @@ M.FEATURE_NAMES = {
 
 -- Features the fitted meter uses. Besides the SRD XP budget it reads the stat blocks
 -- (Hit Points and damage), so new monsters get a forecast without new simulations.
--- opts.party_hp overrides the slice party's Hit Points.
+-- opts.party_hp overrides the slice party's Hit Points; opts.allies (monsters fighting for the
+-- party, The Museum of Nightmares' Steam Mech) add their Hit Points to the party's and take what
+-- three rounds of their attacks would do off the monsters' (at most half); opts.paint: the heroes
+-- carry paint-touched weapons.
 function M.features(level, n, monster_ids, opts)
+    monster_ids = M.expand(monster_ids)
     local hz_xp, hz_dpr = 0, 0
     if opts and opts.hazard then
         hz_xp, hz_dpr = require("game.rules.hazards").weight(opts.hazard)
     end
     -- A map's pieces (B9) tilt the fight like a hazard does: an XP-equivalent.
     hz_xp = hz_xp + (opts and opts.extra_xp or 0)
+    -- A fight that starts with the party surprised (The Museum of Nightmares: hedges that were never
+    -- hedges, huntlings hiding in the exhibits) counts half again.
+    if M.ambush(monster_ids) then
+        hz_xp = hz_xp + 0.5 * M.xp(monster_ids)
+    end
     local r = M.rate(level, n, monster_ids, hz_xp)
     local maxxp, hp, dpr = 0, 0, hz_dpr
     for _, id in ipairs(monster_ids) do
         local m = monsters[id]
         maxxp = math.max(maxxp, m.xp)
-        hp = hp + m.hp
+        -- Hit Points as the heroes feel them (The Museum of Nightmares): the party's damage is mostly
+        -- weapons, so Resistance to ordinary blows is worth half as many again, and paint-touched
+        -- weapons (opts.paint) against a monster vulnerable to them take that much off.
+        local mhp = m.hp
+        if m.paint and opts and opts.paint then
+            mhp = mhp * 0.6
+        elseif m.resist_nonmagical then
+            mhp = mhp * 1.5
+        end
+        hp = hp + mhp
         dpr = dpr + M.monster_dpr(m)
     end
     local php = (opts and opts.party_hp) or M.party_hp(level) * n / 4
+    if opts and opts.allies and #opts.allies > 0 then
+        local ahp, adpr = 0, 0
+        for _, a in ipairs(opts.allies) do
+            local m = monsters[ally_id(a)]
+            if m then
+                ahp = ahp + m.hp
+                adpr = adpr + M.monster_dpr(m)
+            end
+        end
+        php = php + ahp
+        hp = math.max(hp * 0.5, hp - 3 * adpr)
+    end
     -- The simulated fights span about a quarter of the Moderate budget up to 2.6 times it,
     -- with at most 2.5 monsters per character; outside that the forecast is held at the edge.
     local lr = math.log(math.max(1, r.xp) / r.moderate)
@@ -123,7 +198,7 @@ function M.features(level, n, monster_ids, opts)
     lr = math.max(M.RANGE.lr[1], math.min(M.RANGE.lr[2], lr))
     per = math.min(M.RANGE.per, per)
     return { 1, lr, lr * lr, per, lr * per, maxxp / r.xp, level - 3,
-             math.log(hp / php), math.log(4 * dpr / php) }, r
+             math.log(hp / php), math.log(math.max(1, 4 * dpr) / php) }, r
 end
 M.RANGE = { lr = { -1.5, 1.0 }, per = 2.5 }
 
@@ -153,6 +228,14 @@ function M.meter(level, n, monster_ids, opts)
         out.party_falls = sigmoid(dot(fit.party_falls, x))
         out.someone_dies = sigmoid(dot(fit.someone_dies, x))
         out.hp_lost = sigmoid(dot(fit.hp_lost, x))
+        -- Fists that only knock heroes out (the Sentinel) can't kill anyone.
+        local lethal = false
+        for _, id in ipairs(M.expand(monster_ids)) do
+            lethal = lethal or not (monsters[id] and monsters[id].nonlethal)
+        end
+        if not lethal then
+            out.someone_dies = 0
+        end
         local d = 1
         if out.someone_drops >= 0.15 then d = 2 end
         if out.someone_drops >= 0.5 then d = 3 end
@@ -243,10 +326,49 @@ function M.place(b, party, foes, distance)
     end
 end
 
--- One fight. opts: seed, subs, distance, verbose, prebuff (default true), keep_log.
+-- Allies fighting for the party (The Museum of Nightmares' Steam Mech), as creatures on its side.
+-- party: the heroes. Each ally answers to a commander (the ally's own `commander`, else the one
+-- given for all of them): a class, a hero's name or a player key. Without one, whoever cracked
+-- its activation code does: the cleverest hero (highest Intelligence). false: nobody. An ally
+-- powers down when its commander drops, and Euryale knows who's giving the orders.
+function M.make_allies(list, party, commander)
+    local out = {}
+    for i, a in ipairs(list or {}) do
+        local id = ally_id(a)
+        local m = creature.new_monster(id, "")
+        m.side, m.ally = "party", true
+        local cmd = commander
+        if type(a) == "table" then
+            m.name = a.name or m.name
+            if a.commander ~= nil then
+                cmd = a.commander
+            end
+        end
+        if cmd == nil then
+            local best
+            for _, c in ipairs(party or {}) do
+                if not c.dead and (not best or c.abilities.int > best.abilities.int) then
+                    best = c
+                end
+            end
+            m.commander = best
+        elseif cmd then
+            for _, c in ipairs(party or {}) do
+                if c.class == cmd or c.name == cmd or c.player_key == cmd or c.player == cmd then
+                    m.commander = c
+                end
+            end
+        end
+        out[i] = m
+    end
+    return out
+end
+
+-- One fight. opts: seed, subs, distance, verbose, prebuff (default true), keep_log, on_event; and The Museum
+-- of Nightmares' allies (ids or { id, name, commander }), paint, mirror, averted, drowsy, earplugs.
 function M.run(level, monster_ids, opts)
     opts = opts or {}
-    local b = battle.new({ seed = opts.seed or 1, verbose = opts.verbose, ai = ai })
+    local b = battle.new({ seed = opts.seed or 1, verbose = opts.verbose, ai = ai, on_event = opts.on_event })
     b.keep_log = opts.keep_log
     local party = party_mod.build(level, opts.subs)
     local foes = {}
@@ -255,10 +377,21 @@ function M.run(level, monster_ids, opts)
         counts[id] = (counts[id] or 0) + 1
         table.insert(foes, creature.new_monster(id, " " .. counts[id]))
     end
+    -- A museum fight's first monster leads it, as on game night (the Steam Mech goes for it).
+    if foes[1] and foes[1].data.source == monsters.MUSEUM then
+        foes[1].boss = true
+    end
     if opts.prebuff ~= false then
         M.prebuff(b, party)
     end
     M.place(b, party, foes, opts.distance or 40)
+    local allies = M.make_allies(opts.allies, party, opts.commander)
+    for i, m in ipairs(allies) do
+        local cx, cy = 6, math.floor(b.H / 2) + 2 * i
+        b:add(m, cx, math.min(b.H, cy))
+    end
+    museum.setup(b, opts)
+    museum.false_appearance(b)
     if opts.hazard then
         require("game.rules.hazards").setup(b, opts.hazard)
     end

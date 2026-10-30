@@ -17,6 +17,7 @@ local util = require "game.model.util"
 local takeover = require "game.model.takeover"
 local maps = require "game.model.maps"
 local villains = require "game.model.villains"
+local museum = require "game.rules.museum"
 
 local M = {}
 
@@ -220,6 +221,7 @@ local function ready_for_battle(c)
     end
     c.ds = { s = 0, f = 0 }
     c.stable = false
+    c.knocked_out = nil          -- (the Sentinel's fists, last fight)
 end
 
 -- After a fight: a short rest. Everyone gets back half of what they lost.
@@ -305,6 +307,48 @@ function M.suggest(sc, level, n)
     return ids, fam, aim
 end
 
+-- The Museum of Nightmares (v2): what an encounter can bring besides its monsters (see
+-- game/rules/museum.lua). On the encounter table, next to ids and boss_name:
+--   allies = { "steam_mech" }          creatures fighting for the party (or { id, name, commander })
+--   commander = "wizard"               the hero the allies answer to (a class, hero name or player
+--                                      key; default the cleverest hero, false for nobody): they power
+--                                      down if that hero drops, and Euryale goes for them
+--   paint, mirror, averted, drowsy, earplugs = true     the battle's options (or in encounter.opts)
+M.ENCOUNTER_OPTIONS = { "allies", "commander", "paint", "mirror", "averted", "drowsy", "earplugs" }
+
+function M.museum_options(sc)
+    local e = sc and sc.encounter
+    if not e then
+        return nil
+    end
+    local o
+    for _, k in ipairs(M.ENCOUNTER_OPTIONS) do
+        local v = e[k]
+        if v == nil and type(e.opts) == "table" then
+            v = e.opts[k]                -- (the options may come grouped: encounter.opts)
+        end
+        if v ~= nil then
+            o = o or {}
+            o[k] = v
+        end
+    end
+    return o
+end
+
+-- The meter's options for a scene: its hazard, allies on the party's side, paint-touched weapons.
+local function meter_opts(sc, mo)
+    local o = hz_opts(sc)
+    if mo and mo.allies and #mo.allies > 0 then
+        o = o or {}
+        o.allies = mo.allies
+    end
+    if mo and mo.paint then
+        o = o or {}
+        o.paint = true
+    end
+    return o
+end
+
 function M.plan(night, sc)
     local enc = content.encounters
     local cast = sc.comps.cast
@@ -325,14 +369,16 @@ function M.plan(night, sc)
             ids[1] = cfam.boss
             boss_name = cfam.name
         end
-        local meter = encounter.meter(level, n, ids, hz_opts(sc))
+        local mo = M.museum_options(sc)
+        local meter = encounter.meter(level, n, ids, meter_opts(sc, mo))
         return { ids = ids, boss_name = boss_name, aim = 0, meter = meter, crew = cfam and cfam.crew or nil,
-                 cast = cast and enc.by_cast[cast.id] and cast.id, built = true }
+                 cast = cast and enc.by_cast[cast.id] and cast.id, built = true, museum = mo }
     end
     local ids, _, aim = M.suggest(sc, level, n)
-    local meter = encounter.meter(level, n, ids, hz_opts(sc))
+    local mo = M.museum_options(sc)
+    local meter = encounter.meter(level, n, ids, meter_opts(sc, mo))
     return { ids = ids, boss_name = fam.name, aim = aim, meter = meter, crew = fam.crew,
-             cast = cast and enc.by_cast[cast.id] and cast.id }
+             cast = cast and enc.by_cast[cast.id] and cast.id, museum = mo }
 end
 
 -- Running it -----------------------------------------------------------------------------------
@@ -492,6 +538,8 @@ function M.step(night, ev)
     elseif k == "feature" then
         s.id, s.name, s.target = ref(ev.who), ev.name, target_ref(ev.target)
         s.from, s.to = ev.from, ev.to
+        -- The Museum of Nightmares: which big moment this is, and who caused it (museum.lua).
+        s.museum, s.by = ev.museum, ev.by and ref(ev.by) or nil
     elseif k == "door" then
         s.id, s.x, s.y, s.state, s.fid = ev.who and ref(ev.who), ev.x, ev.y, ev.state, ev.fid
     elseif k == "save" then
@@ -538,10 +586,77 @@ local function player_of(night, c)
     end
 end
 
+-- The Museum of Nightmares (v2): the fight's big moments, logged the way a hero going down or a
+-- crit is (a night event, a highlight for the biggest) and played on the players' faces. Each
+-- lands in the night's ledger as ev = "moment" with museum = the kind and tags = { "museum", kind }.
+M.MUSEUM_MOMENTS = {
+    veil = { weight = 7, highlight = true, pose = "gasp", text = "{name} tore off her hood, and the snakes came out" },
+    scarabs = { weight = 5, pose = "gasp", text = "Scarabs came pouring out of {name}" },
+    petrified = { weight = 8, highlight = true, pose = "gasp", text = "{name} turned to stone" },
+    self_stone = { weight = 9, highlight = true, pose = "cheer", text = "{name} met her own eyes in the mirror and turned to stone" },
+    freed = { weight = 6, pose = "cheer", text = "{name} cracked free of the stone" },
+    mirror = { weight = 6, pose = "lean", text = "The mirror went up, and {name} saw her own eyes" },
+    hyper = { weight = 6, highlight = true, pose = "cheer", text = "{name} went into Hyper Destroyer Mode" },
+    overheat = { weight = 5, pose = "gasp", text = "{name} overheated, vented steam and shut down" },
+    power_down = { weight = 4, pose = "gasp", text = "{name} powered down when {target} fell" },
+    listening = { weight = 4, pose = "yawn", text = "{name} sat down to listen to the lecture" },
+    woken = { weight = 3, text = "{name} shook {target} out of the lecture" },
+    charmed = { weight = 4, text = "{name} fell under {by}'s charm" },
+    knocked_out = { weight = 5, pose = "gasp", text = "{name} got knocked out cold by {by}" },
+    fled = { weight = 3, text = "{name} lost its nerve and ran" },
+}
+
+local function name_of(f, id)
+    local c = id and f.by_ref[id]
+    return c and c.name or "someone"
+end
+
+function M.museum_moments(night, f, steps)
+    local poses = {}
+    for _, s in ipairs(steps) do
+        local kind = s.museum
+        if s.kind == "flee" and s.why == "morale" then
+            kind = "fled"
+        end
+        local c = f.by_ref[s.id]
+        if kind == "petrified" and c and not c.pc then
+            kind = "self_stone"
+        end
+        local m = kind and M.MUSEUM_MOMENTS[kind]
+        if m and c then
+            local text = util.fill(m.text, { name = c.name, target = name_of(f, type(s.target) == "string" and s.target or nil),
+                                             by = name_of(f, s.by) })
+            local p = c.pc and player_of(night, c) or nil
+            local list = p and { p } or night.players
+            if m.highlight then
+                night:highlight(m.weight, text, list, "moment")
+            else
+                night:event("moment", { who = p and p.key or "party", text = text, weight = m.weight })
+            end
+            local e = night.ledger and night.ledger[#night.ledger]
+            if e and e.text == text then
+                e.museum, e.tags = kind, { "museum", kind }
+            end
+            f.moments = f.moments or {}
+            table.insert(f.moments, { kind = kind, id = s.id, text = text })
+            if m.pose then
+                if p then
+                    poses[p.key] = m.pose
+                else
+                    for _, q in ipairs(night.players) do
+                        poses[q.key] = poses[q.key] or m.pose
+                    end
+                end
+            end
+        end
+    end
+    return poses
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
-    local poses, line = {}, nil
+    local poses, line = M.museum_moments(night, f, steps), nil
     local crit, kill, downed, hurt, healed_up, boss_dead = false, false, nil, nil, nil, false
     local kill_name
     for _, s in ipairs(steps) do
@@ -860,6 +975,30 @@ function M.run(night, sc, plan)
                                  hp = m.hp, hp_max = m.hp_max, cast = m.villain and sc.comps.cast and sc.comps.cast.id or nil })
     end
     f.boss = b.creatures[#party_out + 1]
+    -- The Museum of Nightmares (v2): allies on the party's side (a Steam Mech the heroes woke), next
+    -- to them, and the battle's options (game/rules/museum.lua).
+    local mo = plan.museum or M.museum_options(sc) or {}
+    museum.setup(b, mo)
+    local allies_out = {}
+    local allies = encounter.make_allies(mo.allies, night.pc_list, mo.commander)
+    local ally_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #allies, 1, b.W, b.H)
+    for i, m in ipairs(allies) do
+        m.mini = "a" .. i
+        local sq = ally_spots[i] or { 2, b.H - i }
+        b:add(m, sq[1], sq[2])
+        f.by_ref[m.mini] = m
+        table.insert(allies_out, { id = m.mini, monster = m.monster_id, x = sq[1], y = sq[2], name = m.name, ally = true,
+                                   hp = m.hp, hp_max = m.hp_max, commander = m.commander and m.commander.mini or nil })
+    end
+    f.allies = allies
+    -- Someone joining mid-fight (the bone construct's scarabs) gets a mini on the mat.
+    b.hooks.before_join = function(bb, c)
+        if not c.mini then
+            f.count = f.count + 1
+            c.mini = "f" .. f.count
+            f.by_ref[c.mini] = c
+        end
+    end
     -- The villain on the mat remembers what happens here.
     if f.boss and f.boss.villain and f.boss.person then
         night.villain_here = f.boss.person
@@ -869,9 +1008,14 @@ function M.run(night, sc, plan)
     for _, c in ipairs(b.creatures) do
         c.surprised = (sc.surprise == "foes" and c.side == "foes") or (sc.surprise == "party" and c.side == "party") or nil
     end
+    -- Hedges that were never hedges, huntlings in the exhibits: unless the party spotted them first,
+    -- they're surprised (The Museum of Nightmares).
+    if not sc.surprise and museum.false_appearance(b) then
+        f.ambushed = true
+    end
     night:emit({ kind = "battle", phase = "start", party = party_out, foes = foes_out, terrain = set_name,
-                 pieces = f.map and maps.cells(f.map) or nil,
-                 danger = plan.meter.danger, srd = plan.meter.srd })
+                 pieces = f.map and maps.cells(f.map) or nil, allies = #allies_out > 0 and allies_out or nil,
+                 ambushed = f.ambushed, danger = plan.meter.danger, srd = plan.meter.srd })
 
     -- Engine events collect into the current turn's steps.
     night.turn_steps, night.turn_who = {}, nil
@@ -1203,7 +1347,14 @@ function M.summary(b, f, result)
     local out = { how = how, rounds = result.rounds or b.round or 0, heroes = {}, beaten = {}, ran = {} }
     for _, c in ipairs(b.creatures) do
         local st = c.stats or {}
-        if c.side == "party" then
+        if c.ally then
+            -- (The Museum of Nightmares: a Steam Mech on their side, and how it ended for it.)
+            out.allies = out.allies or {}
+            table.insert(out.allies, { id = c.mini, name = c.name, monster = c.monster_id, hp = math.max(0, c.hp or 0),
+                                       hp_max = c.hp_max, dealt = st.dealt or 0,
+                                       state = (c.shut_down and "shut_down") or (c.powered_down and "powered_down")
+                                           or (c.dead and "wrecked") or "standing" })
+        elseif c.side == "party" then
             table.insert(out.heroes, { id = c.mini, name = c.name, hp = math.max(0, c.hp or 0), hp_max = c.hp_max,
                                        hits = st.hits or 0, swings = (st.hits or 0) + (st.misses or 0),
                                        dealt = st.dealt or 0, beaten = st.kills or 0, downs = st.downs or 0,
@@ -1217,6 +1368,18 @@ function M.summary(b, f, result)
             out.boss = { name = c.name, state = c.dead and "beaten" or (c.removed and "gone") or "standing",
                          hp = math.max(0, c.hp or 0), hp_max = c.hp_max }
         end
+        -- Still stone when it ended (Euryale won): who.
+        if c.side == "party" and not c.dead and b.any_effect and b:any_effect(c, "stone") then
+            out.stone = out.stone or {}
+            table.insert(out.stone, { id = c.mini, name = c.name })
+        end
+        if c.removed and c.removed_why == "morale" then
+            out.fled = out.fled or {}
+            table.insert(out.fled, c.name)
+        end
+    end
+    if f.moments then
+        out.moments = f.moments
     end
     return out
 end

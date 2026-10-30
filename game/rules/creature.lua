@@ -276,6 +276,9 @@ function M.new_monster(id, name_suffix)
         ac_fixed = d.ac, hp = d.hp, hp_max = d.hp,
         resist = set_of(d.resist), vulnerable = set_of(d.vulnerable), immune = set_of(d.immune),
         condition_immune = set_of(d.condition_immune),
+        -- The Museum of Nightmares (v2): Resistance only to attacks that aren't magical, and a
+        -- weakness for paint-touched weapons.
+        resist_nonmagical = d.resist_nonmagical and set_of(d.resist_nonmagical) or nil, paint_vulnerable = d.paint or nil,
         traits = set_of(d.traits), feats = {}, masteries = {},
         attacks = d.attacks, multiattack = d.multiattack,
         bonus_actions = set_of(d.bonus), reactions = set_of(d.reactions),
@@ -310,6 +313,8 @@ function M.monster_attack(c, a, as_ranged)
         -- The Vale Bestiary (A13): grapple (escape DC), pull, mark, drain, swarm damage.
         grapple = a.grapple, pull = a.pull, mark = a.mark, drain = a.drain,
         bloodied_damage = a.bloodied_damage, adv_vs_grappled = a.adv_vs_grappled,
+        -- The Museum of Nightmares (v2): a charge, fists that knock out.
+        charge = a.charge, nonlethal = a.nonlethal,
         crit_range = 20,
         thrown_ammo = a.ammo and a.id or nil,
     }

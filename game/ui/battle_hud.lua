@@ -72,6 +72,14 @@ function M.join(app, id, name, sprite, hp, max)
     M.draw(app)
 end
 
+-- Someone fighting on the party's side (the museum's Steam Mech, v2).
+function M.ally(app, id, name, sprite, hp, max)
+    local st = state(app)
+    st.minis[id] = { id = id, side = "party", hp = hp or 10, max = max or hp or 10, conds = {}, pic = "mini_" .. (sprite or "bandit"),
+                     name = name }
+    M.draw(app)
+end
+
 function M.stop(app)
     local st = state(app)
     M.clear_nodes(app)   -- before the list goes, or its bars and tags stay on screen

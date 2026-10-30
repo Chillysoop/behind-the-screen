@@ -181,6 +181,27 @@ local function monster_sprite(id, n)
     return MONSTER_SPRITES[id] and id or "bandit"
 end
 
+-- What the museum's fight moments sound like at the table: text ({who}, {target}, {by}), the
+-- float's colour, the log line's tone.
+local MUSEUM_SAY = {
+    veil = { "{who} pulls back her hood. Her hair is moving: snakes.", theme.purple, "twist" },
+    petrify = { "{who}'s eyes catch the light. Everyone who looks at her starts to stiffen.", theme.purple, "warn" },
+    petrifying = { "{who}'s legs go heavy and grey.", theme.orange, "bad" },
+    petrified = { "{who} turns to stone.", theme.red, "bad" },
+    freed = { "{who} cracks free of the stone.", theme.teal, "good" },
+    mirror = { "{who} catches her own eyes in the polished door.", theme.gold, "good" },
+    charmed = { "{who} smiles at {by} like an old friend. Charmed.", theme.purple, "bad" },
+    scarabs = { "{who} bursts open, and scarabs pour across the floor.", theme.orange, "twist" },
+    hyper = { "{who} vents steam and roars into Hyper Destroyer Mode!", theme.gold, "good" },
+    overheat = { "{who} overheats, blasts steam everywhere and shuts down.", theme.orange, "warn" },
+    power_down = { "{target} is down, and {who} powers down where it stands.", theme.orange, "bad" },
+    lecture = { "{who} drones at {target}. It is very, very boring.", theme.purple, "system" },
+    listening = { "{who} sits down on a bench to listen to the lecture.", theme.purple, "bad" },
+    woken = { "{who} shakes {target} out of the lecture.", theme.teal, "good" },
+    reckless = { "{who} swings without a thought for its guard.", theme.orange, "system" },
+    sands = { "{who} hunkers down in the shifting sand.", theme.teal, "system" },
+}
+
 local function cam(app, index)
     app.cam = index
     app.zoom(index)
@@ -1792,6 +1813,14 @@ function M.play_step(app, s, pace)
             M.float(app, s.id, s.name, theme.gold)
             M.push(app, name_of(app, s.id) .. " spends Heroic Inspiration to reroll the die: " .. util.int(s.from) .. " becomes "
                 .. util.int(s.to) .. ".", "good")
+        elseif s.museum and MUSEUM_SAY[s.museum] then
+            -- The museum's big moments (v2, game/rules/museum.lua), said the way the DM would.
+            local say = MUSEUM_SAY[s.museum]
+            local function nm(id)
+                return (type(id) == "string" and name_of(app, id)) or "someone"
+            end
+            M.float(app, s.id, s.name, say[2] or theme.teal)
+            M.push(app, (string.gsub(say[1], "{(%w+)}", { who = nm(s.id), target = nm(s.target), by = nm(s.by) })), say[3] or "system")
         elseif s.name then
             M.float(app, s.id, s.name, theme.teal)
             M.push(app, name_of(app, s.id) .. ": " .. s.name .. ".", "system")
@@ -2165,9 +2194,23 @@ function M.handle(app, ev)
                 -- one at a time, the way the DM sets the minis out
                 table.insert(list, { id = f.id, sprite = foe_sprite(f, i), x = f.x, y = f.y, delay = 0.3 + (i - 1) * 0.12 })
             end
+            -- On the party's side (the museum's Steam Mech, v2): a mini beside the heroes.
+            app.ally_ids = {}
+            for i, a in ipairs(ev.allies or {}) do
+                app.names[a.id] = a.name
+                table.insert(app.ally_ids, a.id)
+                table.insert(list, { id = a.id, sprite = monster_sprite(a.monster, i), x = a.x, y = a.y, side = "party",
+                                     delay = 0.2 + (i - 1) * 0.12 })
+            end
             app.on_table = {}
             post("spawn", { list = list })
             battle_hud.start(app, ev.party, ev.foes, foe_sprite)
+            for _, a in ipairs(ev.allies or {}) do
+                battle_hud.ally(app, a.id, a.name, monster_sprite(a.monster, 1), a.hp, a.hp_max)
+            end
+            if ev.ambushed then
+                M.push(app, "It was an ambush: the party is caught off guard.", "warn")
+            end
             M.draw_strip(app)     -- fewer dice while the turn order has the middle
             local n = #(ev.foes or {})
             M.caption(app, "Roll for initiative!  " .. util.int(n) .. (n == 1 and " foe" or " foes")
@@ -2180,6 +2223,10 @@ function M.handle(app, ev)
             app.in_battle = false
             battle_hud.stop(app)
             post("clear", { side = "foe", how = "flee" })
+            for _, id in ipairs(app.ally_ids or {}) do
+                post("flee", { id = id })
+            end
+            app.ally_ids = nil
             for id in pairs(app.hp) do
                 post("up", { id = id })
             end

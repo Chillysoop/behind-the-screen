@@ -125,6 +125,8 @@ function M.harsh(night, sc)
 end
 
 -- What an option's `mus` does tonight (adventure.apply does the bookkeeping).
+local FLAG_OPT = { paint = "paint", deaf = "earplugs" }
+
 function M.handle(night, mus, sc)
     if not mus then
         return
@@ -137,6 +139,12 @@ function M.handle(night, mus, sc)
     end
     if mus.flag == "notebook" then
         st.flags.notebook = true
+    end
+    -- What a moment hands the fight in this room (game/rules/museum.lua's battle options): weapons
+    -- pulled out of a painting, candle wax in the ears.
+    local opt = mus.flag and FLAG_OPT[mus.flag]
+    if opt and sc and sc.encounter then
+        sc.encounter[opt] = true
     end
     if mus.mark == "mech" then
         st.mech_name = st.mech_name or night.rng:pick(MODULE.mech_names)

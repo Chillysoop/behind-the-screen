@@ -19,9 +19,17 @@
 --   b.hooks.before_turn(b, c)   the DM runs a creature's turn (sets c.dm_target or c.dm_skip)
 --   b.blocked[x * 1000 + y] = true                              terrain squares nobody can enter
 --   b.force_end = "party" | "foes"                              end the fight after this turn
+--   b.hooks.before_join(b, c)   a creature is about to join mid-fight (a swarm bursting out)
+--   b.paint, b.mirror, b.averted, b.drowsy, b.earplugs          The Museum of Nightmares' options
+--                                                               (game/rules/museum.lua)
+--
+-- A creature on the party's side that isn't a hero (an ally, c.ally) fights with them but isn't
+-- counted among the heroes. An effect with out_of_fight (turned to stone, sitting through a
+-- lecture) takes its holder out: nobody targets them and they don't keep their side standing.
 
 local dice_mod = require "game.rules.dice"
 local creature = require "game.rules.creature"
+local museum = require "game.rules.museum"
 
 local M = {}
 local B = {}
@@ -83,7 +91,8 @@ end
 function B:enemies_of(c, include_down)
     local out = {}
     for _, o in ipairs(self.creatures) do
-        if o.side ~= c.side and not o.dead and (include_down or not o.down) and not o.removed then
+        if o.side ~= c.side and not o.dead and (include_down or not o.down) and not o.removed
+            and not self:any_effect(o, "out_of_fight") then
             table.insert(out, o)
         end
     end
@@ -514,6 +523,7 @@ function B:attack_mode(att, tgt, prof, opts)
         if e.steady_aim then table.insert(adv, "Steady Aim") end
         if e.feint_vs == tgt then table.insert(adv, "Feint") end
         if e.vex_vs == tgt then table.insert(adv, "Vex") end
+        if e.reckless then table.insert(adv, "Reckless") end
         if e.enfeebled and (prof.ability_name == "str" or (prof.kind == "melee" and not prof.ability_name)) then
             table.insert(dis, "Ray of Enfeeblement (Str)")
         end
@@ -531,6 +541,7 @@ function B:attack_mode(att, tgt, prof, opts)
         if e.dodge and self:can_see(tgt, att) and not self:incapacitated(tgt) then table.insert(dis, "Dodge") end
         if e.blur then table.insert(dis, "Blur") end
         if e.marked_adv then table.insert(adv, e.name or "Marked") end
+        if e.reckless then table.insert(adv, "target Reckless") end
     end
     -- Unseen Attackers and Targets (p. 14): in the dark (a staged board's light), a target you
     -- can't see means Disadvantage; an attacker the target can't see has Advantage.
@@ -946,9 +957,26 @@ function B:attack(att, tgt, prof, opts)
                 total = total, ac = ac, mode = mode, ranged = prof.kind == "ranged", sneak = res.sneak,
                 opportunity = opts.opportunity, spell = prof.spell, cover = cover,
                 cover_what = type(cover_what) == "string" and cover_what or nil, heroic = rerolled })
+    -- A charge (the briars' tusks): closing at least `feet` on the target this turn before the hit.
+    local ch = prof.charge
+    if ch and att.turn and att.turn.start_x and not att.turn.charged and self.active == att
+        and self:dist_xy(att.turn.start_x, att.turn.start_y, tgt.x, tgt.y) - self:dist(att, tgt) >= ch.feet then
+        att.turn.charged = true
+        table.insert(parts, self:roll_parts({ ch.extra }, crit)[1])
+        res.charge = true
+        self:log("  It's a charge!")
+    end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
-    res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon })
+    -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
+    local paint = self.paint and att.side == "party" and prof.is_weapon or nil
+    local magical = prof.magical or (att.magic_weapon or 0) > 0 or paint or nil
+    res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon,
+                                              magical = magical, paint = paint, nonlethal = prof.nonlethal })
+    if res.charge and not tgt.dead and not tgt.down and ch.save
+        and not self:save(tgt, ch.save, ch.dc, { kind = "prone" }) then
+        self:knock_prone(tgt, att.name .. "'s charge")
+    end
     self:bestiary_on_hit(att, tgt, prof, res, bloodied_before, hp_before)
     -- Monster riders.
     if prof.prone_max_size and not tgt.dead and SIZE_RANK[tgt.size] <= SIZE_RANK[prof.prone_max_size] then
@@ -1242,10 +1270,13 @@ function B:deal(src, tgt, parts, info)
                 amount = math.max(0, amount - self.dice:d(4))
             end
             local under = dtype == "fire" and self.hazard and require("game.rules.hazards").deep(self, tgt)
-            if tgt.resist[dtype] or bond or under then
+            -- (The Museum of Nightmares: Resistance to blows that aren't magical, and a Petrified
+            -- creature resists everything.)
+            local mundane = tgt.resist_nonmagical and info.weapon and not info.magical and tgt.resist_nonmagical[dtype]
+            if tgt.resist[dtype] or bond or under or mundane or (tgt.effects[1] and self:any_effect(tgt, "stone")) then
                 amount = math.floor(amount / 2)            -- (anything underwater resists fire, p. 16)
             end
-            if tgt.vulnerable[dtype] then
+            if tgt.vulnerable[dtype] or (info.paint and tgt.paint_vulnerable) then
                 amount = amount * 2
             end
         end
@@ -1296,7 +1327,14 @@ function B:deal(src, tgt, parts, info)
         tgt.hp = 0
         if tgt.pc then
             -- (Game night keeps heroes to their death saves: no one-hit deaths, October 17.)
-            if overflow >= tgt.hp_max and not self.gentle_deaths then
+            if info.nonlethal and info.melee then
+                -- Knocking Out a Creature: Unconscious and Stable, no death saves (the Sentinel).
+                self:drop(tgt, src)
+                tgt.stable = true
+                tgt.knocked_out = true
+                self:log("  %s is knocked out cold.", tgt.name)
+                museum.feature(self, tgt, "Knocked out", "knocked_out", { by = src })
+            elseif overflow >= tgt.hp_max and not self.gentle_deaths then
                 self:kill(tgt, src, "massive damage")
             else
                 self:drop(tgt, src)
@@ -1312,6 +1350,9 @@ function B:deal(src, tgt, parts, info)
                 self:kill(tgt, src)
             end
         end
+    end
+    if tgt.data and tgt.data.source or tgt.effects[1] then
+        museum.on_damaged(self, src, tgt, total, info)   -- a charm breaks, the scarabs pour out
     end
     if bond and not tgt.dead and bond.source and not bond.source.dead then
         -- Warding Bond: the caster takes the same damage.
@@ -1358,6 +1399,7 @@ function B:drop(c, src)
     end
     self:log("  %s drops to 0 Hit Points and falls Unconscious!", c.name)
     self:emit({ kind = "down", who = c, src = src })
+    museum.on_drop(self, c)                    -- a Steam Mech whose commander this was powers down
     if src and src.stats and src ~= c then
         src.stats.kills = src.stats.kills + 0
     end
@@ -1395,6 +1437,7 @@ function B:kill(c, src, why)
         self:log("  %s is defeated.", c.name)
     end
     self:emit({ kind = "death", who = c, src = src, why = why })
+    museum.on_kill(self, c)                    -- whatever they held up ends: Petrify, a charm, a lecture
 end
 
 -- Death Saving Throws (p. 18).
@@ -1525,6 +1568,10 @@ function B:save(c, ab, dc, info)
     end
     if kind == "poisoned" and c.traits.dwarven_resilience then adv = true end
     if kind == "charmed" and c.traits.fey_ancestry then adv = true end
+    if self.drowsy or self.averted or self.earplugs then
+        local a2, d2 = museum.save_mods(self, c, ab, info)
+        adv, dis = adv or a2 or false, dis or d2 or false
+    end
     local mode = 0
     if adv and not dis then mode = 1 elseif dis and not adv then mode = -1 end
     local roll = self.dice:d20(mode, c.traits.halfling_luck)
@@ -1807,6 +1854,12 @@ function B:can_make_oa(e, mover)
     if self:any_effect(e, "no_oa") then
         return false
     end
+    -- Charmed (Rules Glossary): no attacking the one who charmed you, not even in passing.
+    for _, x in ipairs(e.effects) do
+        if x.charmed_by == mover then
+            return false
+        end
+    end
     if not self:can_see(e, mover) then
         return false
     end
@@ -1818,7 +1871,9 @@ function B:opportunity_attack(e, c)
     self:log("%s takes an Opportunity Attack at %s.", e.name, c.name)
     local prof = self.ai and self.ai.melee_profile and self.ai.melee_profile(self, e)
     if prof then
-        self:attack(e, c, prof, { opportunity = true })
+        -- Briar Hooks (The Museum of Nightmares): the thorns catch whoever pulls away.
+        local hooks = e.data and e.data.briar_hooks
+        self:attack(e, c, prof, { opportunity = true, extra_parts = hooks and { hooks } or nil })
     end
 end
 
@@ -1899,12 +1954,15 @@ end
 function B:start_turn(c)
     self.active = c
     self.turn_counter = (self.turn_counter or 0) + 1
-    c.turn = { action = true, bonus = true, move = self:speed(c), moved = false, attacks = 0 }
+    c.turn = { action = true, bonus = true, move = self:speed(c), moved = false, attacks = 0, start_x = c.x, start_y = c.y }
     c.reaction_used = false
     self:process_expiry(c, "start")
     self:sweep_grapples()
     if self.hazard then
         require("game.rules.hazards").start_turn(self, c)   -- Burning (p. 178)
+    end
+    if c.sands_spent then
+        museum.start_turn(self, c)
     end
     if c.web_spent and self.dice:d(6) >= ((c.data and c.data.web and c.data.web.recharge) or 5) then
         c.web_spent = nil
@@ -1922,9 +1980,11 @@ function B:end_turn(c)
     -- Repeat saves at the end of the creature's turn (Hold Person, Blindness/Deafness...).
     for i = #c.effects, 1, -1 do
         local e = c.effects[i]
-        if e and e.save_end and not c.dead then
+        if e and e.save_end and not c.dead and e.save_end.skip_now then
+            e.save_end.skip_now = nil          -- (it started this turn: the save comes at the end of the next)
+        elseif e and e.save_end and not c.dead then
             local s = e.save_end
-            if self:save(c, s.ab, s.dc, { kind = e.name }) then
+            if self:save(c, s.ab, s.dc, { kind = s.kind or e.name, adv = s.adv }) then
                 self:remove_effect(c, e, "saved")
                 self:log("  %s shakes off %s.", c.name, e.name)
                 if e.on_save then
@@ -1948,6 +2008,13 @@ function B:end_turn(c)
     if z and z.on_end_turn and not c.dead then
         z.on_end_turn(self, z, c)
     end
+    -- Effects that act at the end of their holder's turn (the Steam Mech's overheat check).
+    for i = #c.effects, 1, -1 do
+        local e = c.effects[i]
+        if e and e.on_end_turn and not c.dead then
+            e.on_end_turn(self, c, e)
+        end
+    end
     for _, o in ipairs(self.creatures) do
         local sphere = o.conc and o.conc.extra.sphere
         if sphere and not sphere.gone and o ~= c and o.side ~= c.side and not c.dead
@@ -1963,7 +2030,7 @@ end
 function B:outcome()
     local party, foes = false, false
     for _, c in ipairs(self.creatures) do
-        if not c.dead and not c.down and not c.removed then
+        if not c.dead and not c.down and not c.removed and not (c.effects[1] and self:any_effect(c, "out_of_fight")) then
             if c.side == "party" then party = true else foes = true end
         end
     end
@@ -2022,6 +2089,9 @@ function B:join(c, x, y)
     if self.order then
         table.insert(self.order, c)
     end
+    if self.hooks.before_join then
+        self.hooks.before_join(self, c)       -- game night names its mini
+    end
     self:emit({ kind = "join", who = c })
     return c
 end
@@ -2029,6 +2099,7 @@ end
 -- A creature leaving the fight (fleeing, or written out by the DM).
 function B:remove(c, why)
     c.removed = true
+    c.removed_why = why
     if c.conc then
         self:end_concentration(c, "left")
     end
@@ -2085,8 +2156,19 @@ function B:summary(result)
     local s = { winner = result, rounds = self.round, pcs = {}, foes = {},
                 pc_downs = self.events.pc_downs, pc_deaths = self.events.pc_deaths }
     local hp_lost, hp_max = 0, 0
+    -- (The Museum of Nightmares: allies, foes that ran, and anyone left as stone.)
+    local allies, fled, stone = {}, {}, {}
     for _, c in ipairs(self.creatures) do
-        if c.side == "party" then
+        if c.effects[1] and self:any_effect(c, "stone") then
+            table.insert(stone, c.name)
+        end
+        if c.removed and c.side ~= "party" and not c.dead and c.removed_why ~= "surrender" then
+            table.insert(fled, c.name)
+        end
+        if c.ally then
+            table.insert(allies, { name = c.name, monster = c.monster_id, dead = c.dead, hp = c.hp, hp_max = c.hp_max,
+                                   shut_down = c.shut_down, powered_down = c.powered_down, stats = c.stats })
+        elseif c.side == "party" then
             hp_max = hp_max + c.hp_max
             local lost = c.hp_max - (c.dead and 0 or c.hp)
             hp_lost = hp_lost + math.max(0, lost)
@@ -2097,6 +2179,9 @@ function B:summary(result)
         end
     end
     s.hp_lost_frac = hp_max > 0 and hp_lost / hp_max or 0
+    if #allies > 0 then s.allies = allies end
+    if #fled > 0 then s.fled = fled end
+    if #stone > 0 then s.petrified = stone end
     return s
 end
 

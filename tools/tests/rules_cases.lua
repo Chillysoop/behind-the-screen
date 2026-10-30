@@ -1224,6 +1224,247 @@ case("map-v2", "The DM's map is a board: its pieces block, cover and open", "Set
         t:eq("a version 1 map turns into pieces", #old.props .. ":" .. tostring(old.traps["8,5"]), "3:true")
     end)
 
+-- The Museum of Nightmares (v2) -------------------------------------------------------------------
+-- The adventure's own monsters (its Appendix B) and the battle options game night passes in
+-- (game/rules/museum.lua). Page references are to the adventure, not the SRD.
+
+local museum = require "game.rules.museum"
+
+case("museum-mundane", "The Knight of Shades shrugs off ordinary blows, and paint cuts it", "Museum, Appendix B (Knight of Shades)",
+    "Resistance to bludgeoning, piercing and slashing from nonmagical attacks; vulnerability to paint-touched weapons.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)        -- AC 12, 67 HP
+        b.dice:force(15, 3, 4)                               -- greatsword 2d6 (3+4) + 3 = 10
+        local r = b:attack(f, k, melee(f))
+        t:eq("a plain greatsword does half", r.damage, 5)
+        b.paint = true
+        b.dice:force(15, 3, 4)
+        r = b:attack(f, k, melee(f))
+        t:eq("a paint-touched one counts as magic, and doubles", r.damage, 20)
+    end)
+
+case("museum-knockout", "The Sentinel's fists knock a hero out instead of killing", "Museum, Appendix B (The Sentinel)",
+    "Two non-lethal attacks: a hero it drops is Unconscious and Stable, with no death saves to make.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        local s = at(b, mon("sentinel"), 6, 5)
+        w.hp = 3
+        b.dice:force(15, 4)                                  -- fist 1d6 (4) + 2 = 6
+        b:attack(s, w, creature.monster_attack(s, s.attacks[1]))
+        t:eq("down", w.down, true)
+        t:eq("but Stable: no death saves", w.stable, true)
+        t:eq("and knocked out, not dying", w.knocked_out, true)
+    end)
+
+case("museum-charge", "A briar boar's charge: extra damage and a Strength save or Prone", "Museum, Appendix B (Briar Boar)",
+    "Moving at least 20 ft straight toward a target, then hitting with the tusks: +1d6 slashing, DC 11 Strength save or Prone.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local boar = at(b, mon("briar_boar"), 10, 5)
+        boar.turn.start_x, boar.turn.start_y = 10, 5
+        boar.x = 6                                           -- it ran 20 ft in
+        b.active = boar
+        b.dice:force(15, 4, 3, 2)                            -- hit; tusks 4 + 1, charge 3; Str save 2 + 5 fails
+        local r = b:attack(boar, f, creature.monster_attack(boar, boar.attacks[1]))
+        t:eq("tusks 5 + charge 3", r.damage, 8)
+        t:eq("knocked flat", b:has(f, "prone"), true)
+        b.dice:force(15, 15, 4)                              -- (Advantage now: he's Prone)
+        r = b:attack(boar, f, creature.monster_attack(boar, boar.attacks[1]))
+        t:eq("once a turn", r.damage, 5)
+    end)
+
+case("museum-scarabs", "Hurt the bone construct to half and the scarabs pour out", "Museum, Appendix B (Bone Construct)",
+    "Crypt Scarabs: when the Bone Construct has reached 50% of its Hit Points, a swarm of Giant Scarabs joins the fight.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local bc = at(b, mon("bone_construct"), 10, 5)       -- 45 HP
+        local n = #b.creatures
+        b:deal(f, bc, { { 20, "slashing" } })
+        t:eq("25 of 45 left: nothing yet", #b.creatures, n)
+        b:deal(f, bc, { { 5, "slashing" } })
+        t:eq("20 of 45: a swarm joins", #b.creatures, n + 1)
+        t:eq("it's the scarabs, on the construct's side", b.creatures[n + 1].monster_id .. ":" .. b.creatures[n + 1].side,
+            "giant_scarab_swarm:foes")
+        b:deal(f, bc, { { 5, "slashing" } })
+        t:eq("only the once", #b.creatures, n + 1)
+    end)
+
+case("museum-petrify", "Euryale's gaze: Restrained, then stone, then free when she falls", "Museum, Appendix B (Euryale)",
+    "Petrify: DC 12 Con save or Restrained; repeat at the end of its next turn or Petrified; freed when Euryale is defeated.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.dice:force(2)                                      -- 2 + 4 fails
+        museum.petrify(b, e)
+        t:eq("turning to stone (Restrained)", b:has(f, "restrained"), true)
+        b.dice:force(3)                                      -- the repeat save fails too
+        b:end_turn(f)
+        t:eq("stone", b:has(f, "petrified"), true)
+        t:eq("out of the fight: nobody's left standing on the party's side", b:outcome(), "foes")
+        t:eq("and nobody targets a statue", #b:enemies_of(e), 0)
+        b:kill(e)
+        t:eq("she falls, and the stone cracks", b:has(f, "petrified"), false)
+    end)
+
+case("museum-mirror", "With the mirror up, Euryale meets her own eyes", "Museum, Appendix B (Euryale)",
+    "If Euryale uses Petrify while looking at her own reflection, she makes the save too.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.mirror = true
+        b.active = e
+        b.dice:force(20, 2)                                  -- the fighter saves; Euryale (+2) doesn't
+        museum.petrify(b, e)
+        t:eq("the fighter is fine", b:has(f, "restrained"), false)
+        t:eq("she's turning to stone", b:has(e, "restrained"), true)
+        b:end_turn(e)
+        t:eq("her repeat save waits for the end of her next turn", b:has(e, "restrained"), true)
+        b.dice:force(4)
+        b:end_turn(e)
+        t:eq("stone, and beaten", e.dead, true)
+    end)
+
+case("museum-averted", "Averted eyes: Advantage against the gaze", "Museum (Lair of the Gorgon)",
+    "The battle option averted: the heroes' saves against Petrify have Advantage.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.averted = true
+        b.dice:force(2, 15)                                  -- with Advantage the 15 counts: 19
+        museum.petrify(b, e)
+        t:eq("saved", b:has(f, "restrained"), false)
+        t:eq("both dice rolled", b.dice:pending(), 0)
+    end)
+
+case("museum-drowsy", "Charm Person: Advantage for a hero in the fight, unless the drone made them drowsy",
+    "SRD 5.2.1 p. 116 (Charm Person); Museum (the Lecture Theatre)",
+    "A target you're fighting saves with Advantage; drowsy (the battle option) gives Disadvantage, and the two cancel.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 8, 5)
+        b.dice:force(5, 15)                                  -- Advantage: 15 + 0 saves
+        museum.charm_person(b, e, f)
+        t:eq("saved with Advantage", b:find_effect(f, "Charmed") == nil, true)
+        b.drowsy = true
+        b.dice:force(5)                                      -- one die: 5 fails
+        museum.charm_person(b, e, f)
+        t:eq("drowsy: one die, and charmed", b:find_effect(f, "Charmed") ~= nil, true)
+        t:eq("no attacking her, not even in passing", b:can_make_oa(f, e), false)
+        b:deal(e, f, { { 2, "slashing" } })
+        t:eq("she hurts him and the charm breaks", b:find_effect(f, "Charmed"), nil)
+    end)
+
+case("museum-lecture", "Bored to Death: a hero sits down to listen until someone hurts them", "Museum, Appendix B (The Lecturer)",
+    "DC 14 Wisdom save or Charmed: the target sits and listens; the charm breaks if someone tries to harm it.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local l = at(b, mon("the_lecturer"), 9, 5)
+        b.dice:force(3)
+        museum.lecture(b, l, f)
+        t:eq("sitting, listening (Incapacitated)", b:incapacitated(f), true)
+        t:eq("out of the fight", b:outcome(), "foes")
+        b:deal(nil, f, { { 1, "piercing" } })
+        t:eq("a pinch wakes him", b:incapacitated(f), false)
+        b.earplugs = true
+        b.dice:force(3, 18)                                  -- stopped ears: Advantage
+        museum.lecture(b, l, f)
+        t:eq("earplugs: Advantage, and he stays awake", b:incapacitated(f), false)
+    end)
+
+case("museum-reckless", "The Knight of Shades fights recklessly", "Museum, Appendix B (Knight of Shades)",
+    "At the start of its turn: Advantage on its attacks, and attacks against it have Advantage until its next turn.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)
+        b.active = k
+        museum.turn(b, k, {})
+        local kp = creature.monster_attack(k, k.attacks[1])
+        t:eq("its swing has Advantage", (b:attack_mode(k, f, kp)), 1)
+        t:eq("so does the fighter's", (b:attack_mode(f, k, melee(f))), 1)
+    end)
+
+case("museum-morale", "Huntlings run once the pack is losing", "Museum (the Hunting Grounds)",
+    "Kruthik Huntlings won't fight to the death: they flee if they believe they will suffer losses.",
+    function(t)
+        local b = fresh()
+        at(b, pc("fighter", 3), 5, 5)
+        local pack = {}
+        for i = 1, 5 do
+            pack[i] = at(b, mon("kruthik_huntling"), 10, 2 + i)
+        end
+        t:eq("a fresh pack holds", museum.loses_nerve(b, pack[5]), false)
+        pack[1].dead, pack[2].dead = true, true
+        t:eq("two lost: still in it", museum.loses_nerve(b, pack[5]), false)
+        pack[3].dead = true
+        t:eq("three lost: they run", museum.loses_nerve(b, pack[5]), true)
+        museum.flee(b, pack[5], { back_off = function() end })
+        t:eq("and leave the fight", pack[5].removed, true)
+    end)
+
+case("museum-overheat", "Hyper Destroyer Mode, and the overheat that shuts the mech down", "Museum, Appendix B (The Steam Mech)",
+    "AC +2 in the mode; at the end of each turn a Con save (DC 10 + turns in it) or 2d6 Fire to all within 5 ft "
+        .. "(DC 12 Dex) and the mech drops to 0 Hit Points.",
+    function(t)
+        local b = fresh()
+        local m = at(b, mon("steam_mech"), 5, 5)
+        m.side, m.ally = "party", true
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        museum.go_hyper(b, m)
+        t:eq("AC 13 + 2", b:ac(m), 15)
+        b.dice:force(1, 1, 3, 3)                             -- Con save 1; goblin's Dex save 1; 2d6 = 6
+        b:end_turn(m)
+        t:eq("the goblin is scalded", g.hp, 4)
+        t:eq("and the mech is shut down", m.dead and m.shut_down, true)
+    end)
+
+case("museum-commander", "The mech powers down when its commander drops", "Museum (The Steam Mech)",
+    "If the designated commander of a Steam Mech is knocked unconscious, the Steam Mech will disengage.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3), 5, 5)
+        local m = at(b, mon("steam_mech"), 6, 6)
+        m.side, m.ally, m.commander = "party", true, w
+        b:drop(w)
+        t:eq("powered down", m.powered_down and b:incapacitated(m), true)
+    end)
+
+case("museum-false-appearance", "Topiary that was never topiary: the party starts surprised", "Museum, Appendix B (Briar Guardians)",
+    "False Appearance: while still, a briar guardian looks like a shaped bush. A fight of only these starts with a surprise.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        at(b, mon("briar_beast"), 10, 5)
+        at(b, mon("briar_boar"), 10, 7)
+        t:eq("surprised", museum.false_appearance(b) and f.surprised, true)
+        local b2 = fresh()
+        local f2 = at(b2, pc("fighter", 2), 5, 5)
+        at(b2, mon("briar_beast"), 10, 5)
+        at(b2, mon("euryale"), 10, 7)
+        t:eq("not with Euryale sitting there", museum.false_appearance(b2) or f2.surprised or false, false)
+    end)
+
+case("museum-meter", "The meter counts the scarabs, and the mech on the party's side", "game/rules/encounter.lua",
+    "A monster that bursts into more counts with them; allies add their Hit Points and blunt the monsters'.",
+    function(t)
+        local m = enc.meter(2, 4, { "bone_construct" })
+        t:eq("the construct and its swarm", m.xp, 250)
+        local alone = enc.meter(3, 4, { "euryale" })
+        local helped = enc.meter(3, 4, { "euryale" }, { allies = { "steam_mech" } })
+        t:eq("the mech makes it safer", helped.someone_drops < alone.someone_drops, true)
+        t:eq("the Sentinel can't kill anyone", enc.meter(2, 4, { "sentinel" }).someone_dies, 0)
+    end)
+
 local passed, results = 0, {}
 for _, cs in ipairs(cases) do
     local r = run_case(cs)

@@ -46,6 +46,10 @@ for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
     adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
 end
 
+-- The fights, with the book's monsters (game/rules/museum.lua): how many, lost, heroes dropped,
+-- and the big moments that happened.
+local fights = { n = 0, lost = 0, downs = 0, moments = {}, boss = "none" }
+
 local function play_night(night)
     local ev = night:advance()
     local guard = 0
@@ -61,6 +65,24 @@ local function play_night(night)
         elseif ev.kind == "scene" then
             if show then
                 print(string.format("== Scene %s of %s: %s (%s)", ev.index, ev.total, ev.title, ev.type_name))
+            end
+        elseif ev.kind == "battle" and ev.phase == "end" then
+            fights.n = fights.n + 1
+            if ev.winner ~= "party" then
+                fights.lost = fights.lost + 1
+            end
+            local sm = ev.summary or {}
+            for _, h in ipairs(sm.heroes or {}) do
+                fights.downs = fights.downs + (h.downs or 0)
+            end
+            for _, m in ipairs(sm.moments or {}) do
+                fights.moments[m.kind] = (fights.moments[m.kind] or 0) + 1
+            end
+            if night.scene and night.scene.room == "lair" then
+                fights.boss = (ev.winner == "party") and "won" or "lost"
+            end
+            if show then
+                print(string.format("  ## fight: %s, %d rounds", tostring(ev.winner), sm.rounds or 0))
             end
         elseif ev.kind == "mark" then
             if show then
@@ -158,4 +180,11 @@ check(st.done.garden and st.done.entrance, "played the ground floor")
 print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %d%s",
     seed, style, weeks, tostring(st.ending), table.concat(st.mark_list, ","), st.francs, st.harsh.paid, st.harsh.unpaid,
     c.level, failures > 0 and ("  FAILURES " .. failures) or ""))
+local mk = {}
+for k, n in pairs(fights.moments) do
+    table.insert(mk, k .. "=" .. n)
+end
+table.sort(mk)
+print(string.format("  fights %d, lost %d, downs %d, boss %s; moments %s", fights.n, fights.lost, fights.downs, fights.boss,
+    table.concat(mk, " ")))
 os.exit(failures == 0 and 0 or 1)

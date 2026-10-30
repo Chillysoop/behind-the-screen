@@ -437,6 +437,249 @@ add("scout", {
     role = "skirmisher",
 })
 
+-- The Museum of Nightmares (v2) ---------------------------------------------------------------
+-- The published adventure's own monsters (its Appendix B, not the SRD), for the three-session
+-- arc. Numbers are as printed unless a "tuned" note says what changed and why. The rules they
+-- need live in game/rules/museum.lua (each block's `museum` names its turn); the fields:
+--   resist_nonmagical   Resistance to these types from attacks that aren't magical
+--   paint               Vulnerable to paint-touched weapons (the battle's `paint` option)
+--   charge              on an attack: closing `feet` this turn before the hit adds `extra`, and a save or Prone
+--   briar_hooks         extra damage on its Opportunity Attacks (thorns that catch whoever pulls away)
+--   false_appearance    a trait: a fight made only of these (or ambushers) starts with the party surprised
+--   ambusher            a trait: the same, for monsters that wait hidden (the huntlings)
+--   spawn               { id, at = fraction of HP, n, name }: what bursts out when it gets that hurt
+--   nonlethal           on an attack: a hero it drops is knocked out (Stable), never dying
+--   morale              { pack = fraction }: the pack runs once it has lost that much of itself
+--   meter_dpr           what a turn of it really deals, for the difficulty meter, when its stat
+--                       block's attacks don't show it (a gaze, a charm, a lecture)
+M.MUSEUM = "The Museum of Nightmares"
+local BRIAR_IMMUNE = { "blinded", "charmed", "deafened", "exhaustion", "frightened", "paralyzed", "petrified", "poisoned" }
+local BPS = { "bludgeoning", "piercing", "slashing" }
+
+add("briar_beast", {
+    name = "Briar Beast", source = M.MUSEUM, museum = "briar", size = "medium", type = "construct",
+    ac = 12, hp = 13, hit_dice = "3d8", speed = 50,
+    abilities = { str = 14, dex = 15, con = 10, int = 3, wis = 14, cha = 7 },
+    cr = "1/4", xp = 50, pb = 2,
+    vulnerable = { "fire" }, immune = { "poison", "psychic" }, condition_immune = BRIAR_IMMUNE,
+    traits = { "false_appearance" },
+    briar_hooks = { 1, 4, 0, "piercing" },
+    attacks = {
+        { id = "thorn_talons", name = "Thorn Talons", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 6, 2, "piercing" } } },
+    },
+    role = "skirmisher",
+})
+
+add("briar_boar", {
+    name = "Briar Boar", source = M.MUSEUM, museum = "briar", size = "small", type = "construct",
+    ac = 11, hp = 11, hit_dice = "2d8+2", speed = 40,
+    abilities = { str = 13, dex = 11, con = 12, int = 2, wis = 9, cha = 7 },
+    cr = "1/4", xp = 50, pb = 2,
+    vulnerable = { "fire" }, immune = { "poison", "psychic" }, condition_immune = BRIAR_IMMUNE,
+    traits = { "false_appearance" },
+    briar_hooks = { 1, 4, 0, "piercing" },
+    attacks = {
+        { id = "tusks", name = "Briar Tusks", kind = "melee", to_hit = 3, reach = 5, damage = { { 1, 6, 1, "slashing" } },
+          charge = { feet = 20, extra = { 1, 6, 0, "slashing" }, save = "str", dc = 11 } },
+    },
+    role = "brute",
+})
+
+add("briar_triceratops", {
+    name = "Briar Triceratops", source = M.MUSEUM, museum = "briar", size = "large", type = "construct",
+    ac = 13, hp = 15, hit_dice = "3d8+2", speed = 40,
+    -- (The printed Dexterity is "19 (+0)": the +0 is right for everything else on the block.)
+    abilities = { str = 16, dex = 10, con = 12, int = 2, wis = 10, cha = 6 },
+    -- Tuned: CR 1/4 (50 XP) as printed undersells two +5 attacks and a charge; CR 1 (200 XP) on the
+    -- budget, so the meter warns the DM. The stat block itself is as printed.
+    cr = "1", xp = 200, pb = 2,
+    book = { cr = "1/4", xp = 50 },
+    vulnerable = { "fire" }, immune = { "poison", "psychic" }, condition_immune = BRIAR_IMMUNE,
+    traits = { "false_appearance" },
+    multiattack = { count = 2, any_of = { "tusks", "hooves" }, seq = { "tusks", "hooves" } },
+    attacks = {
+        { id = "tusks", name = "Briar Tusks", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 6, 3, "slashing" } },
+          charge = { feet = 20, extra = { 1, 6, 0, "slashing" }, save = "str", dc = 11 } },
+        { id = "hooves", name = "Briar Hooves", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 6, 3, "bludgeoning" } } },
+    },
+    role = "brute",
+})
+
+add("sentinel", {
+    name = "Sentinel", source = M.MUSEUM, museum = "sentinel", size = "large", type = "construct",
+    ac = 15, hp = 52, hit_dice = "7d8+21", speed = 20,
+    darkvision = 60,
+    abilities = { str = 14, dex = 10, con = 16, int = 7, wis = 10, cha = 6 },
+    cr = "2", xp = 450, pb = 2,
+    resist = { "acid", "cold", "fire", "lightning", "thunder" }, resist_nonmagical = BPS,
+    immune = { "poison" },
+    nonlethal = true,                            -- Defender: it guards the donation box, it doesn't kill
+    multiattack = { count = 2, any_of = { "fist" } },
+    attacks = {
+        { id = "fist", name = "Gauntleted Fist", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 6, 2, "bludgeoning" } },
+          nonlethal = true },
+    },
+    role = "brute",
+})
+
+add("bone_construct", {
+    name = "Bone Construct", source = M.MUSEUM, museum = "bone_construct", size = "large", type = "construct",
+    -- Tuned: 33 Hit Points (6d8+6) become 45 (7d10+7), so the chamber lasts long enough for the
+    -- scarabs to matter.
+    ac = 18, hp = 45, hit_dice = "7d10+7", speed = 25, blindsight = 60,
+    abilities = { str = 14, dex = 11, con = 13, int = 1, wis = 3, cha = 1 },
+    cr = "1", xp = 200, pb = 2,
+    book = { hp = 33 },
+    immune = { "poison", "psychic" }, condition_immune = BRIAR_IMMUNE,
+    -- Sands of the Ancients (Recharge 5-6): Dodge or Disengage as a Bonus Action.
+    sands = { recharge = 5 },
+    -- Crypt Scarabs: at half its Hit Points, a swarm of giant scarabs pours out of it.
+    spawn = { id = "giant_scarab_swarm", at = 0.5, n = 1, name = "Crypt Scarabs" },
+    multiattack = { count = 2, any_of = { "ritual_mace" } },
+    attacks = {
+        { id = "ritual_mace", name = "Ritual Mace", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 6, 2, "bludgeoning" } } },
+    },
+    role = "brute",
+})
+
+add("giant_scarab_swarm", {
+    name = "Giant Scarab Swarm", source = M.MUSEUM, size = "medium", type = "construct", tags = { "swarm" },
+    ac = 12, hp = 22, hit_dice = "5d8", speed = 30, fly = 30, blindsight = 60,
+    abilities = { str = 5, dex = 15, con = 10, int = 2, wis = 12, cha = 4 },
+    cr = "1/4", xp = 50, pb = 2,
+    resist = BPS, immune = { "poison", "psychic" }, condition_immune = BRIAR_IMMUNE,
+    traits = { "swarm" },                        -- can't regain Hit Points or gain Temporary Hit Points
+    -- (Burrow, its latch-on attack, is left out: the pincers carry the fight.)
+    attacks = {
+        { id = "pincers", name = "Pincers", kind = "melee", to_hit = 4, reach = 5, damage = { { 2, 4, 0, "piercing" } },
+          bloodied_damage = { { 1, 4, 0, "piercing" } } },
+    },
+    role = "brute",
+})
+
+add("knight_of_shades", {
+    name = "Knight of Shades", source = M.MUSEUM, museum = "knight", size = "medium", type = "construct",
+    ac = 12, hp = 67, hit_dice = "9d8+27", speed = 30,
+    abilities = { str = 16, dex = 12, con = 17, int = 9, wis = 11, cha = 9 },
+    -- Tuned: CR 2 (450 XP) on the budget instead of CR 1: against heroes without magic or paint
+    -- it soaks up twice the blows, and beside Euryale that's what makes a fight run long.
+    cr = "2", xp = 450, pb = 2,
+    book = { cr = "1", xp = 200 },
+    resist_nonmagical = BPS, vulnerable = { "fire" }, paint = true,
+    immune = { "poison" }, condition_immune = BRIAR_IMMUNE,
+    reckless = true,                             -- Advantage on its attacks; attacks on it have it too
+    attacks = {
+        { id = "greatsword", name = "Great Sword", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 10, 3, "slashing" } } },
+    },
+    role = "brute",
+})
+
+add("kruthik_huntling", {
+    name = "Kruthik Huntling", source = M.MUSEUM, museum = "kruthik", size = "medium", type = "monstrosity",
+    -- Tuned: 7 Hit Points (2d6+1) become 18 (4d8) and CR 1/4 becomes 1/2, so five of them are a
+    -- real hunt for level 3 heroes (as printed, the heroes drop one with every hit).
+    ac = 13, hp = 18, hit_dice = "4d8", speed = 40,
+    darkvision = 60,
+    abilities = { str = 8, dex = 14, con = 10, int = 10, wis = 8, cha = 8 },
+    cr = "1/2", xp = 100, pb = 2,
+    book = { hp = 7, cr = "1/4", xp = 50 },
+    -- They wait hidden in the exhibits (Stealth +6) and strike first: a fight of only huntlings
+    -- starts with the party surprised.
+    traits = { "ambusher" },
+    bonus = { "nimble_escape" },                 -- Nimble Survivor: Disengage or Hide as a Bonus Action
+    morale = { pack = 0.6 },                     -- pack animals: they run before they lose
+    multiattack = { count = 2, any_of = { "jaws", "talons" }, seq = { "jaws", "talons" } },
+    attacks = {
+        { id = "jaws", name = "Jaws", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 4, 2, "piercing" } } },
+        { id = "talons", name = "Talons", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 4, 2, "slashing" } } },
+    },
+    role = "pack",
+})
+
+add("the_lecturer", {
+    name = "The Lecturer", source = M.MUSEUM, museum = "lecturer", size = "medium", type = "undead",
+    -- Tuned: 22 Hit Points (5d8) become 31 (7d8), so level 3 heroes hear more than a sentence of it.
+    ac = 12, hp = 31, hit_dice = "7d8", speed = 30, fly = 30, hover = true,
+    darkvision = 60,
+    abilities = { str = 1, dex = 14, con = 11, int = 10, wis = 10, cha = 11 },
+    cr = "1", xp = 200, pb = 2,
+    resist = { "acid", "cold", "fire", "lightning", "thunder" }, resist_nonmagical = BPS,
+    immune = { "necrotic", "poison" },
+    condition_immune = { "charmed", "exhaustion", "grappled", "paralyzed", "petrified", "poisoned", "prone", "restrained",
+                         "unconscious" },
+    traits = { "incorporeal" },
+    -- Bored to Death: one humanoid or beast within 30 ft that can hear, DC 14 Wisdom save or Charmed:
+    -- it sits down and listens until someone tries to hurt it. (The exhaustion is left out.)
+    bored = { save = "wis", dc = 14, range = 30 },
+    attacks = {},
+    book = { hp = 22 },
+    meter_dpr = 4,
+    role = "leader",
+})
+
+add("steam_mech", {
+    name = "Steam Mech", source = M.MUSEUM, museum = "steam_mech", size = "large", type = "construct",
+    ac = 13, hp = 29, hit_dice = "4d8+13", speed = 30,
+    abilities = { str = 16, dex = 12, con = 17, int = 9, wis = 11, cha = 9 },
+    cr = "1", xp = 200, pb = 2,
+    resist_nonmagical = BPS, vulnerable = { "lightning" }, immune = { "poison" },
+    condition_immune = { "charmed", "exhaustion", "grappled", "paralyzed", "petrified", "poisoned", "prone", "restrained",
+                         "unconscious" },
+    -- Hyper Destroyer Mode: AC +2, Speed +5 ft, +1d4 Lightning on its melee hits and Hyper Missiles
+    -- as a Bonus Action; at the end of each of its turns in it, a Constitution save (DC 10 + turns
+    -- in the mode) or it vents (2d6 Fire to everyone within 5 ft who fails a DC 12 Dex save) and
+    -- shuts down at 0 Hit Points.
+    hyper = { ac = 2, speed = 5, melee_extra = { 1, 4, 0, "lightning" }, dc = 10,
+              vent = { save = "dex", dc = 12, damage = { 2, 6, 0, "fire" }, radius = 5 } },
+    attacks = {
+        { id = "steam_fists", name = "Steam Fists", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 8, 3, "bludgeoning" } } },
+        { id = "chain_gun", name = "Chain Gun", kind = "ranged", to_hit = 3, range = { 60, 60 }, damage = { { 2, 4, 1, "piercing" } } },
+    },
+    missiles = { id = "hyper_missiles", name = "Hyper Missiles", kind = "ranged", to_hit = 1, range = { 60, 60 },
+                 damage = { { 1, 4, 1, "piercing" } }, targets = 3 },
+    role = "ally",
+})
+
+add("euryale", {
+    name = "Euryale", source = M.MUSEUM, museum = "euryale", size = "medium", type = "monstrosity",
+    -- Tuned (the book has her for four level 2 heroes; the arc meets her at level 3, alone or with
+    -- a few of the museum's horrors): 65 Hit Points become 104 (16d8+32), she attacks three times
+    -- (the book: once, and twice after the veil), and she's CR 3 (700 XP) instead of CR 2. A hero
+    -- she charms tries the save again at the end of each of their turns (game/rules/museum.lua).
+    ac = 16, hp = 104, hit_dice = "16d8+32", speed = 30,
+    darkvision = 60,
+    abilities = { str = 15, dex = 16, con = 14, int = 14, wis = 15, cha = 14 },
+    cr = "3", xp = 700, pb = 2,
+    book = { hp = 65, cr = "2", xp = 450, attacks = 1 },
+    -- Lifting the Veil: on her first turn at half her Hit Points or less, the hood comes off: the
+    -- Crown of Snakes joins her attacks and Petrify (once a day) is ready.
+    veil = { at = 0.5 },
+    -- Petrify (1/Day): everyone within 50 ft who can see her eyes, DC 12 Con save or Restrained,
+    -- and again at the end of their next turn or Petrified until she's beaten. With a mirror held up
+    -- she makes the save too.
+    petrify = { save = "con", dc = 12, range = 50 },
+    -- Spellcasting (Wisdom, DC 12, +4 to hit): Poison Spray at will (2d12, 30 ft, a 5th-level
+    -- caster), Charm Person twice a day. Either can stand in for one of her attacks.
+    spells = { dc = 12, to_hit = 4, slots = 2,
+               poison_spray = { range = 30, damage = { { 2, 12, 0, "poison" } } },
+               charm_person = { range = 30 } },
+    -- Three attacks with claws or bow (one can be a spell instead); the Crown of Snakes adds one
+    -- once the veil is off.
+    multiattack = { count = 3, any_of = { "claws", "poison_bow" } },
+    meter_dpr = 22,                              -- (her spells, the snakes and the gaze on top of the attacks)
+    attacks = {
+        { id = "claws", name = "Claws", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 6, 3, "slashing" } } },
+        { id = "poison_bow", name = "Poison Bow", kind = "ranged", to_hit = 5, range = { 30, 120 },
+          damage = { { 1, 6, 3, "piercing" }, { 1, 6, 0, "poison" } } },
+        { id = "crown_of_snakes", name = "Crown of Snakes", kind = "melee", to_hit = 5, reach = 5, veiled = true,
+          damage = { { 1, 6, 3, "piercing" }, { 1, 6, 0, "poison" } } },
+    },
+    role = "leader",
+})
+
+M.museum_order = { "briar_beast", "briar_boar", "briar_triceratops", "kruthik_huntling", "giant_scarab_swarm",
+                   "bone_construct", "the_lecturer", "knight_of_shades", "steam_mech", "sentinel", "euryale" }
+
 -- CR to XP (each stat block lists its XP; kept here for encounter math). base_order: the slice's
 -- own roster; the rest come from the Vale Bestiary (A13, game/data/books.lua) once pulled.
 M.base_order = { "bandit", "cultist", "goblin_warrior", "wolf", "skeleton", "zombie", "tough",

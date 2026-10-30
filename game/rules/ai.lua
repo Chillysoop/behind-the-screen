@@ -6,6 +6,7 @@
 local creature = require "game.rules.creature"
 local spells = require "game.rules.spells"
 local equipment = require "game.rules.data.equipment"
+local museum = require "game.rules.museum"
 
 local AI = {}
 
@@ -496,7 +497,11 @@ local function find_attack(c, kind)
     return nil
 end
 
-local function monster_turn(b, c)
+-- The helpers a museum monster's own turn uses (game/rules/museum.lua); filled in below.
+local H = {}
+
+-- plain: the usual turn, without a museum monster's own tactics (they call it for the basics).
+local function monster_turn(b, c, plain)
     -- Turned Undead flee and do nothing else.
     if b:find_effect(c, "Turned") then
         back_off(b, c, 60)
@@ -514,6 +519,10 @@ local function monster_turn(b, c)
         else
             b:log("%s struggles in the webs.", c.name)
         end
+        return
+    end
+    -- The Museum of Nightmares: Euryale, the Lecturer, the Steam Mech and the rest fight their way.
+    if not plain and c.data and c.data.museum and museum.turn(b, c, H) then
         return
     end
     stand_if_prone(b, c)
@@ -675,6 +684,11 @@ local function monster_turn(b, c)
         until true
     end
 end
+
+H.standard = function(b, c) return monster_turn(b, c, true) end
+H.enemies, H.by_distance, H.approach, H.back_off = enemies, by_distance, approach, back_off
+H.get_in_range, H.in_shot, H.adjacent_enemies, H.stand_if_prone = get_in_range, in_shot, adjacent_enemies, stand_if_prone
+H.pick_target, H.focus_target, H.find_named, H.attack_with = pick_target, focus_target, find_named, monster_attack_with
 
 -- Player turns -------------------------------------------------------------------------------
 
@@ -1450,6 +1464,10 @@ function AI.take_turn(b, c)
         return
     end
     if b.doors and AI.work_lock(b, c) then
+        return
+    end
+    -- Two friends nodding off in the Lecturer's audience: shake one awake (The Museum of Nightmares).
+    if museum.wake_friend(b, c, H) then
         return
     end
     if c.class == "fighter" then

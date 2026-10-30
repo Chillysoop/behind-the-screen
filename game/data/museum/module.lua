@@ -597,6 +597,25 @@ M.moments = {
             log = "At the top of the stairs, bronze eyes. Pip comes back down very pale, and very quiet.",
             effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { risk = true, harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
       } },
+
+    -- Euryale's lair ---------------------------------------------------------------------------
+    -- The knight they walked past climbs out of a frame behind her couch. Its paint is still wet,
+    -- and the book's answer to him is paint (weapons out of a painting cut him like he's paper).
+    { id = "mus_lair_frame", room = "lair", at = "mid", when = { mark = "knight" }, type = "story", actor = { "explorer", "butt_kicker", "tactician" },
+      title = "The frame behind the couch",
+      text = "The black knight steps out of a frame behind her couch, and the paint he left behind is still wet. {actor_char} could reach in for something to fight him with.",
+      options = {
+          { label = "Reach in. It's worth the chill.",
+            roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
+                     success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
+                                 effects = { { "actor", spotlight = 10, fun = 5 }, { "arch:tactician", fun = 3 } },
+                                 mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
+                     fail = { log = "The frame bites. {actor_char} pulls back numb fingers with nothing in them.",
+                              effects = { { "actor", challenge = 5 } }, mus = { risk = true, harsh = true } } } },
+          { label = "No time. Swords out.",
+            log = "They draw steel. The knight's armour drinks the first blow like ink.",
+            effects = { { "arch:butt_kicker", fun = 3 }, { "arch:explorer", fun = -2 } }, mus = { warn = true } },
+      } },
 }
 
 -- Euryale's card: the marks the build-up leaves on it. why: what the party did. showdown: what it
@@ -716,7 +735,7 @@ M.loose_ends = {
       options = {
           { label = "In her lair, out of a painting", mus = { mark = "knight" }, like = { dev = 2, sam = -1 } },
           { label = "It stays in its frame", mus = {}, like = { sam = 1 } },
-          { label = "Telpur sells a paint-touched dagger", mus = { flag = "paint" }, like = { jess = 1, dev = 1 } },
+          { label = "Telpur sells a paint-touched dagger", mus = { flag = "paint_dagger" }, like = { jess = 1, dev = 1 } },
       } },
     { id = "construct_left", when = { skipped = "chamber" },
       text = "They never went into the Chamber of Ancients. What happens to the Bone Construct?",
