@@ -584,8 +584,9 @@ function M.build(app)
     if more > 0 then
         kit.text(1172, y + 12, "+" .. util.int(more) .. " in your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     end
-    -- The Story log: tonight's scenes, filed under the storylines they moved.
-    kit.button(904, y + 8, 124, 24, "Story log (S)", function()
+    -- The Story log: tonight's scenes, filed under the storylines they moved. (Not in the museum,
+    -- v2: the prologue has no storylines; its notebook's Museum tab does that job.)
+    if not app.campaign.module then kit.button(904, y + 8, 124, 24, "Story log (S)", function()
         local moved = rep.storylines and rep.storylines.moved or {}
         if moved[1] then
             app.storylog_id = moved[1]
@@ -594,7 +595,7 @@ function M.build(app)
         if app.open_notes then
             app.open_notes("storylog")
         end
-    end, { font = "ui14", color = theme.panel3, key = "report_story_log" })
+    end, { font = "ui14", color = theme.panel3, key = "report_story_log" }) end
     -- Empathy, and on to next week.
     local e = rep.empathy
     if e then

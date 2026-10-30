@@ -308,15 +308,16 @@ function M.draw_frame(app)
     -- options show their own numbers.)
     app.n_keys = nil
     if not app.keys_hidden and app.campaign.week <= 1 then
-        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo  S story log", "ui14",
+        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo"
+            .. (app.campaign.module and "" or "  S story log"), "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
     gloss.card_spot(1100, 4, 476, 24, "The evening at a glance",
         "The time at the table, and when you said you'd stop. Speed: how fast the night plays (F faster, G slower, "
         .. "down to half speed; Space skips ahead). Your rolls (H): whether you roll for the monsters behind your screen "
-        .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo, S opens "
-        .. "the Story log.")
+        .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo"
+        .. (app.campaign.module and "." or ", S opens the Story log."))
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
         if app.open_sheet then

@@ -521,7 +521,7 @@ function M.build(app)
         rooms(app, prep, COL_M, 316, COL_MW, 892)
     end
     -- The friends, as on every prep board.
-    local prep_view = require "game.ui.prep_view"
+    local prep_view = util.lazy("game.ui.prep_view")
     kit.text(1196, 84, "THE TABLE", "ui14", theme.dim)
     if prep_view.empathy_meter then
         prep_view.empathy_meter(app)

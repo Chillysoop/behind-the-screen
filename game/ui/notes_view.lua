@@ -47,7 +47,7 @@ local function tab_museum(app, x, y, w, h)
     local MODULE = adventure.data
     local c = app.campaign
     local st = c.adv
-    require("game.ui.museum_prep_view").draw_map(app, x, y, 420, 330)
+    util.lazy("game.ui.museum_prep_view").draw_map(app, x, y, 420, 330)
     local rx, ry = x + 440, y
     kit.text(rx, ry, "ROOM BY ROOM", "ui14", theme.dim)
     ry = ry + 22
@@ -87,7 +87,7 @@ end
 -- Upstairs: Euryale's card, and the fair-warning bank.
 local function tab_upstairs(app, x, y, w, h)
     local c = app.campaign
-    require("game.ui.museum_prep_view").boss_card(app, x, y, 640, h - 40, true)
+    util.lazy("game.ui.museum_prep_view").boss_card(app, x, y, 640, h - 40, true)
     local bx = x + 664
     kit.text(bx, y, "FAIR WARNING", "ui14", theme.dim)
     kit.text(bx, y + 22, util.int(c.adv.bank or 0) .. " in the bank", "ui22b", theme.teal)

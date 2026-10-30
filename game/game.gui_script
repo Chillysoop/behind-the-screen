@@ -723,6 +723,7 @@ function on_input(self, action_id, action)
     -- S: the Story log. On the prep board it's the panel beside the board; on game night and the
     -- report it's the Story log page in your notes, on the scene's own storyline.
     if action_id == A.story and action.pressed and not (app.review and app.review.queue_open) and not app.convo
+        and not (app.campaign and app.campaign.module)   -- v2: the museum has no storylines
         and not report_view.typing(app) and not (app.screen == "slice_end" and slice_end_view.typing(app)) then
         if app.screen == "prep" and not app.overlay and not app.ask and not app.talk and not app.book then
             guard(self, function()
