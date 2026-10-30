@@ -3,7 +3,12 @@ inside a function and only runs later. This finds any cycle the way the builder 
 `require "x"` in the source, comments aside), so a cycle shows up here and not at build time.
 Use util.lazy(name) for a require that has to go back the other way.
 
-    python3 tools/tests/require_check.py      (exit code 1 on a cycle)
+The builder also bundles only the modules a script reaches through a literal `require "x"`. A
+module reached only through util.lazy(name) is left out, and the game stops with "module not
+found" when it's first used (v2, October 30: game.model.museum_night). So every util.lazy target
+must also be required literally somewhere a script reaches.
+
+    python3 tools/tests/require_check.py      (exit code 1 on a cycle or an unbundled lazy module)
 """
 import os
 import re
@@ -12,6 +17,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 EXTS = (".lua", ".script", ".gui_script", ".render_script")
 SKIP = ("build", "tools", ".git")
+
+
+LAZY = {}   # module path -> the files that reach it only through util.lazy
 
 
 def modules():
@@ -29,6 +37,8 @@ def modules():
                 src = re.sub(r"--[^\n]*", "", src)
                 reqs = re.findall(r"require\s*\(?\s*[\"']([\w\.]+)[\"']", src)
                 mods[p] = [r.replace(".", "/") + ".lua" for r in reqs]
+                for r in re.findall(r"lazy\s*\(\s*[\"']([\w\.]+)[\"']", src):
+                    LAZY.setdefault(r.replace(".", "/") + ".lua", []).append(p)
     return mods
 
 
@@ -65,10 +75,27 @@ def cycles(mods):
     return out
 
 
+def bundled(mods):
+    """What the builder packs: every module a script reaches through literal requires."""
+    seen = set()
+    todo = [m for m in mods if not m.endswith(".lua")]
+    while todo:
+        m = todo.pop()
+        if m in seen:
+            continue
+        seen.add(m)
+        todo.extend(d for d in mods.get(m, []) if d in mods)
+    return seen
+
+
 if __name__ == "__main__":
     mods = modules()
     found = cycles(mods)
     for c in found:
         print("require cycle: " + " <-> ".join(c))
-    print("%d modules, %d cycles" % (len(mods), len(found)))
-    sys.exit(1 if found else 0)
+    packed = bundled(mods)
+    missing = sorted(m for m in LAZY if m in mods and m not in packed)
+    for m in missing:
+        print("only reached through util.lazy, so not bundled: %s (from %s)" % (m, ", ".join(sorted(set(LAZY[m])))))
+    print("%d modules, %d cycles, %d lazy modules left out of the build" % (len(mods), len(found), len(missing)))
+    sys.exit(1 if (found or missing) else 0)

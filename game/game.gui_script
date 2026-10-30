@@ -33,6 +33,9 @@ local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
 local story_log_view = require "game.ui.story_log_view"
 local dice_sets = require "game.model.dice_sets"
+-- (Game night reaches the museum's night only through util.lazy, to keep the require graph free of
+-- cycles; this literal require is what makes the builder pack it. tools/tests/require_check.py.)
+require "game.model.museum_night"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"

@@ -45,7 +45,10 @@ Where v2 lives:
 - **Model and rules code stays engine-free.** No `gui.*`, `go.*` or `msg.*` in `game/model/` or `game/rules/`,
   so the whole campaign can run headless in the tests.
 - **No require cycles.** Defold's builder refuses them. When a module needs one that requires it back, use
-  `require("game.model.util").lazy("game.ui.other")` and call it at use time.
+  `require("game.model.util").lazy("game.ui.other")` and call it at use time. The builder only packs modules
+  a script reaches through a literal `require "x"`, so a module reached only through `lazy` must also be
+  required literally somewhere (`game/game.gui_script` does it for `game.model.museum_night`), or the
+  built game stops with "module not found". `tools/tests/require_check.py` checks both.
 - **No globals.** Every function and variable is `local` or a field of the module's `M`.
 - **Old saves must keep loading.** `game/model/save.lua` migrates them; `tools/tests/save_check.lua` checks it.
 - **Generated files are not hand-edited.** Meshes, textures, sprites, fonts, `main/main.collection`,
