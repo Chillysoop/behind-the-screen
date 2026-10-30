@@ -30,6 +30,10 @@ function M.status(campaign)
     local d = data()
     local s = { level = campaign.level, nights = campaign.level_nights, max = campaign.level >= d.MAX_LEVEL }
     s.ready = not s.max and campaign.level_nights >= d.READY_AFTER
+    if campaign.module then
+        -- v2: the book's milestones (game/model/museum_week.lua).
+        s.ready = not s.max and require("game.model.util").lazy("game.model.museum_week").level_ready(campaign) == true
+    end
     s.overdue = s.ready and campaign.level_nights >= d.OVERDUE_AFTER
     return s
 end

@@ -10,8 +10,8 @@ local M = {}
 -- welcome card. One click to agree, then the welcome card as before.
 local NOTICE = {
     "This is a prototype of an engine for running all kinds of tabletop RPG campaigns.",
-    "The story is placeholder. It won't always fit together, and it can be hard to follow.",
-    "This demo tests the play loop and mechanics. A crafted story comes later.",
+    "This prologue runs a real published adventure, The Museum of Nightmares by Luke Russell, adapted for private testing.",
+    "It tests the play loop and mechanics. Art and polish come later.",
 }
 
 local function notice(app)
@@ -45,11 +45,11 @@ function M.build(app)
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })
     kit.text(x + w / 2, y + 74, "A cozy game about running the table for your friends", "ui18", theme.dim, { pivot = gui.PIVOT_N })
     local lines = {
-        { "Prep", "Plan tonight on a map of the valley: three places make three stops. Give each a kind of scene and fill it from your hand. Prep time is limited, so some slots stay empty and get improvised." },
-        { "Game night", "It plays itself. When a card slides across your screen, you make the call. Big rolls can go in the open or behind the screen." },
+        { "Prep", "Tonight's rooms are on the museum map. Prep the ones you think they'll reach, and choose how you'll run each one. Prep time is limited." },
+        { "Game night", "It plays itself, room by room. When a card slides across your screen, you make the call. The party picks the way at forks." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
-        { "Between", "Answer messages, settle arguments, plant mysteries and pay them off. Level the party up when it feels earned." },
-        { "This build", "Session Zero, then the first four sessions of the arc. Afterwards, a few questions about how it went." },
+        { "Between", "Answer their requests, decide where loose ends go, and watch the Gorgon's card change with everything they do." },
+        { "This build", "Session Zero, then The Museum of Nightmares: a one-shot prologue that runs as many sessions as it needs." },
     }
     local ly = y + 120
     for _, l in ipairs(lines) do
@@ -62,7 +62,12 @@ function M.build(app)
         -- A campaign saved between sessions (M7): carry on, or start a new one.
         local sessions = content.arc.SESSIONS
         local label
-        if saved.at_night then
+        if content.arc.module then
+            -- v2: the museum runs as many sessions as it takes.
+            label = saved.at_night and ("Continue: Session " .. saved.week .. " night  >")
+                or (saved.at_prep and ("Continue: Session " .. saved.week .. " prep  >"))
+                or ("Continue: Session " .. (saved.week + 1) .. "  >")
+        elseif saved.at_night then
             label = "Continue: Session " .. saved.week .. " night  >"   -- saved at Run game night
         elseif saved.at_prep then
             label = "Continue: Session " .. saved.week .. " prep  >"    -- saved mid-prep (A11)
@@ -82,15 +87,15 @@ function M.build(app)
         kit.button(x + 410, y + h - 110, 200, 56, app.confirm_new and "Yes, start over" or "New campaign", function()
             if app.confirm_new then
                 app.confirm_new = nil
-                app.go("planner")
+                app.new_campaign()
             else
                 app.confirm_new = true
                 app.refresh()
             end
         end, { font = "ui18b", key = "new_campaign", color = app.confirm_new and theme.red or nil })
     else
-        kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Plan the campaign  >", function()
-            app.go("planner")
+        kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Session Zero  >", function()
+            app.new_campaign()
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "session_zero" })
     end
     local foot

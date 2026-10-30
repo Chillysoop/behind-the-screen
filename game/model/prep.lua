@@ -29,7 +29,15 @@ function M.new(campaign)
     local self = setmetatable({}, M)
     self.campaign = campaign
     self.budget = M.BUDGET
-    self.hand = require("game.model.deck").hand(campaign)   -- the story deck (the slice rework)
+    if campaign.module then
+        -- v2: the adventure's rooms are the board; there's no hand to deal (game/model/museum_week.lua).
+        self.hand = {}
+        for _, kind in ipairs(content.kinds) do
+            self.hand[kind] = {}
+        end
+    else
+        self.hand = require("game.model.deck").hand(campaign)   -- the story deck (the slice rework)
+    end
     self.talked = {}
     self.scenes = {}
     for i = 1, M.SCENES do
@@ -42,7 +50,7 @@ function M.new(campaign)
     self.inspired_by = {}    -- activity id -> cards drawn
     self.inspirations = 0
     self.planted = nil       -- the seed planted this week
-    self.seed_ideas = campaign.seeds and seeds.offer(campaign, content.seeds.OFFERED) or {}
+    self.seed_ideas = (campaign.seeds and not campaign.module) and seeds.offer(campaign, content.seeds.OFFERED) or {}
     self.convos = {}         -- conversation id -> thread
     self.arc_cards = {}      -- (M7) this week's story cards, by id
     -- S6, bringing them in: cards the DM pinned into the hand, and why.
@@ -67,6 +75,13 @@ function M:cost_of(c)
 end
 
 function M:spent()
+    if self.museum then
+        local n = 0
+        for _ in pairs(self.talked) do
+            n = n + 1
+        end
+        return require("game.model.util").lazy("game.model.museum_week").spent(self) + n * M.TALK_COST + self.extra
+    end
     local total = 0
     local places = {}
     for _, s in ipairs(self.scenes) do
@@ -895,6 +910,16 @@ function M:forecast()
                     end
                 end
                 local q = M.quality(s.type, slots, self.inspired) + (missing > 0 and 0.03 or 0) - 0.03 * math.max(0, missing - 1)
+                if s.room and self.museum then
+                    -- v2: a museum room you didn't prep plays thinner; its own moments and the boss
+                    -- night carry more than an ordinary scene.
+                    local mod = require("game.model.util").lazy("game.model.adventure").data
+                    local r = mod.rooms[s.room]
+                    if not (self.museum.prepped[s.room] or (r and r.cost == 0)) then
+                        q = q - mod.UNPREPPED_QUALITY
+                    end
+                    p.fun_bonus = p.fun_bonus + 4 + ((r and r.boss) and 16 or 0)
+                end
                 local sc = { type = s.type, comps = slots, quality = q, difficulty = M.difficulty(slots) }
                 local g = score.scene_gains(p, sc, mood)
                 for _, k in ipairs(score.METERS) do
@@ -910,6 +935,12 @@ function M:forecast()
             end
         end
         p.fun_bonus = p.fun_bonus + pacing.fun_all
+        for kid, v in pairs(self.museum and self.museum.knobs or {}) do
+            if v then
+                local like = require("game.model.util").lazy("game.model.museum_week").knob_like(kid, v)[p.key] or 0
+                p.fun_bonus = p.fun_bonus + 3 * like
+            end
+        end
         if pacing.repeat_type and score.taste(p, pacing.repeat_type) < 1 then
             p.boredom = p.boredom + 10
         end

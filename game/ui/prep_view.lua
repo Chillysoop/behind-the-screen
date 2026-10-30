@@ -1941,4 +1941,8 @@ function M.build(app)
     require("game.ui.story_log_view").panel(app)
 end
 
+-- The museum's board (v2, game/ui/museum_prep_view.lua) shows the friends the same way.
+M.player_card = player_card
+M.empathy_meter = empathy_meter
+
 return M

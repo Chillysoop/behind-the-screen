@@ -144,6 +144,13 @@ do
     end
     components = list
 end
+-- The Museum of Nightmares (v2): the adventure's own cards. They're never dealt; the adventure
+-- (game/model/adventure.lua) puts them on its rooms itself.
+for _, c in ipairs(require("game.data.museum.cards").cards) do
+    c.reserve = "museum"
+    c.cost = c.cost or 1
+    table.insert(components, c)
+end
 for _, c in ipairs(components) do
     assert(not M.components[c.id], "duplicate component id " .. c.id)
     assert(M.by_kind[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)

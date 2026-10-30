@@ -67,6 +67,15 @@ function M.start(app)
     if not M.complete(app) then
         return false
     end
+    if app.campaign.module then
+        -- v2: why each hero came to the museum (game/ui/museum_setup_view.lua).
+        if app.s0.page ~= "hooks" then
+            app.s0.page = "hooks"
+            app.refresh()
+            return true
+        end
+        return require("game.ui.museum_setup_view").start(app)
+    end
     local backstory_view = require "game.ui.backstory_view"
     if app.s0.page ~= "backstories" then
         app.s0.page = "backstories"
@@ -130,7 +139,7 @@ local function pitch(app, c)
     -- What everyone says about the pitch.
     kit.text(x, y + 8, "AROUND THE TABLE", "ui14", theme.dim)
     -- The style the planner picked (A18), and who's keen.
-    do
+    if not app.campaign.module then
         local styles = require "game.model.styles"
         local sid = styles.current(app.campaign)
         local sd = styles.def(sid)
@@ -329,6 +338,9 @@ function M.build_all(app)
     if c.page == "backstories" then
         return require("game.ui.backstory_view").build(app)
     end
+    if c.page == "hooks" then
+        return require("game.ui.museum_setup_view").build(app)
+    end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
     kit.text(280, 24, "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
@@ -338,11 +350,12 @@ function M.build_all(app)
     rules(app, c)
     feelings(app, c, 108 + 4 * 176)
     local ready = M.complete(app)
-    kit.button(1356, 830, 220, 50, "Backstories  >", function()
+    kit.button(1356, 830, 220, 50, app.campaign.module and "Their heroes  >" or "Backstories  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_next" })
     -- (Short, so it clears how everyone feels, on the left.)
-    kit.text(1340, 846, ready and "Next: their backstories." or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim,
+    kit.text(1340, 846, ready and (app.campaign.module and "Next: why each hero came." or "Next: their backstories.")
+        or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim,
         { pivot = gui.PIVOT_NE })
 end
 

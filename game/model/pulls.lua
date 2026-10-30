@@ -51,7 +51,7 @@ end
 
 -- Skews are on unless a campaign asks for the old night (the comparison switch).
 function M.enabled(campaign)
-    return not campaign.old_night
+    return not campaign.old_night and not campaign.module   -- v2: the museum's forks and requests instead
 end
 
 -- The share ---------------------------------------------------------------------------------

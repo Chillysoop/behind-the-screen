@@ -30,6 +30,39 @@ local VERDICT_COLOR = { ["One for the stories"] = "gold", ["Great session"] = "g
 -- What the wrap-up lists: the story, the table, the world, the deck (the old report's strip).
 local function wrapup_items(app, rep)
     local items = {}
+    -- v2: what the museum kept from tonight.
+    local mu = rep.museum
+    if mu then
+        local MODULE = require("game.model.adventure").data
+        local names = {}
+        for _, r in ipairs(mu.rooms or {}) do
+            local room = MODULE.rooms[r.room]
+            if room and not room.virtual then
+                table.insert(names, room.name)
+            end
+        end
+        if #names > 0 then
+            table.insert(items, { "Tonight: " .. util.join_names(names) .. ".", theme.text })
+        end
+        for _, id in ipairs(mu.marks or {}) do
+            local m = MODULE.marks[id]
+            if m then
+                table.insert(items, { "Euryale's card: " .. m.name .. ". " .. m.showdown .. ".", theme.gold })
+            end
+        end
+        for _, h in ipairs(mu.harsh or {}) do
+            table.insert(items, h.earned and { "A harsh call landed as fair: they knew the risk.", theme.green }
+                or { "A harsh call felt arbitrary. Nobody had been warned.", theme.orange })
+        end
+        if mu.stopped then
+            table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
+        end
+        if mu.ending then
+            table.insert(items, { "The museum is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
+        else
+            table.insert(items, { mu.where, theme.dim })
+        end
+    end
     -- At the table first: what needs the DM's attention before next week.
     for _, st in ipairs(rep.table or {}) do
         local col = st.state == "fixed" and theme.green or (st.state == "active" and theme.red or theme.orange)
@@ -757,6 +790,9 @@ end
 -- The last session of the slice leads to the scrapbook instead of another week.
 function M.closing_chapter(app)
     local c = app.campaign
+    if c.module then
+        return c:slice_done() and not app.slice_seen      -- v2: the museum's done: the journey recap
+    end
     return c.week == content.arc.SESSIONS and c:slice_done() and not app.slice_seen
 end
 

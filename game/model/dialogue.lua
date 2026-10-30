@@ -294,6 +294,7 @@ function M:pick(trigger, speaker, ctx)
     local fresh, aimed = {}, {}
     for _, l in ipairs(pool) do
         local ok = self:usable(l) and not (ctx.recent and ctx.recent[l.id]) and not needs_missing(l, ctx.missing)
+            and not (self.exclude and self.exclude(l))
             and not (ctx.openers and ctx.openers[M.opener(l.text)])
         if ok and l.mentions and ctx.present then
             for key in pairs(l.mentions) do

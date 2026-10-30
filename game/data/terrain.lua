@@ -36,6 +36,18 @@ return {
         wd_high_pass = "pass",
         sunken_temple = "underground",
         rooftops = "town",
+        -- The Museum of Nightmares (v2): the closest boards we have.
+        mus_street = "market",
+        mus_garden = "ford",
+        mus_entrance = "hall",
+        mus_chamber = "crypt",
+        mus_paintings = "hall",
+        mus_gift_shop = "counting_house",
+        mus_hunting = "forest",
+        mus_offices = "ilsa_room",
+        mus_tomorrow = "fighting_pit",
+        mus_lecture = "chapel",
+        mus_lair = "shrine",
     },
     -- No location written (or improvised from a stock move): pick by scene type.
     by_scene = {

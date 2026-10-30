@@ -956,7 +956,8 @@ function M.scene_card(app, ev)
             or "The heroes don't have to win every scene. The night is scored on how the table feels: that's the bars along "
             .. "the bottom, not this.", theme.gold })
     end
-    local top = "SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. " DONE"
+    local top = ev.total and ("SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. " DONE")
+        or ("ROOM " .. util.int(ev.index) .. " DONE")      -- v2: the museum doesn't know how far tonight goes
     if fight then
         top = top .. ":  " .. string.upper(HOW[fight.how] or "the fight's over")
     end
@@ -1892,7 +1893,8 @@ function M.handle(app, ev)
             end
         end
         app.scene_type_name = ev.type_name
-        app.scene_label = "Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total) .. ":  " .. ev.title
+        app.scene_label = (ev.total and ("Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total))
+            or ("Room " .. util.int(ev.index))) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
         -- What the scene is for, under its name (the card-led night, October 16).
         app.scene_sub = ev.goal and ((ev.type_name or "") .. ": " .. util.lower_first(ev.goal)) or ((ev.type_name or "") .. who)
@@ -1905,7 +1907,8 @@ function M.handle(app, ev)
         -- (The goal is under the scene's name in the header, right above: the title card says where
         -- and who.)
         local sub = (ev.type_name or "") .. who
-        M.title(app, "SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. (ev.story and "   -   THIS WEEK'S STORY" or ""),
+        M.title(app, (ev.total and ("SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total)) or ("ROOM " .. util.int(ev.index)))
+            .. (ev.story and "   -   THIS WEEK'S STORY" or ""),
             ev.title, sub)
         stage(app, ev)
         cam(app, 2)
@@ -2025,6 +2028,18 @@ function M.handle(app, ev)
         -- A mid-scene big roll moved the dots too (the card-led playtest: a triumph left them be).
         app.progress = ev.progress
         M.draw_pips(app)
+    elseif k == "mark" then
+        -- v2: Euryale's card changed (her thought comes as the next caption).
+        M.toast(app, "EURYALE'S CARD: " .. string.upper(ev.name), ev.showdown .. ". (" .. ev.why .. ".)")
+        M.push(app, "Euryale's card: " .. ev.name .. ". " .. ev.showdown .. ".", "clue", true)
+    elseif k == "warning" then
+        -- v2: the fair-warning bank (a harsh call feels earned when they took the chance knowingly).
+        app.fair_warning = ev.bank
+        if ev.unearned then
+            M.push(app, "A harsh call with nothing in the bank. It felt arbitrary.", "warn", true)
+        end
+    elseif k == "stage_dress" then
+        -- v2: the board dresses itself without a line about it (ev.reveal did the work above).
     elseif k == "clue" then
         -- The party learned something: it goes in the DM's notes.
         M.toast(app, "NEW IN YOUR NOTES", ev.text)

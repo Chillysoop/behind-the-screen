@@ -393,6 +393,14 @@ local function thanks(app)
     kit.text(x + 48, y + 100, "Your answers are saved in the playtest log, next to every week you played:", "ui18", theme.text,
         { w = w - 96 })
     kit.text(x + 48, y + 140, app.log_path or "playtest_log.jsonl", "ui14", theme.teal, { w = w - 96, lines = 2 })
+    if app.campaign.module then
+        kit.text(x + 48, y + 196, "If someone gave you this build to test, send them that file. That's the prologue: "
+            .. "the full campaign comes next.", "ui18", theme.dim, { w = w - 96 })
+        kit.button(x + w / 2 - 170, y + h - 100, 340, 60, "Back to the title", function()
+            app.go("intro")
+        end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "keep_playing" })
+        return
+    end
     kit.text(x + 48, y + 196, "If someone gave you this build to test, send them that file. You can keep playing: the "
         .. "story goes on past the slice, though it's rougher out there.", "ui18", theme.dim, { w = w - 96 })
     kit.button(x + w / 2 - 170, y + h - 100, 340, 60, "Keep playing  >", function()
@@ -403,6 +411,12 @@ end
 function M.build(app)
     local st = state(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
+    if app.campaign.module and st.stage == "scrapbook" then
+        return require("game.ui.museum_journey_view").build(app, function()
+            st.stage = "survey"
+            app.refresh()
+        end)
+    end
     if st.stage == "survey" then
         survey(app)
     elseif st.stage == "thanks" then

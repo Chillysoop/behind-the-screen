@@ -62,6 +62,9 @@ end
 
 -- True once the last session of the slice has been played.
 function M:slice_done()
+    if self.module then
+        return util.lazy("game.model.museum_week").done(self) and self.report ~= nil
+    end
     return self.week >= content.arc.SESSIONS and self.report ~= nil
 end
 
@@ -235,6 +238,10 @@ end
 
 -- Roll moods and attendance, deal the hand, and write the group chat.
 function M:start_week()
+    if self.module then
+        -- v2: the museum's own week (game/model/museum_week.lua).
+        return util.lazy("game.model.museum_week").start_week(self)
+    end
     self.week = self.week + 1
     local rng = self.rng
     self.empathy_up = nil
@@ -503,7 +510,9 @@ end
 function M:start_night()
     self.at_night = nil   -- set by the game when it saves at "Run game night"; the night is on now
     self.at_prep = nil
-    seeds.commit(self, self.prep)
+    if not self.module then
+        seeds.commit(self, self.prep)
+    end
     self.night = night_mod.new(self, self.prep)
     return self.night
 end
@@ -544,6 +553,9 @@ function M:finish_night()
     rep.broken = self.broken_now
     -- M7: the story beat, and how the first act landed.
     rep.story_hits = night.story_hits or {}
+    if self.module then
+        return self:finish_module_night(night, rep)
+    end
     -- The story so far: clues found and people met tonight go in the DM's notes.
     rep.clues = {}
     for _, f in ipairs(night.story_found or {}) do
@@ -659,6 +671,42 @@ function M:finish_night()
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)
     require("game.model.recap").file(self, rep)   -- the session log (B7): every report, reopenable
+    return rep
+end
+
+-- v2: the end of a night in the museum. The old story's bookkeeping (clues, the deck, the Story
+-- log, factions, the valley) stays off; the adventure keeps its own record.
+function M:finish_module_night(night, rep)
+    rep.clues = {}
+    for id, how in pairs(night.met or {}) do
+        story.meet(self, self.week, id, how == "revealed")
+    end
+    rep.opened = {}
+    rep.items = {}
+    require("game.model.awards").after_night(self, night)
+    rep.keepsake = require("game.model.keepsakes").after_night(self, rep, night)
+    local types = {}
+    for t in pairs(night.types_seen or {}) do
+        table.insert(types, t)
+    end
+    table.sort(types)
+    self.last_scene_types = types
+    require("game.model.rapport").week_end(self)
+    util.lazy("game.model.museum_week").after_night(self, night, rep)
+    self.last_cards = {}
+    for _, d in ipairs(night.decisions) do
+        self.last_cards[d.card] = true
+    end
+    rep.standing = {}
+    for _, p in ipairs(self.players) do
+        rep.standing[p.key] = bars.standing(p, self.rng)
+    end
+    self:gain_empathy("night")
+    rep.empathy = { level = self:empathy(), up = self.empathy_up }
+    self.report = rep
+    table.insert(self.history, { week = self.week, average = rep.average })
+    self:write_journal(rep, night)
+    require("game.model.recap").file(self, rep)
     return rep
 end
 

@@ -200,7 +200,11 @@ local function build_screen(self)
         block_camera(false)
     elseif s == "prep" then
         kit.layer("prep")
-        prep_view.build(app)
+        if app.campaign.module then
+            require("game.ui.museum_prep_view").build(app)
+        else
+            prep_view.build(app)
+        end
         block_camera(true)
     elseif s == "night" then
         night_view.build(app)
@@ -270,6 +274,10 @@ function init(self)
     msg.post(".", "acquire_input_focus")
     gui.set_render_order(4)
     self.refocused = false
+    -- v2: this build runs The Museum of Nightmares (game/model/adventure.lua). The shared content
+    -- switches over before any campaign is made or loaded.
+    local adventure = require "game.model.adventure"
+    adventure.enter()
     local app = {
         campaign = campaign_mod.new(os.time()),
         screen = "intro",
@@ -291,8 +299,15 @@ function init(self)
     if ok_old and old_night == 1 then
         app.campaign.old_night = true
     end
+    adventure.enter(app.campaign)
     self.app = app
-    app.save_path = sys.get_save_file("behind_the_screen", "campaign_save.txt")
+    -- Its own save slot, so the October builds' campaigns are left alone.
+    app.save_path = sys.get_save_file("behind_the_screen", "museum_save.txt")
+    app.new_campaign = function()
+        app.campaign = campaign_mod.new(os.time())
+        adventure.enter(app.campaign)
+        app.go("session_zero")
+    end
     app.resume = find_save(app)
     app.save_campaign = function()
         return save_campaign(app)
@@ -307,6 +322,7 @@ function init(self)
             build_screen(self)
             return
         end
+        adventure.enter(c)
         app.campaign = c
         app.resume = nil
         if c.at_night and c.prep then
@@ -315,7 +331,8 @@ function init(self)
         elseif c.at_prep and c.prep then
             -- Saved mid-prep (A11): the same board, the week not dealt again.
             app.go("prep", { resume = true })
-        elseif c.week >= content.arc.SESSIONS and not c.slice_survey_done then
+        elseif (c.module and require("game.model.museum_week").done(c) or (not c.module and c.week >= content.arc.SESSIONS))
+            and not c.slice_survey_done then
             app.slice_seen = true
             app.go("slice_end")
         else
@@ -452,7 +469,8 @@ function init(self)
         end
         -- From the prep board, the lore screen first (October 16: "this should help telegraph what
         -- upcoming lore decisions will mean for the DM"); its button runs the night.
-        if screen == "night" and app.screen == "prep" and not (opts and opts.lore_seen) and app.campaign.prep then
+        if screen == "night" and app.screen == "prep" and not (opts and opts.lore_seen) and app.campaign.prep
+            and not app.campaign.module then
             app.screen = "lore"
             build_screen(self)
             ambience.screen(app, "lore")

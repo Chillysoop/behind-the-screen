@@ -67,6 +67,7 @@ return {
     },
     log = {
         narration = c("#e9dcc3"),
+        interlude = c("#e39aa8"),      -- v2: Euryale, upstairs, thinking
         goal = c("#e8b04a"),
         thread = c("#c2a8f0"),
         seed = c("#9fd08a"),
