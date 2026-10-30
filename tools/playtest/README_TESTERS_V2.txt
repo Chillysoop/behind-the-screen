@@ -17,11 +17,18 @@ HOW IT GOES
   player leans toward one of two reasons, and each reason pays off in one room.
 - Each week, plan the next session on the museum map: which rooms to prepare and
   how to run each one. An unprepared room still plays, just worse.
-- Game night: the party walks the museum room by room. When a card slides across
-  your screen, you make the call. A harsh call lands better when the party took
+- Game night: the party walks the museum room by room, each room on its own board
+  drawn from the book's maps. The floors are open: the players pick where to go,
+  and they'll go back to a room only with a reason (a corner they missed, a hint
+  from you, the shop, a rest, or running away). When a card slides across your
+  screen, you make the call. A harsh call lands better when the party took
   chances knowingly (the "fair warning" count on the planning board).
 - Euryale's card: every room the party clears, skips or botches leaves a mark on
   the boss's card. The last session is built from what they did.
+- Maps: "All maps" on the planning board (and "Maps" on game night) opens every map
+  you can put on the table. Give a room a different map, open a side room off any
+  room for the party to wander into, change the next scene's map mid-game, or make
+  your own in the map maker, with the museum's pieces in its Museum tab.
 - Between sessions: the players ask for things, loose ends from earlier rooms come
   back, and the museum's people help or hinder the party for how they were treated.
 
@@ -63,8 +70,8 @@ On game night:
 
 WHAT'S NOT FINAL
 ----------------
-The museum's monsters and rooms borrow minis and table pieces from the earlier
-build, so a scarab swarm may look like something else for now. The rules, the
+The museum's monsters borrow minis from the earlier build, so a scarab swarm may
+look like something else for now. (The rooms have their own boards now.) The rules, the
 story and the choices are what's being tested.
 
 
