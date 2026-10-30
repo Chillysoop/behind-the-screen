@@ -576,6 +576,18 @@ B.hall = {
     },
 }
 
+-- A plain museum hall (the map maker's "Museum hall"): polished marble and plaster walls, nothing
+-- else yet, to build the museum's rooms on from scratch with the Museum pieces.
+B.museum_hall = {
+    title = "A museum hall", light = "candle",
+    party = { 4, 9 }, npc = { 10, 4 }, foes = { 16, 8 },
+    features = {
+        { id = "floor", kind = "floor_marble", at = { { 1, 1 } }, base = true },
+        { id = "walls", parts = { { kind = "wall_room", at = run(1, 20, 1) }, { kind = "wall_room", at = col(1, 2, 13, 3) },
+                                  { kind = "wall_room", at = col(20, 2, 13, 1) } }, words = { "hall", "museum" }, base = true },
+    },
+}
+
 B.hospital = {
     title = "A field hospital", light = "candle",
     party = { 3, 7 }, npc = { 11, 7 }, foes = { 17, 7 },
@@ -668,5 +680,11 @@ B.vignette = {
         { id = "rocks", kind = "rock", at = { { 11, 9 } } },
     },
 }
+
+-- The map library: boards drawn from the adventures' own maps (game/data/maps/*.map, compiled by
+-- tools/maps/build_maps.py into game/data/map_library.lua).
+for id, b in pairs(require("game.data.map_library").boards) do
+    B[id] = b
+end
 
 return B

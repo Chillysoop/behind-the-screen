@@ -1,0 +1,66 @@
+-- The World of Tomorrow (the book's Area 2 map, 8A), redrawn in our pieces. Turned half round from
+-- the book's page, like the Hunting Grounds, so its door from the hall is on the west. The book's
+-- room is small and holds one thing: the steam mech in the middle. Blown up to fill the mat, with
+-- the dais it stands on, the neon lamps and a few cases of tomorrow's wonders from the book's words.
+-- The south wall is left off.
+
+id: museum_tomorrow
+title: The World of Tomorrow
+light: candle
+adventure: museum
+room: tomorrow
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 2 map, the World of Tomorrow (8A)
+about: Neon light, a crackling welcome, and a brass mech asleep on its dais.
+tags: indoor, museum, second floor, puzzle
+order: 8
+party: 3,7
+foes: 16,9
+npc: 12,7
+
+grid:
+|####################|
+|#.c....c....c....c.#|
+|#..................#|
+|#..l...........l...#|
+|#..................#|
+|#........MM........#|
+|D....v...MM........#|
+|#..................#|
+|#..................#|
+|#..l...........l...#|
+|#..................#|
+|#....bb......bb....#|
+|#..................#|
+
+legend:
+-- char | kind         | feature | turn
+#       | wall_room    | walls   | auto
+D       | wall_door    | doors   | auto
+M       | mech_dais    | dais    |
+c       | display_case | cases   |
+l       | torch_post   | neon    |
+v       | lectern      | console | 3
+b       | bench_museum | benches | 2
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id   | flags     | words                                       | say
+floor   | base      | floor, tomorrow, future                     | a floor striped with blue and purple light
+walls   | base      | metal grids, ceiling                        | walls hung with metal grilles
+doors   | base      | door, doors                                 | the door back to the hall
+dais    |           | steam mech, brass, clockwork, battery       | a round dais ringed with gears, a brass mech standing on it
+cases   | own_words | cases, glass cases, machines, wonders       | glass cases of machines from a world that hasn't happened yet
+neon    | own_words | neon, lights, lamps, purple                 | buzzing neon lamps, blue and purple
+console | own_words | console, speaker, grille, voice             | a brass console with a speaker grille
+benches |           |                                             | benches for admiring the future
+
+spots:
+-- key  | x,y  | name                 | line
+8A      | 10,8 | the steam mech       | Eight feet of brass plates over clockwork, a green battery glowing behind its helmet. A panel in its chest might open.
+console | 7,7  | the speaker console  | The grilles crackle and a cheerful voice welcomes everyone to the World of Tomorrow.
+cases   | 8,3  | the cases of tomorrow | Glass cases of odd machines from a world that hasn't happened yet.
+door    | 2,7  | the door to the hall | The way back out to the Hunting Grounds.

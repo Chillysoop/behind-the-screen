@@ -1,0 +1,78 @@
+-- The lair of the gorgon (the book's Area 3 map, 10A), redrawn in our pieces. Turned half round from
+-- the book's page so the stairs from the offices come up on the west, and condensed from the
+-- book's 13 x 14 octagon to the mat the way the Hunting Grounds are: wider, flatter, the octagon
+-- and its cut corners kept. The stairs arrive in a little landing with a door on either side
+-- into the hall (the book draws its walls slanting; here they run straight, so the doors work).
+-- Six petrified visitors stand where the book puts them, the two pedestals north and south, and
+-- Euryale's couch at the far end with the last pedestal behind it. The south wall is left off.
+
+id: museum_lair
+title: The lair of the gorgon
+light: candle
+adventure: museum
+room: lair
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 3 map, the lair of the gorgon (10A)
+about: Smoke, shattered pottery, six frozen visitors, and Euryale waiting on her couch.
+tags: indoor, museum, top floor, boss
+order: 10
+tight: yes
+party: 6,7
+foes: 16,6
+npc: 16,8
+
+grid:
+|  //##T##T##T###//  |
+| //..............// |
+|//.....V.....p....//|
+|/###d###...r......./|
+|#......#.........V.#|
+|#......####.Vc.....#|
+|#......SSS#.....C.p#|
+|#......SSS#.....C..#|
+|#......####........#|
+|/###d###..W.....W../|
+|//.....X.....pr...//|
+| //......r.......// |
+|  //............//  |
+
+legend:
+-- char | kind            | feature  | turn
+#       | wall_room       | walls    | auto
+/       | wall_diag       | walls    | auto
+T       | tapestry        | mosaics  | auto
+d       | door_open       | doors    |
+S       | stairs_straight | stairs   | 3
+V       | statue_victim   | statues  |
+W       | statue_victim_b | statues  |
+X       | statue_victim_c | statues  |
+p       | plinth          | pedestals |
+C       | couch           | couch    | 1
+c       | candelabra      | wheel    |
+r       | rubble          | pottery  |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id     | flags     | words                                         | say
+floor     | base      | floor, mosaic floor, smoke, smoky             | a mosaic floor under a haze of smoke
+walls     | base      | lair, temple                                  | walls covered in mosaics
+mosaics   |           | mosaic, mosaics, three sisters                | a hanging of three sisters with snakes for hair
+stairs    |           | stairs, steps, landing                        | the top of the stairs
+doors     | own_words | door, doors, doorway                          | open doors from the landing into the hall
+statues   |           | victims, visitors, frozen, screaming          | statues of visitors twisted in terror, like a frozen dance
+pedestals | own_words | pedestal, pedestals, plinth, plinths          | pedestals where delicate pots once stood
+couch     | own_words | couch, long couch, padded couch, euryale      | a long padded couch at the far end
+wheel     | own_words | candelabra, cartwheel, candles, pulley, rope  | a cartwheel of candles hung on a rope and pulley
+pottery   | own_words | pottery, shards, broken pots, shattered       | shattered pottery crunching underfoot
+
+spots:
+-- key   | x,y   | name                     | line
+10A      | 16,7  | Euryale's couch          | A tall woman in a white hood and a purple cloak lounges on a long couch, bronze eyes on you. She offers you a drink.
+landing  | 5,7   | the top of the stairs    | Smoke hangs in the air. Through the doors either side, statues stand frozen mid-scream.
+statues  | 13,7  | the frozen visitors      | Six visitors turned to stone, each one twisted with fear, scattered round the room like a dance that stopped.
+mosaics  | 10,2  | the snake-haired sisters | Among the mosaics, a hanging of three sisters with snakes for hair.
+pedestals | 13,4 | the empty pedestals      | Pedestals that once held delicate pots. She smashed them all; the shards are everywhere.
+wheel    | 14,5  | the cartwheel candelabra | A wheel of candles hangs on a rope and pulley from the wall. Cut the rope and it falls.

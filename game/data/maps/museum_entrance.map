@@ -1,0 +1,67 @@
+-- The entrance chamber (the book's Area 1 map, 2A-2B), redrawn in our pieces. The book's page has
+-- west at the top; this is turned so north is up, as the compass says: the front doors on the west
+-- wall, the doors on to the Hall of Paintings (north) and the Chamber of Ancients (south) in the
+-- east wall, the metal man standing between them and the donation case in the middle. Stretched
+-- to fill the mat; the narrow porch's cut corners stay. The south wall is left off: the DM's side.
+
+id: museum_entrance
+title: The entrance chamber
+light: candle
+adventure: museum
+room: entrance
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, the entrance chamber (2A-2B)
+about: Marble, a chandelier, the donation case, and a metal man between the far doors.
+tags: indoor, museum, ground floor, entrance
+order: 2
+party: 3,7
+foes: 17,7
+npc: 14,9
+
+grid:
+| //#################|
+|//.................#|
+|/.....c.......c....#|
+|#..p...........p...D|
+|#..................#|
+|D..................#|
+|D........B........S#|
+|D..................#|
+|#..................#|
+|#..p...........p...D|
+|/.....c.......c....#|
+|//.................#|
+| //................#|
+
+legend:
+-- char | kind         | feature   | turn
+#       | wall_room    | walls     | auto
+/       | wall_diag    | walls     | auto
+D       | wall_door    | doors     | auto
+B       | donation_box | case      |
+S       | statue       | sentinel  |
+c       | candelabra   | lamps     |
+p       | plinth       | busts     |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id    | flags | words                                   | say
+floor    | base  | floor, hall                             | a marble floor polished like a mirror
+walls    | base  | entrance, chamber                       | high plaster walls
+doors    | base  | doors, signs, gold sign                 | three sets of doors, gold signs by the far two
+case     |       | case, glass case, coins, money, steel   | a glass case bound in blue steel, full of money
+sentinel |       | metal man, armour, armor, sentinel      | a statue of a man in metal armour
+lamps    |       | chandelier, light, blue light           | stands of lamps burning pale blue and white
+busts    |       |                                         | busts of forgotten curators on their plinths
+
+spots:
+-- key  | x,y  | name                           | line
+2B      | 10,8 | the donation case              | A glass case bound in blue steel, stuffed with every kind of money there is. A sign asks for a donation.
+2A      | 18,7 | the metal man between the doors | A statue of a man in metal armour. Leave the case be and he stays a statue.
+hall    | 19,4 | the door to the Hall of Paintings | A gold and mahogany sign by the north door points to the paintings.
+chamber | 19,10 | the door to the Chamber of Ancients | Its twin by the south door points to the Chamber of Ancients.
+light   | 10,5 | under the chandelier           | Pale blue and white light pours down from the chandelier and puddles on the marble.
+front   | 2,7  | the front doors                | The great carved doors you came in by, still creaking.

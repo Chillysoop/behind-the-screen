@@ -1,0 +1,74 @@
+-- The museum offices (the book's Area 2 map, 7A-7B), redrawn in our pieces. Turned half round from
+-- the book's page, like the Hunting Grounds, so the way in from the jungle side is on the west.
+-- The book's arrangement, blown up to fill the mat: a short hall with the stairs up in it, a
+-- study either side with its door facing the other across the hall. The archivist's room (north)
+-- is locked from the inside; the Celestia study (south) isn't. The south wall is left off.
+
+id: museum_offices
+title: The museum offices
+light: candle
+adventure: museum
+room: offices
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 2 map, the museum offices (7A-7B)
+about: Two studies off a short hall, the stairs up between them, one door locked from inside.
+tags: indoor, museum, second floor, quiet, clues
+order: 7
+party: 2,7
+foes: 15,7
+npc: 12,3
+
+grid:
+|#nn#nn##nnnn##nn#nn#|
+|#BB.....dd......BB.#|
+|#..................#|
+|#..................#|
+|#########L##########|
+|..SSS..............#|
+|..SSS..............#|
+|...................#|
+|#a#a#a#a#Oa#a#a#a#a#|
+|#..................#|
+|#BB.....eeg.....BB.#|
+|#..................#|
+|#..................#|
+
+legend:
+-- char | kind            | feature   | turn
+#       | wall_room       | walls     | auto
+n       | wall_notes      | eyes      | auto
+a       | wall_notes      | anatomy   | auto
+B       | bookshelf       | shelves   |
+d       | desk            | archivist |
+e       | desk            | oak_desk  |
+g       | display_case    | dome      |
+S       | stairs_straight | stairs    | 1
+L       | door_locked     | locked    |
+O       | door_open       | open_door |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id     | flags     | words                                         | say
+floor     | base      | floor, hall, offices                          | a quiet marble hall
+walls     | base      | studies                                       | panelled walls
+stairs    |           | up, smoke                                     | stairs up to the floor above
+locked    | own_words | locked, locked door, archivist's door         | a door locked from the inside
+open_door | own_words | door, study door                              | a study door standing open
+eyes      | own_words | diagrams, eye, eyes, symbols, scraps          | diagrams and scraps of paper everywhere, one glowing eye drawn over and over
+archivist | own_words | corpse, body, archivist, notebook, quill      | a withered body slumped over an ancient desk
+anatomy   | own_words | pictures, anatomy, drawings, bird             | drawings of a strange animal's insides
+oak_desk  | own_words | oak desk, desk, gold                          | a wide oak desk with gold inlay
+dome      | own_words | dome, glass dome, stuffed bird, canary        | a glass dome over a little stuffed bird
+shelves   |           | records                                       | bookshelves
+
+spots:
+-- key   | x,y   | name                     | line
+7A       | 10,10 | the oak desk             | A wide polished desk with gold inlay, and under a glass dome a little bird with six wings patterned like eyes.
+drawings | 6,10  | the anatomy drawings     | Pictures of a strange bird's insides cover the walls, with notes in a careful hand.
+7B       | 10,3  | the archivist            | A withered body at an ancient desk, quill in hand, eyes carved into its skin. A thick notebook lies open.
+eyes     | 5,3   | the eye on every wall    | Diagrams, strange letters and scraps of paper everywhere, and one glowing eye drawn on almost every surface.
+door     | 10,6  | the locked door          | Locked from the inside. A hard shove might break it.
+stairs   | 6,7   | the stairs up            | Stairs climb between the studies toward the floor above. Smoky air drifts down them.

@@ -9,6 +9,7 @@ A spec, in short:
     title: The Chamber of Ancients
     light: candle
     adventure: museum
+    room: chamber
     source: adventure
     credit: The Museum of Nightmares by Luke Russell (DMs Guild), Area 1 map, rooms 3A-3H
     about: The jars, the tablet and the bone guardian's sarcophagus, as on the book's map.
@@ -53,10 +54,11 @@ BOARDS = os.path.join(ROOT, "game", "data", "boards.lua")
 FLOOR, OUTSIDE = ".", " "
 LIGHTS = ("day", "candle", "hearth", "fire", "dark")
 
-# Kinds another change is adding to the kit (tools/gen_props.py), with the footprints they were
-# promised. A spec may use them before they land in game/data/props.lua (with a warning); once
-# they're in the kit, the kit's own numbers win and this list isn't read for them. --strict
-# refuses any kind the kit doesn't have yet.
+# Kinds on their way into the kit (tools/gen_props.py), with the footprints they were promised:
+# build_maps.py --lenient lets a spec use them before they land in game/data/props.lua (with a
+# warning). Once they're in the kit, the kit's own numbers win and this list isn't read for them;
+# by default (strict) a kind the kit doesn't have is refused. (October 30: the museum's pieces,
+# all landed now.)
 EXPECTED = {
     "floor_marble": dict(fw=20, fh=13, blocks=False, flat=True),
     "paving": dict(fw=1, fh=1, blocks=False, flat=True),
@@ -90,9 +92,10 @@ EXPECTED = {
     "bench_museum": dict(fw=2, fh=1, blocks=True),
 }
 
-# Pieces that stand against a wall: "auto" turns them to face the open floor.
+# Pieces that stand against a wall or in a wall line (doors too): "auto" turns them to face the
+# open floor, and walls beside them line up with them.
 WALL_LIKE = re.compile(r"^(wall_|stone_wall$|tapestry$|curtain$|bookshelf$|scroll_rack$|blackboard$|hearth$|"
-                       r"wardrobe$|vault_door$|ruin_wall)")
+                       r"wardrobe$|vault_door$|ruin_wall|door$|door_open$|door_locked$)")
 
 
 class SpecError(Exception):
@@ -111,14 +114,16 @@ def load_kit(props_path=PROPS):
                          r"say = \"((?:[^\"\\]|\\.)*)\"", src, re.M | re.S):
         name, fw, fh, blocks, rest, words, say = m.groups()
         mask = None
-        mm = re.search(r"mask = \{(.*?)\}\s*[,}]", rest + ",")
         if "mask" in rest:
-            pairs = re.findall(r"\{ (\d+), (\d+) \}", rest)
-            mask = {(int(a), int(b)) for a, b in pairs}
-        del mm
+            mask = {(int(a), int(b)) for a, b in re.findall(r"\{ (\d+), (\d+) \}", rest)}
         kit[name] = dict(fw=int(fw), fh=int(fh), blocks=(blocks == "true"), flat=("flat = true" in rest),
                          clear=("clear = true" in rest), mask=mask, words=re.findall(r"\"((?:[^\"\\]|\\.)*)\"", words),
                          say=say, cover=("cover = true" in rest), kit=True)
+    # Doors (door, door_open, door_locked): "closed", "open" or "locked".
+    for m in re.finditer(r"^\s{4}(\w+) = \{([^\n]*\n[^\n]*)", src, re.M):
+        dm = re.search(r'door = "(\w+)"', m.group(2))
+        if dm and m.group(1) in kit:
+            kit[m.group(1)]["door"] = dm.group(1)
     return kit
 
 
@@ -173,8 +178,8 @@ def is_ground(kind_def):
 # ------------------------------------------------------------------ reading a spec
 
 SECTIONS = ("grid", "legend", "pieces", "features", "spots")
-HEADER_KEYS = ("id", "title", "light", "adventure", "source", "credit", "about", "tags", "order", "party", "foes", "npc",
-               "npc_at", "tight")
+HEADER_KEYS = ("id", "title", "light", "adventure", "room", "source", "credit", "about", "tags", "order", "party", "foes",
+               "npc", "npc_at", "tight")
 # source: where the map came from. "adventure": drawn by hand after an adventure's own map;
 # "imported": straight from import_map.py and draft_to_spec.py, not finished by hand yet.
 SOURCES = ("adventure", "imported")
@@ -302,20 +307,23 @@ def read(path):
 def _auto_turn(kind, x, y, grid_open):
     """Which way a wall piece at (x, y) faces: toward the open floor, its back to the mat's edge,
     the outside or another wall. 0 faces south, 1 west, 2 north, 3 east."""
+    if kind == "wall_diag":
+        return _diag_turn(x, y, grid_open)
     dirs = [(0, (0, 1)), (3, (1, 0)), (1, (-1, 0)), (2, (0, -1))]   # south, east, west, north: the order of preference
 
+    def on_mat(cx, cy):
+        return 1 <= cx <= W and 1 <= cy <= H
+
     def is_open(cx, cy):
-        return 1 <= cx <= W and 1 <= cy <= H and grid_open[cy - 1][cx - 1]
+        return on_mat(cx, cy) and grid_open[cy - 1][cx - 1]
 
     best, best_score = 0, -1
     for r, (dx, dy) in dirs:
         front = is_open(x + dx, y + dy)
         back = is_open(x - dx, y - dy)
-        score = (2 if front else 0) + (1 if front and not back else 0)
+        score = (2 if front else 0) + (1 if front and not back else 0) + (1 if front and not on_mat(x - dx, y - dy) else 0)
         if score > best_score:
             best, best_score = r, score
-    if kind == "wall_diag":
-        return _diag_turn(x, y, grid_open)
     return best
 
 
@@ -432,7 +440,7 @@ def compile_spec(spec, kit):
 
     # Squares: on the mat, what blocks, overlaps.
     blocked, taken = set(), {}
-    clear = set()
+    clear, doors = set(), set()
     for pc in pieces:
         k = kit[pc["kind"]]
         sq = squares(k, pc["x"], pc["y"], pc["r"])
@@ -442,6 +450,8 @@ def compile_spec(spec, kit):
         for a, b, blk in sq:
             if not (1 <= a <= W and 1 <= b <= H):
                 continue
+            if k.get("door"):
+                doors.add((a, b))
             if k.get("clear"):
                 clear.add((a, b))
             elif blk:
@@ -515,24 +525,27 @@ def compile_spec(spec, kit):
             if room < 5:
                 bad(f"the {who} start {x},{y} is boxed in ({room} free squares around it)")
 
-    # Who can walk where (eight ways, as the battle rules move).
-    def reach(start):
+    # Who can walk where (eight ways, as the battle rules move). A shut door holds the party back
+    # from the foes (as tools/tests/board_check.lua has it), but it opens: what's behind it is
+    # still in the room.
+    def reach(start, through_doors=False):
+        wall = blocked - doors if through_doors else blocked
         seen, queue = {start}, [start]
         while queue:
             cx, cy = queue.pop()
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     nx, ny = cx + dx, cy + dy
-                    if (dx or dy) and 1 <= nx <= W and 1 <= ny <= H and (nx, ny) not in blocked and (nx, ny) not in seen:
+                    if (dx or dy) and 1 <= nx <= W and 1 <= ny <= H and (nx, ny) not in wall and (nx, ny) not in seen:
                         seen.add((nx, ny))
                         queue.append((nx, ny))
         return seen
 
     walk = set()
     if "party" in starts and starts["party"] not in blocked:
-        walk = reach(starts["party"])
-        if "foes" in starts and starts["foes"] not in walk:
+        if "foes" in starts and starts["foes"] not in reach(starts["party"]):
             bad("the party can't reach the foes")
+        walk = reach(starts["party"], through_doors=True)
         leak = sorted(walk & outside)
         if leak:
             bad(f"the party can walk outside the room (at {leak[0][0]},{leak[0][1]}"
@@ -569,8 +582,8 @@ def compile_spec(spec, kit):
         for f in features:
             for p in f["parts"]:
                 k = kit[p["kind"]]
-                if is_ground(k) and (k["fw"] * k["fh"] > 4):
-                    continue
+                if is_ground(k) and (f["base"] or k["fw"] * k["fh"] > 4):
+                    continue                     # the floor and the paths are beside everything
                 for (px, py, pr) in p["at"]:
                     if any(max(abs(a - x), abs(b - y)) <= 1 for a, b, _ in squares(k, px, py, pr)):
                         if f["id"] not in near:
@@ -581,7 +594,9 @@ def compile_spec(spec, kit):
 
     tags = [t.strip() for t in hd.get("tags", "").split(",") if t.strip()]
     order_n = int(hd["order"]) if hd.get("order", "").isdigit() else 999
-    board = dict(id=bid, title=hd.get("title"), light=hd.get("light"), adventure=hd.get("adventure"),
+    if hd.get("room") and not re.fullmatch(r"[a-z][a-z0-9_]*", hd["room"]):
+        bad(f"room {hd['room']!r} must be lower_case words (the adventure's own id for the room)")
+    board = dict(id=bid, title=hd.get("title"), light=hd.get("light"), adventure=hd.get("adventure"), room=hd.get("room"),
                  source=hd.get("source"), credit=hd.get("credit"), about=hd.get("about"), tags=tags, order=order_n, tight=tight,
                  party=starts.get("party"), foes=starts.get("foes"), npc=starts.get("npc"),
                  npc_at=dict(spec["npc_at"]), features=features, spots=spots,
@@ -595,8 +610,12 @@ def lua_str(s):
     return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
-def _at(at):
-    return "{ " + ", ".join(f"{{ {x}, {y}, {r} }}" for x, y, r in at) + " }"
+def _at(at, indent=""):
+    items = [f"{{ {x}, {y}, {r} }}" for x, y, r in at]
+    if len(items) <= 10:
+        return "{ " + ", ".join(items) + " }"
+    rows = [", ".join(items[i:i + 10]) for i in range(0, len(items), 10)]
+    return "{\n" + ",\n".join(indent + "    " + r for r in rows) + ",\n" + indent + "}"
 
 
 def board_lua(b, indent="    "):
@@ -606,7 +625,8 @@ def board_lua(b, indent="    "):
     if b.get("tight"):
         head += " tight = true,"
     out.append(head)
-    out.append(f"{i2}adventure = {lua_str(b['adventure'])}, order = {b['order']},")
+    out.append(f"{i2}adventure = {lua_str(b['adventure'])}, order = {b['order']},"
+               + (f" room = {lua_str(b['room'])}," if b.get("room") else ""))
     out.append(f"{i2}source = {lua_str(b['source'])}, credit = {lua_str(b['credit'])},")
     out.append(f"{i2}about = {lua_str(b['about'])},")
     out.append(f"{i2}tags = {{ " + ", ".join(lua_str(t) for t in b["tags"]) + " },")
@@ -619,9 +639,9 @@ def board_lua(b, indent="    "):
     for f in b["features"]:
         if len(f["parts"]) == 1:
             p = f["parts"][0]
-            s = f"{i3}{{ id = {lua_str(f['id'])}, kind = {lua_str(p['kind'])}, at = {_at(p['at'])}"
+            s = f"{i3}{{ id = {lua_str(f['id'])}, kind = {lua_str(p['kind'])}, at = {_at(p['at'], i3)}"
         else:
-            parts = ", ".join(f"{{ kind = {lua_str(p['kind'])}, at = {_at(p['at'])} }}" for p in f["parts"])
+            parts = ", ".join(f"{{ kind = {lua_str(p['kind'])}, at = {_at(p['at'], i3)} }}" for p in f["parts"])
             s = f"{i3}{{ id = {lua_str(f['id'])}, parts = {{ {parts} }}"
         if f["base"]:
             s += ", base = true"

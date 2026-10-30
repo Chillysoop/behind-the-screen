@@ -1,0 +1,80 @@
+-- The museum gardens (the book's Area 1 map, 1A-1E), redrawn in our pieces. Turned half round
+-- from the book's page so the museum's doors stand along the north edge and the party comes up
+-- the two paths from the DM's side. The book's map is 20 squares across, like the mat: one square
+-- of path off the near edge is all that's dropped.
+
+id: museum_garden
+title: The museum gardens
+light: day
+adventure: museum
+room: garden
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, the gardens (1A-1E)
+about: Two paths up to the doors, the pond between them, clipped beasts on the terraces.
+tags: outdoors, garden, museum, start
+order: 1
+party: 10,12
+foes: 11,8
+npc: 12,2
+
+grid:
+|......=##DD##=......|
+|....===r=B=====.....|
+|.====L........L====.|
+|.SS==~~~~~~~~~.==SS.|
+|.SSB=~~~~~~~~~.=BSS.|
+|.SS==~~~~~~~~~.==SS.|
+|.===............===.|
+|...===L.!....L===...|
+|.....====B.====.....|
+|..T.T==A=..=A==T.T..|
+|.*.T....=..r....T.*.|
+|.....**.=..=.**.....|
+|.....**.=..=.**.....|
+
+legend:
+-- char | kind        | feature    | turn
+#       | wall_room   | museum     | auto
+D       | wall_door   | doors      | auto
+=       | paving      | paths      |
+~       | pond        | pond       |
+S       | garden_steps | steps     |
+B       | topiary     | beasts     |
+L       | lamp_post   | lamps      |
+!       | signpost    | plaque     |
+A       | statue      | statues    |
+T       | oak         | trees      |
+*       | bush        | fruit      |
+r       | rubble      | masonry    |
+
+pieces:
+-- feature | kind        | x,y | turn
+grass      | floor_grass | 1,1 |
+
+features:
+-- id    | flags     | words                                  | say
+grass    | base      | lawn, garden, gardens                  | an overgrown garden
+museum   | base      | museum, front, facade, building        | the museum's front, towering over the garden
+doors    | base      | doors, great doors, oak doors          | great oak doors wound with gold
+paths    | base      | path, paths                            | two paved paths up to the doors
+pond     |           | pond, water, tentacles                 | a dark pond with something moving in it
+beasts   |           | bush, bushes, briar, thorns            | bushes clipped into beasts, thorns and all
+lamps    |           | lamp, lamps, blue flame                | lamps burning with a cold blue flame
+plaque   | own_words | plaque, sign, warning                  | a little iron plaque by the water
+statues  |           | statue, statues                        | stone statues on their plinths
+steps    |           | steps, terrace, terraces               | broken steps up to the terraces
+trees    |           | thorny, twisting                       | thorny trees that twist in the breeze
+fruit    | own_words | fruit, low bushes, bushes              | low bushes heavy with strange bright fruit
+masonry  |           | masonry, stonework                     | chunks of fallen stonework
+
+spots:
+-- key  | x,y   | name                          | line
+1A      | 10,8  | the plaque by the pond        | A small iron sign warns visitors about the bushes and says water helps. It's signed FF.
+1B      | 11,10 | the horned beast              | A bush clipped into a great three-horned beast stands between the paths, thorns bristling.
+1C      | 10,3  | the bristly bush by the doors | A bush in the shape of a boar sits on the path right in front of the museum's doors.
+1D      | 5,5   | the cat on the left terrace   | Up the broken steps, a bush clipped into a crouching cat watches the pond.
+1E      | 16,5  | the cat on the right terrace  | Its twin on the other terrace, the same crouching cat in leaves and thorns.
+pond    | 12,7  | the pond's edge               | Still, dark water. Get too close and something slimy reaches out of it.
+shears  | 17,7  | the shears in the grass       | A gardener's shears lie where someone dropped them. They'd do as a short blade.
+hammer  | 7,1   | the sledgehammer by the doors | A heavy sledgehammer for knocking in stakes leans against the museum wall.
+doors   | 11,2  | the museum's doors            | Tall oak doors wound with gold. They creak, but they aren't locked.

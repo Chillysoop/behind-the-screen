@@ -1,0 +1,94 @@
+-- The Hunting Grounds (the book's Area 2 map, 6A-6J), redrawn in our pieces. Turned half round from
+-- the book's page so the stairs up from the gift shop come in on the west, and condensed from the
+-- book's 13 x 14 octagon to the mat: wider and a little flatter, the octagon and its cut corners
+-- kept. The studies (with the stairs up between them) stand in the middle as a block with its
+-- doorway, the World of Tomorrow and the lecture theatre along the east side with their doors;
+-- each of those has a board of its own. Every exhibit sits where the book has it: the cave model
+-- and the razorbark tree north, the kitchen in its corner, the jungle by the stairs, the jars by
+-- the studies, the skull, the model city and the big bird along the south. The south wall is left
+-- off: the DM's side.
+
+id: museum_hunting
+title: The Hunting Grounds
+light: candle
+adventure: museum
+room: hunting
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 2 map, the Hunting Grounds (6A-6J)
+about: The second floor's octagon of exhibits, where something hunts among the dioramas.
+tags: indoor, museum, second floor, exhibits, hunt
+order: 6
+tight: yes
+party: 5,8
+foes: 8,4
+npc: 14,8
+
+grid:
+|  //############//  |
+| //..O...vvv.....// |
+|//.......vvv...kkk//|
+|/..............kkk./|
+|#g.......####..#####|
+|####....j#  #..D   #|
+|#SSS..Hb.E  #..#   #|
+|#SSS..bH.E  #..#   #|
+|P.......j#  #..D   #|
+|/........####..#####|
+|//............KKK.//|
+| //.B...MMMM..KKK// |
+|  //....MMMM....//  |
+
+legend:
+-- char | kind            | feature  | turn
+#       | wall_room       | walls    | auto
+/       | wall_diag       | walls    | auto
+D       | wall_door       | doors    | auto
+E       | wall_door       | studies  | auto
+P       | wall_painting   | sketch   | auto
+S       | stairs_straight | stairs   | 3
+O       | oak             | tree     |
+v       | diorama_cave    | cave     |
+k       | diorama_kitchen | kitchen  |
+g       | display_case    | cabinet  |
+j       | canopic_jars    | jars     |
+H       | hedge           | jungle   |
+b       | bush            | jungle   |
+K       | giant_skull     | skull    |
+B       | stuffed_bird    | bird     |
+M       | model_city      | city     |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id    | flags     | words                                          | say
+floor    | base      | floor, high roof, roof                         | an open floor under a high arched roof
+walls    | base      | hunting grounds                                | walls with tall windows
+doors    | base      | doors, door, world of tomorrow, lecture        | doors to the exhibits off the hall
+studies  | base      | studies, offices, passage                      | a passage between the studies
+stairs   |           | stairs, steps, down                            | the stairs back down to the gift shop
+cave     |           | cave system, peep holes, peepholes, holes      | a long model of a cave system with little glass peep holes
+tree     | own_words | tree, razorbark, branches                      | a tree whose branches reach the ceiling
+kitchen  |           | knives, pots, pans, counter                    | a little working kitchen behind a rail
+jungle   | own_words | jungle, plants, flowers, birdsong              | a square of dense jungle, humid and loud with birds
+jars     | own_words | jars, pickling jars, brine, specimen           | two big pickling jars, something with tentacles in the brine
+cabinet  | own_words | cabinet, misted, fungus, glass                 | a glass cabinet misted over from inside
+sketch   | own_words | sketch, drawing, spikes, beast                 | a sketch of a huge spiked beast
+skull    |           | bulette, landshark                             | a huge armoured skull bursting up through the floor
+city     |           | skyscrapers, trains, trams                     | a model city with tiny trams hissing round it
+bird     | own_words | bird, flightless bird, yellow feathers         | a stuffed bird the size of a horse
+
+spots:
+-- key  | x,y   | name                      | line
+6A      | 14,11 | the giant skull           | The armoured skull of a burrowing beast breaks up through the floor. It's hollow inside.
+6B      | 13,13 | the model city            | A model city twenty feet long, its towers taller than a person, tiny trains whirring through it.
+6C      | 6,12  | the big yellow bird       | A stuffed flightless bird as big as a horse, chewing on stuffed greens. Something stands very still behind it.
+6D      | 2,9   | the spiky sketch          | An artist's drawing of an enormous wingless beast covered in spikes.
+6E      | 8,6   | the pickling jars         | Two jars of yellow-green brine, each holding something like a brain with a beak.
+6F      | 6,9   | the jungle                | Ten feet of dense jungle you can't see through. Humid, and full of distant birdsong.
+6G      | 3,5   | the misted cabinet        | A glass case fogged over from inside. Something grows in there. Break it and it spreads.
+6H      | 6,3   | the razorbark tree        | A tree reaching right up to the ceiling. Its bark is worth money to the right buyer.
+6I      | 11,4  | the cave model            | A model cave system with six peep holes. Through one, a skeletal hand wearing a gleaming ring.
+6J      | 15,4  | the little kitchen        | A whole working kitchen: knives, pots and polished cupboard doors you can see reflections in.
+stairs  | 5,7   | the top of the stairs     | Where the stairs from the gift shop come up. The hall ahead is full of exhibits, and it feels like being watched.

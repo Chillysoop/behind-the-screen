@@ -1,0 +1,75 @@
+-- The lecture theatre (the book's Area 2 map, 9A), redrawn in our pieces. Turned half round from the
+-- book's page, like the Hunting Grounds, so its door from the hall is on the west and the lecturer's
+-- lectern stands at the far end, the blackboard behind him. The book's two rows of benches face
+-- him with an aisle down the middle; blown up to fill the mat, with the blanketed windows, the
+-- cobwebs, the piles of dull books and the carpet of ghostly notes from its words. The south wall
+-- is left off.
+
+id: museum_lecture
+title: The lecture theatre
+light: candle
+adventure: museum
+room: lecture
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 2 map, the lecture theatre (9A)
+about: Rows of old benches facing a droning ghost at his lectern.
+tags: indoor, museum, second floor, fight
+order: 9
+party: 3,7
+foes: 17,7
+npc: 14,12
+
+grid:
+|###C####C####C####C#|
+|#ww..............BB#|
+|#ww..b.b.b.b.......#|
+|#....b.b.b.b.......#|
+|#....x.............#|
+|#.................K#|
+|D..............L..K#|
+|#..................#|
+|#....b.b.b.b.......#|
+|#....b.b.b.b...x...#|
+|#BB..............ww#|
+|#................ww#|
+|#..................#|
+
+legend:
+-- char | kind         | feature   | turn
+#       | wall_room    | walls     | auto
+D       | wall_door    | doors     | auto
+C       | curtain      | blankets  | auto
+b       | bench_museum | benches   | 3
+L       | lectern      | lectern   | 1
+K       | blackboard   | board     | 1
+w       | web          | webs      |
+x       | bones        | bodies    |
+B       | bookshelf    | books     |
+
+pieces:
+-- feature | kind         | x,y  | turn
+floor      | floor_marble | 1,1  |
+notes      | rug          | 13,6 |
+
+features:
+-- id    | flags     | words                                        | say
+floor    | base      | floor, dust, theatre, theater                | a dusty floor that puffs up clouds underfoot
+walls    | base      | lecture                                      | walls thick with cobwebs
+doors    | base      | door, doors                                  | the door back to the hall
+benches  |           | seats, rows                                  | two rows of old splintered benches
+lectern  |           | lecturer, ghost, green bulb                  | a lectern lit by a dim green bulb
+board    |           | notes, scribbles                             | a blackboard of scribbled notes
+notes    | own_words | notes, papers, pages, carpet                 | a carpet of ghostly discarded notes
+blankets | own_words | blankets, windows, ragged                    | ragged blankets nailed over the windows
+webs     |           |                                              | thick cobwebs
+bodies   | own_words | bodies, corpses, dried                       | dried-up bodies slumped as if asleep
+books    | own_words | books, piles of books, dull books            | piles of dry old books
+
+spots:
+-- key    | x,y   | name                   | line
+9A        | 15,8  | the lecturer           | A thin grey man you can almost see through, eyes of milky mist, droning on without a mouth.
+benches   | 7,5   | the benches            | Two rows of splintered old seats. A few dried-up bodies slump on them as if they fell asleep.
+board     | 18,8  | the blackboard         | Scribbled notes behind the lectern, and an old box of chalk gone mostly to powder.
+windows   | 9,2   | the blanketed windows  | Ragged blankets over every window. With the door shut, the world outside is simply gone.
+notes     | 14,8  | the carpet of notes    | Ghostly pages drift around the lectern, deep as a rug, dropped and forgotten.
+books     | 4,11  | the piles of books     | Stacks of books as dry and dull as they are old.

@@ -1,0 +1,82 @@
+-- The Chamber of Ancients (the book's Area 1 map, 3A-3H), redrawn in our pieces and turned so north
+-- is up. The book's arrangement: the door in from the entrance chamber at the north-west, past the
+-- corner the entrance takes out of the room; the tablet and the daggers by the north wall; the
+-- pedestal in the middle; the jackal jug, the crocodile tap and the falcon jar along the south
+-- wall; the notebook by the slanting wall with the door on to the gift shop. Stretched to fill the
+-- mat; the sarcophagus the guardian climbed out of is ours. The south wall is left off: the DM's side.
+
+id: museum_chamber
+title: The Chamber of Ancients
+light: candle
+adventure: museum
+room: chamber
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, the Chamber of Ancients (3A-3H)
+about: The water puzzle: the jars, the crocodile tap, the tablet, the pedestal and its guardian.
+tags: indoor, museum, ground floor, puzzle
+order: 3
+party: 7,4
+foes: 10,9
+npc: 14,6
+
+grid:
+|    #########//     |
+|    #.rl.o.Tl.//    |
+|    Db.........//   |
+|    #...........D/  |
+|####/......p.....// |
+|#.................//|
+|#..................#|
+|#...s.............l#|
+|/...s..............#|
+|//.................#|
+| //............o..//|
+|  //..j......f...// |
+|   //......c....//  |
+
+legend:
+-- char | kind          | feature   | turn
+#       | wall_room     | walls     | auto
+/       | wall_diag     | walls     | auto
+D       | wall_door     | doors     | auto
+r       | weapon_rack   | daggers   |
+T       | stone_tablet  | tablet    |
+l       | torch_post    | lamps     |
+o       | pillar        | columns   |
+p       | plinth        | pedestal  |
+s       | sarcophagus   | tomb      |
+j       | canopic_jars  | jackal    |
+f       | canopic_jars  | falcon    |
+c       | ritual_basin  | crocodile |
+b       | bones         | bones     |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id     | flags     | words                                        | say
+floor     | base      | floor, sand, dust                            | a marble floor dusted with sand
+walls     | base      | chamber                                      | sandstone walls
+doors     | base      | doors, door                                  | a door at either end
+tablet    |           | glyphs, signs                                | a cracked sandstone tablet covered in old signs
+pedestal  | own_words | pedestal, button, stand, dais                | a raised stand with a button on it
+tomb      |           | guardian, bone guardian                      | an open sarcophagus, its lid pushed aside
+jackal    | own_words | jackal, jug, small jug                       | a small clay jug with a jackal on it
+falcon    | own_words | falcon, jar, large jar, pot                  | a big clay jar with a falcon on it
+crocodile | own_words | crocodile, tap, jaw, water                   | a crocodile carved into the wall, water behind its jaw
+daggers   | own_words | daggers, curved daggers, rings               | two curved daggers hung on a hook, their rings locked
+columns   |           | sandstone                                    | sandstone columns
+lamps     | own_words | lamps, lamp, blue fire, ether                | lamps with blue fire behind thick glass
+bones     | own_words | bones, rack of bones, mummified              | a rack of old wrapped bones across the doorway
+
+spots:
+-- key | x,y   | name                    | line
+3A     | 12,6  | the pedestal            | A raised stand with a button carved like a woman. Something is meant to sit on top of it.
+3B     | 9,8   | the bone guardian       | Gold and bleached bone, three skull faces, and a staff topped with a fanged skull.
+3C     | 7,11  | the jackal jug          | A small clay jug with a jackal carved on its side.
+3D     | 7,3   | the curved daggers      | Two curved daggers whose rings are locked together. They won't come apart easily.
+3E     | 12,3  | the cracked tablet      | A sandstone tablet covered in old signs. Someone with the right notes could read a line or two.
+3F     | 17,8  | the notebook            | A small notebook full of notes on an old picture-writing, dropped by the wall.
+3G     | 14,11 | the falcon jar          | A big clay jar with a falcon carved on it.
+3H     | 12,11 | the crocodile tap       | A crocodile set into the wall. Pull its jaw back and water runs out.

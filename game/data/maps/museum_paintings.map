@@ -1,0 +1,79 @@
+-- The Hall of Paintings (the book's Area 1 map, 4A-4K), redrawn in our pieces and turned so north is
+-- up. The book's arrangement: the door in from the entrance chamber at the south-west, where the
+-- entrance takes a corner out of the hall; the cut north-west and north-east corners; the slanting
+-- south-east wall with the door on to the gift shop; paintings all along the walls. Paintings the
+-- book hangs on slanting walls sit in little straight stretches of wall here, and the two on the
+-- south wall (the DM's side, left off) moved round: the knight's portrait now hangs at the far
+-- (east) end, as the book's text has it, behind a red rope.
+
+id: museum_paintings
+title: The Hall of Paintings
+light: candle
+adventure: museum
+room: paintings
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, the Hall of Paintings (4A-4K)
+about: Strange paintings on every wall, and the knight's dark portrait at the far end.
+tags: indoor, museum, ground floor, gallery
+order: 4
+party: 7,11
+foes: 17,6
+npc: 11,4
+
+grid:
+|  //##P##P##P##P#// |
+| /P...............P/|
+|//................./|
+|/.....p............P|
+|#................f.K|
+|P..................P|
+|#w......bb..bb...../|
+|####/.............//|
+|    #............P/ |
+|    #......p....//  |
+|    D..........D/   |
+|    #.........//    |
+|    #........//     |
+
+legend:
+-- char | kind          | feature    | turn
+#       | wall_room     | walls      | auto
+/       | wall_diag     | walls      | auto
+D       | wall_door     | doors      | auto
+P       | wall_painting | paintings  | auto
+K       | wall_portrait | knight     | auto
+f       | fence         | rope       |
+p       | plinth        | pottery    |
+b       | bench_museum  | benches    |
+w       | wardrobe      | cupboard   |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id     | flags     | words                                          | say
+floor     | base      | floor, hall                                    | a marble floor that smells faintly of wet paint
+walls     | base      | gallery                                        | tall walls
+doors     | base      | doors, door                                    | a door at either end
+paintings |           | landscapes, battlefields, kings, queens        | paintings of far-off worlds in ornate frames
+knight    |           | knight of shades, obsidian, scarlet, frame     | a grim portrait of a knight in black armour, red light where a face should be
+rope      | own_words | rope, red rope, barrier                        | a red rope barrier
+pottery   | own_words | pottery, pots, pillar, pillars, plinth         | painted pottery on little pillars
+benches   |           |                                                | benches for looking at the paintings
+cupboard  | own_words | cupboard, mop, bucket, turpentine              | a cleaning cupboard
+
+spots:
+-- key  | x,y   | name                        | line
+4A      | 2,6   | the white-haired elf        | A dark elf with two curved swords and a black panther, in a snowfield. Reach in and the cold bites.
+4B      | 3,3   | the red-bearded king        | A dwarf king with jewels in his beard, a cave behind him, half wild and half fine stonework.
+4C      | 7,2   | the dice game               | Five people round a table rolling dice, one of them behind a little screen. It looks oddly familiar.
+4D      | 10,2  | the airship                 | An airship roars over a broken land, its side engine spitting strange fire.
+4E      | 13,2  | the clown family            | A family of clowns outside a shabby circus, makeup running, the ringmaster grinning behind them.
+4F      | 16,2  | the unknown lady            | A woman with folded arms on a carved chair, a road winding to icy mountains behind her.
+4G      | 18,2  | the warrior on the bridge   | A woodblock print of a warrior in scarlet armour on a bridge, blade ready.
+4H      | 19,4  | the empty throne            | A gold throne with bats and skulls carved on it, a glass of something red on the table beside it.
+4K      | 19,5  | the knight of shades        | Black armour, and red light where the face should be. The brushwork is perfect. It's watching.
+4I      | 19,6  | the ship and the squid      | A galleon in spray, sailors running, a monstrous squid wrapped round the hull.
+4J      | 17,9  | the duellist                | A cocky half-elf in an open doublet, a pistol smoking in his outstretched hand.
+cupboard | 3,7  | the cleaning cupboard       | A mop, a bucket, and a little bottle of turpentine.

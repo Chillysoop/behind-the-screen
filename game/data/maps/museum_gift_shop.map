@@ -1,0 +1,68 @@
+-- The gift shop (the book's Area 1 map, 5A), redrawn in our pieces and turned so north is up. The
+-- book's arrangement: a wedge pointing west, the door from the Hall of Paintings in its north-west
+-- wall and the door from the Chamber of Ancients in its south-west wall, the stairs up against the
+-- east wall in their alcove. The book's map shows no furniture: the counter, the shelves and the
+-- souvenir tables follow its words. The south wall is left off: the DM's side.
+
+id: museum_gift_shop
+title: The gift shop
+light: candle
+adventure: museum
+room: gift_shop
+source: adventure
+credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, the gift shop (5A)
+about: Shelves of odd souvenirs, a counter with a talking boot, and the stairs up.
+tags: indoor, museum, ground floor, shop, rest
+order: 5
+party: 6,5
+foes: 15,10
+npc: 12,7
+
+grid:
+|     //#hhh###hhh#//|
+|    //............./|
+|   //...c...tt.....#|
+|  /D...............#|
+| //.............####|
+|//........C.....SSS#|
+|#..tt.....C.....SSS#|
+|//........C........#|
+| //................#|
+|  /D...............#|
+|   //...c...tt.....#|
+|    //............./|
+|     //...........//|
+
+legend:
+-- char | kind           | feature    | turn
+#       | wall_room      | walls      | auto
+/       | wall_diag      | walls      | auto
+D       | wall_door      | doors      | auto
+h       | wall_shelf     | shelves    | auto
+S       | stairs_straight | stairs    | 1
+C       | counter        | counter    |
+t       | souvenir_table | souvenirs  |
+c       | display_case   | cases      |
+
+pieces:
+-- feature | kind         | x,y | turn
+floor      | floor_marble | 1,1 |
+
+features:
+-- id     | flags     | words                                     | say
+floor     | base      | floor, shop                               | a marble floor
+walls     | base      | gift shop                                 | walls
+doors     | base      | doors, door                               | a door from each wing
+stairs    |           | second floor, up                          | stairs up to the second floor
+counter   | own_words | counter, register, cash register, boot    | a counter with a brass and ivory register, and a worn leather boot
+shelves   | own_words | shelves, marbles, guide books, guidebooks | shelves of marbles, guide books and stranger things
+souvenirs |           | marbles, snake, beans                     | tables of souvenirs
+cases     |           |                                           | glass cases of things for sale
+
+spots:
+-- key    | x,y  | name                 | line
+5A        | 10,7 | the counter          | A brass and ivory register, and a worn leather boot that is more than it looks.
+stairs    | 16,8 | the foot of the stairs | Stairs climb the east wall to the second floor. A boot could never manage them.
+shelves   | 10,2 | the shelves          | Bags of marbles, guide books, a rubber snake, a jar of beans. No refunds.
+souvenirs | 13,4 | the souvenir table   | Odd little things laid out for sale, each with a price in Flitwidget Francs.
+cases     | 9,10 | the glass cases      | Locked cases of rarer things, some of them clearly from further into the museum.
