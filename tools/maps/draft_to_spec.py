@@ -9,8 +9,8 @@ it can), and write the squares as a grid with a legend of first-guess pieces.
         [--id ID] [--title TITLE] [--adventure ID] [--credit TEXT]
 
 What it guesses: walls (drawn along the grid lines or filling squares) become wall_room, doors
-wall_door, plants bush, stairs stairs_straight, water and objects are left as TODO squares
-('~' and '?') the builder refuses until they're replaced by real pieces. A room bigger than the
+wall_door, plants bush; stairs, water, dark squares and objects are left as TODO squares ('S',
+'~', '_' and '?') the builder refuses until they're replaced by real pieces. A room bigger than the
 mat is cut to fit (the warning says by how much); condense it by hand.
 """
 import argparse
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mapspec as ms  # noqa: E402
 
-CHAR = {"outside": " ", "dark": " ", "floor": ".", "wall": "#", "door": "D", "water": "~", "stairs": "S",
+CHAR = {"outside": " ", "dark": "_", "floor": ".", "wall": "#", "door": "D", "water": "~", "stairs": "S",
         "plants": "*", "object": "?"}
 LEGEND = [
     ("#", "wall_room", "walls", "auto"),
@@ -29,6 +29,7 @@ LEGEND = [
     ("*", "bush", "plants", ""),
     ("S", "TODO_stairs", "stairs", ""),
     ("~", "TODO_water", "water", ""),
+    ("_", "TODO_dark", "dark", ""),
     ("?", "TODO_object", "things", ""),
 ]
 

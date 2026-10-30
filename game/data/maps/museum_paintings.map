@@ -2,9 +2,10 @@
 -- up. The book's arrangement: the door in from the entrance chamber at the south-west, where the
 -- entrance takes a corner out of the hall; the cut north-west and north-east corners; the slanting
 -- south-east wall with the door on to the gift shop; paintings all along the walls. Paintings the
--- book hangs on slanting walls sit in little straight stretches of wall here, and the two on the
--- south wall (the DM's side, left off) moved round: the knight's portrait now hangs at the far
--- (east) end, as the book's text has it, behind a red rope.
+-- book hangs on slanting walls sit in little straight stretches of wall here, in the book's
+-- order round the room. The two on the south wall (the DM's side, left off) moved: the duellist
+-- to the slanting wall, and the knight's portrait to the far (east) end, as the book's text has
+-- it, behind a red rope.
 
 id: museum_paintings
 title: The Hall of Paintings
@@ -16,7 +17,7 @@ credit: The Museum of Nightmares by Luke Russell (DMs Guild): the Area 1 map, th
 about: Strange paintings on every wall, and the knight's dark portrait at the far end.
 tags: indoor, museum, ground floor, gallery
 order: 4
-party: 7,11
+party: 7,10
 foes: 17,6
 npc: 11,4
 
@@ -26,13 +27,13 @@ grid:
 |//................./|
 |/.....p............P|
 |#................f.K|
-|P..................P|
+|P..................#|
 |#w......bb..bb...../|
-|####/.............//|
-|    #............P/ |
-|    #......p....//  |
-|    D..........D/   |
-|    #.........//    |
+|####/.............D/|
+|    #............// |
+|    D......p....P/  |
+|    #..........//   |
+|    #.........P/    |
 |    #........//     |
 
 legend:
@@ -74,6 +75,6 @@ spots:
 4G      | 18,2  | the warrior on the bridge   | A woodblock print of a warrior in scarlet armour on a bridge, blade ready.
 4H      | 19,4  | the empty throne            | A gold throne with bats and skulls carved on it, a glass of something red on the table beside it.
 4K      | 19,5  | the knight of shades        | Black armour, and red light where the face should be. The brushwork is perfect. It's watching.
-4I      | 19,6  | the ship and the squid      | A galleon in spray, sailors running, a monstrous squid wrapped round the hull.
-4J      | 17,9  | the duellist                | A cocky half-elf in an open doublet, a pistol smoking in his outstretched hand.
+4I      | 16,10 | the ship and the squid      | A galleon in spray, sailors running, a monstrous squid wrapped round the hull.
+4J      | 14,12 | the duellist                | A cocky half-elf in an open doublet, a pistol smoking in his outstretched hand.
 cupboard | 3,7  | the cleaning cupboard       | A mop, a bucket, and a little bottle of turpentine.

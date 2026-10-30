@@ -16,7 +16,7 @@ about: The water puzzle: the jars, the crocodile tap, the tablet, the pedestal a
 tags: indoor, museum, ground floor, puzzle
 order: 3
 party: 7,4
-foes: 10,9
+foes: 9,9
 npc: 14,6
 
 grid:
@@ -24,7 +24,7 @@ grid:
 |    #.rl.o.Tl.//    |
 |    Db.........//   |
 |    #...........D/  |
-|####/......p.....// |
+|####/...p........// |
 |#.................//|
 |#..................#|
 |#...s.............l#|
@@ -72,8 +72,8 @@ bones     | own_words | bones, rack of bones, mummified              | a rack of
 
 spots:
 -- key | x,y   | name                    | line
-3A     | 12,6  | the pedestal            | A raised stand with a button carved like a woman. Something is meant to sit on top of it.
-3B     | 9,8   | the bone guardian       | Gold and bleached bone, three skull faces, and a staff topped with a fanged skull.
+3A     | 10,6  | the pedestal            | A raised stand with a button carved like a woman. Something is meant to sit on top of it.
+3B     | 8,8   | the bone guardian       | Gold and bleached bone, three skull faces, and a staff topped with a fanged skull.
 3C     | 7,11  | the jackal jug          | A small clay jug with a jackal carved on its side.
 3D     | 7,3   | the curved daggers      | Two curved daggers whose rings are locked together. They won't come apart easily.
 3E     | 12,3  | the cracked tablet      | A sandstone tablet covered in old signs. Someone with the right notes could read a line or two.

@@ -592,8 +592,8 @@ def compile_spec(spec, kit):
         if not (1 <= x <= W and 1 <= y <= H):
             bad(f"{tag}: off the mat")
             continue
-        if (x, y) in blocked or (x, y) in taken:
-            bad(f"{tag}: on a square that's taken ({taken.get((x, y), 'blocked')})")
+        if (x, y) in blocked:
+            bad(f"{tag}: on a square that's blocked ({taken.get((x, y), 'blocked')})")
         if (x, y) in outside:
             bad(f"{tag}: outside the room")
         if walk and (x, y) not in walk and (x, y) not in blocked:

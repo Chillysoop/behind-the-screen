@@ -188,8 +188,9 @@ def cell_stats(rgb, gray, x0, y0, s, refs=None, inset=0.18):
     if refs is not None:
         def near(c, tol):
             return float((np.linalg.norm(a - np.asarray(c), axis=1) < tol).mean())
-        st["f_bg"] = near(refs["outside"], 12)
-        st["f_floor"] = near(refs["floor"], 12) if refs["floor"] is not None else 0.0
+        tol = refs.get("tol", 12.0)
+        st["f_bg"] = near(refs["outside"], tol)
+        st["f_floor"] = near(refs["floor"], tol) if refs["floor"] is not None else 0.0
         bl = a[:, 2] - (a[:, 0] + a[:, 1]) / 2
         st["f_blue"] = float(((bl > max(14.0, refs["floor_blue"] + 5)) & (gf > 90)).mean())
         st["f_green"] = float((((a[:, 1] - (a[:, 0] + a[:, 2]) / 2) > 12) & (psat > 0.15)).mean())
@@ -198,12 +199,14 @@ def cell_stats(rgb, gray, x0, y0, s, refs=None, inset=0.18):
 
 def classify(st, refs):
     """A square's class and how sure the guess is (0-1)."""
-    if st["gray"] < 55 or st["dark"] > 0.7:
-        return "dark", 0.8
     if max(st["f_floor"], st["f_bg"]) > 0.55:
         if st["f_bg"] >= st["f_floor"]:
             return "outside", min(1.0, st["f_bg"])
         return "floor", min(1.0, st["f_floor"])
+    if st["gray"] < 70 and st["edge"] < 0.08 and st["std"] < 18:
+        return "dark", 0.6                        # a flat dark square: a pit, a void, or a dark wall (tidy() decides)
+    if st["dark"] > 0.7:
+        return "dark", 0.6
     if st["f_blue"] > 0.45:
         return "water", st["f_blue"]
     if st["f_green"] > 0.35:
@@ -228,14 +231,12 @@ def classify(st, refs):
     return "object", 0.4
 
 
-def tidy(cells, conf):
-    """Second looks with the neighbours in view. A patch of "wall" that never touches floor but sits
-    in the background is a grey blob of trees or hedge (grey-scale maps draw them that way)."""
+def _components(cells, kind):
     rows, cols = len(cells), len(cells[0]) if cells else 0
-    seen = set()
+    seen, out = set(), []
     for r in range(rows):
         for c in range(cols):
-            if cells[r][c] != "wall" or (r, c) in seen:
+            if cells[r][c] != kind or (r, c) in seen:
                 continue
             comp, stack = [], [(r, c)]
             seen.add((r, c))
@@ -244,20 +245,62 @@ def tidy(cells, conf):
                 comp.append((a, b))
                 for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                     na, nb = a + da, b + db
-                    if 0 <= na < rows and 0 <= nb < cols and cells[na][nb] == "wall" and (na, nb) not in seen:
+                    if 0 <= na < rows and 0 <= nb < cols and cells[na][nb] == kind and (na, nb) not in seen:
                         seen.add((na, nb))
                         stack.append((na, nb))
-            around = {}
+            out.append(comp)
+    return out
+
+
+def _around(cells, comp):
+    rows, cols = len(cells), len(cells[0])
+    inside, around = set(comp), {}
+    for a, b in comp:
+        for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            na, nb = a + da, b + db
+            if 0 <= na < rows and 0 <= nb < cols and (na, nb) not in inside:
+                around[cells[na][nb]] = around.get(cells[na][nb], 0) + 1
+    return around
+
+
+def tidy(cells, conf):
+    """Second looks with the neighbours in view.
+    - A run of dark squares that's a line (one square thick, or a ring) along floor is a wall drawn
+      dark, as colour maps do; a dark blob is a pit or a void and stays dark.
+    - A square in a wall line with wall on both sides and room on the others is a door.
+    - A patch of "wall" that never touches floor but sits in the background is a grey blob of trees
+      or hedge (grey-scale maps draw them that way)."""
+    rows, cols = len(cells), len(cells[0]) if cells else 0
+    for comp in _components(cells, "dark"):
+        rs, cs = [a for a, _ in comp], [b for _, b in comp]
+        bw, bh = max(cs) - min(cs) + 1, max(rs) - min(rs) + 1
+        fill = len(comp) / float(bw * bh)
+        around = _around(cells, comp)
+        n = sum(around.values()) or 1
+        roomy = (around.get("floor", 0) + around.get("object", 0) + around.get("door", 0)) / n
+        if len(comp) >= 3 and (min(bw, bh) == 1 or fill < 0.5) and roomy > 0.2:
             for a, b in comp:
-                for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    na, nb = a + da, b + db
-                    if 0 <= na < rows and 0 <= nb < cols and cells[na][nb] != "wall":
-                        around[cells[na][nb]] = around.get(cells[na][nb], 0) + 1
-            n = sum(around.values()) or 1
-            if around.get("outside", 0) / n > 0.5 and (around.get("floor", 0) + around.get("door", 0)) / n < 0.15:
-                for a, b in comp:
-                    cells[a][b] = "plants"
-                    conf[a][b] = 0.3
+                cells[a][b] = "wall"
+                conf[a][b] = 0.5
+    for r in range(rows):
+        for c in range(cols):
+            if cells[r][c] not in ("object", "floor", "dark"):
+                continue
+            def k(a, b):
+                return cells[a][b] if 0 <= a < rows and 0 <= b < cols else "outside"
+            for (a1, b1, a2, b2, s1, t1, s2, t2) in ((r, c - 1, r, c + 1, r - 1, c, r + 1, c),
+                                                    (r - 1, c, r + 1, c, r, c - 1, r, c + 1)):
+                if k(a1, b1) == "wall" and k(a2, b2) == "wall" and k(s1, t1) != "wall" and k(s2, t2) != "wall" \
+                        and "floor" in (k(s1, t1), k(s2, t2)):
+                    cells[r][c] = "door"
+                    conf[r][c] = 0.4
+    for comp in _components(cells, "wall"):
+        around = _around(cells, comp)
+        n = sum(around.values()) or 1
+        if around.get("outside", 0) / n > 0.5 and (around.get("floor", 0) + around.get("door", 0)) / n < 0.15:
+            for a, b in comp:
+                cells[a][b] = "plants"
+                conf[a][b] = 0.3
 
 
 def edge_band(gray, x0, y0, x1, y1):
@@ -267,18 +310,28 @@ def edge_band(gray, x0, y0, x1, y1):
     return b
 
 
-def wall_edges(gray, grid, rows, cols, refs):
+def wall_edges(gray, grid, rows, cols, refs, stats, cells):
     """Walls drawn along the grid lines: for each square's north and west edge, is there a band of
-    wall (darker than the floor, all the way along) or a door (a pale gap in a wall line)?"""
+    wall (well darker than the squares on both sides of it, all the way along) or a door (a pale
+    gap in a wall line)? Lines between two background squares don't count."""
     s, ox, oy = grid["size"], grid["ox"], grid["oy"]
     t = max(2, int(s * 0.13))
     floor_g = refs["floor_gray"]
 
-    def kind(band):
+    def side(r, c):
+        if 0 <= r < rows and 0 <= c < cols and stats[r][c] is not None:
+            return stats[r][c]["gray"], cells[r][c]
+        return None, "outside"
+
+    def kind(band, a, b):
         if band.size == 0:
             return ""
-        dark = (band < floor_g - 45).mean()
-        if dark > 0.55:
+        (ga, ka), (gb, kb) = a, b
+        if ka == "outside" and kb == "outside":
+            return ""
+        lows = [g for g in (ga, gb) if g is not None]
+        ref = min(lows) if lows else floor_g
+        if band.mean() < ref - 25 and (band < floor_g - 40).mean() > 0.5:
             return "wall"
         return ""
 
@@ -288,12 +341,12 @@ def wall_edges(gray, grid, rows, cols, refs):
         y = oy + r * s
         for c in range(cols):
             x = ox + c * s
-            h[r][c] = kind(edge_band(gray, x + s * 0.2, y - t, x + s * 0.8, y + t))
+            h[r][c] = kind(edge_band(gray, x + s * 0.2, y - t, x + s * 0.8, y + t), side(r - 1, c), side(r, c))
     for r in range(rows):
         y = oy + r * s
         for c in range(cols + 1):
             x = ox + c * s
-            v[r][c] = kind(edge_band(gray, x - t, y + s * 0.2, x + t, y + s * 0.8))
+            v[r][c] = kind(edge_band(gray, x - t, y + s * 0.2, x + t, y + s * 0.8), side(r, c - 1), side(r, c))
 
     # Doors: a light gap in a wall line, with wall on both sides along the line.
     def light(band):
@@ -349,10 +402,14 @@ def import_map(path, grid_arg="auto", crop=None):
     bg = mode_colour(np.concatenate(ring)) if ring else mode_colour(rgb.reshape(-1, 3)[::50])
     first = [[cell_stats(rgb, gray, grid["ox"] + c * s, grid["oy"] + r * s, s) for c in range(cols)] for r in range(rows)]
     plain = [st["rgb"] for row in first for st in row
-             if st is not None and st["edge"] < 0.07 and st["std"] < 20 and np.linalg.norm(st["rgb"] - bg) > 8]
+             if st is not None and st["edge"] < 0.12 and st["std"] < 25 and np.linalg.norm(st["rgb"] - bg) > 8
+             and st["gray"] > 70]
     fl = mode_colour(np.array(plain)) if plain else None
+    # How near a pixel must be to count as background or floor: tight when the two are close (the
+    # grey-scale museum maps), looser when they're far apart (a textured colour map).
+    gap = float(np.linalg.norm(fl - bg)) if fl is not None else 40.0
     refs = dict(outside=bg, floor=fl, floor_blue=float(fl[2] - (fl[0] + fl[1]) / 2) if fl is not None else 0.0,
-                floor_gray=float(fl.mean()) if fl is not None else float(bg.mean()))
+                floor_gray=float(fl.mean()) if fl is not None else float(bg.mean()), tol=max(12.0, min(26.0, 0.6 * gap)))
     stats = [[cell_stats(rgb, gray, grid["ox"] + c * s, grid["oy"] + r * s, s, refs) for c in range(cols)]
              for r in range(rows)]
 
@@ -367,7 +424,7 @@ def import_map(path, grid_arg="auto", crop=None):
         cells.append(row)
         conf.append(crow)
     tidy(cells, conf)
-    eh, ev = wall_edges(gray, grid, rows, cols, refs)
+    eh, ev = wall_edges(gray, grid, rows, cols, refs, stats, cells)
     counts = {k: sum(row.count(k) for row in cells) for k in CLASSES}
     return dict(image=os.path.abspath(path), crop=list(crop) if crop else None, image_size=[W, H], grid=grid,
                 refs={k: (np.round(v, 1).tolist() if isinstance(v, np.ndarray) else v) for k, v in refs.items()},
