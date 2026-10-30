@@ -71,7 +71,7 @@ def dot():
 ICON_SIZE = 48
 ICON_NAMES = ["spotlight", "challenge", "story", "social", "reward", "fun", "commitment", "investment",
               "trust", "suspicion", "up", "down", "warn", "empathy", "mood", "d20", "heart", "clock", "tail", "speed",
-              "hourglass"]
+              "hourglass", "lock", "link"]
 # The world's iconography (October 15): one icon per storyline, faction and truth, the same
 # everywhere (the opening, story cards, the board, the Story log). game/data/lore.lua maps them.
 LORE_ICONS = ["bell", "wolf", "hand", "skull", "candle", "house", "spur", "trail", "wheel", "mask", "coin", "cloud",
@@ -211,6 +211,23 @@ def draw_icon(name):
         d.rectangle([S * 0.16, S * 0.86, S * 0.84, S * 0.96], fill=255)
         d.polygon([(S * 0.22, S * 0.14), (S * 0.78, S * 0.14), (c + 10, c), (S * 0.78, S * 0.86), (S * 0.22, S * 0.86),
                    (c - 10, c)], fill=255)
+    elif name == "lock":
+        # A padlock (v2's tie-and-lock editor: a door, a room or a card the DM has locked).
+        d.arc([S * 0.26, S * 0.06, S * 0.74, S * 0.62], start=180, end=360, fill=255, width=int(S * 0.12))
+        d.rectangle([S * 0.26, S * 0.32, S * 0.38, S * 0.5], fill=255)
+        d.rectangle([S * 0.62, S * 0.32, S * 0.74, S * 0.5], fill=255)
+        d.rounded_rectangle([S * 0.12, S * 0.44, S * 0.88, S * 0.96], radius=S * 0.08, fill=255)
+        d.ellipse([c - S * 0.08, S * 0.58, c + S * 0.08, S * 0.74], fill=0)
+        d.rectangle([c - S * 0.035, S * 0.68, c + S * 0.035, S * 0.86], fill=0)
+    elif name == "link":
+        # Two chain links (a tie: when one thing happens, another follows).
+        lk = Image.new("L", (S, S), 0)
+        ld = ImageDraw.Draw(lk)
+        w = int(S * 0.09)
+        ld.rounded_rectangle([S * 0.02, S * 0.3, S * 0.62, S * 0.7], radius=S * 0.2, outline=255, width=w)
+        ld.rounded_rectangle([S * 0.38, S * 0.3, S * 0.98, S * 0.7], radius=S * 0.2, outline=255, width=w)
+        img = lk.rotate(35, resample=Image.BICUBIC, center=(c, c))
+        d = ImageDraw.Draw(img)
     elif name in LORE_ICONS:
         draw_lore(d, name, S, c)
     alpha = img.resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)

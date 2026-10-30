@@ -71,6 +71,12 @@ images {
   image: "/assets/ui/icon_hourglass.png"
 }
 images {
+  image: "/assets/ui/icon_lock.png"
+}
+images {
+  image: "/assets/ui/icon_link.png"
+}
+images {
   image: "/assets/ui/icon_bell.png"
 }
 images {
