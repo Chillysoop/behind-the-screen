@@ -8,11 +8,24 @@ A cozy single-player game where you are the Dungeon Master for four simulated fr
 2. `README.md`: every system in detail, controls, the project layout, and every test.
 3. `docs/design/`: notes on changes, including the step-by-step rework that was set aside.
 
-**Which version is current (October 29).** `main` is the October 20 build plus a prototype notice on launch.
-It is the base to build on. Setup and prep are full-page screens: the campaign planner, Session Zero, backstories,
-and the prep board with its drawer. The October 26 step-by-step rework (one decision at a time, Chill mode,
-longer speech bubbles) was set aside and lives on the `step-by-step` branch; parts of `docs/OVERVIEW.md` still
-describe it, as its note at the top says. Don't bring it back unless asked.
+**This branch: `v2-museum` (October 30).** v2 runs a real published adventure, *The Museum of Nightmares* by
+Luke Russell (DMs Guild), as a one-shot prologue: Session Zero, why each hero came, then the museum room by room
+for as many sessions as it takes, a boss night, and a journey recap. The random story deck, factions, seeds, the
+valley map and the campaign planner are switched off while it runs (`campaign.module = "museum"`); the four
+friends, Session Zero, the rules engine and game night stay. The design and the feedback behind it are in
+`docs/design/2026-10-30-museum-v2.md`. `main` is still the October 20 build; don't merge this into it unless asked.
+A longer, full pre-written adventure will follow as the main campaign, through the same adventure format.
+
+Where v2 lives:
+
+| Path | What it holds |
+| --- | --- |
+| `game/data/museum/module.lua` | The adventure: rooms and the ways between them, knobs, room moments, Euryale's marks, requests, loose ends, favors, the showdown, endings. Every line in our own words. |
+| `game/data/museum/cards.lua` | Its places, people, goals, snags and prizes as ordinary cards, plus how the heroes play each goal. |
+| `game/model/adventure.lua` | The adventure's state: the map, marks, flags, Francs, the fair-warning bank, hooks, prompts. It also switches the shared content over (`adventure.enter`) and filters out anything from the old story. |
+| `game/model/museum_week.lua`, `game/model/museum_night.lua` | The week (prep hours, knobs) and the night (rooms, forks, moments, Euryale's interludes, boss night). |
+| `game/ui/museum_*.lua` | The hooks page, the prep board and showdown board, the journey recap. |
+| `game/rules/museum.lua` | The museum's monsters' special rules (with the stat blocks in `game/rules/data/monsters.lua`). |
 
 ## Where things live
 
@@ -42,16 +55,26 @@ describe it, as its note at the top says. Don't bring it back unless asked.
   Every screen says what it's for.
 - **The prototype notice stays.** Every launch opens on "Before you play" (`game/ui/intro_view.lua`) until the
   player clicks Agree. Tests agree to it first (`tools/tests/gui_smoke.lua`, `game/ui/autotest.lua`).
+- **The prologue is strictly the book.** Nothing from the Silent Bells (Ilsa, Kessrick, Millbrook, the Kettle...)
+  may show while the museum runs: `adventure.foreign` lists the words, `adventure.enter` filters shared lines,
+  and the museum tests fail on any that slip through. Never copy the book's text; paraphrase it.
 
 ## Checking your work
 
-Any Lua 5.1+ or LuaJIT interpreter runs the tests from the project root. Before you commit, run at least:
+Any Lua 5.1+ or LuaJIT interpreter runs the tests from the project root. On this branch, before you commit, run at
+least:
 
-    for s in 1 2 3 4 5 6; do lua tools/tests/gui_smoke.lua $s || break; done
-                                          # the whole slice through the real UI against a mock GUI
-                                          # (seeds 1-4: a full table, 5-6: a small one)
+    for s in 1 2 3 4 5 6 7 8; do lua tools/tests/museum_smoke.lua $s || break; done
+                                          # the whole prologue through the real UI against a mock GUI
+    for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
+                                          # the prologue headless, three kinds of DM
+                                          # (add "log" after the style to read every line the table hears)
+    lua tools/tests/museum_fights.lua     # the museum's fights on the rules engine
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
+
+`tools/tests/gui_smoke.lua` drives the October 20 flow (the planner, backstories, the valley board), which this
+branch no longer shows; it isn't expected to pass here.
 
 Then run the checks for the area you touched. The README's "Tuning and tests" section lists each one, for
 example:
@@ -74,7 +97,7 @@ without the engine.
 
 ## Status
 
-The vertical slice (Session Zero plus four sessions) plays end to end, and this build is going out to outside
-playtesters. "Where it stands, and what's still open" in `docs/OVERVIEW.md` lists what simulated playtests found
-(on the step-by-step version; most findings about the story, card fit and game night apply here too) and the open
-design questions. The weakest area right now is the story the game plays back to the DM between sessions.
+v2's prologue plays end to end through the real UI and headless: every seeded run reaches one of the four
+endings in three to five sessions. What's open: bespoke boards and minis for the museum's rooms and monsters
+(it borrows the closest existing ones), a free tie-and-lock editor for adventures, the "just the adventure" mode,
+and the full campaign that follows the prologue.

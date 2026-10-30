@@ -2,6 +2,15 @@
 
 A cozy DM simulator in Defold.
 
+**This branch, `v2-museum` (October 30)**, runs a real published adventure, *The Museum of Nightmares* by Luke
+Russell (DMs Guild), as a one-shot prologue: Session Zero, why each hero came, then the museum room by room for as
+many sessions as it takes, a boss night against Euryale the Gorgon, and a journey recap. The adventure is cut into
+cards that remember: the party picks the way at forks, each room plays its own moments, and every room leaves a
+mark on Euryale's card for the boss night. Between sessions come requests, loose ends and favors; harsh calls are
+paid for by fair warnings. The random story deck, factions, seeds, the valley and the planner are off while it
+runs. See `AGENTS.md` for where it lives and how to test it, and `docs/design/2026-10-30-museum-v2.md` for the
+design. The text adapts the book in our own words, for private playtesting only.
+
 **The current build (October 29)** is the October 20 version with a prototype notice on launch ("Before you
 play": a prototype engine for tabletop RPG campaigns, placeholder story, a demo of the play loop and mechanics;
 one Agree button). This is the base to build on. The step-by-step rework of setup and prep from October 26

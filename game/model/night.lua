@@ -2413,6 +2413,9 @@ function M:foe_kind(sc)
 end
 
 function M:curveball(sc, chance)
+    if self.campaign.module then
+        return false      -- v2: the museum's rooms bring their own surprises; the old ones are town-shaped
+    end
     if self.curveball_done or self.end_early or self:decision_count() >= 13 or not self.rng:chance(chance or 0.25) then
         return false
     end
@@ -2703,7 +2706,7 @@ function M:pick_decision(sc, kinds)
             and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
             and (not d.needs or self:headache_ok(d.needs, sc))
             and not (d.id == "split_party" and pulls.enabled(self.campaign))    -- (a pull, now)
-            and not (self.campaign.module and d.type == "story") then   -- v2: the rooms bring their own story calls
+            and not (self.campaign.module and (d.type == "story" or d.type == "screen")) then   -- v2: the rooms bring their own
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
             for _, a in ipairs(d.actor or {}) do
@@ -2805,7 +2808,8 @@ function M:big_roll(spec, record)
         mod = mod + near_bonus   -- last time was a near miss (B2)
         self.edge_next[p.key] = nil
     end
-    local dc = spec.dc + (spec.true_dc and 0 or M.DC_SHIFT)
+    -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
+    local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)
     local by = spec.secret and "dm" or "player"
     local name = skills.name(skill)
     local text

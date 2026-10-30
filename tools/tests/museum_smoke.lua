@@ -432,6 +432,16 @@ for week = 1, WEEKS do
     end
     dump("4_prep_w" .. week)
     scan("the prep board" .. where)
+    -- The notebook, every tab: nothing from the old story in there either.
+    if week == 2 or week == 3 then
+        local notes_view = require "game.ui.notes_view"
+        for _, t in ipairs(notes_view.MUSEUM_TABS) do
+            call(app.open_notes, t[1])
+            dump_once("4n_notes_" .. t[1] .. "_w" .. week)
+            scan("the notebook's " .. t[1] .. " tab" .. where)
+        end
+        call(app.close_overlay)
+    end
     if not has_text("UPSTAIRS") and not c.prep.museum.boss then problem("no Euryale card on the board" .. where) end
     if c.prep.museum.boss then
         boss_seen = true

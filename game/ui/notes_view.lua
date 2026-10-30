@@ -33,6 +33,88 @@ local TABS = { { "week", "This week" }, { "session", "This session" }, { "campai
                { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" },
                { "storylog", "Story log" }, { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
+-- v2: the museum's notebook is its own (the old story's tabs have nothing to say about it).
+local MUSEUM_TABS = { { "museum", "The museum" }, { "upstairs", "Upstairs" }, { "session", "This session" },
+                      { "people", "People" }, { "log", "Session log" }, { "party", "The party" } }
+M.MUSEUM_TABS = MUSEUM_TABS
+local function tabs_for(app)
+    return (app.campaign and app.campaign.module) and MUSEUM_TABS or TABS
+end
+
+-- The museum, room by room: the map, what each room left behind, and why the heroes came.
+local function tab_museum(app, x, y, w, h)
+    local adventure = require "game.model.adventure"
+    local MODULE = adventure.data
+    local c = app.campaign
+    local st = c.adv
+    require("game.ui.museum_prep_view").draw_map(app, x, y, 420, 330)
+    local rx, ry = x + 440, y
+    kit.text(rx, ry, "ROOM BY ROOM", "ui14", theme.dim)
+    ry = ry + 22
+    for _, id in ipairs(MODULE.order) do
+        local r = MODULE.rooms[id]
+        if not r.virtual then
+            local state = st.done[id] and (st.done[id] == "win" and "Done" or "Done, roughly") or (st.skipped[id] and "Left behind")
+                or (id == st.at and "Next") or "Ahead"
+            local col = st.done[id] and theme.green or (st.skipped[id] and theme.faint or (id == st.at and theme.gold or theme.dim))
+            kit.text(rx, ry, r.name, "ui18b", st.skipped[id] and theme.faint or theme.text)
+            kit.text(rx + 270, ry + 2, state, "ui14", col)
+            local marks = {}
+            for _, mid in ipairs(st.mark_list) do
+                if st.marks[mid].room == id then
+                    table.insert(marks, MODULE.marks[mid].name)
+                end
+            end
+            local line = #marks > 0 and ("Left on Euryale's card: " .. table.concat(marks, ", ") .. ".") or r.sum
+            kit.text(rx, ry + 22, line, "ui14", #marks > 0 and theme.gold or theme.faint, { w = w - 460, lines = 1 })
+            ry = ry + 46
+        end
+    end
+    local hy = y + 350
+    kit.text(x, hy, "WHY THEY CAME", "ui14", theme.dim)
+    hy = hy + 22
+    for _, p in ipairs(c.players) do
+        local hk = adventure.hook(c, p.key)
+        if hk then
+            kit.text(x, hy, p.char .. ": " .. hk.name, "ui18b", theme.text)
+            kit.text(x, hy + 22, hk.text, "ui14", theme.dim, { w = 420, lines = 2 })
+            hy = hy + 66
+        end
+    end
+    kit.text(x, y + h - 22, MODULE.credit, "ui14", theme.faint, { w = w })
+end
+
+-- Upstairs: Euryale's card, and the fair-warning bank.
+local function tab_upstairs(app, x, y, w, h)
+    local c = app.campaign
+    require("game.ui.museum_prep_view").boss_card(app, x, y, 640, h - 40, true)
+    local bx = x + 664
+    kit.text(bx, y, "FAIR WARNING", "ui14", theme.dim)
+    kit.text(bx, y + 22, util.int(c.adv.bank or 0) .. " in the bank", "ui22b", theme.teal)
+    kit.text(bx, y + 56, "Every chance the party takes after a warning goes in the bank. A harsh call spends one, and the table "
+        .. "takes it as fair. A harsh call with nothing in the bank feels arbitrary, and costs you their Trust.", "ui14", theme.dim,
+        { w = w - 664 })
+    kit.text(bx, y + 170, "HARSH CALLS SO FAR", "ui14", theme.dim)
+    kit.text(bx, y + 192, util.int(c.adv.harsh.paid) .. " fair, " .. util.int(c.adv.harsh.unpaid) .. " arbitrary", "ui18b",
+        c.adv.harsh.unpaid > 0 and theme.orange or theme.text)
+    kit.text(bx, y + 240, "FLITWIDGET FRANCS", "ui14", theme.dim)
+    kit.text(bx, y + 262, util.int(c.adv.francs or 0), "ui22b", theme.gold)
+end
+
+-- The museum's people: who they've met, and what they know of them.
+local function tab_museum_people(app, x, y, w, h)
+    local adventure = require "game.model.adventure"
+    local c = app.campaign
+    local met = c.story and c.story.met or {}
+    for _, pp in ipairs(adventure.data.people) do
+        local seen = pp.known or met[pp.id] or (pp.id == "mus_telpur" and c.adv.done.gift_shop)
+            or (pp.id == "mus_mech" and c.adv.done.tomorrow)
+        kit.text(x, y, pp.name, "ui22b", seen and theme.text or theme.faint)
+        kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
+        kit.text(x, y + 30, seen and pp.about or "Not met yet.", "ui18", seen and theme.dim or theme.faint, { w = w })
+        y = y + 86
+    end
+end
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
 
 function M.is_open(app)
@@ -459,6 +541,11 @@ function M.draw(app)
         tab = "storylog"     -- (the old Storylines tab)
         app.notes_tab = tab
     end
+    local TABS = tabs_for(app)
+    if app.campaign and app.campaign.module and (tab == "storylog" or tab == "story" or tab == "week" or tab == "campaign") then
+        tab = "museum"
+        app.notes_tab = tab
+    end
     local known = false
     for _, t in ipairs(TABS) do
         known = known or t[1] == tab
@@ -504,7 +591,13 @@ function M.draw(app)
     kit.text(X + W - 144, Y + 22, "N or Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local cx, cy = X + 204, Y + 76
     local cw, ch = W - 204 - 24, H - 76 - 22
-    if tab == "week" then
+    if tab == "museum" then
+        tab_museum(app, cx, cy, cw, ch)
+    elseif tab == "upstairs" then
+        tab_upstairs(app, cx, cy, cw, ch)
+    elseif tab == "people" and app.campaign and app.campaign.module then
+        tab_museum_people(app, cx, cy, cw, ch)
+    elseif tab == "week" then
         pages.week(app, cx, cy, cw, ch)
     elseif tab == "session" then
         tab_session(app, cx, cy, cw)

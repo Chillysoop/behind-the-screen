@@ -14,6 +14,8 @@
 --                  behind_the_screen.autotest_weeks sessions (default 6)
 --   autotest = 6   the board gallery: every board (game/data/boards.lua) set out in full on the
 --                  table, with a party and some foes on it, one shot each from the table camera
+--   autotest = 8   v2: The Museum of Nightmares from the notice to the journey recap, with shots of
+--                  the hooks, every between-session page and prep board, the nights and the reports
 
 local kit = require "game.ui.kit"
 
@@ -521,7 +523,7 @@ function M.update(app, dt)
         end
         return
     end
-    if a.t > 600 then
+    if a.t > (a.mode == 8 and 2400 or 600) then
         return finish(a, false, "timed out on " .. tostring(app.screen))
     end
     a.wait = a.wait - dt
@@ -565,6 +567,75 @@ function M.update(app, dt)
                 return finish(a, false, "the planner has no way on")
             end
         end
+    elseif s == "session_zero" and app.campaign.module then
+        -- v2: Session Zero, then why each hero came.
+        app.s0 = app.s0 or { asks = {}, rules = {} }
+        app.s0.tone = app.s0.tone or "mixed"
+        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do
+            app.s0.asks[k] = app.s0.asks[k] or "agree"
+        end
+        app.s0.rules.xcard = app.s0.rules.xcard or "on"
+        app.s0.rules.dice = app.s0.rules.dice or "big_open"
+        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
+        app.s0.rules.length = app.s0.rules.length or "half"
+        app.s0.rules.death = app.s0.rules.death or "meaningful"
+        if app.s0.page ~= "hooks" then
+            app.refresh()
+            if not shot(a, "session_zero") then
+                by_key("s0_next")
+            end
+            return
+        end
+        app.s0.hooks = app.s0.hooks or { mara = "sage", dev = "soldier", jess = "charlatan", sam = "acolyte" }
+        app.refresh()
+        if not shot(a, "hooks") then
+            by_key("hooks_start")
+        end
+    elseif s == "prep" and app.campaign.module then
+        if app.levelup then
+            by_key("levelup_close")
+            return
+        end
+        local wk = app.campaign.week
+        local mpv = require "game.ui.museum_prep_view"
+        local pr = mpv.prompts(app)[1]
+        if pr then
+            if shot(a, "between_" .. wk .. "_" .. pr.id) then
+                return
+            end
+            if pr.kind == "request" then
+                by_key("req_laugh")
+            elseif pr.kind == "loose" then
+                by_key("loose_1")
+            else
+                by_key("favor_help_1")
+                by_key("favor_hurt_1")
+                by_key("favor_done")
+            end
+            return
+        end
+        if shot(a, "prep_week_" .. wk) then
+            return
+        end
+        if not a.prepped_week or a.prepped_week ~= wk then
+            a.prepped_week = wk
+            local mw = require "game.model.museum_week"
+            local p = app.campaign.prep
+            mw.prep_greedy(p)
+            for _, id in ipairs(p.museum.ahead) do
+                for _, kid in ipairs(require("game.model.adventure").data.rooms[id].knobs or {}) do
+                    local k = require("game.model.adventure").data.knobs[kid]
+                    mw.set_knob(p, kid, k.pick_hero and "mara" or true)
+                end
+            end
+            app.refresh()
+            shot(a, "prep_set_" .. wk)
+            return
+        end
+        if not by_key("run_night") then
+            return finish(a, false, "no Run game night button")
+        end
+        say("night " .. wk)
     elseif s == "session_zero" then
         app.s0 = app.s0 or { asks = {}, rules = {} }
         app.s0.tone = app.s0.tone or "mixed"
@@ -811,6 +882,14 @@ function M.update(app, dt)
             by_key("next_week")
         end
     elseif s == "slice_end" then
+        if a.mode == 8 then
+            if not shot(a, "journey") then
+                say("museum done: ending " .. tostring(app.campaign.adv and app.campaign.adv.ending) .. " in "
+                    .. app.campaign.week .. " sessions")
+                return finish(a, true, "reached the journey recap")
+            end
+            return
+        end
         by_key("keep_playing")
     end
 end

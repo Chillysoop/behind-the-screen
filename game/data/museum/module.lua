@@ -371,7 +371,7 @@ M.moments = {
       options = {
           { label = "Give them time. Someone holds it off while they work it out.",
             roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
-                     success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip. The guardian kneels.",
+                     success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
                                  effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 6, story = 6 }, { "arch:tactician", fun = 6 }, { "arch:butt_kicker", fun = -3 } },
                                  mus = { no_fight = true, mark = "calmed", francs = 1, careful = 1, aspect = "Calmed a tomb guardian with an old ritual" } },
                      fail = { log = "The glyphs swim. It's going to be blades.",

@@ -60,6 +60,10 @@ local STRIP_RIGHT, STRIP_Y, DIE = 1576, 66, 30
 
 local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
 local CAST_SPRITE = {
+    -- v2: the museum's people (borrowed minis until they get their own).
+    mus_flitwidget = "npc_rosin", mus_telpur = "npc_hermit", mus_euryale = "npc_sable", mus_lecturer = "npc_ghost",
+    mus_mech = "animated_armor", mus_sentinel = "animated_armor", mus_bone_construct = "skeleton",
+    mus_knight = "animated_armor", mus_huntlings = "giant_crab", mus_briar = "dire_wolf",
     goblins = "goblin_boss", gus = "npc_gus", stranger = "npc_stranger", rook = "bandit_captain",
     hermit = "npc_hermit", rivals = "npc_rival", ogre = "ogre", corin = "npc_corin",
     wolf_lieutenant = "npc_vask", madame_sable = "npc_sable", abbot_ghost = "npc_ghost",
@@ -160,7 +164,17 @@ local function mid_names(list)
     return out
 end
 
+-- v2: the museum's monsters borrow the closest minis until they get their own.
+local MUSEUM_SPRITE = {
+    briar_beast = "dire_wolf", briar_boar = "dire_wolf", briar_triceratops = "brown_bear", sentinel = "animated_armor",
+    bone_construct = "skeleton", giant_scarab_swarm = "swarm_of_rats", knight_of_shades = "animated_armor",
+    kruthik_huntling = "giant_crab", the_lecturer = "specter", steam_mech = "animated_armor", euryale = "npc_sable",
+}
+
 local function monster_sprite(id, n)
+    if MUSEUM_SPRITE[id] then
+        return MUSEUM_SPRITE[id]
+    end
     if id == "goblin_warrior" then
         return (n % 2 == 0) and "goblin_club" or "goblin_spear"
     end
