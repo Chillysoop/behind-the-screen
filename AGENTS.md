@@ -26,6 +26,7 @@ Where v2 lives:
 | `game/model/museum_week.lua`, `game/model/museum_night.lua` | The week (prep hours, knobs) and the night (rooms, forks where the table picks the way, trips back with a reason, side rooms, moments, Euryale's interludes, boss night). |
 | `game/model/map_repo.lua`, `game/ui/map_repo_view.lua` | The map repository: every map the DM can put on the table; a room's map, side rooms, the next scene's map, the DM's own maps (edited in `game/ui/map_view.lua`). |
 | `game/ui/museum_*.lua` | The hooks page, the prep board (the museum as the book's floor plans) and showdown board, the journey recap. |
+| `tools/maps/`, `game/data/maps/*.map`, `game/data/map_library.lua` | The map import pipeline (`tools/maps/README.md`): a book's map image to a draft, a draft to a hand-finished `.map` spec, specs built into the map library, which `game/data/boards.lua` merges into its boards. The museum's ten rooms are specs here; `game/data/terrain.lua` points the `mus_*` places at them. Never copy a book's art or text: our pieces, our words. |
 | `game/rules/museum.lua` | The museum's monsters' special rules (with the stat blocks in `game/rules/data/monsters.lua`). |
 
 ## Where things live
@@ -74,6 +75,7 @@ least:
                                           # the prologue headless, three kinds of DM
                                           # (add "log" after the style to read every line the table hears)
     lua tools/tests/map_repo_check.lua    # the map repository and the open floors
+    python3 tools/maps/build_maps.py --check  # every map spec builds: on the mat, starts free, walls closed
     lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
     lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them
     lua tools/tests/save_check.lua        # saves load back, mid-prologue too

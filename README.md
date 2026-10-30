@@ -7,7 +7,11 @@ Russell (DMs Guild), as a one-shot prologue: Session Zero, why each hero came, t
 many sessions as it takes, a boss night against Euryale the Gorgon, and a journey recap. The adventure is cut into
 cards that remember: the party picks the way at forks, each room plays its own moments, and every room leaves a
 mark on Euryale's card for the boss night. Between sessions come requests, loose ends and favors; harsh calls are
-paid for by fair warnings. The random story deck, factions, seeds, the valley and the planner are off while it
+paid for by fair warnings. The museum's floors are open: the party roams between the book's rooms and only goes
+back for a reason. Every room plays on its own board, drawn from the book's maps in our own pieces by the map
+import pipeline (`tools/maps/`), and the DM's map repository (prep and game night) puts any map on the table:
+a room's map, a side room off any room, the next scene's map, or one the DM made in the map maker. The random
+story deck, factions, seeds, the valley and the planner are off while it
 runs. See `AGENTS.md` for where it lives and how to test it, and `docs/design/2026-10-30-museum-v2.md` for the
 design. The text adapts the book in our own words, for private playtesting only.
 
