@@ -114,6 +114,7 @@ without the engine.
 ## Status
 
 v2's prologue plays end to end through the real UI, the real engine and headless: every seeded run reaches an
-ending in three to five sessions, and the fights use the book's own monsters (`game/rules/museum.lua`). What's open: bespoke boards and minis for the museum's rooms and monsters
-(it borrows the closest existing ones), the "just the adventure" mode, and the full campaign that follows the prologue.
+ending in three to five sessions, and the fights use the book's own monsters (`game/rules/museum.lua`). Every room
+plays on its own board drawn from the book's maps (`tools/maps/`). What's open: the museum's own monster minis (it
+borrows the closest existing ones), the "just the adventure" mode, and the full campaign that follows the prologue.
 The tie-and-lock editor is in (`game/model/ties.lua`); the museum sim (`tools/sim/museum.lua`) plays without locks.

@@ -30,6 +30,10 @@ HOW IT GOES
   you know that friend and the better you read your table (Empathy), the easier it
   is. A good read hears the thought; a near miss gets the gist; a miss means you
   ask them straight out or let it be. Then answer it, or let it be.
+- Ties and locks: on the planning board, "Ties and locks" shows every room's cards,
+  what each needs and what it leads to. Lock a door, a room, a person or a card until
+  something happens, or tie something to happen when the party does something (a
+  mark on Euryale's card, say). It won't let you lock them out of the ending.
 - Maps: "All maps" on the planning board (and "Maps" on game night) opens every map
   you can put on the table. Give a room a different map, open a side room off any
   room for the party to wander into, change the next scene's map mid-game, or make
