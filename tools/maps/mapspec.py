@@ -92,10 +92,10 @@ EXPECTED = {
     "bench_museum": dict(fw=2, fh=1, blocks=True),
 }
 
-# Pieces that stand against a wall or in a wall line (doors too): "auto" turns them to face the
-# open floor, and walls beside them line up with them.
-WALL_LIKE = re.compile(r"^(wall_|stone_wall$|tapestry$|curtain$|bookshelf$|scroll_rack$|blackboard$|hearth$|"
-                       r"wardrobe$|vault_door$|ruin_wall|door$|door_open$|door_locked$)")
+# The pieces that are the wall itself (furniture against a wall isn't): turning a piece "auto"
+# reads these as closed, along with the outside and the mat's edge.
+WALL_LINE = re.compile(r"^(wall_|stone_wall$|tapestry$|curtain$|vault_door$|ruin_wall$|town_wall$|cliff$|door$|door_open$|"
+                       r"door_locked$)")
 
 
 class SpecError(Exception):
@@ -354,6 +354,31 @@ def _diag_turn(x, y, grid_open):
     return DIAG_TURN["ne"] if y <= H // 2 else DIAG_TURN["se"]
 
 
+def _align_runs(pieces, grid, legend):
+    """Walls turned "auto" in a straight run all stand on the same edge of their squares: a run
+    along a row faces the way most of it faces (north or south), a run down a column likewise
+    (east or west), so a wall's end beside a corner doesn't jump to the other edge."""
+    auto = {(p["x"], p["y"]): p for p in pieces
+            if grid[p["y"] - 1][p["x"] - 1] in legend and legend[grid[p["y"] - 1][p["x"] - 1]]["turn"] == "auto"
+            and p["kind"] != "wall_diag"}
+    for horizontal in (True, False):
+        pair = (0, 2) if horizontal else (1, 3)
+        seen = set()
+        for (x, y) in sorted(auto):
+            if (x, y) in seen or auto[(x, y)]["r"] not in pair:
+                continue
+            run, cx, cy = [], x, y
+            while (cx, cy) in auto and auto[(cx, cy)]["r"] in pair:
+                run.append(auto[(cx, cy)])
+                seen.add((cx, cy))
+                cx, cy = (cx + 1, cy) if horizontal else (cx, cy + 1)
+            if len(run) >= 3:
+                votes = [p["r"] for p in run]
+                major = max(pair, key=lambda r: (votes.count(r), r == pair[0]))
+                for p in run:
+                    p["r"] = major
+
+
 def compile_spec(spec, kit):
     """A parsed spec -> (board dict, problems, warnings). The board has the boards.lua shape plus
     id, source, tags, spots, adventure, order."""
@@ -400,8 +425,7 @@ def compile_spec(spec, kit):
         return None, problems, warnings
 
     # Which squares are open floor (for turning wall pieces): anything not outside and not a wall-like piece.
-    grid_open = [[(ch != OUTSIDE and not (ch in legend and (WALL_LIKE.match(legend[ch]["kind"]) or
-                                                             legend[ch]["kind"] == "wall_diag")))
+    grid_open = [[(ch != OUTSIDE and not (ch in legend and WALL_LINE.match(legend[ch]["kind"])))
                   for ch in row] for row in grid]
 
     # Grid squares -> pieces: a block of one character is tiled from its north-west corner in reading order.
@@ -434,6 +458,7 @@ def compile_spec(spec, kit):
                 for dx in range(w):
                     used[y + dy - 1][x + dx - 1] = True
             pieces.append(dict(feature=lg["feature"], kind=lg["kind"], x=x, y=y, r=r, src=f"grid {ch!r} at {x},{y}"))
+    _align_runs(pieces, grid, legend)
     for pc in spec["pieces"]:
         pieces.append(dict(feature=pc["feature"], kind=pc["kind"], x=pc["x"], y=pc["y"], r=pc["r"],
                            src=f"piece line {pc['line']}"))
