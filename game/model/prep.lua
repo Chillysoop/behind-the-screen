@@ -613,6 +613,7 @@ function M:talk(key)
         score.add(p, "investment", 3)
         self.campaign:gain_empathy("talk")
     end
+    require("game.model.familiar").gain(self.campaign, key, "talk")   -- v2: you know them a little better
     return true
 end
 

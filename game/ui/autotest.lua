@@ -790,12 +790,24 @@ function M.update(app, dt)
             end
         elseif app.thought_card then
             -- v2: a friend's thought, open (one you clicked, or Pip about to go off alone): a shot
-            -- of the card the first time, then answer it.
-            if shot(a, "thought_card") then
-                return
-            end
-            if not by_key("thought_ans_1") then
-                by_key("thought_let")
+            -- of the card before and after the Insight roll the first time, then answer it.
+            local th = app.night and app.night.th
+            local t = th and th.list[app.thought_card.id]
+            if t and not t.read then
+                if shot(a, "thought_card") then
+                    return
+                end
+                by_key("thought_read")
+            else
+                if shot(a, "thought_read") then
+                    return
+                end
+                if t and t.read and t.read.result == "miss" then
+                    by_key("thought_ask")
+                end
+                if not by_key("thought_ans_1") then
+                    by_key("thought_let")
+                end
             end
         elseif a.mode ~= 5 and not app.pending and app.thinking and next(app.thinking) and not a.thought_opened then
             local k = "thought_" .. next(app.thinking)

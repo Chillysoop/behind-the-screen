@@ -1512,6 +1512,17 @@ local function player_card(app, prep, p, i, forecast)
         gloss.card_spot(x + 10, y + 82, kit.width(mood_text, "ui14") + 28, 22, "Mood this week",
             p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how they'll take Thursday.")
             or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. A one-on-one (Talk) finds out."))
+        -- How well you know them (v2, game/model/familiar.lua): dots, and the words on hover.
+        local fam = require "game.model.familiar"
+        local fl, fmax = fam.dots(app.campaign, p.key)
+        kit.icon(x + 172, y + 87, 14, "empathy", theme.teal)
+        for k = 1, fmax do
+            kit.dot(x + 196 + (k - 1) * 11, y + 94, 7, k <= fl and theme.teal or theme.panel3)
+        end
+        gloss.card_spot(x + 168, y + 82, 84, 22, "You know " .. p.name .. ": " .. string.lower(fam.name(app.campaign, p.key)),
+            "How well you know " .. p.name .. " at the table: what a look or a quiet means. It makes "
+            .. ((require "game.data.thoughts").pronouns[p.key] or { their = "their" }).their
+            .. " thoughts on game night easier to read. It grows as you play together, read them right, and talk.")
         M.goodwill(app, p, x + 262, y + 86)
         -- Forecast for Thursday, from the board as it stands.
         kit.text(x + 14, y + 108, "Thursday", "ui14", theme.dim)

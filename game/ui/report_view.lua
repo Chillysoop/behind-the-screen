@@ -604,8 +604,20 @@ function M.build(app)
         -- v2: the friends' thoughts you caught tonight, and what you did about them.
         local th = rep.thoughts
         if th and th.shown > 0 then
-            text = text .. (e.up and " " or ". ") .. "You caught " .. util.int(th.shown)
-                .. (th.shown == 1 and " thought" or " thoughts") .. " and answered " .. util.int(th.answered) .. "."
+            -- (Kept to two lines: the new dice sit just under it.)
+            text = "Empathy: " .. empathy.NAMES[e.level] .. (e.up and " (up!)" or "") .. ". Caught " .. util.int(th.shown)
+                .. (th.shown == 1 and " thought" or " thoughts") .. ", read " .. util.int(th.clear or 0) .. " clearly, answered "
+                .. util.int(th.answered) .. "."
+        end
+        -- Who you know better now (game/model/familiar.lua).
+        local names = {}
+        for _, p in ipairs(app.campaign.players) do
+            if rep.familiar_up and rep.familiar_up[p.key] then
+                table.insert(names, p.name)
+            end
+        end
+        if #names > 0 then
+            text = text .. " You know " .. util.join_names(names) .. " better."
         end
         kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 3 })
     end

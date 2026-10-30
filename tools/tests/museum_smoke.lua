@@ -409,7 +409,7 @@ if not click_key("hooks_start") then problem("no start button on the hooks page"
 if app.screen ~= "prep" then problem("the hooks didn't go on to prep (" .. tostring(app.screen) .. ")") end
 
 local nights, boss_seen, marks_seen = 0, false, 0
-local thoughts_seen, thoughts_opened, thoughts_answered = 0, 0, 0
+local thoughts_seen, thoughts_opened, thoughts_answered, reads_seen = 0, 0, 0, {}
 for week = 1, WEEKS do
     if app.screen ~= "prep" then break end
     local c = app.campaign
@@ -511,9 +511,22 @@ for week = 1, WEEKS do
             scan("a thought card" .. where)
             local th = app.night.th
             local before = th and th.answered or 0
-            if not click_key(rng:chance(0.5) and "thought_ans_1" or "thought_let") then
-                problem("a thought card with no answers" .. where)
-                click_key("thought_close")
+            -- Read them first (an Insight roll), then: ask after a miss, answer, or let it be.
+            local t = th and th.list[app.thought_card.id]
+            if t and not t.read then
+                if not click_key("thought_read") then problem("no way to read a friend's thought" .. where) end
+                if not t.read then problem("reading a thought didn't roll" .. where) end
+                dump_once("5t_thought_read")
+                reads_seen[t.read and t.read.result or "none"] = true
+            end
+            if t and t.read and t.read.result == "miss" and rng:chance(0.5) then
+                if not click_key("thought_ask") then problem("a missed read with no way to ask" .. where) end
+            end
+            if app.thought_card and not click_key(rng:chance(0.6) and "thought_ans_1" or "thought_let") then
+                if not click_key("thought_let") then
+                    problem("a thought card with no answers" .. where)
+                    click_key("thought_close")
+                end
             end
             if app.thought_card then problem("answering a thought didn't close its card" .. where) end
             thoughts_answered = thoughts_answered + ((th and th.answered or 0) - before)

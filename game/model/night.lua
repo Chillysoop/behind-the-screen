@@ -5833,6 +5833,7 @@ function M:play_scene(sc)
                 npc_hidden = npc ~= nil,
                 pieces = map and map.template == sc.terrain and maps.cells(map) or nil,
                 cast = cast and cast.name, goal = goal and goal.name, story = is_story })
+    thoughts.dawn(self)          -- a thought you misread: it comes to you now what it really was
     -- An empty slot is improvised once the scene is set (the place described, the person named),
     -- never before the table knows where they are (the October 12 UI playtest).
     local improv_slot
@@ -6452,6 +6453,7 @@ end
 
 -- The end of every night: how it landed, where the party rests, the goodbyes.
 function M:run_tail()
+    thoughts.dawn(self)
     self:table_verdicts()
     -- Where the party is at, for next week (A16): a night that ends in town rests; a cliffhanger
     -- or a night out in the wild picks up exactly where it stopped.

@@ -110,6 +110,11 @@ local t = thoughts.think(night, mara, "story")
 check(t ~= nil and evs[#evs].kind == "thought", "Mara has a thought")
 local ev = evs[#evs]
 check(ev.who == "mara" and #ev.answers == 2 and ev.want:find("^Mara "), "it says whose, what she wants, and two answers")
+check(ev.tell and #ev.tell > 0 and not ev.tell:find("{"), "and what you can see before you read her: " .. tostring(ev.tell))
+check(not thoughts.seen(night, ev.id), "nothing's read until you roll")
+local r0 = thoughts.read(night, ev.id, 15)
+check(r0 and r0.result == "clear" and thoughts.seen(night, ev.id).words, "a good roll is a clear read: the words")
+check(thoughts.read(night, ev.id, 2) == r0, "a thought is read once")
 local ok, good = thoughts.respond(night, ev.id, "detail")
 check(ok and good, "letting her notice something lands")
 check(mara.m.story > story0, "her Story meter moved (" .. story0 .. " to " .. mara.m.story .. ")")
@@ -130,6 +135,7 @@ check(sam.shy, "Sam hates being put on the spot")
 local fun0 = score.fun(sam)
 local ts = thoughts.think(night, sam, "spotlight")
 if ts then
+    thoughts.read(night, ts.id, 19)
     local ok2, good2 = thoughts.respond(night, ts.id, "next_moment")
     check(ok2 and good2 == false, "handing Sam the spotlight backfires")
     check(score.fun(sam) < fun0, "and it shows on his Fun")
@@ -138,6 +144,7 @@ night.scene = { index = 3 }
 local to = thoughts.think(night, sam, "off_spot")
 check(to ~= nil, "Sam can think he'd rather not be on the spot")
 if to then
+    thoughts.read(night, to.id, 19)
     local ok3, good3 = thoughts.respond(night, to.id, "spare")
     check(ok3 and good3 and night.spare == "sam", "giving the next one to someone else is remembered")
 end
@@ -163,6 +170,7 @@ for id in pairs(n2.th.list) do
     local tt = n2.th.list[id]
     if not tt.glow then
         n2.scene = { index = tt.scene }
+        thoughts.read(n2, id, 19)
         local okk, gd = thoughts.respond(n2, id, "talk")
         if okk and gd then
             done_good = done_good + 1
@@ -195,12 +203,109 @@ local tp = thoughts.plan(n4, jess)
 check(tp ~= nil and thoughts.is_open(n4, tp.id), "Jess's plan is open until it happens")
 n4.scene = { index = 5 }
 check(thoughts.is_open(n4, tp.id), "...even into the next scene")
+check(thoughts.odds(n4, tp.id).dc == thoughts.DATA.needs.plan.dc, "Jess's plans are hard to read, open book or not")
+thoughts.read(n4, tp.id, 19)
 check(thoughts.respond(n4, tp.id, "catch_eye"), "you catch her eye")
 check(c4.adv.flags.pip_alone == nil, "and Pip doesn't go up the stairs alone")
 c4.adv.flags.pip_alone = true
 local tp2 = thoughts.plan(n4, jess)
 c4.adv.flags.pip_alone = nil       -- (it happened)
 check(tp2 and not thoughts.is_open(n4, tp2.id), "once she's gone, the moment has passed")
+
+-- 6b. Reading them: the Insight roll, what each result gives, asking, misreading, and knowing them.
+local familiar = require "game.model.familiar"
+local c5 = new_campaign(30)
+local n5, ev5 = fake_night(c5, 31)
+local dev = find(n5.players, "dev")
+local samm = find(n5.players, "sam")
+local function fresh_thought(p, need, sc)
+    n5.scene = { index = sc }
+    if n5.th then
+        n5.th.n = 0                -- (past tonight's catch: these are all for the test)
+    end
+    return thoughts.think(n5, p, need, { any_scene = true })
+end
+n5.th = nil
+local td = fresh_thought(dev, "challenge", 1)
+local od = thoughts.odds(n5, td.id)
+check(od.dc == thoughts.DATA.needs.challenge.dc + thoughts.DATA.hard_to_read.dev, "Dev is easy to read: the dc drops")
+check(od.bonus == (c5:empathy() - 1) + familiar.bonus(c5, "dev"), "the bonus is your Empathy plus how well you know him")
+check(od.chance > 0 and od.chance < 1, "the odds show as a chance (" .. od.chance .. ")")
+local ts2 = fresh_thought(samm, "social", 2)
+check(thoughts.odds(n5, ts2.id).dc > thoughts.odds(n5, td.id).dc, "Sam is harder to read than Dev")
+-- Gist: within 4 of the dc.
+local rg = thoughts.read(n5, ts2.id, math.max(2, thoughts.odds(n5, ts2.id).need - 2))
+check(rg.result == "gist" and not thoughts.seen(n5, ts2.id).words and thoughts.want_of(n5, ts2.id), "a near miss: the gist, not the words")
+check(#thoughts.answers_for(n5, ts2.id) == 2, "...and you can still answer it")
+-- Miss, then ask.
+local tm = fresh_thought(dev, "reward", 3)
+local rm = thoughts.read(n5, tm.id, 2)
+check(rm.result == "miss" or rm.result == "gist", "a low roll misses (" .. rm.result .. ")")
+if rm.result == "miss" then
+    check(#thoughts.answers_for(n5, tm.id) == 0, "after a miss there's nothing to answer yet")
+    local mins = n5.table_min
+    check(thoughts.ask(n5, tm.id), "you can ask him straight out")
+    check(thoughts.seen(n5, tm.id).words and n5.table_min > mins, "he tells you, and it takes a little table time")
+end
+-- A natural 1: misread, as something else; acting on it doesn't count, and it dawns on you later.
+local tw = fresh_thought(dev, "challenge", 4)
+local rw = thoughts.read(n5, tw.id, 1)
+check(rw.result == "misread" and rw.as and rw.as ~= "challenge", "a 1 misreads him (as " .. tostring(rw.as) .. ")")
+local wrong = thoughts.answers_for(n5, tw.id)[1]
+local okw, gw = thoughts.respond(n5, tw.id, wrong.id)
+check(okw and gw ~= true, "answering a misread doesn't land as a good read")
+local before_n = #ev5
+thoughts.dawn(n5)
+local dawned = false
+for i = before_n + 1, #ev5 do
+    if ev5[i].kind == "narrate" and ev5[i].text:find("Later it dawns on you") then
+        dawned = true
+    end
+end
+check(dawned, "it dawns on you later what it really was")
+-- A 20: you read them like a book, and know them better for it.
+local fam0 = familiar.xp(c5, "sam")
+local t20 = fresh_thought(samm, "off_spot", 5)
+local r20 = thoughts.read(n5, t20.id, 20)
+check(r20.result == "book" and thoughts.seen(n5, t20.id).words, "a 20 reads him like a book")
+check(familiar.xp(c5, "sam") > fam0, "and you know him a little better")
+-- Reading one friend a lot in one night only teaches you so much.
+local c6 = new_campaign(32)
+local n6 = fake_night(c6, 33)
+local m6 = find(n6.players, "mara")
+local x0 = familiar.xp(c6, "mara")
+for i = 1, 5 do
+    n6.scene = { index = i }
+    if n6.th then
+        n6.th.n = 0
+    end
+    local tt = thoughts.think(n6, m6, "story", { any_scene = true })
+    if tt then
+        thoughts.read(n6, tt.id, 19)
+    end
+end
+check(familiar.xp(c6, "mara") - x0 <= familiar.READ_CAP, "reading her all night teaches at most " .. familiar.READ_CAP)
+-- Nights together and talks grow it; better known, better odds.
+local c7 = new_campaign(34)
+local lv0 = familiar.level(c7, "jess")
+for _ = 1, 8 do
+    familiar.night_played(c7, c7.players)
+end
+familiar.gain(c7, "jess", "talk")
+check(familiar.level(c7, "jess") > lv0, "nights together and a talk: you know Jess better (" .. familiar.name(c7, "jess") .. ")")
+local n7 = fake_night(c7, 35)
+local tj = thoughts.think(n7, find(n7.players, "jess"), "social")
+local n8 = fake_night(new_campaign(34), 35)
+local tj2 = thoughts.think(n8, find(n8.players, "jess"), "social")
+check(thoughts.odds(n7, tj.id).chance > thoughts.odds(n8, tj2.id).chance, "and she's easier to read for it")
+-- Reads don't change the night: they roll on their own dice.
+local n9 = fake_night(new_campaign(36), 37)
+thoughts.think(n9, n9.players[1], "spotlight")
+local next9 = n9.rng:int(1, 1000000)
+local n10 = fake_night(new_campaign(36), 37)
+local t10 = thoughts.think(n10, n10.players[1], "spotlight")
+thoughts.read(n10, t10.id)
+check(n10.rng:int(1, 1000000) == next9, "reading them rolls its own dice: the night goes on the same")
 
 -- 7. Whole prologues, a careful DM answering what they catch: they still end, and thoughts show.
 local museum_week = require "game.model.museum_week"
@@ -222,8 +327,8 @@ for seed = 21, 24 do
             local a
             if e.kind == "thought" then
                 total = total + 1
-                local aid = thoughts.bot_answer(nn, e, "careful", brng)
-                if aid and thoughts.respond(nn, e.id, aid) and aid ~= "let_be" then
+                local aid = thoughts.bot_play(nn, e, "careful", brng)
+                if aid and aid ~= "let_be" then
                     answered = answered + 1
                 end
             elseif e.kind == "decision" or e.kind == "ruling" then

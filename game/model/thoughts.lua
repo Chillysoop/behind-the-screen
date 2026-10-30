@@ -5,7 +5,12 @@
 -- can read the table and answer it, the way a good DM catches a look across the table.
 --
 -- How many you catch is your Empathy: a few a night when you're new to the table, more as you
--- learn to read them. Answering one well grows your Empathy (once a night). Answers are small,
+-- learn to read them. What you catch is only a tell (drumming fingers, a glance at the notes) until
+-- you read them: an Insight roll, d20 + your Empathy + how well you know that friend
+-- (game/model/familiar.lua), against how hidden the thought is and how hard they are to read. A
+-- clear read hears the words; a near miss gets the gist; a miss can't tell (ask them straight out,
+-- or let it be); a natural 1 misreads them, and you only find out later. Answering one well grows
+-- your Empathy (once a night) and how well you know them. Answers are small,
 -- real table moves (a turn, a detail, a break, a quiet word), and the wrong one for the person
 -- costs: put the friend who hates the spotlight in it and he shrinks. Ignoring one is allowed:
 -- the need just keeps working on them, as it always did.
@@ -16,6 +21,8 @@
 
 local util = require "game.model.util"
 local score = require "game.model.score"
+local familiar = require "game.model.familiar"
+local rng_mod = require "game.model.rng"
 local DATA = require "game.data.thoughts"
 
 local M = {}
@@ -27,7 +34,7 @@ M.BREW_AT = 6.5             -- how hungry (meter weight x shortfall) before a wa
 M.HAPPY = 62                -- above this Fun, nobody's brooding
 
 local function state(night)
-    night.th = night.th or { n = 0, glows = 0, list = {}, by_scene = {}, queue = {}, answered = 0, shown = 0 }
+    night.th = night.th or { n = 0, glows = 0, list = {}, by_scene = {}, queue = {}, answered = 0, shown = 0, dawn = {} }
     return night.th
 end
 M.state = state
@@ -104,7 +111,9 @@ function M.think(night, p, need, opts)
         local a = DATA.answers[aid]
         table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
     end
-    local t = { id = id, who = p.key, need = need, scene = sc, answers = def.answers, keep = opts.keep, glow = glow }
+    local tell = util.fill(def.tell or "seems to be thinking something", v)
+    local t = { id = id, who = p.key, need = need, scene = sc, answers = def.answers, keep = opts.keep, glow = glow,
+                text = text, tell = tell }
     th.list[id] = t
     if glow then
         th.glows = th.glows + 1
@@ -117,8 +126,9 @@ function M.think(night, p, need, opts)
     th.shown = th.shown + 1
     th.log = th.log or {}
     table.insert(th.log, { who = p.key, need = need, text = text })
+    -- (The screen shows the tell until you read them; a happy thought shows on their face.)
     night:emit({ kind = "thought", id = id, who = p.key, name = p.name, char = p.char, text = text, need = need,
-                 want = p.name .. " " .. util.fill(def.want, v), answers = answers, glow = glow or nil })
+                 tell = tell, want = p.name .. " " .. util.fill(def.want, v), answers = answers, glow = glow or nil })
     return t
 end
 
@@ -134,6 +144,169 @@ function M.is_open(night, id)
         return st ~= nil and st.flags ~= nil and st.flags.pip_alone == true
     end
     return t.keep or t.scene == scene_index(night)
+end
+
+-- Reading them --------------------------------------------------------------------------------------
+
+-- Reads roll on their own dice, so reading the table never changes what happens at it.
+local function read_rng(night)
+    if not night.read_rng then
+        local c = night.campaign or {}
+        night.read_rng = rng_mod.new((c.seed or 1) * 7919 + (c.week or 1) * 104729 + 17)
+    end
+    return night.read_rng
+end
+
+local function empathy_bonus(night)
+    local c = night.campaign
+    return ((c and c.empathy) and c:empathy() or 1) - 1
+end
+
+-- What it takes to read this thought: { dc, bonus, empathy, familiar, need (the d20 you need), chance,
+-- known (how well you know them, in words) }.
+function M.odds(night, id)
+    local t = night.th and night.th.list[id]
+    if not t then
+        return nil
+    end
+    local def = DATA.needs[t.need] or {}
+    local dc = def.dc or 11
+    if t.need ~= "plan" then
+        dc = dc + (DATA.hard_to_read[t.who] or 0)
+    end
+    local emp = empathy_bonus(night)
+    local fam = night.campaign and familiar.bonus(night.campaign, t.who) or 0
+    local bonus = emp + fam
+    local need = util.clamp(dc - bonus, 2, 20)       -- a 1 always misreads, a 20 always reads
+    return { dc = dc, bonus = bonus, empathy = emp, familiar = fam, need = need, chance = (21 - need) / 20,
+             known = night.campaign and familiar.name(night.campaign, t.who) or "New to you" }
+end
+
+-- What they'd seem to want, misread: the thing they usually care about, if it isn't this.
+local MISREAD = { "spotlight", "story", "challenge", "social", "reward" }
+local function wrong_need(night, t)
+    local p = present(night, t.who)
+    local best, bk = -1, nil
+    for _, k in ipairs(MISREAD) do
+        local w = p and score.weight(p, k) or 0.2
+        if k ~= t.need and not (t.need == "pace" and k == "story") and not (k == "spotlight" and p and p.shy) and w > best then
+            best, bk = w, k
+        end
+    end
+    return bk or "social"
+end
+
+-- Read them: an Insight roll, once per thought. Returns { roll, total, dc, bonus, result } where result
+-- is "book" (a 20), "clear", "gist" (within 4), "miss" or "misread" (a 1: as = what you think it is).
+function M.read(night, id, force_roll)
+    local th = night.th
+    local t = th and th.list[id]
+    if not t then
+        return nil
+    end
+    if t.read then
+        return t.read
+    end
+    if t.glow then
+        t.read = { roll = 20, total = 20, dc = 0, bonus = 0, result = "clear" }
+        return t.read
+    end
+    if not M.is_open(night, id) then
+        return nil
+    end
+    local o = M.odds(night, id)
+    local roll = force_roll or read_rng(night):int(1, 20)      -- (force_roll: the tests)
+    local total = roll + o.bonus
+    local result
+    if roll == 1 then
+        result = "misread"
+    elseif roll == 20 then
+        result = "book"
+    elseif roll >= o.need then
+        result = "clear"
+    elseif total >= o.dc - 4 then
+        result = "gist"
+    else
+        result = "miss"
+    end
+    t.read = { roll = roll, total = total, dc = o.dc, bonus = o.bonus, need = o.need, result = result }
+    if result == "misread" then
+        t.read.as = wrong_need(night, t)
+    end
+    th.reads = (th.reads or 0) + 1
+    local c = night.campaign
+    if result == "clear" or result == "book" then
+        th.clear = (th.clear or 0) + 1
+        if c then
+            familiar.gain(c, t.who, "clear", night)
+            if result == "book" then
+                familiar.gain(c, t.who, "book", night)
+            end
+        end
+    end
+    return t.read
+end
+
+-- The need a read shows (a misread shows the wrong one), and whether the words are heard.
+function M.seen(night, id)
+    local t = night.th and night.th.list[id]
+    local r = t and t.read
+    if not r then
+        return nil
+    end
+    local need = (r.result == "misread") and r.as or t.need
+    local words = r.result == "clear" or r.result == "book" or r.result == "asked"
+    return { need = need, words = words, miss = r.result == "miss" }
+end
+
+-- The answers on offer once you've read them ({ id, label }); none after a miss (ask, or let it be).
+function M.answers_for(night, id)
+    local t = night.th and night.th.list[id]
+    local sn = t and M.seen(night, id)
+    if not sn or sn.miss then
+        return {}
+    end
+    local p = present(night, t.who)
+    local v = p and vars(p) or {}
+    local out = {}
+    for _, aid in ipairs((DATA.needs[sn.need] or {}).answers or {}) do
+        table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
+    end
+    return out
+end
+
+-- The want a read shows, in words ("Mara wants a mystery to chew on").
+function M.want_of(night, id)
+    local t = night.th and night.th.list[id]
+    local sn = t and M.seen(night, id)
+    local p = t and present(night, t.who)
+    if not (sn and p) or sn.miss then
+        return nil
+    end
+    return p.name .. " " .. util.fill(DATA.needs[sn.need].want, vars(p))
+end
+
+-- A miss: ask them straight out. They tell you (a clear read), for two table minutes, and the friend
+-- who hates the spotlight squirms a little at being asked in front of everyone.
+function M.ask(night, id)
+    local t = night.th and night.th.list[id]
+    if not (t and t.read and t.read.result == "miss") or not M.is_open(night, id) then
+        return false
+    end
+    local p = present(night, t.who)
+    t.read.result = "asked"
+    local a = DATA.ask_straight
+    night.table_min = (night.table_min or 0) + (a.table_min or 0)
+    if p then
+        if p.shy then
+            score.add(p, "fun", -1)
+        end
+        if night.campaign then
+            familiar.gain(night.campaign, p.key, "asked", night)
+        end
+        table.insert(night.th.queue, { kind = "narrate", style = "dm", text = util.sentence_case(util.fill(a.log, vars(p))) })
+    end
+    return true
 end
 
 -- What's been nagging at someone, mid-scene: the meter they care about most that's fallen furthest
@@ -422,9 +595,19 @@ function M.respond(night, id, aid)
     end
     if aid == "let_be" then
         t.answered = aid
+        if t.read and t.read.result == "misread" then
+            table.insert(th.dawn, t)          -- you'll realise later what it really was
+        end
         return true, nil
     end
-    if not util.contains(t.answers, aid) then
+    local r = t.read or M.read(night, id)
+    local ok = false
+    for _, a in ipairs(M.answers_for(night, id)) do
+        if a.id == aid then
+            ok = true
+        end
+    end
+    if not (r and ok) then
         return false
     end
     local p = present(night, t.who)
@@ -435,6 +618,13 @@ function M.respond(night, id, aid)
     t.answered = aid
     th.answered = th.answered + 1
     local good = fx(night, p)
+    if r.result == "misread" then
+        -- You answered the wrong thing. It did what it does; it didn't touch what they wanted.
+        table.insert(th.dawn, t)
+        if good then
+            good = nil
+        end
+    end
     t.good = good
     local a = DATA.answers[aid]
     night.table_min = (night.table_min or 0) + (a.table_min or 0)
@@ -446,12 +636,33 @@ function M.respond(night, id, aid)
             th.read = true
             night.campaign:gain_empathy("read")
         end
-    else
+        if night.campaign then
+            familiar.gain(night.campaign, p.key, "good", night)
+        end
+    elseif good == false then
         table.insert(th.queue, { kind = "react", poses = { [p.key] = "arms" } })
         table.insert(th.queue, { kind = "narrate", style = "warn",
                                  text = p.name .. " shrinks a little in " .. vars(p).their .. " chair. Wrong call for " .. vars(p).them .. "." })
     end
     return true, good
+end
+
+-- A scene starts (or the night ends): misreads you acted on, or let be, dawn on you now.
+function M.dawn(night)
+    local th = night.th
+    if not th or #th.dawn == 0 then
+        return
+    end
+    local list = th.dawn
+    th.dawn = {}
+    for _, t in ipairs(list) do
+        local p = present(night, t.who)
+        if p then
+            local want = util.fill(DATA.needs[t.need].want, vars(p))
+            night:emit({ kind = "narrate", style = "aside",
+                         text = util.sentence_case(util.fill(DATA.misread_after, { name = p.name, want = want })) })
+        end
+    end
 end
 
 -- The night's queue of answers, said at the next beat (night.lua's emit calls this).
@@ -477,34 +688,50 @@ function M.summary(night)
             good = good + 1
         end
     end
-    return { shown = th.shown, answered = th.answered, good = good }
+    return { shown = th.shown, answered = th.answered, good = good, read = th.reads or 0, clear = th.clear or 0 }
 end
 
--- A headless DM's answer (the sims): a careful DM answers most, mostly well; a random one now and
--- then; a careless one never. Returns an answer id or nil.
-function M.bot_answer(night, ev, style, rng)
-    if ev.glow or #(ev.answers or {}) == 0 then
+-- A headless DM (the sims): a careful DM reads most thoughts, asks after a miss, and answers what
+-- they read, mostly well (a misread fools them too); a random one now and then; a careless one never.
+-- Returns the answer given (or nil), whether it landed, and the read.
+function M.bot_play(night, ev, style, rng)
+    if ev.glow or #(ev.answers or {}) == 0 or style == "careless" then
         return nil
     end
-    local p = present(night, ev.who)
-    if style == "careful" then
-        if not rng:chance(0.75) then
-            return nil
+    if (style == "careful" and not rng:chance(0.8)) or (style == "random" and not rng:chance(0.5)) then
+        return nil
+    end
+    local r = M.read(night, ev.id)
+    if not r then
+        return nil
+    end
+    if r.result == "miss" then
+        if style == "careful" and rng:chance(0.6) then
+            M.ask(night, ev.id)
+        else
+            M.respond(night, ev.id, "let_be")
+            return "let_be", nil, r
         end
-        for _, a in ipairs(ev.answers) do
+    end
+    local list = M.answers_for(night, ev.id)
+    if #list == 0 then
+        return nil, nil, r
+    end
+    local p = present(night, ev.who)
+    local pick
+    if style == "careful" then
+        for _, a in ipairs(list) do
             local bad = p and p.shy and (a.id == "next_moment" or a.id == "ask" or a.id == "early_moment")
-            if not bad then
-                return a.id
+            if not pick and not bad then
+                pick = a.id
             end
         end
-        return "let_be"
-    elseif style == "random" then
-        if not rng:chance(0.5) then
-            return nil
-        end
-        return rng:pick(ev.answers).id
+    else
+        pick = rng:pick(list).id
     end
-    return nil
+    pick = pick or "let_be"
+    local ok, good = M.respond(night, ev.id, pick)
+    return ok and pick or nil, good, r
 end
 
 return M

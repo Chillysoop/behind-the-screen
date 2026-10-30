@@ -2156,8 +2156,15 @@ function M.handle(app, ev)
     elseif k == "thought" then
         -- What a friend is thinking and not saying (v2, game/model/thoughts.lua): a pale cloud at
         -- their head, and one over their panel to click and answer until the moment passes.
-        M.bubble(app, { head = ev.who }, ev.name .. ", thinking", ev.text, false, true)
-        M.push(app, ev.name .. ", thinking: \"" .. ev.text .. "\"", "thought", true)
+        if ev.glow then
+            M.bubble(app, { head = ev.who }, ev.name .. ", thinking", ev.text, false, true)
+            M.push(app, ev.name .. ", thinking: \"" .. ev.text .. "\"", "thought", true)
+        else
+            -- Only the tell shows until you read them (an Insight roll on the card).
+            M.bubble(app, { head = ev.who }, ev.name .. " is thinking something", util.capitalize(ev.tell) .. ".", false, true)
+            M.push(app, ev.name .. " " .. ev.tell .. ". Something's on " .. ((thoughts.DATA.pronouns[ev.who] or {}).their or "their")
+                .. " mind.", "thought", true)
+        end
         post("pose", { who = ev.who, pose = "think", hold = true })
         panels.pose(app, ev.who, "think")
         if not ev.glow and #(ev.answers or {}) > 0 then
@@ -2594,12 +2601,9 @@ end
 -- they pick cards (Enter plays them). A fallback that works even when a click doesn't.
 function M.pick_key(app, n)
     if app.thought_card then
-        local ev = app.thought_card
-        if ev.answers[n] then
-            M.answer_thought(app, ev.answers[n].id)
-            return true
-        elseif n == #ev.answers + 1 then
-            M.answer_thought(app, "let_be")
+        local fn = M.thought_buttons(app)[n]
+        if fn then
+            fn()
             return true
         end
         return false
@@ -2734,50 +2738,172 @@ function M.close_thought(app)
     kit.reset_hover()
 end
 
+-- The card's buttons in order, for the number keys: { { key, fn } }.
+local function thought_buttons(app)
+    local ev = app.thought_card
+    local t = ev and app.night.th and app.night.th.list[ev.id]
+    local out = {}
+    if not t then
+        return out
+    end
+    if not t.read then
+        table.insert(out, function() M.read_thought(app) end)
+    elseif t.read.result == "miss" then
+        table.insert(out, function() M.ask_thought(app) end)
+    else
+        for _, a in ipairs(thoughts.answers_for(app.night, ev.id)) do
+            table.insert(out, function() M.answer_thought(app, a.id) end)
+        end
+    end
+    table.insert(out, function() M.answer_thought(app, "let_be") end)
+    return out
+end
+M.thought_buttons = thought_buttons
+
+-- Before you read them: what you can see across the table, and your odds. After: the roll, and what
+-- you got from it (the words, the gist, nothing, or, on a 1, the wrong idea).
 function M.draw_thought_card(app)
     local ev = app.thought_card
     if app.layers.thought then
         kit.drop(app.layers.thought)
     end
     app.layers.thought = kit.layer("night_thought", true)
-    local x, w = LEFT_X, 480
+    local night = app.night
+    local t = night.th and night.th.list[ev.id]
+    local r = t and t.read
+    local pr = thoughts.DATA.pronouns[ev.who] or { them = "them", their = "their" }
+    local x, w = LEFT_X, 500
     local tw = w - 32
-    local quote = "\"" .. ev.text .. "\""
-    local want = ev.want .. "."
+    local o = thoughts.odds(night, ev.id) or { bonus = 0, need = 11, chance = 0.5, empathy = 0, familiar = 0, known = "" }
+    -- What goes on the card, top to bottom: { text, font, color } blocks, then the buttons.
+    local blocks = {}
+    local function add(text, font, color, gap)
+        table.insert(blocks, { text = text, font = font, color = color, gap = gap or 10 })
+    end
+    local title, sub
+    local buttons = {}
+    if not r then
+        title = "Something's on " .. ev.name .. "'s mind"
+        sub = "You catch it across the table."
+        add(util.capitalize(ev.name .. " " .. ev.tell .. "."), "ui22b", theme.think.ink)
+        add("Read " .. pr.them .. ": an Insight roll, d20 + " .. util.int(o.bonus) .. " (your Empathy +" .. util.int(o.empathy)
+            .. ", you know " .. ev.name .. " +" .. util.int(o.familiar) .. "). You need " .. util.int(o.need)
+            .. " or more: about " .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%.", "ui18", theme.think.dim)
+        table.insert(buttons, { label = "Read " .. pr.them .. " (roll Insight)", key = "thought_read", go = true })
+    else
+        title = ev.name .. (r.result == "miss" and " is hard to read" or " is thinking")
+        local reads = thoughts.DATA.reads
+        local line = (r.result == "asked" and reads.asked) or (r.roll == 20 and reads.book) or reads[r.result] or ""
+        sub = "You rolled " .. util.int(r.roll) .. " + " .. util.int(r.bonus) .. " = " .. util.int(r.total) .. ", needing "
+            .. util.int(r.need or r.dc) .. "."
+        add(util.fill(line, { name = ev.name }), "ui18b", theme.think.dim)
+        local sn = thoughts.seen(night, ev.id)
+        if sn and sn.words then
+            add("\"" .. ev.text .. "\"", "ui22b", theme.think.ink)
+        end
+        local want = thoughts.want_of(night, ev.id)
+        if want then
+            add(want .. ".", "ui18", theme.think.ink)
+        end
+        if r.result == "miss" then
+            add(util.capitalize(ev.name .. " " .. ev.tell .. ", and that's all you can tell."), "ui18", theme.think.ink)
+            local a = thoughts.DATA.ask_straight
+            table.insert(buttons, { label = util.sentence_case(util.fill(a.label, { them = pr.them })), key = "thought_ask", go = true })
+        else
+            for i, a in ipairs(thoughts.answers_for(night, ev.id)) do
+                table.insert(buttons, { label = a.label, key = "thought_ans_" .. i, aid = a.id })
+            end
+        end
+    end
+    table.insert(buttons, { label = "Let it be", key = "thought_let", aid = "let_be", plain = true })
+    -- How well you know them, and your Empathy: why the odds are what they are.
+    local fam = require "game.model.familiar"
+    local fl, fmax = fam.dots(app.campaign, ev.who)
     local level = app.campaign:empathy()
-    local foot = "Empathy: " .. (empathy.NAMES[level] or "") .. ". You catch about " .. util.int(thoughts.CAP[level] or 2)
-        .. " of these a night, more as you learn to read your table."
-    local quote_h = kit.text_height(quote, "ui22b", tw)
-    local want_h = kit.text_height(want, "ui18", tw)
-    local foot_h = kit.text_height(foot, "ui14", tw)
-    local n = #ev.answers + 1
-    local h = 16 + 60 + 12 + quote_h + 10 + want_h + 16 + n * 48 + 44 + foot_h + 14
+    local foot = "You know " .. ev.name .. ": " .. string.lower(fam.name(app.campaign, ev.who)) .. ". Empathy: "
+        .. string.lower(empathy.NAMES[level] or "") .. ". Both grow as you read them and play together."
+    local foot_h = kit.text_height(foot, "ui14", tw - 70)
+    local h = 16 + 60 + 12
+    for _, b in ipairs(blocks) do
+        h = h + kit.text_height(b.text, b.font, tw) + b.gap
+    end
+    h = h + 8 + #buttons * 48 + 44 + foot_h + 14
     local y = math.max(76, CHIP_Y - 40 - h)
     kit.box(x - 3, y - 3, w + 6, h + 6, kit.rgba("#000000", 0.35), { radius = 16 })
     kit.box(x, y, w, h, theme.think.bg, { radius = 14 })
     kit.dot(x + 44, y + 46, 64, alpha_of(panels.COLORS[ev.who] or theme.gold, 0.6))
     kit.picture(x + 12, y + 14, 64, 64, panels.face(ev.who, "think"), kit.rgba("#ffffff"))
-    kit.text(x + 90, y + 18, ev.name .. " is thinking", "ui22b", theme.think.ink)
-    kit.text(x + 90, y + 48, "Not out loud. You caught it.", "ui14", theme.think.dim)
+    kit.text(x + 90, y + 18, title, "ui22b", theme.think.ink, { w = w - 106, lines = 1 })
+    kit.text(x + 90, y + 48, sub, "ui14", theme.think.dim, { w = w - 106, lines = 1 })
+    -- The die you rolled, top right.
+    if r then
+        local col = (r.result == "clear" or r.result == "asked" or r.roll == 20) and theme.green
+            or (r.result == "gist" or r.result == "misread") and theme.gold or theme.red
+        kit.icon(x + w - 58, y + 12, 44, "d20", col)
+        kit.text(x + w - 36, y + 34, util.int(r.roll), "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
+    end
     local ty = y + 16 + 60 + 12
-    kit.text(x + 16, ty, quote, "ui22b", theme.think.ink, { w = tw })
-    ty = ty + quote_h + 10
-    kit.text(x + 16, ty, want, "ui18", theme.think.dim, { w = tw })
-    ty = ty + want_h + 16
-    for i, a in ipairs(ev.answers) do
-        kit.button(x + 16, ty, tw, 40, a.label, function()
-            M.answer_thought(app, a.id)
-        end, { key = "thought_ans_" .. i, key_hint = i })
+    for _, b in ipairs(blocks) do
+        kit.text(x + 16, ty, b.text, b.font, b.color, { w = tw })
+        ty = ty + kit.text_height(b.text, b.font, tw) + b.gap
+    end
+    ty = ty + 8
+    for i, b in ipairs(buttons) do
+        kit.button(x + 16, ty, tw, 40, b.label, function()
+            if b.key == "thought_read" then
+                M.read_thought(app)
+            elseif b.key == "thought_ask" then
+                M.ask_thought(app)
+            else
+                M.answer_thought(app, b.aid)
+            end
+        end, { key = b.key, key_hint = i, color = b.go and theme.go or (b.plain and theme.panel2 or nil),
+               hover = b.go and theme.go_hover or nil })
         ty = ty + 48
     end
-    kit.button(x + 16, ty, tw, 40, "Let it be", function()
-        M.answer_thought(app, "let_be")
-    end, { key = "thought_let", key_hint = n, color = theme.panel2 })
-    ty = ty + 48
     kit.button(x + w - 136, ty, 120, 32, "Not now", function()
         M.close_thought(app)
     end, { key = "thought_close", color = theme.think.dim })
-    kit.text(x + 16, ty + 40, foot, "ui14", theme.think.dim, { w = tw })
+    -- Familiarity as dots, then the words.
+    for i = 1, fmax do
+        kit.dot(x + 24 + (i - 1) * 13, ty + 50, 9, i <= fl and theme.think.ink or alpha_of(theme.think.dim, 0.35))
+    end
+    kit.text(x + 86, ty + 42, foot, "ui14", theme.think.dim, { w = tw - 70 })
+end
+
+function M.read_thought(app)
+    local ev = app.thought_card
+    if not ev then
+        return
+    end
+    local r = thoughts.read(app.night, ev.id)
+    if not r then
+        M.close_thought(app)
+        if app.thinking then
+            app.thinking[ev.who] = nil
+        end
+        M.draw_thinks(app)
+        M.toast(app, "THAT MOMENT PASSED", ev.name .. "'s thought has moved on. There'll be others.")
+        return
+    end
+    M.push(app, "You read " .. ev.name .. ": " .. util.int(r.roll) .. " + " .. util.int(r.bonus) .. " = " .. util.int(r.total)
+        .. " (needed " .. util.int(r.need or r.dc) .. ").", "aside", true)
+    local sn = thoughts.seen(app.night, ev.id)
+    if sn and sn.words then
+        M.push(app, ev.name .. ", thinking: \"" .. ev.text .. "\"", "thought", true)
+    end
+    M.draw_thought_card(app)
+end
+
+function M.ask_thought(app)
+    local ev = app.thought_card
+    if not ev then
+        return
+    end
+    if thoughts.ask(app.night, ev.id) then
+        M.push(app, ev.name .. ", when you ask: \"" .. ev.text .. "\"", "thought", true)
+    end
+    M.draw_thought_card(app)
 end
 
 function M.answer_thought(app, aid)

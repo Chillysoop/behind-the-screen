@@ -668,6 +668,10 @@ function M:finish_night()
     self:gain_empathy("night")
     rep.empathy = { level = self:empathy(), up = self.empathy_up }
     rep.thoughts = require("game.model.thoughts").summary(night)   -- v2: the friends' thoughts you caught
+    -- v2: how well you know each of them (game/model/familiar.lua): a night together counts.
+    require("game.model.familiar").night_played(self, night.players)
+    rep.familiar_up = self.familiar_up
+    self.familiar_up = nil
     self.report = rep
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)
@@ -705,6 +709,10 @@ function M:finish_module_night(night, rep)
     self:gain_empathy("night")
     rep.empathy = { level = self:empathy(), up = self.empathy_up }
     rep.thoughts = require("game.model.thoughts").summary(night)   -- v2: the friends' thoughts you caught
+    -- v2: how well you know each of them (game/model/familiar.lua): a night together counts.
+    require("game.model.familiar").night_played(self, night.players)
+    rep.familiar_up = self.familiar_up
+    self.familiar_up = nil
     self.report = rep
     table.insert(self.history, { week = self.week, average = rep.average })
     self:write_journal(rep, night)

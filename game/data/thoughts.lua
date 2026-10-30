@@ -11,6 +11,11 @@
 --            {them} / {their} (the player's pronouns). table_min: real table minutes it costs.
 -- lines:     each friend's own lines by need; generic: anyone's, when a friend has none.
 --            A need's "_after" lines answer something that just happened (a call that cost them).
+--
+-- Reading them (an Insight roll, d20 + your Empathy + how well you know them, against the need's dc
+-- plus how hard that friend is to read): tell is what you notice before you read them; a clear read
+-- hears the words, a near miss gets the gist (the want), a miss can't tell (ask them straight out,
+-- or let it be), and a natural 1 misreads them as wanting something else.
 
 return {
     pronouns = {
@@ -18,24 +23,56 @@ return {
         jess = { them = "her", their = "her" }, sam = { them = "him", their = "his" },
     },
 
+    -- How hard each friend is to read, added to a thought's dc: Dev's face says it all; Sam keeps
+    -- things to himself; Jess is an open book, except about her plans (the plan need's own dc).
+    hard_to_read = { mara = 0, dev = -1, jess = -1, sam = 2 },
+
     needs = {
-        spotlight = { want = "wants a turn in the spotlight", answers = { "next_moment", "ask" } },
-        story = { want = "wants a mystery to chew on", answers = { "detail", "next_moment" } },
-        pace = { want = "is losing the thread in a long fight", answers = { "detail", "hurry" } },
-        challenge = { want = "wants some danger, or at least a fight", answers = { "stakes", "hurry" } },
-        social = { want = "wants to talk to somebody", answers = { "talk", "snack" } },
-        reward = { want = "wants something shiny to take home", answers = { "prize", "next_moment" } },
-        off_spot = { want = "would rather not be the one on the spot", answers = { "spare", "cheer" } },
-        fairness = { want = "isn't sure that was fair", answers = { "open", "own" } },
-        plan = { want = "is about to go off on {their} own", answers = { "catch_eye", "let_go" } },
-        glow = { want = "is having a great time", answers = {} },
+        spotlight = { want = "wants a turn in the spotlight", answers = { "next_moment", "ask" }, dc = 11,
+                      tell = "has opened {their} mouth twice and closed it again" },
+        story = { want = "wants a mystery to chew on", answers = { "detail", "next_moment" }, dc = 11,
+                  tell = "keeps glancing back at {their} notes" },
+        pace = { want = "is losing the thread in a long fight", answers = { "detail", "hurry" }, dc = 10,
+                 tell = "is doodling in the margin of {their} sheet" },
+        challenge = { want = "wants some danger, or at least a fight", answers = { "stakes", "hurry" }, dc = 10,
+                      tell = "is drumming {their} fingers on the table" },
+        social = { want = "wants to talk to somebody", answers = { "talk", "snack" }, dc = 10,
+                   tell = "keeps looking round at the others" },
+        reward = { want = "wants something shiny to take home", answers = { "prize", "next_moment" }, dc = 10,
+                   tell = "is reading down {their} equipment list again" },
+        off_spot = { want = "would rather not be the one on the spot", answers = { "spare", "cheer" }, dc = 13,
+                     tell = "has gone very interested in the snacks" },
+        fairness = { want = "isn't sure that was fair", answers = { "open", "own" }, dc = 14,
+                     tell = "is looking at your screen, then at you" },
+        plan = { want = "is about to go off on {their} own", answers = { "catch_eye", "let_go" }, dc = 15,
+                 tell = "has a gleam in {their} eye and is very quiet" },
+        glow = { want = "is having a great time", answers = {}, dc = 0, tell = "can't stop grinning" },
         -- The week they've had (game/data/moods.lua): each mood's own second answer.
-        tired = { want = "is running on empty tonight", answers = { "check_in", "early_break" } },
-        stressed = { want = "has had a rough week", answers = { "check_in", "keep_light" } },
-        distracted = { want = "has half a mind somewhere else", answers = { "check_in", "early_moment" } },
-        celebrating = { want = "has good news, bursting to get out", answers = { "news", "check_in" } },
-        chatty = { want = "is in a mood to talk", answers = { "talk", "news" } },
+        tired = { want = "is running on empty tonight", answers = { "check_in", "early_break" }, dc = 11,
+                  tell = "stifles a yawn behind {their} dice" },
+        stressed = { want = "has had a rough week", answers = { "check_in", "keep_light" }, dc = 13,
+                     tell = "is gripping {their} dice a little hard" },
+        distracted = { want = "has half a mind somewhere else", answers = { "check_in", "early_moment" }, dc = 12,
+                       tell = "keeps glancing at a phone under the table" },
+        celebrating = { want = "has good news, bursting to get out", answers = { "news", "check_in" }, dc = 9,
+                        tell = "can't stop smiling at nothing" },
+        chatty = { want = "is in a mood to talk", answers = { "talk", "news" }, dc = 9,
+                   tell = "keeps starting side conversations" },
     },
+
+    -- What a read comes to, for the card.
+    reads = {
+        clear = "A clear read.",
+        gist = "You can't hear the words, but you can tell what's behind it.",
+        miss = "You can't tell what's going on with {name} right now.",
+        misread = "You're fairly sure you can tell what's behind it.",   -- (a natural 1: it's the wrong thing)
+        book = "You read {name} like a book.",
+        asked = "You asked. {name} told you.",
+    },
+    -- When a misread comes out (the night's end, or when you answer it).
+    misread_after = "Later it dawns on you: {name} {want}, and you'd read it as something else.",
+    -- After a miss: ask them, out of character. It costs a little table time and a little of the spell.
+    ask_straight = { label = "Ask {them} straight out", log = "\"{name}, you okay over there?\" {name} tells you.", table_min = 2 },
 
     answers = {
         next_moment = { label = "Give {them} the next moment", log = "You make a mental note: the next moment is {name}'s." },
