@@ -1,0 +1,10 @@
+mesh: "/assets/meshes/prop_donation_box_paint.glb"
+name: "{{NAME}}"
+materials {
+  name: "default"
+  material: "/materials/lit.material"
+  textures {
+    sampler: "tex0"
+    texture: "/assets/textures/props_palette.png"
+  }
+}

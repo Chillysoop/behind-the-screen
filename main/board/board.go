@@ -430,3 +430,123 @@ components {
   id: "torch_post"
   component: "/main/board/props/torch_post.factory"
 }
+components {
+  id: "floor_marble"
+  component: "/main/board/props/floor_marble.factory"
+}
+components {
+  id: "paving"
+  component: "/main/board/props/paving.factory"
+}
+components {
+  id: "wall_diag"
+  component: "/main/board/props/wall_diag.factory"
+}
+components {
+  id: "wall_painting"
+  component: "/main/board/props/wall_painting.factory"
+}
+components {
+  id: "wall_portrait"
+  component: "/main/board/props/wall_portrait.factory"
+}
+components {
+  id: "tapestry"
+  component: "/main/board/props/tapestry.factory"
+}
+components {
+  id: "display_case"
+  component: "/main/board/props/display_case.factory"
+}
+components {
+  id: "plinth"
+  component: "/main/board/props/plinth.factory"
+}
+components {
+  id: "hedge"
+  component: "/main/board/props/hedge.factory"
+}
+components {
+  id: "topiary"
+  component: "/main/board/props/topiary.factory"
+}
+components {
+  id: "garden_steps"
+  component: "/main/board/props/garden_steps.factory"
+}
+components {
+  id: "stairs_straight"
+  component: "/main/board/props/stairs_straight.factory"
+}
+components {
+  id: "donation_box"
+  component: "/main/board/props/donation_box.factory"
+}
+components {
+  id: "canopic_jars"
+  component: "/main/board/props/canopic_jars.factory"
+}
+components {
+  id: "stone_tablet"
+  component: "/main/board/props/stone_tablet.factory"
+}
+components {
+  id: "ritual_basin"
+  component: "/main/board/props/ritual_basin.factory"
+}
+components {
+  id: "diorama_cave"
+  component: "/main/board/props/diorama_cave.factory"
+}
+components {
+  id: "diorama_kitchen"
+  component: "/main/board/props/diorama_kitchen.factory"
+}
+components {
+  id: "model_city"
+  component: "/main/board/props/model_city.factory"
+}
+components {
+  id: "giant_skull"
+  component: "/main/board/props/giant_skull.factory"
+}
+components {
+  id: "stuffed_bird"
+  component: "/main/board/props/stuffed_bird.factory"
+}
+components {
+  id: "lectern"
+  component: "/main/board/props/lectern.factory"
+}
+components {
+  id: "blackboard"
+  component: "/main/board/props/blackboard.factory"
+}
+components {
+  id: "couch"
+  component: "/main/board/props/couch.factory"
+}
+components {
+  id: "statue_victim"
+  component: "/main/board/props/statue_victim.factory"
+}
+components {
+  id: "statue_victim_b"
+  component: "/main/board/props/statue_victim_b.factory"
+}
+components {
+  id: "statue_victim_c"
+  component: "/main/board/props/statue_victim_c.factory"
+}
+components {
+  id: "mech_dais"
+  component: "/main/board/props/mech_dais.factory"
+}
+components {
+  id: "souvenir_table"
+  component: "/main/board/props/souvenir_table.factory"
+}
+components {
+  id: "bench_museum"
+  component: "/main/board/props/bench_museum.factory"
+}
