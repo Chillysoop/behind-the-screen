@@ -355,7 +355,7 @@ end
 -- what the DM preps. Both sides of a fork are listed.
 function M.ahead(campaign)
     local st = campaign.adv
-    local out, seen = {}, {}
+    local out, seen, last = {}, {}, {}
     local queue = M.frontier(campaign)
     local stopped = false
     local guard = 0
@@ -369,7 +369,11 @@ function M.ahead(campaign)
             if r.boss then
                 break
             end
-            if not r.stop then
+            -- A stop ends the night only once a few rooms have played (museum_night.run): one the
+            -- party reaches first thing (the gift shop, after a night that ran out of time short of
+            -- it) lets them catch their breath and go on, so the rooms past it are tonight's too.
+            -- The stairs always end it.
+            if not r.stop or (id ~= "stairs" and #out < 3) then
                 for _, nid in ipairs(r.next or {}) do
                     if not seen[nid] then
                         table.insert(queue, nid)
@@ -377,15 +381,16 @@ function M.ahead(campaign)
                 end
             else
                 stopped = true
+                last[id] = true
             end
         end
     end
     -- A stop that isn't the last thing listed (the other wing after the gift shop): keep the order
-    -- of the map, stops last.
+    -- of the map, the night's last stop last.
     table.sort(out, function(a, b)
-        local ra, rb = MODULE.rooms[a], MODULE.rooms[b]
-        if (ra.stop or ra.boss) ~= (rb.stop or rb.boss) then
-            return not (ra.stop or ra.boss)
+        local ea, eb = last[a] or MODULE.rooms[a].boss or false, last[b] or MODULE.rooms[b].boss or false
+        if ea ~= eb then
+            return not ea
         end
         return util.index_of(MODULE.order, a) < util.index_of(MODULE.order, b)
     end)
