@@ -27,6 +27,7 @@ Where v2 lives:
 | `game/model/thoughts.lua`, `game/data/thoughts.lua` | What the four friends think and don't say on game night (a want that's nagging them, their take on a call, the week they've had, a roll that looked convenient, Pip's plan to go off alone): how many the DM catches is their Empathy. A caught thought shows only a tell until the DM reads it with an Insight roll (`thoughts.read`: d20 + Empathy + familiarity against the thought's dc and how hard that friend is to read; clear, gist, miss then ask, or a misread on a 1, on its own dice). Each has two answers and "Let it be". The night director calls in at its beats; `game/ui/night_view.lua` draws the cloud over the panel and the card, and calls `thoughts.read`/`ask`/`respond` between beats. |
 | `game/model/familiar.lua` | How well the DM knows each friend ("New to you" to "Like a book"): grows with nights together, clear reads, answers that land and prep talks; a bonus on reading their thoughts. Shown as dots on the prep board's player cards. The first piece of a fuller you-as-a-DM progression. |
 | `game/model/map_repo.lua`, `game/ui/map_repo_view.lua` | The map repository: every map the DM can put on the table; a room's map, side rooms, the next scene's map, the DM's own maps (edited in `game/ui/map_view.lua`). |
+| `game/model/ties.lua`, `game/ui/ties_view.lua` | The tie-and-lock editor ("Ties and locks" on the prep board): lock a door or a room until something happens, a moment (only if, or cut), a person (out of sight until: their moments skip, their room plays without them); tie a mark on Euryale's card, or a hero's reason for coming moving room, to something happening. Conditions: a room done, a card's out (by its words: `MODULE.outs`, or its aspect), a mark, Francs, a session. Refuses a lock that could never open or could leave the lair out of reach. The state is `campaign.adv.locks` / `.ties` / `.hook_room`; `adventure.lua`'s walking reads the locks, `museum_night.ties_beat` opens and fires them on game night. Generic over the module's data. |
 | `game/ui/museum_*.lua` | The hooks page, the prep board (the museum as the book's floor plans) and showdown board, the journey recap. |
 | `tools/maps/`, `game/data/maps/*.map`, `game/data/map_library.lua` | The map import pipeline (`tools/maps/README.md`): a book's map image to a draft, a draft to a hand-finished `.map` spec, specs built into the map library, which `game/data/boards.lua` merges into its boards. The museum's ten rooms are specs here; `game/data/terrain.lua` points the `mus_*` places at them. Never copy a book's art or text: our pieces, our words. |
 | `game/rules/museum.lua` | The museum's monsters' special rules (with the stat blocks in `game/rules/data/monsters.lua`). |
@@ -78,6 +79,7 @@ least:
                                           # (add "log" after the style to read every line the table hears)
     lua tools/tests/map_repo_check.lua    # the map repository and the open floors
     lua tools/tests/thoughts_check.lua    # the friends' thoughts: lines, answers, Empathy, whole prologues
+    lua tools/tests/ties_check.lua        # ties and locks: block and open, refusals, a tied mark, saves, whole prologues
     python3 tools/maps/build_maps.py --check  # every map spec builds: on the mat, starts free, walls closed
     lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
     lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them
@@ -113,5 +115,5 @@ without the engine.
 
 v2's prologue plays end to end through the real UI, the real engine and headless: every seeded run reaches an
 ending in three to five sessions, and the fights use the book's own monsters (`game/rules/museum.lua`). What's open: bespoke boards and minis for the museum's rooms and monsters
-(it borrows the closest existing ones), a free tie-and-lock editor for adventures, the "just the adventure" mode,
-and the full campaign that follows the prologue.
+(it borrows the closest existing ones), the "just the adventure" mode, and the full campaign that follows the prologue.
+The tie-and-lock editor is in (`game/model/ties.lua`); the museum sim (`tools/sim/museum.lua`) plays without locks.

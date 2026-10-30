@@ -476,6 +476,41 @@ for week = 1, WEEKS do
         if not click_key("mr_back") then problem("no way back from the map maker") end
         if not click_key("mr_done") then problem("no Done in the map repository") end
         if app.overlay then problem("the map repository didn't close") end
+        -- The tie-and-lock editor (v2): lock a door, tie a mark to a room, cut a card and take it off.
+        local ties = require "game.model.ties"
+        if not click_key("open_ties") then problem("no way into the tie-and-lock editor" .. where) end
+        if app.overlay ~= "ties" then problem("the tie-and-lock editor didn't open" .. where) end
+        dump_once("4t_ties_w" .. week)
+        scan("the tie-and-lock editor" .. where)
+        if not click_key("tl_room_paintings") then problem("no Hall of Paintings on the editor's plan") end
+        dump_once("4t_ties_room")
+        scan("a room's cards in the editor")
+        if not click_key("tl_door_" .. ties.door_key("entrance", "paintings")) then problem("no door to the Hall of Paintings") end
+        if not click_key("tl_lock_door") then problem("no way to lock a door") end
+        dump_once("4t_ties_pick")
+        scan("the editor's chips")
+        click_key("tl_tab_room")
+        if not click_key("tl_cond_room_chamber") then problem("no room to keep the door locked until") end
+        if not adventure.way_closed(c, "entrance", "paintings") then problem("locking the door didn't stick") end
+        if not click_key("tl_new_tie") then problem("no New tie in the editor") end
+        click_key("tl_tab_room")
+        if not click_key("tl_cond_room_garden") then problem("no room to tie a mark to") end
+        click_key("tl_tab_mark")
+        dump_once("4t_ties_effect")
+        if not click_key("tl_eff_mark_mirror") then problem("no mark to tie") end
+        if #ties.ties(c) ~= 1 then problem("the tie didn't stick (" .. #ties.ties(c) .. ")") end
+        click_key("tl_room_paintings")
+        if not click_key("tl_cut_mus_dice_painting") and click_key("tl_cards_next") then click_key("tl_cut_mus_dice_painting") end
+        local cut = ties.lock_on(c, { kind = "moment", moment = "mus_dice_painting" })
+        dump_once("4t_ties_list")
+        scan("the editor's list")
+        if not cut then problem("couldn't cut a card")
+        elseif not click_key("tl_remove_" .. cut.id) then problem("no way to take a lock off") end
+        if ties.lock_on(c, { kind = "moment", moment = "mus_dice_painting" }) then problem("taking a lock off didn't stick") end
+        if not click_key("tl_done") then problem("no Done in the tie-and-lock editor") end
+        if app.overlay then problem("the tie-and-lock editor didn't close") end
+        if not has_text("Ties and locks (2)") then problem("the board doesn't count its ties and locks") end
+        dump_once("4t_board_locked")
     end
     if not has_text("UPSTAIRS") and not c.prep.museum.boss then problem("no Euryale card on the board" .. where) end
     if c.prep.museum.boss then

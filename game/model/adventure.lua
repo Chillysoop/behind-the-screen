@@ -295,6 +295,9 @@ function M.new_state()
         hooks = {},                 -- player key -> hook id
         answered = {},              -- requests, loose ends: id -> answer
         weeks = 0,                  -- game nights played in the museum
+        -- The DM's ties and locks (game/model/ties.lua): what's locked until what, what's tied to
+        -- happen when, and the heroes' reasons a tie moved to another room.
+        locks = {}, ties = {}, hook_room = {}, lock_news = {}, tie_seq = 0,
     }
 end
 
@@ -353,18 +356,132 @@ local function fill(st)
     st.looked = st.looked or {}
     st.hinted = st.hinted or {}
     st.floor = st.floor or 1
+    -- (And before the tie-and-lock editor, October 30.)
+    st.locks = st.locks or {}
+    st.ties = st.ties or {}
+    st.hook_room = st.hook_room or {}
+    st.lock_news = st.lock_news or {}
+    st.tie_seq = st.tie_seq or 0
     return st
 end
 M.fill = fill
 
--- The rooms one door away (MODULE.links, both ways).
-function M.neighbors(id)
+-- The DM's locks (game/model/ties.lua sets, checks and opens them; the walking here only reads
+-- them). A lock: { id, kind = "door" | "room" | "moment" | "person", a, b | room | moment | person,
+-- cond, open }. A door, room or person stays shut until its condition has happened once (`open`
+-- then stays set); a moment plays only while its condition holds, and never if it's cut.
+-- cond: { kind = "room", room } | { kind = "flag", flag } | { kind = "mark", mark } |
+--       { kind = "francs", n } | { kind = "session", n } | { kind = "never" }.
+function M.cond_true(campaign, cond)
+    local st = campaign.adv
+    if not cond then
+        return true
+    end
+    local k = cond.kind
+    if k == "room" then
+        return st.done[cond.room] ~= nil
+    elseif k == "flag" then
+        return st.flags[cond.flag] ~= nil and st.flags[cond.flag] ~= false
+    elseif k == "mark" then
+        return st.marks[cond.mark] ~= nil
+    elseif k == "francs" then
+        return (st.francs or 0) >= (cond.n or 0)
+    elseif k == "session" then
+        return (campaign.week or 0) >= (cond.n or 0)
+    end
+    return false
+end
+
+local function locks_of(campaign)
+    local st = campaign and campaign.adv
+    return st and st.locks or {}
+end
+
+-- Is the room locked shut?
+function M.room_closed(campaign, id)
+    for _, l in ipairs(locks_of(campaign)) do
+        if l.kind == "room" and l.room == id and not l.open then
+            return true
+        end
+    end
+    return false
+end
+
+-- Is the way from room a into room b shut (the door between them, or b itself)?
+function M.way_closed(campaign, a, b)
+    for _, l in ipairs(locks_of(campaign)) do
+        if not l.open and ((l.kind == "room" and l.room == b)
+            or (l.kind == "door" and ((l.a == a and l.b == b) or (l.a == b and l.b == a)))) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Is the person keeping out of sight?
+function M.person_hidden(campaign, pid)
+    for _, l in ipairs(locks_of(campaign)) do
+        if l.kind == "person" and l.person == pid and not l.open then
+            return true
+        end
+    end
+    return false
+end
+
+-- Who a moment belongs to: its own `who` (an id or a list), else the person its room is about
+-- (the room's cast, when that's one of MODULE.people).
+local PEOPLE
+function M.moment_people(m)
+    if not PEOPLE then
+        PEOPLE = {}
+        for _, p in ipairs(MODULE.people or {}) do
+            PEOPLE[p.id] = true
+        end
+    end
+    if m.who then
+        return type(m.who) == "table" and m.who or { m.who }
+    end
+    local r = MODULE.rooms[m.room]
+    local cast = r and r.comps and r.comps.cast
+    if cast and PEOPLE[cast] then
+        return { cast }
+    end
+    return {}
+end
+
+-- Does the DM let this moment play right now (not cut, its condition holds, its people about)?
+function M.moment_open(campaign, m)
+    local locks = locks_of(campaign)
+    if #locks == 0 then
+        return true
+    end
+    for _, l in ipairs(locks) do
+        if l.kind == "moment" and l.moment == m.id and not M.cond_true(campaign, l.cond) then
+            return false
+        end
+    end
+    for _, pid in ipairs(M.moment_people(m)) do
+        if M.person_hidden(campaign, pid) then
+            return false
+        end
+    end
+    return true
+end
+
+-- The rooms one door away (MODULE.links, both ways). With a campaign, only the ways the DM
+-- hasn't locked shut.
+function M.neighbors(id, campaign)
     local out = {}
+    local locked = campaign and #locks_of(campaign) > 0
     for _, l in ipairs(MODULE.links or {}) do
+        local n
         if l[1] == id then
-            table.insert(out, l[2])
+            n = l[2]
         elseif l[2] == id then
-            table.insert(out, l[1])
+            n = l[1]
+        end
+        if n and not (locked and M.way_closed(campaign, id, n)) then
+            table.insert(out, n)
         end
     end
     return out
@@ -372,14 +489,14 @@ end
 
 -- Where the party can walk from `from` without a fight on the way: through rooms already cleared.
 -- Returns the rooms they'd arrive in, not cleared yet ({ [id] = doors walked }), and the cleared
--- rooms on the way ({ [id] = doors walked }).
-function M.reachable(campaign, from)
+-- rooms on the way ({ [id] = doors walked }). Locked ways are shut (all: as if nothing were locked).
+function M.reachable(campaign, from, all)
     local st = fill(campaign.adv)
     local dist, fresh, cleared = { [from] = 0 }, {}, {}
     local queue = { from }
     while #queue > 0 do
         local id = table.remove(queue, 1)
-        for _, n in ipairs(M.neighbors(id)) do
+        for _, n in ipairs(M.neighbors(id, (not all) and campaign or nil)) do
             if dist[n] == nil and not (MODULE.no_return or {})[n] and MODULE.rooms[n] then
                 dist[n] = dist[id] + 1
                 if st.done[n] then
@@ -396,9 +513,9 @@ end
 
 -- From a room just played, the new rooms the party would head for: reachable, not seen yet, not
 -- walked past (a room on a floor they've left needs a reason: museum_night's second looks).
-function M.options_after(campaign, from)
+function M.options_after(campaign, from, all)
     local st = fill(campaign.adv)
-    local fresh = M.reachable(campaign, from)
+    local fresh = M.reachable(campaign, from, all)
     local out = {}
     for _, id in ipairs(MODULE.order) do
         if fresh[id] and not st.skipped[id] and not st.passed[id] and not MODULE.rooms[id].boss then
@@ -419,7 +536,7 @@ function M.missed(campaign, room)
     for _, mid in ipairs((MODULE.second_look or {})[room] or {}) do
         if not st.took[mid] then
             for _, m in ipairs(MODULE.moments) do
-                if m.id == mid and M.test(campaign, m.when, {}) then
+                if m.id == mid and M.test(campaign, m.when, {}) and M.moment_open(campaign, m) then
                     table.insert(out, mid)
                 end
             end
@@ -463,7 +580,7 @@ function M.ahead(campaign)
             -- it) lets them catch their breath and go on, so the rooms past it are tonight's too.
             -- The stairs always end it.
             if not r.stop or (id ~= "stairs" and #out < 3) then
-                for _, nid in ipairs(M.neighbors(id)) do
+                for _, nid in ipairs(M.neighbors(id, campaign)) do
                     local nr = MODULE.rooms[nid]
                     if not seen[nid] and nr and not nr.boss and not (MODULE.no_return or {})[nid] then
                         table.insert(queue, nid)
@@ -492,7 +609,8 @@ end
 function M.boss_week(campaign)
     local st = campaign.adv
     return not st.ending and (st.at == "lair" or (st.at == "stairs" and not st.done.stairs))
-        and not (st.choices and #st.choices > 0)
+        and not (st.choices and #st.choices > 0) and not M.room_closed(campaign, st.at)
+        and not (st.at == "stairs" and M.way_closed(campaign, "stairs", "lair"))   -- (the DM locked her door)
 end
 
 function M.over(campaign)
@@ -542,16 +660,14 @@ function M.enter_room(campaign, id, week)
     return left
 end
 
--- The room is done: where the party can go from here.
-function M.leave_room(campaign, id, outcome, week)
+-- Where the party heads next from a room it's just done (or stands in, done).
+local function set_frontier(campaign, id)
     local st = campaign.adv
-    st.done[id] = outcome or "win"
-    table.insert(st.path, { room = id, week = week, outcome = outcome or "win" })
     local opts = M.options_after(campaign, id)
-    -- At the top of the stairs there's only one way on: her.
+    -- At the top of the stairs there's only one way on: her (unless the DM locked her door).
     local r = MODULE.rooms[id]
     for _, nid in ipairs(r and r.next or {}) do
-        if MODULE.rooms[nid] and MODULE.rooms[nid].boss and not st.done[nid] then
+        if MODULE.rooms[nid] and MODULE.rooms[nid].boss and not st.done[nid] and not M.way_closed(campaign, id, nid) then
             st.at, st.choices = nid, nil
             return { nid }
         end
@@ -564,6 +680,39 @@ function M.leave_room(campaign, id, outcome, week)
         st.at, st.choices = nil, nil
     end
     return opts
+end
+
+-- The room is done: where the party can go from here.
+function M.leave_room(campaign, id, outcome, week)
+    local st = campaign.adv
+    st.done[id] = outcome or "win"
+    table.insert(st.path, { room = id, week = week, outcome = outcome or "win" })
+    return set_frontier(campaign, id)
+end
+
+-- The DM locked or opened something (game/model/ties.lua): where the party can go next, worked
+-- out again from where it stands. Nothing changes before the start, mid-room, or once it's over.
+-- The boss is next as soon as the room before her is done and her way is open, wherever they are.
+function M.refresh_frontier(campaign)
+    local st = fill(campaign.adv)
+    local pos = st.pos
+    if st.ending or not pos or not st.done[pos] then
+        return
+    end
+    local _, cleared = M.reachable(campaign, pos)
+    for _, gid in ipairs(MODULE.order) do
+        local g = MODULE.rooms[gid]
+        if st.done[gid] and (gid == pos or cleared[gid]) then
+            for _, nid in ipairs(g.next or {}) do
+                local n = MODULE.rooms[nid]
+                if n and n.boss and not st.done[nid] and not M.way_closed(campaign, gid, nid) then
+                    st.at, st.choices = nid, nil
+                    return
+                end
+            end
+        end
+    end
+    set_frontier(campaign, pos)
 end
 
 -- Marks, flags, Francs, favors --------------------------------------------------------------
@@ -683,6 +832,17 @@ function M.hook(campaign, key)
     local id = campaign.adv.hooks[key]
     for _, h in ipairs(MODULE.hooks[key] or {}) do
         if h.id == id then
+            -- A tie moved where it pays off (game/model/ties.lua): the same hook, in that room.
+            local moved = campaign.adv.hook_room and campaign.adv.hook_room[key]
+            if moved and moved ~= h.room then
+                local copy = {}
+                for k, v in pairs(h) do
+                    copy[k] = v
+                end
+                copy.room = moved
+                copy.moved_from = h.room
+                return copy
+            end
             return h
         end
     end

@@ -33,6 +33,7 @@ local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
 local story_log_view = require "game.ui.story_log_view"
 local map_repo_view = require "game.ui.map_repo_view"
+local ties_view = require "game.ui.ties_view"
 local dice_sets = require "game.model.dice_sets"
 -- (Game night reaches the museum's night only through util.lazy, to keep the require graph free of
 -- cycles; this literal require is what makes the builder pack it. tools/tests/require_check.py.)
@@ -259,6 +260,8 @@ local function build_screen(self)
         encounter_view.draw(app)
     elseif (app.overlay == "maps" or app.overlay == "mapmaker") and (s == "prep" or s == "night") then
         map_repo_view.draw(app)       -- v2: the map repository, and the map maker on the DM's own maps
+    elseif app.overlay == "ties" and s == "prep" then
+        ties_view.draw(app)           -- v2: the tie-and-lock editor
     else
         app.overlay = nil
     end
@@ -374,6 +377,8 @@ function init(self)
         looked("notes")
         if app.overlay == "sheet" then
             sheet_view.close(app)
+        elseif app.overlay == "ties" then
+            ties_view.close(app)
         end
         notes_view.open(app, tab)
         guide_view.refresh(app)
@@ -394,8 +399,18 @@ function init(self)
         map_repo_view.open(app, ref)
         guide_view.refresh(app)
     end
+    -- v2: the tie-and-lock editor, from the museum's prep board.
+    app.open_ties = function(sel)
+        looked("ties")
+        if app.overlay == "notes" then
+            notes_view.close(app)
+        end
+        ties_view.open(app, sel)
+        guide_view.refresh(app)
+    end
     app.close_overlay = function()
         local was_notes = app.overlay == "notes"
+        local was_ties = app.overlay == "ties"
         notes_view.close(app)
         sheet_view.close(app)
         encounter_view.close(app)
@@ -403,8 +418,11 @@ function init(self)
             app.map_target = nil
             map_repo_view.close(app)
         end
+        if was_ties then
+            ties_view.close(app)
+        end
         app.overlay = nil
-        if was_notes and app.screen == "prep" then
+        if (was_notes or was_ties) and app.screen == "prep" then
             build_screen(self)   -- the notes can change the hand (pins, shelves, the world's cards)
         end
         guide_view.refresh(app)

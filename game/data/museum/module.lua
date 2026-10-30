@@ -659,11 +659,13 @@ M.moments = {
 
 -- Euryale's card: the marks the build-up leaves on it. why: what the party did. showdown: what it
 -- changes on boss night. thought: what she thinks, upstairs, when it lands (her inner voice).
+-- from: the rooms that can leave it at their end (the night's own bookkeeping, not a moment), for
+-- the tie-and-lock editor's outs.
 -- foe: a monster that joins her (count: how many). ally: one that fights for the party.
 -- opt: a battle option (game/rules: mirror, averted, drowsy, paint). talk: easier (+) or harder
 -- (-) to talk her round.
 M.marks = {
-    topiary = { name = "Topiary at her couch", why = "Briar Guardians left standing in the garden",
+    topiary = { name = "Topiary at her couch", why = "Briar Guardians left standing in the garden", from = { "garden" },
                 showdown = "A Briar Beast fights beside her", foe = "briar_beast",
                 thought = "One of my hedges is still standing. Come here, kitten." },
     garden_burned = { name = "She smelled the smoke", why = "They set her garden on fire",
@@ -671,7 +673,7 @@ M.marks = {
                       thought = "Fire. How crude. I liked that garden." },
     robbed = { name = "Thieves, like her", why = "They tried to rob the donation box",
                showdown = "She offers them a cut", thought = "They tried the gnome's little money box. Oh, I like them already." },
-    scarabs = { name = "Scarabs in the walls", why = "They smashed the Bone Construct",
+    scarabs = { name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
                 thought = "They smashed the old guardian. Its beetles are mine now." },
     calmed = { name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
@@ -680,7 +682,7 @@ M.marks = {
     knight = { name = "A knight in a frame", why = "The Knight of Shades was never woken",
                showdown = "The Knight steps out of a painting in her lair", foe = "knight_of_shades",
                thought = "They walked straight past my knight. He'll keep." },
-    pack = { name = "Her pack", why = "Kruthik Huntlings ran from the fight",
+    pack = { name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
              showdown = "The survivors hunt beside her", foe = "kruthik_huntling",
              thought = "The little hunters came running to me. Good dogs." },
     mirror = { name = "A mirror in their packs", why = "They took a polished cupboard door",
@@ -692,14 +694,27 @@ M.marks = {
     mech = { name = "A machine on their side", why = "They woke the Steam Mech",
              showdown = "The Mech fights for them, and she goes for its commander", ally = "steam_mech",
              thought = "The gnome's toy is walking about. It's pointed at me, isn't it." },
-    drone = { name = "A drone through the floor", why = "The Lecturer is still lecturing",
+    drone = { name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
               showdown = "Everyone starts tired, and her charm bites harder", opt = "drowsy",
               thought = "The bore is still droning. They'll come up here half asleep." },
-    pages = { name = "Sleeping pages", why = "They took the Lecturer's notes",
+    pages = { name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
               showdown = "A trick: get her to read one", thought = "They silenced the bore and kept his notes. Clever, or just tidy?" },
     careful = { name = "Careful hands", why = "They were gentle with the exhibits",
                 showdown = "She's curious about them, and easier to talk round", talk = 2,
                 thought = "They put my exhibits back where they found them. Who does that?" },
+}
+-- What a card's outs are called in the tie-and-lock editor (game/model/ties.lua), for the flags
+-- whose options don't already name them with an aspect (or name them too narrowly). Past tense,
+-- as if someone at the table did it.
+M.outs = {
+    truth = "Heard the truth about the Gorgon",
+    water = "Doused the hedges with pond water",
+    boon = "Dropped a coin in the donation box",
+    ritual_failed = "Got the water ritual wrong",
+    manual = "Bought the Mech Instruction Manual",
+    arrows = "Bought fire arrows and a bucket of slime",
+    no_surprise = "Made the huntlings come to them",
+    hyper_saved = "Saved Hyper Destroyer Mode for the Gorgon",
 }
 M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "knight", "pack", "mirror", "know", "mech", "drone", "pages", "careful" }
 M.CAREFUL_AT = 3         -- gentle acts before she notices

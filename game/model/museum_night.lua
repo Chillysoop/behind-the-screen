@@ -10,6 +10,7 @@ local adventure = require "game.model.adventure"
 local prep_mod = require "game.model.prep"
 local map_repo = require "game.model.map_repo"
 local thoughts = require "game.model.thoughts"
+local ties = require "game.model.ties"
 
 local MODULE = adventure.data
 local M = {}
@@ -53,7 +54,10 @@ function M.build_scene(night, id)
     local r = MODULE.rooms[id]
     local comps = {}
     for kind, cid in pairs(r.comps or {}) do
-        comps[kind] = content.components[cid]
+        -- (Someone the DM is keeping out of sight: the room plays without them. game/model/ties.lua)
+        if not (kind == "cast" and not r.epilogue and adventure.person_hidden(night.campaign, cid)) then
+            comps[kind] = content.components[cid]
+        end
     end
     local pm = night.prep and night.prep.museum
     local prepped = pm and pm.prepped and pm.prepped[id] or false
@@ -302,7 +306,43 @@ function M.play_moment(night, card, sc)
     if got then
         st.took[card.id] = true
     end
+    M.ties_beat(night, sc)
     return o
+end
+
+-- The DM's ties and locks (game/model/ties.lua) at a beat of the night: a moment just played, a
+-- room just done, the start of the evening. A lock whose condition has come true opens, with a
+-- line; a tie whose condition holds fires once (a mark goes on her card the usual way, and her
+-- thought comes with the room's others at its end).
+function M.ties_beat(night, sc)
+    local c = night.campaign
+    if not ties.any(c) or (sc and sc.boss) then
+        return
+    end
+    for _, line in ipairs(ties.news(c)) do
+        night:say(line, "narration")
+    end
+    for _, l in ipairs(ties.open_locks(c)) do
+        night:say(ties.open_line(l), "narration")
+    end
+    for _, t in ipairs(ties.fire(c, function(mark)
+        M.handle(night, { mark = mark }, sc)
+    end)) do
+        local line = ties.fired_line(c, t)
+        if line then
+            night:say(line, "aside")
+        end
+    end
+end
+
+-- The ways a lock is holding shut from where the party stands, said once a night per room.
+local function say_shut(night, from)
+    local line = ties.shut_line(night.campaign, from)
+    night.mus.shut_said = night.mus.shut_said or {}
+    if line and not night.mus.shut_said[from] then
+        night.mus.shut_said[from] = true
+        night:say(line, "dm")
+    end
 end
 
 function M.moments(night, sc, at)
@@ -312,7 +352,7 @@ function M.moments(night, sc, at)
     local knobs = knobs_of(night)
     for _, m in ipairs(MODULE.moments) do
         if m.room == sc.room and (m.at or "start") == at and adventure.test(night.campaign, m.when, knobs)
-            and not (m.unless and adventure.test(night.campaign, m.unless, knobs)) then
+            and not (m.unless and adventure.test(night.campaign, m.unless, knobs)) and adventure.moment_open(night.campaign, m) then
             M.play_moment(night, m, sc)
             if night.end_early then
                 return
@@ -562,7 +602,7 @@ function M.second_looks(night)
             if id == "gift_shop" then
                 if hurt(night) >= 0.45 then
                     table.insert(out, { id = id, why = "rest", steps = steps })
-                elseif (st.francs or 0) >= 3 and not night.mus.shopped then
+                elseif (st.francs or 0) >= 3 and not night.mus.shopped and M.shop_open(c, id) then
                     table.insert(out, { id = id, why = "shop", steps = steps })
                 end
             end
@@ -612,6 +652,16 @@ function M.side_options(night)
         end
     end
     return out
+end
+
+-- Is the room's shop open (its shopping moment not locked or cut, its shopkeeper about)?
+function M.shop_open(c, id)
+    for _, m in ipairs(MODULE.moments) do
+        if m.room == id and m.shop then
+            return adventure.moment_open(c, m)
+        end
+    end
+    return true
 end
 
 local function want_side(p, sd)
@@ -757,6 +807,13 @@ function M.fork(night, options, backs, sides)
         end
     end
     local pm = night.prep and night.prep.museum
+    -- A way the DM has locked shut: the table can see it, it just won't open yet.
+    local shut = pos and ties.shut_line(c, pos)
+    if shut then
+        night.mus.shut_said = night.mus.shut_said or {}
+        night.mus.shut_said[pos] = true
+        table.insert(parts, shut)
+    end
     local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum", title = fk.title,
                    actor = { "instigator", "explorer", "butt_kicker" },
                    text = fk.text .. " " .. table.concat(parts, " "), options = {} }
@@ -976,6 +1033,7 @@ function M.after_room(night, sc)
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
     adventure.leave_room(c, id, outcome, c.week)
+    M.ties_beat(night, sc)
     M.interlude(night, sc)
 end
 
@@ -1104,6 +1162,11 @@ function M.run(night)
     c.last_cliff = nil
     M.intro(night)
     thoughts.mood(night)
+    -- The DM's ties: anything that came true between sessions opens or fires now, before a room.
+    if ties.any(c) then
+        M.ties_beat(night)
+        M.interlude(night)
+    end
     if adventure.boss_week(c) then
         M.boss_night(night)
     else
@@ -1115,6 +1178,7 @@ function M.run(night)
             local backs = M.second_looks(night)
             local sides = M.side_options(night)
             if #options == 0 and #backs == 0 and #sides == 0 then
+                say_shut(night, st.pos or st.last_room)
                 break
             end
             local nxt = MODULE.rooms[options[1] or (backs[1] or sides[1]).id]
@@ -1152,6 +1216,8 @@ function M.run(night)
             local pick = { id = options[1] }
             if #options + #backs + #sides > 1 or #options == 0 then
                 pick = M.fork(night, options, backs, sides)
+            elseif st.pos or st.last_room then
+                say_shut(night, st.pos or st.last_room)
             end
             if pick.side then
                 M.side_room(night, pick.side)

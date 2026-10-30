@@ -12,6 +12,7 @@ local util = require "game.model.util"
 local adventure = require "game.model.adventure"
 local museum_week = require "game.model.museum_week"
 local map_repo = require "game.model.map_repo"
+local ties = require "game.model.ties"
 
 local MODULE = adventure.data
 local M = {}
@@ -278,6 +279,186 @@ local function party_dots(c, x, y)
     end
 end
 
+-- The floors as this adventure has them: the book's plans above when they fit its rooms (the museum),
+-- else MODULE.floors, else one floor per part with each room where its `at` puts it (0..100).
+local floors_cache
+local function floors()
+    if floors_cache then
+        return floors_cache
+    end
+    local fits = true
+    for _, fl in ipairs(FLOORS) do
+        for _, rm in ipairs(fl.rooms) do
+            fits = fits and MODULE.rooms[rm[1]] ~= nil
+        end
+    end
+    for _, id in ipairs(MODULE.order or {}) do
+        local found = false
+        for _, fl in ipairs(FLOORS) do
+            for _, rm in ipairs(fl.rooms) do
+                found = found or rm[1] == id
+            end
+        end
+        fits = fits and found
+    end
+    if MODULE.floors then
+        floors_cache = MODULE.floors
+    elseif fits then
+        floors_cache = FLOORS
+    else
+        local by = {}
+        local parts = {}
+        for _, id in ipairs(MODULE.order or {}) do
+            local r = MODULE.rooms[id]
+            local part = r.part or 1
+            if not by[part] then
+                by[part] = { title = "PART " .. util.int(part), rooms = {} }
+                table.insert(parts, part)
+            end
+            local at = r.at or { 50, 50 }
+            local cx, cy = at[1] / 100, at[2] / 100
+            table.insert(by[part].rooms, { id, math.max(0, cx - 0.14), math.max(0, cy - 0.1), math.min(1, cx + 0.14),
+                                           math.min(1, cy + 0.1) })
+        end
+        table.sort(parts)
+        floors_cache = {}
+        for _, part in ipairs(parts) do
+            table.insert(floors_cache, by[part])
+        end
+    end
+    return floors_cache
+end
+
+-- Where each floor goes in a map box (the same sums draw_map has always done).
+local function floor_frames(x, y, w, h, opts)
+    local pad = 10
+    local ix, iy, iw, ih = x + pad, y + 8, w - 2 * pad, h - 16 - (opts.legend and 20 or 0)
+    local fls = floors()
+    local out = {}
+    if w / h >= 2.2 or #fls ~= 3 then
+        -- Wide (the prep board): the floors side by side, the ground floor biggest.
+        local shares = #fls == 3 and { 0.40, 0.36, 0.24 } or nil
+        local fx = ix
+        for i, fl in ipairs(fls) do
+            local share = shares and shares[i] or (1 / #fls)
+            local fw = iw * share - (i < #fls and 14 or 0)
+            table.insert(out, { fl = fl, x = fx, y = iy, w = fw, h = ih })
+            fx = fx + iw * share
+        end
+    else
+        -- Squarer (the showdown, the notes, the recap): the ground floor left, the rest stacked.
+        local lw = iw * 0.48
+        table.insert(out, { fl = fls[1], x = ix, y = iy, w = lw - 10, h = ih })
+        table.insert(out, { fl = fls[2], x = ix + lw, y = iy, w = iw - lw, h = ih * 0.58 - 6 })
+        table.insert(out, { fl = fls[3], x = ix + lw + (iw - lw) * 0.2, y = iy + ih * 0.58, w = (iw - lw) * 0.6, h = ih * 0.42 })
+    end
+    return out
+end
+
+-- The floor plan in a map box, as rectangles: { rooms = { [id] = { x, y, w, h, floor, backdrop } },
+-- floors = { { fl, x, y, w, h } }, doors = { { a, b, x, y } } }. game/ui/ties_view.lua draws on it.
+function M.plan(x, y, w, h, opts)
+    opts = opts or {}
+    local out = { rooms = {}, floors = floor_frames(x, y, w, h, opts), doors = {} }
+    for fi, f in ipairs(out.floors) do
+        local fy, fh = f.y + 18, f.h - 18
+        f.inner = { f.x, fy, f.w, fh }
+        local function rect(rr)
+            return f.x + rr[1] * f.w, fy + rr[2] * fh, (rr[3] - rr[1]) * f.w, (rr[4] - rr[2]) * fh
+        end
+        for i, rm in ipairs(f.fl.rooms) do
+            local rx, ry, rw, rh = rect({ rm[2], rm[3], rm[4], rm[5] })
+            out.rooms[rm[1]] = { x = rx, y = ry, w = rw, h = rh, floor = fi, backdrop = (i == 1 and f.fl.label ~= nil) }
+        end
+        if f.fl.label then
+            local lr = out.rooms[f.fl.rooms[1][1]]
+            lr.label_at = { f.x + f.fl.label[2] * f.w, fy + f.fl.label[3] * fh }
+        end
+        if f.fl.down then
+            local dx, dy, dw, dh = rect(f.fl.down)
+            f.down = { dx + dw / 2, dy + dh / 2 }
+        end
+    end
+    -- Each door's spot: between two rooms on one floor; on a room inside a hall, on its edge toward
+    -- the hall's name; a way up, on the upper floor (by its "down" if it has one).
+    local function clamp(px, py, r)
+        return math.max(r.x, math.min(r.x + r.w, px)), math.max(r.y, math.min(r.y + r.h, py))
+    end
+    for _, d in ipairs(ties.doors()) do
+        local a, b = out.rooms[d[1]], out.rooms[d[2]]
+        if a and b then
+            local px, py
+            if a.floor == b.floor then
+                local outer, inner = (a.backdrop and a) or (b.backdrop and b), nil
+                if outer then
+                    inner = outer == a and b or a
+                    local ax = outer.label_at or { outer.x + outer.w / 2, outer.y + outer.h / 2 }
+                    px, py = clamp(ax[1], ax[2], inner)
+                else
+                    local ax, ay = clamp(b.x + b.w / 2, b.y + b.h / 2, a)
+                    local bx, by = clamp(a.x + a.w / 2, a.y + a.h / 2, b)
+                    px, py = (ax + bx) / 2, (ay + by) / 2
+                end
+            else
+                local up = a.floor > b.floor and a or b
+                local f = out.floors[up.floor]
+                if f.down and up.backdrop then
+                    px, py = f.down[1], f.down[2]
+                else
+                    px, py = up.x + up.w / 2, up.y + up.h - 10
+                end
+            end
+            -- Two doors on one spot (a room off the hall with a door to its neighbour too): slide this one over.
+            local function crowded(qx, qy)
+                for _, o in ipairs(out.doors) do
+                    if math.abs(o.x - qx) < 26 and math.abs(o.y - qy) < 26 then
+                        return true
+                    end
+                end
+                return false
+            end
+            if crowded(px, py) then
+                for _, off in ipairs({ { 30, 0 }, { -30, 0 }, { 0, 30 }, { 0, -30 }, { 30, 30 }, { -30, -30 } }) do
+                    if not crowded(px + off[1], py + off[2]) then
+                        px, py = px + off[1], py + off[2]
+                        break
+                    end
+                end
+            end
+            table.insert(out.doors, { a = d[1], b = d[2], x = px, y = py })
+        end
+    end
+    return out
+end
+
+-- The DM's locks on the floor plan (game/model/ties.lua): a small lock on a room or door that's
+-- shut, a faded one on what a lock is holding in some other way (a person, a card).
+function M.draw_locks(app, plan, size)
+    local c = app.campaign
+    if not (c.adv and c.adv.locks and #c.adv.locks > 0) then
+        return
+    end
+    size = size or 14
+    for _, l in ipairs(c.adv.locks) do
+        if not l.open then
+            if l.kind == "room" and plan.rooms[l.room] then
+                local r = plan.rooms[l.room]
+                local lx = r.label_at and (r.label_at[1] - size / 2) or (r.x + r.w - size - 3)
+                local ly = r.label_at and (r.label_at[2] - size - 4) or (r.y + 3)
+                kit.box(lx - 2, ly - 2, size + 4, size + 4, kit.rgba("#000000", 0.55), { radius = 5 })
+                kit.icon(lx, ly, size, "lock", theme.gold)
+            elseif l.kind == "door" then
+                for _, d in ipairs(plan.doors) do
+                    if (d.a == l.a and d.b == l.b) or (d.a == l.b and d.b == l.a) then
+                        kit.box(d.x - size / 2 - 2, d.y - size / 2 - 2, size + 4, size + 4, kit.rgba("#000000", 0.55), { radius = 5 })
+                        kit.icon(d.x - size / 2, d.y - size / 2, size, "lock", theme.gold)
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function draw_floor(app, c, fl, x, y, w, h)
     kit.text(x, y, fl.title, "ui14", theme.dim)
     y, h = y + 18, h - 18
@@ -320,23 +501,12 @@ function M.draw_map(app, x, y, w, h, opts)
     local c = app.campaign
     opts = opts or {}
     kit.box(x, y, w, h, kit.rgba("#000000", 0.22), { radius = 10 })
-    local pad = 10
-    local ix, iy, iw, ih = x + pad, y + 8, w - 2 * pad, h - 16 - (opts.legend and 20 or 0)
-    if w / h >= 2.2 then
-        -- Wide (the prep board): the three floors side by side, the ground floor biggest.
-        local shares = { 0.40, 0.36, 0.24 }
-        local fx = ix
-        for i, fl in ipairs(FLOORS) do
-            local fw = iw * shares[i] - (i < 3 and 14 or 0)
-            draw_floor(app, c, fl, fx, iy, fw, ih)
-            fx = fx + iw * shares[i]
-        end
-    else
-        -- Squarer (the showdown, the notes, the recap): the ground floor left, the rest stacked.
-        local lw = iw * 0.48
-        draw_floor(app, c, FLOORS[1], ix, iy, lw - 10, ih)
-        draw_floor(app, c, FLOORS[2], ix + lw, iy, iw - lw, ih * 0.58 - 6)
-        draw_floor(app, c, FLOORS[3], ix + lw + (iw - lw) * 0.2, iy + ih * 0.58, (iw - lw) * 0.6, ih * 0.42)
+    for _, f in ipairs(floor_frames(x, y, w, h, opts)) do
+        draw_floor(app, c, f.fl, f.x, f.y, f.w, f.h)
+    end
+    -- What the DM has locked (the tie-and-lock editor).
+    if c.adv and c.adv.locks and #c.adv.locks > 0 then
+        M.draw_locks(app, M.plan(x, y, w, h, opts))
     end
     if opts.legend then
         kit.text(x + 12, y + h - 22, "Gold: tonight.  Green: done.  Brown: walked past.  Teal: where they are.  "
@@ -482,13 +652,21 @@ end
 local function rooms(app, prep, x, y, w, max_y)
     local pm = prep.museum
     kit.text(x, y, "TONIGHT'S ROOMS", "ui14", theme.dim)
-    kit.text(x + w - 150, y, "The party picks the way at forks. Prep where you think they'll go.", "ui14", theme.faint,
+    kit.text(x + w - 298, y, "The party picks the way. Prep where they'll go.", "ui14", theme.faint,
         { pivot = gui.PIVOT_NE })
     kit.button(x + w - 140, y - 6, 140, 26, "All maps", function()
         if app.open_maps then
             app.open_maps()
         end
     end, { font = "ui14", key = "open_maps" })
+    -- The tie-and-lock editor (game/ui/ties_view.lua): lock a way or a card, tie one thing to another.
+    local n = #(app.campaign.adv.locks or {}) + #(app.campaign.adv.ties or {})
+    kit.button(x + w - 140 - 8 - 140, y - 6, 140, 26, n > 0 and ("Ties and locks (" .. util.int(n) .. ")") or "Ties and locks",
+        function()
+            if app.open_ties then
+                app.open_ties()
+            end
+        end, { font = "ui14", color = n > 0 and theme.go or nil, hover = n > 0 and theme.go_hover or nil, key = "open_ties" })
     y = y + 22
     for _, id in ipairs(pm.ahead) do
         if y > max_y - 40 then
@@ -657,6 +835,8 @@ function M.build(app)
     if #prompts(app) > 0 then
         return between(app)
     end
+    -- What the answers between sessions made come true opens the DM's locks (ties.lua).
+    museum_week.sync_ties(prep, c)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     top_bar(app, prep)
     if prep.museum.boss then

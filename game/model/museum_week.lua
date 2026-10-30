@@ -10,6 +10,7 @@ local prep_mod = require "game.model.prep"
 local bars = require "game.model.bars"
 local social = require "game.model.social"
 local progression = require "game.model.progression"
+local ties = require "game.model.ties"
 
 local MODULE = adventure.data
 local M = {}
@@ -108,6 +109,63 @@ function M.knob_like(id, value)
     return k.like
 end
 
+-- The DM bent the map in prep (game/ui/ties_view.lua: a lock set, removed or opened): tonight's
+-- rooms again. Rooms and knobs no longer on the way give their hours back.
+function M.reahead(prep, campaign)
+    local pm = prep.museum
+    if not pm then
+        return
+    end
+    pm.ahead = adventure.ahead(campaign)
+    pm.boss = adventure.boss_week(campaign)
+    for id in pairs(pm.prepped) do
+        if not util.contains(pm.ahead, id) then
+            pm.prepped[id] = nil
+        end
+    end
+    for kid in pairs(pm.knobs) do
+        local k = MODULE.knobs[kid]
+        if k and not util.contains(pm.ahead, k.room) then
+            pm.knobs[kid] = nil
+        end
+    end
+    prep.scenes = {}
+    for _, id in ipairs(pm.ahead) do
+        local r = MODULE.rooms[id]
+        if not r.virtual then
+            local slots = {}
+            for kind, cid in pairs(r.comps or {}) do
+                slots[kind] = content.components[cid]
+            end
+            table.insert(prep.scenes, { type = r.type, slots = slots, room = id })
+        end
+    end
+    if pm.boss then
+        campaign.adv.boss = campaign.adv.boss or { opener = "talk", style = "yields" }
+    end
+end
+
+-- Between sessions, what came true opens the DM's locks (ties.lua): tonight's rooms again if so.
+-- Called by the prep board once the questions between sessions are answered.
+function M.sync_ties(prep, campaign)
+    if not ties.any(campaign) then
+        return false
+    end
+    local st = campaign.adv
+    local before = #(st.lock_news or {})
+    ties.week(campaign)
+    local ahead = adventure.ahead(campaign)
+    local same = #ahead == #(prep.museum.ahead or {})
+    for i, id in ipairs(ahead) do
+        same = same and prep.museum.ahead[i] == id
+    end
+    if not same or #(st.lock_news or {}) ~= before then
+        M.reahead(prep, campaign)
+        return true
+    end
+    return false
+end
+
 -- Prep everything that fits, in order: what a quick DM does (and the tests' bots).
 function M.prep_greedy(prep)
     for _, id in ipairs(prep.museum.ahead) do
@@ -132,6 +190,8 @@ function M.start_week(c)
         p.present = true
     end
     c.new_chars = require("game.model.death").start_week(c)
+    -- The DM's locks: anything that came true by now opens before the board is dealt (ties.lua).
+    ties.week(c)
     c.prep = prep_mod.new(c)
     M.new_prep(c.prep, c)
     c.leveled_now = nil
