@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Film the real game for a trailer: builds a Linux bundle, plays the whole museum prologue headless
-# (autotest mode 8 at trailer pace: nights at their own speed, cards held a moment) on Xvfb, and
-# records the screen with ffmpeg. Writes OUT/rec.mkv and OUT/marks.tsv (seconds into the recording,
+# (autotest mode 8 at trailer pace: skipping ahead between the moments worth filming, slowing to the
+# night's own pace around each one, cards held a moment) on Xvfb, and records the screen with ffmpeg
+# (15 fps is plenty: the software renderer draws a few frames a second, each a fixed step of game time). Writes OUT/rec.mkv and OUT/marks.tsv (seconds into the recording,
 # then each autotest log line), so tools/trailer/cut.py can find the moments.
 #
 #   tools/trailer/record.sh OUT_DIR
@@ -35,7 +36,7 @@ Xvfb $D -screen 0 1600x900x24 >/dev/null 2>&1 &
 XPID=$!
 sleep 1.5
 
-ffmpeg -y -loglevel error -f x11grab -framerate 30 -video_size 1600x900 -draw_mouse 0 -i "$D" \
+ffmpeg -y -loglevel error -f x11grab -framerate 15 -video_size 1600x900 -draw_mouse 0 -i "$D" \
     -c:v libx264 -preset ultrafast -crf 18 -pix_fmt yuv420p "$OUT/rec.mkv" &
 FPID=$!
 T0=$(date +%s.%N)

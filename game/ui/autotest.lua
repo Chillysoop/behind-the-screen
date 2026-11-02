@@ -546,8 +546,20 @@ function M.update(app, dt)
         a.trailer = (ok and tr == 1) or false
         if a.trailer then
             -- The moments worth cutting to, as they happen.
+            -- (The night skips ahead between the moments worth filming, and slows to its own pace
+            -- for a few seconds of game time around each one.)
+            local function slow(secs)
+                a.slow_until = math.max(a.slow_until or 0, a.t + secs)
+            end
             app.trailer_log = function(ev)
                 local k = ev.kind
+                if k == "scene" then
+                    slow(4)
+                elseif k == "battle" and ev.phase == "start" then
+                    slow(16)
+                elseif k == "thought" or k == "mark" or (k == "check" and (ev.crit or ev.fumble)) then
+                    slow(3)
+                end
                 if k == "battle" then
                     say("ev battle " .. tostring(ev.phase))
                 elseif k == "scene" then
@@ -901,7 +913,7 @@ function M.update(app, dt)
         elseif app.pending then
             if a.trailer and a.held ~= app.pending then
                 a.held = app.pending
-                a.wait = app.pending.kind == "cinematic" and 3.0 or 2.6
+                a.wait = app.pending.kind == "cinematic" and 2.0 or 1.8
                 return
             end
             -- Key art: clean shots, a story scene's and a fight's, while the night waits on a card.
@@ -973,7 +985,7 @@ function M.update(app, dt)
                 if not ok or sk ~= 0 then
                     nv.skip(app)
                 end
-            elseif not a.trailer then
+            elseif not a.trailer or a.t > (a.slow_until or 0) then
                 nv.skip(app)
             end
         end
