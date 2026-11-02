@@ -15,6 +15,9 @@ valley map and the campaign planner are switched off while it runs (`campaign.mo
 friends, Session Zero, the rules engine and game night stay. The design and the feedback behind it are in
 `docs/design/2026-10-30-museum-v2.md`. `main` is still the October 20 build; don't merge this into it unless asked.
 A longer, full pre-written adventure will follow as the main campaign, through the same adventure format.
+**Before starting it, read `docs/design/longer-adventure-notes.md`:** the November 2 playtest feedback on cause
+and effect, what to build first (one event log, one shape for conditional text, the truth test as the gate), what's
+still open from the museum, and a checklist.
 
 Where v2 lives:
 
