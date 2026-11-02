@@ -553,6 +553,14 @@ function M.update(app, dt)
             end
             app.trailer_log = function(ev)
                 local k = ev.kind
+                -- (Filmed: the first night, and the Gorgon's lair. The rest goes by quickly.)
+                if k == "scene" then
+                    a.filming = (app.campaign and app.campaign.week == 1)
+                        or (type(ev.title) == "string" and string.find(string.lower(ev.title), "lair") ~= nil)
+                end
+                if not a.filming then
+                    return
+                end
                 if k == "scene" then
                     slow(4)
                 elseif k == "battle" and ev.phase == "start" then
@@ -879,7 +887,7 @@ function M.update(app, dt)
             local th = app.night and app.night.th
             local t = th and th.list[app.thought_card.id]
             local stage = tostring(app.thought_card.id) .. (t and t.read and "r" or "u")
-            if a.trailer and a.held ~= stage then
+            if a.trailer and (a.filming or (app.campaign and app.campaign.week == 1)) and a.held ~= stage then
                 a.held = stage
                 a.wait = 2.2
                 return
@@ -911,7 +919,7 @@ function M.update(app, dt)
                 say("handover")
             end
         elseif app.pending then
-            if a.trailer and a.held ~= app.pending then
+            if a.trailer and (a.filming or (app.campaign and app.campaign.week == 1)) and a.held ~= app.pending then
                 a.held = app.pending
                 a.wait = app.pending.kind == "cinematic" and 2.0 or 1.8
                 return
