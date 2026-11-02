@@ -265,6 +265,8 @@ local function play(seed, style)
                 adventure.answer_request(c, pr.id, MODULE.ANSWERS[rng:int(1, 4)])
             elseif pr.kind == "loose" then
                 adventure.answer_loose(c, pr.id, rng:int(1, #pr.def.options))
+            elseif pr.kind == "ruling" then
+                adventure.answer_ruling(c, pr.id, rng:chance(0.5))
             elseif pr.kind == "favor" then
                 adventure.answer_favor(c, pr.id, rng:int(1, 2), rng:int(1, 2))
             end

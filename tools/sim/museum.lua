@@ -169,6 +169,8 @@ for w = 1, adventure.data.MAX_WEEKS do
             adventure.answer_request(c, pr.id, a)
         elseif pr.kind == "loose" then
             adventure.answer_loose(c, pr.id, 1)
+        elseif pr.kind == "ruling" then
+            adventure.answer_ruling(c, pr.id, style ~= "careless")
         elseif pr.kind == "favor" then
             adventure.answer_favor(c, pr.id, 1, 1)
         end

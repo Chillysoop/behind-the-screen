@@ -211,14 +211,38 @@ function M.build(campaign, night, rng)
     local titles = {}
     local beat = campaign.arc_beat and campaign:arc_beat()
     local planned = beat and beat.title and util.title_case(beat.title)
+    -- (v2: an adventure's night is named for its rooms, "The Garden and the Entrance Hall".)
+    if night.mus and campaign.adv then
+        local MODULE = util.lazy("game.model.adventure").data
+        local names = {}
+        for _, r in ipairs(night.mus.rooms or {}) do
+            local room = MODULE.rooms[r.room]
+            if room and not room.virtual and not r.back and not room.epilogue and #names < 2
+                and not util.contains(names, room.name) then
+                table.insert(names, room.name)
+            end
+        end
+        if #names > 0 then
+            planned = util.title_case(table.concat(names, " and "))
+        end
+    end
     if planned then
         table.insert(titles, planned)
     end
+    -- (A title another night already had is passed over: "The One That Got Away", twice.)
+    local used = campaign.recap_titles or {}
     for _, t in ipairs(M.TITLES[tk]) do
         local name = util.title_case(util.fill(t, tv))
-        if not util.contains(titles, name) then
+        if not util.contains(titles, name) and not util.contains(used, name) and not string.find(name, "{", 1, true) then
             table.insert(titles, name)
         end
+    end
+    if #titles == 0 then
+        table.insert(titles, "Session " .. util.int(campaign.week or 1))
+    end
+    campaign.recap_titles = campaign.recap_titles or {}
+    if not util.contains(campaign.recap_titles, titles[1]) then
+        table.insert(campaign.recap_titles, titles[1])
     end
     return { titles = titles, title = 1, planned = planned, beats = beats, note = "",
              spoken = M.spoken_beats(campaign, night) }

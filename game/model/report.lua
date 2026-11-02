@@ -53,6 +53,11 @@ function M.why(p, night)
             end
         end
     end
+    -- (v2: the reason their hero came to the museum, paid off tonight, is what they'll remember.)
+    local adv = night.campaign and night.campaign.adv
+    if night.mus and adv and (adv.hook_paid or {})[p.key] == night.campaign.week then
+        return "Found what " .. p.char .. " came to the museum for."
+    end
     if p.boredom >= 30 then
         return "Bored for long stretches."
     end
@@ -65,7 +70,7 @@ function M.why(p, night)
     end
     local v = p.m[best] or 0
     if v >= 60 then
-        return "Got " .. GOT[best] .. " they came for."
+        return "Got " .. GOT[best] .. " they wanted."
     elseif v < 35 then
         return "Wanted more " .. MORE[best] .. "."
     end

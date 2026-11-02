@@ -186,8 +186,54 @@ end
 
 -- This session ---------------------------------------------------------------------------------------
 
+-- v2: an adventure's session is its rooms: where they are, tonight's rooms as the book has them
+-- (what each is, the fight the book gives it, what prepping it means), and tonight so far.
+local function tab_session_module(app, x, y, w)
+    local c = app.campaign
+    local adventure = require "game.model.adventure"
+    local museum_week = require "game.model.museum_week"
+    local MODULE = adventure.data
+    local col_w = 640
+    local ly = y
+    kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF THE MUSEUM", "ui14", theme.dim)
+    ly = ly + 20
+    kit.text(x, ly, adventure.where(c), "title30", theme.text, { w = col_w, lines = 1 })
+    ly = ly + 44
+    ly = head(x, ly, "Tonight's rooms")
+    local pm = c.prep and c.prep.museum
+    for _, id in ipairs(pm and pm.ahead or {}) do
+        local r = MODULE.rooms[id]
+        if r and not r.virtual and ly < 820 then
+            kit.text(x, ly, r.name, "ui18b", theme.text)
+            local prepped = pm.prepped and pm.prepped[id]
+            kit.text(x + col_w, ly + 2, prepped and "Prepped" or "Not prepped", "ui14", prepped and theme.green or theme.faint,
+                { pivot = gui.PIVOT_NE })
+            ly = ly + 22
+            ly = para(x + 12, ly, col_w - 12, r.sum, "ui14", theme.dim)
+            for _, n in ipairs(museum_week.room_prep(c, id)) do
+                ly = para(x + 12, ly, col_w - 12, n.text .. ".", "ui14", n.kind == "ask" and theme.teal or theme.faint)
+            end
+            ly = ly + 6
+        end
+    end
+    local night = app.screen == "night" and app.night
+    local rx = x + col_w + 40
+    if night and night.scenes then
+        local ry = head(rx, y, "Tonight so far")
+        for _, sc in ipairs(night.scenes) do
+            if sc.title then
+                kit.text(rx + 12, ry, util.int(sc.index) .. ". " .. sc.title, "ui14", theme.text)
+                ry = ry + 20
+            end
+        end
+    end
+end
+
 local function tab_session(app, x, y, w)
     local c = app.campaign
+    if c.module and c.adv then
+        return tab_session_module(app, x, y, w)
+    end
     local beat = c:arc_beat()
     local col_w = 640
     local ly = y
@@ -410,9 +456,21 @@ local function tab_party(app, x, y, w, h)
             line = line .. ", " .. subs.list[sub].name
         end
         py = para(px + 14, py, cw - 28, line, "ui18", theme.text)
+        -- (v2: in an adventure, the reason their hero came, and where it pays off.)
+        local adv = c.module and c.adv and require("game.model.adventure")
+        local hk = adv and adv.hook(c, p.key)
+        if hk then
+            py = head(px + 14, py + 6, "Why they came")
+            local room = adv.data.rooms[hk.room]
+            local paid = (c.adv.hook_paid or {})[p.key]
+            py = para(px + 14, py, cw - 28, hk.name .. ": " .. hk.text .. " It pays off in " .. util.lower_first(room.name)
+                .. (paid and " (found)." or "."), "ui18", theme.text)
+        else
         py = head(px + 14, py + 6, "Backstory hook")
         py = para(px + 14, py, cw - 28, util.capitalize(p.thread or ""), "ui18", theme.text)
+        end
         -- What Session Zero wrote in, and everything since: their Story log.
+        if not c.module then
         local written = require("game.model.backstory").written(c, p.key, p.char)
         kit.button(px + 14, py, cw - 28, 26, written and "Their past, as you wrote it" or "Their Story log", function()
             app.storylog_id = "bs_" .. p.key
@@ -421,6 +479,7 @@ local function tab_party(app, x, y, w, h)
             M.draw(app)
         end, { font = "ui14", color = theme.panel3, hover = theme.button_hover, key = "party_storylog_" .. p.key })
         py = py + 32
+        end
         py = head(px + 14, py + 6, "At the table")
         py = para(px + 14, py, cw - 28, p.notes or "", "ui14", theme.dim)
         -- What Session Zero wrote into their past (as much as there's room for; the Story log has it all).

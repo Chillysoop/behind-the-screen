@@ -4058,7 +4058,7 @@ function M:combat_scene(sc)
             score.add(p, "fun", -4)
         end
         self:react(poses)
-        self:event("defeat", { who = "party", text = "A fight they couldn't win", weight = 7 })
+        -- (No "defeat" beat of its own: the room's goal says how it went, once, for the recap.)
         self:bark(self:pick_actor(nil), "defeat")
     else
         self:say(self.talk:fight("party_lose", self:vars()), "bad")

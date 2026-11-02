@@ -254,6 +254,21 @@ function M.enter(campaign)
         end
         scrub(require("game.model.recap"), seen)
         M.museum_death()
+        -- The recap's words where the shared ones assume a campaign.
+        local rc = require "game.model.recap"
+        for k, list in pairs(MODULE.recap_beats or {}) do
+            rc.TEMPLATES[k] = list
+        end
+        -- The friends' gifts at the table, in this adventure's words.
+        local kd = require "game.data.keepsakes"
+        for id, over in pairs(MODULE.keepsakes or {}) do
+            local g = kd.GIFTS[id]
+            if g then
+                for k, v in pairs(over) do
+                    g[k] = v
+                end
+            end
+        end
         -- The adventure's own magic items join the rules' list (a pickup goes on a hero's sheet).
         local mi = require "game.rules.data.magic_items"
         for id, def in pairs(MODULE.magic_items or {}) do
@@ -486,6 +501,12 @@ function M.test(campaign, cond, knobs)
         return false
     end
     if cond.met and not M.met(campaign, cond.met) then
+        return false
+    end
+    if cond.seen and not (st.seen or {})[cond.seen] then
+        return false               -- (a moment card that played)
+    end
+    if cond.not_soft and M.test(campaign, { soft = cond.not_soft }) then
         return false
     end
     -- What Session Zero agreed: a content tag the table veiled (it happens off screen) or drew a
@@ -1101,11 +1122,35 @@ function M.prompts(campaign)
             asked = asked + 1
         end
     end
+    -- A ruling the DM promised to look up after last session ("Quick call now, look it up
+    -- after"): the group chat is where it gets posted, or not.
+    local due = campaign.promises_due and campaign.promises_due.look_it_up
+    if due and due.week < (campaign.week or 1) and not st.answered["ruling_" .. due.week] then
+        table.insert(out, { kind = "ruling", id = "ruling_" .. due.week, def = { topic = due.topic or "that rule" } })
+    end
     table.sort(out, function(a, b)
-        local order = { request = 1, loose = 2, favor = 3 }
+        local order = { ruling = 0, request = 1, loose = 2, favor = 3 }
         return order[a.kind] < order[b.kind]
     end)
     return out
+end
+
+-- The ruling, posted in the chat (keep) or left (it breaks when the night ends, social.lua).
+function M.answer_ruling(campaign, id, keep)
+    local st = campaign.adv
+    if st.answered[id] then
+        return
+    end
+    st.answered[id] = keep and "posted" or "left"
+    if keep then
+        campaign.promises_due.look_it_up = nil
+        local social = require "game.model.social"
+        social.push(campaign, "rules", -6)
+        local sam = campaign:player("sam")
+        if sam then
+            score.add(sam, "trust", 2)
+        end
+    end
 end
 
 local function like_for(p, likes)

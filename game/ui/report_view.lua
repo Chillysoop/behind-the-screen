@@ -399,11 +399,16 @@ local function felt_panel(app, rep, x, y, w, h)
         app.refresh()
     end, { font = "ui14", color = behind and theme.panel or theme.panel3, hover = theme.button_hover,
            text_color = behind and theme.dim or theme.gold, key = "report_tab_felt" })
+    -- (v2: the book is the story, so nobody "moved" it: no second tab while an adventure runs.)
+    if app.campaign.module then
+        behind = false
+    else
     kit.button(x + 14 + w1, y + 6, w2, 26, t2, function()
         app.report_tab = "behind"
         app.refresh()
     end, { font = "ui14", color = behind and theme.panel3 or theme.panel, hover = theme.button_hover,
            text_color = behind and theme.gold or theme.dim, key = "report_tab_behind" })
+    end
     if n_pulls > 0 and not behind then
         kit.dot(x + 14 + w1 + w2 - 6, y + 10, 10, theme.orange)
     end
@@ -538,7 +543,12 @@ function M.build(app)
             and "Everyone picks a subclass." or "Everyone gets stronger."), "ui14", lv.overdue and theme.orange or theme.dim,
             { pivot = gui.PIVOT_N })
         ey = ey + 70
-    elseif app.campaign.level < content.progression.MAX_LEVEL then
+    elseif app.campaign.module and app.campaign.level < 4 then
+        -- (v2: the book's milestones, not a count of nights.)
+        kit.text(412, ey, "Level " .. util.int(lv.level) .. ". The book's next level comes "
+            .. (lv.level < 3 and "after the gift shop." or "when the museum is done."), "ui14", theme.faint, { w = 348 })
+        ey = ey + 40
+    elseif not app.campaign.module and app.campaign.level < content.progression.MAX_LEVEL then
         kit.text(412, ey, "Level " .. util.int(lv.level) .. ". The next level feels earned after "
             .. util.int(content.progression.READY_AFTER) .. " nights.", "ui14", theme.faint, { w = 348 })
         ey = ey + 40
@@ -562,8 +572,20 @@ function M.build(app)
     for _, id in ipairs(rep.payoffs or {}) do
         table.insert(earned, { "Paid off: " .. content.seeds[id].name, theme.green })
     end
+    -- (v2: what the museum gave them tonight: Francs, and anything they picked up or bought.)
+    local mu = rep.museum
+    if mu then
+        if (mu.francs_tonight or 0) > 0 then
+            table.insert(earned, { util.int(mu.francs_tonight) .. (mu.francs_tonight == 1 and " Flitwidget Franc" or " Flitwidget Francs")
+                .. " tonight (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
+        end
+        if mu.got and #mu.got > 0 then
+            table.insert(earned, { "Picked up: " .. util.join_names(mu.got) .. ".", theme.gold })
+        end
+    end
     if #earned == 0 then
-        table.insert(earned, { "No items or Inspiration handed out tonight.", theme.faint })
+        table.insert(earned, { app.campaign.module and "Nothing picked up or handed out tonight." or "No items or Inspiration handed out tonight.",
+            theme.faint })
     end
     for _, it in ipairs(earned) do
         local hh = kit.text_height(it[1], "ui14", 348)

@@ -132,11 +132,20 @@ local function page_sheet(app, s, x, y)
     local g = table.concat(s.gear, ", ")
     kit.text(rx, ry, g, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(g, "ui18", rw) + 14
-    kit.text(rx, ry, "BACKSTORY HOOK", "ui14", theme.gold)
+    -- (v2: in an adventure, the reason their hero came to it; no villains plotting on it.)
+    local c = app.campaign
+    local adv = c.module and c.adv and require("game.model.adventure")
+    local hk = adv and adv.hook(c, s.key)
+    kit.text(rx, ry, hk and "WHY THEY CAME" or "BACKSTORY HOOK", "ui14", theme.gold)
     ry = ry + 22
-    local hook = util.capitalize(s.thread or "")
+    local hook = hk and (hk.name .. ": " .. hk.text) or util.capitalize(s.thread or "")
     kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(hook, "ui18", rw) + 6
+    if hk then
+        kit.text(rx, ry + 6, "AT THE TABLE", "ui14", theme.gold)
+        kit.text(rx, ry + 28, s.notes or "", "ui14", theme.dim, { w = rw })
+        return
+    end
     -- How far the villain may go with it (Session Zero's backstory boundary): theirs to say, and
     -- yours to change after a check-in.
     local villains = require "game.model.villains"

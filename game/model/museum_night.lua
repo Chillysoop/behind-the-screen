@@ -196,6 +196,15 @@ function M.handle(night, mus, sc)
             st.holders[key] = st.holders[key] or night.actor.key
         end
     end
+    -- (What they came away with tonight, for the report: anything MODULE.items names.)
+    for _, it in ipairs(MODULE.items or {}) do
+        local w = it.when or {}
+        if it.name and ((mus.flag and w.flag == mus.flag) or (mus.mark and w.mark == mus.mark))
+            and not util.contains(night.mus.got or {}, it.name) then
+            night.mus.got = night.mus.got or {}
+            table.insert(night.mus.got, it.name)
+        end
+    end
     for _, it in ipairs(MODULE.items or {}) do
         if it.magic and mus.flag and it.when and it.when.flag == mus.flag then
             local items_mod = require "game.model.items"
@@ -450,6 +459,10 @@ function M.play_moment(night, card, sc)
     local o = night:decision(copy, night.mus_vars)
     if not o then
         return nil
+    end
+    -- (Whose painting the hall showed: the chat and the notes can say so.)
+    if card.id == "mus_reach" and night.actor then
+        st.flags["portrait_" .. night.actor.key] = true
     end
     -- What the DM chose, by the option's place on the card as written: lines later on (a goal's
     -- ending, the group chat, what an NPC remembers) say only what follows from it.
@@ -1490,7 +1503,7 @@ function M.run(night)
     local st = st_of(night)
     st.weeks = (st.weeks or 0) + 1
     night.scenes = {}
-    night.mus = { added = {}, pending = {}, rooms = {}, harsh_log = {}, bank_start = st.bank }
+    night.mus = { added = {}, pending = {}, rooms = {}, harsh_log = {}, bank_start = st.bank, francs_start = st.francs or 0, got = {} }
     local ahead = adventure.ahead(c)
     night.mus.total = math.max(1, #ahead)
     c.last_cliff = nil

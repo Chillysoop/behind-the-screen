@@ -473,6 +473,8 @@ for week = 1, WEEKS do
             if not click_key("req_" .. adventure.data.ANSWERS[rng:int(1, 4)]) then problem("no request answers" .. where) break end
         elseif pr.kind == "loose" then
             if not click_key("loose_" .. rng:int(1, #pr.def.options)) then problem("no loose-end answers" .. where) break end
+        elseif pr.kind == "ruling" then
+            if not click_key("ruling_" .. rng:int(1, 2)) then problem("no way to post the ruling" .. where) break end
         elseif pr.kind == "favor" then
             click_key("favor_help_1")
             click_key("favor_hurt_" .. rng:int(1, 2))

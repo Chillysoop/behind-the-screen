@@ -1242,7 +1242,7 @@ local function long_bar(app, p, idx, key, bx, by)
 end
 
 local WARNINGS = {
-    wavering = "Said in the chat they're losing steam.",
+    wavering = "Seems to be losing steam lately.",
     drifting = "Seems to be drifting away lately.",
 }
 

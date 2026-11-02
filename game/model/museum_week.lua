@@ -197,10 +197,11 @@ function M.start_week(c)
     c.leveled_now = nil
     social.start_week(c)
     progression.start_week(c)
+    -- (The questions first: the chat posts this week's requests, not last week's answered ones.)
+    c.adv.prompts = adventure.prompts(c)
     c.chat = M.write_chat(c)
     c.night = nil
     c.report = nil
-    c.adv.prompts = adventure.prompts(c)
     return c.prep
 end
 
@@ -216,9 +217,12 @@ function M.write_chat(c)
     end
     local said = {}
     for _, room in ipairs(last) do
-        for key, text in util.sorted_pairs(MODULE.chat[room] or {}) do
+        for key, line in util.sorted_pairs(MODULE.chat[room] or {}) do
             local p = c:player(key)
-            if p and not said[key] and #msgs < 4 then
+            -- (A line about something only if it happened: { text, when }.)
+            local text = type(line) == "table" and line[1] or line
+            local ok = type(line) ~= "table" or adventure.test(c, line.when)
+            if p and ok and not said[key] and #msgs < 4 then
                 said[key] = true
                 table.insert(msgs, { who = p.name, key = key, text = text })
             end
@@ -312,6 +316,8 @@ function M.after_night(c, night, rep)
         where = adventure.where(c),
         ending = st.ending,
         francs = st.francs,
+        francs_tonight = (st.francs or 0) - (mus.francs_start or st.francs or 0),
+        got = mus.got or {},
     }
     if night.ended_on_cliff then
         rep.museum.stopped = c.last_cliff

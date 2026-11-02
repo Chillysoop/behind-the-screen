@@ -1353,7 +1353,7 @@
   {"id": "chat_level_overdue.sam.2", "trigger": "chat_level_overdue", "speaker": "sam", "text": "kind of looking forward to level 3, not gonna lie", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "chat_level_overdue.sam.3", "trigger": "chat_level_overdue", "speaker": "sam", "text": "oswin's been reading ahead in his prayer book. for level 3", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "chat_level_overdue.sam.4", "trigger": "chat_level_overdue", "speaker": "sam", "text": "level up soon maybe? just curious", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
-  {"id": "level_up.mara.1", "trigger": "level_up", "speaker": "mara", "text": "Level three! I've been ready for weeks.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
+  {"id": "level_up.mara.1", "trigger": "level_up", "speaker": "mara", "text": "Level up! I've been ready for this one.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "level_up.mara.2", "trigger": "level_up", "speaker": "mara", "text": "Finally. Thessaly has been studying for this.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "level_up.mara.3", "trigger": "level_up", "speaker": "mara", "text": "Okay, give me a second. I have notes on this.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "level_up.mara.4", "trigger": "level_up", "speaker": "mara", "text": "Oh, this is exciting. Everyone, read your new features out loud.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},

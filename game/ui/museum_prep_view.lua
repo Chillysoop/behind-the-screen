@@ -116,7 +116,24 @@ local function between(app)
     local box_y = 112
     kit.box(x, box_y, w, 640, theme.panel, { radius = 12 })
     local def = pr.def
-    if pr.kind == "request" then
+    if pr.kind == "ruling" then
+        kit.text(x + 24, box_y + 18, "A PROMISE", "ui14", theme.gold)
+        kit.text(x + 24, box_y + 50, "Last session you made a quick call on " .. def.topic .. ", and told the table you'd look it up after.",
+            "story22", theme.text, { w = w - 48 })
+        kit.text(x + 24, box_y + 150, "That was the deal at Session Zero: quick call now, look it up after. Sam will remember either way.",
+            "ui18", theme.dim, { w = w - 48 })
+        local by = box_y + 210
+        for i, o in ipairs({ { true, "Post what the rule really says", "Five minutes with the book, and a message in the chat." },
+                             { false, "Let it slide", "Nobody's asked. Maybe nobody will." } }) do
+            kit.button(x + 24, by, w - 48, 80, "", function()
+                adventure.answer_ruling(c, pr.id, o[1])
+                app.refresh()
+            end, { color = theme.panel2, hover = theme.button_hover, key = "ruling_" .. i })
+            kit.text(x + 40, by + 10, o[2], "ui18b", o[1] and theme.gold or theme.text)
+            kit.text(x + 40, by + 38, o[3], "ui18", theme.dim, { w = w - 80, lines = 1 })
+            by = by + 92
+        end
+    elseif pr.kind == "request" then
         local p = c:player(def.who)
         kit.text(x + 24, box_y + 18, "A REQUEST", "ui14", theme.gold)
         kit.dot(x + 44, box_y + 70, 40, panels.COLORS[def.who] or theme.panel3)

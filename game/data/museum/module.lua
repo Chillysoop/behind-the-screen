@@ -994,6 +994,33 @@ M.items = {
     { id = "vorpal", when = { flag = "vorpal_lair" }, rooms = { "lair" }, boss = true,
       line = "Somewhere behind her couch is the vorpal sword they were promised. First, Euryale." },
 }
+-- The recap's words for a beat (game/model/recap.lua TEMPLATES), where the shared ones assume a
+-- campaign: a foe that runs in the museum goes deeper in, not off to swear revenge.
+M.recap_beats = {
+    escape = { "{text}.", "One of them got away, deeper into the museum.", "Something ran, and it's somewhere upstairs now." },
+    villain_falls = { "{text}.", "The one leading them went down, and the rest lost heart." },
+}
+
+-- The friends' gifts at the real table (game/data/keepsakes.lua), in this adventure's words: they
+-- never played the old campaign, so no gift can be from it (the 3D pieces stay as they are).
+M.keepsakes = {
+    dice_tower = { name = "a dice tower shaped like a crooked little house", short = "dice tower",
+                   line = "Painted it myself. The dice come out the front door.",
+                   use = "Your next big roll rattles down through the house and out the front door." },
+    map = { name = "a framed map of the museum, drawn by hand", short = "museum map",
+            line = "I've been drawing it since the first night. Check the bottom corner.",
+            use = "It goes up where everyone can see it. Someone's already pointing at the stairs." },
+    candle = { name = "a candle called 'The Gorgon's Lair'", short = "candle",
+               line = "Smells like red wine and old stone. Light it for the creepy rooms.",
+               use = "You light it the moment the party walks into a creepy room." },
+    mini = { name = "a painted wolf mini, for whatever comes after the museum", short = "wolf mini",
+             line = "For the campaign. There's always a wolf.",
+             use = "The wolf watches from behind your screen. The table eyes it every time they look up." },
+    bell = { name = "a little brass bell from a museum gift shop", short = "brass bell",
+             line = "Ring it when something's coming. The boot at the till says it's cursed. Probably.",
+             use = "You ring it once when something's coming. Everyone sits up." },
+}
+
 -- The adventure's own magic items, added to the rules' list while it runs (adventure.enter).
 M.magic_items = {
     vorpal_sword = { name = "Vorpal sword", rarity = "Legendary", attune = true,
@@ -1269,17 +1296,21 @@ M.want_more = {
 
 -- The group chat between sessions: what the friends say about the room they just played.
 M.chat = {
-    street = { jess = "flitwidget is lying and i love him", sam = "do we get a discount at the gift shop since we're the help" },
-    garden = { dev = "the topiary fight. ten out of ten", mara = "the sign said use water. i'm thinking about that sign" },
-    entrance = { jess = "i would like it on record that i only LOOKED at the box", sam = "the statue said thank you. it was very loud" },
-    chamber = { mara = "five gallons, three gallons, four gallons. i dreamt about jugs", dev = "three skulls is too many skulls" },
-    paintings = { jess = "WHO PAINTED US INTO THE PAINTING", mara = "the lady by the mountains. who is she" },
+    -- (A line about something only if it happened: { text, when = condition }, as on moments.)
+    street = { jess = { "flitwidget is lying and i love him", when = { not_flag = "truth" } }, sam = "do we get a discount at the gift shop since we're the help" },
+    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque" } } },
+    entrance = { jess = { "i would like it on record that i only LOOKED at the box", when = { seen = "mus_box", not_mark = "robbed" } },
+                 sam = { "the statue said thank you. it was very loud", when = { flag = "boon" } } },
+    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { seen = "mus_tablet" } }, dev = "three skulls is too many skulls" },
+    paintings = { jess = { "WHO PAINTED US INTO THE PAINTING", when = { seen = "mus_dice_painting" } },
+                  mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
     gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
-    hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = "we should've chased the ones that ran" },
-    offices = { mara = "a city under the sea. the WITNESS. i have so many questions", sam = "the eyes on his arms. not ok" },
-    tomorrow = { dev = "WE HAVE A ROBOT", jess = "i'm calling it el roboto whatever its real name is" },
+    hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
+    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "notebook" } },
+                sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
+    tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
     lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },
-    stairs = { dev = "boss fight next week. finally", mara = "she's been watching us this whole time hasn't she" },
+    stairs = { dev = { "boss fight next week. finally", when = { not_flag = "rematch" } }, mara = "she's been watching us this whole time hasn't she" },
 }
 
 -- What each of the museum's people knows about the party (the DM runs them, so they remember):

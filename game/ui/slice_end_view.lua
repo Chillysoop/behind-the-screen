@@ -30,12 +30,12 @@ local function state(app)
     return app.slice
 end
 
--- Will they be back for session 5? From where Commitment ended up.
-function M.verdict(p)
+-- Will they be back for session 5 (the full campaign, after an adventure)? From where Commitment ended up.
+function M.verdict(p, module)
     if p.on_break then
         return "On a break", theme.orange
     elseif p.commitment >= 75 then
-        return "Can't wait for session 5", theme.green
+        return module and "Can't wait for the campaign" or "Can't wait for session 5", theme.green
     elseif p.commitment >= 55 then
         return "Coming back", theme.teal
     elseif p.commitment >= 35 then
@@ -345,7 +345,8 @@ local function survey(app)
         y = y + 64
     end
     kit.box(24, y, 1552, 56, theme.panel, { radius = 8 })
-    kit.text(44, y + 16, "Would you play session 5?", "ui18b", theme.text)
+    kit.text(44, y + 16, app.campaign.module and "Would you play the full campaign after the museum?" or "Would you play session 5?",
+        "ui18b", theme.text)
     for k, label in ipairs(M.NEXT) do
         local bx = 896 + (k - 1) * 152
         local on = a.next == label
@@ -420,7 +421,12 @@ function M.build(app)
     if st.stage == "survey" then
         survey(app)
     elseif st.stage == "thanks" then
-        scrapbook(app)
+        -- (Behind the thanks, the museum's own journey: not the old campaign's scrapbook.)
+        if app.campaign.module then
+            require("game.ui.museum_journey_view").build(app, nil)
+        else
+            scrapbook(app)
+        end
         kit.layer("thanks", true)
         kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.55), { round = false })
         thanks(app)
