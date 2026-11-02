@@ -64,8 +64,18 @@ Where v2 lives:
   Every screen says what it's for.
 - **The prototype notice stays.** Every launch opens on "Before you play" (`game/ui/intro_view.lua`) until the
   player clicks Agree. Tests agree to it first (`tools/tests/gui_smoke.lua`, `game/ui/autotest.lua`).
+- **Say only what's true (November 2, `docs/design/2026-11-02-cause-and-effect.md`).** A line that asserts
+  an outcome reads it from state or carries a condition (`when`, `text_if`, `read_if`, `line_if`, `win_if`).
+  Every flag set is read by something, every mark changes boss night, a log that hurts someone hurts them
+  (`mus.hurt`), and anything picked up works later (`MODULE.items`). One system owns each beat (a prize,
+  an ending, a death); the rest record. The truth test fails otherwise.
+- **The adventure owns its fiction.** Session Zero's pitch and asks, the prep notes, the people's memory,
+  the gifts, the recap's words and its magic items come from the module (`MODULE.session_zero`, `content`,
+  `prep_notes`, `memory`, `talk`, `keepsakes`, `recap_beats`, `magic_items`); shared systems fall back to
+  neutral words, never another story's.
 - **The prologue is strictly the book.** Nothing from the Silent Bells (Ilsa, Kessrick, Millbrook, the Kettle...)
-  may show while the museum runs: `adventure.foreign` lists the words, `adventure.enter` filters shared lines,
+  may show while the museum runs: `adventure.foreign` lists the old names and `game/data/fiction_words.lua` the
+  old world's places, people, creatures and callbacks (`adventure.fits`); `adventure.enter` filters shared lines,
   and the museum tests fail on any that slip through. Never copy the book's text; paraphrase it.
 
 ## Checking your work
@@ -79,6 +89,8 @@ least:
                                           # the prologue headless, three kinds of DM
                                           # (add "log" after the style to read every line the table hears)
     lua tools/tests/map_repo_check.lua    # the map repository and the open floors
+    lua tools/tests/museum_truth.lua      # cause and effect: every flag read, every mark does something, logs
+                                          # that promise an effect have it, whole prologues against what's said
     lua tools/tests/thoughts_check.lua    # the friends' thoughts: lines, answers, Empathy, whole prologues
     lua tools/tests/standing_check.lua    # the DM's recap: sides, people's lines, who's drawn to whom, the Table rows
     lua tools/tests/ties_check.lua        # ties and locks: block and open, refusals, a tied mark, saves, whole prologues
