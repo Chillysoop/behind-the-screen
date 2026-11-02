@@ -125,6 +125,77 @@ M.heroes = {
     sam = { gist = "Oswin, a cleric who keeps everyone standing", short = "Friends, snacks, a fair clever fight. Don't put him on the spot." },
 }
 
+-- Session Zero for this adventure (adventure.enter swaps it into the shared Session Zero): a
+-- pitch for the museum, not a campaign, and asks that touch what's really in it. A player's ask
+-- stays theirs (they don't know what's in the book); the prep board is where it meets tonight's
+-- rooms (MODULE.content says which rooms carry which tags). Keys match the shared ones, so the
+-- rules that read them (a "grim" table takes its first harsh call on the chin) still do.
+M.session_zero = {
+    pitch = "What should the museum feel like?",
+    tones = {
+        mixed = { name = "A spooky funhouse", blurb = "The book's own feel: weird rooms, real teeth, and a talking boot.",
+                  says = { mara = "Creepy with a wink. As long as the Gorgon is properly scary.",
+                           dev = "Funhouse with monsters in it? Sold.",
+                           jess = "A talking boot. I've already decided Pip loves it.",
+                           sam = "Spooky but fun. I can do that." } },
+        heroic = { name = "Monster hunters", blurb = "Big heroes clean out a haunted museum and save the town.",
+                   says = { mara = "Fine, but the museum's mysteries should still matter.",
+                            dev = "We hunt monsters. Perfect.",
+                            jess = "Pip, monster hunter. Pip would like a hat for this.",
+                            sam = "Heroes saving a town. That's a good Thursday." } },
+        grim = { name = "Proper horror", blurb = "Statues that were people, a dead man at his desk. Real fear.",
+                 says = { mara = "Yes. The museum should feel wrong.",
+                          dev = "Scary fights? I'm listening.",
+                          jess = "Can Pip still be funny while everyone screams?",
+                          sam = "I come here to unwind, not to have nightmares." } },
+        silly = { name = "A cartoon caper", blurb = "A gnome, a boot, and a Gorgon who'd like you to sit down for a drink.",
+                  says = { mara = "Then nobody cares what's really in the jar.",
+                           dev = "Do cartoon hedges still count as fights?",
+                           jess = "CARTOON GORGON.",
+                           sam = "Low stress. I can do low stress." } },
+    },
+    asks = {
+        mara = { kind = "line", content = "gore",
+                 text = "No gore. People can die in it, but I don't want anything gruesome described. Not on screen, not off it.",
+                 agree = { label = "Agreed. That's a line.", reply = "Thank you. That one matters to me." },
+                 push = { label = "Can it happen off screen?", reply = "I'd really rather it didn't. But okay." } },
+        sam = { kind = "veil", content = "bugs",
+                text = "Bugs can be in it. Just don't describe them crawling on anyone. Fade to black?",
+                agree = { label = "Creepy-crawlies stay off screen.", reply = "Amazing. I'll stop dreading every jar." },
+                push = { label = "Let's see how it goes.", reply = "Oh. Okay. I'll just brace myself, I guess." } },
+        jess = { text = "Let Pip talk to people. Flitwidget, the boot, even the Gorgon. Don't cut my chats short to get to a fight.",
+                 agree = { reply = "YES. Pip has questions for every exhibit that talks." } },
+    },
+    rules = {
+        length = { about = "When each night of the museum ends. A room can still run long or short." },
+    },
+}
+-- Real prep for a room of the book, on the prep board under each room (museum_week.room_prep):
+-- the people you'll voice, the props and handouts to have ready. The minis come from the room's
+-- fight, the Session Zero check from M.content.
+M.prep_notes = {
+    street = { voices = { "Flitwidget: quick, proud, a showman who changes the subject" } },
+    garden = { handouts = { "the iron plaque by the pond" } },
+    entrance = { handouts = { "the sign on the donation box" } },
+    chamber = { handouts = { "the cracked tablet", "the notebook of glyphs" } },
+    paintings = { handouts = { "a painting for each hero" } },
+    gift_shop = { voices = { "Telpur: a demon lord stuck in a boot, grand and bored" }, handouts = { "Telpur's price list" } },
+    hunting = { handouts = { "the trail of scratch marks" } },
+    offices = { handouts = { "the archivist's notebook", "the secret note" } },
+    tomorrow = { voices = { "the ceiling: a delighted game-show host" }, handouts = { "the grid code in the Mech's chest" } },
+    lecture = { voices = { "the Lecturer: a monotone that never stops" } },
+    lair = { voices = { "Euryale: calm, a gracious host, cold when crossed" }, handouts = { "the tapestry of three sisters" } },
+}
+M.content_names = { gore = "gore", bugs = "creepy-crawlies" }
+-- Which rooms carry which Session Zero content tags (the prep board's lines-and-veils check, and
+-- what plays softly at the table when a tag is veiled or under a line: text_if { soft = tag }).
+M.content = {
+    gore = { offices = "The archivist at his desk, with eyes carved into his arms." },
+    bugs = { chamber = "The Bone Construct bursts into a swarm of scarabs.",
+             hunting = "Kruthik huntlings: armoured, many-legged hunters.",
+             lair = "Scarabs or huntlings at her side, if they're on her card." },
+}
+
 -- The museum's rooms. part: which floor of the story. type: the scene type it plays as.
 -- quick: a short room (a hook, a beat, a rest). cost: prep hours. next: the way the story runs on
 -- from here (prep reads ahead along it; the doors themselves are M.links below). stop: the night
@@ -185,6 +256,7 @@ M.rooms = {
         encounter = { "kruthik_huntling", "kruthik_huntling", "kruthik_huntling", "kruthik_huntling", "kruthik_huntling" },
         boss_name = "the biggest huntling",
         read = "Up the stairs, a floor full of dioramas and stuffed beasts. It's messier up here, and something is watching.",
+        read_if = { { when = { soft = "bugs" }, text = "Up the stairs, a floor full of dioramas and stuffed beasts. It's messier up here. Something in the exhibits is hunting, and you keep it in the shadows." } },
         sum = "Pack hunters hiding among the exhibits. They bait traps, and they run when they're losing.",
         next = { "offices", "tomorrow", "lecture", "stairs" }, knobs = { "marks" },
     },

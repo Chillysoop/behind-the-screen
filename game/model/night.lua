@@ -1028,6 +1028,17 @@ function M:describe(c, style)
         else
             text = content.line_for(c, sc and sc.comps.location)
         end
+        -- (v2: a card's words for how things stand, line_if: a table that veiled what's in it.)
+        if self.mus and c.line_if then
+            local adv = util.lazy("game.model.adventure")
+            util.lazy("game.model.museum_night").soft_check(self, c.line_if)
+            for _, alt in ipairs(c.line_if) do
+                if adv.test(self.campaign, alt.when) then
+                    text = alt.text
+                    break
+                end
+            end
+        end
     end
     self.described[c.id] = true
     if c.kind == "location" then

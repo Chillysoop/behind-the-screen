@@ -408,6 +408,7 @@ function M.play_moment(night, card, sc)
     end
     -- The card's words for how things stand (text_if: the first whose `when` holds): a rematch, a
     -- burned garden, a table that veiled gore. What it says has to fit what's happened.
+    M.soft_check(night, card.text_if)
     for _, alt in ipairs(card.text_if or {}) do
         if adventure.test(night.campaign, alt.when, knobs_of(night)) then
             copy.text = alt.text
@@ -536,10 +537,46 @@ function M.moments(night, sc, at)
     end
 end
 
+-- A Session Zero ask meets what's in tonight's room (a text with a soft variant for its tag):
+-- agreed, you keep it gentle and say so; asked and refused, they feel it. Once a night per tag.
+function M.soft_check(night, alts)
+    local t = night.campaign.table or {}
+    night.mus.soft = night.mus.soft or {}
+    for _, alt in ipairs(alts or {}) do
+        local tag = alt.when and alt.when.soft
+        if tag and not night.mus.soft[tag] then
+            local key = (t.lines and t.lines[tag]) or (t.veils and t.veils[tag])
+            local p = key and present(night, key)
+            if p then
+                night.mus.soft[tag] = true
+                local name = (MODULE.content_names or {})[tag] or tag
+                night:say((t.lines and t.lines[tag]) and ("You leave the " .. name .. " out, as you promised " .. p.name .. " at Session Zero.")
+                    or ("You keep the " .. name .. " off screen, as you agreed with " .. p.name .. " at Session Zero."), "dm")
+                score.add(p, "trust", 1)
+            elseif t.pushed and t.pushed[tag] and present(night, t.pushed[tag]) then
+                p = present(night, t.pushed[tag])
+                night.mus.soft[tag] = true
+                night:react({ [p.key] = "arms" })
+                night:say(p.name .. " goes quiet. They asked you about this at Session Zero.", "warn")
+                score.add(p, "trust", -4)
+                score.add(p, "fun", -6)
+            end
+        end
+    end
+end
+
 -- A room starts: its read-aloud, the heroes it was made for, and how the DM chose to run it.
 function M.read(night, sc)
     local r = MODULE.rooms[sc.room]
-    night:say(r.read, "narration")
+    M.soft_check(night, r.read_if)
+    local text = r.read
+    for _, alt in ipairs(r.read_if or {}) do
+        if adventure.test(night.campaign, alt.when, knobs_of(night)) then
+            text = alt.text
+            break
+        end
+    end
+    night:say(text, "narration")
     if not sc.prepped then
         night:say("You never read this room properly. You skim the page while they wait.", "warn")
         night.table_min = night.table_min + 5
@@ -584,6 +621,7 @@ function M.room_start(night, sc)
             end
             c.adv.hook_paid = c.adv.hook_paid or {}
             c.adv.hook_paid[p.key] = c.adv.hook_paid[p.key] or c.week
+            p.thread_hits = (p.thread_hits or 0) + 1      -- (a one-on-one want for it was given)
             score.add(p, "investment", 3)
             score.add(p, "fun", 4)
             local st = c.adv

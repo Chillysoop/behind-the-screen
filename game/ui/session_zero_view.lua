@@ -120,7 +120,7 @@ local function pitch(app, c)
     local s0 = content.session_zero
     local x, w = 24, 500
     kit.text(x, 84, "THE PITCH", "ui14", theme.dim)
-    kit.text(x + 96, 84, "What should this campaign feel like?", "ui14", theme.faint)
+    kit.text(x + 96, 84, s0.pitch or "What should this campaign feel like?", "ui14", theme.faint)
     local y = 108
     for _, key in ipairs(s0.tones.order) do
         local t = s0.tones[key]
@@ -343,8 +343,10 @@ function M.build_all(app)
     end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
-        "ui18", theme.dim)
+    kit.text(280, 24, app.campaign.module
+        and "Before the first night, everyone talks it through: how the museum should feel, what's off the table, how you'll run it."
+        or "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
+        "ui18", theme.dim, { w = 1300, lines = 1 })
     pitch(app, c)
     asks(app, c)
     rules(app, c)

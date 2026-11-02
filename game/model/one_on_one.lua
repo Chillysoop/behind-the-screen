@@ -27,17 +27,26 @@ local MOOD_LINES = {
 
 local WANT_LINES = {
     combat = { "Honestly? A proper fight. Something with teeth.", "a proper fight" },
-    social = { "More talking to people. I want to haggle with someone, or charm a guard.", "people to talk to" },
+    social = { "More talking to people. I want to haggle with someone, or charm my way past something.", "people to talk to" },
     mystery = { "A mystery. Give me clues and let me be clever.", "a mystery to solve" },
-    exploration = { "Somewhere new. Ruins, caves, a map with holes in it.", "somewhere new to explore" },
+    exploration = { "Somewhere new. A room nobody's opened yet, a map with holes in it.", "somewhere new to explore" },
     puzzle = { "A puzzle. A real one, with levers.", "a puzzle" },
-    downtime = { "A quiet bit. Shopping, the tavern, nobody trying to stab us.", "a quiet scene" },
-    set_piece = { "Something big and flashy. A chase, a collapsing bridge.", "something big and flashy" },
+    downtime = { "A quiet bit. Shopping, a cup of tea, nobody trying to stab us.", "a quiet scene" },
+    set_piece = { "Something big and flashy. A chase, a room that fights back.", "something big and flashy" },
 }
 
 -- What they'd love to see: their story if it's been quiet, else the kind of scene they like best.
 local function want_of(campaign, p)
-    if p.thread and (p.thread_hits or 0) == 0 and (campaign.week or 1) >= 2 then
+    -- (v2: in an adventure, what they came for is the reason their hero came, in its room.)
+    if campaign.module and campaign.adv then
+        local adv = require "game.model.adventure"
+        local h = adv.hook(campaign, p.key)
+        local room = h and adv.data.rooms[h.room]
+        if room and not (campaign.adv.hook_paid or {})[p.key] and not campaign.adv.done[h.room] then
+            return "Any chance we get to " .. util.lower_first(room.name) .. " soon? That's what " .. p.char .. " came to the museum for.",
+                p.char .. "'s reason for coming", room.type, true
+        end
+    elseif p.thread and (p.thread_hits or 0) == 0 and (campaign.week or 1) >= 2 then
         return "Any chance my backstory comes up? It's been ages since anything about " .. p.thread .. ".",
             p.char .. "'s backstory", nil, true
     end

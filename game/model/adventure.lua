@@ -188,6 +188,36 @@ function M.enter(campaign)
                 pd.short = h.short
             end
         end
+        -- Session Zero for this adventure: its pitch and the asks that touch what's in it, over
+        -- the shared one (same keys, so everything that reads them still does).
+        local s0, ms0 = content.session_zero, MODULE.session_zero
+        if s0 and ms0 then
+            s0.pitch = ms0.pitch or s0.pitch
+            for _, part in ipairs({ "tones", "asks" }) do
+                for key, over in pairs(ms0[part] or {}) do
+                    local base = s0[part][key]
+                    if base then
+                        for k, v in pairs(over) do
+                            if type(v) == "table" and type(base[k]) == "table" then
+                                for k2, v2 in pairs(v) do
+                                    base[k][k2] = v2
+                                end
+                            else
+                                base[k] = v
+                            end
+                        end
+                    end
+                end
+            end
+            for key, over in pairs(ms0.rules or {}) do
+                local base = s0.rules[key]
+                for k, v in pairs(over) do
+                    if base then
+                        base[k] = v
+                    end
+                end
+            end
+        end
         -- What the friends and the scenes say: nothing from the old story.
         for _, list in pairs(content.actions or {}) do
             strip_list(list)

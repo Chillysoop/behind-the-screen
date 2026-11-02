@@ -1646,7 +1646,7 @@ end
 local FEUD = {
     spotlight = { jess = "Filling every scene lately.", other = "Can't get a word in past Pip." },
     rules = { dev = "Sick of the rulebook coming out.", sam = "Wants the same rules every time." },
-    tone = { mara = "Wants Ilsa's story taken seriously.", jess = "Scared her jokes aren't welcome." },
+    tone = { mara = "Wants the story taken seriously.", jess = "Scared her jokes aren't welcome." },
 }
 function M.feud_line(app, p)
     for _, id in ipairs(content.conflicts.order) do

@@ -249,6 +249,54 @@ function M.write_chat(c)
     return msgs
 end
 
+-- What prepping a room really means (for the board): the minis to put out (the room's own fight,
+-- or her card's on boss night), the people you'll voice, the props and handouts, and where a
+-- Session Zero ask meets what's in it. Returns a list of { kind, text }.
+function M.room_prep(c, id)
+    local r = MODULE.rooms[id]
+    local out = {}
+    local ids = r.encounter
+    if id == "lair" then
+        ids = adventure.boss_encounter(c).ids
+    end
+    if ids and #ids > 0 then
+        local monsters = require "game.rules.data.monsters"
+        local count, order = {}, {}
+        for _, mid in ipairs(ids) do
+            if not count[mid] then
+                table.insert(order, mid)
+            end
+            count[mid] = (count[mid] or 0) + 1
+        end
+        local bits = {}
+        for _, mid in ipairs(order) do
+            local m = monsters[mid]
+            local name = string.lower(m and m.name or mid)
+            table.insert(bits, util.int(count[mid]) .. " " .. name .. ((count[mid] > 1 and not string.find(name, "s$")) and "s" or ""))
+        end
+        table.insert(out, { kind = "minis", text = (r.optional_fight and "If it comes to a fight: " or "Minis: ") .. table.concat(bits, ", ") })
+    end
+    local pn = MODULE.prep_notes and MODULE.prep_notes[id] or {}
+    for _, v in ipairs(pn.voices or {}) do
+        table.insert(out, { kind = "voice", text = "Voice: " .. v })
+    end
+    if pn.handouts and #pn.handouts > 0 then
+        table.insert(out, { kind = "handout", text = "Have ready: " .. util.join_names(pn.handouts) })
+    end
+    local t = c.table or {}
+    for tag, rooms in pairs(MODULE.content or {}) do
+        local what = rooms[id]
+        local key = what and ((t.lines and t.lines[tag]) or (t.veils and t.veils[tag]) or (t.pushed and t.pushed[tag]))
+        local p = key and c:player(key)
+        if p then
+            local how = (t.lines and t.lines[tag]) and "line" or ((t.veils and t.veils[tag]) and "veil" or "ask, which you pushed back on")
+            table.insert(out, { kind = "ask", text = p.name .. "'s " .. how .. ": " .. what
+                .. ((how == "line" or how == "veil") and " You'll play it gently." or " It plays as written.") })
+        end
+    end
+    return out
+end
+
 -- After the night: what the adventure keeps, and the report's museum section.
 function M.after_night(c, night, rep)
     local st = c.adv

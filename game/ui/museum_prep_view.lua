@@ -567,7 +567,9 @@ local function room_row(app, prep, id, x, y, w)
     local r = MODULE.rooms[id]
     local pm = prep.museum
     local knobs = r.knobs or {}
-    local h = 54 + #knobs * 30
+    -- What prepping it really means: minis, voices, handouts, a Session Zero ask it touches.
+    local notes = (not r.virtual) and museum_week.room_prep(c, id) or {}
+    local h = 54 + #knobs * 30 + (#notes > 0 and 22 or 0)
     if r.virtual then
         h = 50
     end
@@ -618,6 +620,22 @@ local function room_row(app, prep, id, x, y, w)
         end
     end
     local ky = y + 52
+    if #notes > 0 then
+        local bits, full, ask = {}, {}, false
+        for _, n in ipairs(notes) do
+            table.insert(bits, n.text)
+            table.insert(full, n.text .. ".")
+            ask = ask or n.kind == "ask"
+        end
+        local line = table.concat(bits, ".  ")
+        kit.text(x + 18, y + 50, kit.ellipsize(line, "ui14", w - 36), "ui14", ask and theme.teal or theme.faint)
+        -- (All of it on hover: a long room's notes don't fit one line.)
+        local gloss = util.lazy("game.ui.gloss")
+        if gloss.card_spot then
+            gloss.card_spot(x + 14, y + 48, w - 28, 20, "Prepping " .. util.lower_first(r.name), table.concat(full, " "))
+        end
+        ky = ky + 22
+    end
     for _, kid in ipairs(knobs) do
         local k = MODULE.knobs[kid]
         local val = pm.knobs[kid]
