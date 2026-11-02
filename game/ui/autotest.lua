@@ -539,7 +539,43 @@ function M.update(app, dt)
         end
         return
     end
-    if a.t > (a.mode == 8 and 2400 or 600) then
+    -- (behind_the_screen.trailer = 1: footage for a trailer. The nights play at their own pace and every
+    -- card and thought stays up a moment before it's answered, so the camera can catch it.)
+    if a.trailer == nil then
+        local ok, tr = pcall(sys.get_config_int, "behind_the_screen.trailer", 0)
+        a.trailer = (ok and tr == 1) or false
+        if a.trailer then
+            -- The moments worth cutting to, as they happen.
+            app.trailer_log = function(ev)
+                local k = ev.kind
+                if k == "battle" then
+                    say("ev battle " .. tostring(ev.phase))
+                elseif k == "scene" then
+                    say("ev scene " .. tostring(ev.title))
+                elseif k == "decision" then
+                    say("ev decision " .. tostring(ev.card and ev.card.type) .. " " .. tostring(ev.card and ev.card.title))
+                elseif k == "check" and (ev.crit or ev.fumble) then
+                    say("ev " .. (ev.crit and "crit" or "fumble") .. " " .. tostring(ev.actor))
+                elseif k == "thought" then
+                    say("ev thought " .. tostring(ev.who) .. " " .. tostring(ev.need))
+                elseif k == "mark" then
+                    say("ev mark " .. tostring(ev.name))
+                elseif k == "turn" and ev.say then
+                    say("ev turn")
+                elseif k == "cinematic" then
+                    say("ev cinematic " .. tostring(ev.id))
+                elseif k == "roll" then
+                    say("ev roll " .. tostring(ev.actor or ""))
+                end
+            end
+        end
+    end
+    -- (No first-session tips in trailer footage.)
+    if a.trailer and app.campaign then
+        app.campaign.guide = app.campaign.guide or {}
+        app.campaign.guide.off = true
+    end
+    if a.t > (a.trailer and 6000 or (a.mode == 8 and 2400 or 600)) then
         return finish(a, false, "timed out on " .. tostring(app.screen))
     end
     a.wait = a.wait - dt
@@ -830,6 +866,12 @@ function M.update(app, dt)
             -- of the card before and after the Insight roll the first time, then answer it.
             local th = app.night and app.night.th
             local t = th and th.list[app.thought_card.id]
+            local stage = tostring(app.thought_card.id) .. (t and t.read and "r" or "u")
+            if a.trailer and a.held ~= stage then
+                a.held = stage
+                a.wait = 2.2
+                return
+            end
             if t and not t.read then
                 if shot(a, "thought_card") then
                     return
@@ -857,6 +899,11 @@ function M.update(app, dt)
                 say("handover")
             end
         elseif app.pending then
+            if a.trailer and a.held ~= app.pending then
+                a.held = app.pending
+                a.wait = app.pending.kind == "cinematic" and 3.0 or 2.6
+                return
+            end
             -- Key art: clean shots, a story scene's and a fight's, while the night waits on a card.
             if a.mode == 4 and a.keyart and (a.ka or app.pending.kind == "decision") then
                 local kt = app.pending.card and app.pending.card.type
@@ -926,7 +973,7 @@ function M.update(app, dt)
                 if not ok or sk ~= 0 then
                     nv.skip(app)
                 end
-            else
+            elseif not a.trailer then
                 nv.skip(app)
             end
         end

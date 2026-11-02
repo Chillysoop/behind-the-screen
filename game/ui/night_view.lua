@@ -1954,6 +1954,9 @@ local function npc_steps_in(app)
 end
 
 function M.handle(app, ev)
+    if app.trailer_log then
+        app.trailer_log(ev)      -- (the autotest's trailer pace: what happened when, for cutting footage)
+    end
     local k = ev.kind
     ambience.night_event(app, ev)
     if ev.reveal then
