@@ -126,3 +126,57 @@ of payoff:
 8. **Lint the fiction lexicon per adventure.** When a new adventure arrives, its own vocabulary decides
    what fits. The old museum's words should be added to `fiction_words.lua` too, so the next adventure
    doesn't inherit them.
+
+## Three more fresh-eyes playtests (the same day)
+
+Six new transcripts (seeds 3, 5, 9, 12, 14 and 21), read by three readers who hadn't seen the code.
+The old story was gone: no Ilsa, Kessrick, Vale, Kettle, village or goblins in any of them.
+
+**Fixed:**
+- **The DM's tie.** A tie added "a mirror in their packs" after the garden, and from then on every
+  screen insisted they'd taken a cupboard door. Marks the party has to earn (`party = true`) can't be
+  tied now.
+- **Inspiration on a cooked miss.** Moving the DC to make a miss handed out Heroic Inspiration, because
+  of an index left over from the triumph menu.
+- **Euryale's yield** read as "surrenders" and "Ran:" for her whole collection. It's "stood down" now,
+  said once.
+- **Heroes left at 0 HP or as stone** kept chatting and rolling. They come round, or crack free, with a
+  line.
+- **The story so far** reported what the goal hoped for, not what happened. `got_if` fixes that.
+- **Boss prep.** Rooms they never played added foes to her card after the board was built. Those marks
+  land when the boss week starts, unless a pending loose end decides.
+- **Session Zero.**
+  - A line and a veil are no longer the same thing: a line leaves it out, a veil keeps it off screen.
+  - The scarab burst softens for a bug veil.
+  - A hidden death roll no longer saves the hero whose player asked for open deaths.
+- **Flitwidget** said hello three ways in the thanks scene, the last as a stranger. He also asked about
+  news before telling it, had no money line that paid out, and a final roll could fail the thanks.
+- **Friction and bond lines.** Each one has a museum deed in it now. A "teamwork" line needs two
+  heroes who acted. No tavern, road or ring.
+- **The report** counts what was found, handed out and earned.
+- **Smaller fixes:**
+  - doubled damage says why;
+  - fair warning explains itself once;
+  - the gift shop is affordable, and trips back need something to buy;
+  - the hint is offered once a night;
+  - trips back aren't labelled as the room's fight;
+  - the night says when it stops;
+  - the map repository offers only boards that fit the museum.
+
+The truth test now also fails on:
+- a found prize the report doesn't list;
+- a hero ending a night on 0 HP;
+- a hero still stone after a night.
+
+**Still open (worth a look next):**
+- **Long walks.** On the lair's big board, several rounds pass with heroes walking and nothing said;
+  a charmed hero whose only reachable foe is the one who charmed him looks idle.
+- **Killing-blow credit.** Handing the killing blow to another player narrates their hero landing it,
+  while the dice log shows who did.
+- **Small numbers.** One report can show durations a minute apart ("2h 45m" and "2h 44m"); the
+  spotlight conflict line can disagree with that night's spotlight.
+- **Where they are.** Fork text ("three doors off the hunting floor") is chosen by the rooms on offer,
+  not by where the party stands. A side room is reported under the room it opens off.
+- **Thoughts.** Two friends can have the same thought word for word. A "good news" mood line can read
+  as sarcastic.
+- **Jargon** a new player trips on: "Breezy" and "Deadly" danger labels, "SECRET CHECK", "Graze".
