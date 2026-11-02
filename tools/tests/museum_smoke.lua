@@ -551,6 +551,8 @@ for week = 1, WEEKS do
             local t0 = app.night.clock
             call(update, self, 2)
             if app.night.clock ~= t0 then problem("the night didn't wait while the recap was open" .. where) end
+            -- (Game night's tips sit where the Table sidebar opens: they wait while the recap is up.)
+            if app.guide_layer then problem("a tip stayed up over the recap sidebars" .. where) end
             click_key("recap_close_left")
             click_key("recap_close_right")
             if app.recap_left or app.recap_right then problem("the recap sidebars didn't close" .. where) end

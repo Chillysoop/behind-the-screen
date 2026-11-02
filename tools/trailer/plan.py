@@ -49,7 +49,8 @@ CUTS = [
     (16 * BAR, R3, {"at": 608.0, "zoom": [1.0, 1.08], "focus": [0.4, 0.55], "texts": [T("want")]}),
     # Rise: both halves.
     (17 * BAR, R3, {"at": 2023.5, "zoom": [1.0, 1.1], "focus": [0.5, 0.45], "texts": [T("play")], "flash": True}),
-    (18 * BAR, R3, {"at": 808.0, "zoom": [1.0, 1.1], "focus": [0.4, 0.45], "texts": [T("run_table")], "dip": True}),
+    # (In close on the friends, so the card beside them is out of the shot and the title has room.)
+    (18 * BAR, R3, {"at": 811.5, "zoom": [1.38, 1.5], "focus": [0.33, 0.42], "texts": [T("run_table")], "dip": True}),
     # A breath, then the title on the hit.
     (35.45, None, {"image": "titles/black.png"}),
     (35.62, None, {"image": "titles/end_bg.png", "zoom": [1.0, 1.04], "flash": True, "fade_out": 0.7,

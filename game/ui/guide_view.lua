@@ -61,6 +61,7 @@ local function quiet(app)
     return hover_up(app) or app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
         or (app.review and app.review.queue_open) or gift_open(app)
         or (app.pending and app.pending.kind == "cinematic")   -- the opening has the floor
+        or app.recap_left or app.recap_right   -- the DM's recap is up (game night's tips sit where the Table sidebar opens)
 end
 
 -- The tip that should be showing now, or nil.
