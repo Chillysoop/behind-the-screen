@@ -131,7 +131,7 @@ def main():
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", joined])
     final = os.path.join(out_dir, plan.get("out", "trailer.mp4"))
     run(["ffmpeg", "-y", "-loglevel", "error", "-i", joined, "-i", os.path.join(base, plan["music"]), "-map", "0:v",
-         "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart", final])
+         "-map", "1:a", "-c:v", "copy", "-af", "volume=-1.5dB", "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart", final])
     print("wrote", final)
 
 
