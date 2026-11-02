@@ -1,7 +1,8 @@
 -- The Museum of Nightmares (v2) through the real UI, against the mock GUI from gui_smoke.lua: the
 -- prototype notice, Session Zero, the heroes' hooks, every week's between-session questions and
 -- prep board, game night, the report, level-ups, boss night, and the journey recap.
--- Run from the project root:  lua tools/tests/museum_smoke.lua [seed]   (DUMP_DIR=out to dump screens)
+-- Run from the project root:  lua tools/tests/museum_smoke.lua [seed]   (DUMP_DIR=out to dump screens;
+-- TRANSCRIPT=file to write down everything a player reads, in order; AUDIT=1 to list text cut short)
 
 package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
@@ -158,7 +159,7 @@ REVIEW_APP = app
 
 -- TRANSCRIPT=file: write down every new piece of text as it comes on screen, in the order it came,
 -- with each screen's name and what was pressed, so a playtest can read the prologue as a new player
--- would see it (tools/playtest/README_TRANSCRIPT.md).
+-- would see it.
 local TRANSCRIPT = os.getenv("TRANSCRIPT")
 local tr_file = TRANSCRIPT and io.open(TRANSCRIPT, "w")
 local tr_prev, tr_screen = {}, nil
