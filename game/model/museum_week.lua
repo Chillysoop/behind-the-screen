@@ -21,6 +21,18 @@ local M = {}
 function M.new_prep(prep, campaign)
     prep.budget = MODULE.BUDGET
     prep.museum = { prepped = {}, knobs = {}, ahead = adventure.ahead(campaign), boss = adventure.boss_week(campaign) }
+    -- Boss week: what the rooms they never played leave on her card is there now, so the showdown
+    -- board you prep against is the fight they get (the playtest, Nov 2: a knight joined her
+    -- after the board said he wouldn't). Her line for each comes at the night's start.
+    if prep.museum.boss then
+        for _, lb in ipairs(adventure.left_behind(campaign, true)) do
+            if adventure.add_mark(campaign, lb.mark, lb.room) then
+                local st = campaign.adv
+                st.unannounced = st.unannounced or {}
+                table.insert(st.unannounced, lb.mark)
+            end
+        end
+    end
     -- The scenes the night expects, for its pacing read: tonight's rooms in order.
     prep.scenes = {}
     for _, id in ipairs(prep.museum.ahead) do
@@ -294,8 +306,9 @@ function M.room_prep(c, id)
         local p = key and c:player(key)
         if p then
             local how = (t.lines and t.lines[tag]) and "line" or ((t.veils and t.veils[tag]) and "veil" or "ask, which you pushed back on")
-            table.insert(out, { kind = "ask", text = p.name .. "'s " .. how .. ": " .. what
-                .. ((how == "line" or how == "veil") and " You'll play it gently." or " It plays as written.") })
+            local plan = (how == "line" and ", so you'll leave it out altogether") or (how == "veil" and ", so you'll keep it off screen")
+                or ", and it plays as written"
+            table.insert(out, { kind = "ask", text = p.name .. "'s " .. how .. ": " .. what .. plan })
         end
     end
     return out

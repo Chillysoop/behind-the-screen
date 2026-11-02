@@ -1284,6 +1284,7 @@ function B:deal(src, tgt, parts, info)
             end
             if tgt.vulnerable[dtype] or (info.paint and tgt.paint_vulnerable) then
                 amount = amount * 2
+                info.weak = (info.paint and tgt.paint_vulnerable) and "paint" or dtype   -- (said with the hit)
             end
         end
         total = total + amount
@@ -1309,14 +1310,14 @@ function B:deal(src, tgt, parts, info)
     if through <= 0 then
         self:log("  %s's Temporary Hit Points soak %d.", tgt.name, absorbed)
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = tgt.hp,
-                    hp_max = tgt.hp_max, crit = info.crit, graze = info.graze })
+                    hp_max = tgt.hp_max, crit = info.crit, graze = info.graze, weak = info.weak })
         self:after_damage(tgt, total, info)
         return total
     end
     -- Damage at 0 Hit Points (p. 18).
     if tgt.down then
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = 0,
-                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
+                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze, weak = info.weak })
         if through >= tgt.hp_max and not (tgt.pc and self.gentle_deaths) then
             self:kill(tgt, src, "massive damage")
         else
@@ -1327,7 +1328,7 @@ function B:deal(src, tgt, parts, info)
     tgt.hp = tgt.hp - through
     self:log("  %s takes %d damage (%d/%d).", tgt.name, total, math.max(tgt.hp, 0), tgt.hp_max)
     self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = math.max(tgt.hp, 0),
-                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
+                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze, weak = info.weak })
     if tgt.hp <= 0 then
         local overflow = -tgt.hp
         tgt.hp = 0
@@ -2169,7 +2170,7 @@ function B:summary(result)
         if c.effects[1] and self:any_effect(c, "stone") then
             table.insert(stone, c.name)
         end
-        if c.removed and c.side ~= "party" and not c.dead and c.removed_why ~= "surrender" then
+        if c.removed and c.side ~= "party" and not c.dead and c.removed_why ~= "surrender" and c.removed_why ~= "yield" then
             table.insert(fled, c.name)
         end
         if c.ally then

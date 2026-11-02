@@ -547,7 +547,7 @@ for week = 1, WEEKS do
         if not click_key("tl_cond_room_garden") then problem("no room to tie a mark to") end
         click_key("tl_tab_mark")
         dump_once("4t_ties_effect")
-        if not click_key("tl_eff_mark_mirror") then problem("no mark to tie") end
+        if not click_key("tl_eff_mark_drone") then problem("no mark to tie") end
         if #ties.ties(c) ~= 1 then problem("the tie didn't stick (" .. #ties.ties(c) .. ")") end
         click_key("tl_room_paintings")
         if not click_key("tl_cut_mus_dice_painting") and click_key("tl_cards_next") then click_key("tl_cut_mus_dice_painting") end

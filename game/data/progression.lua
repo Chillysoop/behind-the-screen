@@ -92,8 +92,8 @@ return {
         },
         wayfinder = {
             arch = { explorer = 1.0, storyteller = 0.4 }, meters = { "story" },
-            why = { arch = "{name} wants to see what's over the next hill.",
-                    hist = "Every ruin and mystery made {char} want to go further.",
+            why = { arch = "{name} wants to see what's round the next corner.",
+                    hist = "Every mystery they opened made {char} want to go further.",
                     seed = "{seed} sent {char} down a new path." },
         },
         mirror_mage = {

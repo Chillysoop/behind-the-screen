@@ -873,6 +873,9 @@ function M.check_tie(c, t)
         if not (MODULE.marks or {})[e.mark] then
             return "That isn't one of her marks."
         end
+        if MODULE.marks[e.mark].party then
+            return "Only the party can put that there: it's something they do or carry."
+        end
         if st.marks[e.mark] then
             return "Her card already shows that."
         end

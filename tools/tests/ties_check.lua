@@ -243,8 +243,8 @@ check(c9.adv.at == "lair" and adventure.boss_week(c9), "once it opens she's next
 
 -- 4. A tie puts a mark on her card on game night. -------------------------------------------------
 local c3 = new_campaign(23)
-local t = ties.add_tie(c3, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "mirror" } })
-check(t ~= nil, "a tie: after the garden, the mirror")
+local t = ties.add_tie(c3, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "drone" } })
+check(t ~= nil, "a tie: after the garden, the drone")
 screen_text_ok(ties.describe(t), "the tie's sentence")
 local cut = ties.add_lock(c3, { kind = "moment", moment = "mus_francs_intro", cond = { kind = "never" } })
 check(cut ~= nil, "a moment can be cut")
@@ -254,16 +254,16 @@ local evs = play(c3:start_night())
 c3:finish_night()
 local mark_ev
 for _, ev in ipairs(evs) do
-    if ev.kind == "mark" and ev.id == "mirror" then
+    if ev.kind == "mark" and ev.id == "drone" then
         mark_ev = ev
     end
 end
 check(c3.adv.done.garden, "the garden was played")
 check(mark_ev ~= nil, "the tie's mark lands on game night as the usual event")
-check(said(evs, "Upstairs, Euryale: \"" .. MODULE.marks.mirror.thought), "with her thought")
-check(c3.adv.marks.mirror and t.fired, "the mark is on her card and the tie has fired")
+check(said(evs, "Upstairs, Euryale: \"" .. MODULE.marks.drone.thought), "with her thought")
+check(c3.adv.marks.drone and t.fired, "the mark is on her card and the tie has fired")
 check(not c3.adv.seen.mus_francs_intro, "the cut moment never played")
-check(ties.add_tie(c3, { cond = { kind = "room", room = "entrance" }, effect = { kind = "mark", mark = "mirror" } }) == nil,
+check(ties.add_tie(c3, { cond = { kind = "room", room = "entrance" }, effect = { kind = "mark", mark = "drone" } }) == nil,
     "a mark she already has can't be tied again")
 
 -- 5. A hidden person, a moment only if, a hook moved. ---------------------------------------------
@@ -308,7 +308,7 @@ local c5 = new_campaign(25)
 ties.add_lock(c5, { kind = "door", a = "entrance", b = "chamber", cond = { kind = "room", room = "paintings" } })
 ties.add_lock(c5, { kind = "moment", moment = "mus_dice_painting", cond = { kind = "never" } })
 ties.add_lock(c5, { kind = "person", person = "mus_mech", cond = { kind = "mark", mark = "pack" } })
-ties.add_tie(c5, { cond = { kind = "flag", flag = "paint" }, effect = { kind = "mark", mark = "know" } })
+ties.add_tie(c5, { cond = { kind = "flag", flag = "paint" }, effect = { kind = "mark", mark = "scarabs" } })
 ties.add_tie(c5, { cond = { kind = "room", room = "garden" }, effect = { kind = "hook", key = "dev", room = "chamber" } })
 check(#ties.locks(c5) == 3 and #ties.ties(c5) == 2, "three locks and two ties set")
 c5:start_week()
@@ -352,7 +352,7 @@ local function prologue(seed, style)
         ties.add_lock(cc, { kind = "door", a = "hunting", b = "lecture", cond = { kind = "room", room = "offices" } }),
         ties.add_lock(cc, { kind = "moment", moment = "mus_dice_painting", cond = { kind = "never" } }),
         ties.add_lock(cc, { kind = "person", person = "mus_telpur", cond = { kind = "room", room = "paintings" } }),
-        ties.add_tie(cc, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "mirror" } }),
+        ties.add_tie(cc, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "drone" } }),
         ties.add_tie(cc, { cond = { kind = "session", n = 1 }, effect = { kind = "hook", key = "sam", room = "lecture" } }),
     }
     for i, x in ipairs(set) do
@@ -397,7 +397,7 @@ local function prologue(seed, style)
         .. tostring(s.ending) .. ", " .. nights .. " nights)")
     check(empty == 0, "prologue " .. seed .. " " .. style .. ": no empty nights (" .. empty .. ")")
     check(s.done.lecture, "prologue " .. seed .. " " .. style .. ": the lecture theatre came before the stairs")
-    check(s.marks.mirror, "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
+    check(s.marks.drone, "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
     check(not s.seen.mus_dice_painting, "prologue " .. seed .. " " .. style .. ": the cut moment never played")
     check(opened_line, "prologue " .. seed .. " " .. style .. ": a lock opened with a line")
     check(shut_said, "prologue " .. seed .. " " .. style .. ": the table heard which way won't open yet")

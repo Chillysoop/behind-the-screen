@@ -11,7 +11,7 @@ local util = require "game.model.util"
 local M = {}
 
 M.SCALES = {
-    { id = "satisfying", text = "Writing a session was satisfying." },
+    { id = "satisfying", text = "Prepping a session was satisfying." },
     { id = "payoff", text = "Watching it play out paid off." },
     { id = "homework", text = "Prep felt like homework." },
     { id = "gut", text = "The players reacted the way my gut said they would." },

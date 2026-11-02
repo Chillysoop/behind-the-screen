@@ -1510,7 +1510,7 @@ local function player_card(app, prep, p, i, forecast)
         local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
         kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
         gloss.card_spot(x + 10, y + 82, kit.width(mood_text, "ui14") + 28, 22, "Mood this week",
-            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how they'll take Thursday.")
+            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how they'll take game night.")
             or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. A one-on-one (Talk) finds out."))
         -- How well you know them (v2, game/model/familiar.lua): dots, and the words on hover.
         local fam = require "game.model.familiar"
@@ -1525,7 +1525,7 @@ local function player_card(app, prep, p, i, forecast)
             .. " thoughts on game night easier to read. It grows as you play together, read them right, and talk.")
         M.goodwill(app, p, x + 262, y + 86)
         -- Forecast for Thursday, from the board as it stands.
-        kit.text(x + 14, y + 108, "Thursday", "ui14", theme.dim)
+        kit.text(x + 14, y + 108, "Game night", "ui14", theme.dim)
         local f = forecast[p.key]
         if f then
             -- Hover for why (A6).
@@ -1601,7 +1601,7 @@ function M.forecast_hover(app, prep, p, f, x0, y0)
     app.hover_layer = l
     kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
     kit.box(x, y, w, h, kit.rgba("#201813", 0.98), { radius = 11 })
-    kit.text(x + 16, y + 12, p.name .. " on Thursday: " .. string.lower(content.chat.forecasts[score.tier(f)]), "ui18b", tier_color(f),
+    kit.text(x + 16, y + 12, p.name .. " on game night: " .. string.lower(content.chat.forecasts[score.tier(f)]), "ui18b", tier_color(f),
         { w = w - 32 })
     local ry = y + 42
     for i, r in ipairs(reasons) do

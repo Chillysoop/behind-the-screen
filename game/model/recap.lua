@@ -48,8 +48,8 @@ M.TEMPLATES = {
                   "A curveball from {who}." },
     stunt = { "{text}.", "{char} pulled off a stunt.", "A flashy opening from {char}.", "{char} showed off, and it worked." },
     joke = { "{text}", "The running joke came back.", "An old joke got another outing.", "They called back the joke." },
-    inspiration = { "{text}", "Heroic Inspiration changed hands.", "{who} earned the Inspiration token.",
-                    "The Inspiration token went to {who}." },
+    -- (Its own words, mostly: a token spent isn't one "earned". The playtest, Nov 2.)
+    inspiration = { "{text}", "{text}", "Heroic Inspiration changed hands." },
     new_character = { "{text}", "A new face at the table: {char}.", "{who} brought someone new: {char}.",
                       "{char} joined the party." },
     fail_card = { "{text}", "It went wrong, and well.", "A failure worth remembering: {text}", "{char} failed with style." },

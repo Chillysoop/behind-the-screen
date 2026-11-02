@@ -190,10 +190,10 @@ M.content_names = { gore = "gore", bugs = "creepy-crawlies" }
 -- Which rooms carry which Session Zero content tags (the prep board's lines-and-veils check, and
 -- what plays softly at the table when a tag is veiled or under a line: text_if { soft = tag }).
 M.content = {
-    gore = { offices = "The archivist at his desk, with eyes carved into his arms." },
-    bugs = { chamber = "The Bone Construct bursts into a swarm of scarabs.",
-             hunting = "Kruthik huntlings: armoured, many-legged hunters.",
-             lair = "Scarabs or huntlings at her side, if they're on her card." },
+    gore = { offices = "the archivist at his desk, with eyes carved into his arms" },
+    bugs = { chamber = "the Bone Construct bursts into a swarm of scarabs",
+             hunting = "kruthik huntlings, armoured and many-legged",
+             lair = "scarabs or huntlings at her side, if they're on her card" },
 }
 
 -- The museum's rooms. part: which floor of the story. type: the scene type it plays as.
@@ -249,6 +249,9 @@ M.rooms = {
         read = "A quiet little shop at the foot of the stairs: shelves of souvenirs, a bowl of marbles, and a boot asleep on the counter.",
         sum = "A rest, Telpur the talking boot, and somewhere to spend Flitwidget Francs. The book's place to stop for the night.",
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
+        callbacks = {
+            { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
+        },
     },
     hunting = {
         name = "The Hunting Grounds", part = 2, type = "combat", cost = 2, at = { 50, 37 }, map = "Hunting Grounds",
@@ -320,6 +323,8 @@ M.rooms = {
 M.asides = {
     { id = "fussed", when = { flag = "fussed" }, no_sneak = true,
       text = "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything." },
+    { id = "shoelace", when = { flag = "shoelace" },
+      text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked." },
     { id = "telpur", when = { flag = "telpur_along" }, no_sneak = true,
       text = "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming." },
 }
@@ -362,7 +367,7 @@ M.second_look = {
 }
 -- Why the table would go back somewhere ({names}, {want}, {room}).
 M.revisit_why = {
-    missed = "{names} {want} another look at {room}. Something in there got away from them.",
+    missed = "{names} {want} another look at {room}. They're sure they missed something in there.",
     hint = "You let slip that {room} still has something in it.",
     passed = "{names} {want} to see {room}. They walked right past it.",
     shop = "{names} {want} to nip back to the gift shop and spend some Francs.",
@@ -636,18 +641,18 @@ M.moments = {
       text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching.",
       shop = true,
       options = {
-          { label = "A scholar's book on gorgon-worshippers (6 Francs)", price = 6,
+          { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4,
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
-            mus = { mark = "know", spend = 6, favor = { who = "telpur", n = 1 } } },
-          { label = "The Mech Instruction Manual (6 Francs)", price = 6,
+            mus = { mark = "know", spend = 4, favor = { who = "telpur", n = 1 } } },
+          { label = "The Mech Instruction Manual (3 Francs)", price = 3,
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "manual", spend = 6, favor = { who = "telpur", n = 1 } } },
-          { label = "Fire arrows and a bucket of slime (5 Francs)", price = 5,
+            mus = { flag = "manual", spend = 3, favor = { who = "telpur", n = 1 } } },
+          { label = "Fire arrows and a bucket of slime (3 Francs)", price = 3,
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "arrows", spend = 5, favor = { who = "telpur", n = 1 } } },
+            mus = { flag = "arrows", spend = 3, favor = { who = "telpur", n = 1 } } },
           { label = "The vorpal sword (40 Francs)", price = 40, needs = { flag = "vorpal_price" },
             log = "Forty Francs, counted twice. Telpur wraps it in brown paper. It's very, very sharp.",
             effects = { { "actor", fun = 10, reward = 10 }, { "arch:power_gamer", fun = 6 } },
@@ -707,7 +712,9 @@ M.moments = {
       title = "The second study",
       text = "Inside: the archivist, dead at his desk, with eyes carved all over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand.",
       -- (A table that veiled gore at Session Zero hears it gently.)
-      text_if = { { when = { soft = "gore" }, text = "Inside: the archivist, dead at his desk, his sleeves pulled down over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand." } },
+      -- (A line under gore: nothing gruesome, not even hinted. A veil: it's there, off screen.)
+      text_if = { { when = { line = "gore" }, text = "Inside: the archivist, slumped at his desk as if he fell asleep there, and never woke. A six-winged bird sings under a glass dome. A notebook lies open by his hand." },
+                  { when = { soft = "gore" }, text = "Inside: the archivist, dead at his desk, his sleeves pulled down over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand." } },
       options = {
           { label = "Let them take it all in, slowly.",
             log = "Nobody speaks for a moment. {actor_char} takes out a pencil.",
@@ -798,7 +805,7 @@ M.moments = {
     -- Euryale's lair ---------------------------------------------------------------------------
     -- The knight they walked past climbs out of a frame behind her couch. Its paint is still wet,
     -- and the book's answer to him is paint (weapons out of a painting cut him like he's paper).
-    { id = "mus_lair_frame", room = "lair", at = "mid", when = { mark = "knight" }, type = "story", actor = { "explorer", "butt_kicker", "tactician" },
+    { id = "mus_lair_frame", room = "lair", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" },
       title = "The frame behind the couch",
       text = "The black knight steps out of a frame behind her couch, and the paint he left behind is still wet. {actor_char} could reach in for something to fight him with.",
       options = {
@@ -820,21 +827,23 @@ M.moments = {
 -- from: the rooms that can leave it at their end (the night's own bookkeeping, not a moment), for
 -- the tie-and-lock editor's outs.
 -- foe: a monster that joins her (count: how many). ally: one that fights for the party.
+-- party: something the party did or carries (a mirror, the Mech, a robbery): only they can put it
+-- there, so the DM's ties can't (game/model/ties.lua), or her card would say they did what they didn't.
 -- opt: a battle option (game/rules: mirror, averted, drowsy, paint). talk: easier (+) or harder
 -- (-) to talk her round.
 M.marks = {
     topiary = { name = "Topiary at her couch", why = "Briar Guardians left standing in the garden", from = { "garden" },
                 showdown = "A Briar Beast fights beside her", foe = "briar_beast",
                 thought = "One of my hedges is still standing. Come here, kitten." },
-    garden_burned = { name = "She smelled the smoke", why = "They set her garden on fire",
+    garden_burned = { party = true, name = "She smelled the smoke", why = "They set her garden on fire",
                       showdown = "She skips the drink and the small talk", talk = -2,
                       thought = "Fire. How crude. I liked that garden." },
-    robbed = { name = "Thieves, like her", why = "They tried to rob the donation box",
+    robbed = { party = true, name = "Thieves, like her", why = "They tried to rob the donation box",
                showdown = "They can offer her a cut of the box to leave", thought = "They tried the gnome's little money box. Oh, I like them already." },
     scarabs = { name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
                 thought = "They smashed the old guardian. Its beetles are mine now." },
-    calmed = { name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
+    calmed = { party = true, name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
                showdown = "Nothing comes up from below to help her", talk = 1,
                thought = "They did the water ritual properly. Nobody does it properly." },
     knight = { name = "A knight in a frame", why = "The Knight of Shades was never woken",
@@ -843,24 +852,24 @@ M.marks = {
     pack = { name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
              showdown = "The survivors hunt beside her", foe = "kruthik_huntling",
              thought = "The little hunters came running to me. Good dogs." },
-    mirror = { name = "A mirror in their packs", why = "They took a polished cupboard door",
+    mirror = { party = true, name = "A mirror in their packs", why = "They took a polished cupboard door",
                showdown = "Her stare can be turned back on her", opt = "mirror",
                thought = "One of them took a cupboard door. Why would anyone take a door?" },
-    know = { name = "They know what she is", why = "They read up on gorgons",
+    know = { party = true, name = "They know what she is", why = "They read up on gorgons",
              showdown = "They know to look away, and about her sisters", opt = "averted",
              thought = "Someone downstairs is reading about my kind. How flattering. How annoying." },
-    bracelet = { name = "A bracelet of protection", why = "Flitwidget slipped them one",
+    bracelet = { party = true, name = "A bracelet of protection", why = "Flitwidget slipped them one",
                  showdown = "Advantage on saves against her stare", opt = "averted",
                  thought = "The gnome gave them a trinket. How sweet. We'll see what it's worth." },
-    mech = { name = "A machine on their side", why = "They woke the Steam Mech",
+    mech = { party = true, name = "A machine on their side", why = "They woke the Steam Mech",
              showdown = "The Mech fights for them, and she goes for its commander", ally = "steam_mech",
              thought = "The gnome's toy is walking about. It's pointed at me, isn't it." },
     drone = { name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
               showdown = "They come up half asleep: Disadvantage on saves against her charm", opt = "drowsy",
               thought = "The bore is still droning. They'll come up here half asleep." },
-    pages = { name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
+    pages = { party = true, name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
               showdown = "A trick: get her to read one", thought = "They silenced the bore and kept his notes. Clever, or just tidy?" },
-    careful = { name = "Careful hands", why = "They were gentle with the exhibits",
+    careful = { party = true, name = "Careful hands", why = "They were gentle with the exhibits",
                 showdown = "She's curious about them, and easier to talk round", talk = 2,
                 thought = "They put my exhibits back where they found them. Who does that?" },
 }
@@ -998,7 +1007,24 @@ M.items = {
 -- campaign: a foe that runs in the museum goes deeper in, not off to swear revenge.
 M.recap_beats = {
     escape = { "{text}.", "One of them got away, deeper into the museum.", "Something ran, and it's somewhere upstairs now." },
-    villain_falls = { "{text}.", "The one leading them went down, and the rest lost heart." },
+    villain_falls = { "{text}.", "The one leading them went down." },
+}
+
+-- What the friends do to each other at the table (game/data/friction.lua acts and bonds), in the
+-- museum: every line says what was done, here. false: that one doesn't happen in this adventure.
+M.friction = {
+    acts = {
+        my_guy = "{actor_char} pockets a little brass figure off a display case. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+        lone_wolf = "{actor_char} slips off alone to poke at the exhibits, and everyone else waits by the door for ten minutes.",
+        shove_a_friend = "{actor_char} shoves {target_char} into a display case to win an argument.",
+        barge_the_bargain = "{actor_char} talks right over {target_char} while {target_char} is still asking questions.",
+        sneer_at_town = false, grim_in_the_cozy = false, secret_letter = false, dibs_again = false,
+    },
+    bonds = {
+        share_the_loot = "{actor_char} lets {target_char} have first pick of whatever they find next: 'You'll get more use out of it than me.'",
+        stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
+        ask_after = false, inside_joke = false,
+    },
 }
 
 -- The friends' gifts at the real table (game/data/keepsakes.lua), in this adventure's words: they
@@ -1065,8 +1091,8 @@ M.requests = {
       ask = "real question. can brannoc find a vorpal sword in this museum",
       answers = {
           yes = { reply = "Telpur stocks one. It costs 40 Francs.", asker = 3, mus = { flag = "vorpal_price" } },
-          laugh = { reply = "There's a vorpal spork in the gift shop. It's very sharp. For a spork.", asker = 0 },
-          reason = { reply = "Not at level 2. But the knight in the paintings has a very nice greatsword.", asker = -1 },
+          laugh = { reply = "There's a vorpal spork in the gift shop. It's very sharp. For a spork.", asker = 0, mus = { flag = "spork" } },
+          reason = { reply = "Not at level 2. Maybe in the campaign, if you're very good.", asker = -1 },
           danger = { reply = "There is one. It's behind Euryale's couch.", asker = 2, mus = { warn = true, flag = "vorpal_lair" } },
       } },
     { id = "long_rest", who = "sam", after = "gift_shop",
@@ -1074,14 +1100,14 @@ M.requests = {
       answers = {
           yes = { reply = "Yes. You wake up fully rested. Telpur snored all night.", asker = 3, mus = { flag = "rested" } },
           laugh = { reply = "Yes, but Telpur talks in their sleep. About hell. In detail.", asker = 2, mus = { flag = "rested" } },
-          reason = { reply = "Time's funny in the museum. A short rest, and on we go.", asker = -2 },
+          reason = { reply = "Time's funny in the museum. You pick up right where you stopped, bruises and all.", asker = -2 },
           danger = { reply = "You rest, and wake to find a statue at the foot of the stairs that wasn't there before.", asker = 1, mus = { flag = "rested", warn = true } },
       } },
     { id = "keep_boot", who = "jess", after = "gift_shop",
       ask = "can pip keep the boot. asking for pip",
       answers = {
           yes = { reply = "Telpur agrees to come along, as long as nobody wears them.", asker = 3, mus = { flag = "telpur_along" } },
-          laugh = { reply = "Telpur gives Pip a shoelace. It still talks. It won't stop.", asker = 2 },
+          laugh = { reply = "Telpur gives Pip a shoelace. It still talks. It won't stop.", asker = 2, mus = { flag = "shoelace" } },
           reason = { reply = "Telpur's bound to the shop. Visiting hours only.", asker = -1 },
           danger = { reply = "Telpur comes along, and talks during every sneaky bit.", asker = 2, mus = { flag = "telpur_along", warn = true } },
       } },
@@ -1288,7 +1314,8 @@ M.epilogue = {
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {
-    mara = { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", "That was a prologue? I've already got a notebook for the campaign." },
+    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "notebook" } },
+             "That was a prologue? I've already got a notebook for the campaign." },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
     jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
     sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise." },
@@ -1348,6 +1375,10 @@ M.talk = {
                          "Here is what I know, all of it, and some of it twice." },
                 guarded = { "Some things a curator keeps to himself.", "Ask me again when my museum's quiet." },
                 lie = { "Incidents. With the exhibits. That's all.", "The gift shop is lovely this time of year." } },
+        -- (When it's over: the museum is his again.)
+        done = { warm = { "You did it. My museum! Quiet as a library. Have a biscuit. Have two." },
+                 guarded = { "It's over. I'll be counting the exhibits for a week, mind." },
+                 lie = { "I never doubted you for a moment. Well. One moment. Possibly two." } },
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
@@ -1368,7 +1399,7 @@ M.npc_lines = {
     mus_flitwidget = {
         npc_greet = { "Welcome, welcome! Closed, I'm afraid. Temporarily. Ish.", "Ah! Adventurers! You have the look. The look of people who need money." },
         -- (Seeing them again: museum_night's greeting picks these once they've met.)
-        npc_again = { "My heroes! You're back! Tea?", "There you are! Is it done? Tell me it's done." },
+        npc_again = { "My heroes! You're back! Tea?", "There you are! Come in, come in. Mind the exhibits." },
         npc_good = { "Splendid! Marvellous! I knew you had the look.", "Oh, you're good. You're very good. Do you want a job? You have a job." },
         npc_bad = { "Now, now. Let's not upset the exhibits.", "That's... not how I would have done it. But it's done." },
     },

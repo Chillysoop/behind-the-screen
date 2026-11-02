@@ -194,7 +194,9 @@ local MUSEUM_SAY = {
     freed = { "{who} cracks free of the stone.", theme.teal, "good" },
     mirror = { "{who} catches her own eyes in the polished door.", theme.gold, "good" },
     charmed = { "{who} smiles at {by} like an old friend. Charmed.", theme.purple, "bad" },
-    scarabs = { "{who} bursts open, and scarabs pour across the floor.", theme.orange, "twist" },
+    scarabs = { "{who} bursts open, and scarabs pour across the floor.", theme.orange, "twist",
+                -- (Said gently when the table veiled creepy-crawlies, or drew a line under them.)
+                soft = { bugs = "{who} breaks apart, and something swarms out of it. You keep it vague." } },
     hyper = { "{who} vents steam and roars into Hyper Destroyer Mode!", theme.gold, "good" },
     overheat = { "{who} overheats, blasts steam everywhere and shuts down.", theme.orange, "warn" },
     power_down = { "{target} is down, and {who} powers down where it stands.", theme.orange, "bad" },
@@ -1081,7 +1083,8 @@ function M.fight_rows(sm)
         table.insert(rows, { "Beaten: " .. util.join_names(mid_names(sm.beaten)) .. ".", theme.green })
     end
     if #(sm.ran or {}) > 0 then
-        table.insert(rows, { (sm.how == "surrendered" and "Gave up: " or "Ran: ") .. util.join_names(mid_names(sm.ran)) .. ".", theme.dim })
+        table.insert(rows, { ((sm.how == "surrendered" and "Gave up: ") or (sm.how == "yielded" and "Stood down: ") or "Ran: ")
+            .. util.join_names(mid_names(sm.ran)) .. ".", theme.dim })
     end
     return rows
 end
@@ -1751,10 +1754,12 @@ function M.play_step(app, s, pace)
         if s.graze and a and a.target == s.id then
             -- A miss that still hurts: say it's the weapon's trick, not a hit.
             M.push(app, "Even missing, " .. mid(weapon_of(app, a)) .. " grazes " .. target_of(app, s.id) .. " for " .. amount
-                .. ": a graze weapon always nicks." .. left_of(s), "system")
+                .. " (the weapon's Graze trick: a miss still nicks)." .. left_of(s), "system")
             app.last_attack = nil
         elseif a and a.target == s.id and a.hit then
-            local dice = (a.dmg and a.dmg ~= "") and (" (" .. a.dmg .. (s.crit and ", doubled" or "") .. ")") or ""
+            -- (Damage past what the dice can do says why: a crit, or a weakness.)
+            local weak = s.weak and (s.weak == "paint" and ", doubled: painted things fear it" or (", doubled: weak to " .. s.weak)) or ""
+            local dice = (a.dmg and a.dmg ~= "") and (" (" .. a.dmg .. (s.crit and ", doubled" or "") .. weak .. ")") or ""
             if a.hidden then
                 M.push(app, util.capitalize(weapon_of(app, a)) .. " hits " .. target_of(app, s.id) .. " (your roll, behind the screen): "
                     .. amount .. " damage" .. dice .. "." .. left_of(s), "system")
@@ -1863,8 +1868,17 @@ function M.play_step(app, s, pace)
             local function nm(id)
                 return (type(id) == "string" and name_of(app, id)) or "someone"
             end
+            local text = say[1]
+            if say.soft and app.campaign and app.campaign.adv then
+                local adv = require "game.model.adventure"
+                for tag, alt in pairs(say.soft) do
+                    if adv.test(app.campaign, { soft = tag }) then
+                        text = alt
+                    end
+                end
+            end
             M.float(app, s.id, s.name, say[2] or theme.teal)
-            M.push(app, (string.gsub(say[1], "{(%w+)}", { who = nm(s.id), target = nm(s.target), by = nm(s.by) })), say[3] or "system")
+            M.push(app, (string.gsub(text, "{(%w+)}", { who = nm(s.id), target = nm(s.target), by = nm(s.by) })), say[3] or "system")
         elseif s.name then
             M.float(app, s.id, s.name, theme.teal)
             M.push(app, name_of(app, s.id) .. ": " .. s.name .. ".", "system")
@@ -1905,6 +1919,10 @@ function M.play_step(app, s, pace)
         M.float(app, s.id, "Stable", theme.teal)
     elseif k == "fortitude" then
         M.float(app, s.id, "Undead Fortitude", theme.purple)
+    elseif k == "flee" and s.why == "yield" then
+        -- Standing down with a boss who yielded: her line says it, once (fight.lua's yield).
+        M.float(app, s.id, "Stands down", theme.teal)
+        battle_hud.gone(app, s.id)
     elseif k == "flee" and s.why == "surrender" then
         -- A foe who surrenders stays put, hands up (A7): never "runs for it".
         M.float(app, s.id, "Surrenders", theme.teal)

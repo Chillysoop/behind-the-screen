@@ -96,7 +96,7 @@ check(not c.my_maps[cp2] and not map_repo.pieces_of(c, cp2), "a deleted map is g
 
 -- 3. A room set to another map plays on it, and a side room plays.
 map_repo.set_room_map(c, "garden", "mine:" .. id)
-map_repo.add_side_room(c, "board:camp", "entrance", "A tent in the hall")
+map_repo.add_side_room(c, "board:museum_hall", "entrance", "A dusty side gallery")
 local prep = c:start_week()
 require("game.model.museum_week").prep_greedy(prep)
 local night = c:start_night()

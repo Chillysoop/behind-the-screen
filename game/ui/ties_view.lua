@@ -222,9 +222,12 @@ local function effect_tabs(app)
         local r = MODULE.rooms[id]
         return r.map or r.name
     end
+    -- (Only what can join her by itself: a mirror or a robbery is the party's to put there.)
     for _, id in ipairs(MODULE.mark_order or {}) do
-        table.insert(marks, { label = ties.mark_name(id), value = { kind = "mark", mark = id }, key = "tl_eff_mark_" .. id,
-                              enabled = not st.marks[id] })
+        if not MODULE.marks[id].party then
+            table.insert(marks, { label = ties.mark_name(id), value = { kind = "mark", mark = id }, key = "tl_eff_mark_" .. id,
+                                  enabled = not st.marks[id] })
+        end
     end
     for _, d in ipairs(ties.doors()) do
         table.insert(doors, { label = short(d[1]) .. " to " .. short(d[2]),

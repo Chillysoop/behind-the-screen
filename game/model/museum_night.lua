@@ -116,7 +116,13 @@ function M.bank(night, n, why)
     local st = st_of(night)
     st.bank = math.max(0, (st.bank or 0) + n)
     night:emit({ kind = "warning", bank = st.bank, why = why })
-    night:say(why .. " Fair warning in the bank: " .. util.int(st.bank) .. ".", "aside")
+    -- (The first time, what the bank is for: nobody knew, the playtest found.)
+    local explain = ""
+    if not st.bank_explained then
+        st.bank_explained = true
+        explain = " (Each one lets a harsh call later land as fair instead of arbitrary.)"
+    end
+    night:say(why .. " Fair warning in the bank: " .. util.int(st.bank) .. "." .. explain, "aside")
 end
 
 function M.harsh(night, sc)
@@ -337,7 +343,29 @@ function M.goal_text(night, sc, goal)
 end
 
 -- Does the party hold a room's prize now? (Its `has`: a flag, a mark, or bought tonight.)
+-- What they came away with tonight, for the report ("Picked up: ..."): once each.
+function M.note_got(night, what)
+    if not what or what == "" then
+        return
+    end
+    night.mus.got = night.mus.got or {}
+    for _, g in ipairs(night.mus.got) do
+        if string.lower(g) == string.lower(what) then
+            return
+        end
+    end
+    table.insert(night.mus.got, what)
+end
+
 function M.has_reward(night, sc, r)
+    local held = M.has_reward_raw(night, sc, r)
+    if held and r and not r.francs and not r.owner then
+        M.note_got(night, util.lower_first(r.got or r.name))
+    end
+    return held
+end
+
+function M.has_reward_raw(night, sc, r)
     if r.owner == "ending" then
         return night.campaign.adv.ending ~= nil
     end
@@ -378,6 +406,8 @@ function M.reward(night, sc)
         return
     end
     night:say("They earn " .. util.lower_first(r.line), "reward", { gold = tostring(st.gold or 30) })
+    M.note_got(night, r.id == "mus_thanks" and (util.int(st.gold or 30) .. " gold each and a pick from the gift shop")
+        or util.lower_first(r.got or r.name))
 end
 
 -- Moments -----------------------------------------------------------------------------------------
@@ -540,7 +570,9 @@ function M.moments(night, sc, at)
     end
     local knobs = knobs_of(night)
     for _, m in ipairs(MODULE.moments) do
+        -- (fight_only: a moment about the fight, when the talk has just ended it without one.)
         if m.room == sc.room and (m.at or "start") == at and adventure.test(night.campaign, m.when, knobs)
+            and not (m.fight_only and not M.has_fight(sc))
             and not (m.unless and adventure.test(night.campaign, m.unless, knobs)) and adventure.moment_open(night.campaign, m) then
             M.play_moment(night, m, sc)
             if night.end_early then
@@ -556,7 +588,7 @@ function M.soft_check(night, alts)
     local t = night.campaign.table or {}
     night.mus.soft = night.mus.soft or {}
     for _, alt in ipairs(alts or {}) do
-        local tag = alt.when and alt.when.soft
+        local tag = alt.when and (alt.when.soft or alt.when.line)
         if tag and not night.mus.soft[tag] then
             local key = (t.lines and t.lines[tag]) or (t.veils and t.veils[tag])
             local p = key and present(night, key)
@@ -655,6 +687,8 @@ function M.room_start(night, sc)
                 local to = cb.give.who and present(night, cb.give.who)
                 local e = items_mod.earn(c, cb.give.magic, to and { to } or night.players)
                 given = e and e.holder and present(night, e.holder)
+                local d = items_mod.def(cb.give.magic)
+                M.note_got(night, d and string.lower(d.name) or nil)
             end
             night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
         end
@@ -727,6 +761,26 @@ function M.arm(night, sc)
     end
 end
 
+-- The cheapest thing in the gift shop they don't have yet (a trip back to spend Francs is only
+-- worth it if they can buy something: the playtest, Nov 2, kept going back with too few).
+function M.cheapest(c)
+    local st = c.adv
+    local best = math.huge
+    for _, m in ipairs(MODULE.moments) do
+        if m.shop then
+            for _, o in ipairs(m.options) do
+                local mu = o.mus or {}
+                local have = (mu.flag and st.flags[mu.flag]) or (mu.mark and st.marks[mu.mark])
+                local ok = not o.needs or adventure.test(c, o.needs)
+                if o.price and not have and ok and o.price < best then
+                    best = o.price
+                end
+            end
+        end
+    end
+    return best
+end
+
 -- Whether this room has a fight tonight.
 function M.has_fight(sc)
     if not sc.encounter or sc.no_fight or sc.resolved then
@@ -749,10 +803,13 @@ function M.stage(night, sc, title)
     local cast, goal = sc.comps.cast, sc.comps.goal
     night.stage_now = { terrain = sc.terrain, board = night:board_for(sc), party = party, npc = npc }
     night:board_set(night:board_for(sc), sc)
+    -- (A trip back to a cleared room isn't its fight or puzzle again: "Combat with the Briar
+    -- Guardians" over a garden that had burned.)
+    local back = sc.revisit ~= nil
     night:emit({ kind = "scene", index = sc.index, title = sc.title, type = sc.type,
-                 board = night:board_for(sc), type_name = content.scenes[sc.type].name, terrain = sc.terrain,
-                 party = party, npc = npc, npc_hidden = npc ~= nil, cast = cast and cast.name,
-                 goal = goal and goal.name })
+                 board = night:board_for(sc), type_name = back and "A trip back" or content.scenes[sc.type].name, terrain = sc.terrain,
+                 party = party, npc = npc, npc_hidden = npc ~= nil, cast = (not back) and cast and cast.name or nil,
+                 goal = (not back) and goal and goal.name or nil })
     night.npc_pending = npc ~= nil or nil
     return party, npc
 end
@@ -908,7 +965,7 @@ function M.second_looks(night)
             if id == "gift_shop" then
                 if hurt(night) >= 0.45 then
                     table.insert(out, { id = id, why = "rest", steps = steps })
-                elseif (st.francs or 0) >= 3 and not night.mus.shopped and M.shop_open(c, id) then
+                elseif (st.francs or 0) >= M.cheapest(c) and not night.mus.shopped and M.shop_open(c, id) then
                     table.insert(out, { id = id, why = "shop", steps = steps })
                 end
             end
@@ -1159,7 +1216,8 @@ function M.fork(night, options, backs, sides)
                                      log = steer and "You nudge them the other way. A couple of looks across the table." or nil })
     end
     -- The DM's own move: a hint that a room they cleared still has something in it.
-    if not night.mus.hinted and (night.mus.backs or 0) < M.MAX_BACKS then
+    -- (Offered at one fork a night, not every one: the playtest, Nov 2, saw it at five in a row.)
+    if not night.mus.hinted and not night.mus.hint_offered and (night.mus.backs or 0) < M.MAX_BACKS then
         for _, id in ipairs(MODULE.order) do
             local cl = select(2, adventure.reachable(c, pos or id))
             if cl[id] and not st.hinted[id] and #adventure.missed(c, id) > 0 and not (night.mus.been or {})[id] then
@@ -1169,6 +1227,7 @@ function M.fork(night, options, backs, sides)
                     log = "\"You know, you never did look properly at " .. util.lower_first(MODULE.rooms[id].name)
                         .. ".\" Someone groans. Someone grabs their pencil.",
                     hint = id })
+                night.mus.hint_offered = true
                 break
             end
         end
@@ -1343,6 +1402,18 @@ function M.after_room(night, sc)
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
     adventure.leave_room(c, id, outcome, c.week)
+    -- What they came away with, in words that match what happened (the goal's got_if), for the
+    -- story so far: not "the truth about the Gorgon" when they never heard it.
+    local goal = sc.comps and sc.comps.goal
+    local step = st.path[#st.path]
+    if goal and step and step.room == id then
+        for _, alt in ipairs(goal.got_if or {}) do
+            if alt_holds(night, sc, alt) then
+                step.got = alt.text
+                break
+            end
+        end
+    end
     M.ties_beat(night, sc)
     M.interlude(night, sc)
 end
@@ -1462,10 +1533,10 @@ end
 -- Into a room: anything that leaves behind for good marks her card (the lair, for rooms unseen).
 function M.enter(night, id)
     local c = night.campaign
+    local lb_marks = MODULE.rooms[id].boss and adventure.left_behind(c) or {}
     local left = adventure.enter_room(c, id, c.week)
-    for _, lid in ipairs(left) do
-        local lb = MODULE.left_behind[lid]
-        if lb and lb.mark and adventure.add_mark(c, lb.mark, lid) then
+    for _, lb in ipairs(lb_marks) do
+        if adventure.add_mark(c, lb.mark, lb.room) then
             table.insert(night.mus.pending, lb.mark)
         end
     end
@@ -1575,6 +1646,10 @@ function M.run(night)
                 local r = MODULE.rooms[id]
                 M.play(night, id)
                 if r.stop and (id == "stairs" or #night.scenes >= 3 or night.table_min > night.table_planned * 0.55) then
+                    -- (Say so: a night that just stopped left the table wondering why.)
+                    if id ~= "stairs" and not night.end_early then
+                        night:say("It's a good place to stop. \"We'll pick it up here next week,\" you tell them, and nobody argues.", "dm")
+                    end
                     break
                 elseif r.stop then
                     night:say("They catch their breath, check their packs, and keep going.", "dm")
@@ -1714,6 +1789,7 @@ function M.thanks(night)
         return
     end
     local sc = M.build_scene(night, "thanks")
+    sc.outcome = "win"          -- (the museum's done: nobody fails to be thanked)
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
     night.mus.total = #night.scenes
@@ -1723,10 +1799,34 @@ function M.thanks(night)
     end
 end
 
+-- Heroes still stone when her fight stops (she yielded, ran, or let them go): her hold on them
+-- breaks with it, and the table hears who's back (the playtest, Nov 2: a stone Oswin chatted in
+-- the gift shop afterwards as if nothing had happened).
+local function free_stone(night)
+    local freed = {}
+    for _, pc in ipairs(night.pc_list or {}) do
+        local was = false
+        for i = #(pc.effects or {}), 1, -1 do
+            local e = pc.effects[i]
+            if e.stone or e.petrifying then
+                table.remove(pc.effects, i)
+                was = true
+            end
+        end
+        if was and not pc.dead then
+            table.insert(freed, pc.name)
+        end
+    end
+    if #freed > 0 then
+        night:say(util.join_names(freed) .. (#freed == 1 and " cracks" or " crack") .. " out of the stone, gasping, as her hold on the lair breaks.", "good")
+    end
+end
+
 function M.after_showdown(night, sc)
     local c = night.campaign
     local st = st_of(night)
     local boss = st.boss or {}
+    free_stone(night)
     if sc.extras_only and sc.fought and sc.outcome ~= "win" then
         -- She's gone already (paid, or carried out asleep): losing to her collection ends it anyway.
         night:say(MODULE.extras_lost, "bad")
@@ -1778,8 +1878,16 @@ function M.after_showdown(night, sc)
             night:say(line, "narration")
         end
         for _, p in ipairs(night.players) do
-            local lines = MODULE.want_more[p.key]
-            if lines then
+            -- (A line about something only if it happened: { text, when }.)
+            local lines = {}
+            for _, l in ipairs(MODULE.want_more[p.key] or {}) do
+                if type(l) == "string" then
+                    table.insert(lines, l)
+                elseif adventure.test(c, l.when) then
+                    table.insert(lines, l[1])
+                end
+            end
+            if #lines > 0 then
                 local line = night.rng:pick(lines)
                 st.want_said = st.want_said or {}
                 st.want_said[p.key] = line           -- (the journey quotes what they really said)

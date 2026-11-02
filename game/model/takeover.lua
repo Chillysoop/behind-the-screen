@@ -133,7 +133,9 @@ local function module_line(night, info, step, stance)
     if not mt then
         return nil
     end
-    local set = (step == 1 and (info.met and mt.again or mt.open)) or mt.ask
+    -- (Once the adventure's over, what they say is about it being over: no lie about "incidents".)
+    local over = night.campaign.adv and night.campaign.adv.ending and mt.done
+    local set = (over and over) or (step == 1 and (info.met and mt.again or mt.open)) or mt.ask
     local list = set and set[stance]
     if not list or #list == 0 then
         return nil

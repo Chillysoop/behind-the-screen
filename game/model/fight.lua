@@ -538,7 +538,7 @@ function M.step(night, ev)
         s.cover, s.heroic = (ev.cover or 0) > 0 and ev.cover or nil, ev.heroic
     elseif k == "damage" then
         s.id, s.amount, s.hp, s.hp_max, s.crit = ref(ev.tgt), ev.amount, ev.hp, ev.hp_max, ev.crit
-        s.graze, s.spell = ev.graze, ev.spell
+        s.graze, s.spell, s.weak = ev.graze, ev.spell, ev.weak
         s.src = ev.src and ev.src ~= ev.tgt and ev.src.mini or nil
     elseif k == "heal" then
         s.id, s.amount, s.hp, s.hp_max = ref(ev.tgt), ev.amount, ev.hp, ev.hp_max
@@ -613,7 +613,8 @@ end
 -- lands in the night's ledger as ev = "moment" with museum = the kind and tags = { "museum", kind }.
 M.MUSEUM_MOMENTS = {
     veil = { weight = 7, highlight = true, pose = "gasp", text = "{name} tore off her hood, and the snakes came out" },
-    scarabs = { weight = 5, pose = "gasp", text = "Scarabs came pouring out of {name}" },
+    scarabs = { weight = 5, pose = "gasp", text = "Scarabs came pouring out of {name}",
+                soft = { bugs = "Something swarmed out of {name}, kept off screen" } },
     petrified = { weight = 8, highlight = true, pose = "gasp", text = "{name} turned to stone" },
     self_stone = { weight = 9, highlight = true, pose = "cheer", text = "{name} met her own eyes in the mirror and turned to stone" },
     freed = { weight = 6, pose = "cheer", text = "{name} cracked free of the stone" },
@@ -646,7 +647,18 @@ function M.museum_moments(night, f, steps)
         end
         local m = kind and M.MUSEUM_MOMENTS[kind]
         if m and c then
-            local text = util.fill(m.text, { name = c.name, target = name_of(f, type(s.target) == "string" and s.target or nil),
+            -- (A table that veiled what this is hears it gently, and the DM says so once.)
+            local mt = m.text
+            if m.soft and night.mus then
+                local adv = util.lazy("game.model.adventure")
+                for tag, alt in pairs(m.soft) do
+                    if adv.test(night.campaign, { soft = tag }) then
+                        mt = alt
+                        util.lazy("game.model.museum_night").soft_check(night, { { when = { soft = tag } } })
+                    end
+                end
+            end
+            local text = util.fill(mt, { name = c.name, target = name_of(f, type(s.target) == "string" and s.target or nil),
                                              by = name_of(f, s.by) })
             local p = c.pc and player_of(night, c) or nil
             local list = p and { p } or night.players
@@ -1137,8 +1149,13 @@ function M.run(night, sc, plan)
             return total
         end
         -- A hidden monster hit would drop a hero.
+        -- (Not for a hero whose player asked at Session Zero for their death in the open, and you
+        -- agreed: saving them behind the screen would break it. The playtest, Nov 2.)
+        local promised = night.campaign.table and night.campaign.table.promises
+            and night.campaign.table.promises.open_death
+        local tp = tgt.pc and player_of(night, tgt)
         if src.side == "foes" and tgt.pc and not tgt.down and total >= tgt.hp + tgt.temp and night.dm_rolls == "hidden"
-            and not f.used.death_roll then
+            and not f.used.death_roll and not (promised and tp and promised == tp.key) then
             local o = moment(night, f, "death_roll", { target = src.name, damage = util.int(total) }, tgt)
             if o and o.battle == "fudge_miss" then
                 table.insert(night.turn_steps, { kind = "feature", id = tgt.mini, name = "It glances off" })
@@ -1318,7 +1335,7 @@ function M.run(night, sc, plan)
             f.yielded = true
             for _, e in ipairs(bb.creatures) do
                 if e.side == "foes" and not e.dead and not e.removed then
-                    bb:remove(e, "surrender")
+                    bb:remove(e, "yield")        -- (they stand down with her: not "ran", not "threw down their weapon")
                 end
             end
             bb.force_end = "party"
@@ -1414,6 +1431,8 @@ function M.summary(b, f, result)
         how = "lost"
     elseif f.surrendered then
         how = "surrendered"
+    elseif f.yielded then
+        how = "yielded"
     elseif f.fled then
         how = (f.boss and f.boss.villain and f.boss.removed) and "escaped" or "fled"
     end

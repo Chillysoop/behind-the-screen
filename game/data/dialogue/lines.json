@@ -559,7 +559,7 @@
   {"id": "between.jess.4", "trigger": "between", "speaker": "jess", "text": "Refills? I'll do a little dance on the way to the kitchen.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "wrap.jess.1", "trigger": "wrap", "speaker": "jess", "text": "Pip will remember this.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "wrap.jess.2", "trigger": "wrap", "speaker": "jess", "text": "Okay, I'm doing Pip's voice all week. Sorry, coworkers.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
-  {"id": "wrap.jess.3", "trigger": "wrap", "speaker": "jess", "text": "Goodnight, darlings! Same tavern, same time.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
+  {"id": "wrap.jess.3", "trigger": "wrap", "speaker": "jess", "text": "Goodnight, darlings! Same time next week.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "wrap.jess.4", "trigger": "wrap", "speaker": "jess", "text": "Sir Nibbles had a lovely evening. So did I.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "banter.jess.1", "trigger": "banter", "speaker": "jess", "to": "dev", "text": "Brannoc, try smiling. People like it.", "reply": "People like me fine. Scared, but fine.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "banter.jess.2", "trigger": "banter", "speaker": "jess", "to": "mara", "text": "Can you magic that lock open?", "reply": "I could. Or you could do your one job.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},

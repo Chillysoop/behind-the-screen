@@ -561,12 +561,23 @@ function M:npc_line(what, extra)
         return
     end
     local text, line
-    -- (v2: someone who's met the party greets them as people they know.)
-    if what == "greet" and self.mus and self.met and self.met[cast.id] and util.lazy("game.model.adventure").met(self.campaign, cast.id)
-        and (util.lazy("game.model.adventure").meet(self.campaign, cast.id).week or 0) < (self.campaign.week or 0) then
-        text, line = self.talk:npc(cast.id .. "@again", what, self:vars(extra))
+    -- (v2: someone greets the party once a scene, and someone who's met them before greets them as
+    -- people they know, never with their first-meeting line: the playtest, Nov 2, had Flitwidget
+    -- say hello three ways in the thanks scene, the last as if they'd never met.)
+    local again = false
+    if what == "greet" and self.mus then
+        sc.greeted = sc.greeted or {}
+        if sc.greeted[cast.id] then
+            return nil
+        end
+        sc.greeted[cast.id] = true
+        local adv = util.lazy("game.model.adventure")
+        again = adv.met(self.campaign, cast.id) and (adv.meet(self.campaign, cast.id).week or 0) < (self.campaign.week or 0)
+        if again then
+            text, line = self.talk:npc(cast.id .. "@again", what, self:vars(extra))
+        end
     end
-    if not text then
+    if not text and not again then
         text, line = self.talk:npc(cast.id, what, self:vars(extra))
     end
     if text then
@@ -1970,8 +1981,11 @@ function M:hero_action(sc, used, dc, need, spots)
         sc.goal_used = sc.goal_used or {}
         sc.goal_missed = sc.goal_missed or {}
         local gopts = {}
+        -- (v2: an approach can wait on what's happened, `when`: nobody asks about the news before
+        -- it's been told.)
+        local adv = self.mus and util.lazy("game.model.adventure")
         for i, a in ipairs(gp.approaches) do
-            if not sc.goal_used[i] and self:action_suits(sc, a)
+            if not sc.goal_used[i] and self:action_suits(sc, a) and (not a.when or (adv and adv.test(self.campaign, a.when)))
                 and #self:without_fallen({ a.say .. " " .. a.win .. " " .. a.lose }) > 0 then
                 table.insert(gopts, { i = i, a = a, goal = true })
             end
@@ -2145,6 +2159,11 @@ function M:hero_action(sc, used, dc, need, spots)
     -- (A second miss at the same move isn't the first miss again, word for word: the second playtest.)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
+    -- (v2: what it changes in the adventure, as a moment's option would: a bigger reward, a flag.)
+    local am = success and a.mus_win or (not success and a.mus_lose)
+    if am and self.mus then
+        util.lazy("game.model.museum_night").handle(self, am, sc)
+    end
     if roll == 20 then
         local poses = { [p.key] = "cheer" }
         for _, q in ipairs(self.players) do
@@ -2343,6 +2362,8 @@ function M:behavior_fits(b, sc, week)
         end
     elseif b.needs == "cliff" then
         return self.ended_on_cliff or self.end_early or false
+    elseif b.needs == "not_first" then
+        return (self.campaign.week or 1) > 1      -- (no "last time" on the first night)
     end
     return true
 end
@@ -3015,9 +3036,12 @@ function M:big_roll(spec, record)
                 reported = util.clamp(dc - mod - self.rng:int(1, 4), 1, 20)
             end
         end
-        -- A cooked result lands plainly on the side the DM chose.
+        -- A cooked result lands plainly on the side the DM chose. (And it's no triumph any more: the
+        -- token's offer goes with it. The playtest, Nov 2: a DC moved to make a miss handed out
+        -- Heroic Inspiration, because the plain miss sat where the token's option had been.)
         tier = success and "success" or "near"
         rule = content.rulings[tier]
+        inspire_at = nil
         pick = 1
         for i, o in ipairs(rule.options) do
             if o.success == success and not o.tone then
@@ -3984,7 +4008,7 @@ function M:combat_scene(sc)
         if c.side == "foes" and c.monster_id then
             if c.dead then
                 table.insert(sc.foes_beaten, c.monster_id)
-            elseif c.removed and c.removed_why ~= "surrender" then
+            elseif c.removed and c.removed_why ~= "surrender" and c.removed_why ~= "yield" then
                 table.insert(sc.foes_ran, c.monster_id)
             end
         end
@@ -4012,6 +4036,16 @@ function M:combat_scene(sc)
             if outcome == "scar" then
                 c.dead, c.down = false, false
                 c.hp = 1
+            end
+        end
+    end
+    -- v2: a hero left on the floor when it's over comes round (stable, so 1 hit point after a while,
+    -- SRD 5.2.1), and the table hears it: nobody cheers or rolls from 0 hit points.
+    if self.mus then
+        for _, c in ipairs(self.pc_list or {}) do
+            if not c.dead and (c.hp or 0) <= 0 then
+                c.hp, c.down, c.stable, c.ds = 1, false, nil, nil
+                self:say(c.name .. " comes round on the floor with 1 hit point, groggy but alive.", "aside")
             end
         end
     end
@@ -4616,6 +4650,26 @@ function M:bond_act(sc, def, doer)
         target = best
     else
         target = self:pick_actor(nil, doer)
+    end
+    -- A fight's teamwork only between two who did something in it (the playtest, Nov 2: a hero
+    -- charmed the whole fight "pulled off a move together" with a friend).
+    if def.when == "fight" then
+        local function acted(p)
+            local c = p and self.pcs and self.pcs[p.key]
+            local s = c and c.stats
+            return s ~= nil and ((s.dealt or 0) > 0 or (s.healed or 0) > 0 or (s.kills or 0) > 0)
+        end
+        if not acted(doer) then
+            return
+        end
+        if not acted(target) then
+            target = nil
+            for _, p in ipairs(self.players) do
+                if p ~= doer and acted(p) then
+                    target = target or p
+                end
+            end
+        end
     end
     if not target then
         return
@@ -6116,7 +6170,8 @@ function M:play_scene(sc)
         end
         self:conflict_spotlight(sc)
         self:quick_checks(sc)       -- (a player's pull comes partway through: maybe_pull)
-        if not self.end_early then
+        -- (An adventure's epilogue, the thanks downstairs, has no big roll to fail: it's over.)
+        if not self.end_early and not sc.epilogue then
             self:climax(sc)
         end
     end

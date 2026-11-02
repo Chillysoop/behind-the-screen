@@ -74,9 +74,9 @@ return {
         { id = "note_taker", archetype = "storyteller", when = "long_scene", mood = "engaged", lines = { "hold on, how do you spell that name?", "writing that down. that's important.", "okay, page four of my notes says..." }, effect = "story+ group" },
         { id = "wild_theory", archetype = "storyteller", when = "idle", mood = "engaged", lines = { "okay, hear me out: the innkeeper is the villain.", "what if the cat is a wizard.", "it all connects. look at my notes." }, effect = "story+ group" },
         { id = "callback_spotted", archetype = "storyteller", needs = "met_before", when = "social", mood = "engaged", lines = { "wait, isn't that {cast}? from before?", "oh no. it's {cast} again.", "i KNEW {cast} would be back." }, effect = "story+ group" },
-        { id = "recap_volunteer", archetype = "storyteller", when = "start", mood = "engaged", lines = { "i'll do the recap!", "previously, on our show...", "last time: lots of yelling, one very good roll." }, effect = "story+ group" },
+        { id = "recap_volunteer", archetype = "storyteller", needs = "not_first", when = "start", mood = "engaged", lines = { "i'll do the recap!", "previously, on our show...", "last time: lots of yelling, one very good roll." }, effect = "story+ group" },
         { id = "cliffhanger_protest", archetype = "any", needs = "cliff", when = "end", mood = "engaged", lines = { "you can't end it THERE.", "a whole week?! i need to know now.", "okay, group chat theories tonight." }, effect = "story+ group" },
-        { id = "loot_split", archetype = "power_gamer", when = "end", mood = "engaged", lines = { "okay, how are we splitting the gold?", "i call the ring. i called it first.", "the cleric gets the potions, that's just maths." }, effect = "fun+ speaker" },
+        { id = "loot_split", archetype = "power_gamer", when = "end", mood = "engaged", lines = { "okay, how are we splitting the gold?", "i call first pick. i called it first.", "the cleric gets the potions, that's just maths." }, effect = "fun+ speaker" },
     
         -- table life
         { id = "arrival_chatter", archetype = "any", when = "start", mood = "any", lines = { "sorry i'm late, traffic was awful.", "did i miss anything? we haven't started? great." }, effect = "social+ group" },

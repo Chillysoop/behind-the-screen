@@ -24,6 +24,9 @@ M.BASIC_NAME = { camp = "Camp", forest = "Woods", road = "Road", ruins = "Ruins"
                  tavern = "Tavern", town = "Street", market_generic = "Market", bridge = "Bridge", dock = "Waterside",
                  blank = "Open ground", museum_hall = "Museum hall" }
 
+-- The plain boards that fit an indoor adventure (a museum), while one runs.
+M.MODULE_BASICS = { blank = true, museum_hall = true, underground = true, ruins = true, town = true }
+
 local function mine(campaign)
     campaign.my_maps = campaign.my_maps or {}
     return campaign.my_maps
@@ -74,8 +77,10 @@ function M.entries(campaign)
         elseif id ~= "vignette" then
             group = "places"
         end
-        -- (While a module runs, nothing from the old valley shows: adventure.foreign.)
-        if group and module and adventure.foreign(b.title or "") then
+        -- (While a module runs, nothing from the old valley shows: adventure.foreign; and nothing
+        -- that doesn't fit the adventure: a museum has no taverns, roads or docks to start from.)
+        if group and module and (adventure.foreign(b.title or "") or group == "places"
+            or (group == "basics" and not M.MODULE_BASICS[id])) then
             group = nil
         end
         if group then

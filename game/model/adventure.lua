@@ -254,6 +254,21 @@ function M.enter(campaign)
         end
         scrub(require("game.model.recap"), seen)
         M.museum_death()
+        -- What the friends do to each other, in this adventure's words.
+        local fr = content.friction
+        for part, over in pairs(MODULE.friction or {}) do
+            local list = fr and fr[part]
+            if list then
+                for i = #list, 1, -1 do
+                    local v = over[list[i].id]
+                    if v == false then
+                        table.remove(list, i)
+                    elseif type(v) == "string" then
+                        list[i].line = v
+                    end
+                end
+            end
+        end
         -- The recap's words where the shared ones assume a campaign.
         local rc = require "game.model.recap"
         for k, list in pairs(MODULE.recap_beats or {}) do
@@ -503,6 +518,12 @@ function M.test(campaign, cond, knobs)
     if cond.met and not M.met(campaign, cond.met) then
         return false
     end
+    if cond.ending and st.ending ~= cond.ending then
+        return false
+    end
+    if cond.not_ending and st.ending == cond.not_ending then
+        return false
+    end
     if cond.seen and not (st.seen or {})[cond.seen] then
         return false               -- (a moment card that played)
     end
@@ -511,6 +532,12 @@ function M.test(campaign, cond, knobs)
     end
     -- What Session Zero agreed: a content tag the table veiled (it happens off screen) or drew a
     -- line under (it never happens). { soft = "gore" } holds for either.
+    if cond.line then
+        local t = campaign.table
+        if not (t and t.lines and t.lines[cond.line]) then
+            return false           -- (a line, not a veil: it never happens at all)
+        end
+    end
     if cond.soft then
         local t = campaign.table
         if not (t and ((t.veils and t.veils[cond.soft]) or (t.lines and t.lines[cond.soft]))) then
@@ -848,6 +875,28 @@ end
 -- The party goes into a room. Going up a floor walks past whatever they didn't see below (still
 -- there if someone wants to go back); going into the lair leaves anything unseen behind for good
 -- (returned, so the night can mark Euryale's card: MODULE.left_behind).
+-- What going up to her leaves behind for good, on her card: each unplayed room's left_behind mark,
+-- unless a loose end already said where that room's thing went (the DM's answer stands).
+-- defer: leave out a room whose loose end hasn't been answered yet (it's about to be asked).
+function M.left_behind(campaign, defer)
+    local st = campaign.adv
+    local out = {}
+    for _, oid in ipairs(MODULE.order) do
+        local o = MODULE.rooms[oid]
+        local lb = MODULE.left_behind and MODULE.left_behind[oid]
+        if lb and lb.mark and not o.boss and not o.virtual and not st.done[oid] then
+            local settled = false
+            for _, le in ipairs(MODULE.loose_ends or {}) do
+                settled = settled or (le.when.skipped == oid and (st.answered[le.id] ~= nil or defer))
+            end
+            if not settled then
+                table.insert(out, { room = oid, mark = lb.mark })
+            end
+        end
+    end
+    return out
+end
+
 function M.enter_room(campaign, id, week)
     local st = fill(campaign.adv)
     local r = MODULE.rooms[id]
@@ -998,6 +1047,9 @@ function M.apply(campaign, mus, room)
     end
     if mus.favor then
         st.favors[mus.favor.who] = (st.favors[mus.favor.who] or 0) + mus.favor.n
+    end
+    if mus.gold then
+        st.gold = mus.gold          -- (the reward, as bargained: what the thanks pays out)
     end
     return added
 end
@@ -1265,7 +1317,7 @@ function M.story_so_far(campaign)
         local r = MODULE.rooms[step.room]
         if not r.virtual then
             local goal = r.comps and r.comps.goal and content.components[r.comps.goal]
-            local how = goal and (step.outcome == "win" and goal.got or nil)
+            local how = goal and (step.outcome == "win" and (step.got or goal.got) or nil)
             table.insert(lines, { room = step.room, name = r.name, week = step.week, outcome = step.outcome,
                                   text = r.name .. (how and (": " .. how) or (step.outcome == "lose" and ": a rough one" or "")) })
         end
