@@ -59,6 +59,11 @@ local function wrapup_items(app, rep)
         end
         if mu.ending then
             table.insert(items, { "The museum is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
+            -- (Out of sessions, nothing at the table said so: the report does, with Flitwidget's word.)
+            if mu.ending == "timeout" then
+                local e = MODULE.endings.timeout
+                table.insert(items, { e.line .. " Flitwidget: " .. e.flit, theme.dim })
+            end
         else
             table.insert(items, { mu.where, theme.dim })
         end

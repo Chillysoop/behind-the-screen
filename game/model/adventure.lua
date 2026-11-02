@@ -224,6 +224,14 @@ function M.enter(campaign)
         end
         scrub(require("game.model.recap"), seen)
         M.museum_death()
+        -- The adventure's own magic items join the rules' list (a pickup goes on a hero's sheet).
+        local mi = require "game.rules.data.magic_items"
+        for id, def in pairs(MODULE.magic_items or {}) do
+            if not mi[id] then
+                def.id = id
+                mi[id] = def
+            end
+        end
         local bc = content.triggered and content.triggered.boss_crit
         if bc then
             bc.text = "{actor_char} is about to drop {boss} in round {round}. The whole table can see it coming."
@@ -449,6 +457,14 @@ function M.test(campaign, cond, knobs)
     end
     if cond.met and not M.met(campaign, cond.met) then
         return false
+    end
+    -- What Session Zero agreed: a content tag the table veiled (it happens off screen) or drew a
+    -- line under (it never happens). { soft = "gore" } holds for either.
+    if cond.soft then
+        local t = campaign.table
+        if not (t and ((t.veils and t.veils[cond.soft]) or (t.lines and t.lines[cond.soft]))) then
+            return false
+        end
     end
     return true
 end
@@ -962,8 +978,12 @@ function M.boss_encounter(campaign)
             end
             if m.ally then
                 -- (The Mech answers to whoever woke it: Euryale goes for them, and it stops if they drop.)
-                table.insert(allies, { id = m.ally, name = (id == "mech") and st.mech_name or nil,
-                                       commander = (id == "mech") and st.mech_commander or nil })
+                -- (false: nobody at the table, when Flitwidget woke it himself.)
+                local cmd
+                if id == "mech" then
+                    cmd = st.mech_commander
+                end
+                table.insert(allies, { id = m.ally, name = (id == "mech") and st.mech_name or nil, commander = cmd })
             end
             if m.opt then
                 opts[m.opt] = true
@@ -1066,6 +1086,30 @@ local function like_for(p, likes)
     return n
 end
 
+-- Marks added between sessions wait for the next night, where Euryale gets her line as they land
+-- (museum_night.intro): the table never hears a mark go on her card in silence.
+local function hold_marks(campaign, added)
+    local st = campaign.adv
+    st.unannounced = st.unannounced or {}
+    for _, m in ipairs(added or {}) do
+        if not util.contains(st.unannounced, m) then
+            table.insert(st.unannounced, m)
+        end
+    end
+end
+
+-- The Steam Mech woken some other way than the code (a loose end): it still has a name, and it
+-- answers to nobody at the table (Flitwidget woke it), so nothing powers it down mid-fight.
+local function mech_woken(campaign, added)
+    local st = campaign.adv
+    if util.contains(added or {}, "mech") then
+        st.mech_name = st.mech_name or MODULE.mech_names[((campaign.week or 1) % #MODULE.mech_names) + 1]
+        if st.mech_commander == nil then
+            st.mech_commander = false
+        end
+    end
+end
+
 -- A request answered: the asker, then everyone by type. Returns what each friend thinks.
 function M.answer_request(campaign, id, answer)
     local st = campaign.adv
@@ -1092,7 +1136,7 @@ function M.answer_request(campaign, id, answer)
         end
         reactions[p.key] = d
     end
-    M.apply(campaign, a.mus)
+    hold_marks(campaign, M.apply(campaign, a.mus))
     if a.mus and a.mus.warn then
         st.bank = st.bank + 1
     end
@@ -1105,7 +1149,9 @@ function M.answer_loose(campaign, id, i)
         if le.id == id and not st.answered[id] then
             local o = le.options[i]
             st.answered[id] = i
-            M.apply(campaign, o.mus, "loose")
+            local added = M.apply(campaign, o.mus, "loose")
+            hold_marks(campaign, added)
+            mech_woken(campaign, added)
             -- (If they go back for the room after all, the mark it moved goes back with it.)
             if o.mus and o.mus.mark and le.when.skipped then
                 fill(st)
@@ -1128,8 +1174,8 @@ function M.answer_favor(campaign, who, help_i, hurt_i)
     end
     st.favor_done[who] = { help = help_i, hurt = hurt_i }
     local h, u = def.helps[help_i], def.hurts[hurt_i]
-    M.apply(campaign, h and h.mus)
-    M.apply(campaign, u and u.mus)
+    hold_marks(campaign, M.apply(campaign, h and h.mus))
+    hold_marks(campaign, M.apply(campaign, u and u.mus))
     if (h and h.mus and h.mus.warn) or (u and u.mus and u.mus.warn) then
         st.bank = st.bank + 1
     end

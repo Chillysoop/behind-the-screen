@@ -3279,7 +3279,7 @@ function M:decision(card, extra)
     end
     -- You promised a friend the next one would go to someone else (a thought you answered).
     if self.spare and self.actor and self.actor.key == self.spare and not card.actor_class and not owed_card
-        and card.trigger ~= "museum_fixed" then
+        and card.trigger ~= "museum_fixed" and not card.fixed_actor then
         local other = self:pick_actor(card.actor, self.actor)
         if other and other ~= self.actor then
             if self.other == other then
@@ -3291,7 +3291,7 @@ function M:decision(card, extra)
     end
     -- A card with a roll in someone's own story scene goes to them first (A4); and nobody
     -- hogs the big rolls just because the card suits their style.
-    if not card.actor_class and self.scene and not owed_card then
+    if not card.actor_class and self.scene and not owed_card and not card.fixed_actor then
         local has_roll, roll_skill = false, nil
         for _, o in ipairs(card.options) do
             if o.roll then
@@ -3888,10 +3888,16 @@ function M:combat_scene(sc)
     if #self.pc_list == 0 then
         return
     end
+    -- What the party carries into an adventure's fight: what they picked up works here, and the
+    -- table hears it (game/model/museum_night.lua arm, from MODULE.items).
+    if self.mus then
+        util.lazy("game.model.museum_night").arm(self, sc)
+    end
     local plan = fight.plan(self, sc)
     -- A nameless boss brought down in an earlier session is somebody new this time (October 15: "the
-    -- Velvet Hand's enforcer" fell in session 1 and surrendered in session 4).
-    local down = self.campaign.bosses_down
+    -- Velvet Hand's enforcer" fell in session 1 and surrendered in session 4). (Not in an adventure:
+    -- its foes are its own, named by the book.)
+    local down = not self.campaign.module and self.campaign.bosses_down
     local bn = plan.boss_name
     if bn and down and down[bn] and down[bn] < self.campaign.week and string.sub(bn, 1, 4) == "the "
         and string.sub(bn, 1, 8) ~= "the new " then
@@ -3918,7 +3924,14 @@ function M:combat_scene(sc)
         owner_here = owner_here or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil and not self:muted(c))
     end
     local scouted = false
-    if sc.slip then
+    if sc.ambushed then
+        -- They walked into an ambush (a boss who strikes first): surprised, and no scouting roll.
+        sc.surprise = "party"
+        scouted = true
+    elseif sc.no_sneak then
+        -- Somebody gave them away (a fussing gnome, a talking boot): no sneaking up on anyone.
+        scouted = true
+    elseif sc.slip then
         -- You followed a player's pull first (game/model/pulls.lua): they're late, and seen first.
         sc.surprise = "party"
         scouted = true
@@ -3960,12 +3973,16 @@ function M:combat_scene(sc)
         if c.side == "foes" and c.monster_id then
             if c.dead then
                 table.insert(sc.foes_beaten, c.monster_id)
-            elseif c.removed then
+            elseif c.removed and c.removed_why ~= "surrender" then
                 table.insert(sc.foes_ran, c.monster_id)
             end
         end
     end
-    sc.boss_ran = (f and f.boss and f.boss.removed and not f.boss.dead) or nil
+    -- The boss's own fate, so what's said after can't contradict it: dead (and how), ran, or yielded.
+    local fb = f and f.boss
+    sc.boss_yielded = (f and f.yielded and fb and not fb.dead) or nil
+    sc.boss_ran = (fb and fb.removed and not fb.dead and not sc.boss_yielded) or nil
+    sc.boss_dead = (fb and fb.dead) and (fb.dead_why or "beaten") or nil
     -- A foe who surrenders stays surrendered, and talks (A7): a name from the story.
     if f and f.surrendered then
         self:say(self:fresh(M.SURRENDER_TALK, "surrender_talk"), "goal")
@@ -3995,8 +4012,14 @@ function M:combat_scene(sc)
     if result.winner == "party" then
         -- Won is won, but say how: the foes ran, or gave up (the newcomer playtest, October 16:
         -- "runs for it" then "the last one falls" read as two different endings).
-        local how = (f and f.surrendered and "party_win_surrender") or (f and f.fled and "party_win_fled") or "party_win"
-        self:say(self.talk:fight(how, self:vars()), "good")
+        -- (Any foe that ran, not just a called retreat: "the last one falls" was said over a boss
+        -- that had run for it, the combat audit, Nov 2.)
+        -- (A boss who yielded already said so, in her own words: fight.lua's yield.)
+        local how = (f and f.surrendered and "party_win_surrender")
+            or (f and (f.fled or #sc.foes_ran > 0) and "party_win_fled") or "party_win"
+        if not (f and f.yielded) then
+            self:say(self.talk:fight(how, self:vars()), "good")
+        end
         local poses = {}
         for _, p in ipairs(self.players) do
             poses[p.key] = "cheer"
@@ -4008,7 +4031,7 @@ function M:combat_scene(sc)
             close = close or (not c.dead and c.hp_max and c.hp <= c.hp_max * 0.35)
         end
         self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), close and "victory_close" or "victory",
-            sc.boss_ran and { boss = false } or nil)
+            (sc.boss_ran or sc.boss_yielded) and { boss = false } or nil)
         for _, p in ipairs(self.players) do
             score.add(p, "challenge", 6)
             score.add(p, "fun", 2)

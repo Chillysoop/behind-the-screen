@@ -343,6 +343,17 @@ end
 local function attack_words(c)
     local a = c.attacks and c.attacks[1]
     local n = c.multiattack and c.multiattack.count or 1
+    -- (A Gorgon with her hood still on shoots her bow; claws come out with the hood off.)
+    local veil = c.data and c.data.veil
+    if veil and c.veiled ~= false then
+        for _, x in ipairs(c.attacks or {}) do
+            if x.kind == "ranged" then
+                a = x
+            end
+        end
+    elseif veil then
+        n = n + (veil.extra_attacks or 0)
+    end
     if not a then
         return ""
     end

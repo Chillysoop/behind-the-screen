@@ -50,7 +50,10 @@ function M.options(campaign, p)
         add("Move on quickly. A new character joins next week.", "quick")
     elseif mode == "cost" then
         add("Bring {actor_char} back, and it leaves a mark.", "scar")
-        add("There's a way back: a quest, next week.", "quest")
+        -- (Not in an adventure: its rooms are the book's, and no quest scene could ever come up.)
+        if not campaign.module then
+            add("There's a way back: a quest, next week.", "quest")
+        end
         add("Let {actor_char} go. Say goodbye.", "goodbye")
     else
         add("Ask {actor}. It's their call.", "ask")
@@ -92,7 +95,9 @@ end
 function M.on_death(night, p, c, sc)
     local campaign = night.campaign
     local opts, mode = M.options(campaign, p)
-    local card = { id = "hero_dies", type = "screen", title = p.char .. " is dead",
+    -- (Its actor is the hero who died: a trigger keeps the card from handing it to someone else,
+    -- the combat audit, Nov 2: the card named whoever the table's picker chose.)
+    local card = { id = "hero_dies", type = "screen", title = p.char .. " is dead", trigger = "hero_dies", fixed_actor = true,
                    text = "By the rules and the dice, {actor_char} is dead. Session Zero said: "
                        .. string.lower(data.MODE[mode].name) .. ". {actor} is waiting to see what you do.",
                    options = {} }
@@ -110,6 +115,9 @@ function M.on_death(night, p, c, sc)
     local asked = outcome == "ask"
     if asked then
         outcome = M.player_choice(p)
+        if outcome == "quest" and campaign.module then
+            outcome = "scar"           -- (no quest scenes in an adventure: they ask to come back)
+        end
         night:emit({ kind = "say", who = p.key, text = outcome == "goodbye" and "Let them go. It's a good ending."
             or (outcome == "scar" and "Bring them back. I don't care what it costs." or "Is there a way back? I want to earn it."), ic = false })
     end

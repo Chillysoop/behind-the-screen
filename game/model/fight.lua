@@ -249,11 +249,31 @@ local function hz_opts(sc)
     return hz and { hazard = hz } or nil
 end
 
+-- An adventure's room brings the book's own fight: that is its family (the leader first, then
+-- more of the rest), so nothing falls back to the old story's goblins (the combat audit, Nov 2:
+-- a museum fight's "more of them" were goblin warriors, and its fallback leader "the goblin chief").
+local function own_family(sc)
+    local e = sc and sc.encounter
+    if not (e and e.ids and #e.ids > 0) then
+        return nil
+    end
+    local lead = e.ids[1]
+    local name = e.boss_name
+    if not name then
+        local mon = monsters[lead]
+        name = "the " .. string.lower(mon and mon.name or lead)
+    end
+    return { boss = lead, name = name, minion = { e.ids[#e.ids] }, own = true }
+end
+
+-- How low a boss prepped to yield gets before she asks to stop (a share of her hit points).
+M.YIELD_AT = 0.3
+
 function M.family(sc)
     local enc = content.encounters
     local cast = sc.comps and sc.comps.cast
     local loc = sc.comps and sc.comps.location
-    return (cast and enc.by_cast[cast.id]) or (loc and enc.by_location[loc.id]) or enc.default
+    return (cast and enc.by_cast[cast.id]) or (loc and enc.by_location[loc.id]) or own_family(sc) or enc.default
 end
 
 -- The fight a scene suggests (what game night builds if the DM doesn't build their own):
@@ -313,8 +333,10 @@ end
 --   commander = "wizard"               the hero the allies answer to (a class, hero name or player
 --                                      key; default the cleverest hero, false for nobody): they power
 --                                      down if that hero drops, and Euryale goes for them
---   paint, mirror, averted, drowsy, earplugs = true     the battle's options (or in encounter.opts)
-M.ENCOUNTER_OPTIONS = { "allies", "commander", "paint", "mirror", "averted", "drowsy", "earplugs" }
+--   paint, mirror, averted, drowsy, earplugs, fire_arrows, manual, no_hyper = true
+--                                      the battle's options (or in encounter.opts)
+M.ENCOUNTER_OPTIONS = { "allies", "commander", "paint", "mirror", "averted", "drowsy", "earplugs", "fire_arrows", "manual",
+                        "no_hyper", "charmed" }
 
 function M.museum_options(sc)
     local e = sc and sc.encounter
@@ -907,8 +929,10 @@ function M.run(night, sc, plan)
     local f = { used = {}, by_ref = {}, count = 0, blocked = blocked, layout = layout, boss_name = plan.boss_name,
                 cards = sc.talked and 1 or 0 }     -- a word before the fight (B8) was this fight's first call
     local enc = content.encounters
+    -- Who comes as "more of them": the scene's own kind; in an adventure, more of what's already
+    -- on the mat (spawn_reinforcements), never the old story's default goblins.
     f.plan_fam = (sc.comps.cast and enc.by_cast[sc.comps.cast.id]) or (sc.comps.location and enc.by_location[sc.comps.location.id])
-        or enc.default
+        or (not night.campaign.module and enc.default) or nil
     -- Doors aren't scenery in a fight: a shut one opens as someone walks through (Set the stage).
     local fight_blocked = blocked
     local doors
@@ -975,10 +999,13 @@ function M.run(night, sc, plan)
             m.boss = true
             m.name = util.capitalize(plan.boss_name)
             -- A cast villain leading the fight (B6): who they are, for Grudge and the escape card.
+            -- (Not when she's gone and only her collection fights: the knight leading them isn't
+            -- Euryale, and has no last words of hers. A cast that never talks has none either.)
             local cast = sc.comps.cast
-            if cast and (cast.villain or cast.foe) and not night:muted(cast) then
+            if cast and (cast.villain or cast.foe) and not night:muted(cast) and not sc.extras_only then
                 m.villain = true
                 m.person = require("game.model.ledger").person_of(cast)
+                m.mute = cast.talks == false or nil
             end
         end
         local sq = foe_spots[i] or { b.W - 1, i }
@@ -992,6 +1019,10 @@ function M.run(night, sc, plan)
     -- to them, and the battle's options (game/rules/museum.lua).
     local mo = plan.museum or M.museum_options(sc) or {}
     museum.setup(b, mo)
+    -- A hero who drank her wine and failed starts the fight charmed by her (the drink card).
+    if mo.charmed and f.boss and f.by_ref[mo.charmed] then
+        museum.charm_start(b, f.boss, f.by_ref[mo.charmed])
+    end
     local allies_out = {}
     local allies = encounter.make_allies(mo.allies, night.pc_list, mo.commander)
     local ally_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #allies, 1, b.W, b.H)
@@ -1023,7 +1054,7 @@ function M.run(night, sc, plan)
     end
     -- Hedges that were never hedges, huntlings in the exhibits: unless the party spotted them first,
     -- they're surprised (The Museum of Nightmares).
-    if not sc.surprise and museum.false_appearance(b) then
+    if not sc.surprise and not sc.ready and museum.false_appearance(b) then
         f.ambushed = true
     end
     night:emit({ kind = "battle", phase = "start", party = party_out, foes = foes_out, terrain = set_name,
@@ -1091,7 +1122,7 @@ function M.run(night, sc, plan)
             local actor = player_of(night, src)
             local other = night:killing_blow_other(actor, tgt.person)
             -- The villain's last words: the biggest taunt nobody has answered yet.
-            if tgt.villain and tgt.person and not f.last_words then
+            if tgt.villain and tgt.person and not tgt.mute and not f.last_words then
                 f.last_words = true
                 night:flush_turn()
                 local _, lw = villains.last_words(night, tgt.person)
@@ -1223,13 +1254,17 @@ function M.run(night, sc, plan)
         -- The villain is beaten and looking for a way out (B6): let them escape, or finish it. An
         -- escape the story set up is earned; one out of nowhere is cheap, and Tacticians notice.
         local vb = f.boss
-        -- (Some never run: a guardian bound to its chamber, a ghost to its lecture hall.)
-        local stays = sc.comps and sc.comps.cast and sc.comps.cast.stays
+        -- (Some never run: a guardian bound to its chamber, a ghost to its lecture hall. And a boss
+        -- the DM prepped to yield or to fight to the last doesn't take a way out instead: that's
+        -- the boss card's call, M.yield_check.)
+        local stays = (sc.comps and sc.comps.cast and sc.comps.cast.stays) or sc.boss_style ~= nil
         if vb and vb.villain and not stays and not vb.dead and not vb.removed and r >= 2 and vb.hp <= vb.hp_max * 0.45
             and not f.used.escape_earned and not f.used.escape_cheap and not bb.force_end and night:room(15)
             and night.rng:chance(0.8) then
             local ledger_mod = require "game.model.ledger"
-            local earned = (vb.person and ledger_mod.met(night.campaign, vb.person)) or (sc.comps.complication ~= nil)
+            -- (In an adventure's rooms there's always somewhere to run: deeper into the exhibits.)
+            local mod = night.campaign.module
+            local earned = mod or (vb.person and ledger_mod.met(night.campaign, vb.person)) or (sc.comps.complication ~= nil)
             local trig = earned and "escape_earned" or "escape_cheap"
             f.used.escape_earned, f.used.escape_cheap = true, true
             f.used[trig] = nil
@@ -1243,8 +1278,8 @@ function M.run(night, sc, plan)
                 end
                 bb.force_end = "party"
                 f.fled = true
-                night:event("escape", { who = "party", to = vb.person, text = (f.boss_name or vb.name) .. " got away"
-                    .. (earned and ", the way they'd planned all along." or ", in a puff of smoke.") })
+                night:event("escape", { who = "party", to = vb.person, text = util.capitalize(f.boss_name or vb.name) .. " got away"
+                    .. ((mod and ", deeper into the museum.") or (earned and ", the way they'd planned all along.") or ", in a puff of smoke.") })
                 villains.bark(night, "escape")
             end
         end
@@ -1273,6 +1308,25 @@ function M.run(night, sc, plan)
         local steps = night:flush_turn()
         if steps and #steps > 0 then
             react(night, f, steps, c)
+        end
+        -- A boss the DM prepped to yield ("She yields near the end"), beaten badly enough, asks to
+        -- stop, and everything on her side stops with her; the yield card plays after the fight.
+        -- A blow that kills her first has killed her: the dead don't yield (the combat audit, Nov 2).
+        local yb = f.boss
+        if sc.boss_style == "yields" and not sc.extras_only and not f.yielded and not bb.force_end and yb and not yb.dead and not yb.removed
+            and yb.hp > 0 and yb.hp <= yb.hp_max * M.YIELD_AT then
+            f.yielded = true
+            for _, e in ipairs(bb.creatures) do
+                if e.side == "foes" and not e.dead and not e.removed then
+                    bb:remove(e, "surrender")
+                end
+            end
+            bb.force_end = "party"
+            night:flush_turn()
+            if sc.yield_line then
+                night:say(sc.yield_line, "good")
+            end
+            return
         end
         -- Someone pinned down by a crowd.
         if not f.used.cornered and c.side == "foes" then

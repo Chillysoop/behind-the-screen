@@ -11,6 +11,11 @@
 --   averted   the heroes know to avert their eyes: Advantage on their saves against Petrify
 --   drowsy    the Lecturer's drone carried upstairs: the heroes save against charms with Disadvantage
 --   earplugs  the heroes stopped their ears: Advantage on their saves against the Lecturer's drone
+--   fire_arrows  Telpur's fire arrows and slime: each hero's first weapon hit on a turn deals 1d4 more
+--             (Fire from a ranged weapon, Acid from a melee one)
+--   manual    the Mech Instruction Manual, chapter nine: the Steam Mech has Advantage on its
+--             saves against overheating in Hyper Destroyer Mode
+--   no_hyper  the Mech's switch is scorched from a test run: no Hyper Destroyer Mode this fight
 -- Allies (a Steam Mech on the party's side) are built by encounter.make_allies and placed by
 -- whoever builds the fight. Each answers to a commander (a hero; by default the cleverest one):
 -- it powers down when that hero drops, as the book says, and Euryale goes for that hero.
@@ -30,7 +35,7 @@ local creature = require "game.rules.creature"
 
 local M = {}
 
-M.OPTIONS = { "paint", "mirror", "averted", "drowsy", "earplugs" }
+M.OPTIONS = { "paint", "mirror", "averted", "drowsy", "earplugs", "fire_arrows", "manual", "no_hyper" }
 
 -- The battle's options, from an encounter table (unknown keys are ignored).
 function M.setup(b, opts)
@@ -86,6 +91,9 @@ function M.save_mods(b, c, ab, info)
         adv = true
     end
     if b.earplugs and info.hearing then
+        adv = true
+    end
+    if b.manual and kind == "overheat" then
         adv = true
     end
     return adv, dis
@@ -301,6 +309,20 @@ function M.charm_person(b, c, t)
     return true
 end
 
+-- A hero already charmed when the fight starts (they drank her wine and it took): no save to
+-- resist, but they shake it off as a Charm Person would (a save at the end of each turn, or hurt).
+function M.charm_start(b, c, t)
+    local sp = c.data and c.data.spells
+    if not sp or t.dead then
+        return false
+    end
+    b:add_effect(t, { name = "Charmed", conds = { charmed = true }, charmed_by = c, breaks_on_damage_from = c.side,
+                      ends_on_death_of = c, save_end = { ab = "wis", dc = sp.dc, kind = "charmed" } })
+    b:log("%s is still under %s's spell from the wine.", t.name, c.name)
+    feature(b, t, "Charmed", "charmed", { by = c })
+    return true
+end
+
 function M.poison_spray(b, c, t)
     local sp = c.data.spells
     local prof = { id = "poison_spray", name = "Poison Spray", is_weapon = false, kind = "ranged", spell = "poison_spray",
@@ -403,10 +425,13 @@ function M.euryale_turn(b, c, H)
     local sp = d.spells
     local n = (d.multiattack and d.multiattack.count or 1) + ((not c.veiled and d.veil and d.veil.extra_attacks) or 0)
     local t = euryale_target(b, c, open, H, c.veiled and bow.range[1] or 5)
+    -- The DM ran this turn and picked who she goes for (B8): every attack goes at them, and she
+    -- doesn't charm someone else instead or turn to whoever's closest (the combat audit, Nov 2).
+    local dm_t = c.dm_target ~= nil and t == c.dm_target and not t.dead and not t.removed
     -- One attack can be a spell: Charm Person on a fighter or rogue while the hood is on, else
     -- Poison Spray at someone close who doesn't shrug off poison.
     local charm_t
-    if c.veiled and sp and (c.res.charm or sp.slots) > 0 then
+    if c.veiled and sp and (c.res.charm or sp.slots) > 0 and not dm_t then
         local best, bv
         for _, e in ipairs(open) do
             if e.type == "humanoid" and not (e.condition_immune and e.condition_immune.charmed)
@@ -460,8 +485,10 @@ function M.euryale_turn(b, c, H)
         return soft_target(b, c, live, bow.range[1])
     end
     for i = 1, n do
-        if not t or t.dead or t.down or t.removed or b:any_effect(t, "out_of_fight")
-            or (H.adjacent_enemies(b, c) > 0 and b:dist(c, t) > 5) then
+        local keep = dm_t and t and not t.dead and not t.removed and (not t.down or c.dm_finish)
+            and not b:any_effect(t, "out_of_fight")
+        if not keep and (not t or t.dead or t.down or t.removed or b:any_effect(t, "out_of_fight")
+            or (H.adjacent_enemies(b, c) > 0 and b:dist(c, t) > 5)) then
             t = next_target(true)        -- (caught up close, she claws whoever is on her)
         end
         if not t then
@@ -538,7 +565,12 @@ function M.lecturer_turn(b, c, H)
         return true
     end
     local best, bv
-    for _, e in ipairs(foes) do
+    -- The DM ran this turn and picked who he lectures (B8): them, if he can reach them.
+    local dt = c.dm_target
+    if dt and not dt.dead and not dt.removed and not dt.down and b:dist(c, dt) <= bored.range + (c.turn.move or 0) then
+        best, bv = dt, 1
+    end
+    for _, e in ipairs(best and {} or foes) do
         if (e.type == "humanoid" or e.type == "beast") and not (e.condition_immune and e.condition_immune.charmed)
             and b:dist(c, e) <= bored.range + (c.turn.move or 0) then
             local v = fail_chance(b, e, bored.save, bored.dc, { kind = "charmed", hearing = true })
@@ -668,7 +700,7 @@ function M.mech_turn(b, c, H)
     if #foes == 0 then
         return true
     end
-    if c.data.hyper and not c.hyper_spent and want_hyper(b, c, foes) then
+    if c.data.hyper and not c.hyper_spent and not b.no_hyper and want_hyper(b, c, foes) then
         M.go_hyper(b, c)
     end
     local fists = H.find_named(c, "steam_fists")

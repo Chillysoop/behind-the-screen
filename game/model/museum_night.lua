@@ -12,6 +12,7 @@ local map_repo = require "game.model.map_repo"
 local thoughts = require "game.model.thoughts"
 local standing = require "game.model.standing"
 local ties = require "game.model.ties"
+local fight = require "game.model.fight"
 
 local MODULE = adventure.data
 local M = {}
@@ -187,6 +188,36 @@ function M.handle(night, mus, sc)
     if mus.flag == "notebook" then
         st.flags.notebook = true
     end
+    -- Who picked it up: the hero whose choice it was carries it (MODULE.items' {holder}), and a
+    -- real magic item goes on their sheet, so the rules use it in every fight from now on.
+    for _, key in ipairs({ mus.flag or false, mus.mark or false }) do
+        if key and night.actor then
+            st.holders = st.holders or {}
+            st.holders[key] = st.holders[key] or night.actor.key
+        end
+    end
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.magic and mus.flag and it.when and it.when.flag == mus.flag then
+            local items_mod = require "game.model.items"
+            local have = false
+            for _, e in ipairs(items_mod.list(c)) do
+                have = have or e.id == it.magic
+            end
+            if not have then
+                local holder = night.actor and items_mod.can_use(c, night.actor, it.magic) and { night.actor } or night.players
+                local e = items_mod.earn(c, it.magic, holder)
+                -- (Tonight's sheets are already built: the item goes on theirs now, for tonight's fights.)
+                local pc = e and e.holder and night.pcs and night.pcs[e.holder]
+                if pc then
+                    items_mod.apply(c, e.holder, pc)
+                end
+                if e and e.holder then
+                    st.holders = st.holders or {}
+                    st.holders[mus.flag] = e.holder
+                end
+            end
+        end
+    end
     -- What a moment hands the fight in this room (game/rules/museum.lua's battle options): weapons
     -- pulled out of a painting, candle wax in the ears.
     local opt = mus.flag and FLAG_OPT[mus.flag]
@@ -201,6 +232,29 @@ function M.handle(night, mus, sc)
         st.aspects = st.aspects or {}
         st.aspects[night.actor.key] = st.aspects[night.actor.key] or {}
         table.insert(st.aspects[night.actor.key], mus.aspect)
+    end
+    -- What it did to the hero it happened to: hurt them (their sheet says so), or a boon.
+    local who = night.actor
+    if mus.hurt and who then
+        fight.party(night)
+        local pc = night.pcs and night.pcs[who.key]
+        if pc and not pc.dead then
+            local n = 0
+            for _ = 1, mus.hurt[1] do
+                n = n + night.rng:int(1, mus.hurt[2])
+            end
+            local was = pc.hp
+            pc.hp = math.max(1, pc.hp - n)
+            night:say(who.char .. " takes " .. util.int(was - pc.hp) .. " damage (" .. util.int(pc.hp) .. "/"
+                .. util.int(pc.hp_max) .. " HP).", "bad")
+        end
+    end
+    if mus.inspire and who and not who.heroic then
+        who.heroic = true
+        night:emit({ kind = "token", who = who.key, what = "inspiration" })
+    end
+    if mus.ready and sc then
+        sc.ready = true      -- (fight.lua: the room's ambushers don't surprise them)
     end
     if sc then
         if mus.fight then
@@ -351,6 +405,14 @@ function M.play_moment(night, card, sc)
     local copy = {}
     for k, v in pairs(card) do
         copy[k] = v
+    end
+    -- The card's words for how things stand (text_if: the first whose `when` holds): a rematch, a
+    -- burned garden, a table that veiled gore. What it says has to fit what's happened.
+    for _, alt in ipairs(card.text_if or {}) do
+        if adventure.test(night.campaign, alt.when, knobs_of(night)) then
+            copy.text = alt.text
+            break
+        end
     end
     copy.trigger = copy.trigger or "museum"
     copy.options = {}
@@ -532,9 +594,85 @@ function M.room_start(night, sc)
             night:highlight(6, p.char .. " finds what they came for: " .. util.lower_first(h.name), { p }, "thread")
         end
     end
+    -- What the week between promised, paying off here (the room's callbacks): a line, and maybe
+    -- something handed over for real.
+    for _, cb in ipairs(r.callbacks or {}) do
+        if adventure.test(c, cb.when, knobs) then
+            local given
+            if cb.give and cb.give.magic then
+                local items_mod = require "game.model.items"
+                local to = cb.give.who and present(night, cb.give.who)
+                local e = items_mod.earn(c, cb.give.magic, to and { to } or night.players)
+                given = e and e.holder and present(night, e.holder)
+            end
+            night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
+        end
+    end
     M.moments(night, sc, "start")
     if sc.showdown then
         M.showdown_start(night, sc)
+    end
+end
+
+-- What the party brings into this fight (MODULE.items): each thing they picked up, bought or were
+-- handed works here if it can, and the table hears what it does before initiative. night.lua's
+-- combat_scene calls this before it builds the fight.
+function M.arm(night, sc)
+    local c = night.campaign
+    local st = st_of(night)
+    if not sc.encounter or sc.armed then
+        return
+    end
+    sc.armed = true
+    local knobs = knobs_of(night)
+    local allies = {}
+    for _, a in ipairs(sc.encounter.allies or {}) do
+        allies[type(a) == "table" and a.id or a] = true
+    end
+    st.items_used = st.items_used or {}
+    local lines = {}
+    -- Once a night, at the first fight: what the week between left them with (MODULE.asides).
+    night.mus.asides = night.mus.asides or {}
+    for _, a in ipairs(MODULE.asides or {}) do
+        if not night.mus.asides[a.id] and adventure.test(c, a.when, knobs) then
+            night.mus.asides[a.id] = true
+            night:say(a.text, "dm")
+            if a.no_sneak then
+                sc.no_sneak = true       -- (night.lua's combat_scene: no scouting, nobody surprised)
+            end
+        end
+    end
+    for _, it in ipairs(MODULE.items or {}) do
+        local ok = adventure.test(c, it.when, knobs) and not (it.once and st.items_used[it.id])
+            and (not it.rooms or util.contains(it.rooms, sc.room)) and (not it.ally or allies[it.ally])
+            and not (sc.extras_only and it.boss)      -- (what's for her, when she's already gone)
+        -- (A magic item is on someone's sheet: only if they're here tonight.)
+        local holder_key = st.holders and st.holders[(it.when and (it.when.flag or it.when.mark)) or it.id]
+        local holder = holder_key and present(night, holder_key)
+        if ok and it.magic then
+            ok = holder ~= nil
+        end
+        if ok and it.charm then
+            ok = holder ~= nil
+            if ok then
+                sc.encounter.charmed = holder.key     -- (fight.lua: they start the fight charmed by the boss)
+            end
+        end
+        if ok then
+            if it.opt then
+                sc.encounter[it.opt] = true
+            end
+            if it.once then
+                st.items_used[it.id] = c.week
+            end
+            if it.line then
+                table.insert(lines, util.fill(it.line, { holder = holder and holder.char or "Somebody",
+                                                          mech = st.mech_name or "The Mech" }))
+            end
+        end
+    end
+    if #lines > 0 then
+        night:say(table.concat(lines, " "), "good")
     end
 end
 
@@ -1031,6 +1169,7 @@ function M.go_back(night, b)
     st.last_room = b.id
     local sc = M.build_scene(night, b.id)
     sc.revisit = b.why
+    local room_fight = sc.encounter
     sc.encounter, sc.optional_fight = nil, nil
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
@@ -1050,6 +1189,14 @@ function M.go_back(night, b)
         end
         st.hints[b.id] = nil
         st.looked[b.id] = true      -- (one second look per room: whatever they pass up now stays)
+        -- A second look that wakes what's there (a hand on the donation box, the guard right there):
+        -- then there's a fight after all.
+        if sc.fight_on and room_fight and not night.end_early then
+            sc.encounter = room_fight
+            sc.fought = true
+            night:combat_scene(sc)
+            sc.outcome = sc.result and (sc.result.winner == "party" and "win" or "lose") or "win"
+        end
     elseif b.why == "shop" or b.why == "rest" or b.why == "flee" then
         if b.why == "shop" then
             night.mus.shopped = true
@@ -1068,12 +1215,13 @@ function M.go_back(night, b)
             night:do_rest({ rest = "short" }, "short", "town", sc)
         end
     end
-    sc.outcome = "win"
+    sc.outcome = sc.outcome or "win"
     sc.had_roll = true
     if not night.end_early then
-        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = "win" })
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = sc.outcome, fight = sc.fought or nil })
     end
-    table.insert(night.mus.rooms, { room = b.id, outcome = "win", back = b.why })
+    table.insert(night.mus.rooms, { room = b.id, outcome = sc.outcome, back = b.why })
+    M.interlude(night, sc)
     return sc
 end
 
@@ -1125,8 +1273,8 @@ function M.after_room(night, sc)
         mark("topiary")          -- (a hedge-beast still standing, or one that ran: it's at her couch now)
     elseif id == "paintings" and sc.fought and fled_count(sc) > 0 then
         mark("knight")           -- (the knight they let go climbs back into a frame, upstairs)
-    elseif id == "chamber" and sc.fought then
-        mark("scarabs")
+    elseif id == "chamber" and sc.fought and util.contains(sc.foes_beaten or {}, "bone_construct") then
+        mark("scarabs")          -- (they smashed it: its scarabs crawl out and upstairs; not if it beat them)
     elseif id == "hunting" then
         local n = fled_count(sc)
         if n > 0 then
@@ -1135,15 +1283,12 @@ function M.after_room(night, sc)
         end
     elseif id == "lecture" then
         if outcome == "win" then
-            st.flags.pages = true
             mark("pages")
         else
             mark("drone")
         end
     elseif id == "offices" and outcome == "win" then
         st.flags.notebook = true
-    elseif id == "gift_shop" then
-        st.flags.rested_shop = true
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
     adventure.leave_room(c, id, outcome, c.week)
@@ -1231,6 +1376,25 @@ function M.intro(night)
             end
         else
             night:say("They pick up right where they stopped, at a fork in the museum.", "opening")
+        end
+        -- A new hero at the table, in a fallen one's place: who they are, before the first room.
+        require("game.model.death").intro(night)
+        -- What the week between decided, out loud: a rest they were promised, and anything that went
+        -- on Euryale's card in the group chat (her line as each one lands).
+        if st.flags.rested and not st.rest_given then
+            st.rest_given = c.week
+            if c.party_state then
+                c.party_state.rested = true
+                c.party_state.fights_since_long = 0
+            end
+            night:say("As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back.", "recap")
+        end
+        if st.unannounced and #st.unannounced > 0 then
+            for _, id in ipairs(st.unannounced) do
+                table.insert(night.mus.pending, id)
+            end
+            st.unannounced = nil
+            M.interlude(night)
         end
     end
     night:say(night.rng:pick(MODULE.thoughts.open), "interlude")
@@ -1370,6 +1534,9 @@ function M.run(night)
             end
         end
     end
+    -- Anything that went on her card tonight and hasn't had her line yet (the night stopped
+    -- before the room's end): she gets it now, before everyone goes home.
+    M.interlude(night)
     night:run_tail()
 end
 
@@ -1397,6 +1564,13 @@ function M.boss_night(night)
         sc.encounter[k] = v
     end
     sc.showdown = true
+    -- How she fights, as the DM prepped it: she yields near the end (in the fight, fight.lua), or
+    -- fights to the last. Either way she doesn't take a way out mid-fight on her own.
+    sc.boss_style = (c.adv.boss and c.adv.boss.style == "last") and "last" or "yields"
+    sc.yield_line = MODULE.showdown.yield_line
+    -- Her goal's words wait for the ending (after_showdown): said at the fight's end, "It's over"
+    -- came before she'd yielded and before anyone had decided what to do with her.
+    sc.goal_said = true
     night:play_scene(sc)
     if not night.end_early then
         M.after_showdown(night, sc)
@@ -1423,6 +1597,19 @@ function M.showdown_start(night, sc)
     end
     if boss.opener == "ambush" then
         night:say("No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
+        -- An ambush is a surprise (SRD 5.2.1: Disadvantage on Initiative), unless someone was ready.
+        local rb, rm
+        for _, p in ipairs(night.players) do
+            local m = night:mod_for(p, "perception")
+            if not rm or m > rm then
+                rb, rm = p, m
+            end
+        end
+        if rb and night.rng:int(1, 20) + rm >= 15 then
+            night:say(rb.char .. " sees the bow come up in time and shouts a warning.", "good")
+        else
+            sc.ambushed = true      -- (night.lua's combat_scene: the party is surprised, no scouting)
+        end
         sc.fight_on = true
         return
     end
@@ -1493,30 +1680,44 @@ function M.after_showdown(night, sc)
         -- She's gone already (paid, or carried out asleep): losing to her collection ends it anyway.
         night:say(MODULE.extras_lost, "bad")
     elseif not st.ending then
-        if sc.fought and sc.boss_ran then
-            -- She got away mid-fight (a way out, or the whole fight breaking): that's the ending, and
-            -- nobody she's left behind gets to "yield".
+        -- What's said follows from what happened to her in the fight (the combat audit, Nov 2: she
+        -- "yielded" after she was dead).
+        if sc.fought and sc.boss_yielded then
+            -- She asked to stop, in the fight: now the table decides what that means.
+            M.play_moment(night, MODULE.showdown.yield, sc)
+            st.ending = st.ending or "escape"      -- (nobody decided: she walks out)
+        elseif sc.fought and sc.boss_ran then
+            -- She got away mid-fight (a way out, or the whole fight breaking): that's the ending.
             st.ending = "escape"
-        elseif sc.fought and sc.outcome == "win" then
-            if boss.style ~= "last" then
-                M.play_moment(night, MODULE.showdown.yield, sc)
+        elseif sc.fought and sc.boss_dead then
+            -- She's dead, whoever won the rest of the fight.
+            if sc.outcome ~= "win" then
+                night:say(MODULE.showdown.dead_but_lost, "bad")
             end
-            st.ending = st.ending or "fallen"
+            st.ending = "fallen"
+        elseif sc.fought and sc.outcome == "win" then
+            st.ending = "fallen"
         elseif sc.fought then
             night:say("She lets them go. She wants them to come back.", "bad")
             night:say("They limp out of the caravan, sleep for a day, and come back angry.", "dm")
             sc.rest_here = true      -- (home to rest: next week's try starts whole, not where this one broke)
             st.at, st.choices = "lair", nil
             st.lost_once = true
+            st.flags.rematch = true      -- (next time, her cards know they've been here before)
             table.insert(st.path, { room = "lair", week = c.week, outcome = "lose" })
             table.insert(night.mus.rooms, { room = "lair", outcome = "lose" })
+            night:goal_event(sc)       -- (for the recap; the lines above already said it)
             return
         end
     end
     local e = st.ending and MODULE.endings[st.ending]
     table.insert(night.mus.rooms, { room = "lair", outcome = e and "win" or "lose" })
+    -- The goal came out how the ending says, whoever won the last of the fight: recorded for the
+    -- recap in the ending's own words (the ending line is what the table hears).
+    sc.outcome = e and "win" or "lose"
+    night:goal_event(sc)
     if e then
-        night:say(e.line, "good")
+        night:say((sc.boss_dead == "turned to stone" and e.stone_line) or e.line, "good")
         night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(e.flit, "^\"(.*)\"$", "%1")) })
         st.done.lair = "win"
         table.insert(st.path, { room = "lair", week = c.week, outcome = "win" })

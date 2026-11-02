@@ -20,7 +20,8 @@
 --   b.blocked[x * 1000 + y] = true                              terrain squares nobody can enter
 --   b.force_end = "party" | "foes"                              end the fight after this turn
 --   b.hooks.before_join(b, c)   a creature is about to join mid-fight (a swarm bursting out)
---   b.paint, b.mirror, b.averted, b.drowsy, b.earplugs          The Museum of Nightmares' options
+--   b.paint, b.mirror, b.averted, b.drowsy, b.earplugs,         The Museum of Nightmares' options
+--   b.fire_arrows, b.manual, b.no_hyper                         (game/rules/museum.lua)
 --                                                               (game/rules/museum.lua)
 --
 -- A creature on the party's side that isn't a hero (an ally, c.ally) fights with them but isn't
@@ -966,6 +967,11 @@ function B:attack(att, tgt, prof, opts)
         res.charge = true
         self:log("  It's a charge!")
     end
+    -- (The Museum of Nightmares: Telpur's fire arrows and slime, on a hero's first weapon hit a turn.)
+    if self.fire_arrows and att.side == "party" and att.pc and prof.is_weapon and att.turn and not att.turn.fire_arrows then
+        att.turn.fire_arrows = true
+        table.insert(parts, self:roll_parts({ { 1, 4, 0, prof.kind == "ranged" and "fire" or "acid" } }, crit)[1])
+    end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
     -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
@@ -1423,6 +1429,7 @@ function B:kill(c, src, why)
         end
     end
     c.dead = true
+    c.dead_why = why
     c.down = false
     if c.conc then
         self:end_concentration(c, "died")
