@@ -577,7 +577,8 @@ function M.build(app)
     if mu then
         if (mu.francs_tonight or 0) > 0 then
             table.insert(earned, { util.int(mu.francs_tonight) .. (mu.francs_tonight == 1 and " Flitwidget Franc" or " Flitwidget Francs")
-                .. " tonight (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
+                .. " tonight" .. ((mu.francs_spent or 0) > 0 and (", " .. util.int(mu.francs_spent) .. " spent") or "")
+                .. " (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
         end
         if mu.got and #mu.got > 0 then
             table.insert(earned, { "Picked up: " .. util.join_names(mu.got) .. ".", theme.gold })

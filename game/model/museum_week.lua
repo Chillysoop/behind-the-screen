@@ -329,7 +329,8 @@ function M.after_night(c, night, rep)
         where = adventure.where(c),
         ending = st.ending,
         francs = st.francs,
-        francs_tonight = (st.francs or 0) - (mus.francs_start or st.francs or 0),
+        francs_tonight = mus.francs_earned or 0,          -- (earned tonight, whatever was spent)
+        francs_spent = math.max(0, (mus.francs_start or st.francs or 0) + (mus.francs_earned or 0) - (st.francs or 0)),
         got = mus.got or {},
     }
     if night.ended_on_cliff then

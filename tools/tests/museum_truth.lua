@@ -287,6 +287,7 @@ local function play(seed, style)
         local night = c:start_night()
         local heard = {}
         local yield_played_dead = false
+        local found_tonight = false
         local old_names = {}
         for _, p in ipairs(c.players) do
             if p.old_char then
@@ -319,6 +320,9 @@ local function play(seed, style)
                     end
                 end
             end
+            if ev.kind == "scene_end" and ev.reward then
+                found_tonight = true
+            end
             if ev.kind == "decision" then
                 if ev.card.id == "mus_yield" and night.scene and night.scene.boss_dead then
                     yield_played_dead = true
@@ -345,7 +349,21 @@ local function play(seed, style)
         if guard >= 5000 then
             fail(tag .. ": a night never ended")
         end
-        c:finish_night()
+        local rep = c:finish_night()
+        -- (Something found means the report says so; nobody ends the night on 0 HP or as stone.)
+        if found_tonight and rep and rep.museum and #(rep.museum.got or {}) == 0 and (rep.museum.francs_tonight or 0) == 0 then
+            fail(tag .. " week " .. w .. ": a prize was found tonight, but the report says nothing was picked up")
+        end
+        for _, pc in ipairs(night.pc_list or {}) do
+            if not pc.dead and (pc.hp or 0) <= 0 then
+                fail(tag .. " week " .. w .. ": " .. pc.name .. " ends the night on 0 hit points, unmentioned")
+            end
+            for _, e in ipairs(pc.effects or {}) do
+                if e.stone or e.petrifying then
+                    fail(tag .. " week " .. w .. ": " .. pc.name .. " is still stone after the night")
+                end
+            end
+        end
         if yield_played_dead then
             fail(tag .. ": Euryale yielded after she was dead")
         end

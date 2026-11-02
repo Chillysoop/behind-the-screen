@@ -181,6 +181,9 @@ function M.handle(night, mus, sc)
         night.mus.room_francs = night.mus.room_francs or {}
         night.mus.room_francs[sc.room] = true
     end
+    if mus.francs and mus.francs > 0 then
+        night.mus.francs_earned = (night.mus.francs_earned or 0) + mus.francs      -- (for the report)
+    end
     if mus.spend then
         night.mus.bought = true
     end
@@ -399,6 +402,7 @@ function M.reward(night, sc)
             return
         end
         st.francs = (st.francs or 0) + r.francs
+        night.mus.francs_earned = (night.mus.francs_earned or 0) + r.francs
         night.mus.room_francs = night.mus.room_francs or {}
         night.mus.room_francs[sc.room] = true
         night.actor = night.actor or night:pick_actor({ "power_gamer", "instigator", "casual" })

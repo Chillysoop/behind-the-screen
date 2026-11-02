@@ -11,6 +11,17 @@ You don't need to know D&D, and there's no way to "lose": every ending is a real
 ending, and the prologue sets up the full campaign that comes next.
 
 
+NEW IN THIS BUILD (November 2)
+------------------------------
+- Session Zero is about this museum: how it should feel, and the asks that touch what's
+  really in it. When a room meets one, you play it gently, and the game says so.
+- Prep says what prepping a room means: the minis to put out, the voices, the handouts.
+- What the party picks up works: daggers, fire arrows, a manual, a mirror. You'll hear it
+  as the next fight starts. Flitwidget and Telpur remember what the party did.
+- What happens is what's said: who died, ran or gave up, what they came away with, and
+  how it ended with Euryale all follow the dice and your choices.
+
+
 HOW IT GOES
 -----------
 - Session Zero: meet the table, then pick why each hero came to the museum. Each
