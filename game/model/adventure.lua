@@ -32,9 +32,82 @@ function M.foreign(text)
     return false
 end
 
+-- The adventure's own words, for M.fits: every word its data uses, singular and plural.
+local vocab
+local function words_in(t, set, seen)
+    if type(t) == "string" then
+        for w in string.gmatch(string.lower(t), "[%a']+") do
+            w = string.gsub(w, "'s$", "")
+            set[w] = true
+            set[(string.gsub(w, "e?s$", ""))] = true
+        end
+        return
+    end
+    if type(t) ~= "table" or seen[t] then
+        return
+    end
+    seen[t] = true
+    for _, v in pairs(t) do
+        words_in(v, set, seen)
+    end
+end
+
+function M.vocab()
+    if not vocab then
+        vocab = {}
+        local seen = {}
+        words_in(MODULE, vocab, seen)
+        words_in(require("game.data.museum.cards"), vocab, seen)
+    end
+    return vocab
+end
+
+local LEX = require "game.data.fiction_words"
+
+-- Does a shared line fit the adventure? Not if it names the old story, a thing in a story's
+-- world that this adventure never mentions (game/data/fiction_words.lua: no goats in the museum,
+-- so no "Someone mentions the goat"), or a callback to something nothing promises happened
+-- ("just like last time"). Fill-ins ({boss}, {location}) are the night's own, so they're fine.
+function M.fits(text)
+    if type(text) ~= "string" then
+        return true
+    end
+    if M.foreign(text) then
+        return false
+    end
+    local low = string.lower(string.gsub(text, "{[%w_]+}", " "))
+    for _, ph in ipairs(LEX.phrases) do
+        if string.find(low, ph, 1, true) then
+            return false
+        end
+    end
+    local v = M.vocab()
+    for _, w in ipairs(LEX.words) do
+        local lw = string.lower(w)
+        if string.find(low, "%f[%a]" .. lw .. "%f[%A]") then
+            local ok = true
+            for part in string.gmatch(lw, "[%a']+") do
+                if not (v[part] or v[(string.gsub(part, "e?s$", ""))]) then
+                    ok = false
+                end
+            end
+            if not ok then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+-- Fields that are never said out loud: names of things in the data, not lines.
+local NOT_TEXT = { where = true, suits = true, id = true, tags = true, when = true, kind = true, type = true,
+                   trigger = true, speaker = true, skill = true, actor = true, class = true, doers = true,
+                   objects = true, enjoys = true, feeds = true, needs = true, tag_taste = true, style = true,
+                   content = true, promise = true, card = true, cast = true, boss = true, minion = true, room = true }
+
 local function deep_foreign(t, seen)
     if type(t) == "string" then
-        return M.foreign(t)
+        return not M.fits(t)
     end
     if type(t) ~= "table" then
         return false
@@ -45,7 +118,7 @@ local function deep_foreign(t, seen)
     end
     seen[t] = true
     for k, v in pairs(t) do
-        if k ~= "where" and k ~= "suits" and deep_foreign(v, seen) then
+        if not NOT_TEXT[k] and deep_foreign(v, seen) then
             return true
         end
     end
@@ -154,14 +227,35 @@ function M.enter(campaign)
         local bc = content.triggered and content.triggered.boss_crit
         if bc then
             bc.text = "{actor_char} is about to drop {boss} in round {round}. The whole table can see it coming."
+            for _, o in ipairs(bc.options or {}) do
+                if o.battle == "reinforce" then
+                    o.log = "{boss} falls, and more of them come crashing out of the exhibits."
+                end
+            end
         end
+        -- A way out in the museum: nobody "came in by" a back door, and a foe who runs does come
+        -- back (museum_night.after_room puts them on Euryale's card).
+        local ee = content.triggered and content.triggered.escape_earned
+        if ee then
+            ee.text = "{boss} is beaten, bleeding, and edging toward a way out."
+            for _, o in ipairs(ee.options or {}) do
+                if o.battle == "escape" then
+                    o.label = "Let them go. They'll be waiting upstairs."
+                    o.log = "{boss} is gone before anyone can stop them, up toward Euryale."
+                elseif o.battle == "let" then
+                    o.log = "Somebody gets in the way first. {boss} isn't leaving."
+                end
+            end
+        end
+        -- Museum-wide, anything in the shared content that doesn't fit the adventure goes.
+        scrub(content.triggered, seen)
         if content.conflicts and content.conflicts.tone then
             content.conflicts.tone.about = "Mara wants the museum's mysteries taken seriously. Jess can't resist a joke."
         end
         local lib = content.dialogue
         if lib then
             lib.exclude = function(l)
-                return M.foreign(l.text) or M.foreign(l.reply)
+                return not M.fits(l.text) or not M.fits(l.reply)
             end
             M.add_npc_lines(lib)
         end
@@ -262,8 +356,13 @@ function M.add_npc_lines(lib)
     lib.museum_lines = true
     for speaker, triggers in pairs(MODULE.npc_lines) do
         for trigger, list in pairs(triggers) do
+            -- (Seeing the party again is a greeting too, by a speaker of its own: "{id}@again".)
+            local tr, sp = trigger, speaker
+            if trigger == "npc_again" then
+                tr, sp = "npc_greet", speaker .. "@again"
+            end
             for i, text in ipairs(list) do
-                table.insert(lib.lines, { id = trigger .. "." .. speaker .. "." .. i, trigger = trigger, speaker = speaker,
+                table.insert(lib.lines, { id = trigger .. "." .. speaker .. "." .. i, trigger = tr, speaker = sp,
                                           text = text, status = "approved" })
             end
         end
@@ -332,7 +431,63 @@ function M.test(campaign, cond, knobs)
     if cond.talk and M.talk_score(campaign) < cond.talk then
         return false
     end
+    -- (And the other way round, and what the DM chose on a card: { card id, option number }.)
+    if cond.not_flag and st.flags[cond.not_flag] then
+        return false
+    end
+    if cond.not_mark and st.marks[cond.not_mark] then
+        return false
+    end
+    if cond.not_knob and knobs and knobs[cond.not_knob] then
+        return false
+    end
+    if cond.chose and (st.chose or {})[cond.chose[1]] ~= cond.chose[2] then
+        return false
+    end
+    if cond.done and not st.done[cond.done] then
+        return false
+    end
+    if cond.met and not M.met(campaign, cond.met) then
+        return false
+    end
     return true
+end
+
+-- The DM's people remember the party (v2): who they've met, and what the party did that they'd
+-- know about. st.npc[id] = { week, room, deeds = { deed = week } }.
+function M.meet(campaign, id, room)
+    local st = campaign.adv
+    st.npc = st.npc or {}
+    local n = st.npc[id]
+    if not n then
+        n = { week = campaign.week or 1, room = room, deeds = {} }
+        st.npc[id] = n
+    end
+    return n
+end
+
+function M.met(campaign, id)
+    local st = campaign.adv
+    return st and st.npc ~= nil and st.npc[id] ~= nil
+end
+
+-- What one of the museum's people knows the party did, as short phrases ("they tidied his
+-- exhibits"), from the adventure's own record: nothing anyone invented.
+function M.memory(campaign, id)
+    local st = campaign.adv
+    local out = {}
+    local mem = MODULE.memory and MODULE.memory[id] or {}
+    for _, m in ipairs(mem) do
+        if M.test(campaign, m.when) then
+            table.insert(out, m.text)
+        end
+    end
+    return out
+end
+
+function M.deed(campaign, id, deed)
+    local n = M.meet(campaign, id)
+    n.deeds[deed] = n.deeds[deed] or (campaign.week or 1)
 end
 
 -- How easy Euryale is to talk round: the marks that make her curious, minus the ones that anger her.
@@ -362,6 +517,10 @@ local function fill(st)
     st.hook_room = st.hook_room or {}
     st.lock_news = st.lock_news or {}
     st.tie_seq = st.tie_seq or 0
+    -- (And before the DM's people remembered them, November 2: what the DM chose on each card,
+    -- who they've met, the items they carry.)
+    st.chose = st.chose or {}
+    st.npc = st.npc or {}
     return st
 end
 M.fill = fill

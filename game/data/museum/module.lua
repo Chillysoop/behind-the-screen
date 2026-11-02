@@ -64,34 +64,42 @@ M.hooks = {
     mara = {
         { id = "sage", name = "Knowledge", text = "Whole worlds under one roof. Thessaly wants to know everything in there.",
           room = "offices", lean = 2, says = "Every book, every exhibit. I'll take notes.",
-          intro = "I've read about every wonder in the world. A museum with whole worlds inside it? I'm not missing that." },
+          intro = "I've read about every wonder in the world. A museum with whole worlds inside it? I'm not missing that.",
+          payoff = "Thessaly runs a finger along the archivist's shelves. Every book and every note in here: this is what she came for." },
         { id = "hermit", name = "Wonder", text = "After years with her books, other worlds behind a caravan curtain are too good to pass up.",
           room = "paintings", lean = 1, says = "Paintings of places that don't exist? Yes, please.",
-          intro = "I've spent years with my books. Someone said there are other worlds behind that caravan's curtains. I want to see one." },
+          intro = "I've spent years with my books. Someone said there are other worlds behind that caravan's curtains. I want to see one.",
+          payoff = "Thessaly stands in front of a painting of a place that doesn't exist, and forgets to breathe for a moment." },
     },
     dev = {
         { id = "soldier", name = "Duty", text = "If something in that caravan is killing people, it's inside the town walls. That makes it Brannoc's problem.",
           room = "lair", lean = 2, says = "Point me at whatever's doing the killing.",
-          intro = "I was a soldier. If something in that caravan is killing people in this town, it's my job to stop it." },
+          intro = "I was a soldier. If something in that caravan is killing people in this town, it's my job to stop it.",
+          payoff = "Brannoc tightens his grip on his sword. Whatever has been killing people in this town is right here." },
         { id = "folk_hero", name = "Rumour", text = "The taverns say the museum is dark magic. Somebody has to go and look, so Brannoc will.",
           room = "garden", lean = 1, says = "Dark magic. Sure. I'll bring an axe.",
-          intro = "The taverns say the museum's dark magic. Somebody should go in and hit the dark magic. I volunteered." },
+          intro = "The taverns say the museum's dark magic. Somebody should go in and hit the dark magic. I volunteered.",
+          payoff = "Hedges that walk. Brannoc grins: the taverns were right, it is dark magic, and he gets to hit it." },
     },
     jess = {
         { id = "charlatan", name = "A con", text = "The gnome is running a con, and Pip isn't in on it. Unacceptable.",
           room = "street", lean = 2, says = "He's lying, and I want to know how good he is at it.",
-          intro = "I know a con when I see one, and that gnome is running a good one. I want in." },
+          intro = "I know a con when I see one, and that gnome is running a good one. I want in.",
+          payoff = "Pip watches Flitwidget work the crowd and grins. The gnome is good. Pip is better." },
         { id = "criminal", name = "Lying low", text = "A doorway to another world is a lovely place to lie low for a while.",
           room = "gift_shop", lean = 1, says = "Somewhere nobody's looking for me? Sold.",
-          intro = "I need somewhere to lie low for a bit. A whole other world behind a curtain? Perfect." },
+          intro = "I need somewhere to lie low for a bit. A whole other world behind a curtain? Perfect.",
+          payoff = "A shop inside a pocket world, behind a curtain nobody outside knows about. Pip puts her feet up: nobody will find her here." },
     },
     sam = {
         { id = "acolyte", name = "Faith", text = "Rumour says some exhibits mock the gods. Oswin has been asked to take a look.",
           room = "chamber", lean = 2, says = "Somebody should check it's not blasphemous. Gently.",
-          intro = "My temple asked me to look at the museum. Some of the exhibits might be, um, blasphemous. I'll be polite about it." },
+          intro = "My temple asked me to look at the museum. Some of the exhibits might be, um, blasphemous. I'll be polite about it.",
+          payoff = "Oswin reads the chamber's old glyphs with care. Not blasphemous, just very, very old. He says a quiet prayer anyway." },
         { id = "urchin", name = "A bad feeling", text = "The museum seems harmless. Oswin can't shake the feeling that it isn't.",
           room = "hunting", lean = 1, says = "Something's off about the whole thing. I'll keep an eye out.",
-          intro = "Everyone says the museum's harmless. I grew up on the streets, and I've got a bad feeling about it." },
+          intro = "Everyone says the museum's harmless. I grew up on the streets, and I've got a bad feeling about it.",
+          payoff = "Tracks laid as bait, hunters hiding in the dioramas: Oswin's bad feeling was right all along." },
     },
 }
 
@@ -162,7 +170,7 @@ M.rooms = {
     gift_shop = {
         name = "The gift shop", part = 1, type = "downtime", quick = true, cost = 1, at = { 50, 50 }, map = "Gift shop", stop = true, rest = true,
         comps = { location = "mus_gift_shop", cast = "mus_telpur", goal = "mus_shop", complication = "mus_no_refunds", reward = "mus_shop_goods" },
-        read = "A quiet little shop at the foot of the stairs, and a boot asleep on the counter.",
+        read = "A quiet little shop at the foot of the stairs: shelves of souvenirs, a bowl of marbles, and a boot asleep on the counter.",
         sum = "A rest, Telpur the talking boot, and somewhere to spend Flitwidget Francs. The book's place to stop for the night.",
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
     },
@@ -220,6 +228,22 @@ M.rooms = {
         sum = "The reward, a pick from the shop, and what comes next.",
     },
 }
+-- "Last time, they ..." at the start of a night: what each room came to, as a clause.
+M.recap = {
+    street = { win = "took Flitwidget's job", lose = "took Flitwidget's job without the whole story" },
+    garden = { win = "got through the living garden", lose = "got through the garden, scratched and bleeding" },
+    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard" },
+    chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct" },
+    paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings" },
+    gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
+    hunting = { win = "beat the huntlings on the second floor", lose = "held off the huntlings, just" },
+    offices = { win = "found the archivist's notebook", lose = "left the offices with more questions than answers" },
+    tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech" },
+    lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class" },
+    stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door" },
+    lair = { win = "faced Euryale", lose = "faced Euryale, and she sent them back down the stairs" },
+}
+
 -- How the rooms join, door to door, as on the book's maps (each way). The party walks through
 -- rooms it has cleared without stopping; going back to one has to be for a reason (museum_night:
 -- a second look, a hint, a rest or the shop, fleeing). Once inside the caravan nobody goes back
@@ -377,7 +401,7 @@ M.moments = {
           { label = "Let them. They know what's in there.",
             roll = { dc = 10, skill = { "acrobatics", "athletics" }, convenient = "success",
                      success = { log = "{actor_char} dodges a tentacle and fishes out a little brass key. Nobody knows what it opens. Yet.",
-                                 effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, aspect = "Fished a brass key out of a haunted pond" } },
+                                 effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, flag = "brass_key", aspect = "Fished a brass key out of a haunted pond" } },
                      fail = { log = "A tentacle wraps {actor_char}'s ankle and drags them in up to the waist. They come out cut and furious.",
                               effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, aspect = "Was dragged into a haunted pond" } } } },
           { label = "\"Are you sure? It's got tentacles.\"",
@@ -509,7 +533,7 @@ M.moments = {
             effects = { { "arch:method_actor", fun = 8 }, { "arch:casual", fun = 5 }, { "arch:storyteller", fun = -2 }, { "all", social = 8 } },
             table_min = 4, mus = { favor = { who = "telpur", n = 1 } } },
           { label = "Keep it short. There's a Gorgon upstairs.",
-            log = "Telpur sulks, but rings up the sale.",
+            log = "Telpur sulks, and points a lace at the price tags.",
             effects = { { "arch:butt_kicker", fun = 2 }, { "arch:method_actor", fun = -3 } } },
       } },
     { id = "mus_shopping", room = "gift_shop", at = "mid", type = "story", actor = { "power_gamer", "tactician", "storyteller" },
@@ -522,7 +546,7 @@ M.moments = {
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { mark = "know", spend = 6, favor = { who = "telpur", n = 1 } } },
           { label = "The Mech Instruction Manual (6 Francs)", price = 6,
-            log = "A thick manual with a lot of diagrams and one page in red: HYPER DESTROYER MODE.",
+            log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "manual", spend = 6, favor = { who = "telpur", n = 1 } } },
           { label = "Fire arrows and a bucket of slime (5 Francs)", price = 5,
@@ -558,9 +582,43 @@ M.moments = {
       } },
 
     -- The offices -----------------------------------------------------------------------------
+    -- The locked door comes first: nobody reacts to what's inside before they're in.
+    { id = "mus_office_door", room = "offices", at = "start", type = "story", actor = { "butt_kicker", "instigator", "tactician" },
+      title = "Locked from the inside",
+      text = "The second study's door is locked, and the key is on the inside. {actor_char} looks at the lock, then at the door.",
+      options = {
+          { label = "The little brass key from the pond.", needs = { flag = "brass_key" },
+            log = "It turns first time. Whoever locked it wanted out of the museum, not into the pond.",
+            effects = { { "actor", spotlight = 8, fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:storyteller", story = 3 } },
+            mus = { flag = "door_open" } },
+          { label = "Shoulder it open.",
+            roll = { dc = 12, skill = { "athletics" }, convenient = "success",
+                     success = { log = "The door bursts open on the second shove.", effects = { { "actor", spotlight = 6 }, { "arch:butt_kicker", fun = 4 } },
+                                 mus = { flag = "door_open" } },
+                     fail = { log = "The door holds; the shoulder doesn't. It takes the whole party, and a lot of noise.",
+                              effects = { { "actor", challenge = 3 }, { "arch:tactician", fun = -1 } }, mus = { flag = "door_open" } } } },
+          { label = "Pick the lock, quietly.",
+            roll = { dc = 13, skill = { "sleight_of_hand" }, convenient = "success",
+                     success = { log = "{actor_char} pushes the key out onto a sheet of paper and pulls it under the door. Click.",
+                                 effects = { { "actor", spotlight = 10, fun = 5 } }, mus = { flag = "door_open" } },
+                     fail = { log = "The pick snaps. In the end Brannoc's shoulder does it anyway.",
+                              effects = { { "actor", fun = -2 } }, mus = { flag = "door_open" } } } },
+      } },
+    { id = "mus_office_inside", room = "offices", at = "start", type = "story", actor = { "storyteller", "explorer", "tactician" },
+      title = "The second study",
+      text = "Inside: the archivist, dead at his desk, with eyes carved all over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand.",
+      gore = "Inside: the archivist, dead at his desk, his sleeves pulled down over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand.",
+      options = {
+          { label = "Let them take it all in, slowly.",
+            log = "Nobody speaks for a moment. {actor_char} takes out a pencil.",
+            effects = { { "arch:storyteller", fun = 4, story = 4 }, { "arch:explorer", fun = 3 }, { "arch:butt_kicker", boredom = 3 } }, table_min = 3 },
+          { label = "Keep it brisk. Notebook, bird, out.",
+            log = "\"Grab the notebook. Don't touch the bird.\" Fair.",
+            effects = { { "arch:butt_kicker", fun = 2 }, { "arch:storyteller", fun = -2 } } },
+      } },
     { id = "mus_whispers", room = "offices", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
       title = "Whispers",
-      text = "{actor_char} bends over the archivist's body, eyes carved all over its arms. A faint voice starts whispering, to them alone.",
+      text = "{actor_char} bends over the archivist's body. A faint voice starts whispering, to them alone.",
       options = {
           { label = "Roll for it, behind the screen.",
             roll = { dc = 13, skill = { "insight", "religion" }, secret = true, convenient = "success",
@@ -568,7 +626,7 @@ M.moments = {
                      fail = { log = "Something old learns {actor_char}'s name. You write it down for later.",
                               effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Heard the Witness whisper their name" } } } },
           { label = "Pass them a note: they hear it, and only they know.",
-            log = "You slide a folded note across the table. {actor_char}'s player reads it, goes pale, and says nothing.",
+            log = "You slide a folded note across the table. It says: \"A voice in the dark says your name, once, the way an old friend would.\" {actor_char}'s player reads it, goes pale, and says nothing.",
             effects = { { "actor", story = 10, fun = 6 }, { "arch:storyteller", investment = 3 }, { "arch:casual", fun = -1 } },
             mus = { flag = "whispered", aspect = "Heard the Witness whisper their name" } },
       } },
@@ -595,7 +653,7 @@ M.moments = {
       } },
     { id = "mus_hyper", room = "tomorrow", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" },
       title = "Hyper Destroyer Mode",
-      text = "{actor_char} has found the red page in the manual: \"Hyper Destroyer Mode. Only if absolutely necessary.\" They're grinning.",
+      text = "Inside the Mech's chest panel, a red switch: \"HYPER DESTROYER MODE. Only if absolutely necessary.\" {actor_char} is grinning.",
       options = {
           { label = "Let them try it, here and now.",
             roll = { dc = 12, skill = { "arcana", "investigation" }, convenient = "success",
@@ -971,9 +1029,9 @@ M.showdown = {
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
             { label = "Hand her a page of the Lecturer's notes.", needs = { mark = "pages" },
               roll = { dc = 13, skill = { "deception", "sleight_of_hand" }, convenient = "success",
-                       success = { log = "She reads the first line, frowns, and is asleep before the second. They carry her out through the black curtain.",
+                       success = { log = "She reads the first line, frowns, and is asleep before the second.",
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "all", fun = 4 }, { "arch:butt_kicker", fun = -2 } },
-                                   mus = { ending = "escape", flag = "slept", aspect = "Put a Gorgon to sleep with a lecture" } },
+                                   mus = { ending = "slept", flag = "slept", aspect = "Put a Gorgon to sleep with a lecture" } },
                        fail = { log = "She glances at the page and smiles. \"I have read this lecture. I was there.\"",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
             { label = "Talk her round. Ask what she really wants.", needs = { talk = 2 },
@@ -988,7 +1046,7 @@ M.showdown = {
     yield = {
         id = "mus_yield", type = "boss", actor = { "storyteller", "casual", "butt_kicker" },
         title = "\"Enough\"",
-        text = "Bloodied, snakes hissing, Euryale lowers her bow. \"Enough. I yield. Let me go, and you'll never see me again.\"",
+        text = "Down on one knee, snakes hissing, Euryale lowers her bow. \"Enough. I yield. Let me go, and you'll never see me again.\"",
         options = {
             { label = "Let her go.", log = "She walks out through the black curtain without looking back.",
               effects = { { "arch:storyteller", fun = 6 }, { "arch:casual", fun = 4 }, { "arch:butt_kicker", fun = -3 } }, mus = { ending = "escape", aspect = "Let a Gorgon walk free" } },
@@ -1001,6 +1059,24 @@ M.showdown = {
     },
 }
 
+-- When the talk ends it but her marks brought her company: what the company does, by the ending.
+-- fight: they still fight (led by {lead}); otherwise she calls them off and there's no fight.
+M.after_talk = {
+    ally = { line = "Euryale lifts one hand, and her whole collection goes still.", fight = false },
+    bargain = { line = "\"Leave them be,\" she tells her collection. One by one, they go still.", fight = false },
+    escape = { line = "Euryale takes the coin and is gone through the back curtain. Her collection doesn't care for coin: {lead} comes forward.", fight = true },
+    slept = { line = "Euryale snores. Her collection doesn't: as they lift her, {lead} comes forward.", fight = true },
+}
+-- How a fight with only her collection ends badly: she's gone already, so it ends anyway.
+M.extras_lost = "They fall back down the stairs, battered. Without her, the collection loses heart by morning, and the exhibits go still."
+-- Who leads her collection when she isn't fighting, and how any foe is named in a sentence.
+M.foe_names = {
+    euryale = "Euryale", knight_of_shades = "the Knight of Shades", kruthik_huntling = "the biggest huntling",
+    giant_scarab_swarm = "the scarab swarm", briar_beast = "the last briar beast", briar_triceratops = "the briar triceratops",
+    briar_boar = "a briar boar", bone_construct = "the Bone Construct", sentinel = "the Sentinel", the_lecturer = "the Lecturer",
+}
+M.lead_order = { "knight_of_shades", "briar_beast", "giant_scarab_swarm", "kruthik_huntling" }
+
 -- How the prologue ends, by how they dealt with Euryale.
 M.endings = {
     fallen = { name = "Euryale falls",
@@ -1010,8 +1086,11 @@ M.endings = {
                 line = "Euryale leaves the museum with a promise: they'll look for two clay jars, and she'll owe them a favour.",
                 flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"" },
     escape = { name = "Euryale slips away",
-               line = "Euryale is gone through the black curtain, out into the world. The statues in the lair start to soften back into people.",
-               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted.\"" },
+               line = "Euryale is gone through the black curtain, out into the world. The statues in the lair start to soften back into people. Somewhere out there, a Gorgon is loose: a problem for another night.",
+               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly.\"" },
+    slept = { name = "Euryale, asleep",
+              line = "They carry Euryale out through the black curtain, snoring softly, and leave her somewhere far from the museum. The statues in the lair start to soften back into people.",
+              flit = "\"Asleep? On a lecture? I always said it was a very good lecture.\"" },
     ally = { name = "An unlikely ally",
              line = "Euryale stays, as curator of her own quiet wing. The statues soften back into people, blinking, one by one.",
              flit = "\"Co-curators? I... suppose she does have an eye for arrangement.\"" },
@@ -1045,16 +1124,68 @@ M.chat = {
     stairs = { dev = "boss fight next week. finally", mara = "she's been watching us this whole time hasn't she" },
 }
 
+-- What each of the museum's people knows about the party (the DM runs them, so they remember):
+-- the first ones that hold, as phrases for the talk card and their lines. when: as on moments.
+M.memory = {
+    mus_flitwidget = {
+        { when = { mark = "robbed" }, text = "they tried to rob his donation box" },
+        { when = { flag = "boon" }, text = "they dropped a coin in his donation box" },
+        { when = { chose = { "mus_tidy", 1 } }, text = "they put his exhibits back" },
+        { when = { chose = { "mus_return_paint", 1 } }, text = "they slid the paint back into his paintings" },
+        { when = { mark = "mech" }, text = "they woke his Steam Mech" },
+        { when = { flag = "truth" }, text = "they know what's really upstairs" },
+        { when = { done = "street" }, text = "they took his job" },
+    },
+    mus_telpur = {
+        { when = { flag = "manual" }, text = "they bought the Mech manual" },
+        { when = { flag = "arrows" }, text = "they bought fire arrows and slime" },
+        { when = { mark = "know" }, text = "they bought the book on gorgons" },
+        { when = { flag = "telpur_along" }, text = "they're taking Telpur along" },
+        { when = { done = "gift_shop" }, text = "they've rested in the shop" },
+    },
+}
+-- How a talk with them goes when the DM speaks for them (game/model/takeover.lua): their own words
+-- for each stance, a first meeting (open) and seeing the party again (again), and asked for what
+-- they know (ask). In the museum nobody says "go north, they say".
+M.talk = {
+    mus_flitwidget = {
+        open = { warm = { "Adventurers! You have the look. Come, come, never mind the crowd." },
+                 guarded = { "Closed. Temporarily. Ish. Who's asking?" },
+                 lie = { "Nothing's wrong with my museum. A few incidents. With the exhibits." } },
+        again = { warm = { "My heroes! Sit, sit. There are biscuits.", "You're back! And mostly in one piece!" },
+                  guarded = { "Ah. You. Yes. Let's talk about my donation box first.", "Before anything else: is anything broken?" },
+                  lie = { "Everything's fine! Splendid! Nothing at all for you to worry about. Upstairs." } },
+        ask = { warm = { "A Gorgon. Euryale. I bought her in a jar, and the jar broke. There. I said it.",
+                         "Here is what I know, all of it, and some of it twice." },
+                guarded = { "Some things a curator keeps to himself.", "Ask me again when my museum's quiet." },
+                lie = { "Incidents. With the exhibits. That's all.", "The gift shop is lovely this time of year." } },
+    },
+    mus_telpur = {
+        open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
+                 guarded = { "No touching. No refunds. Boss's orders." },
+                 lie = { "Me? Just a boot. Nothing upstairs at all." } },
+        again = { warm = { "My favourite customers! What'll it be?", "Back again? Mind the marbles." },
+                  guarded = { "No refunds on anything you bought last time. Before you ask." },
+                  lie = { "Never seen you before in my life. Which is long." } },
+        ask = { warm = { "Upstairs? She hates fire and loves an audience. You didn't hear it from me." },
+                guarded = { "A boot hears things. A boot doesn't repeat them." },
+                lie = { "Upstairs is just storage. Lovely storage." } },
+    },
+}
+
 -- The DM's NPC lines, for game night's dialogue (game/model/dialogue.lua cells). speaker: the
 -- cast card. trigger: npc_greet, npc_good, npc_bad, npc_taunt, npc_down.
 M.npc_lines = {
     mus_flitwidget = {
         npc_greet = { "Welcome, welcome! Closed, I'm afraid. Temporarily. Ish.", "Ah! Adventurers! You have the look. The look of people who need money." },
+        -- (Seeing them again: museum_night's greeting picks these once they've met.)
+        npc_again = { "My heroes! You're back! Tea?", "There you are! Is it done? Tell me it's done." },
         npc_good = { "Splendid! Marvellous! I knew you had the look.", "Oh, you're good. You're very good. Do you want a job? You have a job." },
         npc_bad = { "Now, now. Let's not upset the exhibits.", "That's... not how I would have done it. But it's done." },
     },
     mus_telpur = {
         npc_greet = { "Oh, bloody 'ell, fell asleep again. Welcome to the gift shop.", "Browse all you like. No refunds. Boss's orders." },
+        npc_again = { "Back again? Lovely. Still no refunds.", "My favourite customers. Mind the marbles." },
         npc_good = { "Lovely choice. Very lovely. Can't take it back, mind.", "A customer with taste. Rare, round 'ere." },
         npc_bad = { "Don't touch the marbles unless you're buying the marbles.", "I was a duke of the underworld, you know. I don't have to take this." },
     },

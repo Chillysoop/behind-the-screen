@@ -79,9 +79,9 @@ return {
         ask = { label = "Ask what {char} is doing", log = "\"{char}, what are you doing while this happens?\"", table_min = 1 },
         detail = { label = "Let {char} notice something", log = "You add one more detail, just for {name}, and watch {them} sit up.",
                    table_min = 1 },
-        stakes = { label = "Raise the stakes", log = "You let something shift in the dark at the edge of the room. Now it's dangerous." },
+        stakes = { label = "Raise the stakes", log = "You let something shift just out of sight. Now it's dangerous." },
         hurry = { label = "Move things along", log = "You trim the next bit and get to the point." },
-        talk = { label = "Have someone talk to {them}", log = "You turn to {name} in a new voice. Somebody here wants a word with {char}.",
+        talk = { label = "Have someone talk to {them}", log = "A question just for {char}, in a new voice. {name} answers it in character, delighted.",
                  table_min = 1 },
         snack = { label = "Call a snack break", log = "\"Five minutes. Snacks.\" Chairs scrape back.", table_min = 8 },
         prize = { label = "Dangle a prize", log = "You mention, casually, something glinting where {char} can see it." },
@@ -96,7 +96,14 @@ return {
                         table_min = 6 },
         keep_light = { label = "Keep tonight light", log = "You lean into the jokes tonight and go easy on the grim stuff." },
         early_moment = { label = "Give {them} something to do early", log = "You make a note to put {name} on the spot early, to pull {them} in." },
-        news = { label = "Make room for the news", log = "\"Hang on, {name}, didn't you have news?\" The table turns.", table_min = 5 },
+        news = { label = "Make room for the news", log = "\"{name}, didn't you have news?\" {news}", table_min = 5 },
+    },
+    -- What each friend's good news is, when you make room for it (so it's actually told).
+    news = {
+        mara = "She got into the night course. Dev does a drumroll on the table.",
+        dev = "His sister had the baby. Photos go round the table.",
+        jess = "She got the part in the play. She does one line of it, badly.",
+        sam = "He got the job. The table cheers.",
     },
 
     lines = {

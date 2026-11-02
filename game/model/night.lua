@@ -560,7 +560,15 @@ function M:npc_line(what, extra)
     if not cast then
         return
     end
-    local text, line = self.talk:npc(cast.id, what, self:vars(extra))
+    local text, line
+    -- (v2: someone who's met the party greets them as people they know.)
+    if what == "greet" and self.mus and self.met and self.met[cast.id] and util.lazy("game.model.adventure").met(self.campaign, cast.id)
+        and (util.lazy("game.model.adventure").meet(self.campaign, cast.id).week or 0) < (self.campaign.week or 0) then
+        text, line = self.talk:npc(cast.id .. "@again", what, self:vars(extra))
+    end
+    if not text then
+        text, line = self.talk:npc(cast.id, what, self:vars(extra))
+    end
     if text then
         self:emit({ kind = "npc", name = self:cast_label(cast), cast = cast.id, text = text, line = line.id })
     end
@@ -1013,7 +1021,9 @@ function M:describe(c, style)
         text = "Back at " .. soft_lower(c.name) .. "."
     end
     if not text then
-        if c.again and deck.returning(self.campaign, c) then
+        -- (v2: the museum's people, met before, are described as people the party knows.)
+        local seen_before = self.mus and c.kind == "cast" and util.lazy("game.model.adventure").met(self.campaign, c.id)
+        if c.again and (seen_before or deck.returning(self.campaign, c)) then
             text = c.again
         else
             text = content.line_for(c, sc and sc.comps.location)
@@ -1047,6 +1057,9 @@ function M:describe(c, style)
     if c.kind == "cast" then
         self.met = self.met or {}
         self.met[c.id] = rev and "revealed" or (self.met[c.id] or true)
+        if self.mus then
+            util.lazy("game.model.adventure").meet(self.campaign, c.id, sc and sc.room)
+        end
     end
 end
 
@@ -3941,6 +3954,18 @@ function M:combat_scene(sc)
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"
+    -- Who's beaten and who got away, for every line after the fight (a boss that ran isn't beaten).
+    sc.foes_ran, sc.foes_beaten = {}, {}
+    for _, c in pairs(f and f.by_ref or {}) do
+        if c.side == "foes" and c.monster_id then
+            if c.dead then
+                table.insert(sc.foes_beaten, c.monster_id)
+            elseif c.removed then
+                table.insert(sc.foes_ran, c.monster_id)
+            end
+        end
+    end
+    sc.boss_ran = (f and f.boss and f.boss.removed and not f.boss.dead) or nil
     -- A foe who surrenders stays surrendered, and talks (A7): a name from the story.
     if f and f.surrendered then
         self:say(self:fresh(M.SURRENDER_TALK, "surrender_talk"), "goal")
@@ -3982,11 +4007,25 @@ function M:combat_scene(sc)
         for _, c in ipairs(self.pc_list or {}) do
             close = close or (not c.dead and c.hp_max and c.hp <= c.hp_max * 0.35)
         end
-        self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), close and "victory_close" or "victory")
+        self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), close and "victory_close" or "victory",
+            sc.boss_ran and { boss = false } or nil)
         for _, p in ipairs(self.players) do
             score.add(p, "challenge", 6)
             score.add(p, "fun", 2)
         end
+    elseif self.mus then
+        -- v2: a lost fight in the museum is the museum's to tell (they fall back to a room they've
+        -- cleared, or she lets them go down the stairs): no cells, no generic defeat scene.
+        self:say("They can't win this one.", "bad")
+        local poses = {}
+        for _, p in ipairs(self.players) do
+            poses[p.key] = "gasp"
+            score.add(p, "challenge", 10)
+            score.add(p, "fun", -4)
+        end
+        self:react(poses)
+        self:event("defeat", { who = "party", text = "A fight they couldn't win", weight = 7 })
+        self:bark(self:pick_actor(nil), "defeat")
     else
         self:say(self.talk:fight("party_lose", self:vars()), "bad")
         -- A defeat scene (B2): the party loses without anyone dying, and it leaves them something.
@@ -4078,7 +4117,7 @@ end
 local SCOUT = {
     rogue = { "{actor_char} creeps ahead to scout.", "{actor_char} slips away to see what's waiting.",
               "{actor_char} goes on ahead, quiet as a cat." },
-    fighter = { "{actor_char} stands watch at the front.", "{actor_char} takes the lead, shield up.",
+    fighter = { "{actor_char} stands watch at the front.", "{actor_char} takes the lead, weapon up.",
                 "{actor_char} plants their feet and watches the dark." },
     wizard = { "{actor_char} sends a light ahead to check the way.", "{actor_char} mutters a cantrip and peers ahead.",
                "{actor_char} sends a spark skittering along the ground ahead." },
@@ -5128,6 +5167,29 @@ end
 function M:moment(sc)
     local beats = content.scene_beats.moment
     local comp = sc.comps.complication
+    -- v2: in the museum, a room's beat is its own snag's (the cards' `moment`), never a stock one
+    -- ("win over the room before it turns", in a gift shop over tea).
+    if self.mus then
+        local mm = comp and comp.moment
+        if not mm or comp.cliffhanger or self:muted(comp) or not self:room(12) then
+            return
+        end
+        local best = self:pick_roller(comp.skill, sc)
+        self.actor, self.other = best, nil
+        self:say(mm.text, "goal")
+        self:react({ [best.key] = "lean" })
+        table.insert(self.decisions, { card = "moment_" .. sc.type, option = 0, rolls = {} })
+        local ok = self:big_roll({ dc = 12 + (sc.difficulty - 2), convenient = "success", skill = comp.skill,
+                                   success = { log = mm.success, effects = { { "actor", spotlight = 8 } } },
+                                   fail = { log = mm.fail, effects = { { "all", challenge = 5 } } } })
+        if ok then
+            sc.progress.wins = sc.progress.wins + 1
+        else
+            sc.progress.setbacks = sc.progress.setbacks + 1
+        end
+        self:progress_event(sc)
+        return
+    end
     local m = (comp and not comp.cliffhanger and not self:muted(comp) and self:fits_here(comp) and beats.complication)
         or beats[sc.type]
     if not m or not self:room(12) then
@@ -5523,10 +5585,19 @@ function M:scene_opens(sc)
 end
 
 -- What the scene's goal came to, for the recap ("In the scramble, the relic is gone").
+-- How a scene's goal came out, in its own words (v2: the museum picks the words that match what
+-- actually happened, game/model/museum_night.lua goal_text).
+function M:goal_text(sc, goal)
+    if self.mus and sc.room then
+        return util.lazy("game.model.museum_night").goal_text(self, sc, goal)
+    end
+    return sc.outcome == "win" and goal.win or (goal.lose or goal.win)
+end
+
 function M:goal_event(sc)
     local goal = sc.comps.goal
     if goal and goal.win and not self:muted(goal) then
-        local text = sc.outcome == "win" and goal.win or (goal.lose or goal.win)
+        local text = self:goal_text(sc, goal)
         text = util.sentence_case(util.fill(text, self:vars()))     -- as it was said ({Cast}, {deal}...)
         self:event("goal", { who = "party", text = text, weight = sc.outcome == "win" and 6 or 7 })
     end
@@ -5558,7 +5629,7 @@ function M:settle_scene(sc)
     local goal = sc.comps.goal
     if goal and goal.win and not sc.goal_said and not self:muted(goal) and not self.end_early then
         sc.goal_said = true
-        self:say(sc.outcome == "win" and goal.win or (goal.lose or goal.win), sc.outcome == "win" and "good" or "bad")
+        self:say(self:goal_text(sc, goal), sc.outcome == "win" and "good" or "bad")
         self:goal_event(sc)
     end
     self:pay_goal_clue(sc)
@@ -6025,7 +6096,9 @@ function M:play_scene(sc)
     if mus then
         mus.moments(self, sc, "end")
     end
-    if sc.comps.reward and not self.end_early and sc.outcome == "lose" and not sc.epilogue then   -- (v2: an ending's thanks always pays)
+    if mus then
+        mus.reward(self, sc)          -- v2: only what they earned, said once (museum_night.reward)
+    elseif sc.comps.reward and not self.end_early and sc.outcome == "lose" and not sc.epilogue then   -- (v2: an ending's thanks always pays)
         -- A reward they didn't win is still out there (it stays in the story deck).
         local r = sc.comps.reward
         if not self:muted(r) then
@@ -6072,7 +6145,8 @@ function M:play_scene(sc)
         self:emit({ kind = "scene_end", index = sc.index, total = (not self.mus) and #self.scenes or nil, title = sc.title,
                     type_name = content.scenes[sc.type] and content.scenes[sc.type].name or nil,
                     goal = goal and not self:muted(goal) and goal.name or nil, outcome = sc.outcome,
-                    reward = r and sc.outcome == "win" and not self:muted(r) and util.capitalize(soft_lower(r.got or r.name)) or nil,
+                    reward = r and not self:muted(r) and ((mus and mus.has_reward(self, sc, r)) or (not mus and sc.outcome == "win"))
+                        and util.capitalize(soft_lower(r.got or r.name)) or nil,
                     fight = (sc.type == "combat" or sc.type == "set_piece") or nil, opens = self:scene_opens(sc) })
     end
     -- A cliffhanger is the last thing that happens in its scene.

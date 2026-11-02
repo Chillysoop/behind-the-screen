@@ -206,7 +206,9 @@ function M.table(campaign, night)
         local h = adventure.hook(campaign, p.key)
         if h then
             local r = adventure.data.rooms[h.room]
-            local state = (st.done[h.room] and "paid off") or ((st.skipped[h.room] or (st.passed or {})[h.room]) and "missed so far")
+            -- (Paid off only when the beat played with them there: museum_night.room_start.)
+            local paid = (st.hook_paid or {})[p.key] ~= nil
+            local state = (paid and "paid off") or ((st.done[h.room] or st.skipped[h.room] or (st.passed or {})[h.room]) and "missed so far")
                 or "still to come"
             row.hook = { name = h.name, room = r and r.name or h.room, state = state }
         end

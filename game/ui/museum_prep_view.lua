@@ -817,12 +817,12 @@ local function left_column(app, prep)
             local hk = p and adventure.hook(c, key)
             if hk and y < 860 then
                 local room = MODULE.rooms[hk.room]
-                local done = c.adv.done[hk.room]
+                local done = (c.adv.hook_paid or {})[key] ~= nil      -- (the beat played, with them there)
                 kit.dot(x + 10, y + 10, 20, panels.COLORS[key] or theme.panel3)
                 kit.picture(x + 1, y + 1, 18, 18, panels.face(key))
                 kit.text(x + 28, y, p.char .. ": " .. hk.name .. ", in " .. util.lower_first(room.name)
-                    .. (done and " (found)" or (c.adv.skipped[hk.room] and " (missed)" or "")), "ui14",
-                    done and theme.green or (c.adv.skipped[hk.room] and theme.orange or theme.text), { w = w - 28, lines = 1 })
+                    .. (done and " (found)" or ((c.adv.skipped[hk.room] or c.adv.done[hk.room]) and " (missed)" or "")), "ui14",
+                    done and theme.green or ((c.adv.skipped[hk.room] or c.adv.done[hk.room]) and theme.orange or theme.text), { w = w - 28, lines = 1 })
                 y = y + 24
             end
         end

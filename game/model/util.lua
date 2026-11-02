@@ -125,14 +125,14 @@ function M.sentence_case(s)
 end
 
 -- Join names: "A", "A and B", "A, B and C".
-function M.join_names(names)
+function M.join_names(names, word)
     local n = #names
     if n == 0 then
         return ""
     elseif n == 1 then
         return names[1]
     end
-    return table.concat(names, ", ", 1, n - 1) .. " and " .. names[n]
+    return table.concat(names, ", ", 1, n - 1) .. " " .. (word or "and") .. " " .. names[n]
 end
 
 -- A require done when it's needed, for a module that requires this one back. Written so the

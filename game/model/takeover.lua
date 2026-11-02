@@ -126,6 +126,21 @@ local function talk_name(night, info)
 end
 
 -- One turn: three lines, the DM picks one. Returns the stance picked.
+-- v2: the museum's people say their own words (game/data/museum/module.lua M.talk), and someone
+-- who's met the party talks like it.
+local function module_line(night, info, step, stance)
+    local mt = night.mus and info.module_talk
+    if not mt then
+        return nil
+    end
+    local set = (step == 1 and (info.met and mt.again or mt.open)) or mt.ask
+    local list = set and set[stance]
+    if not list or #list == 0 then
+        return nil
+    end
+    return night:fresh(list, "talk_" .. info.cast.id .. "_" .. step .. "_" .. stance)
+end
+
 local function turn(night, step, info)
     local trigger = step == 1 and "talk_open" or "talk_ask"
     local vars = { char = info.p.char }
@@ -139,15 +154,19 @@ local function turn(night, step, info)
     else
         card.title = info.p.char .. " asks"
         -- A goal card's name is an instruction ("Find old Dunnet"), not a topic: say it as the goal.
-        card.text = info.p.char .. " asks " .. name .. " what they know"
-            .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")
+        card.text = (info.ask and (info.p.char .. " asks " .. name .. " " .. info.ask .. ". ")
+            or (info.p.char .. " asks " .. name .. " what they know"
+                .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")))
             .. (info.knows and "Warm, and they point the party the right way: the scene's final roll gets easier. Guarded keeps it "
                 .. "back for now. A lie sends them the wrong way, unless someone sees through it."
                 or "Warm, and they open up. Guarded keeps their secrets. A lie might get caught.")
     end
     local fits = info.fits
     for i, stance in ipairs(M.STANCES) do
-        local text, l = line_for(night, trigger, info.speaker, stance, vars)
+        local text, l = module_line(night, info, step, stance), nil
+        if not text then
+            text, l = line_for(night, trigger, info.speaker, stance, vars)
+        end
         text = text or data.FALLBACK[trigger][stance]
         local effects = {}
         for _, e in ipairs(data.EFFECTS[trigger][stance]) do
@@ -223,12 +242,28 @@ function M.talk(night, sc)
     local att = pid and ledger.att(campaign, pid, night) or 0
     local feel = pid and (util.capitalize(cast.short or cast.name) .. " is " .. string.lower(ledger.label(att)) .. " toward the party.")
         or (cast.villain and "They're no friend of the party." or "They don't know the party yet.")
+    -- v2: the museum's people remember the party, as the DM would.
+    local adventure = night.mus and require("game.model.adventure")
+    local module_talk = adventure and adventure.data.talk and adventure.data.talk[cast.id]
+    local met = adventure and adventure.met(campaign, cast.id) and (adventure.meet(campaign, cast.id).week or 0) < (campaign.week or 0)
+    if adventure then
+        local mem = adventure.memory(campaign, cast.id)
+        local who = util.capitalize(cast.short or cast.name)
+        if met and #mem > 0 then
+            feel = who .. " knows them: " .. util.join_names(mem) .. "."
+        elseif met then
+            feel = who .. " has met them before."
+        else
+            feel = who .. " hasn't met the party yet."
+        end
+    end
     local goal = sc.comps.goal and not night:muted(sc.comps.goal) and sc.comps.goal
     local info = {
         id = pid or cast.id, cast = cast, p = p, name = cast.short or cast.name, speaker = M.speaker(night.talk.lib, cast),
         feel = feel, knows = sc.goal_clue ~= nil, fits = M.in_character(cast, att),
         about = goal and util.lower_first(goal.short or goal.name) or "what's going on",
         goal = goal and goal.name or nil,
+        ask = goal and goal.ask or nil, module_talk = module_talk, met = met,
     }
     -- The hero opens, the DM answers as them, twice.
     night:bark(p, "npc_talk")

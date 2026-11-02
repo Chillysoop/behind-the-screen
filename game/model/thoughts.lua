@@ -47,7 +47,8 @@ end
 
 local function vars(p)
     local pr = DATA.pronouns[p.key] or { them = "them", their = "their" }
-    return { name = p.name, char = p.char, them = pr.them, their = pr.their }
+    return { name = p.name, char = p.char, them = pr.them, their = pr.their,
+             news = (DATA.news and DATA.news[p.key]) or "They tell it. The table cheers." }
 end
 M.vars = vars
 

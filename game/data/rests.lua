@@ -273,7 +273,7 @@ M.beats = {
       line = "Brannoc burns the stew again. Oswin quietly adds something from his pack and calls it 'an old temple recipe.'",
       effects = { { "all", social = 4 }, { "arch:casual", fun = 3 } } },
     { id = "bluebell", where = { "any" }, pair = { "pc:jess", "pc:mara" }, tags = { "mend" }, mend = true,
-      line = "Pip slips Thessaly's 'borrowed' notebook back into her pack, a pressed bluebell marking the page she was stuck on.",
+      line = "Pip slips a pressed flower into Thessaly's notebook, marking the page she was stuck on.",
       effects = { { "all", social = 6 }, { "arch:method_actor", fun = 4 } } },
     { id = "wooden_horse", where = { "camp", "wilderness" }, pair = { "pc:dev" }, tags = { "watch", "hook" },
       thread = "dev",

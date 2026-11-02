@@ -1223,7 +1223,9 @@ function M.run(night, sc, plan)
         -- The villain is beaten and looking for a way out (B6): let them escape, or finish it. An
         -- escape the story set up is earned; one out of nowhere is cheap, and Tacticians notice.
         local vb = f.boss
-        if vb and vb.villain and not vb.dead and not vb.removed and r >= 2 and vb.hp <= vb.hp_max * 0.45
+        -- (Some never run: a guardian bound to its chamber, a ghost to its lecture hall.)
+        local stays = sc.comps and sc.comps.cast and sc.comps.cast.stays
+        if vb and vb.villain and not stays and not vb.dead and not vb.removed and r >= 2 and vb.hp <= vb.hp_max * 0.45
             and not f.used.escape_earned and not f.used.escape_cheap and not bb.force_end and night:room(15)
             and night.rng:chance(0.8) then
             local ledger_mod = require "game.model.ledger"

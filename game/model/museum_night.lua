@@ -168,6 +168,19 @@ function M.handle(night, mus, sc)
     local c = night.campaign
     local st = st_of(night)
     local added = adventure.apply(c, mus, sc and sc.room)
+    -- (Francs this room already paid, and what the gift shop sold tonight: the room's prize and its
+    -- last line don't say it twice, or say it when nothing changed hands.)
+    if mus.francs and sc and sc.room then
+        night.mus.room_francs = night.mus.room_francs or {}
+        night.mus.room_francs[sc.room] = true
+    end
+    if mus.spend then
+        night.mus.bought = true
+    end
+    -- What the museum's people would know about, for when they see the party again.
+    for _, d in ipairs(mus.deeds or {}) do
+        adventure.deed(c, d[1], d[2])
+    end
     for _, id in ipairs(added) do
         table.insert(night.mus.pending, id)
     end
@@ -228,6 +241,80 @@ function M.handle(night, mus, sc)
     if mus.harsh then
         M.harsh(night, sc)
     end
+end
+
+-- How a room came out, said the way it actually went ------------------------------------------
+-- Who ran from a room's fight (sc.foes_ran, from night.lua's combat_scene) and what the DM chose
+-- pick the goal's line: a card's `win_if` / `lose_if` list, first match wins, else its own.
+local function alt_holds(night, sc, alt)
+    local st = st_of(night)
+    if alt.when and not adventure.test(night.campaign, alt.when, knobs_of(night)) then
+        return false
+    end
+    if alt.fled ~= nil and alt.fled ~= (sc.foes_ran ~= nil and #sc.foes_ran > 0) then
+        return false
+    end
+    if alt.ending and alt.ending ~= st.ending then
+        return false
+    end
+    if alt.bought ~= nil and alt.bought ~= (night.mus.bought == true) then
+        return false
+    end
+    return true
+end
+
+function M.goal_text(night, sc, goal)
+    local win = sc.outcome == "win"
+    for _, alt in ipairs((win and goal.win_if or goal.lose_if) or {}) do
+        if alt_holds(night, sc, alt) then
+            return alt.text
+        end
+    end
+    return win and goal.win or (goal.lose or goal.win)
+end
+
+-- Does the party hold a room's prize now? (Its `has`: a flag, a mark, or bought tonight.)
+function M.has_reward(night, sc, r)
+    if r.owner == "ending" then
+        return night.campaign.adv.ending ~= nil
+    end
+    if r.owner == "moment" then
+        return r.has ~= nil and alt_holds(night, sc, r.has.bought ~= nil and { bought = r.has.bought } or { when = r.has })
+    end
+    return sc.outcome == "win"
+end
+
+-- A room's prize at its end. Only what they earned, said once: a prize a moment already handed
+-- over (the mirror, the Mech) isn't announced again; one the room's moments decided against isn't
+-- announced at all; a Franc is counted into the pool as it's said; one they didn't win isn't
+-- "still out there" unless something says where it is.
+function M.reward(night, sc)
+    local r = sc.comps and sc.comps.reward
+    if not r or night.end_early or (night.muted and night:muted(r)) then
+        return
+    end
+    local st = st_of(night)
+    if r.owner then
+        return
+    end
+    if sc.outcome ~= "win" then
+        if r.lost and r.lost ~= "" then
+            night:say(r.lost, "bad")
+        end
+        return
+    end
+    if r.francs then
+        if (night.mus.room_francs or {})[sc.room] then
+            return
+        end
+        st.francs = (st.francs or 0) + r.francs
+        night.mus.room_francs = night.mus.room_francs or {}
+        night.mus.room_francs[sc.room] = true
+        night.actor = night.actor or night:pick_actor({ "power_gamer", "instigator", "casual" })
+        night:say(r.said or ("They earn " .. util.lower_first(r.line)), "reward", { francs = tostring(st.francs) })
+        return
+    end
+    night:say("They earn " .. util.lower_first(r.line), "reward", { gold = tostring(st.gold or 30) })
 end
 
 -- Moments -----------------------------------------------------------------------------------------
@@ -300,6 +387,14 @@ function M.play_moment(night, card, sc)
     local o = night:decision(copy, night.mus_vars)
     if not o then
         return nil
+    end
+    -- What the DM chose, by the option's place on the card as written: lines later on (a goal's
+    -- ending, the group chat, what an NPC remembers) say only what follows from it.
+    for i, opt in ipairs(card.options) do
+        if opt.label == o.label or (o.label and opt.label and string.sub(o.label, 1, #opt.label) == opt.label) then
+            st.chose[card.id] = i
+            break
+        end
     end
     M.handle(night, o.mus, sc)
     local got = gained(o.mus)
@@ -421,6 +516,12 @@ function M.room_start(night, sc)
             local h = adventure.hook(c, p.key)
             night:react({ [p.key] = "lean" })
             night:say(p.name .. " sits up. This is what " .. p.char .. " came to the museum for.", "thread")
+            -- The reason itself, paid off in the room: a real beat, not just a nod.
+            if h.payoff then
+                night:say(h.payoff, "thread")
+            end
+            c.adv.hook_paid = c.adv.hook_paid or {}
+            c.adv.hook_paid[p.key] = c.adv.hook_paid[p.key] or c.week
             score.add(p, "investment", 3)
             score.add(p, "fun", 4)
             local st = c.adv
@@ -509,14 +610,12 @@ function M.quick_room(night, sc)
     end
     M.moments(night, sc, "end")
     local r = sc.comps.reward
-    if r and sc.outcome == "win" and not night.end_early then
-        night:say("They earn " .. util.lower_first(r.line), "reward")
-    end
+    M.reward(night, sc)
     if not sc.virtual and not night.end_early then
         night:emit({ kind = "scene_end", index = sc.index, title = sc.title,
                      type_name = content.scenes[sc.type] and content.scenes[sc.type].name or nil,
                      goal = sc.comps.goal and sc.comps.goal.name or nil, outcome = sc.outcome,
-                     reward = r and sc.outcome == "win" and util.capitalize(r.got or r.name) or nil,
+                     reward = r and M.has_reward(night, sc, r) and util.capitalize(r.got or r.name) or nil,
                      fight = sc.fought or nil })
     end
 end
@@ -1006,15 +1105,10 @@ end
 
 -- After a room: what it left behind, and Euryale upstairs ------------------------------------------
 
+-- How many of a room's foes got away (any way: their nerve broke, you let them go, the fight
+-- broke up): every one of them is somewhere upstairs now.
 local function fled_count(sc)
-    local res = sc.result
-    if not res then
-        return 0
-    end
-    if res.fled then
-        return type(res.fled) == "table" and #res.fled or tonumber(res.fled) or 0
-    end
-    return 0
+    return sc.foes_ran and #sc.foes_ran or 0
 end
 
 function M.after_room(night, sc)
@@ -1027,8 +1121,10 @@ function M.after_room(night, sc)
             table.insert(night.mus.pending, m)
         end
     end
-    if id == "garden" and sc.fought and outcome ~= "win" then
-        mark("topiary")
+    if id == "garden" and sc.fought and (outcome ~= "win" or fled_count(sc) > 0) then
+        mark("topiary")          -- (a hedge-beast still standing, or one that ran: it's at her couch now)
+    elseif id == "paintings" and sc.fought and fled_count(sc) > 0 then
+        mark("knight")           -- (the knight they let go climbs back into a frame, upstairs)
     elseif id == "chamber" and sc.fought then
         mark("scarabs")
     elseif id == "hunting" then
@@ -1099,13 +1195,22 @@ function M.intro(night)
         night:say(MODULE.openings[1], "opening")
         require("game.model.intros").run(night)
     else
-        local lines = adventure.story_so_far(c)
-        local bits = {}
-        for i = math.max(1, #lines - 2), #lines do
-            table.insert(bits, lines[i].text)
+        -- What last session came to, in a sentence: its rooms, in order, as clauses.
+        local bits, last_week = {}, nil
+        for i = #st.path, 1, -1 do
+            local step = st.path[i]
+            last_week = last_week or step.week
+            if step.week ~= last_week then
+                break
+            end
+            local rc = MODULE.recap and MODULE.recap[step.room]
+            local clause = rc and (step.outcome == "lose" and rc.lose or rc.win)
+            if clause and not util.contains(bits, clause) then
+                table.insert(bits, 1, clause)
+            end
         end
         if #bits > 0 then
-            night:say("Last time: " .. table.concat(bits, "; ") .. ".", "recap")
+            night:say("Last time, they " .. util.join_names(bits) .. ".", "recap")
         end
         if night.campaign.last_cliff then
             night:say("They stopped mid-museum, with " .. night.campaign.last_cliff .. " still ahead.", "recap")
@@ -1114,7 +1219,16 @@ function M.intro(night)
         if last and last.part ~= part then
             night:say(MODULE.openings[part] or MODULE.openings[1], "opening")
         elseif first and MODULE.rooms[first] then
-            night:say("They pick up right where they stopped: " .. util.lower_first(MODULE.rooms[first].name) .. ".", "opening")
+            local fr = adventure.frontier(c)
+            if #fr > 1 then
+                local names = {}
+                for _, id in ipairs(fr) do
+                    table.insert(names, util.lower_first(MODULE.rooms[id].name))
+                end
+                night:say("They pick up where they stopped, at a fork: " .. util.join_names(names, "or") .. ".", "opening")
+            else
+                night:say("They pick up right where they stopped: " .. util.lower_first(MODULE.rooms[first].name) .. ".", "opening")
+            end
         else
             night:say("They pick up right where they stopped, at a fork in the museum.", "opening")
         end
@@ -1321,13 +1435,37 @@ function M.showdown_start(night, sc)
     if not st.ending then
         sc.fight_on = true
     elseif sc.encounter and #sc.encounter.ids > 1 then
-        -- She's agreed, but what the build-up brought her hasn't: the marks still come to the fight.
-        table.remove(sc.encounter.ids, 1)
-        sc.encounter.boss_name = nil
-        sc.resolved, sc.had_roll = nil, nil
-        sc.fight_on = true
-        sc.extras_only = true
-        night:say("Euryale steps back with a little shrug. \"I agreed. They didn't.\" Behind her, the things she collected come forward.", "bad")
+        -- The talk ended it, but her marks brought her company: what they do follows from how it
+        -- ended (an ally or a bargain calls them off; coin or a lecture doesn't).
+        local at = MODULE.after_talk[st.ending] or { fight = false, line = "" }
+        local rest = {}
+        for i = 2, #sc.encounter.ids do
+            table.insert(rest, sc.encounter.ids[i])
+        end
+        local lead = rest[1]
+        for _, id in ipairs(MODULE.lead_order) do
+            if util.contains(rest, id) then
+                lead = id
+                break
+            end
+        end
+        local lead_name = MODULE.foe_names[lead] or "the first of them"
+        if at.fight then
+            -- The one leading them goes first on the mat, and the fight is named for them.
+            for i, id in ipairs(rest) do
+                if id == lead then
+                    table.remove(rest, i)
+                    break
+                end
+            end
+            table.insert(rest, 1, lead)
+            sc.encounter.ids = rest
+            sc.encounter.boss_name = lead_name
+            sc.resolved, sc.had_roll = nil, nil
+            sc.fight_on = true
+            sc.extras_only = true
+        end
+        night:say(util.fill(at.line, { lead = lead_name }), at.fight and "bad" or "good")
     end
 end
 
@@ -1351,18 +1489,27 @@ function M.after_showdown(night, sc)
     local c = night.campaign
     local st = st_of(night)
     local boss = st.boss or {}
-    if not st.ending then
-        if sc.fought and sc.outcome == "win" then
+    if sc.extras_only and sc.fought and sc.outcome ~= "win" then
+        -- She's gone already (paid, or carried out asleep): losing to her collection ends it anyway.
+        night:say(MODULE.extras_lost, "bad")
+    elseif not st.ending then
+        if sc.fought and sc.boss_ran then
+            -- She got away mid-fight (a way out, or the whole fight breaking): that's the ending, and
+            -- nobody she's left behind gets to "yield".
+            st.ending = "escape"
+        elseif sc.fought and sc.outcome == "win" then
             if boss.style ~= "last" then
                 M.play_moment(night, MODULE.showdown.yield, sc)
             end
             st.ending = st.ending or "fallen"
         elseif sc.fought then
-            night:say("They tumble back down the stairs with her laughter behind them. She lets them go. She wants them to come back.", "bad")
+            night:say("She lets them go. She wants them to come back.", "bad")
             night:say("They limp out of the caravan, sleep for a day, and come back angry.", "dm")
             sc.rest_here = true      -- (home to rest: next week's try starts whole, not where this one broke)
             st.at, st.choices = "lair", nil
             st.lost_once = true
+            table.insert(st.path, { room = "lair", week = c.week, outcome = "lose" })
+            table.insert(night.mus.rooms, { room = "lair", outcome = "lose" })
             return
         end
     end

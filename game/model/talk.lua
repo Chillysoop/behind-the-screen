@@ -91,7 +91,8 @@ function M:line(trigger, p, vars)
     local missing
     local t = self.lib.trigger[trigger]
     for _, k in ipairs(t and t.fill or {}) do
-        if vars[k] == nil and k ~= "char" and k ~= "name" then
+        -- (false: this moment has one, but it can't be said, like the name of a boss that ran.)
+        if (vars[k] == nil or vars[k] == false) and k ~= "char" and k ~= "name" then
             missing = missing or {}
             missing[k] = true
         end
