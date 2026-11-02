@@ -14,7 +14,8 @@ a room's map, a side room off any room, the next scene's map, or one the DM made
 night you catch what the friends are thinking and not saying (how many is your Empathy), read it with an
 Insight roll (easier the better you know that friend), and answer it or let it be. "Ties and locks" on the
 prep board lets the DM bend the adventure: lock a door, a room, a person or a card until something happens, and
-tie a mark on the boss's card (or a hero's reason for coming) to what the party does. The random
+tie a mark on the boss's card (or a hero's reason for coming) to what the party does. On game night the Story and Table
+sidebars (S) recap where each side of the story stands, its key people, and each friend's reasons and leanings. The random
 story deck, factions, seeds, the valley and the planner are off while it
 runs. See `AGENTS.md` for where it lives and how to test it, and `docs/design/2026-10-30-museum-v2.md` for the
 design. The text adapts the book in our own words, for private playtesting only.

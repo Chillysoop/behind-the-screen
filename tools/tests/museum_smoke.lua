@@ -539,6 +539,22 @@ for week = 1, WEEKS do
     while app.screen == "night" and not app.night_done and g < 12000 do
         g = g + 1
         call(update, self, 0.4)
+        -- v2: the DM's recap, once a night a little way in: the Story and Table sidebars, then shut.
+        if g == 60 and not app.pending and not app.thought_card then
+            if not click_key("night_story") then problem("no Story button on game night" .. where) end
+            if not app.recap_left then problem("the Story sidebar didn't open" .. where) end
+            if not click_key("night_table") then problem("no Table button on game night" .. where) end
+            if not app.recap_right then problem("the Table sidebar didn't open" .. where) end
+            dump_once("5r_recap_w" .. week)
+            scan("the recap sidebars" .. where)
+            if not has_text("THE STORY") or not has_text("THE TABLE") then problem("the recap sidebars are empty" .. where) end
+            local t0 = app.night.clock
+            call(update, self, 2)
+            if app.night.clock ~= t0 then problem("the night didn't wait while the recap was open" .. where) end
+            click_key("recap_close_left")
+            click_key("recap_close_right")
+            if app.recap_left or app.recap_right then problem("the recap sidebars didn't close" .. where) end
+        end
         -- v2: a friend's thought. Read the first few and answer them; a card that opened by itself
         -- (Pip about to go off alone) gets an answer too, or the night would wait on it forever.
         if app.thought_card then

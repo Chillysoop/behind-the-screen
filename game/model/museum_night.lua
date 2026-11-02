@@ -10,6 +10,7 @@ local adventure = require "game.model.adventure"
 local prep_mod = require "game.model.prep"
 local map_repo = require "game.model.map_repo"
 local thoughts = require "game.model.thoughts"
+local standing = require "game.model.standing"
 local ties = require "game.model.ties"
 
 local MODULE = adventure.data
@@ -291,17 +292,34 @@ function M.play_moment(night, card, sc)
         copy.trigger = "museum_fixed"
     end
     night.mus_vars = mus_vars(night, sc)
+    -- (How everyone felt going in: who it drew toward the room's people, for the DM's recap.)
+    local fun_before = {}
+    for _, p in ipairs(night.players) do
+        fun_before[p.key] = score.fun(p)
+    end
     local o = night:decision(copy, night.mus_vars)
     if not o then
         return nil
     end
     M.handle(night, o.mus, sc)
     local got = gained(o.mus)
+    local out
     if o.roll then
-        local out = night.last_roll and o.roll.success or o.roll.fail
+        out = night.last_roll and o.roll.success or o.roll.fail
         M.handle(night, out and out.mus, sc)
         got = out ~= nil and gained(out.mus) and night.last_roll and true or false
     end
+    local with = {}
+    local room = sc and MODULE.rooms[sc.room]
+    if room and room.comps and room.comps.cast then
+        table.insert(with, room.comps.cast)
+    end
+    for _, m in ipairs({ o.mus, out and out.mus }) do
+        if type(m) == "table" and m.favor and m.favor.who then
+            table.insert(with, "mus_" .. m.favor.who)
+        end
+    end
+    standing.note(night, with, fun_before)
     st.seen[card.id] = true
     if got then
         st.took[card.id] = true

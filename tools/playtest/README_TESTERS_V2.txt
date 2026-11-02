@@ -30,6 +30,9 @@ HOW IT GOES
   you know that friend and the better you read your table (Empathy), the easier it
   is. A good read hears the thought; a near miss gets the gist; a miss means you
   ask them straight out or let it be. Then answer it, or let it be.
+- Your recap: on game night, "Story" and "Table" at the top (or S) open two sidebars:
+  where each side of the story stands and who's in it, and each friend's reasons,
+  leanings and mood. The night waits while they're open.
 - Ties and locks: on the planning board, "Ties and locks" shows every room's cards,
   what each needs and what it leads to. Lock a door, a room, a person or a card until
   something happens, or tie something to happen when the party does something (a
@@ -70,6 +73,7 @@ On game night:
   Space            skip ahead
   F / G            faster / slower
   Tab              the night's log
+  S                your recap: the story's sides (left) and the table (right)
   H                your own rolls: behind your screen or in the open
   T                a gentle timer on each call
   C                a photo of the table

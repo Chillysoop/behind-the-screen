@@ -812,6 +812,19 @@ function M.update(app, dt)
                 end
                 by_label("See how everyone felt")
             end
+        elseif a.mode == 8 and not a.recap_done and not app.pending and not app.thought_card and app.night
+            and (app.night.clock or 0) > 40 then
+            -- v2: the DM's recap, once: both sidebars open, a shot, shut.
+            local rv = require "game.ui.recap_view"
+            if not (app.recap_left and app.recap_right) then
+                rv.toggle(app, "both")
+                return
+            end
+            if shot(a, "recap") then
+                return
+            end
+            rv.close(app)
+            a.recap_done = true
         elseif app.thought_card then
             -- v2: a friend's thought, open (one you clicked, or Pip about to go off alone): a shot
             -- of the card before and after the Insight roll the first time, then answer it.
