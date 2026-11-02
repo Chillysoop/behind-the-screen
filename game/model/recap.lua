@@ -217,7 +217,7 @@ function M.build(campaign, night, rng)
         local names = {}
         for _, r in ipairs(night.mus.rooms or {}) do
             local room = MODULE.rooms[r.room]
-            if room and not room.virtual and not r.back and not room.epilogue and #names < 2
+            if room and not room.virtual and not r.back and not r.side and not room.epilogue and #names < 2
                 and not util.contains(names, room.name) then
                 table.insert(names, room.name)
             end

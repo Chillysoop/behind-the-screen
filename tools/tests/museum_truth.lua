@@ -323,6 +323,17 @@ local function play(seed, style)
             if ev.kind == "scene_end" and ev.reward then
                 found_tonight = true
             end
+            if ev.kind == "decision" and string.find(ev.card.id or "", "^mus_fork_") then
+                -- A fork describes where the party is standing, nowhere else.
+                local here = c.adv.pos or c.adv.last_room
+                for room, at in pairs(MODULE.fork_at or {}) do
+                    for _, t in ipairs({ at.text, at.after and at.after.text or false }) do
+                        if t and string.find(ev.card.text or "", t, 1, true) and room ~= here then
+                            fail(tag .. " week " .. w .. ": a fork in " .. tostring(here) .. " describes " .. room .. ": '" .. t .. "'")
+                        end
+                    end
+                end
+            end
             if ev.kind == "decision" then
                 if ev.card.id == "mus_yield" and night.scene and night.scene.boss_dead then
                     yield_played_dead = true

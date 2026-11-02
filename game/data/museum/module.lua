@@ -287,7 +287,8 @@ M.rooms = {
     },
     stairs = {
         name = "The stairs up", part = 2, type = "exploration", quick = true, cost = 0, at = { 50, 12 }, map = "Stairs", stop = true, virtual = true,
-        read = "Between the studies, a narrow stair climbs toward a smell of smoke and wine.",
+        read = "At the far end of the hunting floor, a narrow stair climbs toward a smell of smoke and wine.",
+        read_if = { { when = { done = "offices" }, text = "Between the two studies, a narrow stair climbs toward a smell of smoke and wine." } },
         sum = "Up to Euryale. The night stops at the top step.",
         next = { "lair" },
     },
@@ -382,6 +383,23 @@ M.forks = {
     second_wing = { text = "One wing done. The other is right there, and so is the gift shop at the foot of the stairs.", title = "The other wing?" },
     hub = { text = "Three doors off the hunting floor, and a narrow stair going up. Everyone has an opinion.", title = "Where next?" },
     roam = { text = "There's a way on. There's also a reason to go back.", title = "Onward, or back?" },
+}
+-- What the party sees from where it's standing, at a fork (museum_night.fork): by the room they're
+-- in, never by the rooms on offer (the playtest, Nov 2: "Three doors off the hunting floor" said in
+-- the garden). A room not listed gets the plain words. after: { rooms, text }, said instead once
+-- all those rooms are done.
+M.fork_at = {
+    street = { text = "The caravan's curtains stand open. The crowd has wandered off." },
+    garden = { text = "Behind them, the garden. Ahead, the museum doors at the top of the broken steps." },
+    entrance = { text = "Two gold-and-mahogany signs: the Chamber of Ancients one way, the Hall of Paintings the other.",
+                 after = { rooms = { "chamber", "paintings" }, text = "Back in the entrance hall's blue light, with both wings behind them." } },
+    chamber = { text = "The Chamber of Ancients is behind them, its hot wind dying down." },
+    paintings = { text = "The Hall of Paintings is behind them, its frames still dripping." },
+    gift_shop = { text = "The gift shop: a curtain back to the wings, and a narrow stair going up." },
+    hunting = { text = "Three doors off the hunting floor, and a narrow stair going up." },
+    offices = { text = "Out of the studies, back onto the hunting floor." },
+    tomorrow = { text = "Out of the World of Tomorrow, back onto the hunting floor." },
+    lecture = { text = "Out of the lecture theatre, back onto the hunting floor, ears still ringing." },
 }
 -- What each room promises at a fork, and who it pulls (archetype weights add to each friend's tastes).
 M.pull = {
@@ -1424,9 +1442,13 @@ M.npc_lines = {
 }
 
 -- What the night opens with, by part of the museum (the read-aloud before the first room).
+-- (Said only when the last night ended in that room: museum_night.intro.)
+M.openings_from = {
+    gift_shop = { [2] = "The gift shop door clicks shut behind them. Up the stairs, the museum gets untidier, and quieter." },
+}
 M.openings = {
     [1] = "Everyone in town is talking about the new museum. The merchants were amazed. The guards were terrified. The children won't stop giggling.",
-    [2] = "The gift shop door clicks shut behind them. Up the stairs, the museum gets untidier, and quieter.",
+    [2] = "Past the gift shop and up the stairs, the museum gets untidier, and quieter.",
     [3] = "The narrow stair. A smell of smoke and wine. A curtain at the top, and someone humming behind it.",
 }
 -- The names the Steam Mech might have (the book's list).

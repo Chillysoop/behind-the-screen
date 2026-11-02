@@ -151,9 +151,12 @@ Design for: income and prices from the same table, and a sim that reports what w
 Design for: a line once a night unless it's new information, and every friction line describes a
 deed.
 
-**Location.** Fork text ("three doors off the hunting floor") was chosen by which rooms were on offer,
-not by where the party stood. A side room was reported under the room it opens off. Design for:
-location lines read the party's position.
+**Location (fixed November 2).** Fork text ("three doors off the hunting floor") was chosen by which rooms
+were on offer, not by where the party stood. The night's opening said "the gift shop door clicks shut" when
+they'd stopped elsewhere. The stairs were "between the studies" before anyone had seen them. A side room
+was reported under the room it opens off. Now `MODULE.fork_at` describes the fork from where they stand,
+and `openings_from` describes the start of a night from where they stopped. The truth test fails on a fork
+that describes another room. Design for: every location line reads the party's position.
 
 ## Still open from the museum (fix or design around)
 
@@ -163,8 +166,6 @@ location lines read the party's position.
   while the dice log shows who did.
 - **Small numbers.** Duration rounding differs between two report lines. The spotlight conflict line
   can disagree with that night's spotlight.
-- **Where they are.** Fork and opening text don't follow the party's real position. A side room is
-  reported as its parent room.
 - **Thoughts.** Two friends can have the same thought word for word. A "good news" mood line can read
   as sarcastic.
 - **Jargon.** "Breezy" and "Deadly" danger labels, "SECRET CHECK", and other rules words without a

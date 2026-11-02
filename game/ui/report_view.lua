@@ -38,7 +38,12 @@ local function wrapup_items(app, rep)
         for _, r in ipairs(mu.rooms or {}) do
             local room = MODULE.rooms[r.room]
             if room and not room.virtual then
-                table.insert(names, room.name)
+                -- (A side room by its own name, off its room; a trip back as a trip back.)
+                local name = (r.side and (r.side .. ", off " .. util.lower_first(room.name)))
+                    or (r.back and (room.name .. " (back again)")) or room.name
+                if not util.contains(names, name) then
+                    table.insert(names, name)
+                end
             end
         end
         if #names > 0 then

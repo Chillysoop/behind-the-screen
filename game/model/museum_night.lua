@@ -1152,6 +1152,20 @@ function M.fork(night, options, backs, sides)
         key = "roam"
     end
     local fk = MODULE.forks[key] or { title = "Where next?", text = "The table looks at the map." }
+    -- What they see is where they stand, not what's on offer.
+    local here = st.pos or st.last_room
+    local at = here and MODULE.fork_at and MODULE.fork_at[here]
+    local at_text = at and at.text
+    if at and at.after then
+        local all = true
+        for _, rid in ipairs(at.after.rooms or {}) do
+            all = all and st.done[rid] ~= nil
+        end
+        if all then
+            at_text = at.after.text
+        end
+    end
+    fk = { title = fk.title, text = (at_text and (at_text .. " Everyone has an opinion.")) or fk.text }
     local parts = {}
     for i, ch in ipairs(choices) do
         local names = {}
@@ -1488,7 +1502,9 @@ function M.intro(night)
         end
         local last = st.last_room and MODULE.rooms[st.last_room]
         if last and last.part ~= part then
-            night:say(MODULE.openings[part] or MODULE.openings[1], "opening")
+            -- (Where they stopped decides the words: the gift shop door only if they were in it.)
+            local from = MODULE.openings_from and MODULE.openings_from[st.last_room]
+            night:say((from and from[part]) or MODULE.openings[part] or MODULE.openings[1], "opening")
         elseif first and MODULE.rooms[first] then
             local fr = adventure.frontier(c)
             if #fr > 1 then

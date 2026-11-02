@@ -175,8 +175,6 @@ The truth test now also fails on:
   while the dice log shows who did.
 - **Small numbers.** One report can show durations a minute apart ("2h 45m" and "2h 44m"); the
   spotlight conflict line can disagree with that night's spotlight.
-- **Where they are.** Fork text ("three doors off the hunting floor") is chosen by the rooms on offer,
-  not by where the party stands. A side room is reported under the room it opens off.
 - **Thoughts.** Two friends can have the same thought word for word. A "good news" mood line can read
   as sarcastic.
 - **Jargon** a new player trips on: "Breezy" and "Deadly" danger labels, "SECRET CHECK", "Graze".
