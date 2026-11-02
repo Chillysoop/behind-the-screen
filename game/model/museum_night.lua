@@ -1780,7 +1780,10 @@ function M.after_showdown(night, sc)
         for _, p in ipairs(night.players) do
             local lines = MODULE.want_more[p.key]
             if lines then
-                night:emit({ kind = "say", who = p.key, text = night.rng:pick(lines), ic = false })
+                local line = night.rng:pick(lines)
+                st.want_said = st.want_said or {}
+                st.want_said[p.key] = line           -- (the journey quotes what they really said)
+                night:emit({ kind = "say", who = p.key, text = line, ic = false })
                 score.add(p, "commitment", 5)
                 score.add(p, "investment", 4)
             end

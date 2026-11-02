@@ -78,16 +78,18 @@ function M.build(app, on_next)
             hy = hy + 20
             local aspects = (st.aspects or {})[key] or {}
             if #aspects == 0 then
-                kit.text(px + 14, hy, "Kept their head down, mostly.", "ui14", theme.faint, { w = cw - 28 })
+                kit.text(px + 14, hy, "Nothing for the history books this time.", "ui14", theme.faint, { w = cw - 28 })
                 hy = hy + 20
             end
             for k = 1, math.min(4, #aspects) do
                 kit.text(px + 14, hy, "- " .. aspects[k], "ui14", theme.text, { w = cw - 28, lines = 2 })
                 hy = hy + kit.text_height("- " .. aspects[k], "ui14", cw - 28) + 2
             end
+            -- (What they really said when it ended, not the first line on the list.)
             local lines = MODULE.want_more[key]
-            if lines then
-                local said = "\"" .. lines[1] .. "\""
+            local said_text = (st.want_said or {})[key] or (lines and lines[1])
+            if said_text then
+                local said = "\"" .. said_text .. "\""
                 kit.text(px + 14, py + 300, said, "story22", theme.text, { w = cw - 28, lines = 3 })
             end
         end

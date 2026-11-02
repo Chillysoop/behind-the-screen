@@ -107,11 +107,20 @@ local function tab_museum_people(app, x, y, w, h)
     local c = app.campaign
     local met = c.story and c.story.met or {}
     for _, pp in ipairs(adventure.data.people) do
-        local seen = pp.known or met[pp.id] or (pp.id == "mus_telpur" and c.adv.done.gift_shop)
+        local seen = pp.known or met[pp.id] or adventure.met(c, pp.id) or (pp.id == "mus_telpur" and c.adv.done.gift_shop)
             or (pp.id == "mus_mech" and c.adv.done.tomorrow)
-        kit.text(x, y, pp.name, "ui22b", seen and theme.text or theme.faint)
-        kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
-        kit.text(x, y + 30, seen and pp.about or "Not met yet.", "ui18", seen and theme.dim or theme.faint, { w = w })
+        -- (Nobody's role before they've met: the notebook isn't the DM's book. The Mech by its name.)
+        local name = pp.name
+        if pp.id == "mus_mech" and c.adv.marks.mech and c.adv.mech_name then
+            name = pp.name .. ", " .. c.adv.mech_name
+        end
+        kit.text(x, y, seen and name or "Someone they haven't met", "ui22b", seen and theme.text or theme.faint)
+        if seen then
+            kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
+        end
+        local mem = seen and adventure.memory(c, pp.id) or {}
+        local about = seen and (pp.about .. (#mem > 0 and (" Knows " .. util.join_names(mem) .. ".") or "")) or "Not met yet."
+        kit.text(x, y + 30, about, "ui18", seen and theme.dim or theme.faint, { w = w, lines = 2 })
         y = y + 86
     end
 end

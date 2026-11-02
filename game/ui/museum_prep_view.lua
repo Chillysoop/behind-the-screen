@@ -804,6 +804,19 @@ local function top_bar(app, prep)
     kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
     kit.text(1130, 14, "FAIR WARNING", "ui14", theme.dim)
     kit.text(1130, 32, util.int(c.adv.bank or 0) .. " in the bank", "ui18b", theme.teal)
+    -- What the three numbers mean, on hover (the new-player playtest: nobody knew).
+    local gloss = util.lazy("game.ui.gloss")
+    if gloss.card_spot then
+        gloss.card_spot(896, 10, 150, 46, "Prep hours",
+            "Your week before game night. Prepping a room (reading it, setting out its map and minis) costs hours; a room "
+            .. "you didn't prep plays thinner, and the table can tell.")
+        gloss.card_spot(1056, 10, 66, 46, "Flitwidget Francs",
+            "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
+            .. "The party spends them in the gift shop.")
+        gloss.card_spot(1126, 10, 120, 46, "Fair warning",
+            "Each time the party takes a risk knowingly, or you warn them, one goes in the bank. A harsh call later spends one "
+            .. "and lands as fair. With none in the bank, a harsh call feels arbitrary and costs Trust.")
+    end
     -- A milestone level the report offered and you left for later (level 3 after the gift shop).
     local lv = c:level_status()
     if lv.ready then
