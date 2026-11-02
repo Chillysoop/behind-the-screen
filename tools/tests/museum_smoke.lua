@@ -58,6 +58,9 @@ gui = {
 }
 local alive, alive_count = {}, 0
 local order = {}
+-- Every piece of text that goes on screen, at any moment, is checked for the old story (set below,
+-- once the adventure is loaded): a line that only flashes up between checkpoints still counts.
+local on_text
 local function new_node(kind, pos, size)
     num(pos.x, "pos.x"); num(pos.y, "pos.y")
     local n = { kind = kind, pos = pos, size = size or vmath.vector3(0, 0, 0), pivot = "c", enabled = true, alive = true }
@@ -81,6 +84,7 @@ function gui.new_text_node(pos, text)
     if string.find(text or "", "{[%w_]+}") and not reviewing then problem("unfilled placeholder: " .. text) end
     local n = new_node("text", pos)
     n.text = text
+    if on_text then on_text(text) end
     return n
 end
 function gui.delete_node(n) if chk(n, "delete_node") then n.alive = false; alive[n] = nil; alive_count = alive_count - 1 end end
@@ -105,6 +109,7 @@ function gui.set_text(n, t)
         if type(t) ~= "string" then problem("set_text with " .. type(t)) end
         if string.find(t or "", "[\128-\255]") then problem("non-ASCII text: " .. t) end
         n.text = t
+        if on_text then on_text(t) end
     end
 end
 function gui.get_text(n) if chk(n, "get_text") then return n.text or "" end return "" end
@@ -151,9 +156,42 @@ if not ok then problem("init: " .. tostring(err)) end
 local app = self.app
 REVIEW_APP = app
 
+-- TRANSCRIPT=file: write down every new piece of text as it comes on screen, in the order it came,
+-- with each screen's name and what was pressed, so a playtest can read the prologue as a new player
+-- would see it (tools/playtest/README_TRANSCRIPT.md).
+local TRANSCRIPT = os.getenv("TRANSCRIPT")
+local tr_file = TRANSCRIPT and io.open(TRANSCRIPT, "w")
+local tr_prev, tr_screen = {}, nil
+local function transcribe()
+    if not tr_file then return end
+    -- (Drop the deleted nodes as we go: the list of every node ever made gets long over a prologue.)
+    local j = 0
+    for i = 1, #order do
+        local n = order[i]
+        if n.alive then j = j + 1; order[j] = n end
+    end
+    for i = #order, j + 1, -1 do order[i] = nil end
+    local a = self.app
+    if a and a.screen ~= tr_screen then
+        tr_screen = a.screen
+        tr_file:write("\n=== SCREEN: " .. tostring(tr_screen) .. " ===\n")
+    end
+    local now = {}
+    for _, n in ipairs(order) do
+        local t = n.text
+        if n.enabled and t and string.find(t, "%S") and not (n.color and n.color.w < 0.05)
+            and n.pos.x > -40 and n.pos.x < 1640 and n.pos.y > -40 and n.pos.y < H + 40 and not now[t] then
+            now[t] = true
+            if not tr_prev[t] then tr_file:write((string.gsub(t, "\n", " ")), "\n") end
+        end
+    end
+    tr_prev = now
+end
+
 local function call(fn, ...)
     local ok2, e = pcall(fn, ...)
     if not ok2 then problem(tostring(e)) end
+    transcribe()
 end
 
 local function center(b)
@@ -198,6 +236,7 @@ end
 local function label_of(b) return b.label and b.label.text or "" end
 
 local function click(b)
+    if tr_file then tr_file:write("    [pressed: " .. ((b.label and b.label.text) or b.key or "?") .. "]\n") end
     local x, y = center(b)
     call(on_input, self, nil, { x = x, y = y })
     call(on_input, self, "touch", { pressed = true, x = x, y = y })
@@ -365,6 +404,14 @@ end
 
 local adventure = require "game.model.adventure"
 local where = ""
+local foreign_seen = {}
+on_text = function(t)
+    local c = self.app and self.app.campaign
+    if c and c.module and type(t) == "string" and not foreign_seen[t] and adventure.foreign(t) then
+        foreign_seen[t] = true
+        problem("old story on screen: " .. t)
+    end
+end
 
 -- The old story must never show on a screen.
 local function scan(name)
@@ -632,6 +679,20 @@ if app.campaign.level < 3 then problem("the party never levelled up (level " .. 
 
 -- A fresh launch offers to carry on (the museum's own save slot).
 if thoughts_seen == 0 then problem("nobody at the table ever had a thought") end
+if tr_file then tr_file:close(); tr_file = nil end
+if kit.audit then
+    local seen, n = {}, 0
+    for _, e in ipairs(kit.audit) do
+        local k = e.text .. "|" .. tostring(e.w)
+        if not seen[k] then
+            seen[k] = true
+            n = n + 1
+            print(string.format("CUT  %s  (w %s, %s lines, %s) at %s", e.text, tostring(e.w), tostring(e.lines), e.font,
+                tostring(e.where)))
+        end
+    end
+    print(n .. " different texts cut short")
+end
 print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d, thoughts %d (opened %d, answered %d)", SEED, nights,
     tostring(app.campaign.adv and app.campaign.adv.ending), marks_seen, app.campaign.level, thoughts_seen, thoughts_opened,
     thoughts_answered))

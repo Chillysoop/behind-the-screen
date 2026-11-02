@@ -17,7 +17,7 @@ local S0 = {
             blurb = "The big arcs land hard. The tavern nights stay goofy.",
             like = { mara = 1, dev = 0, jess = 1, sam = 1 },
             says = {
-                mara = "As long as Ilsa's story gets taken seriously, I'm in.",
+                mara = "As long as the story gets taken seriously, I'm in.",
                 dev = "Sure. Do we fight in both halves?",
                 jess = "Goofy tavern nights? Pip is thriving already.",
                 sam = "Best of both. Snacks in the silly parts.",
@@ -29,7 +29,7 @@ local S0 = {
             blurb = "Found family, big damn heroes, and the good guys win in the end.",
             like = { mara = 0, dev = 1, jess = 1, sam = 2 },
             says = {
-                mara = "Fine, but I want real stakes for Ilsa.",
+                mara = "Fine, but I want real stakes.",
                 dev = "Heroes win. I like heroes winning.",
                 jess = "Found family! Pip adopts everyone.",
                 sam = "Yes. This is exactly what I want on a Thursday.",
@@ -41,7 +41,7 @@ local S0 = {
             blurb = "Real stakes. Not everyone makes it home.",
             like = { mara = 2, dev = 1, jess = -1, sam = -2 },
             says = {
-                mara = "Yes. Ilsa's story should hurt a little.",
+                mara = "Yes. A good story should hurt a little.",
                 dev = "Dangerous fights? I'm listening.",
                 jess = "Can Pip at least be funny while everyone's sad?",
                 sam = "I come here to unwind, not to get stressed out.",
@@ -53,7 +53,7 @@ local S0 = {
             blurb = "Pratfalls, puns, and goblins in hats.",
             like = { mara = -2, dev = 0, jess = 2, sam = 1 },
             says = {
-                mara = "Then nobody's going to care what happened to Ilsa.",
+                mara = "Then nobody's going to care what happens in the story.",
                 dev = "Goblins in hats still count as fights, right?",
                 jess = "GOBLINS IN HATS.",
                 sam = "Low stress. I can do low stress.",
