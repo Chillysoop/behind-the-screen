@@ -289,8 +289,8 @@ function M.night_lines(c, night)
         end
         if best and not string.find(best.title or "", "^Round") then
             local what = strip(best.title)
-            put(p.key, bd > 0 and { what .. ". more of that please", what .. ". best part of the night, no notes" }
-                or { what .. "... not my favourite bit", "not gonna lie, " .. what .. " kind of killed it for me" })
+            put(p.key, bd > 0 and { "that \"" .. what .. "\" moment. more of that please", "\"" .. what .. "\" was the best part of the night, no notes" }
+                or { "the \"" .. what .. "\" bit... not my favourite", "not gonna lie, the \"" .. what .. "\" bit kind of killed it for me" })
         end
     end
     local adv = c.adv

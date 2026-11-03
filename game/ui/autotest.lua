@@ -683,6 +683,8 @@ function M.update(app, dt)
                 by_key("req_laugh")
             elseif pr.kind == "loose" then
                 by_key("loose_1")
+            elseif pr.kind == "ruling" then
+                by_key("ruling_1")      -- (post the ruling you promised: the autotest stopped here, November 3)
             else
                 by_key("favor_help_1")
                 by_key("favor_hurt_1")
