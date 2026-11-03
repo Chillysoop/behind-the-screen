@@ -11,8 +11,20 @@ You don't need to know D&D, and there's no way to "lose": every ending is a real
 ending, and the prologue sets up the full campaign that comes next.
 
 
-NEW IN THIS BUILD (November 2)
+NEW IN THIS BUILD (November 3)
 ------------------------------
+- Saving: the game autosaves as you play, and you can save to one of three slots of
+  your own with the Save button on the prep board or the report. The title card has
+  Continue (your newest save), Load (any save) and New game.
+- Point at any game word (Advantage, DC, Charmed, Fair warning, a danger label like
+  "Deadly") and a small card says what it means.
+- On the battle mat, a coloured ring around a mini shows what it's under: charmed,
+  turning to stone, frightened...
+- What the friends say in a fight fits what just happened, and changes from week to
+  week.
+
+EARLIER (November 2)
+--------------------
 - Session Zero is about this museum: how it should feel, and the asks that touch what's
   really in it. When a room meets one, you play it gently, and the game says so.
 - Prep says what prepping a room means: the minis to put out, the voices, the handouts.
@@ -60,10 +72,12 @@ HOW IT GOES
 - Between sessions: the players ask for things, loose ends from earlier rooms come
   back, and the museum's people help or hinder the party for how they were treated.
 
-The prologue usually takes three to five sessions. Play it in one go, or stop after
-any session: the game saves when each session ends, and "Continue" on the title card
-picks up with the next one. (If you quit in the middle of a session, that session
-starts over.)
+The prologue usually takes three to five sessions. Play it in one go, or stop any time:
+the game saves on its own after Session Zero, all through prep, and at the start and end
+of each game night, and "Continue" on the title card picks up from the newest save. (If
+you quit in the middle of a game night, that night starts over.) To keep a moment you
+can come back to, use Save on the prep board or the report: three slots, and Load on the
+title card lists them all.
 
 
 STARTING
