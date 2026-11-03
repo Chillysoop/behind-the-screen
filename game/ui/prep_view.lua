@@ -1537,7 +1537,8 @@ local function player_card(app, prep, p, i, forecast)
                         M.forecast_hover(app, prep, p, f, x, y + 102)
                     end
                 end })
-            kit.bar(x + 86, y + 111, 190, 10, f, 100, tier_color(f))
+            local gx = x + 14 + kit.width("Game night", "ui14") + 10     -- (clear of its label: "Game nigh" under the bar)
+            kit.bar(gx, y + 111, x + 276 - gx, 10, f, 100, tier_color(f))
             kit.text(x + 286, y + 106, kit.ellipsize(content.chat.forecasts[score.tier(f)], "ui14", w - 296), "ui14", tier_color(f))
         else
             kit.text(x + 86, y + 108, "Pick every stop's type to see a forecast", "ui14", theme.faint)

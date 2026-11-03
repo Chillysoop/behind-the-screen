@@ -18,9 +18,49 @@ local M = {}
 -- Prep -----------------------------------------------------------------------------------------
 
 -- The museum's part of the prep board: which rooms are prepped, the knobs, the boss night's plan.
+-- What a DM does with hours left once every room's prepped (the playtest, November 3: "two hours of
+-- prep left and nothing to spend it on"). Each is an hour, once a week; hours nobody spends carry to
+-- next week (up to CARRY_MAX), set when the night starts (campaign.lua).
+M.SPARE = {
+    { id = "rest", cost = 1, name = "Get a good night's sleep",
+      what = "+1 to every read of the table tonight (your Insight rolls on their thoughts)." },
+    { id = "backup", cost = 1, name = "Write a backup page",
+      what = "The first room tonight you didn't prep (a side room, a detour, one past tonight's) plays as if you had." },
+}
+M.CARRY_MAX = 2
+
+function M.spare_def(id)
+    for _, d in ipairs(M.SPARE) do
+        if d.id == id then
+            return d
+        end
+    end
+end
+
+function M.set_spare(prep, id, on)
+    local pm = prep.museum
+    local d = M.spare_def(id)
+    if not d then
+        return false
+    end
+    pm.spare = pm.spare or {}
+    if on and not pm.spare[id] and prep:left() < d.cost then
+        return false
+    end
+    pm.spare[id] = on and true or nil
+    return true
+end
+
+-- The hours carried in from last week (shown on the board), and what carries out of this one.
+function M.carry_out(prep)
+    return math.max(0, math.min(M.CARRY_MAX, prep:left()))
+end
+
 function M.new_prep(prep, campaign)
-    prep.budget = MODULE.BUDGET
-    prep.museum = { prepped = {}, knobs = {}, ahead = adventure.ahead(campaign), boss = adventure.boss_week(campaign) }
+    local carry = (campaign.adv and campaign.adv.carry) or 0
+    prep.budget = MODULE.BUDGET + carry
+    prep.carried = carry
+    prep.museum = { prepped = {}, knobs = {}, spare = {}, ahead = adventure.ahead(campaign), boss = adventure.boss_week(campaign) }
     -- Boss week: what the rooms they never played leave on her card is there now, so the showdown
     -- board you prep against is the fight they get (the playtest, Nov 2: a knight joined her
     -- after the board said he wouldn't). Her line for each comes at the night's start.
@@ -77,6 +117,12 @@ function M.spent(prep)
     end
     if pm.boss then
         total = total + M.room_cost("lair")
+    end
+    for id, on in pairs(pm.spare or {}) do
+        local d = on and M.spare_def(id)
+        if d then
+            total = total + d.cost
+        end
     end
     return total
 end

@@ -12,7 +12,7 @@ local empathy = require "game.model.empathy"
 
 local M = {}
 
-M.Y, M.W, M.H = 774, 376, 112
+M.Y, M.W, M.H = 766, 376, 128     -- (128 tall since November 3: a row for the hero's class resources)
 M.STEP = 392
 local TEXT_X, TEXT_W = 118, 130
 local ROLL_X, ROLL_W = 254, 116
@@ -91,7 +91,8 @@ function M.draw(app, on_click)
             .. "Star bar: their share of the spotlight. Click for their character sheet."
         local tip_h = kit.text_height(tip_text, "ui14", w - 20) + 8
         chip.tip_bg = kit.box(x, y - tip_h - 6, w, tip_h, theme.bg, { radius = 8 })
-        chip.tip = kit.text(x + 10, y - tip_h - 2, tip_text, "ui14", theme.text, { w = w - 20 })
+        -- (A tip that shows on hover can't be pointed into: no underlines in it.)
+        chip.tip = kit.text(x + 10, y - tip_h - 2, tip_text, "ui14", theme.text, { w = w - 20, gloss = false })
         gui.set_enabled(chip.tip_bg, false)
         gui.set_enabled(chip.tip, false)
         local col = M.COLORS[p.key] or theme.panel3
@@ -123,11 +124,9 @@ function M.draw(app, on_click)
             chip.fun = kit.bar(x + TEXT_X + 20, y + 74, TEXT_W - 22, 7, 0, 100, theme.gold)
             kit.icon(x + TEXT_X, y + 89, 14, "spotlight", theme.meters.spotlight)
             chip.spot = kit.bar(x + TEXT_X + 20, y + 92, TEXT_W - 22, 7, 0, 100, theme.meters.spotlight)
-            -- Hit points, shown during fights, under the face and the mini.
-            chip.hp_icon = kit.icon(x + 8, y + 89, 14, "heart", theme.red)
-            chip.hp_text = kit.text(x + 25, y + 87, "", "ui14", theme.text)
-            chip.hp_back = kit.box(x + 66, y + 93, 46, 7, kit.rgba("#000000", 0.5), { round = false })
-            chip.hp_fill = kit.box(x + 66, y + 93, 46, 7, theme.red, { round = false })
+            -- The hero at a glance (the playtest, November 3): hit points and Armor Class always, under
+            -- the face and the mini, and the class's own resources along the bottom.
+            M.draw_stats(app, chip, p, x, y)
             -- The last roll.
             local rx = x + ROLL_X
             kit.box(rx, y + 8, ROLL_W, h - 16, kit.rgba("#000000", 0.28), { radius = 8 })
@@ -166,6 +165,7 @@ function M.refresh(app, scene_break)
     if not app.night or not app.chips then
         return
     end
+    M.refresh_hp(app)      -- (slots spent, a Second Wind used: the tile keeps up)
     local level = app.campaign:empathy()
     local live = empathy.perks(level).live
     local tells = app.night:tells()
@@ -208,21 +208,101 @@ function M.pose(app, key, pose)
     end
 end
 
-function M.refresh_hp(app)
-    for key, chip in pairs(app.chips or {}) do
-        local hp = app.in_battle and app.hp and app.hp[key]
-        for _, n in ipairs({ chip.hp_icon, chip.hp_text, chip.hp_back, chip.hp_fill }) do
-            if n then
-                gui.set_enabled(n, hp and true or false)
+-- The stats rows: hit points and AC under the face, and one row of the class's resources, each a
+-- name and pips (lit: still there; dim: used). Pips are drawn for the most there can be.
+local HP_W = 104
+function M.draw_stats(app, chip, p, x, y)
+    local tile_stats = require "game.model.tile_stats"
+    local st = tile_stats.of(app.campaign, app.night, p.key)
+    if not st then
+        return
+    end
+    chip.hp_back = kit.box(x + 7, y + 81, HP_W, 5, kit.rgba("#000000", 0.5), { round = false })
+    chip.hp_fill = kit.box(x + 7, y + 81, HP_W, 5, theme.green, { round = false })
+    chip.hp_icon = kit.icon(x + 7, y + 91, 14, "heart", theme.red)
+    chip.hp_text = kit.text(x + 24, y + 89, "", "ui14", theme.text, { gloss = false })
+    chip.ac_icon = kit.icon(x + 72, y + 91, 14, "shield", theme.dim)
+    chip.ac_text = kit.text(x + 89, y + 89, util.int(st.ac), "ui14", theme.text, { gloss = false })
+    local gl = require("game.ui.gloss")
+    if gl.card_spot then
+        gl.card_spot(x + 5, y + 79, 64, 28, "Hit points", "How much more of a beating " .. (p.char or "they") .. " can take. "
+            .. "At 0 they drop, and start making death saves.")
+        gl.card_spot(x + 70, y + 88, 42, 20, "Armor Class (AC)", "How hard " .. (p.char or "they") .. " is to hit: an attack "
+            .. "has to roll this or more.")
+    end
+    -- The class's own resources.
+    chip.res = {}
+    local rx = x + 7
+    local ry = y + 109
+    for _, r in ipairs(st.res) do
+        local label = r.label
+        local start = rx
+        kit.icon(rx, ry + 2, 12, "spark", theme.teal)
+        kit.text(rx + 15, ry, label, "ui14", theme.dim, { gloss = false })
+        rx = rx + 15 + kit.width(label, "ui14") + 5
+        local pips = {}
+        local groups = r.levels or { { cur = r.cur, max = r.max } }
+        for gi, g in ipairs(groups) do
+            if gi > 1 then
+                rx = rx + 5
+            end
+            for _ = 1, g.max do
+                table.insert(pips, kit.dot(rx + 4, ry + 9, 8, theme.teal))
+                rx = rx + 10
             end
         end
-        if hp and chip.hp_text then
-            local cur, max = math.max(0, hp[1]), math.max(1, hp[2])
+        chip.res[r.id] = pips
+        if gl.card_spot then
+            local tip = tile_stats.TIPS[r.id] or label
+            if r.levels then
+                local bits = {}
+                for li, g in ipairs(r.levels) do
+                    table.insert(bits, "level " .. util.int(li) .. ": " .. util.int(g.cur) .. " of " .. util.int(g.max))
+                end
+                tip = tip .. " Left now, " .. table.concat(bits, "; ") .. "."
+            else
+                tip = tip .. " Left now: " .. util.int(r.cur) .. " of " .. util.int(r.max) .. "."
+            end
+            gl.card_spot(start - 2, ry - 2, rx - start + 4, 20, label == "Slots" and "Spell slots" or label, tip)
+        end
+        rx = rx + 12
+    end
+    if #st.res == 0 then
+        kit.text(rx, ry, p.class == "rogue" and "Sneak Attack once a turn" or "", "ui14", theme.faint, { gloss = false })
+        if gl.card_spot and p.class == "rogue" then
+            gl.card_spot(rx - 2, ry - 2, 180, 20, "Sneak Attack", "Extra damage once a turn when the rogue has Advantage or an ally "
+                .. "next to the target. It never runs out.")
+        end
+    end
+end
+
+function M.refresh_hp(app)
+    local tile_stats = require "game.model.tile_stats"
+    for key, chip in pairs(app.chips or {}) do
+        local st = chip.hp_text and tile_stats.of(app.campaign, app.night, key)
+        if st then
+            local hp = app.in_battle and app.hp and app.hp[key]
+            local cur, max = math.max(0, hp and hp[1] or st.hp), math.max(1, hp and hp[2] or st.hp_max)
             gui.set_text(chip.hp_text, util.int(cur) .. "/" .. util.int(max))
-            kit.set_bar(chip.hp_fill, 46, cur, max)
+            kit.set_bar(chip.hp_fill, HP_W, cur, max)
             local f = cur / max
             gui.set_color(chip.hp_fill, f > 0.5 and theme.green or (f > 0.25 and theme.gold or theme.red))
             gui.set_color(chip.hp_text, cur == 0 and theme.red or theme.text)
+            gui.set_text(chip.ac_text, util.int(st.ac))
+            for _, r in ipairs(st.res) do
+                local pips = chip.res and chip.res[r.id]
+                if pips then
+                    local lit = {}
+                    for _, g in ipairs(r.levels or { { cur = r.cur, max = r.max } }) do
+                        for i = 1, g.max do
+                            table.insert(lit, i <= g.cur)
+                        end
+                    end
+                    for i, n in ipairs(pips) do
+                        gui.set_color(n, lit[i] and theme.teal or kit.rgba("#ffffff", 0.14))
+                    end
+                end
+            end
         end
     end
 end

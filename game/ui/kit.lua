@@ -15,6 +15,48 @@ local set_euler = gui.set_euler or function(node, v)
     gui.set_rotation(node, v)
 end
 
+-- A text's rules-word underlines (game/ui/gloss.lua) go where the text goes (November 3: a hover tip
+-- hidden after it was drawn left its underlines lit on the screen). The underlines are kept by their
+-- text node, and showing, hiding, moving or deleting the text does the same to them, whoever does it.
+M.under_of = setmetatable({}, { __mode = "k" })
+if not gui.kit_follows then
+    gui.kit_follows = true
+    local raw_enabled, raw_delete, raw_set_pos = gui.set_enabled, gui.delete_node, gui.set_position
+    gui.set_enabled = function(n, on)
+        raw_enabled(n, on)
+        local kids = M.under_of[n]
+        if kids then
+            for _, k in ipairs(kids) do
+                pcall(raw_enabled, k, on)
+            end
+        end
+    end
+    gui.delete_node = function(n)
+        local kids = M.under_of[n]
+        if kids then
+            -- (Hidden, not deleted: they're still on their layer's list, which deletes them later.)
+            M.under_of[n] = nil
+            for _, k in ipairs(kids) do
+                pcall(raw_enabled, k, false)
+            end
+        end
+        raw_delete(n)
+    end
+    gui.set_position = function(n, p)
+        local kids = M.under_of[n]
+        if kids then
+            local was = gui.get_position(n)
+            for _, k in ipairs(kids) do
+                pcall(function()
+                    local kp = gui.get_position(k)
+                    raw_set_pos(k, vmath.vector3(kp.x + p.x - was.x, kp.y + p.y - was.y, kp.z))
+                end)
+            end
+        end
+        raw_set_pos(n, p)
+    end
+end
+
 function M.rgba(hex, a)
     hex = string.gsub(hex, "#", "")
     local r = tonumber(string.sub(hex, 1, 2), 16) / 255
@@ -69,6 +111,9 @@ function M.drop(l)
         end
     end
     for _, n in ipairs(l.nodes) do
+        M.under_of[n] = nil      -- (its underlines are on this list too)
+    end
+    for _, n in ipairs(l.nodes) do
         gui.delete_node(n)
     end
     l.nodes, l.buttons, l.spots = {}, {}, {}
@@ -92,6 +137,27 @@ function M.remove(nodes)
     for _, n in ipairs(nodes) do
         doomed[n] = true
     end
+    -- A text's underlines go with it.
+    local all = nodes
+    for _, n in ipairs(nodes) do
+        local kids = M.under_of[n]
+        if kids then
+            M.under_of[n] = nil
+            if all == nodes then
+                all = {}
+                for _, m in ipairs(nodes) do
+                    table.insert(all, m)
+                end
+            end
+            for _, k in ipairs(kids) do
+                if not doomed[k] then
+                    doomed[k] = true
+                    table.insert(all, 1, k)
+                end
+            end
+        end
+    end
+    nodes = all
     local hs = M.spot_hovered
     if hs and hs.node and doomed[hs.node] then
         M.spot_hovered = nil
@@ -223,10 +289,21 @@ function M.text(x, y, str, font, color, opts)
         M.gloss_audit[str] = true     -- (plain on purpose: speech, the chat; the hover audit skips it)
     end
     local tags = opts.gloss or M.gloss_tags or M.gloss_default
+    local n0 = M.current and #M.current.nodes or 0
     if tags and M.gloss_hook and not opts.scale and opts.gloss ~= false and str ~= "" then
         M.gloss_hook(x, y, str, font, color, opts.pivot or gui.PIVOT_NW, tags)
     end
+    local kids
+    if M.current and #M.current.nodes > n0 then
+        kids = {}
+        for i = n0 + 1, #M.current.nodes do
+            table.insert(kids, M.current.nodes[i])
+        end
+    end
     local n = gui.new_text_node(vmath.vector3(x, M.H - y, 0), str)
+    if kids then
+        M.under_of[n] = kids
+    end
     gui.set_font(n, font)
     gui.set_pivot(n, opts.pivot or gui.PIVOT_NW)
     gui.set_color(n, color)

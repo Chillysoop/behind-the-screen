@@ -28,7 +28,39 @@ local L14 = 19
 local DOOR = kit.rgba("#8a5a30")
 local SHUT = kit.rgba("#7a3a22")
 
+-- What the editor can change, for the X that puts it all back (game/ui/edit_guard.lua): the locks
+-- and ties, and tonight's rooms with what was prepped in them.
+local function fields(app)
+    local c = app.campaign
+    local st = c.adv
+    local out = {}
+    for _, k in ipairs({ "locks", "ties", "tie_seq", "hook_room", "lock_news", "at", "choices" }) do
+        table.insert(out, { st, k })
+    end
+    local pm = c.prep and c.prep.museum
+    if pm then
+        for _, k in ipairs({ "prepped", "knobs", "spare" }) do
+            table.insert(out, { pm, k })
+        end
+    end
+    return out
+end
+
+local function after_cancel(app)
+    local c = app.campaign
+    if c.prep and c.prep.museum then
+        -- (The rooms the restored locks leave open; what was prepped in them was put back too.)
+        local keep_p, keep_k = c.prep.museum.prepped, c.prep.museum.knobs
+        museum_week.reahead(c.prep, c)
+        c.prep.museum.prepped, c.prep.museum.knobs = keep_p, keep_k
+    end
+    app.prep_dirty = true
+end
+
 function M.open(app, sel)
+    if app.overlay ~= "ties" then
+        require("game.ui.edit_guard").begin(app, "ties", fields, after_cancel)
+    end
     app.overlay = "ties"
     app.tl_pick = nil
     app.tl_msg = nil
@@ -41,6 +73,16 @@ function M.open(app, sel)
         app.tl_sel = { room = first }
     end
     M.draw(app)
+end
+
+-- The X (and Esc): close without keeping what changed here, asking first if anything did.
+function M.cancel(app)
+    require("game.ui.edit_guard").cancel(app, "ties", function()
+        M.close(app)
+        if app.refresh then
+            app.refresh()
+        end
+    end)
 end
 
 function M.close(app)
@@ -821,13 +863,19 @@ function M.draw(app)
     kit.text(X + 24, Y + 14, "TIES AND LOCKS", "title30", theme.gold)
     local tx = X + 24 + kit.width("TIES AND LOCKS", "title30") + 30
     kit.text(tx, Y + 12, "Bend the adventure: lock a way, a person or a card until something happens, or tie something to "
-        .. "happen when it does.", "ui18", theme.dim, { w = X + W - 170 - tx, lines = 2 })
-    kit.button(X + W - 140, Y + 14, 120, 36, "Done", function()
+        .. "happen when it does.", "ui18", theme.dim, { w = X + W - 220 - tx, lines = 2 })
+    kit.button(X + W - 200, Y + 14, 120, 36, "Done", function()
+        require("game.ui.edit_guard").done(app, "ties")
         M.close(app)
         if app.refresh then
             app.refresh()
         end
     end, { font = "ui18b", color = theme.go, hover = theme.go_hover, key = "tl_done" })
+    kit.button(X + W - 68, Y + 14, 44, 36, "X", function()
+        M.cancel(app)
+    end, { font = "ui18b", color = theme.panel2, hover = kit.rgba("#8a3a2a"), key = "tl_cancel" })
+    require("game.ui.gloss").card_spot(X + W - 68, Y + 14, 44, 36, "Cancel", "Close without keeping anything you changed "
+        .. "here: every lock and tie goes back to how it was when you opened this. Done keeps your changes.")
     draw_plan(app)
     -- Under the plan: what just happened, or how it works.
     local msg = app.tl_msg

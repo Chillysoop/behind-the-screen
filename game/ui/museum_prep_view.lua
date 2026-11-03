@@ -510,7 +510,57 @@ local function draw_floor(app, c, fl, x, y, w, h)
     if fl.down then
         local dx, dy, dw, dh = rect(fl.down)
         kit.box(dx, dy, dw, dh, kit.rgba("#000000", 0.25), { radius = 4 })
-        kit.text(dx + dw / 2, dy + dh / 2 - 9, "down", "ui14", theme.faint, { pivot = gui.PIVOT_N })
+        kit.text(dx + dw / 2, dy + dh / 2 + 2, "down", "ui14", theme.faint, { pivot = gui.PIVOT_N, gloss = false })
+    end
+end
+
+local function room_label(id)
+    local r = MODULE.rooms[id]
+    return r and (r.map or (string.gsub(r.name, "^The ", ""))) or id
+end
+
+-- The stairs between floors (the playtest, November 3: "it isn't clear where the stairs are or how
+-- they go between floors"): a stair mark at each end of every flight, with a hover saying where it goes.
+function M.draw_stairs(app, plan)
+    for _, d in ipairs(plan.doors) do
+        local a, b = plan.rooms[d.a], plan.rooms[d.b]
+        if a and b and a.floor ~= b.floor then
+            local lo_id, hi_id = d.a, d.b
+            if a.floor > b.floor then
+                lo_id, hi_id = d.b, d.a
+            end
+            local lo, hi = plan.rooms[lo_id], plan.rooms[hi_id]
+            local f = plan.floors[hi.floor]
+            -- (Up: just left of the room's name, clear of the faces and the done tick.)
+            local lw = math.min(kit.width(room_label(lo_id), "ui14"), lo.w - 6)
+            local ux, uy = lo.x + lo.w / 2 - lw / 2 - 20, lo.y + math.max(1, (lo.h - 18) / 2)
+            if lo.w - lw < 48 then
+                ux, uy = lo.x + lo.w - 19, lo.y + 2       -- (a narrow room: its top corner, off the name)
+            end
+            local ends = {
+                { x = ux, y = uy, title = "Stairs up",
+                  text = "From " .. room_label(lo_id) .. " up to " .. room_label(hi_id) .. ", on the floor above." },
+            }
+            if hi.backdrop and f.down then
+                table.insert(ends, { x = f.down[1] - 8, y = f.down[2] - 18, title = "Stairs down",
+                    text = "From " .. room_label(hi_id) .. " down to " .. room_label(lo_id) .. ", on the floor below." })
+            else
+                table.insert(ends, { x = hi.x + 3, y = hi.y + hi.h - 19, title = "Stairs down",
+                    text = "From " .. room_label(hi_id) .. " down to " .. room_label(lo_id) .. ", on the floor below." })
+            end
+            -- (A room that is the stairs, by its name, needs no mark of its own.)
+            if string.find(string.lower(room_label(lo_id)), "stair", 1, true) then
+                table.remove(ends, 1)
+            end
+            for _, e in ipairs(ends) do
+                kit.box(e.x - 1, e.y - 1, 18, 18, kit.rgba("#000000", 0.55), { radius = 4 })
+                kit.icon(e.x, e.y, 16, "stairs", theme.gold)
+                local gloss = util.lazy("game.ui.gloss")
+                if gloss.card_spot then
+                    gloss.card_spot(e.x - 2, e.y - 2, 20, 20, e.title, e.text)
+                end
+            end
+        end
     end
 end
 
@@ -521,13 +571,17 @@ function M.draw_map(app, x, y, w, h, opts)
     for _, f in ipairs(floor_frames(x, y, w, h, opts)) do
         draw_floor(app, c, f.fl, f.x, f.y, f.w, f.h)
     end
+    local plan = M.plan(x, y, w, h, opts)
+    M.draw_stairs(app, plan)
     -- What the DM has locked (the tie-and-lock editor).
     if c.adv and c.adv.locks and #c.adv.locks > 0 then
-        M.draw_locks(app, M.plan(x, y, w, h, opts))
+        M.draw_locks(app, plan)
     end
     if opts.legend then
-        kit.text(x + 12, y + h - 22, "Gold: tonight.  Green: done.  Brown: walked past.  Teal: where they are.  "
-            .. "Faces: why a hero came.", "ui14", theme.faint, { w = w - 24, lines = 1 })
+        local lx = x + 12
+        kit.icon(lx, y + h - 21, 14, "stairs", theme.gold)
+        kit.text(lx + 18, y + h - 22, "stairs.  Gold: tonight.  Green: done.  Brown: walked past.  Teal: where they are.  "
+            .. "Faces: why a hero came.", "ui14", theme.faint, { w = w - 42, lines = 1 })
     end
 end
 
@@ -578,6 +632,13 @@ function M.boss_card(app, x, y, w, h, big)
 end
 
 -- Tonight's rooms ------------------------------------------------------------------------------
+
+-- What prepping a room does, for its button's hover and the list's header (the playtest, November 3:
+-- "it's unclear what prep it actually does, and what happens if something's not prepped").
+local PREP_WHAT = "You read the room ahead, set out its map and minis, and practise its voices. A prepped room "
+    .. "plays at its best. One you didn't prep still plays, but thinner: you skim the page while they wait (the "
+    .. "planners notice, everyone gets a little bored), and its moments land weaker."
+
 
 local function room_row(app, prep, id, x, y, w)
     local c = app.campaign
@@ -632,8 +693,14 @@ local function room_row(app, prep, id, x, y, w)
             app.refresh()
         end, { font = "ui18b", color = on and theme.go or theme.button, hover = on and theme.go_hover or theme.button_hover,
                enabled = on or museum_week.can_prep(prep, id), key = "prep_" .. id })
+        local gl = util.lazy("game.ui.gloss")
+        if gl.card_spot then
+            gl.card_spot(x + w - 186, y + 8, 172, 32, on and "Prepped" or ("Prep " .. util.lower_first(r.name)),
+                PREP_WHAT .. " This one takes " .. util.int(r.cost) .. (r.cost == 1 and " hour." or " hours.")
+                .. (on and " Click again to take the hours back." or ""))
+        end
         if not on and #knobs == 0 then
-            kit.text(x + w - 14, y + 42, "Unprepped: you'll wing it.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+            kit.text(x + w - 14, y + 42, "Unprepped: it plays thinner.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
         end
     end
     local ky = y + 52
@@ -684,18 +751,63 @@ local function room_row(app, prep, id, x, y, w)
     return h
 end
 
-local function rooms(app, prep, x, y, w, max_y)
+local function room_height(c, id)
+    local r = MODULE.rooms[id]
+    if r.virtual then
+        return 50
+    end
+    local notes = museum_week.room_prep(c, id)
+    return 54 + #(r.knobs or {}) * 30 + (#notes > 0 and 22 or 0)
+end
+
+-- What to do with hours left over (museum_week.SPARE), at the foot of the list.
+local SPARE_H = 22 + #museum_week.SPARE * 30 + 24
+
+local function spare_block(app, prep, x, y, w)
     local pm = prep.museum
+    local left = prep:left()
+    kit.text(x, y, "SPARE HOURS", "ui14", theme.dim)
+    kit.text(x + 110, y, left > 0 and (util.int(left) .. (left == 1 and " hour left" or " hours left")) or "none left", "ui14",
+        left > 0 and theme.gold or theme.faint)
+    local ky = y + 22
+    for _, d in ipairs(museum_week.SPARE) do
+        local on = pm.spare and pm.spare[d.id]
+        kit.button(x, ky, 30, 26, on and "x" or "", function()
+            museum_week.set_spare(prep, d.id, not on)
+            app.refresh()
+        end, { font = "ui14", color = on and theme.go or theme.button, hover = theme.button_hover,
+               enabled = on or left >= d.cost, key = "spare_" .. d.id })
+        kit.text(x + 38, ky + 4, d.name .. " (" .. util.int(d.cost) .. "h): " .. d.what, "ui14", on and theme.text or theme.dim,
+            { w = w - 40, lines = 1 })
+        ky = ky + 30
+    end
+    kit.text(x, ky, "Or talk to a friend (1h) from their card on the right. Hours you don't use carry to next week, up to "
+        .. util.int(museum_week.CARRY_MAX) .. ".", "ui14", theme.faint, { w = w, lines = 1 })
+end
+
+-- The rooms, a page at a time when they don't all fit (the playtest, November 3: the list ran off the
+-- bottom of the screen). The mouse wheel or the arrows page through them.
+local function rooms(app, prep, x, y, w, max_y)
+    local c = app.campaign
+    local pm = prep.museum
+    if app.rooms_week ~= c.week then
+        app.rooms_week, app.rooms_first = c.week, 1
+    end
     kit.text(x, y, "TONIGHT'S ROOMS", "ui14", theme.dim)
-    kit.text(x + w - 298, y, "The party picks the way. Prep where they'll go.", "ui14", theme.faint,
-        { pivot = gui.PIVOT_NE })
+    local hint = "The party picks the way. Prep where they'll go."
+    kit.text(x + w - 298, y, hint, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    local gloss = util.lazy("game.ui.gloss")
+    if gloss.card_spot then
+        gloss.card_spot(x, y - 2, w - 300, 20, "Prepping a room", PREP_WHAT .. " The party chooses where it goes, so prep "
+            .. "the rooms you think they'll reach.")
+    end
     kit.button(x + w - 140, y - 6, 140, 26, "All maps", function()
         if app.open_maps then
             app.open_maps()
         end
     end, { font = "ui14", key = "open_maps" })
     -- The tie-and-lock editor (game/ui/ties_view.lua): lock a way or a card, tie one thing to another.
-    local n = #(app.campaign.adv.locks or {}) + #(app.campaign.adv.ties or {})
+    local n = #(c.adv.locks or {}) + #(c.adv.ties or {})
     kit.button(x + w - 140 - 8 - 140, y - 6, 140, 26, n > 0 and ("Ties and locks (" .. util.int(n) .. ")") or "Ties and locks",
         function()
             if app.open_ties then
@@ -703,13 +815,81 @@ local function rooms(app, prep, x, y, w, max_y)
             end
         end, { font = "ui14", color = n > 0 and theme.go or nil, hover = n > 0 and theme.go_hover or nil, key = "open_ties" })
     y = y + 22
+    -- The list: every room, then the spare hours.
+    local items, hs = {}, {}
     for _, id in ipairs(pm.ahead) do
-        if y > max_y - 40 then
-            kit.text(x, y, "...and more beyond, if the night runs long.", "ui14", theme.faint)
+        table.insert(items, id)
+        table.insert(hs, room_height(c, id) + 6)
+    end
+    table.insert(items, "spare")
+    table.insert(hs, SPARE_H)
+    local avail = max_y - y
+    local total = 0
+    for _, h in ipairs(hs) do
+        total = total + h
+    end
+    local BAR = 28
+    -- The last page: the furthest the list scrolls.
+    local max_first = 1
+    if total > avail then
+        local sum = 0
+        for i = #items, 1, -1 do
+            sum = sum + hs[i]
+            if sum + BAR > avail then
+                max_first = math.min(#items, i + 1)
+                break
+            end
+        end
+    end
+    local first = util.clamp(app.rooms_first or 1, 1, max_first)
+    app.rooms_first = first
+    app.rooms_scroll = { x = x, y = y, w = w, h = avail, max = max_first }
+    local function pager(py, label, dir, key)
+        kit.button(x, py, w, BAR - 4, label, function()
+            app.rooms_first = util.clamp((app.rooms_first or 1) + dir, 1, max_first)
+            app.refresh()
+        end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = key })
+    end
+    if first > 1 then
+        pager(y, "^   " .. util.int(first - 1) .. (first - 1 == 1 and " more above" or " more above") .. "   (scroll up)", -1, "rooms_up")
+        y = y + BAR
+    end
+    local i = first
+    while i <= #items do
+        local more = i < #items
+        if y + hs[i] + (more and BAR or 0) > max_y and i > first then
             break
         end
-        y = y + room_row(app, prep, id, x, y, w) + 6
+        if items[i] == "spare" then
+            spare_block(app, prep, x, y + 4, w)
+            y = y + hs[i]
+        else
+            y = y + room_row(app, prep, items[i], x, y, w) + 6
+        end
+        i = i + 1
     end
+    if i <= #items then
+        local rest = #items - i + 1
+        pager(math.min(y, max_y - BAR + 4), "v   " .. util.int(rest) .. " more below   (scroll down)", 1, "rooms_down")
+    end
+end
+
+-- The mouse wheel over tonight's rooms pages through them.
+function M.on_wheel(app, x, y, dir)
+    local a = app.rooms_scroll
+    if app.screen ~= "prep" or app.overlay or app.ask or app.convo or not a then
+        return false
+    end
+    local ly = kit.H - y
+    if x < a.x or x > a.x + a.w or ly < a.y or ly > a.y + a.h then
+        return false
+    end
+    local was = app.rooms_first or 1
+    app.rooms_first = util.clamp(was + dir, 1, a.max or 1)
+    if app.rooms_first ~= was then
+        app.refresh()
+    end
+    return true
 end
 
 -- Boss night: the showdown board --------------------------------------------------------------
@@ -826,7 +1006,9 @@ local function top_bar(app, prep)
     if gloss.card_spot then
         gloss.card_spot(896, 10, 150, 46, "Prep hours",
             "Your week before game night. Prepping a room (reading it, setting out its map and minis) costs hours; a room "
-            .. "you didn't prep plays thinner, and the table can tell.")
+            .. "you didn't prep plays thinner, and the table can tell. Hours left over: sleep well, write a backup page, "
+            .. "or talk to a friend. Up to " .. util.int(museum_week.CARRY_MAX) .. " you don't use carry to next week."
+            .. ((prep.carried or 0) > 0 and (" (" .. util.int(prep.carried) .. " of this week's came over from last week.)") or ""))
         gloss.card_spot(1056, 10, 66, 46, "Flitwidget Francs",
             "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
             .. "The party spends them in the gift shop.")

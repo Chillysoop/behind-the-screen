@@ -284,6 +284,10 @@ function M.draw(app)
             end
             m.n = n
             m.nodes = { n.back, n.fill, n.name, n.cond }
+            -- (Hidden until placed over their mini: never a frame at the screen's corner.)
+            for _, node in ipairs(m.nodes) do
+                gui.set_enabled(node, false)
+            end
         end
     end
     M.draw_order(app)
@@ -321,7 +325,7 @@ function M.place(app)
                 show = false
             end
             for _, node in ipairs(m.nodes) do
-                gui.set_enabled(node, show)
+                gui.set_enabled(node, show and true or false)
             end
             if show then
                 local x, y = a[1] * kit.W, a[2] * H - 14

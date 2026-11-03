@@ -384,7 +384,6 @@ function M.build(app)
     kit.button(24, 840, 200, 44, "<  Back to prep", function()
         M.back(app)
     end, { font = "ui18b", key = "lore_back" })
-    kit.text(236, 852, "Esc", "ui14", theme.faint)
     -- The key to the marks (the lore playtest: "no legend for the icons").
     local kx = 290
     for _, kind in ipairs(KEY_ORDER) do

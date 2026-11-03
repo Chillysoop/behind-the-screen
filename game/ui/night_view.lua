@@ -606,6 +606,9 @@ function M.draw_log_now(app)
     end
     kit.release_spots(l)
     for _, n in ipairs(l.nodes) do
+        kit.under_of[n] = nil    -- (its underlines are on this list too)
+    end
+    for _, n in ipairs(l.nodes) do
         gui.delete_node(n)
     end
     l.nodes, l.buttons, l.spots, l.gloss_seen = {}, {}, {}, nil
@@ -2862,7 +2865,8 @@ function M.draw_thought_card(app)
         sub = "You catch it across the table."
         add(util.capitalize(ev.name .. " " .. ev.tell .. "."), "ui22b", theme.think.ink)
         add("Read " .. pr.them .. ": an Insight roll, d20 + " .. util.int(o.bonus) .. " (your Empathy +" .. util.int(o.empathy)
-            .. ", you know " .. ev.name .. " +" .. util.int(o.familiar) .. "). You need " .. util.int(o.need)
+            .. ", you know " .. ev.name .. " +" .. util.int(o.familiar) .. ((o.rested or 0) > 0 and ", a good night's sleep +1" or "")
+            .. "). You need " .. util.int(o.need)
             .. " or more: about " .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%.", "ui18", theme.think.dim)
         table.insert(buttons, { label = "Read " .. pr.them .. " (roll Insight)", key = "thought_read", go = true })
     else

@@ -282,7 +282,6 @@ function M.draw(app)
             M.close(app)
         end
     end, { font = "ui18b", key = "sheet_close" })
-    kit.text(X + W - 20, Y + 70, "Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     -- Rules words on the sheet explain themselves on hover (the newcomer playtest, October 16).
     kit.gloss_scope({ sheet = true, fight = true }, function()
         if (app.sheet_page or "sheet") == "features" then

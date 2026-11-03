@@ -77,6 +77,15 @@ images {
   image: "/assets/ui/icon_link.png"
 }
 images {
+  image: "/assets/ui/icon_stairs.png"
+}
+images {
+  image: "/assets/ui/icon_shield.png"
+}
+images {
+  image: "/assets/ui/icon_spark.png"
+}
+images {
   image: "/assets/ui/icon_bell.png"
 }
 images {

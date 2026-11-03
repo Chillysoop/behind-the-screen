@@ -177,9 +177,12 @@ function M.odds(night, id)
     end
     local emp = empathy_bonus(night)
     local fam = night.campaign and familiar.bonus(night.campaign, t.who) or 0
-    local bonus = emp + fam
+    -- A good night's sleep before the game (an hour of prep: museum_week.SPARE).
+    local pm = night.prep and night.prep.museum
+    local rested = (pm and pm.spare and pm.spare.rest) and 1 or 0
+    local bonus = emp + fam + rested
     local need = util.clamp(dc - bonus, 2, 20)       -- a 1 always misreads, a 20 always reads
-    return { dc = dc, bonus = bonus, empathy = emp, familiar = fam, need = need, chance = (21 - need) / 20,
+    return { dc = dc, bonus = bonus, empathy = emp, familiar = fam, rested = rested, need = need, chance = (21 - need) / 20,
              known = night.campaign and familiar.name(night.campaign, t.who) or "New to you" }
 end
 

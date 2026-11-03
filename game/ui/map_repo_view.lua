@@ -9,6 +9,7 @@ local theme = require "game.ui.theme"
 local util = require "game.model.util"
 local adventure = require "game.model.adventure"
 local map_repo = require "game.model.map_repo"
+local edit_guard = require "game.ui.edit_guard"
 
 local M = {}
 
@@ -19,11 +20,63 @@ local COLOURS = {
     cover = kit.rgba("#9a7442"), ground = kit.rgba("#4a4038"), rough = kit.rgba("#6a5a44"),
 }
 
+-- What the repository and the map maker can change, for the X that puts it all back (edit_guard).
+local function fields(app)
+    local c = app.campaign
+    local out = { { c, "my_maps" }, { c, "my_map_n" }, { c, "maps" } }
+    if c.adv then
+        for _, k in ipairs({ "room_maps", "side_rooms", "side_n" }) do
+            table.insert(out, { c.adv, k })
+        end
+    end
+    if app.night then
+        table.insert(out, { app.night, "map_next" })
+    end
+    return out
+end
+
 function M.open(app, ref)
+    -- (Back from the map maker is the same visit: the copy taken when the repository opened stands.)
+    if app.overlay ~= "maps" and app.overlay ~= "mapmaker" then
+        edit_guard.begin(app, "maps", fields)
+    end
     app.overlay = "maps"
     app.mr_sel = ref or app.mr_sel
     app.mr_pick = nil
     M.draw(app)
+end
+
+-- The X (and Esc): close without keeping what changed here, asking first if anything did.
+function M.cancel(app)
+    edit_guard.cancel(app, "maps", function()
+        app.map_target = nil
+        M.close(app)
+        if app.refresh then
+            app.refresh()
+        end
+    end)
+end
+
+local function done(app)
+    edit_guard.done(app, "maps")
+    app.map_target = nil
+    M.close(app)
+    if app.refresh then
+        app.refresh()
+    end
+end
+
+-- The header's Done and X, the same in the repository and the map maker.
+local function header_buttons(app)
+    kit.button(X + W - 200, Y + 14, 120, 36, "Done", function()
+        done(app)
+    end, { font = "ui18b", color = theme.go, hover = theme.go_hover, key = "mr_done" })
+    kit.button(X + W - 68, Y + 14, 44, 36, "X", function()
+        M.cancel(app)
+    end, { font = "ui18b", color = theme.panel2, hover = kit.rgba("#8a3a2a"), key = "mr_cancel" })
+    local gloss = require "game.ui.gloss"
+    gloss.card_spot(X + W - 68, Y + 14, 44, 36, "Cancel", "Close without keeping anything you changed here: every room keeps "
+        .. "the map it had when you opened this. Done keeps your changes.")
 end
 
 function M.close(app)
@@ -289,17 +342,11 @@ function M.draw_maker(app)
     kit.box(X, Y, W, 64, theme.panel, { radius = 14 })
     kit.text(X + 24, Y + 14, "MAP MAKER", "title30", theme.gold)
     kit.text(X + 24 + kit.width("MAP MAKER", "title30") + 30, Y + 22, m and m.name or "", "ui18", theme.dim)
-    kit.button(X + W - 300, Y + 14, 150, 36, "<  All maps", function()
+    kit.button(X + W - 360, Y + 14, 150, 36, "<  All maps", function()
         app.map_target = nil
         M.open(app, id and ("mine:" .. id) or nil)
     end, { font = "ui18b", key = "mr_back" })
-    kit.button(X + W - 140, Y + 14, 120, 36, "Done", function()
-        app.map_target = nil
-        M.close(app)
-        if app.refresh then
-            app.refresh()
-        end
-    end, { font = "ui18b", color = theme.go, hover = theme.go_hover, key = "mr_done" })
+    header_buttons(app)
     if not m then
         kit.text(X + 24, Y + 90, "That map is gone.", "ui18", theme.faint)
         return
@@ -325,18 +372,13 @@ function M.draw(app)
     kit.text(X + 24 + kit.width("MAP REPOSITORY", "title30") + 30, Y + 22,
         app.screen == "night" and "Every map you can put on the table. Pick where the next scene plays out."
             or "Every map you can put on the table: the adventure's, imported ones, and your own.", "ui18", theme.dim)
-    kit.button(X + W - 330, Y + 14, 170, 36, "New map", function()
+    kit.button(X + W - 390, Y + 14, 170, 36, "New map", function()
         local id = map_repo.new_map(c, app.mr_new_base or (c.module and "museum_hall") or "blank")
         app.mr_group = "mine"
         app.mr_sel = "mine:" .. id
         M.open_maker(app, id)
     end, { font = "ui18b", key = "mr_new" })
-    kit.button(X + W - 140, Y + 14, 120, 36, "Done", function()
-        M.close(app)
-        if app.refresh then
-            app.refresh()
-        end
-    end, { font = "ui18b", color = theme.go, hover = theme.go_hover, key = "mr_done" })
+    header_buttons(app)
     local entries = map_repo.entries(c)
     local shown = list(app, entries, X + 24, Y + 86, 380, H - 110)
     local e = app.mr_sel and map_repo.find(c, app.mr_sel)

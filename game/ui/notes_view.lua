@@ -656,7 +656,6 @@ function M.draw(app)
             M.close(app)
         end
     end, { font = "ui18b", key = "notes_close" })
-    kit.text(X + W - 144, Y + 22, "N or Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local cx, cy = X + 204, Y + 76
     local cw, ch = W - 204 - 24, H - 76 - 22
     if tab == "museum" then

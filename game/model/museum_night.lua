@@ -70,10 +70,20 @@ function M.build_scene(night, id)
     if MODULE.rooms[id].epilogue then
         prepped = true
     end
+    -- The backup page (an hour of prep: museum_week.SPARE): the first room tonight that wasn't prepped.
+    local backup = false
+    if not prepped and not r.virtual and (r.cost or 0) > 0 and pm and pm.spare and pm.spare.backup then
+        night.mus = night.mus or {}
+        if not night.mus.backup_used then
+            night.mus.backup_used = id
+            prepped, backup = true, true
+        end
+    end
     local q = r.virtual and 0.6 or prep_mod.quality(r.type, comps, night.prep and night.prep.inspired or {})
     local sc = {
         type = r.type, comps = comps, missing = {}, room = id, quick = r.quick, virtual = r.virtual,
         prepped = prepped or r.virtual,
+        backup = backup or nil,
         quality = q - ((prepped or r.virtual or r.cost == 0) and 0 or MODULE.UNPREPPED_QUALITY),
         difficulty = prep_mod.difficulty(comps),
         optional_fight = r.optional_fight,
@@ -662,6 +672,9 @@ function M.read(night, sc)
         end
     end
     night:say(text, "narration")
+    if sc.backup then
+        night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "dm")
+    end
     if not sc.prepped then
         night:say("You never read this room properly. You skim the page while they wait.", "warn")
         night.table_min = night.table_min + 5

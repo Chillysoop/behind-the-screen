@@ -71,7 +71,7 @@ def dot():
 ICON_SIZE = 48
 ICON_NAMES = ["spotlight", "challenge", "story", "social", "reward", "fun", "commitment", "investment",
               "trust", "suspicion", "up", "down", "warn", "empathy", "mood", "d20", "heart", "clock", "tail", "speed",
-              "hourglass", "lock", "link"]
+              "hourglass", "lock", "link", "stairs", "shield", "spark"]
 # The world's iconography (October 15): one icon per storyline, faction and truth, the same
 # everywhere (the opening, story cards, the board, the Story log). game/data/lore.lua maps them.
 LORE_ICONS = ["bell", "wolf", "hand", "skull", "candle", "house", "spur", "trail", "wheel", "mask", "coin", "cloud",
@@ -228,6 +228,21 @@ def draw_icon(name):
         ld.rounded_rectangle([S * 0.38, S * 0.3, S * 0.98, S * 0.7], radius=S * 0.2, outline=255, width=w)
         img = lk.rotate(35, resample=Image.BICUBIC, center=(c, c))
         d = ImageDraw.Draw(img)
+    elif name == "stairs":
+        # A flight of steps rising to the right (the floor plans: the way between floors).
+        steps = 4
+        for k in range(steps):
+            x0 = S * (0.06 + k * 0.22)
+            y0 = S * (0.94 - (k + 1) * 0.22)
+            d.rectangle([x0, y0, S * 0.94, S * 0.94], fill=255)
+    elif name == "shield":
+        # Armour Class.
+        d.polygon([(c, S * 0.04), (S * 0.9, S * 0.18), (S * 0.86, S * 0.56), (c, S * 0.96), (S * 0.14, S * 0.56),
+                   (S * 0.1, S * 0.18)], fill=255)
+        d.polygon([(c, S * 0.2), (S * 0.74, S * 0.29), (S * 0.71, S * 0.54), (c, S * 0.8)], fill=0)
+    elif name == "spark":
+        # A spell slot, or any once-a-rest power: a four-point spark.
+        _star(d, c, c, S * 0.48, S * 0.14, points=4, rot=-90)
     elif name in LORE_ICONS:
         draw_lore(d, name, S, c)
     alpha = img.resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)

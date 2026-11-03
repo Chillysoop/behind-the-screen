@@ -437,7 +437,92 @@ on_text = function(t)
 end
 
 -- The old story must never show on a screen.
+-- Every underline the glossary draws belongs to the text drawn right after it (kit.text): an
+-- underline still lit when its text is hidden or gone is a stray line on the screen.
+local gloss_groups = {}
+do
+    local kit_ = require "game.ui.kit"
+    local hook_ = kit_.gloss_hook
+    if hook_ then
+        kit_.gloss_hook = function(...)
+            local n0 = #order
+            local r = hook_(...)
+            if #order > n0 then
+                table.insert(gloss_groups, { from = n0 + 1, to = #order, text = #order + 1 })
+            end
+            return r
+        end
+    end
+end
+local function stray_underlines(name)
+    local keep = {}
+    for _, g in ipairs(gloss_groups) do
+        local t = order[g.text]
+        -- (A caller that draws its text elsewhere keeps its own underlines: the night's captions.)
+        if t and t.kind ~= "text" then
+            t = nil
+        end
+        local live = false
+        for i = g.from, g.to do
+            local b = order[i]
+            if b and b.alive then
+                live = true
+                local a = b.color and b.color.w or 0
+                if t and b.enabled ~= false and a > 0.01 and (not t.alive or t.enabled == false) then
+                    problem("a stray underline on " .. name .. " under hidden text: " .. tostring(t.text))
+                    return
+                end
+            end
+        end
+        if live then table.insert(keep, g) end
+    end
+    gloss_groups = keep
+end
+
+-- Nothing on a screen hangs off its edge (the playtest, November 3: tonight's rooms ran below the
+-- bottom of the prep board). Text by its lines and font, boxes by their size.
+local offscreen_seen = {}
+local OFF_PIVOT_TOP = { nw = 0, n = 0, ne = 0, w = 0.5, c = 0.5, e = 0.5, sw = 1, s = 1, se = 1 }
+local OFF_PIVOT_LEFT = { nw = 0, w = 0, sw = 0, n = 0.5, c = 0.5, s = 0.5, ne = 1, e = 1, se = 1 }
+local function offscreen(name)
+    local kit_ = package.loaded["game.ui.kit"]
+    if not kit_ then return end
+    for _, n in ipairs(order) do
+        if n.alive and n.enabled ~= false and (not n.color or n.color.w > 0.01) and n.pos then
+            local w, h
+            if n.kind == "text" and n.text and n.text ~= "" and n.font then
+                local lines = 1
+                for _ in string.gmatch(n.text, "\n") do lines = lines + 1 end
+                h = lines * kit_.line_height(n.font)
+                w = 0
+                for line in string.gmatch(n.text .. "\n", "(.-)\n") do
+                    w = math.max(w, kit_.width(line, n.font))
+                end
+            elseif n.kind == "box" and n.size then
+                w, h = n.size.x, n.size.y
+            end
+            if w and h and h > 0 and (n.euler or 0) == 0 then
+                local top = kit_.H - n.pos.y - (OFF_PIVOT_TOP[n.pivot] or 0) * h
+                local left = n.pos.x - (OFF_PIVOT_LEFT[n.pivot] or 0) * w
+                -- (Full-screen backdrops and anything parked well off screen on purpose don't count.)
+                local parked = top > kit_.H or top + h < 0 or left > kit_.W or left + w < 0
+                if not parked and (top + h > kit_.H + 3 or left + w > kit_.W + 3 or top < -3 or left < -3) then
+                    local what = n.kind == "text" and n.text or ("a box " .. math.floor(w) .. "x" .. math.floor(h))
+                    local key = name:gsub("%(week %d+%)", "") .. "|" .. what
+                    if not offscreen_seen[key] then
+                        offscreen_seen[key] = true
+                        print(string.format("OFFSCREEN %s: %s at %d,%d size %dx%d", name, string.sub(string.gsub(what, "\n", " "), 1, 80),
+                            math.floor(left), math.floor(top), math.floor(w), math.floor(h)))
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function scan(name)
+    stray_underlines(name)
+    offscreen(name)
     for _, n in ipairs(order) do
         if n.alive and n.enabled and n.text and adventure.foreign(n.text) then
             problem("old story on " .. name .. ": " .. n.text)
@@ -530,6 +615,42 @@ for week = 1, WEEKS do
     end
     -- The map repository (v2): browse, set a room's map, open a side room, make a map and paint on it.
     if week == 1 then
+        -- Its X (November 3): nothing changed closes straight away; a change asks first, and
+        -- "Delete my changes" puts the room's map back.
+        do
+            local repo = require "game.model.map_repo"
+            if not click_key("open_maps") then problem("no way into the map repository" .. where) end
+            if not click_key("mr_cancel") then problem("no X in the map repository") end
+            if app.overlay or app.ask then problem("the X with nothing changed didn't just close") end
+            click_key("open_maps")
+            click_key("mr_group_basics")
+            click_key("mr_use_room")
+            click_key("mr_room_garden")
+            if not repo.room_map(c, "garden") then problem("setting the garden's map didn't stick") end
+            click_key("mr_cancel")
+            if not app.ask then problem("the X after a change didn't ask first") end
+            dump_once("4m_maps_cancel")
+            click_key("ask_no")
+            if app.overlay ~= "maps" or not repo.room_map(c, "garden") then problem("Keep editing didn't keep the change") end
+            click_key("mr_cancel")
+            click_key("ask_yes")
+            if app.overlay then problem("Delete my changes didn't close the repository") end
+            if repo.room_map(c, "garden") then problem("the X didn't put the garden's map back") end
+        end
+        -- The tie editor's X does the same for a lock.
+        do
+            click_key("open_ties")
+            click_key("tl_door_" .. require("game.model.ties").door_key("garden", "entrance"))
+            click_key("tl_lock_door")
+            click_key("tl_tab_room")
+            click_key("tl_cond_room_chamber")
+            local locked = adventure.way_closed(c, "garden", "entrance")
+            click_key("tl_cancel")
+            if locked and not app.ask then problem("the ties editor's X after a lock didn't ask first") end
+            click_key("ask_yes")
+            if app.overlay then problem("the ties editor's X didn't close it") end
+            if adventure.way_closed(c, "garden", "entrance") then problem("the ties editor's X didn't take the lock back off") end
+        end
         if not click_key("open_maps") then problem("no way into the map repository" .. where) end
         if app.overlay ~= "maps" then problem("the map repository didn't open" .. where) end
         dump_once("4m_maps_w" .. week)

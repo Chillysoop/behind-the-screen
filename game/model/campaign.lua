@@ -512,6 +512,9 @@ function M:start_night()
     self.at_prep = nil
     if not self.module then
         seeds.commit(self, self.prep)
+    elseif self.adv and self.prep and self.prep.museum then
+        -- Prep hours nobody spent carry to next week, a couple at most (museum_week.SPARE).
+        self.adv.carry = require("game.model.util").lazy("game.model.museum_week").carry_out(self.prep)
     end
     self.night = night_mod.new(self, self.prep)
     return self.night

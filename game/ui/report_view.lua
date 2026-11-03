@@ -224,8 +224,17 @@ local function recap_panel(app, rep, x, y, w, h)
     local r = rep.recap
     kit.box(x, y, w, h, theme.panel, { radius = 10 })
     local ty = head(x + 16, y + 12, 1, "THE RECAP")
-    kit.text(x + w - 16, y + 12, "For your eyes only. Pin a beat to keep it; cut one to drop it.", "ui14", theme.faint,
-        { pivot = gui.PIVOT_NE })
+    -- What Pin and Cut do (the playtest, November 3: "it's unclear what pin / cut does").
+    local how = "Pin: next session opens on it. Cut: it's left out."
+    kit.text(x + w - 16, y + 12, how, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    local PIN_TIP = "Next session starts with your recap of this one (\"Last time...\"). A pinned beat is always in it, "
+        .. "first. Use it for what you want the table to remember."
+    local CUT_TIP = "Leave this beat out of next session's recap (\"Last time...\"): a moment that fell flat, or one you'd "
+        .. "rather they forgot. It stays in your notes. Undo puts it back."
+    local gl = require "game.ui.gloss"
+    gl.card_spot(x + w - 16 - kit.width(how, "ui14"), y + 10, kit.width(how, "ui14"), 20, "Pin and Cut",
+        "Next session opens with a short recap of this one (\"Last time...\"). A pinned beat is always in it, first. "
+        .. "A cut one is left out; it stays in your notes. Beats you leave alone may or may not come up.")
     if not r or #r.beats == 0 then
         kit.text(x + 16, ty + 4, "A quiet night. Nothing anyone will bring up later.", "ui18", theme.faint)
         return
@@ -250,11 +259,13 @@ local function recap_panel(app, rep, x, y, w, h)
             b.cut = nil
             app.refresh()
         end, { font = "ui14", color = b.pinned and theme.go or theme.panel2, hover = theme.button_hover, key = "recap_pin_" .. k })
+        gl.card_spot(x + w - 128, ty - 2, 54, 26, b.pinned and "Pinned" or "Pin", PIN_TIP)
         kit.button(x + w - 68, ty - 2, 52, 26, b.cut and "Undo" or "Cut", function()
             b.cut = not b.cut
             b.pinned = nil
             app.refresh()
         end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "recap_cut_" .. k })
+        gl.card_spot(x + w - 68, ty - 2, 52, 26, b.cut and "Cut (Undo to keep it)" or "Cut", CUT_TIP)
         ty = ty + math.max(th, 24) + 8
     end
     -- The DM's note: one line, typed.
