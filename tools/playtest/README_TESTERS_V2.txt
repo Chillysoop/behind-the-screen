@@ -11,8 +11,19 @@ You don't need to know D&D, and there's no way to "lose": every ending is a real
 ending, and the prologue sets up the full campaign that comes next.
 
 
-NEW IN THIS BUILD (November 3)
-------------------------------
+NEW IN THIS BUILD (November 3, later)
+-------------------------------------
+- The prep board's room list fits any window: it pages, and the mouse wheel scrolls it.
+- The floor plans show the stairs between floors (point at one to see where it goes).
+- "Prep it" says what prepping does. Hours left over: sleep well (+1 to reading the table),
+  write a backup page, or talk to a friend; up to 2 unused hours carry to next week.
+- The map repository and the ties editor have an X that puts everything back. If you
+  changed something, it asks first.
+- The player tiles show hit points and AC all night, plus each hero's own resources:
+  spell slots, Channel Divinity, Second Wind, Action Surge.
+
+EARLIER (November 3)
+--------------------
 - Saving: the game autosaves as you play, and you can save to one of three slots of
   your own with the Save button on the prep board or the report. The title card has
   Continue (your newest save), Load (any save) and New game.
