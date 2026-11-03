@@ -156,9 +156,11 @@ On game night:
 
 WHAT'S NOT FINAL
 ----------------
-The museum's monsters borrow minis from the earlier build, so a scarab swarm may
-look like something else for now. (The rooms have their own boards now.) The rules, the
-story and the choices are what's being tested.
+The garden's beasts have their own minis now, but most of the museum's other monsters
+still borrow one from the earlier build, so a scarab swarm may look like something else
+for now. (The rooms have their own boards.) The rules, the story and the choices are
+what's being tested. "Playtest guide.pdf" in this folder covers all of this with a
+little more room, plus what we'd most like you to look out for.
 
 
 WHAT WE'D LIKE FROM YOU
