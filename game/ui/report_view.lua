@@ -461,7 +461,7 @@ local function felt_panel(app, rep, x, y, w, h)
                 table.insert(lines, { row.why, theme.dim, 1 })
             end
             if row.call then
-                table.insert(lines, { row.call, theme.gold, row.why_generic and 2 or 1, true })
+                table.insert(lines, { row.call, theme.gold, row.why_generic and 2 or 1 })
             end
         end
         if row.suspicion_why then
@@ -524,8 +524,12 @@ function M.build(app)
     if r and r.planned and title ~= r.planned then
         sub = "Planned as \"" .. r.planned .. "\".  " .. (rep.headline or "")
     end
-    kit.text(24 + kit.width(title, "title30") + 152, 42, sub, "ui14", theme.dim, { w = 1576 - (24 + kit.width(title, "title30") + 152),
+    kit.text(24 + kit.width(title, "title30") + 152, 42, sub, "ui14", theme.dim, { w = 1440 - (24 + kit.width(title, "title30") + 152),
         lines = 1 })
+    -- Save to a slot of your own (November 3): it picks up at the start of next session.
+    kit.button(1456, 14, 120, 32, "Save game", function()
+        require("game.ui.saves_view").open(app, "save")
+    end, { font = "ui14", key = "save_game" })
     recap_panel(app, rep, 24, 84, 736, 556)
     kit.gloss_scope({ report = true }, function()
         felt_panel(app, rep, 776, 84, 800, 556)

@@ -111,6 +111,11 @@ function gui.set_text(n, t)
         if string.find(t or "", "[\128-\255]") then problem("non-ASCII text: " .. t) end
         n.text = t
         if on_text then on_text(t) end
+        -- (The hover audit: words set into a box that has a hover card of its own are explained.)
+        if GLOSS_BOXED and n.pos and package.loaded["game.ui.kit"] then
+            local hs = package.loaded["game.ui.kit"].spot_hit(n.pos.x, n.pos.y)
+            if hs then GLOSS_BOXED[t] = true end
+        end
     end
 end
 function gui.get_text(n) if chk(n, "get_text") then return n.text or "" end return "" end
@@ -336,6 +341,19 @@ local function show_stop(n)
 end
 
 local DUMP = os.getenv("DUMP_DIR")
+-- GLOSS_AUDIT=1: every game word on screen that a new player can point at for its meaning, and the
+-- ones they can't (November 3: "Audit all keywords to make sure they have a hover").
+local GLOSS = os.getenv("GLOSS_AUDIT") and { glossed = {}, seen = {}, boxed = {} }
+if GLOSS then
+    GLOSS_BOXED = GLOSS.boxed
+    kit.gloss_audit = {}
+    local gloss = require "game.ui.gloss"
+    local hook = kit.gloss_hook
+    kit.gloss_hook = function(x, y, str, font, color, pivot, tags)
+        GLOSS.glossed[str] = tags
+        return hook(x, y, str, font, color, pivot, tags)
+    end
+end
 -- AUDIT=1: list every piece of text the screens had to cut short.
 if os.getenv("AUDIT") then
     kit.audit = {}
@@ -407,6 +425,10 @@ local adventure = require "game.model.adventure"
 local where = ""
 local foreign_seen = {}
 on_text = function(t)
+    if GLOSS and type(t) == "string" then
+        local a = self.app
+        GLOSS.seen[t] = GLOSS.seen[t] or (a and tostring(a.screen) .. (a.overlay and ("/" .. a.overlay) or "") or "?")
+    end
     local c = self.app and self.app.campaign
     if c and c.module and type(t) == "string" and not foreign_seen[t] and adventure.foreign(t) then
         foreign_seen[t] = true
@@ -432,6 +454,8 @@ end
 if not click_key("agree") then problem("no prototype notice") end
 dump("0_title")
 if not has_text("Museum of Nightmares") then problem("the notice doesn't name the adventure") end
+-- The main menu (November 3): with no saves, only New game; Load and Continue wait for a save.
+if has_key("load_game") or has_key("continue") then problem("the title offers to load or continue with no saves") end
 if not click_key("session_zero") then problem("no Session Zero button on the title") end
 if app.screen ~= "session_zero" then problem("expected Session Zero, got " .. tostring(app.screen)) end
 if not app.campaign.module then problem("a new campaign isn't in the museum") end
@@ -483,6 +507,17 @@ for week = 1, WEEKS do
     end
     dump("4_prep_w" .. week)
     scan("the prep board" .. where)
+    -- A save of your own, from the prep board (November 3).
+    if week == 1 then
+        if not click_key("save_game") then problem("no Save button on the prep board" .. where) end
+        if not app.saves_ui then problem("the Save window didn't open" .. where) end
+        dump_once("4s_save_w1")
+        scan("the Save window" .. where)
+        if not click_key("save_slot1") then problem("no save slot to save into" .. where) end
+        if not (app.saves_ui and app.saves_ui.said) then problem("saving to a slot said nothing" .. where) end
+        click_key("saves_close")
+        if app.saves_ui then problem("the Save window didn't close" .. where) end
+    end
     -- The notebook, every tab: nothing from the old story in there either.
     if week == 2 or week == 3 then
         local notes_view = require "game.ui.notes_view"
@@ -655,6 +690,15 @@ for week = 1, WEEKS do
     if not click_label("See how everyone felt") then problem("no report button" .. where) break end
     dump("6_report_w" .. week)
     scan("the report" .. where)
+    -- A save from the report, and overwriting one asks first.
+    if week == 1 then
+        if not click_key("save_game") then problem("no Save button on the report" .. where) end
+        if not click_key("save_slot2") then problem("no save slot on the report" .. where) end
+        click_key("save_slot1")
+        if not (app.saves_ui and app.saves_ui.confirm == "slot1") then problem("overwriting a save didn't ask first" .. where) end
+        click_key("saves_close")
+        if app.saves_ui then problem("the Save window didn't close" .. where) end
+    end
     marks_seen = marks_seen + #((c.report and c.report.museum and c.report.museum.marks) or {})
     if click_key("level_up") then
         dump("6b_levelup_w" .. week)
@@ -680,8 +724,35 @@ end
 if not boss_seen then problem("there was never a boss night") end
 if app.campaign.level < 3 then problem("the party never levelled up (level " .. tostring(app.campaign.level) .. ")") end
 
--- A fresh launch offers to carry on (the museum's own save slot).
 if thoughts_seen == 0 then problem("nobody at the table ever had a thought") end
+local final_ending, final_level = app.campaign.adv and app.campaign.adv.ending, app.campaign.level
+-- A fresh launch: the main menu offers Continue, Load and New game, and Load picks up the save
+-- made on the first prep board, right where it was.
+do
+    local self2 = {}
+    local ok2, e2 = pcall(init, self2)
+    if not ok2 then problem("relaunch: " .. tostring(e2)) end
+    self.app = self2.app
+    app = self.app
+    click_key("agree")
+    dump("9_title_saved")
+    scan("the title with saves")
+    if not has_key("continue") then problem("the title doesn't offer to continue") end
+    if not has_key("load_game") then problem("the title doesn't offer Load with saves there") end
+    if not has_key("new_campaign") then problem("the title doesn't offer a new game next to Continue") end
+    if not click_key("load_game") then problem("no Load button") end
+    if not (app.saves_ui and app.saves_ui.mode == "load") then problem("the Load window didn't open") end
+    dump("9_load")
+    scan("the Load window")
+    if not has_key("load_auto") then problem("the autosave isn't in the Load list") end
+    if not has_key("load_slot2") then problem("the report's save isn't in the Load list") end
+    if not click_key("load_slot1") then
+        problem("the prep board's save isn't in the Load list")
+    elseif app.screen ~= "prep" or app.campaign.week ~= 1 or not app.campaign.at_prep then
+        problem("loading the first prep board's save didn't go back to it (" .. tostring(app.screen) .. ", week "
+            .. tostring(app.campaign.week) .. ")")
+    end
+end
 if tr_file then tr_file:close(); tr_file = nil end
 if kit.audit then
     local seen, n = {}, 0
@@ -696,8 +767,35 @@ if kit.audit then
     end
     print(n .. " different texts cut short")
 end
+if GLOSS then
+    local gloss = require "game.ui.gloss"
+    local words = dofile("tools/tests/gloss_words.lua")
+    local missing = {}
+    for t, where in pairs(GLOSS.seen) do
+        for _, w in ipairs(words) do
+            if string.find(t, w[1]) then
+                local tags = GLOSS.glossed[t]
+                local found = tags and gloss.find(t, tags, {}, {}, 99) or {}
+                local hit = (kit.gloss_covered or {})[t] ~= nil or (GLOSS.boxed or {})[t] ~= nil
+                    or (kit.gloss_audit[t] and not (kit.gloss_covered or {})[t] and true) or false
+                for _, f in ipairs(found) do
+                    hit = hit or (f[3].id == w[2])
+                end
+                if not hit then
+                    local k = w[2] .. " @ " .. where
+                    missing[k] = missing[k] or ((tags and "term not found: " or "no hover: ") .. (string.gsub(t, "\n", " ")))
+                end
+            end
+        end
+    end
+    local keys = {}
+    for k in pairs(missing) do table.insert(keys, k) end
+    table.sort(keys)
+    for _, k in ipairs(keys) do print("GLOSS  " .. k .. "  |  " .. string.sub(missing[k], 1, 140)) end
+    print(#keys .. " game words on screen without a hover")
+end
 print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d, thoughts %d (opened %d, answered %d)", SEED, nights,
-    tostring(app.campaign.adv and app.campaign.adv.ending), marks_seen, app.campaign.level, thoughts_seen, thoughts_opened,
+    tostring(final_ending), marks_seen, final_level, thoughts_seen, thoughts_opened,
     thoughts_answered))
 if #problems > 0 then
     for _, p in ipairs(problems) do print("PROBLEM: " .. p) end

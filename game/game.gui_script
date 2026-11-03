@@ -24,6 +24,7 @@ local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
+local saves_view = require "game.ui.saves_view"
 local talk_view = require "game.ui.talk_view"
 local book_view = require "game.ui.book_view"
 local planner_view = require "game.ui.planner_view"
@@ -156,22 +157,43 @@ local function write_file(path, text)
     return false
 end
 
-local function save_campaign(app)
+-- What the Load list shows about a save: when it was made, and where the story stood.
+local function save_meta(app)
+    local where
+    local c = app.campaign
+    if c and c.adv then
+        local ok, w = pcall(require("game.model.adventure").where, c)
+        where = ok and w or nil
+    end
+    local done = c and c.module and require("game.model.museum_week").done(c) and not c.slice_survey_done
+    return { time = os.time(), where = where, done = done or nil }
+end
+
+-- Save the campaign to a file: the autosave unless a path is given (a save slot, November 3).
+local function save_campaign(app, path)
+    path = path or app.save_path
     local ok, err = pcall(function()
-        local text = save.dump(app.campaign)
-        assert(write_file(app.save_path, text), "couldn't write " .. tostring(app.save_path))
+        local text = save.dump(app.campaign, save_meta(app))
+        assert(write_file(path, text), "couldn't write " .. tostring(path))
     end)
     if not ok then
         write_playtest_line({ log_path = sys.get_save_file("behind_the_screen", "error_log.txt") }, "save: " .. tostring(err))
     end
-    return ok
+    return ok, err
 end
 
--- The saved campaign, if there is one: { head = { week, seed, ... }, text = ... }.
--- The save, or if the game stopped halfway through swapping files, the new one still
--- waiting as .tmp or the previous one as .bak.
-local function find_save(app)
-    for _, path in ipairs({ app.save_path, app.save_path .. ".tmp", app.save_path .. ".bak" }) do
+-- The saves (November 3): the autosave, which keeps the museum's own file, so a campaign saved
+-- before this version is the autosave, and three slots for saves the DM makes.
+local SLOTS = { "slot1", "slot2", "slot3" }
+
+-- A saved campaign at this path, if there is one: { head = { week, seed, time, where, ... },
+-- text = ..., path = ... }. The save, or if the game stopped halfway through swapping files,
+-- the new one still waiting as .tmp or the previous one as .bak.
+local function find_save(path)
+    if not path then
+        return nil
+    end
+    for _, path in ipairs({ path, path .. ".tmp", path .. ".bak" }) do
         local ok, found = pcall(function()
             local f = io.open(path, "rb")
             if not f then
@@ -180,7 +202,7 @@ local function find_save(app)
             local text = f:read("*a")
             f:close()
             local head = save.peek(text)
-            return head and { head = head, text = text } or nil
+            return head and { head = head, text = text, path = path } or nil
         end)
         if ok and found then
             return found
@@ -275,6 +297,9 @@ local function build_screen(self)
     if app.ask then
         ask_view.draw(app)
     end
+    if app.saves_ui then
+        saves_view.draw(app)    -- Load (the title) or Save (prep, the report), over everything
+    end
     review_view.rebuild(app)
     guide_view.refresh(app)   -- the first-session tips, on top
 end
@@ -312,28 +337,65 @@ function init(self)
     self.app = app
     -- Its own save slot, so the October builds' campaigns are left alone.
     app.save_path = sys.get_save_file("behind_the_screen", "museum_save.txt")
+    app.slot_paths = {}
+    for _, id in ipairs(SLOTS) do
+        app.slot_paths[id] = sys.get_save_file("behind_the_screen", "museum_" .. id .. ".txt")
+    end
+    app.broken_saves = {}
     app.new_campaign = function()
         app.campaign = campaign_mod.new(os.time())
         adventure.enter(app.campaign)
+        app.saves_ui = nil
         app.go("session_zero")
     end
-    app.resume = find_save(app)
+    -- Every save, autosave first: { id, name, path, found, broken }. app.resume is the newest
+    -- one that opens: what Continue picks up.
+    app.scan_saves = function()
+        local list = { { id = "auto", name = "Autosave", path = app.save_path } }
+        for i, id in ipairs(SLOTS) do
+            table.insert(list, { id = id, name = "Save " .. i, path = app.slot_paths[id] })
+        end
+        local newest
+        for _, sv in ipairs(list) do
+            sv.found = find_save(sv.path)
+            sv.broken = sv.found and app.broken_saves[sv.found.path] or nil
+            if sv.found and not sv.broken and (not newest or (sv.found.head.time or 0) > (newest.head.time or 0)) then
+                newest = sv.found
+            end
+        end
+        app.save_list = list
+        app.resume = newest
+        return list
+    end
+    app.scan_saves()
     app.save_campaign = function()
         return save_campaign(app)
     end
-    -- Pick the saved campaign back up: next week's prep, or the end of the first act if
-    -- they stopped before its survey.
-    app.continue_campaign = function()
-        local c, err = save.load(app.resume and app.resume.text)
+    -- A save the DM makes, into one of the slots (from the prep board or the report).
+    app.save_to_slot = function(id)
+        local ok, err = save_campaign(app, app.slot_paths[id])
+        app.scan_saves()
+        return ok, err
+    end
+    -- Pick a saved campaign back up (the newest, or one from the Load list): next week's prep,
+    -- or the end of the prologue if they stopped before its survey.
+    app.load_save = function(found)
+        local c, err = save.load(found and found.text)
         if not c then
-            app.resume = nil
+            if found then
+                app.broken_saves[found.path] = tostring(err)
+            end
             app.resume_error = tostring(err)
+            app.saves_ui = nil
+            app.scan_saves()
             build_screen(self)
             return
         end
         adventure.enter(c)
         app.campaign = c
         app.resume = nil
+        app.resume_error = nil
+        app.saves_ui = nil
         if c.at_night and c.prep then
             -- Saved at "Run game night": the same board, the same night, from its start.
             app.go("night")
@@ -347,6 +409,9 @@ function init(self)
         else
             app.go("prep")
         end
+    end
+    app.continue_campaign = function()
+        app.load_save(app.resume)
     end
     -- Development builds read the dialogue straight from the project folder when they
     -- can find it, so the review mode's decisions land in lines.json.
@@ -741,6 +806,17 @@ function on_input(self, action_id, action)
         end
         return true
     end
+    -- The saves window (Load on the title, Save in prep and on the report): Esc closes it, and
+    -- nothing else takes a key while it's open.
+    if app.saves_ui then
+        if action_id == A.back and action.pressed then
+            guard(self, saves_view.close, app)
+        end
+        if action_id == A.touch and action.pressed then
+            guard(self, kit.on_click, action.x, action.y)
+        end
+        return true
+    end
     -- The DM's notes, a character sheet or the encounter builder: Esc closes, N opens the notes.
     if app.overlay and action_id == A.back and action.pressed then
         guard(self, app.close_overlay)
@@ -867,11 +943,13 @@ function on_input(self, action_id, action)
         elseif app.convo then
             return true
         elseif s == "intro" then
-            -- Enter takes the main button: Continue when there's a save, else Session Zero.
-            if app.resume then
+            -- Enter takes the main button: Continue when there's a save, else a new game.
+            if not app.notice_ok then
+                return true
+            elseif app.resume then
                 guard(self, app.continue_campaign)
             else
-                guard(self, app.go, "planner")
+                guard(self, app.new_campaign)
             end
             return true
         elseif s == "planner" then

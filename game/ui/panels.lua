@@ -135,6 +135,14 @@ function M.draw(app, on_click)
             chip.num = kit.text(rx + ROLL_W / 2, y + 33, "", "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
             chip.what = kit.text(rx + ROLL_W / 2, y + 58, "no rolls yet", "ui14", theme.faint, { pivot = gui.PIVOT_N })
             chip.res = kit.text(rx + ROLL_W / 2, y + 76, "", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+            -- What the last roll's numbers mean, on hover (the hover audit, November 3): the words
+            -- change with every roll, so one card for the whole box.
+            local gl = require("game.ui.gloss")
+            if gl.card_spot then
+                gl.card_spot(rx, y + 8, ROLL_W, h - 16, "Their last roll",
+                    "The die, what it was for, and the total against what it needed: AC is how hard the target is to hit, "
+                    .. "DC the number a check or a save has to reach. Green: it worked. Red: it didn't. Gold: a natural 20.")
+            end
             -- Their dice (grey to start; a gift or a set they bought shows here).
             chip.dice = kit.picture(rx + ROLL_W - 22, y + 11, 18, 18,
                 "dice_" .. require("game.model.dice_sets").of(app.campaign, p.key))

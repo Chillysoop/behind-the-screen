@@ -160,16 +160,10 @@ that describes another room. Design for: every location line reads the party's p
 
 ## Still open from the museum (fix or design around)
 
-- **Long walks.** On big boards, several rounds pass with heroes walking and nothing said. A charmed
-  hero whose only reachable foe is the one who charmed him looks idle.
-- **Killing-blow credit.** Handing the killing blow to another player narrates their hero landing it,
-  while the dice log shows who did.
 - **Small numbers.** Duration rounding differs between two report lines. The spotlight conflict line
   can disagree with that night's spotlight.
 - **Thoughts.** Two friends can have the same thought word for word. A "good news" mood line can read
   as sarcastic.
-- **Jargon.** "Breezy" and "Deadly" danger labels, "SECRET CHECK", and other rules words without a
-  hover.
 
 ## Checklist when the longer adventure lands
 
@@ -313,3 +307,20 @@ The friends:
 
 Still the same every run: the subclass picks, settle-up approaches, goodbyes and most room chat lines. These
 are the next candidates.
+
+### Fixed November 3
+
+- **Saves.** Autosave plus three slots of your own; the title is Continue, Load, New game.
+- **Barks fit the moment** (`game/model/barks.lua`). A library line has to be true now (no "natural twenty" on a
+  19, no "who's next" after the last foe), and lines are made from the moment itself (the foe, the weapon, how many
+  are left, who healed whom). Made lines don't repeat in a night, or in three weeks. Keyed `night:fresh` lists
+  remember across weeks too.
+- **Long walks and charmed heroes.** A round of only walking gets the DM's word on where things stand; a charmed
+  hero who won't attack says why. Status rings on the mat show the effect on each mini.
+- **The killing blow, handed off,** is told by the friend it's handed to, about the blow that landed: the dice log
+  and the words agree (`killing_blows.told`).
+- **Every game word has a hover.** The glossary is on everywhere by default, captions and the fight HUD's tags
+  included; `GLOSS_AUDIT=1` on the smoke test lists any word on screen without one (none, over eight seeds).
+
+For the longer adventure: give its new words (its money, its boss's card) a `MODULE.glossary` entry, and add any
+new rules words to `tools/tests/gloss_words.lua` so the audit catches them.

@@ -105,7 +105,7 @@ local function between(app)
         kit.dot(COL_L + 14, y + 14, 26, panels.COLORS[m.key] or theme.panel3)
         kit.picture(COL_L + 2, y + 2, 24, 24, panels.face(m.key))
         kit.text(COL_L + 36, y, m.who, "ui14", theme.dim)
-        kit.text(COL_L + 36, y + 18, m.text, "ui18", m.request and theme.gold or theme.text, { w = COL_LW - 50 })
+        kit.text(COL_L + 36, y + 18, m.text, "ui18", m.request and theme.gold or theme.text, { w = COL_LW - 50, gloss = false })
         y = y + h + 18
     end
     local x, w = 460, 760
@@ -807,6 +807,10 @@ local function top_bar(app, prep)
     local c = app.campaign
     kit.box(0, 0, kit.W, 66, theme.bg, { round = false })
     kit.text(24, 14, "SESSION " .. util.int(c.week), "title30", theme.gold)
+    -- Save to a slot of your own (November 3); the board autosaves too.
+    kit.button(24 + kit.width("SESSION " .. util.int(c.week), "title30") + 14, 18, 72, 30, "Save", function()
+        util.lazy("game.ui.saves_view").open(app, "save")
+    end, { font = "ui14", key = "save_game" })
     kit.text(300, 12, string.upper(MODULE.title), "ui14", theme.gold)
     kit.text(300, 32, prep.museum.boss and "Boss night: Euryale is waiting at the top of the stairs." or adventure.where(c),
         "ui18", theme.dim, { w = 520, lines = 1 })

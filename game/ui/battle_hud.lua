@@ -28,6 +28,44 @@ local function post(id, data)
     msg.post(TABLE, id, data or {})
 end
 
+-- The status ring on the mat (November 3): the effect that matters most on a mini, in a colour of
+-- its own, so a charmed hero doesn't just look idle. Prone and Unconscious already show (the mini
+-- tips over). The condition tag under the mini's bar takes the same colour. { key, colour }
+local RING = {
+    { "petrified", vmath.vector4(0.72, 0.74, 0.8, 0.95) }, { "turning to stone", vmath.vector4(0.72, 0.74, 0.8, 0.95) },
+    { "charmed", vmath.vector4(0.98, 0.45, 0.85, 0.9) },
+    { "paralyzed", vmath.vector4(1.0, 0.88, 0.3, 0.9) }, { "stunned", vmath.vector4(1.0, 0.88, 0.3, 0.9) },
+    { "frightened", vmath.vector4(1.0, 0.6, 0.2, 0.9) },
+    { "restrained", vmath.vector4(0.8, 0.58, 0.32, 0.9) }, { "grappled", vmath.vector4(0.8, 0.58, 0.32, 0.9) },
+    { "poisoned", vmath.vector4(0.45, 0.85, 0.35, 0.9) },
+    { "blinded", vmath.vector4(0.45, 0.55, 0.95, 0.9) }, { "deafened", vmath.vector4(0.45, 0.55, 0.95, 0.9) },
+    { "invisible", vmath.vector4(0.85, 0.92, 1.0, 0.55) },
+    { "bless", vmath.vector4(1.0, 0.85, 0.4, 0.8) }, { "bane", vmath.vector4(0.6, 0.3, 0.7, 0.85) },
+}
+M.RING = RING
+local NO_RING = { prone = true, unconscious = true, incapacitated = true }
+
+function M.ring_for(effects)
+    local seen = {}
+    for _, v in pairs(effects or {}) do
+        for part in string.gmatch(string.lower(v), "[^,]+") do
+            seen[(string.gsub(part, "^%s+", ""))] = true
+        end
+    end
+    for _, r in ipairs(RING) do
+        if seen[r[1]] then
+            return r[1], r[2]
+        end
+    end
+    -- Anything else with a name of its own (Burning, Targeted): a plain magic purple.
+    for part in pairs(seen) do
+        if not NO_RING[part] and part ~= "" then
+            return part, vmath.vector4(0.72, 0.5, 1.0, 0.85)
+        end
+    end
+    return nil, nil
+end
+
 local function state(app)
     app.hud = app.hud or { minis = {}, order = {}, turn = nil }
     return app.hud
@@ -88,6 +126,7 @@ function M.stop(app)
     st.order_spot, st.boss_spot = nil, nil
     st.minis, st.order, st.turn, st.round = {}, {}, nil, nil
     post("area_end", {})
+    post("status_clear", {})      -- the fight's rings go with it
     M.draw(app)
 end
 
@@ -127,6 +166,12 @@ function M.condition(app, id, name, conds, on)
         m.effects[name or "?"] = table.concat(labels, ", ")
     else
         m.effects[name or "?"] = nil
+    end
+    -- The ring on the mat follows the effect that matters most, or goes.
+    local key, color = M.ring_for(m.effects)
+    if key ~= m.ring then
+        m.ring, m.ring_color = key, color
+        post("status", { id = id, color = color })
     end
     M.draw(app)
 end
@@ -193,7 +238,7 @@ function M.draw(app)
             n.fill = kit.box(0, 0, BAR_W, BAR_H, theme.green, { round = false })
             local label = m.boss and m.name or nil
             n.name = kit.text(0, 0, label and kit.ellipsize(label, "ui14", 260) or "", "ui14", theme.text,
-                { pivot = gui.PIVOT_S })
+                { pivot = gui.PIVOT_S, gloss = false })
             -- Condition tags: each condition once, short, and nudged apart in place() (A7).
             local cond, seen = {}, {}
             for _, v in pairs(m.effects or {}) do
@@ -220,7 +265,23 @@ function M.draw(app)
             end
             ctext = kit.ellipsize(ctext, "ui14", 130)
             m.cond_w = ctext ~= "" and kit.width(ctext, "ui14") or 0
-            n.cond = kit.text(0, 0, ctext, "ui14", theme.purple, { pivot = gui.PIVOT_N })
+            n.cond = kit.text(0, 0, ctext, "ui14", m.ring_color and vmath.vector4(m.ring_color.x, m.ring_color.y, m.ring_color.z, 1)
+                or theme.purple, { pivot = gui.PIVOT_N, gloss = false })
+            -- The tag explains itself on hover (the hover audit, November 3), wherever it has moved to.
+            local first = ctext ~= "" and gloss.find(ctext, true, {}, {}, 1)[1]
+            if first then
+                local t = first[3]
+                kit.gloss_covered = kit.gloss_covered or {}
+                kit.gloss_covered[ctext] = true
+                n.cond_spot = kit.spot(0, 0, 0, 0, function(sp, on)
+                    if on then
+                        local r = sp.rect
+                        gloss.show(t.plain, t.text, t.dnd, r[1], r[2], r[3], r[4])
+                    else
+                        gloss.hide()
+                    end
+                end, n.cond)
+            end
             m.n = n
             m.nodes = { n.back, n.fill, n.name, n.cond }
         end
@@ -300,6 +361,9 @@ function M.place(app)
         end
         table.insert(placed, { x, y, w })
         gui.set_position(m.n.cond, vmath.vector3(x, H - y, 0))
+        if m.n.cond_spot then
+            m.n.cond_spot.rect = { x - m.cond_w / 2 - 2, y, m.cond_w + 4, 18 }
+        end
     end
 end
 

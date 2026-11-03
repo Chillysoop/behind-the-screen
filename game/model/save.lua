@@ -125,8 +125,17 @@ local function path_src(p)
     return "{" .. table.concat(parts, ",") .. "}"
 end
 
--- campaign -> string
-function M.dump(campaign)
+-- A line of plain words for the save's header (what the Load list shows): no newlines, no quotes,
+-- plain ASCII.
+local function header_words(text)
+    text = string.gsub(tostring(text or ""), "[\r\n]+", " ")
+    text = string.gsub(text, "[^%w%s%.,:;!%?'%-%(%)]", "")
+    return string.sub(text, 1, 120)
+end
+
+-- campaign -> string. meta (optional): { time = os.time() when saved, where = a line on where the
+-- story stands, done = the adventure is over }, for the Load list; a save without them still loads.
+function M.dump(campaign, meta)
     local cls = classes()
     local class_name = {}
     for name, mt in pairs(cls) do
@@ -199,6 +208,15 @@ function M.dump(campaign)
     end
     local head = string.format("F=%d\nW=%d\nS=%s\nQ=%d\nN=%d\nP=%d\n", M.FORMAT, campaign.week or 0, num(campaign.seed or 0),
         campaign.slice_survey_done and 1 or 0, campaign.at_night and 1 or 0, (campaign.at_prep and not campaign.at_night) and 1 or 0)
+    if meta and meta.time then
+        head = head .. "D=" .. string.format("%d", meta.time) .. "\n"
+    end
+    if meta and meta.done then
+        head = head .. "X=1\n"
+    end
+    if meta and meta.where and meta.where ~= "" then
+        head = head .. "L=" .. header_words(meta.where) .. "\n"
+    end
     return head .. table.concat(out, "\n") .. "\n"
 end
 
@@ -280,8 +298,12 @@ function M.peek(src)
     if not (f and w) then
         return nil
     end
+    -- (The header ends where the tables start: D and L are only looked for before the first one.)
+    local head = string.match(src, "^(.-)\nT%[") or src
     return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil,
-             at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil }
+             at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil,
+             time = tonumber(string.match(head, "\nD=(%d+)")), where = string.match(head, "\nL=([^\n]*)"),
+             done = string.match(head, "\nX=1") ~= nil }
 end
 
 -- string -> campaign, or nil and why.

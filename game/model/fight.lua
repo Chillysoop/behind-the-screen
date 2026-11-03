@@ -18,6 +18,8 @@ local takeover = require "game.model.takeover"
 local maps = require "game.model.maps"
 local villains = require "game.model.villains"
 local museum = require "game.rules.museum"
+local barks = require "game.model.barks"
+local BARKS = require "game.data.barks"
 
 local M = {}
 
@@ -812,7 +814,36 @@ local function react(night, f, steps, who)
         line = nil
     end
     if line then
-        night:bark(line[1], line[2], line[3])
+        -- (The line is about this moment: who fell, to what, how many are left. game/model/barks.lua)
+        local extra = line[3] or {}
+        extra.moment = barks.from_steps(night, steps, who, line[1])
+        if line[2] == "ally_down" and downed then
+            extra.moment.ally = downed.name
+        end
+        night:bark(line[1], line[2], extra)
+    end
+    -- A charmed hero with nobody they're willing to hit doesn't just stand there in silence (the
+    -- playtest, Nov 2): the table hears why, once a fight for each hero.
+    if who and who.pc and not who.dead then
+        local charmer
+        for _, e in ipairs(who.effects or {}) do
+            if e.charmed_by then
+                charmer = e.charmed_by
+            end
+        end
+        local acted = false
+        for _, s in ipairs(steps) do
+            if (s.kind == "attack" or s.kind == "spell") and s.id == who.mini then
+                acted = true
+            end
+        end
+        f.charm_said = f.charm_said or {}
+        if charmer and not acted and not f.charm_said[who.mini] then
+            f.charm_said[who.mini] = true
+            local v = barks.fills({ charmer = barks.foe_label(charmer) }, nil)
+            v.char = who.name
+            night:say(util.fill(night:fresh(BARKS.charmed_captions, "charmed_caption"), v), "dm")
+        end
     end
     if crit and P and not boss_dead then
         night:table_behavior("after_crit", P)
@@ -1175,7 +1206,8 @@ function M.run(night, sc, plan)
             local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name }, src,
                 other and night.pcs and night.pcs[other.key] or nil)
             if o and o.kb then
-                night:killing_blow(o.kb == "actor" and actor or (o.kb == "other" and night.other) or nil, tgt, f.boss_name or tgt.name)
+                night:killing_blow(o.kb == "actor" and actor or (o.kb == "other" and night.other) or nil, tgt, f.boss_name or tgt.name,
+                    actor)
             end
             return total
         end
@@ -1232,6 +1264,30 @@ function M.run(night, sc, plan)
     opts.before_round = function(bb, r)
         night:flush_turn()
         night:emit({ kind = "round", round = r })
+        -- A round of nothing but walking on a big board gets the DM's word on where things stand
+        -- (the playtest, Nov 2: rounds passed in silence). Twice a fight at most.
+        if r >= 2 and f.round_busy == false and (f.walk_said or 0) < 2 then
+            local near
+            for _, c in ipairs(bb.creatures) do
+                if c.pc and not c.dead and not c.removed then
+                    for _, e in ipairs(bb.creatures) do
+                        if e.side == "foes" and not e.dead and not e.removed then
+                            local d = bb:dist(c, e)
+                            if d and (not near or d < near.d) then
+                                near = { d = d, foe = e }
+                            end
+                        end
+                    end
+                end
+            end
+            if near and near.d > 5 then
+                f.walk_said = (f.walk_said or 0) + 1
+                local v = barks.fills({ round = r, foe = barks.foe_label(near.foe), dist = math.floor(near.d / 5 + 0.5),
+                                        room = sc.comps and sc.comps.location and sc.comps.location.name or "room" }, nil)
+                night:say(util.fill(night:fresh(BARKS.walk_captions, "walk_caption"), v), "dm")
+            end
+        end
+        f.round_busy = false
         -- A long fight loses the story lovers (v2: what they think and don't say).
         if r >= 4 then
             require("game.model.thoughts").brew(night, true)
@@ -1240,7 +1296,8 @@ function M.run(night, sc, plan)
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
             -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.
             if not (night.rng:chance(0.5) and night:table_behavior("combat", nil, true)) then
-                night:bark(night.rng:pick(night.players), "fight_chat")
+                local q = night.rng:pick(night.players)
+                night:bark(q, "fight_chat", { moment = barks.from_fight(night, q) })
             end
         end
         if r >= 2 and r % 2 == 0 and f.boss and not f.boss.dead and plan.cast then
@@ -1372,6 +1429,11 @@ function M.run(night, sc, plan)
         local steps = night:flush_turn()
         if steps and #steps > 0 then
             react(night, f, steps, c)
+            for _, s in ipairs(steps) do
+                if s.kind ~= "move" then
+                    f.round_busy = true
+                end
+            end
         end
         -- A boss the DM prepped to yield ("She yields near the end"), beaten badly enough, asks to
         -- stop, and everything on her side stops with her; the yield card plays after the fight.

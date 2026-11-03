@@ -49,6 +49,7 @@ local deck = require "game.model.deck"
 local fails_mod = require "game.model.fails"
 local death_mod = require "game.model.death"
 local takeover = require "game.model.takeover"
+local barks = require "game.model.barks"
 local maps = require "game.model.maps"
 local villains = require "game.model.villains"
 local intros = require "game.model.intros"
@@ -504,10 +505,44 @@ function M:say(text, style, extra)
                        style = style or "narration" })
 end
 
--- A line from a list that hasn't been said tonight (A5): each one once before any repeats.
+-- A line from a list that hasn't been said tonight (A5): each one once before any repeats. With a
+-- key, the memory lasts across weeks (November 3: lines repeated from one session to the next):
+-- a line said in the last three sessions waits, and when every one has been said lately, the
+-- one said longest ago comes back first.
+M.FRESH_WEEKS = 3
+
 function M:fresh(list, key)
     if type(list) ~= "table" then
         return list
+    end
+    local camp = self.campaign
+    if key and camp then
+        camp.fresh_said = camp.fresh_said or {}
+        local said = camp.fresh_said[key] or {}
+        camp.fresh_said[key] = said
+        local week = camp.week or 0
+        local free, oldest, ow = {}, nil, nil
+        for i, l in ipairs(list) do
+            local w = type(l) == "string" and said[l] or nil
+            if not w or week - w >= M.FRESH_WEEKS then
+                table.insert(free, i)
+            elseif not ow or w < ow then
+                oldest, ow = i, w
+            end
+        end
+        -- (Said tonight beats said last week: tonight's never repeats while anything else is left.)
+        local i = (#free > 0 and self.rng:pick(free)) or oldest or 1
+        local l = list[i]
+        if type(l) == "string" then
+            said[l] = week
+        end
+        -- (Forget what's long past, so the save stays small.)
+        for t, w in pairs(said) do
+            if week - w >= 2 * M.FRESH_WEEKS then
+                said[t] = nil
+            end
+        end
+        return l
     end
     self.fresh_used = self.fresh_used or {}
     local used = self.fresh_used[key or tostring(list)] or {}
@@ -541,14 +576,23 @@ function M:cast_label(cast)
     return cast.name
 end
 
+-- extra.moment (a fight's moment, game/model/barks.lua): the line has to be true in it, and may
+-- be one made from it.
 function M:bark(p, trigger, extra)
     if not p then
         return
     end
     local v = self:vars(extra)
-    local text, line = self.talk:line(trigger, p, v)
+    local text, id
+    if extra and extra.moment then
+        text, id = barks.pick(self, trigger, p, extra.moment, v)
+    else
+        local line
+        text, line = self.talk:line(trigger, p, v)
+        id = line and line.id
+    end
     if text then
-        self:emit({ kind = "say", who = p.key, text = text, ic = talk_mod.in_character(trigger), line = line.id })
+        self:emit({ kind = "say", who = p.key, text = text, ic = talk_mod.in_character(trigger), line = id })
     end
     return text
 end
@@ -2688,7 +2732,9 @@ function M:killing_blow_other(actor, villain)
     return best
 end
 
-function M:killing_blow(p, tgt, boss_name)
+-- p: who describes it. by: the player whose hero landed it (the dice log's), when that's someone
+-- else: then p tells the moment, and the blow stays the one who landed it.
+function M:killing_blow(p, tgt, boss_name, by)
     local camp = self.campaign
     camp.killing_blows = camp.killing_blows or {}
     if not p then
@@ -2713,9 +2759,17 @@ function M:killing_blow(p, tgt, boss_name)
         pool = lines
     end
     local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = boss_name, char = p.char }))
+    -- Told for someone else's blow: the teller's words about it, never a swing of their own.
+    local told = by and by ~= p
+    if told then
+        local tl = (kb.told and (kb.told[p.key] or kb.told.mara)) or {}
+        local pick = tl[self.rng:int(1, math.max(1, #tl))]
+        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = by.char }))
+            or (by.char .. "'s blow lands, and " .. boss_name .. " falls.")
+    end
     -- The final hit answers the villain's taunt, if they taunted this player (the retort).
     local pid = tgt and tgt.person
-    local retort = pid and villains.retort(self, pid, p)
+    local retort = (not told) and pid and villains.retort(self, pid, p)
     if retort then
         line = retort
     end
@@ -2730,7 +2784,16 @@ function M:killing_blow(p, tgt, boss_name)
     score.add(p, "fun", kb.FUN * scale)
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "say", who = p.key, text = line, ic = true })
-    self:highlight(math.min(10, 8 + grudge), p.char .. " lands the killing blow on " .. boss_name, { p }, "killing_blow")
+    if told then
+        -- (The blow is the lander's in the log; the telling is the teller's best moment too.)
+        local text = by.char .. " brings down " .. boss_name .. ", and " .. p.name .. " tells it"
+        self:highlight(math.min(10, 8 + grudge), text, { by }, "killing_blow")
+        if not p.best or math.min(10, 8 + grudge) > p.best.score then
+            p.best = { score = math.min(10, 8 + grudge), text = text }
+        end
+    else
+        self:highlight(math.min(10, 8 + grudge), p.char .. " lands the killing blow on " .. boss_name, { p }, "killing_blow")
+    end
     if again then
         self:fairness_noticed(p, "killing_blow")
     end
@@ -4029,10 +4092,19 @@ function M:flush_turn()
             end
         end
         local trigger, at, target = self:turn_trigger(steps, who)
+        -- (A turn of only walking, on a big board: they say so, in their own words.)
+        local walking = #steps > 0
+        for _, s in ipairs(steps) do
+            walking = walking and s.kind == "move"
+        end
+        if walking then
+            trigger, at = "walk", "start"
+        end
         if p and trigger then
-            local text, line = self.talk:line(trigger, p, self:vars({ target = target }))
+            local mo = barks.from_steps(self, steps, who, p)
+            local text, id = barks.pick(self, trigger, p, mo, self:vars({ target = target }))
             if text then
-                ev.say = { who = p.key, text = text, ic = talk_mod.in_character(trigger), line = line.id, at = at }
+                ev.say = { who = p.key, text = text, ic = talk_mod.in_character(trigger), line = id, at = at }
             end
         end
     end

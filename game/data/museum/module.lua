@@ -1121,6 +1121,16 @@ M.answer_like = {
     reason = { tactician = 2, casual = 1, instigator = -1 },
     danger = { butt_kicker = 2, storyteller = 2, casual = -1 },
 }
+-- The museum's own words, explained on hover (game/ui/gloss.lua adds them to the rules glossary).
+M.glossary = {
+    { id = "francs", match = { "Flitwidget Francs", "FRANCS", "%f[%a]Francs?%f[%A]" }, plain = "Flitwidget Francs",
+      text = "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
+          .. "The party spends them in the gift shop." },
+    { id = "boss_card", match = { "Euryale's card", "EURYALE'S CARD", "[Hh]er card" }, plain = "Euryale's card",
+      text = "Everything the party does can put a mark on it: who fights beside her, what the party brings, how easily "
+          .. "she talks. Boss night plays what's on it." },
+}
+
 M.requests = {
     { id = "vorpal", who = "dev", after = "garden",
       ask = "real question. can {char} find a vorpal sword in this museum",

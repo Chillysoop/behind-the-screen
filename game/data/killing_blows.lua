@@ -66,4 +66,31 @@ return {
         { "I counted their weak points. They had one. I found it.", arch = "explorer" },
         { "Ray of Frost, and {boss} shatters like a dropped teacup." },
     },
+
+    -- Handed to someone else (November 3): {hero}'s blow is the one that lands (the dice said so),
+    -- and the friend it's handed to tells the moment. Their words, not their hero's swing: the
+    -- playtest, Nov 2, heard Pip land a blow the dice log gave to Brannoc. {hero} the one who
+    -- landed it, {boss} the one who falls, {char} the teller's own hero.
+    told = {
+        mara = {
+            { "I narrate. {hero}'s blow lands, {boss} looks almost surprised, and then it's very, very quiet." },
+            { "Can I describe it? {hero} strikes, and {char} sees it coming a second before {boss} does." },
+            { "It's {hero}'s blow, but I get the moment: {boss} sways, and I write the date in the margin." },
+        },
+        dev = {
+            { "{hero} hits it SO hard. Like, the whole room shakes. {boss} is done. I'm shaking the table." },
+            { "Okay, okay. {hero} winds up, and BAM. {boss} goes flying. {char} catches the hat." },
+            { "{hero} lands it. {char} just yells. That's my whole description. I yell." },
+        },
+        jess = {
+            { "Slow motion. {hero}'s strike lands, {boss} topples like a very expensive vase, and {char} catches a coin on the way down." },
+            { "{hero} does the hit, I do the commentary: 'And {boss} is DOWN, folks!'" },
+            { "Picture it. {hero}, one perfect blow. {boss}, one perfect fall. {char}, already checking its pockets." },
+        },
+        sam = {
+            { "{hero} gets it. {boss} goes down. {char} just says 'nice' really quietly." },
+            { "Um. {hero}'s blow lands, and {boss} sort of... sighs, and falls over? That's mine." },
+            { "{hero} finishes it, and {char} says a little prayer for {boss}. Even bosses get one." },
+        },
+    },
 }

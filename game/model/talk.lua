@@ -82,7 +82,8 @@ end
 -- vars may carry other_key (lines written for that pair are preferred), split
 -- (the tier or mood for split triggers), must (repeat a line rather than say
 -- nothing) and any {placeholders}.
-function M:line(trigger, p, vars)
+-- fits (optional): a test a line must pass to be true right now (game/model/barks.lua).
+function M:line(trigger, p, vars, fits)
     if not p then
         return nil
     end
@@ -99,7 +100,7 @@ function M:line(trigger, p, vars)
     end
     local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
                   present = self.present, chars = self.chars, openers = self.openers,
-                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again }
+                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again, fits = fits }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
         -- Some things always get said (a warning before someone takes a break), even if it's a repeat.

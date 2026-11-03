@@ -305,6 +305,10 @@ function M:pick(trigger, speaker, ctx)
         if ok and ctx.first_week and l.looks_back then
             ok = false
         end
+        -- (A line that has to be true in this moment: game/model/barks.lua.)
+        if ok and ctx.fits and not ctx.fits(l) then
+            ok = false
+        end
         if ok and l.again and ctx.again == false then
             ok = false
         end

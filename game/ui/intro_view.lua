@@ -2,7 +2,6 @@
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
-local content = require "game.model.content"
 
 local M = {}
 
@@ -40,7 +39,7 @@ function M.build(app)
     if not app.notice_ok then
         return notice(app)
     end
-    local x, y, w, h = 470, 120, 660, 660
+    local x, y, w, h = 470, 90, 660, 720
     kit.box(x, y, w, h, kit.rgba("#1b1411", 0.92), { radius = 14 })
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })
     kit.text(x + w / 2, y + 74, "A cozy game about running the table for your friends", "ui18", theme.dim, { pivot = gui.PIVOT_N })
@@ -49,7 +48,7 @@ function M.build(app)
         { "Game night", "It plays itself, room by room. When a card slides across your screen, you make the call. The party picks the way at forks." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
         { "Between", "Answer their requests, decide where loose ends go, and watch the Gorgon's card change with everything they do." },
-        { "This build", "Session Zero, then The Museum of Nightmares: a one-shot prologue that runs as many sessions as it needs." },
+        { "This build", "Session Zero, then The Museum of Nightmares, played over as many sessions as your table needs." },
     }
     local ly = y + 120
     for _, l in ipairs(lines) do
@@ -57,34 +56,33 @@ function M.build(app)
         kit.text(x + 160, ly, l[2], "ui18", theme.text, { w = w - 200 })
         ly = ly + kit.text_height(l[2], "ui18", w - 200) + 18
     end
+    -- The main menu (November 3): Continue (the newest save), Load (any save), New game.
     local saved = app.resume and app.resume.head
+    local any = false
+    for _, sv in ipairs(app.save_list or {}) do
+        any = any or sv.found ~= nil
+    end
+    local bw, by = 420, y + h - 176
     if saved then
-        -- A campaign saved between sessions (M7): carry on, or start a new one.
-        local sessions = content.arc.SESSIONS
-        local label
-        if content.arc.module then
-            -- v2: the museum runs as many sessions as it takes.
-            label = saved.at_night and ("Continue: Session " .. saved.week .. " night  >")
-                or (saved.at_prep and ("Continue: Session " .. saved.week .. " prep  >"))
-                or ("Continue: Session " .. (saved.week + 1) .. "  >")
-        elseif saved.at_night then
-            label = "Continue: Session " .. saved.week .. " night  >"   -- saved at Run game night
-        elseif saved.at_prep then
-            label = "Continue: Session " .. saved.week .. " prep  >"    -- saved mid-prep (A11)
-        elseif saved.week >= sessions and not saved.survey_done then
-            label = "Continue: end of the first act  >"
-        elseif saved.week >= sessions then
-            label = "Continue: Session " .. (saved.week + 1) .. "  >"
-        elseif saved.week == 0 then
-            label = "Continue: Session 1 of " .. sessions .. "  >"
-        else
-            label = "Continue: Session " .. (saved.week + 1) .. " of " .. sessions .. "  >"
-        end
-        kit.button(x + 50, y + h - 110, 340, 56, label, function()
+        local label = (saved.done and "Continue: your table's journey  >")
+            or saved.at_night and ("Continue: Session " .. saved.week .. " night  >")
+            or (saved.at_prep and ("Continue: Session " .. saved.week .. " prep  >"))
+            or ("Continue: Session " .. (saved.week + 1) .. "  >")
+        kit.button(x + (w - bw) / 2, by, bw, 56, label, function()
             app.continue_campaign()
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "continue" })
+    else
+        kit.button(x + (w - bw) / 2, by, bw, 56, "New game  >", function()
+            app.new_campaign()
+        end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "session_zero" })
+    end
+    local hw = (any or saved) and (bw - 12) / 2 or bw
+    kit.button(x + (w - bw) / 2, by + 68, hw, 44, any and "Load" or "Load (no saves yet)", function()
+        require("game.ui.saves_view").open(app, "load")
+    end, { font = "ui18b", key = "load_game", enabled = any })
+    if saved or any then
         -- Two clicks: the first only asks, so a stray click can't start over.
-        kit.button(x + 410, y + h - 110, 200, 56, app.confirm_new and "Yes, start over" or "New campaign", function()
+        kit.button(x + (w - bw) / 2 + hw + 12, by + 68, hw, 44, app.confirm_new and "Yes, start over" or "New game", function()
             if app.confirm_new then
                 app.confirm_new = nil
                 app.new_campaign()
@@ -93,21 +91,17 @@ function M.build(app)
                 app.refresh()
             end
         end, { font = "ui18b", key = "new_campaign", color = app.confirm_new and theme.red or nil })
-    else
-        kit.button(x + w / 2 - 150, y + h - 110, 300, 56, "Session Zero  >", function()
-            app.new_campaign()
-        end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "session_zero" })
     end
     local foot
     if app.resume_error then
-        foot = "The saved campaign couldn't be opened (" .. app.resume_error .. "). Start a new one."
-    elseif saved and app.confirm_new then
-        foot = "Click again to start over. Your saved campaign is replaced once you finish the new Session Zero."
-    elseif saved then
-        foot = "A new campaign replaces the saved one once you finish its Session Zero."
+        foot = "A saved game couldn't be opened (" .. app.resume_error .. "). Try another in Load, or start a new one."
+    elseif any and app.confirm_new then
+        foot = "Click again to start over. Your saves stay in Load; the autosave is replaced once the new Session Zero is done."
+    elseif any then
+        foot = "Continue picks up your newest save. Load has the autosave and your own three slots."
     else
         -- (The developer keys aren't the player's business: October 20.)
-        foot = "The game saves after every session, so you can stop and pick it up later."
+        foot = "The game saves on its own as you play, and you can save to one of three slots from prep or the report."
     end
     kit.text(x + w / 2, y + h - 40, foot, "ui14", app.resume_error and theme.orange or theme.faint,
         { pivot = gui.PIVOT_N, w = w - 60 })

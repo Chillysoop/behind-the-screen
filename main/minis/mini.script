@@ -33,6 +33,10 @@ local function place_followers(self, p)
     if self.base then
         go.set_position(vmath.vector3(p.x, scene.grid.y, p.z), self.base)
     end
+    -- A status ring (November 3) rides along with the base.
+    if self.ring then
+        go.set_position(vmath.vector3(p.x, scene.grid.y + 0.08, p.z), self.ring)
+    end
     if self.shadow then
         local L = state.lamp_pos
         local dx, dz = p.x - L.x, p.z - L.z
@@ -167,6 +171,8 @@ function on_message(self, message_id, message)
             self.lunge_time = 0
             self.lunge_dur = message.time or 0.32
         end
+    elseif message_id == hash("ring") then
+        self.ring = message.ring
     elseif message_id == hash("hit") then
         self.flash = 1
     elseif message_id == hash("glow") then

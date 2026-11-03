@@ -37,17 +37,74 @@ local function applies(t, tags)
     return false
 end
 
+-- The terms: the shared ones, then the adventure's own (MODULE.glossary: its money, its boss's
+-- card), which come and go with the adventure.
+local function terms()
+    local ok, adv = pcall(require, "game.model.adventure")
+    local mod = ok and adv.data and adv.data.glossary
+    if not mod then
+        return data
+    end
+    if M.merged_for ~= mod then
+        M.merged, M.merged_for = {}, mod
+        for _, t in ipairs(mod) do
+            table.insert(M.merged, t)
+            M.by_id[t.id] = t
+        end
+        for _, t in ipairs(data) do
+            table.insert(M.merged, t)
+        end
+    end
+    return M.merged
+end
+M.terms = terms
+
+-- A quick test before a pattern runs: the longest run of plain letters a pattern needs, looked
+-- for as plain text (November 3: the glossary is on for every screen now, so every piece of text
+-- goes through every term). "" when the pattern has none worth checking.
+local needle_of = {}
+local function needle(p)
+    local n = needle_of[p]
+    if n then
+        return n
+    end
+    local best = ""
+    -- (Drop frontiers, sets and escapes first; what's left between magic characters is literal.)
+    local plain = string.gsub(p, "%%f%b[]", " ")
+    plain = string.gsub(plain, "%b[]", " ")
+    plain = string.gsub(plain, "%%.", " ")
+    for run in string.gmatch(plain, "[%a']+") do
+        if #run > #best then
+            best = run
+        end
+    end
+    -- A run followed by ?, * or - in the pattern isn't certain: only trust runs of 3 or more that
+    -- aren't right before one.
+    local at = best ~= "" and string.find(p, best, 1, true)
+    local after = at and string.sub(p, at + #best, at + #best)
+    if #best < 3 or after == "?" or after == "*" or after == "-" then
+        best = ""
+    end
+    needle_of[p] = best
+    return best
+end
+M.needle = needle
+
 -- The terms in one line of text: { { s, e, term } }, at most one per term, never overlapping.
 function M.find(line, tags, used, out, limit)
     out = out or {}
     used = used or {}
-    for _, t in ipairs(data) do
+    for _, t in ipairs(terms()) do
         if #out >= limit then
             break
         end
         if not used[t.id] and applies(t, tags) then
             for _, p in ipairs(t.match) do
-                local s, e = string.find(line, p)
+                local nd = needle(p)
+                local s, e
+                if nd == "" or string.find(line, nd, 1, true) then
+                    s, e = string.find(line, p)
+                end
                 if s then
                     -- Trim a pattern's edges that aren't the word itself.
                     while e > s and string.find(string.sub(line, e, e), "[%s%p]") and not string.find(string.sub(line, e, e), "[%+%-/!]") do
@@ -209,6 +266,8 @@ function M.card_spot(x, y, w, h, title, text, dnd, node)
 end
 
 kit.gloss_hook = M.hook
+-- Every screen that doesn't choose its own: every term but the old lore screen's story words.
+kit.gloss_default = { fight = true, table = true, report = true, sheet = true }
 
 -- Draw with the glossary on for these tags ({ fight = true }, or true for every term).
 function kit.gloss_scope(tags, fn)

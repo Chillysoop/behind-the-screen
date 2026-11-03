@@ -217,7 +217,12 @@ function M.text(x, y, str, font, color, opts)
         str = table.concat(lines, "\n")
     end
     -- Rules words in it light up for a hover explanation (game/ui/gloss.lua), where asked.
-    local tags = opts.gloss or M.gloss_tags
+    -- (November 3: on everywhere by default, every game word explained where it stands. Speech,
+    -- the chat and text that moves after it's drawn turn it off: opts.gloss = false.)
+    if opts.gloss == false and M.gloss_audit then
+        M.gloss_audit[str] = true     -- (plain on purpose: speech, the chat; the hover audit skips it)
+    end
+    local tags = opts.gloss or M.gloss_tags or M.gloss_default
     if tags and M.gloss_hook and not opts.scale and opts.gloss ~= false and str ~= "" then
         M.gloss_hook(x, y, str, font, color, opts.pivot or gui.PIVOT_NW, tags)
     end

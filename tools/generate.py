@@ -778,7 +778,9 @@ def main():
                                       ("base_factory", "/main/table/base.factory"),
                                       ("shadow_factory", "/main/table/shadow.factory"),
                                       ("spark_factory", "/main/table/spark.factory"),
-                                      ("mark_factory", "/main/table/mark.factory")]))
+                                      ("mark_factory", "/main/table/mark.factory"),
+                                      ("ring_factory", "/main/table/ring.factory")]))
+    w("main/table/ring.factory", 'prototype: "/main/fx/ring.go"\n')     # status rings (tools/gen_ring.py)
 
     # sprites: atlas, minis, people (with poses), glows
     import gen_sprites_a13

@@ -35,6 +35,9 @@ Where v2 lives:
 | `game/ui/museum_*.lua` | The hooks page, the prep board (the museum as the book's floor plans) and showdown board, the journey recap. |
 | `tools/maps/`, `game/data/maps/*.map`, `game/data/map_library.lua` | The map import pipeline (`tools/maps/README.md`): a book's map image to a draft, a draft to a hand-finished `.map` spec, specs built into the map library, which `game/data/boards.lua` merges into its boards. The museum's ten rooms are specs here; `game/data/terrain.lua` points the `mus_*` places at them. Never copy a book's art or text: our pieces, our words. |
 | `game/rules/museum.lua` | The museum's monsters' special rules (with the stat blocks in `game/rules/data/monsters.lua`). |
+| `game/ui/saves_view.lua` | Saving and loading (November 3): the autosave (the museum's own file, `museum_save.txt`) and three slots of your own (`museum_slot1..3.txt`). The title is Continue (the newest save), Load, New game; Save is on the prep board and the report. A save's header carries when it was made and where the story stood (`save.dump(c, meta)`, `save.peek`). |
+| `game/model/barks.lua`, `game/data/barks.lua` | Fight barks that fit the moment (November 3): a line is checked against what just happened (`fits`: "natural twenty" needs a 20, "who's next" needs foes left), and lines are made from the moment in each friend's voice (`made`: the foe, the weapon, how many are left). The DM's word on a round of only walking, and on a charmed hero who won't attack. `night:fresh(list, key)` now remembers across weeks. |
+| `game/ui/battle_hud.lua`, `main/fx/ring.*`, `tools/gen_ring.py` | Status rings on the mat (November 3): a coloured ring around a mini's base for the effect that matters most on it (charmed, turning to stone, frightened...), its tag under the health bar in the same colour, with a hover. |
 
 ## Where things live
 
@@ -64,7 +67,9 @@ Where v2 lives:
   `main/props/`, `main/board/`, `main/scene_data.lua` and `game/ui/metrics.lua` come from `tools/*.py`. Change the
   generator and rerun it (README, "Regenerating assets").
 - **Player-facing text is plain and warm.** Short sentences and everyday words, no designer jargon.
-  Every screen says what it's for.
+  Every screen says what it's for. Every game word on screen explains itself on hover: the glossary
+  (`game/data/rules_glossary.lua`, plus an adventure's own `MODULE.glossary`) is on for every screen by
+  default (`kit.gloss_default`); speech and the chat turn it off (`gloss = false`).
 - **The prototype notice stays.** Every launch opens on "Before you play" (`game/ui/intro_view.lua`) until the
   player clicks Agree. Tests agree to it first (`tools/tests/gui_smoke.lua`, `game/ui/autotest.lua`).
 - **Say only what's true (November 2, `docs/design/2026-11-02-cause-and-effect.md`).** A line that asserts
@@ -97,6 +102,8 @@ least:
     lua tools/tests/thoughts_check.lua    # the friends' thoughts: lines, answers, Empathy, whole prologues
     lua tools/tests/standing_check.lua    # the DM's recap: sides, people's lines, who's drawn to whom, the Table rows
     lua tools/tests/ties_check.lua        # ties and locks: block and open, refusals, a tied mark, saves, whole prologues
+    lua tools/tests/barks_check.lua       # fight barks fit the moment; a handed-off killing blow is told, not re-swung
+    GLOSS_AUDIT=1 lua tools/tests/museum_smoke.lua 1   # every game word on screen has a hover (tools/tests/gloss_words.lua)
     python3 tools/maps/build_maps.py --check  # every map spec builds: on the mat, starts free, walls closed
     lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
     lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them

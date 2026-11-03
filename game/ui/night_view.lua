@@ -785,8 +785,8 @@ function M.draw_caption(app)
     -- A read-aloud passage (A9) is a boxed passage of its own: parchment, a gold rule down its
     -- left side, a small "Read aloud" tag, and the text large and set left.
     c.rule = kit.box(0, 0, 6, 40, theme.gold, { round = false })
-    c.tag = kit.text(0, 0, "READ ALOUD      Space: next", "ui14", theme.ink_dim)   -- (the second playtest: "is it waiting for me?")
-    c.text = kit.text(0, 0, "", "story22", theme.text, { pivot = gui.PIVOT_N })
+    c.tag = kit.text(0, 0, "READ ALOUD      Space: next", "ui14", theme.ink_dim, { gloss = false })   -- (the second playtest: "is it waiting for me?")
+    c.text = kit.text(0, 0, "", "story22", theme.text, { pivot = gui.PIVOT_N, gloss = false })
     c.life, c.age, c.color = 0, 0, theme.text
     for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
         gui.set_enabled(n, false)
@@ -851,6 +851,28 @@ function M.caption(app, text, style)
     place_caption(c, cx - w / 2, y, w, h)
     app.caption_rect = { x = cx - w / 2, y = y, w = w, h = h }
     c.color = read and theme.ink or (theme.log[style] or theme.text)
+    -- Its game words explain themselves on hover, like the log's (the hover audit, November 3).
+    if c.gloss_nodes then
+        kit.remove(c.gloss_nodes)
+    end
+    for _, sp in ipairs(c.gloss_spots or {}) do
+        kit.unspot(sp)
+    end
+    c.gloss_nodes, c.gloss_spots = {}, {}
+    if kit.gloss_hook then
+        kit.use(app.layers.fx)
+        local l = kit.current
+        local n0, s0 = #l.nodes, #(l.spots or {})
+        local tx, ty = (read and (cx - w / 2 + 30)) or cx, (read and (y + 32)) or (y + 11)
+        pcall(kit.gloss_hook, tx, ty, table.concat(lines, "\n"), font, c.color, read and gui.PIVOT_NW or gui.PIVOT_N,
+            kit.gloss_default)
+        for i = n0 + 1, #l.nodes do
+            table.insert(c.gloss_nodes, l.nodes[i])
+        end
+        for i = s0 + 1, #(l.spots or {}) do
+            table.insert(c.gloss_spots, l.spots[i])
+        end
+    end
     c.age = 0
     -- Read-aloud passages stay up a little longer: they're read out, not glanced at.
     c.life = (pacing.read(text) * (read and 1.25 or 1) + 0.6) / speed(app)
@@ -1193,8 +1215,8 @@ function M.bubble(app, anchor, speaker, text, ic, thought)
     b.nodes = {
         kit.box(0, 0, b.w, b.h, bg, { radius = 10 }),
         kit.icon(0, 0, 18, "tail", bg),
-        kit.text(0, 0, speaker, "ui14", label),
-        kit.text(0, 0, table.concat(lines, "\n"), "ui18", ink),
+        kit.text(0, 0, speaker, "ui14", label, { gloss = false }),
+        kit.text(0, 0, table.concat(lines, "\n"), "ui18", ink, { gloss = false }),     -- (their words: no glossary)
     }
     b.colors = { bg, bg, label, ink }
     table.insert(app.bubbles, b)
@@ -1344,6 +1366,10 @@ function M.update_fx(app, dt)
                 app.caption_rect = nil
                 for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
                     gui.set_enabled(n, false)
+                end
+                -- (Its underlines go with it, and so do their hovers: a spot sits on its node.)
+                for _, n in ipairs(c.gloss_nodes or {}) do
+                    pcall(gui.set_enabled, n, false)
                 end
             end
         end
