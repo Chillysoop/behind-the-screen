@@ -41,6 +41,7 @@ local RING = {
     { "blinded", vmath.vector4(0.45, 0.55, 0.95, 0.9) }, { "deafened", vmath.vector4(0.45, 0.55, 0.95, 0.9) },
     { "invisible", vmath.vector4(0.85, 0.92, 1.0, 0.55) },
     { "bless", vmath.vector4(1.0, 0.85, 0.4, 0.8) }, { "bane", vmath.vector4(0.6, 0.3, 0.7, 0.85) },
+    { "taunted", vmath.vector4(0.95, 0.3, 0.25, 0.9) },        -- (stared down: red, it has eyes for one hero)
 }
 M.RING = RING
 local NO_RING = { prone = true, unconscious = true, incapacitated = true }

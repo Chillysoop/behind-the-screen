@@ -370,6 +370,9 @@ return {
     { id = "charmed", match = { "%f[%a]Charmed%f[%A]", "%f[%a]charmed%f[%A]" }, plain = "Charmed",
       text = "Under someone's spell: they can't attack the one who charmed them, and that one finds them easy to "
           .. "talk round.", dnd = "Charmed (condition)" },
+    { id = "taunted", match = { "%f[%a]Taunted%f[%A]", "%f[%a]taunted%f[%A]" }, plain = "Taunted",
+      text = "Stared down before the fight: for its first few turns it goes for whoever stared it down, whoever else "
+          .. "is hurting it.", dnd = "the DM's call after an Intimidation check" },
     { id = "frightened", match = { "%f[%a]Frightened%f[%A]", "%f[%a]frightened%f[%A]" }, plain = "Frightened",
       text = "Scared: worse at attacks and checks while they can see what scares them, and they won't move closer to it.",
       dnd = "Frightened (condition)" },

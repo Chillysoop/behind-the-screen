@@ -61,6 +61,12 @@ local function prompts(app)
             table.insert(list, pr)
         end
     end
+    -- A question for you in the group chat (museum_week.write_chat), last.
+    for _, m in ipairs(c.chat or {}) do
+        if m.ask and not m.answered then
+            table.insert(list, { kind = "chat", id = "chat_" .. m.ask, msg = m })
+        end
+    end
     return list
 end
 M.prompts = prompts
@@ -94,19 +100,37 @@ local function between(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION " .. util.int(c.week), "title30", theme.gold)
     kit.text(300, 24, "Between sessions: the group chat, and what's changed since last time.", "ui18", theme.dim)
-    -- The chat down the left.
+    -- The chat down the left: the newest at the bottom, as much as fits (a question for you is last).
     kit.text(COL_L, 84, "THE GROUP CHAT", "ui14", theme.dim)
-    local y = 108
-    for _, m in ipairs(c.chat or {}) do
-        local h = kit.text_height(m.text, "ui18", COL_LW - 60) + 14
-        if y + h > 860 then
+    local chat = c.chat or {}
+    local hs, first, total = {}, #chat + 1, 0
+    for i = #chat, 1, -1 do
+        local m = chat[i]
+        local h = kit.text_height(m.text, "ui18", COL_LW - 60 - (m.reply and 12 or 0)) + 14 + 18
+        if total + h > 860 - 108 then
             break
         end
-        kit.dot(COL_L + 14, y + 14, 26, panels.COLORS[m.key] or theme.panel3)
-        kit.picture(COL_L + 2, y + 2, 24, 24, panels.face(m.key))
-        kit.text(COL_L + 36, y, m.who, "ui14", theme.dim)
-        kit.text(COL_L + 36, y + 18, m.text, "ui18", m.request and theme.gold or theme.text, { w = COL_LW - 50, gloss = false })
-        y = y + h + 18
+        hs[i], total, first = h, total + h, i
+    end
+    local y = 108
+    if first > 1 then
+        kit.text(COL_L, y - 4, "(earlier messages above)", "ui14", theme.faint)
+        y = y + 14
+    end
+    for i = first, #chat do
+        local m = chat[i]
+        local ix = COL_L + (m.reply and 12 or 0)
+        if m.key == "dm" then
+            kit.dot(ix + 14, y + 14, 26, theme.teal)
+            kit.text(ix + 14, y + 6, "DM", "ui14", theme.bg, { pivot = gui.PIVOT_N, gloss = false })
+        else
+            kit.dot(ix + 14, y + 14, 26, panels.COLORS[m.key] or theme.panel3)
+            kit.picture(ix + 2, y + 2, 24, 24, panels.face(m.key))
+        end
+        kit.text(ix + 36, y, m.who, "ui14", m.key == "dm" and theme.teal or theme.dim)
+        kit.text(ix + 36, y + 18, m.text, "ui18", (m.ask and not m.answered) and theme.gold or theme.text,
+            { w = COL_LW - 50 - (m.reply and 12 or 0), gloss = false })
+        y = y + hs[i]
     end
     local x, w = 460, 760
     kit.text(x, 84, "QUESTIONS THIS WEEK  (" .. util.int(#list) .. ")", "ui14", theme.dim)
@@ -133,12 +157,43 @@ local function between(app)
             kit.text(x + 40, by + 38, o[3], "ui18", theme.dim, { w = w - 80, lines = 1 })
             by = by + 92
         end
+    elseif pr.kind == "chat" then
+        -- A question in the group chat: lore, a ruling, Thursday's plan. Your answer goes in the chat.
+        local m = pr.msg
+        kit.text(x + 24, box_y + 18, "A QUESTION FOR YOU, IN THE GROUP CHAT", "ui14", theme.gold)
+        kit.dot(x + 44, box_y + 70, 40, panels.COLORS[m.key] or theme.panel3)
+        kit.picture(x + 26, box_y + 52, 36, 36, panels.face(m.key))
+        kit.text(x + 76, box_y + 50, m.who .. " asks the group chat:", "ui18b", theme.text)
+        kit.text(x + 76, box_y + 76, "\"" .. m.text .. "\"", "story22", theme.text, { w = w - 110, gloss = false })
+        kit.text(x + 24, box_y + 150, "Everyone can see your answer. Lore, a ruling or a plan: how you answer is part of the game.",
+            "ui18", theme.dim, { w = w - 48 })
+        local q
+        for _, d in ipairs(MODULE.chat_ask or {}) do
+            if d.id == m.ask then
+                q = d
+            end
+        end
+        local by = box_y + 196
+        for i, r in ipairs(q and q.replies or {}) do
+            kit.button(x + 24, by, w - 48, 54, "", function()
+                museum_week.answer_chat(c, m, i)
+                app.refresh()
+            end, { color = theme.panel2, hover = theme.button_hover, key = "chat_reply_" .. i })
+            kit.text(x + 40, by + 15, r.label, "ui18b", theme.text, { w = w - 80, lines = 1 })
+            by = by + 64
+        end
+        kit.button(x + 24, by, w - 48, 44, "", function()
+            m.answered = 0
+            app.refresh()
+        end, { color = theme.panel, hover = theme.button_hover, key = "chat_reply_0" })
+        kit.text(x + 40, by + 11, "Leave it. Someone else will answer.", "ui18", theme.dim)
     elseif pr.kind == "request" then
         local p = c:player(def.who)
-        kit.text(x + 24, box_y + 18, "A REQUEST", "ui14", theme.gold)
+        -- (One-on-one, not in the group chat: the playtest, November 3.)
+        kit.text(x + 24, box_y + 18, "A PRIVATE MESSAGE", "ui14", theme.gold)
         kit.dot(x + 44, box_y + 70, 40, panels.COLORS[def.who] or theme.panel3)
         kit.picture(x + 26, box_y + 52, 36, 36, panels.face(def.who))
-        kit.text(x + 76, box_y + 50, p.name .. " asks:", "ui18b", theme.text)
+        kit.text(x + 76, box_y + 50, p.name .. " messages you, just you:", "ui18b", theme.text)
         kit.text(x + 76, box_y + 76, "\"" .. (pr.ask or def.ask) .. "\"", "story22", theme.text, { w = w - 110 })
         kit.text(x + 24, box_y + 136, "Every DM gets these. Fair, absurd, or both: how do you answer?", "ui18", theme.dim, { w = w - 48 })
         local by = box_y + 176

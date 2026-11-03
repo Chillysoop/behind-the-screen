@@ -24,6 +24,7 @@ local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
+local npc_view = require "game.ui.npc_view"
 local saves_view = require "game.ui.saves_view"
 local talk_view = require "game.ui.talk_view"
 local book_view = require "game.ui.book_view"
@@ -293,6 +294,9 @@ local function build_screen(self)
     end
     if app.book and s == "prep" then
         book_view.draw(app)       -- reading a new book (A13)
+    end
+    if app.npc_sheet then
+        npc_view.draw(app)       -- a person's sheet: their name clicked in any line (v2)
     end
     if app.ask then
         ask_view.draw(app)
@@ -648,6 +652,10 @@ function init(self)
     kit.on_press = function()
         ambience.sfx("click")
     end
+    -- A person's name in any line opens their sheet (gloss.lua's people words).
+    gloss.on_npc = function(id)
+        npc_view.open(app, id)
+    end
     ambience.screen(app, "intro")
     -- Real-click tracing for tools/tests/ui_play/ (off in every normal build).
     app.input_trace = input_trace.start()
@@ -683,6 +691,12 @@ function update(self, dt)
     end
     if app.screen == "night" and not app.sandbox and not app.error_layer then
         guard(self, night_view.update, app, dt)
+    end
+    if app.screen == "report" and app.rewards_spin then
+        guard(self, require("game.ui.rewards_view").update, app, dt)    -- (the box rattling open)
+    end
+    if app.screen == "report" and app.replay then
+        guard(self, night_view.update_replay, app, dt)                  -- (a fight playing back under Look)
     end
     -- Prep autosaves (A11), a few seconds after the board last changed.
     if app.screen == "prep" and app.prep_dirty and app.campaign.at_prep and app.time - (app.last_autosave or 0) >= 4 then
@@ -804,6 +818,11 @@ function on_input(self, action_id, action)
             app.talk = nil
             app.refresh()
         end
+        return true
+    end
+    -- A person's sheet: Esc closes it.
+    if app.npc_sheet and action_id == A.back and action.pressed then
+        guard(self, npc_view.close, app)
         return true
     end
     -- The saves window (Load on the title, Save in prep and on the report): Esc closes it, and
@@ -970,7 +989,10 @@ function on_input(self, action_id, action)
             guard(self, session_zero_view.start, app)
             return true
         elseif s == "report" then
-            if not report_view.busy(app) then
+            local rewards = require("game.ui.rewards_view")
+            if rewards.pending(app) and not app.rewards_spin then
+                guard(self, rewards.done, app)         -- (Enter: on to the report)
+            elseif not report_view.busy(app) then
                 guard(self, report_view.next, app)
             end
             return true

@@ -215,6 +215,10 @@ M.rooms = {
         name = "The garden", part = 1, type = "combat", cost = 2, at = { 50, 86 }, map = "Garden",
         comps = { location = "mus_garden", cast = "mus_briar", goal = "mus_cross_garden", complication = "mus_tentacles", reward = "mus_francs" },
         encounter = { "briar_triceratops", "briar_boar", "briar_beast" }, boss_name = "the briar triceratops",
+        -- The topiary comes alive where it stands (fight.lua): each foe steps off the hedge it was
+        -- (the horned one by the pond, the bristly one by the doors, a cat on the terrace), and
+        -- that hedge is gone from the mat. A hedge nobody became stays a hedge.
+        wake = { feature = "beasts", at = { briar_triceratops = { 10, 9 }, briar_boar = { 10, 2 }, briar_beast = { 4, 5 } } },
         read = "Three curtains, then grass underfoot. A garden that can't fit in a caravan, a dark pond, and hedges cut into beasts.",
         sum = "Living topiary, a pond with something in it, and a sign that says to use water.",
         next = { "entrance" }, knobs = { "elements", "curtain" },
@@ -462,7 +466,10 @@ M.portraits = {
 }
 
 -- Room moments: the calls each room puts to the DM on game night. at: "start" (before the room's
--- fight or checks), "mid" (between), "end" (after). Rooms play them in this order.
+-- fight or checks), "mid" (between), "end" (after), "follow" (only after an option's then_moment).
+-- Rooms play them in this order. party = true: a choice that's the players' to make, never the DM's
+-- (the playtest, November 3): the table talks it over (museum_night.table_pick), each option's `want`
+-- is how they say it, and the DM only nudges when they ask. roll.best: the best at the skill rolls.
 M.moments = {
     -- The street ---------------------------------------------------------------------------------
     { id = "mus_truth", room = "street", at = "start", when = { knob = "pry" }, type = "story",
@@ -496,23 +503,23 @@ M.moments = {
       } },
 
     -- The garden ----------------------------------------------------------------------------------
-    { id = "mus_plaque", room = "garden", at = "start", type = "story", actor = { "explorer", "tactician", "storyteller" },
+    { id = "mus_plaque", room = "garden", spot = "1A", at = "start", type = "story", actor = { "explorer", "tactician", "storyteller" }, party = true,
       title = "A sign by the pond",
       text = "{actor_char} finds a little iron plaque by the pond: \"Beware the bushes. In case of emergency, use water.\" Signed FF.",
       options = {
-          { label = "Let them use the water. Douse the hedges.",
+          { label = "Use the water. Douse the hedges.", want = "douse the hedges with pond water",
             log = "Helmets full of pond water hit the topiary. The smallest hedge-beast twists, sprouts and roots itself to the spot. The big ones keep coming.",
             effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 5 }, { "arch:tactician", fun = 5 }, { "all", challenge = -4 } },
             mus = { francs = 1, drop = { "briar_beast" }, flag = "water" } },
-          { label = "They're bushes. Set them on fire.",
+          { label = "They're bushes. Set them on fire.", want = "set the bushes on fire",
             log = "Oil, a torch, and a whoosh. Half the garden goes up like kindling, and the briar boar with it.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:instigator", fun = 4 }, { "arch:storyteller", fun = -2 }, { "all", challenge = -4 } },
             mus = { drop = { "briar_boar" }, mark = "garden_burned" } },
-          { label = "Just fight them. Steel, not water.",
+          { label = "Just fight them. Steel, not water.", want = "just fight them",
             log = "Blades out. The hedges come at them all at once.",
             effects = { { "arch:butt_kicker", fun = 4 }, { "all", challenge = 6 } } },
       } },
-    { id = "mus_pond", room = "garden", at = "end", type = "story", actor = { "instigator", "explorer" },
+    { id = "mus_pond", room = "garden", spot = "pond", at = "end", type = "story", actor = { "instigator", "explorer" },
       title = "The dark pond",
       text = "{actor_char} wants a closer look at the pond. They all saw the tentacles.",
       options = {
@@ -521,48 +528,61 @@ M.moments = {
                      success = { log = "{actor_char} dodges a tentacle and fishes out a little brass key. Nobody knows what it opens. Yet.",
                                  effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, flag = "brass_key", aspect = "Fished a brass key out of a haunted pond" } },
                      fail = { log = "A tentacle wraps {actor_char}'s ankle and drags them in up to the waist. They come out cut and furious.",
-                              effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, aspect = "Was dragged into a haunted pond" } } } },
+                              effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, drag = { "pond", "pond" }, aspect = "Was dragged into a haunted pond" } } } },
           { label = "\"Are you sure? It's got tentacles.\"",
             log = "{actor_char} thinks better of it. The pond burbles, disappointed.",
             effects = { { "arch:instigator", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
 
     -- The entrance hall -------------------------------------------------------------------------
-    { id = "mus_box", room = "entrance", at = "start", type = "story", actor = { "instigator", "method_actor" },
+    { id = "mus_box", room = "entrance", spot = "2B", at = "start", type = "story", actor = { "instigator", "method_actor" }, party = true,
       title = "The donation box",
       text = "A glass case of coins from every world: \"This museum relies on donations.\" {actor_char} looks at the case, then the lock, then the metal guard standing right there.",
       options = {
-          { label = "Somebody drops a coin in.",
+          { label = "Somebody drops a coin in.", want = "drop a coin in",
             log = "A coin clinks in. Something warm settles over {actor_char} (Heroic Inspiration: one reroll, when it counts), and the statue booms: \"THANK YOU FOR YOUR DONATION.\"",
             effects = { { "arch:casual", fun = 4 }, { "arch:method_actor", fun = 2 }, { "all", reward = 4 } },
             mus = { francs = 1, flag = "boon", inspire = true, careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "Let {actor_char} try the lock. The guard is right there.",
-            log = "Two picks, one click, and a sound like a forge waking up. The Sentinel steps down off its plinth.",
-            effects = { { "actor", spotlight = 12 }, { "arch:instigator", fun = 8 }, { "arch:butt_kicker", fun = 4 }, { "arch:tactician", trust = -1 } },
-            mus = { risk = true, fight = true, mark = "robbed", favor = { who = "flitwidget", n = -1 }, aspect = "Tried to rob a museum's donation box" } },
+          { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
+            log = "{actor_char} cracks their knuckles and kneels by the case.",
+            effects = { { "arch:instigator", fun = 3 } } },
+      } },
+    -- The DM's call once they go for the lock: let it ride (a roll, the guard right there), or stop it.
+    { id = "mus_box_lock", room = "entrance", spot = "2B", at = "follow", type = "story", actor = { "instigator" },
+      title = "Picks out",
+      text = "{actor_char} has the picks out, with a metal guard the size of a wardrobe standing right there.",
+      options = {
+          { label = "Let it ride. Roll Sleight of Hand, with the guard right there.",
+            roll = { dc = 13, skill = { "sleight_of_hand" }, convenient = "success",
+                     success = { log = "Two picks, one click. A fistful of coins from a dozen worlds goes into {actor_char}'s pack, and the Sentinel steps down off its plinth.",
+                                 effects = { { "actor", spotlight = 12, fun = 6 }, { "arch:instigator", fun = 6 }, { "arch:butt_kicker", fun = 4 }, { "arch:tactician", trust = -1 } },
+                                 mus = { risk = true, fight = true, mark = "robbed", favor = { who = "flitwidget", n = -1 }, aspect = "Robbed a museum's donation box" } },
+                     fail = { log = "The pick snaps in the lock with a ping. The Sentinel's head turns. Then the rest of it.",
+                              effects = { { "actor", spotlight = 6, challenge = 4 }, { "arch:butt_kicker", fun = 4 }, { "arch:tactician", trust = -1 } },
+                              mus = { risk = true, fight = true, favor = { who = "flitwidget", n = -1 }, aspect = "Tried to rob a museum's donation box" } } } },
           { label = "Rein them in, out of character: \"Not this one.\"",
             log = "You give {actor_char} a look over the screen. They put the picks away, sulking.",
             effects = { { "actor", fun = -6, trust = -1 }, { "others", fun = 2 } } },
       } },
 
     -- The Chamber of Ancients ------------------------------------------------------------------
-    { id = "mus_tablet", room = "chamber", at = "start", type = "story", actor = { "storyteller", "tactician", "explorer" },
+    { id = "mus_tablet", room = "chamber", spot = "3E", at = "start", type = "story", actor = { "storyteller", "tactician", "explorer" }, party = true,
       title = "The cracked tablet",
       text = "{actor_char} kneels by the cracked tablet with the little notebook of glyphs, while the guardian lifts its staff.",
       options = {
-          { label = "Give them time. Someone holds it off while they work it out.",
+          { label = "Work out the ritual. Someone holds it off.", want = "work out the ritual while someone holds the guardian off",
             roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
                      success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
                                  effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 6, story = 6 }, { "arch:tactician", fun = 6 }, { "arch:butt_kicker", fun = -3 } },
                                  mus = { no_fight = true, mark = "calmed", francs = 1, careful = 1, aspect = "Calmed a tomb guardian with an old ritual" } },
                      fail = { log = "The glyphs swim. It's going to be blades.",
                               effects = { { "arch:butt_kicker", fun = 3 } }, mus = { fight = true, flag = "ritual_failed" } } } },
-          { label = "Skip the homework. Fight it.",
+          { label = "Skip the homework. Fight it.", want = "skip the homework and fight it",
             log = "Nobody needs a tablet to hit things. Weapons out.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:storyteller", fun = -3 }, { "arch:tactician", fun = -2 } },
             mus = { fight = true } },
       } },
-    { id = "mus_falcon", room = "chamber", at = "mid", when = { flag = "ritual_failed" }, type = "screen", actor = { "instigator", "storyteller", "power_gamer" },
+    { id = "mus_falcon", room = "chamber", spot = "3A", at = "mid", when = { flag = "ritual_failed" }, type = "screen", actor = { "instigator", "storyteller", "power_gamer" },
       title = "A discontented falcon",
       text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway. The tablet was very clear about what happens to anyone who gets it wrong.",
       options = {
@@ -574,19 +594,19 @@ M.moments = {
             log = "{actor_char} reads it again, swears, and puts the jar down.",
             effects = { { "actor", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
-    { id = "mus_tidy", room = "chamber", at = "end", type = "story", actor = { "casual", "tactician", "instigator" },
+    { id = "mus_tidy", room = "chamber", at = "end", type = "story", actor = { "casual", "tactician", "instigator" }, party = true,
       title = "Put it all back?",
       text = "The chamber's a mess: jars, daggers, the tablet and the little notebook, scattered across the sand.",
       options = {
-          { label = "They tidy up. Flitwidget will notice.",
+          { label = "Tidy up. Flitwidget will notice.", want = "tidy up for Flitwidget",
             log = "Everything goes back on its plinth. A Franc materialises in {actor_char}'s pocket.",
             effects = { { "arch:casual", fun = 4 }, { "arch:butt_kicker", boredom = 4 } },
             mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "{actor_char} pockets the twin daggers.",
+          { label = "{actor_char} pockets the twin daggers.", want = "keep the twin daggers",
             log = "Two curved daggers, rings locked together through the hilts. They're not coming apart, but they're coming along.",
             effects = { { "actor", fun = 5, reward = 5 }, { "arch:storyteller", fun = -1 } }, mus = { flag = "daggers", aspect = "Kept two daggers that won't come apart" } },
-          { label = "Leave it. Onward.",
-            log = "They step over the mess and keep moving.", effects = {} },
+          { label = "Leave it. Onward.", want = "leave the mess and move on",
+            log = "They step over the mess and keep moving.", effects = { { "arch:butt_kicker", fun = 1 } } },
       } },
 
     -- The Hall of Paintings --------------------------------------------------------------------
@@ -605,7 +625,7 @@ M.moments = {
             log = "{actor_char} keeps their hands in their pockets. The painted figure looks almost disappointed.",
             effects = { { "arch:explorer", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
-    { id = "mus_dice_painting", room = "paintings", at = "mid", when = { knob = "dice" }, type = "table", actor = { "method_actor", "instigator", "casual" },
+    { id = "mus_dice_painting", room = "paintings", spot = "4C", at = "mid", when = { knob = "dice" }, type = "table", actor = { "method_actor", "instigator", "casual" },
       title = "Five people and some dice",
       text = "A small painting: five people round a table, rolling dice. One sits behind a little screen. {actor_char} stops dead. They look familiar.",
       options = {
@@ -617,27 +637,27 @@ M.moments = {
             log = "\"Weird,\" says {actor_char}, and moves on. Nobody can stop glancing back at it.",
             effects = { { "arch:storyteller", fun = 2 } } },
       } },
-    { id = "mus_knight_frame", room = "paintings", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" },
+    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true,
       title = "The Knight of Shades",
       text = "At the end of the hall, the black knight's portrait. {actor_char} wants a closer look. Its oils seem to shift.",
       options = {
-          { label = "Let them look. Whatever happens, happens.",
+          { label = "Take a closer look. Whatever happens, happens.", want = "take a closer look at the knight",
             log = "The knight grips the edge of its frame and climbs out, oil streaming off its armour.",
             effects = { { "arch:butt_kicker", fun = 5 }, { "arch:explorer", fun = 3 }, { "all", challenge = 6 } },
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
-          { label = "They give it a wide berth.",
+          { label = "Give it a wide berth.", want = "give the knight a wide berth",
             log = "Nobody goes near it. The knight's painted eyes follow them all the way to the door.",
             effects = { { "arch:casual", fun = 3 }, { "arch:butt_kicker", fun = -4 } },
             mus = { no_fight = true, mark = "knight" } },
       } },
-    { id = "mus_return_paint", room = "paintings", at = "end", when = { flag = "paint" }, type = "story", actor = { "casual", "tactician" },
+    { id = "mus_return_paint", room = "paintings", at = "end", when = { flag = "paint" }, type = "story", actor = { "casual", "tactician" }, party = true,
       title = "Put the paint back?",
       text = "The painted weapons are starting to drip. {actor_char} could slide them back into their paintings before they melt.",
       options = {
-          { label = "Put them back. It feels polite.",
+          { label = "Put them back. It feels polite.", want = "put the painted weapons back",
             log = "Each one slides home. A Franc appears, and the duellist in the frame tips his hat.",
             effects = { { "arch:casual", fun = 3 } }, mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "Keep them till they drip away.",
+          { label = "Keep them till they drip away.", want = "keep them till they drip away",
             log = "They carry them out, dripping. By the gift shop they're puddles.", effects = { { "arch:power_gamer", fun = 2 } } },
       } },
 
@@ -654,79 +674,79 @@ M.moments = {
             log = "Telpur sulks, and points a lace at the price tags.",
             effects = { { "arch:butt_kicker", fun = 2 }, { "arch:method_actor", fun = -3 } } },
       } },
-    { id = "mus_shopping", room = "gift_shop", at = "mid", type = "story", actor = { "power_gamer", "tactician", "storyteller" },
+    { id = "mus_shopping", room = "gift_shop", spot = "5A", at = "mid", type = "story", actor = { "power_gamer", "tactician", "storyteller" }, party = true,
       title = "What do they buy?",
       text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching.",
       shop = true,
       options = {
-          { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4,
+          { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4, want = "buy the book on gorgon-worshippers",
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { mark = "know", spend = 4, got = "a book on gorgon-worshippers", favor = { who = "telpur", n = 1 } } },
-          { label = "The Mech Instruction Manual (3 Francs)", price = 3,
+          { label = "The Mech Instruction Manual (3 Francs)", price = 3, want = "buy the Mech manual",
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "manual", spend = 3, favor = { who = "telpur", n = 1 } } },
-          { label = "Fire arrows and a bucket of slime (3 Francs)", price = 3,
+          { label = "Fire arrows and a bucket of slime (3 Francs)", price = 3, want = "buy the fire arrows and the slime",
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "arrows", spend = 3, favor = { who = "telpur", n = 1 } } },
-          { label = "The vorpal sword (40 Francs)", price = 40, needs = { flag = "vorpal_price" },
+          { label = "The vorpal sword (40 Francs)", price = 40, needs = { flag = "vorpal_price" }, want = "buy the vorpal sword",
             log = "Forty Francs, counted twice. Telpur wraps it in brown paper. It's very, very sharp.",
             effects = { { "actor", fun = 10, reward = 10 }, { "arch:power_gamer", fun = 6 } },
             mus = { flag = "vorpal_sword", spend = 40, favor = { who = "telpur", n = 1 } } },
-          { label = "Save the Francs for later.",
+          { label = "Save the Francs for later.", want = "save the Francs for later",
             log = "They keep their Francs. Telpur is personally offended.",
             effects = { { "arch:tactician", fun = 1 }, { "arch:power_gamer", fun = -2 } } },
       } },
 
     -- The Hunting Grounds ---------------------------------------------------------------------
-    { id = "mus_tracks", room = "hunting", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" },
+    { id = "mus_tracks", room = "hunting", spot = "6I", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" }, party = true,
       title = "Scratch marks",
       text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points out they're very easy to follow. Almost as if someone wanted them followed.",
       options = {
-          { label = "Follow them anyway. They know it's bait.",
+          { label = "Follow them anyway. They know it's bait.", want = "follow the marks anyway, weapons out",
             log = "They follow the trail with weapons out. The huntlings spring the trap, and the party was ready for it.",
             effects = { { "arch:butt_kicker", fun = 5 }, { "all", challenge = 4 } }, mus = { risk = true, ready = true } },
-          { label = "Go round. Make the hunters come to them.",
+          { label = "Go round. Make the hunters come to them.", want = "go round and make the hunters come to us",
             log = "They put their backs to the bulette's skull and wait. It's the huntlings who have to come out.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:butt_kicker", fun = -1 } }, mus = { flag = "no_surprise", ready = true } },
       } },
-    { id = "mus_mirror", room = "hunting", at = "end", type = "story", actor = { "tactician", "explorer", "storyteller" },
+    { id = "mus_mirror", room = "hunting", spot = "6J", at = "end", type = "story", actor = { "tactician", "explorer", "storyteller" }, party = true,
       title = "Polished doors",
       text = "In the kitchen diorama, the cupboard doors are polished to a mirror shine. {actor_char} could prise one off.",
       options = {
-          { label = "Take one. You never know.",
+          { label = "Take one. You never know.", want = "take one of the mirror-bright doors",
             log = "{actor_char} unscrews a cupboard door and straps it to their pack. Nobody asks why. Someone should.",
             effects = { { "actor", spotlight = 6 }, { "arch:tactician", fun = 4 } }, mus = { mark = "mirror", aspect = "Carried a cupboard door upstairs to fight a Gorgon" } },
-          { label = "Leave the exhibits alone.",
+          { label = "Leave the exhibits alone.", want = "leave the exhibits alone",
             log = "They leave the kitchen as they found it.", effects = { { "arch:casual", fun = 1 } }, mus = { careful = 1 } },
       } },
 
     -- The offices -----------------------------------------------------------------------------
     -- The locked door comes first: nobody reacts to what's inside before they're in.
-    { id = "mus_office_door", room = "offices", at = "start", type = "story", actor = { "butt_kicker", "instigator", "tactician" },
+    { id = "mus_office_door", room = "offices", spot = "door", at = "start", type = "story", actor = { "butt_kicker", "instigator", "tactician" }, party = true,
       title = "Locked from the inside",
       text = "The second study's door is locked, and the key is on the inside. {actor_char} looks at the lock, then at the door.",
       options = {
-          { label = "The little brass key from the pond.", needs = { flag = "brass_key" },
+          { label = "The little brass key from the pond.", needs = { flag = "brass_key" }, want = "try the brass key from the pond",
             log = "It turns first time. Whoever locked it wanted out of the museum, not into the pond.",
             effects = { { "actor", spotlight = 8, fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:storyteller", story = 3 } },
             mus = { flag = "door_open" } },
-          { label = "Shoulder it open.",
-            roll = { dc = 12, skill = { "athletics" }, convenient = "success",
+          { label = "Shoulder it open.", want = "shoulder it open",
+            roll = { dc = 12, skill = { "athletics" }, convenient = "success", best = true,
                      success = { log = "The door bursts open on the second shove.", effects = { { "actor", spotlight = 6 }, { "arch:butt_kicker", fun = 4 } },
                                  mus = { flag = "door_open" } },
                      fail = { log = "The door holds; the shoulder doesn't. It takes the whole party, and a lot of noise.",
                               effects = { { "actor", challenge = 3 }, { "arch:tactician", fun = -1 } }, mus = { flag = "door_open" } } } },
-          { label = "Pick the lock, quietly.",
-            roll = { dc = 13, skill = { "sleight_of_hand" }, convenient = "success",
+          { label = "Pick the lock, quietly.", want = "pick the lock, quietly",
+            roll = { dc = 13, skill = { "sleight_of_hand" }, convenient = "success", best = true,
                      success = { log = "{actor_char} pushes the key out onto a sheet of paper and pulls it under the door. Click.",
                                  effects = { { "actor", spotlight = 10, fun = 5 } }, mus = { flag = "door_open" } },
                      fail = { log = "The pick snaps. In the end, somebody's shoulder does it anyway.",
                               effects = { { "actor", fun = -2 } }, mus = { flag = "door_open" } } } },
       } },
-    { id = "mus_office_inside", room = "offices", at = "start", when = { flag = "door_open" }, type = "story", actor = { "storyteller", "explorer", "tactician" },
+    { id = "mus_office_inside", room = "offices", spot = "7B", at = "start", when = { flag = "door_open" }, type = "story", actor = { "storyteller", "explorer", "tactician" },
       title = "The second study",
       text = "Inside: the archivist, dead at his desk, with eyes carved all over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand.",
       -- (A table that veiled gore at Session Zero hears it gently.)
@@ -741,7 +761,7 @@ M.moments = {
             log = "\"Grab the notebook. Don't touch the bird.\" Fair.",
             effects = { { "arch:butt_kicker", fun = 2 }, { "arch:storyteller", fun = -2 } } },
       } },
-    { id = "mus_whispers", room = "offices", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
+    { id = "mus_whispers", room = "offices", spot = "7B", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
       title = "Whispers",
       text = "{actor_char} bends over the archivist's body. A faint voice starts whispering, to them alone.",
       options = {
@@ -757,7 +777,7 @@ M.moments = {
       } },
 
     -- The World of Tomorrow -------------------------------------------------------------------
-    { id = "mus_code", room = "tomorrow", at = "start", type = "puzzle", actor = { "tactician", "power_gamer", "storyteller" },
+    { id = "mus_code", room = "tomorrow", spot = "8A", at = "start", type = "puzzle", actor = { "tactician", "power_gamer", "storyteller" },
       title = "The code in its chest",
       text = "A panel in the machine's chest slides open on a string of numbers. Grid references. It won't stay open long.",
       options = {
@@ -776,17 +796,17 @@ M.moments = {
                      fail = { log = "Time. The panel snaps shut, and Sam lets out a breath he's been holding for thirty seconds.",
                               effects = { { "arch:casual", fun = -4 }, { "arch:instigator", fun = 3 } }, mus = { resolve = "lose" } } } },
       } },
-    { id = "mus_hyper", room = "tomorrow", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" },
+    { id = "mus_hyper", room = "tomorrow", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true,
       title = "Hyper Destroyer Mode",
       text = "Inside the Mech's chest panel, a red switch: \"HYPER DESTROYER MODE. Only if absolutely necessary.\" {actor_char} is grinning.",
       options = {
-          { label = "Let them try it, here and now.",
+          { label = "Try it, here and now.", want = "flip the switch right now",
             roll = { dc = 12, skill = { "arcana", "investigation" }, convenient = "success",
                      success = { log = "The Mech swells, missiles pop out of its shoulders, and it shuts itself down again before anything explodes. Impressive. Terrifying. The switch is scorched: it won't do that again for a while.",
                                  effects = { { "actor", fun = 8 }, { "arch:power_gamer", fun = 5 } }, mus = { risk = true, flag = "hyper_spent" } },
                      fail = { log = "It overheats with a shriek of steam and a smell of burnt clockwork. The Mech won't be walking anywhere now.",
                               effects = { { "actor", fun = 2 }, { "arch:tactician", fun = -4 } }, mus = { risk = true, harsh = true, unmark = "mech", flag = "mech_burnt", aspect = "Burnt out the Steam Mech" } } } },
-          { label = "\"Save it for the Gorgon.\"",
+          { label = "\"Save it for the Gorgon.\"", want = "save it for the Gorgon",
             log = "{actor_char} snaps the panel shut. For the Gorgon.",
             effects = { { "arch:tactician", fun = 4 }, { "arch:instigator", fun = -2 } }, mus = { warn = true, flag = "hyper_saved" } },
       } },
@@ -823,18 +843,18 @@ M.moments = {
     -- Euryale's lair ---------------------------------------------------------------------------
     -- The knight they walked past climbs out of a frame behind her couch. Its paint is still wet,
     -- and the book's answer to him is paint (weapons out of a painting cut him like he's paper).
-    { id = "mus_lair_frame", room = "lair", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" },
+    { id = "mus_lair_frame", room = "lair", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" }, party = true,
       title = "The frame behind the couch",
       text = "The black knight steps out of a frame behind her couch, and the paint he left behind is still wet. {actor_char} could reach in for something to fight him with.",
       options = {
-          { label = "Reach in. It's worth the chill.",
+          { label = "Reach in. It's worth the chill.", want = "reach into the frame for a painted blade",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
                                  effects = { { "actor", spotlight = 10, fun = 5 }, { "arch:tactician", fun = 3 } },
                                  mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
                      fail = { log = "The frame bites. {actor_char} pulls back numb fingers with nothing in them.",
                               effects = { { "actor", challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 } } } } },
-          { label = "No time. Swords out.",
+          { label = "No time. Swords out.", want = "forget the frame and draw steel",
             log = "They draw steel. The knight's armour drinks the first blow like ink.",
             effects = { { "arch:butt_kicker", fun = 3 }, { "arch:explorer", fun = -2 } }, mus = { warn = true } },
       } },
@@ -849,6 +869,69 @@ M.moments = {
 -- there, so the DM's ties can't (game/model/ties.lua), or her card would say they did what they didn't.
 -- opt: a battle option (game/rules: mirror, averted, drowsy, paint). talk: easier (+) or harder
 -- (-) to talk her round.
+-- The people with a sheet (game/model/npcs.lua, game/ui/npc_view.lua): their name in any text
+-- opens it. monster: their stat block when they fight; sprite: their mini; hows: the ways the DM
+-- can let the party get something off them (a boot has no pockets; a construct takes no
+-- requests); match: the words that are them in a line.
+M.npc_sheet = {
+    order = { "mus_flitwidget", "mus_telpur", "mus_euryale", "mus_sentinel", "mus_bone_construct", "mus_knight",
+              "mus_lecturer", "mus_mech" },
+    mus_flitwidget = { room = "street", sprite = "npc_rosin", hows = { "ask", "pocket" }, match = { "Flitwidget" },
+                       not_before = " Franc" },
+    mus_telpur = { room = "gift_shop", sprite = "npc_hermit", hows = { "ask" }, match = { "Telpur" } },
+    mus_euryale = { room = "lair", sprite = "npc_sable", monster = "euryale", hows = { "beaten", "pocket", "ask" }, match = { "Euryale" } },
+    mus_sentinel = { room = "entrance", sprite = "animated_armor", monster = "sentinel", hows = { "beaten" }, match = { "the Sentinel", "The Sentinel" },
+                     about = "A suit of metal armour between the doors. It stays a statue as long as nobody touches the donation case." },
+    mus_bone_construct = { room = "chamber", sprite = "skeleton", monster = "bone_construct", hows = { "beaten" }, match = { "Bone Construct" },
+                           about = "Gold and bleached bone with three skull faces. It guards the chamber's pedestal." },
+    mus_knight = { room = "paintings", sprite = "animated_armor", monster = "knight_of_shades", hows = { "beaten" },
+                   match = { "Knight of Shades" }, about = "Black armour and red light where a face should be. He climbs out of his painting." },
+    mus_lecturer = { room = "lecture", sprite = "specter", monster = "the_lecturer", hows = { "beaten", "ask" }, match = { "the Lecturer", "The Lecturer" },
+                     about = "A grey ghost who drones on without a mouth. Fall asleep in his lecture and you may not wake up." },
+    mus_mech = { room = "tomorrow", sprite = "animated_armor", monster = "steam_mech", hows = { "ask", "beaten" }, match = { "Steam Mech" } },
+}
+
+-- Looking around each room (museum_night.explore): the places on its board the friends wander
+-- over to, one at a time, before the room's business (the playtest, November 3), and the DM's
+-- finds and traps among them. Ours, not the book's: small things, so the DM always has a call
+-- to make behind the screen. (Places a moment is about stay out of this list: the moment walks
+-- its hero there itself, with its `spot`.)
+M.explore = {
+    garden = { "shears", "hammer",
+               finds = { shears = { francs = 1, what = "a Flitwidget Franc in the grass",
+                                    line = "Under the shears, pressed into the grass: a Flitwidget Franc." } } },
+    entrance = { "light", "front",
+                 finds = { light = { francs = 1, what = "a Franc someone dropped",
+                                     line = "Something glints on the marble under the chandelier: a Flitwidget Franc." } } },
+    chamber = { "3C", "3H", "3G",
+                finds = { ["3C"] = { francs = 1, what = "a Franc at the bottom of the jackal jug",
+                                     line = "{actor_char} tips the jackal jug. A Flitwidget Franc rolls out into the sand." } },
+                traps = { ["3H"] = { what = "pull the crocodile's jaw too far and it snaps shut", dc = 12, skill = { "acrobatics", "sleight_of_hand" },
+                                     spot_dc = 12, hurt = { 1, 4 },
+                                     hit = "The crocodile's jaw snaps shut on {actor_char}'s fingers. The water keeps running.",
+                                     dodge = "The jaw snaps shut a finger's width from {actor_char}'s hand.",
+                                     spotted = "{actor_char} notices the hinge is far too strong for a tap, and wedges it open with a stick." } } },
+    paintings = { "4D", "4I", "4J",
+                  finds = { ["4J"] = { francs = 1, what = "a real Franc tucked in the frame",
+                                       line = "Wedged behind the duellist's frame: a real Flitwidget Franc, not a painted one." } } },
+    gift_shop = { "shelves", "souvenirs", looks = 1 },
+    hunting = { "6B", "6H", "6F",
+                finds = { ["6H"] = { francs = 1, what = "a strip of razorbark worth a Franc to the right buyer",
+                                     line = "{actor_char} peels off a strip of razorbark without losing a finger. Somebody will pay a Franc for that." } },
+                traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
+                                     spot_dc = 13, hurt = { 1, 6 },
+                                     hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks them off their feet. Something in the jungle chitters.",
+                                     dodge = "{actor_char} feels the vine tighten and steps out of the loop just in time.",
+                                     spotted = "{actor_char} spots the loop of vine in the leaves and cuts it. Something in the jungle chitters, disappointed." } } },
+    offices = { "drawings", "eyes", looks = 1 },
+    tomorrow = { "cases", "console",
+                 finds = { cases = { francs = 1, what = "a Franc stuck in a machine from tomorrow",
+                                     line = "One of tomorrow's machines has a coin slot, and a Flitwidget Franc stuck halfway in it." } } },
+    lecture = { "books", "board", looks = 1,
+                finds = { books = { francs = 1, what = "a Franc used as a bookmark",
+                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago." } } },
+}
+
 M.marks = {
     topiary = { name = "Topiary at her couch", why = "Briar Guardians left standing in the garden", from = { "garden" },
                 showdown = "A Briar Beast fights beside her", foe = "briar_beast",
@@ -1374,6 +1457,50 @@ M.want_more = {
 }
 
 -- The group chat between sessions: what the friends say about the room they just played.
+-- The everyday bit of the group chat, one a week: { who, line, who replies, their reply }.
+M.chat_banter = {
+    { "sam", "who's on snacks this week", "jess", "me. it's going to be crisps again" },
+    { "mara", "i made a little map of the museum. don't look at it dev, it has spoilers", "dev", "how does it have spoilers. you made it" },
+    { "jess", "can we start 15 min late thursday, bus thing", "sam", "np, i'll be late anyway" },
+    { "dev", "i've been practising brannoc's battle cry in the car", "mara", "please don't do it at the table" },
+    { "sam", "bought new dice. they're green. they already roll badly", "jess", "a classic" },
+    { "mara", "does anyone know if gnomes have middle names", "jess", "flitwidget absolutely has four" },
+}
+
+-- Questions for the DM in the group chat, one a week (museum_week.write_chat); you answer from the
+-- board, and the one who asked takes it the way it lands. Lore, a ruling, the plan for Thursday.
+-- replies: { label (your button), say (what you post), back (their answer), effects (their stats) }.
+M.chat_ask = {
+    { id = "flit_wizard", who = "mara", from = 1, text = "@DM is flitwidget an actual wizard or just a very confident gnome",
+      replies = { { label = "A wizard. Obviously.", say = "a wizard. obviously.", back = "i KNEW it", effects = { investment = 2 } },
+                  { label = "You'll have to find out.", say = "you'll have to find out", back = "rude. writing that down", effects = { investment = 3 } },
+                  { label = "A very confident gnome.", say = "a very confident gnome", back = "honestly that's worse", effects = { fun = 1 } } } },
+    { id = "pip_pet", who = "jess", from = 2, text = "@DM can pip adopt a museum rat. his name is exhibit b",
+      replies = { { label = "Yes. Exhibit B is yours.", say = "yes. exhibit b is yours", back = "EXHIBIT B LIVES", effects = { investment = 4, fun = 2 } },
+                  { label = "If Pip can find one.", say = "if pip can find one", back = "challenge accepted", effects = { investment = 2 } },
+                  { label = "No pets in the museum.", say = "no pets in the museum, sorry", back = "flitwidget would allow it", effects = { fun = -2, trust = -1 } } } },
+    { id = "sam_rules", who = "sam", from = 2, text = "@DM quick one: does a healing spell work through a closed door",
+      replies = { { label = "Only if Oswin can see them.", say = "only if oswin can see them", back = "fair", effects = { trust = 2 } },
+                  { label = "I'll look it up and get back to you.", say = "i'll look it up and get back to you", back = "appreciate it", effects = { trust = 1, commitment = 1 } },
+                  { label = "Sure, why not.", say = "sure, why not", back = "...ok cool", effects = { trust = -1, fun = 1 } } } },
+    { id = "gorgon_strength", who = "dev", from = 2, text = "@DM how strong is the gorgon. like on a scale of one to brannoc",
+      replies = { { label = "Stronger than you'd like.", say = "stronger than you'd like", back = "perfect", effects = { investment = 2 } },
+                  { label = "You'll find out.", say = "you'll find out", back = "that's not a number", effects = { fun = 1 } },
+                  { label = "Honestly? Very.", say = "honestly? very", back = "ok now i'm scared. good scared", effects = { investment = 3 } } } },
+    { id = "mara_map", who = "mara", from = 2, text = "@DM is it ok if i keep a map of the museum in my notebook. for thessaly",
+      replies = { { label = "Please do. I love that.", say = "please do. i love that", back = "eee ok", effects = { investment = 3, commitment = 1 } },
+                  { label = "Sure.", say = "sure", back = "ok!", effects = { investment = 1 } } } },
+    { id = "time_check", who = "sam", from = 3, text = "@DM are we still on for 7 thursday",
+      replies = { { label = "7 sharp.", say = "7 sharp", back = "see you then", effects = { commitment = 2 } },
+                  { label = "Let's say 7:30.", say = "let's say 7:30", back = "even better", effects = { commitment = 1, fun = 1 } } } },
+    { id = "telpur_deal", who = "jess", from = 3, when = { done = "gift_shop" }, text = "@DM what's telpur's deal. is the boot ok",
+      replies = { { label = "Telpur is a demon lord. In a boot.", say = "telpur is a demon lord. in a boot", back = "i have so many questions", effects = { investment = 3 } },
+                  { label = "Ask Telpur.", say = "ask telpur", back = "i WILL", effects = { fun = 2 } } } },
+    { id = "brannoc_gorgons", who = "dev", from = 3, text = "@DM would brannoc know anything about gorgons. soldier family and all",
+      replies = { { label = "He's heard the stories.", say = "he's heard the stories. none of them end well", back = "nice. ominous", effects = { investment = 3 } },
+                  { label = "Roll History when you get there.", say = "roll history when you get there", back = "rolling a 20 already", effects = { investment = 2 } } } },
+}
+
 M.chat = {
     -- (A line about something only if it happened: { text, when = condition }, as on moments.)
     street = { jess = { "flitwidget is lying and i love him", when = { not_flag = "truth" } }, sam = "do we get a discount at the gift shop since we're the help" },

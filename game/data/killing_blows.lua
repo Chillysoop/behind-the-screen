@@ -9,6 +9,12 @@ return {
     SPOTLIGHT = 12,
     FUN = 6,
     WINDOW = 3,
+    -- What handing it over is worth (the playtest, November 3): every one you hand over in the
+    -- window makes the next worth less (FRESH each), never below FLOOR; a big one (the adventure's
+    -- boss, a villain) is worth BIG times as much, so saving them for the big moments pays.
+    FRESH = 0.7,
+    FLOOR = 0.3,
+    BIG = 1.8,
 
     fighter = {
         { "One swing. I put everything into it. {boss} doesn't get up." },

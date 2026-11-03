@@ -58,6 +58,14 @@ function M.vocab()
         local seen = {}
         words_in(MODULE, vocab, seen)
         words_in(require("game.data.museum.cards"), vocab, seen)
+        -- (And its own boards: the places on its maps are its words too, November 3.)
+        local okb, lib = pcall(require, "game.data.map_library")
+        for _, b in pairs(okb and lib.boards or {}) do
+            if type(b) == "table" and b.adventure == MODULE.id then
+                words_in(b.places, vocab, seen)
+                words_in(b.features, vocab, seen)
+            end
+        end
     end
     return vocab
 end

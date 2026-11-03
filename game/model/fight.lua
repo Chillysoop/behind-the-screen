@@ -579,6 +579,7 @@ function M.step(night, ev)
         local c = ev.who
         s.id, s.monster, s.x, s.y, s.name = ref(c), c.monster_id, c.x, c.y, c.name
         s.hp, s.hp_max = c.hp, c.hp_max
+        s.pc, s.class = c.pc or nil, c.class      -- (a hero who split off, coming back: night_view)
     elseif k == "temp" then
         s.id, s.amount = ref(ev.who), ev.amount
     elseif k == "hazard" or k == "hazard_act" then
@@ -1051,8 +1052,24 @@ function M.run(night, sc, plan)
     local taken = {}
     local party_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #night.pc_list, 1, b.W, b.H)
     local party_out = {}
+    -- Split up this scene (night.lua, "Splitting the party"): whoever wandered off isn't here yet.
+    local split = sc.split and sc.split.away or nil
+    f.away = {}
+    for _, c in ipairs(night.pc_list) do
+        if split and split[c.player_key] and not c.dead then
+            table.insert(f.away, c)
+        end
+    end
+    -- (Never the whole party: someone has to be there for the fight to start.)
+    if #f.away >= #night.pc_list then
+        f.away = {}
+    end
+    local away_set = {}
+    for _, c in ipairs(f.away) do
+        away_set[c] = true
+    end
     for i, c in ipairs(night.pc_list) do
-        if not c.dead then
+        if not c.dead and not away_set[c] then
             ready_for_battle(c)
             c.torch = (b.light and not c.darkvision) or nil   -- a Torch in the dark (Bright 20 ft, Dim 20 ft more)
             local sq = party_spots[i] or { 2, i + 3 }
@@ -1062,6 +1079,77 @@ function M.run(night, sc, plan)
         end
     end
     local foe_spots = M.squares_near(blocked, taken, layout.foes[1], layout.foes[2], #plan.ids, 2, b.W, b.H)
+    -- The room's own figure who starts the fight (the Sentinel on its plinth, the knight out of his
+    -- frame) steps off its spot, not in from the edge: the playtest, November 3, saw a second one.
+    if sc.npc_at and plan.ids[1] then
+        local nx, ny = sc.npc_at[1], sc.npc_at[2]
+        local free = not blocked[nx * 1000 + ny]
+        for _, ps in ipairs(party_spots) do
+            free = free and not (ps[1] == nx and ps[2] == ny)
+        end
+        if free then
+            for i, fs in ipairs(foe_spots) do
+                if fs[1] == nx and fs[2] == ny then
+                    foe_spots[i] = foe_spots[1]
+                end
+            end
+            foe_spots[1] = { nx, ny }
+        end
+    end
+    -- The room's own pieces that come alive (the garden's topiary: module.lua `wake`). Each foe
+    -- steps off the hedge it was, and that hedge is gone from the mat: its square opens and its
+    -- cover goes with it (the playtest, November 3: the hedges were still there after they woke).
+    -- A hedge nobody became stays a hedge. A DM's map without the feature wakes nothing.
+    local wake_out
+    if sc.wake and sc.wake.feature then
+        local board = require "game.model.board"
+        local ok, c = pcall(board.compile, (extras and extras.board) or set_name)
+        local feat = ok and c and c.by_id and c.by_id[sc.wake.feature]
+        if feat then
+            local free = {}
+            for _, pi in ipairs(feat.pieces) do
+                local pc = c.pieces[pi]
+                table.insert(free, { pc.x, pc.y })
+            end
+            local function take(i)
+                local cell = table.remove(free, i)
+                local k = cell[1] * 1000 + cell[2]
+                blocked[k], fight_blocked[k] = nil, nil
+                local ck = cell[1] .. "," .. cell[2]
+                if b.cover then
+                    b.cover[ck] = nil
+                end
+                if b.deg then
+                    b.deg[ck] = nil
+                end
+                return cell
+            end
+            wake_out = {}
+            local placed = {}
+            -- Each foe's own hedge first (the horned one is the triceratops), then whatever's left.
+            for pass = 1, 2 do
+                for i, id in ipairs(plan.ids) do
+                    if not placed[i] and #free > 0 then
+                        local want = sc.wake.at and sc.wake.at[id]
+                        local pick = pass == 2 and 1 or nil
+                        if want then
+                            for j, cell in ipairs(free) do
+                                if cell[1] == want[1] and cell[2] == want[2] then
+                                    pick = j
+                                end
+                            end
+                        end
+                        if pick then
+                            local cell = take(pick)
+                            foe_spots[i], placed[i] = cell, true
+                            table.insert(wake_out, { cell[1], cell[2] })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    f.wake = wake_out
     local foes_out = {}
     local counts = {}
     for i, id in ipairs(plan.ids) do
@@ -1133,7 +1221,7 @@ function M.run(night, sc, plan)
     end
     night:emit({ kind = "battle", phase = "start", party = party_out, foes = foes_out, terrain = set_name,
                  pieces = f.map and maps.cells(f.map) or nil, allies = #allies_out > 0 and allies_out or nil,
-                 ambushed = f.ambushed, danger = plan.meter.danger, srd = plan.meter.srd })
+                 ambushed = f.ambushed, danger = plan.meter.danger, srd = plan.meter.srd, wake = f.wake })
 
     -- Engine events collect into the current turn's steps.
     night.turn_steps, night.turn_who = {}, nil
@@ -1203,11 +1291,12 @@ function M.run(night, sc, plan)
                 night:emit({ kind = "npc", name = f.boss_name and util.capitalize(f.boss_name) or tgt.name, cast = tgt.person,
                              text = lw, voiced = true })
             end
-            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name }, src,
+            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt }, src,
                 other and night.pcs and night.pcs[other.key] or nil)
             if o and o.kb then
-                night:killing_blow(o.kb == "actor" and actor or (o.kb == "other" and night.other) or nil, tgt, f.boss_name or tgt.name,
-                    actor)
+                -- (You hand it to the table; who tells it is theirs to settle: night:kb_share.)
+                local teller = o.kb == "actor" and night:kb_share(actor, other, tgt, f.boss_name or tgt.name) or nil
+                night:killing_blow(teller, tgt, f.boss_name or tgt.name, actor)
             end
             return total
         end
@@ -1264,6 +1353,26 @@ function M.run(night, sc, plan)
     opts.before_round = function(bb, r)
         night:flush_turn()
         night:emit({ kind = "round", round = r })
+        -- The ones who split off: a cut to them, then they come running (round 3).
+        if #(f.away or {}) > 0 then
+            if r == 2 then
+                for _, c in ipairs(f.away) do
+                    night:say("Meanwhile, " .. c.name .. " is on the far side of the room's doors, and hears the crash.", "aside")
+                end
+            elseif r >= 3 then
+                local edge = M.squares_near(f.blocked or {}, {}, layout.party[1], layout.party[2], #f.away, 1, bb.W, bb.H)
+                for i, c in ipairs(f.away) do
+                    if not c.dead then
+                        ready_for_battle(c)
+                        local sq = edge[i] or { 1, i }
+                        bb:join(c, sq[1], sq[2])
+                        night:say(c.name .. " comes running back. Cut to the fight: they're in it now.", "dm")
+                    end
+                end
+                f.away = {}
+                night:flush_turn()
+            end
+        end
         -- A round of nothing but walking on a big board gets the DM's word on where things stand
         -- (the playtest, Nov 2: rounds passed in silence). Twice a fight at most.
         if r >= 2 and f.round_busy == false and (f.walk_said or 0) < 2 then
@@ -1425,7 +1534,29 @@ function M.run(night, sc, plan)
         end
         night:flush_turn()
     end
+    -- The fight as it went, a frame a turn, for the report's Look to play back (the playtest,
+    -- November 3: "the look button should quickly replay the combat"). Compact: "mini:x:y:down".
+    night.fight_frames = {}
+    night.fight_wake = f.wake       -- (the hedges that got up: the report's replay lifts them too)
+    night.fight_kinds = {}
+    local function frame(bb)
+        local fr = {}
+        for _, cr in ipairs(bb.creatures) do
+            if cr.x and not cr.removed and cr.mini then
+                table.insert(fr, cr.mini .. ":" .. cr.x .. ":" .. cr.y .. ":" .. ((cr.dead or cr.down) and 1 or 0))
+                if not night.fight_kinds[cr.mini] then
+                    night.fight_kinds[cr.mini] = { side = cr.side == "party" and "party" or "foe", class = cr.class, monster = cr.monster_id }
+                end
+            end
+        end
+        table.insert(night.fight_frames, table.concat(fr, ";"))
+        if #night.fight_frames > 60 then
+            table.remove(night.fight_frames, 1)
+        end
+    end
+    frame(b)
     opts.after_turn = function(bb, c)
+        frame(bb)
         local steps = night:flush_turn()
         if steps and #steps > 0 then
             react(night, f, steps, c)
@@ -1503,6 +1634,27 @@ function M.run(night, sc, plan)
         end
     end
 
+    -- Stared down before the fight (night.lua: a won Intimidation check in this room): the one in
+    -- charge goes for whoever did it, for the first few rounds (the playtest, November 3).
+    local tz = night.scene and night.scene.taunt
+    if tz and not tz.used then
+        tz.used = true
+        local pc = night.pcs and night.pcs[tz.key]
+        local lead = f.boss
+        if not lead then
+            for _, e in ipairs(b.creatures) do
+                if e.side == "foes" and not e.dead and not e.removed and (not lead or (e.hp_max or 0) > (lead.hp_max or 0)) then
+                    lead = e
+                end
+            end
+        end
+        if pc and lead and not pc.dead and not pc.down then
+            b:add_effect(lead, { name = "Taunted", taunt_by = pc, conds = { taunted = true },
+                                 expires = { who = lead, at = "end", n = tz.rounds or 3 } })
+            night:say((lead.name or "It") .. " can't take its eyes off " .. pc.name .. ". For the next few rounds, it's "
+                .. pc.name .. " it wants.", "aside")
+        end
+    end
     -- Heroic Inspiration (B4): a hero holding the token can spend it in the fight.
     for _, c in ipairs(night.pc_list or {}) do
         local p = player_of(night, c)

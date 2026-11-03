@@ -314,6 +314,9 @@ local function recap_panel(app, rep, x, y, w, h)
         kit.button(sx + sw - 62, sy + 14, 50, 24, "Look", function()
             M.view_snapshot(app, sn)
         end, { font = "ui14", key = "snapshot_" .. k })
+        require("game.ui.gloss").card_spot(sx + sw - 62, sy + 14, 50, 24, "Look", sn.frames
+            and "Set the moment out on the table: the fight plays back, turn by turn, up to it."
+            or "Set the moment out on the table, minis and all.")
     end
 end
 
@@ -519,6 +522,11 @@ function M.build(app)
     if app.snapshot_view then
         return M.snapshot_overlay(app)
     end
+    -- First, how the table felt and the night's reward (game/ui/rewards_view.lua).
+    local rewards = require "game.ui.rewards_view"
+    if rewards.pending(app) then
+        return rewards.build(app)
+    end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 12, "SESSION " .. util.int(rep.week) .. "  -  REPORT", "ui14", theme.gold)
     -- The title: one of three suggestions.
@@ -599,7 +607,9 @@ function M.build(app)
     for _, it in ipairs(rep.items or {}) do
         local d = items_mod.def(it.id)
         local who = it.holder and app.campaign:player(it.holder)
-        table.insert(earned, { "Earned: " .. d.name .. (who and (". " .. who.char .. " carries it.") or "."), theme.gold })
+        -- (Hover: what it does, and who has it. The playtest, November 3.)
+        table.insert(earned, { "Earned: " .. d.name .. (who and (". " .. who.char .. " carries it.") or "."), theme.gold,
+                               tip = { d.name, (d.text or "") .. (who and (" " .. who.char .. " (" .. who.name .. ") has it.") or "") } })
     end
     for _, id in ipairs(rep.payoffs or {}) do
         table.insert(earned, { "Paid off: " .. content.seeds[id].name, theme.green })
@@ -612,8 +622,13 @@ function M.build(app)
                 .. " tonight" .. ((mu.francs_spent or 0) > 0 and (", " .. util.int(mu.francs_spent) .. " spent") or "")
                 .. " (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
         end
-        if mu.got and #mu.got > 0 then
-            table.insert(earned, { "Picked up: " .. util.join_names(mu.got) .. ".", theme.gold })
+        -- Each thing on its own line, with a hover: what it does, and who has it.
+        local mn = require "game.model.museum_night"
+        for _, g in ipairs(mu.got or {}) do
+            local info = mn.item_info(app.campaign, g)
+            local who = info and info.holder
+            table.insert(earned, { "Picked up: " .. g .. (who and (" (" .. who.char .. " has it)") or "") .. ".", theme.gold,
+                                   tip = info and { info.title, info.text .. (who and (" " .. who.char .. " (" .. who.name .. ") has it.") or "") } or nil })
         end
     end
     if #earned == 0 then
@@ -623,7 +638,14 @@ function M.build(app)
     for _, it in ipairs(earned) do
         local hh = kit.text_height(it[1], "ui14", 348)
         if ey + hh <= y + 226 then
-            kit.text(412, ey, it[1], "ui14", it[2], { w = 348 })
+            local opts = { w = 348 }
+            if it.tip then
+                opts.gloss = false       -- (its own hover card instead of a word's)
+            end
+            local tn = kit.text(412, ey, it[1], "ui14", it[2], opts)
+            if it.tip and it.tip[2] ~= "" then
+                require("game.ui.gloss").card_spot(412, ey, 348, hh, it.tip[1], it.tip[2], nil, tn)
+            end
             ey = ey + hh + 4
         end
     end
@@ -705,6 +727,7 @@ end
 -- snapshot (October 20: Enter went on to next week under the gift and dropped it).
 function M.busy(app)
     return app.quick or app.snapshot_view or app.keepsake_shown or keepsakes.waiting(app.campaign)
+        or require("game.ui.rewards_view").pending(app)
 end
 
 -- A gift from the table (game/model/keepsakes.lua): as everyone packs up, the player whose
@@ -795,6 +818,55 @@ function M.gift_row(app, rep, x, y)
             "ui14", theme.gold, { w = 328 })
         if app.gift_line then
             kit.text(x + 44, y + 20, '"' .. app.gift_line .. '"', "ui14", theme.text, { w = 328, lines = 2 })
+        end
+        return
+    end
+    -- v2: the dice come out of your bag, won in boxes after happy sessions (game/model/loot.lua).
+    if camp.module then
+        local loot = require "game.model.loot"
+        local dd = require "game.data.dice"
+        local bag = loot.bag(camp)
+        kit.text(x, y, "NEW DICE", "ui14", theme.dim)
+        if #bag == 0 then
+            kit.text(x + 84, y, "Your dice bag is empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
+                { w = 288, lines = 2 })
+            return
+        end
+        app.gift_pick = util.clamp(app.gift_pick or 1, 1, #bag)
+        local sid = bag[app.gift_pick]
+        local set = dd.SETS[sid]
+        local r = loot.rarity(set and set.rarity)
+        kit.picture(x + 84, y - 4, 26, 26, "dice_" .. sid)
+        kit.text(x + 116, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
+            r and kit.rgba(r.color) or theme.text, { w = 200, lines = 1 })
+        if #bag > 1 then
+            kit.button(x + 322, y - 4, 24, 22, "<", function()
+                app.gift_pick = (app.gift_pick - 2) % #bag + 1
+                app.refresh()
+            end, { font = "ui14", key = "gift_prev" })
+            kit.button(x + 348, y - 4, 24, 22, ">", function()
+                app.gift_pick = app.gift_pick % #bag + 1
+                app.refresh()
+            end, { font = "ui14", key = "gift_next" })
+        end
+        local bw2 = 87
+        for i, p in ipairs(camp.players) do
+            local bx = x + (i - 1) * (bw2 + 8)
+            local ok = (dice_sets.get(camp).gift_week ~= camp.week) and dice_sets.of(camp, p.key) ~= sid
+            kit.button(bx, y + 24, bw2, 40, "", function()
+                if loot.give(camp, p.key, sid) then
+                    app.gift_line = dd.GIFT_LINES[((camp.week + i) % #dd.GIFT_LINES) + 1]
+                    if app.paint_dice then
+                        app.paint_dice()
+                    end
+                    if app.save_campaign then
+                        app.save_campaign()
+                    end
+                end
+                app.refresh()
+            end, { enabled = ok, color = theme.panel2, hover = theme.button_hover, key = "gift_" .. p.key })
+            kit.picture(bx + 4, y + 28, 32, 32, "dice_" .. dice_sets.of(camp, p.key))
+            kit.text(bx + 40, y + 34, p.name, "ui14", ok and theme.text or theme.faint, { w = bw2 - 42, lines = 1 })
         end
         return
     end

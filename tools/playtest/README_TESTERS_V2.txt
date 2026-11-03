@@ -21,6 +21,38 @@ NEW IN THIS BUILD (November 3, later)
   changed something, it asks first.
 - The player tiles show hit points and AC all night, plus each hero's own resources:
   spell slots, Channel Divinity, Second Wind, Action Surge.
+- Whoever's speaking lights up on the table: gold in character, blue out of character,
+  purple thinking. A friend's thought opens over their tile with a 30-second clock.
+- The players make their own choices: the sign by the pond, putting things back, the
+  paint. They talk it over and say why; you only nudge if they ask you to. Where to go
+  next works the same way, and you decide what's actually there when they arrive.
+- Fights: the rogue hits and runs, the cleric steps up beside whoever's in trouble, the
+  wizard keeps its distance. Intimidation taunts a foe for a few rounds. A split party
+  isn't all in the same fight any more: whoever wandered off joins a couple of rounds in.
+- The killing blow: you decide if it's possible, the players decide who takes it. It
+  means a little less each time you hand one over, and a lot more on a big boss.
+- The garden's hedges get up off the map and become the beasts. Each beast has its own
+  mini.
+- The minis move: whoever looks at something walks over to it, and the pond's tentacle
+  really drags you in. In each room the friends take turns looking around, one at a
+  time. Some places hide a trap or a find, and that's your call behind the screen: let
+  the trap go off, give them a chance to spot it, or let it never go off; hand over the
+  find, make it bigger, move it to a later room, or leave nothing there.
+- Click a person's name in any line (Flitwidget, Euryale, Telpur, the Sentinel...) for
+  their sheet: who they are, how they feel about the party, their numbers in a fight.
+  You can put magic items in their pockets and pick how the party gets them: beat
+  them, pick their pocket, or ask. A pocket or an ask is the players' idea, and you
+  rule on whether it works.
+- When the party finds a magic item, whoever picks it up hands it to the friend who'd
+  get the most out of it (unless they're the type to keep it).
+- The report: point at anything they picked up to see what it does and who has it.
+  After a session you open a dice box (common up to mythic), and "Look" plays a fight
+  back to the moment.
+- The End session button (top right) ends the night when you choose. The game never
+  ends it for you, and stopping on a cliffhanger or right after a big fight lands best.
+- The group chat between sessions is chattier: lore questions, banter, and questions
+  you can answer. The one-on-one asks how they feel about the game and about their
+  hero's story.
 
 EARLIER (November 3)
 --------------------

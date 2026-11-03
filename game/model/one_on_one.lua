@@ -99,8 +99,11 @@ function M.start(campaign, prep, key)
     return t
 end
 
+-- The first question picks what the talk is about (the playtest, November 3: "how's Thessaly
+-- feeling about the game" asked a character how she felt about a game): the person's week, how
+-- they feel about the game itself, or their hero's story. Each leaves its own mark.
 local STEPS = {
-    { "How are you doing this week? Really.", "How's {char} feeling about the game?" },
+    { "How are you doing this week? Really.", "How are you feeling about the game, honestly?", "How do you feel about {char}'s story so far?" },
     { "What would you love to see this week?", "Anything you'd want {char} to get to do?" },
     { "Anything bugging you about the game?", "If you could change one thing, what would it be?" },
 }
@@ -132,10 +135,42 @@ function M.choose(campaign, prep, t, i)
     local reply
     if t.step == 1 then
         local lines = MOOD_LINES[p.mood] or MOOD_LINES.fine
-        reply = lines[((campaign.week or 1) % #lines) + 1]
-        if i == 2 then
-            reply = reply .. " And " .. p.char .. "? Loving it. Mostly."
-            score.add(p, "investment", 1)
+        if i == 1 then
+            -- Their week: being asked about them, not the game, builds trust.
+            reply = lines[((campaign.week or 1) % #lines) + 1]
+            score.add(p, "trust", 1)
+        elseif i == 2 then
+            -- The game itself: how it's been for them lately, said straight. Being asked keeps them
+            -- coming; a worry said out loud is half dealt with.
+            local fun = score.fun(p)
+            reply = (fun >= 65 and "Honestly? I love it. Thursdays are the best bit of my week.")
+                or (fun >= 45 and "It's good! Some bits drag a little, but I always leave wanting more.")
+                or "I'll be honest, it's been a bit up and down for me lately."
+            if (p.suspicion or 0) >= 40 then
+                reply = reply .. " And sometimes the rolls feel a little... convenient."
+                score.add(p, "suspicion", -3)
+            end
+            if (p.commitment or 50) < 45 then
+                reply = reply .. " Life's busy, though."
+            end
+            score.add(p, "commitment", 2)
+            t.learned.feel = fun >= 65 and "loving the game" or (fun >= 45 and "enjoying it, mostly" or "up and down about the game")
+        else
+            -- Their hero's story: what they came to the museum for, and whether it's come up.
+            local adv = campaign.module and require("game.model.adventure")
+            local h = adv and adv.hook(campaign, p.key)
+            local room = h and adv.data.rooms[h.room]
+            if h and room and (campaign.adv.hook_paid or {})[p.key] then
+                reply = p.char .. " got what " .. (p.char) .. " came for, in " .. util.lower_first(room.name)
+                    .. ". Now I want to know what it means."
+            elseif h and room then
+                reply = p.char .. " came for " .. util.lower_first(h.name) .. ", in " .. util.lower_first(room.name)
+                    .. ". We haven't got there yet. I'm patient. Mostly."
+            else
+                reply = p.char .. "'s still finding their feet. I like them more every week, though."
+            end
+            score.add(p, "investment", 3)
+            t.learned.story = true
         end
         p.mood_known = true
         t.learned.mood = score.mood(p).name
@@ -188,6 +223,9 @@ function M.summary(learned)
         return nil
     end
     local parts = {}
+    if learned.feel then
+        table.insert(parts, util.capitalize(learned.feel) .. ".")
+    end
     if learned.want then
         table.insert(parts, "Wants " .. learned.want .. ".")
     end

@@ -321,8 +321,8 @@ function M.night_lines(c, night)
         end
     end
     if most then
-        put(most, mn >= 2 and { "were we ever actually going to get a say about where we went", "felt a bit on rails last week ngl" }
-            or { "still think we should've gone the other way", "we got outvoted by the DM, noted" })
+        put(most, mn >= 2 and { "the DM kept nudging us places last week. felt a bit on rails ngl", "felt a bit on rails last week ngl" }
+            or { "still think we should've gone the other way", "the DM nudged us the other way, noted" })
     end
     -- The call that moved them most, either way.
     for _, p in ipairs(c.players) do
@@ -348,17 +348,65 @@ function M.night_lines(c, night)
     return out
 end
 
--- The group chat: what the friends say about last week's rooms, and the requests waiting.
+-- The group chat (the playtest, November 3: "have the group chat feel more naturally like dialogue
+-- between the group; mix in some lore / casual questions to the DM"). Last night's own events and
+-- the rooms, each answered by someone else; a bit of everyday chat; and now and then a question for
+-- you (MODULE.chat_ask: answer it from the prep board). Requests are private messages now, one-on-one
+-- with you (adventure.prompts), not posts to the group.
+local REPLY = {
+    good = { "honestly same", "that bit was SO good", "best part of the night tbh", "still thinking about it" },
+    bad = { "rip", "we don't talk about that", "never again lol", "it was very funny from where i was sitting" },
+    plain = { "lol", "real", "honestly yeah", "100%" },
+}
+local function tone_of(text)
+    local t = string.lower(text or "")
+    for _, w in ipairs({ "annoyed", "rip", "floor", "refund", "not over", "on rails", "killed it for me", "not my favourite",
+                         "nudged", "outvoted", "hated", "never" }) do
+        if string.find(t, w, 1, true) then
+            return "bad"
+        end
+    end
+    for _, w in ipairs({ "more of that", "best", "love", "thrilled", "emotional", "ten out of ten", "so good", "finally" }) do
+        if string.find(t, w, 1, true) then
+            return "good"
+        end
+    end
+    return "plain"
+end
+
 function M.write_chat(c)
     local st = c.adv
     local msgs = {}
     local said = {}
+    local rng = c.rng
+    -- Someone else at the table answers a post (not the one who made it, and not the same friend twice running).
+    local replied_by = {}
+    local function reply_to(m)
+        local cands = {}
+        for _, q in ipairs(c.players) do
+            if q.key ~= m.key and not replied_by[q.key] then
+                table.insert(cands, q)
+            end
+        end
+        if #cands == 0 then
+            return
+        end
+        local q = cands[rng:int(1, #cands)]
+        replied_by[q.key] = true
+        table.insert(msgs, { who = q.name, key = q.key, text = rng:pick(REPLY[tone_of(m.text)]), reply = true })
+    end
     -- Last night's own events first (three at most), then the rooms.
     local own = M.night_lines(c, c.night)
+    local posts = 0
     for _, p in ipairs(c.players) do
-        if own[p.key] and #msgs < 3 then
+        if own[p.key] and posts < 3 then
             said[p.key] = true
-            table.insert(msgs, { who = p.name, key = p.key, text = own[p.key] })
+            posts = posts + 1
+            local m = { who = p.name, key = p.key, text = own[p.key] }
+            table.insert(msgs, m)
+            if posts <= 2 then
+                reply_to(m)
+            end
         end
     end
     local last = {}
@@ -373,9 +421,14 @@ function M.write_chat(c)
             -- (A line about something only if it happened: { text, when }.)
             local text = type(line) == "table" and line[1] or line
             local ok = type(line) ~= "table" or adventure.test(c, line.when)
-            if p and ok and not said[key] and #msgs < 5 then
+            if p and ok and not said[key] and posts < 5 then
                 said[key] = true
-                table.insert(msgs, { who = p.name, key = key, text = text })
+                posts = posts + 1
+                local m = { who = p.name, key = key, text = text }
+                table.insert(msgs, m)
+                if posts == 3 then
+                    reply_to(m)
+                end
             end
         end
     end
@@ -384,6 +437,8 @@ function M.write_chat(c)
             { "jess", "ok there's a MUSEUM in town and the guy running it is a gnome" },
             { "mara", "a travelling museum of curiosities. i've already started a notebook" },
             { "dev", "are there monsters in it" },
+            { "jess", "dev it's a museum" },
+            { "dev", "so yes" },
             { "sam", "i'll bring snacks. museum snacks" },
         }
         for _, l in ipairs(intro) do
@@ -393,15 +448,64 @@ function M.write_chat(c)
             end
         end
     end
-    for _, pr in ipairs(st.prompts or adventure.prompts(c)) do
-        if pr.kind == "request" then
-            local p = c:player(pr.def.who)
-            if p then
-                table.insert(msgs, { who = p.name, key = p.key, text = pr.ask or pr.def.ask, request = pr.id })
-            end
+    -- The everyday bit: snacks, timing, someone's week.
+    local banter = {}
+    for _, b in ipairs(MODULE.chat_banter or {}) do
+        if c:player(b[1]) and (not b.week or b.week == c.week) and (not b.when or adventure.test(c, b.when)) then
+            table.insert(banter, b)
+        end
+    end
+    if #banter > 0 and c.week > 1 then
+        local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
+        table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
+        if b[3] and b[4] and c:player(b[3]) then
+            table.insert(msgs, { who = c:player(b[3]).name, key = b[3], text = b[4], reply = true })
+        end
+    end
+    -- A question for you (one a week, each once): answer it from the board.
+    st.chat_asked = st.chat_asked or {}
+    for _, q in ipairs(MODULE.chat_ask or {}) do
+        if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when)) then
+            st.chat_asked[q.id] = c.week
+            table.insert(msgs, { who = c:player(q.who).name, key = q.who, text = q.text, ask = q.id })
+            break
         end
     end
     return msgs
+end
+
+-- The DM answers a question in the group chat (MODULE.chat_ask): the reply goes in the chat, and
+-- the friend who asked takes it the way the answer lands.
+function M.answer_chat(c, m, i)
+    local q
+    for _, d in ipairs(MODULE.chat_ask or {}) do
+        if d.id == m.ask then
+            q = d
+        end
+    end
+    local r = q and q.replies[i]
+    if not r or m.answered then
+        return false
+    end
+    m.answered = i
+    local p = c:player(q.who)
+    if p then
+        for stat, v in pairs(r.effects or {}) do
+            score.add(p, stat, v)
+        end
+    end
+    -- (Your answer, then theirs: in the chat, after the question.)
+    local at = #c.chat + 1
+    for k, mm in ipairs(c.chat) do
+        if mm == m then
+            at = k + 1
+        end
+    end
+    table.insert(c.chat, at, { who = "You", key = "dm", text = r.say })
+    if r.back and p then
+        table.insert(c.chat, at + 1, { who = p.name, key = p.key, text = r.back, reply = true })
+    end
+    return true
 end
 
 -- What prepping a room really means (for the board): the minis to put out (the room's own fight,

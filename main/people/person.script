@@ -9,9 +9,20 @@ function init(self)
     self.base_anim = go.get("#sprite", "animation")
     self.base_scale = go.get_scale()
     self.phase = math.random() * 6.283
+    -- Their outline (the playtest, November 3): hidden until they talk or think (the table script
+    -- forwards "outline" { color, time }).
+    msg.post("#outline", "disable")
+    self.outline_t = nil
 end
 
 function update(self, dt)
+    if self.outline_t then
+        self.outline_t = self.outline_t - dt
+        if self.outline_t <= 0 then
+            self.outline_t = nil
+            msg.post("#outline", "disable")
+        end
+    end
     local p = go.get_world_position()
     local eye = state.cam_eye
     go.set_rotation(vmath.quat_rotation_y(math.atan2(eye.x - p.x, eye.z - p.z)))
@@ -27,12 +38,24 @@ function on_message(self, message_id, message)
             return
         end
         sprite.play_flipbook("#sprite", message.anim)
+        sprite.play_flipbook("#outline", message.anim)
         -- A little hop so the change reads from across the room.
         self.pop = 0.04
         go.animate("#person", "pop", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBACK, 0.35)
+    elseif message_id == hash("outline") then
+        if self.away then
+            return
+        end
+        go.set("#outline", "tint", message.color)
+        msg.post("#outline", "enable")
+        self.outline_t = message.time or 2
     elseif message_id == hash("seat") then
         -- Anyone out this week (A9): their chair stays at the table, empty.
         self.away = not message.present
         sprite.play_flipbook("#sprite", self.away and hash("chair_empty") or (self.anim or self.base_anim))
+        if self.away then
+            self.outline_t = nil
+            msg.post("#outline", "disable")
+        end
     end
 end

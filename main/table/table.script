@@ -299,6 +299,9 @@ function on_message(self, message_id, message)
     elseif message_id == hash("terrain") then
         -- (Older callers name a terrain set: it's a board now.)
         msg.post(BOARD, "board", { id = message.set, show = message.show or "all", animate = message.animate ~= false, def = message.def })
+    elseif message_id == hash("lift") then
+        -- (Through here, so it lands after a "terrain" posted just before it: the replay's board.)
+        msg.post(BOARD, "lift", message)
     elseif message_id == hash("pieces") then
         lay_pieces(self, message.cells)
     elseif message_id == hash("stage") then
@@ -321,11 +324,22 @@ function on_message(self, message_id, message)
         local m = self.minis[message.id]
         if m then
             local pts = {}
+            local far = 0
+            local fx, fy = m.x, m.y
             for _, sq in ipairs(message.path) do
                 table.insert(pts, square(sq[1], sq[2]))
+                if fx and fy then
+                    far = math.max(far, math.max(math.abs(sq[1] - fx), math.abs(sq[2] - fy)))
+                end
+                fx, fy = sq[1], sq[2]
                 m.x, m.y = sq[1], sq[2]
             end
-            mini_msg(self, message.id, "walk", { path = pts, step = message.step })
+            -- (per_square: a walk across the mat at a walking pace, however far it is.)
+            local step = message.step
+            if message.per_square then
+                step = message.per_square * math.max(1, far)
+            end
+            mini_msg(self, message.id, "walk", { path = pts, step = step })
         end
     elseif message_id == hash("lunge") then
         local t = self.minis[message.target]
@@ -367,6 +381,19 @@ function on_message(self, message_id, message)
         end
     elseif message_id == hash("pose") then
         pose(self, message.who, message.pose, message.hold)
+    elseif message_id == hash("clear_minis") then
+        -- (Every mini off the mat at once, nothing set out in their place: the report's Look.)
+        for id in pairs(self.minis) do
+            remove(self, id, "remove")
+        end
+    elseif message_id == hash("remove_now") then
+        -- (Gone on the spot: a figure that becomes a fight's mini where it stands.)
+        remove(self, message.id, "remove")
+    elseif message_id == hash("outline") then
+        -- Who's talking or thinking: their outline at the table, in the colour for how (panels.SPEAK).
+        if self.people[message.who] then
+            msg.post(msg.url(nil, "/" .. message.who, "person"), "outline", { color = message.color, time = message.time })
+        end
     elseif message_id == hash("mood") then
         -- Resting poses (how into it everyone is); momentary ones wait their turn.
         for who, name in pairs(message.poses) do

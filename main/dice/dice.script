@@ -21,6 +21,10 @@ go.property("set_bone", resource.texture("/assets/textures/d20_bone.png"))
 go.property("set_galaxy", resource.texture("/assets/textures/d20_galaxy.png"))
 go.property("set_copper", resource.texture("/assets/textures/d20_copper.png"))
 go.property("set_obsidian", resource.texture("/assets/textures/d20_obsidian.png"))
+go.property("set_dragonscale", resource.texture("/assets/textures/d20_dragonscale.png"))
+go.property("set_sunburst", resource.texture("/assets/textures/d20_sunburst.png"))
+go.property("set_voidstar", resource.texture("/assets/textures/d20_voidstar.png"))
+go.property("set_prism", resource.texture("/assets/textures/d20_prism.png"))
 
 local BLOB = "/dice_blob"
 local MSG_ROLL = hash("roll")

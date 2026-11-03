@@ -457,6 +457,20 @@ local function topmost_buttons()
                 table.insert(out, l.buttons[j])
             end
             if l.modal then
+                -- A modal that lets some buttons under it through (l.pass = { key = true }): game
+                -- night's call cards keep the top bar's Story, Notes, Maps and Table working while
+                -- the night waits on you (the playtest, November 3).
+                if l.pass then
+                    for k = i - 1, 1, -1 do
+                        local below = M.layers[k]
+                        for j = #below.buttons, 1, -1 do
+                            local b = below.buttons[j]
+                            if b.key and l.pass[b.key] then
+                                table.insert(out, b)
+                            end
+                        end
+                    end
+                end
                 break
             end
         end
@@ -680,6 +694,17 @@ function M.on_click(x, y)
         end
         b.on_click(b)
         return true
+    end
+    -- A word that does something when clicked (a person's name opens their sheet: gloss.lua).
+    if not b then
+        local s = M.spot_hit(x, y)
+        if s and s.on_click then
+            if M.on_press then
+                M.on_press(s)
+            end
+            s.on_click(s)
+            return true
+        end
     end
     return false
 end

@@ -62,6 +62,8 @@ local function quiet(app)
         or (app.review and app.review.queue_open) or gift_open(app)
         or (app.pending and app.pending.kind == "cinematic")   -- the opening has the floor
         or app.recap_left or app.recap_right   -- the DM's recap is up (game night's tips sit where the Table sidebar opens)
+        or (app.screen == "report" and require("game.ui.rewards_view").pending(app))   -- the rewards come first
+        or app.thought_card                     -- a friend's thought over their tile
 end
 
 -- The tip that should be showing now, or nil.

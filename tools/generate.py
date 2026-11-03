@@ -798,8 +798,13 @@ def main():
 
     for (name, _) in PEOPLE:
         w(f"main/people/{name}.sprite", sprite_file(name, "/materials/standee.material"))
-        w(f"main/people/{name}.go", go_file([("sprite", f"/main/people/{name}.sprite"),
-                                             ("person", "/main/people/person.script")]))
+        # Their outline (the playtest, November 3): the same picture in one flat colour, a little
+        # bigger and just behind, shown while they talk or think (person.script, "outline").
+        w(f"main/people/{name}_outline.sprite", sprite_file(name, "/materials/outline.material"))
+        w(f"main/people/{name}.go", go_file([("sprite", f"/main/people/{name}.sprite")])
+          + ('components {\n  id: "outline"\n  component: "/main/people/' + name + '_outline.sprite"\n'
+             + vec("position", (0, 0, -4)) + vec("rotation", (0, 0, 0, 1)) + vec("scale", (1.06, 1.035, 1.0)) + "}\n")
+          + go_file([("person", "/main/people/person.script")]))
     w("main/fx/flame.sprite", sprite_file("flame", "/materials/glow.material"))
     w("main/fx/flame.go", go_file([("sprite", "/main/fx/flame.sprite"), ("flame", "/main/fx/flame.script")]))
     w("main/fx/halo.sprite", sprite_file("halo", "/materials/glow.material"))

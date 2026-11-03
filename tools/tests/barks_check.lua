@@ -42,6 +42,9 @@ for trig, by in pairs(BARKS.made) do
         for i, l in ipairs(pool) do
             check(not l.when or barks.FACT[l.when] ~= nil, "made." .. trig .. "." .. key .. "." .. i .. " names an unknown fact")
             check(not string.find(l[1], "[\128-\255]"), "made." .. trig .. "." .. key .. "." .. i .. " isn't plain ASCII")
+            -- (Nothing from the old valley, filled or not: the truth test caught "a saint", November 3.)
+            local filled = string.gsub(l[1], "{[%w_]+}", "Someone")
+            check(adventure.fits(filled), "made." .. trig .. "." .. key .. "." .. i .. " uses an old-world word: " .. l[1])
         end
     end
 end
@@ -72,7 +75,7 @@ local campaign_mod = require "game.model.campaign"
 local social = require "game.model.social"
 local museum_week = require "game.model.museum_week"
 local MODULE = adventure.data
-local told_seen, kb_seen, says = 0, 0, 0
+local told_seen, kb_seen, says, shares = 0, 0, 0, 0
 
 local function play(seed)
     adventure.enter()
@@ -110,15 +113,24 @@ local function play(seed)
             if ev.kind == "decision" then
                 local opts = ev.card.options
                 answer = r:int(1, #opts)
-                -- (Hand every killing blow to someone else: that's the case under test.)
+                -- (Hand every killing blow to the table, and say yes when the one who landed it
+                -- passes the telling on: that's the case under test.)
                 if ev.card.id == "killing_blow" then
                     for i, o in ipairs(opts) do
-                        if string.find(o.label or "", "^Let ") then
+                        if string.find(o.label or "", "^Ask ") then
+                            answer = i
+                        end
+                        check(not string.find(o.label or "", "^Let "), "seed " .. seed .. ": the DM hands the killing blow to someone else")
+                    end
+                    kb_seen = kb_seen + 1
+                elseif ev.card.id == "kb_share" then
+                    for i, o in ipairs(opts) do
+                        if string.find(o.label or "", "^Sure") then
                             answer = i
                             kb_other = { lander = night.actor and night.actor.char, teller = night.other and night.other.key }
                         end
                     end
-                    kb_seen = kb_seen + 1
+                    shares = shares + 1
                 end
                 if opts[answer].disabled then
                     answer = 1
@@ -156,7 +168,8 @@ local function play(seed)
                         "seed " .. seed .. ": a handed-off killing blow doesn't name " .. tostring(kb_other.lander) .. ": " .. ev.text)
                     kb_other = nil
                 end
-                if string.find(low, "twenty", 1, true) and last_steps then
+                -- (A die cocked against the cup is the table's moment, not a claim about a roll.)
+                if string.find(low, "twenty", 1, true) and last_steps and not string.find(low, "leaning", 1, true) then
                     -- (The crit bark comes right after its turn: a natural twenty in it.)
                     local ok = false
                     for _, s in ipairs(last_steps) do
@@ -187,6 +200,23 @@ for seed = 1, 6 do
     play(seed)
 end
 check(says > 50, "hardly anyone spoke in the fights (" .. says .. ")")
+check(kb_seen == 0 or shares <= kb_seen, "more shares than killing blows")
+
+-- 5. What handing it over is worth: less each time lately, more on a big one.
+do
+    local night_mod = require "game.model.night"
+    local camp = { week = 3, kb_handed = {} }
+    local fakeK = setmetatable({ campaign = camp }, { __index = night_mod })
+    local fresh = fakeK:kb_worth({ boss = true })
+    camp.kb_handed = { { week = 3 }, { week = 3 }, { week = 2 } }
+    local worn = fakeK:kb_worth({ boss = true })
+    check(worn < fresh, "a killing blow handed over three times lately is worth as much as a fresh one")
+    fakeK.scene = { boss = true }
+    local big = fakeK:kb_worth({ boss = true })
+    check(big > worn, "the adventure's boss isn't worth more than a room's")
+    camp.kb_handed = { { week = 0 } }
+    check(fakeK:kb_worth({ boss = true }) >= big, "an old hand-over still counts against a new one")
+end
 
 -- 4. A keyed list remembers across weeks --------------------------------------------------------------------
 do
@@ -205,7 +235,7 @@ do
     end
 end
 
-print(string.format("barks: %d checks, %d failed (%d killing blows handed off, %d told)", checks, failures, kb_seen, told_seen))
+print(string.format("barks: %d checks, %d failed (%d killing blows, %d passed on, %d told)", checks, failures, kb_seen, shares, told_seen))
 if failures > 0 then
     os.exit(1)
 end

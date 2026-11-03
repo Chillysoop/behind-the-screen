@@ -306,7 +306,7 @@ def goblin(name, seed, weapon):
 
 # ---------------------------------------------------------------- players
 
-POSES = ["neutral", "lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
+POSES = ["neutral", "lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think", "frown"]
 
 
 # Whole bodies on chairs (A9): the standee runs down to the floor. The head and arms keep the
@@ -366,13 +366,15 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
         "yawn": ((150, 500, 130, 700), (450, 490, 330, 360)),
         "phone": ((150, 500, 260, 620), (450, 500, 340, 620)),
         "think": ((150, 500, 130, 700), (450, 490, 330, 420)),
+        # Unhappy at something (the playtest, November 3): slumped, a frown, brows down.
+        "frown": ((150, 510, 150, 715), (450, 510, 450, 715)),
     }[pose]
     dy = 26 if pose == "lean" else 0
     draw_hair_back(d)
     # torso down to the seat (the table hides it from across the room), and the arms
     d.rounded_rectangle([118, 430, 482, 900], 90, fill=C(sweater))
     d.rounded_rectangle([262, 380, 338, 450], 20, fill=C(skin))
-    behind = pose in ("neutral", "lean", "laugh", "phone", "think", "yawn")
+    behind = pose in ("neutral", "lean", "laugh", "phone", "think", "yawn", "frown")
     if behind:
         for (x0, y0, x1, y1) in arms:
             limb(d, (x0, y0), (x1, y1), 70, shade)
@@ -424,6 +426,12 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
             ex = 300 + sx * 46
             hd.ellipse([ex - 11, ey - 14, ex + 11, ey + 14], fill=C("#2a1d1a"))
             hd.ellipse([ex - 3 + 4, ey - 12, ex + 5 + 4, ey - 4], fill=(255, 255, 255, 230))
+    elif pose == "frown":
+        eyes(hd, 300, ey + 2, sep=46, r=(10, 12), happy=False)
+        for sx in (-1, 1):
+            ex = 300 + sx * 46
+            # Brows tilted up toward the middle: unhappy, not angry.
+            hd.line([(ex - 18 * sx * -1, ey - 24), (ex + 16 * sx * -1, ey - 32)], fill=C("#2a1d1a"), width=6)
     else:
         eyes(hd, 300, ey, sep=46, r=(11, 14), happy=False)
     if glasses:
@@ -442,6 +450,8 @@ def person(name, seed, skin, hair, sweater, draw_hair_back, draw_hair_front, ext
         hd.line([(282, my + 4), (318, my + 4)], fill=C("#4a2a22"), width=5)
     elif pose == "think":
         hd.arc([286, my - 2, 314, my + 14], 200, 340, fill=C("#4a2a22"), width=5)
+    elif pose == "frown":
+        hd.arc([276, my + 6, 324, my + 30], 200, 340, fill=C("#4a2a22"), width=6)
     else:
         smile(hd, 300, my, 26, open_=False)
     if pose == "laugh":

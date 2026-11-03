@@ -62,9 +62,24 @@ local order = {}
 -- Every piece of text that goes on screen, at any moment, is checked for the old story (set below,
 -- once the adventure is loaded): a line that only flashes up between checkpoints still counts.
 local on_text
+-- A node is a handle, not a table: in the engine, reading or writing any field on one is an error
+-- ("Illegal operation"). The mock's own fields are allowed; anything else stops the test (November 3:
+-- a tile kept its resource pips under chip.res, which was already the roll's text node).
+local NODE_FIELDS = { kind = true, pos = true, size = true, pivot = true, enabled = true, alive = true, color = true, text = true,
+                      font = true, image = true, euler = true, slice = true }
+local NODE_MT = {
+    __index = function(_, k)
+        if NODE_FIELDS[k] then return nil end
+        error("a field read on a GUI node: " .. tostring(k), 2)
+    end,
+    __newindex = function(t, k, v)
+        if not NODE_FIELDS[k] then error("a field set on a GUI node: " .. tostring(k), 2) end
+        rawset(t, k, v)
+    end,
+}
 local function new_node(kind, pos, size)
     num(pos.x, "pos.x"); num(pos.y, "pos.y")
-    local n = { kind = kind, pos = pos, size = size or vmath.vector3(0, 0, 0), pivot = "c", enabled = true, alive = true }
+    local n = setmetatable({ kind = kind, pos = pos, size = size or vmath.vector3(0, 0, 0), pivot = "c", enabled = true, alive = true }, NODE_MT)
     alive[n] = true
     table.insert(order, n)
     alive_count = alive_count + 1
@@ -588,6 +603,13 @@ for week = 1, WEEKS do
             click_key("favor_help_1")
             click_key("favor_hurt_" .. rng:int(1, 2))
             if not click_key("favor_done") then problem("no way to settle a favor" .. where) break end
+        elseif pr.kind == "chat" then
+            -- A question for the DM in the group chat (November 3): answered, or left.
+            local n = #(app.campaign.chat or {})
+            if not click_key("chat_reply_" .. rng:int(0, 2)) then problem("no way to answer the chat" .. where) break end
+            if pr.msg.answered and pr.msg.answered > 0 and #(app.campaign.chat or {}) <= n then
+                problem("the DM's answer didn't go in the chat" .. where)
+            end
         end
     end
     dump("4_prep_w" .. week)
@@ -650,6 +672,46 @@ for week = 1, WEEKS do
             click_key("ask_yes")
             if app.overlay then problem("the ties editor's X didn't close it") end
             if adventure.way_closed(c, "garden", "entrance") then problem("the ties editor's X didn't take the lock back off") end
+        end
+        -- A person's sheet (November 3): a name in a line opens it; the DM puts things in their
+        -- pockets and picks how the party gets them.
+        do
+            local npcs = require "game.model.npcs"
+            local clicked
+            for _, l in ipairs(kit.layers) do
+                for _, s in ipairs(l.spots or {}) do
+                    if s.on_click and not clicked then
+                        clicked = s
+                    end
+                end
+            end
+            if clicked then
+                local r = clicked.rect
+                call(on_input, self, "touch", { pressed = true, x = r[1] + r[3] / 2, y = kit.H - (r[2] + r[4] / 2) })
+                if not app.npc_sheet then problem("clicking a person's name didn't open their sheet") end
+                click_key("npc_close")
+            end
+            call(require("game.ui.gloss").on_npc, "mus_flitwidget")
+            if app.npc_sheet ~= "mus_flitwidget" then problem("Flitwidget's sheet didn't open") end
+            dump_once("4p_npc_sheet")
+            scan("a person's sheet" .. where)
+            click_key("npc_next")
+            click_key("npc_add")
+            local d = npcs.drops(c, "mus_flitwidget")
+            if #d ~= 1 then problem("putting an item on Flitwidget didn't stick (" .. #d .. ")") end
+            local how = d[1] and d[1].how
+            click_key("npc_how_1")
+            if d[1] and d[1].how == how then problem("the how button didn't change how they get it") end
+            click_key("npc_drop_x_1")
+            if #npcs.drops(c, "mus_flitwidget") ~= 0 then problem("Take it didn't take the item back") end
+            click_key("npc_add")
+            key("back")
+            if app.npc_sheet then problem("Esc didn't close a person's sheet") end
+            -- One for the Bone Construct, if they beat it.
+            call(require("game.ui.gloss").on_npc, "mus_bone_construct")
+            click_key("npc_add")
+            click_key("npc_done")
+            if app.npc_sheet then problem("Close didn't close a person's sheet") end
         end
         if not click_key("open_maps") then problem("no way into the map repository" .. where) end
         if app.overlay ~= "maps" then problem("the map repository didn't open" .. where) end
@@ -809,8 +871,38 @@ for week = 1, WEEKS do
     nights = nights + 1
     dump("5_night_end_w" .. week)
     if not click_label("See how everyone felt") then problem("no report button" .. where) break end
+    -- How the table felt and the night's reward first (November 3): open the box if there is one.
+    dump("6r_rewards_w" .. week)
+    scan("the rewards" .. where)
+    if not has_key("rewards_next") then problem("no rewards before the report" .. where) end
+    if has_key("rewards_open") then
+        local before = #require("game.model.loot").bag(app.campaign)
+        click_key("rewards_open")
+        for _ = 1, 40 do
+            if not app.rewards_spin then break end
+            require("game.ui.rewards_view").update(app, 0.1)
+        end
+        if #require("game.model.loot").bag(app.campaign) ~= before + 1 then problem("the box didn't put dice in the bag" .. where) end
+        dump_once("6r_rewards_open")
+        scan("the opened box" .. where)
+    end
+    if not click_key("rewards_next") then problem("couldn't leave the rewards" .. where) end
     dump("6_report_w" .. week)
     scan("the report" .. where)
+    -- A set from the bag for someone (November 3).
+    do
+        local loot = require "game.model.loot"
+        local bag = loot.bag(app.campaign)
+        if #bag > 0 then
+            local key = app.campaign.players[rng:int(1, #app.campaign.players)].key
+            local before, sid = #bag, bag[app.gift_pick or 1]
+            if click_key("gift_" .. key) then
+                if #loot.bag(app.campaign) ~= before - 1 or require("game.model.dice_sets").of(app.campaign, key) ~= sid then
+                    problem("a set from the dice bag didn't go to " .. key .. where)
+                end
+            end
+        end
+    end
     -- A save from the report, and overwriting one asks first.
     if week == 1 then
         if not click_key("save_game") then problem("no Save button on the report" .. where) end

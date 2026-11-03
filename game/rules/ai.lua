@@ -411,6 +411,13 @@ end
 
 -- Game night: the DM can tell the monsters who to go after (b.focus = "squishy" | "big" | "spread").
 local function focus_target(b, c, foes, reach)
+    -- Taunted (an Intimidation stare-down before the fight, game/model/fight.lua): it goes for
+    -- whoever stared it down, while that lasts and they're standing.
+    local tn = b:find_effect(c, "Taunted")
+    local tb = tn and tn.taunt_by
+    if tb and not tb.dead and not tb.down and not tb.removed then
+        return tb
+    end
     -- The DM ran this turn (B8): it goes for the one they picked.
     local t = c.dm_target
     if t and not t.dead and not t.removed and (not t.down or c.dm_finish) then
@@ -878,17 +885,23 @@ local function rogue_turn(b, c)
         attack_action(b, c, melee, t)
         -- Nick: the Light extra attack rides along with the Attack action.
         local off = weapon_profile(c, "offhand")
-        if off and not t.dead and not t.down and c.masteries[c.weapons.offhand] and equipment.weapons[c.weapons.offhand].mastery == "nick" then
-            b:attack(c, t, off)
-        elseif off and c.turn.bonus and not t.dead and not t.down then
-            c.turn.bonus = false
+        local nick = off and c.masteries[c.weapons.offhand] and equipment.weapons[c.weapons.offhand].mastery == "nick"
+        if off and not t.dead and not t.down and nick then
             b:attack(c, t, off)
         end
-        -- Cunning Action: Disengage and slip back out.
-        if c.turn.bonus and c.turn.move > 0 and adjacent_enemies(b, c) > 0 and c.hp < c.hp_max * 0.6 then
+        -- Hit and run (the playtest, November 3: minis that stood in a clump): with a bow to fall back
+        -- on, hurt, or more than one blade on them, Cunning Action Disengages and slips back out of
+        -- reach; otherwise the off-hand blade.
+        local crowded = adjacent_enemies(b, c) >= 2
+        local run = c.turn.bonus and c.turn.move > 0 and adjacent_enemies(b, c) > 0
+            and (ranged ~= nil or crowded or c.hp < c.hp_max * 0.7)
+        if run then
             c.turn.bonus = false
             c.turn.disengaged = true
-            back_off(b, c, 15)
+            back_off(b, c, ranged and 25 or 15)
+        elseif off and not nick and c.turn.bonus and not t.dead and not t.down then
+            c.turn.bonus = false
+            b:attack(c, t, off)
         end
     end
     -- Already in someone's face: fight them rather than walk through Opportunity Attacks.
@@ -1060,11 +1073,27 @@ local function cleric_turn(b, c)
             spells.spiritual_weapon_strike(b, c, w, near)
         end
     end
-    -- 5. Hit something.
+    -- 5. Hit something. A healthy cleric stands in the line beside whoever's holding it (the
+    -- playtest, November 3: "cleric frontliner"): up next to a foe a friend is already fighting.
     foes = enemies(b, c)
     if #foes == 0 then return end
     by_distance(b, c, foes)
     local t = foes[1]
+    if b:dist(c, t) > 5 and c.hp >= c.hp_max * 0.5 and c.turn.move > 0 then
+        local line
+        for _, e in ipairs(foes) do
+            if not line and b:dist(c, e) <= 5 + c.turn.move then
+                for _, a in ipairs(b:allies_of(c)) do
+                    if not a.down and not a.dead and b:dist(a, e) <= 5 then
+                        line = e
+                    end
+                end
+            end
+        end
+        if line and approach(b, c, line, 5) then
+            t = line
+        end
+    end
     if b:dist(c, t) <= 5 then
         if can_cast(c, "inflict_wounds") and t.hp >= 12 and spells.find_slot(c, 1) and (c.res.slots[1] or 0) >= 2 then
             cast(b, c, "inflict_wounds", t)
@@ -1317,6 +1346,19 @@ local function wizard_turn(b, c)
     end
 end
 
+-- After a caster's turn: anything closing in gets distance put between it and them, keeping the
+-- target in range (the playtest, November 3: "wizard stays away from threats, in range for spells").
+local function keep_distance(b, c, want, range)
+    if c.down or c.dead or (c.turn.move or 0) <= 0 or adjacent_enemies(b, c) > 0 then
+        return
+    end
+    local foes = by_distance(b, c, enemies(b, c))
+    local near = foes[1]
+    if near and b:dist(c, near) < want then
+        back_off(b, c, want, near, range)
+    end
+end
+
 -- Wayfinder's Charted Step after Initiative.
 function AI.on_initiative(b)
     for _, c in ipairs(b.creatures) do
@@ -1478,6 +1520,7 @@ function AI.take_turn(b, c)
         cleric_turn(b, c)
     elseif c.class == "wizard" then
         wizard_turn(b, c)
+        keep_distance(b, c, 25, 120)
     end
     -- Flaming Sphere and Spiritual Weapon get their Bonus Action if still unused.
     if c.conc and c.conc.extra.sphere and c.turn.bonus then

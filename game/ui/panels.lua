@@ -19,11 +19,20 @@ local ROLL_X, ROLL_W = 254, 116
 local POSE_HOLD = 2.6
 local ROLL_SPIN = 0.55
 
+-- How someone's talking, on their tile and their outline at the table (the playtest, November 3):
+-- in character, out of character (table talk), or a thought they're not saying.
+M.SPEAK = {
+    ic = { color = kit.rgba("#e8b84a"), tag = "IN CHARACTER" },
+    ooc = { color = kit.rgba("#7fb2e5"), tag = "OUT OF CHARACTER" },
+    think = { color = kit.rgba("#b59be0"), tag = "THINKING" },
+}
+
 M.COLORS = {
     mara = kit.rgba("#c9a038"), dev = kit.rgba("#3f5f9a"), jess = kit.rgba("#3f8f84"), sam = kit.rgba("#a8443a"),
 }
 local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
-local FACES = { lean = true, arms = true, yawn = true, phone = true, cheer = true, gasp = true, laugh = true, think = true }
+local FACES = { lean = true, arms = true, yawn = true, phone = true, cheer = true, gasp = true, laugh = true, think = true,
+                frown = true }
 
 local function alpha(c, a)
     return vmath.vector4(c.x, c.y, c.z, (c.w or 1) * a)
@@ -66,9 +75,10 @@ function M.draw(app, on_click)
         -- Lit when they speak in character (A9): a glow round the panel, in their colour.
         chip.glow = kit.box(x - 4, y - 4, w + 8, h + 8, M.COLORS[p.key] or theme.gold, { radius = 13 })
         gui.set_enabled(chip.glow, false)
-        local icw = kit.width("IN CHARACTER", "ui14") + 20
+        local icw = kit.width("OUT OF CHARACTER", "ui14") + 20
         chip.ic_bg = kit.box(x + w - icw, y - 30, icw, 24, M.COLORS[p.key] or theme.gold, { radius = 8 })
-        chip.ic = kit.text(x + w - icw / 2, y - 26, "IN CHARACTER", "ui14", theme.bg, { pivot = gui.PIVOT_N })
+        chip.ic = kit.text(x + w - icw / 2, y - 26, "IN CHARACTER", "ui14", theme.bg, { pivot = gui.PIVOT_N, gloss = false })
+        chip.ic_x, chip.ic_y = x + w, y - 30
         gui.set_enabled(chip.ic_bg, false)
         gui.set_enabled(chip.ic, false)
         kit.button(x, y, w, h, "", function()
@@ -231,7 +241,7 @@ function M.draw_stats(app, chip, p, x, y)
             .. "has to roll this or more.")
     end
     -- The class's own resources.
-    chip.res = {}
+    chip.res_pips = {}       -- (not chip.res: that's the last roll's result text)
     local rx = x + 7
     local ry = y + 109
     for _, r in ipairs(st.res) do
@@ -251,7 +261,7 @@ function M.draw_stats(app, chip, p, x, y)
                 rx = rx + 10
             end
         end
-        chip.res[r.id] = pips
+        chip.res_pips[r.id] = pips
         if gl.card_spot then
             local tip = tile_stats.TIPS[r.id] or label
             if r.levels then
@@ -290,7 +300,7 @@ function M.refresh_hp(app)
             gui.set_color(chip.hp_text, cur == 0 and theme.red or theme.text)
             gui.set_text(chip.ac_text, util.int(st.ac))
             for _, r in ipairs(st.res) do
-                local pips = chip.res and chip.res[r.id]
+                local pips = chip.res_pips and chip.res_pips[r.id]
                 if pips then
                     local lit = {}
                     for _, g in ipairs(r.levels or { { cur = r.cur, max = r.max } }) do
@@ -392,13 +402,20 @@ function M.set_token(app, key, on)
     end
 end
 
--- They speak as their character (A9): the panel lights up for a moment.
-function M.light(app, key, seconds)
+-- They speak (A9; November 3: out of character and thinking too): the panel lights up for a moment
+-- in the colour for how they're talking (M.SPEAK), with its tag. kind: "ic" (default), "ooc", "think".
+function M.light(app, key, seconds, kind)
     local chip = app.chips and app.chips[key]
     if not chip or not chip.glow then
         return
     end
-    chip.lit = { t = 0, dur = seconds or 2.4 }
+    local sp = M.SPEAK[kind or "ic"] or M.SPEAK.ic
+    chip.lit = { t = 0, dur = seconds or 2.4, color = sp.color }
+    gui.set_text(chip.ic, sp.tag)
+    local tw = kit.width(sp.tag, "ui14") + 20
+    gui.set_size(chip.ic_bg, vmath.vector3(tw, 24, 0))
+    gui.set_position(chip.ic_bg, vmath.vector3(chip.ic_x - tw, kit.H - chip.ic_y, 0))
+    gui.set_position(chip.ic, vmath.vector3(chip.ic_x - tw / 2, kit.H - (chip.ic_y + 4), 0))
     gui.set_enabled(chip.glow, true)
     gui.set_enabled(chip.ic_bg, true)
     gui.set_enabled(chip.ic, true)
@@ -432,7 +449,7 @@ function M.update(app, dt)
         local l = chip.lit
         if l then
             l.t = l.t + dt
-            local col = M.COLORS[key] or theme.gold
+            local col = l.color or M.COLORS[key] or theme.gold
             local a = l.t < 0.15 and (l.t / 0.15) or (l.t > l.dur - 0.4 and math.max(0, (l.dur - l.t) / 0.4) or 1)
             gui.set_color(chip.glow, alpha(col, 0.9 * a))
             gui.set_color(chip.ic_bg, alpha(col, a))

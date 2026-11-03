@@ -51,6 +51,12 @@ local function terms()
             table.insert(M.merged, t)
             M.by_id[t.id] = t
         end
+        -- The adventure's people, by name: a hover card, and a click for their sheet (npc_view).
+        local okn, npcs = pcall(require, "game.model.npcs")
+        for _, t in ipairs(okn and npcs.terms() or {}) do
+            table.insert(M.merged, t)
+            M.by_id[t.id] = t
+        end
         for _, t in ipairs(data) do
             table.insert(M.merged, t)
         end
@@ -104,6 +110,11 @@ function M.find(line, tags, used, out, limit)
                 local s, e
                 if nd == "" or string.find(line, nd, 1, true) then
                     s, e = string.find(line, p)
+                    -- (A name that's part of something else's: "Flitwidget" in "a Flitwidget Franc".)
+                    local nb = t.not_before
+                    while s and nb and string.sub(line, e + 1, e + #nb) == nb do
+                        s, e = string.find(line, p, e + 1)
+                    end
                 end
                 if s then
                     -- Trim a pattern's edges that aren't the word itself.
@@ -238,7 +249,7 @@ function M.hook(x, y, str, font, color, pivot, tags)
                 layer.gloss_seen[t.id] = true
                 local base = vmath.vector4(color.x, color.y, color.z, first and 0.38 * (color.w or 1) or 0)
                 local under = kit.box(wx, ly + lh - 4, ww, 1, base, { round = false })
-                kit.spot(wx - 2, ly, ww + 4, lh, function(_, on)
+                local sp = kit.spot(wx - 2, ly, ww + 4, lh, function(_, on)
                     if on then
                         pcall(gui.set_color, under, vmath.vector4(color.x, color.y, color.z, 1))
                         M.show(t.plain, t.text, t.dnd, wx, ly, ww, lh)
@@ -247,6 +258,15 @@ function M.hook(x, y, str, font, color, pivot, tags)
                         M.hide()
                     end
                 end, under)
+                -- A person's name opens their sheet (the playtest, November 3: "NPCs should be clickable").
+                if t.npc then
+                    sp.on_click = function()
+                        M.hide()
+                        if M.on_npc then
+                            M.on_npc(t.npc)
+                        end
+                    end
+                end
                 n = n + 1
             end
         end

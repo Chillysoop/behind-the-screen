@@ -105,21 +105,37 @@ return {
 
     {
         -- The killing blow (M8, B4): a boss or a villain is about to fall. Who describes it?
-        -- kb: who gets it ("actor", "other": whoever's waited longest, "dm": you, briefly).
+        -- kb: "actor" (you ask them: the players describe it, and the one who landed it may pass it
+        -- to a friend: night:kb_share), or "dm" (you, briefly). Who tells it is the players' choice,
+        -- never the DM's (the playtest, November 3). What it's worth: night:kb_worth.
         id = "killing_blow", type = "combat", trigger = "killing_blow",
         actor = { "butt_kicker", "power_gamer" },
         title = "The killing blow",
-        text = "{boss} is about to fall to {actor_char}. Who gets to describe the final hit?",
+        text = "{boss} is about to fall to {actor_char}. Do you describe the final hit, or hand it to the table?",
         options = {
-            { label = "{actor_char} landed it. {actor}, how do you do this?", kb = "actor",
-              log = "You hand it over: '{actor}, how do you want to do this?'",
+            { label = "Ask {actor}: \"How do you want to do this?\"", kb = "actor",
+              log = "You sit back: '{actor}, how do you want to do this?'",
               effects = { { "arch:butt_kicker", fun = 2 } } },
-            { label = "Let {other} describe {actor_char}'s blow. {other} hasn't had a moment like this in a while.", kb = "other",
-              log = "'{other}, you've been waiting all night. You tell us how it lands.'",
-              effects = { { "all", social = 3 }, { "actor", fun = -1 } } },
             { label = "Describe it yourself, quickly.", kb = "dm",
               log = "{boss} falls. You keep it short; the night moves on.",
               effects = { { "arch:storyteller", fun = -1 }, { "arch:butt_kicker", fun = -2 } } },
+        },
+    },
+
+    {
+        -- A player who landed the killing blow wants a friend to tell it (night:kb_share). Their idea;
+        -- the DM only says whether it works at the table.
+        id = "kb_share", type = "combat", trigger = "kb_share",
+        actor = { "storyteller" },
+        title = "Passing it on",
+        text = "{actor} looks across the table at {other}. \"You've been waiting all night. You tell it: how does {actor_char}'s blow land?\"",
+        options = {
+            { label = "Sure. {other}, go ahead.", share = true,
+              log = "{other} sits up. Everyone leans in.",
+              effects = { { "all", social = 3 } } },
+            { label = "Keep it {actor}'s. It was their hit.", share = false,
+              log = "'Nice thought, but that one's yours, {actor}.'",
+              effects = { { "actor", fun = 1 }, { "others", fun = -1 } } },
         },
     },
 
@@ -510,7 +526,8 @@ return {
         title = "Splitting the party",
         text = "{actor_char} wants to look around on their own. {other_char} heads off the other way. Both are already walking.",
         options = {
-            { label = "Let them split and cut between them.",
+            { label = "Let them split and cut between them.", split = true,
+              sub = "Until this scene's done they're apart: a fight here starts without them, and they come running.",
               log = "You cut back and forth like a heist movie.",
               effects = { { "arch:explorer", fun = 5 }, { "arch:method_actor", fun = 3 }, { "all", boredom = 3 } } },
             -- The way back to the card (the card-led playtest, October 16: none of the three named it).

@@ -1034,21 +1034,25 @@ function M:apply_meters(sel, meters)
     self:apply({ eff })
 end
 
--- Where everyone's at: a pose for each player's mini-me at the table.
--- lean (into it), neutral, arms (crossed), yawn, phone.
+-- Where everyone's at: a pose for each player's mini-me at the table, and their face on their tile.
+-- lean (into it, smiling), neutral, frown (not enjoying it), arms (crossed), yawn, phone. Fun sets
+-- the face (the playtest, November 3: "match their smile/mood"); engagement the rest.
 function M:poses()
     local out = {}
     for _, p in ipairs(self.players) do
         local e = p.engagement
+        local fun = score.fun(p)
         local pose = "neutral"
-        if e >= 0.68 then
+        if e >= 0.68 or (fun >= 72 and e >= 0.5) then
             pose = "lean"
         elseif e < 0.2 then
             pose = "phone"
         elseif e < 0.3 then
             pose = "yawn"
-        elseif e < 0.42 and score.fun(p) < 45 then
+        elseif e < 0.42 and fun < 45 then
             pose = "arms"
+        elseif fun < 38 then
+            pose = "frown"
         end
         out[p.key] = pose
     end
@@ -1233,6 +1237,61 @@ function M:board_for(sc, t)
         return maps.board_id(map)
     end
     return t
+end
+
+-- The places on this scene's board (map_library `places`: the lettered spots and what's there),
+-- by id. A DM's own map keeps its template's places, less any whose feature they took off it.
+function M:board_places(sc)
+    if not sc then
+        return {}, {}
+    end
+    local id = self:board_for(sc) or ""
+    local base = string.match(id, "^map:([^:]+):") or id
+    local def = require("game.data.boards")[base]
+    local list = def and def.places or {}
+    local ok, c = pcall(board_mod.compile, id)
+    local base_feats = {}
+    for _, f in ipairs(def and def.features or {}) do
+        base_feats[f.id] = true
+    end
+    local out, by_id = {}, {}
+    for _, pl in ipairs(list) do
+        local gone = false
+        local first = pl.near and pl.near[1]
+        if first and base_feats[first] and ok and c and not c.by_id[first] then
+            gone = true
+        end
+        if not gone then
+            table.insert(out, pl)
+            by_id[pl.id] = pl
+        end
+    end
+    return out, by_id
+end
+
+-- A hero walks over to something on the mat (the playtest, November 3: "minis should move
+-- more"). `to` is a place id on this scene's board, or a square { x, y }; `path` adds the squares
+-- after it (dragged into the pond and back out). Returns the square, or nil when there's nowhere.
+function M:walk(p, to, path, sc)
+    if not p then
+        return nil
+    end
+    sc = sc or self.scene
+    local sq = to
+    if type(to) == "string" then
+        local _, by_id = self:board_places(sc)
+        local pl = by_id[to]
+        sq = pl and { pl.x, pl.y } or nil
+    end
+    if not sq then
+        return nil
+    end
+    local pts = { { sq[1], sq[2] } }
+    for _, s in ipairs(path or {}) do
+        table.insert(pts, { s[1], s[2] })
+    end
+    self:emit({ kind = "walk", actor = p.key, path = pts })
+    return sq
 end
 
 -- The place's map, if there is one (B9).
@@ -2204,6 +2263,11 @@ function M:hero_action(sc, used, dc, need, spots)
             .. "; the other die was " .. util.int(other_roll) .. ")"
     end
     table.insert(self.checks, success)
+    -- Stared down before a fight: whoever they faced goes for them first, for a few rounds (the
+    -- playtest, November 3: "successful intimidates should taunt the target"). fight.lua applies it.
+    if success and a.skill == "intimidation" then
+        sc.taunt = { key = p.key, rounds = 3 }
+    end
     if success then
         local big = roll == 20
         sc.progress.wins = sc.progress.wins + (big and 2 or 1)
@@ -2464,6 +2528,10 @@ function M:behavior_fits(b, sc, week)
             end
         end
     elseif b.needs == "cliff" then
+        -- (A session the DM ended in a lull or after a fight isn't a cliffhanger: museum_night.end_session.)
+        if self.dm_ended then
+            return self.dm_ended == "cliff"
+        end
         return self.ended_on_cliff or self.end_early or false
     elseif b.needs == "not_first" then
         return (self.campaign.week or 1) > 1      -- (no "last time" on the first night)
@@ -2732,6 +2800,56 @@ function M:killing_blow_other(actor, villain)
     return best
 end
 
+-- What handing the killing blow to the table is worth now: 1 fresh, less for each one handed over
+-- in the last few sessions, more for a big one. Returns worth, big, handed (count in the window).
+function M:kb_worth(tgt)
+    local camp = self.campaign
+    local kb = content.killing_blows
+    local n = 0
+    for _, e in ipairs(camp.kb_handed or {}) do
+        if camp.week - e.week < kb.WINDOW then
+            n = n + 1
+        end
+    end
+    local big = tgt and (tgt.villain or (self.scene and self.scene.boss and tgt.boss)) and true or false
+    local worth = math.max(kb.FLOOR, (kb.FRESH or 0.7) ^ n) * (big and (kb.BIG or 1.8) or 1)
+    return worth, big, n
+end
+
+-- The one who landed it may pass the telling to a friend who's waited (their idea, from who they
+-- are: a storyteller or an easy-going player more, someone who came to hit things less); the DM
+-- only says whether that works at the table. Returns who tells it.
+function M:kb_share(actor, other, tgt, boss_name)
+    if not (actor and other and other ~= actor) then
+        return actor
+    end
+    local chance = 0.12 + 0.35 * score.arch(actor, "storyteller") + 0.3 * score.arch(actor, "casual")
+        + 0.2 * score.arch(actor, "method_actor") - 0.3 * score.arch(actor, "butt_kicker") - 0.3 * score.arch(actor, "power_gamer")
+    if (other.m.spotlight or 0) < (actor.m.spotlight or 0) - 10 then
+        chance = chance + 0.15
+    end
+    if not self.rng:chance(util.clamp(chance, 0, 0.7)) then
+        return actor
+    end
+    local card = content.triggered and content.triggered.kb_share
+    if not card then
+        return actor
+    end
+    local was_a, was_o = self.actor, self.other
+    self.actor, self.other = actor, other
+    local copy = {}
+    for k, v in pairs(card) do
+        copy[k] = v
+    end
+    copy.fixed_actor = true
+    local o = self:decision(copy, { boss = boss_name })
+    self.actor, self.other = was_a, was_o
+    if o and o.share then
+        return other
+    end
+    return actor
+end
+
 -- p: who describes it. by: the player whose hero landed it (the dice log's), when that's someone
 -- else: then p tells the moment, and the blow stays the one who landed it.
 function M:killing_blow(p, tgt, boss_name, by)
@@ -2780,8 +2898,15 @@ function M:killing_blow(p, tgt, boss_name, by)
     if waive then
         again = false        -- the table understands: it was theirs to take
     end
-    score.add(p, "spotlight", kb.SPOTLIGHT * scale)
-    score.add(p, "fun", kb.FUN * scale)
+    -- Handed over: worth less each time it's handed over lately, more on a big one (kb_worth).
+    local worth = self:kb_worth(tgt)
+    camp.kb_handed = camp.kb_handed or {}
+    table.insert(camp.kb_handed, { week = camp.week, key = p.key })
+    score.add(p, "spotlight", kb.SPOTLIGHT * scale * math.max(0.5, worth))
+    score.add(p, "fun", kb.FUN * scale * worth)
+    if told and by then
+        score.add(by, "fun", 2)        -- (it was their idea to share it)
+    end
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "say", who = p.key, text = line, ic = true })
     if told then
@@ -3111,7 +3236,11 @@ function M:big_roll(spec, record)
     local rule = content.rulings[tier]
     local opts = {}
     for i, o in ipairs(rule.options) do
-        opts[i] = { label = o.label, tone = o.tone }
+        local label = o.label
+        if o.adventure_label and self.campaign.module and p then
+            label = util.fill(o.adventure_label, { char = p.char })
+        end
+        opts[i] = { label = label, tone = o.tone }
     end
     -- A miss deals the fail fan (M8, B2): three cards fitted to the scene, the flat fail, and the
     -- player's own idea when they trust you enough. Success rulings stay as they were.
@@ -3268,10 +3397,15 @@ function M:big_roll(spec, record)
     self:apply(ro.effects)
     -- What the DM's call added: the extra, the cost or the new problem, by name.
     local ruled = ro.lines and self.rng:pick(ro.lines) or ro.log
-    if ro.tone == "good" and success and self.campaign.module and self.campaign.adv then
-        -- v2: in the museum, the extra that falls their way is a Flitwidget Franc (the book's own reward).
+    if ro.tone == "good" and self.campaign.module and self.campaign.adv and not inspired then
+        -- v2: in the museum, the extra that falls their way is a Flitwidget Franc (the book's own reward),
+        -- on a great roll or a near miss the DM let fail forward: what the button said.
         self.campaign.adv.francs = (self.campaign.adv.francs or 0) + 1
-        ruled = "Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket."
+        if self.mus then
+            self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
+        end
+        ruled = success and ("Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket.")
+            or ("Not quite, but the museum likes nerve: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket.")
     end
     if ro.tone == "good" then
         if ruled and not inspired then
@@ -3507,6 +3641,10 @@ function M:decision(card, extra)
     if card.options and #card.options > 1 then
         self:note_lead(self.actor)
     end
+    -- A card about something on the map: whoever it's about walks over to it first.
+    if card.spot and self.actor and not card.walked then
+        self:walk(self.actor, card.spot)
+    end
     local vars = self:vars(extra)
     local view = {
         id = card.id,
@@ -3527,18 +3665,41 @@ function M:decision(card, extra)
         view.promise = "You agreed at Session Zero: " .. string.lower(string.sub(rul_def.name, 1, 1)) .. string.sub(rul_def.name, 2) .. "."
             .. (rul == "quick" and " A quick call now means looking it up before next session." or "")
     end
+    -- The killing blow says what handing it over is worth now (kb_worth): fresh, worn thin, or big.
+    local kb_note
+    if card.id == "killing_blow" and extra and extra.kb_target then
+        local worth, big, n = self:kb_worth(extra.kb_target)
+        if big then
+            kb_note = n == 0 and "A big one: they'll remember this for weeks." or "A big one: it'll land even after the others."
+        elseif n == 0 then
+            kb_note = "They'd love it: nobody's had one of these lately."
+        elseif worth <= (content.killing_blows.FLOOR + 0.05) then
+            kb_note = "They've had a lot of these lately: it barely lands now. Save them for the big ones."
+        else
+            kb_note = "Nice, but it means a little less each time you hand one over (" .. util.int(n) .. " lately)."
+        end
+    end
     for i, o in ipairs(card.options) do
         local keeps = (rul == "book" and (o.leans == "book" or o.leans == "strict")) or (rul == "cool" and o.leans == "cool")
         view.options[i] = { label = util.sentence_case(util.fill(o.label, vars)), roll = o.roll ~= nil, cooked = o.cooked,
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
                             leans = self:leans(o.preview or o.effects), promise = keeps or nil,
-                            sub = o.sub, disabled = o.disabled, answer = o.answer }   -- (a pull's answers)
+                            sub = (o.kb == "actor" and kb_note) or o.sub, sub_tone = o.sub_tone,
+                            disabled = o.disabled, answer = o.answer }   -- (a pull's answers)
     end
     view.who = card.who
     if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
     end
-    local pick = self:emit({ kind = "decision", card = view, actor = self.actor and self.actor.key })
+    -- A choice that's the players' to make (museum_night.table_pick: they talk it over, and the DM
+    -- only nudges when asked) arrives already made: no card for the DM.
+    local auto = card.party_pick
+    local pick
+    if auto then
+        pick = auto
+    else
+        pick = self:emit({ kind = "decision", card = view, actor = self.actor and self.actor.key })
+    end
     pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #card.options)
     -- (An answer that can't be given here is never taken: the first one that can.)
     if card.options[pick].disabled then
@@ -3550,8 +3711,8 @@ function M:decision(card, extra)
         end
     end
     local o = card.options[pick]
-    table.insert(self.decisions, { card = card.id, option = pick, rolls = {} })
-    self.why = "your call on \"" .. card.title .. "\""
+    table.insert(self.decisions, { card = card.id, option = pick, rolls = {}, table = auto and true or nil })
+    self.why = auto and ("the table's choice at \"" .. card.title .. "\"") or ("your call on \"" .. card.title .. "\"")
     if o.log then
         self:say(o.log, "dm", extra)
     end
@@ -3636,6 +3797,19 @@ function M:decision(card, extra)
     if o.cliffhanger then
         self.end_early = true
     end
+    -- The party splits for real (the playtest, November 3: "all minis are still here and in initiative,
+    -- and no cutting back and forth"): for the rest of this scene the ones who wandered off are
+    -- elsewhere. A fight here starts without them, and the DM cuts to them between rounds until they
+    -- come running (fight.lua).
+    if o.split and self.scene then
+        local away = {}
+        for _, q in ipairs({ self.actor, self.other }) do
+            if q then
+                away[q.key] = true
+            end
+        end
+        self.scene.split = { away = away }
+    end
     self.last_roll = nil
     if o.roll then
         self.last_roll = self:big_roll(o.roll)
@@ -3645,7 +3819,7 @@ function M:decision(card, extra)
     end
     -- What the call did to each of them, for the room's card and the report (the playtest, Nov 2:
     -- "The table:" said how they felt, never which call did it).
-    if card.options and #card.options > 1 then
+    if card.options and #card.options > 1 and not auto then
         local deltas, size = {}, 0
         for _, p in ipairs(self.players) do
             local d = score.fun(p) - (fun_before[p.key] or score.fun(p))
@@ -3659,8 +3833,28 @@ function M:decision(card, extra)
                                       label = util.fill(o.label or "", self:vars(extra)),
                                       scene = self.scene and self.scene.index or 0, deltas = deltas, size = size })
     end
-    -- What someone thought of that, and didn't say.
-    thoughts.after(self, fun_before, card, o)
+    -- How it landed, on their faces and at the table (the playtest, November 3): a good call gets a
+    -- grin or hands in the air, a bad one a frown or crossed arms, before they settle back.
+    if card.options and #card.options > 1 then
+        local poses = {}
+        for _, p in ipairs(self.players) do
+            local d = score.fun(p) - (fun_before[p.key] or score.fun(p))
+            if d >= 6 then
+                poses[p.key] = "cheer"
+            elseif d >= 3 then
+                poses[p.key] = "laugh"
+            elseif d <= -6 then
+                poses[p.key] = "arms"
+            elseif d <= -3 then
+                poses[p.key] = "frown"
+            end
+        end
+        self:react(poses)
+    end
+    -- What someone thought of that, and didn't say. (Not of the table's own choice: it wasn't yours.)
+    if not auto then
+        thoughts.after(self, fun_before, card, o)
+    end
     return o
 end
 
@@ -6091,6 +6285,19 @@ function M:snapshot(caption, weight, who, by_dm)
     local snap = { week = self.campaign.week, scene = self.scene and self.scene.index, terrain = st.board or st.terrain, minis = minis,
                    camera = 2, caption = caption or "", weight = weight or 5, who = who, by_dm = by_dm or nil,
                    title = self.scene and self.scene.title }
+    -- Mid-fight: the fight so far, up to this moment, to play back (the last 20 turns).
+    if self.battle and self.fight_frames and #self.fight_frames > 1 then
+        local fr = {}
+        for i = math.max(1, #self.fight_frames - 19), #self.fight_frames do
+            table.insert(fr, self.fight_frames[i])
+        end
+        local kinds = {}
+        for id, k in pairs(self.fight_kinds or {}) do
+            kinds[id] = { side = k.side, class = k.class, monster = k.monster }
+        end
+        snap.frames, snap.kinds = fr, kinds
+        snap.wake = self.fight_wake
+    end
     table.insert(self.snapshots, snap)
     return snap
 end
@@ -6456,6 +6663,7 @@ function M:play_scene(sc)
         self:module_verdict(sc)
     end
     if mus then
+        mus.explore_after(self, sc)    -- (looking around once the fight's done: museum_night.explore)
         mus.moments(self, sc, "end")
     end
     if mus then

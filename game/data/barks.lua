@@ -137,7 +137,7 @@ M.made = {
     thanks = {
         dev = { { "Thanks, {healer}! Now watch this." } },
         mara = { { "Thank you, {healer}. That was too close." } },
-        jess = { { "{Healer}, you're a saint. An actual saint." } },
+        jess = { { "{Healer}, you're a lifesaver. An actual lifesaver." } },
         sam = { { "Thanks, {healer}. Back to work." } },
     },
     fight_chat = {

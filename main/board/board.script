@@ -7,6 +7,7 @@
 --   reveal_all  { stagger }                                                the rest, at once
 --   clear       {}                                                         sweep the mat
 --   door        { fid, state = "open" | "closed" | "locked" }             a DM's door swings (Set the stage)
+--   lift        { cells = { { x, y } } }                                   pieces there come alive and lift away
 
 local state = require "main.state"
 local scene = require "main.scene_data"
@@ -60,6 +61,8 @@ local function clear(self, animate)
     self.timers = {}
     self.gos = {}
     self.shown = {}
+    self.at = {}
+    self.lifted = {}
     self.id = nil
     update_fire(self)
 end
@@ -71,6 +74,9 @@ local function make(self, fid, pc, delay, animate)
     local function create()
         if self.shown[fid] == nil then
             return          -- the board changed before this piece landed
+        end
+        if self.lifted and self.lifted[pc.x .. "," .. pc.y] then
+            return          -- (a hedge that already got up and walked off: it doesn't land again)
         end
         local start = pos
         if animate then
@@ -87,6 +93,8 @@ local function make(self, fid, pc, delay, animate)
         end
         self.gos[fid] = self.gos[fid] or {}
         table.insert(self.gos[fid], id)
+        self.at = self.at or {}
+        self.at[pc.x .. "," .. pc.y] = { id = id, fid = fid }
     end
     if animate and delay > 0 then
         table.insert(self.timers, timer.delay(delay, false, create))
@@ -173,6 +181,24 @@ function on_message(self, message_id, message)
         show(self, "all", message.animate ~= false, message.stagger or 0.08)
     elseif message_id == hash("clear") then
         clear(self, message.animate ~= false)
+    elseif message_id == hash("lift") then
+        -- (The garden's topiary getting up: the piece goes, and a beast takes its square.)
+        self.lifted = self.lifted or {}
+        for i, cell in ipairs(message.cells or {}) do
+            local k = cell[1] .. "," .. cell[2]
+            self.lifted[k] = true      -- (one still dropping in, or shown later, stays off the mat)
+            local hit = self.at and self.at[k]
+            if hit then
+                self.at[k] = nil
+                local list = self.gos[hit.fid] or {}
+                for j = #list, 1, -1 do
+                    if list[j] == hit.id then
+                        table.remove(list, j)
+                    end
+                end
+                lift_away(hit.id, (i - 1) * 0.1)
+            end
+        end
     elseif message_id == hash("door") then
         -- The door's piece is swapped for the one in its new state, in the same spot.
         local c = self.id and board.compile(self.id)

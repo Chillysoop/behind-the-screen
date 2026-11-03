@@ -810,7 +810,8 @@ end
 -- The Sentinel: it goes for whoever has been hurting it (whoever went for the box).
 local function sentinel_turn(b, c, H)
     local picked
-    if not c.dm_target and c.hurt_by then
+    -- (Taunted: it keeps after whoever stared it down, not whoever hurt it most: H.focus_target.)
+    if not c.dm_target and c.hurt_by and not b:find_effect(c, "Taunted") then
         local best, bv
         for o, v in pairs(c.hurt_by) do
             if not o.dead and not o.down and not o.removed

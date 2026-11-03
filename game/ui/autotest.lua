@@ -685,6 +685,8 @@ function M.update(app, dt)
                 by_key("loose_1")
             elseif pr.kind == "ruling" then
                 by_key("ruling_1")      -- (post the ruling you promised: the autotest stopped here, November 3)
+            elseif pr.kind == "chat" then
+                by_key("chat_reply_1")  -- (a question for you in the group chat)
             else
                 by_key("favor_help_1")
                 by_key("favor_hurt_1")
@@ -1001,6 +1003,19 @@ function M.update(app, dt)
         end
         a.wait = 0.05
     elseif s == "report" then
+        -- The rewards first (November 3): a shot, the box opened if there is one, then on.
+        local rw = require "game.ui.rewards_view"
+        if rw.pending(app) then
+            if app.rewards_spin then
+                return
+            end
+            if not shot(a, "rewards_" .. app.campaign.week) then
+                if not by_key("rewards_open") then
+                    by_key("rewards_next")
+                end
+            end
+            return
+        end
         if a.mode == 5 and not app.quick and a.counted_week ~= app.campaign.week then
             a.counted_week = app.campaign.week
             a.weeks = a.weeks + 1

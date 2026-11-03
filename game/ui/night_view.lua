@@ -66,7 +66,7 @@ local CAST_SPRITE = {
     -- v2: the museum's people (borrowed minis until they get their own).
     mus_flitwidget = "npc_rosin", mus_telpur = "npc_hermit", mus_euryale = "npc_sable", mus_lecturer = "npc_ghost",
     mus_mech = "animated_armor", mus_sentinel = "animated_armor", mus_bone_construct = "skeleton",
-    mus_knight = "animated_armor", mus_huntlings = "giant_crab", mus_briar = "dire_wolf",
+    mus_knight = "animated_armor", mus_huntlings = "giant_crab", mus_briar = "briar_beast",
     goblins = "goblin_boss", gus = "npc_gus", stranger = "npc_stranger", rook = "bandit_captain",
     hermit = "npc_hermit", rivals = "npc_rival", ogre = "ogre", corin = "npc_corin",
     wolf_lieutenant = "npc_vask", madame_sable = "npc_sable", abbot_ghost = "npc_ghost",
@@ -169,7 +169,7 @@ end
 
 -- v2: the museum's monsters borrow the closest minis until they get their own.
 local MUSEUM_SPRITE = {
-    briar_beast = "dire_wolf", briar_boar = "dire_wolf", briar_triceratops = "brown_bear", sentinel = "animated_armor",
+    briar_beast = "briar_beast", briar_boar = "briar_boar", briar_triceratops = "briar_triceratops", sentinel = "animated_armor",
     bone_construct = "skeleton", giant_scarab_swarm = "swarm_of_rats", knight_of_shades = "animated_armor",
     kruthik_huntling = "giant_crab", the_lecturer = "specter", steam_mech = "animated_armor", euryale = "npc_sable",
 }
@@ -309,9 +309,10 @@ local function status_text(app)
     local n = app.night
     -- The table clock (A14): what time it is at the table, and when you said you'd stop.
     local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
-    -- (No call count up here: the night's end card has it, October 20.)
-    return tc .. "      Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app))) .. "x      Your rolls: " .. ((n and n.dm_rolls) or "hidden")
-        .. "      Timer: " .. (app.timer_on and "on" or "off")
+    -- (No call count up here: the night's end card has it, October 20. Short, so the End session
+    -- button fits beside it: November 3.)
+    return tc .. (app.campaign and app.campaign.module and "\n" or "   ") .. "Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app)))
+        .. "x   Rolls: " .. ((n and n.dm_rolls) or "hidden") .. "   Timer: " .. (app.timer_on and "on" or "off")
 end
 
 -- How wide the scene's name may run in the top bar (v2: room for the Story button beside Notes).
@@ -346,6 +347,27 @@ function M.draw_frame(app)
             end
         end, { font = "ui14", key = "night_maps" })
     end
+    -- v2: ending the session is your call (the playtest, November 3): after the room you're in.
+    -- Click again to change your mind.
+    if app.campaign.module and app.night then
+        local asked = app.night.dm_end_requested
+        app.n_end = kit.button(1452, 10, 124, 38, asked and "Ending soon" or "End session", function()
+            if app.night then
+                app.night.dm_end_requested = not app.night.dm_end_requested or nil
+                M.toast(app, app.night.dm_end_requested and "YOU'LL CALL IT THERE" or "PLAYING ON",
+                    app.night.dm_end_requested and "The session ends when this room's done: they'll want to finish what they're in."
+                        or "Never mind: the night goes on.")
+                if app.n_end and app.n_end.label then
+                    pcall(gui.set_text, app.n_end.label, app.night.dm_end_requested and "Ending soon" or "End session")
+                    pcall(gui.set_color, app.n_end.node, app.night.dm_end_requested and theme.orange or app.n_end.color)
+                end
+            end
+        end, { font = "ui14", key = "night_end", color = asked and theme.orange or nil })
+        local gl = require "game.ui.gloss"
+        gl.card_spot(1452, 10, 124, 38, "End session", "Call it a night when this room is done. Where you stop matters: "
+            .. "a cliffhanger, or just after a big fight, and they go home happy; in a lull it falls flat. Stopping early so "
+            .. "the big scene gets a full evening next week pays off then. Everything is saved where it stands.")
+    end
     -- v2: the DM's recap (game/ui/recap_view.lua): the Story sidebar top left, the Table top right.
     if recap then
         kit.button(728, 10, 84, 38, "Story", function()
@@ -355,14 +377,15 @@ function M.draw_frame(app)
             recap_view.toggle(app, "right")
         end, { font = "ui14", key = "night_table" })
     end
-    app.n_status = kit.text(1576, 8, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE })
+    app.n_status = kit.text(app.campaign.module and 1440 or 1576, app.campaign.module and 4 or 8, status_text(app), "ui14", theme.text,
+        { pivot = gui.PIVOT_NE })
     -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
     -- line nobody read after the first scene; October 20: back at the start of every night). The
     -- hover card below keeps them. (No "1-4 camera": the night aims the camera itself, and a card's
     -- options show their own numbers.)
     app.n_keys = nil
     if not app.keys_hidden and app.campaign.week <= 1 then
-        app.n_keys = kit.text(1576, 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo"
+        app.n_keys = kit.text(1576, app.campaign.module and 62 or 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo"
             .. (app.campaign.module and "  S recap" or "  S story log"), "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
@@ -701,15 +724,21 @@ end
 -- Showing a snapshot from the report (B7): the table sets the moment back up as it was, terrain,
 -- minis and all. nil clears the table again.
 function M.restage_snapshot(app, sn)
-    post("vignette")
+    app.replay = nil
     if not sn then
+        post("vignette")
         app.terrain = nil
         app.zoom(1)
         return
     end
+    -- (Just the moment's own minis: the old campfire vignette under them read as duplicates, November 3.)
+    post("clear_minis")
     if sn.terrain then
         app.terrain = sn.terrain
         post("terrain", { set = sn.terrain, animate = false, def = board_mod.encode(sn.terrain) })
+        if sn.wake and #sn.wake > 0 then
+            post("lift", { cells = sn.wake })      -- (the garden's hedges were already up)
+        end
     end
     local list, n = {}, 0
     for _, m in ipairs(sn.minis or {}) do
@@ -726,6 +755,40 @@ function M.restage_snapshot(app, sn)
         table.insert(list, { id = "snap_" .. tostring(m.id), sprite = sprite, x = m.x, y = m.y,
                              side = m.side == "party" and "party" or "foe" })
     end
+    -- A fight: play it back from its first turn to the moment, quickly (M.update_replay).
+    if sn.frames and #sn.frames > 1 then
+        local function parse(fr)
+            local out = {}
+            for part in string.gmatch(fr, "[^;]+") do
+                local id, x, y, d = string.match(part, "^([^:]+):(%d+):(%d+):(%d)$")
+                if id then
+                    out[id] = { x = tonumber(x), y = tonumber(y), down = d == "1" }
+                end
+            end
+            return out
+        end
+        local frames = {}
+        for _, fr in ipairs(sn.frames) do
+            table.insert(frames, parse(fr))
+        end
+        local first, n2 = {}, 0
+        for id, at in pairs(frames[1]) do
+            local k = (sn.kinds or {})[id] or {}
+            local sprite
+            if k.side == "party" then
+                local pl = app.campaign:player(id)
+                sprite = (pl and pl.mini) or CLASS_SPRITE[k.class] or "fighter"
+            else
+                n2 = n2 + 1
+                sprite = monster_sprite(k.monster, n2)
+            end
+            table.insert(first, { id = "snap_" .. id, sprite = sprite, x = at.x, y = at.y, side = k.side or "foe" })
+        end
+        post("spawn", { list = first })
+        app.replay = { frames = frames, i = 1, t = -0.8, step = 0.4, kinds = sn.kinds or {} }
+        app.zoom(sn.camera or 2)
+        return
+    end
     post("spawn", { list = list })
     for _, m in ipairs(sn.minis or {}) do
         if m.down then
@@ -733,6 +796,44 @@ function M.restage_snapshot(app, sn)
         end
     end
     app.zoom(sn.camera or 2)
+end
+
+-- Every frame on the report while a fight plays back: each turn's moves, a beat apart.
+function M.update_replay(app, dt)
+    local r = app.replay
+    if not r then
+        return
+    end
+    r.t = r.t + dt
+    while r.t >= r.step and r.i < #r.frames do
+        r.t = r.t - r.step
+        local was, now = r.frames[r.i], r.frames[r.i + 1]
+        for id, at in pairs(now) do
+            local before = was[id]
+            if not before then
+                local k = r.kinds[id] or {}
+                local pl = k.side == "party" and app.campaign:player(id)
+                local sprite = (k.side == "party" and ((pl and pl.mini) or CLASS_SPRITE[k.class] or "fighter")) or monster_sprite(k.monster, 1)
+                post("spawn", { list = { { id = "snap_" .. id, sprite = sprite, x = at.x, y = at.y, side = k.side or "foe" } } })
+            elseif before.x ~= at.x or before.y ~= at.y then
+                post("walk", { id = "snap_" .. id, path = { { at.x, at.y } }, step = r.step * 0.8 })
+            end
+            if at.down and not (before and before.down) then
+                post("down", { id = "snap_" .. id })
+            elseif before and before.down and not at.down then
+                post("up", { id = "snap_" .. id })
+            end
+        end
+        for id in pairs(was) do
+            if not now[id] then
+                post("flee", { id = "snap_" .. id })
+            end
+        end
+        r.i = r.i + 1
+    end
+    if r.i >= #r.frames then
+        app.replay = nil
+    end
 end
 
 -- The DM's camera (B1): three snapshots a night of whatever's on the table right now.
@@ -1445,11 +1546,12 @@ function M.update(app, dt)
     M.update_fx(app, dt)
     panels.update(app, dt)
     battle_hud.update(app, dt)
-    -- The DM's notes or a character sheet is open: the table waits.
-    if app.overlay then
+    -- The DM's notes or a character sheet is open: the table waits. (So does a person's sheet.)
+    if app.overlay or app.npc_sheet then
         return
     end
-    -- So does a friend's thought you're reading (v2), and your recap.
+    -- So does a friend's thought you're reading (v2), and your recap. (The thought's own clock runs.)
+    M.tick_thought(app, dt)
     if app.thought_card or recap_view.open_any(app) then
         return
     end
@@ -1970,6 +2072,14 @@ function M.play_step(app, s, pace)
         post("flee", { id = s.id })
         battle_hud.gone(app, s.id)
         M.push(app, name_of(app, s.id) .. " runs for it.", "system")
+    elseif k == "join" and s.pc then
+        -- A hero who split off comes running back into the fight (the split party, November 3).
+        local pl = app.campaign:player(s.id)
+        local sprite = (pl and pl.mini) or CLASS_SPRITE[s.class] or "fighter"
+        post("spawn", { list = { { id = s.id, sprite = sprite, x = s.x, y = s.y, side = "party" } } })
+        app.hp[s.id] = { s.hp, s.hp_max }
+        M.refresh_hp(app)
+        M.push(app, (s.name or "Someone") .. " is back, and in the fight.", "good")
     elseif k == "join" then
         app.names[s.id] = s.name
         app.join_n = (app.join_n or 0) + 1
@@ -2213,19 +2323,30 @@ function M.handle(app, ev)
         end
         M.push(app, ev.name .. ": \"" .. ev.text .. "\"", "quote", true)
         review.on_line(app, ev)
+    elseif k == "walk" then
+        -- A hero crossing the mat to something (museum_night.explore, a moment's spot): square by
+        -- square, at a walk (table.script works the pace out from how far it is).
+        post("walk", { id = ev.actor, path = ev.path, per_square = 0.16 / speed(app) })
     elseif k == "say" then
         local p = player(app, ev.who)
         local speaker = p and (ev.ic and p.char or p.name) or "Someone"
         local anchor = { head = ev.who }
+        local secs = 1.2 + pacing.read(ev.text)
         if ev.ic then
             -- In character, it shows (A9): their panel and their mini on the board light up, and
             -- the line comes from the mini when it's on the board. Table talk stays at their head.
-            local secs = 1.2 + pacing.read(ev.text)
-            panels.light(app, ev.who, secs / speed(app))
+            panels.light(app, ev.who, secs / speed(app), "ic")
             post("glow", { id = ev.who, time = secs / speed(app) })
             if anchor_xy(app, { mini = ev.who }) then
                 anchor = { mini = ev.who }
             end
+        elseif p then
+            -- Out of character (table talk): their panel lights too, in its own colour.
+            panels.light(app, ev.who, secs / speed(app), "ooc")
+        end
+        -- And their outline at the table, in the same colour (the playtest, November 3).
+        if p then
+            post("outline", { who = ev.who, color = panels.SPEAK[ev.ic and "ic" or "ooc"].color, time = secs / speed(app) })
         end
         M.bubble(app, anchor, speaker, ev.text, ev.ic)
         M.push(app, speaker .. ": \"" .. ev.text .. "\"", ev.ic and "quote" or "reaction", true)
@@ -2244,12 +2365,17 @@ function M.handle(app, ev)
         end
         post("pose", { who = ev.who, pose = "think", hold = true })
         panels.pose(app, ev.who, "think")
+        -- Thinking shows on their tile and their outline, in lavender (the playtest, November 3).
+        panels.light(app, ev.who, 4 / speed(app), "think")
+        post("outline", { who = ev.who, color = panels.SPEAK.think.color, time = 4 / speed(app) })
         if not ev.glow and #(ev.answers or {}) > 0 then
             app.thinking = app.thinking or {}
             app.thinking[ev.who] = ev
             M.draw_thinks(app)
-            if ev.need == "plan" then
-                M.open_thought(app, ev.who)      -- it's about to happen: it can't wait for a click
+            -- It opens on its own, over their tile (the playtest, November 3: the clouds weren't
+            -- obvious to click), with a clock: answer it in time or the moment passes.
+            if not app.thought_card then
+                M.open_thought(app, ev.who, true)
             end
         end
     elseif k == "react" then
@@ -2301,6 +2427,20 @@ function M.handle(app, ev)
                 app.hp[c.id] = { c.hp, c.hp_max }
             end
             app.terrain = ev.terrain or app.terrain
+            -- The room's own pieces that come alive (the garden's topiary, fight.lua): they lift off
+            -- the board as the beasts drop into their squares (the playtest, November 3).
+            if ev.wake and #ev.wake > 0 then
+                post("lift", { cells = ev.wake })
+                for _, cell in ipairs(ev.wake) do
+                    post("spark", { x = cell[1], y = cell[2], color = theme.green, size = 1.4 })
+                end
+            end
+            -- The person on the mat who starts this fight becomes its leader's mini where they stand,
+            -- not a second one walking off the board (the playtest, November 3: two knights).
+            if app.on_table and app.on_table.npc then
+                post("remove_now", { id = "npc" })
+                app.on_table.npc = nil
+            end
             post("stage", { party = party_list(ev.party, app) })
             local list = {}
             app.boss_id = nil
@@ -2574,6 +2714,7 @@ function M.show_cinematic(app, ev)
     M.close_modal(app)
     M.clear_fx(app)
     app.layers.modal = kit.layer("night_modal", true)
+    app.layers.modal.pass = M.PASS     -- (the top bar works while a call waits)
     local slides = ev.slides or {}
     local i = util.clamp(app.cine_i or 1, 1, math.max(1, #slides))
     local sl = slides[i] or {}
@@ -2792,7 +2933,15 @@ function M.prune_thinks(app)
     end
 end
 
-function M.open_thought(app, key)
+-- The top bar's buttons that keep working while a call or a thought waits on you: you can look
+-- things up before you decide (the playtest, November 3).
+M.PASS = { night_story = true, night_notes = true, night_maps = true, night_table = true, night_log = true, night_end = true }
+
+-- How long an open thought waits for you (the playtest, November 3: "a countdown of maybe 30
+-- seconds to be resolved, or they auto dismiss"). Real seconds; anything you do restarts it.
+M.THOUGHT_WAIT = 30
+
+function M.open_thought(app, key, auto)
     local ev = app.thinking and app.thinking[key]
     if not ev then
         return
@@ -2804,6 +2953,7 @@ function M.open_thought(app, key)
         return
     end
     app.thought_card = ev
+    app.thought_left = M.THOUGHT_WAIT
     M.draw_thought_card(app)
 end
 
@@ -2813,7 +2963,30 @@ function M.close_thought(app)
         app.layers.thought = nil
     end
     app.thought_card = nil
+    app.thought_left = nil
     kit.reset_hover()
+end
+
+-- Every frame: the open thought's clock. At zero you've let it be, and the moment passes.
+function M.tick_thought(app, dt)
+    if not (app.thought_card and app.thought_left) then
+        return
+    end
+    app.thought_left = app.thought_left - dt
+    local bar = app.thought_bar
+    if bar then
+        local f = math.max(0, app.thought_left / M.THOUGHT_WAIT)
+        pcall(kit.set_bar, bar.fill, bar.w, f, 1)
+        pcall(gui.set_text, bar.text, util.int(math.max(0, math.ceil(app.thought_left))) .. "s")
+        pcall(gui.set_color, bar.fill, f > 0.33 and theme.think.ink or theme.orange)
+    end
+    if app.thought_left <= 0 then
+        local ev = app.thought_card
+        M.answer_thought(app, "let_be")
+        if ev then
+            M.toast(app, "THE MOMENT PASSED", ev.name .. "'s thought went unanswered. There'll be others.")
+        end
+    end
 end
 
 -- The card's buttons in order, for the number keys: { { key, fn } }.
@@ -2846,11 +3019,15 @@ function M.draw_thought_card(app)
         kit.drop(app.layers.thought)
     end
     app.layers.thought = kit.layer("night_thought", true)
+    app.layers.thought.pass = M.PASS
     local night = app.night
     local t = night.th and night.th.list[ev.id]
     local r = t and t.read
     local pr = thoughts.DATA.pronouns[ev.who] or { them = "them", their = "their" }
-    local x, w = LEFT_X, 500
+    -- Over their own tile (the playtest, November 3), kept on the screen.
+    local w = 500
+    local chip = app.chips and app.chips[ev.who]
+    local x = chip and util.clamp(chip.x + panels.W / 2 - w / 2, 8, kit.W - w - 8) or LEFT_X
     local tw = w - 32
     local o = thoughts.odds(night, ev.id) or { bonus = 0, need = 11, chance = 0.5, empathy = 0, familiar = 0, known = "" }
     -- What goes on the card, top to bottom: { text, font, color } blocks, then the buttons.
@@ -2869,6 +3046,14 @@ function M.draw_thought_card(app)
             .. "). You need " .. util.int(o.need)
             .. " or more: about " .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%.", "ui18", theme.think.dim)
         table.insert(buttons, { label = "Read " .. pr.them .. " (roll Insight)", key = "thought_read", go = true })
+        -- The first time: you have stats too, and where to find them (the playtest, November 3).
+        local seen = app.campaign.seen_tips or {}
+        if not seen.dm_stats then
+            add("You have stats too. Empathy is how well you read a table; each friend also has how well you know them. "
+                .. "A read is an Insight roll: d20 + your Empathy + how well you know them. Both grow as you play. "
+                .. "Your Empathy is at the top of THE TABLE on the prep board, how well you know each friend is the dots "
+                .. "on their card, and the Table sidebar tonight (S) has both.", "ui14", theme.think.ink, 12)
+        end
     else
         title = ev.name .. (r.result == "miss" and " is hard to read" or " is thinking")
         local reads = thoughts.DATA.reads
@@ -2943,6 +3128,16 @@ function M.draw_thought_card(app)
     kit.button(x + w - 136, ty, 120, 32, "Not now", function()
         M.close_thought(app)
     end, { key = "thought_close", color = theme.think.dim })
+    -- The clock: how long the moment waits for you.
+    if app.thought_left then
+        local bw = w - 190
+        kit.box(x + 16, ty + 12, bw, 8, alpha_of(theme.think.dim, 0.3), { round = false })
+        local fill = kit.box(x + 16, ty + 12, bw, 8, theme.think.ink, { round = false })
+        local text = kit.text(x + 22 + bw, ty + 6, "", "ui14", theme.think.dim, { gloss = false })
+        app.thought_bar = { fill = fill, w = bw, text = text }
+        kit.set_bar(fill, bw, math.max(0, app.thought_left / M.THOUGHT_WAIT), 1)
+        gui.set_text(text, util.int(math.ceil(app.thought_left)) .. "s")
+    end
     -- Familiarity as dots, then the words.
     for i = 1, fmax do
         kit.dot(x + 24 + (i - 1) * 13, ty + 50, 9, i <= fl and theme.think.ink or alpha_of(theme.think.dim, 0.35))
@@ -2955,6 +3150,9 @@ function M.read_thought(app)
     if not ev then
         return
     end
+    app.campaign.seen_tips = app.campaign.seen_tips or {}
+    app.campaign.seen_tips.dm_stats = true
+    app.thought_left = M.THOUGHT_WAIT
     local r = thoughts.read(app.night, ev.id)
     if not r then
         M.close_thought(app)
@@ -2982,6 +3180,7 @@ function M.ask_thought(app)
     if thoughts.ask(app.night, ev.id) then
         M.push(app, ev.name .. ", when you ask: \"" .. ev.text .. "\"", "thought", true)
     end
+    app.thought_left = M.THOUGHT_WAIT
     M.draw_thought_card(app)
 end
 
@@ -3118,6 +3317,7 @@ end
 function M.draw_modal(app, ev, instant)
     M.close_modal(app)
     app.layers.modal = kit.layer("night_modal", true)
+    app.layers.modal.pass = M.PASS     -- (the top bar works while a call waits)
     if ev.kind == "decision" then
         dodge_caption(app, 16, RIGHT_X - 16)
     elseif ev.kind == "ruling" or ev.kind == "roll_where" then
@@ -3183,7 +3383,8 @@ function M.draw_modal(app, ev, instant)
                    key = opt.answer and ("pull_" .. opt.answer) or nil })
             if sub_h[i] > 0 then
                 local ly = oy + 10 + kit.text_height(label, "ui18b", w - 68 - KEY_PAD)
-                kit.text(x + 34, ly, opt.sub, "ui14", opt.disabled and kit.rgba("#8a7c6a") or theme.dim,
+                kit.text(x + 34, ly, opt.sub, "ui14", opt.disabled and kit.rgba("#8a7c6a")
+                    or (opt.sub_tone and theme[opt.sub_tone]) or theme.dim,
                     { w = w - 68 - KEY_PAD })
             end
             if lean_h[i] > 0 then

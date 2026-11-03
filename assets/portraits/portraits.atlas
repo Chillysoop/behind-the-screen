@@ -26,6 +26,9 @@ images {
   image: "/assets/portraits/face_mara_yawn.png"
 }
 images {
+  image: "/assets/portraits/face_mara_frown.png"
+}
+images {
   image: "/assets/portraits/face_dev.png"
 }
 images {
@@ -51,6 +54,9 @@ images {
 }
 images {
   image: "/assets/portraits/face_dev_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_dev_frown.png"
 }
 images {
   image: "/assets/portraits/face_jess.png"
@@ -80,6 +86,9 @@ images {
   image: "/assets/portraits/face_jess_yawn.png"
 }
 images {
+  image: "/assets/portraits/face_jess_frown.png"
+}
+images {
   image: "/assets/portraits/face_sam.png"
 }
 images {
@@ -105,6 +114,9 @@ images {
 }
 images {
   image: "/assets/portraits/face_sam_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_sam_frown.png"
 }
 images {
   image: "/assets/portraits/mini_fighter.png"
@@ -230,6 +242,15 @@ images {
   image: "/assets/portraits/mini_ogre.png"
 }
 images {
+  image: "/assets/portraits/mini_briar_beast.png"
+}
+images {
+  image: "/assets/portraits/mini_briar_boar.png"
+}
+images {
+  image: "/assets/portraits/mini_briar_triceratops.png"
+}
+images {
   image: "/assets/portraits/mini_pirate.png"
 }
 images {
@@ -314,6 +335,9 @@ images {
   image: "/assets/portraits/dice_deep_sea.png"
 }
 images {
+  image: "/assets/portraits/dice_dragonscale.png"
+}
+images {
   image: "/assets/portraits/dice_ember.png"
 }
 images {
@@ -329,7 +353,16 @@ images {
   image: "/assets/portraits/dice_obsidian.png"
 }
 images {
+  image: "/assets/portraits/dice_prism.png"
+}
+images {
   image: "/assets/portraits/dice_rose.png"
+}
+images {
+  image: "/assets/portraits/dice_sunburst.png"
+}
+images {
+  image: "/assets/portraits/dice_voidstar.png"
 }
 margin: 2
 extrude_borders: 2

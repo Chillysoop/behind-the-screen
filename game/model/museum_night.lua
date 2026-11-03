@@ -70,6 +70,11 @@ function M.build_scene(night, id)
     if MODULE.rooms[id].epilogue then
         prepped = true
     end
+    -- Improvised on the spot (M.whats_there): no skimming, short, and a little thinner than prepped.
+    local improv = (not prepped) and night.mus and night.mus.improv and night.mus.improv[id] or false
+    if improv then
+        prepped = true
+    end
     -- The backup page (an hour of prep: museum_week.SPARE): the first room tonight that wasn't prepped.
     local backup = false
     if not prepped and not r.virtual and (r.cost or 0) > 0 and pm and pm.spare and pm.spare.backup then
@@ -81,10 +86,11 @@ function M.build_scene(night, id)
     end
     local q = r.virtual and 0.6 or prep_mod.quality(r.type, comps, night.prep and night.prep.inspired or {})
     local sc = {
-        type = r.type, comps = comps, missing = {}, room = id, quick = r.quick, virtual = r.virtual,
+        type = r.type, comps = comps, missing = {}, room = id, quick = r.quick or (improv and true) or nil, virtual = r.virtual,
         prepped = prepped or r.virtual,
         backup = backup or nil,
-        quality = q - ((prepped or r.virtual or r.cost == 0) and 0 or MODULE.UNPREPPED_QUALITY),
+        improv = improv or nil,
+        quality = q - ((prepped or r.virtual or r.cost == 0) and 0 or MODULE.UNPREPPED_QUALITY) - (improv and 0.1 or 0),
         difficulty = prep_mod.difficulty(comps),
         optional_fight = r.optional_fight,
         boss = r.boss,
@@ -94,6 +100,7 @@ function M.build_scene(night, id)
     if r.encounter then
         sc.encounter = { ids = util.copy(r.encounter), boss_name = r.boss_name, built = true }
     end
+    sc.wake = r.wake           -- the room's pieces that come alive when the fight starts (fight.lua)
     -- The DM's choice of map from the repository: for this room (prep), or the next scene (tonight).
     local ref = night.map_next or map_repo.room_map(night.campaign, id)
     if ref then
@@ -237,7 +244,9 @@ function M.handle(night, mus, sc)
                 have = have or e.id == it.magic
             end
             if not have then
-                local holder = night.actor and items_mod.can_use(c, night.actor, it.magic) and { night.actor } or night.players
+                -- (Whoever picked it up offers it to whoever'll use it best: M.hand_off.)
+                local to = M.hand_off(night, it.magic, night.actor)
+                local holder = to and { to } or night.players
                 local e = items_mod.earn(c, it.magic, holder)
                 -- (Tonight's sheets are already built: the item goes on theirs now, for tonight's fights.)
                 local pc = e and e.holder and night.pcs and night.pcs[e.holder]
@@ -278,6 +287,10 @@ function M.handle(night, mus, sc)
     end
     -- What it did to the hero it happened to: hurt them (their sheet says so), or a boon.
     local who = night.actor
+    -- Dragged somewhere (the pond's tentacles): their mini goes in, then scrambles back out.
+    if mus.drag and who and sc then
+        M.drag(night, sc, who, mus.drag)
+    end
     if mus.hurt and who then
         fight.party(night)
         local pc = night.pcs and night.pcs[who.key]
@@ -383,6 +396,32 @@ function M.note_got(night, what)
         end
     end
     table.insert(night.mus.got, what)
+end
+
+-- What something they picked up does, and who has it (the report's hover: the playtest,
+-- November 3, "hover over items to see what they do, and who has them"). name: as note_got wrote it.
+function M.item_info(c, name)
+    local items_mod = require "game.model.items"
+    local st = adventure.fill(c.adv)
+    local low = string.lower(name or "")
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.name and string.lower(it.name) == low then
+            local key = it.when and (it.when.flag or it.when.mark)
+            local hk = key and st.holders and st.holders[key]
+            local holder = hk and c:player(hk) or nil
+            local d = it.magic and items_mod.def(it.magic)
+            local text = (d and d.text) or util.fill(it.line or "", { holder = holder and holder.char or "Whoever has it",
+                                                                      mech = st.mech_name or "the Mech" })
+            return { title = util.capitalize(it.name), text = text, holder = holder }
+        end
+    end
+    for _, e in ipairs(items_mod.list(c)) do
+        local d = items_mod.def(e.id)
+        if d and string.lower(d.name) == low then
+            return { title = d.name, text = d.text or "", holder = e.holder and c:player(e.holder) or nil }
+        end
+    end
+    return nil
 end
 
 function M.has_reward(night, sc, r)
@@ -531,6 +570,36 @@ function M.play_moment(night, card, sc)
     for _, p in ipairs(night.players) do
         fun_before[p.key] = score.fun(p)
     end
+    -- The players' own choice (card.party): they talk it over, and play what they settle on.
+    if card.party then
+        if not night.actor then
+            night.actor = night:pick_lead(card.actor)
+        end
+        if card.spot then
+            night:walk(night.actor, card.spot, nil, sc)
+            copy.walked = true
+        end
+        local vars = night:vars(night.mus_vars)
+        night:say(util.sentence_case(util.fill(copy.text or "", vars)), "narration")
+        copy.party_pick = M.table_pick(night, copy, night.mus_vars)
+        -- A lock is picked by whoever's best with one (the playtest, November 3: "lock picking needs a
+        -- roll from the lockpicker").
+        local chosen = copy.options[copy.party_pick]
+        if chosen and chosen.roll and chosen.roll.best then
+            local best, bm
+            for _, p in ipairs(night.players) do
+                local _, m = night:best_skill(p, chosen.roll.skill)
+                if m and (not bm or m > bm) then
+                    best, bm = p, m
+                end
+            end
+            if copy.walked and best and best ~= night.actor then
+                night:walk(best, card.spot, nil, sc)      -- (the one doing it goes over too)
+            end
+            night.actor = best or night.actor
+            copy.fixed_actor = true
+        end
+    end
     local o = night:decision(copy, night.mus_vars)
     if not o then
         return nil
@@ -569,6 +638,20 @@ function M.play_moment(night, card, sc)
     st.seen[card.id] = true
     if got then
         st.took[card.id] = true
+    end
+    -- What the players chose can still need the DM: a hand on the donation box's lock, say. The
+    -- follow-up is a moment of its own (at = "follow"), for the same hero.
+    if o.then_moment then
+        for _, m in ipairs(MODULE.moments) do
+            if m.id == o.then_moment then
+                local fm = {}
+                for k, v in pairs(m) do
+                    fm[k] = v
+                end
+                fm.keep_actor = true
+                M.play_moment(night, fm, sc)
+            end
+        end
     end
     M.ties_beat(night, sc)
     return o
@@ -632,6 +715,331 @@ function M.moments(night, sc, at)
     end
 end
 
+-- Looking around (the playtest, November 3: "players should explore a map one at a time,
+-- commenting on and interacting with things"). Before a room's business, the friends take turns:
+-- one walks over to something on the map, the DM describes it, and they say what they make of
+-- it. Who goes is who'd want to (the curious first, nobody twice running). A find or a trap there
+-- is the DM's call first, behind the screen (MODULE.explore): a trap can go off, give them a
+-- chance to spot it, or never go off at all; a find can be handed over, made more of, moved
+-- somewhere they'll look later, or not be there tonight.
+local LOOK_SAY = {
+    explorer = { "Hang on. I want a proper look at {place}.", "Nobody touch {place}. I'm looking first.",
+                 "Okay, what's the deal with {place}?" },
+    tactician = { "{place}. Could be useful later. Noting it.", "Is {place} cover? It looks like cover.",
+                  "Anything about {place} that's going to hurt us?" },
+    butt_kicker = { "Does {place} fight back? No? Moving on.", "Can I hit {place}? I want to hit it.",
+                    "Cool. Where are the monsters?" },
+    storyteller = { "Who left {place} here? There's a story in that.", "I love that this museum has {place}.",
+                    "Wait. Is {place} a clue?" },
+    instigator = { "I poke {place} with a stick.", "I lick it. I'm licking {place}.", "What happens if I knock {place} over?" },
+    method_actor = { "\"Stay close,\" I tell the others, and step up to {place}.", "\"I've seen one of these before. Never like this.\"",
+                     "\"Careful. Nothing in this place is what it looks like.\"" },
+    power_gamer = { "Is {place} worth anything? Can we sell it?", "Does {place} actually do anything?",
+                    "I check {place} for anything magic." },
+    casual = { "Ha. {place}. Neat.", "Ooh. Look at {place}.", "Can we take {place} home? No? Fine." },
+}
+M.LOOK_SAY = LOOK_SAY
+local LOOK_IC = { method_actor = true }
+
+local function look_card(night, sc, pl, ex)
+    local what = util.lower_first(pl.name or "it")
+    if ex.trap then
+        local t = ex.trap
+        local hurt = { log = t.hit, effects = { { "actor", spotlight = 4, challenge = 4 }, { "arch:butt_kicker", fun = 1 } },
+                       mus = { hurt = t.hurt or { 1, 4 }, harsh = true } }
+        return { id = "mus_look_trap_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
+                 keep_actor = true, actor = { "explorer" },
+                 title = "A trap: " .. what,
+                 text = "{actor_char} is heading for " .. what .. ". Your notes put a trap there: " .. t.what .. ". They haven't seen it.",
+                 options = {
+                     { label = "Let it go off. They roll to get clear.", sub = "In front of the screen: everyone sees the roll.",
+                       roll = { dc = t.dc or 12, skill = t.skill or { "acrobatics" }, convenient = "success",
+                                success = { log = t.dodge, effects = { { "actor", spotlight = 6, fun = 3 }, { "all", challenge = 2 } } },
+                                fail = hurt } },
+                     { label = "Give them a chance to spot it first.", sub = "A Perception roll. Miss it, and it goes off.",
+                       roll = { dc = t.spot_dc or 13, skill = { "perception", "investigation" }, convenient = "success",
+                                success = { log = t.spotted, effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:tactician", fun = 3 },
+                                                                         { "arch:explorer", fun = 2 } } },
+                                fail = hurt } },
+                     { label = "It doesn't go off tonight.", sub = "Behind the screen: they never know it was there.",
+                       log = "{actor_char} walks right past it. Behind your screen, you cross it out.",
+                       effects = { { "all", challenge = -1 }, { "arch:casual", fun = 1 } } },
+                 } }
+    end
+    local f = ex.find
+    local n = f.francs or 1
+    local st = st_of(night)
+    return { id = "mus_look_find_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
+             keep_actor = true, actor = { "explorer" },
+             title = "Something to find: " .. what,
+             text = "{actor_char} is poking around " .. what .. ". Your notes put " .. f.what .. " here.",
+             options = {
+                 { label = "They find it.", log = f.line,
+                   effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:power_gamer", fun = 2 } }, mus = { francs = n } },
+                 { label = "Make it more: " .. util.int(n + 1) .. " Francs.", sub = "Generous. A little less to earn later.",
+                   log = f.line .. " And another one, just past it.",
+                   effects = { { "actor", spotlight = 6, fun = 5 }, { "arch:power_gamer", fun = 3 }, { "all", challenge = -1 } },
+                   mus = { francs = n + 1 } },
+                 { label = "Move it somewhere they'll look later.", sub = "It turns up the next time someone looks around.",
+                   log = "{actor_char} finds dust and cobwebs. Behind your screen, you move a note to another room.",
+                   effects = { { "arch:explorer", fun = -1 } }, later = n },
+                 { label = "There's nothing here tonight.", log = "{actor_char} finds dust and cobwebs. Nothing else.",
+                   effects = { { "arch:explorer", fun = -2 }, { "arch:power_gamer", fun = -1 } } },
+             } }
+end
+
+-- A hero's mini yanked into a feature on the map (mus.drag = { feature, place }) and back out to
+-- the place they were standing: the playtest, November 3 ("Pip being grabbed by the tentacle
+-- should move him").
+function M.drag(night, sc, who, d)
+    local board = require "game.model.board"
+    local feat_id, place_id = d[1], d[2]
+    local _, by_id = night:board_places(sc)
+    local pl = by_id[place_id]
+    local ok, c = pcall(board.compile, night:board_for(sc))
+    local f = ok and c and c.by_id[feat_id]
+    if not (pl and f) then
+        return
+    end
+    local best, bd
+    for _, pi in ipairs(f.pieces) do
+        local pc = c.pieces[pi]
+        for _, sq in ipairs(board.squares(pc.kind, pc.x, pc.y, pc.r)) do
+            local dd = math.max(math.abs(sq[1] - pl.x), math.abs(sq[2] - pl.y))
+            if not bd or dd < bd then
+                best, bd = sq, dd
+            end
+        end
+    end
+    if best then
+        night:walk(who, { best[1], best[2] }, { { pl.x, pl.y } }, sc)
+    end
+end
+
+-- A room with a fight in it, looked around once it's safe (and a room whose fight never came).
+function M.explore_after(night, sc)
+    M.drops_beaten(night, sc)
+    if not sc.explored and not night.end_early and (not sc.fought or sc.outcome == "win") then
+        sc.explored = true
+        M.explore(night, sc)
+    end
+end
+
+-- Who takes a magic item the party just got is the players' call (the playtest, November 3:
+-- "players give items to whoever can best use them"). Whoever has it in their hands offers it to
+-- the friend whose hero gets the most out of it; a power gamer who can use it themselves keeps it,
+-- and the one who'd have used it best notices. Returns the hero who ends up with it (or nil).
+function M.hand_off(night, id, finder)
+    local items_mod = require "game.model.items"
+    local c = night.campaign
+    local d = items_mod.def(id)
+    if not d then
+        return nil
+    end
+    local best = items_mod.pick_holder(c, id, night.players)
+    finder = finder or night.actor
+    if not best or not finder or best == finder then
+        return best or finder
+    end
+    local name = util.lower_first(d.name)
+    local can = items_mod.can_use(c, finder, id)
+    if can and finder.primary == "power_gamer" then
+        night:emit({ kind = "say", who = finder.key, text = "Mine. I found it.", ic = false })
+        night:react({ [best.key] = "arms" })
+        night:say(best.name .. " says nothing. " .. best.char .. " would have got more out of " .. name .. ".", "aside")
+        score.add(best, "fun", -2)
+        rapport.bond(c, best.key, finder.key, -2)
+        return finder
+    end
+    local line = can and ("Here. " .. best.char .. " will get more out of this than me.")
+        or ("This is no good to me. " .. best.char .. ", it's yours.")
+    night:emit({ kind = "say", who = finder.key, text = line, ic = false })
+    night:react({ [best.key] = "cheer" })
+    score.add(best, "fun", 4)
+    score.add(finder, "fun", 1)
+    rapport.bond(c, best.key, finder.key, 3)
+    return best
+end
+
+-- The party gets a magic item off someone (npcs.lua drops), handed to whoever'll use it best.
+local function earn_drop(night, sc, n, w)
+    local items_mod = require "game.model.items"
+    local c = night.campaign
+    local who = M.hand_off(night, w.drop.item, night.actor)
+    local e = items_mod.earn(c, w.drop.item, who and { who } or night.players)
+    local pc = e and e.holder and night.pcs and night.pcs[e.holder]
+    if pc then
+        items_mod.apply(c, e.holder, pc)
+    end
+    w.drop.got = c.week
+    w.drop.holder = e and e.holder or nil
+    local d = items_mod.def(w.drop.item)
+    M.note_got(night, d and util.lower_first(d.name) or nil)
+    local holder = e and e.holder and present(night, e.holder)
+    night:say((d and d.name or "Something") .. (holder and (": " .. holder.char .. " carries it now.") or "."), "good")
+end
+
+-- What the DM put on someone (npcs.lua), and the party's ways of getting it. Beaten: it falls out
+-- after the fight they were in. A pocket or an ask is a player's idea (the light-fingered, the
+-- talkers: their stats say who'd think of it), and the DM rules on whether it works.
+local POCKET_KEEN = { instigator = 0.8, power_gamer = 0.7, butt_kicker = 0.3, explorer = 0.4 }
+local ASK_KEEN = { storyteller = 0.7, method_actor = 0.7, casual = 0.6, power_gamer = 0.6, tactician = 0.4 }
+
+local function keenest(night, keen, skill)
+    local best, bw
+    for _, p in ipairs(night.players) do
+        local w = (keen[p.primary] or 0.15) + ((p.class == "rogue" and skill == "sleight_of_hand") and 0.4 or 0)
+        local _, m = night:best_skill(p, { skill })
+        w = w + (m or 0) * 0.04
+        if not bw or w > bw then
+            best, bw = p, w
+        end
+    end
+    return best, bw or 0
+end
+
+function M.drops_social(night, sc)
+    if sc.boss or night.end_early then
+        return
+    end
+    local npcs = require "game.model.npcs"
+    local items_mod = require "game.model.items"
+    local c = night.campaign
+    for _, how in ipairs({ "pocket", "ask" }) do
+        for _, w in ipairs(npcs.waiting(c, sc.room, how)) do
+            if night.end_early or not night:room(12) then
+                return
+            end
+            local n = w.npc
+            local d = items_mod.def(w.drop.item)
+            local skill = how == "pocket" and "sleight_of_hand" or "persuasion"
+            local p, keen = keenest(night, how == "pocket" and POCKET_KEEN or ASK_KEEN, skill)
+            -- (Nobody at this table would think of it: it stays on them.)
+            if p and night.rng:chance(math.min(0.95, keen)) then
+                night.actor = p
+                local item = util.lower_first(d and d.name or "something")
+                local who = n.short or n.name
+                local card
+                if how == "pocket" then
+                    card = { id = "mus_drop_pocket_" .. n.id .. "_" .. w.drop.item, type = "story", trigger = "museum_fixed",
+                             fixed_actor = true, keep_actor = true, actor = { "instigator" },
+                             title = "Light fingers",
+                             text = "{actor_char} has spotted " .. item .. " on " .. who .. ", and wants to lift it. (You put it there.) Can they?",
+                             options = {
+                                 { label = "Let them try. Sleight of Hand.", sub = "Miss, and " .. who .. " notices.",
+                                   roll = { dc = n.monster and 15 or 13, skill = { "sleight_of_hand" }, convenient = "success",
+                                            success = { log = "{actor_char} comes away with " .. item .. ". " .. who .. " never feels a thing.",
+                                                        effects = { { "actor", spotlight = 8, fun = 6 }, { "arch:instigator", fun = 2 } },
+                                                        drop = true },
+                                            fail = { log = who .. " turns round at exactly the wrong moment. \"Do you mind?\"",
+                                                     effects = { { "actor", spotlight = 4, challenge = 3 }, { "arch:storyteller", fun = 1 } } } } },
+                                 { label = who .. " notices before they can try.", log = "{actor_char} gets one look at " .. item .. " before " .. who .. " turns round.",
+                                   effects = { { "actor", fun = -2 }, { "arch:tactician", fun = 1 } } },
+                             } }
+                else
+                    card = { id = "mus_drop_ask_" .. n.id .. "_" .. w.drop.item, type = "story", trigger = "museum_fixed",
+                             fixed_actor = true, keep_actor = true, actor = { "storyteller" },
+                             title = "Can we have that?",
+                             text = "{actor_char} asks " .. who .. " for " .. item .. ". (You put it on them.) What do they say?",
+                             options = {
+                                 { label = "They hand it over.", log = who .. " hands it over. \"Look after it.\"",
+                                   effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:storyteller", fun = 2 } }, drop = true },
+                                 { label = "Only if they're talked round. Persuasion.",
+                                   roll = { dc = 13, skill = { "persuasion", "deception" }, convenient = "success",
+                                            success = { log = who .. " sighs, and hands it over.", effects = { { "actor", spotlight = 8, fun = 5 } }, drop = true },
+                                            fail = { log = who .. " shakes their head. Not today.", effects = { { "actor", fun = -1 } } } } },
+                                 { label = "No.", log = who .. " says no, and means it.", effects = { { "actor", fun = -2 }, { "arch:power_gamer", fun = -1 } } },
+                             } }
+                end
+                local o = M.play_moment(night, card, sc)
+                local won = o and (o.drop or (o.roll and night.last_roll and o.roll.success and o.roll.success.drop))
+                if won and not w.drop.got then
+                    earn_drop(night, sc, n, w)
+                end
+            end
+        end
+    end
+end
+
+-- After the fight: what the DM put on anyone they beat falls out (npcs.lua, how = "beaten").
+function M.drops_beaten(night, sc)
+    if not sc.fought or (sc.outcome or "win") ~= "win" then
+        return
+    end
+    local npcs = require "game.model.npcs"
+    for _, w in ipairs(npcs.waiting(night.campaign, sc.room, "beaten")) do
+        if w.npc.monster and util.contains(sc.foes_beaten or {}, w.npc.monster) then
+            night:say("Among what's left of " .. (w.npc.short or w.npc.name) .. ": something you put there.", "narration")
+            earn_drop(night, sc, w.npc, w)
+        end
+    end
+end
+
+function M.explore(night, sc)
+    local data = MODULE.explore and MODULE.explore[sc.room]
+    if not data or night.end_early or sc.boss or sc.epilogue or sc.showdown then
+        return
+    end
+    local st = st_of(night)
+    st.looked = st.looked or {}
+    local _, by_id = night:board_places(sc)
+    local open = {}
+    for _, pid in ipairs(data) do
+        if by_id[pid] and not st.looked[sc.room .. "/" .. pid] then
+            table.insert(open, pid)
+        end
+    end
+    local looks = math.min(#open, (sc.quick or sc.revisit) and 1 or (data.looks or 2))
+    -- (Late in the evening, one look and on with it.)
+    if (night.table_min or 0) > (night.table_planned or 210) * 0.75 then
+        looks = math.min(looks, 1)
+    end
+    local last
+    for _ = 1, looks do
+        if night.end_early or #open == 0 then
+            break
+        end
+        local p = night:pick_lead({ "explorer", "instigator", "storyteller", "power_gamer" }, last)
+        last = p
+        local i = night.rng:int(1, #open)
+        local pid = table.remove(open, i)
+        local pl = by_id[pid]
+        st.looked[sc.room .. "/" .. pid] = true
+        night.actor = p
+        night:walk(p, { pl.x, pl.y }, nil, sc)
+        if pl.line then
+            night:say(pl.line, "narration")
+        end
+        local arch = LOOK_SAY[p.primary] and p.primary or "casual"
+        local line = night:fresh(LOOK_SAY[arch], "look_" .. arch)
+        night:emit({ kind = "say", who = p.key, text = util.sentence_case(util.fill(line, { place = util.lower_first(pl.name or "it") })),
+                     ic = LOOK_IC[arch] or false })
+        score.nudge_engagement(p, 4)
+        night:apply({ { "actor", spotlight = 2 }, { "arch:explorer", fun = 1 } })
+        night.table_min = (night.table_min or 0) + 2
+        local ex = (data.finds and data.finds[pid] and { find = data.finds[pid] })
+            or (data.traps and data.traps[pid] and { trap = data.traps[pid] }) or nil
+        -- (Only while the night has calls to spare: a find or a trap never crowds out the room's
+        -- own moments under the 8-to-15 budget. Without one, they just look.)
+        if ex and night:room(11) and not sc.look_card then
+            sc.look_card = true
+            local card = look_card(night, sc, pl, ex)
+            local o = M.play_moment(night, card, sc)
+            if o and o.later then
+                st.find_later = (st.find_later or 0) + o.later
+            end
+        elseif (st.find_later or 0) > 0 then
+            -- The find the DM moved: here it is.
+            local n = st.find_later
+            st.find_later = 0
+            night:say("Tucked away by " .. util.lower_first(pl.name or "it") .. ": " .. (n == 1 and "a Flitwidget Franc" or (util.int(n) .. " Flitwidget Francs"))
+                .. ". (The find you moved behind your screen.)", "good")
+            M.handle(night, { francs = n }, sc)
+            night:apply({ { "actor", spotlight = 4, fun = 4 } })
+        end
+    end
+end
+
 -- A Session Zero ask meets what's in tonight's room (a text with a soft variant for its tag):
 -- agreed, you keep it gentle and say so; asked and refused, they feel it. Once a night per tag.
 function M.soft_check(night, alts)
@@ -674,6 +1082,8 @@ function M.read(night, sc)
     night:say(text, "narration")
     if sc.backup then
         night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "dm")
+    elseif sc.improv then
+        night:say("You never prepped it, so you wing it: the room in a few strokes, and on to what matters.", "dm")
     end
     if not sc.prepped then
         night:say("You never read this room properly. You skim the page while they wait.", "warn")
@@ -746,6 +1156,12 @@ function M.room_start(night, sc)
             night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
         end
     end
+    -- (A room with a fight in it gets looked around once it's safe: after the fight.)
+    if not M.has_fight(sc) then
+        M.explore(night, sc)
+        sc.explored = true
+    end
+    M.drops_social(night, sc)
     M.moments(night, sc, "start")
     if sc.showdown then
         M.showdown_start(night, sc)
@@ -907,6 +1323,7 @@ function M.quick_room(night, sc)
     else
         sc.outcome = sc.outcome or "win"
     end
+    M.explore_after(night, sc)
     M.moments(night, sc, "end")
     local r = sc.comps.reward
     M.reward(night, sc)
@@ -1042,6 +1459,238 @@ local function fork_mood(night, p, ch, c)
         end
     end
     return bonus, why and why.text
+end
+
+-- The table decides ------------------------------------------------------------------------------
+-- A choice that's the players' to make (the playtest, November 3: "it's critical that the DM is never
+-- making player decisions for them; player play should be emergent but grounded in their stats"):
+-- a card marked `party` in the module. Each friend leans by who they are (what each option does
+-- for their kind of player), how their hero's doing, and a little noise; they talk it over, the
+-- ones who don't much mind come round to the others, and when they're still split someone asks the
+-- DM, who can nudge or leave it to them. The option they settle on plays as written.
+
+-- Why someone leans the way they do, in their own voice, by the kind of player it pleased.
+local LEAN_WHY = {
+    explorer = "I want to see what it does.", tactician = "It's the smart play.", butt_kicker = "Less talking, more hitting.",
+    instigator = "Come on, it'll be chaos.", storyteller = "It feels right, for the story.", casual = "Easiest way through.",
+    power_gamer = "That's the best payoff.", method_actor = "It's what {char} would do.",
+}
+
+-- What one option is worth to one friend, and the reason that weighed most. o: the card's option.
+local function lean(night, p, o)
+    local v, why, whyv = 0, nil, 0
+    local function eff(list, w)
+        for _, e in ipairs(list or {}) do
+            local t = e[1]
+            local f = (e.fun or 0) + 0.25 * (e.spotlight or 0) + 0.15 * (e.reward or 0)
+            local mine = 0
+            if t == "all" then
+                mine = f
+            elseif t == "actor" then
+                mine = (night.actor == p) and f or 0.2 * f
+            elseif t == "others" then
+                mine = (night.actor ~= p) and f or 0
+            elseif type(t) == "string" and string.sub(t, 1, 4) == "key:" then
+                mine = (string.sub(t, 5) == p.key) and f or 0
+            elseif type(t) == "string" and string.sub(t, 1, 5) == "arch:" then
+                local a = string.sub(t, 6)
+                mine = score.arch(p, a) * f
+                if mine * w > whyv then
+                    why, whyv = a, mine * w
+                end
+            end
+            -- How hard it makes things: the fighters like it, the easy-going don't.
+            if e.challenge and (t == "all" or t == "actor") then
+                mine = mine + e.challenge * (0.25 * score.arch(p, "butt_kicker") - 0.15 * score.arch(p, "casual"))
+            end
+            v = v + mine * w
+        end
+    end
+    if o.roll then
+        eff(o.roll.success and o.roll.success.effects, 0.6)
+        eff(o.roll.fail and o.roll.fail.effects, 0.4)
+    end
+    eff(o.effects, 1)
+    -- Their hero's state: hurt heroes don't want risks or fights; a fresh fighter does.
+    local hh = hero_hurt(night, p)
+    local m = o.mus or {}
+    local risky = m.risk or m.fight or o.roll ~= nil or (o.roll and o.roll.fail and o.roll.fail.mus and o.roll.fail.mus.hurt)
+    if risky and hh >= 0.4 then
+        v = v - 4 * hh
+    elseif m.warn and hh >= 0.4 then
+        v = v + 2 * hh
+        if 2 * hh > whyv then
+            why, whyv = "hurt", 2 * hh
+        end
+    end
+    if m.fight then
+        v = v + 2 * score.arch(p, "butt_kicker")
+    end
+    if m.francs or m.flag or m.mark then
+        v = v + 0.8 * score.arch(p, "power_gamer")
+    end
+    return v, why
+end
+
+local function short_want(o)
+    return o.want or util.lower_first((string.gsub(o.label or "", "[%.!]+$", "")))
+end
+
+-- copy: the card as it'll be played (its options already filtered). Returns the option's index in
+-- copy.options, after the talk (and the DM's nudge, if they asked). Says the talk out loud.
+function M.table_pick(night, copy, vars)
+    local opts = copy.options
+    local live = {}
+    for i, o in ipairs(opts) do
+        if not o.disabled then
+            table.insert(live, i)
+        end
+    end
+    if #live <= 1 then
+        return live[1] or 1
+    end
+    local vals, first, why = {}, {}, {}
+    for _, p in ipairs(night.players) do
+        vals[p.key] = {}
+        local best, bv
+        for _, i in ipairs(live) do
+            local v, w = lean(night, p, opts[i])
+            v = v + night.rng:next() * 1.6
+            vals[p.key][i] = { v = v, why = w }
+            if not bv or v > bv then
+                best, bv = i, v
+            end
+        end
+        first[p.key] = best
+        why[p.key] = vals[p.key][best].why
+    end
+    local function tally()
+        local n, top, top_n = {}, nil, 0
+        for _, p in ipairs(night.players) do
+            local i = first[p.key]
+            n[i] = (n[i] or 0) + 1
+        end
+        for _, i in ipairs(live) do
+            if (n[i] or 0) > top_n then
+                top, top_n = i, n[i]
+            end
+        end
+        local tied = 0
+        for _, i in ipairs(live) do
+            if (n[i] or 0) == top_n then
+                tied = tied + 1
+            end
+        end
+        return top, top_n, tied, n
+    end
+    -- What each says first: the ones with a real reason speak up (two at most), in their own words.
+    local spoke = 0
+    local order = util.copy(night.players)
+    table.sort(order, function(a, b)
+        local va, vb = vals[a.key][first[a.key]].v, vals[b.key][first[b.key]].v
+        if va ~= vb then
+            return va > vb
+        end
+        return a.key < b.key
+    end)
+    local said = {}
+    for _, p in ipairs(order) do
+        if spoke < 3 and (spoke < 2 or first[p.key] ~= first[order[1].key]) then
+            local w = why[p.key]
+            local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not.")) or (w and LEAN_WHY[w]) or nil
+            local line = "Let's " .. short_want(opts[first[p.key]]) .. "." .. (reason and (" " .. util.fill(reason, { char = p.char })) or "")
+            night:emit({ kind = "say", who = p.key, text = util.sentence_case(line), ic = false })
+            said[p.key] = true
+            spoke = spoke + 1
+        end
+    end
+    -- The talk: a friend who barely minds comes round to where most of the table is.
+    local top, top_n, tied = tally()
+    local half = #night.players / 2
+    if top_n <= half then
+        for _, p in ipairs(night.players) do
+            local mine = vals[p.key][first[p.key]].v
+            if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < 1.2 then
+                first[p.key] = top
+                -- (Whoever comes round says so: nobody's counted for what they argued against.)
+                night:emit({ kind = "say", who = p.key, text = (said[p.key] and "Okay, okay. " or "Fine by me. ")
+                    .. util.capitalize(short_want(opts[top])) .. ".", ic = false })
+                said[p.key] = true
+            end
+        end
+        top, top_n, tied = tally()
+    end
+    -- Still split: someone asks the DM (the DM can nudge, or leave it to them).
+    local asked = false
+    if (tied > 1 or top_n <= half) and night.rng:chance(0.75) then
+        asked = true
+        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
+        local card = { id = "table_asks_" .. (copy.id or "x"), type = "table", trigger = "museum_fixed", fixed_actor = true,
+                       title = "They ask you",
+                       text = "The table can't agree. " .. asker.name .. " looks up from the map: \"What do you think?\"",
+                       options = {} }
+        for _, i in ipairs(live) do
+            local names = {}
+            for _, p in ipairs(night.players) do
+                if first[p.key] == i then
+                    table.insert(names, p.name)
+                end
+            end
+            local against = i ~= top or tied > 1
+            table.insert(card.options, { label = "Nudge them: " .. short_want(opts[i]), nudge = i,
+                sub = #names > 0 and (util.join_names(names) .. (#names == 1 and " wants this." or " want this.")) or "Nobody's for this yet.",
+                effects = { { "all", trust = (against and (night.mus.nudged or 0) >= 1) and -1 or 0 } },
+                log = "You give them a little push: \"If it were me, I'd " .. short_want(opts[i]) .. ".\"" })
+        end
+        table.insert(card.options, { label = "\"It's up to you.\"", leave = true,
+            sub = "They settle it themselves: whoever found it has the last word.",
+            effects = { { "arch:storyteller", fun = 1 }, { "arch:casual", fun = -1 } },
+            log = "You shrug behind the screen. \"Your call.\"" })
+        local was_a = night.actor
+        night.actor = asker
+        local o = night:decision(card, vars)
+        night.actor = was_a
+        if o and o.nudge then
+            night.mus.nudged = (night.mus.nudged or 0) + 1
+            -- They asked: most take the hint. Only someone who really wants the other way holds out.
+            local held = {}
+            for _, p in ipairs(night.players) do
+                if first[p.key] ~= o.nudge then
+                    local gap = vals[p.key][first[p.key]].v - vals[p.key][o.nudge].v
+                    if gap < 4 then
+                        first[p.key] = o.nudge
+                    else
+                        table.insert(held, p)
+                        score.add(p, "fun", -1)     -- (and minds a little that you leaned the other way)
+                    end
+                end
+            end
+            top, top_n, tied = tally()
+            if tied > 1 then
+                top = o.nudge
+            end
+            if top ~= o.nudge then
+                night:say("They hear you out, and go their own way anyway.", "aside")
+            elseif #held > 0 then
+                night:emit({ kind = "say", who = held[1].key, text = "For the record, I still think we should "
+                    .. short_want(opts[first[held[1].key]]) .. ".", ic = false })
+            end
+        end
+    end
+    -- Whoever found it settles a tie.
+    if tied > 1 then
+        local a = night.actor
+        top = (a and first[a.key]) or top
+    end
+    local names = {}
+    for _, p in ipairs(night.players) do
+        if first[p.key] == top then
+            table.insert(names, p.name)
+        end
+    end
+    night:say("The table decides: " .. short_want(opts[top]) .. ((#names > 0 and #names < #night.players)
+        and (" (" .. util.join_names(names) .. "'s idea" .. (asked and "" or "") .. ")") or "") .. ".", "aside")
+    return top
 end
 
 -- New rooms still waiting on this floor (the stairs up wait for the rest, for most tables).
@@ -1388,93 +2037,180 @@ function M.fork(night, options, backs, sides)
         night.mus.shut_said[pos] = true
         table.insert(parts, shut)
     end
-    local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum", title = fk.title,
-                   actor = { "instigator", "explorer", "butt_kicker" },
-                   text = fk.text .. " " .. table.concat(parts, " "), options = {} }
-    -- What the table wants most, first (following them is the top option).
-    local order = {}
-    for i in ipairs(choices) do
-        table.insert(order, i)
+    -- Where they go is the table's to settle, never the DM's (the playtest, November 3): they say
+    -- what they want, the ones who barely mind come round, and if they're still split someone asks
+    -- you. You can nudge, hint at a room they missed, or leave it to them.
+    night:say(fk.text .. " " .. table.concat(parts, " "), "narration")
+    -- (A way, said mid-sentence: "the offices", "up the stairs now", "back to the gift shop".)
+    local function low(t)
+        local first = string.match(t, "^(%a+)")
+        if first == "On" or first == "Up" or first == "Back" or first == "Into" or first == "Down" then
+            return string.lower(string.sub(t, 1, 1)) .. string.sub(t, 2)
+        end
+        return util.lower_first(t)
     end
-    table.sort(order, function(a, b)
-        local na, nb = #(by[a] or {}), #(by[b] or {})
-        if na ~= nb then
-            return na > nb
-        end
-        return a < b
-    end)
-    for _, i in ipairs(order) do
+    local function label_of(i)
         local ch = choices[i]
-        local effs = {}
-        for _, p in ipairs(night.players) do
-            table.insert(effs, { "key:" .. p.key, fun = (first[p.key] == i) and 3 or -2 })
-        end
-        local steer = i ~= top and #(by[i] or {}) < top_n
-        if steer and (night.mus.steered or 0) >= 1 then
-            table.insert(effs, { "all", trust = -2 })
-        end
-        local label
         if ch.side then
-            label = "Into " .. util.lower_first(ch.side.name) .. " (a side room)"
+            return "into " .. util.lower_first(ch.side.name) .. " (a side room)"
         elseif ch.back then
-            label = back_label(ch.back)
-        else
-            local r = MODULE.rooms[ch.id]
-            local note = (r.cost == 0 and "") or ((pm and pm.prepped and pm.prepped[ch.id]) and "  (you prepped it)" or "  (not prepped)")
-            label = pull_of(ch.id).label .. note
-            -- (What it means for tonight: the stairs end the night at the top step.)
-            if r.stop and ch.id == "stairs" then
-                label = label .. " (the night stops at the top step)"
+            return low(back_label(ch.back))
+        end
+        return low((string.gsub(pull_of(ch.id).label, ",", "")))
+    end
+    local function tally()
+        local n, t, tn = {}, nil, 0
+        for _, p in ipairs(night.players) do
+            n[first[p.key]] = (n[first[p.key]] or 0) + 1
+        end
+        for i in ipairs(choices) do
+            if (n[i] or 0) > tn then
+                t, tn = i, n[i]
             end
         end
-        -- (Whose pick it is, on the button: the table's, or yours over theirs, which they'll feel.)
-        if i == top and #(by[i] or {}) > 0 then
-            label = label .. " [the table's pick]"
-        elseif steer then
-            label = label .. ((night.mus.steered or 0) >= 1 and " [steering them again: costs Trust]" or " [steering them]")
+        local tied = 0
+        for i in ipairs(choices) do
+            if (n[i] or 0) == tn then
+                tied = tied + 1
+            end
         end
-        table.insert(card.options, { label = label, effects = effs, choice = i, steer = steer,
-                                     log = steer and "You nudge them the other way. A couple of looks across the table." or nil })
+        return t, tn, tied
     end
-    -- The DM's own move: a hint that a room they cleared still has something in it.
+    local half = #night.players / 2
+    if top_n <= half then
+        for _, p in ipairs(night.players) do
+            local mine = vals[p.key][first[p.key]].v
+            if first[p.key] ~= top and mine - vals[p.key][top].v < 1.0 then
+                first[p.key] = top
+                night:emit({ kind = "say", who = p.key, text = "Fine, " .. label_of(top) .. ". I'm easy.", ic = false })
+            end
+        end
+    end
+    local tied
+    top, top_n, tied = tally()
+    -- The DM's own move, when they ask: a hint that a room they cleared still has something in it,
+    -- with what's still in there (the playtest, November 3: the hint should remind you what they missed).
     -- (Offered at one fork a night, not every one: the playtest, Nov 2, saw it at five in a row.)
+    local hint_id
     if not night.mus.hinted and not night.mus.hint_offered and (night.mus.backs or 0) < M.MAX_BACKS then
         for _, id in ipairs(MODULE.order) do
             local cl = select(2, adventure.reachable(c, pos or id))
             if cl[id] and not st.hinted[id] and #adventure.missed(c, id) > 0 and not (night.mus.been or {})[id] then
-                table.insert(card.options, {
-                    label = "Hint they missed something in " .. util.lower_first(MODULE.rooms[id].name),
-                    effects = { { "arch:explorer", fun = 4 }, { "arch:butt_kicker", fun = -1 } },
-                    log = "\"You know, you never did look properly at " .. util.lower_first(MODULE.rooms[id].name)
-                        .. ".\" Someone groans. Someone grabs their pencil.",
-                    hint = id })
-                night.mus.hint_offered = true
+                hint_id = id
                 break
             end
         end
     end
-    local o = night:decision(card)
-    if o and o.hint then
-        night.mus.hinted = true
-        st.hints[o.hint] = true
-        st.hinted[o.hint] = true
-        return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
-    end
-    if o and o.steer then
-        -- (Who you overruled: the chat remembers it.)
-        night.mus.overruled = night.mus.overruled or {}
-        for _, p in ipairs(night.players) do
-            if first[p.key] == top then
-                night.mus.overruled[p.key] = (night.mus.overruled[p.key] or 0) + 1
+    local o
+    local split = tied > 1 or top_n <= half
+    if (split and night.rng:chance(0.8)) or (hint_id and night.rng:chance(0.35)) then
+        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
+        local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum_fixed", fixed_actor = true, title = fk.title,
+                       text = (split and "They can't agree. " or "They've more or less decided, but ") .. asker.name
+                           .. " looks up from the map: \"Where would you go?\"", options = {} }
+        for i in ipairs(choices) do
+            local names = {}
+            for _, p in ipairs(night.players) do
+                if first[p.key] == i then
+                    table.insert(names, p.name)
+                end
+            end
+            local note = ""
+            local ch = choices[i]
+            if not ch.back and not ch.side then
+                local r = MODULE.rooms[ch.id]
+                note = (r.cost == 0 and "") or ((pm and pm.prepped and pm.prepped[ch.id]) and " You prepped it." or " Not prepped.")
+                if r.stop and ch.id == "stairs" then
+                    note = note .. " The night stops at the top step."
+                end
+            end
+            local against = i ~= top or tied > 1
+            table.insert(card.options, { label = "Nudge them: " .. label_of(i), choice = i,
+                sub = (#names > 0 and (util.join_names(names) .. (#names == 1 and " wants this." or " want this.")) or "Nobody's for this yet.") .. note,
+                effects = { { "all", trust = (against and (night.mus.steered or 0) >= 1) and -1 or 0 } },
+                log = "\"If it were me? " .. util.capitalize(label_of(i)) .. ".\"" })
+        end
+        if hint_id then
+            local what = {}
+            for _, mid in ipairs(adventure.missed(c, hint_id)) do
+                for _, m in ipairs(MODULE.moments) do
+                    if m.id == mid then
+                        table.insert(what, util.lower_first(util.sentence_case(util.fill(m.title or mid, night:vars(night.mus_vars)))))
+                    end
+                end
+            end
+            table.insert(card.options, {
+                label = "Hint they missed something in " .. util.lower_first(MODULE.rooms[hint_id].name),
+                sub = "Still in there: " .. (#what > 0 and util.join_names(what) or "something they passed up") .. ".", sub_tone = "teal",
+                effects = { { "arch:explorer", fun = 4 }, { "arch:butt_kicker", fun = -1 } },
+                log = "\"You know, you never did look properly at " .. util.lower_first(MODULE.rooms[hint_id].name)
+                    .. ".\" Someone groans. Someone grabs their pencil.",
+                hint = hint_id })
+            night.mus.hint_offered = true
+        end
+        table.insert(card.options, { label = "\"It's up to you.\"", leave = true,
+            sub = "They settle it themselves.", effects = { { "arch:storyteller", fun = 1 } },
+            log = "You shrug behind the screen. \"You tell me.\"" })
+        local was_a = night.actor
+        night.actor = asker
+        o = night:decision(card)
+        night.actor = was_a
+        if o and o.hint then
+            night.mus.hinted = true
+            st.hints[o.hint] = true
+            st.hinted[o.hint] = true
+            return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+        end
+        if o and o.choice then
+            -- Asked, most take the hint; someone who really wanted the other way minds a little.
+            local against = o.choice ~= top or tied > 1
+            for _, p in ipairs(night.players) do
+                if first[p.key] ~= o.choice then
+                    if vals[p.key][first[p.key]].v - vals[p.key][o.choice].v < 3.5 then
+                        first[p.key] = o.choice
+                    else
+                        score.add(p, "fun", -1)
+                        night.mus.overruled = night.mus.overruled or {}
+                        night.mus.overruled[p.key] = (night.mus.overruled[p.key] or 0) + 1
+                    end
+                end
+            end
+            if against then
+                night.mus.steered = (night.mus.steered or 0) + 1
+                if night.mus.steered >= 2 then
+                    local times = ({ "Twice", "Three times", "Four times" })[night.mus.steered - 1] or (util.int(night.mus.steered) .. " times")
+                    night:say(times .. " tonight you've steered them. It's starting to feel like a railroad.", "warn")
+                end
+            end
+            top, top_n, tied = tally()
+            if tied > 1 then
+                top = o.choice
             end
         end
-        night.mus.steered = (night.mus.steered or 0) + 1
-        if night.mus.steered >= 2 then
-            local times = ({ "Twice", "Three times", "Four times" })[night.mus.steered - 1] or (util.int(night.mus.steered) .. " times")
-            night:say(times .. " tonight you've steered them. It's starting to feel like a railroad.", "warn")
-        end
     end
-    local ch = choices[(o and o.choice) or top] or choices[1]
+    -- Still tied: whoever's keenest settles it.
+    if tied > 1 then
+        local keen, kv
+        for _, p in ipairs(night.players) do
+            local v = vals[p.key][first[p.key]].v
+            if not kv or v > kv then
+                keen, kv = p, v
+            end
+        end
+        top = first[keen.key]
+        night:emit({ kind = "say", who = keen.key, text = "Okay, I'm calling it: " .. label_of(top) .. ".", ic = false })
+    end
+    do
+        local names = {}
+        for _, p in ipairs(night.players) do
+            if first[p.key] == top then
+                table.insert(names, p.name)
+            end
+        end
+        night:say("The table decides: " .. label_of(top) .. ((#names > 0 and #names < #night.players)
+            and (" (" .. util.join_names(names) .. (#names == 1 and "'s pick)" or "' pick)")) or "") .. ".", "aside")
+    end
+    local ch = choices[top] or choices[1]
     -- The friend who runs off (the BBQ story): the instigator, outvoted, heads for the stairs alone.
     local jess = present(night, "jess")
     if not ch.back and not ch.side and ch.id == "stairs" and jess and not st.flags.seen and night.rng:chance(0.6) then
@@ -1487,7 +2223,56 @@ function M.fork(night, options, backs, sides)
     if ch.back then
         return { back = ch.back }
     end
+    M.whats_there(night, ch.id)
     return { id = ch.id }
+end
+
+-- What's really through the door they picked is the DM's (the playtest, November 3: "once they
+-- decide, the DM should have a moment to decide what is ACTUALLY in the direction they're going:
+-- what is planned, improv, or move another encounter there"). Asked only for a room you didn't prep:
+-- read it from the book while they wait, improvise it short, or move the prep you did for a room they
+-- haven't reached here (that room plays unprepped, if they ever get there).
+function M.whats_there(night, id)
+    local st = st_of(night)
+    local pm = night.prep and night.prep.museum
+    local r = MODULE.rooms[id]
+    night.mus.improv = night.mus.improv or {}
+    if not (pm and r and (r.cost or 0) > 0 and not r.virtual and not pm.prepped[id] and not night.mus.improv[id]) then
+        return
+    end
+    local donor
+    for _, did in ipairs(pm.ahead or {}) do
+        if did ~= id and pm.prepped[did] and not st.done[did] and not st.skipped[did] and not (night.mus.been or {})[did] then
+            donor = did
+            break
+        end
+    end
+    local name = util.lower_first(r.name)
+    local card = { id = "mus_whats_there", type = "screen", trigger = "museum", title = "What's really there?",
+                   text = "They're heading for " .. name .. ", and you didn't prep it. Behind the screen, it's your call what "
+                       .. "they find.", options = {
+        { label = "Read it from the book while they wait.", there = "book",
+          sub = "The room as written. You skim the page at the table: a few minutes of dead air.",
+          effects = { { "arch:tactician", fun = 1 } } },
+        { label = "Improvise it: keep it short and sweet.", there = "improv",
+          sub = "No skimming. The room's big moments, quickly; it lands a little thinner than prepped.",
+          effects = { { "arch:storyteller", fun = 2 }, { "arch:method_actor", fun = 1 }, { "arch:tactician", fun = -1 } },
+          log = "You put the book down. \"So. You open the door, and...\"" },
+    } }
+    if donor then
+        table.insert(card.options, { label = "Move your prep for " .. util.lower_first(MODULE.rooms[donor].name) .. " here.", there = "move",
+            sub = "Your notes and minis work here as well. " .. MODULE.rooms[donor].name .. " plays unprepped, if they ever get there.",
+            effects = { { "arch:tactician", fun = 1 } },
+            log = "You slide your notes for " .. util.lower_first(MODULE.rooms[donor].name) .. " across. Nobody needs to know." })
+    end
+    local o = night:decision(card)
+    if o and o.there == "improv" then
+        night.mus.improv[id] = true
+    elseif o and o.there == "move" and donor then
+        pm.prepped[donor] = nil
+        pm.prepped[id] = true
+        night.mus.moved_prep = { from = donor, to = id }
+    end
 end
 
 -- A trip back to a room they've cleared: a short scene there, no fight (what was there is dealt
@@ -1768,6 +2553,100 @@ function M.out_of_time(night, next_name)
     night.ended_on_cliff = true
 end
 
+-- Ending the session is always the DM's call (the playtest, November 3: "sessions should never
+-- automatically end"): the End session button on game night, or "call it here" when it's getting
+-- late. Where you stop matters: on a cliffhanger they love it, after a big fight it's a good place to
+-- stop, in a lull it falls flat; early hurts a little now (and starting the big scene fresh next
+-- week pays later), late makes everyone tired. Returns how it read: "cliff", "fight", "flat".
+local function stop_kind(night, nxt)
+    local last = night.mus.last
+    if nxt and (nxt.boss or nxt.stop) then
+        return "cliff"
+    end
+    if last and last.fought then
+        return "fight"
+    end
+    return "flat"
+end
+M.stop_kind = stop_kind
+
+function M.stop_note(night, nxt)
+    local k = stop_kind(night, nxt)
+    local planned = night.table_planned or 210
+    local early = (night.table_min or 0) < planned - 45
+    local late = (night.table_min or 0) > planned + 15
+    local bits = {}
+    if k == "cliff" then
+        table.insert(bits, "A cliffhanger: " .. util.lower_first(nxt.name) .. " is right there. They'll love it.")
+    elseif k == "fight" then
+        table.insert(bits, "A good place to stop: they've just come out of a fight.")
+    else
+        table.insert(bits, "A flat place to stop: nothing much happened in the last room.")
+    end
+    if early then
+        table.insert(bits, (nxt and (nxt.boss or nxt.type == "combat"))
+            and "Early, but starting the big one fresh next week will pay off." or "Early: they'd hoped to play longer.")
+    elseif late then
+        table.insert(bits, "It's late: they're tired.")
+    end
+    return table.concat(bits, " ")
+end
+
+function M.end_session(night, nxt)
+    local c = night.campaign
+    local k = stop_kind(night, nxt)
+    local planned = night.table_planned or 210
+    local early = (night.table_min or 0) < planned - 45
+    local late = (night.table_min or 0) > planned + 15
+    night.end_early = true
+    night.dm_ended = k
+    if nxt then
+        c.last_cliff = util.lower_first(nxt.name)
+    end
+    night.ended_on_cliff = (k == "cliff") or nil
+    night:say("You close the book. \"And that's where we stop tonight.\"", "dm")
+    if k == "cliff" then
+        night:say("Groans round the table, the good kind. Nobody wants to wait a week for " .. util.lower_first(nxt.name) .. ".", "good")
+        night:apply({ { "all", fun = 3 }, { "arch:storyteller", fun = 2 }, { "arch:instigator", fun = 2 } })
+    elseif k == "fight" then
+        night:say("A good place to stop. Dice go back in their bags with a happy rattle.", "good")
+        night:apply({ { "all", fun = 2 } })
+    else
+        night:say("It peters out a bit. Somebody asks if that's it.", "aside")
+        night:apply({ { "all", fun = -1 }, { "arch:butt_kicker", fun = -1 } })
+    end
+    if early then
+        night:apply({ { "all", commitment = -1 } })
+        if nxt and (nxt.boss or nxt.type == "combat") then
+            c.adv.fresh_start = c.week          -- (next week starts with the big one, and a full evening for it)
+        end
+    elseif late then
+        night:apply({ { "arch:casual", fun = -2 }, { "all", boredom = 2 } })
+    end
+    -- (Every room after this waits for next week.)
+    night.cliff_stop = true
+end
+
+-- It's getting late: the DM's call, wrap up or one more room. Returns true when you called it.
+function M.ask_wrap(night, nxt)
+    local planned = night.table_planned or 210
+    night.mus.wrap_asks = (night.mus.wrap_asks or 0) + 1
+    local late = (night.table_min or 0) > planned
+    local card = { id = "mus_wrap", type = "table", trigger = "museum", title = late and "It's late" or "It's getting late",
+                   text = "It's " .. night:clock_text() .. ". " .. (late and "Past the time you said you'd finish. " or "")
+                       .. "Wrap up here, or one more room?", options = {
+        { label = "Call it here.", wrap = true, sub = M.stop_note(night, nxt), effects = {} },
+        { label = "One more room.", sub = late and "Everyone's tired, and it'll run later still." or "It'll run a little past the time you said.",
+          effects = late and { { "all", boredom = 2 }, { "arch:casual", fun = -1 }, { "arch:butt_kicker", fun = 1 } } or {} },
+    } }
+    local o = night:decision(card)
+    if o and o.wrap then
+        M.end_session(night, nxt)
+        return true
+    end
+    return false
+end
+
 -- Into a room: anything that leaves behind for good marks her card (the lair, for rooms unseen).
 function M.enter(night, id)
     local c = night.campaign
@@ -1836,6 +2715,12 @@ function M.run(night)
     c.last_cliff = nil
     M.intro(night)
     thoughts.mood(night)
+    -- Last week stopped early to give the big one a full evening (M.end_session): it pays now.
+    if c.adv.fresh_start and c.adv.fresh_start == c.week - 1 then
+        night:say("You stopped early last week so tonight could start with the big one. Everyone's here on time, dice out.", "good")
+        night:apply({ { "all", fun = 4 } })
+    end
+    c.adv.fresh_start = nil
     -- The DM's ties: anything that came true between sessions opens or fires now, before a room.
     if ties.any(c) then
         M.ties_beat(night)
@@ -1859,22 +2744,17 @@ function M.run(night)
             if nxt.boss then
                 break
             end
+            -- The End session button (game night's top bar): you call it, between rooms.
+            if night.dm_end_requested and #night.scenes > 0 then
+                M.end_session(night, #options == 1 and nxt or nil)
+                break
+            end
+            -- Getting late: your call, never the clock's (the playtest, November 3). Asked before
+            -- each room from here on.
             if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
-                -- One room left on the floor before the stairs: finish the floor tonight rather than
-                -- leave next week a night of one room and a staircase (a little late is the lesser evil).
-                local rest = {}
-                for _, oid in ipairs(options) do
-                    if oid ~= "stairs" then
-                        table.insert(rest, oid)
-                    end
-                end
-                local last_one = util.contains(options, "stairs") and #rest == 1
-                    and night.table_min <= night.table_planned + M.FINISH_FLOOR
-                if not last_one then
-                    M.out_of_time(night, #options == 1 and nxt.name or "the next room")
+                if M.ask_wrap(night, #options == 1 and nxt or nil) then
                     break
                 end
-                night:say("You glance at the clock. One room left before the stairs. \"Let's finish the floor.\"", "dm")
             end
             -- A night doesn't open by going straight up the stairs while rooms are still waiting:
             -- that night would be the stairs and nothing else. (Up they go after the next room.)

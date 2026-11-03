@@ -50,6 +50,15 @@ images {
   image: "/assets/sprites/ogre.png"
 }
 images {
+  image: "/assets/sprites/briar_beast.png"
+}
+images {
+  image: "/assets/sprites/briar_boar.png"
+}
+images {
+  image: "/assets/sprites/briar_triceratops.png"
+}
+images {
   image: "/assets/sprites/npc_gus.png"
 }
 images {
@@ -230,6 +239,9 @@ images {
   image: "/assets/sprites/dev_think.png"
 }
 images {
+  image: "/assets/sprites/dev_frown.png"
+}
+images {
   image: "/assets/sprites/mara_lean.png"
 }
 images {
@@ -252,6 +264,9 @@ images {
 }
 images {
   image: "/assets/sprites/mara_think.png"
+}
+images {
+  image: "/assets/sprites/mara_frown.png"
 }
 images {
   image: "/assets/sprites/jess_lean.png"
@@ -278,6 +293,9 @@ images {
   image: "/assets/sprites/jess_think.png"
 }
 images {
+  image: "/assets/sprites/jess_frown.png"
+}
+images {
   image: "/assets/sprites/sam_lean.png"
 }
 images {
@@ -300,6 +318,9 @@ images {
 }
 images {
   image: "/assets/sprites/sam_think.png"
+}
+images {
+  image: "/assets/sprites/sam_frown.png"
 }
 images {
   image: "/assets/sprites/chair_empty.png"

@@ -15,7 +15,7 @@ SPRITES = os.path.join(ROOT, "assets", "sprites")
 OUT = os.path.join(ROOT, "assets", "portraits")
 
 PLAYERS = ["mara", "dev", "jess", "sam"]
-POSES = ["", "arms", "cheer", "gasp", "laugh", "lean", "phone", "think", "yawn"]
+POSES = ["", "arms", "cheer", "gasp", "laugh", "lean", "phone", "think", "yawn", "frown"]
 FACE = 128            # a player's face: head and shoulders, square
 MINI = (96, 120)      # a paper mini: the whole standee
 
@@ -28,6 +28,8 @@ STANDEES = ["fighter", "rogue", "cleric", "wizard",
             "npc_rosin", "npc_pearl", "npc_coil", "npc_stag", "npc_ashby", "npc_reeve",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
+            # The museum garden's topiary (November 3).
+            "briar_beast", "briar_boar", "briar_triceratops",
             # The Vale Bestiary (A13).
             "pirate", "merrow", "giant_crab", "guard", "spy", "swarm_of_rats", "animated_armor", "giant_spider",
             "specter", "brown_bear", "gnoll_warrior", "bugbear_warrior", "warrior_veteran", "kobold_warrior",

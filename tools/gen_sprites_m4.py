@@ -583,8 +583,82 @@ def wizard_thessaly():
     finish(img, "wizard", 104)
 
 
+# The museum garden's topiary come to life (the playtest, November 3: "make custom pieces for them"):
+# beasts of clipped leaves on a thorny frame, a cat, a boar and a three-horned brute, eyes like embers.
+def _leafy(d, rng, cx, cy, rx, ry, n=46, leaf="#3f7a34", dark="#2c5a26", light="#5e9a48"):
+    """A clump of leaves filling an ellipse: overlapping circles in three greens."""
+    import math as _m
+    for i in range(n):
+        a = rng.uniform(0, 2 * _m.pi)
+        r = rng.uniform(0, 1) ** 0.6
+        x = cx + _m.cos(a) * rx * r
+        y = cy + _m.sin(a) * ry * r
+        k = rng.uniform(18, 34)
+        col = rng.choice([leaf, leaf, dark, light])
+        d.ellipse([x - k, y - k, x + k, y + k], fill=C(col))
+
+
+def _thorns(d, rng, cx, cy, rx, ry, n=16):
+    import math as _m
+    for i in range(n):
+        a = rng.uniform(0, 2 * _m.pi)
+        x = cx + _m.cos(a) * rx
+        y = cy + _m.sin(a) * ry
+        ox, oy = _m.cos(a) * 18, _m.sin(a) * 18
+        d.polygon([(x - oy * 0.3, y + ox * 0.3), (x + ox, y + oy), (x + oy * 0.3, y - ox * 0.3)], fill=C("#5a3a22"))
+
+
+def _eyes(d, xs, y, r=9):
+    for x in xs:
+        d.ellipse([x - r - 4, y - r - 4, x + r + 4, y + r + 4], fill=C("#ff7a3a", 120))
+        d.ellipse([x - r, y - r, x + r, y + r], fill=C("#ffb24a"))
+        d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=C("#3a1a0a"))
+
+
+def briar(name, seed, shape):
+    import random as _r
+    rng = _r.Random(seed)
+    img, d = canvas()
+    # The pot it was clipped in: a low stone planter under its feet.
+    d.rounded_rectangle([140, 560, 380, 610], 14, fill=C("#7a6a5a"))
+    d.rounded_rectangle([130, 548, 390, 572], 10, fill=C("#8a7a6a"))
+    # Woody legs.
+    legs_at = {"cat": [(200, 470), (250, 480), (320, 480), (360, 470)],
+               "boar": [(190, 470), (240, 480), (320, 480), (370, 470)],
+               "tri": [(170, 470), (230, 480), (330, 480), (390, 470)]}[shape]
+    for (x, top) in legs_at:
+        d.rounded_rectangle([x - 14, top, x + 14, 556], 8, fill=C("#5a3a22"))
+    if shape == "cat":
+        _leafy(d, rng, 285, 420, 120, 70)               # body
+        _leafy(d, rng, 150, 330, 66, 60, n=28)          # head
+        for ex in (112, 176):                           # ears
+            d.polygon([(ex - 26, 300), (ex, 238), (ex + 24, 300)], fill=C("#2c5a26"))
+        d.line([(390, 400), (430, 320), (436, 280)], fill=C("#2c5a26"), width=30)   # tail
+        _leafy(d, rng, 436, 276, 24, 24, n=8)
+        _thorns(d, rng, 285, 420, 128, 78)
+        _eyes(d, [128, 172], 326)
+    elif shape == "boar":
+        _leafy(d, rng, 280, 410, 140, 86)
+        _leafy(d, rng, 140, 400, 70, 62, n=26)
+        d.ellipse([60, 408, 110, 448], fill=C("#4a7a3a"))                       # snout
+        for tx in (84, 104):
+            d.polygon([(tx, 430), (tx - 14, 380), (tx + 6, 428)], fill=C("#efe6cf"))   # tusks
+        _thorns(d, rng, 280, 400, 150, 92, n=22)
+        _eyes(d, [128, 168], 378)
+    else:
+        _leafy(d, rng, 300, 400, 150, 92)
+        _leafy(d, rng, 136, 380, 78, 70, n=30)
+        d.polygon([(150, 300), (250, 250), (240, 330)], fill=C("#2c5a26"))      # frill
+        _leafy(d, rng, 210, 300, 60, 50, n=16)
+        for (hx, hy, tx, ty) in [(110, 340, 40, 270), (150, 330, 110, 240), (80, 390, 20, 380)]:
+            d.polygon([(hx - 10, hy), (tx, ty), (hx + 10, hy + 8)], fill=C("#efe6cf"))   # three horns
+        _thorns(d, rng, 300, 400, 160, 100, n=24)
+        _eyes(d, [120, 160], 372)
+    finish(img, name, seed)
+
+
 MONSTERS = ["goblin_boss", "bandit", "bandit_captain", "cultist", "tough", "wolf", "dire_wolf", "skeleton",
-            "zombie", "ghoul", "ogre"]
+            "zombie", "ghoul", "ogre", "briar_beast", "briar_boar", "briar_triceratops"]
 NPCS = ["npc_gus", "npc_stranger", "npc_hermit", "npc_sable", "npc_ghost", "npc_corin", "npc_rival"]
 POSES = ["lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
@@ -601,6 +675,9 @@ def build_monsters():
     zombie()
     ghoul()
     ogre()
+    briar("briar_beast", 141, "cat")
+    briar("briar_boar", 142, "boar")
+    briar("briar_triceratops", 143, "tri")
     npc_gus()
     npc_stranger()
     npc_hermit()
