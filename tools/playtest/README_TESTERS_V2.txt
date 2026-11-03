@@ -20,6 +20,11 @@ NEW IN THIS BUILD (November 2)
   as the next fight starts. Flitwidget and Telpur remember what the party did.
 - What happens is what's said: who died, ran or gave up, what they came away with, and
   how it ended with Euryale all follow the dice and your choices.
+- Your calls say what they'll do, especially the ones that can end the adventure. Each
+  room's end card and the report name the calls that moved your friends most.
+- Your friends vote and step up based on the night so far (hurt, bored, buzzing from a
+  fight, or why their hero came), and they say why. The group chat starts from what
+  happened last session.
 
 
 HOW IT GOES
