@@ -72,12 +72,6 @@ local function wrapup_items(app, rep)
         else
             table.insert(items, { mu.where, theme.dim })
         end
-        -- Your calls tonight: the ones that moved the table most, and who they moved.
-        for i, line in ipairs(mu.calls or {}) do
-            if i <= 3 then
-                table.insert(items, { (i == 1 and "Your calls tonight. " or "") .. line, theme.gold })
-            end
-        end
     end
     -- At the table first: what needs the DM's attention before next week.
     for _, st in ipairs(rep.table or {}) do
@@ -203,6 +197,13 @@ local function wrapup_items(app, rep)
     for k, c in ipairs(rep.canon or {}) do
         if k <= 3 then
             table.insert(items, { "Now canon: " .. c, theme.dim })
+        end
+    end
+    -- Your calls tonight, last (the rest needs the DM sooner): the ones that moved the table most,
+    -- and who they moved. Each says it's a call, so a line that fits after one that didn't still reads.
+    for i, line in ipairs((rep.museum and rep.museum.calls) or {}) do
+        if i <= 3 then
+            table.insert(items, { "Your call: " .. line, theme.gold })
         end
     end
     if #items == 0 then
@@ -665,7 +666,7 @@ function M.build(app)
             end
         end
         if #names > 0 then
-            text = text .. " You know " .. util.join_names(names) .. " better."
+            text = text .. (#names >= 4 and " You know everyone a little better." or (" You know " .. util.join_names(names) .. " better."))
         end
         kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 3 })
     end
