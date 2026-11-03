@@ -183,3 +183,80 @@ that describes another room. Design for: every location line reads the party's p
 - [ ] Economy sim: what the party can afford, when.
 - [ ] Three fresh-eyes transcript playtests (`TRANSCRIPT=file`), findings verified, each class turned
       into an invariant.
+
+## Round 3 (November 2): are the DM's calls clear and impactful? Do the friends repeat?
+
+This round used six UI transcripts (seeds 31 to 36), 16 headless runs (seeds 41 to 48, careful and random
+DMs) and two fresh-eyes readers.
+
+### The DM's calls
+
+Most cards are clear, and many matter:
+- fire or water at the pond;
+- robbing the donation box (Euryale's card, Flitwidget's memory, the ending);
+- a quick ruling that becomes a promise Sam remembers;
+- Heroic Inspiration;
+- why each hero came.
+
+77% of the museum's moment options change the adventure's state. 25 of the 104 shared decision options
+change the fight or the scene; the rest only move the friends' meters.
+
+The biggest calls are the least readable:
+- **An ambush opener** skips the talk, so marks that offer a talk option (thieves, sleeping pages)
+  are wasted.
+- **"The enemies break and flee"** on round 6 lets Euryale escape, and that becomes the ending.
+- **When the night runs out of calls**, the dice decide in silence.
+
+Some cards do nothing, or say something false:
+- "minions drop" against a lone foe;
+- "costs" that cost nothing ("the torch goes out");
+- "better outlet next scene" that never comes;
+- a mark's reason that contradicts what happened: "never woken" for a knight who fled, and the drone
+  still listed after the Lecturer was silenced.
+
+Hidden mechanics don't show in the log: drowsy Disadvantage, the fire arrows' die.
+
+Feedback on how a call landed is good in the moment ("X would love it", reaction lines). Afterwards it's
+weak: the room-end "The table:" line has no cause, and the report gives generic reasons.
+
+### The friends
+
+Each friend is the same person every run, which is good. But too much is fixed:
+- **Fork votes.** On the second floor, Mara wants the offices, Jess the lecture theatre and Dev the stairs
+  in 8 of 8 runs. `want()` is archetype tags, plus the hero's reason room, plus a little noise; mood and
+  history are never used.
+- **Who takes a card.** A card's actor is the first friend whose main archetype is on its list. So the
+  plaque and the tablet always go to Mara, the box to Jess, "Can I block my ears?" to Sam, and the
+  locked door to Dev (`night:pick_actor`).
+- **Who opens a room.** Only Thessaly or Pip.
+- **Pip's theft.** "Pip pockets a little brass figure" happens 2 or 3 times a run, with Thessaly's jab
+  each time. It's the only friction act left after the museum filter, and it ignores the DM's answers
+  and death (a dead Thessaly still glares).
+- **The group chat, requests, settle-up approaches, goodbyes and subclass picks** are word for word every
+  run.
+- **Lines that repeat.** About a third to a half of in-character lines turn up in another run. Dev's fight
+  barks and Mara's long-fight tell recur most.
+
+What does vary comes from the DM and the dice: routes (8 of 8 distinct), who drops, cooked rolls and
+steering. The systems react to those (suspicion, Sam's promise, the retreat vote when hurt), but the
+words don't.
+
+### What to build for the longer adventure
+
+Friends decide from state, not just archetype:
+- votes and actors weigh mood, hit points, spotlight, recent events, rapport and the hero's reason,
+  and the friends say why;
+- leads rotate;
+- friction acts are finite, escalate, and listen to the DM's answer;
+- group chat and requests are drawn from the night's events (the event log);
+- barks are tied to the actual moment;
+- line freshness carries across weeks;
+- death and new heroes are honoured everywhere.
+
+For DM calls:
+- put the consequence on any card that touches the ending;
+- every mark's reason comes from what happened (`why_if`);
+- say when the call budget runs out;
+- remove no-op options;
+- label steering and the end of the night on forks;
+- a "your calls tonight" block in the report names each call and who it moved.
