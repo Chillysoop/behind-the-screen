@@ -68,13 +68,14 @@ function M.why(p, night)
             best, bw = k, w
         end
     end
+    -- (These last three are the meter's guess, not something that happened: generic = true.)
     local v = p.m[best] or 0
     if v >= 60 then
-        return "Got " .. GOT[best] .. " they wanted."
+        return "Got " .. GOT[best] .. " they wanted.", true
     elseif v < 35 then
-        return "Wanted more " .. MORE[best] .. "."
+        return "Wanted more " .. MORE[best] .. ".", true
     end
-    return SOME[best] .. ", not quite enough."
+    return SOME[best] .. ", not quite enough.", true
 end
 
 -- How they felt, as the table saw it (playtest, October 13: Dev "eyeing his phone" all night,
@@ -234,11 +235,15 @@ function M.build(campaign, night)
     for _, row in ipairs(rep.players) do
         local p = campaign:player(row.key)
         if row.fun and p then
-            row.why = M.why(p, night)
+            local generic
+            row.why, generic = M.why(p, night)
+            row.call = night.player_call and night:player_call(p.key) or nil
+            row.why_generic = generic or nil
             -- What the table saw outranks a meter, not a death or a theory come true.
             if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Their theory")
                 and not string.find(row.why, "^Landed") then
                 row.why = row.drift
+                row.why_generic = nil
             end
         end
     end

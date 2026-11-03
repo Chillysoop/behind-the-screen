@@ -139,7 +139,7 @@ local function between(app)
         kit.dot(x + 44, box_y + 70, 40, panels.COLORS[def.who] or theme.panel3)
         kit.picture(x + 26, box_y + 52, 36, 36, panels.face(def.who))
         kit.text(x + 76, box_y + 50, p.name .. " asks:", "ui18b", theme.text)
-        kit.text(x + 76, box_y + 76, "\"" .. def.ask .. "\"", "story22", theme.text, { w = w - 110 })
+        kit.text(x + 76, box_y + 76, "\"" .. (pr.ask or def.ask) .. "\"", "story22", theme.text, { w = w - 110 })
         kit.text(x + 24, box_y + 136, "Every DM gets these. Fair, absurd, or both: how do you answer?", "ui18", theme.dim, { w = w - 48 })
         local by = box_y + 176
         for _, ans in ipairs(MODULE.ANSWERS) do
@@ -149,7 +149,7 @@ local function between(app)
                 app.refresh()
             end, { color = theme.panel2, hover = theme.button_hover, key = "req_" .. ans })
             kit.text(x + 40, by + 8, MODULE.ANSWER_NAMES[ans], "ui18b", theme.gold)
-            kit.text(x + 40, by + 32, a.reply, "ui18", theme.text, { w = w - 300, lines = 2 })
+            kit.text(x + 40, by + 32, adventure.request_reply(c, def, a), "ui18", theme.text, { w = w - 300, lines = 2 })
             chips(x + w - 250, by + 10, request_like(c, def, ans), 220)
             by = by + 100
         end
@@ -554,11 +554,11 @@ function M.boss_card(app, x, y, w, h, big)
     -- showdown's rows): each with what it changes and why, or one line each when that won't fit.
     local full = 0
     for _, m in ipairs(card.marks) do
-        full = full + 24 + kit.text_height(m.showdown .. ". (" .. m.why .. ".)", "ui14", w - 46) + 6
+        full = full + 24 + kit.text_height(m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", w - 46) + 6
     end
     local compact = ty + full > y + h - 10
     for i, m in ipairs(card.marks) do
-        local rowh = compact and 22 or (24 + kit.text_height(m.showdown .. ". (" .. m.why .. ".)", "ui14", w - 46) + 6)
+        local rowh = compact and 22 or (24 + kit.text_height(m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", w - 46) + 6)
         if ty + (compact and 18 or rowh - 6) > y + h - 8 then
             kit.text(x + w - 16, y + 10, "+" .. util.int(#card.marks - i + 1) .. " more in your notes", "ui14", theme.faint,
                 { pivot = gui.PIVOT_NE })
@@ -571,7 +571,7 @@ function M.boss_card(app, x, y, w, h, big)
             kit.text(x + 30 + nw + 10, ty + 3, m.showdown .. ".", "ui14", theme.dim, { w = math.max(40, w - 56 - nw), lines = 1 })
         else
             kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
-            kit.text(x + 30, ty + 22, m.showdown .. ". (" .. m.why .. ".)", "ui14", theme.dim, { w = w - 46, lines = 2 })
+            kit.text(x + 30, ty + 22, m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", theme.dim, { w = w - 46, lines = 2 })
         end
         ty = ty + rowh
     end
@@ -726,7 +726,7 @@ local function showdown(app, prep, x, y, w)
     local enc = adventure.boss_encounter(c)
     local brings = {}
     if st.marks.mech then
-        table.insert(brings, "the Steam Mech" .. (st.mech_name and (", " .. st.mech_name) or ""))
+        table.insert(brings, "the Steam Mech" .. (st.mech_name and (" (" .. st.mech_name .. ")") or ""))
     end
     if st.marks.mirror then
         table.insert(brings, "a polished cupboard door")
@@ -737,8 +737,8 @@ local function showdown(app, prep, x, y, w)
     if st.marks.know then
         table.insert(brings, "a book on gorgons")
     end
-    if st.flags.arrows then
-        table.insert(brings, "fire arrows")
+    if st.flags.arrows and not (st.items_used or {}).arrows then
+        table.insert(brings, "fire arrows")      -- (not once they're used up)
     end
     local with, count, seen = {}, {}, {}
     for i = 2, #enc.ids do
@@ -785,6 +785,19 @@ local function showdown(app, prep, x, y, w)
         y = by + 90
     end
     choice("HOW SHE OPENS", "opener", MODULE.showdown.openers, { "talk", "ambush" })
+    -- What an ambush throws away: everything on her card that only works in the talk.
+    if st.boss.opener == "ambush" then
+        local lost = {}
+        if st.marks.robbed then table.insert(lost, "offering her a cut of the box") end
+        if st.marks.pages then table.insert(lost, "handing her the Lecturer's pages") end
+        if st.marks.know then table.insert(lost, "a bargain over her sisters") end
+        if adventure.talk_score(c) >= 2 then table.insert(lost, "talking her round") end
+        if #lost > 0 then
+            kit.text(x, y - 6, "With an ambush there's no talk, so " .. util.join_names(lost) .. (#lost == 1 and " won't come up." or " won't come up."),
+                "ui14", theme.orange, { w = w, lines = 2 })
+            y = y + 40
+        end
+    end
     choice("HOW FAR SHE'LL GO", "style", MODULE.showdown.styles, { "yields", "last" })
 end
 

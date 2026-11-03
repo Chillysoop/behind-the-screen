@@ -662,7 +662,7 @@ M.moments = {
           { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4,
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
-            mus = { mark = "know", spend = 4, favor = { who = "telpur", n = 1 } } },
+            mus = { mark = "know", spend = 4, got = "a book on gorgon-worshippers", favor = { who = "telpur", n = 1 } } },
           { label = "The Mech Instruction Manual (3 Francs)", price = 3,
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
@@ -805,18 +805,18 @@ M.moments = {
       } },
 
     -- The stairs --------------------------------------------------------------------------------
-    { id = "mus_alone", room = "stairs", at = "start", when = { flag = "pip_alone" }, type = "table", actor = { "instigator" },
-      title = "It's what Pip would do",
-      text = "While the others argue, {actor_char} slips up the stairs alone. \"It's what Pip would do,\" says Jess, already halfway out of her chair.",
+    { id = "mus_alone", room = "stairs", at = "start", when = { flag = "pip_alone" }, type = "table", actor = { "instigator" }, who = "jess",
+      title = "It's what {actor_char} would do",
+      text = "While the others argue, {actor_char} slips up the stairs alone. \"It's what {actor_char} would do,\" says {actor}, already halfway out of her chair.",
       options = {
-          { label = "Let it ride. Run her alone for a bit.",
-            log = "Pip creeps up to the curtain, hears a calm voice say her name, and scrambles back down. Jess is delighted. Everyone else waited ten minutes.",
+          { label = "Let it ride. Run them alone for a bit.",
+            log = "{actor_char} creeps up to the curtain, hears a calm voice say {actor_char}'s name, and scrambles back down. {actor} is delighted. Everyone else waited ten minutes.",
             effects = { { "actor", fun = 8, spotlight = 14 }, { "others", fun = -4, boredom = 8 } }, table_min = 10, mus = { risk = true, flag = "seen", aspect = "Went up the Gorgon's stairs alone" } },
-          { label = "Rein her in, kindly, out of character.",
-            log = "\"Pip can scout next week, with the group.\" Jess pouts, then laughs.",
+          { label = "Rein them in, kindly, out of character.",
+            log = "\"{actor_char} can scout next week, with the group.\" {actor} pouts, then laughs.",
             effects = { { "actor", fun = -4 }, { "others", fun = 3, trust = 1 } } },
-          { label = "Let it cost her: Euryale is waiting.",
-            log = "At the top of the stairs, bronze eyes. Pip comes back down very pale, and very quiet.",
+          { label = "Let it cost them: Euryale is waiting.",
+            log = "At the top of the stairs, bronze eyes. {actor_char} comes back down very pale, and very quiet.",
             effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { risk = true, harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
       } },
 
@@ -865,6 +865,8 @@ M.marks = {
                showdown = "Nothing comes up from below to help her", talk = 1,
                thought = "They did the water ritual properly. Nobody does it properly." },
     knight = { name = "A knight in a frame", why = "The Knight of Shades was never woken",
+               why_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "The Knight of Shades got away from them" } },
+               thought_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "My knight came crawling back into a frame up here. They'll meet him again." } },
                showdown = "The Knight steps out of a painting in her lair", foe = "knight_of_shades",
                thought = "They walked straight past my knight. He'll keep." },
     pack = { name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
@@ -883,7 +885,7 @@ M.marks = {
              showdown = "The Mech fights for them, and she goes for its commander", ally = "steam_mech",
              thought = "The gnome's toy is walking about. It's pointed at me, isn't it." },
     drone = { name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
-              showdown = "They come up half asleep: Disadvantage on saves against her charm", opt = "drowsy",
+              showdown = "They come up half asleep: they lose their edge against her charm", opt = "drowsy",
               thought = "The bore is still droning. They'll come up here half asleep." },
     pages = { party = true, name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
               showdown = "A trick: get her to read one", thought = "They silenced the bore and kept his notes. Clever, or just tidy?" },
@@ -1032,17 +1034,32 @@ M.recap_beats = {
 -- museum: every line says what was done, here. false: that one doesn't happen in this adventure.
 M.friction = {
     acts = {
-        my_guy = "{actor_char} pockets a little brass figure off a display case. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+        my_guy = "{actor_char} pockets something small from the nearest exhibit. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
         lone_wolf = "{actor_char} slips off alone to poke at the exhibits, and everyone else waits by the door for ten minutes.",
         shove_a_friend = "{actor_char} shoves {target_char} into a display case to win an argument.",
         barge_the_bargain = "{actor_char} talks right over {target_char} while {target_char} is still asking questions.",
         sneer_at_town = false, grim_in_the_cozy = false, secret_letter = false, dibs_again = false,
+    },
+    -- (The DM's answers: a table of fields to replace.)
+    responses = {
+        outlet = { label = "Give {actor_char} the next big moment, on purpose.",
+                   log = "You make a note, and you keep it: the next big moment is {actor_char}'s." },
     },
     bonds = {
         share_the_loot = "{actor_char} lets {target_char} have first pick of whatever they find next: 'You'll get more use out of it than me.'",
         stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
         ask_after = false, inside_joke = false,
     },
+}
+
+-- A ruling's cost, in the museum (game/data/rulings.lua's "yes, but" and "at a cost" options): every
+-- line is a hurt, because the hero who pays it takes 1d4 damage (night.lua), so it's never just words.
+M.ruling_costs = {
+    success = { "It works, but it costs them: a nasty scrape that'll ache for the rest of the night.",
+                "It works, but it costs them: a hard landing, and a bruise to show for it.",
+                "It works, but it costs them: a cut across the knuckles that won't stop stinging." },
+    near = { "Close enough, and they pay for it: a bruise, a bent buckle, and a lot of noise.",
+             "Close enough, and they pay for it: a scrape that stings for the rest of the night." },
 }
 
 -- The friends' gifts at the real table (game/data/keepsakes.lua), in this adventure's words: they
@@ -1106,7 +1123,9 @@ M.answer_like = {
 }
 M.requests = {
     { id = "vorpal", who = "dev", after = "garden",
-      ask = "real question. can brannoc find a vorpal sword in this museum",
+      ask = "real question. can {char} find a vorpal sword in this museum",
+      ask_if = { { state = "down", text = "real question. {char} keeps getting flattened. is there a vorpal sword in this museum" },
+                 { state = "last_hit", text = "{char} needs a weapon worthy of that last hit. vorpal sword in this museum y/n" } },
       answers = {
           yes = { reply = "Telpur stocks one. It costs 40 Francs.", asker = 3, mus = { flag = "vorpal_price" } },
           laugh = { reply = "There's a vorpal spork in the gift shop. It's very sharp. For a spork.", asker = 0, mus = { flag = "spork" } },
@@ -1114,7 +1133,10 @@ M.requests = {
           danger = { reply = "There is one. It's behind Euryale's couch.", asker = 2, mus = { warn = true, flag = "vorpal_lair" } },
       } },
     { id = "long_rest", who = "sam", after = "gift_shop",
-      ask = "can we start next time with a proper rest in the gift shop? oswin is out of spells",
+      ask = "can we start next time with a proper rest in the gift shop?", only_if = true,
+      ask_if = { { state = "spells", text = "can we start next time with a proper rest in the gift shop? {char} is out of spells" },
+                 { state = "hurt", text = "can we start next time with a proper rest in the gift shop? {char} is held together with tape" },
+                 { state = "party", text = "can we start next time with a proper rest in the gift shop? we're all running on fumes" } },
       answers = {
           yes = { reply = "Yes. You wake up fully rested. Telpur snored all night.", asker = 3, mus = { flag = "rested" } },
           laugh = { reply = "Yes, but Telpur talks in their sleep. About hell. In detail.", asker = 2, mus = { flag = "rested" } },
@@ -1122,20 +1144,22 @@ M.requests = {
           danger = { reply = "You rest, and wake to find a statue at the foot of the stairs that wasn't there before.", asker = 1, mus = { flag = "rested", warn = true } },
       } },
     { id = "keep_boot", who = "jess", after = "gift_shop",
-      ask = "can pip keep the boot. asking for pip",
+      ask = "can {char} keep the boot. asking for {char}",
+      ask_if = { { when = { mark = "robbed" }, text = "can {char} keep the boot. legally, this time" } },
       answers = {
           yes = { reply = "Telpur agrees to come along, as long as nobody wears them.", asker = 3, mus = { flag = "telpur_along" } },
-          laugh = { reply = "Telpur gives Pip a shoelace. It still talks. It won't stop.", asker = 2, mus = { flag = "shoelace" } },
+          laugh = { reply = "Telpur gives {char} a shoelace. It still talks. It won't stop.", asker = 2, mus = { flag = "shoelace" } },
           reason = { reply = "Telpur's bound to the shop. Visiting hours only.", asker = -1 },
           danger = { reply = "Telpur comes along, and talks during every sneaky bit.", asker = 2, mus = { flag = "telpur_along", warn = true } },
       } },
     { id = "study", who = "mara", after = "offices", needs_flag = "notebook",
-      ask = "can thessaly study the archivist's notebook this week? properly",
+      ask = "can {char} study the archivist's notebook this week? properly",
+      ask_if = { { state = "hurt", text = "{char} is too beaten up to explore. can we spend the week studying the archivist's notebook instead" } },
       answers = {
-          yes = { reply = "She finds a line about the Witness that nobody else would have spotted.", asker = 3, mus = { flag = "studied" } },
+          yes = { reply = "{char} finds a line about the Witness that nobody else would have spotted.", asker = 3, mus = { flag = "studied" } },
           laugh = { reply = "It's mostly doodles of eyes. Hundreds of them. Some quite good.", asker = -1 },
           reason = { reply = "Not without someone who reads that script. Hold on to it for the campaign.", asker = 0 },
-          danger = { reply = "She studies it, and the whispering starts again at night.", asker = 2, mus = { flag = "whispered", warn = true } },
+          danger = { reply = "{char} studies it, and the whispering starts again at night.", asker = 2, mus = { flag = "whispered", warn = true } },
       } },
 }
 
@@ -1202,7 +1226,7 @@ M.showdown = {
     openers = {
         talk = { name = "She talks first", blurb = "As in the book: a drink, some questions, then an ultimatum.",
                  like = { mara = 2, dev = -1, jess = 2, sam = 1 } },
-        ambush = { name = "She strikes from the shadows", blurb = "No talk. Her bow is already drawn when they reach the top step.",
+        ambush = { name = "She strikes from the shadows", blurb = "No talk, no deals: her bow is drawn when they reach the top step.",
                    like = { mara = -1, dev = 2, jess = -1, sam = -1 } },
     },
     styles = {

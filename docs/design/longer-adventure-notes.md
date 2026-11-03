@@ -260,3 +260,56 @@ For DM calls:
 - remove no-op options;
 - label steering and the end of the night on forks;
 - a "your calls tonight" block in the report names each call and who it moved.
+
+### Fixed after round 3 (November 2)
+
+DM calls:
+- **Consequences on the card.** The ambush opener lists what it gives up on the boss board. "Break and flee"
+  says Euryale escapes and that it ends the adventure. A fight card drops options that can't do anything
+  (no minions to drop). The call budget says when it runs out: "From here the dice decide, out in the open."
+- **No false or empty calls.**
+  - A quick ruling's "cost" is now real damage (`MODULE.ruling_costs`).
+  - "Give them the next big moment" keeps its promise: the next card and roll go to that friend.
+  - Mark reasons come from what happened (`why_if`, `thought_if`, and "You tied it to happen").
+  - Silencing the Lecturer takes the drone off her card.
+  - A burnt-out Mech says so.
+- **Hidden mechanics show.** A save says "with Advantage" or "with Disadvantage" and why (the drone, wax
+  in their ears, the manual). The fire arrows' extra die is in the dice log. The manual's Advantage now
+  actually applies; it never did before.
+- **Fork labels** say whose pick it is ("the table's pick", "steering them", "steering them again: costs
+  Trust") and that the stairs end the night.
+- **Feedback after.**
+  - Each room's end card names your biggest call there and whose Fun it moved.
+  - Each friend's row on the report names the call that moved them most, in place of the meter's guess.
+  - The wrap-up lists your three biggest calls of the night (`night.call_log`).
+
+The friends:
+- **Votes come from the night** (`fork_mood` in `museum_night.lua`), and each friend says why:
+  - their hero is hurt, or went down in the last room;
+  - the last fight went badly for them, or they loved it;
+  - a fighter itching after a quiet room;
+  - boredom;
+  - a quiet night so far;
+  - their hero's reason for coming;
+  - following a friend they've grown close to.
+
+  The truth test checks that the "hurt", "went down" and "why they came" reasons hold. On the second floor,
+  the first vote now differs in about half the runs.
+- **Leads rotate.** `night:pick_lead` weighs the card's archetypes against spotlight, who led last, a downed
+  hero and boredom. Each museum moment picks its own lead. A card that is one friend's own (`who`) keeps
+  them, and names whoever they play now.
+- **Pip's mischief is finite.**
+  - Each act happens once a prologue (`adv.acts_done`).
+  - Answering it calms the doer (`adv.calm`).
+  - A promised "next big moment" is kept.
+  - The jab comes from someone who's alive.
+- **The group chat starts from last night** (`museum_week.night_lines`): a hero lost, a hero on the floor,
+  the last hit, being overruled, the call that made or spoiled their night, a hero's reason paid off.
+  Room lines fill in after.
+- **Requests read the state** (`ask_if`, `only_if`, `adventure.request_ask`).
+  - "Out of spells" is asked only when the hero is out of spells.
+  - The rest request is asked only when someone is hurt.
+  - Requests name whoever the friend plays now.
+
+Still the same every run: the subclass picks, settle-up approaches, goodbyes and most room chat lines. These
+are the next candidates.

@@ -72,6 +72,12 @@ local function wrapup_items(app, rep)
         else
             table.insert(items, { mu.where, theme.dim })
         end
+        -- Your calls tonight: the ones that moved the table most, and who they moved.
+        for i, line in ipairs(mu.calls or {}) do
+            if i <= 3 then
+                table.insert(items, { (i == 1 and "Your calls tonight. " or "") .. line, theme.gold })
+            end
+        end
     end
     -- At the table first: what needs the DM's attention before next week.
     for _, st in ipairs(rep.table or {}) do
@@ -449,8 +455,13 @@ local function felt_panel(app, rep, x, y, w, h)
         end
         if row.present and not row.on_break then
             table.insert(lines, { '"' .. (row.quote or "") .. '"', theme.text, 2, true })     -- (their words: no glossary)
-            if row.why then
+            -- Which of your calls did it (the playtest, Nov 2: the reasons were generic). It takes
+            -- the meter's guess's place, and its room; next to a real reason, one line.
+            if row.why and not (row.call and row.why_generic) then
                 table.insert(lines, { row.why, theme.dim, 1 })
+            end
+            if row.call then
+                table.insert(lines, { row.call, theme.gold, row.why_generic and 2 or 1, true })
             end
         end
         if row.suspicion_why then

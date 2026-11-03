@@ -1017,6 +1017,10 @@ function M.scene_card(app, ev)
     if words ~= "" then
         table.insert(rows, { "The table: " .. words .. ".", best >= 55 and theme.teal or theme.dim })
     end
+    -- Why: the call of yours that moved them most in this room, and who it moved.
+    if ev.call then
+        table.insert(rows, { "Your biggest call here: " .. ev.call, theme.gold })
+    end
     -- Once: the heroes and the table are two different scores.
     local g = app.campaign.guide
     if g and g.seen and not g.seen.scene_card_teach and (not won or app.campaign.week == 1) and not (g.off) then
@@ -1895,6 +1899,11 @@ function M.play_step(app, s, pace)
         M.float(app, s.id, s.ok and "Saved" or "Failed save", s.ok and theme.teal or theme.orange)
         -- A roll to resist, said in the log like an attack (the newcomer playtest, October 16).
         local ab = s.ab and (string.upper(s.ab) .. " save") or "save"
+        -- (Rolled twice, and why: "with Disadvantage: the drone left them half asleep".)
+        if s.mode then
+            ab = ab .. ((s.mode == "adv" and ", with Advantage") or (s.mode == "dis" and ", with Disadvantage")
+                or ", Advantage and Disadvantage cancel out") .. (s.why_mode and (": " .. s.why_mode) or "")
+        end
         if s.hidden or not (s.roll and s.total and s.dc) then
             M.push(app, name_of(app, s.id) .. (s.ok and " resists it" or " fails to resist") .. " (a " .. ab
                 .. (s.hidden and ", behind your screen)." or ")."), "system")

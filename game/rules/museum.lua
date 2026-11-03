@@ -83,20 +83,20 @@ function M.save_mods(b, c, ab, info)
         return nil, nil
     end
     local kind = info.kind
-    local adv, dis
+    local adv, dis, why
     if b.drowsy and kind == "charmed" then
-        dis = true
+        dis, why = true, "the drone left them half asleep"
     end
     if b.averted and kind == "petrify" then
-        adv = true
+        adv, why = true, "they know to look away"
     end
     if b.earplugs and info.hearing then
-        adv = true
+        adv, why = true, "wax in their ears"
     end
     if b.manual and kind == "overheat" then
-        adv = true
+        adv, why = true, "the manual's chapter nine"
     end
-    return adv, dis
+    return adv, dis, why
 end
 
 -- Turns -----------------------------------------------------------------------------------------

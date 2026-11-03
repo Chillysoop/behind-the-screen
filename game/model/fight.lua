@@ -566,6 +566,7 @@ function M.step(night, ev)
         s.id, s.x, s.y, s.state, s.fid = ev.who and ref(ev.who), ev.x, ev.y, ev.state, ev.fid
     elseif k == "save" then
         s.id, s.ok, s.roll, s.dc, s.total, s.ab = ref(ev.who), ev.ok, ev.roll, ev.dc, ev.total, ev.ab
+        s.mode, s.why_mode = ev.mode, ev.why_mode
         s.dm = ev.who.side ~= "party"
         s.hidden = s.dm and night.dm_rolls == "hidden"
     elseif k == "condition" or k == "condition_end" then
@@ -854,10 +855,40 @@ local STORY_MOMENT = { escape_earned = true, escape_cheap = true, last_save = tr
 local OPTIONAL_CAP = { cornered = 13, tactics = 13, dragging = 13, potion = 13, parley = 13, killing_blow = 13, boss_crit = 13,
                        death_roll = 13 }
 
-local function moment(night, f, trigger, vars, actor_c, other_c)
+-- adjust: { drop = { [battle] = true }, label = { [battle] = text } }: options that would do
+-- nothing here go, and options whose effect differs here say so (the playtest, Nov 2: "minions
+-- drop" against a lone Sentinel, and "the enemies break and flee" deciding Euryale's ending).
+local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     local card = content.triggered[trigger]
     if not card or f.used[trigger] then
         return nil
+    end
+    if adjust then
+        local copy = {}
+        for k, v in pairs(card) do
+            copy[k] = v
+        end
+        copy.options = {}
+        for _, o in ipairs(card.options or {}) do
+            if not (adjust.drop and o.battle and adjust.drop[o.battle]) then
+                local lab = adjust.label and o.battle and adjust.label[o.battle]
+                if lab then
+                    local oc = {}
+                    for k, v in pairs(o) do
+                        oc[k] = v
+                    end
+                    oc.label = lab
+                    oc.log = (adjust.log and adjust.log[o.battle]) or oc.log
+                    table.insert(copy.options, oc)
+                else
+                    table.insert(copy.options, o)
+                end
+            end
+        end
+        if #copy.options < 2 then
+            return nil          -- (a call with one way to go isn't a call)
+        end
+        card = copy
     end
     f.cards = f.cards or 0
     -- The story's big turns (a villain getting away, a hero's last save) aren't squeezed out by
@@ -1302,7 +1333,23 @@ function M.run(night, sc, plan)
         end
         -- Round six and counting (or a long stretch with nothing for the DM to do).
         if (r >= 6 or (r >= 4 and night:idle() > 70)) and alive_foes(bb) >= 1 and not f.used.dragging and not bb.force_end then
-            local o = moment(night, f, "dragging", { round = r })
+            -- (No minions, no "minions drop". And in a boss fight that's the ending, the card says
+            -- so: the boss who runs is gone for good.)
+            local minions = 0
+            for _, c in ipairs(bb.creatures) do
+                if c.side == "foes" and not c.boss and not c.dead and not c.removed then
+                    minions = minions + 1
+                end
+            end
+            local boss_alive = f.boss and not f.boss.dead and not f.boss.removed
+            local adjust = { drop = { minions = minions == 0 or nil }, label = {}, log = {} }
+            if sc.boss_style and boss_alive and not sc.extras_only then
+                adjust.label.flee = "Everyone on her side breaks and runs. (Euryale goes too: she escapes, and that's how it ends.)"
+                adjust.log.flee = "Euryale takes one look at the fight turning, and runs. The rest go with her."
+            elseif boss_alive and f.boss.villain then
+                adjust.label.flee = "They break and flee, " .. (f.boss_name or "their leader") .. " too. (They get away.)"
+            end
+            local o = moment(night, f, "dragging", { round = r }, nil, nil, adjust)
             if o and o.battle == "flee" then
                 for _, c in ipairs(bb.creatures) do
                     if c.side == "foes" and not c.dead and not c.removed then

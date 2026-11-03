@@ -352,7 +352,7 @@ local function prologue(seed, style)
         ties.add_lock(cc, { kind = "door", a = "hunting", b = "lecture", cond = { kind = "room", room = "offices" } }),
         ties.add_lock(cc, { kind = "moment", moment = "mus_dice_painting", cond = { kind = "never" } }),
         ties.add_lock(cc, { kind = "person", person = "mus_telpur", cond = { kind = "room", room = "paintings" } }),
-        ties.add_tie(cc, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "drone" } }),
+        ties.add_tie(cc, { cond = { kind = "room", room = "garden" }, effect = { kind = "mark", mark = "scarabs" } }),
         ties.add_tie(cc, { cond = { kind = "session", n = 1 }, effect = { kind = "hook", key = "sam", room = "lecture" } }),
     }
     for i, x in ipairs(set) do
@@ -397,7 +397,7 @@ local function prologue(seed, style)
         .. tostring(s.ending) .. ", " .. nights .. " nights)")
     check(empty == 0, "prologue " .. seed .. " " .. style .. ": no empty nights (" .. empty .. ")")
     check(s.done.lecture, "prologue " .. seed .. " " .. style .. ": the lecture theatre came before the stairs")
-    check(s.marks.drone, "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
+    check(s.marks.scarabs, "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
     check(not s.seen.mus_dice_painting, "prologue " .. seed .. " " .. style .. ": the cut moment never played")
     check(opened_line, "prologue " .. seed .. " " .. style .. ": a lock opened with a line")
     check(shut_said, "prologue " .. seed .. " " .. style .. ": the table heard which way won't open yet")

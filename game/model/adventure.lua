@@ -265,7 +265,21 @@ function M.enter(campaign)
                         table.remove(list, i)
                     elseif type(v) == "string" then
                         list[i].line = v
+                    elseif type(v) == "table" then
+                        for k, x in pairs(v) do
+                            list[i][k] = x
+                        end
                     end
+                end
+            end
+        end
+        -- A ruling's cost is a hurt the hero takes (night.lua), so its words say one.
+        for tier, lines in pairs(MODULE.ruling_costs or {}) do
+            local r = content.rulings and content.rulings[tier]
+            for _, o in ipairs(r and r.options or {}) do
+                if o.tone == "twist" then
+                    o.lines = lines
+                    o.log = lines[1]
                 end
             end
         end
@@ -1054,13 +1068,42 @@ function M.apply(campaign, mus, room)
     return added
 end
 
+-- Why a mark is on her card, in words that match how it got there: the DM's own tie says so; a
+-- mark's why_if picks the reason that happened ("got away" for a knight who ran, not "never
+-- woken"); else its plain why.
+function M.mark_why(campaign, id)
+    local st = campaign.adv
+    local m = MODULE.marks[id]
+    local rec = st.marks[id]
+    if type(rec) == "table" and rec.tied then
+        return "You tied it to happen"
+    end
+    for _, alt in ipairs(m.why_if or {}) do
+        if M.test(campaign, alt.when) then
+            return alt.text
+        end
+    end
+    return m.why
+end
+
+-- What she thinks as it lands, the same way (thought_if, else her thought).
+function M.mark_thought(campaign, id)
+    local m = MODULE.marks[id]
+    for _, alt in ipairs(m.thought_if or {}) do
+        if M.test(campaign, alt.when) then
+            return alt.text
+        end
+    end
+    return m.thought
+end
+
 -- Euryale's card: her base, and every mark with why it's there and what it does on boss night.
 function M.boss_card(campaign)
     local st = campaign.adv
     local marks = {}
     for _, id in ipairs(st.mark_list) do
         local m = MODULE.marks[id]
-        table.insert(marks, { id = id, name = m.name, why = m.why, showdown = m.showdown, thought = m.thought,
+        table.insert(marks, { id = id, name = m.name, why = M.mark_why(campaign, id), showdown = m.showdown, thought = M.mark_thought(campaign, id),
                               week = st.marks[id].week, room = st.marks[id].room })
     end
     return { name = MODULE.base.name, line = MODULE.base.line, marks = marks, talk = M.talk_score(campaign) }
@@ -1168,9 +1211,10 @@ function M.prompts(campaign)
     end
     local asked = 0
     for _, rq in ipairs(MODULE.requests) do
-        if asked < 2 and not st.answered[rq.id] and st.done[rq.after] and (not rq.needs_flag or st.flags[rq.needs_flag])
-            and campaign:player(rq.who) and campaign:player(rq.who).present ~= false then
-            table.insert(out, { kind = "request", def = rq, id = rq.id })
+        local ask = asked < 2 and not st.answered[rq.id] and st.done[rq.after] and (not rq.needs_flag or st.flags[rq.needs_flag])
+            and campaign:player(rq.who) and campaign:player(rq.who).present ~= false and M.request_ask(campaign, rq)
+        if ask then
+            table.insert(out, { kind = "request", def = rq, id = rq.id, ask = ask })
             asked = asked + 1
         end
     end
@@ -1185,6 +1229,67 @@ function M.prompts(campaign)
         return order[a.kind] < order[b.kind]
     end)
     return out
+end
+
+-- How a hero stands between sessions (what the last night left them with), or nil if they've
+-- rested since.
+local function worn(campaign, key)
+    local ps = campaign.party_state
+    local s = ps and not ps.rested and ps.pcs and ps.pcs[key]
+    if not s then
+        return nil
+    end
+    local slots, casts = 0, false
+    for _, n in pairs((s.res and s.res.slots) or {}) do
+        casts = true
+        slots = slots + n
+    end
+    return { hp = (s.hp or 1) / math.max(1, s.hp_max or 1), out_of_spells = casts and slots == 0 }
+end
+
+-- What a request says, from how things stand: the asker's hero by name (whoever they play now),
+-- and the first ask_if that holds: a `state` of their hero after last night (spells: out of
+-- spells; hurt: under 60% HP; party: the party under 70%; down: went down last night; last_hit:
+-- landed a killing blow last night) or a `when` (M.test). only_if: no reason, no request (the
+-- playtest, Nov 2: "oswin is out of spells" with every slot full). Nil: nothing to ask.
+function M.request_ask(campaign, rq)
+    local p = campaign:player(rq.who)
+    local vars = { char = string.lower(p and p.char or "") }
+    local state = {}
+    local w = worn(campaign, rq.who)
+    if w then
+        state.spells = w.out_of_spells
+        state.hurt = w.hp < 0.6
+    end
+    local ps = campaign.party_state
+    local hp, n = 0, 0
+    for _, s in pairs((ps and not ps.rested and ps.pcs) or {}) do
+        hp = hp + (s.hp or 1) / math.max(1, s.hp_max or 1)
+        n = n + 1
+    end
+    state.party = n > 0 and hp / n < 0.7
+    for _, e in ipairs((campaign.night and campaign.night.ledger) or {}) do
+        if e.who == rq.who and e.ev == "down" then
+            state.down = true
+        elseif e.who == rq.who and e.ev == "killing_blow" then
+            state.last_hit = true
+        end
+    end
+    for _, alt in ipairs(rq.ask_if or {}) do
+        if (alt.state and state[alt.state]) or (alt.when and M.test(campaign, alt.when)) then
+            return util.fill(alt.text, vars)
+        end
+    end
+    if rq.only_if then
+        return nil
+    end
+    return util.fill(rq.ask, vars)
+end
+
+-- A request's answer, in the words for whoever asked (their hero by name).
+function M.request_reply(campaign, rq, a)
+    local p = campaign:player(rq.who)
+    return util.fill(a.reply or "", { char = p and p.char or "" })
 end
 
 -- The ruling, posted in the chat (keep) or left (it breaks when the night ends, social.lua).

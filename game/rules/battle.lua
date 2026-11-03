@@ -970,7 +970,11 @@ function B:attack(att, tgt, prof, opts)
     -- (The Museum of Nightmares: Telpur's fire arrows and slime, on a hero's first weapon hit a turn.)
     if self.fire_arrows and att.side == "party" and att.pc and prof.is_weapon and att.turn and not att.turn.fire_arrows then
         att.turn.fire_arrows = true
-        table.insert(parts, self:roll_parts({ { 1, 4, 0, prof.kind == "ranged" and "fire" or "acid" } }, crit)[1])
+        local fp = self:roll_parts({ { 1, 4, 0, prof.kind == "ranged" and "fire" or "acid" } }, crit)[1]
+        table.insert(parts, fp)
+        -- (Said in the log, so the extra damage isn't a mystery: the playtest, Nov 2.)
+        self:emit({ kind = "feature", who = att, name = (prof.kind == "ranged" and "Telpur's fire arrow, +" or "Telpur's slime, +")
+                        .. tostring(fp[1]) .. " " .. fp[2] })
     end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
@@ -1576,8 +1580,10 @@ function B:save(c, ab, dc, info)
     end
     if kind == "poisoned" and c.traits.dwarven_resilience then adv = true end
     if kind == "charmed" and c.traits.fey_ancestry then adv = true end
-    if self.drowsy or self.averted or self.earplugs then
-        local a2, d2 = museum.save_mods(self, c, ab, info)
+    local why_mode
+    if self.drowsy or self.averted or self.earplugs or self.manual then
+        local a2, d2, w2 = museum.save_mods(self, c, ab, info)
+        why_mode = (a2 or d2) and w2 or nil
         adv, dis = adv or a2 or false, dis or d2 or false
     end
     local mode = 0
@@ -1591,7 +1597,9 @@ function B:save(c, ab, dc, info)
     local total = roll + bonus
     local ok = total >= dc
     self:log("  %s %s a DC %d %s save (%d).", c.name, ok and "makes" or "fails", dc, string.upper(ab), total)
-    self:emit({ kind = "save", who = c, ab = ab, dc = dc, ok = ok, roll = roll, total = total, what = info.kind })
+    -- (Why the die was rolled twice, when something in the fight did it: said in the log.)
+    self:emit({ kind = "save", who = c, ab = ab, dc = dc, ok = ok, roll = roll, total = total, what = info.kind,
+                mode = (adv or dis) and (adv and dis and "both" or (adv and "adv" or "dis")) or nil, why_mode = why_mode })
     return ok, total, roll
 end
 

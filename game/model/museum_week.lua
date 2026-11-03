@@ -217,24 +217,117 @@ function M.start_week(c)
     return c.prep
 end
 
+-- What last night did to each of them, in their own words for the chat (the playtest, Nov 2: the
+-- chat was word for word every run). The night's own events first: a hero lost, a hero on the
+-- floor, the last hit, being overruled at a fork, a call that made or spoiled their night, the
+-- reason their hero came, paid off. One line each, the biggest first. Returns { key = text }.
+local function strip(t)
+    return string.lower((string.gsub(t or "", "[\"%[%]]", "")))
+end
+
+function M.night_lines(c, night)
+    local out = {}
+    if not night then
+        return out
+    end
+    local week = c.week - 1
+    local rng = c.rng
+    local function put(key, lines)
+        local p = c:player(key)
+        if p and not out[key] then
+            out[key] = util.fill(rng:pick(lines), { char = string.lower(p.char or ""), name = p.name })
+        end
+    end
+    -- A hero lost.
+    for key, nc in util.sorted_pairs(c.new_char or {}) do
+        if nc.week == week and nc.was then
+            local was = string.lower(nc.was)
+            put(key, { "still not over " .. was .. ". rolling up someone new, be nice to them",
+                       "rip " .. was .. ". i'm making a new one, they'll be worse at everything" })
+            for _, q in ipairs(c.players) do
+                if q.key ~= key and not out[q.key] then
+                    out[q.key] = rng:pick({ was .. " deserved better tbh", "pouring one out for " .. was })
+                    break
+                end
+            end
+        end
+    end
+    local downs, kb = {}, {}
+    for _, e in ipairs(night.ledger or {}) do
+        if e.ev == "down" and e.who then
+            downs[e.who] = (downs[e.who] or 0) + 1
+        elseif e.ev == "killing_blow" and e.who then
+            kb[e.who] = true
+        end
+    end
+    for key, n in util.sorted_pairs(downs) do
+        put(key, n >= 2 and { "{char} spent half of last week on the floor. not ideal", "{char} went down TWICE. i want a refund" }
+            or { "{char} hit the floor last week and i'm still annoyed about it", "next time {char} is standing at the back" })
+    end
+    for key in util.sorted_pairs(kb) do
+        put(key, { "for the record, that last hit was {char}'s", "just saying. {char}. last hit. that's all" })
+    end
+    -- (Overruled: the one it happened to most says so. Three people saying it is a pile-on.)
+    local most, mn
+    for key, n in util.sorted_pairs((night.mus and night.mus.overruled) or {}) do
+        if not out[key] and (not mn or n > mn) then
+            most, mn = key, n
+        end
+    end
+    if most then
+        put(most, mn >= 2 and { "were we ever actually going to get a say about where we went", "felt a bit on rails last week ngl" }
+            or { "still think we should've gone the other way", "we got outvoted by the DM, noted" })
+    end
+    -- The call that moved them most, either way.
+    for _, p in ipairs(c.players) do
+        local best, bd
+        for _, cl in ipairs(night.call_log or {}) do
+            local d = cl.deltas[p.key]
+            if d and math.abs(d) >= 6 and (not bd or math.abs(d) > math.abs(bd)) then
+                best, bd = cl, d
+            end
+        end
+        if best and not string.find(best.title or "", "^Round") then
+            local what = strip(best.title)
+            put(p.key, bd > 0 and { what .. ". more of that please", what .. ". best part of the night, no notes" }
+                or { what .. "... not my favourite bit", "not gonna lie, " .. what .. " kind of killed it for me" })
+        end
+    end
+    local adv = c.adv
+    for key, wk in util.sorted_pairs(adv.hook_paid or {}) do
+        if wk == week then
+            put(key, { "{char} finally found what they came for. emotional", "ok {char}'s whole reason for coming paid off and i'm thrilled" })
+        end
+    end
+    return out
+end
+
 -- The group chat: what the friends say about last week's rooms, and the requests waiting.
 function M.write_chat(c)
     local st = c.adv
     local msgs = {}
+    local said = {}
+    -- Last night's own events first (three at most), then the rooms.
+    local own = M.night_lines(c, c.night)
+    for _, p in ipairs(c.players) do
+        if own[p.key] and #msgs < 3 then
+            said[p.key] = true
+            table.insert(msgs, { who = p.name, key = p.key, text = own[p.key] })
+        end
+    end
     local last = {}
     for _, step in ipairs(st.path) do
         if step.week == c.week - 1 then
             table.insert(last, step.room)
         end
     end
-    local said = {}
     for _, room in ipairs(last) do
         for key, line in util.sorted_pairs(MODULE.chat[room] or {}) do
             local p = c:player(key)
             -- (A line about something only if it happened: { text, when }.)
             local text = type(line) == "table" and line[1] or line
             local ok = type(line) ~= "table" or adventure.test(c, line.when)
-            if p and ok and not said[key] and #msgs < 4 then
+            if p and ok and not said[key] and #msgs < 5 then
                 said[key] = true
                 table.insert(msgs, { who = p.name, key = key, text = text })
             end
@@ -258,7 +351,7 @@ function M.write_chat(c)
         if pr.kind == "request" then
             local p = c:player(pr.def.who)
             if p then
-                table.insert(msgs, { who = p.name, key = p.key, text = pr.def.ask, request = pr.id })
+                table.insert(msgs, { who = p.name, key = p.key, text = pr.ask or pr.def.ask, request = pr.id })
             end
         end
     end
@@ -329,6 +422,7 @@ function M.after_night(c, night, rep)
         where = adventure.where(c),
         ending = st.ending,
         francs = st.francs,
+        calls = night.top_calls and night:top_calls(5) or {},   -- (your calls tonight that moved them most)
         francs_tonight = mus.francs_earned or 0,          -- (earned tonight, whatever was spent)
         francs_spent = math.max(0, (mus.francs_start or st.francs or 0) + (mus.francs_earned or 0) - (st.francs or 0)),
         got = mus.got or {},

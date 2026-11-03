@@ -6,6 +6,7 @@
 local content = require "game.model.content"
 local util = require "game.model.util"
 local score = require "game.model.score"
+local rapport = require "game.model.rapport"
 local adventure = require "game.model.adventure"
 local prep_mod = require "game.model.prep"
 local map_repo = require "game.model.map_repo"
@@ -187,6 +188,10 @@ function M.handle(night, mus, sc)
     if mus.spend then
         night.mus.bought = true
     end
+    -- (Something bought or found that isn't one of MODULE.items: the report still lists it.)
+    if mus.got then
+        M.note_got(night, mus.got)
+    end
     -- What the museum's people would know about, for when they see the party again.
     for _, d in ipairs(mus.deeds or {}) do
         adventure.deed(c, d[1], d[2])
@@ -250,6 +255,16 @@ function M.handle(night, mus, sc)
         st.aspects = st.aspects or {}
         st.aspects[night.actor.key] = st.aspects[night.actor.key] or {}
         table.insert(st.aspects[night.actor.key], mus.aspect)
+    end
+    -- (A history that's since changed says so: the Mech they woke, burnt out.)
+    if mus.flag == "mech_burnt" then
+        for _, list in pairs(st.aspects or {}) do
+            for i, a in ipairs(list) do
+                if string.find(a, "Woke the Steam Mech", 1, true) and not string.find(a, "burnt", 1, true) then
+                    list[i] = (string.gsub(a, " and commands it", "")) .. ", until it burnt out"
+                end
+            end
+        end
     end
     -- What it did to the hero it happened to: hurt them (their sheet says so), or a boon.
     local who = night.actor
@@ -451,6 +466,11 @@ function M.play_moment(night, card, sc)
     end
     -- The card's words for how things stand (text_if: the first whose `when` holds): a rematch, a
     -- burned garden, a table that veiled gore. What it says has to fit what's happened.
+    -- (A second look at a card they saw before says so, not the same words over again.)
+    if sc and sc.revisit and st.seen[card.id] then
+        copy.title = (card.title or "") .. ", again"
+        copy.text = "Second time round: " .. util.lower_first(card.text or "")
+    end
     M.soft_check(night, card.text_if)
     for _, alt in ipairs(card.text_if or {}) do
         if adventure.test(night.campaign, alt.when, knobs_of(night)) then
@@ -459,6 +479,17 @@ function M.play_moment(night, card, sc)
         end
     end
     copy.trigger = copy.trigger or "museum"
+    -- Each moment finds its own lead, not whoever took the room's first one (the playtest, Nov 2:
+    -- the plaque and then the tablet were always Mara's). A moment for the person who's already
+    -- in it (keep_actor) keeps them.
+    if copy.trigger == "museum" and not card.keep_actor and card.type ~= "boss" and card.type ~= "talk" then
+        night.actor, night.other = nil, nil
+    end
+    -- A moment that's one friend's own (who): theirs, whoever's had the spotlight.
+    if card.who and present(night, card.who) then
+        night.actor = present(night, card.who)
+        copy.trigger = "museum_fixed"
+    end
     copy.options = {}
     for _, o in ipairs(card.options) do
         if option_ok(night, o) then
@@ -550,6 +581,11 @@ function M.ties_beat(night, sc)
     end
     for _, t in ipairs(ties.fire(c, function(mark)
         M.handle(night, { mark = mark }, sc)
+        -- (Her card says it was the DM's tie, not something the party did.)
+        local rec = c.adv.marks[mark]
+        if type(rec) == "table" then
+            rec.tied = true
+        end
     end)) do
         local line = ties.fired_line(c, t)
         if line then
@@ -862,7 +898,7 @@ function M.quick_room(night, sc)
     local r = sc.comps.reward
     M.reward(night, sc)
     if not sc.virtual and not night.end_early then
-        night:emit({ kind = "scene_end", index = sc.index, title = sc.title,
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, call = night:scene_call(sc),
                      type_name = content.scenes[sc.type] and content.scenes[sc.type].name or nil,
                      goal = sc.comps.goal and sc.comps.goal.name or nil, outcome = sc.outcome,
                      reward = r and M.has_reward(night, sc, r) and util.capitalize(r.got or r.name) or nil,
@@ -904,6 +940,95 @@ local function want(p, id, c)
         n = n + 2.5
     end
     return n
+end
+
+-- What the night so far does to a friend's vote (the playtest, Nov 2: the second floor's votes
+-- were the same in 8 runs of 8, archetype and nothing else). Their hero hurt, the last room's
+-- fight and how it went for them, boredom, a quiet night: each moves the vote, and the biggest
+-- one that pulled them toward their pick is the reason they give. Returns bonus, reason.
+local TAG_WORD = { explore = "new to look at", lore = "to read", puzzle = "to work out", danger = "to fight",
+                   funny = "daft", cozy = "quiet", loot = "to take home", mystery = "to figure out",
+                   action = "to happen" }
+
+local function hero_hurt(night, p)
+    local pc = night:pc_of(p)
+    if not pc or not pc.hp_max or pc.hp_max <= 0 or (pc.hp or 0) <= 0 then
+        return 0
+    end
+    return 1 - pc.hp / pc.hp_max
+end
+
+local function fork_mood(night, p, ch, c)
+    local tags = (not ch.back and not ch.side) and (pull_of(ch.id).tags or {}) or {}
+    local danger = util.contains(tags, "danger") or util.contains(tags, "action")
+    local rest = (ch.back and ch.back.why == "rest") or (ch.id == "gift_shop" and not ch.back and not ch.side)
+    local bonus, why = 0, nil
+    local function add(n, text)
+        bonus = bonus + n
+        if n > 0 and text and (not why or n > why.n) then
+            why = { n = n, text = text }
+        end
+    end
+    -- Their hero is hurt: not another fight just yet, and a sit-down sounds good.
+    local hh = hero_hurt(night, p)
+    if hh >= 0.4 then
+        if danger then
+            add(-2 * hh)
+        elseif rest then
+            add(3 * hh, p.char .. "'s hurt and could use a sit-down")
+        else
+            add(1.2 * hh, p.char .. "'s hurt: nothing with teeth, please")
+        end
+    end
+    -- The last room: their hero went down in it; a fight that went badly for them, or one they
+    -- loved; a quiet one for a fighter.
+    local last = night.mus.last
+    local d = last and last.deltas[p.key] or 0
+    if last and last.downs and last.downs[p.key] and not danger then
+        add(rest and 2 or 1.5, p.char .. " went down in " .. util.lower_first(MODULE.rooms[last.id].name))
+    elseif last and last.downs and last.downs[p.key] then
+        add(-1.5)
+    end
+    if last and last.fought then
+        if d <= -3 and p.primary ~= "butt_kicker" then
+            add(danger and -1.2 or 1.2, (not danger) and "enough fighting for a bit" or nil)
+        elseif d >= 4 and danger then
+            add(1.4, "still buzzing from " .. util.lower_first(MODULE.rooms[last.id].name))
+        end
+    elseif last and danger and score.arch(p, "butt_kicker") > 0 and (d <= 1 or (p.boredom or 0) >= 15) then
+        add(1.2 * score.arch(p, "butt_kicker") + 0.4, "itching for a fight")
+    end
+    -- Bored or flat: what they like, louder.
+    if (p.boredom or 0) >= 25 or score.fun(p) < 30 then
+        local best, bw = nil, 0
+        for _, t in ipairs(tags) do
+            local w = score.like(p, t)
+            if w > bw then
+                best, bw = t, w
+            end
+        end
+        if best then
+            add(0.8 * bw, "bored, and up for something " .. (TAG_WORD[best] or "new"))
+        end
+    end
+    -- A quiet night so far: a room that's theirs.
+    local avg = 0
+    for _, q in ipairs(night.players) do
+        avg = avg + (q.m.spotlight or 0)
+    end
+    avg = avg / math.max(1, #night.players)
+    if (p.m.spotlight or 0) < avg - 10 and not ch.back and not ch.side and want(p, ch.id, c) > 0.5 then
+        add(0.8, "barely had a moment yet")
+    end
+    -- Their hero's reason for coming (want() counts it: this is the words).
+    local h = adventure.hook(c, p.key)
+    if h and h.room == ch.id and not ch.back and not ch.side then
+        add(0, nil)
+        if not why or why.n < 2.5 then
+            why = { n = 2.5, text = "it's why " .. p.char .. " came" }
+        end
+    end
+    return bonus, why and why.text
 end
 
 -- New rooms still waiting on this floor (the stairs up wait for the rest, for most tables).
@@ -1088,7 +1213,7 @@ function M.side_room(night, sd)
     end
     sc.outcome, sc.had_roll = "win", true
     if not night.end_early then
-        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = "win" })
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = "win", call = night:scene_call(sc) })
     end
     table.insert(night.mus.rooms, { room = sr.off, outcome = "win", side = sr.name })
     return sc
@@ -1121,21 +1246,75 @@ function M.fork(night, options, backs, sides)
     for _, sd in ipairs(sides) do
         table.insert(choices, { side = sd, id = sd.id })
     end
-    -- Each friend's first choice (a little noise: people are people).
-    local first, by = {}, {}
+    -- Each friend's first choice: what they like, what tonight has done to them, and a little
+    -- noise (people are people). Each says why, when it's more than taste.
+    local first, by, vals, said = {}, {}, {}, {}
     for _, p in ipairs(night.players) do
         local best, bv
+        vals[p.key] = {}
         for i, ch in ipairs(choices) do
             local v = (ch.back and want_back(p, ch.back, night)) or (ch.side and want_side(p, ch.side))
                 or want_new(p, ch.id, c, ch.steps, floor_left, early)
-            v = v + night.rng:next() * 0.6
+            local m, why = fork_mood(night, p, ch, c)
+            v = v + m + night.rng:next() * 0.9
+            vals[p.key][i] = { v = v, why = why }
             if not bv or v > bv then
                 best, bv = i, v
             end
         end
         first[p.key] = best
+        said[p.key] = vals[p.key][best].why
+    end
+    -- A friend who's close to someone (rapport built up tonight or before), and nearly as happy
+    -- either way, goes where they go. One a fork.
+    for _, p in ipairs(night.players) do
+        local mine = vals[p.key][first[p.key]].v
+        for _, q in ipairs(night.players) do
+            local r = q ~= p and rapport.rel(c, p.key, q.key)
+            local theirs = first[q.key]
+            if r and r.rapport >= 64 and r.heat < 10 and theirs ~= first[p.key]
+                and mine - vals[p.key][theirs].v < 0.9 and not night.mus.followed then
+                first[p.key] = theirs
+                said[p.key] = "going where " .. q.name .. " goes"
+                night.mus.followed = true
+                break
+            end
+        end
+    end
+    night.mus.followed = nil
+    for _, p in ipairs(night.players) do
+        local best = first[p.key]
         by[best] = by[best] or {}
         table.insert(by[best], p)
+    end
+    -- "Mara wants the offices (it's why Oswin came)."; two or more, each reason with a name.
+    -- (The same reason from several of them is said once: "both still buzzing from...".)
+    local function because(list)
+        local groups, order = {}, {}
+        for _, p in ipairs(list) do
+            local r = said[p.key]
+            if r then
+                if not groups[r] then
+                    groups[r] = {}
+                    table.insert(order, r)
+                end
+                table.insert(groups[r], p.name)
+            end
+        end
+        if #order == 0 then
+            return ""
+        end
+        if #order == 1 and #groups[order[1]] == #list then
+            local n = #list
+            return " (" .. (n == 1 and "" or (n == 2 and "both " or "all ")) .. order[1] .. ")"
+        end
+        local why = {}
+        for k, r in ipairs(order) do
+            if k <= 2 then
+                table.insert(why, util.join_names(groups[r]) .. ": " .. r)
+            end
+        end
+        return " (" .. table.concat(why, "; ") .. ")"
     end
     local top, top_n
     for i in ipairs(choices) do
@@ -1175,7 +1354,7 @@ function M.fork(night, options, backs, sides)
         if ch.side then
             if #names > 0 then
                 table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ") .. "to poke into "
-                    .. ch.side.name .. ".")
+                    .. util.lower_first(ch.side.name) .. because(by[i]) .. ".")
             end
         elseif ch.back then
             local line = MODULE.revisit_why[ch.back.why]
@@ -1184,7 +1363,8 @@ function M.fork(night, options, backs, sides)
                                                      room = util.lower_first(MODULE.rooms[ch.id].name) }))
             end
         elseif #names > 0 then
-            table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ") .. pull_of(ch.id).want .. ".")
+            table.insert(parts, util.join_names(names) .. (#names == 1 and " wants " or " want ") .. pull_of(ch.id).want
+                .. because(by[i]) .. ".")
         end
     end
     local pm = night.prep and night.prep.museum
@@ -1222,13 +1402,23 @@ function M.fork(night, options, backs, sides)
         end
         local label
         if ch.side then
-            label = "Into " .. ch.side.name .. " (a side room)"
+            label = "Into " .. util.lower_first(ch.side.name) .. " (a side room)"
         elseif ch.back then
             label = back_label(ch.back)
         else
             local r = MODULE.rooms[ch.id]
             local note = (r.cost == 0 and "") or ((pm and pm.prepped and pm.prepped[ch.id]) and "  (you prepped it)" or "  (not prepped)")
             label = pull_of(ch.id).label .. note
+            -- (What it means for tonight: the stairs end the night at the top step.)
+            if r.stop and ch.id == "stairs" then
+                label = label .. " (the night stops at the top step)"
+            end
+        end
+        -- (Whose pick it is, on the button: the table's, or yours over theirs, which they'll feel.)
+        if i == top and #(by[i] or {}) > 0 then
+            label = label .. " [the table's pick]"
+        elseif steer then
+            label = label .. ((night.mus.steered or 0) >= 1 and " [steering them again: costs Trust]" or " [steering them]")
         end
         table.insert(card.options, { label = label, effects = effs, choice = i, steer = steer,
                                      log = steer and "You nudge them the other way. A couple of looks across the table." or nil })
@@ -1258,9 +1448,17 @@ function M.fork(night, options, backs, sides)
         return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
     end
     if o and o.steer then
+        -- (Who you overruled: the chat remembers it.)
+        night.mus.overruled = night.mus.overruled or {}
+        for _, p in ipairs(night.players) do
+            if first[p.key] == top then
+                night.mus.overruled[p.key] = (night.mus.overruled[p.key] or 0) + 1
+            end
+        end
         night.mus.steered = (night.mus.steered or 0) + 1
         if night.mus.steered >= 2 then
-            night:say("Twice tonight you've steered them. It's starting to feel like a railroad.", "warn")
+            local times = ({ "Twice", "Three times", "Four times" })[night.mus.steered - 1] or (util.int(night.mus.steered) .. " times")
+            night:say(times .. " tonight you've steered them. It's starting to feel like a railroad.", "warn")
         end
     end
     local ch = choices[(o and o.choice) or top] or choices[1]
@@ -1346,7 +1544,8 @@ function M.go_back(night, b)
     sc.outcome = sc.outcome or "win"
     sc.had_roll = true
     if not night.end_early then
-        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = sc.outcome, fight = sc.fought or nil })
+        night:emit({ kind = "scene_end", index = sc.index, title = sc.title, outcome = sc.outcome, fight = sc.fought or nil,
+                     call = night:scene_call(sc) })
     end
     table.insert(night.mus.rooms, { room = b.id, outcome = sc.outcome, back = b.why })
     M.interlude(night, sc)
@@ -1411,6 +1610,11 @@ function M.after_room(night, sc)
         end
     elseif id == "lecture" then
         if outcome == "win" then
+            -- (Silenced, he isn't droning through anyone's floor any more.)
+            if c.adv.marks.drone then
+                adventure.remove_mark(c, "drone")
+                night:say("Upstairs, the drone through the floor stops. Euryale notices the quiet.", "interlude")
+            end
             mark("pages")
         else
             mark("drone")
@@ -1446,8 +1650,9 @@ function M.interlude(night, sc)
     for _, id in ipairs(pending) do
         local m = MODULE.marks[id]
         if m and night.campaign.adv.marks[id] then
-            night:emit({ kind = "mark", id = id, name = m.name, why = m.why, showdown = m.showdown, thought = m.thought })
-            night:say("Upstairs, Euryale: \"" .. m.thought .. "\"", "interlude")
+            local thought = adventure.mark_thought(night.campaign, id)
+            night:emit({ kind = "mark", id = id, name = m.name, why = adventure.mark_why(night.campaign, id), showdown = m.showdown, thought = thought })
+            night:say("Upstairs, Euryale: \"" .. thought .. "\"", "interlude")
             table.insert(night.mus.added, id)
         end
     end
@@ -1570,6 +1775,11 @@ function M.play(night, id)
     local sc = M.build_scene(night, id)
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
+    local fun_in = {}
+    for _, p in ipairs(night.players) do
+        fun_in[p.key] = score.fun(p)
+    end
+    local ledger_in = #(night.ledger or {})
     night.mus.total = math.max(night.mus.total or 1, sc.index)
     if sc.quick or sc.virtual then
         M.quick_room(night, sc)
@@ -1586,6 +1796,19 @@ function M.play(night, id)
         night:say("Upstairs, Euryale: \"" .. MODULE.thoughts.arrive .. "\"", "interlude")
     end
     st.last_room = id
+    -- How the room went for each of them, for what they want next (M.fork).
+    local deltas = {}
+    for _, p in ipairs(night.players) do
+        deltas[p.key] = score.fun(p) - (fun_in[p.key] or score.fun(p))
+    end
+    local downs = {}
+    for k = ledger_in + 1, #(night.ledger or {}) do
+        local e = night.ledger[k]
+        if e.ev == "down" and e.who then
+            downs[e.who] = true
+        end
+    end
+    night.mus.last = { id = id, fought = sc.fought or false, deltas = deltas, downs = downs }
     return sc
 end
 

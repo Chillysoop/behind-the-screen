@@ -333,6 +333,30 @@ local function play(seed, style)
                         end
                     end
                 end
+                -- The reasons the friends give for a vote are true (the playtest, Nov 2: votes said
+                -- nothing about why; now they do, and the why has to hold).
+                for _, p in ipairs(night.players) do
+                    local pc = night.pcs and night.pcs[p.key]
+                    local ft = ev.card.text or ""
+                    if string.find(ft, p.char .. "'s hurt", 1, true) and pc
+                        and not ((pc.hp or 0) > 0 and pc.hp / math.max(1, pc.hp_max) <= 0.6001) then
+                        fail(tag .. " week " .. w .. ": a fork says " .. p.char .. "'s hurt, at " .. tostring(pc.hp) .. "/" .. tostring(pc.hp_max))
+                    end
+                    if string.find(ft, p.char .. " went down in", 1, true) then
+                        local down = false
+                        for _, e in ipairs(night.ledger or {}) do
+                            down = down or (e.ev == "down" and e.who == p.key)
+                        end
+                        if not down then
+                            fail(tag .. " week " .. w .. ": a fork says " .. p.char .. " went down, and nobody did")
+                        end
+                    end
+                    local h = adventure.hook(c, p.key)
+                    local why = string.find(ft, "it's why " .. p.char .. " came", 1, true)
+                    if why and not (h and h.room and string.find(ft, (MODULE.pull[h.room] or {}).want or "?", 1, true)) then
+                        fail(tag .. " week " .. w .. ": a fork says it's why " .. p.char .. " came, for a room that isn't their reason")
+                    end
+                end
             end
             if ev.kind == "decision" then
                 if ev.card.id == "mus_yield" and night.scene and night.scene.boss_dead then
@@ -399,7 +423,7 @@ local function play(seed, style)
                 local m = MODULE.marks[id]
                 local found = false
                 for _, h in ipairs(heard) do
-                    found = found or string.find(h, m.thought, 1, true) ~= nil
+                    found = found or string.find(h, adventure.mark_thought(c, id), 1, true) ~= nil or string.find(h, m.thought, 1, true) ~= nil
                 end
                 if found then
                     owed_marks[id] = nil
