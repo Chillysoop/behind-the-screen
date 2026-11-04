@@ -51,6 +51,20 @@ NEW IN THIS BUILD (November 4)
 - The lecturer and Euryale are on the board as soon as the party can see them. The
   drink, the ultimatum and yielding are the players' choices now, not yours.
 
+Also from a full playtest of this build:
+- Every session gets its break, even a short one: before the stairs, and on boss night after
+  the talk with Euryale, right before the fight.
+- Downs are said out loud, and the death-save card is on the mat. In the lecture hall, whoever's
+  been listening longest gets shaken awake first.
+- The log reads the sum too (13 + 5 = 18). A roll the card said is behind your screen stays
+  there, with no "open or hidden?" question.
+- A Franc only for a success, never as a consolation for a miss.
+- In the museum's fights, the roll before the first blow is who reacts first (the enemy's
+  already in plain sight), not scouting ahead.
+- "The table decides" credits the right people, and says so when it was your nudge.
+- Lines that didn't match what happened are fixed: a painting with nothing to give, the
+  tentacle you see before the pond card, the falcon jar, Euryale's last words.
+
 NEW IN THE NOVEMBER 3 BUILD (later)
 -----------------------------------
 - The prep board's room list fits any window: it pages, and the mouse wheel scrolls it.
