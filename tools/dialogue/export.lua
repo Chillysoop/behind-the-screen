@@ -31,9 +31,10 @@ local SHARED_FILES = {
     { file = "game/data/session_zero.lua", mod = "game.data.session_zero", group = "Session Zero" },
     { file = "game/data/death.lua", mod = "game.data.death", group = "Death" },
     { file = "game/data/decisions.lua", mod = "game.data.decisions", group = "Shared cards" },
-    { file = "game/data/inspiration.lua", mod = "game.data.inspiration", group = "Inspiration" },
     { file = "game/data/rests.lua", mod = "game.data.rests", group = "Rests" },
+    -- (Not game/data/inspiration.lua: the DM's evening off is the older game's prep board.)
 }
+
 
 -- Where each room is in the book (the reader's own copy: page numbers only).
 local BOOK_PAGES = {
@@ -51,9 +52,59 @@ local NOT_TEXT = { id = true, when = true, kind = true, type = true, trigger = t
     lean = true, leans = true, arch = true, doers = true, needs = true, sprite = true, icon = true, font = true,
     key = true, there = true, warn = true, risk = true, harsh = true, drag = true, hurt = true, speaker = true,
     suits = true, objects = true, enjoys = true, feeds = true, tag_taste = true, content = true, promise = true,
-    card = true, minion = true, where = true, fixed_actor = true }
+    card = true, minion = true, where = true, fixed_actor = true, effect = true }
 local PLAYERS = { mara = true, dev = true, jess = true, sam = true }
 local HEROES = { mara = "Thessaly", dev = "Brannoc", jess = "Pip", sam = "Oswin" }
+local json = require "game.model.jsonlite"
+
+-- What the adventure never plays: the older game's systems, switched off while an adventure runs
+-- (campaign.module). Found with tools/dialogue/reach.lua (a few hundred whole prologues, recording
+-- every line dealt and every piece of text shown) and then checked against the code that deals each
+-- one. Rare lines the adventure can still reach (a ruling gone wrong, a level-up pick) stay in.
+local OLD_TRIGGERS = {
+    between = true, phone = true, reward_like = true, thread = true,       -- the old scene loop (night:play_scene)
+    improv_great = true, improv_poor = true, seed_planted = true, seed_payoff = true,
+}   -- (and every chat_ trigger: the adventure writes its own group chat, museum_week.write_chat)
+local OLD_RESTS = { requests = true, places = true, context = true, fairness = true, table_lines = true,
+                    campfire_prompts = true }   -- asking to rest, and where (night:rest_request)
+local function old_entry(src, path, t)
+    local f, top = src.file, path[1]
+    if f == "game/data/decisions.lua" and #path == 1 then
+        -- The rooms bring their own story and behind-the-screen cards (night:pick_decision), the table
+        -- cards and "It's getting late" come from the old scene loop, and a parley needs a boss the
+        -- museum doesn't have (fight.lua HUMANOID_BOSS).
+        return t.table_only or t.retired or ((t.type == "story" or t.type == "screen") and not t.trigger)
+            or t.id == "parley" or t.id == "running_late"
+    elseif f == "game/data/table_behaviors.lua" then
+        if top == "curveballs" and #path == 1 then
+            return true      -- (going off the map: night:quick_checks, the old scene loop)
+        end
+        return top == "behaviors" and #path == 2 and t.style ~= nil   -- (the old valley's styles: adventure.enter drops them)
+    elseif f == "game/data/rests.lua" then
+        if #path == 1 and OLD_RESTS[top] then
+            return true
+        end
+        if top == "beats" and #path == 2 then
+            -- (The museum's rests are indoors: night:do_rest(..., "town").)
+            local ok = t.where == nil
+            for _, w in ipairs(t.where or {}) do
+                ok = ok or w == "any" or w == "town"
+            end
+            return not ok
+        end
+    elseif f == "game/data/friction.lua" then
+        return top == "vents" and #path == 1     -- (the old group chat, rapport.chat)
+    end
+    return false
+end
+local function keep_line(file, path, l)
+    if file == "game/data/dialogue/lines.json" then
+        -- The friends' own lines only (the older game's people never come to the museum; the museum's
+        -- people have theirs in the module), at the moments the adventure has.
+        return PLAYERS[l.speaker or ""] and not OLD_TRIGGERS[l.trigger] and not string.find(l.trigger or "", "^chat_")
+    end
+    return true
+end
 
 local lines = {}
 local seen_text = {}
@@ -169,6 +220,16 @@ local function walk(src, t, path, owners, shared, depth)
     if type(t) ~= "table" then
         return
     end
+    if shared then
+        -- A shared entry the adventure drops whole (adventure.enter scrubs anything naming the old
+        -- story), or one from a system it never runs.
+        if type(path[#path]) == "number" and adventure.deep_foreign(t) then
+            return
+        end
+        if old_entry(src, path, t) then
+            return
+        end
+    end
     local keys = {}
     for k in pairs(t) do
         table.insert(keys, k)
@@ -204,8 +265,16 @@ end
 do
     local lib = require("game.model.content").dialogue
     local src = { file = "game/data/dialogue/lines.json", group = "Table talk" }
+    -- (Only the file's own lines: the adventure adds its people's lines to the library at load,
+    -- and those are listed above, under the adventure's file.)
+    local own = {}
+    local raw = json.decode(assert(io.open("game/data/dialogue/lines.json")):read("*a"))
+    for _, l in ipairs(raw.lines or {}) do
+        own[l.id] = true
+    end
     for _, l in ipairs(lib.lines or {}) do
-        if type(l.text) == "string" and adventure.fits(l.text) and l.status ~= "cut" then
+        if own[l.id] and type(l.text) == "string" and adventure.fits(l.text) and adventure.fits(l.reply)
+            and l.status ~= "cut" and l.status ~= "rejected" and keep_line(src.file, { "lines", l.id }, l) then
             local key = src.file .. "|" .. l.text
             if not seen_text[key] then
                 local sp = PLAYERS[l.speaker or ""] and l.speaker or nil
