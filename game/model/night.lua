@@ -3464,6 +3464,8 @@ function M:combat_scene(sc)
             self:say(c.name .. " comes round on the floor with 1 hit point, groggy but alive.", "aside")
         end
     end
+    -- (Someone on their side who fell comes round now: companions.lua.)
+    require("game.model.companions").after_fight(self)
     if result.winner == "party" then
         -- Won is won, but say how: the foes ran, or gave up (the newcomer playtest, October 16:
         -- "runs for it" then "the last one falls" read as two different endings).

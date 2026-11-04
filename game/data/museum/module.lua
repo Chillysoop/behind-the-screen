@@ -315,6 +315,9 @@ M.rooms = {
         read = "Back down in the gift shop, Flitwidget has put out tea, a plate of biscuits and a very small cash box.",
         sum = "The reward, a pick from the shop, and what comes next.",
         callbacks = {
+            -- (Telpur's own shop: the wrap-up remembers him, the second playtest review. F4.)
+            { when = { flag = "telpur_fell" }, text = "Telpur is back on his counter with a sock tied round his middle like a bandage. He tells everyone who'll listen how he took a hit for the party." },
+            { when = { flag = "telpur_along", not_flag = "telpur_fell" }, text = "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day." },
             { when = { flag = "told" }, text = "\"Telpur told me everything, you know,\" says Flitwidget, pouring the tea. \"Everything.\" He doesn't say which bits he minded." },
             { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it." },
             { when = { flag = "vorpal_lair" }, text = "And behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
@@ -922,6 +925,10 @@ M.companions = {
                    look = { "Telpur: \"I'd not touch that. Then again, I'm a boot.\"", "Telpur: \"In my day we had a museum like this. Smaller. More screaming.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
                    win = { "Telpur: \"Another victory for the Lord of Laces.\"", "Telpur takes most of the credit." },
+                   -- (When he drops in a fight, and after it: companions.fell and after_fight.)
+                   down = "Telpur takes the hit and goes flying, laces everywhere. He lands in a heap and doesn't move.",
+                   react = "Telpur! Somebody get the boot!",
+                   up = "Telpur comes round in a tangle of laces. \"I meant to do that. Tactical nap.\"",
                } },
 }
 

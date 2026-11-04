@@ -110,7 +110,10 @@ local function play(seed, style)
             end
         end
         for _, pr in ipairs(c.adv.prompts) do
-            if pr.kind == "request" then
+            if pr.kind == "request" and pr.id == "keep_boot" then
+                -- (Telpur comes along for two of the three DMs, and the third gets his shoelace: F4, F5.)
+                adventure.answer_request(c, pr.id, ({ careful = "laugh", random = "yes", careless = "danger" })[style])
+            elseif pr.kind == "request" then
                 adventure.answer_request(c, pr.id, adventure.data.ANSWERS[style == "careful" and 2 or rng:int(1, 4)])
             elseif pr.kind == "loose" then
                 adventure.answer_loose(c, pr.id, rng:int(1, #pr.def.options))
@@ -340,6 +343,63 @@ case("F3", function()
     end
     add("F3", "unit_cases")
     add("F13", "unit_cases")
+end)
+
+-- F4: an ally's fall is said and answered; only the Mech powers down; the wrap-up remembers Telpur.
+table.insert(watchers, function(R, N, ev)
+    if ev.kind == "battle" and ev.phase == "start" then
+        N.allies = {}
+        for _, a in ipairs(ev.allies or {}) do
+            N.allies[a.id] = a
+        end
+    elseif ev.kind == "turn" then
+        if N.ally_fell then
+            fail("F4", N.tag .. ": " .. N.ally_fell.name .. " fell, and nobody said a word")
+            N.ally_fell = nil
+        end
+        for _, st in ipairs(ev.steps or {}) do
+            local a = N.allies and N.allies[st.id]
+            if st.kind == "death" and a then
+                add("F4", "allies_fell")
+                N.ally_fell = { name = a.name, said = false, answered = false }
+            end
+            if st.kind == "feature" and st.name == "Powers down" then
+                add("F4", "power_downs")
+                if not (a and a.monster == "steam_mech") then
+                    fail("F4", N.tag .. ": " .. tostring(a and a.name or st.id) .. " powered down, and it isn't the Mech")
+                end
+            end
+        end
+    elseif N.ally_fell and (ev.kind == "narrate" or ev.kind == "say") then
+        local af = N.ally_fell
+        if ev.kind == "narrate" and ev.text and string.find(ev.text, af.name, 1, true) then
+            af.said = true
+        elseif ev.kind == "say" and af.said then
+            af.answered = true
+        end
+        if af.said and af.answered then
+            add("F4", "falls_said_and_answered")
+            N.ally_fell = nil
+        end
+    end
+    if ev.kind == "scene" and N.night.scene and N.night.scene.room == "thanks" then
+        N.in_thanks = true
+    end
+    if N.in_thanks and ev.kind == "narrate" and ev.text and string.find(ev.text, "Telpur", 1, true) then
+        N.thanks_telpur = true
+    end
+end)
+table.insert(night_end, function(R, N)
+    if N.ally_fell then
+        fail("F4", N.tag .. ": " .. N.ally_fell.name .. " fell, and nobody said a word")
+    end
+    local f = R.c.adv.flags
+    if N.in_thanks and (f.telpur_along or f.telpur_fell) then
+        add("F4", "wrap_ups_with_telpur_along")
+        if not N.thanks_telpur then
+            fail("F4", N.tag .. ": Telpur came along, and the thanks scene in his own shop never mentions him")
+        end
+    end
 end)
 
 for _, style in ipairs(STYLES) do

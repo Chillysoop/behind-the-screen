@@ -1439,6 +1439,17 @@ case("museum-commander", "The mech powers down when its commander drops", "Museu
         t:eq("powered down", m.powered_down and b:incapacitated(m), true)
     end)
 
+case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
+    "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 3), 5, 5)
+        local tp = at(b, mon("telpur"), 6, 6)
+        tp.side, tp.ally, tp.commander = "party", true, r
+        b:drop(r)
+        t:eq("Telpur still in it", (tp.powered_down or b:incapacitated(tp)) and true or false, false)
+    end)
+
 case("museum-false-appearance", "Topiary that was never topiary: the party starts surprised", "Museum, Appendix B (Briar Guardians)",
     "False Appearance: while still, a briar guardian looks like a shaped bush. A fight of only these starts with a surprise.",
     function(t)

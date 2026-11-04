@@ -158,6 +158,64 @@ function M.fight_start(night)
     end
 end
 
+-- Someone fighting on the party's side drops (F4, the second playtest review: "Telpur -14 (0
+-- left)" and the fight carried on as if nothing happened). It's said out loud, the friend who
+-- plays them (or brought them) reacts, and the adventure remembers: a person who fell comes round
+-- after the fight (M.after_fight), and the wrap-up can say so (flag "<id>_fell").
+function M.fell(night, c)
+    if not c then
+        return
+    end
+    night.allies_fell = night.allies_fell or {}
+    if night.allies_fell[c] then
+        return
+    end
+    night.allies_fell[c] = true
+    local e
+    for _, a in ipairs(M.active(night.campaign, night.players)) do
+        if a.monster and a.monster == c.monster_id then
+            e = a
+        end
+    end
+    local name = (e and e.name) or c.name or "Their ally"
+    local lines = e and e.lines or {}
+    night:say(util.fill(lines.down or "{name} goes down, and doesn't get up.", { name = name }), "bad")
+    -- Who reacts: whoever was playing them, else the friend who brought them, else anyone.
+    local key = c.pilot or (e and e.owner)
+    local p = key and night.campaign:player(key)
+    if not (p and util.contains(night.players, p)) then
+        p = night.players[1]
+    end
+    if p then
+        night:emit({ kind = "say", who = p.key, text = util.fill(lines.react or "{name}! No!", { name = name }), ic = false })
+        night:react({ [p.key] = "gasp" })
+    end
+    if e then
+        local adv = night.campaign.adv
+        adv.flags = adv.flags or {}
+        adv.flags[e.id .. "_fell"] = true
+        night.mus = night.mus or {}
+        night.mus.allies_fell = night.mus.allies_fell or {}
+        table.insert(night.mus.allies_fell, e.id)
+    end
+end
+
+-- After the fight: a person who fell comes round, sore and talking (they're a companion, not a
+-- foe: nobody leaves them on the floor), and the table hears it.
+function M.after_fight(night)
+    for c in pairs(night.allies_fell or {}) do
+        if not night.allies_back or not night.allies_back[c] then
+            night.allies_back = night.allies_back or {}
+            night.allies_back[c] = true
+            for _, e in ipairs(M.active(night.campaign, night.players)) do
+                if e.monster and e.monster == c.monster_id and e.kind == "person" then
+                    night:say(util.fill(e.lines and e.lines.up or "{name} comes round, sore, and very glad it's over.", { name = e.name }), "good")
+                end
+            end
+        end
+    end
+end
+
 -- "If Pip can find one": the next time their owner looks around, they find the pet.
 function M.maybe_find(night, p)
     local adv = night.campaign.adv or {}
