@@ -1255,6 +1255,12 @@ function M.run(night, sc, plan)
         if not src or info.bond then
             return total
         end
+        -- The scar's deal holds them up through the rest of that turn (F12: "stay up, but with a
+        -- scar" was undone by the next attack in the same turn).
+        local sc_ = f.scar
+        if sc_ and sc_.tgt == tgt and bb.round == sc_.round and bb.active == sc_.turn and not tgt.dead then
+            return math.min(total, math.max(0, (tgt.hp or 0) + (tgt.temp or 0) - 1))
+        end
         -- The boss is about to go down early.
         if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
             local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round }, src)
@@ -1294,6 +1300,7 @@ function M.run(night, sc, plan)
                 table.insert(night.turn_steps, { kind = "feature", id = tgt.mini, name = "It glances off" })
                 return 0
             elseif o and o.battle == "deal" then
+                f.scar = { tgt = tgt, round = bb.round, turn = bb.active }
                 return math.max(0, tgt.hp + tgt.temp - 1)
             end
         end
@@ -1305,6 +1312,12 @@ function M.run(night, sc, plan)
     b.hooks.before_turn = function(bb, c)
         if c == f.boss and not c.dead and not c.removed and not c.down then
             takeover.boss_turn(night, f, bb, c)
+        end
+        -- The DM's call on who they go after (the tactics card) holds for every foe's turn, unless
+        -- the DM ran this one themselves.
+        local t = f.focus_on
+        if t and c.side == "foes" and not c.dm_target and not t.dead and not t.removed and not t.down then
+            c.dm_target = t
         end
     end
     -- The last death save.
@@ -1435,6 +1448,10 @@ function M.run(night, sc, plan)
                     bb.focus = o.battle
                     -- Every call shows (A11): the hero the monsters turn on wears a tag on the mat.
                     local marked = (o.battle == "squishy" and squishy) or (o.battle == "big" and big) or nil
+                    -- (And they really do: each of them goes for that hero while they're standing,
+                    -- however far, not whoever's nearest. F12: "Everyone on Brannoc", and the boss
+                    -- went elsewhere.)
+                    f.focus_on = marked
                     if marked then
                         bb:add_effect(marked, { name = "Targeted", conds = {}, tag = true })
                     elseif o.battle == "spread" then

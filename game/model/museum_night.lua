@@ -1185,11 +1185,12 @@ function M.explore(night, sc)
             local o = M.play_moment(night, card, sc)
             if o and o.later then
                 st.find_later = (st.find_later or 0) + o.later
+                st.find_from = sc.room       -- (moved to another room: not the next look in this one, F12)
             end
-        elseif (st.find_later or 0) > 0 then
+        elseif (st.find_later or 0) > 0 and st.find_from ~= sc.room then
             -- The find the DM moved: here it is.
             local n = st.find_later
-            st.find_later = 0
+            st.find_later, st.find_from = 0, nil
             night:say("Tucked away by " .. util.lower_first(pl.name or "it") .. ": " .. (n == 1 and "a Flitwidget Franc" or (util.int(n) .. " Flitwidget Francs"))
                 .. ". (The find you moved behind your screen.)", "good")
             M.handle(night, { francs = n }, sc)
@@ -2799,6 +2800,12 @@ function M.intro(night)
             end
             night:say("As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
                 .. fight.buff_line(night), "recap")
+            -- "...and wake to find a statue at the foot of the stairs": there it is, on the gift shop's
+            -- board (F12: the chat's statue never appeared).
+            if (st.answered or {}).long_rest == "danger" and not st.flags.stairs_statue then
+                st.flags.stairs_statue = M.place_statue(c) and true or nil
+                night:say("And there it is, just as you told them: at the foot of the gift shop's stairs, a statue that wasn't there last night. Its stone hand is reaching for the first step.", "narration")
+            end
         end
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
@@ -2809,6 +2816,24 @@ function M.intro(night)
         end
     end
     night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
+end
+
+-- The statue the group chat promised (the rest answered "yes, but it's dangerous"): a stone piece at
+-- the foot of the gift shop's stairs, on its board for every scene there from now on.
+M.STATUE_AT = { { 15, 8 }, { 16, 9 }, { 15, 9 }, { 15, 7 }, { 17, 9 } }
+function M.place_statue(c)
+    local maps = require "game.model.maps"
+    local loc = content.components["mus_gift_shop"]
+    if not loc then
+        return false
+    end
+    local m = maps.get(c, loc.id) or maps.new(c, loc.id, maps.template(c, loc, "downtime"))
+    for _, sq in ipairs(M.STATUE_AT) do
+        if maps.place(m, "statue_victim_c", sq[1], sq[2], 1) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Ending the session is always the DM's call (the playtest, November 3: "sessions should never

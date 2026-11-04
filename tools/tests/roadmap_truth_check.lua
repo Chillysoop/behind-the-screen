@@ -96,7 +96,7 @@ end)
 -- always does (F1), and a tired friend is at the table every week so that thought comes up.
 
 local thoughts = require "game.model.thoughts"
-local watchers, night_end, run_end = {}, {}, {}
+local watchers, night_end, run_end, after_pick = {}, {}, {}, {}
 
 local function play(seed, style)
     local c, rng = new_campaign(seed, style)
@@ -114,7 +114,9 @@ local function play(seed, style)
             end
         end
         for _, pr in ipairs(c.adv.prompts) do
-            if pr.kind == "request" and pr.id == "keep_boot" then
+            if pr.kind == "request" and pr.id == "long_rest" and style == "careless" then
+                adventure.answer_request(c, pr.id, "danger")      -- (the statue at the foot of the stairs: F12)
+            elseif pr.kind == "request" and pr.id == "keep_boot" then
                 -- (Telpur comes along for two of the three DMs, and the third gets his shoelace: F4, F5.)
                 adventure.answer_request(c, pr.id, ({ careful = "laugh", random = "yes", careless = "danger" })[style])
             elseif pr.kind == "request" then
@@ -177,10 +179,27 @@ local function play(seed, style)
                         end
                     end
                 end
+                -- (The promises F12 checks: the scar's deal, a find moved to another room.)
+                if ev.card.id == "death_roll" and style ~= "careful" then
+                    for i, o in ipairs(opts) do
+                        if string.find(o.label or "", "scar", 1, true) then
+                            pick = i
+                        end
+                    end
+                elseif string.find(ev.card.id or "", "^mus_look_find_") and style == "careful" then
+                    for i, o in ipairs(opts) do
+                        if string.find(o.label or "", "^Move it") then
+                            pick = i
+                        end
+                    end
+                end
                 if not opts[pick] or opts[pick].disabled then
                     pick = 1
                 end
                 answer = N.force_pick or pick
+                for _, fn in ipairs(after_pick) do
+                    fn(R, N, ev, opts[answer])
+                end
                 N.force_pick = nil
             elseif ev.kind == "thought" then
                 local brought = false
@@ -812,6 +831,172 @@ table.insert(watchers, function(R, N, ev)
         elseif who then
             add("F11", "acts_by_heroes_still_here")
         end
+    end
+end)
+
+-- F12: what the game promises, it keeps. A stare-down sets who the foe goes for; the scar holds a
+-- hero up through that turn; the DM's "everyone on X" steers every foe; a find moved to another room
+-- turns up in another room; the statue the chat promised stands on the board.
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    local c = R.c
+    if ev.kind == "battle" and ev.phase == "start" then
+        N.minis = {}
+        for _, q in ipairs(ev.party or {}) do
+            N.minis[q.id] = q
+        end
+        N.focus, N.taunt_on = nil, N.taunt_promised
+        N.taunt_promised = nil
+    elseif ev.kind == "battle" and ev.phase == "end" then
+        N.focus, N.scar, N.taunt_on = nil, nil, nil
+    end
+    if ev.kind == "narrate" and ev.text then
+        local who = string.match(ev.text, "forgets everyone else and goes for (%a+),")
+        if who then
+            N.taunt_promised = char_key(c, who)
+            add("F12", "taunts_promised")
+        end
+        if string.find(ev.text, "(The find you moved behind your screen.)", 1, true) then
+            add("F12", "moved_finds_found")
+            if R.moved_from and night.scene and night.scene.room == R.moved_from then
+                fail("F12", N.tag .. ": the find moved to another room turns up in " .. R.moved_from .. ", where it was")
+            end
+            R.moved_from = nil
+        end
+        if string.find(ev.text, "a statue that wasn't there last night", 1, true) then
+            add("F12", "statues_promised")
+            local m = require("game.model.maps").get(c, "mus_gift_shop")
+            local there = false
+            for _, pc in ipairs(m and m.props or {}) do
+                there = there or string.find(pc.kind, "^statue") ~= nil
+            end
+            if there then
+                add("F12", "statues_on_the_board")
+            else
+                fail("F12", N.tag .. ": the chat's statue at the foot of the stairs isn't on the gift shop's board")
+            end
+        end
+    end
+end)
+table.insert(after_pick, function(R, N, ev, o)
+    local night = N.night
+    local c = R.c
+    if o then
+        if ev.card.id == "death_roll" and string.find(o.label or "", "scar", 1, true) then
+            N.scar = { key = night.actor and night.actor.key, round = night.battle and night.battle.round,
+                       who = night.battle and night.battle.active }
+            add("F12", "scars")
+        elseif ev.card.id == "tactics" then
+            local who = string.match(o.label or "", "^Everyone on (%a+)%.") or string.match(o.label or "", "^Go for (%a+) in the back")
+            N.focus = who and char_key(c, who)
+            if N.focus then
+                add("F12", "focus_calls")
+            end
+        elseif string.find(ev.card.id or "", "^mus_look_find_") and string.find(o.label or "", "^Move it") then
+            R.moved_from = night.scene and night.scene.room
+            add("F12", "finds_moved")
+        end
+    end
+end)
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    -- What the steps show against what was promised.
+    if ev.kind == "turn" then
+        local downed = {}
+        for _, st in ipairs(ev.steps or {}) do
+            if st.kind == "down" then
+                downed[st.id] = true
+            end
+        end
+        if N.scar and N.scar.key and downed[N.scar.key] and night.battle and night.battle.round == N.scar.round then
+            fail("F12", N.tag .. ": " .. N.scar.key .. " took the scar to stay up, and went down that same turn")
+        end
+        N.scar = nil
+        local focus = N.focus
+        local fb = focus and night.pcs and night.pcs[focus]
+        if focus and fb and not fb.down and not fb.dead and ev.side == "foes" then
+            for _, st in ipairs(ev.steps or {}) do
+                if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
+                    if st.target == focus then
+                        add("F12", "focus_kept")
+                    else
+                        fail("F12", N.tag .. ": you said go for " .. focus .. ", and " .. tostring(ev.who) .. " attacks " .. tostring(st.target))
+                    end
+                end
+            end
+        end
+        local tk = N.taunt_on
+        local tb = tk and night.pcs and night.pcs[tk]
+        if tk and tb and not tb.down and not tb.dead and ev.side == "foes" and night.battle and (night.battle.round or 1) <= 2 then
+            for _, st in ipairs(ev.steps or {}) do
+                if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
+                    N.taunt_hits = (N.taunt_hits or 0) + (st.target == tk and 1 or 0)
+                    N.taunt_all = (N.taunt_all or 0) + 1
+                end
+            end
+        end
+    end
+end)
+table.insert(night_end, function(R, N)
+    if N.taunt_all and N.taunt_all > 0 then
+        add("F12", "taunted_attacks", N.taunt_all)
+        if (N.taunt_hits or 0) == 0 then
+            fail("F12", N.tag .. ": a foe 'goes for' a hero, and none of the first rounds' attacks went their way")
+        end
+    end
+end)
+
+-- (The statue: the chat said "yes, but it's dangerous" to a rest in the gift shop.)
+local function play_night_simply(c, rng)
+    local night = c:start_night()
+    local lines = {}
+    local ev = night:advance()
+    local guard = 0
+    while ev.kind ~= "done" and guard < 6000 do
+        guard = guard + 1
+        local answer
+        if ev.text then
+            table.insert(lines, ev.text)
+        end
+        if ev.kind == "decision" then
+            answer = 1
+            if ev.card.options[1] and ev.card.options[1].disabled then
+                answer = 2
+            end
+        elseif ev.kind == "ruling" then
+            answer = 1
+        elseif ev.kind == "improv" then
+            answer = { 1 }
+        elseif ev.kind == "roll_where" then
+            answer = "open"
+        elseif ev.kind == "roll" then
+            answer = rng:d20()
+        end
+        ev = night:advance(answer)
+    end
+    c:finish_night()
+    return lines
+end
+case("F12", function()
+    local c, rng = new_campaign(91, "careful")
+    c:start_week()
+    play_night_simply(c, rng)
+    c:level_up()
+    adventure.answer_request(c, "long_rest", "danger")
+    c:start_week()
+    local said = false
+    for _, l in ipairs(play_night_simply(c, rng)) do
+        said = said or string.find(l, "a statue that wasn't there last night", 1, true) ~= nil
+    end
+    local m = require("game.model.maps").get(c, "mus_gift_shop")
+    local there = false
+    for _, pc in ipairs(m and m.props or {}) do
+        there = there or string.find(pc.kind, "^statue") ~= nil
+    end
+    if not (said and there) then
+        fail("F12", "the chat promised a statue at the foot of the stairs: said " .. tostring(said) .. ", on the board " .. tostring(there))
+    else
+        add("F12", "statue_kept")
     end
 end)
 

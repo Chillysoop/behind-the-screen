@@ -660,11 +660,13 @@ end
 -- Spotlight, never a negative modifier while someone good at it is here, and nobody past 40% of
 -- tonight's big rolls.
 function M:pick_roller(skill_list, sc, prefer)
-    local owed = self:take_owed("rolls")
+    local players = self:at_hand()
+    -- (A roll you promised someone waits while their hero's off elsewhere: F11.)
+    local owed_here = not self.owed or util.contains(players, find_present(self.players, self.owed.key) or false)
+    local owed = owed_here and self:take_owed("rolls") or nil
     if owed then
         return owed
     end
-    local players = self:at_hand()
     self.big_rolls = self.big_rolls or {}
     local total = 0
     for _, n in pairs(self.big_rolls) do
@@ -1955,6 +1957,13 @@ function M:stunt(sc)
                 roll = roll, bonus = mod, total = total, dc = dc, success = success, actor = p.key, char = p.char,
                 skill = st.skill, skill_name = name, crit = roll == 20, fumble = roll == 1 })
     self:say(util.capitalize(util.fill(success and st.win or st.lose, vars)), success and "good" or "bad")
+    -- A stunt that says who the foe goes for makes it so: drawing its fire taunts it (fight.lua),
+    -- for the first few rounds (F12: "goes for Brannoc", then it hit someone else).
+    if success and st.taunt then
+        sc.taunt = { key = p.key, rounds = 3 }
+    elseif not success and st.taunt_other and self.other then
+        sc.taunt = { key = self.other.key, rounds = 2 }
+    end
     if success then
         -- (A stunt that spots an ambush cancels it; otherwise the foes are the ones caught out.)
         if sc.surprise == "party" then

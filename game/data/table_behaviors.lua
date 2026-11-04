@@ -91,7 +91,8 @@ return {
     -- A quick check; a win gives the party the first move. {boss} and {Boss} are the fight's
     -- leader; {other_char} another hero. The id keeps which ones were said lately (campaign.stunts_said).
     stunts = {
-        { id = "draw_fire", skill = "intimidation", archetype = "butt_kicker", other = true, say = "Hey! Over here! Pick on someone your own size!",
+        { id = "draw_fire", skill = "intimidation", archetype = "butt_kicker", other = true, taunt = true, taunt_other = true,
+          say = "Hey! Over here! Pick on someone your own size!",
           win = "{Boss} forgets everyone else and goes for {char}, back wide open to the rest of the party.",
           lose = "{Boss} looks at {char}, looks at {other_char}, and picks {other_char}. Sorry." },
         { id = "hold_the_line", skill = "athletics", archetype = "butt_kicker", say = "Get behind me! I'll hold the line!",

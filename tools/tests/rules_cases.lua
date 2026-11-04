@@ -1439,6 +1439,34 @@ case("museum-commander", "The mech powers down when its commander drops", "Museu
         t:eq("powered down", m.powered_down and b:incapacitated(m), true)
     end)
 
+case("dm-target-shot", "Told who to go after, a monster that can't reach them shoots them", "game/rules/ai.lua",
+    "The DM's call (Everyone on the fighter, go for the wizard): out of reach but in range, it shoots that one, not whoever's nearest.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 5, 22)
+        local m = at(b, mon("bandit"), 5, 5)
+        m.side = "foes"
+        local targets = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m then
+                table.insert(targets, ev.tgt)
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", #targets > 0 and targets[1] == w, true)
+        t:eq("not the fighter beside it", (function()
+            for _, x in ipairs(targets) do
+                if x == f then
+                    return true
+                end
+            end
+            return false
+        end)(), false)
+    end)
+
 case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
     "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
     function(t)

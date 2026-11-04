@@ -619,9 +619,14 @@ local function monster_turn(b, c, plain)
     local in_reach = melee and approach(b, c, t, reach)
     if c.dead or c.down then return end
     if not in_reach then
-        -- Nothing in reach: shoot if possible, or Dash to close the gap.
+        -- Nothing in reach: shoot if possible, or Dash to close the gap. (The one the DM told it to
+        -- go for, if it can shoot them: not whoever's nearest. The second playtest review, F12.)
         local near = by_distance(b, c, enemies(b, c))[1]
-        if near and b:dist(c, near) <= reach and melee then
+        local told = c.dm_target
+        if ranged and told and not told.dead and not told.down and in_shot(b, c.x, c.y, told, ranged.range[2]) then
+            near = told
+        end
+        if near and near ~= told and b:dist(c, near) <= reach and melee then
             t, in_reach = near, true
         elseif ranged and near and in_shot(b, c.x, c.y, near, ranged.range[2]) then
             for _ = 1, count do

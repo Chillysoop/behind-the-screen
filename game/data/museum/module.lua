@@ -254,6 +254,7 @@ M.rooms = {
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
         callbacks = {
             { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
+            { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
         },
     },
     hunting = {
