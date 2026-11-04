@@ -811,6 +811,38 @@ function M.danger_line(bb, hero)
         .. hero.name .. " has " .. hp .. " hit points left."
 end
 
+-- What the "they run for it" call says, counting who's actually still standing (F3, the second
+-- playtest review): the boss alone, the boss and her last one or two, or the last of the rest; and
+-- whether she's really losing (at half her hit points or less) or just done with it.
+local NUMBER_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
+function M.flee_words(f, minions, standing)
+    local out = {}
+    local boss = f.boss and not f.boss.dead and not f.boss.removed and f.boss or nil
+    local name = f.boss_name or (boss and boss.name) or "their leader"
+    local Name = util.capitalize(name)
+    if standing <= 1 then
+        out.label = "It breaks and runs."
+        out.log = "The last one turns tail and runs."
+    else
+        out.label = "The enemies break and flee."
+        out.log = "The last " .. (NUMBER_WORDS[standing] or tostring(standing)) .. " turn tail and run."
+    end
+    local losing = boss and (boss.hp or 0) <= (boss.hp_max or 1) * 0.5
+    local why = losing and (Name .. " sees the fight turning, and runs.")
+        or (Name .. " has seen enough. She steps back into the smoke, and is gone.")
+    if minions == 0 then
+        out.boss_label = Name .. " runs for it. (She escapes, and that's how it ends.)"
+        out.boss_log = why
+        out.villain_label = Name .. " breaks and flees. (They get away.)"
+    else
+        local rest = minions == 1 and "Her last one goes with her." or "Her last " .. (NUMBER_WORDS[minions] or tostring(minions)) .. " go with her."
+        out.boss_label = "Everyone left on her side runs, " .. name .. " too. (She escapes, and that's how it ends.)"
+        out.boss_log = why .. " " .. rest
+        out.villain_label = "They break and flee, " .. name .. " too. (They get away.)"
+    end
+    return out
+end
+
 -- The DM's call on a moment the fight created. Returns the chosen option.
 local MAX_CARDS_PER_FIGHT = 3
 -- The nice-to-have calls wait for room under the night's decisions (B8: the boss's turn and the
@@ -1442,11 +1474,16 @@ function M.run(night, sc, plan)
             end
             local boss_alive = f.boss and not f.boss.dead and not f.boss.removed
             local adjust = { drop = { minions = minions == 0 or nil }, label = {}, log = {} }
+            -- (Who runs is who's still standing: "everyone on her side breaks and runs" was said with
+            -- all three of her minions dead, and "the fight turning" with her at 78 of 104. The second
+            -- playtest review.)
+            local M_ = M.flee_words(f, minions, alive_foes(bb))
+            adjust.label.flee, adjust.log.flee = M_.label, M_.log
             if sc.boss_style and boss_alive and not sc.extras_only then
-                adjust.label.flee = "Everyone on her side breaks and runs. (Euryale goes too: she escapes, and that's how it ends.)"
-                adjust.log.flee = "Euryale takes one look at the fight turning, and runs. The rest go with her."
+                adjust.label.flee = M_.boss_label
+                adjust.log.flee = M_.boss_log
             elseif boss_alive and f.boss.villain then
-                adjust.label.flee = "They break and flee, " .. (f.boss_name or "their leader") .. " too. (They get away.)"
+                adjust.label.flee = M_.villain_label
             end
             local o = moment(night, f, "dragging", { round = r }, nil, nil, adjust)
             if o and o.battle == "flee" then
@@ -1680,6 +1717,8 @@ function M.summary(b, f, result)
             table.insert(out.beaten, c.name)
         elseif c.removed then
             table.insert(out.ran, c.name)
+            out.ran_said = out.ran_said or {}
+            table.insert(out.ran_said, util.capitalize(require("game.model.barks").foe_label(c) or c.name))
         end
         if c == f.boss then
             out.boss = { name = c.name, state = c.dead and "beaten" or (c.removed and "gone") or "standing",

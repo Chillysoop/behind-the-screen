@@ -236,6 +236,112 @@ table.insert(night_end, function(R, N)
     end
 end)
 
+-- F3 (and F13's "sees the fight turning"): a call to run for it counts who's still standing.
+local WORDS = { one = 1, two = 2, three = 3, four = 4, five = 5, six = 6 }
+local function standing(night)
+    local alive, minions, boss = 0, 0, nil
+    for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
+        if c.side == "foes" and not c.dead and not c.removed then
+            alive = alive + 1
+            if c.boss then
+                boss = c
+            else
+                minions = minions + 1
+            end
+        end
+    end
+    return alive, minions, boss
+end
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    if ev.kind == "decision" and ev.card.id == "dragging_fight" then
+        local alive, minions, boss = standing(night)
+        add("F3", "run_for_it_calls")
+        for _, o in ipairs(ev.card.options or {}) do
+            local said = (o.label or "")
+            if string.find(said, "Everyone left on her side", 1, true) or string.find(said, "Everyone on her side", 1, true) then
+                add("F3", "her_side_runs")
+                if minions == 0 then
+                    fail("F3", N.tag .. ": '" .. said .. "' with nobody left on her side")
+                end
+            end
+            if string.find(said, "runs for it", 1, true) and minions > 0 then
+                fail("F3", N.tag .. ": '" .. said .. "' with " .. minions .. " still beside her")
+            end
+        end
+        N.flee_call = { alive = alive, minions = minions, boss = boss }
+    end
+    local text = ev.text
+    if text and (ev.kind == "narrate" or ev.kind == "say") then
+        local fc = N.flee_call
+        if fc and string.find(text, "goes with her", 1, true) and fc.minions ~= 1 then
+            fail("F3", N.tag .. ": '" .. text .. "' with " .. fc.minions .. " beside her")
+        end
+        if fc and string.find(text, "go with her", 1, true) and fc.minions < 2 then
+            fail("F3", N.tag .. ": '" .. text .. "' with " .. fc.minions .. " beside her")
+        end
+        local n = string.match(text, "^The last (%a+) turn tail")
+        if fc and n then
+            add("F3", "last_few_counted")
+            if WORDS[n] ~= fc.alive then
+                fail("F3", N.tag .. ": '" .. text .. "' with " .. fc.alive .. " standing")
+            end
+        end
+        if string.find(text, "The last few turn tail", 1, true) then
+            fail("F3", N.tag .. ": '" .. text .. "' (who's standing isn't counted)")
+        end
+        if fc and string.find(text, "The last one turns tail", 1, true) and fc.alive ~= 1 then
+            fail("F3", N.tag .. ": '" .. text .. "' with " .. fc.alive .. " standing")
+        end
+        if string.find(text, "sees the fight turning", 1, true) or string.find(text, "takes one look at the fight turning", 1, true) then
+            add("F13", "she_runs_when_losing")
+            local b = fc and fc.boss
+            if not b or (b.hp or 0) > (b.hp_max or 1) * 0.5 then
+                fail("F13", N.tag .. ": '" .. text .. "' with her at " .. tostring(b and b.hp) .. " of " .. tostring(b and b.hp_max))
+            end
+        end
+        if string.find(text, "The rest scatter", 1, true) then
+            add("F3", "rest_scatter")
+            local ran = #((night.scene and night.scene.foes_ran) or {})
+            if ran < 2 then
+                fail("F3", N.tag .. ": '" .. text .. "' when " .. ran .. " ran")
+            end
+        end
+        if string.find(text, "the rest might break", 1, true) then
+            local alive = standing(night)
+            add("F3", "morale_hint")
+            if alive < 2 then
+                fail("F3", N.tag .. ": '" .. text .. "' about the last one standing")
+            end
+        end
+    end
+    if ev.kind == "battle" and ev.phase == "end" then
+        N.flee_call = nil
+    end
+end)
+case("F3", function()
+    local fight = require "game.model.fight"
+    local boss = { name = "Euryale", hp = 80, hp_max = 104, boss = true }
+    local w = fight.flee_words({ boss = boss, boss_name = "Euryale" }, 0, 1)
+    if string.find(w.boss_label, "Everyone", 1, true) or string.find(w.boss_log, "rest", 1, true) then
+        fail("F3", "alone, she still has a side that runs: " .. w.boss_label .. " / " .. w.boss_log)
+    end
+    if string.find(w.boss_log, "turning", 1, true) then
+        fail("F13", "at 80 of 104 she 'sees the fight turning': " .. w.boss_log)
+    end
+    boss.hp = 30
+    w = fight.flee_words({ boss = boss, boss_name = "Euryale" }, 2, 3)
+    if not string.find(w.boss_log, "turning", 1, true) or not string.find(w.boss_log, "two", 1, true) then
+        fail("F3", "at 30 with two beside her: " .. w.boss_log)
+    end
+    w = fight.flee_words({}, 0, 1)
+    if w.log ~= "The last one turns tail and runs." then
+        fail("F3", "one left: " .. w.log)
+    end
+    add("F3", "unit_cases")
+    add("F13", "unit_cases")
+end)
+
 for _, style in ipairs(STYLES) do
     for run = 1, RUNS do
         local seed = 500 + run * 31

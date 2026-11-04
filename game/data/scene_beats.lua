@@ -95,6 +95,8 @@ return {
         party_win = { "The last one falls. Silence, then cheering.", "It's over. Everyone breathes out." },
         party_win_fled = { "The rest scatter and don't look back. The fight is theirs.",
                            "And they're gone, running hard. Nobody's chasing them. It's over." },
+        party_win_fled_one = { "{Tgt} is gone, running hard, and nobody's chasing. The fight is theirs.",
+                               "{Tgt} gets away, and that's the last of them. It's over." },
         party_win_surrender = { "Weapons down, hands up. It's over, and nobody else gets hurt.",
                                 "They give up. The fight is theirs, and everyone's still breathing." },
         party_lose = { "The party falls, one by one.", "Everything goes dark." },

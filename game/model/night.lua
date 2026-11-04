@@ -3471,8 +3471,19 @@ function M:combat_scene(sc)
         -- that had run for it, the combat audit, Nov 2.)
         -- (A boss who yielded already said so, in her own words: fight.lua's yield.)
         local how = (f and (f.fled or #sc.foes_ran > 0) and "party_win_fled") or "party_win"
+        -- (Only one ran: "the rest scatter" said over a boss who ran alone, the second playtest review.)
+        local v = self:vars()
+        if how == "party_win_fled" and #sc.foes_ran == 1 then
+            how = "party_win_fled_one"
+            for _, c in pairs(f and f.by_ref or {}) do
+                if c.side == "foes" and c.removed and not c.dead and c.removed_why ~= "yield" then
+                    v.tgt = require("game.model.barks").foe_label(c)
+                    v.Tgt = util.capitalize(v.tgt)
+                end
+            end
+        end
         if not (f and f.yielded) then
-            self:say(self.talk:fight(how, self:vars()), "good")
+            self:say(self.talk:fight(how, v), "good")
         end
         local poses = {}
         for _, p in ipairs(self.players) do

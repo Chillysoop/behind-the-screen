@@ -147,7 +147,7 @@ M.made = {
         },
         mara = {
             { "Round {round}. I'm keeping count, don't worry." },
-            { "If {foe} goes down, the rest might break. Just a thought.", when = "more_left" },
+            { "If {foe} goes down, the rest might break. Just a thought.", when = "rest_left" },
         },
         jess = {
             { "Is it weird that I kind of like {foe}?" },
