@@ -69,17 +69,6 @@ for _, c in ipairs(require("game.data.museum.cards").cards) do
     M.components[c.id] = c
 end
 
--- Cards made during a campaign (a way back for a fallen hero, game/model/death.lua) are
--- registered here so the board can look them up like any other card.
-function M.register(c)
-    c.tags = c.tags or {}
-    c.fits = c.fits or {}
-    c.meters = c.meters or {}
-    c.difficulty = c.difficulty or 0
-    M.components[c.id] = c
-    return c
-end
-
 -- Settings (real-session pass) ----------------------------------------------------------
 -- A location has settings (town, wild, indoor, ruin...); a card with "where" only happens
 -- at a location with at least one of them. Without a location yet, anything goes.

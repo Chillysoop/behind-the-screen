@@ -65,7 +65,7 @@ local function content_paths()
     local queue = {}
     for _, k in ipairs(sorted_keys(content)) do
         local v = content[k]
-        if type(v) == "table" and not paths[v] and not rawget(v, "runtime") then
+        if type(v) == "table" and not paths[v] then
             paths[v] = { k }
             table.insert(queue, v)
         end
@@ -77,9 +77,7 @@ local function content_paths()
         local base = paths[t]
         for _, k in ipairs(sorted_keys(t)) do
             local v = rawget(t, k)
-            -- Cards a campaign made for itself (rawget(v, "runtime")) aren't game data: the
-            -- campaign keeps them in campaign.registered and they're saved with it.
-            if type(v) == "table" and not paths[v] and not rawget(v, "runtime") then
+            if type(v) == "table" and not paths[v] then
                 local p = {}
                 for j = 1, #base do
                     p[j] = base[j]
@@ -371,9 +369,6 @@ function M.load(src)
     end
     if campaign.at_prep and not campaign.prep then
         campaign.at_prep = nil
-    end
-    for _, card in ipairs(campaign.registered or {}) do
-        content.register(card)
     end
     -- A save from before November 4 kept the stunts said lately by their place in a longer list
     -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.
