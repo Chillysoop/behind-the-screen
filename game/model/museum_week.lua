@@ -363,7 +363,7 @@ function M.night_lines(c, night)
     local adv = c.adv
     for key, wk in util.sorted_pairs(adv.hook_paid or {}) do
         if wk == week then
-            put(key, { "{char} finally found what they came for. emotional", "ok {char}'s whole reason for coming paid off and i'm thrilled" })
+            put(key, { "{char} finally found what {char_they} came for. emotional", "ok {char}'s whole reason for coming paid off and i'm thrilled" })
         end
     end
     return out

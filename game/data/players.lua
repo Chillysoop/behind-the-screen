@@ -4,6 +4,8 @@
 -- notes: what the DM learned at Session Zero; shown on the prep board.
 -- thread, intro, premise, gist: what their hero is here for and who they are, in a phrase, a
 --         sentence and a few words. An adventure gives its own (MODULE.heroes, adventure.enter).
+-- pronouns: the hero's own ("she", "he" or "they"): lines that name one hero say {actor_their} and
+--         the like (util.fill), never "they" for one hero (D6).
 
 return {
     order = { "mara", "dev", "jess", "sam" },
@@ -11,6 +13,7 @@ return {
     mara = {
         name = "Mara",
         char = "Thessaly",
+        pronouns = "she",       -- (the hero's own: D6, Conner's pick, as their player's)
         class = "wizard",
         class_name = "Wizard",
         primary = "storyteller",
@@ -28,6 +31,7 @@ return {
     dev = {
         name = "Dev",
         char = "Brannoc",
+        pronouns = "he",       -- (the hero's own: D6, Conner's pick, as their player's)
         class = "fighter",
         class_name = "Fighter",
         primary = "butt_kicker",
@@ -45,6 +49,7 @@ return {
     jess = {
         name = "Jess",
         char = "Pip",
+        pronouns = "she",       -- (the hero's own: D6, Conner's pick, as their player's)
         class = "rogue",
         class_name = "Rogue",
         primary = "method_actor",
@@ -62,6 +67,7 @@ return {
     sam = {
         name = "Sam",
         char = "Oswin",
+        pronouns = "he",       -- (the hero's own: D6, Conner's pick, as their player's)
         class = "cleric",
         class_name = "Cleric",
         primary = "casual",

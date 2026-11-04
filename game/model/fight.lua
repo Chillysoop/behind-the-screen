@@ -707,7 +707,7 @@ end
 -- turn of theirs that goes by charmed and idle gets a caption, the first one saying why. Called after
 -- every turn, even one with nothing in it.
 M.CHARMED_AGAIN = { "{char} is still under {charmer}'s spell, and lets the turn go by.",
-                    "{char} can't bring themselves to raise a hand against {charmer}. Another turn goes by." }
+                    "{char} can't bring {char_themselves} to raise a hand against {charmer}. Another turn goes by." }
 function M.charmed_turn(night, f, who, steps)
     if not (who and who.pc and not who.dead and not who.down) then
         return
@@ -770,12 +770,12 @@ local function react(night, f, steps, who)
             -- petrified moment; shaking it off had none.)
             local c = f.by_ref[s.id]
             if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
-                night:say(c.name .. " shakes it off: the grey drains out of their legs, and they can move again.", "good")
+                night:say(util.fill("{char} shakes it off: the grey drains out of {char_their} legs, and {char_they} can move again.", { char = c.name }), "good")
             end
         elseif s.kind == "feature" and s.museum == "petrified" then
             local c = f.by_ref[s.id]
             if c and c.pc then
-                night:say(c.name .. " is stone now, mid-step. Only Euryale falling will bring them back.", "bad")
+                night:say(util.fill("{char} is stone now, mid-step. Only Euryale falling will bring {char_them} back.", { char = c.name }), "bad")
             end
         end
     end
@@ -894,7 +894,7 @@ function M.danger_line(bb, hero)
     end
     local hp = util.int(math.max(0, hero.hp or 0))
     if hero.down or (hero.hp or 0) <= 0 then
-        return hero.name .. " is down already: every hit on them counts as a failed death save."
+        return util.fill("{char} is down already: every hit on {char_them} counts as a failed death save.", { char = hero.name })
     end
     if together >= (hero.hp or 0) then
         return "Careful: if they all go for " .. hero.name .. " and hit, that's about " .. util.int(together)
@@ -968,6 +968,10 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
                     end
                     oc.label = lab
                     oc.log = (adjust.log and adjust.log[o.battle]) or oc.log
+                    -- (What it costs, said on the card: R5, the boss who gets away.)
+                    oc.sub = (adjust.sub and adjust.sub[o.battle]) or oc.sub
+                    oc.cost = (adjust.cost and adjust.cost[o.battle]) or oc.cost
+                    oc.sub_tone = oc.cost and "orange" or oc.sub_tone
                     table.insert(copy.options, oc)
                 else
                     table.insert(copy.options, o)
@@ -987,6 +991,10 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         return nil
     end
     if OPTIONAL_CAP[trigger] and not night:room(OPTIONAL_CAP[trigger]) and night:idle() < 90 then
+        return nil
+    end
+    -- (The first night's fights play themselves, but for a hero's last save: R6.)
+    if night.gentle and trigger ~= "last_save" then
         return nil
     end
     f.cards = f.cards + 1
@@ -1486,7 +1494,7 @@ function M.run(night, sc, plan)
                         ready_for_battle(c)
                         local sq = edge[i] or { 1, i }
                         bb:join(c, sq[1], sq[2])
-                        night:say(c.name .. " comes running back. Cut to the fight: they're in it now.", "dm")
+                        night:say(util.fill("{char} comes running back. Cut to the fight: {char_they're} in it now.", { char = c.name }), "dm")
                     end
                 end
                 f.away = {}
@@ -1644,6 +1652,11 @@ function M.run(night, sc, plan)
             if sc.boss_style and boss_alive and not sc.extras_only then
                 adjust.label.flee = M_.boss_label
                 adjust.log.flee = M_.boss_log
+                -- Letting her run costs half the reward (R5, D2): the card says so, as the board did.
+                local _, esc_sub = util.lazy("game.model.adventure").escape_cost(night.campaign)
+                if esc_sub then
+                    adjust.sub, adjust.cost = { flee = esc_sub }, { flee = "escape" }
+                end
             elseif boss_alive and f.boss.villain then
                 adjust.label.flee = M_.villain_label
             end

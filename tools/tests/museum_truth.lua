@@ -356,6 +356,14 @@ local function play(seed, style)
                         end
                     end
                 end
+                -- (Flitwidget's reward is what the state says: half when she got away. R5.)
+                local paid = tonumber(string.match(text, "^They earn (%d+) gold each") or "")
+                if paid then
+                    local want = adventure.reward_gold(c)
+                    if paid ~= want or (c.adv.ending == "escape" and paid > (c.adv.gold or adventure.REWARD) / 2 + 0.5) then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "' with the ending " .. tostring(c.adv.ending) .. " (the reward is " .. want .. ")")
+                    end
+                end
                 local back_to = string.match(text, "a walk back up to (.-), where they stopped")
                 if back_to then
                     local want = stopped_in == "stairs" and "the top of the stairs"

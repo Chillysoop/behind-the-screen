@@ -34,7 +34,7 @@ return {
         climax = { text = "{actor_char} makes the big pitch to {cast}.", dc = 12, prefer = { "rogue", "cleric" },
                    skill = { "persuasion", "deception", "intimidation" }, cast = true,
                    variants = { { text = "{actor_char} stands up and makes the case to the whole room.", where = { "crowd" } },
-                                { text = "{actor_char} makes the case for what they came here to do." } },
+                                { text = "{actor_char} makes the case for what the party came here to do." } },
                    success = { log = "A long pause. Then a slow nod. They have a deal.",
                                effects = { { "actor", spotlight = 10 }, { "all", social = 6, story = 4 } } },
                    fail = { log = "It falls flat. The room goes cold.",

@@ -549,6 +549,30 @@ function M.favor(campaign, who)
 end
 
 -- How easy Euryale is to talk round: the marks that make her curious, minus the ones that anger her.
+-- Flitwidget's reward, gold each (the book's thirty, or what they talked him up to), and what getting
+-- away costs (R5: half, for a Gorgon who's out but not beaten: MODULE.showdown.escape). full: the
+-- reward before that.
+M.REWARD = 30
+function M.reward_gold(campaign, ending)
+    local st = campaign.adv or {}
+    local full = st.gold or M.REWARD
+    local esc = MODULE.showdown and MODULE.showdown.escape
+    if esc and (ending or st.ending) == "escape" then
+        return math.floor(full * esc.share + 0.5), full
+    end
+    return full, full
+end
+
+-- The escape's cost in words, for the boss board and the cards that let her go.
+function M.escape_cost(campaign)
+    local esc = MODULE.showdown and MODULE.showdown.escape
+    if not esc then
+        return nil
+    end
+    local half, full = M.reward_gold(campaign, "escape")
+    return util.fill(esc.board, { half = util.int(half), full = util.int(full) }), esc.sub
+end
+
 function M.talk_score(campaign)
     local n = 0
     for id in pairs(campaign.adv.marks) do

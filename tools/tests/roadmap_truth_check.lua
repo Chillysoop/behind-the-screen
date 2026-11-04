@@ -974,6 +974,9 @@ table.insert(after_pick, function(R, N, ev, o)
             N.scar = { key = night.actor and night.actor.key, round = night.battle and night.battle.round,
                        who = night.battle and night.battle.active }
             add("F12", "scars")
+        elseif ev.card.id == "boss_turn" then
+            local b = night.battle and night.battle.active
+            N.dm_ran = { round = night.battle and night.battle.round, who = b and b.mini }
         elseif ev.card.id == "tactics" then
             local who = string.match(o.label or "", "^Everyone on (%a+)%.") or string.match(o.label or "", "^Go for (%a+) in the back")
             N.focus = who and char_key(c, who)
@@ -1002,7 +1005,9 @@ table.insert(watchers, function(R, N, ev)
         N.scar = nil
         local focus = N.focus
         local fb = focus and night.pcs and night.pcs[focus]
-        if focus and fb and not fb.down and not fb.dead and ev.side == "foes" then
+        -- (A turn the DM ran themselves, the boss's turn card, goes where they said on it: fight.lua.)
+        local ran = N.dm_ran and night.battle and N.dm_ran.round == night.battle.round and N.dm_ran.who == ev.who
+        if focus and fb and not fb.down and not fb.dead and ev.side == "foes" and not ran then
             for _, st in ipairs(ev.steps or {}) do
                 if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
                     -- (Blocked, a melee foe hits the one in its way: it can't shove past everyone.
@@ -1027,8 +1032,17 @@ table.insert(watchers, function(R, N, ev)
         local tk = N.taunt_on
         local tb = tk and night.pcs and night.pcs[tk]
         if tk and tb and not tb.down and not tb.dead and ev.side == "foes" and night.battle and (night.battle.round or 1) <= 2 then
+            -- (The foe that was stared down: another foe's swing at someone else breaks no promise.
+            -- Wave 2: the second playtest's choices brought a fight where only a briar beast swung.)
+            local me
+            for _, cr in ipairs(night.battle.creatures or {}) do
+                if cr.mini == ev.who then
+                    me = cr
+                end
+            end
+            local taunted = me and night.battle.find_effect and night.battle:find_effect(me, "Taunted")
             for _, st in ipairs(ev.steps or {}) do
-                if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
+                if taunted and st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
                     N.taunt_hits = (N.taunt_hits or 0) + (st.target == tk and 1 or 0)
                     N.taunt_all = (N.taunt_all or 0) + 1
                 end

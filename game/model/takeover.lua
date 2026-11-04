@@ -397,14 +397,15 @@ function M.boss_turn(night, f, b, c)
     local opts = {}
     -- Say only what's true (playtest, October 13: "who's been hurting it most" before anyone had
     -- touched it, and "barely standing" at full hit points).
-    local why_threat = (hurt[threat] or 0) > 0 and ", who's been hurting it most" or ", the biggest threat on their feet"
+    local why_threat = (hurt[threat] or 0) > 0 and ", who's been hurting it most"
+        or util.fill(", the biggest threat on {char_their} feet", { char = threat.name })
     table.insert(opts, { label = "Go for " .. threat.name .. why_threat .. "." .. attack_words(c),
                          effects = data.BOSS.clever, target = threat, kind = "clever", who = threat_p })
     local frac = weakest and weakest.hp / math.max(1, weakest.hp_max) or 1
     local how_weak = (frac <= 0.34 and ", who's barely standing") or (frac < 1 and ", who's already hurt")
         or ", who has the fewest hit points"
     if threat ~= cruel then
-        table.insert(opts, { label = downed and ("Stand over " .. downed.name .. " and strike while they're down.")
+        table.insert(opts, { label = downed and util.fill("Stand over {char} and strike while {char_they're} down.", { char = downed.name })
                                  or ("Go after " .. weakest.name .. how_weak .. "."),
                              effects = downed and data.BOSS.finish or data.BOSS.cruel, target = cruel, kind = "cruel", who = cruel_p })
     end
@@ -439,7 +440,7 @@ function M.boss_turn(night, f, b, c)
         end
         danger = "One turn of its attacks does about " .. util.int(per) .. " damage when they all hit. " .. who
         if downed then
-            danger = danger .. " A hit on " .. downed.name .. " while they're down counts as a failed death save."
+            danger = danger .. util.fill(" A hit on {char} while {char_they're} down counts as a failed death save.", { char = downed.name })
         end
     end
     night.actor = threat_p or night.actor

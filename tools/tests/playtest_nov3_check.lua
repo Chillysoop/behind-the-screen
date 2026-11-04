@@ -180,7 +180,8 @@ local function play(seed, style)
                     -- (The morning's buffs go up after a long rest: Mage Armor and Aid, a slot each.)
                     local pc = night.pcs and night.pcs[p.key]
                     local buffs = pc and (((pc.mage_armor and 1) or 0) + ((pc.aid_caster and 1) or 0)) or 0
-                    for id, cm in pairs(r) do
+                    -- (A hero who died doesn't rest: their player plays on, wave 2's first night saw one.)
+                    for id, cm in pairs((pc and pc.dead) and {} or r) do
                         if ev.long then
                             add(7, "long_rest_checks")
                             if cm[1] < cm[2] - (id == "slots" and buffs or 0) then

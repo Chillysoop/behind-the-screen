@@ -187,7 +187,7 @@ return {
             "At the museum doors, Oswin stops everyone so he can say his little prayer for doors.",
             "Brannoc waits. Politely. With one boot already raised." } },
         { kind = "cantrip", who = "mara", lines = {
-            "Thessaly casts Light on a pebble and rolls it ahead of them, under the hedges where the shadows are thickest.",
+            "Thessaly casts Light on a pebble and rolls it ahead of the party, under the hedges where the shadows are thickest.",
             "Pip names the pebble Sir Glowsalot. It is now a member of the party." } },
         { kind = "pocket", who = "jess", lines = {
             "Pip pockets a chunk of fallen sandstone off the path. \"Souvenir.\"",
@@ -327,7 +327,7 @@ return {
       },
       table_bits = {
         { kind = "banter", who = "mara", lines = {
-            "Thessaly does sums on the back of her hand in ink, crosses them out, and does them again.",
+            "Thessaly does sums on the back of her hand in ink, crosses it all out, and does it again.",
             "Oswin watches over her shoulder and nods along like he's following. He is not following." } },
         { kind = "snack", who = "dev", lines = {
             "Brannoc offers round his trail mix. It's mostly raisins. He's already eaten the good bits.",
@@ -768,7 +768,7 @@ return {
 
     -- The stairs up (the book has almost nothing here: all ours) --------------------------------
     stairs = {
-      scare = { "A loose step gives under {char}, and they grab the banister just in time. A scraped knee and a racing heart." },
+      scare = { "A loose step gives under {char}, and {char_they} grabs the banister just in time. A scraped knee and a racing heart." },
       curios = {
         { id = "stairs_scrapes", what = "the scrapes along the stair wall", spot = nil,
           skill = "perception", who = { "tactician", "casual" },

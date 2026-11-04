@@ -210,9 +210,9 @@ M.walk_captions = {
 
 -- A charmed hero with no one they're willing to hit (the playtest: one who looks idle).
 M.charmed_captions = {
-    "{char} lowers their weapon. {Charmer} is a friend now, as far as {char} knows.",
+    "{char} lowers {char_their} weapon. {Charmer} is a friend now, as far as {char} knows.",
     "{char} is charmed: {charmer} seems far too nice to hurt.",
-    "{char} hesitates. Whatever {charmer} did, {char} won't raise a hand against them.",
+    "{char} hesitates. Whatever {charmer} did, {char} won't fight back.",
 }
 
 return M

@@ -56,16 +56,16 @@ return {
           line = "{actor_char} 'just happens' to check exactly where the secret is hidden." },
         { id = "answer_for_them", when = "social", needs = "cast", severity = 1, tags = { "selfish" }, target = true, feeds = "spotlight",
           doers = { method_actor = 2, instigator = 1 }, objects = { casual = 1, tactician = 1 },
-          line = "{actor_char} answers for {target_char} when {cast} asks them a question." },
+          line = "{actor_char} answers for {target_char} when {cast} asks {target_them} a question." },
     },
 
     bonds = {
         -- (needs_fight / needs_close: what has to have happened in the fight, game/model/fight.lua
         -- record. The second playtest review heard these lines when nothing like them had.)
         { id = "shield_over", when = "fight", class = "fighter", rapport = 4, needs_close = true,
-          line = "{actor_char} plants themselves in front of {target_char} and won't let anything near them." },
+          line = "{actor_char} plants {actor_themselves} in front of {target_char} and won't let anything near {target_them}." },
         { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5, needs_fight = "saves",
-          line = "{actor_char}'s prayer catches {target_char} a heartbeat before they drop." },
+          line = "{actor_char}'s prayer catches {target_char} a heartbeat before {target_they} drops." },
         { id = "combo", when = "fight", rapport = 4, needs_fight = "combos",
           line = "{actor_char} and {target_char} pulled off a move together in that fight that neither could have alone. The table's still talking about it." },
         { id = "share_the_loot", when = "loot", rapport = 4,
@@ -75,7 +75,7 @@ return {
         { id = "plan_and_timing", when = "explore", rapport = 3,
           line = "{actor_char}'s plan, {target_char}'s timing: it works perfectly, and they both know it." },
         { id = "make_amends", when = "any", rapport = 6, amends = true,
-          line = "{actor_char} quietly gives back what they took, polished, with a bad drawing as an apology." },
+          line = "{actor_char} quietly gives back what {actor_they} took, polished, with a bad drawing as an apology." },
     },
 
     responses = {
@@ -98,7 +98,7 @@ return {
 
     jabs = {
         "{char} gives {doer_char} a long, flat look.",
-        "{char} mutters something about {doer_char} that isn't quite under their breath.",
+        "{char} mutters something about {doer_char} that isn't quite under {char_their} breath.",
         "{char}'s mini moves a square further away from {doer_char}'s.",
     },
 }

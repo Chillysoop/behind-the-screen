@@ -118,6 +118,10 @@ function M.think(night, p, need, opts)
     end
     local th = state(night)
     local glow = need == "glow"
+    -- (The first night has one thought, happy or not: R6. night.gentle, game/model/night.lua.)
+    if night.gentle and th.n + th.glows >= 1 then
+        return nil
+    end
     if glow then
         if th.glows >= M.GLOW_CAP then
             return nil

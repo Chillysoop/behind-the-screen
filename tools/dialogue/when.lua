@@ -38,7 +38,12 @@ local function plain(s)
     s = string.gsub(s, "%%f%[%%[%a]%]", "")
     s = string.gsub(s, "%%(%p)", "%1")
     s = string.gsub(s, "{([%w_]+)|[%w_]+}", "%1")
-    s = string.gsub(s, "{([%w_]+)}", function(k)
+    s = string.gsub(s, "{([%w_']+)}", function(k)
+        -- (A hero's own pronouns, {actor_their} and the like: shown as the word. D6, util.fill.)
+        local who, word = string.match(k, "^(%a+)_(the[%a']+)$")
+        if who and not FILL[k] then
+            return (string.match(who, "^%u") and (string.upper(string.sub(word, 1, 1)) .. string.sub(word, 2))) or word
+        end
         return FILL[k] or "…"
     end)
     s = string.gsub(s, "^[\"']+", "")

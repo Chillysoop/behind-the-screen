@@ -1041,6 +1041,13 @@ local function showdown(app, prep, x, y, w)
         end
     end
     choice("HOW FAR SHE'LL GO", "style", MODULE.showdown.styles, { "yields", "last" })
+    -- What letting her get away costs (R5, D2): on the board before the night, as on the cards that
+    -- let her go.
+    local cost = adventure.escape_cost(c)
+    if cost then
+        kit.text(x, y - 4, "IF SHE GETS AWAY", "ui14", theme.dim)
+        kit.text(x + 220, y - 4, cost, "ui14", theme.orange, { w = w - 220, lines = 3 })
+    end
 end
 
 -- The board --------------------------------------------------------------------------------------

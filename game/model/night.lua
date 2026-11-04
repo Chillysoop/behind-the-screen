@@ -124,6 +124,11 @@ function M.new(campaign, prep, opts)
     self.clock = 0
     self.counts = { decision = 0, ruling = 0 }
     self.fights = 0
+    -- A gentler first night (R6, the round-two review: "night 1 hands a newcomer most systems at
+    -- once"): on an adventure's first night the DM gets the story's own calls, one big roll to rule on,
+    -- one thought and one rules call, each with its tip; the fight's calls, the finds behind the
+    -- screen, the table asking you and the rest wait for next week. Off once the tips are off.
+    self.gentle = campaign.adv ~= nil and (campaign.week or 1) <= 1 and not (campaign.guide and campaign.guide.off) or nil
     -- "Every roll in the open" at Session Zero covers the DM's own combat rolls too.
     local open_table = campaign.table and campaign.table.rules.dice == "open"
     self.dm_rolls = opts.dm_rolls or campaign.dm_rolls or (open_table and "open") or "hidden"
@@ -270,6 +275,9 @@ end
 -- Room for one more optional call under this cap? Before the last scene, two calls are kept
 -- back for it: a last scene with nothing for the DM to decide runs long.
 function M:room(cap)
+    if self.gentle then
+        return false        -- (the first night's optional calls wait for next week: R6)
+    end
     local last = self.scenes[#self.scenes]
     local reserve = (last and self.scene ~= last) and 2 or 0
     return self:decision_count() < cap - reserve
@@ -2134,7 +2142,7 @@ function M:offer_inspiration(p, why)
     self.actor = p
     local card = { id = "inspire_offer", type = "table", trigger = "museum_fixed", fixed_actor = true,
                    title = "Heroic Inspiration?",
-                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever they need it. "
+                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever {actor_they} needs it. "
                        .. "You can also give it any time from their tile.",
                    options = {
                        { label = "Yes: flick {actor_char} the token.", inspire = true,
@@ -2415,6 +2423,7 @@ function M:pick_decision(sc, kinds)
             and (not d.needs_class or self:by_class(d.needs_class))
             and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
             and (not d.needs or self:headache_ok(d.needs, sc))
+            and (not self.gentle or (d.type == "rules" and not self.gentle_rules))   -- (night 1: one rules call, R6)
             and d.type ~= "story" and d.type ~= "screen" then   -- (the rooms bring their own)
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
@@ -2432,7 +2441,11 @@ function M:pick_decision(sc, kinds)
     if #eligible == 0 then
         return nil
     end
-    return self.rng:weighted(eligible, weights)
+    local d = self.rng:weighted(eligible, weights)
+    if self.gentle and d and d.type == "rules" then
+        self.gentle_rules = true
+    end
+    return d
 end
 
 -- Big rolls and rulings -----------------------------------------------------------------------
@@ -2554,6 +2567,14 @@ function M:big_roll(spec, record)
     if spec.secret then
         -- (The card already said "behind the screen": no asking where to roll it.)
         where = "hidden"
+    elseif self.gentle and self.gentle_rolled then
+        -- (The first night rules on one big roll: the rest land as the dice say, out in the open. R6.)
+        if not self.gentle_said then
+            self.gentle_said = true
+            self:say("From here tonight, the big rolls land as the dice say, out in the open. From next week, how each one lands is your call too.",
+                "system")
+        end
+        where = "open"
     elseif self:decision_count() >= 15 then
         if not self.calls_out_said then
             self.calls_out_said = true
@@ -2575,7 +2596,7 @@ function M:big_roll(spec, record)
     if own_dc and by == "player" then
         own_dc = util.clamp(own_dc, 2, 30)
         local diff = own_dc - dc
-        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what they need.",
+        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what {actor_they} needs.",
             self:vars()), "dm")
         -- (Much easier than the book's: the ones here for a challenge feel it. Much harder: everyone does.)
         if diff <= -4 then
@@ -2674,11 +2695,14 @@ function M:big_roll(spec, record)
         }
     end
     local pick
-    if self:decision_count() >= 15 and not inspire_at then
-        -- Out of calls for the night (the 8-to-15 budget): the die decides, plainly, with no card.
+    if (self:decision_count() >= 15 and not inspire_at) or (self.gentle and self.gentle_rolled) then
+        -- Out of calls for the night (the 8-to-15 budget), or past the first night's one roll to rule
+        -- on: the die decides, plainly, with no card.
         pick = 1
+        inspire_at = nil
         self.auto_rulings = (self.auto_rulings or 0) + 1
     else
+        self.gentle_rolled = self.gentle and true or nil
         pick = self:emit({ kind = "ruling", tier = tier, prompt = rule.prompt, value = value, total = total,
                            mod = mod, dc = dc, options = opts, where = where, by = by, success = success,
                            cook = cook_offer, cooks = self.cooks,
@@ -3057,7 +3081,7 @@ function M:decision(card, extra)
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
                             leans = self:leans(o.preview or o.effects), promise = keeps or nil,
                             sub = (o.kb == "actor" and kb_note) or o.sub, sub_tone = o.sub_tone,
-                            disabled = o.disabled }
+                            disabled = o.disabled, cost = o.cost }
     end
     view.who = card.who
     view.intermission = card.intermission       -- (the break: night_view draws the table getting up)
@@ -3889,12 +3913,12 @@ end
 local READY = {
     rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening.",
               "{actor_char} slips sideways, out of the light." },
-    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others.",
+    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants {actor_their} feet between it and the others.",
                 "{actor_char} rolls a shoulder and moves to the front." },
-    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast.",
+    wizard = { "{actor_char} has a spell on {actor_their} lips before anyone else moves.", "{actor_char} reads the room, fast.",
                "{actor_char} counts the exits, then the enemies." },
     cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out.",
-               "{actor_char} grips their holy symbol and stands their ground." },
+               "{actor_char} grips {actor_their} holy symbol and stands {actor_their} ground." },
 }
 local REACTED = {
     success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes.",
@@ -3913,7 +3937,7 @@ M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It
 M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
                  "And that's a wrap. Somebody's already clearing the pizza boxes.", "Lights up. Someone stacks the character sheets." }
 M.FRANC_LINES = { "Better than they hoped: a Flitwidget Franc pops into {char}'s pocket.",
-                  "Better than they hoped: {char} finds a Flitwidget Franc they're sure wasn't there a moment ago.",
+                  "Better than hoped: {char} finds a Flitwidget Franc {char_they're} sure wasn't there a moment ago.",
                   "Better than they hoped: there's a crisp Flitwidget Franc in {char}'s hand. The gnome's face winks on it.",
                   "Better than they hoped: a Flitwidget Franc flutters down out of nowhere into {char}'s palm." }
 
@@ -4470,8 +4494,8 @@ function M:scout(sc)
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "perception", "insight" },
                    quiet = true,     -- (spotting them first isn't a recap beat)
-                   -- (Drawn when it's said, not both before the roll: a line drawn and never heard
-                   -- doesn't stand between two that are, so the table never hears one twice running.)
+                   -- (The line is picked once it's said: one picked and never said still counted as
+                   -- the last one, so the next could repeat what the table last heard.)
                    success = { fresh = { REACTED.success, "react_yes" },
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
                    fail = { fresh = { REACTED.fail, "react_no" },

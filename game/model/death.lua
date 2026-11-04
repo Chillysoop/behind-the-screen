@@ -221,7 +221,7 @@ function M.after_fall(night, p)
     end
     local card = { id = "fallen_seat", type = "table", trigger = "museum_fixed", fixed_actor = true,
                    title = "{actor} is still at the table",
-                   text = "{actor_char} is gone, but {actor} isn't going anywhere. What do they do for the rest of the night?",
+                   text = "{actor_char} is gone, but {actor} isn't going anywhere. What does {actor} do for the rest of the night?",
                    options = {} }
     if ally then
         table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.", sub = ally.name .. " is in every fight; {actor} runs them.",
