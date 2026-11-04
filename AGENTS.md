@@ -57,8 +57,8 @@ Where v2 lives:
 
 | Path | What it holds |
 | --- | --- |
-| `game/data/` | All content as plain data: players, cards, scenes, dialogue, seeds, arcs. Safe to tune. |
-| `game/model/` | The simulation, engine-free: prep, game night, the friends, the story deck, storylines, saves. |
+| `game/data/` | All content as plain data: players, the adventure's rooms and cards, scenes, dialogue. Safe to tune. |
+| `game/model/` | The simulation, engine-free: prep, game night, the friends, the adventure, saves. |
 | `game/rules/` | The SRD 5.2.1 rules engine, engine-free: dice, creatures, battles, spells, encounters. |
 | `game/ui/` | The screens, drawn from GUI nodes through `game/ui/kit.lua`. `game/game.gui_script` ties them together. |
 | `main/`, `render/`, `materials/`, `assets/` | The 3D table scene. Much of it is generated; see "Generated files". |
