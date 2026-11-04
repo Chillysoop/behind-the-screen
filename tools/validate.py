@@ -10,7 +10,8 @@ Checks:
   * require() targets exist
   * scripts only address game objects that are in main.collection
   * every sprite animation the game plays by name is in sprites.atlas:
-    sprite defaults, minis for classes, monsters and NPCs, and every player pose
+    sprite defaults, minis for classes, monsters and NPCs, and every player pose;
+    the museum's monsters' and people's minis have a portrait too (mini_<name>)
   * every factory prototype exists and every component the table spawns is declared
 """
 import os
@@ -176,6 +177,17 @@ played |= lua_table_strings(nv, "local CLASS_SPRITE")
 played |= lua_table_strings(nv, "local CAST_SPRITE")
 played |= lua_table_strings(nv, "local MONSTER_SPRITES")
 played |= {"goblin_spear", "goblin_club", "bandit", "npc_stranger"}
+# The museum's minis: its monsters (MUSEUM_SPRITE), its people (CAST_SPRITE) and their sheets
+# (the module's `sprite` fields). The screens show them as portraits as well (the sheets, the
+# cards, the turn order), so each needs mini_<name> in portraits.atlas.
+museum_minis = lua_table_strings(nv, "local MUSEUM_SPRITE") | lua_table_strings(nv, "local CAST_SPRITE")
+museum_minis |= set(re.findall(r'\bsprite = "([a-z0-9_]+)"', open(os.path.join(ROOT, "game/data/museum/module.lua")).read()))
+played |= museum_minis
+portraits = set(re.findall(r'/assets/portraits/([A-Za-z0-9_]+)\.png',
+                           open(os.path.join(ROOT, "assets/portraits/portraits.atlas")).read()))
+for a in sorted(museum_minis | {"npc_stranger"}):
+    if "mini_" + a not in portraits:
+        errors.append(f"the museum's mini {a} has no portrait (mini_{a} in portraits.atlas: tools/gen_portraits.py)")
 played |= set(re.findall(r'sprite = "([a-z0-9_]+)"', open(os.path.join(ROOT, "main/table/table.script")).read()))
 scene_src = open(os.path.join(ROOT, "main/scene_data.lua")).read()
 heads = re.findall(r"^\s+([a-z]+) = vmath\.vector3", scene_src.split("heads = {")[1].split("}")[0], flags=re.M)

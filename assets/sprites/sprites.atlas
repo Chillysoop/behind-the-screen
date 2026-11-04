@@ -65,9 +65,6 @@ images {
   image: "/assets/sprites/npc_hermit.png"
 }
 images {
-  image: "/assets/sprites/npc_sable.png"
-}
-images {
   image: "/assets/sprites/npc_ghost.png"
 }
 images {
@@ -144,6 +141,18 @@ images {
 }
 images {
   image: "/assets/sprites/npc_rosin.png"
+}
+images {
+  image: "/assets/sprites/euryale.png"
+}
+images {
+  image: "/assets/sprites/knight_of_shades.png"
+}
+images {
+  image: "/assets/sprites/sentinel.png"
+}
+images {
+  image: "/assets/sprites/giant_scarab_swarm.png"
 }
 images {
   image: "/assets/sprites/dev.png"

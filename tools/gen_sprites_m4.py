@@ -429,29 +429,6 @@ def npc_hermit():
     finish(img, "npc_hermit", 123)
 
 
-def npc_sable():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#f0d0b8"
-    d.polygon([(200, 330), (312, 330), (376, 600), (136, 600)], fill=C("#5a2a6a"))
-    d.polygon([(232, 340), (280, 340), (300, 600), (212, 600)], fill=C("#7a3a8a"))
-    d.rectangle([196, 400, 316, 414], fill=C("#d9b24c"))
-    gs.limb(d, (204, 360), (176, 440), 30, C("#5a2a6a"))
-    hand(d, (172, 446), skin)
-    gs.limb(d, (308, 360), (340, 420), 30, C("#5a2a6a"))
-    d.rounded_rectangle([320, 380, 400, 470], 6, fill=C("#3a2a20"))
-    d.rectangle([328, 390, 392, 460], fill=C("#efe4cc"))
-    for y in range(398, 456, 10):
-        d.line([(334, y), (386, y)], fill=C("#8a7a6a"), width=2)
-    head(d, skin, cy=252, rx=66, ry=70)
-    face(d, 256, 248, "sly", sep=28)
-    d.ellipse([140, 170, 372, 220], fill=C("#2a1a30"))
-    d.polygon([(200, 196), (312, 196), (300, 140), (212, 140)], fill=C("#2a1a30"))
-    d.polygon([(300, 150), (392, 120), (380, 150), (310, 170)], fill=C("#d94a6a"))
-    d.ellipse([306, 196, 340, 310], fill=C("#1a1014"))
-    finish(img, "npc_sable", 124)
-
-
 def npc_ghost():
     gs = _sp()
     img, d = canvas()
@@ -593,7 +570,7 @@ def briar(name, seed, shape):
 
 MONSTERS = ["goblin_boss", "bandit", "bandit_captain", "cultist", "tough", "wolf", "dire_wolf", "skeleton",
             "zombie", "ghoul", "ogre", "briar_beast", "briar_boar", "briar_triceratops"]
-NPCS = ["npc_stranger", "npc_hermit", "npc_sable", "npc_ghost"]
+NPCS = ["npc_stranger", "npc_hermit", "npc_ghost"]
 POSES = ["lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
 
@@ -614,6 +591,5 @@ def build_monsters():
     briar("briar_triceratops", 143, "tri")
     npc_stranger()
     npc_hermit()
-    npc_sable()
     npc_ghost()
     wizard_thessaly()

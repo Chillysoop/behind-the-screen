@@ -137,13 +137,22 @@ images {
   image: "/assets/portraits/mini_npc_hermit.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_sable.png"
-}
-images {
   image: "/assets/portraits/mini_npc_ghost.png"
 }
 images {
   image: "/assets/portraits/mini_npc_rosin.png"
+}
+images {
+  image: "/assets/portraits/mini_euryale.png"
+}
+images {
+  image: "/assets/portraits/mini_knight_of_shades.png"
+}
+images {
+  image: "/assets/portraits/mini_sentinel.png"
+}
+images {
+  image: "/assets/portraits/mini_giant_scarab_swarm.png"
 }
 images {
   image: "/assets/portraits/mini_goblin_boss.png"
