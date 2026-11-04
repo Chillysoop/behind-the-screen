@@ -459,7 +459,7 @@ M.knobs = {
 
 -- The painting each hero gets if the DM hangs one for them (all from the book's gallery).
 M.portraits = {
-    mara = { painting = "a lady by an icy mountain road, looking straight out at Thessaly", gift = "nothing to take, only a question she can't stop thinking about" },
+    mara = { painting = "a lady by an icy mountain road, looking straight out at Thessaly", gift = "nothing to take, only a question she can't stop thinking about", empty = true },
     dev = { painting = "a warrior in scarlet armour on a bridge, sword raised", gift = "the warrior's own blade, made of paint" },
     jess = { painting = "a smug duellist with a pistol in each hand", gift = "a painted pistol with one shot in it" },
     sam = { painting = "an empty golden throne with bats carved into it", gift = "a glass of something red that is definitely not wine" },
@@ -521,7 +521,7 @@ M.moments = {
       } },
     { id = "mus_pond", room = "garden", danger = "the pond: something with tentacles lives in it", spot = "pond", at = "end", type = "story", actor = { "instigator", "explorer" },
       title = "The dark pond",
-      text = "{actor_char} wants a closer look at the pond. They all saw the tentacles.",
+      text = "{actor_char} wants a closer look at the pond. As they lean over the water, a grey tentacle slides up through the lilies, tastes the air, and sinks back down. Everyone saw it.",
       options = {
           { label = "Let them. They know what's in there.",
             roll = { dc = 10, skill = { "acrobatics", "athletics" }, convenient = "success",
@@ -582,16 +582,16 @@ M.moments = {
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:storyteller", fun = -3 }, { "arch:tactician", fun = -2 } },
             mus = { fight = true } },
       } },
-    { id = "mus_falcon", room = "chamber", danger = "the falcon jar: the tablet said what happens to anyone who gets it wrong", spot = "3A", at = "mid", when = { flag = "ritual_failed" }, type = "screen", actor = { "instigator", "storyteller", "power_gamer" },
+    { id = "mus_falcon", room = "chamber", danger = "the falcon jar: the tablet's last lines say what happens to anyone who gets it wrong", spot = "3A", at = "mid", when = { flag = "ritual_failed" }, type = "screen", actor = { "instigator", "storyteller", "power_gamer" },
       title = "A discontented falcon",
-      text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway. The tablet was very clear about what happens to anyone who gets it wrong.",
+      text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway. Nobody managed to read the tablet's last lines. You know what they say.",
       options = {
-          { label = "Let them. The tablet warned them.",
-            log = "The pedestal flares. {actor_char} is flung across the room and lands hard, barely breathing.",
+          { label = "Let them. They never read the warning.", sub = "Harsh, and out of nowhere for them.",
+            log = "The pedestal flares. {actor_char} is flung across the room and lands hard, winded.",
             effects = { { "actor", spotlight = 10, challenge = 8 }, { "arch:butt_kicker", fun = 3 } },
-            mus = { risk = true, harsh = true, hurt = { 2, 6 }, aspect = "Was flung across a tomb by an unhappy goddess" } },
-          { label = "\"Are you sure? Read the last line again.\"",
-            log = "{actor_char} reads it again, swears, and puts the jar down.",
+            mus = { harsh = true, hurt = { 2, 6 }, aspect = "Was flung across a tomb by an unhappy goddess" } },
+          { label = "\"Are you sure? Try the last line again.\"",
+            log = "{actor_char} squints at the last line again, gets the gist, swears, and puts the jar down.",
             effects = { { "actor", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
     { id = "mus_tidy", room = "chamber", at = "end", type = "story", actor = { "casual", "tactician", "instigator" }, party = true,
@@ -618,7 +618,11 @@ M.moments = {
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} pulls out {gift}, still wet. It'll last about an hour out here.",
                                  effects = { { "actor", spotlight = 12, fun = 6, reward = 6 }, { "arch:explorer", fun = 4 } },
-                                 mus = { risk = true, flag = "paint", francs = 1, aspect = "Pulled a weapon out of a painting" } },
+                                 mus = { risk = true, flag = "paint", francs = 1, aspect = "Pulled a weapon out of a painting" },
+                                 -- (A painting with nothing to give, as in the book: no weapon, and no paint to drip later.)
+                                 empty = { log = "{actor_char} reaches in to the elbow. Nothing to take: the lady in the painting only looks back, and leaves {actor_char} with a question that won't go away.",
+                                           effects = { { "actor", spotlight = 10, fun = 5, story = 4 }, { "arch:explorer", fun = 4 } },
+                                           mus = { risk = true, francs = 1, aspect = "Reached into a painting and came back with a question" } } },
                      fail = { log = "The painting bites. {actor_char} pulls back an arm numb to the elbow, empty-handed.",
                               effects = { { "actor", spotlight = 6, challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 }, aspect = "Got frostbite from a painting" } } } },
           { label = "\"Those frames are frosted for a reason.\"",
@@ -901,6 +905,7 @@ M.companions = {
     exhibit_b = { name = "Exhibit B", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
                   helps = { bonus = 2, find = 0.25, find_line = "Exhibit B scurries off under an exhibit and comes back with a Flitwidget Franc in his teeth." },
                   lines = {
+                      join = "Pip has a new friend tonight: a museum rat called Exhibit B, riding in her hood. He seems to approve of the museum.",
                       start = { "Exhibit B is in my hood. Say hi, Exhibit B.", "Exhibit B came. He insisted.", "I brought Exhibit B a tiny bit of cheese for the museum." },
                       look = { "Exhibit B, go sniff that. Good boy.", "Exhibit B doesn't like it. That's a sign.", "Exhibit B's whiskers are going. Something's here." },
                       fight = { "Exhibit B, pocket! NOW!", "Nobody step on Exhibit B.", "Exhibit B is in the pocket. We're fine. Mostly." },
@@ -910,6 +915,7 @@ M.companions = {
                monster = "telpur", cast = "mus_telpur",
                helps = { bonus = 1, find = 0.1, find_line = "Telpur knows this museum: \"Under the third tile. Flitwidget hides Francs everywhere.\"" },
                lines = {
+                   join = "Telpur is coming with them tonight. He insisted, loudly, until somebody tied him to a pack strap. He has opinions about every exhibit.",
                    start = { "Telpur, from the backpack: \"Onward! Mind the laces.\"", "Telpur is already complaining about the walking." },
                    look = { "Telpur: \"I'd not touch that. Then again, I'm a boot.\"", "Telpur: \"In my day we had a museum like this. Smaller. More screaming.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
@@ -1213,7 +1219,11 @@ M.left_behind = {
 -- Euryale's other thoughts: the night's openings and her reaction to a hero's big moment.
 M.thoughts = {
     open = { "Upstairs, Euryale moves a statue an inch to the left, and waits.",
-             "Upstairs, Euryale listens to the museum creak, and smiles." },
+             "Upstairs, Euryale listens to the museum creak, and smiles.",
+             "Upstairs, Euryale pours a second glass of wine, for a guest who hasn't arrived yet.",
+             "Upstairs, Euryale dusts a stone hand that was reaching for the door when it stopped.",
+             "Upstairs, Euryale reads the museum's guest book, and underlines four names.",
+             "Upstairs, the snakes under Euryale's hood all turn toward the stairs at once." },
     arrive = "They're on the stairs. Good. I was getting bored.",
 }
 
@@ -1366,7 +1376,7 @@ M.showdown = {
             { label = "{actor_char} drinks.", want = "drink the wine",
               roll = { dc = 12, skill = { "insight", "religion" }, convenient = "success",
                        success = { log = "It's just very good wine. Euryale looks faintly impressed.", effects = { { "actor", fun = 4, spotlight = 6 } } },
-                       fail = { log = "{actor_char} decides she's lovely, actually, and puts their weapon down. If this comes to a fight, they start it charmed.",
+                       fail = { log = "{actor_char} decides Euryale is lovely, actually, and lowers the weapon. If this comes to a fight, {actor_char} starts it charmed.",
                                 effects = { { "actor", fun = 2, spotlight = 8 }, { "others", challenge = 4 } }, mus = { flag = "charmed", risk = true, aspect = "Was charmed by a Gorgon, briefly" } } } },
             { label = "Nobody drinks.", want = "leave the wine alone", log = "Untouched cups. Euryale sighs, as if they've hurt her feelings.",
               effects = { { "arch:tactician", fun = 3 }, { "arch:method_actor", fun = -2 } } },
@@ -1444,7 +1454,7 @@ M.after_talk = {
 M.extras_lost = "They fall back down the stairs, battered. Without her, the collection loses heart by morning, and the exhibits go still."
 -- Who leads her collection when she isn't fighting, and how any foe is named in a sentence.
 M.foe_names = {
-    euryale = "Euryale", knight_of_shades = "the Knight of Shades", kruthik_huntling = "the biggest huntling",
+    euryale = "Euryale", knight_of_shades = "the Knight of Shades", kruthik_huntling = "the biggest huntling left",
     giant_scarab_swarm = "the scarab swarm", briar_beast = "the last briar beast", briar_triceratops = "the briar triceratops",
     briar_boar = "a briar boar", bone_construct = "the Bone Construct", sentinel = "the Sentinel", the_lecturer = "the Lecturer",
 }

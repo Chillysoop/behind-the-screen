@@ -103,7 +103,7 @@ return {
         { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5,
           line = "{actor_char}'s prayer catches {target_char} a heartbeat before they drop." },
         { id = "combo", when = "fight", rapport = 4,
-          line = "{actor_char} and {target_char} pull off a move together that neither could alone. The table cheers." },
+          line = "{actor_char} and {target_char} pulled off a move together in that fight that neither could have alone. The table's still talking about it." },
         { id = "share_the_loot", when = "loot", rapport = 4,
           line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'" },
         { id = "ask_after", when = "story", rapport = 5,
@@ -149,6 +149,6 @@ return {
     jabs = {
         "{char} gives {doer_char} a long, flat look.",
         "{char} mutters something about {doer_char} that isn't quite under their breath.",
-        "{char} moves their mini a square further away from {doer_char}'s.",
+        "{char}'s mini moves a square further away from {doer_char}'s.",
     },
 }

@@ -29,11 +29,19 @@ function M.build(app, on_next)
     local x, y, w = 424, 112, 560
     kit.text(x, y, "THE ROUTE", "ui14", theme.dim)
     y = y + 22
+    -- (A long prologue: the marks lines go, Euryale's card beside it lists them, so the ending
+    -- still fits above the friends. The November 4 engine run had it running under them.)
+    local rows = #j.rooms
+    for _, r in ipairs(j.rooms) do
+        rows = rows + ((#r.marks > 0) and 1 or 0)
+    end
+    local room_for = 425 - y - (j.ending and 62 or 0) - (#j.skipped > 0 and 26 or 0)
+    local show_marks = rows * 18 <= room_for
     for i, r in ipairs(j.rooms) do
         local line = util.int(i) .. ".  " .. r.name .. "  (session " .. util.int(r.week or 0) .. "): " .. (OUTCOME[r.outcome] or "done")
         kit.text(x, y, line, "ui14", r.outcome == "win" and theme.text or theme.orange, { w = w, lines = 1 })
         y = y + 18
-        if #r.marks > 0 then
+        if #r.marks > 0 and show_marks then
             kit.text(x + 22, y, "Left on her card: " .. table.concat(r.marks, ", "), "ui14", theme.gold, { w = w - 22, lines = 1 })
             y = y + 18
         end

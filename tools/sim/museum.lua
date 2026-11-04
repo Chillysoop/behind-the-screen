@@ -66,7 +66,7 @@ local function play_night(night)
             end
         elseif ev.kind == "scene" then
             if show then
-                print(string.format("== Scene %s of %s: %s (%s)", ev.index, ev.total, ev.title, ev.type_name))
+                print(string.format("== Scene %s%s: %s (%s)", ev.index, ev.total and (" of " .. ev.total) or "", ev.title, ev.type_name))
             end
         elseif ev.kind == "battle" and ev.phase == "end" then
             fights.n = fights.n + 1

@@ -298,6 +298,7 @@ function M.prebuff(b, party)
     for _, c in ipairs(party) do
         if spells.has_spell(c, "aid") and spells.find_slot(c, 2) then
             spells.spend_slot(c, 2)
+            c.aid_caster = true
             spells.list.aid.cast(b, c, 2, { party[1], party[2], party[4] })
         end
         if spells.has_spell(c, "warding_bond") and spells.find_slot(c, 2) then

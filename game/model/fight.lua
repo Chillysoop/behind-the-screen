@@ -131,6 +131,26 @@ function M.party(night)
     return night.pcs
 end
 
+-- What the morning's buffs cost, in words (a slot each: the tile shows one fewer than "every spell
+-- back" would suggest, the playtest found).
+function M.buff_line(night)
+    local who = {}
+    for _, c in ipairs(night.pc_list or {}) do
+        local p = night.campaign:player(c.player_key)
+        local name = p and p.char or c.name
+        if c.mage_armor then
+            table.insert(who, name .. " puts on Mage Armor")
+        end
+        if c.aid_caster then
+            table.insert(who, name .. " casts Aid on the party")
+        end
+    end
+    if #who == 0 then
+        return ""
+    end
+    return " First thing, " .. table.concat(who, " and ") .. ": a spell slot each, for the day."
+end
+
 function M.prebuff(night)
     local b = battle.new({ seed = night.rng:int(1, 2147483000), ai = ai })
     if #night.pc_list > 0 then
@@ -725,6 +745,8 @@ local function react(night, f, steps, who)
         local victim = player_of(night, downed)
         if victim then
             night:event("down", { who = victim.key, text = downed.name .. " goes down." })
+            -- Said out loud, so the table (and the log) hears it: the death-save card is on the mat.
+            night:say(downed.name .. " goes down, and doesn't get up. Death saves.", "bad")
             villains.bark(night, "knockdown", victim)       -- the villain remembers (and says so)
             poses[victim.key] = "gasp"
             line = { victim, "down_self" }
@@ -755,7 +777,8 @@ local function react(night, f, steps, who)
             night.campaign.bosses_down[f.boss_name] = night.campaign.bosses_down[f.boss_name] or night.campaign.week
         end
         -- The villain gets a last word, played for fun.
-        if night.scene and night.scene.comps.cast and not f.last_words then
+        -- (Only when it's them who fell: not when her collection's leader drops while she sleeps.)
+        if night.scene and night.scene.comps.cast and not f.last_words and not night.scene.extras_only then
             night:npc_line("down")
         end
         if P then

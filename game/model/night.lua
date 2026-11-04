@@ -3059,7 +3059,13 @@ function M:killing_blow(p, tgt, boss_name, by)
     end
     table.insert(camp.killing_blows, { key = p.key, week = camp.week, boss = boss_name })
     -- The line: their class's, flavoured for their kind of player when there's one.
-    local lines = kb[p.class] or kb.fighter
+    -- (A line about a spell they can't cast yet is left out: Shatter at level 2, the review found.)
+    local lines = {}
+    for _, l in ipairs(kb[p.class] or kb.fighter) do
+        if (l.level or 0) <= (camp.level or 2) then
+            table.insert(lines, l)
+        end
+    end
     local pool = {}
     for _, l in ipairs(lines) do
         if l.arch == p.primary or l.arch == p.secondary then
@@ -3355,7 +3361,10 @@ function M:big_roll(spec, record)
     -- Out of calls for the night (the 8-to-15 budget): say so, once, and don't ask how to roll a
     -- die nobody will rule on (the playtest, Nov 2: asked "open or hidden?", then no card came).
     local where
-    if self:decision_count() >= 15 then
+    if spec.secret then
+        -- (The card already said "behind the screen": no asking where to roll it.)
+        where = "hidden"
+    elseif self:decision_count() >= 15 then
         if not self.calls_out_said then
             self.calls_out_said = true
             self:say("That's your calls for tonight. From here the dice decide, out in the open, and you narrate what they say.", "system")
@@ -3539,13 +3548,16 @@ function M:big_roll(spec, record)
     pick = util.clamp(math.floor(tonumber(pick) or 1), 1, #rule.options)
     local reported_total = reported + mod
     local line
+    -- The sum, spelled out the way the roll box shows it (the playtest, November 3: "13 + 5 = 18").
+    local function sum(die)
+        return util.int(die) .. (mod < 0 and " - " or " + ") .. util.int(math.abs(mod)) .. " = " .. util.int(die + mod)
+    end
     if by == "player" then
-        line = (p and p.char or "They") .. " rolls " .. M.a_number(value) .. ", " .. skills.signed(mod) .. ": "
-            .. util.int(reported_total) .. ". " .. (where == "open" and ("You said DC " .. util.int(shown_dc) .. ".")
+        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". " .. (where == "open" and ("You said DC " .. util.int(shown_dc) .. ".")
             or ("Behind the screen, the DC was " .. util.int(shown_dc) .. "."))
     else
-        line = (where == "open" and "Everyone watches the die land on " or "Behind the screen, the die says ")
-            .. util.int(reported) .. ": " .. util.int(reported_total) .. " against DC " .. util.int(dc) .. "."
+        line = (where == "open" and "Everyone watches the die: " or "Behind the screen, the die says ")
+            .. sum(reported) .. ", against DC " .. util.int(dc) .. "."
     end
     -- The card the DM just ruled on showed these numbers, and so does the die: said again as a
     -- caption it was the third telling of one roll (the card-led playtest, October 16). Cooked,
@@ -3610,15 +3622,15 @@ function M:big_roll(spec, record)
     self:apply(ro.effects)
     -- What the DM's call added: the extra, the cost or the new problem, by name.
     local ruled = ro.lines and self.rng:pick(ro.lines) or ro.log
-    if ro.tone == "good" and self.campaign.module and self.campaign.adv and not inspired then
-        -- v2: in the museum, the extra that falls their way is a Flitwidget Franc (the book's own reward),
-        -- on a great roll or a near miss the DM let fail forward: what the button said.
+    if ro.tone == "good" and self.campaign.module and self.campaign.adv and not inspired and success then
+        -- v2: in the museum, the extra that falls their way on a great roll is a Flitwidget Franc (the
+        -- book's own reward). Not on a miss: a Franc is for a beaten exhibit, a solved puzzle or a
+        -- clever trick, as Flitwidget says (the playtest review, November 4: one on nearly every miss).
         self.campaign.adv.francs = (self.campaign.adv.francs or 0) + 1
         if self.mus then
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
         end
-        ruled = success and ("Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket.")
-            or ("Not quite, but the museum likes nerve: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket.")
+        ruled = "Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket."
     end
     if ro.tone == "good" then
         if ruled and not inspired then
@@ -4600,6 +4612,12 @@ function M:combat_scene(sc)
     elseif card then
         self:decision(card)
     end
+    -- Boss night's break, when nothing came before the lair: after the talk, before the fight
+    -- ("let's take five before the big one"), not before anyone has played.
+    if self.break_before_fight and not self.had_break then
+        self.break_before_fight = nil
+        util.lazy("game.model.museum_night").maybe_break(self, true)
+    end
     -- Who sees whom first: a paused roll before the fight. A hero whose story this fight is
     -- always gets it (A4: their story, their roll).
     sc.surprise = nil
@@ -4851,6 +4869,18 @@ local SPOTTED = {
                 "Too late: they've been seen." },
 }
 local INDOORS = { indoor = true, tavern = true, shop = true, under = true }
+-- The museum's fights are in plain sight by the time anyone could scout (the playtest, November 4:
+-- "the knight climbs out of its frame", then "Pip creeps ahead to scout"): who reacts first, instead.
+local READY = {
+    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening." },
+    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others." },
+    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast." },
+    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out." },
+}
+local REACTED = {
+    success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes." },
+    fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready." },
+}
 
 M.SURRENDER_TALK = {
     "{Boss} drops to their knees and talks fast. It was {lead}. It's always been {lead}.",
@@ -5149,7 +5179,8 @@ function M:scene_moments(sc)
     m.fight = sc.result ~= nil and sc.result.winner == "party"
     m.loot = sc.comps.reward ~= nil and sc.outcome == "win"
     m.social = sc.type == "social" or sc.type == "mystery" or sc.type == "downtime"
-    m.explore = sc.type == "exploration" or sc.type == "puzzle"
+    -- (A plan that "works perfectly" needs the room to have gone their way.)
+    m.explore = (sc.type == "exploration" or sc.type == "puzzle") and sc.outcome ~= "lose" and sc.outcome ~= "fail"
     for _, c in pairs(sc.comps) do
         m.story = m.story or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil)
     end
@@ -5665,8 +5696,9 @@ function M:do_rest(o, asked, kind, sc)
             items.apply(self.campaign, c.player_key, c)
         end
         fight.prebuff(self)
+        self.morning_buffs = true
     end
-    self:say(long and "A full night's rest. Everyone wakes whole, spells back, ready." or
+    self:say(long and ("A full night's rest. Everyone wakes whole, spells back, ready." .. fight.buff_line(self)) or
         (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
          or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
     self.rests = self.rests or {}
@@ -5882,13 +5914,15 @@ function M:scout(sc)
     local best = self:scout_roller(sc)
     self.actor = best
     self.other = nil
-    self:say(self:fresh(SCOUT[best.class] or SCOUT.rogue, "scout_" .. best.class), "goal")
+    local ready = self.mus ~= nil and sc.room ~= nil
+    self:say(self:fresh((ready and READY or SCOUT)[best.class] or (ready and READY or SCOUT).rogue,
+        (ready and "ready_" or "scout_") .. best.class), "goal")
     self:react({ [best.key] = "lean" })
-    local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "stealth", "perception" },
+    local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = ready and { "perception", "insight" } or { "stealth", "perception" },
                    act = "scout", fail_replaces = true, quiet = true,     -- (spotting them first isn't a recap beat)
-                   success = { log = self:fresh(SPOTTED.success, "spot_yes"),
+                   success = { log = ready and self:fresh(REACTED.success, "react_yes") or self:fresh(SPOTTED.success, "spot_yes"),
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
-                   fail = { log = self:fresh(indoors and SPOTTED.fail_in or SPOTTED.fail, "spot_no"),
+                   fail = { log = ready and self:fresh(REACTED.fail, "react_no") or self:fresh(indoors and SPOTTED.fail_in or SPOTTED.fail, "spot_no"),
                             effects = { { "all", challenge = 6 }, { "arch:butt_kicker", fun = 2 } } } }
     table.insert(self.decisions, { card = "scout", option = 0, rolls = {} })
     local ok = self:big_roll(spec)
@@ -7367,7 +7401,9 @@ function M:run_tail()
         end
     end
     local last = played[#played]
-    if self.end_early then
+    if self.dm_ended then
+        -- (You closed the book yourself, and the table already reacted: museum_night.end_session.)
+    elseif self.end_early then
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")
     elseif last and last.comps.complication and last.comps.complication.cliffhanger then
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")

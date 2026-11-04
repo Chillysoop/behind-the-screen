@@ -48,6 +48,7 @@ local function mus_vars(night, sc)
     local port = (type(pick) == "string" and MODULE.portraits[pick]) or (who and MODULE.portraits[who])
     v.painting = port and port.painting or "a frosty mountain portrait"
     v.gift = port and port.gift or "a painted scimitar"
+    v.gift_empty = port and port.empty or nil
     return v
 end
 
@@ -571,6 +572,28 @@ function M.play_moment(night, card, sc)
         copy.trigger = "museum_fixed"
     end
     night.mus_vars = mus_vars(night, sc)
+    -- A roll whose prize isn't there for this hero (an empty painting): its empty outcome instead.
+    if night.mus_vars.gift_empty then
+        local opts = {}
+        for i, o in ipairs(copy.options or {}) do
+            if o.roll and o.roll.success and o.roll.success.empty then
+                local oo = {}
+                for k, v in pairs(o) do
+                    oo[k] = v
+                end
+                local rr = {}
+                for k, v in pairs(o.roll) do
+                    rr[k] = v
+                end
+                rr.success = o.roll.success.empty
+                oo.roll = rr
+                opts[i] = oo
+            else
+                opts[i] = o
+            end
+        end
+        copy.options = opts
+    end
     -- (How everyone felt going in: who it drew toward the room's people, for the DM's recap.)
     local fun_before = {}
     for _, p in ipairs(night.players) do
@@ -608,6 +631,29 @@ function M.play_moment(night, card, sc)
         -- They picked something that can go badly: does anyone tell them? (warnings.lua)
         if chosen and card.danger then
             M.warn_step(night, card, copy)
+        end
+    end
+    -- A puzzle roll goes to whoever's best at it (the playtest review, November 4: Brannoc, Int -1,
+    -- cracked the machine's code with Thessaly standing right there).
+    if not card.party and card.type == "puzzle" and not copy.fixed_actor then
+        local sk
+        for _, oo in ipairs(copy.options or {}) do
+            sk = sk or (oo.roll and oo.roll.skill)
+        end
+        if sk then
+            local best, bm
+            for _, p in ipairs(night.players) do
+                local _, m = night:best_skill(p, sk)
+                if m and (not bm or m > bm) then
+                    best, bm = p, m
+                end
+            end
+            if best then
+                night.actor = best
+                copy.fixed_actor = true
+                copy.actor_class = nil
+                copy.trigger = "museum_fixed"
+            end
         end
     end
     local o = night:decision(copy, night.mus_vars)
@@ -690,7 +736,7 @@ function M.warn_step(night, card, copy)
                         .. card.danger .. "). Do they know that?",
                     options = {
                         { label = "Describe the danger first.", sub = "A warning in the story. They go ahead knowing.", warn = "told",
-                          log = "You lean in and tell them: " .. card.danger .. ".",
+                          log = "You lean in and tell them: " .. (string.match(card.danger, "^[^:]+: (.+)$") or card.danger) .. ".",
                           effects = { { "arch:explorer", fun = 1 }, { "arch:storyteller", fun = 1 } } },
                         { label = "Ask them: \"Are you sure?\"", sub = "Out of character. The careful ones might think again.", warn = "asked",
                           log = "\"Are you sure?\" you ask, and let it hang there." },
@@ -1164,7 +1210,10 @@ function M.read(night, sc)
         night:say("You never prepped it, so you wing it: the room in a few strokes, and on to what matters.", "dm")
     end
     if not sc.prepped then
-        night:say("You never read this room properly. You skim the page while they wait.", "warn")
+        -- (You chose to read it from the book: say that, not that you skimmed it.)
+        night:say((night.mus.from_book and night.mus.from_book[sc.room])
+            and "You read the room straight from the book while they wait: a few minutes of turning pages and quiet."
+            or "You never read this room properly. You skim the page while they wait.", "warn")
         night.table_min = night.table_min + 5
         night:apply({ { "arch:tactician", fun = -2 }, { "all", boredom = 3 } })
     end
@@ -1618,6 +1667,7 @@ end
 -- copy: the card as it'll be played (its options already filtered). Returns the option's index in
 -- copy.options, after the talk (and the DM's nudge, if they asked). Says the talk out loud.
 function M.table_pick(night, copy, vars)
+    local nudged_to         -- (the option your nudge pointed at, if you were asked and gave one)
     local opts = copy.options
     local live = {}
     for i, o in ipairs(opts) do
@@ -1730,6 +1780,7 @@ function M.table_pick(night, copy, vars)
         local o = night:decision(card, vars)
         night.actor = was_a
         if o and o.nudge then
+            nudged_to = o.nudge
             night.mus.nudged = (night.mus.nudged or 0) + 1
             -- They asked: most take the hint. Only someone who really wants the other way holds out.
             local held = {}
@@ -1767,8 +1818,8 @@ function M.table_pick(night, copy, vars)
             table.insert(names, p.name)
         end
     end
-    night:say("The table decides: " .. short_want(opts[top]) .. ((#names > 0 and #names < #night.players)
-        and (" (" .. util.join_names(names) .. "'s idea" .. (asked and "" or "") .. ")") or "") .. ".", "aside")
+    night:say("The table decides: " .. short_want(opts[top]) .. ((nudged_to == top and " (on your nudge)")
+        or ((#names > 0 and #names < #night.players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
     return top
 end
 
@@ -2241,6 +2292,7 @@ function M.fork(night, options, backs, sides)
             return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
         end
         if o and o.choice then
+            night.mus.nudged_to = o.choice
             -- Asked, most take the hint; someone who really wanted the other way minds a little.
             local against = o.choice ~= top or tied > 1
             for _, p in ipairs(night.players) do
@@ -2286,8 +2338,11 @@ function M.fork(night, options, backs, sides)
                 table.insert(names, p.name)
             end
         end
-        night:say("The table decides: " .. label_of(top) .. ((#names > 0 and #names < #night.players)
-            and (" (" .. util.join_names(names) .. (#names == 1 and "'s pick)" or "' pick)")) or "") .. ".", "aside")
+        -- (Your nudge settled it: say so, not that they all thought of it themselves.)
+        local nudged = night.mus.nudged_to == top
+        night.mus.nudged_to = nil
+        night:say("The table decides: " .. label_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #night.players)
+            and (" (" .. util.join_names(names) .. "'s pick)")) or "") .. ".", "aside")
     end
     local ch = choices[top] or choices[1]
     -- The friend who runs off (the BBQ story): the instigator, outvoted, heads for the stairs alone.
@@ -2345,6 +2400,10 @@ function M.whats_there(night, id)
             log = "You slide your notes for " .. util.lower_first(MODULE.rooms[donor].name) .. " across. Nobody needs to know." })
     end
     local o = night:decision(card)
+    if o and o.there == "book" then
+        night.mus.from_book = night.mus.from_book or {}
+        night.mus.from_book[id] = true
+    end
     if o and o.there == "improv" then
         night.mus.improv[id] = true
     elseif o and o.there == "move" and donor then
@@ -2612,7 +2671,11 @@ function M.intro(night)
                 c.party_state.rested = true
                 c.party_state.fights_since_long = 0
             end
-            night:say("As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back.", "recap")
+            if not night.pc_list then
+                fight.party(night)          -- (fresh from the rest: the morning's buffs go up now)
+            end
+            night:say("As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
+                .. fight.buff_line(night), "recap")
         end
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
@@ -2622,7 +2685,7 @@ function M.intro(night)
             M.interlude(night)
         end
     end
-    night:say(night.rng:pick(MODULE.thoughts.open), "interlude")
+    night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
 end
 
 -- When time runs out before a room: stop here, next week picks up.
@@ -2860,6 +2923,12 @@ function M.run(night)
             else
                 local id = pick.id
                 local r = MODULE.rooms[id]
+                -- The room that ends the night (the stairs: the boss is next week) comes after the
+                -- break, however early: every session gets one (the playtest, November 3).
+                if r.stop and #night.scenes > 0 and (id == "stairs" or #night.scenes + 1 >= 3
+                    or night.table_min > night.table_planned * 0.55) then
+                    M.maybe_break(night, true)
+                end
                 M.play(night, id)
                 if r.stop and (id == "stairs" or #night.scenes >= 3 or night.table_min > night.table_planned * 0.55) then
                     -- (Say so: a night that just stopped left the table wondering why.)
@@ -2887,6 +2956,19 @@ end
 -- should have at least one"). Once a night, between rooms, a little past a third of the evening:
 -- pizza, stretching, phones out. You choose whether anything happens in the game meanwhile: a
 -- short rest, a long one where it's safe, or the party reading up.
+-- (Said a little differently each week: the same two lines every week, the review found.)
+local BREAK_START = {
+    "\"Okay, let's take a break.\" Chairs scrape back. Someone's already on the phone to the pizza place.",
+    "\"Five minutes, everyone. Well, twenty.\" The snack bowl is empty, and Sam goes to refill it.",
+    "\"Break time.\" Dev stretches until something pops. Jess is already in the kitchen.",
+    "\"Let's stop there for a bit.\" Phones come out. Mara keeps writing in her notebook anyway.",
+}
+local BREAK_END = {
+    "Everyone settles back in. \"Right. Where were we?\"",
+    "Pizza boxes stacked, dice back out. \"Okay. So. The museum.\"",
+    "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
+    "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
+}
 M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
 M.BREAK_MIN = 20           -- table minutes it takes
 
@@ -2908,7 +2990,7 @@ function M.maybe_break(night, before_boss)
         poses[p.key] = ({ "yawn", "laugh", "phone", "cheer" })[(i - 1) % 4 + 1]
     end
     night:react(poses)
-    night:say("\"Okay, let's take a break.\" Chairs scrape back. Someone's already on the phone to the pizza place.", "dm")
+    night:say(night:fresh(BREAK_START, "break_start"), "dm")
     local card = { id = "table_break", type = "table", intermission = true,
                    title = "Let's take a break",
                    text = "Twenty minutes of pizza, stretching and gossip. Is anything happening in the game while you're all away from the table?",
@@ -2942,7 +3024,7 @@ function M.maybe_break(night, before_boss)
     elseif o and o.research then
         night.research = (night.research or 0) + o.research
     end
-    night:say("Everyone settles back in. \"Right. Where were we?\"", "dm")
+    night:say(night:fresh(BREAK_END, "break_end"), "dm")
     return true
 end
 
@@ -2958,8 +3040,13 @@ function M.boss_night(night)
             return
         end
     end
-    -- Five minutes before the big one: the night's break (M.maybe_break).
-    M.maybe_break(night, true)
+    -- The night's break (M.maybe_break): after the stairs if they climbed them tonight, else after
+    -- the talk, right before the fight (night.lua combat_scene). Never first thing.
+    if #night.scenes > 0 then
+        M.maybe_break(night, true)
+    else
+        night.break_before_fight = true
+    end
     M.enter(night, "lair")
     M.interlude(night)
     local sc = M.build_scene(night, "lair")
@@ -3105,6 +3192,11 @@ local function free_stone(night)
 end
 
 function M.after_showdown(night, sc)
+    -- (No fight after the talk, so no break before it: take it now, before the ending plays out.)
+    if night.break_before_fight and not night.had_break then
+        night.break_before_fight = nil
+        M.maybe_break(night, true)
+    end
     local c = night.campaign
     local st = st_of(night)
     local boss = st.boss or {}

@@ -9,7 +9,15 @@ function M.new(seed)
     if seed < 1 then
         seed = seed + 2147483646
     end
-    return setmetatable({ s = seed }, M)
+    local r = setmetatable({ s = seed }, M)
+    -- A few draws thrown away first: Park-Miller's first numbers from nearby seeds (this week's
+    -- seed and last week's differ by a hundred or so) are nearly the same, so anything seeded per
+    -- week came out the same way every week (the playtest review, November 4: the same dice line
+    -- every week; a small seed's first int(1, 4) was always 1).
+    for _ = 1, 3 do
+        r:next()
+    end
+    return r
 end
 
 -- A float in [0, 1).

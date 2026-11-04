@@ -710,9 +710,8 @@ function M.build(app)
         local th = rep.thoughts
         if th and th.shown > 0 then
             -- (Kept to two lines: the new dice sit just under it.)
-            text = "Empathy: " .. empathy.NAMES[e.level] .. (e.up and " (up!)" or "") .. ". Caught " .. util.int(th.shown)
-                .. (th.shown == 1 and " thought" or " thoughts") .. ", read " .. util.int(th.clear or 0) .. " clearly, answered "
-                .. util.int(th.answered) .. "."
+            text = "Empathy: " .. empathy.NAMES[e.level] .. (e.up and " (up!)" or "") .. ". Thoughts: caught " .. util.int(th.shown)
+                .. ", read " .. util.int(th.clear or 0) .. " clearly, answered " .. util.int(th.answered) .. "."
         end
         -- Who you know better now (game/model/familiar.lua).
         local names = {}
@@ -722,9 +721,10 @@ function M.build(app)
             end
         end
         if #names > 0 then
-            text = text .. (#names >= 4 and " You know everyone a little better." or (" You know " .. util.join_names(names) .. " better."))
+            text = text .. (#names >= 4 and " Closer to everyone." or (" Closer to " .. util.join_names(names) .. "."))
         end
-        kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 3 })
+        -- (Two lines: a third ran into the new dice under it, the November 4 engine run showed.)
+        kit.text(1230, y + 6, text, "ui14", e.up and theme.teal or theme.dim, { w = 346, lines = 2 })
     end
     kit.gloss_tags = nil
     M.gift_row(app, rep, 1204, 708)

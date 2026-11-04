@@ -73,13 +73,13 @@ M.made = {
         },
         jess = {
             { "{Foe}, finished. Who wants to check its pockets?", when = "last" },
-            { "Bye, {foe}! {Left} more to annoy.", when = "more_left" },
+            { "That's {foe} done! {Left} more to annoy.", when = "more_left" },
             { "{char} takes a bow over {foe}." },
         },
         sam = {
             { "That's all of them, right? Please say that's all of them.", when = "last" },
             { "{Foe}'s down. {Left} left. We can do this.", when = "more_left" },
-            { "Sorry, {foe}. You were very scary." },
+            { "Sorry about that. You were very scary." },
         },
     },
     ouch = {

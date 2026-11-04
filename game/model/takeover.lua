@@ -359,7 +359,9 @@ local function attack_words(c)
     if not a then
         return ""
     end
-    return " with its " .. string.lower(a.name) .. (n > 1 and (", " .. util.int(n) .. " attacks") or "")
+    -- (Its own weapon, as a sentence of its own: "Go for Brannoc, who's been hurting it most, with
+    -- its great sword" read as Brannoc's sword, the review found.)
+    return " It attacks with its " .. string.lower(a.name) .. (n > 1 and (", " .. util.int(n) .. " times") or "") .. "."
 end
 
 -- Will this fight's boss turn be the DM's? Decided as the fight starts, so it can stand in for
@@ -425,7 +427,7 @@ function M.boss_turn(night, f, b, c)
     -- Say only what's true (playtest, October 13: "who's been hurting it most" before anyone had
     -- touched it, and "barely standing" at full hit points).
     local why_threat = (hurt[threat] or 0) > 0 and ", who's been hurting it most" or ", the biggest threat on their feet"
-    table.insert(opts, { label = "Go for " .. threat.name .. why_threat .. attack_words(c) .. ".",
+    table.insert(opts, { label = "Go for " .. threat.name .. why_threat .. "." .. attack_words(c),
                          effects = data.BOSS.clever, target = threat, kind = "clever", who = threat_p })
     local frac = weakest and weakest.hp / math.max(1, weakest.hp_max) or 1
     local how_weak = (frac <= 0.34 and ", who's barely standing") or (frac < 1 and ", who's already hurt")

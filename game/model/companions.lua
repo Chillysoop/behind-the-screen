@@ -117,10 +117,19 @@ function M.say(night, e, kind)
     return true
 end
 
--- The start of a night: each companion gets a line (and a pet found last week is waiting).
+-- The start of a night: each companion gets a line. The first night they're along, the table
+-- hears that they've come (the playtest review, November 4: Telpur was suddenly in the backpack,
+-- settled in a private message nobody at the table saw).
 function M.night_start(night)
+    local adv = night.campaign.adv or {}
+    adv.introduced = adv.introduced or {}
     for _, e in ipairs(M.active(night.campaign, night.players)) do
-        M.say(night, e, "start")
+        if not adv.introduced[e.id] and e.lines and e.lines.join then
+            adv.introduced[e.id] = night.campaign.week or 0
+            night:say(e.lines.join, "good")
+        else
+            M.say(night, e, "start")
+        end
     end
 end
 

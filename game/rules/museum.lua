@@ -537,7 +537,7 @@ function M.lecture(b, c, t)
         return false
     end
     b:add_effect(t, { name = "Listening", conds = { charmed = true, incapacitated = true }, charmed_by = c,
-                      out_of_fight = true, ends_on_damage = true, ends_on_death_of = c, listening = true })
+                      out_of_fight = true, ends_on_damage = true, ends_on_death_of = c, listening = true, since = b.round or 0 })
     b:log("  %s sits down on a bench and listens.", t.name)
     feature(b, t, "Sits down to listen", "listening", { by = c })
     return true
@@ -594,23 +594,36 @@ function M.lecturer_turn(b, c, H)
 end
 
 -- A hero shakes a friend out of the lecture (it counts as trying to hurt them, which breaks the
--- charm). Only when it's got a hold on the table: two or more listening. True if that was the turn.
+-- charm): when it's got a hold on the table (two or more listening), or a friend has sat there a
+-- whole round. Whoever's been listening longest first (the playtest, November 4: Oswin kept waking
+-- the rogue who was caught again every round, and Brannoc sat out the whole fight). True if that
+-- was the turn.
 function M.wake_friend(b, c, H)
     if not c.turn.action then
         return false
     end
     local sleepers = {}
+    local now = b.round or 0
     for _, a in ipairs(b:allies_of(c)) do
-        if b:find_effect(a, "Listening") then
-            table.insert(sleepers, a)
+        local e = b:find_effect(a, "Listening")
+        if e then
+            table.insert(sleepers, { a = a, out = now - (e.since or now) })
         end
     end
-    if #sleepers < 2 then
+    if #sleepers == 0 then
         return false
     end
-    H.by_distance(b, c, sleepers)
-    local s = sleepers[1]
-    if b:dist(c, s) > 5 + (c.turn.move or 0) then
+    local s, sv
+    for _, q in ipairs(sleepers) do
+        local reach = b:dist(c, q.a) <= 5 + (c.turn.move or 0)
+        if reach and (#sleepers >= 2 or q.out >= 1) then
+            local v = q.out * 10 - b:dist(c, q.a) * 0.01
+            if not sv or v > sv then
+                s, sv = q.a, v
+            end
+        end
+    end
+    if not s then
         return false
     end
     H.approach(b, c, s, 5)
