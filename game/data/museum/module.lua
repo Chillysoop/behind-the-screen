@@ -575,7 +575,7 @@ M.moments = {
       } },
 
     -- The garden ----------------------------------------------------------------------------------
-    { id = "mus_plaque", room = "garden", spot = "1A", at = "start", type = "story", actor = { "explorer", "tactician", "storyteller" }, party = true,
+    { id = "mus_plaque", room = "garden", spot = "1A", at = "start", type = "story", actor = { "explorer", "instigator", "tactician", "storyteller" }, party = true,
       title = "A sign by the pond",
       text = "{actor_char} finds a little iron plaque by the pond: \"Mind the hedges. If they get lively, try the water.\" Signed FF.",
       options = {
@@ -586,7 +586,7 @@ M.moments = {
           { label = "They're bushes. Set them on fire.", want = "set the bushes on fire",
             log = "Oil, a torch, and a whoosh. Half the garden goes up like kindling, and the briar boar with it.",
             effects = { { "actor", spotlight = 6 }, { "arch:butt_kicker", fun = 3 }, { "arch:instigator", fun = 6 }, { "arch:storyteller", fun = 2 },
-                        { "all", challenge = -4 } },
+                        { "arch:casual", fun = 1.5 }, { "all", challenge = -4 } },
             mus = { drop = { "briar_boar" }, mark = "garden_burned" } },
           { label = "Just fight them. Steel, not water.", want = "just fight them",
             log = "Blades out. The hedges come at them all at once.",
@@ -614,7 +614,7 @@ M.moments = {
       options = {
           { label = "Somebody drops a coin in.", want = "drop a coin in",
             log = "A coin clinks in, and the statue booms: \"YOUR GENEROSITY IS NOTED.\" Something warm settles over {actor_char}.",
-            effects = { { "arch:casual", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:tactician", fun = 2 }, { "arch:power_gamer", fun = 1 },
+            effects = { { "arch:casual", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:tactician", fun = 2 }, { "arch:power_gamer", fun = 1.5 },
                         { "all", reward = 2 } },
             mus = { francs = 1, flag = "boon", inspire = "The museum thanks {char} for the donation.", careful = 1, favor = { who = "flitwidget", n = 1 } } },
           { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
@@ -726,7 +726,7 @@ M.moments = {
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
           { label = "Give it a wide berth.", want = "give the knight a wide berth",
             log = "Nobody goes near it. The knight's painted eyes follow them all the way to the door.",
-            effects = { { "arch:casual", fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:method_actor", fun = 2 },
+            effects = { { "arch:casual", fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:method_actor", fun = 1 },
                         { "arch:butt_kicker", fun = -3 } },
             mus = { no_fight = true, mark = "knight" } },
       } },
@@ -793,7 +793,7 @@ M.moments = {
             mus = { risk = true, ready = true } },
           { label = "Go round. Make the hunters come to them.", want = "go round and make the hunters come to us",
             log = "They put their backs to the bulette's skull and wait. It's the huntlings who have to come out.",
-            effects = { { "arch:tactician", fun = 6 }, { "arch:casual", fun = 2 }, { "arch:explorer", fun = 4 }, { "arch:butt_kicker", fun = -1 } },
+            effects = { { "arch:tactician", fun = 6 }, { "arch:casual", fun = 2 }, { "arch:explorer", fun = 3.5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { flag = "no_surprise", ready = true } },
       } },
     { id = "mus_mirror", room = "hunting", spot = "6J", at = "end", type = "story", actor = { "tactician", "explorer", "storyteller" }, party = true,
@@ -903,7 +903,7 @@ M.moments = {
                               effects = { { "actor", fun = 2 }, { "arch:tactician", fun = -4 } }, mus = { risk = true, harsh = true, unmark = "mech", flag = "mech_burnt", aspect = "Burnt out the Steam Mech" } } } },
           { label = "\"Save it for the Gorgon.\"", want = "save it for the Gorgon",
             log = "{actor_char} snaps the panel shut. For the Gorgon.",
-            effects = { { "arch:tactician", fun = 5 }, { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 5 }, { "arch:butt_kicker", fun = 2 },
+            effects = { { "arch:tactician", fun = 5 }, { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 5 }, { "arch:butt_kicker", fun = 3 },
                         { "arch:instigator", fun = -2 } }, mus = { warn = true, flag = "hyper_saved" } },
       } },
 
@@ -946,13 +946,13 @@ M.moments = {
           { label = "Reach in. It's worth the chill.", want = "reach into the frame for a painted blade",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
-                                 effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 4 }, { "arch:method_actor", fun = 3 } },
+                                 effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 5 }, { "arch:method_actor", fun = 4 } },
                                  mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
                      fail = { log = "The frame bites. {actor_char} pulls back numb, empty fingers.",
                               effects = { { "actor", challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 } } } } },
           { label = "No time. Swords out.", want = "forget the frame and draw steel",
             log = "They draw steel. The knight's armour drinks the first blow like ink.",
-            effects = { { "arch:butt_kicker", fun = 4 }, { "arch:casual", fun = 3 }, { "arch:explorer", fun = -2 } }, mus = { warn = true } },
+            effects = { { "arch:butt_kicker", fun = 4 }, { "arch:casual", fun = 1.5 }, { "arch:explorer", fun = -2 } }, mus = { warn = true } },
       } },
 }
 
@@ -1519,7 +1519,7 @@ M.showdown = {
                        fail = { log = "{actor_char} decides Euryale is lovely, actually, and lowers the weapon. If this comes to a fight, {actor_char} starts it charmed.",
                                 effects = { { "actor", fun = 2, spotlight = 8 }, { "arch:instigator", fun = 4 }, { "others", challenge = 4 } }, mus = { flag = "charmed", risk = true, aspect = "Was charmed by a Gorgon, briefly" } } } },
             { label = "Nobody drinks.", want = "leave the wine alone", log = "Untouched cups. Euryale sighs, as if they've hurt her feelings.",
-              effects = { { "arch:tactician", fun = 4 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },
+              effects = { { "arch:tactician", fun = 3 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },
                           { "arch:method_actor", fun = -2 } } },
         },
     },

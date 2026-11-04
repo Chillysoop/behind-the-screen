@@ -2022,13 +2022,20 @@ function M.table_pick(night, copy, vars)
         why[p.key] = (b.cwhy and (plain ~= best or b.cb >= 1)) and b.cwhy or b.why
     end
     -- A friend who lost the last vote holds out for theirs this time (twice running: harder), and says so.
+    -- (Said only when the table doesn't already agree: nobody needs to hold out for what everyone wants.)
+    local agreed = true
+    for _, p in ipairs(night.players) do
+        agreed = agreed and first[p.key] == first[night.players[1].key]
+    end
     local pushers = {}
     for _, p in ipairs(night.players) do
         local n = (votes.lost or {})[p.key]
         if n and n > 0 then
             local b = vals[p.key][first[p.key]]
             b.v = b.v + M.VOTE_PUSH * math.min(2, n)
-            why[p.key] = "pushed"
+            if not agreed then
+                why[p.key] = "pushed"
+            end
             pushers[p.key] = true
         end
     end
@@ -2213,7 +2220,7 @@ function M.table_pick(night, copy, vars)
         adv.votes = adv.votes or {}
         local vt = adv.votes
         -- (The one who minded most: they push next time, harder if it's twice running.)
-        local loser, gap = nil, 0.8
+        local loser, gap = nil, 1.5       -- (minded it: not a shrug)
         for _, p in ipairs(night.players) do
             local mine = wanted[p.key]
             local g = mine ~= top and (vals[p.key][mine].v - vals[p.key][top].v) or 0
