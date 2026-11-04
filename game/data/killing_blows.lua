@@ -20,7 +20,6 @@ return {
         { "One swing. I put everything into it. {boss} doesn't get up." },
         { "I drop my shield, two hands on the sword, and bring it down like a felled tree.", arch = "butt_kicker" },
         { "I wait for the opening I've been setting up for three rounds. There it is.", arch = "tactician" },
-        { "I say his village's name. Then I end it.", arch = "method_actor" },
         { "Shield bash, spin, and the pommel to the jaw. Done.", arch = "butt_kicker" },
         { "I don't say anything. I just nod, once, and step in.", arch = "storyteller" },
         { "Low feint, high cut. Textbook. I've practised that one in the yard.", arch = "tactician" },
@@ -32,8 +31,6 @@ return {
     },
     rogue = {
         { "I'm not there. Then I'm behind {boss}. Then it's over." },
-        { "One knife, thrown from the rafters, while everyone's looking the other way.", arch = "instigator" },
-        { "I whisper 'you dropped this' and hand {boss} their own coin purse. Then the dagger.", arch = "method_actor" },
         { "Sneak attack, obviously. I've been counting their turns.", arch = "tactician" },
         { "I slide between their legs, come up behind, and that's that.", arch = "butt_kicker" },
         { "I take the key off their belt before they even hit the floor.", arch = "power_gamer" },
@@ -41,11 +38,9 @@ return {
         { "I wink at the crowd. There is no crowd. I wink anyway.", arch = "casual" },
         { "Two daggers, one each side. Very neat. Very quiet." },
         { "I trip {boss} with the rug. The rug did most of the work, honestly.", arch = "instigator" },
-        { "From the shadows: 'That's for Lowmarket.'", arch = "method_actor" },
         { "I cut the rope. The chandelier does the rest.", arch = "explorer" },
     },
     cleric = {
-        { "The relic flares, and {boss} falls back from the light and doesn't rise." },
         { "I bring the mace down with a prayer on my lips. A short one.", arch = "butt_kicker" },
         { "Sacred Flame, point blank. 'Go and rest.'", arch = "method_actor" },
         { "I say the old words over them before the end, so they're not alone.", arch = "storyteller" },
@@ -61,8 +56,6 @@ return {
     wizard = {
         { "Fire Bolt, right where I said it would go. I did the maths." },
         { "I don't even look up from my notes. Magic Missile. Three darts. Done.", arch = "power_gamer" },
-        { "I spoke the word Ilsa taught me. I didn't know it did that.", arch = "storyteller" },
-        { "I point dramatically. Then I remember the spell. Then I point again, and it works.", arch = "instigator" },
         { "Shatter, and everything in the room, including {boss}, goes very quiet.", arch = "butt_kicker", level = 3 },
         { "Thunderwave. {boss} goes one way, the furniture goes the other.", arch = "butt_kicker" },
         { "I've been holding this one back all fight. Now.", arch = "tactician" },

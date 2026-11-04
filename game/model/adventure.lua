@@ -140,39 +140,10 @@ local function deep_foreign(t, seen)
 end
 M.deep_foreign = deep_foreign
 
--- Drop the list entries (lines, stock moves) that would drag the old story in.
-local function strip_list(list)
-    if type(list) ~= "table" then
-        return
-    end
-    for i = #list, 1, -1 do
-        if deep_foreign(list[i]) then
-            table.remove(list, i)
-        end
-    end
-end
-
--- Every list in a data table, all the way down: entries that mention the old story go.
-local function scrub(t, seen)
-    if type(t) ~= "table" or seen[t] then
-        return
-    end
-    seen[t] = true
-    if #t > 0 then
-        for i = #t, 1, -1 do
-            if deep_foreign(t[i]) then
-                table.remove(t, i)
-            end
-        end
-    end
-    for _, v in pairs(t) do
-        scrub(v, seen)
-    end
-end
-M.scrub = scrub
-
 -- Switch the game's shared content over to the prologue (once per run; the v2 build only ever
--- runs the module). Old-story lines are filtered out, the heroes are who the book needs.
+-- runs the module): the heroes are who the book needs, and the shared systems speak in its words.
+-- (The shared data holds nothing from the old story since the November 4 purge; the museum's
+-- tests check that nothing slips back in, with M.foreign and M.fits.)
 function M.enter(campaign)
     if not M.entered then
         M.entered = true
@@ -216,29 +187,6 @@ function M.enter(campaign)
                 end
             end
         end
-        -- What the friends and the scenes say: nothing from the old story.
-        for _, list in pairs(content.actions or {}) do
-            strip_list(list)
-        end
-        for _, v in pairs(content.scene_beats or {}) do
-            if type(v) == "table" then
-                for _, list in pairs(v) do
-                    strip_list(list)
-                end
-            end
-        end
-        local seen = {}
-        scrub(content.decisions, seen)
-        scrub(content.table_behaviors, seen)
-        scrub(content.stunts, seen)
-        for _, name in ipairs({ "friction", "rests", "table_behaviors", "scene_beats", "keepsakes", "chat", "actions",
-                                "actions_more", "killing_blows", "dice", "moods", "takeover" }) do
-            local ok, data = pcall(require, "game.data." .. name)
-            if ok then
-                scrub(data, seen)
-            end
-        end
-        scrub(require("game.model.recap"), seen)
         M.museum_death()
         -- What the friends do to each other, in this adventure's words.
         local fr = content.friction
@@ -315,11 +263,11 @@ function M.enter(campaign)
                 end
             end
         end
-        -- Museum-wide, anything in the shared content that doesn't fit the adventure goes.
-        scrub(content.triggered, seen)
         if content.conflicts and content.conflicts.tone then
             content.conflicts.tone.about = "Mara wants the museum's mysteries taken seriously. Jess can't resist a joke."
         end
+        -- The friends' lines about things this adventure's world doesn't have (a goblin, a mayor)
+        -- wait for an adventure that does.
         local lib = content.dialogue
         if lib then
             lib.exclude = function(l)
@@ -346,7 +294,7 @@ function M.enter(campaign)
         for _, k in ipairs({ "drink", "talk", "yield" }) do
             true_dc(MODULE.showdown[k])
         end
-        -- The first session's introductions: the book's hooks, not the old backstories.
+        -- The first session's introductions: each hero's story is the book's hook for them.
         local intros = require "game.data.intros"
         for key, p in pairs(intros.PLAYERS or {}) do
             local h = MODULE.hooks[key]
@@ -355,15 +303,6 @@ function M.enter(campaign)
                 p.grim = { false, false }
                 p.all_in = MODULE.all_in[key] or p.all_in
             end
-            for _, list in pairs(p) do
-                if type(list) == "table" then
-                    strip_list(list)
-                end
-            end
-        end
-        intros.BOND = {}      -- how the old heroes met: a story for the full campaign
-        for _, list in pairs(intros.REACT or {}) do
-            strip_list(list)
         end
     end
     if campaign then
@@ -375,14 +314,7 @@ end
 -- Death in the museum: the wake, the way back and the new heroes belong to this story.
 function M.museum_death()
     local d = require "game.data.death"
-    -- Last words that name the old valley's people go; the museum adds its own.
-    for _, list in pairs(d.LAST_WORDS or {}) do
-        for i = #list, 1, -1 do
-            if M.foreign(list[i]) then
-                table.remove(list, i)
-            end
-        end
-    end
+    -- Last words: the museum adds its own.
     for cls, line in pairs({ wizard = "Don't let her put me in the collection.", rogue = "Tell the boot it still owes me a Franc." }) do
         local list = d.LAST_WORDS and d.LAST_WORDS[cls]
         if list and not util.contains(list, line) then
@@ -408,7 +340,6 @@ function M.museum_death()
     for _, list in pairs(d.PREGENS or {}) do
         for _, pg in ipairs(list) do
             pg.hook = hooks[pg.id] or pg.hook
-            pg.seed = nil
         end
     end
 end

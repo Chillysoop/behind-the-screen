@@ -1156,7 +1156,6 @@ M.friction = {
         lone_wolf = "{actor_char} slips off alone to poke at the exhibits, and everyone else waits by the door for ten minutes.",
         shove_a_friend = "{actor_char} shoves {target_char} into a display case to win an argument.",
         barge_the_bargain = "{actor_char} talks right over {target_char} while {target_char} is still asking questions.",
-        sneer_at_town = false, grim_in_the_cozy = false, secret_letter = false, dibs_again = false,
     },
     -- (The DM's answers: a table of fields to replace.)
     responses = {
@@ -1166,7 +1165,6 @@ M.friction = {
     bonds = {
         share_the_loot = "{actor_char} lets {target_char} have first pick of whatever they find next: 'You'll get more use out of it than me.'",
         stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
-        ask_after = false, inside_joke = false,
     },
 }
 

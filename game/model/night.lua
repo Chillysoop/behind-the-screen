@@ -1889,20 +1889,19 @@ function M:table_behavior(when, roller, sure)
 end
 
 -- Before a fight, a hero tries something flashy (A12): a quick check; a win gives the party the
--- first move. Which stunt depends on who's at the table and where they are. (A stunt for one kind
--- of foe, the old valley's goblins, wolves and the dead, has nobody to play to in the museum.)
+-- first move. Which stunt depends on who's at the table and where they are.
 function M:stunt(sc)
     local camp = self.campaign
     camp.stunts_said = camp.stunts_said or {}
     local week = camp.week or 1
     local cands, weights = {}, {}
-    for i, st in ipairs(content.stunts) do
-        local last = camp.stunts_said[i]
-        if not st.foes and content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
+    for _, st in ipairs(content.stunts) do
+        local last = camp.stunts_said[st.id]
+        if content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
             for _, p in ipairs(self.players) do
                 local w = arch_weight(st.archetype, p)
                 if w > 0 and class_ok(st, p) then
-                    table.insert(cands, { st = st, p = p, i = i })
+                    table.insert(cands, { st = st, p = p })
                     table.insert(weights, w * 2 ^ (util.clamp(self:mod_for(p, st.skill), -2, 8) / 4))
                 end
             end
@@ -1913,7 +1912,7 @@ function M:stunt(sc)
     end
     local c = self.rng:weighted(cands, weights)
     local st, p = c.st, c.p
-    camp.stunts_said[c.i] = week
+    camp.stunts_said[st.id] = week
     self.actor = p
     self.other = st.other and self:pick_actor(nil, p) or nil
     local vars = self:vars({ char = p.char, other_char = self.other and self.other.char or "" })

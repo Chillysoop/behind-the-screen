@@ -14,7 +14,7 @@ M.MODE = {
     meaningful = { name = "Rare and meaningful", short = "Rare, meaningful", button = "Rare",
                    about = "Death only at big moments, and it means something." },
     cost = { name = "Back, at a cost", short = "Back, at a cost",
-             about = "They can come back, at a cost: a scar, a debt." },
+             about = "They can come back, at a cost: a scar that stays with them." },
     choice = { name = "The player's choice", short = "Their choice",
                about = "Their player decides what happens next." },
 }
@@ -45,14 +45,12 @@ M.STAKES = { "tactician", "butt_kicker", "power_gamer" }
 M.GOODBYE = { spotlight = 18, story = 12, social = 8, skip_fun = -4 }
 M.LAST_WORDS = {
     fighter = { "Tell them I held the line.", "Not a bad fight. Not a bad fight at all.", "Someone take my sword. It's a good sword." },
-    rogue = { "Check my left boot. There's money in it. For the wake.", "Well. That's one way to get out of paying the Velvet Hand.",
-              "Don't let them say I tripped." },
+    rogue = { "Check my left boot. There's money in it. For the wake.", "Don't let them say I tripped." },
     cleric = { "It's all right. I know where I'm going.", "Look after each other. That's the whole job.",
                "Light a candle for me. A big one." },
-    wizard = { "Finish my notes. Page forty. You'll see.", "Fascinating. So that's what it's like.",
-               "Find Ilsa. Promise me." },
+    wizard = { "Finish my notes. Page forty. You'll see.", "Fascinating. So that's what it's like." },
 }
-M.WAKE = "They hold the wake at the Crooked Kettle. Gus pours one for {char} and leaves it on the bar all night."
+M.WAKE = "They hold a wake for {char} that night, and everyone has a story to tell."
 
 -- Coming back at a cost: a scar in canon (it stays).
 M.SCARS = {
@@ -63,37 +61,38 @@ M.SCARS = {
 }
 
 -- New characters: two for each class the rules engine supports. Same class as the fallen, so
--- the party still works; the player keeps their own voice. intro: how they join.
+-- the party still works; the player keeps their own voice. intro: how they join. An adventure
+-- gives them its own hooks and introductions (adventure.museum_death).
 M.PREGENS = {
     fighter = {
-        { id = "bryn", name = "Bryn", hook = "Brannoc's younger sister, who followed him out of Hale's Crossing and never told him.",
+        { id = "bryn", name = "Bryn", hook = "Brannoc's younger sister, who followed him from home and never told him.",
           intro = "sibling", mini = "pregen_bryn" },
-        { id = "hesk", name = "Hesk Marrow", hook = "A hired sword with a scar for every town Kessrick burned, and a grudge for each.",
+        { id = "hesk", name = "Hesk Marrow", hook = "A hired sword with a scar for every job, and a story for each.",
           intro = "hired", mini = "pregen_hesk" },
     },
     rogue = {
-        { id = "tam", name = "Tam Quickley", hook = "A prisoner of the Velvet Hand the party sets loose. Owes them, and hates owing anyone.",
+        { id = "tam", name = "Tam Quickley", hook = "A prisoner the party sets loose. Owes them, and hates owing anyone.",
           intro = "rescued", mini = "pregen_tam" },
-        { id = "lark", name = "Lark", hook = "Pip's old partner from Lowmarket, who heard the news and came anyway.",
+        { id = "lark", name = "Lark", hook = "Pip's old partner, who heard the news and came anyway.",
           intro = "sibling", mini = "pregen_lark" },
     },
     cleric = {
         { id = "aldith", name = "Sister Aldith", hook = "A healer from the field hospital that never closes. She's seen worse than this.",
-          intro = "hired", seed = "healers_vigil", mini = "pregen_aldith" },
-        { id = "rufus", name = "Brother Rufus", hook = "A friar of the Laughing Saint who leaves pies at shrines and blessings everywhere.",
-          intro = "rescued", seed = "laughing_shrine", mini = "pregen_rufus" },
+          intro = "hired", mini = "pregen_aldith" },
+        { id = "rufus", name = "Brother Rufus", hook = "A cheerful friar who leaves blessings everywhere he goes.",
+          intro = "rescued", mini = "pregen_rufus" },
     },
     wizard = {
-        { id = "corwin", name = "Corwin Vell", hook = "An archive scholar who's read every map of the Vale, including the ones that lie.",
-          intro = "hired", seed = "old_roads", mini = "pregen_corwin" },
-        { id = "ysolde", name = "Ysolde", hook = "Ilsa's apprentice, who has her teacher's handwriting and none of her patience.",
-          intro = "sibling", seed = "mirror_letters", mini = "pregen_ysolde" },
+        { id = "corwin", name = "Corwin Vell", hook = "A scholar who's read every map he could find, including the ones that lie.",
+          intro = "hired", mini = "pregen_corwin" },
+        { id = "ysolde", name = "Ysolde", hook = "A wizard's old apprentice, with her teacher's handwriting and none of her patience.",
+          intro = "sibling", mini = "pregen_ysolde" },
     },
 }
 M.INTRO = {
-    sibling = "{new} walks into the Crooked Kettle carrying {old}'s pack. 'I heard. I'm coming with you. Don't argue.'",
+    sibling = "{new} turns up carrying {old}'s pack. 'I heard. I'm coming with you. Don't argue.'",
     hired = "{new} has been waiting by the door all evening. 'Your friend paid me in advance,' {new} says. 'I'd like to earn it.'",
-    rescued = "The party cuts {new} loose from a cart bound for the hills. {new} rubs their wrists and asks where they're headed.",
+    rescued = "The party gets {new} out of a tight spot. {new} rubs their wrists and asks where they're headed.",
 }
 M.INTRO_SPOTLIGHT = 14
 

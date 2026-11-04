@@ -375,6 +375,24 @@ function M.load(src)
     for _, card in ipairs(campaign.registered or {}) do
         content.register(card)
     end
+    -- A save from before November 4 kept the stunts said lately by their place in a longer list
+    -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.
+    local said = campaign.stunts_said
+    if said then
+        local OLD_STUNTS = { [2] = "draw_fire", [6] = "hold_the_line" }
+        local places = {}
+        for k in pairs(said) do
+            if type(k) == "number" then
+                table.insert(places, k)
+            end
+        end
+        for _, k in ipairs(places) do
+            if OLD_STUNTS[k] then
+                said[OLD_STUNTS[k]] = said[k]
+            end
+            said[k] = nil
+        end
+    end
     return campaign
 end
 

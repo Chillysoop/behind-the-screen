@@ -109,14 +109,11 @@ function M.night_event(app, ev)
             M.sfx("tap", 0.8, 0.8)
         end
     elseif k == "narrate" then
-        if ev.style == "seed" then
-            M.sfx("chime")
-            M.pulse(0.4, 0.6)
-        elseif ev.style == "thread" then
+        if ev.style == "thread" then
             M.sfx("chime", 0.7)
             M.pulse(0.25)
         end
-    elseif k == "decision" or k == "improv" or k == "ruling" or k == "roll_where" or k == "cook" then
+    elseif k == "decision" or k == "ruling" or k == "roll_where" then
         M.sfx("card")
     elseif k == "done" then
         M.snacks_eaten(0.9)

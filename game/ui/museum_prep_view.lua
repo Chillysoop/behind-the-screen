@@ -701,8 +701,8 @@ end
 -- What prepping a room does, for its button's hover and the list's header (the playtest, November 3:
 -- "it's unclear what prep it actually does, and what happens if something's not prepped").
 local PREP_WHAT = "You read the room ahead, set out its map and minis, and practise its voices. A prepped room "
-    .. "plays at its best. One you didn't prep still plays, but thinner: you skim the page while they wait (the "
-    .. "planners notice, everyone gets a little bored), and its moments land weaker."
+    .. "plays at its best. One you didn't prep still plays, but thinner: you skim the page while they wait "
+    .. "(everyone gets a little bored), and its moments land weaker."
 
 
 local function room_row(app, prep, id, x, y, w)

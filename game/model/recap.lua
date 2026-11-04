@@ -28,14 +28,14 @@ M.TEMPLATES = {
     death = { "{text}.", "The table lost {char} tonight.", "{char} didn't make it.",
               "{char}'s story ended tonight." },
     goodbye = { "They said goodbye to {char} properly.", "{char}'s last words got a silence after them.",
-                "A wake for {char} at the Kettle.", "{who} gave {char} a send-off nobody will forget." },
+                "{who} gave {char} a send-off nobody will forget." },
     back = { "{char} came back, changed.", "Death didn't keep {char}, but it left a mark.", "{char} is back. Mostly." },
     killing_blow = { "{char} landed the killing blow. {who} described every second of it.", "{text}.",
                      "The final hit went to {char}.", "{who} got to finish it, and did it in style.",
                      "{char} ended the fight." },
     villain_falls = { "{text}.", "The one leading them went down, and the rest lost heart.", "The fight's big name hit the floor." },
     escape = { "{text}.", "The villain got away, and will remember.", "Someone slipped out the back, swearing revenge.",
-               "One of them escaped. That's a Grudge now." },
+               "One of them escaped." },
     stunt = { "{text}.", "{char} pulled off a stunt.", "A flashy opening from {char}.", "{char} showed off, and it worked." },
     -- (Its own words, mostly: a token spent isn't one "earned". The playtest, Nov 2.)
     inspiration = { "{text}", "{text}", "Heroic Inspiration changed hands." },
@@ -57,7 +57,7 @@ M.TITLES = {
     escape = { "The One That Got Away", "{boss} Runs", "Unfinished Business" },
     crit = { "The Natural 20", "{char}'s Big Roll", "Twenty" },
     fumble = { "The Natural 1", "{char} and the Die", "One" },
-    moment = { "Thursday at the Kettle", "Another Night in the Vale", "Session {week}" },
+    moment = { "Session {week}" },
 }
 
 M.VERDICTS = {
@@ -178,8 +178,8 @@ function M.build(campaign, night, rng)
     end
     local tv = vars_for(campaign, night, top or {})
     tv.boss = util.title_case(tv.boss)
-    -- One name per session (October 15: "Strangers at the Kettle" in prep, "Brannoc Comes Back" on the
-    -- report and a third after a click were three names for one night). The name it was planned
+    -- One name per session (October 15: one name in prep, "Brannoc Comes Back" on the report and a
+    -- third after a click were three names for one night). The name it was planned
     -- under comes first and stays unless the DM picks another, which then names it everywhere.
     local titles = {}
     local planned

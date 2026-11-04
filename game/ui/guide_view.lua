@@ -28,9 +28,9 @@ local function safe(fn, app, c)
     return ok and v and true or false
 end
 
--- Screens where a tip may show, and what keeps tips away (a conversation or the level-up
--- moment over the prep board, the sandbox, an error, the dialogue review queue, the DM's
--- notes, a character sheet or the encounter builder), or a player's gift waiting in the report.
+-- What keeps tips away: a talk or the level-up moment over the prep board, the sandbox, an
+-- error, the dialogue review queue, the DM's notes or a character sheet, or a player's gift
+-- waiting in the report.
 local function gift_open(app)
     if app.screen ~= "report" or not app.campaign then
         return false
@@ -77,8 +77,7 @@ function M.current(app)
         return nil
     end
     for _, step in ipairs(data.steps) do
-        if not g.seen[step.id] and step.screen == app.screen and safe(step.when, app, c)
-            and (step.screen == "night" or step.screen == "report") then   -- (the old board's tips don't fit the museum's)
+        if not g.seen[step.id] and step.screen == app.screen and safe(step.when, app, c) then
             return step
         end
     end

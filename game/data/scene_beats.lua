@@ -21,7 +21,7 @@ return {
         mystery = { "A clue that doesn't fit. Which means it does.", "Somebody's story just fell apart.",
                     "The timeline is starting to make sense.", "A name keeps coming up. Interesting." },
         downtime = { "The whole room is enjoying this.", "A round of applause from the next table.",
-                     "Someone buys them a drink.", "Gus actually smiles. Briefly." },
+                     "Someone buys them a drink." },
     },
     lose = {
         social = { "{Cast} {narrows|narrow} their eyes.", "Wrong thing to say. The room goes chilly.",
@@ -32,7 +32,7 @@ return {
                    "The symbols go dark again.", "Back to square one on that bit." },
         mystery = { "A red herring. A very convincing one.", "{Witness} clams up.",
                     "The evidence points somewhere awkward.", "Somebody saw them snooping." },
-        downtime = { "That went sideways. Hilariously.", "Gus sighs the sigh of a tired man.",
+        downtime = { "That went sideways. Hilariously.",
                      "A chair breaks. Not their fault. Mostly.", "Someone is now banned from the dartboard." },
     },
 

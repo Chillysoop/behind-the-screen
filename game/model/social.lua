@@ -4,9 +4,9 @@
 -- A conflict is a pressure number that game night pushes around (who had the
 -- spotlight, how rules calls went, jokes in serious moments). Past BREWING people
 -- notice: the conflict's card can come up at the table. Past ACTIVE it costs the
--- people involved Commitment every week. It's settled by a fix: a conversation, a
--- group post, enough good calls at the table, or (for the tone clash) planning a week
--- that gives both sides their scene.
+-- people involved Commitment every week. It's settled by a fix: a vote at the table,
+-- enough good calls there, or (for the tone clash) a night that gives both sides
+-- their scene.
 
 local content = require "game.model.content"
 local score = require "game.model.score"

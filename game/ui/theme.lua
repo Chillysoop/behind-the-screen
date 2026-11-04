@@ -59,18 +59,14 @@ return {
         screen = c("#2e2620"),
         pacing = c("#9a7432"),
         table = c("#3f7f7a"),
-        curveball = c("#8f4f6a"),
-        agency = c("#2f6f5a"),
         talk = c("#5a6f2f"),
         boss = c("#7a2f2f"),
-        skew = c("#2f5f6f"),
     },
     log = {
         narration = c("#e9dcc3"),
         interlude = c("#e39aa8"),      -- v2: Euryale, upstairs, thinking
         goal = c("#e8b04a"),
         thread = c("#c2a8f0"),
-        seed = c("#9fd08a"),
         twist = c("#e08a4a"),
         dm = c("#8cc7bf"),
         warn = c("#e07a68"),
