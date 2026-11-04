@@ -315,7 +315,7 @@ function M.npc_spot(x, y, w, h, id, node)
 end
 
 kit.gloss_hook = M.hook
--- Every screen that doesn't choose its own: every term but the old lore screen's story words.
+-- Every screen that doesn't choose its own: every term but the old story's words (tagged "story").
 kit.gloss_default = { fight = true, table = true, report = true, sheet = true }
 
 -- Draw with the glossary on for these tags ({ fight = true }, or true for every term).

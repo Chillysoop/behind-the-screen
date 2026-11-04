@@ -21,7 +21,7 @@ local TIER_COLOR = { loved = "green", fun = "teal", fine = "text", bored = "oran
 -- Is the rewards scene still to show for this report?
 function M.pending(app)
     local rep = app.campaign.report
-    return app.campaign.module and rep and app.rewards_week ~= rep.week
+    return rep and app.rewards_week ~= rep.week
 end
 
 function M.done(app)

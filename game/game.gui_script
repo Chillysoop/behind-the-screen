@@ -567,7 +567,6 @@ function init(self)
             app.s0 = nil
         elseif screen == "slice_end" then
             app.slice = nil
-            app.awards = nil      -- picked fresh when the scrapbook opens
             app.zoom(1)
         elseif screen == "report" then
             msg.post(TABLE, "track", { on = false })

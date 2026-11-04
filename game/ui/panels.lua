@@ -141,7 +141,7 @@ function M.draw(app, on_click)
             .. "one die, and it goes back to you when they do.", nil, chip.token)
         -- Who's with them (companions.lua): a paw by the name, the companion's card on hover.
         local okc, companions = pcall(require, "game.model.companions")
-        local comp = okc and app.campaign.module and app.night and companions.of(app.night, p) or nil
+        local comp = okc and app.night and companions.of(app.night, p) or nil
         if comp then
             -- (On the corner of their hero's mini: who's riding along with them.)
             local cx, cy = x + 98, y + 60

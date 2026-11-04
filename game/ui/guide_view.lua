@@ -78,7 +78,7 @@ function M.current(app)
     end
     for _, step in ipairs(data.steps) do
         if not g.seen[step.id] and step.screen == app.screen and safe(step.when, app, c)
-            and not (c.module and step.screen ~= "night" and step.screen ~= "report") then   -- v2: the old board's tips don't fit the museum's
+            and (step.screen == "night" or step.screen == "report") then   -- (the old board's tips don't fit the museum's)
             return step
         end
     end

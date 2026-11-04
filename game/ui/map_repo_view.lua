@@ -252,7 +252,7 @@ local function actions(app, e, x, y, w)
         kit.text(x + 276, by + 10, queued and "The table sets it out when the next room starts. Click again to undo."
             or "Wherever the party goes next, it plays out on this map.", "ui14", theme.dim, { w = w - 280 })
         by = by + 52
-    elseif c.module then
+    else
         kit.button(x, by, 220, 40, "Use for a room", function()
             app.mr_pick = (app.mr_pick ~= "room") and "room" or false
             redraw(app)
@@ -373,7 +373,7 @@ function M.draw(app)
         app.screen == "night" and "Every map you can put on the table. Pick where the next scene plays out."
             or "Every map you can put on the table: the adventure's, imported ones, and your own.", "ui18", theme.dim)
     kit.button(X + W - 390, Y + 14, 170, 36, "New map", function()
-        local id = map_repo.new_map(c, app.mr_new_base or (c.module and "museum_hall") or "blank")
+        local id = map_repo.new_map(c, app.mr_new_base or "museum_hall")
         app.mr_group = "mine"
         app.mr_sel = "mine:" .. id
         M.open_maker(app, id)

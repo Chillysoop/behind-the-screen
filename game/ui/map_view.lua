@@ -1,9 +1,9 @@
--- Set the stage: the map half of the fight builder (B9 rebuilt on the SRD). The place's board on
--- the 20 x 13 grid, its own scenery shown dark; pick a set piece (a table is Half Cover, a pillar
--- Three-Quarters, a wall Total Cover, a door opens, ice is slippery, a torch lights the dark) and
--- click to set it down. Click your own piece again to turn it, or to work a door (shut, open,
--- locked). Clear takes a piece off, or the place's own scenery. The map is saved with the place
--- (game/model/maps.lua) and the table sets it out as the place from then on.
+-- The map maker (B9 rebuilt on the SRD), on one of the DM's own maps from the map repository
+-- (game/ui/map_repo_view.lua). The board on the 20 x 13 grid, its own scenery shown dark; pick a
+-- set piece (a table is Half Cover, a pillar Three-Quarters, a wall Total Cover, a door opens, ice
+-- is slippery, a torch lights the dark) and click to set it down. Click your own piece again to
+-- turn it, or to work a door (shut, open, locked). Clear takes a piece off, or the place's own
+-- scenery. The map is saved with the campaign (game/model/maps.lua).
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -71,9 +71,8 @@ local function templates_for(auto)
     return list
 end
 
--- The scene's place, and its map (nil until the first piece goes down). (v2: aimed at one of the
--- DM's own maps from the map repository, the "place" is that map: game/model/map_repo.lua keeps
--- its pieces at campaign.maps["mine:<id>"].)
+-- The map being made, as a place (game/model/map_repo.lua keeps its pieces at
+-- campaign.maps["mine:<id>"]), and its map (nil until the first piece goes down).
 local function place_of(app)
     local t = app.map_target
     if t and t.mine then
@@ -81,8 +80,7 @@ local function place_of(app)
         local name = meta and meta.name or "your map"
         return { id = "mine:" .. t.mine, name = name, short = name }, { type = "exploration", slots = {}, own = true }
     end
-    local s = app.campaign.prep.scenes[app.enc_scene]
-    return s and s.slots.location, s
+    return nil
 end
 
 function M.map_of(app)

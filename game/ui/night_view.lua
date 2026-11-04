@@ -254,7 +254,6 @@ function M.start(app)
     -- out." three times at once, in the header, the log and the caption.)
     app.scene_label = "Before the first scene"
     app.scene_sub = ""
-    app.scene_has_goal = nil
     app.keys_hidden = nil
     app.progress = nil
     app.hp = {}
@@ -332,7 +331,7 @@ local function status_text(app)
     -- (No call count up here: the night's end card has it, October 20. Short, so the End session
     -- button fits beside it: November 3.)
     -- (The speed is its own buttons now, beside this: the playtest, November 3.)
-    return tc .. (app.campaign and app.campaign.module and "\n" or "   ") .. (speed(app) < 1 and "Half speed   " or "")
+    return tc .. "\n" .. (speed(app) < 1 and "Half speed   " or "")
         .. "Rolls: " .. ((n and n.dm_rolls) or "hidden") .. "   Timer: " .. (app.timer_on and "on" or "off")
 end
 
@@ -349,28 +348,24 @@ function M.draw_frame(app)
     app.n_label = kit.text(160, 6, kit.ellipsize(app.scene_label, "ui18b", M.label_w(app)), "ui18b", theme.text)
     app.n_sub = kit.text(160, 32, kit.ellipsize(app.scene_sub or "", "ui14", 360), "ui14", theme.dim)
     -- Anything from an earlier build is gone with its layer.
-    app.pip_nodes, app.strip_nodes, app.goal_nodes = {}, {}, {}
-    M.draw_goal(app)
-    -- Your notes: the story so far, who's who, the party's sheets, the Story log (N; S opens the
-    -- Story log on this scene's storyline). One button: a second, "Stories (S)", opened the same
-    -- notes on another tab (October 20).
+    app.pip_nodes, app.strip_nodes = {}, {}
+    -- Your notes (N): the museum, who's who, the party's sheets. One button: a second, "Stories (S)",
+    -- opened the same notes on another tab (October 20).
     local recap = standing.has(app.campaign)
     kit.button(recap and 818 or 840, 10, recap and 104 or 112, 38, "Notes (N)", function()
         if app.open_notes then
             app.open_notes()
         end
     end, { font = "ui14", key = "night_notes" })
-    -- v2: the map repository: where the next scene plays out.
-    if app.campaign.module then
-        kit.button(recap and 928 or 960, 10, recap and 76 or 90, 38, "Maps", function()
-            if app.open_maps then
-                app.open_maps()
-            end
-        end, { font = "ui14", key = "night_maps" })
-    end
-    -- v2: ending the session is your call (the playtest, November 3): after the room you're in.
+    -- The map repository: where the next scene plays out.
+    kit.button(recap and 928 or 960, 10, recap and 76 or 90, 38, "Maps", function()
+        if app.open_maps then
+            app.open_maps()
+        end
+    end, { font = "ui14", key = "night_maps" })
+    -- Ending the session is your call (the playtest, November 3): after the room you're in.
     -- Click again to change your mind.
-    if app.campaign.module and app.night then
+    if app.night then
         local asked = app.night.dm_end_requested
         app.n_end = kit.button(1452, 10, 124, 38, asked and "Ending soon" or "End session", function()
             if app.night then
@@ -389,7 +384,7 @@ function M.draw_frame(app)
             .. "a cliffhanger, or just after a big fight, and they go home happy; in a lull it falls flat. Stopping early so "
             .. "the big scene gets a full evening next week pays off then. Everything is saved where it stands.")
     end
-    -- v2: the DM's recap (game/ui/recap_view.lua): the Story sidebar top left, the Table top right.
+    -- The DM's recap (game/ui/recap_view.lua): the Story sidebar top left, the Table top right.
     if recap then
         kit.button(728, 10, 84, 38, "Story", function()
             recap_view.toggle(app, "left")
@@ -398,10 +393,9 @@ function M.draw_frame(app)
             recap_view.toggle(app, "right")
         end, { font = "ui14", key = "night_table" })
     end
-    app.n_status = kit.text(app.campaign.module and 1440 or 1576, app.campaign.module and 4 or 8, status_text(app), "ui14", theme.text,
-        { pivot = gui.PIVOT_NE, gloss = false })
+    app.n_status = kit.text(1440, 4, status_text(app), "ui14", theme.text, { pivot = gui.PIVOT_NE, gloss = false })
     -- Pause and the night's speed, clickable (the playtest, November 3): Pause, 1x, 2x, 4x.
-    M.draw_speed(app, app.campaign.module and 1100 or 1110, 10)
+    M.draw_speed(app, 1100, 10)
     M.draw_crits(app)
     -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
     -- line nobody read after the first scene; October 20: back at the start of every night). The
@@ -409,15 +403,14 @@ function M.draw_frame(app)
     -- options show their own numbers.)
     app.n_keys = nil
     if not app.keys_hidden and app.campaign.week <= 1 then
-        app.n_keys = kit.text(1576, app.campaign.module and 62 or 32, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo"
-            .. (app.campaign.module and "  S recap" or "  S story log"), "ui14",
+        app.n_keys = kit.text(1576, 62, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S recap", "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
-    gloss.card_spot(app.campaign.module and 1270 or 1300, 4, app.campaign.module and 172 or 276, 44, "The evening at a glance",
+    gloss.card_spot(1270, 4, 172, 44, "The evening at a glance",
         "The time at the table, and when you said you'd stop. Your rolls (H): whether you roll for the monsters behind your screen "
         .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo"
-        .. (app.campaign.module and ", S opens your recap: the story's sides and the table, side by side." or ", S opens the Story log."))
+        .. ", S opens your recap: the story's sides and the table, side by side.")
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
         if app.open_sheet then
@@ -439,55 +432,6 @@ local function sub_room(app)
     return math.max(120, math.min(360, 760 - 176 - pips - kit.width("final roll: normal", "ui14")))
 end
 M.sub_room = sub_room
-
--- What they're out to do this week, after the scene's line in the header (October 15: so the DM
--- never has to open a menu to know): the main story's icon and the objective, which changes when
--- they find the clue it hangs on.
-function M.draw_goal(app)
-    if not app.layers.base then
-        return
-    end
-    kit.use(app.layers.base)
-    kit.remove(app.goal_nodes or {})
-    app.goal_nodes = {}
-    local lore = require "game.model.lore"
-    local obj = lore.objective(app.campaign, nil, true)
-    -- A scene with a goal says what it's for under its name: the week's goal beside it made three
-    -- aims on screen at once (the card-led playtest, October 16).
-    if not obj or app.scene_has_goal then
-        return
-    end
-    local sub = kit.ellipsize(app.scene_sub or "", "ui14", sub_room(app))
-    local x = 160 + (sub ~= "" and (kit.width(sub, "ui14") + 22) or 0)
-    -- (After a challenge's pips, when there are any.)
-    local pr = app.progress
-    if pr then
-        x = 160 + kit.width(sub, "ui14") + 16 + (pr.need + pr.max) * 14 + 10 + 16 + (app.pips_label_w or 0)
-    end
-    local full = "This week: " .. obj
-    local y = 32
-    local avail = 766 - x - 20
-    -- Too long for beside the scene's line: beside its title instead, when that has the room
-    -- (October 15: the goal was cut short whenever the scene's line was long).
-    if kit.width(full, "ui14") > avail - 20 then
-        local x1 = 160 + kit.width(kit.ellipsize(app.scene_label or "", "ui18b", M.label_w(app)), "ui18b") + 24
-        if 766 - x1 - 20 > avail then
-            x, y, avail = x1, 10, 766 - x1 - 20
-        end
-    end
-    if avail < 140 then
-        return
-    end
-    if kit.width(full, "ui14") > avail - 20 then
-        full = obj    -- (the bell icon says "this week" well enough when room is short)
-    end
-    local m = lore.storyline(app.campaign, content.lore.briefing.next_story)
-    if m and m.icon then
-        table.insert(app.goal_nodes, kit.icon(x, y + 1, 15, m.icon, m.color and kit.rgba(m.color) or theme.gold))
-    end
-    local text = kit.ellipsize(full, "ui14", avail - 20)
-    table.insert(app.goal_nodes, kit.text(x + 20, y, text, "ui14", theme.gold))
-end
 
 function M.refresh_status(app)
     if app.n_status then
@@ -604,7 +548,6 @@ function M.draw_pips(app)
     -- What the dots are (the newcomer playtest, October 16).
     app.pips_label_w = 0
     if #app.pip_nodes == 0 then
-        M.draw_goal(app)
         return
     end
     -- Where the scene's last roll stands right now (the newcomer playtest, October 16: the dots
@@ -635,7 +578,6 @@ function M.draw_pips(app)
         "Gold dots: good moments. Fill every gold dot and the scene's final roll gets easier (DC -2). Red dots: "
         .. "setbacks. Fill every red one first and it gets harder (DC +2). Someone in the scene telling them where "
         .. "to look makes it 2 easier again. The words beside the dots say where it stands right now.", nil, app.pip_nodes[1])
-    M.draw_goal(app)    -- moves along to make room
 end
 
 -- The log: compact (last few lines) or open (Tab) -------------------------------------------
@@ -1920,7 +1862,7 @@ end
 
 -- Small-moment crits, on or off (the playtest, November 3): top right, under End session.
 function M.draw_crits(app)
-    if not (app.campaign.module and app.night) then
+    if not app.night then
         return
     end
     local tl = require "game.model.table_life"
@@ -2579,7 +2521,6 @@ function M.handle(app, ev)
     if k == "scene" then
         M.prune_thinks(app)        -- a thought about the last scene has passed with it
         app.scene_found, app.scene_hinge = {}, nil
-        app.scene_has_goal = ev.goal ~= nil
         -- This scene's rolls only (the card-led playtest, October 16: last scene's dice stayed up), and
         -- last scene's card goes (the second playtest, October 17: it was still up under the new
         -- scene's title).
@@ -2605,7 +2546,6 @@ function M.handle(app, ev)
         gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
         app.progress = nil
         M.draw_pips(app)
-        M.draw_goal(app)
         M.push(app, app.scene_label .. "  (" .. app.scene_sub .. ")", "scene", true)
         -- (The goal is under the scene's name in the header, right above: the title card says where
         -- and who.)
@@ -2720,13 +2660,11 @@ function M.handle(app, ev)
         end
     elseif k == "scene_goal" then
         -- An improvised goal: the header says it too.
-        app.scene_has_goal = true
         app.scene_sub = (app.scene_type_name or "Scene") .. ": " .. util.lower_first(ev.goal or "")
         if app.n_sub then
             gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
         end
         M.draw_pips(app)
-        M.draw_goal(app)
     elseif k == "progress" then
         -- A mid-scene big roll moved the dots too (the card-led playtest: a triumph left them be).
         app.progress = ev.progress

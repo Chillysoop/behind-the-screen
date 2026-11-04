@@ -132,42 +132,18 @@ local function page_sheet(app, s, x, y)
     local g = table.concat(s.gear, ", ")
     kit.text(rx, ry, g, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(g, "ui18", rw) + 14
-    -- (v2: in an adventure, the reason their hero came to it; no villains plotting on it.)
+    -- The reason their hero came to the museum (Session Zero's hooks page).
     local c = app.campaign
-    local adv = c.module and c.adv and require("game.model.adventure")
-    local hk = adv and adv.hook(c, s.key)
-    kit.text(rx, ry, hk and "WHY THEY CAME" or "BACKSTORY HOOK", "ui14", theme.gold)
-    ry = ry + 22
-    local hook = hk and (hk.name .. ": " .. hk.text) or util.capitalize(s.thread or "")
-    kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
-    ry = ry + kit.text_height(hook, "ui18", rw) + 6
+    local hk = require("game.model.adventure").hook(c, s.key)
     if hk then
-        kit.text(rx, ry + 6, "AT THE TABLE", "ui14", theme.gold)
-        kit.text(rx, ry + 28, s.notes or "", "ui14", theme.dim, { w = rw })
-        return
+        kit.text(rx, ry, "WHY THEY CAME", "ui14", theme.gold)
+        ry = ry + 22
+        local hook = hk.name .. ": " .. hk.text
+        kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
+        ry = ry + kit.text_height(hook, "ui18", rw) + 6
     end
-    -- How far the villain may go with it (Session Zero's backstory boundary): theirs to say, and
-    -- yours to change after a check-in.
-    local villains = require "game.model.villains"
-    local b = villains.boundary(app.campaign, s.key)
-    local vd = villains.data
-    local bline = "Villains: " .. vd.BOUNDARY_NAME[b] .. ". " .. vd.BOUNDARY_ABOUT[b]
-    kit.text(rx, ry, bline, "ui14", theme.dim, { w = rw - 110 })
-    kit.button(rx + rw - 100, ry - 4, 100, 26, "Change", function()
-        local order = vd.BOUNDARY_ORDER
-        local at = 1
-        for k, id in ipairs(order) do
-            if id == b then
-                at = k
-            end
-        end
-        villains.set_boundary(app.campaign, s.key, order[at % #order + 1])
-        M.draw(app)
-    end, { font = "ui14", key = "sheet_boundary" })
-    ry = ry + math.max(26, kit.text_height(bline, "ui14", rw - 110)) + 12
-    kit.text(rx, ry, "AT THE TABLE", "ui14", theme.gold)
-    ry = ry + 22
-    kit.text(rx, ry, s.notes or "", "ui14", theme.dim, { w = rw })
+    kit.text(rx, ry + 6, "AT THE TABLE", "ui14", theme.gold)
+    kit.text(rx, ry + 28, s.notes or "", "ui14", theme.dim, { w = rw })
 end
 
 local function page_features(app, s, x, y)
