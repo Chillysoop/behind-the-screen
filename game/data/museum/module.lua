@@ -31,6 +31,19 @@
 
 local M = {}
 
+-- The gift shop's prices, in Flitwidget Francs (the shopping card, mus_shopping): each option's label,
+-- its price and what it takes from the pool all come from here. The book prices the Tenets of the
+-- Rotting Temple and the Mech manual the same, 6 Francs, and a fire arrow and a bucket of slime at 3
+-- and 4; the museum pays fewer Francs than the book, so these keep its order (the manual no cheaper
+-- than the Tenets, the arrows and slime the dearest) at the museum's own level. Measured over 300
+-- seeded prologues with the three sim DMs, the party brings 6 or 7 Francs to the counter the first
+-- time (2 to 13): at these prices about two in three can buy one thing, one in four could buy two,
+-- almost none all three, and one in twelve can't buy anything yet. Change a price here and nowhere else.
+local PRICE = { tenets = 4, manual = 4, arrows = 5 }
+local function priced(label, n)
+    return label .. " (" .. n .. " Francs)"
+end
+
 M.id = "museum"
 M.title = "The Museum of Nightmares"
 M.author = "Luke Russell"
@@ -742,21 +755,19 @@ M.moments = {
       text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching.",
       shop = true,
       options = {
-          -- (The book prices the Tenets and the Mech manual the same, 6 Francs, and a fire arrow and a bucket of
-          -- slime at 3 and 4. The museum pays fewer Francs than the book, so these are its prices at about
-          -- two-thirds, in the same order: the manual is no cheaper than the Tenets, the pair costs more.)
-          { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4, want = "buy the book on gorgon-worshippers",
+          -- (Their prices: PRICE, at the top of this file.)
+          { label = priced("A scholar's book on gorgon-worshippers", PRICE.tenets), price = PRICE.tenets, want = "buy the book on gorgon-worshippers",
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
-            mus = { mark = "know", spend = 4, favor = { who = "telpur", n = 1 } } },
-          { label = "The Mech Instruction Manual (4 Francs)", price = 4, want = "buy the Mech manual",
+            mus = { mark = "know", spend = PRICE.tenets, favor = { who = "telpur", n = 1 } } },
+          { label = priced("The Mech Instruction Manual", PRICE.manual), price = PRICE.manual, want = "buy the Mech manual",
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "manual", spend = 4, favor = { who = "telpur", n = 1 } } },
-          { label = "Fire arrows and a bucket of slime (5 Francs)", price = 5, want = "buy the fire arrows and the slime",
+            mus = { flag = "manual", spend = PRICE.manual, favor = { who = "telpur", n = 1 } } },
+          { label = priced("Fire arrows and a bucket of slime", PRICE.arrows), price = PRICE.arrows, want = "buy the fire arrows and the slime",
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "arrows", spend = 5, favor = { who = "telpur", n = 1 } } },
+            mus = { flag = "arrows", spend = PRICE.arrows, favor = { who = "telpur", n = 1 } } },
           { label = "The vorpal sword (40 Francs)", price = 40, needs = { flag = "vorpal_price" }, want = "buy the vorpal sword",
             log = "Forty Francs, counted twice. Telpur wraps it in brown paper. It's very, very sharp.",
             effects = { { "actor", fun = 10, reward = 10 }, { "arch:power_gamer", fun = 6 } },
