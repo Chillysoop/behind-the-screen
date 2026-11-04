@@ -1469,6 +1469,11 @@ local function tb_line(p)
         end
         local by = (b.by == "roller" and "the one who rolled") or (b.by == "other" and "a friend, to the one who rolled") or nil
         local speaker = who and (by and (who .. ", as " .. by) or who) or (by or "anyone")
+        local line = b.lines[p[4]]
+        if type(line) == "table" and line.late then
+            return R("Sometimes, " .. (TB_WHEN[b.when] or "at the table") .. ": whoever the group chat said would be late this week"
+                .. (line.late ~= "any" and (", because of the " .. line.late) or "") .. ", out of character", "Sometimes")
+        end
         return R("Sometimes, " .. (TB_WHEN[b.when] or "at the table") .. ": " .. speaker .. ", out of character", one_of(#b.lines))
     elseif p[1] == "stunts" then
         local st = T.stunts[p[2]]

@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F15", "F16", "F17", "F21", "F22", "F24", "F26", "R2", "R3" }
+local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F15", "F16", "F17", "F21", "F22", "F24", "F25", "F26", "R2", "R3" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -822,6 +822,75 @@ function CHECKS.R2(run)
                         add("R2", "reasons_given")
                     end
                 end
+            end
+        end
+    end
+end
+
+-- F25: chatter fits the moment: nothing claims a find that wasn't, no chips as the danger's announced,
+-- the chat and the night agree on who's late and why, the loot isn't shared twice over, "your calls
+-- for tonight" is true, and every card has at least two ways to go.
+function CHECKS.F25(run)
+    local log = run.log
+    local late = {}
+    for _, m in ipairs(run.chats) do
+        local who = m.who and string.lower(m.who)
+        if m.text and has(m.text, "late") then
+            late[m.week] = late[m.week] or {}
+            late[m.week][who or "?"] = m.text
+        end
+    end
+    local shared_at
+    local calls_out
+    for i, r in ipairs(log) do
+        if r.k == "decision" then
+            local n = 0
+            for _, o in ipairs(r.opts or {}) do
+                if not o.disabled then
+                    n = n + 1
+                end
+            end
+            if n < 2 then
+                fail("F25", where(run, r) .. ": a card with " .. n .. " way to go: " .. tostring(r.title))
+            else
+                add("F25", "cards_with_a_choice")
+            end
+            if calls_out == r.week and r.card ~= "tl_crit" and not string.find(r.card or "", "^table_") then
+                -- (After "your calls on the big rolls", no more of those: roll cards.)
+            end
+        end
+        if r.k == "narrate" and r.style == "system" and has(r.text, "That's your calls") then
+            calls_out = r.week
+            if not has(r.text, "big rolls") then
+                fail("F25", where(run, r) .. ": \"" .. r.text .. "\" and more calls follow")
+            end
+        end
+        if r.k == "say" and has(r.text, "i found it, but") then
+            fail("F25", where(run, r) .. ": \"" .. r.text .. "\" with nothing looked up")
+        end
+        if r.k == "say" and has(r.text, "with the chips") then
+            local room = adventure.data.rooms[r.room or ""] or {}
+            if room.encounter and not r.fought then
+                fail("F25", where(run, r) .. ": \"" .. r.text .. "\" with a fight still to come")
+            end
+        end
+        if r.k == "say" and (has(r.text, "i'm late") or has(r.text, "traffic")) then
+            local p = run.c:player(r.ev.who)
+            local chat = late[r.week] and p and late[r.week][string.lower(p.name)]
+            if not chat then
+                fail("F25", where(run, r) .. ": " .. tostring(r.ev.who) .. " is late, and the chat never said so: " .. r.text)
+            elseif has(r.text, "traffic") and has(chat, "bus") then
+                fail("F25", where(run, r) .. ": late for traffic, but the chat said the bus")
+            else
+                add("F25", "late_as_the_chat_said")
+            end
+        end
+        if r.k == "say" and (has(r.text, "will get more out of this than me") or has(r.text, "it's yours")) then
+            shared_at = i
+        end
+        if r.k == "narrate" and has(r.text, "have first pick of whatever they find next") then
+            if shared_at and i - shared_at < 12 then
+                fail("F25", where(run, r) .. ": the loot shared twice running: " .. r.text)
             end
         end
     end

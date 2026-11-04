@@ -1873,6 +1873,20 @@ function M:hurt(p)
     return c ~= nil and not c.dead and (c.hp or 0) < (c.hp_max or 1) * 0.6
 end
 
+-- A table habit's line that has a condition: late = a reason, true only for the friend the group chat
+-- said would be late this week, for that reason (or any reason: "any").
+function M.behavior_line_ok(night, line, p)
+    if type(line) ~= "table" then
+        return true
+    end
+    if line.late then
+        local late = night.campaign.adv and night.campaign.adv.late
+        local why = late and late.week == night.campaign.week and late[p.key]
+        return why ~= nil and (line.late == "any" or line.late == why)
+    end
+    return true
+end
+
 function M:table_behavior(when, roller, sure)
     self.tb = self.tb or { n = 0, used = {}, hooks = {} }
     local tb = self.tb
@@ -1907,6 +1921,13 @@ function M:table_behavior(when, roller, sure)
             end
             if #free > 0 then
                 for _, p in ipairs(self.players) do
+                    -- (A line with a condition only for the friend it's true of: late as the chat said.)
+                    local pfree = {}
+                    for _, i in ipairs(free) do
+                        if M.behavior_line_ok(self, b.lines[i], p) then
+                            table.insert(pfree, i)
+                        end
+                    end
                     local w = arch_weight(b.archetype, p)
                     if not class_ok(b, p) then
                         w = 0
@@ -1921,8 +1942,8 @@ function M:table_behavior(when, roller, sure)
                     elseif b.mood == "bored" and p.engagement >= 0.45 then
                         w = 0
                     end
-                    if w > 0 then
-                        table.insert(cands, { b = b, p = p, free = free })
+                    if w > 0 and #pfree > 0 then
+                        table.insert(cands, { b = b, p = p, free = pfree })
                         table.insert(weights, w)
                     end
                 end
@@ -1939,7 +1960,8 @@ function M:table_behavior(when, roller, sure)
     tb.used[b.id] = true
     tb.hooks[hook] = true
     camp.tb_said[b.id .. "#" .. i] = week
-    local text = util.fill(b.lines[i], self:vars({ other_char = roller and roller.char or "" }))
+    local raw = b.lines[i]
+    local text = util.fill(type(raw) == "table" and raw[1] or raw, self:vars({ other_char = roller and roller.char or "" }))
     local pose = TB_POSE[b.id] or (b.mood == "bored" and "yawn")
         or (string.find(b.effect or "", "^fun%+") and "laugh") or (b.by == "other" and "cheer") or "lean"
     self:react({ [p.key] = pose })
@@ -2472,7 +2494,9 @@ function M:big_roll(spec, record)
     elseif self:decision_count() >= 15 then
         if not self.calls_out_said then
             self.calls_out_said = true
-            self:say("That's your calls for tonight. From here the dice decide, out in the open, and you narrate what they say.", "system")
+            -- (Only the big rolls stop asking: other calls still come. The second playtest review.)
+            self:say("That's your calls on the big rolls for tonight. From here those dice decide, out in the open, and you narrate what they say.",
+                "system")
         end
         where = "open"
     else
@@ -3807,6 +3831,16 @@ function M:party_moment(sc)
         end
     elseif roll < 0.62 then
         local cands, w = eligible(fr.bonds)
+        -- (Somebody just handed over what they found: "lets them have first pick" right after it is
+        -- the same thing said twice. The second playtest review.)
+        if self.handed_off and self.handed_off == (sc and sc.index or true) then
+            for i = #cands, 1, -1 do
+                if cands[i].def.id == "share_the_loot" then
+                    table.remove(cands, i)
+                    table.remove(w, i)
+                end
+            end
+        end
         if #cands > 0 then
             local pick = self.rng:weighted(cands, w)
             self:bond_act(sc, pick.def, pick.p)

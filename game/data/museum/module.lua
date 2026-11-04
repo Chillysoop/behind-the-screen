@@ -826,18 +826,27 @@ M.moments = {
       } },
 
     -- The World of Tomorrow -------------------------------------------------------------------
+    -- (Two ways to go whatever you prepped: the clock you planned, or the one you didn't. The second
+    -- playtest review: with the timer prepped, the card had one option.)
     { id = "mus_code", room = "tomorrow", spot = "8A", at = "start", type = "puzzle", actor = { "tactician", "power_gamer", "storyteller" },
       title = "The code in its chest",
       text = "A panel in the machine's chest slides open on a string of numbers. Grid references. It won't stay open long.",
       options = {
-          { label = "Give them the time they need.", unless = { knob = "timer" },
+          { label = "Thirty real seconds. Go.", when = { knob = "timer" },
+            roll = { dc = 13, skill = { "investigation", "arcana" }, convenient = "success",
+                     success = { log = "With two seconds to spare, {actor_char} shouts the word. \"Activation accepted. My name is {mech}.\" The table erupts.",
+                                 effects = { { "actor", spotlight = 16, fun = 8 }, { "arch:butt_kicker", fun = 5 }, { "arch:casual", fun = -3 } },
+                                 mus = { mark = "mech", francs = 2, resolve = "win", aspect = "Woke the Steam Mech with two seconds to spare" } },
+                     fail = { log = "Time. The panel snaps shut, and Sam lets out a breath he's been holding for thirty seconds.",
+                              effects = { { "arch:casual", fun = -4 }, { "arch:instigator", fun = 3 } }, mus = { resolve = "lose" } } } },
+          { label = "Give them the time they need.", sub = "No clock: they take their time.",
             roll = { dc = 12, skill = { "investigation", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} reads the grid, says the word, and steam hisses. \"Activation accepted. My name is {mech}.\"",
                                  effects = { { "actor", spotlight = 12 }, { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 6 } },
                                  mus = { mark = "mech", francs = 1, resolve = "win", aspect = "Woke the Steam Mech and commands it" } },
                      fail = { log = "The panel snaps shut. The code changes. The machine stays a statue.",
                               effects = { { "arch:power_gamer", fun = -4 } }, mus = { resolve = "lose" } } } },
-          { label = "Thirty real seconds. Go.", when = { knob = "timer" },
+          { label = "Put thirty real seconds on the clock.", sub = "You hadn't planned a timer. It's tense; it's harder.", unless = { knob = "timer" },
             roll = { dc = 13, skill = { "investigation", "arcana" }, convenient = "success",
                      success = { log = "With two seconds to spare, {actor_char} shouts the word. \"Activation accepted. My name is {mech}.\" The table erupts.",
                                  effects = { { "actor", spotlight = 16, fun = 8 }, { "arch:butt_kicker", fun = 5 }, { "arch:casual", fun = -3 } },
@@ -1550,7 +1559,7 @@ M.want_more = {
 M.chat_banter = {
     { "sam", "who's on snacks this week", "jess", "me. it's going to be crisps again" },
     { "mara", "i made a little map of the museum. don't look at it dev, it has spoilers", "dev", "how does it have spoilers. you made it" },
-    { "jess", "can we start 15 min late thursday, bus thing", "sam", "np, i'll be late anyway" },
+    { "jess", "can we start 15 min late thursday, bus thing", "sam", "np, i'll be late anyway", late = { jess = "bus", sam = "any" } },
     { "dev", "i've been practising brannoc's battle cry in the car", "mara", "please don't do it at the table" },
     { "sam", "bought new dice. they're green. they already roll badly", "jess", "a classic", dice = "jade" },   -- (his tray rolls them from now on)
     { "mara", "does anyone know if gnomes have middle names", "jess", "flitwidget absolutely has four" },

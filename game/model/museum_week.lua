@@ -488,6 +488,13 @@ function M.write_chat(c)
     if #banter > 0 and c.week > 1 then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
+        -- Who said they'd be late, and why: game night's arrivals say the same (night.behavior_line_ok).
+        if b.late then
+            st.late = { week = c.week }
+            for k, why in pairs(b.late) do
+                st.late[k] = why
+            end
+        end
         -- What they said they bought is what they bring (the playtest, November 3: Sam's green dice
         -- were still grey on the table).
         if b.dice then
