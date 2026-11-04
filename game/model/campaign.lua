@@ -35,6 +35,8 @@ function M.new(seed)
     self.journal = {}       -- one entry per finished week, for the end-of-prologue survey
     -- Who the party has met (the notebook's people): { met = { [person id] = week } }.
     self.story = { met = {} }
+    -- What each hero carries, from the start: their sheet's healing potion (items.lua).
+    require("game.model.items").start(self)
     return self
 end
 

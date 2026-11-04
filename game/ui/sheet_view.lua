@@ -132,6 +132,20 @@ local function page_sheet(app, s, x, y)
     local g = table.concat(s.gear, ", ")
     kit.text(rx, ry, g, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(g, "ui18", rw) + 14
+    -- What they picked up, bought or were given (their inventory, items.lua): one line each, and
+    -- what it does on hover.
+    if s.carried and #s.carried > 0 then
+        kit.text(rx, ry, "CARRYING", "ui14", theme.gold)
+        ry = ry + 22
+        for _, it in ipairs(s.carried) do
+            local tn = kit.text(rx, ry, it.name, "ui18", theme.text, { w = rw, lines = 1, gloss = false })
+            if it.text and it.text ~= "" then
+                require("game.ui.gloss").card_spot(rx, ry, rw, 22, it.name, it.text, nil, tn)
+            end
+            ry = ry + 24
+        end
+        ry = ry + 8
+    end
     -- The reason their hero came to the museum (Session Zero's hooks page).
     local c = app.campaign
     local hk = require("game.model.adventure").hook(c, s.key)

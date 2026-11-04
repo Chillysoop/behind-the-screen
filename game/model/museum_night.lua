@@ -189,7 +189,9 @@ function M.handle(night, mus, sc)
     end
     local c = night.campaign
     local st = st_of(night)
-    local added = adventure.apply(c, mus, sc and sc.room)
+    -- (Who it was: the one whose choice it was carries what it hands over, items.lua. A purchase
+    -- the table settled is the buyer's: table_pick's backer, the one who wanted it.)
+    local added = adventure.apply(c, mus, sc and sc.room, night.actor and night.actor.key)
     -- (Francs this room already paid, and what the gift shop sold tonight: the room's prize and its
     -- last line don't say it twice, or say it when nothing changed hands.)
     if mus.francs and sc and sc.room then
@@ -216,13 +218,9 @@ function M.handle(night, mus, sc)
     if mus.flag == "notebook" then
         st.flags.notebook = true
     end
-    -- Who picked it up: the hero whose choice it was carries it (MODULE.items' {holder}), and a
-    -- real magic item goes on their sheet, so the rules use it in every fight from now on.
-    for _, key in ipairs({ mus.flag or false, mus.mark or false }) do
-        if key and night.actor then
-            st.holders = st.holders or {}
-            st.holders[key] = st.holders[key] or night.actor.key
-        end
+    -- (Who drank her wine and is still smiling: they start the fight charmed, MODULE.items.)
+    if mus.flag == "charmed" and night.actor then
+        st.charmed_hero = night.actor.key
     end
     -- (What they came away with tonight, for the report: anything MODULE.items names.)
     for _, it in ipairs(MODULE.items or {}) do
@@ -250,9 +248,8 @@ function M.handle(night, mus, sc)
                 if pc then
                     items_mod.apply(c, e.holder, pc)
                 end
-                if e and e.holder then
-                    st.holders = st.holders or {}
-                    st.holders[mus.flag] = e.holder
+                if e then
+                    e.from = mus.spend and "bought" or "found"
                 end
             end
         end
@@ -408,14 +405,14 @@ function M.item_info(c, name)
     local st = adventure.fill(c.adv)
     local low = string.lower(name or "")
     for _, it in ipairs(MODULE.items or {}) do
-        if it.name and string.lower(it.name) == low then
-            local key = it.when and (it.when.flag or it.when.mark)
-            local hk = key and st.holders and st.holders[key]
+        if it.name and (string.lower(it.name) == low or string.lower(it.title or "") == low) then
+            -- (Who has it is the inventory's to say: items.lua.)
+            local _, hk = items_mod.holding(c, it.magic or it.id)
             local holder = hk and c:player(hk) or nil
             local d = it.magic and items_mod.def(it.magic)
-            local text = (d and d.text) or util.fill(it.line or "", { holder = holder and holder.char or "Whoever has it",
-                                                                      mech = st.mech_name or "the Mech" })
-            return { title = util.capitalize(it.name), text = text, holder = holder }
+            local text = (d and d.text) or it.text or util.fill(it.line or "", { holder = holder and holder.char or "Whoever has it",
+                                                                                  mech = st.mech_name or "the Mech" })
+            return { title = util.capitalize(it.title or it.name), text = text, holder = holder }
         end
     end
     for _, e in ipairs(items_mod.list(c)) do
@@ -486,6 +483,14 @@ end
 local function option_ok(night, o)
     local c = night.campaign
     local knobs = knobs_of(night)
+    -- (What they own isn't on the shelf any more: the gorgon book sold twice, the second playtest
+    -- review. Something used up can be bought again.)
+    if o.price then
+        local t = require("game.model.items").thing_for(o.mus)
+        if t and require("game.model.items").owned(c, t.magic or t.id) then
+            return false
+        end
+    end
     if o.when and not adventure.test(c, o.when, knobs) then
         return false
     end
@@ -1002,7 +1007,7 @@ local function earn_drop(night, sc, n, w)
         items_mod.apply(c, e.holder, pc)
     end
     w.drop.got = c.week
-    w.drop.holder = e and e.holder or nil
+    w.drop.entry = e            -- (who has it now is the inventory's to say: items.lua)
     local d = items_mod.def(w.drop.item)
     M.note_got(night, d and util.lower_first(d.name) or nil)
     local holder = e and e.holder and present(night, e.holder)
@@ -1347,18 +1352,21 @@ function M.arm(night, sc)
             end
         end
     end
+    local items_mod = require "game.model.items"
     for _, it in ipairs(MODULE.items or {}) do
-        local ok = adventure.test(c, it.when, knobs) and not (it.once and st.items_used[it.id])
+        local ok = adventure.test(c, it.when, knobs) and not (it.once and not it.carry and st.items_used[it.id])
             and (not it.rooms or util.contains(it.rooms, sc.room)) and (not it.ally or allies[it.ally])
             and not (sc.extras_only and it.boss)      -- (what's for her, when she's already gone)
-        -- (A magic item is on someone's sheet: only if they're here tonight.)
-        local holder_key = st.holders and st.holders[(it.when and (it.when.flag or it.when.mark)) or it.id]
-        local holder = holder_key and present(night, holder_key)
-        if ok and it.magic then
-            ok = holder ~= nil
-        end
-        if ok and it.charm then
-            ok = holder ~= nil
+        -- (Something they carry is in one hero's pack, items.lua: it works only if they're here
+        -- tonight, and it hasn't been used up.)
+        local holder
+        if it.carry then
+            local _, hk = items_mod.holding(c, it.magic or it.id)
+            holder = hk and present(night, hk)
+            ok = ok and holder ~= nil
+        elseif it.charm then
+            holder = st.charmed_hero and present(night, st.charmed_hero)
+            ok = ok and holder ~= nil
             if ok then
                 sc.encounter.charmed = holder.key     -- (fight.lua: they start the fight charmed by the boss)
             end
@@ -1367,7 +1375,9 @@ function M.arm(night, sc)
             if it.opt then
                 sc.encounter[it.opt] = true
             end
-            if it.once then
+            if it.once and it.carry then
+                items_mod.use(c, it.magic or it.id, holder and holder.key)
+            elseif it.once then
                 st.items_used[it.id] = c.week
             end
             if it.line then
@@ -1390,7 +1400,13 @@ function M.cheapest(c)
         if m.shop then
             for _, o in ipairs(m.options) do
                 local mu = o.mus or {}
-                local have = (mu.flag and st.flags[mu.flag]) or (mu.mark and st.marks[mu.mark])
+                local t = require("game.model.items").thing_for(mu)
+                local have
+                if t then
+                    have = require("game.model.items").owned(c, t.magic or t.id)
+                else
+                    have = (mu.flag and st.flags[mu.flag]) or (mu.mark and st.marks[mu.mark])
+                end
                 local ok = not o.needs or adventure.test(c, o.needs)
                 if o.price and not have and ok and o.price < best then
                     best = o.price
@@ -2649,6 +2665,11 @@ function M.after_room(night, sc)
         end
     elseif id == "offices" and outcome == "win" then
         st.flags.notebook = true
+        -- (Somebody takes it off the desk: the one who wants it most, items.lua's `to`.)
+        local items_mod = require "game.model.items"
+        if not items_mod.owned(c, "notebook") then
+            items_mod.give(c, "notebook", nil, "found")
+        end
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
     adventure.leave_room(c, id, outcome, c.week)

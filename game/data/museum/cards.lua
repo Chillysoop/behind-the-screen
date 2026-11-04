@@ -454,9 +454,13 @@ M.goal_play = {
               win = "{Cast} {lowers|lower} his voice: news from the mountains. A murder up the mountain road, and nobody asking the right questions.",
               lose = "{Cast} {changes|change} the subject to biscuits. Very good biscuits." },
             -- (Not after a bargain over her sisters: they've just heard all about them.)
-            { skill = "history", say = "Gorgons come in threes. Where are her sisters?", when = { not_ending = "bargain" },
-              win = "{char} pieces it together: two more jars, somewhere out there in the world.",
-              lose = "{char} can't remember a single story about Gorgon sisters. Not one." },
+            -- (What they know counts: the gorgon book (its reader has Advantage), and the tapestry in
+            -- her lair. A miss with either can't be "not one story", the second playtest review. F10.)
+            { skill = "history", say = "Gorgons come in threes. Where are her sisters?", when = { not_ending = "bargain" }, topic = "gorgons",
+              win = "{char} pieces it together: two more sisters, somewhere out there in the world.",
+              lose = "{char} can't remember a single story about Gorgon sisters. Not one.",
+              lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the gorgon book: three sisters. Where the other two went, it doesn't say." },
+                          { when = { flag = "tapestry" }, text = "{char} thinks of the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },
         },
         moment = { text = "{actor_char} picks one thing from the gift shop shelf to keep.", skill = { "insight", "persuasion" } },
         talk = { "Can we keep the museum? Like, as a base?", "I want a museum guard badge. Is there a badge?" },

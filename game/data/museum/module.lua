@@ -330,7 +330,7 @@ M.rooms = {
 M.asides = {
     { id = "fussed", when = { flag = "fussed" }, no_sneak = true,
       text = "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything." },
-    { id = "shoelace", when = { flag = "shoelace" }, owner = "jess",
+    { id = "shoelace", when = { holds_here = "shoelace" }, owner = "jess",
       intro = "Pip has a new shoelace tonight, a present from Telpur's own boot. It talks. It hasn't stopped since the gift shop.",
       text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked." },
     { id = "telpur", when = { flag = "telpur_along" }, no_sneak = true,
@@ -694,7 +694,7 @@ M.moments = {
           { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4, want = "buy the book on gorgon-worshippers",
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
-            mus = { mark = "know", spend = 4, got = "a book on gorgon-worshippers", favor = { who = "telpur", n = 1 } } },
+            mus = { mark = "know", spend = 4, favor = { who = "telpur", n = 1 } } },
           { label = "The Mech Instruction Manual (3 Francs)", price = 3, want = "buy the Mech manual",
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
@@ -1123,35 +1123,59 @@ M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "kni
 -- .arm). when: as on moments (usually the flag the pickup sets). rooms: only in these rooms' fights
 -- (default any). ally: only when that ally fights with them. once: used up by its first fight.
 -- opt: the battle option it turns on (game/rules/museum.lua); weapon: the holder's weapon attacks
--- get this magic bonus. {holder}: whoever picked it up (the hero whose choice it was), else the
--- party. boss: about Euryale herself (not said when only her collection fights). The truth test (tools/tests/museum_truth.lua) fails on any flag nothing reads.
+-- get this magic bonus. boss: about Euryale herself (not said when only her collection fights). The
+-- truth test (tools/tests/museum_truth.lua) fails on any flag nothing reads.
 -- magic: a real magic item (game/rules/data/magic_items.lua's format, M.magic_items below) that
 -- goes on the sheet of whoever picked it up, so the rules use it in every fight from then on.
+-- carry: a thing a hero carries (game/model/items.lua, the one inventory): the flag or mark in `when`
+-- that hands it over puts it in the pack of the hero whose choice it was (the buyer, the finder, the
+-- friend who asked for it; else `to`), and it works only when that hero is at the table. {holder} is
+-- them. title, text: its name and what it does, for the hero's sheet. count: how many uses (the
+-- pages). once: used up by its first fight. adv, topic: Advantage on that skill about that subject.
 M.items = {
-    { id = "daggers", when = { flag = "daggers" }, magic = "twin_daggers", name = "the twin daggers",
+    { id = "daggers", when = { flag = "daggers" }, magic = "twin_daggers", name = "the twin daggers", carry = true,
       line = "{holder} fights with the twin daggers from the Chamber of Ancients: they hit like magic weapons." },
-    { id = "arrows", when = { flag = "arrows" }, opt = "fire_arrows", once = true, name = "fire arrows and slime",
+    { id = "arrows", when = { flag = "arrows" }, opt = "fire_arrows", once = true, name = "fire arrows and slime", carry = true,
+      text = "Telpur's fire arrows and a bucket of slime: every hero's first weapon hit each turn burns or bites. Enough for one fight.",
       line = "Out come Telpur's fire arrows and the bucket of slime: every hero's first weapon hit each turn burns or bites, this fight only." },
-    { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger",
-      line = "Telpur's paint-touched dagger is out: their blows count as magic, and painted things fear it." },
-    { id = "manual", when = { flag = "manual" }, ally = "steam_mech", opt = "manual", name = "the Mech manual",
+    { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger", carry = true,
+      to = "jess", text = "A dagger Telpur dipped in the hall's wet paint. In the lair, its blows count as magic, and painted things fear it.",
+      line = "{holder} has Telpur's paint-touched dagger out: their blows count as magic, and painted things fear it." },
+    { id = "manual", when = { flag = "manual" }, ally = "steam_mech", opt = "manual", name = "the Mech manual", carry = true,
+      title = "the Mech Instruction Manual",
+      text = "A thick manual with a lot of diagrams. Chapter nine says what the red switch does: with it open, the Mech has Advantage against overheating.",
       line = "{holder} has the Mech manual open at chapter nine: if the red switch goes, {mech} has Advantage against overheating." },
     { id = "hyper_spent", when = { flag = "hyper_spent" }, ally = "steam_mech", opt = "no_hyper",
       line = "{mech}'s red switch is still scorched from the test run: no Hyper Destroyer Mode tonight." },
     { id = "hyper_saved", when = { flag = "hyper_saved" }, ally = "steam_mech",
       line = "{mech}'s red switch is untouched, saved for the Gorgon." },
-    { id = "mirror", when = { mark = "mirror" }, rooms = { "lair" }, boss = true, name = "the cupboard door",
+    { id = "mirror", when = { mark = "mirror" }, rooms = { "lair" }, boss = true, name = "the cupboard door", carry = true,
+      title = "a polished cupboard door",
+      text = "A cupboard door from the kitchen diorama, polished like a mirror. Held up in the lair, her own stare can turn back on her.",
       line = "{holder} has the polished cupboard door ready: if she lifts her hood, she meets her own eyes." },
-    { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet",
+    { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet", carry = true,
+      title = "Flitwidget's bracelet of protection", text = "A thin silver bracelet Flitwidget slipped them. In the lair: Advantage on saves against her stare.",
       line = "Flitwidget's bracelet of protection is on: Advantage on saves against her stare." },
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
       line = "They've read up on gorgons: eyes down, Advantage on saves against her stare." },
     { id = "charmed", when = { flag = "charmed" }, rooms = { "lair" }, boss = true, once = true, charm = true,
       line = "{holder} is still smiling at Euryale over the wine: they start the fight charmed by her." },
-    { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword",
+    { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword", carry = true,
       line = "{holder} has the vorpal sword out. Telpur's forty Francs were well spent." },
     { id = "vorpal", when = { flag = "vorpal_lair" }, rooms = { "lair" }, boss = true,
       line = "Somewhere behind her couch is the vorpal sword they were promised. First, Euryale." },
+    -- (Things they carry that don't change a fight: what they're for is elsewhere. The book helps its
+    -- reader with what they know about gorgons, the pages put a reader to sleep, the notebook is the
+    -- Witness's thread, the shoelace talks. F10: one inventory, and the shop's shelf is real.)
+    { id = "gorgon_book", when = { mark = "know" }, name = "the book on gorgon-worshippers", carry = true,
+      title = "The Tenets of the Rotting Temple", adv = { "history" }, topic = "gorgons",
+      text = "A scholar's book on the people who worship gorgons. Whoever has it has Advantage on History about gorgons, and knows there are three sisters." },
+    { id = "notebook", when = { flag = "notebook" }, name = "the archivist's notebook", carry = true, to = "mara",
+      text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page." },
+    { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
+      text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
+    { id = "shoelace", when = { flag = "shoelace" }, name = "Telpur's talking shoelace", carry = true, to = "jess",
+      text = "One of Telpur's own laces, a present from the gift shop. It talks. It has opinions about everything." },
 }
 -- The recap's words for a beat (game/model/recap.lua TEMPLATES), where the shared ones assume a
 -- campaign: a foe that runs in the museum goes deeper in, not off to swear revenge.
@@ -1418,7 +1442,8 @@ M.showdown = {
                                    mus = { ending = "escape", aspect = "Paid a Gorgon to leave" } },
                        fail = { log = "\"You would rob your host twice?\" She laughs, and reaches for her bow.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
-            { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes", needs = { mark = "pages" },
+            { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes",
+              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" },
               roll = { dc = 13, skill = { "deception", "sleight_of_hand" }, convenient = "success",
                        success = { log = "She reads the first line, frowns, and is asleep before the second.",
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "all", fun = 4 }, { "arch:butt_kicker", fun = -2 } },

@@ -1,10 +1,22 @@
--- Magic items the party carries (A13). An item earned (its reward card won in a scene) goes to
--- whoever at the table wants it most and can use it, within the three-attunement limit; the
--- rules apply it from then on: in fights (game/model/fight.lua -> apply) and in the night's
--- checks (bonus and edge). Charges and once-a-day uses refill at dawn (a new night that starts
--- rested, or a Long Rest). Pure Lua. Data: game/rules/data/magic_items.lua.
+-- What each hero carries (A13; the second playtest review, F10: "player characters should have a
+-- real inventory, and acquiring items should be a real transaction"). One list owns it all,
+-- campaign.items: the rules' magic items (the twin daggers, the vorpal sword, anything off someone
+-- the DM put it on), the adventure's own things (MODULE.items with `carry`: a book bought in the gift
+-- shop, a cupboard door prised off a diorama, a shoelace given between sessions) and each hero's
+-- healing potions. Every entry has one holder. Bought is bought: the Francs leave the pool, the
+-- thing leaves the shelf and goes to the hero who wanted it. Used up (a potion drunk, the fire arrows
+-- loosed, a page read) is gone: the entry stays, marked `gone`, so the report can say so. Every line
+-- that says someone has or uses something reads it from here.
 --
--- campaign.items = { { id, holder = player key, week, charges, used = { pearl = true } }... }
+-- A magic item goes to whoever at the table wants it most and can use it, within the
+-- three-attunement limit; the rules apply it from then on: in fights (game/model/fight.lua ->
+-- apply) and in the night's checks (bonus and edge). Charges and once-a-day uses refill at dawn (a
+-- new night that starts rested, or a Long Rest). Pure Lua. Data: game/rules/data/magic_items.lua,
+-- and the adventure's MODULE.items.
+--
+-- campaign.items = { { id, holder = player key, week, from = "found" | "bought" | "given" | "drop"
+--                      | "start", thing = MODULE.items id, count, charges, used = { pearl = true },
+--                      gone = week, destroyed, introduced = week }... }
 
 local util = require "game.model.util"
 
@@ -15,29 +27,221 @@ local function data()
 end
 M.data = data
 
+-- The adventure's own things (MODULE.items with `carry`), by id; the shared ones (a healing potion).
+M.POTION = "potion_healing"
+local SHARED = {
+    potion_healing = { id = "potion_healing", name = "Potion of Healing", carry = true, stack = true,
+                       text = "Drink it as a Bonus Action in a fight: 2d4 + 2 Hit Points back. One use." },
+}
+local function module_items()
+    local ok, adv = pcall(require, "game.model.adventure")
+    return ok and adv.data and adv.data.items or {}
+end
+function M.thing(id)
+    if SHARED[id] then
+        return SHARED[id]
+    end
+    for _, it in ipairs(module_items()) do
+        if it.id == id and it.carry then
+            return it
+        end
+    end
+    return nil
+end
+
+-- The carried thing a `mus` (a flag set, a mark added) hands over, if any.
+function M.thing_for(mus)
+    if type(mus) ~= "table" then
+        return nil
+    end
+    for _, it in ipairs(module_items()) do
+        local w = it.carry and it.when
+        if w and ((mus.flag and w.flag == mus.flag) or (mus.mark and w.mark == mus.mark)) then
+            return it
+        end
+    end
+    return nil
+end
+
 function M.list(campaign)
     campaign.items = campaign.items or {}
     return campaign.items
 end
 
+-- A magic item's rules (its `effect`), or nil for a thing that isn't magic.
 function M.def(id)
     return data()[id]
 end
 
+-- What an entry is, for the sheet and the report: { name, text } either way.
+function M.about(it)
+    local d = M.def(it.id)
+    if d then
+        return { name = d.name, text = d.text or "", magic = true, page = d.page }
+    end
+    local t = M.thing(it.thing or it.id)
+    if t then
+        return { name = util.capitalize(t.title or t.name or it.id), text = t.text or "" }
+    end
+    return { name = util.capitalize(it.id or "something"), text = "" }
+end
+
+-- What a hero carries now (not used up, not gone).
 function M.held_by(campaign, key)
     local out = {}
     for _, it in ipairs(M.list(campaign)) do
-        if it.holder == key then
+        if it.holder == key and not it.gone and not it.destroyed then
             table.insert(out, it)
         end
     end
     return out
 end
 
+-- Who carries this thing (a MODULE.items id or a magic item id): the entry and the holder's key.
+-- present: only someone at the table tonight (players with `present`).
+function M.holding(campaign, id, present)
+    for _, it in ipairs(M.list(campaign)) do
+        if (it.thing == id or it.id == id) and not it.gone and not it.destroyed and it.holder then
+            local p = campaign.player and campaign:player(it.holder)
+            if not present or (p and p.present) then
+                return it, it.holder
+            end
+        end
+    end
+    return nil
+end
+
+function M.owned(campaign, id)
+    return M.holding(campaign, id) ~= nil
+end
+
+-- How many of a stack a hero has (healing potions).
+function M.count(campaign, key, id)
+    local n = 0
+    for _, it in ipairs(M.held_by(campaign, key)) do
+        if it.id == id or it.thing == id then
+            n = n + (it.count or 1)
+        end
+    end
+    return n
+end
+
+-- A thing changes hands: into a hero's inventory. A non-stacking thing they already have isn't
+-- given twice. holder: a player key (nil: the thing's own `to`, else the first friend at the table).
+function M.give(campaign, id, holder, from)
+    local t = M.thing(id)
+    if not t then
+        return nil
+    end
+    if not t.stack and M.owned(campaign, id) then
+        return (M.holding(campaign, id))
+    end
+    if not holder then
+        local pick = t.to and campaign.player and campaign:player(t.to)
+        if not (pick and pick.present ~= false) then
+            pick = nil
+            for _, p in ipairs(campaign.players or {}) do
+                if not pick and p.present then
+                    pick = p
+                end
+            end
+            pick = pick or (campaign.players or {})[1]
+        end
+        holder = pick and pick.key
+    end
+    local it = { id = id, thing = id, holder = holder, week = campaign.week, from = from or "found", count = t.count }
+    if t.stack then
+        it.count = 1
+    end
+    table.insert(M.list(campaign), it)
+    return it
+end
+
+-- Used up: one off a stack, or the whole thing. Returns the entry used, or nil.
+function M.use(campaign, id, holder)
+    for _, it in ipairs(M.list(campaign)) do
+        if (it.thing == id or it.id == id) and not it.gone and not it.destroyed and (not holder or it.holder == holder) then
+            it.count = it.count and (it.count - 1) or nil
+            if not it.count or it.count <= 0 then
+                it.gone = campaign.week or 0
+            end
+            return it
+        end
+    end
+    return nil
+end
+
+-- Every hero starts with what their sheet gives them (a healing potion), once a campaign; and a save
+-- from before the inventory gets what it held then (adventure.lua's flags and marks, who picked
+-- each thing up, the potions still in their packs): save.load calls this.
+function M.start(campaign)
+    if campaign.items_started then
+        return
+    end
+    campaign.items_started = true
+    local party = require "game.rules.party"
+    local ps = campaign.party_state
+    for _, p in ipairs(campaign.players or {}) do
+        local raw = p.class and party.sheet(p.class, campaign.level or 2)
+        local n = raw and raw.potions or 0
+        local carried = ps and not ps.rested and ps.pcs and ps.pcs[p.key] and ps.pcs[p.key].res
+        if carried and carried.potions then
+            n = carried.potions
+        end
+        for _ = 1, n do
+            local it = M.give(campaign, M.POTION, p.key, "start")
+            if it then
+                it.week = 0
+            end
+        end
+    end
+    local st = campaign.adv
+    if not st then
+        return
+    end
+    -- (What the adventure says they picked up before there was an inventory: its holder, if the
+    -- old save knew one, and anything used up stays used up.)
+    local holders = st.holders or {}
+    for _, t in ipairs(module_items()) do
+        local w = t.carry and t.when
+        local got = w and ((w.flag and st.flags and st.flags[w.flag]) or (w.mark and st.marks and st.marks[w.mark]))
+        if got and not t.magic and not M.owned(campaign, t.id) then
+            local it = M.give(campaign, t.id, holders[w.flag or w.mark], "found")
+            if it and t.once and st.items_used and st.items_used[t.id] then
+                it.gone = st.items_used[t.id]
+            end
+        end
+    end
+    for _, it in ipairs(M.list(campaign)) do
+        if not it.thing then
+            for _, t in ipairs(module_items()) do
+                if t.magic == it.id then
+                    it.thing = t.id
+                end
+            end
+        end
+    end
+    -- (Something taken off one of the museum's people points at its entry, not a copy of who has it.)
+    for _, list in pairs(st.drops or {}) do
+        for _, d in ipairs(list) do
+            if d.got and not d.entry then
+                for _, it in ipairs(M.list(campaign)) do
+                    if it.id == d.item and (not d.holder or it.holder == d.holder) and not d.entry then
+                        d.entry = it
+                    end
+                end
+                d.holder = nil
+            end
+        end
+    end
+    st.charmed_hero = st.charmed_hero or holders.charmed
+    st.holders = nil
+end
+
 local function attuned(campaign, key)
     local n = 0
     for _, it in ipairs(M.held_by(campaign, key)) do
-        if M.def(it.id).attune then
+        if M.def(it.id) and M.def(it.id).attune then
             n = n + 1
         end
     end
@@ -95,7 +299,12 @@ function M.earn(campaign, id, players)
         return nil
     end
     local p = M.pick_holder(campaign, id, players)
-    local it = { id = id, holder = p and p.key or nil, week = campaign.week }
+    local it = { id = id, holder = p and p.key or nil, week = campaign.week, from = "found" }
+    for _, t in ipairs(module_items()) do
+        if t.magic == id then
+            it.thing = t.id           -- (the adventure's name for it: the twin daggers)
+        end
+    end
     if d.effect.charges then
         it.charges = d.effect.charges.n
     end
@@ -108,7 +317,7 @@ function M.dawn(campaign, rng)
     for _, it in ipairs(M.list(campaign)) do
         local d = M.def(it.id)
         local ch = d and d.effect.charges
-        if ch and not it.destroyed then
+        if ch and not it.destroyed and not it.gone then
             local r = ch.regain
             local n = r[3]
             for _ = 1, r[1] do
@@ -121,8 +330,15 @@ function M.dawn(campaign, rng)
 end
 
 -- In a fight: put the hero's items on their sheet. pc: a creature from game/rules/party.lua.
+-- Their healing potions are the ones in their pack (drunk is drunk: no fresh one at the next level).
 function M.apply(campaign, key, pc)
+    M.start(campaign)
     pc.items = {}
+    if pc.res then
+        pc.res.potions = M.count(campaign, key, M.POTION)
+        pc.potions_had = pc.res.potions
+        pc.inv_key = key
+    end
     for _, it in ipairs(M.held_by(campaign, key)) do
         local d = M.def(it.id)
         if d and not it.destroyed then
@@ -162,8 +378,15 @@ function M.apply(campaign, key, pc)
     end
 end
 
--- After a fight: what the sheet spent comes back to the item (wand charges).
-function M.settle(pc)
+-- After a fight: what the sheet spent comes back to the item (wand charges), and a potion drunk
+-- leaves the pack.
+function M.settle(pc, camp)
+    if camp and pc.inv_key and pc.res and pc.potions_had and (pc.res.potions or 0) < pc.potions_had then
+        for _ = 1, pc.potions_had - (pc.res.potions or 0) do
+            M.use(camp, M.POTION, pc.inv_key)
+        end
+        pc.potions_had = pc.res.potions or 0
+    end
     if pc.wand_item then
         pc.wand_item.charges = pc.res.wand or 0
         if (pc.res.wand or 0) <= 0 and pc.wand_crumbled then
@@ -178,7 +401,8 @@ local CLIMB_SWIM = { water = true, high = true, bridge = true, ship = true, isla
 function M.check_bonus(campaign, key, skill, where)
     local n = 0
     for _, it in ipairs(M.held_by(campaign, key)) do
-        local e = M.def(it.id).effect
+        local d = M.def(it.id)
+        local e = d and d.effect or {}
         n = n + (e.checks or 0)
         if e.climb_swim and skill == "athletics" and where then
             for _, s in ipairs(where.setting or {}) do
@@ -192,11 +416,17 @@ function M.check_bonus(campaign, key, skill, where)
     return n
 end
 
-function M.check_edge(campaign, key, skill)
+-- topic: what the check is about ("gorgons"), for a thing that helps with one subject (the book).
+function M.check_edge(campaign, key, skill, topic)
     for _, it in ipairs(M.held_by(campaign, key)) do
-        local e = M.def(it.id).effect
-        if e.adv and util.contains(e.adv, skill) then
-            return "adv", M.def(it.id).name
+        local d = M.def(it.id)
+        local e = d and d.effect
+        if e and e.adv and util.contains(e.adv, skill) then
+            return "adv", d.name
+        end
+        local t = not d and M.thing(it.thing or it.id)
+        if t and t.adv and util.contains(t.adv, skill) and topic and t.topic == topic then
+            return "adv", util.lower_first(t.title or t.name)
         end
     end
     return nil

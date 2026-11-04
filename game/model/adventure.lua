@@ -446,6 +446,13 @@ function M.test(campaign, cond, knobs)
     if cond.not_soft and M.test(campaign, { soft = cond.not_soft }) then
         return false
     end
+    -- What someone carries (items.lua): holds, anyone in the party; holds_here, someone at the table.
+    if cond.holds and not require("game.model.items").owned(campaign, cond.holds) then
+        return false
+    end
+    if cond.holds_here and not require("game.model.items").holding(campaign, cond.holds_here, true) then
+        return false
+    end
     -- What Session Zero agreed: a content tag the table veiled (it happens off screen) or drew a
     -- line under (it never happens). { soft = "gore" } holds for either.
     if cond.line then
@@ -915,6 +922,13 @@ function M.add_mark(campaign, id, room)
     end
     st.marks[id] = { week = campaign.week, room = room }
     table.insert(st.mark_list, id)
+    -- (A mark that's something in their packs, the Lecturer's notes, is in someone's: items.lua.
+    -- M.apply has already given it to whoever's choice it was; any other way it lands, a holder.)
+    local items = require "game.model.items"
+    local thing = items.thing_for({ mark = id })
+    if thing and not thing.magic and not items.owned(campaign, thing.id) then
+        items.give(campaign, thing.id, nil, room == "loose" and "given" or "found")
+    end
     return true
 end
 
@@ -934,11 +948,24 @@ end
 
 -- Apply an option's `mus` table (game/data/museum/module.lua). Returns the marks it added.
 -- The night handles risk, warn, harsh, fight and the ending itself (it needs the table).
-function M.apply(campaign, mus, room)
+-- holder: the player key of the hero whose choice it was (who bought it, found it, asked for it):
+-- a thing it hands over goes in their pack (items.lua, the one inventory).
+function M.apply(campaign, mus, room, holder)
     local st = campaign.adv
     local added = {}
     if not mus then
         return added
+    end
+    local items = require "game.model.items"
+    local thing = items.thing_for(mus)
+    if thing and not thing.magic then
+        items.give(campaign, thing.id, holder, mus.spend and "bought" or (room == "loose" and "given") or (room and "found") or "given")
+    end
+    if mus.use then
+        -- (Out of the pack of whoever used it, else whoever was carrying it for the party.)
+        if not items.use(campaign, mus.use, holder) then
+            items.use(campaign, mus.use)
+        end
     end
     if mus.mark and M.add_mark(campaign, mus.mark, room) then
         table.insert(added, mus.mark)
@@ -1270,7 +1297,7 @@ function M.answer_request(campaign, id, answer)
         end
         reactions[p.key] = d
     end
-    hold_marks(campaign, M.apply(campaign, a.mus))
+    hold_marks(campaign, M.apply(campaign, a.mus, nil, rq.who))
     if a.mus and a.mus.warn then
         -- (They asked, and you told them straight: they know now.)
         local asker = campaign:player(rq.who)

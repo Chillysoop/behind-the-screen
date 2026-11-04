@@ -207,7 +207,7 @@ end
 function M.save_state(night, rested)
     local camp = night.campaign
     for _, c in ipairs(night.pc_list or {}) do
-        require("game.model.items").settle(c)
+        require("game.model.items").settle(c, camp)
     end
     local st = camp.party_state or { pcs = {} }
     st.pcs = st.pcs or {}
@@ -1663,6 +1663,10 @@ function M.run(night, sc, plan)
     end
     local result = b:run(opts)
     night:flush_turn()
+    -- (What they used up in it leaves their packs now: a potion drunk is gone. items.lua)
+    for _, c in ipairs(night.pc_list or {}) do
+        require("game.model.items").settle(c, night.campaign)
+    end
     for _, c in ipairs(night.pc_list or {}) do
         local p = player_of(night, c)
         if p and p.heroic and not c.heroic then

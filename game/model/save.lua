@@ -370,6 +370,10 @@ function M.load(src)
     if campaign.at_prep and not campaign.prep then
         campaign.at_prep = nil
     end
+    -- A save from before the inventory (the second playtest review, F10) held what the party carried
+    -- in flags, marks and who-picked-it-up notes, and the potions on the sheets: into each hero's
+    -- inventory it goes (items.start, once).
+    require("game.model.items").start(campaign)
     -- A save from before November 4 kept the stunts said lately by their place in a longer list
     -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.
     local said = campaign.stunts_said

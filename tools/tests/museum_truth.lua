@@ -220,6 +220,14 @@ for _, it in ipairs(MODULE.items or {}) do
     end
 end
 
+-- A line that names who has something reads the inventory (the second playtest review, F10): every
+-- item line with {holder} is a thing someone carries (`carry`), or the charm (who drank her wine).
+for _, it in ipairs(MODULE.items or {}) do
+    if it.line and string.find(it.line, "{holder}", 1, true) and not it.carry and not it.charm then
+        fail("item " .. it.id .. ": '" .. it.line .. "' names who has it, but it isn't in anyone's pack (carry)")
+    end
+end
+
 local static_failures = failures
 print(string.format("museum truth, the data: %d flags set, %d marks added, %d failures", (function()
     local n = 0
@@ -436,6 +444,18 @@ local function play(seed, style)
             break
         end
         c:level_up()
+    end
+    -- Anything they picked up, bought or were given is in one hero's pack (or was used up there).
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.carry and not it.magic and adventure.test(c, it.when, {}) then
+            local had = false
+            for _, e in ipairs(items_mod.list(c)) do
+                had = had or ((e.thing == it.id or e.id == it.id) and e.holder ~= nil)
+            end
+            if not had then
+                fail(tag .. ": they got " .. it.id .. ", and it's in nobody's pack")
+            end
+        end
     end
     -- Anything picked up is on someone's sheet.
     for _, it in ipairs(MODULE.items or {}) do

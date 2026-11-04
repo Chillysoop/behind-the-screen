@@ -589,6 +589,193 @@ table.insert(watchers, function(R, N, ev)
     end
 end)
 
+-- F10: one inventory. The shelf sells only what nobody owns, the buyer pays and carries it, a line
+-- that says someone has something reads their pack, used up is gone, and the boss-night lore check
+-- remembers the book and the tapestry.
+local items_ok, items = pcall(require, "game.model.items")
+local function char_key(c, char)
+    for _, p in ipairs(c.players) do
+        if p.char == char then
+            return p.key
+        end
+    end
+end
+local function holds(c, key, id)
+    if not (items_ok and items.held_by) then
+        return false
+    end
+    for _, it in ipairs(items.held_by(c, key)) do
+        if (it.thing == id or it.id == id) and not it.gone then
+            return true
+        end
+    end
+    return false
+end
+local HAS_LINES = {
+    { "^(%a+) fights with the twin daggers", "daggers", "twin_daggers" },
+    { "^(%a+) has the polished cupboard door ready", "mirror" },
+    { "^(%a+) has the Mech manual open", "manual" },
+    { "^(%a+) has the vorpal sword out", "vorpal_sword", "vorpal_sword" },
+    { "(%a+) has Telpur's paint%-touched dagger", "paint_dagger" },
+}
+table.insert(watchers, function(R, N, ev)
+    local c = R.c
+    local text = ev.text
+    if ev.kind == "battle" and ev.phase == "start" then
+        N.potions_before = {}
+        for _, p in ipairs(c.players) do
+            N.potions_before[p.key] = items_ok and items.count and items.count(c, p.key, "potion_healing") or nil
+        end
+        N.drank = {}
+    elseif ev.kind == "turn" and N.drank then
+        for _, st in ipairs(ev.steps or {}) do
+            if st.kind == "feature" and st.name == "Potion of Healing" and st.id then
+                N.drank[st.id] = (N.drank[st.id] or 0) + 1
+                add("F10", "potions_drunk")
+                if N.potions_before and N.potions_before[st.id] and N.potions_before[st.id] < N.drank[st.id] then
+                    fail("F10", N.tag .. ": " .. st.id .. " drinks a potion they don't have in their pack")
+                end
+            end
+        end
+    elseif ev.kind == "battle" and ev.phase == "end" and N.drank then
+        for key, n in pairs(N.drank) do
+            local before = N.potions_before and N.potions_before[key]
+            local now = items_ok and items.count and items.count(c, key, "potion_healing") or nil
+            if before and now and now ~= before - n then
+                fail("F10", N.tag .. ": " .. key .. " drank " .. n .. " potion(s), and their pack went from " .. tostring(before) .. " to " .. tostring(now))
+            else
+                add("F10", "potions_left_the_pack")
+            end
+        end
+        N.drank = nil
+    end
+    if not text or (ev.kind ~= "narrate" and ev.kind ~= "say") then
+        return
+    end
+    -- The shelf: what the table buys is something nobody owns, and it costs what it says.
+    local want = string.match(text, "^The table decides: buy the (.-)[%.%(]")
+    if want and ev.kind == "narrate" then
+        want = string.gsub(want, "%s+$", "")
+        add("F10", "purchases")
+        if want == "book on gorgon-worshippers" then
+            for _, p in ipairs(c.players) do
+                if holds(c, p.key, "gorgon_book") then
+                    fail("F10", N.tag .. ": the gorgon book is sold again, and " .. p.char .. " already has it")
+                end
+            end
+            -- (A second purchase of one book with no inventory at all is still the same book twice.)
+            if R.book_bought then
+                fail("F10", N.tag .. ": the gorgon book is sold a second time")
+            end
+            R.book_bought = true
+        end
+        N.francs_at_purchase = c.adv.francs
+    end
+    local reader = string.match(text, "^The Tenets of the Rotting Temple%. (%a+) starts reading")
+    if reader then
+        N.book_reader = char_key(c, reader)
+        add("F10", "book_read")
+    end
+    for _, h in ipairs(HAS_LINES) do
+        local who = string.match(text, h[1])
+        if who then
+            add("F10", "has_lines")
+            local key = char_key(c, who)
+            if not (key and (holds(c, key, h[2]) or (h[3] and holds(c, key, h[3])))) then
+                fail("F10", N.tag .. ": '" .. text .. "' and " .. who .. "'s pack doesn't have it")
+            end
+        end
+    end
+    if string.find(text, "Out come Telpur's fire arrows", 1, true) then
+        add("F10", "arrows_used")
+        if R.arrows_used_up then
+            fail("F10", N.tag .. ": the fire arrows come out again after they were used up")
+        end
+        R.arrows_used_up = true
+    end
+    if string.find(text, "can't remember a single story about Gorgon sisters", 1, true) then
+        add("F10", "lore_misses")
+        local here = false
+        for _, p in ipairs(N.night.players) do
+            here = here or holds(c, p.key, "gorgon_book")
+        end
+        if here or c.adv.flags.tapestry then
+            fail("F10", N.tag .. ": '" .. text .. "' with " .. (here and "the gorgon book at the table" or "the tapestry seen"))
+        end
+    end
+end)
+table.insert(night_end, function(R, N)
+    local c = R.c
+    if N.book_reader then
+        if holds(c, N.book_reader, "gorgon_book") then
+            add("F10", "the_reader_has_the_book")
+        else
+            fail("F10", N.tag .. ": " .. N.book_reader .. " started reading the book, and it isn't in their pack")
+        end
+    end
+    -- The sheet shows what's in the pack.
+    if items_ok and items.held_by and items.count and items.about then
+        local sheet = require "game.model.sheet"
+        for _, p in ipairs(c.players) do
+            local sh = sheet.build(c, p.key)
+            local gear = table.concat(sh.gear or {}, ", ")
+            local n = items.count(c, p.key, "potion_healing")
+            if (n > 0) ~= (string.find(gear, "healing potion", 1, true) ~= nil) then
+                fail("F10", N.tag .. ": " .. p.key .. " has " .. n .. " potions, and their sheet says '" .. gear .. "'")
+            end
+            for _, it in ipairs(items.held_by(c, p.key)) do
+                local name = items.about(it).name
+                if it.id ~= "potion_healing" and not string.find(gear, name, 1, true) then
+                    fail("F10", N.tag .. ": " .. p.key .. " carries " .. name .. ", and it isn't on their sheet")
+                else
+                    add("F10", "sheet_lines")
+                end
+            end
+        end
+    end
+end)
+-- An old save's things move into the inventory (and save_check covers the round trip).
+case("F10", function()
+    local c = new_campaign(77, "careful")
+    c.items, c.items_started = nil, nil
+    local st = c.adv
+    st.flags.daggers, st.flags.arrows, st.flags.shoelace = true, true, true
+    st.marks.mirror = { week = 2, room = "hunting" }
+    st.holders = { mirror = "sam", arrows = "dev" }
+    st.items_used = { arrows = 3 }
+    c.items = { { id = "twin_daggers", holder = "jess", week = 1 } }
+    c.party_state = { pcs = { mara = { res = { potions = 0 } } } }
+    items.start(c)
+    local function who(id)
+        local it, k = items.holding(c, id)
+        return k, it
+    end
+    local k = who("mirror")
+    if k ~= "sam" then
+        fail("F10", "migration: the cupboard door should be Sam's, is " .. tostring(k))
+    end
+    if items.owned(c, "arrows") then
+        fail("F10", "migration: the fire arrows were used up, and they're back")
+    end
+    if who("shoelace") ~= "jess" then
+        fail("F10", "migration: the shoelace should be Jess's")
+    end
+    local _, d = who("twin_daggers")
+    if not (d and d.thing == "daggers") then
+        fail("F10", "migration: the twin daggers don't know they're the chamber's daggers")
+    end
+    if items.count(c, "mara", "potion_healing") ~= 0 or items.count(c, "dev", "potion_healing") ~= 1 then
+        fail("F10", "migration: potions in the packs " .. items.count(c, "mara", "potion_healing") .. "/" .. items.count(c, "dev", "potion_healing"))
+    end
+    -- Buying: Francs leave, the thing leaves the shelf, it's the buyer's.
+    st.francs = 10
+    adventure.apply(c, { mark = "know", spend = 4 }, "gift_shop", "mara")
+    if st.francs ~= 6 or select(2, items.holding(c, "gorgon_book")) ~= "mara" then
+        fail("F10", "buying the book: " .. st.francs .. " Francs left, holder " .. tostring(select(2, items.holding(c, "gorgon_book"))))
+    end
+    add("F10", "unit_cases")
+end)
+
 for _, style in ipairs(STYLES) do
     for run = 1, RUNS do
         local seed = 500 + run * 31

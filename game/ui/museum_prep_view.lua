@@ -973,17 +973,14 @@ local function showdown(app, prep, x, y, w)
     if st.marks.mech then
         table.insert(brings, "the Steam Mech" .. (st.mech_name and (" (" .. st.mech_name .. ")") or ""))
     end
-    if st.marks.mirror then
-        table.insert(brings, "a polished cupboard door")
-    end
-    if st.marks.pages then
-        table.insert(brings, "the Lecturer's notes")
-    end
-    if st.marks.know then
-        table.insert(brings, "a book on gorgons")
-    end
-    if st.flags.arrows and not (st.items_used or {}).arrows then
-        table.insert(brings, "fire arrows")      -- (not once they're used up)
+    -- (What they bring is what's in their packs, and whose: items.lua, the one inventory. Used up is
+    -- gone; a healing potion is everyone's, so it isn't listed here.)
+    local items_mod = require "game.model.items"
+    for _, it in ipairs(items_mod.list(c)) do
+        if not it.gone and not it.destroyed and it.id ~= items_mod.POTION then
+            local who = it.holder and c:player(it.holder)
+            table.insert(brings, util.lower_first(items_mod.about(it).name) .. (who and (" (" .. who.char .. ")") or ""))
+        end
     end
     local with, count, seen = {}, {}, {}
     for i = 2, #enc.ids do

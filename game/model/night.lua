@@ -1503,7 +1503,7 @@ function M:hero_action(sc, dc, spots)
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(said, vars)), ic = true })
     local mod = self:mod_for(p, a.skill)
     -- An item's Advantage (Boots of Elvenkind, Eyes of the Eagle, A13): a second die, the better counts.
-    local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill)
+    local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill, a.topic)
     local edge = iedge and "adv" or nil
     local roll = self.rng:d20()
     local other_roll
@@ -1593,6 +1593,15 @@ function M:hero_action(sc, dc, spots)
     -- How it lands in the story, then at the table.
     -- (A second miss at the same move isn't the first miss again, word for word: the second playtest.)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
+    -- (A miss that can't unknow what they know: lose_if, the first whose `when` holds.)
+    if not success then
+        for _, alt in ipairs(a.lose_if or {}) do
+            if util.lazy("game.model.adventure").test(self.campaign, alt.when) then
+                landed = alt.text
+                break
+            end
+        end
+    end
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
     -- A natural 20 is a moment the token's made for, if you want to give it (offer_inspiration).
     if roll == 20 then
@@ -3854,7 +3863,7 @@ function M:do_rest(rest, kind)
         -- A new day: items' charges and daily uses come back (A13), then Mage Armor and Aid.
         local items = require "game.model.items"
         for _, c in ipairs(self.pc_list) do
-            items.settle(c)
+            items.settle(c, self.campaign)
         end
         items.dawn(self.campaign, self.rng)
         for _, c in ipairs(self.pc_list) do
