@@ -238,7 +238,7 @@ function M.icon(x, y, size, name, color)
 end
 
 -- A picture from the portraits atlas (tools/gen_portraits.py): a player's face
--- ("face_mara", "face_mara_cheer"...) or a paper mini ("mini_wizard", "mini_npc_hermit"...).
+-- ("face_mara", "face_mara_cheer"...) or a paper mini ("mini_wizard", "mini_telpur"...).
 function M.picture(x, y, w, h, image, color)
     local n = gui.new_box_node(vmath.vector3(x, M.H - y, 0), vmath.vector3(w, h, 0))
     gui.set_pivot(n, gui.PIVOT_NW)

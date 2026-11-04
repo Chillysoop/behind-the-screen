@@ -879,19 +879,19 @@ M.moments = {
 M.npc_sheet = {
     order = { "mus_flitwidget", "mus_telpur", "mus_euryale", "mus_sentinel", "mus_bone_construct", "mus_knight",
               "mus_lecturer", "mus_mech" },
-    mus_flitwidget = { room = "street", sprite = "npc_rosin", hows = { "ask", "pocket" }, match = { "Flitwidget" },
+    mus_flitwidget = { room = "street", sprite = "flitwidget", hows = { "ask", "pocket" }, match = { "Flitwidget" },
                        not_before = " Franc" },
-    mus_telpur = { room = "gift_shop", sprite = "npc_hermit", hows = { "ask" }, match = { "Telpur" } },
+    mus_telpur = { room = "gift_shop", sprite = "telpur", hows = { "ask" }, match = { "Telpur" } },
     mus_euryale = { room = "lair", sprite = "euryale", monster = "euryale", hows = { "beaten", "pocket", "ask" }, match = { "Euryale" } },
     mus_sentinel = { room = "entrance", sprite = "sentinel", monster = "sentinel", hows = { "beaten" }, match = { "the Sentinel", "The Sentinel" },
                      about = "A suit of metal armour between the doors. It stays a statue as long as nobody touches the donation case." },
-    mus_bone_construct = { room = "chamber", sprite = "skeleton", monster = "bone_construct", hows = { "beaten" }, match = { "Bone Construct" },
+    mus_bone_construct = { room = "chamber", sprite = "bone_construct", monster = "bone_construct", hows = { "beaten" }, match = { "Bone Construct" },
                            about = "Gold and bleached bone with three skull faces. It guards the chamber's pedestal." },
     mus_knight = { room = "paintings", sprite = "knight_of_shades", monster = "knight_of_shades", hows = { "beaten" },
                    match = { "Knight of Shades" }, about = "Black armour and red light where a face should be. He climbs out of his painting." },
-    mus_lecturer = { room = "lecture", sprite = "specter", monster = "the_lecturer", hows = { "beaten", "ask" }, match = { "the Lecturer", "The Lecturer" },
+    mus_lecturer = { room = "lecture", sprite = "the_lecturer", monster = "the_lecturer", hows = { "beaten", "ask" }, match = { "the Lecturer", "The Lecturer" },
                      about = "A grey ghost who drones on without a mouth. Fall asleep in his lecture and you may not wake up." },
-    mus_mech = { room = "tomorrow", sprite = "animated_armor", monster = "steam_mech", hows = { "ask", "beaten" }, match = { "Steam Mech" } },
+    mus_mech = { room = "tomorrow", sprite = "steam_mech", monster = "steam_mech", hows = { "ask", "beaten" }, match = { "Steam Mech" } },
 }
 
 -- Who comes along with the party (game/model/companions.lua): a pet or a person who joined them.
@@ -899,12 +899,14 @@ M.npc_sheet = {
 -- (the one who plays them in a fight, and who talks about them); monster: their stat block if they
 -- fight (they're in initiative, with a mini); pocket: a pet that hides in a fight instead. helps:
 -- what they do when the party looks around (museum_night.explore). lines: what's said about them.
+-- sprite: a pet's own mini (a person's comes from their cast card or stat block).
 -- Table life: small moments that play themselves (game/model/table_life.lua), room by room.
 M.table_life = require "game.data.museum.table_life"
 
 M.companions = {
     order = { "exhibit_b", "telpur" },
     exhibit_b = { name = "Exhibit B", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
+                  sprite = "exhibit_b",
                   helps = { bonus = 2, find = 0.25, find_line = "Exhibit B scurries off under an exhibit and comes back with a Flitwidget Franc in his teeth." },
                   lines = {
                       join = "Pip has a new friend tonight: a museum rat called Exhibit B, riding in her hood. He seems to approve of the museum.",

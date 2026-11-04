@@ -62,10 +62,10 @@ local STRIP_RIGHT, STRIP_Y, DIE = 1440, 66, 30   -- (right of it: the small-mome
 
 local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
 local CAST_SPRITE = {
-    -- v2: the museum's people (its own minis: tools/gen_sprites_museum.py; the rest still borrow).
-    mus_flitwidget = "npc_rosin", mus_telpur = "npc_hermit", mus_euryale = "euryale", mus_lecturer = "npc_ghost",
-    mus_mech = "animated_armor", mus_sentinel = "sentinel", mus_bone_construct = "skeleton",
-    mus_knight = "knight_of_shades", mus_huntlings = "giant_crab", mus_briar = "briar_beast",
+    -- v2: the museum's people, each with a mini of their own (tools/gen_sprites_museum.py).
+    mus_flitwidget = "flitwidget", mus_telpur = "telpur", mus_euryale = "euryale", mus_lecturer = "the_lecturer",
+    mus_mech = "steam_mech", mus_sentinel = "sentinel", mus_bone_construct = "bone_construct",
+    mus_knight = "knight_of_shades", mus_huntlings = "kruthik_huntling", mus_briar = "briar_beast",
 }
 local MONSTER_SPRITES = {
     goblin_boss = true, bandit = true, bandit_captain = true, cultist = true, tough = true, wolf = true,
@@ -144,11 +144,13 @@ local function mid_names(list)
     return out
 end
 
--- v2: the museum's monsters' own minis (tools/gen_sprites_museum.py); the rest borrow the closest ones.
+-- v2: the museum's monsters, each with a mini of its own (tools/gen_sprites_museum.py, and the briars'
+-- in tools/gen_sprites_m4.py).
 local MUSEUM_SPRITE = {
     briar_beast = "briar_beast", briar_boar = "briar_boar", briar_triceratops = "briar_triceratops", sentinel = "sentinel",
-    bone_construct = "skeleton", giant_scarab_swarm = "giant_scarab_swarm", knight_of_shades = "knight_of_shades",
-    kruthik_huntling = "giant_crab", the_lecturer = "specter", steam_mech = "animated_armor", euryale = "euryale", telpur = "npc_hermit",
+    bone_construct = "bone_construct", giant_scarab_swarm = "giant_scarab_swarm", knight_of_shades = "knight_of_shades",
+    kruthik_huntling = "kruthik_huntling", the_lecturer = "the_lecturer", steam_mech = "steam_mech", euryale = "euryale",
+    telpur = "telpur",
 }
 
 local function monster_sprite(id, n)

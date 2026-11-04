@@ -21,11 +21,10 @@ MINI = (96, 120)      # a paper mini: the whole standee
 
 # Paper minis on the table: the heroes, the NPCs and the monsters.
 STANDEES = ["fighter", "rogue", "cleric", "wizard",
-            "npc_stranger", "npc_hermit", "npc_ghost",
-            # The one from tools/gen_sprites_npcs.py.
-            "npc_rosin",
+            "npc_stranger",
             # The museum's own (tools/gen_sprites_museum.py).
-            "euryale", "knight_of_shades", "sentinel", "giant_scarab_swarm",
+            "euryale", "knight_of_shades", "sentinel", "giant_scarab_swarm", "bone_construct", "kruthik_huntling",
+            "the_lecturer", "steam_mech", "telpur", "flitwidget", "exhibit_b",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
             # The museum garden's topiary (November 3).

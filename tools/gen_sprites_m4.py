@@ -404,46 +404,6 @@ def npc_stranger():
     finish(img, "npc_stranger", 122)
 
 
-def npc_hermit():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#e8c09a"
-    d.rounded_rectangle([210, 568, 254, 612], 16, fill=C("#5a3a24"))
-    d.rounded_rectangle([258, 568, 302, 612], 16, fill=C("#5a3a24"))
-    d.polygon([(196, 320), (316, 320), (346, 596), (166, 596)], fill=C("#7a6a4a"))
-    for (x, y) in [(200, 480), (290, 420), (230, 540)]:
-        d.rectangle([x, y, x + 28, y + 24], fill=C("#5a5a3a"))
-    d.line([(150, 600), (160, 220)], fill=C("#6b4a32"), width=14)
-    gs.limb(d, (198, 360), (162, 430), 34, C("#7a6a4a"))
-    hand(d, (158, 436), skin)
-    gs.limb(d, (314, 360), (350, 440), 34, C("#7a6a4a"))
-    # the kettle
-    d.ellipse([336, 420, 410, 480], fill=C("#4a4a52"))
-    d.polygon([(400, 440), (440, 420), (436, 432), (404, 452)], fill=C("#4a4a52"))
-    d.arc([346, 396, 400, 450], 180, 360, fill=C("#2a2a30"), width=6)
-    head(d, skin, cy=252, rx=70, ry=70)
-    d.polygon([(196, 290), (316, 290), (296, 430), (256, 470), (216, 430)], fill=C("#f1efe8"))
-    face(d, 256, 244, "kind", sep=30)
-    d.line([(210, 222), (240, 228)], fill=C("#f1efe8"), width=10)
-    d.line([(302, 222), (272, 228)], fill=C("#f1efe8"), width=10)
-    finish(img, "npc_hermit", 123)
-
-
-def npc_ghost():
-    gs = _sp()
-    img, d = canvas()
-    robe = "#bfe0ee"
-    d.polygon([(196, 320), (316, 320), (360, 540), (300, 600), (256, 560), (212, 600), (152, 540)], fill=C(robe))
-    d.polygon([(236, 330), (276, 330), (282, 540), (230, 540)], fill=C("#a8d0e2"))
-    gs.limb(d, (200, 360), (230, 430), 34, C(robe))
-    gs.limb(d, (312, 360), (282, 430), 34, C(robe))
-    d.ellipse([236, 416, 276, 448], fill=C("#d8eef6"))
-    head(d, "#d8eef6", cy=250, rx=68, ry=70)
-    d.chord([180, 170, 332, 300], 180, 360, fill=C(robe))
-    face(d, 256, 252, "kind", sep=28, eye="#5a7a8a")
-    finish(img, "npc_ghost", 125, alpha=0.82)
-
-
 # ------------------------------------------------------------------ Thessaly, redrawn
 
 def wizard_thessaly():
@@ -570,7 +530,7 @@ def briar(name, seed, shape):
 
 MONSTERS = ["goblin_boss", "bandit", "bandit_captain", "cultist", "tough", "wolf", "dire_wolf", "skeleton",
             "zombie", "ghoul", "ogre", "briar_beast", "briar_boar", "briar_triceratops"]
-NPCS = ["npc_stranger", "npc_hermit", "npc_ghost"]
+NPCS = ["npc_stranger"]
 POSES = ["lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
 
@@ -590,6 +550,4 @@ def build_monsters():
     briar("briar_boar", 142, "boar")
     briar("briar_triceratops", 143, "tri")
     npc_stranger()
-    npc_hermit()
-    npc_ghost()
     wizard_thessaly()

@@ -457,10 +457,10 @@ have their own generator: `python3 tools/gen_audio.py` writes `assets/audio/` an
 `game/data/props.lua`); the plain boards are data in `game/data/boards.lua`, the adventure's are map specs
 (`tools/maps/README.md`), and `python3 tools/preview_boards.py out_dir [board]` draws them without the engine. The
 players' gifts on the DM's side of the table are `tools/gen_keepsakes.py` (`main/keepsakes/`, all but
-`keepsakes.script`). The museum's own minis are painted by `tools/gen_sprites_museum.py` (run it from the project
-root; `tools/generate.py` lists them in the atlas), and the ones its people still borrow by `tools/gen_sprites_m4.py`
-and `tools/gen_sprites_npcs.py`. After changing sprites, `python3 tools/gen_portraits.py` recuts the faces and minis the
-screens use (`assets/portraits/`), and `python3 tools/gen_mark.py` redraws the square used for spell areas on the
-mat.
+`keepsakes.script`). The museum's own minis, its monsters and its people, are painted by
+`tools/gen_sprites_museum.py` (run it from the project root; `tools/generate.py` lists them in the atlas), and its
+briar beasts by `tools/gen_sprites_m4.py`. After changing sprites, `python3 tools/gen_portraits.py` recuts the faces
+and minis the screens use (`assets/portraits/`), and `python3 tools/gen_mark.py` redraws the square used for spell
+areas on the mat.
 
 Fonts: Outfit, Lora and Nothing You Could Do, under the SIL Open Font License (license files in `assets/fonts/`).

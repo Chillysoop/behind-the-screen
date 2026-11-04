@@ -87,9 +87,9 @@ PRESETS = [
     dict(name="Imagination", eye=(-33.0, 90.0, 24.0), target=(8.0, 79.0, -16.0), fov=40.0, drift=0.25),
     dict(name="Dice tray", eye=(58.0, 118.0, 78.0), target=(60.0, 76.0, 33.0), fov=30.0, drift=0.15),
 ]
-LARGE = {"ogre": 1.45, "dire_wolf": 1.3, "npc_ghost": 1.0,
+LARGE = {"ogre": 1.45, "dire_wolf": 1.3,
          # The museum's Large monsters (tools/gen_sprites_museum.py).
-         "sentinel": 1.25}
+         "sentinel": 1.25, "bone_construct": 1.25, "steam_mech": 1.3}
 
 PAL = gt.palette_uv
 
@@ -735,11 +735,10 @@ def main():
     # sprites: atlas, minis, people (with poses), glows
     import gen_sprites_a13
     import gen_pregens
-    import gen_sprites_npcs
     import gen_sprites_museum
     mini_names = ([m[0] for m in MINIS] + gen_sprites_m4.MONSTERS + gen_sprites_m4.NPCS
                   + [f.__name__ for f in gen_sprites_a13.BUILD] + ["pregen_" + k for k in gen_pregens.PREGENS]
-                  + gen_sprites_npcs.NEW + [f.__name__ for f in gen_sprites_museum.BUILD])
+                  + [f.__name__ for f in gen_sprites_museum.BUILD])
     people_names = [p[0] for p in PEOPLE]
     pose_names = [f"{p}_{pose}" for p in people_names for pose in gen_sprites.POSES if pose != "neutral"]
     sprite_names = mini_names + people_names + pose_names + ["chair_empty", "flame", "halo"]
