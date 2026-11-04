@@ -695,6 +695,10 @@ local function weekly_lists()
     put("WRAP_LINES", nt.WRAP_LINES)
     put("FRANC_LINES", nt.FRANC_LINES)
     put("INSPIRE_LINES", nt.INSPIRE_LINES)
+    -- (Who they're up against, at every fight: FOE_HIDDEN only adds to FOE_LINES for foes nobody's seen.)
+    put("FOE_LINES", nt.FOE_LINES)
+    put("FOE_ALONE", nt.FOE_ALONE)
+    put("FOE_HIDDEN", nt.FOE_HIDDEN, 2)
     for k, l in pairs(nt.FIGHT_CAPTIONS or {}) do
         put("FIGHT_CAPTIONS." .. k, l)
     end

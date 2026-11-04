@@ -3738,9 +3738,12 @@ end
 local function a_an(name)
     return (string.match(name, "^[aeiou]") and "an " or "a ") .. name
 end
+-- (Said at every fight: three or more ways each, R3. The ones for foes already in view, then the
+-- ones only for foes nobody's seen yet.)
 M.FOE_LINES = {
     "{Boss}, with {rest} behind them.",
     "It's {boss}, with {rest} at their back.",
+    "{Boss}, and {rest} with them.",
 }
 -- (Only for foes nobody's seen yet: "out of hiding" over a knight already climbing out of its frame,
 -- or Euryale mid-conversation, the second playtest review. F13.)
@@ -3748,7 +3751,7 @@ M.FOE_HIDDEN = {
     "Out of hiding comes {boss}, with {rest}.",
     "{Boss} steps into the open, {rest} close behind.",
 }
-M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty." }
+M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty.", "Only {boss}. One's enough." }
 
 function M:foe_line(plan, sc)
     local monsters = require "game.rules.data.monsters"

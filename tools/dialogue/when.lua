@@ -1929,8 +1929,19 @@ local function code_line(p)
     elseif top == "FIGHT_CAPTIONS" then
         local what = ({ start = "As a fight starts", party_win = "When the party wins a fight against several",
                         party_win_one = "When the party wins a fight against one foe, by name",
-                        party_win_fled = "When the party wins and the rest of the foes run" })[k] or "In a fight"
+                        party_win_fled = "When the party wins and the rest of the foes run",
+                        party_win_fled_one = "When the party wins and the one foe left runs, by name" })[k] or "In a fight"
         return R(what, one_of(#(require("game.model.night").FIGHT_CAPTIONS[k] or {})))
+    elseif top == "FOE_LINES" then
+        local nt = require "game.model.night"
+        return R("As a fight starts, saying who they're up against: a leader with others, already in view (or, for foes nobody's seen yet, one of these or the hidden ones)",
+            one_of(#nt.FOE_LINES))
+    elseif top == "FOE_HIDDEN" then
+        local nt = require "game.model.night"
+        return R("As a fight starts, saying who they're up against: a leader with others nobody had seen yet",
+            one_of(#nt.FOE_LINES + #nt.FOE_HIDDEN))
+    elseif top == "FOE_ALONE" then
+        return R("As a fight starts, saying who they're up against: one foe on their own", one_of(#require("game.model.night").FOE_ALONE))
     end
 end
 
