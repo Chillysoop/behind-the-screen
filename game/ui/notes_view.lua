@@ -100,7 +100,7 @@ local function tab_upstairs(app, x, y, w, h)
     end
     for _, line in ipairs(known) do
         kit.text(bx, ty, line, "ui14", theme.text, { w = bw, lines = 2 })
-        ty = ty + 40
+        ty = ty + ((#line > 70) and 42 or 24)    -- (about 70 characters to a line at this width)
     end
     kit.text(bx, ty + 6, "When something harsh happens, the table asks: did we know? A warning about that very thing, or a "
         .. "die everyone saw, and it lands as fair. Out of nowhere, and it costs you their Trust. Warn about everything, "
