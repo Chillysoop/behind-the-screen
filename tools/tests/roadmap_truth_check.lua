@@ -129,6 +129,14 @@ local function play(seed, style)
         end
         if style ~= "careless" then
             museum_week.prep_greedy(prep)
+            -- (The knobs as the sim sets them: a painting picked for one hero, F18.)
+            for _, id in ipairs(prep.museum.ahead or {}) do
+                for _, kid in ipairs(adventure.data.rooms[id].knobs or {}) do
+                    local k = adventure.data.knobs[kid]
+                    museum_week.set_knob(prep, kid, k.pick_hero and ({ "mara", "dev", "jess", "sam" })[(seed + w) % 4 + 1]
+                        or (rng:chance(0.6) or nil))
+                end
+            end
         end
         if prep.museum.boss then
             c.adv.boss = { opener = rng:chance(0.7) and "talk" or "ambush", style = rng:chance(0.6) and "yields" or "last" }
@@ -157,6 +165,17 @@ local function play(seed, style)
                 local pick = (style == "careful") and 1 or rng:int(1, #opts)
                 if ev.card.id == "table_break" then
                     pick = ({ careful = 2, random = rng:int(1, 4), careless = 1 })[style]
+                end
+                -- (A fork where they've already agreed: the careful DM nudges them where they're all
+                -- going anyway, the random one hints at a room they missed. F18.)
+                if string.find(ev.card.id or "", "^mus_fork_") and string.find(ev.card.text or "", "more or less decided", 1, true) then
+                    for i, o in ipairs(opts) do
+                        if style == "careful" and string.find(o.sub or "", "Mara, Dev, Jess and Sam want this", 1, true) then
+                            pick = i
+                        elseif style ~= "careful" and string.find(o.label or "", "^Hint they missed") then
+                            pick = i
+                        end
+                    end
                 end
                 if not opts[pick] or opts[pick].disabled then
                     pick = 1
@@ -462,6 +481,111 @@ table.insert(watchers, function(R, N, ev)
             fail("F5", N.tag .. ": the talking shoelace speaks up before anyone said Pip has it")
             R.shoelace_met = true
         end
+    end
+end)
+
+-- F18: credit for a nudge only when the table was split; a hint against an agreed table gets a
+-- grumble; the hero who acts on a party call backs it; a card's lead votes for what it says they
+-- want; a hero's portrait is theirs.
+local MODULE = adventure.data
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    if ev.kind == "decision" and string.find(ev.card.id or "", "^mus_fork_") then
+        N.fork_split = not string.find(ev.card.text or "", "more or less decided", 1, true)
+        N.fork_card = true
+        N.fork_pick = nil
+    end
+    if ev.kind == "decision" and ev.card.id == "mus_reach" then
+        for key, port in pairs(MODULE.portraits or {}) do
+            if string.find(ev.card.text or "", port.painting, 1, true) then
+                add("F18", "portraits")
+                if not (night.actor and night.actor.key == key) then
+                    fail("F18", N.tag .. ": " .. key .. "'s painting, and " .. tostring(night.actor and night.actor.char) .. " reaches for it")
+                end
+            end
+        end
+    end
+    local text = ev.text
+    if not text then
+        return
+    end
+    if ev.kind == "narrate" and N.fork_card and string.find(text, "^The table decides: ") then
+        if string.find(text, "(on your nudge)", 1, true) then
+            add("F18", "nudges_credited")
+            if not N.fork_split then
+                fail("F18", N.tag .. ": '" .. text .. "' when they'd already agreed")
+            end
+        end
+        if not N.fork_split and N.hinted and not N.grumbled then
+            fail("F18", N.tag .. ": a hint turned an agreed table round without a word")
+        end
+        N.fork_card, N.hinted, N.grumbled = nil, nil, nil
+    end
+    if ev.kind == "narrate" and N.fork_card and string.find(text, "never did look properly at", 1, true) then
+        N.hinted = true
+        if not N.fork_split then
+            add("F18", "hints_against_an_agreed_table")
+        end
+    end
+    if ev.kind == "say" and N.hinted and string.find(text, "We'd all just agreed", 1, true) then
+        N.grumbled = true
+        add("F18", "grumbles")
+    end
+    if ev.kind == "scene" or (ev.kind == "narrate" and N.hinted and string.find(text, "go on anyway", 1, true)) then
+        if N.fork_card and N.hinted and not N.fork_split and not N.grumbled then
+            fail("F18", N.tag .. ": a hint turned an agreed table round without a word")
+        end
+        N.fork_card, N.hinted, N.grumbled = nil, nil, nil
+    end
+    -- A party card: the lead says what the card says they want, and whoever acts backs the call.
+    if N.party_key and N.party_key ~= night.moment_key then
+        N.party_card, N.proposal, N.backers, N.party_key = nil, nil, nil, nil
+    end
+    if ev.kind == "narrate" and night.party_choice and night.moment_key and not N.party_card then
+        N.party_key = night.moment_key
+        for _, m in ipairs(MODULE.moments) do
+            if m.id == night.moment_key and m.party then
+                N.party_card = m
+                N.lead = night.actor and night.actor.key
+                N.proposal = m.proposes and m.options[m.proposes].want or nil
+            end
+        end
+    end
+    if ev.kind == "say" and N.proposal and ev.who == N.lead and string.find(text, "^Let's ") then
+        add("F18", "proposals_voiced")
+        if not string.find(string.lower(text), string.lower(N.proposal), 1, true) then
+            fail("F18", N.tag .. ": the card says " .. N.lead .. "'s hero wants to " .. N.proposal .. ", and they say '" .. text .. "'")
+        end
+    end
+    if ev.kind == "narrate" and N.party_card and string.find(text, "^The table decides: ") then
+        -- (Who backed it, from what was said: "(Mara and Sam's idea)", or everyone.)
+        local want, who = string.match(text, "^The table decides: (.-) %((.-)'s idea%)%.$")
+        want = want or string.match(text, "^The table decides: (.-)%.$")
+        local chosen
+        for _, o in ipairs(N.party_card.options) do
+            if o.want and want and string.find(want, o.want, 1, true) == 1 then
+                chosen = o
+            end
+        end
+        if not string.find(text, "(on your nudge)", 1, true) and not (chosen and chosen.roll and chosen.roll.best) then
+            N.backers = {}
+            for _, p in ipairs(night.players) do
+                if not who or string.find(who, p.name, 1, true) then
+                    table.insert(N.backers, p)
+                end
+            end
+        end
+        N.party_card, N.proposal = nil, nil
+    elseif N.backers and night.actor and (ev.kind == "narrate" or ev.kind == "roll_where" or ev.kind == "roll") then
+        local ok = false
+        for _, p in ipairs(N.backers) do
+            ok = ok or p == night.actor
+        end
+        add("F18", "party_calls_acted_on")
+        if not ok then
+            fail("F18", N.tag .. ": " .. tostring(night.actor and night.actor.char) .. " acts on a call their player voted against")
+        end
+        N.backers = nil
     end
 end)
 

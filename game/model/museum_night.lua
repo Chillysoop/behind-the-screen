@@ -570,6 +570,7 @@ function M.play_moment(night, card, sc)
         night.actor = present(night, pick)
         copy.actor_class = nil
         copy.trigger = "museum_fixed"
+        copy.fixed_actor = true      -- (the painting is theirs: the big-roll share doesn't hand it on. F18)
     end
     night.mus_vars = mus_vars(night, sc)
     -- A roll whose prize isn't there for this hero (an empty painting): its empty outcome instead.
@@ -602,7 +603,8 @@ function M.play_moment(night, card, sc)
     -- The players' own choice (card.party): they talk it over, and play what they settle on.
     if card.party then
         if not night.actor then
-            night.actor = night:pick_lead(card.actor)
+            -- (A moment you promised someone: theirs, before the talk, so the card that names them is.)
+            night.actor = night:take_owed("cards") or night:pick_lead(card.actor)
         end
         if card.spot then
             night:walk(night.actor, card.spot, nil, sc)
@@ -610,7 +612,22 @@ function M.play_moment(night, card, sc)
         end
         local vars = night:vars(night.mus_vars)
         night:say(util.sentence_case(util.fill(copy.text or "", vars)), "narration")
+        night.party_backers = nil
+        copy.proposes = card.proposes and card.options[card.proposes] or nil
         copy.party_pick = M.table_pick(night, copy, night.mus_vars)
+        -- Whoever acts on what the table settled is someone who wanted it (F18: a hero acted against
+        -- their own player's vote). The card keeps the words it was read out with.
+        local backers = night.party_backers or {}
+        local backs = false
+        for _, p in ipairs(backers) do
+            backs = backs or p == night.actor
+        end
+        if #backers > 0 and night.actor and not backs then
+            copy.text = util.fill(copy.text or "", vars)
+            night.actor = backers[1]
+        end
+        copy.fixed_actor = true
+        copy.trigger = "museum_fixed"
         -- A lock is picked by whoever's best with one (the playtest, November 3: "lock picking needs a
         -- roll from the lockpicker").
         local chosen = copy.options[copy.party_pick]
@@ -1708,6 +1725,21 @@ function M.table_pick(night, copy, vars)
         first[p.key] = best
         why[p.key] = vals[p.key][best].why
     end
+    -- (A card that says what its lead wants, "{actor_char} wants a closer look", has them vote for
+    -- it: the second playtest review heard Oswin want a closer look, then Sam vote to give the knight
+    -- a wide berth. F18.)
+    local lead = night.actor
+    local prop
+    for _, i in ipairs(live) do
+        if copy.proposes and opts[i] == copy.proposes then
+            prop = i
+        end
+    end
+    if lead and prop and vals[lead.key] then
+        first[lead.key] = prop
+        why[lead.key] = nil
+        vals[lead.key][prop].v = vals[lead.key][prop].v + 1      -- (they said it: they hold to it)
+    end
     local function tally()
         local n, top, top_n = {}, nil, 0
         for _, p in ipairs(night.players) do
@@ -1834,6 +1866,12 @@ function M.table_pick(night, copy, vars)
         top = (a and first[a.key]) or top
     end
     local names = {}
+    night.party_backers = {}
+    for _, p in ipairs(order) do
+        if first[p.key] == top then
+            table.insert(night.party_backers, p)
+        end
+    end
     for _, p in ipairs(night.players) do
         if first[p.key] == top then
             table.insert(names, p.name)
@@ -2308,12 +2346,45 @@ function M.fork(night, options, backs, sides)
         night.actor = was_a
         if o and o.hint then
             night.mus.hinted = true
-            st.hints[o.hint] = true
             st.hinted[o.hint] = true
-            return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+            -- (Against a table that had already agreed, a hint is a suggestion: somebody grumbles,
+            -- and the curious ones decide whether it's worth it. F18: a unanimous table turned
+            -- round on a hint without a word.)
+            local follow = true
+            if not split then
+                local grumbler
+                for _, p in ipairs(night.players) do
+                    if first[p.key] == top and (not grumbler or vals[p.key][top].v > vals[grumbler.key][top].v) then
+                        grumbler = p
+                    end
+                end
+                if grumbler then
+                    night:emit({ kind = "say", who = grumbler.key, text = "We'd all just agreed on " .. label_of(top) .. ", though.", ic = false })
+                    night:react({ [grumbler.key] = "arms" })
+                end
+                local curious = 0
+                for _, p in ipairs(night.players) do
+                    if p.primary == "explorer" or p.primary == "storyteller" or p.secondary == "explorer" then
+                        curious = curious + 1
+                    end
+                end
+                follow = curious > #night.players / 2 or (curious * 2 == #night.players and night.rng:chance(0.5))
+                if not follow then
+                    night:say("They hear you out, and go on anyway: " .. label_of(top) .. ".", "aside")
+                end
+            end
+            if follow then
+                st.hints[o.hint] = true
+                if not split then
+                    night:say("The table decides: back to " .. util.lower_first(MODULE.rooms[o.hint].name) .. " (on your hint).", "aside")
+                end
+                return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+            end
         end
         if o and o.choice then
-            night.mus.nudged_to = o.choice
+            -- (Credit for the nudge only when there was a split to settle: "on your nudge" over a
+            -- table that already all wanted to go, F18.)
+            night.mus.nudged_to = split and o.choice or nil
             -- Asked, most take the hint; someone who really wanted the other way minds a little.
             local against = o.choice ~= top or tied > 1
             for _, p in ipairs(night.players) do

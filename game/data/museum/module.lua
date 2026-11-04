@@ -649,7 +649,7 @@ M.moments = {
             log = "\"Weird,\" says {actor_char}, and moves on. Nobody can stop glancing back at it.",
             effects = { { "arch:storyteller", fun = 2 } } },
       } },
-    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true,
+    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true, proposes = 1,
       title = "The Knight of Shades",
       text = "At the end of the hall, the black knight's portrait. {actor_char} wants a closer look. Its oils seem to shift.",
       options = {
@@ -808,7 +808,7 @@ M.moments = {
                      fail = { log = "Time. The panel snaps shut, and Sam lets out a breath he's been holding for thirty seconds.",
                               effects = { { "arch:casual", fun = -4 }, { "arch:instigator", fun = 3 } }, mus = { resolve = "lose" } } } },
       } },
-    { id = "mus_hyper", room = "tomorrow", danger = "the red switch: only if absolutely necessary", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true,
+    { id = "mus_hyper", room = "tomorrow", danger = "the red switch: only if absolutely necessary", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true, proposes = 1,
       title = "Hyper Destroyer Mode",
       text = "Inside the Mech's chest panel, a red switch: \"HYPER DESTROYER MODE. Only if absolutely necessary.\" {actor_char} is grinning.",
       options = {
