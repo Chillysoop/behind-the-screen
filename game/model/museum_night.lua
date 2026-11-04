@@ -425,6 +425,7 @@ function M.handle(night, mus, sc)
     end
     if mus.ready and sc then
         sc.ready = true      -- (fight.lua: the room's ambushers don't surprise them)
+        sc.fight_from = sc.fight_from or events.cause(c)      -- (they walked into it knowingly: the fight follows from it)
     end
     if sc then
         if mus.fight then
