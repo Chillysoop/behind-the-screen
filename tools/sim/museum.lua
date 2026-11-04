@@ -86,6 +86,30 @@ local function play_night(night)
             if show then
                 print(string.format("  ## fight: %s, %d rounds", tostring(ev.winner), sm.rounds or 0))
             end
+        elseif ev.kind == "turn" and show then
+            -- (What happened on the turn, short: who did what, who dropped.)
+            local bits = {}
+            for _, st in ipairs(ev.steps or {}) do
+                local k = st.kind
+                if k == "spell" or k == "feature" then
+                    table.insert(bits, k .. ":" .. tostring(st.name))
+                elseif k == "attack" then
+                    table.insert(bits, "attack" .. (st.hit and " hit" or " miss") .. (st.crit and " CRIT" or ""))
+                elseif k == "damage" then
+                    table.insert(bits, tostring(st.id) .. " -" .. tostring(st.amount) .. " (" .. tostring(st.hp) .. " left)")
+                elseif k == "down" or k == "death" or k == "up" or k == "death_save" or k == "flee" or k == "condition" then
+                    table.insert(bits, k .. ":" .. tostring(st.id) .. (st.name and ("/" .. st.name) or ""))
+                end
+            end
+            if #bits > 0 then
+                print("    . " .. tostring(ev.who) .. ": " .. table.concat(bits, ", "))
+            end
+        elseif ev.kind == "battle" and ev.phase == "start" and show then
+            local ps, fs = {}, {}
+            for _, q in ipairs(ev.party or {}) do table.insert(ps, tostring(q.id) .. "@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.foes or {}) do table.insert(fs, tostring(q.name) .. "@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.allies or {}) do table.insert(ps, tostring(q.name) .. " (ally, " .. tostring(q.pilot) .. ")@" .. q.x .. "," .. q.y) end
+            print("  ## fight starts. party: " .. table.concat(ps, " ") .. " | foes: " .. table.concat(fs, " "))
         elseif ev.kind == "tiny_roll" then
             if show then
                 print(string.format("  (small roll) %s %s: %d %s %d = %d", ev.who, ev.skill or "?", ev.roll,
@@ -162,16 +186,35 @@ for w = 1, adventure.data.MAX_WEEKS do
     local prep = c:start_week()
     for _, m in ipairs(c.chat) do
         text_ok(m.text, "chat")
+        if show then
+            print(string.format("  [chat] %s: %s", tostring(m.who or m.key or "?"), tostring(m.text)))
+        end
     end
     local pm = prep.museum
     if show then
         print(string.format("\n######## Week %d  (%s)  ahead: %s", w, adventure.where(c), table.concat(pm.ahead, ", ")))
     end
     -- Between sessions: the prompts.
+    -- The group chat's questions for the DM: answered as this DM would.
+    for _, m in ipairs(c.chat) do
+        if m.ask and not m.answered then
+            local pick = (style == "careful") and 1 or rng:int(1, 3)
+            museum_week.answer_chat(c, m, pick)
+            if show then
+                print(string.format("  [chat answer] %s -> option %d", tostring(m.ask), pick))
+            end
+        end
+    end
     for _, pr in ipairs(c.adv.prompts) do
+        if show then
+            print(string.format("  [between sessions] %s %s", tostring(pr.kind), tostring(pr.id)))
+        end
         if pr.kind == "request" then
             local a = adventure.data.ANSWERS[style == "careful" and 2 or rng:int(1, 4)]
             adventure.answer_request(c, pr.id, a)
+            if show then
+                print("    answered: " .. tostring(a))
+            end
         elseif pr.kind == "loose" then
             adventure.answer_loose(c, pr.id, 1)
         elseif pr.kind == "ruling" then

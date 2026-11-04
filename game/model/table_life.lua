@@ -231,7 +231,7 @@ local function crit_card(night, sc, p, b, nat)
             c.hp = c.hp - hurt
         end
         night:say(util.fill("A needle in " .. what .. ". {char} yelps: " .. util.int(hurt) .. " damage, and a lesson learned.", vars), "bad")
-        night:emit({ kind = "rested", long = false, quiet = true })     -- (the tile shows the hit points)
+        night:emit({ kind = "hp" })     -- (the tile shows the hit points)
     end
 end
 

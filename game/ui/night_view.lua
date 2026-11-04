@@ -2772,6 +2772,8 @@ function M.handle(app, ev)
         review.on_line(app, ev)
     elseif k == "tiny_roll" then
         M.tiny_roll(app, ev)
+    elseif k == "hp" then
+        M.refresh_hp(app)        -- (a small trap's sting, on the tile)
     elseif k == "rested" then
         M.refresh_hp(app)        -- (a rest: hit points and resources back on the tiles)
     elseif k == "door" then

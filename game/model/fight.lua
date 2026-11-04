@@ -1474,9 +1474,21 @@ function M.run(night, sc, plan)
             moment(night, f, "potion", {}, f.potion_by)
         end
         -- A rules question comes up mid-fight.
-        if r == 2 and sc.rules_card and night:decision_count() < 14 then
+        if r == 2 and sc.rules_card and night:decision_count() < 14 and alive_foes(bb) > 0 then
             night.actor = night:pick_actor(sc.rules_card.actor)
-            night:decision(sc.rules_card)
+            -- (About a foe still standing: "moves round behind the briar triceratops" after it had
+            -- crumpled, the playtest log showed.)
+            local target
+            if f.boss and not f.boss.dead and not f.boss.removed then
+                target = f.boss_name
+            else
+                for _, c in ipairs(bb.creatures) do
+                    if not target and c.side == "foes" and not c.dead and not c.removed then
+                        target = "the " .. string.lower(c.name)
+                    end
+                end
+            end
+            night:decision(sc.rules_card, target and { boss = target } or nil)
             sc.rules_card = nil
         -- Or the DM picks the monsters' tactics, if nothing has come up for a while (right at the
         -- start, if the walk into the fight was long).
