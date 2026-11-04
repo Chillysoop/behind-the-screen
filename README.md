@@ -490,23 +490,22 @@ See *The slice and the playtest round* above for running a round with outside te
 | `game/data/seeds.lua`, `inspiration.lua`, `progression.lua` | M6: seeds and their payoffs, inspiration activities, level pacing and what pulls each subclass |
 | `game/model/social.lua`, `convo.lua` | M6: Session Zero, conflict pressure and fixes, promises; running a conversation |
 | `game/model/seeds.lua`, `progression.lua` | M6: seeds, inspiration draws, chat theories; level-ups and subclass picks |
-| `game/ui/session_zero_view.lua`, `messages_view.lua`, `levelup_view.lua` | M6 screens: Session Zero, the chat column and conversation modal, the level-up moment |
+| `game/ui/session_zero_view.lua`, `levelup_view.lua` | M6 screens: Session Zero, the level-up moment |
 | `game/data/arc.lua` | M7: the slice's four story beats and the first-act finale |
 | `game/model/save.lua` | M7: saving and loading the campaign between sessions |
-| `game/ui/slice_end_view.lua`, `ambience.lua`, `autotest.lua` | M7: the scrapbook and survey; sound, light and snacks; the in-engine autotest |
+| `game/ui/slice_end_view.lua`, `ambience.lua`, `autotest.lua` | M7: the journey recap and survey at the end of the prologue; sound, light and snacks; the in-engine autotest |
 | `game/model/deck.lua`, `planner.lua`, `ledger.lua`, `world.lua` | The story deck, the campaign planner, the notebook's ledger and attitudes, the world's moves |
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua` | M8: the report's recap and verdict, taking over, quick maps, death at the table, fun failure, running jokes |
-| `game/ui/report_view.lua`, `map_view.lua`, `notebook_pages.lua` | M8: the five-part report, the map builder, the notebook's pages and session log |
-| `game/ui/previously_view.lua` | "Previously on" at the top of the prep board's left column (from `chronicle.previously`) |
-| `game/model/chronicle.lua`, `game/ui/story_log_view.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, its notebook page and prep panel, the keywords and what they mean |
-| `game/data/backstories.lua`, `game/model/backstory.lua`, `game/ui/backstory_view.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
+| `game/ui/report_view.lua`, `map_view.lua` | M8: the five-part report, the map maker |
+| `game/model/chronicle.lua`, `game/data/glossary.lua` | The Story log: every scene filed by storyline, the keywords and what they mean |
+| `game/data/backstories.lua`, `game/model/backstory.lua` | Session Zero's backstories: each player's pitch, your questions, their idea, what turns up first |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
 | `main/audio/`, `main/snacks/`, `assets/audio/` | M7: the sound player and sounds; the pizza and chips |
 | `tools/playtest/` | M7: tester package script, tester readme, log analyzer, pretend logs |
 | `game/rules/skills.lua`, `game/data/actions.lua` | Real-session pass: skill proficiencies and modifiers; what heroes try in each kind of scene, with the skill and DC |
 | `game/model/story.lua`, `sheet.lua`, `matchup.lua` | Real-session pass: clues, the recap and your notes; character sheets from the rules engine; how a lineup plays against the party |
 | `game/ui/panels.lua`, `battle_hud.lua` | Real-session pass: the player panels; HP bars, conditions, the turn order and spell areas on game night |
-| `game/ui/notes_view.lua`, `sheet_view.lua`, `encounter_view.lua` | Real-session pass: your notes, character sheets, the encounter builder |
+| `game/ui/notes_view.lua`, `sheet_view.lua`, `player_cards.lua` | Real-session pass: your notes, character sheets, the friends' cards on the prep board |
 | `main/fx/mark.*`, `materials/mark.*`, `assets/portraits/` | Real-session pass: spell areas and zones on the mat; faces and minis for the screens |
 | `tools/` | Asset generators (Python), headless tests (Lua), the simulation harness (`tools/sim/`) and the project validator |
 
