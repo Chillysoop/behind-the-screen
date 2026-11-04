@@ -528,16 +528,6 @@ function M.rest_hits(l)
     end
 end
 
--- True if the point is over any node of a modal layer or a given layer.
-function M.over_layer(l, x, y)
-    for _, n in ipairs(l.nodes) do
-        if gui.pick_node(n, x, y) then
-            return true
-        end
-    end
-    return false
-end
-
 -- Hover spots (game/ui/gloss.lua): a rules word with an explanation. They never take a click
 -- and never change which button is lit; they're a second hover, under the same pointer.
 -- spot = { rect = { x, y, w, h }, node = its underline, on_hover = function(spot, on) }

@@ -536,7 +536,7 @@ function init(self)
             app.update_shelf()
             app.place_keepsakes(require("game.model.keepsakes").new_this_week(app.campaign))
             app.place_handouts()
-            -- Everyone at the table in their chair; a chair waits for whoever joins later (October 15).
+            -- Everyone at the table in their chair.
             local seated = {}
             for _, key in ipairs(require("game.model.content").players.order) do
                 seated[key] = app.campaign:player(key) ~= nil

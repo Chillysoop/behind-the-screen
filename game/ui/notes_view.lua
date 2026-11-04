@@ -119,10 +119,6 @@ local function tab_museum_people(app, x, y, w, h)
     end
 end
 
-function M.is_open(app)
-    return app.overlay == "notes"
-end
-
 function M.open(app, tab)
     app.overlay = "notes"
     app.notes_tab = tab or app.notes_tab or "session"
@@ -138,14 +134,6 @@ function M.close(app)
         app.overlay = nil
     end
     kit.reset_hover()
-end
-
-function M.toggle(app)
-    if M.is_open(app) then
-        M.close(app)
-    else
-        M.open(app)
-    end
 end
 
 -- A heading inside the binder.

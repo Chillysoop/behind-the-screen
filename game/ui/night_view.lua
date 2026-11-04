@@ -1441,15 +1441,6 @@ local function on_screen(a)
     return a and a[1] > 0.03 and a[1] < 0.97 and a[2] > 0.08 and a[2] < 0.84
 end
 
-local function chip_index(app, key)
-    for i, p in ipairs(app.campaign.players) do
-        if p.key == key then
-            return i
-        end
-    end
-    return 1
-end
-
 -- Where on screen an anchor is right now: a player's head (or their chip when the
 -- camera can't see them), or a mini on the mat.
 local function anchor_xy(app, a)

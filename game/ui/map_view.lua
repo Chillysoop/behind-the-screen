@@ -83,11 +83,6 @@ local function place_of(app)
     return nil
 end
 
-function M.map_of(app)
-    local loc = place_of(app)
-    return loc and maps.get(app.campaign, loc.id) or nil
-end
-
 local function redraw(app)
     if app.refresh then
         app.refresh()
