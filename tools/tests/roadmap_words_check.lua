@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F2", "F6", "F7", "F8", "F21", "F22", "F26" }
+local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F21", "F22", "F26" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -464,6 +464,89 @@ function CHECKS.F7(run)
     end
 end
 
+-- F9: the offices as the book has them (the bird in the open study, the eyes behind the locked door),
+-- and each painting's own danger.
+local PORTRAIT_BY_PAINTING = {}
+for key, port in pairs(adventure.data.portraits or {}) do
+    PORTRAIT_BY_PAINTING[port.painting] = port
+end
+if adventure.data.portrait_default then
+    PORTRAIT_BY_PAINTING[adventure.data.portrait_default.painting] = adventure.data.portrait_default
+end
+function CHECKS.F9(run)
+    local log = run.log
+    local door_open = {}
+    local eye_line
+    for _, b in pairs(require("game.data.map_library").boards) do
+        if b.room == "offices" then
+            for _, pl in ipairs(b.places) do
+                if pl.id == "eyes" then
+                    eye_line = pl.line
+                end
+            end
+        end
+    end
+    for i, r in ipairs(log) do
+        if r.k == "decision" and r.card == "mus_office_door" then
+            door_open[r.week] = true
+        end
+        if r.k == "decision" and r.card == "mus_office_inside" then
+            if has(r.ctext, "bird") then
+                fail("F9", where(run, r) .. ": the locked study has the bird in it too: " .. r.ctext)
+            else
+                add("F9", "the_locked_study_without_the_bird")
+            end
+        end
+        if (r.k == "narrate" or r.k == "say") and (has(r.text, "never seen a bird like it") or has(r.text, "archivist's shelves")) then
+            fail("F9", where(run, r) .. ": " .. r.text)
+        end
+        if r.room == "offices" and r.k == "narrate" and eye_line and r.text == eye_line and not door_open[r.week] then
+            fail("F9", where(run, r) .. ": the eyes on the walls before the locked door opens")
+        end
+        if r.k == "say" and r.room == "offices" and has(r.text, "the eye on every wall") and not door_open[r.week] then
+            fail("F9", where(run, r) .. ": \"" .. r.text .. "\" before the locked door opens")
+        end
+        if r.k == "decision" and r.card == "mus_reach" then
+            local port
+            for painting, p in pairs(PORTRAIT_BY_PAINTING) do
+                if has(r.ctext, painting) then
+                    port = p
+                end
+            end
+            if not port then
+                fail("F9", where(run, r) .. ": a painting nobody knows: " .. tostring(r.ctext))
+            else
+                local rolls = false
+                for _, o in ipairs(r.opts or {}) do
+                    rolls = rolls or o.roll == true
+                end
+                if port.safe and (rolls or has(r.ctext, "rost")) then
+                    fail("F9", where(run, r) .. ": a painting the book says is safe, made dangerous: " .. r.ctext)
+                elseif not port.safe and not (rolls and has(r.ctext, port.hint or "?")) then
+                    fail("F9", where(run, r) .. ": a dangerous painting without its danger: " .. r.ctext)
+                else
+                    add("F9", port.safe and "safe_paintings_reached" or "dangerous_paintings_reached")
+                end
+                -- A miss bites the way this painting bites, not the way another one does.
+                for j = i + 1, math.min(#log, i + 8) do
+                    local q = log[j]
+                    if q.k == "narrate" and q.style == "bad" then
+                        for _, other in pairs(PORTRAIT_BY_PAINTING) do
+                            local stem = other.bite and string.match(other.bite, "^([^.]+%.)")
+                            if other ~= port and stem and has(q.text, stem) then
+                                fail("F9", where(run, q) .. ": " .. port.painting .. " bites like another painting: " .. q.text)
+                            end
+                        end
+                        break
+                    elseif q.k == "decision" then
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- F21: notes only the DM knows have their own caption.
 local SCREEN_NOTES = { "behind your screen", "You never prepped it", "You hadn't prepped this one", "off screen, as you agreed",
     "You leave the ", "You make a note", "You make a mental note", "Your rolls go back behind the screen" }
@@ -731,6 +814,51 @@ function UNITS.F26()
                 fail("F26", "a natural " .. nat .. " on a question: the improvised option says nothing")
             end
         end
+    end
+end
+
+-- F9: the shop's prices keep the book's order, and every painting's danger is the book's.
+function UNITS.F9()
+    local shop
+    for _, m in ipairs(adventure.data.moments) do
+        if m.id == "mus_shopping" then
+            shop = m
+        end
+    end
+    local price = {}
+    for _, o in ipairs(shop and shop.options or {}) do
+        if o.price then
+            price[o.want] = o.price
+            local said = tonumber(string.match(o.label, "%((%d+) Francs%)"))
+            if said ~= o.price or (o.mus and o.mus.spend ~= o.price) then
+                fail("F9", "the shop says " .. tostring(said) .. ", asks " .. o.price .. ", takes " .. tostring(o.mus and o.mus.spend) .. ": " .. o.label)
+            end
+        end
+    end
+    local tenets, manual, pair = price["buy the book on gorgon-worshippers"], price["buy the Mech manual"],
+        price["buy the fire arrows and the slime"]
+    if not (tenets and manual and pair) then
+        fail("F9", "the shop's three goods aren't all there")
+    elseif tenets ~= manual or pair <= tenets then
+        fail("F9", string.format("the shop's prices aren't in the book's order (Tenets %d, manual %d, arrows and slime %d)", tenets, manual, pair))
+    else
+        add("F9", "shop_prices_in_the_books_order")
+    end
+    local P = adventure.data.portraits or {}
+    local book = { mara = "safe", jess = "safe", sam = "safe", dev = "blade" }
+    for key, want in pairs(book) do
+        local port = P[key] or {}
+        if want == "safe" and not port.safe then
+            fail("F9", key .. "'s painting (" .. tostring(port.painting) .. ") has a danger the book doesn't give it")
+        elseif want == "blade" and not (port.danger and port.bite and port.hurt and has(port.bite, "blade")) then
+            fail("F9", key .. "'s painting (" .. tostring(port.painting) .. ") should cut, as the book's warrior does")
+        else
+            add("F9", "paintings_as_the_book_has_them")
+        end
+    end
+    local d = adventure.data.portrait_default
+    if not (d and d.danger and has(d.hint or "", "rost")) then
+        fail("F9", "the elf in the snow's painting has no cold to it")
     end
 end
 

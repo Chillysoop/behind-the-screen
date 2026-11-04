@@ -70,7 +70,7 @@ M.hooks = {
         { id = "sage", name = "Knowledge", text = "Whole worlds under one roof. Thessaly wants to know everything in there.",
           room = "offices", lean = 2, says = "Every book, every exhibit. I'll take notes.",
           intro = "I've read about every wonder in the world. A museum with whole worlds inside it? I'm not missing that.",
-          payoff = "Thessaly runs a finger along the archivist's shelves. Every book and every note in here: this is what she came for." },
+          payoff = "Thessaly runs a finger down the notes pinned round the study. Every drawing and every note in here: this is what she came for." },
         { id = "hermit", name = "Wonder", text = "After years with her books, other worlds behind a caravan curtain are too good to pass up.",
           room = "paintings", lean = 1, says = "Paintings of places that don't exist? Yes, please.",
           intro = "I've spent years with my books. Someone said there are other worlds behind that caravan's curtains. I want to see one.",
@@ -456,13 +456,26 @@ M.knobs = {
               blurb = "Real pressure at the real table. Sam hates being put on the spot." },
 }
 
--- The painting each hero gets if the DM hangs one for them (all from the book's gallery).
+-- The painting each hero gets if the DM hangs one for them (all from the book's gallery), and what
+-- reaching in costs, as the book has it: the elf in the snow bites with cold, the warrior on the bridge
+-- swings his blade, and the lady, the duellist and the throne let a hand in safely (safe: no roll).
+-- hint: what the card shows of the danger; bite: the miss, hurt: its dice, skill: what dodges it.
 M.portraits = {
-    mara = { painting = "a lady by an icy mountain road, looking straight out at Thessaly", gift = "nothing to take, only a question she can't stop thinking about", empty = true },
-    dev = { painting = "a warrior in scarlet armour on a bridge, sword raised", gift = "the warrior's own blade, made of paint" },
-    jess = { painting = "a smug duellist with a pistol in each hand", gift = "a painted pistol with one shot in it" },
-    sam = { painting = "an empty golden throne with bats carved into it", gift = "a glass of something red that is definitely not wine" },
+    mara = { painting = "a lady by an icy mountain road, looking straight out at Thessaly", gift = "nothing to take, only a question she can't stop thinking about", empty = true,
+             safe = true },
+    dev = { painting = "a warrior in scarlet armour on a bridge, sword raised", gift = "the warrior's own blade, made of paint",
+            hint = "The warrior's painted blade is raised right at the edge of the frame.",
+            danger = "the warrior on the bridge: reach in and his blade cuts",
+            bite = "The painted blade flicks out of the frame. {actor_char} snatches back a cut hand, empty.",
+            hurt = { 1, 8 }, skill = { "acrobatics" }, aspect = "Got cut by a painted sword" },
+    jess = { painting = "a smug duellist with a pistol in each hand", gift = "a painted pistol with one shot in it", safe = true },
+    sam = { painting = "an empty golden throne with bats carved into it", gift = "a glass of something red that is definitely not wine", safe = true },
 }
+-- Anyone else's: the elf in the snowfield, whose cold bites.
+M.portrait_default = { painting = "a white-haired elf in a snowfield, two curved swords at his sides", gift = "a painted scimitar",
+                       hint = "Frost glitters on the frame.", danger = "the paintings: reach in and the cold bites",
+                       bite = "The painting bites. {actor_char} pulls back an arm numb to the elbow, empty-handed.",
+                       hurt = { 1, 4 }, aspect = "Got frostbite from a painting" }
 
 -- Room moments: the calls each room puts to the DM on game night. at: "start" (before the room's
 -- fight or checks), "mid" (between), "end" (after), "follow" (only after an option's then_moment).
@@ -611,9 +624,9 @@ M.moments = {
     -- The Hall of Paintings --------------------------------------------------------------------
     { id = "mus_reach", room = "paintings", danger = "the paintings: reach in and the cold bites", at = "start", type = "story", actor = { "explorer", "instigator", "method_actor" },
       title = "The paint is wet",
-      text = "{actor_char} leans close to {painting}. The paint is wet, and frost glitters on the frame. A hand would go right in.",
+      text = "{actor_char} leans close to {painting}. The paint is wet.{reach_hint} A hand would go right in.",
       options = {
-          { label = "Let them reach in. They've seen the frost.",
+          { label = "Let them reach in, and roll for it.",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} pulls out {gift}, still wet. It'll last about an hour out here.",
                                  effects = { { "actor", spotlight = 12, fun = 6, reward = 6 }, { "arch:explorer", fun = 4 } },
@@ -624,7 +637,7 @@ M.moments = {
                                            mus = { risk = true, francs = 1, aspect = "Reached into a painting and came back with a question" } } },
                      fail = { log = "The painting bites. {actor_char} pulls back an arm numb to the elbow, empty-handed.",
                               effects = { { "actor", spotlight = 6, challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 }, aspect = "Got frostbite from a painting" } } } },
-          { label = "\"Those frames are frosted for a reason.\"",
+          { label = "\"Better not touch the paintings.\"",
             log = "{actor_char} keeps their hands in their pockets. The painted figure looks almost disappointed.",
             effects = { { "arch:explorer", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
@@ -682,18 +695,21 @@ M.moments = {
       text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching.",
       shop = true,
       options = {
+          -- (The book prices the Tenets and the Mech manual the same, 6 Francs, and a fire arrow and a bucket of
+          -- slime at 3 and 4. The museum pays fewer Francs than the book, so these are its prices at about
+          -- two-thirds, in the same order: the manual is no cheaper than the Tenets, the pair costs more.)
           { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4, want = "buy the book on gorgon-worshippers",
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { mark = "know", spend = 4, got = "a book on gorgon-worshippers", favor = { who = "telpur", n = 1 } } },
-          { label = "The Mech Instruction Manual (3 Francs)", price = 3, want = "buy the Mech manual",
+          { label = "The Mech Instruction Manual (4 Francs)", price = 4, want = "buy the Mech manual",
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "manual", spend = 3, favor = { who = "telpur", n = 1 } } },
-          { label = "Fire arrows and a bucket of slime (3 Francs)", price = 3, want = "buy the fire arrows and the slime",
+            mus = { flag = "manual", spend = 4, favor = { who = "telpur", n = 1 } } },
+          { label = "Fire arrows and a bucket of slime (5 Francs)", price = 5, want = "buy the fire arrows and the slime",
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
-            mus = { flag = "arrows", spend = 3, favor = { who = "telpur", n = 1 } } },
+            mus = { flag = "arrows", spend = 5, favor = { who = "telpur", n = 1 } } },
           { label = "The vorpal sword (40 Francs)", price = 40, needs = { flag = "vorpal_price" }, want = "buy the vorpal sword",
             log = "Forty Francs, counted twice. Telpur wraps it in brown paper. It's very, very sharp.",
             effects = { { "actor", fun = 10, reward = 10 }, { "arch:power_gamer", fun = 6 } },
@@ -751,17 +767,18 @@ M.moments = {
       } },
     { id = "mus_office_inside", room = "offices", spot = "7B", at = "start", when = { flag = "door_open" }, type = "story", actor = { "storyteller", "explorer", "tactician" },
       title = "The second study",
-      text = "Inside: the archivist, dead at his desk, with eyes carved all over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand.",
+      -- (The bird is in the other study, 7A, as in the book: this room is the dark one, papered in eyes.)
+      text = "Inside, it's darker than it should be. The archivist sits dead at an old desk, eyes carved all over his arms, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye.",
       -- (A table that veiled gore at Session Zero hears it gently.)
       -- (A line under gore: nothing gruesome, not even hinted. A veil: it's there, off screen.)
-      text_if = { { when = { line = "gore" }, text = "Inside: the archivist, slumped at his desk as if he fell asleep there, and never woke. A six-winged bird sings under a glass dome. A notebook lies open by his hand." },
-                  { when = { soft = "gore" }, text = "Inside: the archivist, dead at his desk, his sleeves pulled down over his arms. A six-winged bird sings under a glass dome. A notebook lies open by his hand." } },
+      text_if = { { when = { line = "gore" }, text = "Inside, it's darker than it should be. The archivist is slumped at an old desk as if he fell asleep there and never woke, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." },
+                  { when = { soft = "gore" }, text = "Inside, it's darker than it should be. The archivist sits dead at an old desk, his sleeves pulled down over his arms, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." } },
       options = {
           { label = "Let them take it all in, slowly.",
             log = "Nobody speaks for a moment. {actor_char} takes out a pencil.",
             effects = { { "arch:storyteller", fun = 4, story = 4 }, { "arch:explorer", fun = 3 }, { "arch:butt_kicker", boredom = 3 } }, table_min = 3 },
-          { label = "Keep it brisk. Notebook, bird, out.",
-            log = "\"Grab the notebook. Don't touch the bird.\" Fair.",
+          { label = "Keep it brisk. The notebook, and out.",
+            log = "\"Grab the notebook. Touch nothing else.\" Fair.",
             effects = { { "arch:butt_kicker", fun = 2 }, { "arch:storyteller", fun = -2 } } },
       } },
     { id = "mus_whispers", room = "offices", spot = "7B", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
@@ -961,7 +978,7 @@ M.explore = {
                                      hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks them off their feet. Something in the jungle chitters.",
                                      dodge = "{actor_char} feels the vine tighten and steps out of the loop just in time.",
                                      spotted = "{actor_char} spots the loop of vine in the leaves and cuts it. Something in the jungle chitters, disappointed." } } },
-    offices = { "drawings", "eyes", looks = 1 },
+    offices = { "drawings", "7A", looks = 1 },        -- (the eye on every wall is behind the locked door)
     tomorrow = { "cases", "console",
                  finds = { cases = { francs = 1, what = "a Franc stuck in a machine from tomorrow",
                                      line = "One of tomorrow's machines has a coin slot, and a Flitwidget Franc stuck halfway in it." } } },

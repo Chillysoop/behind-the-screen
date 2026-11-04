@@ -46,9 +46,13 @@ local function mus_vars(night, sc)
     local who = night.actor and night.actor.key
     local pick = knobs_of(night).portrait
     local port = (type(pick) == "string" and MODULE.portraits[pick]) or (who and MODULE.portraits[who])
-    v.painting = port and port.painting or "a frosty mountain portrait"
-    v.gift = port and port.gift or "a painted scimitar"
-    v.gift_empty = port and port.empty or nil
+        or MODULE.portrait_default or {}
+    v.painting = port.painting or "a frosty mountain portrait"
+    v.gift = port.gift or "a painted scimitar"
+    v.gift_empty = port.empty or nil
+    -- (What reaching into this painting risks, as the book has it: mus_reach.)
+    v.portrait = port
+    v.reach_hint = port.hint and (" " .. port.hint) or ""
     return v
 end
 
@@ -572,6 +576,11 @@ function M.play_moment(night, card, sc)
         copy.trigger = "museum_fixed"
     end
     night.mus_vars = mus_vars(night, sc)
+    -- Reaching into a painting risks what that painting risks (the book: cold, a blade, or nothing at
+    -- all): its own danger, its own miss, and no roll for one that's safe.
+    if card.id == "mus_reach" then
+        M.reach_for(night, copy, night.mus_vars.portrait or {})
+    end
     -- A roll whose prize isn't there for this hero (an empty painting): its empty outcome instead.
     if night.mus_vars.gift_empty then
         local opts = {}
@@ -711,6 +720,66 @@ function M.play_moment(night, card, sc)
     end
     M.ties_beat(night, sc)
     return o
+end
+
+-- The hall's reach-in card, for the painting it's about (MODULE.portraits): copy is the card as it'll
+-- be played. A safe painting: the reach needs no roll, and its outcome is the success. One with a
+-- danger: the card's danger is that painting's, and the miss is its own bite.
+function M.reach_for(night, copy, port)
+    copy.danger = port.danger
+    night.moment_what = port.danger
+    local opts = {}
+    for i, o in ipairs(copy.options or {}) do
+        local oo = o
+        if o.roll and o.roll.success then
+            oo = {}
+            for k, v in pairs(o) do
+                oo[k] = v
+            end
+            if port.safe then
+                local win = (port.empty and o.roll.success.empty) or o.roll.success
+                oo.roll = nil
+                oo.log = win.log
+                oo.effects = win.effects
+                oo.mus = {}
+                for k, v in pairs(win.mus or {}) do
+                    if k ~= "risk" then
+                        oo.mus[k] = v
+                    end
+                end
+                oo.label = "Let them reach in."
+            else
+                local rr = {}
+                for k, v in pairs(o.roll) do
+                    rr[k] = v
+                end
+                rr.skill = port.skill or rr.skill
+                local fail = {}
+                for k, v in pairs(rr.fail or {}) do
+                    fail[k] = v
+                end
+                fail.log = port.bite or fail.log
+                fail.mus = {}
+                for k, v in pairs((rr.fail or {}).mus or {}) do
+                    fail.mus[k] = v
+                end
+                fail.mus.hurt = port.hurt or fail.mus.hurt
+                fail.mus.aspect = port.aspect or fail.mus.aspect
+                rr.fail = fail
+                oo.roll = rr
+            end
+        end
+        if port.safe and not o.roll and o.mus and o.mus.warn then
+            -- (No danger to warn about: keeping hands in pockets is just that.)
+            oo = {}
+            for k, v in pairs(o) do
+                oo[k] = v
+            end
+            oo.mus = nil
+        end
+        opts[i] = oo
+    end
+    copy.options = opts
 end
 
 -- Could this option end badly? (A harsh outcome, on it or on its roll's miss.)
