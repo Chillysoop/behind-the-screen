@@ -196,6 +196,8 @@ function B.play_night(night, rng, dm, watch)
                 a = 2
             elseif dm.tend and card.id == "rules_spat" then
                 a = 2
+            elseif dm.story and card.id == "escape_earned" then
+                a = 1      -- (the story DM lets a villain go when the story set it up: they'll be back)
             else
                 a = rng:int(1, #card.options)
             end
