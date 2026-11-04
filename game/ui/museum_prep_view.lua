@@ -7,6 +7,8 @@
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local panels = require "game.ui.panels"
+local player_cards = require "game.ui.player_cards"
+local ask_view = require "game.ui.ask_view"
 local content = require "game.model.content"
 local util = require "game.model.util"
 local adventure = require "game.model.adventure"
@@ -940,7 +942,7 @@ end
 -- The mouse wheel over tonight's rooms pages through them.
 function M.on_wheel(app, x, y, dir)
     local a = app.rooms_scroll
-    if app.screen ~= "prep" or app.overlay or app.ask or app.convo or not a then
+    if app.screen ~= "prep" or app.overlay or app.ask or not a then
         return false
     end
     local ly = kit.H - y
@@ -1165,18 +1167,29 @@ function M.build(app)
         M.draw_map(app, COL_M, 78, COL_MW, 228, { legend = true })
         rooms(app, prep, COL_M, 316, COL_MW, 892)
     end
-    -- The friends, as on every prep board.
-    local prep_view = util.lazy("game.ui.prep_view")
+    -- The friends down the right.
     kit.text(1196, 84, "THE TABLE", "ui14", theme.dim)
-    if prep_view.empathy_meter then
-        prep_view.empathy_meter(app)
-    end
+    player_cards.empathy_meter(app)
     local forecast = prep:forecast()
     for i, p in ipairs(c.players) do
-        if prep_view.player_card then
-            prep_view.player_card(app, prep, p, i, forecast)
-        end
+        player_cards.card(app, prep, p, i, forecast)
     end
+end
+
+-- Enter on the board: game night, after a word first if the party could still level up.
+function M.run_night(app)
+    local prep = app.campaign.prep
+    if not prep:ready() then
+        return
+    end
+    if not app.campaign:level_status().ready then
+        app.go("night")
+        return
+    end
+    ask_view.ask(app, { title = "Are you sure?", text = "There's still something you could do this week:",
+        items = { "The party can level up." }, yes = "Run game night", no = "Go back", on_yes = function()
+            app.go("night")
+        end })
 end
 
 return M

@@ -1,7 +1,7 @@
--- Session Zero (M6): before week 1 the table talks it through. Pitch a tone, hear
+-- Session Zero (M6): before the first night the table talks it through. Pitch a tone, hear
 -- each player's ask, set the table rules. People say what they think, so their
--- reactions are shown plainly. Rebuilt from scratch on every click. Then (October 13)
--- their backstories, on a page of their own (game/ui/backstory_view.lua).
+-- reactions are shown plainly. Rebuilt from scratch on every click. Then why each hero
+-- came, on a page of its own (game/ui/museum_setup_view.lua).
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -12,13 +12,8 @@ local util = require "game.model.util"
 
 local M = {}
 
--- Who's at the table for Session Zero (October 15: a small table starts with two; the others
--- settle their asks and backstories when they join). Set at the top of each build.
+-- Who's at the table for Session Zero: all four friends.
 local ORDER = content.players.order
-local function at_table(app)
-    ORDER = app and app.campaign and app.campaign.table_keys and app.campaign:table_keys() or content.players.order
-    return ORDER
-end
 
 local KIND = { line = "A line", veil = "A veil", promise = "A promise" }
 local KIND_ABOUT = {
@@ -32,11 +27,9 @@ local function choices(app)
     return app.s0
 end
 
--- Every ask from who's at the table answered (the tips use it too, October 20: "Their asks"
--- counted all four, and a small table has two).
+-- Every ask from who's at the table answered (the tips use it too).
 function M.asks_done(app)
     local c = choices(app)
-    at_table(app)
     for _, key in ipairs(content.session_zero.asks.order) do
         if util.contains(ORDER, key) and not c.asks[key] then
             return false
@@ -62,27 +55,17 @@ function M.complete(app)
     return c.tone ~= nil and M.asks_done(app) and M.rules_done(app)
 end
 
--- On to their backstories (October 13), then week 1.
+-- On to why each hero came to the museum (game/ui/museum_setup_view.lua), then the first week.
 function M.start(app)
     if not M.complete(app) then
         return false
     end
-    if app.campaign.module then
-        -- v2: why each hero came to the museum (game/ui/museum_setup_view.lua).
-        if app.s0.page ~= "hooks" then
-            app.s0.page = "hooks"
-            app.refresh()
-            return true
-        end
-        return require("game.ui.museum_setup_view").start(app)
-    end
-    local backstory_view = require "game.ui.backstory_view"
-    if app.s0.page ~= "backstories" then
-        app.s0.page = "backstories"
+    if app.s0.page ~= "hooks" then
+        app.s0.page = "hooks"
         app.refresh()
         return true
     end
-    return backstory_view.start(app)
+    return require("game.ui.museum_setup_view").start(app)
 end
 
 local function like_color(v)
@@ -138,26 +121,6 @@ local function pitch(app, c)
     end
     -- What everyone says about the pitch.
     kit.text(x, y + 8, "AROUND THE TABLE", "ui14", theme.dim)
-    -- The style the planner picked (A18), and who's keen.
-    if not app.campaign.module then
-        local styles = require "game.model.styles"
-        local sid = styles.current(app.campaign)
-        local sd = styles.def(sid)
-        if sd then
-            local keen, unsure = {}, {}
-            for _, p in ipairs(app.campaign.players) do
-                local f = styles.fit(p, sid)
-                if f >= 1 then
-                    table.insert(keen, p.name)
-                elseif f < 0 then
-                    table.insert(unsure, p.name)
-                end
-            end
-            local line = sd.name .. (#keen > 0 and (". Keen: " .. table.concat(keen, ", ")) or "")
-                .. (#unsure > 0 and (". Not sold: " .. table.concat(unsure, ", ")) or "") .. "."
-            kit.text(x + 160, y + 8, kit.ellipsize(line, "ui14", w - 160), "ui14", theme.faint)
-        end
-    end
     y = y + 32
     local t = c.tone and s0.tones[c.tone]
     -- The party (A8): who they are and how they know each other.
@@ -171,15 +134,6 @@ local function pitch(app, c)
             kit.text(x + 44, py, d.char .. ", " .. string.lower(d.class_name) .. "  (" .. d.name .. ")", "ui18b", theme.text)
             kit.text(x + 44, py + 21, d.intro or d.notes, "ui14", theme.dim, { w = w - 50, lines = 2 })
             py = py + 62
-        end
-        -- Who joins later (a small table): they settle their asks and backstories when they arrive.
-        local later = {}
-        for _, j in ipairs(app.campaign.joining and app.campaign:joining() or {}) do
-            local d = content.players[j.key]
-            table.insert(later, d.name .. " (" .. d.char .. ") in session " .. util.int(j.week))
-        end
-        if #later > 0 then
-            kit.text(x, py, "Joining later: " .. table.concat(later, ", ") .. ".", "ui14", theme.gold, { w = w })
         end
     end
     if not t then
@@ -345,30 +299,24 @@ function M.build(app)
 end
 
 function M.build_all(app)
-    at_table(app)
     local c = choices(app)
-    if c.page == "backstories" then
-        return require("game.ui.backstory_view").build(app)
-    end
     if c.page == "hooks" then
         return require("game.ui.museum_setup_view").build(app)
     end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, app.campaign.module
-        and "Before the first night, everyone talks it through: how the museum should feel, what's off the table, how you'll run it."
-        or "Before week 1, everyone talks it through: how it should feel, what's off the table, how you'll run it.",
+    kit.text(280, 24, "Before the first night, everyone talks it through: how the museum should feel, what's off the table, how you'll run it.",
         "ui18", theme.dim, { w = 1300, lines = 1 })
     pitch(app, c)
     asks(app, c)
     rules(app, c)
     feelings(app, c, 108 + 4 * 176)
     local ready = M.complete(app)
-    kit.button(1356, 830, 220, 50, app.campaign.module and "Their heroes  >" or "Backstories  >", function()
+    kit.button(1356, 830, 220, 50, "Their heroes  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "s0_next" })
     -- (Short, so it clears how everyone feels, on the left.)
-    kit.text(1340, 846, ready and (app.campaign.module and "Next: why each hero came." or "Next: their backstories.")
+    kit.text(1340, 846, ready and "Next: why each hero came."
         or "Pitch a tone, answer every ask and set the table rules.", "ui14", theme.dim,
         { pivot = gui.PIVOT_NE })
 end

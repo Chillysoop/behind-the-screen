@@ -3,18 +3,16 @@
 -- reach. Off unless the build sets behind_the_screen.autotest = 1 (tools/tests/autotest.ini).
 -- It clicks buttons by calling them, prints "AUTOTEST ..." lines (an outside script takes
 -- screenshots on "AUTOTEST shot <name>"), and quits when it's done:
---   autotest = 1   new campaign: Session Zero, two sessions, quit at the third prep
---   autotest = 2   continue the saved campaign, play one more session, quit
 --   autotest = 3   new campaign: Session Zero and one session, quit at its report (screen-size checks)
---   autotest = 4   the real-session pass, shown off: a story board with a built fight, the notes,
---                  a character sheet and the encounter builder, then game night with shots of a
---                  skill check, a clue, a decision, a fight and a spell; quit at the report
+--   autotest = 4   one session with shots of each new thing on game night as it first happens (a
+--                  check, a decision, a fight, a spell; key art with behind_the_screen.keyart = 1);
+--                  quit at the report
 --   autotest = 5   real clicks (tools/tests/ui_play/): drive every screen at 2x, but leave every
 --                  game-night card for an outside harness to click with real X input; quit after
 --                  behind_the_screen.autotest_weeks sessions (default 6)
 --   autotest = 6   the board gallery: every board (game/data/boards.lua) set out in full on the
 --                  table, with a party and some foes on it, one shot each from the table camera
---   autotest = 8   v2: The Museum of Nightmares from the notice to the journey recap, with shots of
+--   autotest = 8   The Museum of Nightmares from the notice to the journey recap, with shots of
 --                  the hooks, every between-session page and prep board, the nights and the reports
 
 local kit = require "game.ui.kit"
@@ -164,167 +162,6 @@ local function finish(a, ok, why)
     say((ok and "done " or "FAILED ") .. (why or ""))
     a.over = true
     sys.exit(ok and 0 or 1)
-end
-
--- Mode 1, at the prep for session 3: the Story log (October 13) after two real nights. The page
--- in the notes on the storyline with the most scenes, then the panel the prep board opens when a
--- story card goes on a scene, then a keyword's hover. One step per call.
-function M.story_shots(app, a)
-    a.ss = (a.ss or 0) + 1
-    local step = a.ss
-    local chronicle = require "game.model.chronicle"
-    local storylines = require "game.model.storylines"
-    local content = require "game.model.content"
-    local kit = require "game.ui.kit"
-    local c = app.campaign
-    if step == 1 then
-        local best, most = nil, -1
-        for _, it in ipairs(chronicle.list(c, c.prep, nil)) do
-            local v = chronicle.story(c, it.def.id, {})
-            if v and #v.entries > most then
-                best, most = it.def.id, #v.entries
-            end
-        end
-        say("story log: " .. tostring(best) .. " with " .. tostring(most) .. " scenes, " .. #chronicle.get(c).scenes .. " filed")
-        app.storylog_id = best
-        app.storylog_scroll = nil
-        app.open_notes("storylog")
-        shot(a, "storylog_page")
-        return true
-    elseif step == 2 then
-        app.close_overlay()
-        local p = c.prep
-        if not p.scenes[1].type then
-            p:set_type(1, "social")
-        end
-        local placed
-        for _, kind in ipairs(content.kinds) do
-            for _, card in ipairs(p.hand[kind] or {}) do
-                if not placed and kind ~= "location" and #storylines.of_card(c, card) > 0 and not p:placed_at(card.id)
-                    and p:can_place(1, card.id) then
-                    for _, sid in ipairs(storylines.of_card(c, card)) do
-                        placed = placed or (string.sub(sid, 1, 3) == "bs_" and card) or nil
-                    end
-                    if placed then
-                        p:place(1, card.id)
-                    end
-                end
-            end
-        end
-        say("story panel: placed " .. tostring(placed and placed.id))
-        if placed then
-            require("game.ui.story_log_view").on_placed(app, placed)
-        else
-            require("game.ui.story_log_view").toggle_panel(app)
-        end
-        app.refresh()
-        shot(a, "story_panel")
-        return true
-    elseif step == 3 then
-        -- Point at the first lit name in the panel.
-        for i = #kit.layers, 1, -1 do
-            for _, b in ipairs(kit.layers[i].buttons) do
-                if b.rect_hit and string.sub(b.key or "", 1, 3) == "kw_" and string.sub(b.key, 1, 8) ~= "kw_term_" then
-                    local r = b.rect
-                    kit.on_move(r[1] + r[3] / 2, kit.H - (r[2] + r[4] / 2))
-                    say("story keyword: " .. b.key)
-                    shot(a, "story_keyword")
-                    return true
-                end
-            end
-        end
-        return true
-    elseif step == 4 then
-        -- The storyline's name: the whole story at a glance.
-        for i = #kit.layers, 1, -1 do
-            for _, b in ipairs(kit.layers[i].buttons) do
-                if b.key == "story_panel_title" then
-                    local r = b.rect
-                    kit.on_move(r[1] + r[3] / 2, kit.H - (r[2] + r[4] / 2))
-                    shot(a, "story_glance")
-                    return true
-                end
-            end
-        end
-        return true
-    end
-    return false
-end
-
--- Mode 4: a board that tells this week's story, a fight built for the party, and a look at
--- the notes, a sheet and the builder. One step per call, so each screen gets its shot.
-function M.showcase(app, a)
-    local p = app.campaign.prep
-    a.sc = a.sc or 0
-    a.sc = a.sc + 1
-    local step = a.sc
-    if step == 1 then
-        app.close_overlay()
-        p.extra = (p.extra or 0) - 10     -- plenty of prep time for the show
-        p:set_type(1, "social")
-        p:set_type(2, "exploration")
-        p:set_type(3, "combat")
-        for _, id in ipairs({ "tavern", "gus", "stranger" }) do
-            p:place(1, id)
-        end
-        for _, kind in ipairs({ "location", "goal" }) do
-            for _, c in ipairs(p.hand[kind]) do
-                if not p:placed_at(c.id) and p:can_place(2, c.id) and c.kind == kind and (c.fits[1] == "exploration"
-                    or c.fits[2] == "exploration" or c.fits[3] == "exploration") then
-                    p:place(2, c.id)
-                    break
-                end
-            end
-        end
-        p:set_encounter(3, { "ogre", "goblin_warrior", "goblin_warrior", "goblin_warrior" })
-        -- A map for the fight's place (B9): a wall, cover by the monsters, rough ground and a trap.
-        local s3 = p.scenes[3]
-        if not s3.slots.location then
-            s3.slots.location = require("game.model.content").components.forest_road
-        end
-        local maps = require "game.model.maps"
-        local loc = s3.slots.location
-        local m = maps.new(app.campaign, loc.id, maps.auto_template(app.campaign, loc, "combat"))
-        -- Set the stage: a wall with a door in it, a table and a pillar by the monsters, ice, a torch.
-        for y = 4, 9 do
-            maps.place(m, y == 7 and "door" or "wall", 11, y)
-        end
-        maps.place(m, "table_round", 15, 5)
-        maps.place(m, "pillar", 15, 9)
-        for x = 6, 8 do
-            maps.place(m, "ice", x, 10)
-        end
-        maps.place(m, "torch_post", 16, 7)
-        maps.place(m, "trap", 9, 7)
-        app.sel = { scene = 2, kind = "cast" }
-        app.refresh()
-        shot(a, "prep_board")
-    elseif step == 2 then
-        app.sel = nil
-        app.open_notes("session")
-        shot(a, "notes_session")
-    elseif step == 3 then
-        app.open_notes("people")
-        shot(a, "notes_people")
-    elseif step == 4 then
-        -- (Whoever's at the table: a small table starts without Jess, October 15.)
-        local who = app.campaign.players[#app.campaign.players].key
-        app.open_sheet(who)
-        shot(a, "sheet_" .. who)
-    elseif step == 5 then
-        app.close_overlay()
-        app.open_encounter(3)
-        shot(a, "encounter")
-    elseif step == 6 then
-        app.enc_tab = "map"
-        app.refresh()
-        shot(a, "map_builder")
-    else
-        app.enc_tab = nil
-        app.close_overlay()
-        a.showcased = true
-        a.wait = 0.5
-    end
 end
 
 -- Any mode on game night: the giver spots last week's gift on your side of the table. A shot
@@ -612,35 +449,14 @@ function M.update(app, dt)
             end
             return
         end
-        if a.mode == 2 then
-            if not shot(a, "intro_continue") then
-                if not by_key("continue") then
-                    return finish(a, false, "no continue button on the intro")
-                end
-                say("continued at week " .. tostring(app.campaign.week))
-            end
-        else
-            if not shot(a, "intro") then
-                -- A new campaign; with a save already there, "New campaign" asks first, then starts over.
-                if not by_key("session_zero") then
-                    by_key("new_campaign")
-                end
+        if not shot(a, "intro") then
+            -- A new campaign; with a save already there, "New campaign" asks first, then starts over.
+            if not by_key("session_zero") then
+                by_key("new_campaign")
             end
         end
-    elseif s == "planner" then
-        if not shot(a, "planner") then
-            -- Key art wants the whole table: all four from session 1.
-            if a.keyart and not a.ka_table then
-                a.ka_table = true
-                by_key("table_full")
-                return
-            end
-            if not by_key("plan_done") then
-                return finish(a, false, "the planner has no way on")
-            end
-        end
-    elseif s == "session_zero" and app.campaign.module then
-        -- v2: Session Zero, then why each hero came.
+    elseif s == "session_zero" then
+        -- Session Zero, then why each hero came.
         app.s0 = app.s0 or { asks = {}, rules = {} }
         app.s0.tone = app.s0.tone or "mixed"
         for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do
@@ -673,10 +489,16 @@ function M.update(app, dt)
         if not shot(a, "hooks") then
             by_key("hooks_start")
         end
-    elseif s == "prep" and app.campaign.module then
+    elseif s == "prep" then
         if app.levelup then
             by_key("levelup_close")
             return
+        end
+        if a.mode == 5 then
+            local ok, n = pcall(sys.get_config_int, "behind_the_screen.autotest_weeks", 6)
+            if a.weeks >= ((ok and n and n > 0) and n or 6) then
+                return finish(a, true, "played " .. a.weeks .. " sessions with real clicks")
+            end
         end
         local wk = app.campaign.week
         local mpv = require "game.ui.museum_prep_view"
@@ -703,7 +525,7 @@ function M.update(app, dt)
         if shot(a, "prep_week_" .. wk) then
             return
         end
-        -- v2: the tie-and-lock editor, once: opened, a room's cards, closed.
+        -- The tie-and-lock editor, once: opened, a room's cards, closed.
         if a.mode == 8 and wk == 1 and not a.ties_done then
             if app.overlay ~= "ties" then
                 if a.ties_opened or not by_key("open_ties") then
@@ -746,141 +568,15 @@ function M.update(app, dt)
             return finish(a, false, "no Run game night button")
         end
         say("night " .. wk)
-    elseif s == "session_zero" then
-        app.s0 = app.s0 or { asks = {}, rules = {} }
-        app.s0.tone = app.s0.tone or "mixed"
-        for _, k in ipairs({ "mara", "sam", "dev", "jess" }) do
-            app.s0.asks[k] = app.s0.asks[k] or "agree"
-        end
-        app.s0.rules.xcard = app.s0.rules.xcard or "on"
-        app.s0.rules.dice = app.s0.rules.dice or "big_open"
-        app.s0.rules.rulings = app.s0.rules.rulings or "quick"
-        app.s0.rules.length = app.s0.rules.length or "half"
-        app.s0.rules.death = app.s0.rules.death or "meaningful"
-        if app.s0.page ~= "backstories" then
-            app.refresh()
-            if not shot(a, "session_zero") then
-                by_label("Backstories")
-            end
-            return
-        end
-        -- Their backstories (October 13): a few questions, an idea taken up, and a hook for each.
-        local backstory = require "game.model.backstory"
-        local all = app.s0.backstories or {}
-        app.s0.backstories = all
-        if not all.mara then
-            backstory.toggle_question(all, "mara", "last_words")
-            backstory.toggle_question(all, "mara", "afraid")
-            backstory.toggle_question(all, "dev", "plan")
-            backstory.toggle_question(all, "jess", "how")
-            all.jess.idea = "yes"
-            all.mara.idea = "yes"
-            for _, k in ipairs({ "mara", "dev", "jess", "sam" }) do
-                all[k] = all[k] or { asked = {} }
-                all[k].hook = all[k].hook or backstory.data[k].hooks[2].card
-            end
-            app.s0.bs_key = "mara"
-        end
-        app.refresh()
-        if not shot(a, "backstories") then
-            by_label("Start session")
-        end
-    elseif s == "join" then
-        -- A small table (October 15): someone joins this week. Their questions, their idea taken
-        -- up, the ask agreed and the first hook; then the welcome.
-        local backstory = require "game.model.backstory"
-        local key = app.join and app.join.key
-        if key then
-            app.join.backstories = app.join.backstories or {}
-            app.join.backstories[key] = app.join.backstories[key] or backstory.default_choice(key)
-            app.join.ask = app.join.ask or "agree"
-            app.refresh()
-        end
-        if not shot(a, "join_" .. tostring(key)) then
-            if not by_key("join_start") then
-                return finish(a, false, "no welcome button on the join page")
-            end
-        end
-    elseif s == "prep" then
-        if app.levelup then
-            by_key("levelup_close")
-            return
-        end
-        if app.convo then
-            app.convo = nil
-            app.refresh()
-            return
-        end
-        local wk = app.campaign.week
-        if a.mode == 5 then
-            local ok, n = pcall(sys.get_config_int, "behind_the_screen.autotest_weeks", 6)
-            if a.weeks >= ((ok and n and n > 0) and n or 6) then
-                return finish(a, true, "played " .. a.weeks .. " sessions with real clicks")
-            end
-        end
-        if a.mode == 1 and wk >= 3 then
-            if M.story_shots(app, a) then
-                return
-            end
-            return finish(a, true, "reached the prep for session 3")
-        end
-        if a.mode == 2 and a.weeks >= 1 then
-            return finish(a, true, "played a session after continuing")
-        end
-        if a.mode == 4 and not a.showcased then
-            return M.showcase(app, a)
-        end
-        if shot(a, "prep_week_" .. wk) then
-            return
-        end
-        local p = app.campaign.prep
-        for i = 1, 3 do
-            if not p.scenes[i].type then
-                p:set_type(i, "social")
-            end
-        end
-        -- Mode 1, the first week: Gus on the first scene, with a handout made for him (a letter).
-        if a.mode == 1 and wk == 1 and not a.handout_made then
-            a.handout_made = true
-            if p:can_place(1, "gus") then
-                p:place(1, "gus")
-            end
-            require("game.model.handouts").toggle(p, "gus")
-        end
-        app.refresh()
-        if not by_label("Run game night") then
-            return finish(a, false, "no Run game night button")
-        end
-        if app.ask then
-            by_label(app.ask.yes or "Run game night")
-        end
-        say("night " .. wk)
-    elseif s == "lore" then
-        -- What tonight can change in the story (October 16): a shot, then on to the night.
-        if not shot(a, "lore_week_" .. tostring(app.campaign.week)) then
-            if not by_key("lore_go") then
-                return finish(a, false, "no way on from the lore screen")
-            end
-        end
     elseif s == "night" then
         local nv = require "game.ui.night_view"
         if app.night_done then
             if not shot(a, "night_done_" .. app.campaign.week) then
-                -- Mode 1: someone's Goodwill is full after the first night, so the report has a gift.
-                if a.mode == 1 and app.campaign.week == 1 then
-                    local ks = require "game.model.keepsakes"
-                    for _, p in ipairs(app.campaign.players) do
-                        if p.present then
-                            ks.get(app.campaign).goodwill[p.key] = ks.data.FULL
-                            break
-                        end
-                    end
-                end
                 by_label("See how everyone felt")
             end
         elseif a.mode == 8 and not a.recap_done and not app.pending and not app.thought_card and app.night
             and (app.night.clock or 0) > 40 then
-            -- v2: the DM's recap, once: both sidebars open, a shot, shut.
+            -- The DM's recap, once: both sidebars open, a shot, shut.
             local rv = require "game.ui.recap_view"
             if not (app.recap_left and app.recap_right) then
                 rv.toggle(app, "both")
@@ -892,7 +588,7 @@ function M.update(app, dt)
             rv.close(app)
             a.recap_done = true
         elseif app.thought_card then
-            -- v2: a friend's thought, open (one you clicked, or Pip about to go off alone): a shot
+            -- A friend's thought, open (one you clicked, or Pip about to go off alone): a shot
             -- of the card before and after the Insight roll the first time, then answer it.
             local th = app.night and app.night.th
             local t = th and th.list[app.thought_card.id]
@@ -953,11 +649,6 @@ function M.update(app, dt)
             local ct = app.pending.kind == "decision" and app.pending.card and app.pending.card.type
             if a.mode == 4 and (ct == "talk" or ct == "boss") and not a.shots["takeover_" .. ct] then
                 shot(a, "takeover_" .. ct)
-                return
-            end
-            -- A player's pull (October 18): the card with its four answers, once.
-            if a.mode == 4 and ct == "skew" and not a.shots.pull_card then
-                shot(a, "pull_card")
                 return
             end
             -- The opening and the briefings (October 15): a shot of each, the first time.
@@ -1043,7 +734,7 @@ function M.update(app, dt)
             end
             return
         end
-        -- v2: the museum's milestone levels are taken from the report (a shot of the first page).
+        -- The museum's milestone levels are taken from the report (a shot of the first page).
         if a.mode == 8 then
             a.leveled = a.leveled or {}
             local wk = app.campaign.week
