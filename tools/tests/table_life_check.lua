@@ -33,6 +33,9 @@ local function play(seed, mode)
     adventure.enter(c)
     c:session_zero(social.default_choices())
     table_life.set_crits(c, mode ~= "off")
+    -- (Tips off: the first night is a full one, so a crit can come up on it too. The gentle first night,
+    -- R6, keeps small-moment crits for the second night on: tools/tests/roadmap_table_check.lua.)
+    c.guide = { seen = {}, off = true, shown = 0 }
     local rng = require("game.model.rng").new(seed + 5)
     for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
         local hooks = adventure.data.hooks[key]
