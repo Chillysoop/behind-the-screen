@@ -11,6 +11,17 @@ You don't need to know D&D, and there's no way to "lose": every ending is a real
 ending, and the prologue sets up the full campaign that comes next.
 
 
+NEW IN THIS BUILD (November 4, later): small moments
+----------------------------------------------------
+- In a room's quiet stretches, the friends get up to the small stuff real tables do: poke at
+  the candle ("it's just a candle"), ask Flitwidget or Telpur a question, haggle, share a
+  snack, pocket a souvenir, show off a cantrip. A little die rolls on its own over their tile
+  and you answer from behind the screen: dull, a detail, or a bit of the museum's story.
+- Only a natural 20 or a natural 1 asks you anything: hide a small find, give them a clue (a
+  clue about a danger counts as a warning they found), or a mishap, a small trap, or a laugh.
+  "Crits: on / off" under End session turns those cards off: then they play out on their own.
+- Two small moments a room at most, none in fights, one at 2x, none at 4x.
+
 NEW IN THIS BUILD (November 4)
 ------------------------------
 - Fair warning works the way a table does it. When a card has a danger in it, you can
@@ -200,6 +211,7 @@ Almost everything is the mouse. A few keys help:
 On game night:
   Space            skip ahead
   P                pause (or the Pause / 1x / 2x / 4x buttons, top right)
+  Crits: on / off  small-moment cards on a natural 20 or 1 (top right, under End session)
   F / G            faster / slower
   Tab              the night's log
   S                your recap: the story's sides (left) and the table (right)

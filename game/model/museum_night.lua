@@ -1601,11 +1601,19 @@ end
 -- DM, who can nudge or leave it to them. The option they settle on plays as written.
 
 -- Why someone leans the way they do, in their own voice, by the kind of player it pleased.
+-- (A few ways each, fresh across weeks, and at most twice a night from one friend: "Less talking,
+-- more hitting" after nearly every one of Dev's suggestions, the review found.)
 local LEAN_WHY = {
-    explorer = "I want to see what it does.", tactician = "It's the smart play.", butt_kicker = "Less talking, more hitting.",
-    instigator = "Come on, it'll be chaos.", storyteller = "It feels right, for the story.", casual = "Easiest way through.",
-    power_gamer = "That's the best payoff.", method_actor = "It's what {char} would do.",
+    explorer = { "I want to see what it does.", "I want to know what's in there.", "Come on, aren't you curious?" },
+    tactician = { "It's the smart play.", "Fewer ways for it to go wrong.", "Think about it. It's the safest bet." },
+    butt_kicker = { "Less talking, more hitting.", "Let's just get on with it.", "Sooner we start, sooner something gets hit." },
+    instigator = { "Come on, it'll be chaos.", "What's the worst that could happen?", "It'll be funny. Trust me." },
+    storyteller = { "It feels right, for the story.", "That's the better story.", "Think how it'll sound in the recap." },
+    casual = { "Easiest way through.", "I'm happy with that.", "Works for me, honestly." },
+    power_gamer = { "That's the best payoff.", "Best reward, easy.", "More loot that way." },
+    method_actor = { "It's what {char} would do.", "{char} wouldn't have it any other way.", "{char} is already halfway there." },
 }
+M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 
 -- What one option is worth to one friend, and the reason that weighed most. o: the card's option.
 local function lean(night, p, o)
@@ -1729,7 +1737,13 @@ function M.table_pick(night, copy, vars)
     for _, p in ipairs(order) do
         if spoke < 3 and (spoke < 2 or first[p.key] ~= first[order[1].key]) then
             local w = why[p.key]
-            local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not.")) or (w and LEAN_WHY[w]) or nil
+            night.lean_why_n = night.lean_why_n or {}
+            local said_n = night.lean_why_n[p.key] or 0
+            local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not."))
+                or (w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key)) or nil
+            if reason and w ~= "hurt" then
+                night.lean_why_n[p.key] = said_n + 1
+            end
             local line = "Let's " .. short_want(opts[first[p.key]]) .. "." .. (reason and (" " .. util.fill(reason, { char = p.char })) or "")
             night:emit({ kind = "say", who = p.key, text = util.sentence_case(line), ic = false })
             said[p.key] = true

@@ -177,10 +177,13 @@ local function play(seed, style)
                 -- 7: what came back.
                 for _, p in ipairs(night.players) do
                     local r = res_of(c, night, p.key)
+                    -- (The morning's buffs go up after a long rest: Mage Armor and Aid, a slot each.)
+                    local pc = night.pcs and night.pcs[p.key]
+                    local buffs = pc and (((pc.mage_armor and 1) or 0) + ((pc.aid_caster and 1) or 0)) or 0
                     for id, cm in pairs(r) do
                         if ev.long then
                             add(7, "long_rest_checks")
-                            if cm[1] < cm[2] then
+                            if cm[1] < cm[2] - (id == "slots" and buffs or 0) then
                                 fail(7, string.format("seed %d %s week %d: %s's %s %d/%d after a long rest", seed, style, w, p.key, id,
                                     cm[1], cm[2]))
                             end
@@ -438,7 +441,8 @@ end
 
 for _, style in ipairs(STYLES) do
     for run = 1, RUNS do
-        local ok, err = pcall(play, 300 + run * 17, style)
+        local base = tonumber(os.getenv("SEED_BASE") or "") or 300
+        local ok, err = pcall(play, base + run * 17, style)
         if not ok then
             fail(0, "seed " .. (300 + run * 17) .. " " .. style .. ": " .. tostring(err))
         end
