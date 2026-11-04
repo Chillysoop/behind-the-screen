@@ -432,7 +432,7 @@ M.beats = {
         notice = "Flitwidget saw what was left of {thing}", told = "Telpur had a word with Flitwidget about {char}",
         docked = "Flitwidget took the breakages out of their reward",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
-        caught = "{char} went for {thing}, and {who} caught them at it",
+        caught = "{char} went for {thing}, and {who} caught {char_them} at it",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
     },
     rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",

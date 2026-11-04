@@ -313,6 +313,9 @@ local function first_room(seed)
         end
         ev = night:advance(answer)
     end
+    -- (Played on a later night's terms: the first night keeps its optional calls for next week, R6,
+    -- and a friend's idea there is settled by the dice. The R12 case below checks that.)
+    night.first_gentle, night.gentle = night.gentle, nil
     return c, night, night.scene
 end
 
@@ -492,6 +495,21 @@ case("R12", function()
         fail("R12", "case: out of calls, and the idea still came to you as a card (or nothing was rolled)")
     end
     add("R12", "case_no_calls_left")
+    -- (And on a gentle first night, R6: it's the dice's too.)
+    local c2, night2, sc2 = first_room(72)
+    night2.gentle = night2.first_gentle
+    if night2.gentle then
+        local pk2 = ideas.pockets(night2, require("game.model.npcs").get("mus_flitwidget"))[1]
+        local out2 = drive(night2, function()
+            ideas.take(night2, sc2, { p = c2:player("jess"), target = pk2 })
+        end)
+        for _, e in ipairs(out2) do
+            if e.kind == "decision" then
+                fail("R12", "case: on the gentle first night, a friend's idea came to you as a card")
+            end
+        end
+        add("R12", "case_first_night_dice")
+    end
 end)
 
 -- R12: what a friend reaches for is theirs: Pip, in the street her con brought her to, wants Flitwidget's
