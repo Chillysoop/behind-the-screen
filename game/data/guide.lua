@@ -50,6 +50,46 @@ return {
             text = "A cloud over a player's panel is something they're thinking and not saying. Click it to read it "
                 .. "and answer, or let it be. The more Empathy you have, the more of these you catch.",
         },
+        -- (Each kind of call has its own tip the first time it comes, R6: the first night has the
+        -- story's calls, one big roll and one thought; the rest come from the second night on.)
+        {
+            id = "night_table_asks", screen = "night", at = NIGHT,
+            when = function(app)
+                local id = pending(app, "decision") and app.pending.card and app.pending.card.id or ""
+                return string.find(id, "^table_asks_") ~= nil or string.find(id, "^mus_fork_") ~= nil
+            end,
+            done = function(app) return not pending(app, "decision") end,
+            title = "They're asking you",
+            text = "This one is the players' choice, and they can't agree. Nudge them if you like, or leave it to them. Most take a nudge; nudge too often and they notice.",
+        },
+        {
+            id = "night_fight_call", screen = "night", at = NIGHT,
+            when = function(app)
+                local t = pending(app, "decision") and app.pending.card and app.pending.card.type
+                return t == "combat" or t == "boss" or t == "pacing"
+            end,
+            done = function(app) return not pending(app, "decision") end,
+            title = "A call in the fight",
+            text = "The fight waits for you: who the monsters go for, how a big moment lands, when it's gone on long enough. The dice do the rest.",
+        },
+        {
+            id = "night_screen", screen = "night", at = NIGHT,
+            when = function(app)
+                return pending(app, "decision") and app.pending.card and app.pending.card.type == "screen"
+            end,
+            done = function(app) return not pending(app, "decision") end,
+            title = "Behind your screen",
+            text = "Only you see this one. Whatever you pick, the table only sees what happens.",
+        },
+        {
+            id = "night_rules", screen = "night", at = NIGHT,
+            when = function(app)
+                return pending(app, "decision") and app.pending.card and app.pending.card.type == "rules"
+            end,
+            done = function(app) return not pending(app, "decision") end,
+            title = "A rules question",
+            text = "Someone isn't sure how a rule works. Look it up, go with what's fun, or keep it moving: whichever you pick, somebody at the table will have an opinion.",
+        },
         {
             id = "night_decision", screen = "night", at = NIGHT,
             when = function(app) return pending(app, "decision") end,

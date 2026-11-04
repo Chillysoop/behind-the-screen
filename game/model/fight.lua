@@ -993,6 +993,10 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     if OPTIONAL_CAP[trigger] and not night:room(OPTIONAL_CAP[trigger]) and night:idle() < 90 then
         return nil
     end
+    -- (The first night's fights play themselves, but for a hero's last save: R6.)
+    if night.gentle and trigger ~= "last_save" then
+        return nil
+    end
     f.cards = f.cards + 1
     f.used[trigger] = true
     night:flush_turn()

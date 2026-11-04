@@ -123,6 +123,11 @@ function M.new(campaign, prep, opts)
     self.clock = 0
     self.counts = { decision = 0, ruling = 0 }
     self.fights = 0
+    -- A gentler first night (R6, the round-two review: "night 1 hands a newcomer most systems at
+    -- once"): on an adventure's first night the DM gets the story's own calls, one big roll to rule on,
+    -- one thought and one rules call, each with its tip; the fight's calls, the finds behind the
+    -- screen, the table asking you and the rest wait for next week. Off once the tips are off.
+    self.gentle = campaign.adv ~= nil and (campaign.week or 1) <= 1 and not (campaign.guide and campaign.guide.off) or nil
     -- "Every roll in the open" at Session Zero covers the DM's own combat rolls too.
     local open_table = campaign.table and campaign.table.rules.dice == "open"
     self.dm_rolls = opts.dm_rolls or campaign.dm_rolls or (open_table and "open") or "hidden"
@@ -269,6 +274,9 @@ end
 -- Room for one more optional call under this cap? Before the last scene, two calls are kept
 -- back for it: a last scene with nothing for the DM to decide runs long.
 function M:room(cap)
+    if self.gentle then
+        return false        -- (the first night's optional calls wait for next week: R6)
+    end
     local last = self.scenes[#self.scenes]
     local reserve = (last and self.scene ~= last) and 2 or 0
     return self:decision_count() < cap - reserve
@@ -2408,6 +2416,7 @@ function M:pick_decision(sc, kinds)
             and (not d.needs_class or self:by_class(d.needs_class))
             and (not d.needs_cast or M.cast_is(self:shown_cast(sc), d.needs_cast))
             and (not d.needs or self:headache_ok(d.needs, sc))
+            and (not self.gentle or (d.type == "rules" and not self.gentle_rules))   -- (night 1: one rules call, R6)
             and d.type ~= "story" and d.type ~= "screen" then   -- (the rooms bring their own)
             local w = last[d.id] and 0.3 or 1
             -- Prefer cards whose actor is actually at the table.
@@ -2425,7 +2434,11 @@ function M:pick_decision(sc, kinds)
     if #eligible == 0 then
         return nil
     end
-    return self.rng:weighted(eligible, weights)
+    local d = self.rng:weighted(eligible, weights)
+    if self.gentle and d and d.type == "rules" then
+        self.gentle_rules = true
+    end
+    return d
 end
 
 -- Big rolls and rulings -----------------------------------------------------------------------
@@ -2547,6 +2560,14 @@ function M:big_roll(spec, record)
     if spec.secret then
         -- (The card already said "behind the screen": no asking where to roll it.)
         where = "hidden"
+    elseif self.gentle and self.gentle_rolled then
+        -- (The first night rules on one big roll: the rest land as the dice say, out in the open. R6.)
+        if not self.gentle_said then
+            self.gentle_said = true
+            self:say("From here tonight, the big rolls land as the dice say, out in the open. From next week, how each one lands is your call too.",
+                "system")
+        end
+        where = "open"
     elseif self:decision_count() >= 15 then
         if not self.calls_out_said then
             self.calls_out_said = true
@@ -2667,11 +2688,14 @@ function M:big_roll(spec, record)
         }
     end
     local pick
-    if self:decision_count() >= 15 and not inspire_at then
-        -- Out of calls for the night (the 8-to-15 budget): the die decides, plainly, with no card.
+    if (self:decision_count() >= 15 and not inspire_at) or (self.gentle and self.gentle_rolled) then
+        -- Out of calls for the night (the 8-to-15 budget), or past the first night's one roll to rule
+        -- on: the die decides, plainly, with no card.
         pick = 1
+        inspire_at = nil
         self.auto_rulings = (self.auto_rulings or 0) + 1
     else
+        self.gentle_rolled = self.gentle and true or nil
         pick = self:emit({ kind = "ruling", tier = tier, prompt = rule.prompt, value = value, total = total,
                            mod = mod, dc = dc, options = opts, where = where, by = by, success = success,
                            cook = cook_offer, cooks = self.cooks,
@@ -2760,6 +2784,7 @@ function M:big_roll(spec, record)
     -- A triumph never reads as a near thing (playtest, October 13: a natural 20 came out
     -- "Handled. Barely").
     local branch_log = (success and tier == "triumph" and branch.big) or branch.log
+        or (branch.fresh and self:fresh(branch.fresh[1], branch.fresh[2]))
     self:say(branch_log, success and "good" or "bad")
     self:apply(branch.effects)
     self:apply(ro.effects)
@@ -4387,9 +4412,11 @@ function M:scout(sc)
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "perception", "insight" },
                    quiet = true,     -- (spotting them first isn't a recap beat)
-                   success = { log = self:fresh(REACTED.success, "react_yes"),
+                   -- (The line is picked once it's said: one picked and never said still counted as
+                   -- the last one, so the next could repeat what the table last heard.)
+                   success = { fresh = { REACTED.success, "react_yes" },
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
-                   fail = { log = self:fresh(REACTED.fail, "react_no"),
+                   fail = { fresh = { REACTED.fail, "react_no" },
                             effects = { { "all", challenge = 6 }, { "arch:butt_kicker", fun = 2 } } } }
     table.insert(self.decisions, { card = "scout", option = 0, rolls = {} })
     local ok = self:big_roll(spec)

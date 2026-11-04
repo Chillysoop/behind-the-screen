@@ -2124,7 +2124,7 @@ function M.table_pick(night, copy, vars)
     end
     -- Still split: someone asks the DM (the DM can nudge, or leave it to them).
     local asked = false
-    if (tied > 1 or top_n <= half) and night.rng:chance(0.75) then
+    if (tied > 1 or top_n <= half) and night.rng:chance(0.75) and not night.gentle then      -- (night 1: they settle it, R6)
         asked = true
         local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
         local card = { id = "table_asks_" .. (copy.id or "x"), type = "table", trigger = "museum_fixed", fixed_actor = true,
@@ -2639,7 +2639,7 @@ function M.fork(night, options, backs, sides)
     end
     local o
     local split = tied > 1 or top_n <= half
-    if (split and night.rng:chance(0.8)) or (hint_id and night.rng:chance(0.35)) then
+    if ((split and night.rng:chance(0.8)) or (hint_id and night.rng:chance(0.35))) and not night.gentle then   -- (night 1: theirs, R6)
         local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
         local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum_fixed", fixed_actor = true, title = fk.title,
                        text = (split and "They can't agree. " or "They've more or less decided, but ")
