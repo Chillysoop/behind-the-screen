@@ -646,9 +646,14 @@ function CHECKS.F17(run)
         end
         if r.k == "decision" and r.card == "mus_wrap" and r.pick == 2 then
             local beats = 0
+            local wraps = {}
+            for _, t in ipairs(require("game.model.night").WRAP_LINES or { "That's a wrap. Chairs scrape, someone stacks the dice." }) do
+                wraps[t] = true
+            end
             for j = i + 1, #log do
                 local q = log[j]
-                if q.k == "narrate" and (has(q.text, "That's a wrap") or q.style == "system") then
+                if (q.k == "narrate" and (wraps[q.text or ""] or has(q.text, "That's a wrap"))) or (q.k == "decision" and q.card == "mus_wrap")
+                    or q.week ~= r.week then
                     break
                 end
                 if q.k == "tiny_roll" or q.k == "decision" or (q.k == "narrate" and (q.style == "table" or q.style == "dm"))
@@ -1364,6 +1369,21 @@ for _, style in ipairs(STYLES) do
                     end
                 end
             end
+        end
+    end
+end
+
+-- F17's one more room, made to happen: a DM who always plays on when it's late.
+if util.contains(ITEMS, "F17") then
+    for i = 1, RUNS do
+        local seed = base + 7 + i * 31
+        local ok, run = pcall(play, seed, "random", { pick = function(ev, pick)
+            return ev.card.id == "mus_wrap" and 2 or nil
+        end })
+        if ok then
+            pcall(CHECKS.F17, run)
+        else
+            fail("run", "seed " .. seed .. " one more room: " .. tostring(run))
         end
     end
 end
