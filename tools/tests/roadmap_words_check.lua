@@ -288,6 +288,8 @@ local function small_moments(run)
                         break
                     elseif q.k == "tiny_roll" or (q.k == "narrate" and m.answer_at) then
                         break
+                    elseif q.k == "scene_end" or q.k == "scene" then
+                        break           -- (the room's over: its end card is up, and what's said next isn't about this)
                     end
                 end
                 table.insert(out, m)

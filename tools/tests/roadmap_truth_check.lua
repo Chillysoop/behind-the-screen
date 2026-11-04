@@ -688,6 +688,9 @@ table.insert(watchers, function(R, N, ev)
             end
             R.book_bought = true
         end
+        if want == "fire arrows and the slime" then
+            R.arrows_bought = (R.arrows_bought or 0) + 1      -- (used up, they're back on the shelf to buy again)
+        end
         N.francs_at_purchase = c.adv.francs
     end
     local reader = string.match(text, "^The Tenets of the Rotting Temple%. (%a+) starts reading")
@@ -707,10 +710,13 @@ table.insert(watchers, function(R, N, ev)
     end
     if string.find(text, "Out come Telpur's fire arrows", 1, true) then
         add("F10", "arrows_used")
-        if R.arrows_used_up then
-            fail("F10", N.tag .. ": the fire arrows come out again after they were used up")
+        R.arrows_used = (R.arrows_used or 0) + 1
+        if R.arrows_used > (R.arrows_bought or 0) then
+            fail("F10", N.tag .. ": the fire arrows come out again after they were used up (bought " .. (R.arrows_bought or 0)
+                .. " time(s), used " .. R.arrows_used .. ")")
+        elseif R.arrows_used > 1 then
+            add("F10", "arrows_bought_again_and_used")
         end
-        R.arrows_used_up = true
     end
     if string.find(text, "can't remember a single story about Gorgon sisters", 1, true) then
         add("F10", "lore_misses")
@@ -834,6 +840,83 @@ table.insert(watchers, function(R, N, ev)
     end
 end)
 
+-- (The beats a run may not reach with someone away: two heroes bickering, one doing something to
+-- another at the table, a small moment. With Thessaly and Brannoc off elsewhere, none of them is in it.)
+case("F11", function()
+    local c, rng = new_campaign(57, "random")
+    c:start_week()
+    local night = c:start_night()
+    local ev = night:advance()
+    local guard = 0
+    while ev.kind ~= "done" and not (ev.kind == "scene" and night.scene and night.scene.room) and guard < 2000 do
+        guard = guard + 1
+        local answer
+        if ev.kind == "decision" then
+            answer = 1
+        elseif ev.kind == "ruling" then
+            answer = 1
+        elseif ev.kind == "improv" then
+            answer = { 1 }
+        elseif ev.kind == "roll_where" then
+            answer = "open"
+        elseif ev.kind == "roll" then
+            answer = rng:d20()
+        end
+        ev = night:advance(answer)
+    end
+    local sc = night.scene
+    if not sc then
+        fail("F11", "unit case: no room to split in")
+        return
+    end
+    sc.split = { away = { mara = true, dev = true } }
+    local away_chars = { c:player("mara").char, c:player("dev").char }
+    local co = coroutine.create(function()
+        for _ = 1, 60 do
+            night.last_input = night.clock
+            night:banter()
+            night.friction_done = {}
+            c.adv.acts_done = {}
+            night:party_moment(sc)
+            sc.tl_played, night.tl, c.adv.tl_seen, night.tl_bits = nil, nil, {}, nil
+            require("game.model.table_life").room(night, sc, "enter")
+        end
+    end)
+    local answer, n = nil, 0
+    while coroutine.status(co) ~= "dead" do
+        local ok, e = coroutine.resume(co, answer)
+        if not ok then
+            error(e)
+        end
+        answer = nil
+        if e then
+            n = n + 1
+            if e.kind == "decision" then
+                answer = 1
+            elseif e.kind == "roll_where" then
+                answer = "open"
+            elseif e.kind == "roll" then
+                answer = 10
+            end
+            local who = (e.kind == "check" or e.kind == "tiny_roll") and (e.actor or e.who) or (e.kind == "say" and e.ic and e.who) or nil
+            if who and sc.split.away[who] then
+                fail("F11", "unit case: " .. who .. "'s hero wandered off, and is in the scene (" .. e.kind .. ": '" .. tostring(e.text) .. "')")
+            end
+            if (e.kind == "narrate" or e.kind == "say") and e.text then
+                for _, ch in ipairs(away_chars) do
+                    if string.find(e.text, ch, 1, true) then
+                        fail("F11", "unit case: '" .. e.text .. "' with " .. ch .. " off elsewhere")
+                    end
+                end
+            end
+        end
+    end
+    if n < 20 then
+        fail("F11", "unit case: only " .. n .. " beats played")
+    end
+    add("F11", "unit_cases")
+end)
+
 -- F12: what the game promises, it keeps. A stare-down sets who the foe goes for; the scar holds a
 -- hero up through that turn; the DM's "everyone on X" steers every foe; a find moved to another room
 -- turns up in another room; the statue the chat promised stands on the board.
@@ -856,7 +939,8 @@ table.insert(watchers, function(R, N, ev)
             N.taunt_promised = char_key(c, who)
             add("F12", "taunts_promised")
         end
-        if string.find(ev.text, "(The find you moved behind your screen.)", 1, true) then
+        if string.find(ev.text, "(The find you moved behind your screen.)", 1, true)
+            or string.find(ev.text, "The find you moved behind your screen turns up here", 1, true) then
             add("F12", "moved_finds_found")
             if R.moved_from and night.scene and night.scene.room == R.moved_from then
                 fail("F12", N.tag .. ": the find moved to another room turns up in " .. R.moved_from .. ", where it was")
