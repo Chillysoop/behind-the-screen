@@ -104,9 +104,15 @@ speaking in character turns into their hero.
   "Are you sure?" first, which counts as a fair warning.
 - **Looking around.** Before a room's business the friends take turns walking over to places on its board and say
   what they make of them. A find or a trap there is your call behind the screen.
-- **Small moments** play themselves in a room's quiet stretch: a friend pokes at a curio, a small die rolls on its
-  own, someone has a question for whoever's in the room. A natural 20 or 1 makes a card only with small-moment crits
-  on (the toggle under End session).
+- **Small moments** play themselves in a room's quiet stretch, once its danger is settled: a friend pokes at a curio,
+  a small die rolls on its own, you answer dull, a detail or lore, and a friend reacts to the answer you gave;
+  someone has a question for whoever's in the room; now and then a table bit (a snack, a souvenir, haggling with
+  Telpur). A natural 20 or 1 makes a card only with small-moment crits on (the toggle under End session).
+- **Notes only you know** (the token you keep, a find you move, a room you wing, content you keep off screen as
+  agreed) get their own caption: BEHIND YOUR SCREEN, in a quieter colour.
+- **Splitting up.** When the party splits, the heroes who wandered off are elsewhere until the scene's over: they
+  don't act, roll, bicker or poke at things in it. It never happens with danger in the room, in the wrap-up, or
+  more than once in two sessions.
 - **Thoughts.** A cloud over a friend's tile is something they're thinking and not saying. Click it to read it (an
   Insight roll), then answer it or let it be.
 - **Quick checks** roll on the dice strip along the top and fill the scene's progress pips: gold for wins, red for
@@ -148,6 +154,16 @@ The museum is data, and the shared systems play whatever an adventure in this fo
 **Only what's true.** A line that says what happened reads it from state or carries a condition (`when`,
 `text_if`, `read_if`, `line_if`, `win_if`); every flag set is read by something; every mark changes boss night.
 `tools/tests/museum_truth.lua` plays whole prologues and fails otherwise.
+
+**What they carry.** Each hero has one inventory (`game/model/items.lua`, `campaign.items`): the magic items, the
+museum's own things (a book from the gift shop, a cupboard door off a diorama, a talking shoelace) and their healing
+potions. Buying is real: the Francs leave the pool, the thing leaves the shelf and goes to the hero who wanted it.
+Used up is gone (a potion drunk, the fire arrows loosed); a thing works only when the hero carrying it is at the
+table, and their sheet lists it under CARRYING. The gift shop's prices are at the top of the module (`PRICE`).
+
+**Said three ways.** Anything the table hears every week or every fight comes three or more ways, fresh across
+weeks and never twice running (`night:fresh`); the lines kept in the code are listed for the Dialogue Desk with the
+rest (`CODE_TABLES` in `tools/dialogue/export.lua`).
 
 ## Session Zero, the table and leveling up (M6)
 
@@ -233,7 +249,7 @@ in any line for their sheet: who they are, their line now, their stat block and 
 
 **Character sheets** from a player's tile, their card on the prep board or the notes: Armor Class, hit points,
 abilities and saves, all 18 skills with proficiency and Expertise marked, attacks, spells and slots, every feature
-in full, and gear. The numbers are the rules engine's, the same ones the table rolls with.
+in full, gear, and what they're carrying (each thing in their pack, with what it does on hover). The numbers are the rules engine's, the same ones the table rolls with.
 
 **Fights you can read.** Hit point bars and conditions over every mini (a coloured ring at the base for the effect
 that matters most), everyone rolling initiative and the turn order along the top, attack numbers in the log ("18 vs
@@ -379,7 +395,8 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # the whole prologue through the real UI against a mock GUI
                                        # (DUMP_DIR=out writes every screen's nodes; TRANSCRIPT=file what a player reads)
     for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
-                                       # the prologue headless, three kinds of DM ("log" after the style: every line)
+                                       # the prologue headless, three kinds of DM ("log" after the style: every line,
+                                       # every roll with its die, every attack with who swung at whom)
     lua tools/tests/museum_truth.lua   # cause and effect: every flag read, every mark does something
     lua tools/tests/thoughts_check.lua # the friends' thoughts: lines, answers, Empathy, whole prologues
     lua tools/tests/standing_check.lua # the DM's recap: sides, people's lines, who's drawn to whom
@@ -393,6 +410,10 @@ with any Lua 5.1+ or LuaJIT interpreter:
     lua tools/tests/save_check.lua     # museum saves load back and play on, mid-prologue too (about 2 minutes)
     lua tools/tests/playtest_nov3_check.lua 8   # the November 3 notes, played: whole prologues
     lua tools/tests/table_life_check.lua  # small moments: they happen, never in fights or at 4x
+    lua tools/tests/roadmap_truth_check.lua [runs]   # the round-two truth fixes, played (one inventory, no split with
+                                       # danger near, promises kept, lines tied to what happened, the recap...)
+    lua tools/tests/roadmap_words_check.lua [runs]   # the round-two word fixes, played (reactions that follow the
+                                       # answer, the book's rooms and prices, lines three ways, behind your screen...)
     lua tools/tests/rest_check.lua     # Short and Long Rests by SRD 5.2.1, the party's state carried across nights
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua museum_garden prints one)

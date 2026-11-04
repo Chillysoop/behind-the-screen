@@ -164,13 +164,12 @@ The fantasy is the best part of being a DM without the parts that make people qu
 
 ## Where it stands, and what's still open
 
-**Built.** The prologue plays end to end through the real UI, the real engine and headless: every seeded run reaches an ending in three to five sessions. Every room plays on its own board drawn from the book's maps (`tools/maps/`), and the fights use the book's own monsters. The rules, the friends and the adventure are engine-free Lua with their own tests.
+**Built.** The prologue plays end to end through the real UI, the real engine and headless: every seeded run reaches an ending in three to five sessions. Every room plays on its own board drawn from the book's maps (`tools/maps/`), and the fights use the book's own monsters, on their own paper minis (the museum's people too). The rules, the friends and the adventure are engine-free Lua with their own tests.
 
 **Open:**
 
-1. The museum's own monster and people minis (it borrows the closest existing ones).
-2. A "just the adventure" mode, for players who want the story without the table.
-3. The longer adventure that follows the prologue. Before starting it, read `docs/design/longer-adventure-notes.md`: one event log as the source of truth, one shape for conditional text, and the truth test as the gate.
+1. A "just the adventure" mode, for players who want the story without the table.
+2. The longer adventure that follows the prologue. Before starting it, read `docs/design/longer-adventure-notes.md`: one event log as the source of truth, one shape for conditional text, and the truth test as the gate.
 
 ## Glossary
 
