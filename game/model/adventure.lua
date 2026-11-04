@@ -1495,7 +1495,8 @@ function M.where(campaign)
 end
 
 -- The journey recap at the end: the route, what each room left behind, Euryale's final card.
-M.JOURNEY_CLAUSES = 3        -- (a room's story on the route: its first few beats, one line)
+M.JOURNEY_CLAUSES = 2        -- (a room's story on the route: its first big beats, a line or two)
+M.JOURNEY_SKIP = { find = true, get = true, look = true, idea = true, help = true }
 function M.journey(campaign)
     local st = campaign.adv
     local rooms = {}
@@ -1511,11 +1512,11 @@ function M.journey(campaign)
             -- (The room's story is the log's: its beats there that session, as a chain, R14; and whether its
             -- fight happened is a fight in the log, R7.)
             local events = require "game.model.events"
-            local told = events.chain(campaign, step.week, M.JOURNEY_CLAUSES, step.room)
+            local told = events.chain(campaign, step.week, M.JOURNEY_CLAUSES, step.room, M.JOURNEY_SKIP)
             local fought = events.any(campaign, { kind = "fight", where = step.room, session = step.week })
             table.insert(rooms, { id = step.room, name = r.name, week = step.week, outcome = step.outcome, marks = marks,
                                   at = r.at, fought = (fought and r.optional_fight) and r.boss_name or nil,
-                                  chain = told[1] and (string.gsub(table.concat(told, " "), "%.$", "")) or nil })
+                                  chain = told[1] and told or nil })
         end
     end
     local skipped = {}

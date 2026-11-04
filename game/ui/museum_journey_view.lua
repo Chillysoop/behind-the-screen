@@ -37,14 +37,32 @@ function M.build(app, on_next)
     end
     local room_for = 425 - y - (j.ending and 62 or 0) - (#j.skipped > 0 and 26 or 0)
     local show_marks = rows * 18 <= room_for
+    -- (Each room's story gets two lines when the route has the room for it: R14.)
+    local two = (#j.rooms * 2 + (show_marks and (rows - #j.rooms) or 0)) * 18 <= room_for
     for i, r in ipairs(j.rooms) do
         -- (What happened there, one thing to the next, from the event log: R14. A room the log has no
         -- story for, an old save's, says how it went. A fight that happened is part of the route. F20.)
-        local told = r.chain and r.chain ~= "" and util.lower_first(r.chain) or nil
-        local line = util.int(i) .. ".  " .. r.name .. "  (session " .. util.int(r.week or 0) .. "): "
-            .. (told or ((OUTCOME[r.outcome] or "done") .. (r.fought and (", and a fight with " .. r.fought) or "")))
-        kit.text(x, y, line, "ui14", r.outcome == "win" and theme.text or theme.orange, { w = w, lines = 1 })
-        y = y + 18
+        local head = util.int(i) .. ".  " .. r.name .. "  (session " .. util.int(r.week or 0) .. "): "
+        local told
+        if r.chain then
+            -- (As much of the room's story as fits: all of it, its first sentence, or that sentence's
+            -- first clause, so a line never stops halfway through a "so".)
+            local room = w * (two and 2 or 1) - kit.width(head, "ui14") - 12
+            local all = string.gsub(table.concat(r.chain, " "), "%.$", "")
+            local first = string.gsub(r.chain[1], "%.$", "")
+            local clause = string.match(first, "^(.-), [sb][ou]t? ") or first
+            local part = string.match(clause, "^(.-), ") or clause
+            for _, t in ipairs({ all, first, clause, part }) do
+                if not told and kit.width(t, "ui14") <= room then
+                    told = t
+                end
+            end
+            told = told or part
+        end
+        local line = head .. (told or ((OUTCOME[r.outcome] or "done") .. (r.fought and (", and a fight with " .. r.fought) or "")))
+        local nl = (two and kit.text_height(line, "ui14", w) > 18) and 2 or 1
+        kit.text(x, y, line, "ui14", r.outcome == "win" and theme.text or theme.orange, { w = w, lines = nl })
+        y = y + 18 * nl
         if #r.marks > 0 and show_marks then
             kit.text(x + 22, y, "Left on her card: " .. table.concat(r.marks, ", "), "ui14", theme.gold, { w = w - 22, lines = 1 })
             y = y + 18

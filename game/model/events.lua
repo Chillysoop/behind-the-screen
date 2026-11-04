@@ -231,13 +231,14 @@ end
 -- "and then". Returns { sentences }, and the beats used.
 M.MAX_JOIN = 2           -- clauses joined into one sentence before a new one starts
 
--- room: only the beats in that room (the journey recap tells each room's own chain).
-function M.chain(c, session, max, room)
+-- room: only the beats in that room (the journey recap tells each room's own chain); skip: kinds of
+-- beat to leave out (the journey keeps the big ones: no Francs found or looks round).
+function M.chain(c, session, max, room, skip)
     local beats = M.beats(c, session)
-    if room then
+    if room or skip then
         local keep = {}
         for _, ev in ipairs(beats) do
-            if ev.where == room and ev.kind ~= "enter" then      -- (the room's own name says they went in)
+            if (not room or (ev.where == room and ev.kind ~= "enter")) and not (skip and (skip[ev.kind] or (ev.look and skip.look))) then
                 table.insert(keep, ev)
             end
         end

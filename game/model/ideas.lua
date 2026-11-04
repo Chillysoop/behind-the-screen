@@ -32,6 +32,7 @@ M.PER_NIGHT = { lots = 3, some = 3, quiet = 2 }
 M.IDEA_AT = 3.2          -- how strong an idea has to be before a friend acts on it
 M.CLOSE = 1.0            -- how close behind the strongest want another can be and still get picked
 M.CALL_CAP = 13          -- the night's call budget a card of theirs fits under (night:room)
+M.FIRST_NIGHT_CAP = 9    -- ...and on the first night, a smaller one: a newcomer has enough calls already (R6)
 
 local function module()
     return util.lazy("game.model.adventure").data or {}
@@ -314,7 +315,7 @@ function M.take(night, sc, idea)
     local ok_line = fill(night:fresh(d.ok, "idea_take_ok"), v)
     local fail_line = fill(night:fresh(d.fail, "idea_take_fail"), v)
     local carded = false
-    if night:room(M.CALL_CAP) then
+    if night:room((c.week or 1) <= 1 and M.FIRST_NIGHT_CAP or M.CALL_CAP) then
         carded = true
         o = night:decision(take_card(night, p, t, ok_line, fail_line))
         if o and o.no then
