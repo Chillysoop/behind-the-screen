@@ -231,8 +231,10 @@ end
 -- A line that names who has something reads the inventory (the second playtest review, F10): every
 -- item line with {holder} is a thing someone carries (`carry`), or the charm (who drank her wine).
 for _, it in ipairs(MODULE.items or {}) do
-    if it.line and string.find(it.line, "{holder}", 1, true) and not it.carry and not it.charm then
-        fail("item " .. it.id .. ": '" .. it.line .. "' names who has it, but it isn't in anyone's pack (carry)")
+    for _, l in ipairs(it.lines or { it.line }) do
+        if string.find(l, "{holder}", 1, true) and not it.carry and not it.charm then
+            fail("item " .. it.id .. ": '" .. l .. "' names who has it, but it isn't in anyone's pack (carry)")
+        end
     end
 end
 

@@ -999,7 +999,15 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     end
     f.cards = f.cards + 1
     f.used[trigger] = true
-    night:flush_turn()
+    local flushed = night:flush_turn()
+    -- (An ally who fell earlier in this turn is said before the card: the turn's end only reacts to
+    -- what's left of it. Wave 2: Telpur fell, a scar card came, and nobody said a word.)
+    for _, s in ipairs(flushed or {}) do
+        local c = s.kind == "death" and f.by_ref[s.id]
+        if c and c.ally and not c.pc then
+            require("game.model.companions").fell(night, c, c.shut_down and true or nil)
+        end
+    end
     night.actor = player_of(night, actor_c) or night:pick_actor(card.actor)
     night.other = player_of(night, other_c)
     if not night.other then

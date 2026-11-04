@@ -1113,7 +1113,9 @@ function M.hand_off(night, id, finder)
     if not d then
         return nil
     end
-    local best = items_mod.pick_holder(c, id, night.players)
+    -- (Only to a hero in this scene: one who's wandered off isn't there to take it. Wave 1's leftover, F11.)
+    local here = night:at_hand()
+    local best = items_mod.pick_holder(c, id, #here > 0 and here or night.players)
     finder = finder or night.actor
     if not best or not finder or best == finder then
         return best or finder
@@ -1549,7 +1551,9 @@ function M.arm(night, sc)
             night.mus.items_said = night.mus.items_said or {}
             if it.line and not night.mus.items_said[it.id] then
                 night.mus.items_said[it.id] = true
-                table.insert(lines, util.fill(it.line, { holder = holder and holder.char or "Somebody",
+                -- (Said at every first fight: three ways, fresh across weeks, when the module has them.)
+                local said = (it.lines and night:fresh(it.lines, "item_" .. it.id)) or it.line
+                table.insert(lines, util.fill(said, { holder = holder and holder.char or "Somebody",
                                                           mech = st.mech_name or "The Mech" }))
             end
         end
@@ -2180,7 +2184,7 @@ function M.table_pick(night, copy, vars)
                 top = o.nudge
             end
             if top ~= o.nudge then
-                night:say("They hear you out, and go their own way anyway.", "aside")
+                night:say(night:fresh(M.WEEKLY.own_way, "weekly_own_way"), "aside")
             elseif #held > 0 then
                 night:emit({ kind = "say", who = held[1].key, text = "For the record, I still think we should "
                     .. short_want(opts[first[held[1].key]]) .. ".", ic = false })
@@ -2707,7 +2711,7 @@ function M.fork(night, options, backs, sides)
                     end
                 end
                 if grumbler then
-                    night:emit({ kind = "say", who = grumbler.key, text = "We'd all just agreed on " .. label_of(top) .. ", though.", ic = false })
+                    night:emit({ kind = "say", who = grumbler.key, text = util.fill(night:fresh(M.WEEKLY.grumble, "weekly_grumble"), { way = label_of(top) }), ic = false })
                     night:react({ [grumbler.key] = "arms" })
                 end
                 local curious = 0
@@ -2718,7 +2722,7 @@ function M.fork(night, options, backs, sides)
                 end
                 follow = curious > #night.players / 2 or (curious * 2 == #night.players and night.rng:chance(0.5))
                 if not follow then
-                    night:say("They hear you out, and go on anyway: " .. label_of(top) .. ".", "aside")
+                    night:say(util.fill(night:fresh(M.WEEKLY.go_on, "weekly_go_on"), { way = label_of(top) }), "aside")
                 end
             end
             if follow then
@@ -3125,18 +3129,29 @@ function M.intro(night)
             -- stopped. The second playtest review: "a long rest in the gift shop", then "Out of the World of
             -- Tomorrow".)
             local here = st.pos or st.last_room
-            local line = (here == nil or here == "gift_shop")
-                and "As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
-                or ("As promised in the group chat: they start tonight after a long rest in the gift shop, and a walk back up to "
-                    .. (here == "stairs" and "the top of the stairs" or util.lower_first(MODULE.rooms[here].name))
-                    .. ", where they stopped. Fully healed, every spell back.")
-            night:say(line .. fight.buff_line(night), "recap")
+            local in_shop = here == nil or here == "gift_shop"
             -- "...and wake to find a statue at the foot of the stairs": there it is, on the gift shop's
-            -- board (F12: the chat's statue never appeared).
-            if (st.answered or {}).long_rest == "danger" and not st.flags.stairs_statue then
+            -- board (F12: the chat's statue never appeared), said where they woke, before they walk back
+            -- up to where they stopped (wave 1's leftover: it was told after the walk).
+            local statue = (st.answered or {}).long_rest == "danger" and not st.flags.stairs_statue
+            if statue then
                 st.flags.stairs_statue = M.place_statue(c) and true or nil
-                night:say(((here == nil or here == "gift_shop") and "And there it is, just as you told them: at the foot of the gift shop's stairs, a statue that wasn't there last night."
-                    or "When they woke in the gift shop, there it was, just as you told them: at the foot of its stairs, a statue that wasn't there last night.")
+            end
+            local back = (not in_shop) and (here == "stairs" and "the top of the stairs" or util.lower_first(MODULE.rooms[here].name)) or nil
+            local line
+            if in_shop then
+                line = "As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
+            elseif statue then
+                line = "As promised in the group chat: they start tonight after a long rest in the gift shop. They wake to find, just as you "
+                    .. "told them, a statue that wasn't there last night at the foot of its stairs, its stone hand reaching for the first "
+                    .. "step. Then a walk back up to " .. back .. ", where they stopped. Fully healed, every spell back."
+            else
+                line = "As promised in the group chat: they start tonight after a long rest in the gift shop, and a walk back up to "
+                    .. back .. ", where they stopped. Fully healed, every spell back."
+            end
+            night:say(line .. fight.buff_line(night), "recap")
+            if statue and in_shop then
+                night:say("And there it is, just as you told them: at the foot of the gift shop's stairs, a statue that wasn't there last night."
                     .. " Its stone hand is reaching for the first step.", "narration")
             end
         end
@@ -3479,6 +3494,14 @@ M.WEEKLY = {
                         "The book comes out again. Somebody checks their phone while you read." },
     -- (a friend who doesn't much mind comes round at a fork)
     easy = { "Fine, {way}. I'm easy.", "{Way} works for me.", "Okay, {way}. Lead on.", "Sure. {Way} it is." },
+    -- (your hint, against a table that had already agreed where to go: the one keenest on it grumbles)
+    grumble = { "We'd all just agreed on {way}, though.", "Hang on, we'd just agreed on {way}.", "We'd literally just agreed on {way}." },
+    -- (and the table hears you out, and sticks with it)
+    go_on = { "They hear you out, and go on anyway: {way}.", "They listen, nod, and go on anyway: {way}.",
+              "A fair point, they say, and go on anyway: {way}." },
+    -- (you nudged a choice that's theirs, and they settle it their own way all the same)
+    own_way = { "They hear you out, and go their own way anyway.", "They listen, and settle it their own way anyway.",
+                "Thanks, they say, and decide for themselves anyway." },
     improv_again = { "No notes for this one either. You wing it, short and sweet.", "Another one you make up as you go. A few strokes, and on.",
                      "Winging it again. Nobody at the table can tell." },
     -- (how a night ends when you call it)
