@@ -934,6 +934,9 @@ local VOICE = {
     thread = { "YOU, NARRATING", "#cdbb98" }, interlude = { "YOU, NARRATING", "#cdbb98" }, goal = { "FOR YOU", "#8a7c6a" },
     system = { "FOR YOU", "#8a7c6a" }, warn = { "FOR YOU", "#8a7c6a" }, quote = { "YOU, IN CHARACTER", "#e8b84a" },
     table = { "AT THE TABLE", "#9fbf8f" },          -- (table life: what the heroes get up to between the big moments)
+    -- Something only you know (the second playtest review: "You keep the token behind your screen" was
+    -- captioned as if you'd said it to the table): its own caption, in a quieter colour.
+    screen = { "BEHIND YOUR SCREEN", "#776f88" },
 }
 M.VOICE = VOICE
 
@@ -1918,7 +1921,7 @@ function M.toggle_dm_rolls(app)
     local open = app.night.dm_rolls ~= "open"
     app.night:set_dm_rolls(open and "open" or "hidden")
     M.push(app, open and "You roll the monsters' attacks in the open now. The table sees every die."
-        or "Your rolls go back behind the screen.", "dm")
+        or "Your rolls go back behind the screen.", "screen")
     M.refresh_status(app)
 end
 

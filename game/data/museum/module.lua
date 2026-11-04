@@ -1159,7 +1159,7 @@ M.friction = {
     -- (The DM's answers: a table of fields to replace.)
     responses = {
         outlet = { label = "Give {actor_char} the next big moment, on purpose.",
-                   log = "You make a note, and you keep it: the next big moment is {actor_char}'s." },
+                   log = "You make a note, and you keep it: the next big moment is {actor_char}'s.", screen = true },
     },
     bonds = {
         share_the_loot = "{actor_char} lets {target_char} have first pick of whatever they find next: 'You'll get more use out of it than me.'",

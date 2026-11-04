@@ -488,7 +488,16 @@ function M.bystander(loc)
 end
 
 -- A caption. Every sentence starts with a capital, whatever was substituted (A3).
+-- A line to the table that's really a note only the DM knows ("Behind your screen, you move a note")
+-- gets the screen's own caption (the second playtest review).
+function M.screen_note(text)
+    return type(text) == "string" and string.find(string.lower(text), "behind your screen", 1, true) ~= nil
+end
+
 function M:say(text, style, extra)
+    if style == "dm" and M.screen_note(text) then
+        style = "screen"
+    end
     return self:emit({ kind = "narrate", text = util.sentence_case(util.fill(text, self:vars(extra))),
                        style = style or "narration" })
 end
@@ -2902,7 +2911,7 @@ function M:decision(card, extra)
     table.insert(self.decisions, { card = card.id, option = pick, rolls = {}, table = auto and true or nil })
     self.why = auto and ("the table's choice at \"" .. card.title .. "\"") or ("your call on \"" .. card.title .. "\"")
     if o.log then
-        self:say(o.log, "dm", extra)
+        self:say(o.log, o.screen and "screen" or "dm", extra)
     end
     -- Breaks and lookups take real time at the table (A14).
     self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
@@ -3190,7 +3199,7 @@ function M:safety_check(sc)
                 local what = f.tag == "kids" and "the kids" or f.tag
                 if outcome == "veil" then
                     -- Agreed at Session Zero: it happens off screen.
-                    self:say("You keep " .. what .. " off screen, like you promised " .. p.name .. ".", "dm")
+                    self:say("You keep " .. what .. " off screen, like you promised " .. p.name .. ".", "screen")
                     score.add(p, "trust", 1)
                     table.insert(self.safety, { kind = "veil", key = p.key, tag = f.tag })
                 elseif outcome == "xcard" then
@@ -3683,7 +3692,7 @@ function M:friction_act(sc, def, doer)
         for _, id in ipairs(order) do
             for _, r in ipairs(fr.responses) do
                 if r.id == id and (not r.needs_target or target) then
-                    table.insert(opts, { label = util.fill(r.label, v), log = util.fill(r.log, v), resp = r })
+                    table.insert(opts, { label = util.fill(r.label, v), log = util.fill(r.log, v), resp = r, screen = r.screen })
                 end
             end
         end

@@ -1159,7 +1159,8 @@ function M.explore(night, sc)
             local n = st.find_later
             st.find_later = 0
             night:say("Tucked away by " .. util.lower_first(pl.name or "it") .. ": " .. (n == 1 and "a Flitwidget Franc" or (util.int(n) .. " Flitwidget Francs"))
-                .. ". (The find you moved behind your screen.)", "good")
+                .. ".", "good")
+            night:say("The find you moved behind your screen turns up here.", "screen")
             M.handle(night, { francs = n }, sc)
             night:apply({ { "actor", spotlight = 4, fun = 4 } })
         end
@@ -1180,7 +1181,7 @@ function M.soft_check(night, alts)
                 night.mus.soft[tag] = true
                 local name = (MODULE.content_names or {})[tag] or tag
                 night:say((t.lines and t.lines[tag]) and ("You leave the " .. name .. " out, as you promised " .. p.name .. " at Session Zero.")
-                    or ("You keep the " .. name .. " off screen, as you agreed with " .. p.name .. " at Session Zero."), "dm")
+                    or ("You keep the " .. name .. " off screen, as you agreed with " .. p.name .. " at Session Zero."), "screen")
                 score.add(p, "trust", 1)
             elseif t.pushed and t.pushed[tag] and present(night, t.pushed[tag]) then
                 p = present(night, t.pushed[tag])
@@ -1207,9 +1208,9 @@ function M.read(night, sc)
     end
     night:say(text, "narration")
     if sc.backup then
-        night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "dm")
+        night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "screen")
     elseif sc.improv then
-        night:say("You never prepped it, so you wing it: the room in a few strokes, and on to what matters.", "dm")
+        night:say("You never prepped it, so you wing it: the room in a few strokes, and on to what matters.", "screen")
     end
     if not sc.prepped then
         -- (You chose to read it from the book: say that, not that you skimmed it.)
