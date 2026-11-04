@@ -651,6 +651,12 @@ function M.update(app, dt)
         app.s0.rules.rulings = app.s0.rules.rulings or "quick"
         app.s0.rules.length = app.s0.rules.length or "half"
         app.s0.rules.death = app.s0.rules.death or "meaningful"
+        app.s0.rules.harsh = app.s0.rules.harsh or "fair"
+        -- (Any rule added later: its first answer, so Session Zero never waits on one.)
+        local s0d = require("game.model.content").session_zero.rules
+        for _, rk in ipairs(s0d.order) do
+            app.s0.rules[rk] = app.s0.rules[rk] or s0d[rk].order[1]
+        end
         if app.s0.page ~= "hooks" then
             app.refresh()
             if not shot(a, "session_zero") then
