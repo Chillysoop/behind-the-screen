@@ -200,6 +200,25 @@ for _, src in ipairs(SHARED_FILES) do
     end
 end
 
+-- The table-talk library (game/data/dialogue/lines.json): each friend's lines by moment.
+do
+    local lib = require("game.model.content").dialogue
+    local src = { file = "game/data/dialogue/lines.json", group = "Table talk" }
+    for _, l in ipairs(lib.lines or {}) do
+        if type(l.text) == "string" and adventure.fits(l.text) and l.status ~= "cut" then
+            local key = src.file .. "|" .. l.text
+            if not seen_text[key] then
+                local sp = PLAYERS[l.speaker or ""] and l.speaker or nil
+                local e = { id = #lines + 1, file = src.file, group = src.group, path = { "lines", l.id }, text = l.text,
+                            speaker = sp, hero = sp and HEROES[sp] or nil, role = "Player", shared = true,
+                            moment = l.trigger }
+                seen_text[key] = e
+                table.insert(lines, e)
+            end
+        end
+    end
+end
+
 -- The rooms, in the order they come in the book.
 local rooms = {}
 for _, id in ipairs({ "street", "garden", "entrance", "chamber", "paintings", "gift_shop", "hunting", "offices",
