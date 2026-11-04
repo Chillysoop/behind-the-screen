@@ -1494,6 +1494,27 @@ case("one-slot-a-turn", "One spell slot a turn; a free Quick Reflection doesn't 
         t:eq("the free Mirror Image says so", free, 1)
     end)
 
+case("dm-target-pack", "A pack hunter told who to go after goes after them, not its packmate's target", "game/rules/ai.lua",
+    "Pack Tactics makes a wolf prefer a target an ally is on; the DM's call comes first.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 6, 8)
+        local ally = at(b, mon("wolf"), 7, 5)
+        local m = at(b, mon("wolf"), 5, 6)
+        m.side, ally.side = "foes", "foes"
+        local first
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m and not first then
+                first = ev.tgt
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", first == w, true)
+    end)
+
 case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
     "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
     function(t)

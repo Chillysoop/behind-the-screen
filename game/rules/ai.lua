@@ -604,9 +604,10 @@ local function monster_turn(b, c, plain)
         return
     end
     -- Everyone else: close in and hit; shoot if the target is out of reach.
-    local t = focus_target(b, c, foes, (melee and melee.reach) or 5) or nearest
-    -- Pack hunters prefer a target an ally is already on.
-    if c.traits.pack_tactics then
+    local told = focus_target(b, c, foes, (melee and melee.reach) or 5)
+    local t = told or nearest
+    -- Pack hunters prefer a target an ally is already on (unless the DM, or a taunt, says who).
+    if c.traits.pack_tactics and not told then
         for _, f in ipairs(foes) do
             for _, a in ipairs(b:allies_of(c)) do
                 if b:dist(a, f) <= 5 and b:dist(c, f) <= c.turn.move + 5 then
