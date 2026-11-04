@@ -66,7 +66,10 @@ local function scene_index(night)
 end
 
 -- A line for this friend and need: their own, else anyone's; an "_after" line when a call just cost them.
-local function line_for(night, p, need, after)
+-- extra: what the moment knows ({die}: the number on the die everyone saw). A line that needs a
+-- fill-in the moment hasn't got isn't said (F13: "That die said six a second ago" after a 4, or
+-- after a roll behind the screen nobody saw).
+local function line_for(night, p, need, after, extra)
     local mine = DATA.lines[p.key] or {}
     local key = after and (need .. "_after") or need
     local list = mine[key] or DATA.generic[key]
@@ -76,7 +79,33 @@ local function line_for(night, p, need, after)
     if not list then
         return nil
     end
-    return util.sentence_case(util.fill(night:fresh(list, "thought_" .. p.key .. "_" .. key), vars(p)))
+    local v = vars(p)
+    for k, val in pairs(extra or {}) do
+        v[k] = val
+    end
+    local ok = {}
+    for _, l in ipairs(list) do
+        local fits = true
+        for k in string.gmatch(l, "{([%w_]+)}") do
+            fits = fits and v[k] ~= nil
+        end
+        if fits then
+            table.insert(ok, l)
+        end
+    end
+    if #ok == 0 then
+        list = DATA.generic[key] or {}
+        ok = {}
+        for _, l in ipairs(list) do
+            if not string.find(l, "{die}", 1, true) then
+                table.insert(ok, l)
+            end
+        end
+        if #ok == 0 then
+            return nil
+        end
+    end
+    return util.sentence_case(util.fill(night:fresh(ok, "thought_" .. p.key .. "_" .. key), v))
 end
 
 -- A thought goes up: { id, who, need, scene, answers }. opts: after (a call just cost them), keep
@@ -100,7 +129,7 @@ function M.think(night, p, need, opts)
     if not opts.any_scene and th.by_scene[sc] then
         return nil
     end
-    local text = line_for(night, p, need, opts.after)
+    local text = line_for(night, p, need, opts.after, opts.vars)
     if not text then
         return nil
     end
@@ -110,7 +139,9 @@ function M.think(night, p, need, opts)
     local answers = {}
     for _, aid in ipairs(def.answers) do
         local a = DATA.answers[aid]
-        table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
+        if M.offered(night, aid) then
+            table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
+        end
     end
     local tell = util.fill(def.tell or "seems to be thinking something", v)
     local t = { id = id, who = p.key, need = need, scene = sc, answers = def.answers, keep = opts.keep, glow = glow,
@@ -134,6 +165,15 @@ function M.think(night, p, need, opts)
 end
 
 -- Still something to answer? (A thought passes when its scene ends, or when what it was about happens.)
+-- An answer that can still do what it says tonight: the break can't come sooner once it's been.
+local AFTER_BREAK_GONE = { snack = true, early_break = true }
+function M.offered(night, aid)
+    if AFTER_BREAK_GONE[aid] and (night.had_break or night.break_soon) then
+        return false
+    end
+    return true
+end
+
 function M.is_open(night, id)
     local th = night.th
     local t = th and th.list[id]
@@ -274,7 +314,9 @@ function M.answers_for(night, id)
     local v = p and vars(p) or {}
     local out = {}
     for _, aid in ipairs((DATA.needs[sn.need] or {}).answers or {}) do
-        table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
+        if M.offered(night, aid) then
+            table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
+        end
     end
     return out
 end
@@ -412,11 +454,11 @@ function M.mood(night)
 end
 
 -- A roll that looked convenient, or a harsh call out of nowhere: the sharpest eye wonders.
-function M.doubt(night, p)
+function M.doubt(night, p, extra)
     if not p or not night.rng:chance(0.7) then
         return nil
     end
-    return M.think(night, p, "fairness", { any_scene = true })
+    return M.think(night, p, "fairness", { any_scene = true, vars = extra })
 end
 
 -- Outvoted at a fork, Pip's player decides to go it alone (the BBQ story): a beat before she does.
@@ -493,13 +535,17 @@ M.EFFECTS = {
         end
         return true
     end,
+    -- (The night's break is one card, museum_night.maybe_break: these answers bring it sooner, after
+    -- this room, and never stand in for it. The second playtest review: "Break at the halfway mark",
+    -- and then no break card all night.)
     snack = function(night, p)
         for _, o in ipairs(night.players) do
             score.add(o, "social", 4)
             score.add(o, "boredom", -4)
         end
         score.add(p, "fun", 4)
-        night.had_break = true
+        night.break_soon = true
+        night.snacked = true
         return true
     end,
     prize = function(_, p)
@@ -560,7 +606,7 @@ M.EFFECTS = {
         for _, o in ipairs(night.players) do
             score.add(o, "social", 3)
         end
-        night.had_break = true
+        night.break_soon = true
         return true
     end,
     keep_light = function(_, p)

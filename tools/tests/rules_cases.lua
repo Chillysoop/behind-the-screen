@@ -1439,6 +1439,93 @@ case("museum-commander", "The mech powers down when its commander drops", "Museu
         t:eq("powered down", m.powered_down and b:incapacitated(m), true)
     end)
 
+case("dm-target-shot", "Told who to go after, a monster that can't reach them shoots them", "game/rules/ai.lua",
+    "The DM's call (Everyone on the fighter, go for the wizard): out of reach but in range, it shoots that one, not whoever's nearest.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 5, 22)
+        local m = at(b, mon("bandit"), 5, 5)
+        m.side = "foes"
+        local targets = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m then
+                table.insert(targets, ev.tgt)
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", #targets > 0 and targets[1] == w, true)
+        t:eq("not the fighter beside it", (function()
+            for _, x in ipairs(targets) do
+                if x == f then
+                    return true
+                end
+            end
+            return false
+        end)(), false)
+    end)
+
+case("one-slot-a-turn", "One spell slot a turn; a free Quick Reflection doesn't count, and says it's free", "p. 105",
+    "On a turn, you can expend only one spell slot to cast a spell. A spell cast without a slot (Quick Reflection) is no slot spent.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "mirror_mage"), 5, 5)
+        at(b, mon("goblin_warrior"), 9, 5)
+        local spells_cast = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "spell" and ev.caster == w then
+                table.insert(spells_cast, ev)
+            end
+        end
+        b.active = w
+        b.turn_counter = (b.turn_counter or 0) + 1
+        ai.take_turn(b, w)
+        local paid, free = 0, 0
+        for _, ev in ipairs(spells_cast) do
+            if (ev.slot or 0) > 0 and ev.free then
+                free = free + 1
+            elseif (ev.slot or 0) > 0 then
+                paid = paid + 1
+            end
+        end
+        t:eq("at most one slot spent", paid <= 1, true)
+        t:eq("the free Mirror Image says so", free, 1)
+    end)
+
+case("dm-target-pack", "A pack hunter told who to go after goes after them, not its packmate's target", "game/rules/ai.lua",
+    "Pack Tactics makes a wolf prefer a target an ally is on; the DM's call comes first.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 6, 8)
+        local ally = at(b, mon("wolf"), 7, 5)
+        local m = at(b, mon("wolf"), 5, 6)
+        m.side, ally.side = "foes", "foes"
+        local first
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m and not first then
+                first = ev.tgt
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", first == w, true)
+    end)
+
+case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
+    "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 3), 5, 5)
+        local tp = at(b, mon("telpur"), 6, 6)
+        tp.side, tp.ally, tp.commander = "party", true, r
+        b:drop(r)
+        t:eq("Telpur still in it", (tp.powered_down or b:incapacitated(tp)) and true or false, false)
+    end)
+
 case("museum-false-appearance", "Topiary that was never topiary: the party starts surprised", "Museum, Appendix B (Briar Guardians)",
     "False Appearance: while still, a briar guardian looks like a shaped bush. A fight of only these starts with a surprise.",
     function(t)

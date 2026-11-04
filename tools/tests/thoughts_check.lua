@@ -70,6 +70,7 @@ local c = new_campaign(3)
 for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
     local p = find(c.players, key)
     local v = thoughts.vars(p)
+    v.die = "4"        -- (a fairness thought can name the die everyone saw: thoughts.doubt's extra)
     local function ok(s, where)
         local t = util.fill(s, v)
         check(not t:find("{[%w_]+}"), where .. ": unfilled in '" .. t .. "'")

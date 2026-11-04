@@ -19,6 +19,10 @@
 --    - (roadmap phase 1) a Franc said to turn up on a great roll is paid; a fight won "by name" had one
 --      foe; "+1, they learned from the last miss" follows a near miss you ruled "No, but"; a promised
 --      rest walks them back up to the room they really stopped in.
+--    - lines that say something happened only when it did (the second playtest review, F13): a prayer
+--      that caught someone before they dropped, a move two heroes pulled off together, nobody having
+--      Hit Dice left, the Witness by name, every painting back on its wall, Euryale seeing the fight
+--      turn, foes coming "out of hiding", the number a friend thinks the die showed.
 
 package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
@@ -224,6 +228,14 @@ for _, it in ipairs(MODULE.items or {}) do
     end
 end
 
+-- A line that names who has something reads the inventory (the second playtest review, F10): every
+-- item line with {holder} is a thing someone carries (`carry`), or the charm (who drank her wine).
+for _, it in ipairs(MODULE.items or {}) do
+    if it.line and string.find(it.line, "{holder}", 1, true) and not it.carry and not it.charm then
+        fail("item " .. it.id .. ": '" .. it.line .. "' names who has it, but it isn't in anyone's pack (carry)")
+    end
+end
+
 local static_failures = failures
 print(string.format("museum truth, the data: %d flags set, %d marks added, %d failures", (function()
     local n = 0
@@ -290,6 +302,7 @@ local function play(seed, style)
         end
         local night = c:start_night()
         local heard = {}
+        local last_die
         local yield_played_dead = false
         local found_tonight = false
         local old_names = {}
@@ -367,6 +380,77 @@ local function play(seed, style)
                         and not string.find(low, "wake") and not string.find(low, "last time") then
                         fail(tag .. ": " .. name .. " was replaced, but a line still has them doing things: '" .. text .. "'")
                     end
+                end
+            end
+            -- Lines that say something happened, against what did (the second playtest review, F13).
+            if text then
+                local rec = night.fight_record or {}
+                local function key_of(char)
+                    for _, p in ipairs(c.players) do
+                        if p.char == char then
+                            return p.key
+                        end
+                    end
+                end
+                local by, to = string.match(text, "^(%a+)'s prayer catches (%a+) a heartbeat before they drop")
+                if by then
+                    local ok = false
+                    for _, e in ipairs(rec.saves or {}) do
+                        ok = ok or (e.by == key_of(by) and e.to == key_of(to))
+                    end
+                    if not ok then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', and " .. to .. " was never close to dropping")
+                    end
+                end
+                local a, b = string.match(text, "^(%a+) and (%a+) pulled off a move together")
+                if a then
+                    local ok = false
+                    for _, e in ipairs(rec.combos or {}) do
+                        ok = ok or (e.a == key_of(a) and e.b == key_of(b))
+                    end
+                    if not ok then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', with no foe they both hit and one finished")
+                    end
+                end
+                if string.find(text, "Nobody had Hit Dice left to spend", 1, true) then
+                    local hurt = false
+                    for _, pc in ipairs(night.pc_list or {}) do
+                        hurt = hurt or (not pc.dead and pc.hp < pc.hp_max)
+                    end
+                    if not hurt then
+                        fail(tag .. " week " .. w .. ": 'nobody had Hit Dice left' when nobody was hurt")
+                    end
+                end
+                if string.find(text, "the Witness", 1, true) and ev.kind == "say" and not c.adv.flags.witness_named then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' before anyone heard of the Witness")
+                end
+                if string.find(text, "every painting back where it hangs", 1, true) and (c.adv.chose or {}).mus_knight_frame == 1 then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' with the knight's frame empty")
+                end
+                if string.find(text, "sees the fight turning", 1, true) then
+                    for _, cr in ipairs((night.battle and night.battle.creatures) or {}) do
+                        if cr.boss and not cr.dead and (cr.hp or 0) > (cr.hp_max or 1) * 0.5 then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "' at " .. cr.hp .. " of " .. cr.hp_max)
+                        end
+                    end
+                end
+                local sc = night.scene
+                if (string.find(text, "^Out of hiding comes") or string.find(text, " steps into the open, ")) and sc
+                    and (sc.wake or sc.fight_on or sc.talked or sc.showdown) then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' for foes already in plain view")
+                end
+                local die = string.match(text, " rolls (%d+) [%+%-] %d+ = ")
+                if die then
+                    last_die = tonumber(die)
+                end
+            end
+            if ev.kind == "thought" and ev.text then
+                local said = string.match(ev.text, "^That was a (%d+) on the die")
+                if said and tonumber(said) ~= last_die then
+                    fail(tag .. " week " .. w .. ": a thought says the die showed " .. said .. ", and the last one everyone saw was " .. tostring(last_die))
+                end
+                if string.find(ev.text, "That die said six", 1, true) and last_die ~= 6 then
+                    fail(tag .. " week " .. w .. ": a thought says the die said six, and the last one everyone saw was " .. tostring(last_die))
                 end
             end
             if ev.kind == "scene_end" and ev.reward then
@@ -485,6 +569,18 @@ local function play(seed, style)
             break
         end
         c:level_up()
+    end
+    -- Anything they picked up, bought or were given is in one hero's pack (or was used up there).
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.carry and not it.magic and adventure.test(c, it.when, {}) then
+            local had = false
+            for _, e in ipairs(items_mod.list(c)) do
+                had = had or ((e.thing == it.id or e.id == it.id) and e.holder ~= nil)
+            end
+            if not had then
+                fail(tag .. ": they got " .. it.id .. ", and it's in nobody's pack")
+            end
+        end
     end
     -- Anything picked up is on someone's sheet.
     for _, it in ipairs(MODULE.items or {}) do

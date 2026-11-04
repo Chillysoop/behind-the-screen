@@ -38,7 +38,9 @@ function M.build(app, on_next)
     local room_for = 425 - y - (j.ending and 62 or 0) - (#j.skipped > 0 and 26 or 0)
     local show_marks = rows * 18 <= room_for
     for i, r in ipairs(j.rooms) do
+        -- (A fight that happened is part of the route: the Knight of Shades, the Sentinel. F20.)
         local line = util.int(i) .. ".  " .. r.name .. "  (session " .. util.int(r.week or 0) .. "): " .. (OUTCOME[r.outcome] or "done")
+            .. (r.fought and (", and a fight with " .. r.fought) or "")
         kit.text(x, y, line, "ui14", r.outcome == "win" and theme.text or theme.orange, { w = w, lines = 1 })
         y = y + 18
         if #r.marks > 0 and show_marks then

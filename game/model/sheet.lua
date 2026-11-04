@@ -212,14 +212,27 @@ function M.build(campaign, key)
             table.insert(gear, equipment.weapons[wid].name .. (slot == "thrown" and " (8)" or ""))
         end
     end
-    if (raw.potions or 0) > 0 then
-        table.insert(gear, util.int(raw.potions) .. " healing potion" .. (raw.potions > 1 and "s" or ""))
+    -- What they carry is their inventory (items.lua): the potions still in their pack, the magic
+    -- items on them, and the adventure's things, each with what it does.
+    local potions = items.count(campaign, key, items.POTION)
+    if potions > 0 then
+        table.insert(gear, util.int(potions) .. " healing potion" .. (potions > 1 and "s" or ""))
     end
+    out.carried = {}
     for _, it in ipairs(items.held_by(campaign, key)) do
         local d = items.def(it.id)
         if d and not it.destroyed then
             table.insert(gear, d.name .. (it.charges and (" (" .. util.int(it.charges) .. " charges)") or ""))
-            table.insert(out.features, { name = d.name, text = d.text .. " (SRD 5.2.1, p. " .. util.int(d.page) .. ")", item = true })
+            -- (The adventure's own magic items have no SRD page: the twin daggers crashed the sheet.)
+            table.insert(out.features, { name = d.name, text = (d.text or "") .. (d.page and (" (SRD 5.2.1, p. " .. util.int(d.page) .. ")") or ""),
+                                         item = true })
+            table.insert(out.carried, { name = d.name, text = d.text, id = it.id })
+        elseif not d and it.id ~= items.POTION then
+            local a = items.about(it)
+            local n = (it.count and it.count > 1) and (a.name .. " (" .. util.int(it.count) .. ")") or a.name
+            table.insert(gear, n)
+            table.insert(out.features, { name = a.name, text = a.text, item = true })
+            table.insert(out.carried, { name = n, text = a.text, id = it.id })
         end
     end
     out.gear = gear

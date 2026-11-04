@@ -87,28 +87,54 @@ local function play_night(night)
                 print(string.format("  ## fight: %s, %d rounds", tostring(ev.winner), sm.rounds or 0))
             end
         elseif ev.kind == "turn" and show then
-            -- (What happened on the turn, short: who did what, who dropped.)
+            -- (What happened on the turn, short: who did what, who dropped. Every attack names its
+            -- attacker and target, so an opportunity attack on someone's move isn't read as them
+            -- hitting themselves, and every roll shows its die: the second playtest review.)
             local bits = {}
+            local function id(x)
+                return x ~= nil and tostring(x) or "?"
+            end
             for _, st in ipairs(ev.steps or {}) do
                 local k = st.kind
-                if k == "spell" or k == "feature" then
-                    table.insert(bits, k .. ":" .. tostring(st.name))
+                if k == "spell" then
+                    table.insert(bits, "spell " .. id(st.id) .. ":" .. tostring(st.name) .. ((st.level and st.level > 0) and (" (" .. (st.free and ("level " .. st.level .. ", free: " .. st.free) or ("slot " .. st.level)) .. ")") or (st.level == 0 and " (cantrip)" or ""))
+                        .. (st.reaction and " [reaction]" or "") .. (type(st.target) == "string" and (" -> " .. st.target) or ""))
+                elseif k == "feature" then
+                    table.insert(bits, "feature " .. id(st.id) .. ":" .. tostring(st.name) .. (type(st.target) == "string" and (" -> " .. st.target) or ""))
                 elseif k == "attack" then
-                    table.insert(bits, "attack" .. (st.hit and " hit" or " miss") .. (st.crit and " CRIT" or ""))
+                    local roll = st.roll and (" d20 " .. st.roll .. (st.total and ("=" .. st.total) or "") .. (st.ac and (" vs AC " .. st.ac) or "")) or ""
+                    table.insert(bits, "attack " .. id(st.id) .. "->" .. id(st.target) .. (st.weapon and (" (" .. st.weapon .. ")") or "")
+                        .. roll .. (st.hit and " hit" or " miss") .. (st.crit and " CRIT" or "") .. (st.hidden and " [behind the screen]" or "")
+                        .. (st.blocked and (" [" .. tostring(st.blocked) .. "]") or ""))
                 elseif k == "damage" then
-                    table.insert(bits, tostring(st.id) .. " -" .. tostring(st.amount) .. " (" .. tostring(st.hp) .. " left)")
-                elseif k == "down" or k == "death" or k == "up" or k == "death_save" or k == "flee" or k == "condition" then
-                    table.insert(bits, k .. ":" .. tostring(st.id) .. (st.name and ("/" .. st.name) or ""))
+                    table.insert(bits, id(st.id) .. " -" .. tostring(st.amount) .. " (" .. tostring(st.hp) .. " left)" .. (st.src and (" from " .. st.src) or ""))
+                elseif k == "heal" then
+                    table.insert(bits, id(st.id) .. " +" .. tostring(st.amount) .. (st.by and (" from " .. st.by) or ""))
+                elseif k == "save" then
+                    table.insert(bits, "save " .. id(st.id) .. " " .. tostring(st.ab) .. " d20 " .. tostring(st.roll) .. "=" .. tostring(st.total)
+                        .. " vs DC " .. tostring(st.dc) .. (st.ok and " ok" or " fail") .. (st.hidden and " [behind the screen]" or ""))
+                elseif k == "death_save" then
+                    table.insert(bits, "death save " .. id(st.id) .. " d20 " .. tostring(st.roll))
+                elseif k == "initiative" then
+                    local o = {}
+                    for _, q in ipairs(st.order or {}) do
+                        local b = tonumber(q.bonus) or 0
+                        table.insert(o, id(q.id) .. " " .. tostring(q.roll) .. (b < 0 and "-" or "+") .. math.abs(b) .. "=" .. tostring(q.total))
+                    end
+                    table.insert(bits, "initiative " .. table.concat(o, ", "))
+                elseif k == "down" or k == "death" or k == "up" or k == "flee" or k == "condition" or k == "condition_end" then
+                    table.insert(bits, k .. ":" .. id(st.id) .. (st.name and ("/" .. st.name) or ""))
                 end
             end
             if #bits > 0 then
-                print("    . " .. tostring(ev.who) .. ": " .. table.concat(bits, ", "))
+                -- (Steps outside anyone's turn: the DM's calls on the mat, between turns.)
+                print("    . " .. (ev.who and tostring(ev.who) or "(between turns)") .. ": " .. table.concat(bits, ", "))
             end
         elseif ev.kind == "battle" and ev.phase == "start" and show then
             local ps, fs = {}, {}
             for _, q in ipairs(ev.party or {}) do table.insert(ps, tostring(q.id) .. "@" .. q.x .. "," .. q.y) end
-            for _, q in ipairs(ev.foes or {}) do table.insert(fs, tostring(q.name) .. "@" .. q.x .. "," .. q.y) end
-            for _, q in ipairs(ev.allies or {}) do table.insert(ps, tostring(q.name) .. " (ally, " .. tostring(q.pilot) .. ")@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.foes or {}) do table.insert(fs, tostring(q.name) .. " (" .. tostring(q.id) .. ")@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.allies or {}) do table.insert(ps, tostring(q.name) .. " (ally " .. tostring(q.id) .. ", " .. (q.pilot and ("played by " .. q.pilot) or "the DM's") .. ")@" .. q.x .. "," .. q.y) end
             print("  ## fight starts. party: " .. table.concat(ps, " ") .. " | foes: " .. table.concat(fs, " "))
         elseif ev.kind == "tiny_roll" then
             if show then
@@ -164,12 +190,25 @@ local function play_night(night)
             answer = pick
         elseif ev.kind == "ruling" then
             answer = 1
+            if show then
+                print(string.format("  (big roll) %s %s: %s + %s = %s vs DC %s, %s, %s", tostring(ev.char or ev.actor or "?"),
+                    tostring(ev.skill_name or "?"), tostring(ev.value), tostring(ev.mod), tostring(ev.total), tostring(ev.dc),
+                    tostring(ev.tier), ev.where == "hidden" and "behind the screen" or "in the open"))
+            end
         elseif ev.kind == "improv" then
             answer = { 1 }
         elseif ev.kind == "roll_where" then
             answer = "open"
         elseif ev.kind == "roll" then
             answer = rng:d20()
+            if show then
+                print(string.format("  (d20) %s rolls %d%s", tostring(ev.char or ev.actor or "the DM"), answer,
+                    ev.where == "hidden" and " behind the screen" or ""))
+            end
+        elseif ev.kind == "check" then
+            if show then
+                print("  (check) " .. tostring(ev.text))
+            end
         elseif ev.kind == "cinematic" then
             for _, sl in ipairs(ev.slides or {}) do
                 text_ok(sl.text, "cinematic")

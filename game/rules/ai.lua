@@ -246,7 +246,9 @@ local function can_cast(c, id)
     return spells.find_slot(c, s.level) ~= nil
 end
 
--- Pay for a spell (free use first) and return the slot level it was cast at.
+-- Pay for a spell (free use first) and return the slot level it was cast at, and what paid for it
+-- when it wasn't a slot (the log and the table can tell a free cast from a second slot spell: the
+-- second playtest review read Mirror Image and Magic Missile in one turn as two slots, F19).
 local function pay(c, id, prefer_level)
     local s = S[id]
     if s.level == 0 then
@@ -254,11 +256,11 @@ local function pay(c, id, prefer_level)
     end
     if c.mi_spell == id and (c.res.mi_free or 0) > 0 then
         c.res.mi_free = c.res.mi_free - 1
-        return s.level
+        return s.level, "Magic Initiate"
     end
     if free_reflection(c, id) then
         c.res.qr_free = c.res.qr_free - 1
-        return s.level
+        return s.level, "Quick Reflection"
     end
     -- The wand first (its charges come back at dawn), up to 3 charges for a level 3 missile.
     if id == "magic_missile" and (c.res.wand or 0) > 0 then
@@ -269,7 +271,7 @@ local function pay(c, id, prefer_level)
             c.battle:log("The Wand of Magic Missiles crumbles to ash.")
         end
         c.wand_cast = true
-        return n
+        return n, "the wand"
     end
     local slot = spells.find_slot(c, prefer_level or s.level)
     if not slot then
@@ -300,15 +302,15 @@ local function cast(b, c, id, target, prefer_level)
         end
         target = alt
     end
-    local slot = pay(c, id, prefer_level)
+    local slot, free = pay(c, id, prefer_level)
     if s.casting == "bonus" then
         c.turn.bonus = false
         c.turn.cast_bonus_spell = true
     elseif s.casting == "action" then
         c.turn.action = false
     end
-    b:log("%s casts %s%s.", c.name, s.name, slot > 0 and (" (level " .. slot .. ")") or "")
-    b:emit({ kind = "spell", caster = c, id = id, name = s.name, slot = slot, target = target })
+    b:log("%s casts %s%s.", c.name, s.name, slot > 0 and (" (level " .. slot .. (free and (", free: " .. free) or "") .. ")") or "")
+    b:emit({ kind = "spell", caster = c, id = id, name = s.name, slot = slot, target = target, free = free })
     c.stats.spells = (c.stats.spells or 0) + 1
     local sanct = b:any_effect(c, "sanctuary_dc")
     if sanct then
@@ -322,9 +324,9 @@ function AI.try_shield(b, tgt, att)
         return false
     end
     tgt.reaction_used = true
-    local slot = pay(tgt, "shield")
+    local slot, free = pay(tgt, "shield")
     b:log("%s casts Shield!", tgt.name)
-    b:emit({ kind = "spell", caster = tgt, id = "shield", name = "Shield", slot = slot, target = tgt, reaction = true })
+    b:emit({ kind = "spell", caster = tgt, id = "shield", name = "Shield", slot = slot, target = tgt, reaction = true, free = free })
     S.shield.cast(b, tgt, slot)
     return true
 end
@@ -602,9 +604,10 @@ local function monster_turn(b, c, plain)
         return
     end
     -- Everyone else: close in and hit; shoot if the target is out of reach.
-    local t = focus_target(b, c, foes, (melee and melee.reach) or 5) or nearest
-    -- Pack hunters prefer a target an ally is already on.
-    if c.traits.pack_tactics then
+    local told = focus_target(b, c, foes, (melee and melee.reach) or 5)
+    local t = told or nearest
+    -- Pack hunters prefer a target an ally is already on (unless the DM, or a taunt, says who).
+    if c.traits.pack_tactics and not told then
         for _, f in ipairs(foes) do
             for _, a in ipairs(b:allies_of(c)) do
                 if b:dist(a, f) <= 5 and b:dist(c, f) <= c.turn.move + 5 then
@@ -619,9 +622,14 @@ local function monster_turn(b, c, plain)
     local in_reach = melee and approach(b, c, t, reach)
     if c.dead or c.down then return end
     if not in_reach then
-        -- Nothing in reach: shoot if possible, or Dash to close the gap.
+        -- Nothing in reach: shoot if possible, or Dash to close the gap. (The one the DM told it to
+        -- go for, if it can shoot them: not whoever's nearest. The second playtest review, F12.)
         local near = by_distance(b, c, enemies(b, c))[1]
-        if near and b:dist(c, near) <= reach and melee then
+        local told = c.dm_target
+        if ranged and told and not told.dead and not told.down and in_shot(b, c.x, c.y, told, ranged.range[2]) then
+            near = told
+        end
+        if near and near ~= told and b:dist(c, near) <= reach and melee then
             t, in_reach = near, true
         elseif ranged and near and in_shot(b, c.x, c.y, near, ranged.range[2]) then
             for _ = 1, count do
@@ -1263,10 +1271,10 @@ local function wizard_turn(b, c)
     -- Mirror Mage: Quick Reflection puts the images up with a Bonus Action.
     if c.sub and c.sub.quick_reflection and c.turn.bonus and can_cast(c, "mirror_image") and not b:find_effect(c, "Mirror Image")
         and by_distance(b, c, enemies(b, c))[1] and b:dist(c, by_distance(b, c, enemies(b, c))[1]) <= 40 then
-        local slot = pay(c, "mirror_image")
+        local slot, free = pay(c, "mirror_image")
         c.turn.bonus = false
-        b:log("%s casts Mirror Image as a Bonus Action (level %d).", c.name, slot)
-        b:emit({ kind = "spell", caster = c, id = "mirror_image", name = "Mirror Image", slot = slot, target = c })
+        b:log("%s casts Mirror Image as a Bonus Action (level %d%s).", c.name, slot, free and (", free: " .. free) or "")
+        b:emit({ kind = "spell", caster = c, id = "mirror_image", name = "Mirror Image", slot = slot, target = c, free = free })
         S.mirror_image.cast(b, c, slot)
     end
     -- Shocking Grasp then step away if someone's in our face.

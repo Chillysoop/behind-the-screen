@@ -193,7 +193,9 @@ function M.handle(night, mus, sc)
     end
     local c = night.campaign
     local st = st_of(night)
-    local added = adventure.apply(c, mus, sc and sc.room)
+    -- (Who it was: the one whose choice it was carries what it hands over, items.lua. A purchase
+    -- the table settled is the buyer's: table_pick's backer, the one who wanted it.)
+    local added = adventure.apply(c, mus, sc and sc.room, night.actor and night.actor.key)
     -- (Francs this room already paid, and what the gift shop sold tonight: the room's prize and its
     -- last line don't say it twice, or say it when nothing changed hands.)
     if mus.francs and sc and sc.room then
@@ -220,13 +222,10 @@ function M.handle(night, mus, sc)
     if mus.flag == "notebook" then
         st.flags.notebook = true
     end
-    -- Who picked it up: the hero whose choice it was carries it (MODULE.items' {holder}), and a
-    -- real magic item goes on their sheet, so the rules use it in every fight from now on.
-    for _, key in ipairs({ mus.flag or false, mus.mark or false }) do
-        if key and night.actor then
-            st.holders = st.holders or {}
-            st.holders[key] = st.holders[key] or night.actor.key
-        end
+
+    -- (Who drank her wine and is still smiling: they start the fight charmed, MODULE.items.)
+    if mus.flag == "charmed" and night.actor then
+        st.charmed_hero = night.actor.key
     end
     -- (What they came away with tonight, for the report: anything MODULE.items names.)
     for _, it in ipairs(MODULE.items or {}) do
@@ -254,9 +253,8 @@ function M.handle(night, mus, sc)
                 if pc then
                     items_mod.apply(c, e.holder, pc)
                 end
-                if e and e.holder then
-                    st.holders = st.holders or {}
-                    st.holders[mus.flag] = e.holder
+                if e then
+                    e.from = mus.spend and "bought" or "found"
                 end
             end
         end
@@ -382,12 +380,24 @@ end
 
 function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
+    local text = win and goal.win or (goal.lose or goal.win)
     for _, alt in ipairs((win and goal.win_if or goal.lose_if) or {}) do
         if alt_holds(night, sc, alt) then
-            return alt.text
+            text = alt.text
+            break
         end
     end
-    return win and goal.win or (goal.lose or goal.win)
+    M.heard(night, text)
+    return text
+end
+
+-- A name the table has now heard said (F13: "Okay, the Witness." before anyone had): lines that
+-- name it later wait on the flag.
+function M.heard(night, text)
+    local st = st_of(night)
+    if text and string.find(text, "Witness", 1, true) then
+        st.flags.witness_named = true
+    end
 end
 
 -- Does the party hold a room's prize now? (Its `has`: a flag, a mark, or bought tonight.)
@@ -412,14 +422,14 @@ function M.item_info(c, name)
     local st = adventure.fill(c.adv)
     local low = string.lower(name or "")
     for _, it in ipairs(MODULE.items or {}) do
-        if it.name and string.lower(it.name) == low then
-            local key = it.when and (it.when.flag or it.when.mark)
-            local hk = key and st.holders and st.holders[key]
+        if it.name and (string.lower(it.name) == low or string.lower(it.title or "") == low) then
+            -- (Who has it is the inventory's to say: items.lua.)
+            local _, hk = items_mod.holding(c, it.magic or it.id)
             local holder = hk and c:player(hk) or nil
             local d = it.magic and items_mod.def(it.magic)
-            local text = (d and d.text) or util.fill(it.line or "", { holder = holder and holder.char or "Whoever has it",
-                                                                      mech = st.mech_name or "the Mech" })
-            return { title = util.capitalize(it.name), text = text, holder = holder }
+            local text = (d and d.text) or it.text or util.fill(it.line or "", { holder = holder and holder.char or "Whoever has it",
+                                                                                  mech = st.mech_name or "the Mech" })
+            return { title = util.capitalize(it.title or it.name), text = text, holder = holder }
         end
     end
     for _, e in ipairs(items_mod.list(c)) do
@@ -490,6 +500,14 @@ end
 local function option_ok(night, o)
     local c = night.campaign
     local knobs = knobs_of(night)
+    -- (What they own isn't on the shelf any more: the gorgon book sold twice, the second playtest
+    -- review. Something used up can be bought again.)
+    if o.price then
+        local t = require("game.model.items").thing_for(o.mus)
+        if t and require("game.model.items").owned(c, t.magic or t.id) then
+            return false
+        end
+    end
     if o.when and not adventure.test(c, o.when, knobs) then
         return false
     end
@@ -574,6 +592,7 @@ function M.play_moment(night, card, sc)
         night.actor = present(night, pick)
         copy.actor_class = nil
         copy.trigger = "museum_fixed"
+        copy.fixed_actor = true      -- (the painting is theirs: the big-roll share doesn't hand it on. F18)
     end
     night.mus_vars = mus_vars(night, sc)
     -- Reaching into a painting risks what that painting risks (the book: cold, a blade, or nothing at
@@ -611,7 +630,8 @@ function M.play_moment(night, card, sc)
     -- The players' own choice (card.party): they talk it over, and play what they settle on.
     if card.party then
         if not night.actor then
-            night.actor = night:pick_lead(card.actor)
+            -- (A moment you promised someone: theirs, before the talk, so the card that names them is.)
+            night.actor = night:take_owed("cards") or night:pick_lead(card.actor)
         end
         if card.spot then
             night:walk(night.actor, card.spot, nil, sc)
@@ -619,7 +639,32 @@ function M.play_moment(night, card, sc)
         end
         local vars = night:vars(night.mus_vars)
         night:say(util.sentence_case(util.fill(copy.text or "", vars)), "narration")
+        night.party_backers = nil
+        copy.proposes = card.proposes and card.options[card.proposes] or nil
         copy.party_pick = M.table_pick(night, copy, night.mus_vars)
+        -- Whoever acts on what the table settled is someone who wanted it (F18: a hero acted against
+        -- their own player's vote). The card keeps the words it was read out with.
+        -- (And whose hero is here: not one who wandered off, F11.)
+        local backers = {}
+        local here = {}
+        for _, p in ipairs(night:at_hand()) do
+            here[p] = true
+        end
+        for _, p in ipairs(night.party_backers or {}) do
+            if here[p] then
+                table.insert(backers, p)
+            end
+        end
+        local backs = false
+        for _, p in ipairs(backers) do
+            backs = backs or p == night.actor
+        end
+        if #backers > 0 and night.actor and not backs then
+            copy.text = util.fill(copy.text or "", vars)
+            night.actor = backers[1]
+        end
+        copy.fixed_actor = true
+        copy.trigger = "museum_fixed"
         -- A lock is picked by whoever's best with one (the playtest, November 3: "lock picking needs a
         -- roll from the lockpicker").
         local chosen = copy.options[copy.party_pick]
@@ -1103,7 +1148,7 @@ local function earn_drop(night, sc, n, w)
         items_mod.apply(c, e.holder, pc)
     end
     w.drop.got = c.week
-    w.drop.holder = e and e.holder or nil
+    w.drop.entry = e            -- (who has it now is the inventory's to say: items.lua)
     local d = items_mod.def(w.drop.item)
     M.note_got(night, d and util.lower_first(d.name) or nil)
     local holder = e and e.holder and present(night, e.holder)
@@ -1275,11 +1320,12 @@ function M.explore(night, sc)
             local o = M.play_moment(night, card, sc)
             if o and o.later then
                 st.find_later = (st.find_later or 0) + o.later
+                st.find_from = sc.room       -- (moved to another room: not the next look in this one, F12)
             end
-        elseif (st.find_later or 0) > 0 then
+        elseif (st.find_later or 0) > 0 and st.find_from ~= sc.room then
             -- The find the DM moved: here it is.
             local n = st.find_later
-            st.find_later = 0
+            st.find_later, st.find_from = 0, nil
             night:say("Tucked away by " .. util.lower_first(pl.name or "it") .. ": " .. (n == 1 and "a Flitwidget Franc" or (util.int(n) .. " Flitwidget Francs"))
                 .. ".", "good")
             night:say("The find you moved behind your screen turns up here.", "screen")
@@ -1451,6 +1497,10 @@ function M.arm(night, sc)
     end
     st.items_used = st.items_used or {}
     local lines = {}
+    -- (The Mech they woke last session walks in with them: said before what it can do. F5.)
+    for _, l in ipairs(require("game.model.companions").ally_arrives(night, sc.encounter.allies)) do
+        table.insert(lines, l)
+    end
     -- Once a night, at the first fight: what the week between left them with (MODULE.asides).
     night.mus.asides = night.mus.asides or {}
     st.asides_week = st.asides_week or {}
@@ -1466,18 +1516,21 @@ function M.arm(night, sc)
             end
         end
     end
+    local items_mod = require "game.model.items"
     for _, it in ipairs(MODULE.items or {}) do
-        local ok = adventure.test(c, it.when, knobs) and not (it.once and st.items_used[it.id])
+        local ok = adventure.test(c, it.when, knobs) and not (it.once and not it.carry and st.items_used[it.id])
             and (not it.rooms or util.contains(it.rooms, sc.room)) and (not it.ally or allies[it.ally])
             and not (sc.extras_only and it.boss)      -- (what's for her, when she's already gone)
-        -- (A magic item is on someone's sheet: only if they're here tonight.)
-        local holder_key = st.holders and st.holders[(it.when and (it.when.flag or it.when.mark)) or it.id]
-        local holder = holder_key and present(night, holder_key)
-        if ok and it.magic then
-            ok = holder ~= nil
-        end
-        if ok and it.charm then
-            ok = holder ~= nil
+        -- (Something they carry is in one hero's pack, items.lua: it works only if they're here
+        -- tonight, and it hasn't been used up.)
+        local holder
+        if it.carry then
+            local _, hk = items_mod.holding(c, it.magic or it.id)
+            holder = hk and present(night, hk)
+            ok = ok and holder ~= nil
+        elseif it.charm then
+            holder = st.charmed_hero and present(night, st.charmed_hero)
+            ok = ok and holder ~= nil
             if ok then
                 sc.encounter.charmed = holder.key     -- (fight.lua: they start the fight charmed by the boss)
             end
@@ -1486,7 +1539,9 @@ function M.arm(night, sc)
             if it.opt then
                 sc.encounter[it.opt] = true
             end
-            if it.once then
+            if it.once and it.carry then
+                items_mod.use(c, it.magic or it.id, holder and holder.key)
+            elseif it.once then
                 st.items_used[it.id] = c.week
             end
             night.mus.items_said = night.mus.items_said or {}
@@ -1511,7 +1566,13 @@ function M.cheapest(c)
         if m.shop then
             for _, o in ipairs(m.options) do
                 local mu = o.mus or {}
-                local have = (mu.flag and st.flags[mu.flag]) or (mu.mark and st.marks[mu.mark])
+                local t = require("game.model.items").thing_for(mu)
+                local have
+                if t then
+                    have = require("game.model.items").owned(c, t.magic or t.id)
+                else
+                    have = (mu.flag and st.flags[mu.flag]) or (mu.mark and st.marks[mu.mark])
+                end
                 local ok = not o.needs or adventure.test(c, o.needs)
                 if o.price and not have and ok and o.price < best then
                     best = o.price
@@ -1847,6 +1908,21 @@ function M.table_pick(night, copy, vars)
         first[p.key] = best
         why[p.key] = vals[p.key][best].why
     end
+    -- (A card that says what its lead wants, "{actor_char} wants a closer look", has them vote for
+    -- it: the second playtest review heard Oswin want a closer look, then Sam vote to give the knight
+    -- a wide berth. F18.)
+    local lead = night.actor
+    local prop
+    for _, i in ipairs(live) do
+        if copy.proposes and opts[i] == copy.proposes then
+            prop = i
+        end
+    end
+    if lead and prop and vals[lead.key] then
+        first[lead.key] = prop
+        why[lead.key] = nil
+        vals[lead.key][prop].v = vals[lead.key][prop].v + 1      -- (they said it: they hold to it)
+    end
     local function tally()
         local n, top, top_n = {}, nil, 0
         for _, p in ipairs(night.players) do
@@ -1982,6 +2058,12 @@ function M.table_pick(night, copy, vars)
         top = (a and first[a.key]) or top
     end
     local names = {}
+    night.party_backers = {}
+    for _, p in ipairs(order) do
+        if first[p.key] == top then
+            table.insert(night.party_backers, p)
+        end
+    end
     for _, p in ipairs(night.players) do
         if first[p.key] == top then
             table.insert(names, p.name)
@@ -2459,12 +2541,45 @@ function M.fork(night, options, backs, sides)
         night.actor = was_a
         if o and o.hint then
             night.mus.hinted = true
-            st.hints[o.hint] = true
             st.hinted[o.hint] = true
-            return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+            -- (Against a table that had already agreed, a hint is a suggestion: somebody grumbles,
+            -- and the curious ones decide whether it's worth it. F18: a unanimous table turned
+            -- round on a hint without a word.)
+            local follow = true
+            if not split then
+                local grumbler
+                for _, p in ipairs(night.players) do
+                    if first[p.key] == top and (not grumbler or vals[p.key][top].v > vals[grumbler.key][top].v) then
+                        grumbler = p
+                    end
+                end
+                if grumbler then
+                    night:emit({ kind = "say", who = grumbler.key, text = "We'd all just agreed on " .. label_of(top) .. ", though.", ic = false })
+                    night:react({ [grumbler.key] = "arms" })
+                end
+                local curious = 0
+                for _, p in ipairs(night.players) do
+                    if p.primary == "explorer" or p.primary == "storyteller" or p.secondary == "explorer" then
+                        curious = curious + 1
+                    end
+                end
+                follow = curious > #night.players / 2 or (curious * 2 == #night.players and night.rng:chance(0.5))
+                if not follow then
+                    night:say("They hear you out, and go on anyway: " .. label_of(top) .. ".", "aside")
+                end
+            end
+            if follow then
+                st.hints[o.hint] = true
+                if not split then
+                    night:say("The table decides: back to " .. util.lower_first(MODULE.rooms[o.hint].name) .. " (on your hint).", "aside")
+                end
+                return { back = { id = o.hint, why = "hint", steps = (select(2, adventure.reachable(c, pos)))[o.hint] or 1 } }
+            end
         end
         if o and o.choice then
-            night.mus.nudged_to = o.choice
+            -- (Credit for the nudge only when there was a split to settle: "on your nudge" over a
+            -- table that already all wanted to go, F18.)
+            night.mus.nudged_to = split and o.choice or nil
             -- Asked, most take the hint; someone who really wanted the other way minds a little.
             local against = o.choice ~= top or tied > 1
             for _, p in ipairs(night.players) do
@@ -2732,9 +2847,14 @@ function M.after_room(night, sc)
         end
     elseif id == "offices" and outcome == "win" then
         st.flags.notebook = true
+        -- (Somebody takes it off the desk: the one who wants it most, items.lua's `to`.)
+        local items_mod = require "game.model.items"
+        if not items_mod.owned(c, "notebook") then
+            items_mod.give(c, "notebook", nil, "found")
+        end
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
-    adventure.leave_room(c, id, outcome, c.week)
+    adventure.leave_room(c, id, outcome, c.week, sc.fought and true or nil)
     -- What they came away with, in words that match what happened (the goal's got_if), for the
     -- story so far: not "the truth about the Gorgon" when they never heard it.
     local goal = sc.comps and sc.comps.goal
@@ -2805,8 +2925,7 @@ function M.intro(night)
             if step.week ~= last_week then
                 break
             end
-            local rc = MODULE.recap and MODULE.recap[step.room]
-            local clause = rc and (step.outcome == "lose" and rc.lose or rc.win)
+            local clause = adventure.recap_clause(c, step)
             if clause and not util.contains(bits, clause) then
                 table.insert(bits, 1, clause)
             end
@@ -2859,6 +2978,14 @@ function M.intro(night)
                     .. (here == "stairs" and "the top of the stairs" or util.lower_first(MODULE.rooms[here].name))
                     .. ", where they stopped. Fully healed, every spell back.")
             night:say(line .. fight.buff_line(night), "recap")
+            -- "...and wake to find a statue at the foot of the stairs": there it is, on the gift shop's
+            -- board (F12: the chat's statue never appeared).
+            if (st.answered or {}).long_rest == "danger" and not st.flags.stairs_statue then
+                st.flags.stairs_statue = M.place_statue(c) and true or nil
+                night:say(((here == nil or here == "gift_shop") and "And there it is, just as you told them: at the foot of the gift shop's stairs, a statue that wasn't there last night."
+                    or "When they woke in the gift shop, there it was, just as you told them: at the foot of its stairs, a statue that wasn't there last night.")
+                    .. " Its stone hand is reaching for the first step.", "narration")
+            end
         end
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
@@ -2869,6 +2996,24 @@ function M.intro(night)
         end
     end
     night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
+end
+
+-- The statue the group chat promised (the rest answered "yes, but it's dangerous"): a stone piece at
+-- the foot of the gift shop's stairs, on its board for every scene there from now on.
+M.STATUE_AT = { { 15, 8 }, { 16, 9 }, { 15, 9 }, { 15, 7 }, { 17, 9 } }
+function M.place_statue(c)
+    local maps = require "game.model.maps"
+    local loc = content.components["mus_gift_shop"]
+    if not loc then
+        return false
+    end
+    local m = maps.get(c, loc.id) or maps.new(c, loc.id, maps.template(c, loc, "downtime"))
+    for _, sq in ipairs(M.STATUE_AT) do
+        if maps.place(m, "statue_victim_c", sq[1], sq[2], 1) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Ending the session is always the DM's call (the playtest, November 3: "sessions should never
@@ -3219,9 +3364,11 @@ function M.maybe_break(night, before_boss)
     end
     local planned = night.table_planned or 210
     local t = night.table_min or 0
-    if not before_boss and (t < math.max(60, planned * M.BREAK_AT) or t > planned - 30) then
+    -- (Brought forward on a friend's thought, "let's break after this bit": the next room's end.)
+    if not before_boss and not night.break_soon and (t < math.max(60, planned * M.BREAK_AT) or t > planned - 30) then
         return false
     end
+    night.break_soon = nil
     night.had_break = true
     local st = st_of(night)
     local room = MODULE.rooms[st.pos or st.last_room or ""] or {}

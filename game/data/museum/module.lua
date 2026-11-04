@@ -254,6 +254,7 @@ M.rooms = {
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
         callbacks = {
             { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
+            { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
         },
     },
     hunting = {
@@ -317,6 +318,9 @@ M.rooms = {
         read = "Back down in the gift shop, Flitwidget has put out tea, a plate of biscuits and a very small cash box.",
         sum = "The reward, a pick from the shop, and what comes next.",
         callbacks = {
+            -- (Telpur's own shop: the wrap-up remembers him, the second playtest review. F4.)
+            { when = { flag = "telpur_fell" }, text = "Telpur is back on his counter with a sock tied round his middle like a bandage. He tells everyone who'll listen how he took a hit for the party." },
+            { when = { flag = "telpur_along", not_flag = "telpur_fell" }, text = "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day." },
             { when = { flag = "told" }, text = "\"Telpur told me everything, you know,\" says Flitwidget, pouring the tea. \"Everything.\" He doesn't say which bits he minded." },
             { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it." },
             { when = { flag = "vorpal_lair" }, text = "And behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
@@ -348,7 +352,8 @@ M.asides = {
       lines = { "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything.",
                 "From somewhere downstairs: \"Coo-ee! Just checking you're all alive!\" Whatever's in here heard that too.",
                 "Flitwidget calls up the stairs to ask if anyone wants tea. Loudly. So much for the element of surprise." } },
-    { id = "shoelace", when = { flag = "shoelace" },
+    { id = "shoelace", when = { holds_here = "shoelace" }, owner = "jess",
+      intro = "Pip has a new shoelace tonight, a present from Telpur's own boot. It talks. It hasn't stopped since the gift shop.",
       text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked.",
       lines = { "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked.",
                 "Pip's shoelace pipes up with a battle plan. It's mostly about knots.",
@@ -361,19 +366,32 @@ M.asides = {
       -- (Upstairs she already knows, and she's right there: the second playtest review.)
       in_room = { lair = "Telpur, tied to a pack strap, tells Euryale exactly what he thinks of her couch. Loudly. To her face." } },
 }
--- "Last time, they ..." at the start of a night: what each room came to, as a clause.
+-- An ally fighting beside them who didn't walk in with them: said as the fight starts, the first
+-- time it's there tonight (companions.ally_arrives, museum_night.arm).
+M.ally_join = {
+    steam_mech = "{mech} clanks up the stairs behind them, steam hissing, and takes its place in the line.",
+}
+-- "Last time, they ..." at the start of a night: what each room came to, as a clause. fought: the
+-- clause when the room's fight happened (its fight is optional: the second playtest review, F20, heard
+-- "crossed the Hall of Paintings" after a fight with the Knight of Shades). alone: who went where,
+-- when it wasn't the whole party ({char}: the hero whose moment it was).
 M.recap = {
     street = { win = "took Flitwidget's job", lose = "took Flitwidget's job without the whole story" },
     garden = { win = "got through the living garden", lose = "got through the garden, scratched and bleeding" },
-    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard" },
+    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard",
+                 fought = { win = "fought their way past the donation box's guard", lose = "fled the entrance hall's guard" } },
     chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct" },
-    paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings" },
+    paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings",
+                  fought = { win = "fought the Knight of Shades out of his frame in the Hall of Paintings",
+                             lose = "backed out of the Hall of Paintings, the Knight of Shades after them" } },
     gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
     hunting = { win = "beat the huntlings on the second floor", lose = "held off the huntlings, just" },
     offices = { win = "found the archivist's notebook", lose = "left the offices with more questions than answers" },
     tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech" },
     lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class" },
-    stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door" },
+    stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door",
+               alone = { moment = "mus_alone", options = { 1, 3 }, who = "jess",
+                         text = "waited at the foot of the stairs while {char} crept up alone for a look" } },
     lair = { win = "faced Euryale", lose = "faced Euryale, and she sent them back down the stairs" },
 }
 
@@ -682,7 +700,7 @@ M.moments = {
             log = "\"Weird,\" says {actor_char}, and moves on. Nobody can stop glancing back at it.",
             effects = { { "arch:storyteller", fun = 2 } } },
       } },
-    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true,
+    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true, proposes = 1,
       title = "The Knight of Shades",
       text = "At the end of the hall, the black knight's portrait. {actor_char} wants a closer look. Its oils seem to shift.",
       options = {
@@ -730,7 +748,7 @@ M.moments = {
           { label = "A scholar's book on gorgon-worshippers (4 Francs)", price = 4, want = "buy the book on gorgon-worshippers",
             log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
-            mus = { mark = "know", spend = 4, got = "a book on gorgon-worshippers", favor = { who = "telpur", n = 1 } } },
+            mus = { mark = "know", spend = 4, favor = { who = "telpur", n = 1 } } },
           { label = "The Mech Instruction Manual (4 Francs)", price = 4, want = "buy the Mech manual",
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
@@ -854,7 +872,7 @@ M.moments = {
                      fail = { log = "Time. The panel snaps shut, and Sam lets out a breath he's been holding for thirty seconds.",
                               effects = { { "arch:casual", fun = -4 }, { "arch:instigator", fun = 3 } }, mus = { resolve = "lose" } } } },
       } },
-    { id = "mus_hyper", room = "tomorrow", danger = "the red switch: only if absolutely necessary", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true,
+    { id = "mus_hyper", room = "tomorrow", danger = "the red switch: only if absolutely necessary", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true, proposes = 1,
       title = "Hyper Destroyer Mode",
       text = "Inside the Mech's chest panel, a red switch: \"HYPER DESTROYER MODE. Only if absolutely necessary.\" {actor_char} is grinning.",
       options = {
@@ -983,6 +1001,10 @@ M.companions = {
                    hint = { "Telpur: \"Now that, I'd look at twice.\"", "Telpur: \"Warmer. Warmer. I'd look there, if I had hands.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
                    win = { "Telpur: \"Another victory for the Lord of Laces.\"", "Telpur takes most of the credit." },
+                   -- (When he drops in a fight, and after it: companions.fell and after_fight.)
+                   down = "Telpur takes the hit and goes flying, laces everywhere. He lands in a heap and doesn't move.",
+                   react = "Telpur! Somebody get the boot!",
+                   up = "Telpur comes round in a tangle of laces. \"I meant to do that. Tactical nap.\"",
                } },
 }
 
@@ -1171,35 +1193,59 @@ M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "kni
 -- .arm). when: as on moments (usually the flag the pickup sets). rooms: only in these rooms' fights
 -- (default any). ally: only when that ally fights with them. once: used up by its first fight.
 -- opt: the battle option it turns on (game/rules/museum.lua); weapon: the holder's weapon attacks
--- get this magic bonus. {holder}: whoever picked it up (the hero whose choice it was), else the
--- party. boss: about Euryale herself (not said when only her collection fights). The truth test (tools/tests/museum_truth.lua) fails on any flag nothing reads.
+-- get this magic bonus. boss: about Euryale herself (not said when only her collection fights). The
+-- truth test (tools/tests/museum_truth.lua) fails on any flag nothing reads.
 -- magic: a real magic item (game/rules/data/magic_items.lua's format, M.magic_items below) that
 -- goes on the sheet of whoever picked it up, so the rules use it in every fight from then on.
+-- carry: a thing a hero carries (game/model/items.lua, the one inventory): the flag or mark in `when`
+-- that hands it over puts it in the pack of the hero whose choice it was (the buyer, the finder, the
+-- friend who asked for it; else `to`), and it works only when that hero is at the table. {holder} is
+-- them. title, text: its name and what it does, for the hero's sheet. count: how many uses (the
+-- pages). once: used up by its first fight. adv, topic: Advantage on that skill about that subject.
 M.items = {
-    { id = "daggers", when = { flag = "daggers" }, magic = "twin_daggers", name = "the twin daggers",
+    { id = "daggers", when = { flag = "daggers" }, magic = "twin_daggers", name = "the twin daggers", carry = true,
       line = "{holder} fights with the twin daggers from the Chamber of Ancients: they hit like magic weapons." },
-    { id = "arrows", when = { flag = "arrows" }, opt = "fire_arrows", once = true, name = "fire arrows and slime",
+    { id = "arrows", when = { flag = "arrows" }, opt = "fire_arrows", once = true, name = "fire arrows and slime", carry = true,
+      text = "Telpur's fire arrows and a bucket of slime: every hero's first weapon hit each turn burns or bites. Enough for one fight.",
       line = "Out come Telpur's fire arrows and the bucket of slime: every hero's first weapon hit each turn burns or bites, this fight only." },
-    { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger",
-      line = "Telpur's paint-touched dagger is out: their blows count as magic, and painted things fear it." },
-    { id = "manual", when = { flag = "manual" }, ally = "steam_mech", opt = "manual", name = "the Mech manual",
+    { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger", carry = true,
+      to = "jess", text = "A dagger Telpur dipped in the hall's wet paint. In the lair, its blows count as magic, and painted things fear it.",
+      line = "{holder} has Telpur's paint-touched dagger out: their blows count as magic, and painted things fear it." },
+    { id = "manual", when = { flag = "manual" }, ally = "steam_mech", opt = "manual", name = "the Mech manual", carry = true,
+      title = "the Mech Instruction Manual",
+      text = "A thick manual with a lot of diagrams. Chapter nine says what the red switch does: with it open, the Mech has Advantage against overheating.",
       line = "{holder} has the Mech manual open at chapter nine: if the red switch goes, {mech} has Advantage against overheating." },
     { id = "hyper_spent", when = { flag = "hyper_spent" }, ally = "steam_mech", opt = "no_hyper",
       line = "{mech}'s red switch is still scorched from the test run: no Hyper Destroyer Mode tonight." },
     { id = "hyper_saved", when = { flag = "hyper_saved" }, ally = "steam_mech",
       line = "{mech}'s red switch is untouched, saved for the Gorgon." },
-    { id = "mirror", when = { mark = "mirror" }, rooms = { "lair" }, boss = true, name = "the cupboard door",
+    { id = "mirror", when = { mark = "mirror" }, rooms = { "lair" }, boss = true, name = "the cupboard door", carry = true,
+      title = "a polished cupboard door",
+      text = "A cupboard door from the kitchen diorama, polished like a mirror. Held up in the lair, her own stare can turn back on her.",
       line = "{holder} has the polished cupboard door ready: if she lifts her hood, she meets her own eyes." },
-    { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet",
+    { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet", carry = true,
+      title = "Flitwidget's bracelet of protection", text = "A thin silver bracelet Flitwidget slipped them. In the lair: Advantage on saves against her stare.",
       line = "Flitwidget's bracelet of protection is on: Advantage on saves against her stare." },
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
       line = "They've read up on gorgons: eyes down, Advantage on saves against her stare." },
     { id = "charmed", when = { flag = "charmed" }, rooms = { "lair" }, boss = true, once = true, charm = true,
       line = "{holder} is still smiling at Euryale over the wine: they start the fight charmed by her." },
-    { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword",
+    { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword", carry = true,
       line = "{holder} has the vorpal sword out. Telpur's forty Francs were well spent." },
     { id = "vorpal", when = { flag = "vorpal_lair" }, rooms = { "lair" }, boss = true,
       line = "Somewhere behind her couch is the vorpal sword they were promised. First, Euryale." },
+    -- (Things they carry that don't change a fight: what they're for is elsewhere. The book helps its
+    -- reader with what they know about gorgons, the pages put a reader to sleep, the notebook is the
+    -- Witness's thread, the shoelace talks. F10: one inventory, and the shop's shelf is real.)
+    { id = "gorgon_book", when = { mark = "know" }, name = "the book on gorgon-worshippers", carry = true,
+      title = "The Tenets of the Rotting Temple", adv = { "history" }, topic = "gorgons",
+      text = "A scholar's book on the people who worship gorgons. Whoever has it has Advantage on History about gorgons, and knows there are three sisters." },
+    { id = "notebook", when = { flag = "notebook" }, name = "the archivist's notebook", carry = true, to = "mara",
+      text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page." },
+    { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
+      text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
+    { id = "shoelace", when = { flag = "shoelace" }, name = "Telpur's talking shoelace", carry = true, to = "jess",
+      text = "One of Telpur's own laces, a present from the gift shop. It talks. It has opinions about everything." },
 }
 -- The recap's words for a beat (game/model/recap.lua TEMPLATES), where the shared ones assume a
 -- campaign: a foe that runs in the museum goes deeper in, not off to swear revenge.
@@ -1466,7 +1512,8 @@ M.showdown = {
                                    mus = { ending = "escape", aspect = "Paid a Gorgon to leave" } },
                        fail = { log = "\"You would rob your host twice?\" She laughs, and reaches for her bow.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
-            { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes", needs = { mark = "pages" },
+            { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes",
+              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" },
               roll = { dc = 13, skill = { "deception", "sleight_of_hand" }, convenient = "success",
                        success = { log = "She reads the first line, frowns, and is asleep before the second.",
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "all", fun = 4 }, { "arch:butt_kicker", fun = -2 } },
@@ -1549,7 +1596,7 @@ M.epilogue = {
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {
-    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "notebook" } },
+    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_named" } },
              "That was a prologue? I've already got a notebook for the campaign." },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
     jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
@@ -1614,7 +1661,7 @@ M.chat = {
                   mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
     gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
     hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
-    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "notebook" } },
+    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_named" } },
                 sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
     tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
     lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },

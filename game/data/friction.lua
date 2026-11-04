@@ -60,11 +60,13 @@ return {
     },
 
     bonds = {
-        { id = "shield_over", when = "fight", class = "fighter", rapport = 4,
-          line = "{actor_char} plants a shield over {target_char} and won't let anything near them." },
-        { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5,
+        -- (needs_fight / needs_close: what has to have happened in the fight, game/model/fight.lua
+        -- record. The second playtest review heard these lines when nothing like them had.)
+        { id = "shield_over", when = "fight", class = "fighter", rapport = 4, needs_close = true,
+          line = "{actor_char} plants themselves in front of {target_char} and won't let anything near them." },
+        { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5, needs_fight = "saves",
           line = "{actor_char}'s prayer catches {target_char} a heartbeat before they drop." },
-        { id = "combo", when = "fight", rapport = 4,
+        { id = "combo", when = "fight", rapport = 4, needs_fight = "combos",
           line = "{actor_char} and {target_char} pulled off a move together in that fight that neither could have alone. The table's still talking about it." },
         { id = "share_the_loot", when = "loot", rapport = 4,
           line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'" },

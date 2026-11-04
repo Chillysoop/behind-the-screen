@@ -411,6 +411,7 @@ function M:vars(extra)
         v.boss = sc.boss_name or "the villain"
         v.Boss = util.capitalize(v.boss)
     end
+    v.question = self.rules_question     -- (what someone wants to look up: fight.lua QUESTIONS)
     for k, val in pairs(self.mus_vars or {}) do
         v[k] = val          -- v2: the museum's own fill-ins (the painting, the Mech's name)
     end
@@ -736,11 +737,13 @@ end
 -- Spotlight, never a negative modifier while someone good at it is here, and nobody past 40% of
 -- tonight's big rolls.
 function M:pick_roller(skill_list, sc, prefer)
-    local owed = self:take_owed("rolls")
+    local players = self:at_hand()
+    -- (A roll you promised someone waits while their hero's off elsewhere: F11.)
+    local owed_here = not self.owed or util.contains(players, find_present(self.players, self.owed.key) or false)
+    local owed = owed_here and self:take_owed("rolls") or nil
     if owed then
         return owed
     end
-    local players = self.players
     self.big_rolls = self.big_rolls or {}
     local total = 0
     for _, n in pairs(self.big_rolls) do
@@ -801,12 +804,30 @@ function M:pick_roller(skill_list, sc, prefer)
     return pick(low) or pick(players) or players[1]
 end
 
+-- The friends whose heroes are in this scene: a hero who split off (split_party) is elsewhere until
+-- it's over, and doesn't act in it (F11, the second playtest review: "Brannoc heads off the other
+-- way", then Dev: "Get behind me! I'll hold the line!"). Everyone, when nobody's away.
+function M:at_hand()
+    local split = self.scene and self.scene.split
+    if not (split and split.away) then
+        return self.players
+    end
+    local out = {}
+    for _, p in ipairs(self.players) do
+        if not split.away[p.key] then
+            table.insert(out, p)
+        end
+    end
+    return #out > 0 and out or self.players
+end
+
 -- Pick a present player, preferring these archetypes (primary first).
 function M:pick_actor(prefs, exclude)
+    local players = self:at_hand()
     for _, pass in ipairs({ "primary", "secondary" }) do
         for _, a in ipairs(prefs or {}) do
             local found = {}
-            for _, p in ipairs(self.players) do
+            for _, p in ipairs(players) do
                 if p ~= exclude and p[pass] == a then
                     table.insert(found, p)
                 end
@@ -817,13 +838,13 @@ function M:pick_actor(prefs, exclude)
         end
     end
     local others = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(players) do
         if p ~= exclude then
             table.insert(others, p)
         end
     end
     if #others == 0 then
-        return self.players[1]
+        return players[1]
     end
     return self.rng:pick(others)
 end
@@ -833,7 +854,7 @@ end
 -- friend on the card's list took it every run (the plaque was always Mara's).
 function M:pick_lead(prefs, exclude)
     local pool = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(self:at_hand()) do
         if p ~= exclude then
             table.insert(pool, p)
         end
@@ -1498,11 +1519,12 @@ function M:hero_action(sc, dc, spots)
     local st = content.scenes[sc.type]
     -- Players who shine here act more; quiet players get a turn too.
     local weights = {}
-    for j, p in ipairs(self.players) do
+    local here = self:at_hand()
+    for j, p in ipairs(here) do
         local shine = st.shine[p.class] or 0
         weights[j] = 1 + 2 * shine + math.max(0, (40 - p.m.spotlight) / 20)
     end
-    local p = self.rng:weighted(self.players, weights)
+    local p = self.rng:weighted(here, weights)
     self.actor = p
     self.other = self:pick_actor(nil, p)
     -- What they'd try: what the goal asks of them first (the card-led night: every scene played
@@ -1579,7 +1601,7 @@ function M:hero_action(sc, dc, spots)
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(said, vars)), ic = true })
     local mod = self:mod_for(p, a.skill)
     -- An item's Advantage (Boots of Elvenkind, Eyes of the Eagle, A13): a second die, the better counts.
-    local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill)
+    local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill, a.topic)
     local edge = iedge and "adv" or nil
     local roll = self.rng:d20()
     local other_roll
@@ -1669,6 +1691,15 @@ function M:hero_action(sc, dc, spots)
     -- How it lands in the story, then at the table.
     -- (A second miss at the same move isn't the first miss again, word for word: the second playtest.)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
+    -- (A miss that can't unknow what they know: lose_if, the first whose `when` holds.)
+    if not success then
+        for _, alt in ipairs(a.lose_if or {}) do
+            if util.lazy("game.model.adventure").test(self.campaign, alt.when) then
+                landed = alt.text
+                break
+            end
+        end
+    end
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
     -- A natural 20 is a moment the token's made for, if you want to give it (offer_inspiration).
     if roll == 20 then
@@ -1994,7 +2025,7 @@ function M:stunt(sc)
     for _, st in ipairs(content.stunts) do
         local last = camp.stunts_said[st.id]
         if content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
-            for _, p in ipairs(self.players) do
+            for _, p in ipairs(self:at_hand()) do
                 local w = arch_weight(st.archetype, p)
                 if w > 0 and class_ok(st, p) then
                     table.insert(cands, { st = st, p = p })
@@ -2025,6 +2056,13 @@ function M:stunt(sc)
                 roll = roll, bonus = mod, total = total, dc = dc, success = success, actor = p.key, char = p.char,
                 skill = st.skill, skill_name = name, crit = roll == 20, fumble = roll == 1 })
     self:say(util.capitalize(util.fill(success and st.win or st.lose, vars)), success and "good" or "bad")
+    -- A stunt that says who the foe goes for makes it so: drawing its fire taunts it (fight.lua),
+    -- for the first few rounds (F12: "goes for Brannoc", then it hit someone else).
+    if success and st.taunt then
+        sc.taunt = { key = p.key, rounds = 3 }
+    elseif not success and st.taunt_other and self.other then
+        sc.taunt = { key = self.other.key, rounds = 2 }
+    end
     if success then
         -- (A stunt that spots an ambush cancels it; otherwise the foes are the ones caught out.)
         if sc.surprise == "party" then
@@ -2296,8 +2334,25 @@ function M:headache_ok(needs, sc)
     if needs.first_scene and not (sc and sc.index == 1) then
         return false
     end
-    if needs.after_break and not self.had_break then
+    if needs.after_break and not (self.had_break or self.snacked) then
         return false
+    end
+    if needs.question and not self.rules_question then
+        return false              -- (nothing's come up yet worth reaching for the book over)
+    end
+    -- calm: nothing dangerous in the room (a fight still to come, a boss, the wrap-up), the party
+    -- can afford to wander off (F11: the party split as the Knight climbed out of its frame, and in
+    -- the thanks scene). every = n: at most once in n sessions.
+    if needs.calm and sc and (sc.boss or sc.showdown or sc.epilogue
+        or (sc.encounter and not sc.no_fight and not sc.resolved and not sc.result)
+        or (sc.comps and M.cast_is(sc.comps.cast, "hostile"))) then
+        return false
+    end
+    if needs.every and self.campaign.headache_week then
+        local last = self.campaign.headache_week[needs.every_key or "?"]
+        if last and (self.campaign.week or 0) - last < needs.every then
+            return false
+        end
     end
     if needs.before_fight and not (sc and (sc.type == "combat" or sc.type == "set_piece") and not sc.result) then
         return false
@@ -2681,7 +2736,7 @@ function M:big_roll(spec, record)
         self:event("cooked", { who = p and p.key or "party", text = "You cooked " .. ((p and by == "player") and (p.char .. "'s ") or "a ")
             .. name .. " roll behind the screen." })
         local convenient = (success and spec.convenient == "success") or (not success and spec.convenient == "fail")
-        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll")
+        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll", by == "player" and value or nil)
     end
     -- A third lucky break in a row looks convenient even when it's honest.
     if success and where == "hidden" then
@@ -2783,7 +2838,9 @@ function M:big_roll(spec, record)
     return success
 end
 
-function M:add_cook_suspicion(convenient, what)
+-- die: the number on a die the whole table saw (a player's own roll), for what the sharpest eye
+-- thinks; nil when the die was behind the screen.
+function M:add_cook_suspicion(convenient, what, die)
     local why = convenient and ("the cooked " .. (what or "roll") .. " that went the party's way")
         or ("the " .. (what or "roll") .. " you cooked behind the screen")
     for _, p in ipairs(self.players) do
@@ -2801,7 +2858,7 @@ function M:add_cook_suspicion(convenient, what)
         self:react({ [sharp.key] = "arms" })
         self:bark(sharp, "suspicious")
     elseif sharp then
-        thoughts.doubt(self, sharp)          -- they don't say it; they think it
+        thoughts.doubt(self, sharp, die and { die = util.int(die) } or nil)      -- they don't say it; they think it
     end
 end
 
@@ -3025,9 +3082,8 @@ function M:decision(card, extra)
     end
     -- Breaks and lookups take real time at the table (A14).
     self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
-    if (o.table_min or 0) >= 10 then
-        self.had_break = true   -- for the headaches that follow a break (B4)
-    end
+    -- (A long option isn't the night's break: Pip's ten minutes alone on the stairs took the break
+    -- card's place, the second playtest review. Only museum_night.maybe_break sets had_break.)
     if o.canon then
         table.insert(self.canon, util.fill(o.canon, self:vars(extra)))
     end
@@ -3105,6 +3161,10 @@ function M:decision(card, extra)
     -- and no cutting back and forth"): for the rest of this scene the ones who wandered off are
     -- elsewhere. A fight here starts without them, and the DM cuts to them between rounds until they
     -- come running (fight.lua).
+    if card.needs and card.needs.every then
+        self.campaign.headache_week = self.campaign.headache_week or {}
+        self.campaign.headache_week[card.needs.every_key or card.id] = self.campaign.week or 0
+    end
     if o.split and self.scene then
         local away = {}
         for _, q in ipairs({ self.actor, self.other }) do
@@ -3584,6 +3644,8 @@ function M:combat_scene(sc)
             self:say(c.name .. " comes round on the floor with 1 hit point, groggy but alive.", "aside")
         end
     end
+    -- (Someone on their side who fell comes round now: companions.lua.)
+    require("game.model.companions").after_fight(self)
     if result.winner == "party" then
         -- Won is won, but say how: the foes ran, or gave up (the newcomer playtest, October 16:
         -- "runs for it" then "the last one falls" read as two different endings).
@@ -3602,6 +3664,16 @@ function M:combat_scene(sc)
         if how == "party_win" and foes == 1 and f.boss_name then
             how = "party_win_one"
             v.foe, v.Foe = util.lower_first(f.boss_name), util.capitalize(f.boss_name)
+        end
+        -- (Only one ran: "the rest scatter" said over a boss who ran alone, the second playtest review.)
+        if how == "party_win_fled" and #sc.foes_ran == 1 then
+            how = "party_win_fled_one"
+            for _, c in pairs(f and f.by_ref or {}) do
+                if c.side == "foes" and c.removed and not c.dead and c.removed_why ~= "yield" then
+                    v.tgt = require("game.model.barks").foe_label(c)
+                    v.Tgt = util.capitalize(v.tgt)
+                end
+            end
         end
         if not (f and f.yielded) then
             self:say(self:fight_caption(how, v), "good")
@@ -3667,8 +3739,12 @@ local function a_an(name)
 end
 M.FOE_LINES = {
     "{Boss}, with {rest} behind them.",
-    "Out of hiding comes {boss}, with {rest}.",
     "It's {boss}, with {rest} at their back.",
+}
+-- (Only for foes nobody's seen yet: "out of hiding" over a knight already climbing out of its frame,
+-- or Euryale mid-conversation, the second playtest review. F13.)
+M.FOE_HIDDEN = {
+    "Out of hiding comes {boss}, with {rest}.",
     "{Boss} steps into the open, {rest} close behind.",
 }
 M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty." }
@@ -3701,6 +3777,20 @@ function M:foe_line(plan, sc)
     local v = { boss = boss, Boss = util.capitalize(boss), rest = util.join_names(parts) }
     if #parts == 0 then
         return util.fill(self:fresh(M.FOE_ALONE, "foe_alone"), v)
+    end
+    -- In view already: someone on the mat (the room's person, not still hidden), pieces that came
+    -- alive, a moment that started the fight, a talk first.
+    local seen = sc.wake or sc.fight_on or sc.talked or sc.showdown
+        or (self.stage_now and self.stage_now.npc and not self.npc_pending)
+    if not seen then
+        local pool = {}
+        for _, l in ipairs(M.FOE_LINES) do
+            table.insert(pool, l)
+        end
+        for _, l in ipairs(M.FOE_HIDDEN) do
+            table.insert(pool, l)
+        end
+        return util.fill(self:fresh(pool, "foe_lines_hidden"), v)
     end
     return util.fill(self:fresh(M.FOE_LINES, "foe_lines"), v)
 end
@@ -3753,6 +3843,9 @@ local FIGHT_CAPTIONS = {
     party_win_fled = { "The rest scatter and don't look back. The fight is theirs.",
                        "And they're gone, running hard. Nobody's chasing them. It's over.",
                        "What's left of them bolts. Nobody's sorry to see them go." },
+    party_win_fled_one = { "{Tgt} is gone, running hard, and nobody's chasing. The fight is theirs.",
+                           "{Tgt} gets away, and that's the last of them. It's over.",
+                           "{Tgt} runs for it. Nobody follows. The fight is theirs." },
 }
 M.FIGHT_CAPTIONS = FIGHT_CAPTIONS
 
@@ -3965,9 +4058,38 @@ function M:bond_act(sc, def, doer)
     else
         target = self:pick_actor(nil, doer)
     end
+    -- What the line says happened has to have happened (fight.record, F13): a prayer that caught
+    -- someone before they dropped is a heal on someone down or nearly; a move together is a foe they
+    -- both hit and one of them finished; standing over someone needs them to have been in trouble.
+    local rec = self.fight_record
+    if def.needs_fight then
+        local found
+        for _, e in ipairs(rec and rec[def.needs_fight] or {}) do
+            local a = def.needs_fight == "saves" and e.by or e.a
+            local b = def.needs_fight == "saves" and e.to or e.b
+            if not found and a == doer.key and b ~= doer.key then
+                found = find_present(self.players, b)
+            end
+        end
+        if not found then
+            return
+        end
+        target = found
+    elseif def.needs_close then
+        local found
+        for key in pairs(rec and rec.close or {}) do
+            if key ~= doer.key and not found then
+                found = find_present(self.players, key)
+            end
+        end
+        if not found then
+            return
+        end
+        target = found
+    end
     -- A fight's teamwork only between two who did something in it (the playtest, Nov 2: a hero
     -- charmed the whole fight "pulled off a move together" with a friend).
-    if def.when == "fight" then
+    if def.when == "fight" and not def.needs_fight and not def.needs_close then
         local function acted(p)
             local c = p and self.pcs and self.pcs[p.key]
             local s = c and c.stats
@@ -4011,6 +4133,12 @@ function M:do_rest(rest, kind)
     self.table_min = self.table_min + (long and 15 or 8)
     local spend = rest_rules.SPEND
     local healed = 0
+    local hurt = 0          -- (who needed it: "nobody had Hit Dice left" right after a long rest, F13)
+    for _, c in ipairs(self.pc_list) do
+        if not c.dead and (c.hp or 0) < (c.hp_max or 0) then
+            hurt = hurt + 1
+        end
+    end
     for _, c in ipairs(self.pc_list) do
         local p = self.campaign:player(c.player_key)
         if long then
@@ -4027,7 +4155,7 @@ function M:do_rest(rest, kind)
         -- A new day: items' charges and daily uses come back (A13), then Mage Armor and Aid.
         local items = require "game.model.items"
         for _, c in ipairs(self.pc_list) do
-            items.settle(c)
+            items.settle(c, self.campaign)
         end
         items.dawn(self.campaign, self.rng)
         for _, c in ipairs(self.pc_list) do
@@ -4038,6 +4166,7 @@ function M:do_rest(rest, kind)
     end
     self:say(long and ("A full night's rest. Everyone wakes whole, spells back, ready." .. fight.buff_line(self)) or
         (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
+         or (hurt == 0 and "An hour's rest. Nobody needed patching up, and the features are back.")
          or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
     self.rests = self.rests or {}
     table.insert(self.rests, { kind = long and "long" or "short", place = kind })

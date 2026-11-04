@@ -336,5 +336,37 @@ end
 local head = save.peek(save.dump(new_campaign(5)))
 check(head and head.week == 0 and head.seed == 5, "the header says the week and seed")
 
+-- A save from before the inventory (F10, the second playtest review): what the party carried was
+-- flags, marks, who-picked-it-up notes (adv.holders), used-up notes (adv.items_used), magic items
+-- with no adventure name, and the potions on the sheets. It loads into each hero's inventory.
+do
+    local items = require "game.model.items"
+    local c = new_campaign(43)
+    local st = c.adv
+    c.items, c.items_started = { { id = "twin_daggers", holder = "jess", week = 1 } }, nil
+    st.flags.daggers, st.flags.arrows, st.flags.manual, st.flags.notebook = true, true, true, true
+    st.marks.mirror = { week = 2, room = "hunting" }
+    st.marks.know = { week = 2, room = "gift_shop" }
+    st.holders = { mirror = "sam", arrows = "dev", manual = "mara", know = "dev" }
+    st.items_used = { arrows = 2 }
+    c.party_state = { pcs = { sam = { hp = 10, res = { potions = 0 } } }, level = 2 }
+    local b = save.load(save.dump(c))
+    check(b ~= nil, "an old save with what they carried loads")
+    if b then
+        local function who(id)
+            return select(2, items.holding(b, id))
+        end
+        check(who("mirror") == "sam" and who("manual") == "mara" and who("gorgon_book") == "dev",
+            "an old save: each thing goes to the hero who picked it up")
+        check(who("notebook") ~= nil, "an old save: something nobody was noted for still has a holder")
+        check(not items.owned(b, "arrows"), "an old save: fire arrows already used stay used")
+        check(who("twin_daggers") == "jess", "an old save: a magic item keeps its holder")
+        check(items.count(b, "sam", items.POTION) == 0 and items.count(b, "mara", items.POTION) == 1,
+            "an old save: a potion drunk stays drunk, the rest are in their packs")
+        check(b.adv.holders == nil, "an old save: the old who-has-what notes are gone (one owner)")
+        check(save.dump(save.load(save.dump(b))) == save.dump(b), "an old save, migrated, saves and loads the same")
+    end
+end
+
 print(string.format("%d of %d checks pass; biggest save %.0f KB", checks - failures, checks, biggest / 1024))
 os.exit(failures == 0 and 0 or 1)

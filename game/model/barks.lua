@@ -44,6 +44,7 @@ local FACT = {
     nat20 = function(mo) return mo.roll == 20 end,
     crit19 = function(mo) return mo.crit and mo.roll == 19 end,
     more_left = function(mo) return (mo.left or 0) > 0 end,
+    rest_left = function(mo) return (mo.left or 0) >= 2 end,     -- (others besides the one named: "the rest might break")
     last = function(mo) return mo.left == 0 end,
     small_foe = function(mo) return mo.foe ~= nil and not mo.boss end,
     big_hit = function(mo) return mo.dmg ~= nil and mo.hp_max ~= nil and mo.dmg >= 0.45 * mo.hp_max end,

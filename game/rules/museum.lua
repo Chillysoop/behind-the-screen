@@ -188,9 +188,17 @@ function M.on_kill(b, c)
     M.on_drop(b, c)
 end
 
+-- (Only a creature built to answer to a commander does: the Steam Mech, `commanded` in its stat
+-- block. Telpur fighting beside Pip is a person, not a machine: he went still when Pip dropped and
+-- never acted again, the second playtest review.)
+local function commanded(o)
+    return o.data ~= nil and o.data.commanded == true
+end
+M.commanded = commanded
+
 function M.on_drop(b, c)
     for _, o in ipairs(b.creatures) do
-        if o.commander == c and not o.dead and not o.powered_down then
+        if o.commander == c and commanded(o) and not o.dead and not o.powered_down then
             o.powered_down = true
             local hy = b:find_effect(o, "Hyper Destroyer Mode")
             if hy then
@@ -377,7 +385,7 @@ local function euryale_target(b, c, list, H, reach)
     end
     for _, o in ipairs(b.creatures) do
         local cmd = o.commander
-        if cmd and o.side ~= c.side and not o.dead and not o.powered_down then
+        if cmd and commanded(o) and o.side ~= c.side and not o.dead and not o.powered_down then
             for _, e in ipairs(list) do
                 if e == cmd and b:dist(c, e) <= (c.turn.move or 0) + 30 then
                     return e

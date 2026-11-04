@@ -637,6 +637,8 @@ add("steam_mech", {
     },
     missiles = { id = "hyper_missiles", name = "Hyper Missiles", kind = "ranged", to_hit = 1, range = { 60, 60 },
                  damage = { { 1, 4, 1, "piercing" } }, targets = 3 },
+    -- It follows its Commander's orders, and powers down when they're knocked out (game/rules/museum.lua).
+    commanded = true,
     role = "ally",
 })
 

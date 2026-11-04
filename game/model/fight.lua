@@ -207,7 +207,7 @@ end
 function M.save_state(night, rested)
     local camp = night.campaign
     for _, c in ipairs(night.pc_list or {}) do
-        require("game.model.items").settle(c)
+        require("game.model.items").settle(c, camp)
     end
     local st = camp.party_state or { pcs = {} }
     st.pcs = st.pcs or {}
@@ -497,6 +497,7 @@ function M.step(night, ev)
         s.id, s.name, s.spell, s.target = ref(ev.caster), ev.name, ev.id, target_ref(ev.target)
         s.reaction = ev.reaction
         s.level = ev.slot
+        s.free = ev.free          -- (cast without a slot: Quick Reflection, Magic Initiate, the wand)
         s.area, s.shape = M.area(night, ev)
     elseif k == "initiative" then
         s.order = {}
@@ -639,6 +640,100 @@ function M.museum_moments(night, f, steps)
     return poses
 end
 
+-- A condition on a hero that has somebody reaching for the rulebook next time (rules_lookup).
+M.QUESTIONS = { Charmed = "being charmed", Restrained = "turning to stone", Petrified = "turning to stone",
+                Asleep = "Sleep", Grappled = "getting out of a grapple", Listening = "the Lecturer's droning",
+                Prone = "getting up off the floor", Frightened = "being frightened" }
+
+-- What happened in the fight that lines afterwards can lean on (F13, the second playtest review:
+-- "Oswin's prayer catches Thessaly a heartbeat before they drop" when she took no damage, "pulled off a
+-- move together" with no move): night.fight_record = { saves = { { by, to } }, combos = { { a, b } },
+-- close = { [hero mini] = true } }. A save is a heal on someone down or at a quarter of their hit
+-- points or less; a combo, a foe two heroes both hit within a round of each other, finished by one of
+-- them; a close call, a hero who went down or fell to under a third of their hit points.
+function M.record(night, f, bb, steps, who)
+    local rec = night.fight_record
+    if not rec or rec.fight ~= f then
+        rec = { fight = f, saves = {}, combos = {}, close = {}, hits = {} }
+        night.fight_record = rec
+    end
+    local round = bb.round or 0
+    f.happened = f.happened or {}
+    for _, s in ipairs(steps) do
+        local t = s.id and f.by_ref[s.id]
+        -- What a rules question can be about (F14: "that's not how grappling works" when nobody
+        -- grappled): a Bless cast, a grapple, a fighter toe to toe with something, a condition worth
+        -- looking up.
+        if s.kind == "spell" and s.name == "Bless" and t and t.pc then
+            f.happened.bless = f.happened.bless or { who = s.id }
+        elseif s.kind == "condition" and s.name == "Grappled" and t then
+            f.happened.grapple = f.happened.grapple or { who = t.pc and s.id or (who and who.pc and who.mini) or nil }
+        elseif s.kind == "attack" and t and t.pc and t.class == "fighter" and not s.ranged and s.target then
+            f.happened.melee = { who = s.id, foe = f.by_ref[s.target] }
+        end
+        if s.kind == "condition" and t and t.pc and M.QUESTIONS[s.name] then
+            night.rules_question = M.QUESTIONS[s.name]
+        end
+        if s.kind == "heal" and t and t.pc and s.by and s.by ~= s.id then
+            local before = (s.hp or 0) - (s.amount or 0)
+            if before <= 0 or before <= (t.hp_max or 1) * 0.25 then
+                table.insert(rec.saves, { by = s.by, to = s.id })
+            end
+        elseif s.kind == "down" and t and t.pc then
+            rec.close[s.id] = true
+        elseif s.kind == "damage" and t then
+            if t.pc and (s.hp or 0) > 0 and (s.hp or 0) <= (t.hp_max or 1) / 3 then
+                rec.close[s.id] = true
+            end
+            local by = s.src and f.by_ref[s.src]
+            if t.side == "foes" and by and by.pc then
+                rec.hits[s.id] = rec.hits[s.id] or {}
+                rec.hits[s.id][s.src] = round
+            end
+        elseif s.kind == "death" and t and t.side == "foes" then
+            local killer = who and who.pc and who.mini
+            for other, r in pairs(rec.hits[s.id] or {}) do
+                if killer and other ~= killer and round - r <= 1 then
+                    table.insert(rec.combos, { a = killer, b = other })
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- A charmed hero with nobody they're willing to hit doesn't just stand there in silence (the
+-- playtest, Nov 2; the second playtest review, F19: a charmed hero's turn passed with no word): every
+-- turn of theirs that goes by charmed and idle gets a caption, the first one saying why. Called after
+-- every turn, even one with nothing in it.
+M.CHARMED_AGAIN = { "{char} is still under {charmer}'s spell, and lets the turn go by.",
+                    "{char} can't bring themselves to raise a hand against {charmer}. Another turn goes by." }
+function M.charmed_turn(night, f, who, steps)
+    if not (who and who.pc and not who.dead and not who.down) then
+        return
+    end
+    local charmer
+    for _, e in ipairs(who.effects or {}) do
+        if e.charmed_by then
+            charmer = e.charmed_by
+        end
+    end
+    if not charmer then
+        return
+    end
+    for _, s in ipairs(steps or {}) do
+        if (s.kind == "attack" or s.kind == "spell") and s.id == who.mini then
+            return
+        end
+    end
+    f.charm_said = f.charm_said or {}
+    local v = barks.fills({ charmer = barks.foe_label(charmer) }, nil)
+    v.char = who.name
+    local again = f.charm_said[who.mini]
+    f.charm_said[who.mini] = true
+    night:say(util.fill(night:fresh(again and M.CHARMED_AGAIN or BARKS.charmed_captions, again and "charmed_again" or "charmed_caption"), v), "dm")
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
@@ -656,6 +751,10 @@ local function react(night, f, steps, who)
                 if c.boss then
                     boss_dead = true
                 end
+            elseif c and c.ally and not c.pc then
+                -- (An ally's fall is said, and someone reacts: companions.fell. The Mech venting
+                -- itself to a stop already has its caption, the overheat moment: just the reaction.)
+                require("game.model.companions").fell(night, c, c.shut_down and true or nil)
             end
         elseif s.kind == "down" then
             downed = f.by_ref[s.id]
@@ -666,6 +765,18 @@ local function react(night, f, steps, who)
             end
         elseif s.kind == "up" then
             healed_up = f.by_ref[s.id]
+        elseif s.kind == "condition_end" and s.name == "Turning to stone" then
+            -- (Turning to stone resolves out loud, either way: F19. Stone has its caption, the
+            -- petrified moment; shaking it off had none.)
+            local c = f.by_ref[s.id]
+            if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
+                night:say(c.name .. " shakes it off: the grey drains out of their legs, and they can move again.", "good")
+            end
+        elseif s.kind == "feature" and s.museum == "petrified" then
+            local c = f.by_ref[s.id]
+            if c and c.pc then
+                night:say(c.name .. " is stone now, mid-step. Only Euryale falling will bring them back.", "bad")
+            end
         end
     end
     if downed and downed.pc then
@@ -760,29 +871,6 @@ local function react(night, f, steps, who)
         end
         night:bark(line[1], line[2], extra)
     end
-    -- A charmed hero with nobody they're willing to hit doesn't just stand there in silence (the
-    -- playtest, Nov 2): the table hears why, once a fight for each hero.
-    if who and who.pc and not who.dead then
-        local charmer
-        for _, e in ipairs(who.effects or {}) do
-            if e.charmed_by then
-                charmer = e.charmed_by
-            end
-        end
-        local acted = false
-        for _, s in ipairs(steps) do
-            if (s.kind == "attack" or s.kind == "spell") and s.id == who.mini then
-                acted = true
-            end
-        end
-        f.charm_said = f.charm_said or {}
-        if charmer and not acted and not f.charm_said[who.mini] then
-            f.charm_said[who.mini] = true
-            local v = barks.fills({ charmer = barks.foe_label(charmer) }, nil)
-            v.char = who.name
-            night:say(util.fill(night:fresh(BARKS.charmed_captions, "charmed_caption"), v), "dm")
-        end
-    end
     if crit and P and not boss_dead then
         night:table_behavior("after_crit", P)
     end
@@ -814,6 +902,38 @@ function M.danger_line(bb, hero)
     end
     return "If they all go for " .. hero.name .. " and hit, that's about " .. util.int(together) .. " damage. "
         .. hero.name .. " has " .. hp .. " hit points left."
+end
+
+-- What the "they run for it" call says, counting who's actually still standing (F3, the second
+-- playtest review): the boss alone, the boss and her last one or two, or the last of the rest; and
+-- whether she's really losing (at half her hit points or less) or just done with it.
+local NUMBER_WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
+function M.flee_words(f, minions, standing)
+    local out = {}
+    local boss = f.boss and not f.boss.dead and not f.boss.removed and f.boss or nil
+    local name = f.boss_name or (boss and boss.name) or "their leader"
+    local Name = util.capitalize(name)
+    if standing <= 1 then
+        out.label = "It breaks and runs."
+        out.log = "The last one turns tail and runs."
+    else
+        out.label = "The enemies break and flee."
+        out.log = "The last " .. (NUMBER_WORDS[standing] or tostring(standing)) .. " turn tail and run."
+    end
+    local losing = boss and (boss.hp or 0) <= (boss.hp_max or 1) * 0.5
+    local why = losing and (Name .. " sees the fight turning, and runs.")
+        or (Name .. " has seen enough. She steps back into the smoke, and is gone.")
+    if minions == 0 then
+        out.boss_label = Name .. " runs for it. (She escapes, and that's how it ends.)"
+        out.boss_log = why
+        out.villain_label = Name .. " breaks and flees. (They get away.)"
+    else
+        local rest = minions == 1 and "Her last one goes with her." or "Her last " .. (NUMBER_WORDS[minions] or tostring(minions)) .. " go with her."
+        out.boss_label = "Everyone left on her side runs, " .. name .. " too. (She escapes, and that's how it ends.)"
+        out.boss_log = why .. " " .. rest
+        out.villain_label = "They break and flee, " .. name .. " too. (They get away.)"
+    end
+    return out
 end
 
 -- The DM's call on a moment the fight created. Returns the chosen option.
@@ -1246,6 +1366,12 @@ function M.run(night, sc, plan)
         if not src or info.bond then
             return total
         end
+        -- The scar's deal holds them up through the rest of that turn (F12: "stay up, but with a
+        -- scar" was undone by the next attack in the same turn).
+        local sc_ = f.scar
+        if sc_ and sc_.tgt == tgt and bb.round == sc_.round and bb.active == sc_.turn and not tgt.dead then
+            return math.min(total, math.max(0, (tgt.hp or 0) + (tgt.temp or 0) - 1))
+        end
         -- The boss is about to go down early.
         if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
             local rf = M.reinforcement(night, night.scene)
@@ -1288,6 +1414,7 @@ function M.run(night, sc, plan)
                 table.insert(night.turn_steps, { kind = "feature", id = tgt.mini, name = "It glances off" })
                 return 0
             elseif o and o.battle == "deal" then
+                f.scar = { tgt = tgt, round = bb.round, turn = bb.active }
                 return math.max(0, tgt.hp + tgt.temp - 1)
             end
         end
@@ -1299,6 +1426,12 @@ function M.run(night, sc, plan)
     b.hooks.before_turn = function(bb, c)
         if c == f.boss and not c.dead and not c.removed and not c.down then
             takeover.boss_turn(night, f, bb, c)
+        end
+        -- The DM's call on who they go after (the tactics card) holds for every foe's turn, unless
+        -- the DM ran this one themselves.
+        local t = f.focus_on
+        if t and c.side == "foes" and not c.dm_target and not t.dead and not t.removed and not t.down then
+            c.dm_target = t
         end
     end
     -- The last death save.
@@ -1393,23 +1526,38 @@ function M.run(night, sc, plan)
             and not night.used_cards.potion_action and night:decision_count() < 14 then
             moment(night, f, "potion", {}, f.potion_by)
         end
-        -- A rules question comes up mid-fight.
-        if r == 2 and sc.rules_card and night:decision_count() < 14 and alive_foes(bb) > 0 then
-            night.actor = night:pick_actor(sc.rules_card.actor)
-            -- (About a foe still standing: "moves round behind the briar triceratops" after it had
-            -- crumpled, the playtest log showed.)
+        -- A rules question comes up mid-fight, once what it's about has happened in this fight (F14:
+        -- a card's `fight_needs`: a Bless, a grapple, a fighter in melee), asked by whoever it
+        -- happened to, about a foe still standing.
+        local rc = sc.rules_card
+        local need = rc and rc.fight_needs
+        local did = need and (f.happened or {})[need]
+        if r >= 2 and rc and (not need or did) and night:decision_count() < 14 and alive_foes(bb) > 0 then
+            local by = did and did.who and f.by_ref[did.who]
+            local byp = by and by.pc and player_of(night, by)
+            if need == "bless" then
+                -- (Someone it blessed asks, not the one who cast it.)
+                night.actor = night:pick_actor(rc.actor, byp)
+            else
+                night.actor = byp or night:pick_actor(rc.actor)
+            end
             local target
-            if f.boss and not f.boss.dead and not f.boss.removed then
+            local foe = did and did.foe
+            if foe and not foe.dead and not foe.removed then
+                target = (foe == f.boss and f.boss_name) or barks.foe_label(foe)
+            elseif f.boss and not f.boss.dead and not f.boss.removed then
                 target = f.boss_name
             else
                 for _, c in ipairs(bb.creatures) do
                     if not target and c.side == "foes" and not c.dead and not c.removed then
-                        target = "the " .. string.lower(c.name)
+                        target = barks.foe_label(c)
                     end
                 end
             end
-            night:decision(sc.rules_card, target and { boss = target } or nil)
-            sc.rules_card = nil
+            if not (need == "melee" and not (foe and not foe.dead and not foe.removed)) then
+                night:decision(rc, target and { boss = target } or nil)
+                sc.rules_card = nil
+            end
         -- Or the DM picks the monsters' tactics, if nothing has come up for a while (right at the
         -- start, if the walk into the fight was long).
         elseif not f.used.tactics and alive_foes(bb) >= 2
@@ -1429,6 +1577,10 @@ function M.run(night, sc, plan)
                     bb.focus = o.battle
                     -- Every call shows (A11): the hero the monsters turn on wears a tag on the mat.
                     local marked = (o.battle == "squishy" and squishy) or (o.battle == "big" and big) or nil
+                    -- (And they really do: each of them goes for that hero while they're standing,
+                    -- however far, not whoever's nearest. F12: "Everyone on Brannoc", and the boss
+                    -- went elsewhere.)
+                    f.focus_on = marked
                     if marked then
                         bb:add_effect(marked, { name = "Targeted", conds = {}, tag = true })
                     elseif o.battle == "spread" then
@@ -1472,11 +1624,16 @@ function M.run(night, sc, plan)
             end
             local boss_alive = f.boss and not f.boss.dead and not f.boss.removed
             local adjust = { drop = { minions = minions == 0 or nil }, label = {}, log = {} }
+            -- (Who runs is who's still standing: "everyone on her side breaks and runs" was said with
+            -- all three of her minions dead, and "the fight turning" with her at 78 of 104. The second
+            -- playtest review.)
+            local M_ = M.flee_words(f, minions, alive_foes(bb))
+            adjust.label.flee, adjust.log.flee = M_.label, M_.log
             if sc.boss_style and boss_alive and not sc.extras_only then
-                adjust.label.flee = "Everyone on her side breaks and runs. (Euryale goes too: she escapes, and that's how it ends.)"
-                adjust.log.flee = "Euryale takes one look at the fight turning, and runs. The rest go with her."
+                adjust.label.flee = M_.boss_label
+                adjust.log.flee = M_.boss_log
             elseif boss_alive and f.boss.villain then
-                adjust.label.flee = "They break and flee, " .. (f.boss_name or "their leader") .. " too. (They get away.)"
+                adjust.label.flee = M_.villain_label
             end
             local o = moment(night, f, "dragging", { round = r }, nil, nil, adjust)
             if o and o.battle == "flee" then
@@ -1548,7 +1705,9 @@ function M.run(night, sc, plan)
         frame(bb)
         local steps = night:flush_turn()
         night.fight_acts[#night.fight_frames] = acts_of(steps)
+        M.charmed_turn(night, f, c, steps)
         if steps and #steps > 0 then
+            M.record(night, f, bb, steps, c)
             react(night, f, steps, c)
             for _, s in ipairs(steps) do
                 if s.kind ~= "move" then
@@ -1652,6 +1811,10 @@ function M.run(night, sc, plan)
     end
     local result = b:run(opts)
     night:flush_turn()
+    -- (What they used up in it leaves their packs now: a potion drunk is gone. items.lua)
+    for _, c in ipairs(night.pc_list or {}) do
+        require("game.model.items").settle(c, night.campaign)
+    end
     for _, c in ipairs(night.pc_list or {}) do
         local p = player_of(night, c)
         if p and p.heroic and not c.heroic then
@@ -1710,6 +1873,8 @@ function M.summary(b, f, result)
             table.insert(out.beaten, c.name)
         elseif c.removed then
             table.insert(out.ran, c.name)
+            out.ran_said = out.ran_said or {}
+            table.insert(out.ran_said, util.capitalize(require("game.model.barks").foe_label(c) or c.name))
         end
         if c == f.boss then
             out.boss = { name = c.name, state = c.dead and "beaten" or (c.removed and "gone") or "standing",

@@ -104,7 +104,9 @@ function M.draw(app)
             gloss.card_spot(x + 42, ly + 4, 250, 32, def.name, def.text .. (def.rarity and (" (" .. def.rarity .. ")") or ""), nil, nt)
         end
         if d.got then
-            local who = d.holder and c:player(d.holder)
+            local e = d.entry
+            local hk = (e and not e.gone and not e.destroyed and e.holder) or (not e and d.holder) or nil
+            local who = hk and c:player(hk)
             kit.text(x + 310, ly + 10, "The party has it" .. (who and (": " .. who.char) or "") .. ".", "ui18", theme.green, { w = 400, lines = 1 })
         else
             local how = npcs.HOWS[d.how]

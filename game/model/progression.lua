@@ -175,6 +175,28 @@ function M.level_up(campaign)
             end
         end
     end
+    -- A new level is a fresh start: everyone's back to full hit points, spell slots, Hit Dice and
+    -- features at the next night (fight.load_state builds new sheets). Said on the level-up screen
+    -- (the second playtest review, F23: a hard fight's damage vanished between screens, unsaid).
+    -- Healing potions are things in their packs (items.lua): a drunk one stays drunk.
+    local ps = campaign.party_state
+    local was = {}
+    for _, p in ipairs(campaign.players) do
+        local s0 = ps and not ps.rested and ps.pcs and ps.pcs[p.key]
+        if s0 and s0.hp and s0.hp_max and s0.hp < s0.hp_max then
+            table.insert(was, { name = p.char or p.name, hp = s0.hp, hp_max = s0.hp_max })
+        end
+    end
+    if ps then
+        ps.rested = true          -- (the refill, said and done: next night starts fresh)
+    end
+    table.sort(was, function(a, b) return a.hp / a.hp_max < b.hp / b.hp_max end)
+    local line = "Everyone's back to full: hit points, spell slots and Hit Dice, all of it, for next session."
+    if #was > 0 then
+        local w = was[1]
+        line = line .. " " .. w.name .. " was down to " .. math.floor(w.hp) .. " of " .. math.floor(w.hp_max) .. " hit points."
+    end
+    moment.refill = line
     campaign.leveled_now = moment -- the moment the level-up screen shows
     return moment
 end

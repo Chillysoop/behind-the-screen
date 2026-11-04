@@ -2272,7 +2272,8 @@ function M.play_step(app, s, pace)
         end
         if s.name then
             M.float(app, s.id, s.name, theme.purple)
-            M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level) .. ")") or "")
+            M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level)
+                .. (s.free and (", free: " .. s.free) or "") .. ")") or "")
                 .. (s.area and (", " .. util.int(#s.area) .. " squares") or "") .. ".", "system")
         end
     elseif k == "hazard" then
@@ -2813,7 +2814,9 @@ function M.handle(app, ev)
             M.refresh_hp(app)
             local won = ev.winner == "party"
             local how = ev.summary and ev.summary.how
-            M.caption(app, (how == "fled" and "The foes break and run. The fight is over.")
+            local ran = ev.summary and (ev.summary.ran_said or ev.summary.ran) or {}
+            M.caption(app, (how == "fled" and (#ran == 1 and (ran[1] .. " runs for it. The fight is over.")
+                    or "The last of them break and run. The fight is over."))
                 or (how == "escaped" and "The boss gets away. The fight is over.")
                 or (won and "The fight is over. The party stands.") or "The party falls back.", won and "good" or "bad")
             if ev.summary then

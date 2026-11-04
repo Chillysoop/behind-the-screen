@@ -449,6 +449,13 @@ function M.test(campaign, cond, knobs)
     if cond.not_soft and M.test(campaign, { soft = cond.not_soft }) then
         return false
     end
+    -- What someone carries (items.lua): holds, anyone in the party; holds_here, someone at the table.
+    if cond.holds and not require("game.model.items").owned(campaign, cond.holds) then
+        return false
+    end
+    if cond.holds_here and not require("game.model.items").holding(campaign, cond.holds_here, true) then
+        return false
+    end
     -- What Session Zero agreed: a content tag the table veiled (it happens off screen) or drew a
     -- line under (it never happens). { soft = "gore" } holds for either.
     if cond.line then
@@ -878,11 +885,32 @@ local function set_frontier(campaign, id)
 end
 
 -- The room is done: where the party can go from here.
-function M.leave_room(campaign, id, outcome, week)
+-- fought: the room's fight happened (the recaps say so: F20).
+function M.leave_room(campaign, id, outcome, week, fought)
     local st = campaign.adv
     st.done[id] = outcome or "win"
-    table.insert(st.path, { room = id, week = week, outcome = outcome or "win" })
+    table.insert(st.path, { room = id, week = week, outcome = outcome or "win", fought = fought or nil })
     return set_frontier(campaign, id)
+end
+
+-- What a room came to, as a clause for "Last time, they ..." (MODULE.recap): the fight if there
+-- was one, who went where when it wasn't everyone.
+function M.recap_clause(campaign, step)
+    local rc = MODULE.recap and MODULE.recap[step.room]
+    if not rc then
+        return nil
+    end
+    local st = campaign.adv
+    local a = rc.alone
+    if a and st.chose and util.contains(a.options or {}, st.chose[a.moment]) then
+        local p = campaign:player(a.who)
+        return util.fill(a.text, { char = p and p.char or "one of them" })
+    end
+    local lose = step.outcome == "lose"
+    if step.fought and rc.fought then
+        return lose and rc.fought.lose or rc.fought.win
+    end
+    return lose and rc.lose or rc.win
 end
 
 -- The DM locked or opened something (game/model/ties.lua): where the party can go next, worked
@@ -919,6 +947,13 @@ function M.add_mark(campaign, id, room)
     end
     st.marks[id] = { week = campaign.week, room = room }
     table.insert(st.mark_list, id)
+    -- (A mark that's something in their packs, the Lecturer's notes, is in someone's: items.lua.
+    -- M.apply has already given it to whoever's choice it was; any other way it lands, a holder.)
+    local items = require "game.model.items"
+    local thing = items.thing_for({ mark = id })
+    if thing and not thing.magic and not items.owned(campaign, thing.id) then
+        items.give(campaign, thing.id, nil, room == "loose" and "given" or "found")
+    end
     return true
 end
 
@@ -938,11 +973,24 @@ end
 
 -- Apply an option's `mus` table (game/data/museum/module.lua). Returns the marks it added.
 -- The night handles risk, warn, harsh, fight and the ending itself (it needs the table).
-function M.apply(campaign, mus, room)
+-- holder: the player key of the hero whose choice it was (who bought it, found it, asked for it):
+-- a thing it hands over goes in their pack (items.lua, the one inventory).
+function M.apply(campaign, mus, room, holder)
     local st = campaign.adv
     local added = {}
     if not mus then
         return added
+    end
+    local items = require "game.model.items"
+    local thing = items.thing_for(mus)
+    if thing and not thing.magic then
+        items.give(campaign, thing.id, holder, mus.spend and "bought" or (room == "loose" and "given") or (room and "found") or "given")
+    end
+    if mus.use then
+        -- (Out of the pack of whoever used it, else whoever was carrying it for the party.)
+        if not items.use(campaign, mus.use, holder) then
+            items.use(campaign, mus.use)
+        end
     end
     if mus.mark and M.add_mark(campaign, mus.mark, room) then
         table.insert(added, mus.mark)
@@ -952,6 +1000,10 @@ function M.apply(campaign, mus, room)
     end
     if mus.flag then
         st.flags[mus.flag] = true
+    end
+    -- (The Witness, named out loud: it whispered their name, or a line about it in the notebook.)
+    if mus.flag == "whispered" or mus.flag == "studied" then
+        st.flags.witness_named = true
     end
     if mus.francs then
         st.francs = st.francs + mus.francs
@@ -1274,7 +1326,7 @@ function M.answer_request(campaign, id, answer)
         end
         reactions[p.key] = d
     end
-    hold_marks(campaign, M.apply(campaign, a.mus))
+    hold_marks(campaign, M.apply(campaign, a.mus, nil, rq.who))
     if a.mus and a.mus.warn then
         -- (They asked, and you told them straight: they know now.)
         local asker = campaign:player(rq.who)
@@ -1376,7 +1428,7 @@ function M.journey(campaign)
                 end
             end
             table.insert(rooms, { id = step.room, name = r.name, week = step.week, outcome = step.outcome, marks = marks,
-                                  at = r.at })
+                                  at = r.at, fought = (step.fought and r.optional_fight) and r.boss_name or nil })
         end
     end
     local skipped = {}
