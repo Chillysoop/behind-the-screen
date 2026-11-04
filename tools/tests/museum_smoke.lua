@@ -844,6 +844,14 @@ for week = 1, WEEKS do
             if app.paused or (app.speed_now and app.speed_now() ~= 4) then problem("4x didn't play at four times" .. where) end
             click_key("night_speed_1x")
             if app.speed_now and app.speed_now() ~= 1 then problem("1x didn't go back to normal speed" .. where) end
+            if app.night.fast then problem("back at 1x, the night still thinks it's at 4x" .. where) end
+            -- Small-moment crits (table_life.lua): the toggle top right flips it, and flips it back.
+            local tl = require "game.model.table_life"
+            local was = tl.crits_on(app.campaign)
+            if not click_key("night_crits") then problem("no small-moment crits toggle on game night" .. where) end
+            if tl.crits_on(app.campaign) == was then problem("the crits toggle didn't change anything" .. where) end
+            click_key("night_crits")
+            if tl.crits_on(app.campaign) ~= was then problem("the crits toggle didn't go back" .. where) end
         end
         -- v2: a friend's thought. Read the first few and answer them; a card that opened by itself
         -- (Pip about to go off alone) gets an answer too, or the night would wait on it forever.

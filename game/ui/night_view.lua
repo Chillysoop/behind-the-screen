@@ -59,7 +59,7 @@ local CARD_BOTTOM = 760
 local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, twist = true, seed = true }
 local LOG_X, LOG_Y, LOG_W, LOG_H = 24, 70, 520, 690
 local STRIP_LABEL = "This scene's rolls  (? = behind your screen)"
-local STRIP_RIGHT, STRIP_Y, DIE = 1576, 66, 30
+local STRIP_RIGHT, STRIP_Y, DIE = 1440, 66, 30   -- (right of it: the small-moment crits toggle)
 
 local CLASS_SPRITE = { fighter = "fighter", rogue = "rogue", cleric = "cleric", wizard = "wizard" }
 local CAST_SPRITE = {
@@ -238,6 +238,10 @@ function M.start(app)
     end
     app.pieces_key = nil
     app.speed_i = app.speed_i or M.SPEED_1X
+    if app.night then
+        app.night.speed_hint = app.speed_i
+        app.night.fast = (app.speed_i >= 4) or nil
+    end
     app.log_open = false
     app.timer = 0.8
     app.beat_t = 0
@@ -300,7 +304,7 @@ function M.build(app)
     M.draw_log(app)
     app.layers.fx = kit.layer("night_fx")
     app.bubbles, app.floaters = {}, {}
-    app.side, app.toast_card, app.roll_card = nil, nil, nil     -- (their nodes went with the old layers)
+    app.side, app.toast_card, app.roll_card, app.tiny_card = nil, nil, nil, nil     -- (their nodes went with the old layers)
     app.dying_nodes = nil
     for id in pairs(app.ds or {}) do
         M.dying(app, id)        -- (a hero still down when the screen is rebuilt: their card again)
@@ -398,6 +402,7 @@ function M.draw_frame(app)
         { pivot = gui.PIVOT_NE, gloss = false })
     -- Pause and the night's speed, clickable (the playtest, November 3): Pause, 1x, 2x, 4x.
     M.draw_speed(app, app.campaign.module and 1100 or 1110, 10)
+    M.draw_crits(app)
     -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
     -- line nobody read after the first scene; October 20: back at the start of every night). The
     -- hover card below keeps them. (No "1-4 camera": the night aims the camera itself, and a card's
@@ -1766,6 +1771,15 @@ function M.update_fx(app, dt)
             fade(rc.nodes, rc.colors, (rc.life - rc.age) / 0.4)
         end
     end
+    local ty = app.tiny_card
+    if ty then
+        ty.age = ty.age + dt
+        if ty.age >= ty.life then
+            M.drop_tiny_roll(app)
+        elseif ty.life - ty.age < 0.4 then
+            fade(ty.nodes, ty.colors, (ty.life - ty.age) / 0.4)
+        end
+    end
     local tc = app.toast_card
     if tc then
         tc.age = tc.age + dt
@@ -1895,7 +1909,74 @@ end
 function M.set_speed(app, i)
     app.speed_i = i
     app.paused = nil
+    -- (The night hears it too: table life plays fewer small moments at 2x, none at 4x.)
+    if app.night then
+        app.night.speed_hint = i
+        app.night.fast = (i >= 4) or nil
+    end
     M.refresh_status(app)
+end
+
+-- Small-moment crits, on or off (the playtest, November 3): top right, under End session.
+function M.draw_crits(app)
+    if not (app.campaign.module and app.night) then
+        return
+    end
+    local tl = require "game.model.table_life"
+    local on = tl.crits_on(app.campaign)
+    app.n_crits = kit.button(1452, 66, 124, 30, on and "Crits: on" or "Crits: off", function()
+        local now = not tl.crits_on(app.campaign)
+        tl.set_crits(app.campaign, now)
+        if app.n_crits and app.n_crits.label then
+            pcall(gui.set_text, app.n_crits.label, now and "Crits: on" or "Crits: off")
+            pcall(gui.set_color, app.n_crits.node, now and theme.panel3 or app.n_crits.color)
+        end
+        M.toast(app, now and "SMALL-MOMENT CRITS ON" or "SMALL-MOMENT CRITS OFF",
+            now and "A natural 20 or 1 in a small moment gives you a card to improvise." or "Small moments play out on their own.")
+    end, { font = "ui14", key = "night_crits", color = on and theme.panel3 or nil })
+    require("game.ui.gloss").card_spot(1452, 66, 124, 30, "Small-moment crits",
+        "In the quiet bits of a room, the friends poke at things, ask questions and chat, and a little die rolls on its "
+        .. "own. On: when one of those little rolls is a natural 20 or a natural 1, you get a quick card to improvise: hide "
+        .. "a small find, give them a clue, or a mishap, a small trap, or just a laugh. Off: those rolls play out on their "
+        .. "own, and you're never asked. Big rolls aren't affected.")
+end
+
+-- A small moment's die (table_life.lua): small, over the roller's tile, gone in a moment.
+function M.tiny_roll(app, ev)
+    local chip = app.chips and app.chips[ev.who]
+    if not (chip and app.layers and app.layers.fx) then
+        return
+    end
+    M.drop_tiny_roll(app)
+    kit.use(app.layers.fx)
+    local nat = ev.roll == 20 and theme.gold or (ev.roll == 1 and theme.red) or theme.teal
+    local m = ev.mod or 0
+    local sum = util.int(ev.roll) .. (m < 0 and " - " or " + ") .. util.int(math.abs(m)) .. " = "
+    local total = util.int(ev.total)
+    local label = ev.skill or "Roll"
+    local sw, tw, lw = kit.width(sum, "ui14"), kit.width(total, "ui18b"), kit.width(label, "ui14")
+    local w = 24 + lw + 10 + sw + tw
+    local h = 30
+    local x = chip.x + (panels.W - w) / 2
+    local y = chip.y - h - 8
+    local t = { age = 0, life = 1.8 / math.sqrt(speed(app)), nodes = {}, colors = {} }
+    local function add(n, c)
+        table.insert(t.nodes, n)
+        table.insert(t.colors, c)
+    end
+    local bg = kit.rgba("#201813", 0.92)
+    add(kit.box(x, y, w, h, bg, { radius = 8 }), bg)
+    add(kit.text(x + 12, y + 6, label, "ui14", theme.dim, { gloss = false }), theme.dim)
+    add(kit.text(x + 12 + lw + 10, y + 6, sum, "ui14", theme.text, { gloss = false }), theme.text)
+    add(kit.text(x + 12 + lw + 10 + sw, y + 4, total, "ui18b", nat, { gloss = false }), nat)
+    app.tiny_card = t
+end
+
+function M.drop_tiny_roll(app)
+    if app.tiny_card then
+        kit.remove(app.tiny_card.nodes)
+        app.tiny_card = nil
+    end
 end
 
 local SPEED_BTNS = { { "Pause", 52 }, { "1x", 38, 2 }, { "2x", 38, 3 }, { "4x", 38, 4 } }
@@ -2688,6 +2769,8 @@ function M.handle(app, ev)
         end
         M.push(app, ev.name .. ": \"" .. ev.text .. "\"", "quote", true)
         review.on_line(app, ev)
+    elseif k == "tiny_roll" then
+        M.tiny_roll(app, ev)
     elseif k == "rested" then
         M.refresh_hp(app)        -- (a rest: hit points and resources back on the tiles)
     elseif k == "door" then
@@ -3330,7 +3413,7 @@ end
 -- The top bar's buttons that keep working while a call or a thought waits on you: you can look
 -- things up before you decide (the playtest, November 3).
 M.PASS = { night_story = true, night_notes = true, night_maps = true, night_table = true, night_log = true, night_end = true,
-           night_pause = true, night_speed_1x = true, night_speed_2x = true, night_speed_4x = true }
+           night_pause = true, night_speed_1x = true, night_speed_2x = true, night_speed_4x = true, night_crits = true }
 for _, k in ipairs(content.players.order) do
     M.PASS["inspire_" .. k] = true      -- (the token from a tile, while a call waits)
 end

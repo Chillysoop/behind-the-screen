@@ -51,6 +51,7 @@ Where v2 lives:
 | `game/model/death.lua` (`after_fall`), `night_view` `dying` | Down and dead (November 4): the death-save card over the mat shows each save; a hero who dies stays at the table, and their friend picks how to play on (`fallen_seat`: pilot a companion, run the monsters, watch). |
 | `game/model/museum_night.lua` (`maybe_break`) | The break (November 4): every night takes one around a third of the way in (or before the lair); the DM picks what the heroes do meanwhile: nothing, a short rest, a long rest where the room allows it, or research (+2 on the next related roll). |
 | `game/ui/night_view.lua` (speed, roll banner, `VOICE`, `become`, `draw_replay_hud`) | Game night's controls and readouts (November 4): Pause / 1x / 2x / 4x top right; a roll's total big over the roller; caption tags for who you're talking to; a player speaking in character turns into their hero (`main/people/person.script` `become`); inspiration offered on a big moment and given from the tile's button; the report's Look replays fights with health bars and acts. Moods carry over between weeks (`score.start_carry`). |
+| `game/model/table_life.lua`, `MODULE.table_life` | Table life (November 4): small moments that play themselves in a room's quiet stretch (after the look round, or after its fight): a friend pokes at a curio on the board (`curios`: the book's room features in our words, or invented where the book is thin), a small die rolls on its own (`tiny_roll` event, drawn small over the tile), and the DM answers dull, detail or lore by the total; questions for whoever's in the room (`npc_questions`), and table bits (a snack, a cantrip, a souvenir, haggling with Telpur for real Francs). Only a natural 20 or 1 makes a card (`tl_crit`, the harmless answer first), and only with small-moment crits on (`campaign.small_crits`, the toggle under End session). Caps: `PER_ROOM`, `PER_NIGHT`; none at 4x (`night.fast`), one at 2x; each curio once a prologue (`adv.tl_seen`). `tools/tests/table_life_check.lua`. |
 
 ## Where things live
 
@@ -121,6 +122,8 @@ least:
     lua tools/tests/museum_fights.lua     # the museum's monsters on the rules engine (about 80s)
     lua tools/tests/rules_cases.lua       # hand-checked rules, the museum's monsters among them
     lua tools/tests/save_check.lua        # saves load back, mid-prologue too
+    lua tools/tests/playtest_nov3_check.lua 8   # the November 3 notes, played: whole prologues, each fix seen in play
+    lua tools/tests/table_life_check.lua  # small moments: they happen, never in fights or at 4x, crit cards only when on
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
 

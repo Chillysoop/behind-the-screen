@@ -4626,6 +4626,11 @@ function M:combat_scene(sc)
         owner_here = owner_here or (c.thread ~= nil and find_present(self.players, c.thread) ~= nil and not self:muted(c))
     end
     local scouted = false
+    -- (A nat-1 mishap in a quiet moment made a racket: table_life.lua. Nobody sneaks up on anyone.)
+    if self.noisy then
+        self.noisy = nil
+        sc.no_sneak = true
+    end
     if sc.ambushed then
         -- They walked into an ambush (a boss who strikes first): surprised, and no scouting roll.
         sc.surprise = "party"

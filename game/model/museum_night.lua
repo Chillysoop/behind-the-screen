@@ -933,6 +933,8 @@ function M.explore_after(night, sc)
     if not sc.explored and not night.end_early and (not sc.fought or sc.outcome == "win") then
         sc.explored = true
         M.explore(night, sc)
+        -- Then the small stuff, once it's safe (table_life.lua): poking at things, a question, a snack.
+        require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
     end
 end
 
@@ -1287,6 +1289,7 @@ function M.room_start(night, sc)
     if not M.has_fight(sc) then
         M.explore(night, sc)
         sc.explored = true
+        require("game.model.table_life").room(night, sc, "enter")
     end
     M.drops_social(night, sc)
     M.moments(night, sc, "start")

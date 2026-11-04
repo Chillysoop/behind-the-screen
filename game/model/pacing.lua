@@ -64,6 +64,8 @@ function M.duration(ev)
         return M.read(ev.text) + 1.2     -- a beat longer than a line said out loud: it's there to be read
     elseif k == "check" then
         return 2.0
+    elseif k == "tiny_roll" then
+        return 1.3          -- (a small moment's die: a glance, not a held breath. table_life.lua)
     elseif k == "walk" then
         return 0.6 + 0.35 * #(ev.path or {})      -- (a hero crossing the mat: night_view walks them square by square)
     elseif k == "clue" then
