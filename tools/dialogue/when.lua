@@ -546,8 +546,19 @@ A.companions = function(p)
             return R("As a fight starts with " .. name .. " along, more often than not: " .. voice, one_of(#list))
         elseif kind == "win" then
             return R("Not said yet: nothing in the game plays " .. name .. "'s lines for a won fight", "Never")
+        elseif kind == "down" then
+            return R("In a fight, when " .. name .. " drops to 0 hit points (companions.fell)", "Always")
+        elseif kind == "react" then
+            return R("In a fight, right after " .. name .. " drops: whoever's playing " .. name .. ", else " .. owner, "Always")
+        elseif kind == "up" then
+            return R("After a fight " .. name .. " went down in: " .. name .. " comes round", "Always")
         end
     end
+end
+
+A.ally_join = function(p)
+    return R("In a fight, when " .. (p[2] == "steam_mech" and "the Steam Mech" or "an ally") .. " joins it without walking in with "
+        .. "the party: heard arriving first (companions.ally_arrives)", "Always")
 end
 
 A.endings = function(p)
@@ -1014,6 +1025,21 @@ A.showdown = function(p)
             table.insert(rest, p[i])
         end
         return moment_line(MODULE.showdown[f], rest, "lair")
+    elseif f == "edges" then
+        -- (museum_night.edges: what they brought against her, in the ultimatum's vote, R10.)
+        local e = MODULE.showdown.edges[p[3]] or {}
+        if p[4] == "mine" then
+            return R("At Euryale's ultimatum, when the table talks it over: whoever carries it, wanting to fight her "
+                .. "(\"What did I bring … up here for, then?\")" .. if_(e.when), "Sometimes")
+        end
+        return R("At Euryale's ultimatum, when the table talks it over: Sam (who likes a fair, clever fight) or Dev, "
+            .. "for fighting her (\"We came ready for her: …\")" .. if_(e.when), "Sometimes")
+    elseif f == "escape" then
+        if p[3] == "board" then
+            return R("On the showdown board, before boss night: what letting her get away costs", "Always")
+        end
+        return R("Under every option that lets Euryale go (the yield card's \"Let her go\", paying her off, a nudge to let her "
+            .. "run): what it costs", "Always")
     elseif f == "dead_but_lost" then
         return R("In the Gorgon's lair, if she dies but her collection still wins the fight", "Always")
     elseif f == "yield_line" then
@@ -2014,6 +2040,21 @@ local function code_line(p)
         return R("When the table talks over a choice: " .. names(who) .. "'s reason for leaning one way, when the " ..
             "option suits " .. (#who == 1 and (POS[who[1]] or "their") or "their") .. " " .. string.gsub(k, "_", " ") ..
             " side (at most twice a night, each line once, never two talks running)", "Sometimes")
+    elseif top == "VOTE_WHY" then
+        -- (museum_night.carry and table_pick: what carries over into a vote, R10.)
+        local WHY = {
+            pushed = "from whoever gave way on the last vote they minded, holding out for theirs while the table disagrees",
+            safe_last = "after a careful pick or two, from Dev, Jess or Mara, for the bold option",
+            bold_last = "after a reckless pick or two, from Sam, for the careful option",
+            tired = "from a friend who's had a long week, for the easy option",
+            celebrating = "from a friend with good news this week, for the bold option",
+            stressed = "from a friend who's had a stressful week, for the option they know works",
+            quiet = "from whoever leads the choice, after a quiet night for them, for the option that's theirs to play",
+            edges = "at Euryale's ultimatum, from Sam (who likes a fair, clever fight) or Dev, for fighting her, "
+                .. "with what they brought against her named",
+            mine = "at Euryale's ultimatum, from whoever carries something good against her, for fighting her",
+        }
+        return R("When the table talks over a choice: a reason " .. (WHY[k] or "for leaning one way"), "Sometimes")
     elseif top == "BREAK_START" then
         return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
     elseif top == "GENTLE_STOP" then
