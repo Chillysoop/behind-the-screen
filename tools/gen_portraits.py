@@ -21,11 +21,9 @@ MINI = (96, 120)      # a paper mini: the whole standee
 
 # Paper minis on the table: the heroes, the NPCs and the monsters.
 STANDEES = ["fighter", "rogue", "cleric", "wizard",
-            "npc_gus", "npc_stranger", "npc_hermit", "npc_rival", "npc_corin", "npc_sable", "npc_ghost",
-            # The slice's people (tools/gen_sprites_npcs.py).
-            "npc_vask", "npc_wren", "npc_grey_coat", "npc_tilly", "npc_ottilie", "npc_hob", "npc_holt", "npc_tumble",
-            "npc_verrin", "npc_nib", "npc_ansel",
-            "npc_rosin", "npc_pearl", "npc_coil", "npc_stag", "npc_ashby", "npc_reeve",
+            "npc_stranger", "npc_hermit", "npc_sable", "npc_ghost",
+            # The one from tools/gen_sprites_npcs.py.
+            "npc_rosin",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
             # The museum garden's topiary (November 3).

@@ -66,25 +66,6 @@ local CAST_SPRITE = {
     mus_flitwidget = "npc_rosin", mus_telpur = "npc_hermit", mus_euryale = "npc_sable", mus_lecturer = "npc_ghost",
     mus_mech = "animated_armor", mus_sentinel = "animated_armor", mus_bone_construct = "skeleton",
     mus_knight = "animated_armor", mus_huntlings = "giant_crab", mus_briar = "briar_beast",
-    goblins = "goblin_boss", gus = "npc_gus", stranger = "npc_stranger", rook = "bandit_captain",
-    hermit = "npc_hermit", rivals = "npc_rival", ogre = "ogre", corin = "npc_corin",
-    wolf_lieutenant = "npc_vask", madame_sable = "npc_sable", abbot_ghost = "npc_ghost",
-    -- M6 casts borrow a mini until they get their own.
-    holt = "npc_holt", brother_tumble = "npc_tumble", goblin_scout = "npc_nib", verrin = "npc_verrin",
-    bone_choir = "cultist", white_wolf = "dire_wolf",
-    -- The slice rework's casts.
-    wren = "npc_wren", grey_coat = "npc_grey_coat", miller = "npc_hob", turncoat_guide = "bandit_captain",
-    market_friend = "npc_tilly", merchant = "npc_ottilie", cutpurses = "bandit", wolf_pack = "dire_wolf",
-    restless_dead = "skeleton",
-    -- Campaign styles (A18) and the new books (A13).
-    fr_reeve = "npc_reeve", fr_goblin_chief = "goblin_boss", sea_captain_rosin = "npc_rosin", sea_grey_moll = "pirate",
-    sea_envoy_pearl = "npc_pearl", sea_serpent_wake = "merrow", ur_watch_captain = "guard", ur_fixer = "npc_stranger",
-    ur_mother_coil = "npc_coil", dn_lantern_company = "npc_rival", dn_mossjaw = "animated_armor", wd_guide = "scout",
-    wd_white_stag = "npc_stag", wd_moss_hermit = "npc_hermit",
-    bk_pirate_crew = "pirate", bk_merrow = "merrow", bk_crabs = "giant_crab", bk_spy = "spy", bk_rats = "swarm_of_rats",
-    bk_armor = "animated_armor", bk_spiders = "giant_spider", bk_specter = "specter", bk_bear = "brown_bear",
-    bk_gnolls = "gnoll_warrior", bk_worgs = "worg", bk_bugbear = "bugbear_warrior", bk_veteran = "warrior_veteran",
-    bk_kobolds = "kobold_warrior", gz_hedge_witch = "npc_ashby", mod_bell_sexton = "npc_ansel", mod_bridge_hobb = "npc_hermit",
 }
 local MONSTER_SPRITES = {
     goblin_boss = true, bandit = true, bandit_captain = true, cultist = true, tough = true, wolf = true,

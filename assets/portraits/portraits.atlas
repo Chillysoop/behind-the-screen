@@ -131,19 +131,10 @@ images {
   image: "/assets/portraits/mini_wizard.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_gus.png"
-}
-images {
   image: "/assets/portraits/mini_npc_stranger.png"
 }
 images {
   image: "/assets/portraits/mini_npc_hermit.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_rival.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_corin.png"
 }
 images {
   image: "/assets/portraits/mini_npc_sable.png"
@@ -152,55 +143,7 @@ images {
   image: "/assets/portraits/mini_npc_ghost.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_vask.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_wren.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_grey_coat.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_tilly.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_ottilie.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_hob.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_holt.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_tumble.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_verrin.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_nib.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_ansel.png"
-}
-images {
   image: "/assets/portraits/mini_npc_rosin.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_pearl.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_coil.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_stag.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_ashby.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_reeve.png"
 }
 images {
   image: "/assets/portraits/mini_goblin_boss.png"

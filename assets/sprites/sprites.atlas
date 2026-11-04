@@ -59,9 +59,6 @@ images {
   image: "/assets/sprites/briar_triceratops.png"
 }
 images {
-  image: "/assets/sprites/npc_gus.png"
-}
-images {
   image: "/assets/sprites/npc_stranger.png"
 }
 images {
@@ -72,12 +69,6 @@ images {
 }
 images {
   image: "/assets/sprites/npc_ghost.png"
-}
-images {
-  image: "/assets/sprites/npc_corin.png"
-}
-images {
-  image: "/assets/sprites/npc_rival.png"
 }
 images {
   image: "/assets/sprites/pirate.png"
@@ -152,55 +143,7 @@ images {
   image: "/assets/sprites/pregen_ysolde.png"
 }
 images {
-  image: "/assets/sprites/npc_vask.png"
-}
-images {
-  image: "/assets/sprites/npc_wren.png"
-}
-images {
-  image: "/assets/sprites/npc_grey_coat.png"
-}
-images {
-  image: "/assets/sprites/npc_tilly.png"
-}
-images {
-  image: "/assets/sprites/npc_ottilie.png"
-}
-images {
-  image: "/assets/sprites/npc_hob.png"
-}
-images {
-  image: "/assets/sprites/npc_holt.png"
-}
-images {
-  image: "/assets/sprites/npc_tumble.png"
-}
-images {
-  image: "/assets/sprites/npc_verrin.png"
-}
-images {
-  image: "/assets/sprites/npc_nib.png"
-}
-images {
-  image: "/assets/sprites/npc_ansel.png"
-}
-images {
   image: "/assets/sprites/npc_rosin.png"
-}
-images {
-  image: "/assets/sprites/npc_pearl.png"
-}
-images {
-  image: "/assets/sprites/npc_coil.png"
-}
-images {
-  image: "/assets/sprites/npc_stag.png"
-}
-images {
-  image: "/assets/sprites/npc_ashby.png"
-}
-images {
-  image: "/assets/sprites/npc_reeve.png"
 }
 images {
   image: "/assets/sprites/dev.png"

@@ -387,29 +387,7 @@ def ogre():
 
 
 # ------------------------------------------------------------------ NPCs
-
-def npc_gus():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#e8b48a"
-    legs(d, "#4a3a30", "#2a2020")
-    d.rounded_rectangle([160, 320, 352, 540], 70, fill=C("#7a6a8a"))
-    d.polygon([(196, 340), (316, 340), (330, 560), (182, 560)], fill=C("#f1ebe0"))
-    d.line([(196, 340), (220, 300)], fill=C("#f1ebe0"), width=8)
-    d.line([(316, 340), (292, 300)], fill=C("#f1ebe0"), width=8)
-    gs.limb(d, (172, 360), (150, 450), 40, C("#7a6a8a"))
-    hand(d, (148, 456), skin, 18)
-    d.rounded_rectangle([120, 400, 176, 470], 10, fill=C("#e8dcc0"))
-    d.arc([164, 412, 200, 452], 270, 90, fill=C("#e8dcc0"), width=8)
-    gs.limb(d, (340, 360), (360, 450), 40, C("#7a6a8a"))
-    hand(d, (362, 456), skin, 18)
-    d.polygon([(350, 450), (392, 470), (380, 520), (346, 500)], fill=C("#f1ebe0"))
-    head(d, skin, cy=244, rx=76, ry=74)
-    face(d, 256, 240, "calm", sep=30)
-    d.polygon([(212, 278), (256, 266), (300, 278), (290, 292), (256, 282), (222, 292)], fill=C("#6a4a30"))
-    d.arc([186, 170, 326, 230], 200, 340, fill=C("#6a4a30"), width=10)
-    finish(img, "npc_gus", 121)
-
+# (The stranger is the mini for anyone without one of their own: game/ui/night_view.lua.)
 
 def npc_stranger():
     gs = _sp()
@@ -487,50 +465,6 @@ def npc_ghost():
     d.chord([180, 170, 332, 300], 180, 360, fill=C(robe))
     face(d, 256, 252, "kind", sep=28, eye="#5a7a8a")
     finish(img, "npc_ghost", 125, alpha=0.82)
-
-
-def npc_corin():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#c98d62"
-    legs(d, "#3a4a6a", "#3a2a20")
-    d.polygon([(196, 330), (316, 330), (330, 530), (182, 530)], fill=C("#4a6a5a"))
-    d.line([(212, 340), (310, 500)], fill=C("#6a4a30"), width=10)
-    d.rounded_rectangle([290, 470, 352, 530], 10, fill=C("#7a5236"))
-    gs.limb(d, (200, 360), (230, 440), 32, C("#4a6a5a"))
-    gs.limb(d, (312, 360), (282, 440), 32, C("#4a6a5a"))
-    for i, col in enumerate(["#7d2f2b", "#2f4f6b", "#a07a3a"]):
-        d.rectangle([206, 410 - i * 20, 306, 428 - i * 20], fill=C(col))
-    hand(d, (228, 440), skin)
-    hand(d, (284, 440), skin)
-    head(d, skin, cy=250, rx=66, ry=68)
-    d.chord([186, 176, 326, 270], 180, 360, fill=C("#2a1d1a"))
-    face(d, 256, 250, "nervous", sep=28)
-    for sx in (-1, 1):
-        d.ellipse([256 + sx * 28 - 22, 228, 256 + sx * 28 + 22, 272], outline=C("#2a1d1a"), width=5)
-    finish(img, "npc_corin", 126)
-
-
-def npc_rival():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#f0c49c"
-    legs(d, "#c8ccd4", "#8a6a44")
-    for x in (226, 286):
-        d.ellipse([x - 10, 596, x + 10, 616], fill=C("#d9b24c"))
-    d.polygon([(186, 330), (326, 330), (380, 590), (132, 590)], fill=C("#d8dce4"))
-    d.polygon([(206, 330), (306, 330), (316, 500), (196, 500)], fill=C("#a8b0bc"))
-    d.ellipse([236, 380, 276, 420], fill=C("#f0c75a"))
-    gs.limb(d, (318, 350), (356, 300), 34, C("#a8b0bc"))
-    hand(d, (360, 292), skin)
-    sword(d, (362, 288), (392, 140), blade="#f4f6fa", hilt="#d9b24c", width=14)
-    gs.limb(d, (194, 360), (176, 440), 34, C("#a8b0bc"))
-    hand(d, (172, 446), skin)
-    head(d, skin, cy=252, rx=68, ry=70)
-    for k in range(6):
-        d.ellipse([186 + k * 22, 160 - (k % 2) * 14, 236 + k * 22, 220 - (k % 2) * 14], fill=C("#f0d070"))
-    face(d, 256, 252, "grin", sep=28)
-    finish(img, "npc_rival", 127)
 
 
 # ------------------------------------------------------------------ Thessaly, redrawn
@@ -659,7 +593,7 @@ def briar(name, seed, shape):
 
 MONSTERS = ["goblin_boss", "bandit", "bandit_captain", "cultist", "tough", "wolf", "dire_wolf", "skeleton",
             "zombie", "ghoul", "ogre", "briar_beast", "briar_boar", "briar_triceratops"]
-NPCS = ["npc_gus", "npc_stranger", "npc_hermit", "npc_sable", "npc_ghost", "npc_corin", "npc_rival"]
+NPCS = ["npc_stranger", "npc_hermit", "npc_sable", "npc_ghost"]
 POSES = ["lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
 
@@ -678,11 +612,8 @@ def build_monsters():
     briar("briar_beast", 141, "cat")
     briar("briar_boar", 142, "boar")
     briar("briar_triceratops", 143, "tri")
-    npc_gus()
     npc_stranger()
     npc_hermit()
     npc_sable()
     npc_ghost()
-    npc_corin()
-    npc_rival()
     wizard_thessaly()
