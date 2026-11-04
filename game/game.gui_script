@@ -33,9 +33,6 @@ local dice_sets = require "game.model.dice_sets"
 -- (Game night reaches the museum's night only through util.lazy, to keep the require graph free of
 -- cycles; this literal require is what makes the builder pack it. tools/tests/require_check.py.)
 require "game.model.museum_night"
--- (Game night reads what rides on a scene's final roll from the lore screen's list, through
--- pcall(require): the lore screen itself is gone, so this keeps its model in the build.)
-require "game.model.lore_screen"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
@@ -917,19 +914,14 @@ function on_input(self, action_id, action)
         end
     end
     if app.screen == "night" then
-        -- A card is up: number keys pick its options, Enter plays the improv cards you picked.
+        -- A card is up: number keys pick its options.
         if app.pending and not app.overlay and NUMKEY[action_id] then
             if action.pressed then
                 guard(self, night_view.pick_key, app, NUMKEY[action_id])
             end
             return true
         end
-        if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
-            and app.pending.kind == "improv" then
-            guard(self, night_view.play_improv, app)
-            return true
-        end
-        -- The opening and the briefing: Space or Enter turns the page.
+        -- The opening: Space or Enter turns the page.
         if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
             and app.pending.kind == "cinematic" then
             guard(self, night_view.cinematic_next, app)

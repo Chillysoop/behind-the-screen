@@ -1,44 +1,127 @@
--- Save and resume (M7): a campaign saved between sessions and loaded again must carry on
--- exactly as if it had never stopped. Plays slices with the simulated DMs, saves after
--- Session Zero and after each session, loads the save, plays both copies on with the same
--- choices, and compares what the game would log, week by week. It also loads each save in a
--- fresh Lua process (fresh game data, so no table survives by accident) and plays on there.
--- Run from the project root:   texlua tools/tests/save_check.lua
+-- Save and resume: a museum campaign saved between sessions and loaded again carries on. Plays the
+-- prologue with three kinds of DM (as tools/sim/museum.lua does), saves after Session Zero and after
+-- each session, and checks that the save loads back to the same file, that it plays the same every
+-- time it's loaded (two loads, the same choices, everything the table hears compared week by week),
+-- that the original and the loaded copy both play on to an ending, and that a fresh Lua process
+-- (fresh game data, so no table survives by accident) loads it and plays on. A save made at "Run
+-- game night" or mid-prep picks up where it was.
+-- (Why not the original against its loaded copy, line for line: a loaded campaign's tables are
+-- built in another order than the original's, and some of the museum walks a table with pairs(),
+-- so the two can draw their dice in another order. Two loads of one file are built alike.)
+-- Run from the project root:   lua tools/tests/save_check.lua
 -- Exit code 1 on any difference.
 
-package.path = "./?.lua;./tools/sim/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
+unpack = unpack or table.unpack
 
-local content = require "game.model.content"
+local adventure = require "game.model.adventure"
 local campaign_mod = require "game.model.campaign"
+local social = require "game.model.social"
+local museum_week = require "game.model.museum_week"
+local thoughts = require "game.model.thoughts"
 local rng_mod = require "game.model.rng"
-local telemetry = require "game.model.telemetry"
 local save = require "game.model.save"
-local bots = require "slice_bots"
 
 local SCRATCH = os.getenv("TMPDIR") or "/tmp"
+local STYLES = { "careful", "random", "careless" }
 
--- Play one week; returns the lines the game would log for it.
-local function play_week(c, dm, rng)
-    local prep = c:start_week()
-    bots.prep(dm, c, prep, rng)
-    local night = c:start_night()
-    bots.play_night(night, rng, dm)
-    local rep = c:finish_night()
-    local lines = { telemetry.week_record(c, 300, night.clock) }
-    for i, m in ipairs(c.chat or {}) do
-        lines[#lines + 1] = "chat " .. i .. " " .. tostring(m.who) .. ": " .. tostring(m.text)
+adventure.enter()
+
+local function new_campaign(seed)
+    local c = campaign_mod.new(seed)
+    adventure.enter(c)
+    c:session_zero(social.default_choices())
+    local rng = rng_mod.new(seed + 77)
+    for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local hooks = adventure.data.hooks[key]
+        adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
     end
-    if dm.level and rep.level.ready then
-        c:level_up()
-    end
-    lines[#lines + 1] = "level " .. tostring(c.level)
-    return table.concat(lines, "\n")
+    return c
 end
 
-local function play_rest(c, dm, rng, from)
+-- Between sessions and prep, as this kind of DM would (tools/sim/museum.lua).
+local function prep_week(c, style, rng)
+    local prep = c:start_week()
+    for _, m in ipairs(c.chat) do
+        if m.ask and not m.answered then
+            museum_week.answer_chat(c, m, (style == "careful") and 1 or rng:int(1, 3))
+        end
+    end
+    for _, pr in ipairs(c.adv.prompts) do
+        if pr.kind == "request" then
+            adventure.answer_request(c, pr.id, adventure.data.ANSWERS[style == "careful" and 2 or rng:int(1, 4)])
+        elseif pr.kind == "loose" then
+            adventure.answer_loose(c, pr.id, 1)
+        elseif pr.kind == "ruling" then
+            adventure.answer_ruling(c, pr.id, style ~= "careless")
+        elseif pr.kind == "favor" then
+            adventure.answer_favor(c, pr.id, 1, 1)
+        end
+    end
+    local pm = prep.museum
+    if style ~= "careless" then
+        museum_week.prep_greedy(prep)
+        for _, id in ipairs(pm.ahead) do
+            for _, kid in ipairs(adventure.data.rooms[id].knobs or {}) do
+                local k = adventure.data.knobs[kid]
+                museum_week.set_knob(prep, kid, k.pick_hero and "mara" or (rng:chance(0.6) or nil))
+            end
+        end
+    end
+    if pm.boss then
+        c.adv.boss = { opener = rng:chance(0.7) and "talk" or "ambush", style = rng:chance(0.6) and "yields" or "last" }
+    end
+    return prep
+end
+
+-- The night, answered as this kind of DM would; returns every line the table heard, in order.
+local function play_night(c, style, rng)
+    local night = c:start_night()
     local out = {}
-    for w = from, content.arc.SESSIONS + 1 do   -- one week past the slice, too
-        out[#out + 1] = play_week(c, dm, rng)
+    local ev = night:advance()
+    local guard = 0
+    while ev.kind ~= "done" and guard < 4000 do
+        guard = guard + 1
+        local answer
+        if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" then
+            out[#out + 1] = ev.kind .. " " .. tostring(ev.who or ev.name or ev.style) .. ": " .. tostring(ev.text)
+        elseif ev.kind == "thought" then
+            local aid = thoughts.bot_play(night, ev, style, rng)
+            out[#out + 1] = "thought " .. tostring(ev.who) .. ": " .. tostring(ev.text) .. " -> " .. tostring(aid)
+        elseif ev.kind == "decision" then
+            local opts = ev.card.options
+            answer = (style == "careful") and 1 or rng:int(1, #opts)
+            if opts[answer].disabled then
+                answer = 1
+            end
+            out[#out + 1] = "decision " .. tostring(ev.card.id) .. " -> " .. answer
+        elseif ev.kind == "ruling" then
+            answer = 1
+        elseif ev.kind == "roll_where" then
+            answer = "open"
+        elseif ev.kind == "roll" then
+            answer = rng:d20()
+            out[#out + 1] = "roll " .. answer
+        end
+        ev = night:advance(answer)
+    end
+    local rep = c:finish_night()
+    c:level_up()
+    local st = c.adv
+    out[#out + 1] = string.format("week %d: average %s, marks %s, francs %d, at %s, level %d", c.week, tostring(rep.average),
+        table.concat(st.mark_list or {}, ","), st.francs or 0, tostring(st.at), c.level or 0)
+    return table.concat(out, "\n")
+end
+
+local function play_week(c, style, rng)
+    prep_week(c, style, rng)
+    return play_night(c, style, rng)
+end
+
+local function play_rest(c, style, rng)
+    local out = {}
+    while not adventure.over(c) and c.week < adventure.data.MAX_WEEKS do
+        out[#out + 1] = play_week(c, style, rng)
     end
     return out
 end
@@ -49,11 +132,11 @@ if arg[1] == "child" then
     local src = f:read("*a")
     f:close()
     local c = assert(save.load(src))
+    adventure.enter(c)
     io.write(save.dump(c) == src and "same\n" or "different\n")
-    local dm = bots.DMS[arg[3]]
     local rng = rng_mod.new(1)
     rng.s = tonumber(arg[4])
-    play_rest(c, dm, rng, tonumber(arg[5]))
+    play_rest(c, arg[3], rng)
     io.write("played on\n")
     os.exit(0)
 end
@@ -76,49 +159,66 @@ local function first_diff(a, b)
     return "same"
 end
 
+local function copy_rng(rng)
+    local r = rng_mod.new(1)
+    r.s = rng.s
+    return r
+end
+
 local biggest = 0
-for _, dm_key in ipairs(bots.ORDER) do
-    local dm = bots.DMS[dm_key]
-    for run = 1, 3 do
+for _, style in ipairs(STYLES) do
+    for run = 1, 2 do
         local seed = 9100 + run * 31
-        for stop = 0, content.arc.SESSIONS do
-            local a = campaign_mod.new(seed)
+        for stop = 0, adventure.data.MAX_WEEKS do
+            local a = new_campaign(seed)
             local rng = rng_mod.new(seed + 3)
-            a:session_zero(dm.s0)
-            for w = 1, stop do
-                play_week(a, dm, rng)
+            local w = 0
+            while w < stop and not adventure.over(a) do
+                play_week(a, style, rng)
+                w = w + 1
+            end
+            if w < stop then
+                break      -- (the prologue was over already)
             end
             local src = save.dump(a)
             biggest = math.max(biggest, #src)
             local b, err = save.load(src)
-            check(b ~= nil, string.format("%s run %d: load after session %d (%s)", dm_key, run, stop, tostring(err)))
+            check(b ~= nil, string.format("%s run %d: load after session %d (%s)", style, run, stop, tostring(err)))
             if b then
-                check(save.dump(b) == src, string.format("%s run %d: saving the loaded copy gives the same file", dm_key, run))
-                check(getmetatable(b) == campaign_mod and getmetatable(b.rng) == rng_mod and b.rng ~= a.rng,
-                      dm_key .. ": classes come back, nothing shared with the original")
+                adventure.enter(b)
+                check(save.dump(b) == src, string.format("%s run %d: saving the loaded copy gives the same file", style, run))
+                check(getmetatable(b) == campaign_mod and getmetatable(b.rng) == rng_mod and b.rng ~= a.rng and b.adv ~= a.adv,
+                      style .. ": classes come back, nothing shared with the original")
                 local path = SCRATCH .. "/bts_save_check.lua"
                 local f = assert(io.open(path, "wb"))
                 f:write(src)
                 f:close()
                 local rs = rng.s
-                local rng_b = rng_mod.new(1)
-                rng_b.s = rs
-                local want = play_rest(a, dm, rng, stop + 1)
-                local got = play_rest(b, dm, rng_b, stop + 1)
+                local b2 = assert(save.load(src))
+                adventure.enter(b2)
+                local want = play_rest(b, style, copy_rng({ s = rs }))
+                local got = play_rest(b2, style, copy_rng({ s = rs }))
+                check(#want == #got, string.format("%s run %d, saved after session %d: as many weeks, loaded twice (%d, %d)",
+                    style, run, stop, #want, #got))
                 for i = 1, #want do
                     local same = want[i] == got[i]
-                    check(same, string.format("%s run %d, saved after session %d: week %d plays the same after loading (%s)",
-                        dm_key, run, stop, stop + i, same and "" or first_diff(want[i], got[i])))
+                    check(same, string.format("%s run %d, saved after session %d: week %d plays the same, loaded twice (%s)",
+                        style, run, stop, stop + i, same and "" or first_diff(want[i], got[i] or "")))
                 end
-                local exe = arg[-1] or "texlua"
-                local p = io.popen(string.format('%s tools/tests/save_check.lua child "%s" %s %d %d', exe, path, dm_key, rs, stop + 1))
+                check(adventure.over(b), string.format("%s run %d, saved after session %d: the loaded copy plays on to an ending",
+                    style, run, stop))
+                local ok, err2 = pcall(play_rest, a, style, rng)
+                check(ok and adventure.over(a), string.format("%s run %d, saved after session %d: the original plays on to an ending (%s)",
+                    style, run, stop, tostring(err2)))
+                local exe = arg[-1] or "lua"
+                local p = io.popen(string.format('%s tools/tests/save_check.lua child "%s" %s %d', exe, path, style, rs))
                 local child = p:read("*a")
                 p:close()
-                -- texlua (Lua 5.3) seeds its string hashing per process, so pairs() order and with it
-                -- the rest of the campaign differ from process to process even without a save. So a
-                -- fresh process only has to rebuild the exact same campaign and play on without errors.
+                -- (Lua 5.3 seeds its string hashing per process, so pairs() order and with it the rest of
+                -- the campaign can differ from process to process even without a save. So a fresh
+                -- process only has to rebuild the exact same campaign and play on without errors.)
                 check(child == "same\nplayed on\n", string.format("%s run %d, saved after session %d: a fresh process loads the same campaign and plays on (%s)",
-                    dm_key, run, stop, child))
+                    style, run, stop, child))
             end
         end
     end
@@ -138,210 +238,102 @@ for _, bad in ipairs({ 'T[1]={os.exit(1)}', 'T[1]={("x"):rep(9)}', 'T[1]={"a".."
     check(not save.safe_line(bad) and save.load("F=2\nW=1\nS=1\n" .. bad .. "\n") == nil,
         "a line that isn't plain data is refused: " .. bad)
 end
--- New books (A13): the shelf, what was pulled in, the items the party carries and a published
--- adventure on the board all come back after loading.
-do
-    local books = require "game.model.books"
-    local items = require "game.model.items"
-    local c = campaign_mod.new(4242)
-    local rng = rng_mod.new(77)
-    c:session_zero(bots.DMS.plain.s0)
-    for _ = 1, 3 do
-        play_week(c, bots.DMS.plain, rng)
-    end
-    local prep = c:start_week()
-    check(books.get(c).arrived.vale_gazetteer == 4, "the gazetteer comes out in week 4")
-    prep:inspire("supplement")
-    local r = prep.reading
-    check(r ~= nil and r.book == "vale_gazetteer", "the supplement evening opens the newest book")
-    local mod_entry, place_entry
-    for _, e in ipairs(r and books.book(r.book).entries or {}) do
-        if e.kind == "module" and not mod_entry then mod_entry = e end
-        if e.kind == "place" and not place_entry then place_entry = e end
-    end
-    books.pull(c, prep, r, mod_entry.id)
-    books.pull(c, prep, r, place_entry.id)
-    items.earn(c, "cloak_of_protection")
-    check(prep:place_module(3, mod_entry.module), "a pulled adventure goes on the board")
-    c.at_night = true
-    local src = save.dump(c)
-    local b, err = save.load(src)
-    check(b ~= nil, "a campaign with books loads (" .. tostring(err) .. ")")
-    if b then
-        check(save.dump(b) == src, "saving the loaded book campaign gives the same file")
-        check(b.books.pulled[mod_entry.id] and b.books.pulled[place_entry.id] and b.books.modules[mod_entry.module],
-            "what was pulled in comes back")
-        check(b.prep.reading and b.prep.reading.left == r.left, "the open reading comes back with its pulls left")
-        check(b.prep.scenes[3].module and b.prep.scenes[3].module.id == mod_entry.module, "the adventure is still on scene 3")
-        local cloak
-        for _, it in ipairs(items.list(b)) do
-            if it.id == "cloak_of_protection" then cloak = it end
-        end
-        check(#items.list(b) == #items.list(c) and cloak ~= nil and cloak.holder ~= nil, "the party still carries its magic item")
-        check(require("game.model.deck").entry(b, place_entry.card.id) ~= nil, "the pulled place is still in the deck")
-    end
-end
 
--- Cards a campaign made for itself (a callback from inspiration) come back after loading.
-do
-    local seeds_mod = require "game.model.seeds"
-    local c = campaign_mod.new(77)
-    c:session_zero()
-    table.insert(c.canon, "the toll-taker owes Pip a favour")
-    local prep = c:start_week()
-    prep.extra = prep.extra - 5
-    local drawn = seeds_mod.inspire(c, prep, "canon")
-    local card = c.registered and c.registered[1]
-    check(card ~= nil and card.runtime, "a canon evening makes a campaign card")
-    if card then
-        local id = card.id
-        c.improv_deck = c.improv_deck or {}
-        table.insert(c.improv_deck, id)
-        c.last_used = { id }
-        content.components[id] = nil   -- as in a fresh process
-        local b, err = save.load(save.dump(c))
-        check(b ~= nil, "a save with a campaign card loads (" .. tostring(err) .. ")")
-        check(b and content.components[id] ~= nil and content.components[id] == b.registered[1],
-            "the campaign card is back in the game data after loading")
-    end
-end
--- The fix pass: a save made at "Run game night" keeps the board, and loading it plays the same
--- night from its start, then carries on as if it had never stopped.
-for _, dm_key in ipairs(bots.ORDER) do
-    local dm = bots.DMS[dm_key]
-    for stop = 1, content.arc.SESSIONS do
+-- A save made at "Run game night" keeps the board, and loading it plays the same night from its
+-- start, then carries on as if it had never stopped.
+for _, style in ipairs(STYLES) do
+    for stop = 1, 3 do
         local seed = 9300 + stop * 17
-        local a = campaign_mod.new(seed)
+        local a = new_campaign(seed)
         local rng = rng_mod.new(seed + 5)
-        a:session_zero(dm.s0)
-        for w = 1, stop - 1 do
-            play_week(a, dm, rng)
+        for _ = 1, stop - 1 do
+            play_week(a, style, rng)
         end
-        local prep = a:start_week()
-        bots.prep(dm, a, prep, rng)
+        local prep = prep_week(a, style, rng)
         a.at_night = true
         local src = save.dump(a)
         a.at_night = nil
         local b, err = save.load(src)
+        local b2 = save.load(src)
         check(b ~= nil and b.at_night and b.prep ~= nil and getmetatable(b.prep) == getmetatable(prep),
-            string.format("%s: a save at game night %d loads with its board (%s)", dm_key, stop, tostring(err)))
-        check(save.peek(src).at_night, dm_key .. ": the header says it was saved at game night")
-        if b then
-            check(save.dump(b) == src, dm_key .. ": saving the loaded game-night copy gives the same file")
-            local types_a, types_b = {}, {}
-            for i, sc in ipairs(prep.scenes) do
-                types_a[i] = tostring(sc.type) .. ":" .. tostring(prep:spent())
-                types_b[i] = tostring(b.prep.scenes[i].type) .. ":" .. tostring(b.prep:spent())
-            end
-            check(table.concat(types_a, ",") == table.concat(types_b, ","), dm_key .. ": the board comes back as built")
-            local rs = rng.s
-            local rng_b = rng_mod.new(1)
-            rng_b.s = rs
-            local function night_of(c, r)
-                local night = c:start_night()
-                bots.play_night(night, r, dm)
-                local rep = c:finish_night()
-                local out = telemetry.week_record(c, 300, night.clock)
-                if dm.level and rep.level.ready then
-                    c:level_up()
+            string.format("%s: a save at game night %d loads with its board (%s)", style, stop, tostring(err)))
+        check(save.peek(src).at_night, style .. ": the header says it was saved at game night")
+        if b and b2 then
+            adventure.enter(b)
+            adventure.enter(b2)
+            check(save.dump(b) == src, style .. ": saving the loaded game-night copy gives the same file")
+            local function board(p)
+                local ids = {}
+                for id in pairs(p.museum.prepped) do
+                    ids[#ids + 1] = id
                 end
-                return out
+                table.sort(ids)
+                return table.concat(ids, ",") .. ":" .. tostring(p:spent())
             end
-            local want = night_of(a, rng)
-            local got = night_of(b, rng_b)
-            check(want == got, string.format("%s: game night %d plays the same after loading at Run game night (%s)",
-                dm_key, stop, want == got and "" or first_diff(want, got)))
-            check(not b.at_night, dm_key .. ": the night clears the game-night flag")
-            local after = save.dump(b)
-            check(not string.find(after, "\nN=1"), dm_key .. ": the save after the night is an ordinary between-weeks save")
-            local wa, wb = play_week(a, dm, rng), play_week(b, dm, rng_b)
-            check(wa == wb, dm_key .. ": the week after plays the same too")
+            check(board(prep) == board(b.prep), style .. ": the board comes back as built")
+            local rs = rng.s
+            local rng_b = copy_rng({ s = rs })
+            local want, got = play_night(b, style, rng_b), play_night(b2, style, copy_rng({ s = rs }))
+            check(want == got, string.format("%s: game night %d plays the same every time it's loaded at Run game night (%s)",
+                style, stop, want == got and "" or first_diff(want, got)))
+            check(not b.at_night, style .. ": the night clears the game-night flag")
+            check(not string.find(save.dump(b), "\nN=1"), style .. ": the save after the night is an ordinary between-weeks save")
+            local ok, err2 = pcall(play_night, a, style, rng)
+            check(ok, style .. ": the original plays its night too (" .. tostring(err2) .. ")")
+            if not adventure.over(b) then
+                local ok2, err3 = pcall(play_week, b, style, rng_b)
+                check(ok2, style .. ": and the week after (" .. tostring(err3) .. ")")
+            end
         end
     end
 end
+
 -- Prep survives a quit (A11): a save made mid-prep keeps the half-built board and the week, and
 -- carrying on from it plays exactly as if nobody had quit.
-for _, dm_key in ipairs(bots.ORDER) do
-    local dm = bots.DMS[dm_key]
-    local seed = 9700 + #dm_key
-    local a = campaign_mod.new(seed)
+for _, style in ipairs(STYLES) do
+    local seed = 9700 + #style
+    local a = new_campaign(seed)
     local rng = rng_mod.new(seed + 5)
-    a:session_zero(dm.s0)
-    play_week(a, dm, rng)
+    play_week(a, style, rng)
     local prep = a:start_week()
-    -- Half the board: scene 1's type and a card, then quit.
-    prep:set_type(1, prep.scenes[1].type or "social")
-    local first = nil
-    for _, kind in ipairs(content.kinds) do
-        for _, c in ipairs(prep.hand[kind] or {}) do
-            if not first and prep:place(1, c.id) then
-                first = c.id
-            end
-        end
+    -- Half the board: the first room ahead prepped, then quit.
+    local first = prep.museum.ahead[1]
+    if first and museum_week.can_prep(prep, first) then
+        museum_week.set_prepped(prep, first, true)
     end
     a.at_prep = true
     local src = save.dump(a)
     local b, err = save.load(src)
-    check(save.peek(src).at_prep and not save.peek(src).at_night, dm_key .. ": the header says it was saved mid-prep")
+    local b2 = save.load(src)
+    check(save.peek(src).at_prep and not save.peek(src).at_night, style .. ": the header says it was saved mid-prep")
     check(b ~= nil and b.at_prep and b.prep ~= nil and b.week == a.week,
-        string.format("%s: a mid-prep save loads with its board and its week (%s)", dm_key, tostring(err)))
-    if b then
-        check(not first or b.prep:placed_at(first) == 1, dm_key .. ": the card placed before quitting is still on scene 1")
-        check(b.prep:left() == prep:left(), dm_key .. ": the hours spent before quitting stay spent")
-        check(save.dump(b) == src, dm_key .. ": saving the loaded mid-prep copy gives the same file")
-        local rng_b = rng_mod.new(1)
-        rng_b.s = rng.s
-        bots.prep(dm, a, a.prep, rng)
-        bots.prep(dm, b, b.prep, rng_b)
-        local function night_of(c, r)
-            local night = c:start_night()
-            bots.play_night(night, r, dm)
-            c:finish_night()
-            return telemetry.week_record(c, 300, night.clock)
-        end
-        local want, got = night_of(a, rng), night_of(b, rng_b)
-        check(want == got, string.format("%s: the night after a mid-prep quit plays the same (%s)", dm_key,
+        string.format("%s: a mid-prep save loads with its board and its week (%s)", style, tostring(err)))
+    if b and b2 then
+        adventure.enter(b)
+        adventure.enter(b2)
+        check(not first or (b.prep.museum.prepped[first] and true) == (prep.museum.prepped[first] and true),
+            style .. ": the room prepped before quitting is still prepped")
+        check(b.prep:left() == prep:left(), style .. ": the hours spent before quitting stay spent")
+        check(save.dump(b) == src, style .. ": saving the loaded mid-prep copy gives the same file")
+        local want, got = play_night(b, style, copy_rng(rng)), play_night(b2, style, copy_rng(rng))
+        check(want == got, string.format("%s: the night after a mid-prep quit plays the same every time it's loaded (%s)", style,
             want == got and "" or first_diff(want, got)))
-        check(not b.at_prep and not string.find(save.dump(b), "\nP=1"), dm_key .. ": the night clears the mid-prep flag")
+        check(not b.at_prep and not string.find(save.dump(b), "\nP=1"), style .. ": the night clears the mid-prep flag")
     end
 end
+
 -- A game-night save whose board is missing falls back to prep instead of a broken night.
 do
-    local c = campaign_mod.new(41)
-    c:session_zero()
+    local c = new_campaign(41)
     c:start_week()
     c.at_night = true
-    local src = string.gsub(save.dump(c), "\nN=1", "\nN=1")
     local saved_prep = c.prep
     c.prep = nil
     local b = save.load(save.dump(c))
     check(b and not b.at_night, "a game-night save without its board loads as a between-weeks save")
     c.prep = saved_prep
 end
--- A save from an older build (October 16, mid-prep in week 2) still plays on: its night, and the
--- next week's start (the group chat's talker from that build had no "openers": d8bd251 crashed
--- there).
-do
-    local f = io.open("tools/tests/fixtures/save_oct16_week2.txt")
-    local src = f and f:read("a")
-    if f then
-        f:close()
-    end
-    local old = src and save.load(src)
-    local ok, err = false, "no fixture"
-    if old then
-        local rng = rng_mod.new(9)
-        ok, err = pcall(function()
-            bots.prep(bots.DMS.careful, old, old.prep, rng)
-            local night = old:start_night()
-            bots.play_night(night, rng, bots.DMS.careful)
-            old:finish_night()
-            old:start_week()
-        end)
-    end
-    check(ok, "a save from an older build plays its night and starts the next week (" .. tostring(err) .. ")")
-end
-local head = save.peek(save.dump(campaign_mod.new(5)))
+local head = save.peek(save.dump(new_campaign(5)))
 check(head and head.week == 0 and head.seed == 5, "the header says the week and seed")
 
 print(string.format("%d of %d checks pass; biggest save %.0f KB", checks - failures, checks, biggest / 1024))

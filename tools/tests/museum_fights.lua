@@ -207,22 +207,24 @@ end
 
 local campaign_mod = require "game.model.campaign"
 local rng_mod = require "game.model.rng"
-local bots = require "slice_bots"
+local adventure = require "game.model.adventure"
+local social = require "game.model.social"
 local fight = require "game.model.fight"
 
 local seen, ledger_seen = {}, {}
 local function night_fight(seed, level, encounter)
+    adventure.enter()
     local c = campaign_mod.new(seed)
+    adventure.enter(c)
     local rng = rng_mod.new(seed + 3)
-    local dm = bots.DMS[bots.ORDER[1]]
-    c:session_zero(dm.s0)
+    c:session_zero(social.default_choices())
     c.level = level
-    local prep = c:start_week()
-    bots.prep(dm, c, prep, rng)
+    c:start_week()
     local night = c:start_night()
-    local sc = night.scenes[1]
-    sc.type, sc.comps.cast = "combat", nil
-    sc.encounter = encounter
+    -- A bare room with this fight in it (the museum's walk round its rooms isn't the point here).
+    local sc = { index = 1, type = "combat", comps = {}, missing = {}, difficulty = 2, encounter = encounter }
+    night.scenes = { sc }
+    night.mus = { added = {}, pending = {}, rooms = {}, harsh_log = {}, francs_start = 0, got = {} }
     local result, f, start, fin
     night.co = coroutine.create(function()
         night.scene = sc

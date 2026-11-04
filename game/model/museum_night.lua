@@ -1422,7 +1422,6 @@ function M.quick_room(night, sc)
         local cast, goal = sc.comps.cast, sc.comps.goal
         M.read(night, sc)
         night:dress_board()
-        night:note_meeting(sc)
         if cast and cast.talks ~= false then
             night.npc_cue = true
             night:describe(cast, "narration")
@@ -1447,7 +1446,7 @@ function M.quick_room(night, sc)
         if not night.pc_list then
             require("game.model.fight").party(night)
         end
-        night:do_rest({ rest = "short" }, "short", "town", sc)
+        night:do_rest("short", "town")
     end
     if not sc.virtual then
         night:settle_scene(sc)
@@ -2491,7 +2490,7 @@ function M.go_back(night, b)
             if not night.pc_list then
                 require("game.model.fight").party(night)
             end
-            night:do_rest({ rest = "short" }, "short", "town", sc)
+            night:do_rest("short", "town")
         end
     end
     sc.outcome = sc.outcome or "win"
@@ -2703,14 +2702,6 @@ function M.intro(night)
         end
     end
     night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
-end
-
--- When time runs out before a room: stop here, next week picks up.
-function M.out_of_time(night, next_name)
-    night:say("You glance at the clock: " .. night:clock_text() .. ". \"And that's where we stop tonight.\" "
-        .. (next_name and (next_name .. " will have to wait for next week.") or ""), "dm")
-    night.campaign.last_cliff = next_name and util.lower_first(next_name) or nil
-    night.ended_on_cliff = true
 end
 
 -- Ending the session is always the DM's call (the playtest, November 3: "sessions should never
@@ -3037,7 +3028,7 @@ function M.maybe_break(night, before_boss)
         if not night.pc_list then
             fight.party(night)
         end
-        night:do_rest({ rest = o.rest == "long" and "long" or "short" }, o.rest, "town", night.scene)
+        night:do_rest(o.rest == "long" and "long" or "short", "town")
     elseif o and o.research then
         night.research = (night.research or 0) + o.research
     end

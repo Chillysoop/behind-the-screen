@@ -94,8 +94,10 @@ if __name__ == "__main__":
     for c in found:
         print("require cycle: " + " <-> ".join(c))
     packed = bundled(mods)
-    missing = sorted(m for m in LAZY if m in mods and m not in packed)
+    # (A lazy require in a module the build leaves out never runs: only the packed ones count.)
+    missing = sorted(m for m in LAZY if m in mods and m not in packed and any(f in packed for f in LAZY[m]))
     for m in missing:
-        print("only reached through util.lazy, so not bundled: %s (from %s)" % (m, ", ".join(sorted(set(LAZY[m])))))
+        froms = sorted(set(f for f in LAZY[m] if f in packed))
+        print("only reached through util.lazy, so not bundled: %s (from %s)" % (m, ", ".join(froms)))
     print("%d modules, %d cycles, %d lazy modules left out of the build" % (len(mods), len(found), len(missing)))
     sys.exit(1 if (found or missing) else 0)

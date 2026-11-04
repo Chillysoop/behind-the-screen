@@ -68,8 +68,6 @@ function M.duration(ev)
         return 1.3          -- (a small moment's die: a glance, not a held breath. table_life.lua)
     elseif k == "walk" then
         return 0.6 + 0.35 * #(ev.path or {})      -- (a hero crossing the mat: night_view walks them square by square)
-    elseif k == "clue" then
-        return 1.5
     elseif k == "turn" then
         local t = 0.7
         for _, s in ipairs(ev.steps or {}) do
@@ -85,14 +83,10 @@ function M.duration(ev)
         return 1.0
     elseif k == "decision" then
         return think(ev.card.text, #ev.card.options)
-    elseif k == "improv" then
-        return 18
     elseif k == "roll_where" then
         return 3
     elseif k == "roll" then
         return 5.5
-    elseif k == "cook" then
-        return 4
     elseif k == "ruling" then
         return think(ev.prompt, #ev.options) - 2
     end
@@ -100,6 +94,6 @@ function M.duration(ev)
 end
 
 -- Counted toward the gate's 8 to 15 decisions a night.
-M.DECISION_KINDS = { decision = true, improv = true, ruling = true }
+M.DECISION_KINDS = { decision = true, ruling = true }
 
 return M

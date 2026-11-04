@@ -1,7 +1,7 @@
 -- Game night (M4): the table plays the night. Scenery drops onto the mat, paper
 -- minis walk and fight, the players lean in or drift to their phones, and speech
 -- bubbles pop over their heads. Captions carry the DM's narration; decision cards,
--- improv hands, rulings and big rolls slide in when the DM is needed.
+-- rulings and big rolls slide in when the DM is needed.
 --
 -- The model (game/model/night.lua) hands over one beat at a time with its playing
 -- time; this view stages it (messages to main/table/table.script), times it, and
@@ -22,7 +22,6 @@ local pacing = require "game.model.pacing"
 local thoughts = require "game.model.thoughts"
 local recap_view = require "game.ui.recap_view"
 local standing = require "game.model.standing"
-local night_mod = require "game.model.night"
 local board_mod = require "game.model.board"
 local util = require "game.model.util"
 local content = require "game.model.content"
@@ -41,7 +40,7 @@ local H = 900
 local SPEEDS = { 0.5, 1, 2, 4 }
 M.SPEED_1X = 2
 -- The gentle timer (T): seconds before the safe default plays itself.
-local TIMERS = { decision = 30, improv = 45, ruling = 25, roll_where = 15, cook = 15 }
+local TIMERS = { decision = 30, ruling = 25, roll_where = 15 }
 local ROLL_PATIENCE = 9          -- seconds to wait for the physical die before rolling for it
 
 local CHIP_Y, CHIP_W, CHIP_H = panels.Y, panels.W, panels.H
@@ -51,12 +50,12 @@ local LEFT_X, LEFT_W = 24, 560
 local CAPTION_BOTTOM, CAPTION_W = 664, 900
 local CARD_BOTTOM = 760
 -- Longer read-alouds: the recap and the session's opening.
--- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in, the
--- bridge between scenes. It gets the boxed-passage look; the DM's own notes ("You improvise")
--- and the table's reactions stay plain captions, and asides go to the log only.
+-- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in. It gets
+-- the boxed-passage look; the DM's own notes and the table's reactions stay plain captions, and
+-- asides go to the log only.
 -- A goal line is the DM's own aim ("Pip wants to know what's behind the door"), not something
 -- you'd read to the table, so it stays a plain caption (playtest, October 13).
-local READ_ALOUD = { recap = true, opening = true, narration = true, bridge = true, twist = true, seed = true }
+local READ_ALOUD = { recap = true, opening = true, narration = true, twist = true }
 local LOG_X, LOG_Y, LOG_W, LOG_H = 24, 70, 520, 690
 local STRIP_LABEL = "This scene's rolls  (? = behind your screen)"
 local STRIP_RIGHT, STRIP_Y, DIE = 1440, 66, 30   -- (right of it: the small-moment crits toggle)
@@ -104,9 +103,6 @@ local TIER_TITLE = { triumph = "A triumph!", success = "It works.", near = "So c
 local TONES = { good = { theme.green, "generous" }, twist = { theme.gold, "comes with a catch" }, bad = { theme.red, "harsh" },
                 plain = { kit.rgba("#8a7c6a"), "plain" } }
 local TONE_ORDER = { "good", "plain", "twist", "bad" }
-local FIT_HAND = { great = "Fits this scene", good = "Always works", poor = "A stretch" }
-local FIT_DRIFT = { great = "They'll love this", good = "Solid", poor = "Not their thing" }
-local FIT_TOGETHER = { great = "Together: this will sing", good = "Together: solid", poor = "Together: a stretch" }
 
 local function rgba(r, g, b, a)
     return vmath.vector4(r, g, b, a or 1)
@@ -231,7 +227,6 @@ function M.start(app)
     app.rolling = false
     app.night_done = false
     app.keepsake_seen = nil
-    app.handout_seen = nil
     -- A clean mat to start: tonight's first scene lays its place's map, if it has one.
     if app.pieces_key and app.pieces_key ~= "" then
         post("pieces", { cells = nil })
@@ -556,9 +551,7 @@ function M.draw_pips(app)
     local word, col, short
     -- (A warm word from someone in the scene counts too: the second playtest, October 17, saw
     -- "normal" straight after the card promised "easier".)
-    -- (And a player's pull you followed: the plan slipped, game/model/pulls.lua.)
     local edge = ((pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)) + (pr.lead and -2 or 0)
-        + (pr.slip and 2 or 0)
     if edge < 0 then
         word, short, col = "final roll: easier (DC " .. util.int(edge) .. ")", "final roll: easier", theme.green
     elseif edge > 0 then
@@ -1303,8 +1296,7 @@ local function table_words(app)
     return table.concat(parts, ", "), best
 end
 
-local HOW = { won = "They won.", fled = "The foes ran.", surrendered = "They surrendered.", lost = "The party fell back.",
-              escaped = "The boss got away." }
+local HOW = { won = "They won.", fled = "The foes ran.", lost = "The party fell back.", escaped = "The boss got away." }
 
 -- The scene's card: what the heroes set out to do and whether they did, what they found, and how
 -- the table feels, which is what the night is scored on.
@@ -1317,28 +1309,8 @@ function M.scene_card(app, ev)
     else
         table.insert(rows, { won and "It went their way." or "It went against them.", won and theme.green or theme.orange, "ui18b" })
     end
-    local found = {}
-    if app.scene_hinge then
-        table.insert(found, app.scene_hinge)    -- what next session hangs on, first
-    end
     if ev.reward then
-        table.insert(found, ev.reward)
-    end
-    for _, c in ipairs(app.scene_found or {}) do
-        if c ~= app.scene_hinge then
-            table.insert(found, c)
-        end
-    end
-    if #found > 0 then
-        local more = #found > 1 and ("  (+" .. util.int(#found - 1) .. " more in your notes)") or ""
-        local first = kit.ellipsize("Found: " .. found[1], "ui14", (SIDE_W - 32) * 2 - 30 - kit.width(more, "ui14"))
-        table.insert(rows, { first .. more, theme.text })
-    end
-    -- What the lore screen said this scene would open, now that it has (the card-led playtest,
-    -- October 16: "joins your hand next session" was promised, and never mentioned again).
-    if ev.opens and #ev.opens > 0 then
-        table.insert(rows, { "Next session: " .. util.join_names(ev.opens) .. (#ev.opens == 1 and " joins" or " join")
-            .. " your hand.", theme.gold })
+        table.insert(rows, { kit.ellipsize("Found: " .. ev.reward, "ui14", (SIDE_W - 32) * 2 - 30), theme.text })
     end
     -- A fight scene: the fight's card is still up, so this one carries what it said (the re-test,
     -- October 16: the fight card was gone two seconds after it came up).
@@ -1364,8 +1336,7 @@ function M.scene_card(app, ev)
             or "The heroes don't have to win every scene. The night is scored on how the table feels: that's the bars along "
             .. "the bottom, not this.", theme.gold })
     end
-    local top = ev.total and ("SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total) .. " DONE")
-        or ("ROOM " .. util.int(ev.index) .. " DONE")      -- v2: the museum doesn't know how far tonight goes
+    local top = "ROOM " .. util.int(ev.index) .. " DONE"      -- (the museum doesn't know how far tonight goes)
     if fight then
         top = top .. ":  " .. string.upper(HOW[fight.how] or "the fight's over")
     end
@@ -1422,7 +1393,7 @@ function M.fight_rows(sm)
         table.insert(rows, { "Beaten: " .. util.join_names(mid_names(sm.beaten)) .. ".", theme.green })
     end
     if #(sm.ran or {}) > 0 then
-        table.insert(rows, { ((sm.how == "surrendered" and "Gave up: ") or (sm.how == "yielded" and "Stood down: ") or "Ran: ")
+        table.insert(rows, { ((sm.how == "yielded" and "Stood down: ") or "Ran: ")
             .. util.join_names(mid_names(sm.ran)) .. ".", theme.dim })
     end
     return rows
@@ -1723,12 +1694,12 @@ function M.update_fx(app, dt)
             fade(tc.nodes, tc.colors, (tc.life - tc.age) / 0.5)
         end
     end
-    -- The side card steps aside for a call that needs the space (a card on the right, the improv
-    -- hand, the opening) and waits; it comes back after.
+    -- The side card steps aside for a call that needs the space (a card on the right, the opening)
+    -- and waits; it comes back after.
     local sd = app.side
     if sd then
         local pk = app.pending and app.pending.kind
-        local hide = pk == "decision" or pk == "improv" or pk == "cinematic"
+        local hide = pk == "decision" or pk == "cinematic"
         if hide ~= (sd.hidden or false) then
             sd.hidden = hide
             for _, n in ipairs(sd.nodes) do
@@ -2099,11 +2070,6 @@ local function is_party(app, id)
     return type(id) == "string" and app.campaign:player(id) ~= nil
 end
 
-local function signed(n)
-    n = math.floor((n or 0) + 0.5)
-    return (n >= 0 and "+" or "") .. util.int(n)
-end
-
 -- Why an attack landed or didn't, in one line anyone can follow (the newcomer playtest, October
 -- 16: "a 9 against 15 both missed and hit", three ACs for one bandit, no reason given).
 -- "Thessaly's Fire Bolt" / "the road's bandit chief's scimitar"
@@ -2441,11 +2407,6 @@ function M.play_step(app, s, pace)
         -- Standing down with a boss who yielded: her line says it, once (fight.lua's yield).
         M.float(app, s.id, "Stands down", theme.teal)
         battle_hud.gone(app, s.id)
-    elseif k == "flee" and s.why == "surrender" then
-        -- A foe who surrenders stays put, hands up (A7): never "runs for it".
-        M.float(app, s.id, "Surrenders", theme.teal)
-        battle_hud.gone(app, s.id)
-        M.push(app, name_of(app, s.id) .. " throws down their weapon and surrenders.", "good")
     elseif k == "flee" then
         post("flee", { id = s.id })
         battle_hud.gone(app, s.id)
@@ -2511,7 +2472,6 @@ function M.handle(app, ev)
     end
     if k == "scene" then
         M.prune_thinks(app)        -- a thought about the last scene has passed with it
-        app.scene_found, app.scene_hinge = {}, nil
         -- This scene's rolls only (the card-led playtest, October 16: last scene's dice stayed up), and
         -- last scene's card goes (the second playtest, October 17: it was still up under the new
         -- scene's title).
@@ -2528,8 +2488,7 @@ function M.handle(app, ev)
             end
         end
         app.scene_type_name = ev.type_name
-        app.scene_label = (ev.total and ("Scene " .. util.int(ev.index) .. " of " .. util.int(ev.total))
-            or ("Room " .. util.int(ev.index))) .. ":  " .. ev.title
+        app.scene_label = "Room " .. util.int(ev.index) .. ":  " .. ev.title
         local who = ev.cast and (" with " .. util.lower_first(ev.cast)) or ""
         -- What the scene is for, under its name (the card-led night, October 16).
         app.scene_sub = ev.goal and ((ev.type_name or "") .. ": " .. util.lower_first(ev.goal)) or ((ev.type_name or "") .. who)
@@ -2541,9 +2500,7 @@ function M.handle(app, ev)
         -- (The goal is under the scene's name in the header, right above: the title card says where
         -- and who.)
         local sub = (ev.type_name or "") .. who
-        M.title(app, (ev.total and ("SCENE " .. util.int(ev.index) .. " OF " .. util.int(ev.total)) or ("ROOM " .. util.int(ev.index)))
-            .. (ev.story and "   -   THIS WEEK'S STORY" or ""),
-            ev.title, sub)
+        M.title(app, "ROOM " .. util.int(ev.index), ev.title, sub)
         stage(app, ev)
         cam(app, 2)
     elseif k == "stage" then
@@ -2553,7 +2510,7 @@ function M.handle(app, ev)
         end
         cam(app, 2)
     elseif k == "cinematic" then
-        -- The opening of session 1 and the briefing after the introductions (October 15).
+        -- The opening of the first session (museum_night.intro).
         app.pending = ev
         app.cine_i = 1
         M.show_cinematic(app, ev)
@@ -2600,24 +2557,6 @@ function M.handle(app, ev)
             app.tumble_die(ev.who, 20)
         end
         post("pose", { who = ev.who, pose = "cheer", hold = true })
-    elseif k == "handout" then
-        -- A handout you made in prep lands in front of a player (game/model/handouts.lua).
-        app.handout_seen = true
-        local p = player(app, ev.who)
-        if p then
-            M.float(app, ev.who, "A handout!", theme.gold)
-            M.push(app, p.name .. " gets " .. (ev.what or "a handout") .. ". It stays at their seat.", "reward")
-        end
-        if app.place_handouts then
-            app.place_handouts(ev.who)
-        end
-        post("pose", { who = ev.who, pose = "lean", hold = true })
-    elseif k == "story_back" then
-        -- A storyline the table thought was dropped comes back (game/model/storylines.lua).
-        if ev.who then
-            M.float(app, ev.who, "It's back!", theme.gold)
-        end
-        M.push(app, (ev.name or "A dropped storyline") .. " is back. Nobody saw that coming.", "thread")
     elseif k == "keepsake" then
         -- Their gift from last week, put to work on your side of the table: they spot it.
         app.keepsake_seen = true
@@ -2649,13 +2588,6 @@ function M.handle(app, ev)
         if app.jail_die then
             app.jail_die(ev.who)
         end
-    elseif k == "scene_goal" then
-        -- An improvised goal: the header says it too.
-        app.scene_sub = (app.scene_type_name or "Scene") .. ": " .. util.lower_first(ev.goal or "")
-        if app.n_sub then
-            gui.set_text(app.n_sub, kit.ellipsize(app.scene_sub, "ui14", 360))
-        end
-        M.draw_pips(app)
     elseif k == "progress" then
         -- A mid-scene big roll moved the dots too (the card-led playtest: a triumph left them be).
         app.progress = ev.progress
@@ -2674,15 +2606,6 @@ function M.handle(app, ev)
         end
     elseif k == "stage_dress" then
         -- v2: the board dresses itself without a line about it (ev.reveal did the work above).
-    elseif k == "clue" then
-        -- The party learned something: it goes in the DM's notes.
-        M.toast(app, "NEW IN YOUR NOTES", ev.text)
-        M.push(app, "Noted: " .. ev.text, "clue", true)
-        app.scene_found = app.scene_found or {}
-        table.insert(app.scene_found, ev.text)
-        if ev.hinge then
-            app.scene_hinge = ev.text
-        end
     elseif k == "scene_end" then
         M.scene_card(app, ev)
     elseif k == "npc" then
@@ -2907,7 +2830,6 @@ function M.handle(app, ev)
             local won = ev.winner == "party"
             local how = ev.summary and ev.summary.how
             M.caption(app, (how == "fled" and "The foes break and run. The fight is over.")
-                or (how == "surrendered" and "They throw down their weapons. The fight is over.")
                 or (how == "escaped" and "The boss gets away. The fight is over.")
                 or (won and "The fight is over. The party stands.") or "The party falls back.", won and "good" or "bad")
             if ev.summary then
@@ -2985,7 +2907,7 @@ function M.handle(app, ev)
         M.clear_fx(app)
         cam(app, 1)
         M.show_done(app)
-    elseif k == "decision" or k == "improv" or k == "ruling" or k == "roll_where" or k == "cook" then
+    elseif k == "decision" or k == "ruling" or k == "roll_where" then
         if k == "ruling" and ev.tier then
             -- The big roll's die in the strip takes its colour now it's decided.
             for i = #app.strip, 1, -1 do
@@ -3013,7 +2935,6 @@ function M.handle(app, ev)
                                          crit = ev.value == 20, fumble = ev.value == 1 })
         end
         app.pending = ev
-        app.improv_sel = {}
         app.pending_left = app.timer_on and TIMERS[k] or nil
         if k == "decision" and ev.card and ev.card.turn_of and app.in_battle then
             battle_hud.turn(app, ev.card.turn_of)
@@ -3021,8 +2942,6 @@ function M.handle(app, ev)
         M.clear_fx(app)
         if k == "decision" then
             cam(app, app.in_battle and 2 or 1)   -- a card mid-fight keeps the mat in view (A7)
-        elseif k == "improv" then
-            cam(app, 2)
         else
             -- The DC card looks at the tray the die is about to go into (A9).
             if k == "roll_where" and app.set_tray then
@@ -3073,9 +2992,8 @@ function M.answer(app, value)
     M.step(app, value)
 end
 
--- The opening and the briefing (game/model/lore.lua) -------------------------------------------
--- The DM setting up the world, a card at a time, with the table behind it: each storyline,
--- faction and truth with its icon, the same icon it wears on the cards from here on.
+-- The opening (museum_night.intro) ------------------------------------------------------------
+-- The DM setting up the adventure, a card at a time, with the table behind it.
 
 local function lore_icon(x, y, size, row)
     if row.face then
@@ -3088,34 +3006,6 @@ local function lore_icon(x, y, size, row)
     end
 end
 
--- A briefing row's text height (capped at its lines).
-function M.row_h(r, w)
-    return math.min(kit.text_height(r.text, "ui18", w - 150), (r.lines or 2) * kit.line_height("ui18"))
-end
-
--- How tall a briefing card needs to be, and how far apart its rows can sit.
-function M.briefing_layout(sl, w)
-    local function total(gap)
-        local hh = 70 + (sl.sub and 18 or 0)
-        for _, r in ipairs(sl.rows or {}) do
-            hh = hh + math.max(gap, M.row_h(r, w) + 16)
-        end
-        hh = hh + 6
-        if sl.where then
-            hh = hh + math.max(34, kit.text_height(sl.where, "story22", w - 260) + 10)
-        end
-        if sl.first then
-            hh = hh + kit.text_height(sl.first, "story22", w - 260) + 18
-        end
-        return hh + 96     -- the dots and the button
-    end
-    local gap = 46
-    while gap > 36 and total(gap) > 700 do
-        gap = gap - 2
-    end
-    return { h = total(gap), gap = gap }
-end
-
 function M.show_cinematic(app, ev)
     M.close_modal(app)
     M.clear_fx(app)
@@ -3126,31 +3016,18 @@ function M.show_cinematic(app, ev)
     local sl = slides[i] or {}
     kit.box(0, 0, kit.W, kit.H, kit.rgba("#0c0806", 0.62), { round = false })
     local w, h = 980, 560
-    -- A briefing grows to fit what it has to say (October 15: four heroes and a long recap ran
-    -- off the bottom), up to the player panels; past that its rows sit closer.
-    local fit = sl.briefing and M.briefing_layout(sl, w) or nil
-    if fit then
-        h = util.clamp(fit.h, 340, 700)
-    end
     local x, y = (kit.W - w) / 2, math.max(64, math.min(150, 760 - h))
     kit.box(x - 3, y - 3, w + 6, h + 6, sl.color and kit.rgba(sl.color) or theme.gold, { radius = 15 })
     kit.box(x, y, w, h, theme.paper, { radius = 13 })
     -- Buttons first: the first one is the way on (number keys and the test drivers press it).
     local last = i >= #slides
-    kit.button(x + w - 236, y + h - 64, 210, 44, last and (ev.id == "opening" and "Introductions  >" or "Let's play  >")
-        or "Continue  >", function()
+    kit.button(x + w - 236, y + h - 64, 210, 44, last and "Introductions  >" or "Continue  >", function()
         M.cinematic_next(app)
     end, { color = theme.go, hover = theme.go_hover, key = "cine_next" })
     if not last then
-        kit.button(x + 26, y + h - 58, 150, 32, ev.id == "opening" and "Skip the opening" or "Skip ahead", function()
-            if ev.id == "opening" then
-                app.cine_i = #slides
-                M.cinematic_next(app)
-            else
-                -- (A catch-up skips to its last card: where they are and what's first.)
-                app.cine_i = #slides
-                M.show_cinematic(app, ev)
-            end
+        kit.button(x + 26, y + h - 58, 150, 32, "Skip the opening", function()
+            app.cine_i = #slides
+            M.cinematic_next(app)
         end, { font = "ui14", color = theme.panel3, key = "cine_skip" })
     end
     -- Which card of how many.
@@ -3158,50 +3035,10 @@ function M.show_cinematic(app, ev)
         kit.dot(x + w / 2 - (#slides - 1) * 12 + (k - 1) * 24, y + h - 42, k == i and 14 or 10,
             k == i and theme.ink or kit.rgba("#8a7a62"))
     end
-    if sl.briefing then
-        -- The briefing: the lore in a line each, the heroes, then where they are and what's first.
-        -- (The recap after the first session: what they found, each under its storyline's icon.)
-        kit.text(x + 40, y + 30, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"), { w = w - 80, lines = 1 })
-        local ry = y + 70
-        if sl.sub then
-            kit.text(x + 40, ry - 8, sl.sub, "ui14", kit.rgba("#8a5a20"))
-            ry = ry + 18
-        end
-        local gap = fit.gap
-        for _, r in ipairs(sl.rows or {}) do
-            local th = M.row_h(r, w)
-            lore_icon(x + 40, ry - 4, 40, r)
-            kit.text(x + 96, ry + 4, r.text, "ui18", theme.ink, { w = w - 150, lines = r.lines or 2 })
-            ry = ry + math.max(gap, th + 16)
-        end
-        ry = ry + 6
-        if sl.where then
-            kit.text(x + 40, ry, sl.where_label or "WHERE YOU ARE", "ui14", kit.rgba("#8a5a20"))
-            kit.text(x + 220, ry - 3, sl.where, "story22", theme.ink, { w = w - 260, lines = 2 })
-            ry = ry + math.max(34, kit.text_height(sl.where, "story22", w - 260) + 10)
-        end
-        if sl.first then
-            kit.box(x + 28, ry - 8, w - 56, kit.text_height(sl.first, "story22", w - 260) + 18, kit.rgba("#e8b04a", 0.22),
-                { radius = 8 })
-            kit.text(x + 40, ry, sl.first_label or "WHAT'S FIRST", "ui14", kit.rgba("#8a5a20"))
-            kit.text(x + 220, ry - 3, sl.first, "story22", theme.ink, { w = w - 260, lines = 3 })
-        end
-    elseif sl.rows then
-        kit.text(x + 40, y + 30, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"))
-        kit.text(x + 40, y + 56, sl.title or "", "title30", theme.ink)
-        local ry = y + 120
-        for _, r in ipairs(sl.rows) do
-            lore_icon(x + 40, ry, 64, r)
-            kit.text(x + 124, ry + 2, r.title or "", "ui22b", theme.ink, { w = w - 170, lines = 1 })
-            kit.text(x + 124, ry + 32, r.text or "", "ui18", theme.ink, { w = w - 170, lines = 2 })
-            ry = ry + 104
-        end
-    else
-        lore_icon(x + 50, y + 70, 180, sl)
-        kit.text(x + 280, y + 64, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"))
-        kit.text(x + 280, y + 94, sl.title or "", "title30", theme.ink, { w = w - 320, lines = 2 })
-        kit.text(x + 280, y + 152, sl.text or "", "read26", theme.ink, { w = w - 330 })
-    end
+    lore_icon(x + 50, y + 70, 180, sl)
+    kit.text(x + 280, y + 64, sl.kicker or "", "ui18b", kit.rgba("#8a5a20"))
+    kit.text(x + 280, y + 94, sl.title or "", "title30", theme.ink, { w = w - 320, lines = 2 })
+    kit.text(x + 280, y + 152, sl.text or "", "read26", theme.ink, { w = w - 330 })
     if sl.footer then
         kit.text(x + w / 2, y + h - 108, sl.footer, "story22", kit.rgba("#8a5a20"), { pivot = gui.PIVOT_N })
     end
@@ -3222,8 +3059,8 @@ function M.cinematic_next(app)
     end
 end
 
--- Number keys pick a card's options (the fix pass): 1 to 4 on any card, and on the improv hand
--- they pick cards (Enter plays them). A fallback that works even when a click doesn't.
+-- Number keys pick a card's options (the fix pass): 1 to 4 on any card. A fallback that works even
+-- when a click doesn't.
 function M.pick_key(app, n)
     if app.thought_card then
         local fn = M.thought_buttons(app)[n]
@@ -3261,39 +3098,8 @@ function M.pick_key(app, n)
             M.answer(app, "dc:" .. util.int(app.dc_pick_for == ev and app.dc_pick or ev.dc or 15))
             return true
         end
-    elseif ev.kind == "improv" then
-        if ev.cards and ev.cards[n] then
-            local b = M.find_button(app, "improv_card_" .. n)
-            if b then
-                b.on_click(b)
-                return true
-            end
-        end
     end
     return false
-end
-
--- Enter on the improv hand plays what's picked.
-function M.play_improv(app)
-    local ev = app.pending
-    if ev and ev.kind == "improv" then
-        local b = M.find_button(app, "improv_play")
-        if b and b.enabled then
-            b.on_click(b)
-            return true
-        end
-    end
-    return false
-end
-
-function M.find_button(app, key)
-    local l = app.layers.modal
-    for _, b in ipairs(l and l.buttons or {}) do
-        if b.key == key then
-            return b
-        end
-    end
-    return nil
 end
 
 -- What the friends think and don't say (v2) ------------------------------------------------------
@@ -3671,11 +3477,6 @@ function M.update_timer_bar(app)
         return
     end
     local left = math.max(0, app.pending_left)
-    if tb.improv then
-        -- The improv hand only redraws on clicks; keep its countdown fresh.
-        gui.set_text(tb.label, "Timer (T): " .. util.int(math.ceil(left)) .. "s, then your best card")
-        return
-    end
     kit.set_bar(tb.fill, tb.w, left, tb.total)
     gui.set_text(tb.label, "Timer (T): " .. util.int(math.ceil(left)) .. "s, then " .. tb.what)
 end
@@ -3685,16 +3486,9 @@ local function card_y(h)
 end
 
 -- The log stays out of the way (A11): with it open, the left-hand cards dock beside it rather
--- than over it, and the improv hand centres in the space to its right.
+-- than over it.
 local function left_x(app)
     return app.log_open and (LOG_X + LOG_W + 16) or LEFT_X
-end
-
-local function centre_x(app, w)
-    if app.log_open then
-        return math.max(800, math.min(LOG_X + LOG_W + 16 + w / 2, kit.W - 16 - w / 2))
-    end
-    return 800
 end
 
 -- A card is coming up: slide the caption into the space beside it (between x0 and x1), or put it
@@ -3718,8 +3512,8 @@ local function dodge_caption(app, x0, x1)
 end
 
 function M.show_modal(app, ev, instant)
-    -- A cinematic draws itself (October 20: Tab for the log, or a rebuild, during the opening or a
-    -- briefing redrew it as an empty card, and the night waited on a card that wasn't there).
+    -- A cinematic draws itself (October 20: Tab for the log, or a rebuild, during the opening
+    -- redrew it as an empty card, and the night waited on a card that wasn't there).
     if ev.kind == "cinematic" then
         return M.show_cinematic(app, ev)
     end
@@ -3736,8 +3530,6 @@ function M.draw_modal(app, ev, instant)
         dodge_caption(app, 16, RIGHT_X - 16)
     elseif ev.kind == "ruling" or ev.kind == "roll_where" then
         dodge_caption(app, left_x(app) + LEFT_W + 16, kit.W - 16)
-    elseif ev.kind == "improv" then
-        dodge_caption(app, nil)
     end
     local slide = 0
     if ev.kind == "decision" and ev.card and ev.card.intermission then
@@ -3758,7 +3550,7 @@ function M.draw_modal(app, ev, instant)
         local card = ev.card
         -- Taking over (B8): the one you're speaking or acting for, as their paper mini.
         local portrait = (card.cast and CAST_SPRITE[card.cast]) or (card.monster and monster_sprite(card.monster, 1)) or nil
-        -- A player's pull (game/model/pulls.lua): their face, top right.
+        -- A friend's own moment (a card's `who`): their face, top right.
         local face = card.who and panels.face(card.who)
         local tw = (portrait or face) and (w - 120) or (w - 40)
         local title_h = math.max(math.min(80, kit.text_height(card.title, "title30", tw)), portrait and 40 or 0)
@@ -3778,7 +3570,7 @@ function M.draw_modal(app, ev, instant)
             labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or "d20") .. " check)") or "")
                 .. (o.cooked and "  (overrules the die)" or "") .. (o.promise and "  (as agreed)" or "")
             lean_h[i] = (o.leans and next(o.leans)) and 30 or 0
-            -- What an answer costs and gives, under it (a pull's four answers).
+            -- What an answer costs and gives, under it.
             sub_h[i] = o.sub and (kit.text_height(o.sub, "ui14", w - 68 - KEY_PAD) + 4) or 0
             h = h + option_height(labels[i], w - 40) + lean_h[i] + sub_h[i] + 10
         end
@@ -3813,8 +3605,7 @@ function M.draw_modal(app, ev, instant)
             kit.button(x + 20, oy, w - 40, oh, label, function()
                 M.answer(app, i)
             end, { align = "left", color = opt.cooked and theme.decision.screen or theme.button,
-                   hover = theme.button_hover, key_hint = i, enabled = not opt.disabled,
-                   key = opt.answer and ("pull_" .. opt.answer) or nil })
+                   hover = theme.button_hover, key_hint = i, enabled = not opt.disabled })
             if sub_h[i] > 0 then
                 local ly = oy + 10 + kit.text_height(label, "ui18b", w - 68 - KEY_PAD)
                 kit.text(x + 34, ly, opt.sub, "ui14", opt.disabled and kit.rgba("#8a7c6a")
@@ -3828,9 +3619,6 @@ function M.draw_modal(app, ev, instant)
         end
         timer_bar(app, x + 20, oy + 2, w - 40, "the first option")
         slide = 640
-    elseif ev.kind == "improv" then
-        M.draw_improv(app, ev)
-        slide = 0
     elseif ev.kind == "ruling" then
         local x, w = left_x(app), LEFT_W
         -- The die's on this card now: "Mara rolls the d20..." has had its moment (the second card-led
@@ -4063,117 +3851,6 @@ function M.people_strip(app, x, y, w, people)
         kit.picture(cx + 38, y + 4, 26, 32, panels.mini(p))
         kit.text(cx + 66, y + 11, label, "ui14", theme.ink, { gloss = false })
         cx = cx + cw + 8
-    end
-end
-
--- What kind of card it is, as the night counts them: one of each plays.
-local function improv_kind(c)
-    return c and ((c.comp and c.comp.kind) or (c.quantum and "quantum") or (c.stock and c.stock.id)) or nil
-end
-
--- The improv hand: pick one to three cards, then play them.
-function M.draw_improv(app, ev)
-    local sel = app.improv_sel or {}
-    local n = #ev.cards
-    local cw, ch, gap = 178, 196, 12
-    local total = n * cw + (n - 1) * gap
-    local pw = math.max(total, 640) + 40
-    local mid = centre_x(app, pw)
-    local px = mid - pw / 2
-    local prompt_h = kit.text_height(ev.prompt or "", "ui18", pw - 40)
-    local ph = 96 + prompt_h + 34
-    local cards_y = 470
-    local py = cards_y - 30 - ph
-    kit.box(px, py, pw, ph, theme.paper, { radius = 12 })
-    badge(px + 20, py + 18, ev.drift and "OFF SCRIPT" or "IMPROVISE", theme.orange)
-    kit.text(px + 20, py + 50, ev.drift and "The party wandered off" or ("Empty slot: " .. (ev.slot or "")), "title30", theme.ink)
-    kit.text(px + 20, py + 94, ev.prompt or "", "ui18", theme.ink, { w = pw - 40 })
-    kit.text(px + 20, py + 100 + prompt_h, "Pick 1 to 3 cards, one of each kind. Your best card counts fully; one that doesn't fit always hurts.",
-        "ui14", theme.ink_dim, { w = pw - 40 })
-    local picked = {}
-    local x0 = mid - total / 2
-    for i, c in ipairs(ev.cards) do
-        local on = sel[i]
-        if on then
-            table.insert(picked, c)
-        end
-        local cx, cy = x0 + (i - 1) * (cw + gap), cards_y - (on and 18 or 0)
-        kit.button(cx, cy, cw, ch, "", function()
-            if sel[i] then
-                sel[i] = nil
-            else
-                -- One of each kind (the night keeps only one): a second goal swaps out the first
-                -- rather than vanishing when it plays (playtest, October 13).
-                for j in pairs(sel) do
-                    if improv_kind(ev.cards[j]) == improv_kind(c) then
-                        sel[j] = nil
-                    end
-                end
-                local count = 0
-                for _ in pairs(sel) do
-                    count = count + 1
-                end
-                if count < 3 then
-                    sel[i] = true
-                end
-            end
-            app.improv_sel = sel
-            M.show_modal(app, ev, true)
-        end, { color = on and theme.go or theme.button, hover = theme.button_hover, key = "improv_card_" .. i,
-               key_hint = i <= 6 and i or nil, key_hint_bottom = true })
-        if on then
-            kit.box(cx, cy, cw, 5, theme.gold, { round = false })
-        end
-        kit.text(cx + 12, cy + 14, c.name, "ui18b", theme.text, { w = cw - 24, lines = 4 })
-        if c.warn then
-            local wt = c.warn .. " (Session Zero)"
-            if kit.width(wt, "ui14") > cw - 24 then
-                wt = c.warn
-            end
-            kit.text(cx + 12, cy + 120, wt, "ui14", theme.orange, { w = cw - 24, lines = 1 })
-        elseif c.story then
-            -- (The newcomer playtest, October 16: which of these is the week's story?)
-            kit.text(cx + 12, cy + 120, "This week's story", "ui14", theme.gold, { w = cw - 24, lines = 1 })
-        elseif c.payoff then
-            kit.text(cx + 12, cy + 120, "Pays off a seed", "ui14", theme.green, { w = cw - 24, lines = 1 })
-        else
-            kit.text(cx + 12, cy + 120, c.kind_name or "", "ui14", theme.dim)
-        end
-        local fit_label = (ev.drift and FIT_DRIFT or FIT_HAND)[c.fit]
-        local fit_color = ({ great = theme.green, good = theme.gold, poor = theme.orange })[c.fit]
-        kit.text(cx + 12, cy + 142, fit_label or "", "ui14", fit_color or theme.dim)
-        kit.text(cx + 12, cy + ch - 26, on and "Picked" or "Click to pick", "ui14", on and theme.gold or theme.faint)
-    end
-    -- Play bar: the combined verdict and the button.
-    local by = cards_y + ch + 14
-    local bx = mid - 300
-    kit.box(bx, by, 600, 56, theme.bg_glass, { radius = 10 })
-    local verdict = "Pick at least one card"
-    local vcolor = theme.dim
-    if #picked > 0 then
-        local fit = night_mod.combo_fit(picked)
-        verdict = FIT_TOGETHER[fit]
-        vcolor = ({ great = theme.green, good = theme.gold, poor = theme.orange })[fit]
-    end
-    kit.text(bx + 16, by + 8, verdict, "ui18b", vcolor)
-    local hint = app.pending_left and ("Timer (T): " .. util.int(math.ceil(math.max(0, app.pending_left))) .. "s, then your best card")
-        or ""      -- (the rule is under the prompt already: the second playtest, October 17, read it twice)
-    app.timer_bar = nil
-    local hint_node = kit.text(bx + 16, by + 32, hint, "ui14", theme.faint)
-    if app.pending_left then
-        app.timer_bar = { label = hint_node, improv = true }
-    end
-    kit.button(bx + 600 - 196, by + 9, 180, 38, #picked > 1 and ("Play " .. util.int(#picked) .. " cards") or "Play it", function()
-        local list = {}
-        for i = 1, n do
-            if sel[i] then
-                table.insert(list, i)
-            end
-        end
-        M.answer(app, list)
-    end, { enabled = #picked > 0, color = theme.go, hover = theme.go_hover, key = "improv_play" })
-    if #picked > 0 then
-        kit.text(bx + 600 - 206, by + 28, "Enter", "ui14", theme.faint, { pivot = gui.PIVOT_E })
     end
 end
 
