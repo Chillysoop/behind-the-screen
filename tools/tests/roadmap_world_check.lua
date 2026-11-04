@@ -55,6 +55,108 @@ local function new_campaign(seed, style)
     return c, rng
 end
 
+-- R14: what a session's chain claims, against what really caused what. A link word ("so", "but") sits
+-- right after the clause it follows from ("Pip emptied the donation box. So word reached Euryale that
+-- they were thieves. So they fought the Sentinel" read as the word bringing the Sentinel down, when the
+-- robbery did); a fight follows only from a choice to fight (or to walk into it knowingly), a roll that
+-- turned into one, or the talk that ended her part and not her collection's, never from her card, word
+-- passed on, a thing changing hands, a find or a room walked into (a room's own fight starts its own
+-- sentence); her ending follows from the card that settled it, not the fight with her collection after
+-- it; the archivist's notebook comes from the way into the second study, not a voice in the dark.
+local FIGHT_FROM = { moment = true, setback = true }
+local function card_by_id(id)
+    for _, m in ipairs(adventure.data.moments) do
+        if m.id == id then
+            return m
+        end
+    end
+    for _, k in ipairs({ "drink", "talk", "yield" }) do
+        local sd = adventure.data.showdown[k]
+        if sd and sd.id == id then
+            return sd
+        end
+    end
+end
+-- What the option a moment's event names did (its own mus, and its roll's outcome): a set of keys.
+local function did(ev, outcome)
+    local card = ev.card and card_by_id(ev.card)
+    local o = card and ev.opt and card.options[ev.opt]
+    local out = {}
+    if not o then
+        return out
+    end
+    local lists = { o.mus }
+    if o.roll then
+        table.insert(lists, (outcome or ev.rolled) == "ok" and o.roll.success and o.roll.success.mus
+            or (outcome or ev.rolled) == "fail" and o.roll.fail and o.roll.fail.mus or nil)
+    end
+    for _, m in ipairs(lists) do
+        for k, v in pairs(m or {}) do
+            out[k] = v
+        end
+    end
+    return out
+end
+-- The link word each beat was told with, read off the sentences themselves (", so " or "So " right
+-- before its clause), so the check doesn't take the chain's word for it.
+local function told_words(lines, used)
+    local text = " " .. string.lower(table.concat(lines, " "))
+    local pos, words = 1, {}
+    for i, b in ipairs(used) do
+        local s, e = string.find(text, string.lower(b.text or ""), pos, true)
+        local w = false
+        if s then
+            local before = string.sub(text, math.max(1, s - 6), s - 1)
+            w = (string.match(before, "[ ,]so $") and "so") or (string.match(before, "[ ,]but $") and "but") or false
+            pos = e + 1
+        end
+        words[i] = w
+    end
+    return words
+end
+local function false_causes(c, session)
+    local events = require "game.model.events"
+    local out = {}
+    local lines, used = events.chain(c, session)
+    local words = told_words(lines, used)
+    for i, b in ipairs(used) do
+        if words[i] and (i == 1 or used[i - 1].id ~= b.from) then
+            table.insert(out, "the chain says '" .. words[i] .. " " .. tostring(b.text) .. "' after '" .. tostring(i > 1 and used[i - 1].text)
+                .. "', and it follows from '" .. tostring((events.get(c, b.from) or {}).text) .. "'")
+        end
+    end
+    for _, e in ipairs(events.find(c, { session = session })) do
+        local f = e.from and events.get(c, e.from)
+        if e.kind == "fight" and f then
+            local m = (f.kind == "setback") and did(events.get(c, f.from) or {}, "fail") or did(f)
+            if not FIGHT_FROM[f.kind] then
+                table.insert(out, "a fight ('" .. tostring(e.text) .. "') follows from a " .. f.kind .. " ('" .. tostring(f.text) .. "')")
+            elseif not (m.fight or m.ready or (m.ending and e.how == "but")) then
+                table.insert(out, "a fight ('" .. tostring(e.text) .. "') follows from a card that didn't start one ('" .. tostring(f.text) .. "')")
+            end
+        elseif e.kind == "ending" then
+            local settled
+            for _, mv in ipairs(events.find(c, { kind = "moment", session = session, where = "lair" })) do
+                if did(mv).ending == e.thing then
+                    settled = mv
+                end
+            end
+            if settled and e.from ~= settled.id then
+                table.insert(out, "'" .. tostring(e.text) .. "' follows from '" .. tostring(f and f.text) .. "', not the card that settled it ('"
+                    .. tostring(settled.text) .. "')")
+            elseif not settled and f and f.kind ~= "fight" then
+                table.insert(out, "'" .. tostring(e.text) .. "' follows from a " .. f.kind .. ", not the fight that ended it")
+            end
+        elseif e.kind == "get" and e.thing == "notebook" and f and f.kind ~= "fight" then
+            local m = (f.kind == "moment" or f.kind == "setback") and (f.flag == "door_open" or f.flag2 == "door_open")
+            if not m then
+                table.insert(out, "the notebook ('" .. tostring(e.text) .. "') follows from '" .. tostring(f.text) .. "', not the way in")
+            end
+        end
+    end
+    return out
+end
+
 -- The R14 baseline, over every session of every run.
 local B = { sessions = 0, beats = 0, linked = 0, longest = 0, over_two = 0, starts = {}, shares = {} }
 
@@ -243,6 +345,11 @@ local function play(seed, style)
             end
             shown[b.id] = true
         end
+        -- R14: the chain claims only real causes (false_causes, below).
+        for _, msg in ipairs(false_causes(c, c.week)) do
+            fail("R14", tag .. " week " .. w .. ": " .. msg)
+        end
+        add("R14", "sessions_checked_for_false_causes")
         local m = events.measure(c, c.week)
         if m.beats > 0 then
             add("R14", "sessions_measured")
@@ -749,7 +856,8 @@ case("R14", function()
     local e = events.add(c, { kind = "enter", beat = true, text = "they went into the entrance hall", where = "entrance" })
     local f = events.add(c, { kind = "moment", beat = true, text = "they dropped a coin in", where = "entrance" })
     local lines = events.chain(c, 3)
-    local want = { "They set the bushes on fire, so Euryale smelled the smoke.", "But the hedges came at them.",
+    -- (The fight moves the story, so it's told right after its cause; her card follows on its own.)
+    local want = { "They set the bushes on fire, but the hedges came at them.", "Euryale smelled the smoke.",
                    "They went into the entrance hall.", "They dropped a coin in." }
     for i, l in ipairs(want) do
         if lines[i] ~= l then
@@ -761,6 +869,52 @@ case("R14", function()
         fail("R14", "case: the measure is wrong: " .. m.linked .. " of " .. m.beats .. ", longest " .. m.longest)
     end
     add("R14", "case_chain")
+    -- The sample night: Pip goes for the donation box's lock and empties it, so word reaches Euryale and
+    -- the Sentinel steps down. The fight follows from the robbery, and the chain says so right after it,
+    -- never after the word reaching her.
+    c.week = 4
+    local lock = events.add(c, { kind = "moment", card = "mus_box", opt = 2, beat = true, text = "Pip went for the donation box's lock", where = "entrance" })
+    local empt = events.add(c, { kind = "moment", card = "mus_box_lock", opt = 1, rolled = "ok", beat = true, text = "Pip emptied the donation box",
+                                 where = "entrance", from = lock })
+    events.add(c, { kind = "mark", beat = true, text = "word reached Euryale that they were thieves, like her", where = "entrance", from = empt })
+    events.add(c, { kind = "fight", beat = true, text = "they fought the Sentinel, and they won", where = "entrance", from = empt })
+    lines = events.chain(c, 4)
+    want = { "Pip went for the donation box's lock, so Pip emptied the donation box.", "So they fought the Sentinel, and they won.",
+             "Word reached Euryale that they were thieves, like her." }
+    for i, l in ipairs(want) do
+        if lines[i] ~= l then
+            fail("R14", "case: the sample night's line " .. i .. " is '" .. tostring(lines[i]) .. "', not '" .. l .. "'")
+        end
+    end
+    if #false_causes(c, 4) > 0 then
+        fail("R14", "case: " .. false_causes(c, 4)[1])
+    end
+    -- A room's own fight, linked to walking in; a fight linked to word passed on; the notebook from a
+    -- whisper; her ending from her collection's fight: each is a false cause.
+    c.week = 5
+    local into = events.add(c, { kind = "enter", beat = true, text = "they went into the garden", where = "garden" })
+    events.add(c, { kind = "fight", beat = true, text = "the briar triceratops came at them", where = "garden", from = into, how = "but" })
+    local told = events.add(c, { kind = "tell", beat = true, text = "the Lecturer told Euryale about Pip", where = "gift_shop" })
+    events.add(c, { kind = "fight", beat = true, text = "they fought the Sentinel", where = "entrance", from = told })
+    local wh = events.add(c, { kind = "moment", card = "mus_whispers", opt = 2, beat = true, text = "a voice whispered to Thessaly", where = "offices" })
+    events.add(c, { kind = "get", thing = "notebook", beat = true, text = "Thessaly came away with the notebook", where = "offices", from = wh })
+    local talk = adventure.data.showdown.talk
+    local page_i
+    for i, o in ipairs(talk.options) do
+        if o.mus and o.mus.use == "pages" then
+            page_i = i
+        end
+    end
+    local slept = events.add(c, { kind = "moment", card = talk.id, opt = page_i, rolled = "ok", beat = true,
+                                  text = "she read the Lecturer's notes and fell asleep", where = "lair" })
+    local coll = events.add(c, { kind = "fight", beat = true, text = "the Knight of Shades came at them", where = "lair", from = slept, how = "but" })
+    events.add(c, { kind = "ending", thing = "slept", beat = true, text = "Euryale slept", where = "lair", from = coll })
+    local n = #false_causes(c, 5)
+    if n ~= 4 then
+        fail("R14", "case: " .. n .. " false causes found in a log built with four (a fight from walking in, one from word passed on, "
+            .. "the notebook from a whisper, her ending from her collection's fight)")
+    end
+    add("R14", "case_false_causes")
 end)
 
 -- Report -----------------------------------------------------------------------------------------

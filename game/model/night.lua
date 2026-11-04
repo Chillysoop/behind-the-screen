@@ -3817,18 +3817,15 @@ function M:log_fight(sc, f, result)
     else
         key = "won"
     end
-    local from, how = sc.fight_from, "therefore"
-    if not from then
-        from, how = sc.enter_ev, "but"          -- (it came at them: the room turned on them)
-    end
-    -- (Boss night: they came up to face her, so the fight is theirs.)
-    if sc.boss and how == "but" then
-        how = "therefore"
-    end
+    -- (A fight follows from what started it: a choice to fight, a trail followed with weapons out, a
+    -- roll that went wrong, or, "but", the talk that ended her part and not her collection's. A room's
+    -- own fight, one that came whatever they did, follows from nothing: it starts a sentence of its own,
+    -- and isn't stitched to walking in. R14.)
+    local from, how = sc.fight_from, sc.fight_how or "therefore"
     local ev = events.add(c, { kind = "fight", who = "party", whom = boss_id, where = sc.room, outcome = outcome, foes = foes,
                                ran = #ran, ran_ids = ran, beaten = beaten, boss = boss, fate = fate, rounds = result.rounds,
                                from = from, how = from and how or nil, beat = true,
-                               text = util.fill(FIGHT_TEXT[(how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
+                               text = util.fill(FIGHT_TEXT[(not from or how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
     sc.fight_ev, sc.last_beat = ev.id, ev.id
     return ev
 end

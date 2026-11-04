@@ -226,10 +226,59 @@ function M.measure(c, session)
 end
 
 -- The session as the table could tell it: each beat's clause, joined to the one before with "so" or
--- "but" when it follows from it; a beat that follows from something further back starts a sentence of
--- its own with "So" or "But"; a beat with no link starts a plain sentence. Nothing is stitched on with
--- "and then". Returns { sentences }, and the beats used.
+-- "but" when it follows from that one, or starting a sentence with "So" or "But" when the one before
+-- ended a sentence. A link word only ever sits right after the clause it follows from: a beat that
+-- follows from something further back (two things a choice led to, the second of them) starts a plain
+-- sentence, as does a beat with no link, so the chain never claims a cause it doesn't have ("So word
+-- reached Euryale. So they fought the Sentinel" read as the word bringing the fight). Of two beats that
+-- follow from the same one, the one that moves the story (a fight, a setback, a moment) is told first,
+-- and the one on the side (her card, a thing changing hands, a find) after it. Nothing is stitched on
+-- with "and then". Returns { sentences }, the beats used, and the link word each one was told with.
 M.MAX_JOIN = 2           -- clauses joined into one sentence before a new one starts
+M.SIDE = { mark = true, unmark = true, get = true, find = true, use = true, tell = true, price = true, notice = true,
+           docked = true, refuse = true }
+
+-- The beats in the order they're told: as they happened, except that a beat that moves the story is
+-- moved ahead of a side beat that follows from the same thing, and a side beat that came later in the
+-- same room (the scarabs crawling upstairs, said at the room's end) is told right after what it follows
+-- from, when nothing else that follows from it is told there: each is told right after its cause.
+function M.told_order(beats)
+    local out = {}
+    for i, ev in ipairs(beats) do
+        out[i] = ev
+    end
+    local moved = true
+    while moved do
+        moved = false
+        for i = 1, #out - 1 do
+            local a, b = out[i], out[i + 1]
+            if M.SIDE[a.kind] and not M.SIDE[b.kind] and M.linked(a) and M.linked(b) and a.from == b.from then
+                out[i], out[i + 1] = b, a
+                moved = true
+            end
+        end
+    end
+    local i = 1
+    while i <= #out do
+        local ev = out[i]
+        local j
+        if M.SIDE[ev.kind] and M.linked(ev) then
+            for k = i - 2, 1, -1 do
+                if out[k].id == ev.from then
+                    j = k
+                    break
+                end
+            end
+        end
+        local cause = j and out[j]
+        if cause and cause.where == ev.where and out[j + 1].from ~= cause.id then
+            table.remove(out, i)
+            table.insert(out, j + 1, ev)
+        end
+        i = i + 1
+    end
+    return out
+end
 
 -- room: only the beats in that room (the journey recap tells each room's own chain); skip: kinds of
 -- beat to leave out (the journey keeps the big ones: no Francs found or looks round).
@@ -244,29 +293,28 @@ function M.chain(c, session, max, room, skip)
         end
         beats = keep
     end
+    beats = M.told_order(beats)
     local out, cur, joined, prev, last_word = {}, nil, 0, nil, nil
-    local used = {}
+    local used, words = {}, {}
     local function flush()
         if cur then
             table.insert(out, util.sentence_case(cur) .. ".")
         end
         cur, joined, last_word = nil, 0, nil
     end
-    local shown = {}
     for _, ev in ipairs(beats) do
         if max and #used >= max then
             break
         end
-        -- (The link word only when what it follows from is in the chain: a beat that follows from
-        -- something unseen, a hero's reason for coming, says why in its own words.)
-        local word = M.linked(ev) and shown[ev.from] and M.LINK_WORD[ev.how] or nil
-        shown[ev.id] = true
+        -- (The link word only when what it follows from is the clause just told: a beat that follows
+        -- from something unseen, a hero's reason for coming, says why in its own words.)
+        local word = M.linked(ev) and prev and ev.from == prev.id and M.LINK_WORD[ev.how] or nil
         local clause = ev.text
-        if word and prev and ev.from == prev.id and cur and joined < M.MAX_JOIN and word ~= last_word then
+        if word and cur and joined < M.MAX_JOIN and word ~= last_word then
             cur = cur .. ", " .. word .. " " .. clause
             joined = joined + 1
             last_word = word
-        elseif word and prev then
+        elseif word then
             flush()
             cur = util.capitalize(word) .. " " .. clause
             last_word = word
@@ -276,9 +324,10 @@ function M.chain(c, session, max, room, skip)
         end
         prev = ev
         table.insert(used, ev)
+        table.insert(words, word or false)
     end
     flush()
-    return out, used
+    return out, used, words
 end
 
 -- A save from before the log (R7) still has its story: the rooms walked (st.path), Euryale's marks,

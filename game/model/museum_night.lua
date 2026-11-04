@@ -142,7 +142,7 @@ local function gate_cause(night, conds)
     for _, cond in ipairs(conds) do
         if type(cond) == "table" then
             local ev = (cond.flag and events.last(c, { kind = "moment", flag = cond.flag }))
-                or (cond.flag and events.last(c, { kind = "moment", flag2 = cond.flag }))
+                or (cond.flag and events.last(c, { kind = { moment = true, setback = true }, flag2 = cond.flag }))
                 or (cond.mark and events.last(c, { kind = "mark", thing = cond.mark }))
                 or (cond.seen and events.last(c, { kind = "moment", card = cond.seen }))
                 or (cond.chose and events.last(c, { kind = "moment", card = cond.chose[1] }))
@@ -425,12 +425,14 @@ function M.handle(night, mus, sc)
     end
     if mus.ready and sc then
         sc.ready = true      -- (fight.lua: the room's ambushers don't surprise them)
-        sc.fight_from = sc.fight_from or events.cause(c)      -- (they walked into it knowingly: the fight follows from it)
+        if not sc.fight_from then
+            sc.fight_from, sc.fight_how = events.cause(c), nil      -- (they walked into it knowingly: the fight follows from it)
+        end
     end
     if sc then
         if mus.fight then
             sc.fight_on = true
-            sc.fight_from = events.cause(c)      -- (the fight follows from the choice that started it)
+            sc.fight_from, sc.fight_how = events.cause(c), nil      -- (the fight follows from the choice that started it)
         end
         if mus.no_fight then
             sc.no_fight = true
@@ -439,6 +441,7 @@ function M.handle(night, mus, sc)
                 sc.resolved = true      -- the room's done without a fight (the ritual)
                 sc.outcome = sc.outcome or "win"
                 sc.had_roll = true
+                sc.resolve_ev = sc.resolve_ev or events.cause(c)      -- (what the room's done follows from: R14)
             end
         end
         if mus.drop then
@@ -448,6 +451,7 @@ function M.handle(night, mus, sc)
             sc.resolved = true
             sc.outcome = mus.resolve
             sc.had_roll = true
+            sc.resolve_ev = events.cause(c)
         end
         if mus.ending then
             st.ending = mus.ending
@@ -455,6 +459,7 @@ function M.handle(night, mus, sc)
             sc.resolved = true
             sc.had_roll = true
             sc.fight_on = nil
+            sc.ending_ev = events.cause(c)      -- (the card that settled it: the ending follows from it, R14)
         end
     end
     -- Fair warning is about the thing (warnings.lua): an option that says they know what they're
@@ -604,9 +609,10 @@ function M.reward(night, sc)
         night.mus.room_francs = night.mus.room_francs or {}
         night.mus.room_francs[sc.room] = true
         night.actor = night.actor or night:pick_actor({ "power_gamer", "instigator", "casual" })
-        -- (The room's pay, in the log: it follows from how they got through it.)
+        -- (The room's pay, in the log: it follows from how they got through it, their fight or the card
+        -- that settled the room; a room that was simply walked through pays with no link. R14.)
         M.log_beat(night, { kind = "find", who = "party", thing = "francs", n = r.francs, pay = true,
-                            from = sc.fight_ev or sc.last_beat,
+                            from = sc.fight_ev or sc.resolve_ev,
                             text = events.word(r.francs == 1 and "pay" or "pays", { n = util.int(r.francs) }) }, sc)
         night:say(r.said or ("They earn " .. util.lower_first(r.line)), "reward", { francs = tostring(st.francs) })
         return
@@ -897,7 +903,7 @@ function M.play_moment(night, card, sc)
         or gate_cause(night, { card.when, o.needs, o.when, card.needs })
     local mev = M.log_beat(night, { kind = "moment", card = card.id, opt = chosen_i, look = card.look and true or nil, who = night.actor and night.actor.key or "party",
                                     party = card.party or nil, flag = o.mus and o.mus.flag or nil,
-                                    flag2 = out_pre and out_pre.mus and out_pre.mus.flag or nil,
+                                    flag2 = rolled_ok and out_pre and out_pre.mus and out_pre.mus.flag or nil,
                                     rolled = o.roll and (rolled_ok and "ok" or "fail") or nil,
                                     text = M.beat_clause(night, card, o, chosen_i or 0, rolled_ok), from = gate })
     events.set_cause(c, mev)
@@ -915,8 +921,9 @@ function M.play_moment(night, card, sc)
             local b = MODULE.beats and MODULE.beats[card.id]
             local fb = b and type(b[chosen_i or 0]) == "table" and b[chosen_i].fail
             local who = night.actor and night.actor.char or "they"
+            -- (What the miss sets, the ritual failed, follows from the miss: a card it opens follows from it.)
             local sev = M.log_beat(night, { kind = "setback", card = card.id, who = night.actor and night.actor.key or "party",
-                                            from = mev, how = "but",
+                                            from = mev, how = "but", flag2 = out_pre and out_pre.mus and out_pre.mus.flag or nil,
                                             text = (fb and util.fill(fb, { char = who, actor_char = who }))
                                                 or (card.trap and events.word("trap", { what = card.trap }))
                                                 or (mev.text and events.word("didnt")) or nil })
@@ -1092,7 +1099,11 @@ function M.ties_beat(night, sc)
         night:say(ties.open_line(l), "narration")
     end
     for _, t in ipairs(ties.fire(c, function(mark)
+        -- (The DM's tie put it there, not anything the night is playing: no link, R14.)
+        local was = events.cause(c)
+        events.set_cause(c, nil)
         M.handle(night, { mark = mark }, sc)
+        events.set_cause(c, was)
         -- (Her card says it was the DM's tie, not something the party did.)
         local rec = c.adv.marks[mark]
         if type(rec) == "table" then
@@ -1444,7 +1455,11 @@ function M.drops_beaten(night, sc)
     for _, w in ipairs(npcs.waiting(night.campaign, sc.room, "beaten")) do
         if w.npc.monster and util.contains(sc.foes_beaten or {}, w.npc.monster) then
             night:say("Among what's left of " .. (w.npc.short or w.npc.name) .. ": something you put there.", "narration")
+            -- (It falls out because they beat them: the find follows from the fight, R14.)
+            local was = events.cause(night.campaign)
+            events.set_cause(night.campaign, sc.fight_ev)
             earn_drop(night, sc, w.npc, w)
+            events.set_cause(night.campaign, was)
         end
     end
 end
@@ -3252,9 +3267,11 @@ function M.after_room(night, sc)
     local st = st_of(night)
     local id = sc.room
     local outcome = sc.outcome or "win"
-    -- (What the room leaves behind follows from how it went: its fight, else its last beat.)
+    -- (What the room leaves behind follows from how it went: its fight, or the card that settled it. Not
+    -- from whatever moment came last: "a voice whispered to Thessaly, so she came away with the
+    -- notebook" was the room's own find, said as if the whisper brought it. R14.)
     local prev_cause = events.cause(c)
-    events.set_cause(c, sc.fight_ev or sc.last_moment or sc.enter_ev)
+    events.set_cause(c, sc.fight_ev or sc.resolve_ev)
     local function mark(m)
         if adventure.add_mark(c, m, id) then
             table.insert(night.mus.pending, m)
@@ -3285,12 +3302,17 @@ function M.after_room(night, sc)
         end
     elseif id == "offices" and outcome == "win" then
         st.flags.notebook = true
-        -- (Somebody takes it off the desk: the one who wants it most, items.lua's `to`.)
+        -- (Somebody takes it off the desk: the one who wants it most, items.lua's `to`. It's on the desk
+        -- in the second study, so it follows from the way in: the door they opened.)
         local items_mod = require "game.model.items"
         if not items_mod.owned(c, "notebook") then
+            events.set_cause(c, events.last(c, { kind = { moment = true, setback = true }, flag = "door_open", session = c.week })
+                or events.last(c, { kind = { moment = true, setback = true }, flag2 = "door_open", session = c.week }))
             items_mod.give(c, "notebook", nil, "found")
         end
     end
+    -- (What else the room's end brings, the DM's ties and her thoughts, follows from none of this.)
+    events.set_cause(c, nil)
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
     adventure.leave_room(c, id, outcome, c.week, sc.fought and true or nil)
     -- What they came away with, in words that match what happened (the goal's got_if), for the
@@ -3580,9 +3602,10 @@ end
 function M.enter(night, id)
     local c = night.campaign
     local lb_marks = MODULE.rooms[id].boss and adventure.left_behind(c) or {}
-    -- (What they left behind downstairs follows from leaving it: the last thing they did there.)
+    -- (What they left behind downstairs, a room they never saw, follows from nothing they did: R14. The
+    -- last beat of the night was linked here, so "they climbed the stairs, so the knight went to wait".)
     if #lb_marks > 0 then
-        events.set_cause(c, events.last(c, { beat = true }))
+        events.set_cause(c, nil)
     end
     local left = adventure.enter_room(c, id, c.week)
     for _, lb in ipairs(lb_marks) do
@@ -4112,6 +4135,8 @@ function M.showdown_start(night, sc)
             sc.resolved, sc.had_roll = nil, nil
             sc.fight_on = true
             sc.extras_only = true
+            -- (Her collection's fight turns how the talk ended: she's gone, but they aren't. R14.)
+            sc.fight_from, sc.fight_how = sc.ending_ev, "but"
         end
         night:say(util.fill(at.line, { lead = lead_name }), at.fight and "bad" or "good")
     end
@@ -4246,10 +4271,11 @@ function M.after_showdown(night, sc)
         end
     end
     local e = st.ending and MODULE.endings[st.ending]
-    -- (How it ended, in the log: it follows from the fight, or the card that settled it.)
+    -- (How it ended, in the log: it follows from the card that settled it (her ultimatum, her yield), else
+    -- the fight that did. Not from her collection's fight after she'd gone: R14.)
     if e then
         M.log_beat(night, { kind = "ending", who = "party", thing = st.ending, where = "lair",
-                            from = events.last(c, { kind = "moment", session = c.week, where = "lair" }) and sc.last_beat or sc.fight_ev or sc.last_beat,
+                            from = sc.ending_ev or sc.fight_ev,
                             text = e.chain or util.lower_first(e.name) }, sc)
     end
     table.insert(night.mus.rooms, { room = "lair", outcome = e and "win" or "lose" })
