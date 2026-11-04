@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F21", "F22" }
+local ITEMS = { "F2", "F21", "F22" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -164,6 +164,48 @@ end
 -- The items, over whole prologues ---------------------------------------------------------------------
 
 local CHECKS = {}
+
+-- F2: a near miss ruled "No, but..." is still a miss: no Franc promised or paid, no cheering, words
+-- that fit any room, and the +1 it promises shows on that hero's next roll.
+function CHECKS.F2(run)
+    local log = run.log
+    local owed = {}
+    for i, r in ipairs(log) do
+        if r.k == "ruling" then
+            local o1 = r.ev.options and r.ev.options[1]
+            if r.ev.tier == "near" then
+                add("F2", "near_misses")
+                if o1 and has(o1.label, "Franc") then
+                    fail("F2", where(run, r) .. ": the near-miss ruling promises a Franc: " .. o1.label)
+                end
+                if r.ev.success == false then
+                    owed[r.ev.actor or "?"] = true
+                    for j = i + 1, math.min(#log, i + 14) do
+                        local q = log[j]
+                        if q.k == "ruling" or q.k == "decision" or q.k == "scene" then
+                            break
+                        end
+                        if q.k == "say" and type(q.ev.line) == "string" and string.find(q.ev.line, "^ruling_good") then
+                            fail("F2", where(run, q) .. ": cheered after a miss: " .. q.text)
+                        elseif q.k == "say" and type(q.ev.line) == "string" and string.find(q.ev.line, "^ruling_rueful") then
+                            add("F2", "rueful_after_a_miss")
+                        end
+                        if q.k == "narrate" and has(q.text, "Franc pops") then
+                            fail("F2", where(run, q) .. ": a Franc for a miss: " .. q.text)
+                        end
+                    end
+                end
+            end
+        elseif r.k == "narrate" and has(r.text, "Not quite") and has(r.text, "on the way down") then
+            fail("F2", where(run, r) .. ": " .. r.text)
+        elseif r.k == "roll_where" and r.ev.actor and owed[r.ev.actor] then
+            owed[r.ev.actor] = nil
+            if has(r.ev.text, "they learned from the last miss") then
+                add("F2", "learned_plus_one_shown")
+            end
+        end
+    end
+end
 
 -- F21: notes only the DM knows have their own caption.
 local SCREEN_NOTES = { "behind your screen", "You never prepped it", "You hadn't prepped this one", "off screen, as you agreed",

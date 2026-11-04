@@ -1668,6 +1668,7 @@ local TT = {
     bored = "In a quiet stretch while the heroes work a room, if {name} is losing interest",
     phone = "In a quiet stretch while the heroes work a room, if {name} has nearly tuned out: back from {pos} phone",
     ruling_good = "When you rule {hero}'s roll generously",
+    ruling_rueful = "When you rule {hero}'s near miss kindly: still a miss, but {subj} learns from it",
     ruling_bad = "When you rule a roll harshly against the party",
     open_roll = "When you roll a big moment in the open",
     suspicious = "Under {pos} breath, when your hidden rolls look convenient",

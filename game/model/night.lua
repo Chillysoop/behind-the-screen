@@ -2356,6 +2356,12 @@ function M:big_roll(spec, record)
         mod = mod + near_bonus   -- last time was a near miss (B2)
         self.edge_next[p.key] = nil
     end
+    -- A near miss you ruled "No, but...": they learned from it, +1 on this roll.
+    local learned = p and self.learned and self.learned[p.key]
+    if learned then
+        mod = mod + learned
+        self.learned[p.key] = nil
+    end
     if p then
         mod = mod + self:take_research(p)
     end
@@ -2373,6 +2379,9 @@ function M:big_roll(spec, record)
     end
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
     text = text .. " " .. M.odds_line(dc, mod)
+    if learned then
+        text = text .. " (That includes +" .. util.int(learned) .. ": they learned from the last miss.)"
+    end
     -- The scene's final roll says so, and what it's for (the card-led playtest, October 16:
     -- "nothing says this is the goal roll").
     if spec.final then
@@ -2620,7 +2629,18 @@ function M:big_roll(spec, record)
         end
         ruled = "Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket."
     end
-    if ro.tone == "good" then
+    if ro.tone == "good" and not success then
+        -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves
+        -- you!" right after a failed roll). What they learned is real: +1 on that hero's next roll.
+        if ruled then
+            self:say(ruled, "good")
+        end
+        if p then
+            self.learned = self.learned or {}
+            self.learned[p.key] = 1
+        end
+        self:bark(self.actor, "ruling_rueful")
+    elseif ro.tone == "good" then
         if ruled and not inspired then
             self:say(ruled, "good")
         end

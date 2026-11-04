@@ -53,11 +53,14 @@ return {
         prompt = "How do you call it?",
         options = {
             { label = "No, but... they get something out of it.", success = false, tone = "good",
-              adventure_label = "No, but... it fails forward (+1 Franc for {char}: the museum rewards nerve).",
-              log = "Not quite, but they learn something useful on the way down.",
-              lines = { "Not quite, but on the way down they learn which way not to go.",
+              -- (It used to promise a Franc it no longer pays, and to learn things "on the way down" out in
+              -- the street: the second playtest review. What they get is real: +1 on that hero's next roll.)
+              adventure_label = "No, but... they learn from the miss (+1 on {char}'s next roll).",
+              log = "Not quite, but they learn something from the miss.",
+              lines = { "Not quite, but now they know which way not to try it.",
                         "Not quite, but they see enough to know what they're up against.",
-                        "Not quite, but the failure tells them something: this was meant to be hard." },
+                        "Not quite, but the miss tells them something: this was meant to be hard.",
+                        "Not quite, but they come away knowing more than they did." },
               effects = { { "actor", fun = 3 }, { "all", story = 3 }, { "arch:casual", fun = 2 } } },
             { label = "Yes, at a cost. Close enough.", success = true, tone = "twist",
               adventure_label = "Yes, at a cost: it works, and {char} takes 1 to 4 damage.",
