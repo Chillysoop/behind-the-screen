@@ -288,6 +288,21 @@ do
     end
 end
 
+-- When each line is said, and how sure it is to be (tools/dialogue/when.lua): rules keyed on the
+-- line's file and the shape of its path, read off the code that uses that data.
+local when_mod = require "tools.dialogue.when"
+local specific = 0
+do
+    local cells = when_mod.cells(lines)
+    for _, e in ipairs(lines) do
+        local r, matched = when_mod.describe(e, cells)
+        e.when, e.odds = r.when, r.odds
+        if matched then
+            specific = specific + 1
+        end
+    end
+end
+
 -- The rooms, in the order they come in the book.
 local rooms = {}
 for _, id in ipairs({ "street", "garden", "entrance", "chamber", "paintings", "gift_shop", "hunting", "offices",
@@ -317,3 +332,5 @@ for g, n in pairs(by) do
 end
 table.sort(parts)
 print(string.format("dialogue export: %d lines (%s) -> %s", #lines, table.concat(parts, ", "), path))
+print(string.format("when: %d of %d lines (%.1f%%) have a specific when; the rest have the fallback", specific, #lines,
+    100 * specific / math.max(1, #lines)))

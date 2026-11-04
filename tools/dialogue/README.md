@@ -6,6 +6,14 @@ edits back into the game.
 - `export.lua` makes `dialogue.json`: every line, with its file, its place in the data, its room,
   who says it, and what kind of line it is. The book's text is never in it: the page opens the
   reader's own PDF in their browser and shows the room's pages there.
+- `when.lua` (used by `export.lua`) adds two fields to every line: `when`, one plain sentence on when
+  it's said (the room, the card or moment by its title, the condition), and `odds`, how sure it is:
+  "Always", "1 of N", "Your pick" (an option you choose from), "If chosen" (what follows a pick),
+  "On a success" / "On a failure", "Sometimes", or "Never" (the data is there, but nothing in the
+  museum shows it; the sentence says why). Its rules are keyed on the line's file and the shape of
+  its path, each read off the code that uses that data; a line no rule matches gets a fallback with
+  "Sometimes", and the export prints how many lines matched a rule. A new adventure's data needs its
+  own rules here, beside the museum's.
 - `desk.html` is the page (published as a claude.ai artifact, with `dialogue.json` beside it). Edits
   are saved to the page's database, one document per line, under `edits/`.
 - `reach.lua` and `reach_match.py` check which lines can actually play: `reach.lua` runs whole prologues
