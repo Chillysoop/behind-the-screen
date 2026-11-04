@@ -269,7 +269,7 @@ function M:forecast()
             end
         end
         p.fun_bonus = p.fun_bonus + pacing.fun_all
-        for kid, v in pairs(self.museum and self.museum.knobs or {}) do
+        for kid, v in util.sorted_pairs(self.museum and self.museum.knobs or {}) do
             if v then
                 local like = require("game.model.util").lazy("game.model.museum_week").knob_like(kid, v)[p.key] or 0
                 p.fun_bonus = p.fun_bonus + 3 * like

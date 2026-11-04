@@ -1439,6 +1439,10 @@ function AI.work_lock(b, c)
     if #locked == 0 then
         return false
     end
+    -- (Doors are keyed by square: the nearest of two equally near is the same one every run.)
+    table.sort(locked, function(p, q)
+        return p.x * 1000 + p.y < q.x * 1000 + q.y
+    end)
     local foes = enemies(b, c)
     local dist = b:paths(c, 400)
     for _, e in ipairs(foes) do

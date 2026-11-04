@@ -3627,7 +3627,7 @@ function M:combat_scene(sc)
     sc.outcome = result.winner == "party" and "win" or "lose"
     -- Who's beaten and who got away, for every line after the fight (a boss that ran isn't beaten).
     sc.foes_ran, sc.foes_beaten = {}, {}
-    for _, c in pairs(f and f.by_ref or {}) do
+    for _, c in util.sorted_pairs(f and f.by_ref or {}) do
         if c.side == "foes" and c.monster_id then
             if c.dead then
                 table.insert(sc.foes_beaten, c.monster_id)
@@ -3684,7 +3684,7 @@ function M:combat_scene(sc)
         -- (Only one ran: "the rest scatter" said over a boss who ran alone, the second playtest review.)
         if how == "party_win_fled" and fev.ran == 1 then
             how = "party_win_fled_one"
-            for _, c in pairs(f and f.by_ref or {}) do
+            for _, c in util.sorted_pairs(f and f.by_ref or {}) do
                 if c.side == "foes" and c.removed and not c.dead and c.removed_why ~= "yield" then
                     v.tgt = require("game.model.barks").foe_label(c)
                     v.Tgt = util.capitalize(v.tgt)
@@ -4166,7 +4166,7 @@ function M:bond_act(sc, def, doer)
         target = found
     elseif def.needs_close then
         local found
-        for key in pairs(rec and rec.close or {}) do
+        for key in util.sorted_pairs(rec and rec.close or {}) do
             if key ~= doer.key and not found then
                 found = find_present(here, key)
             end

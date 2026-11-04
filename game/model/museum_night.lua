@@ -1604,7 +1604,7 @@ function M.room_start(night, sc)
         local k = MODULE.knobs[kid]
         if knobs[kid] and k then
             local effs = {}
-            for key, v in pairs(k.like or {}) do
+            for key, v in util.sorted_pairs(k.like or {}) do
                 if v ~= 0 then
                     table.insert(effs, { "key:" .. key, fun = 3 * v })
                 end

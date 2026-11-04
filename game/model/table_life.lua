@@ -343,7 +343,7 @@ end
 local function reactor(night, p, text)
     local dialogue = require "game.model.dialogue"
     local named
-    for key, names in pairs(dialogue.NAMES) do
+    for key, names in util.sorted_pairs(dialogue.NAMES) do
         if string.find(text, "%f[%a]" .. names[2] .. "%f[%A]") then
             named = key
         end

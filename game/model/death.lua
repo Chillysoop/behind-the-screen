@@ -258,7 +258,7 @@ end
 -- and a way back that went unused closes.
 function M.start_week(campaign)
     local out = {}
-    for key, nc in pairs(campaign.new_char or {}) do
+    for key, nc in util.sorted_pairs(campaign.new_char or {}) do
         local p = campaign:player(key)
         if p and not nc.done then
             local used = campaign.pregens_used or {}
@@ -295,7 +295,7 @@ end
 -- The night a new character joins: their introduction, a Spotlight spike and a warm-up.
 function M.intro(night)
     local campaign = night.campaign
-    for key, nc in pairs(campaign.new_char or {}) do
+    for key, nc in util.sorted_pairs(campaign.new_char or {}) do
         if nc.joins and nc.joins <= campaign.week and not nc.introduced then
             local p = night.campaign:player(key)
             local g
