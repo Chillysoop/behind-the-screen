@@ -1874,6 +1874,98 @@ local function lean(night, p, o)
     end
     return v, why
 end
+M.lean = lean       -- (for the checks: tools/tests/roadmap_table_check.lua)
+
+-- What carries over into a vote (R10, the round-two review: the table picked the same option on a card
+-- in three runs of four): the week a friend's had, the spotlight so far tonight, a vote they lost last
+-- time, and the table's habit ("we played it safe last time"). Each is a reason they say out loud, in
+-- their own words, three ways each (fresh across weeks).
+M.VOTE_WHY = {
+    pushed = { "I went along last time. This one's mine.", "I gave way last time. Not on this one.",
+               "Last time I came round. This time you can." },
+    safe_last = { "We played it safe last time. Let's not.", "We were careful last time. Where's the fun in that?",
+                  "Come on, we played it safe last time." },
+    bold_last = { "We went in swinging last time. Let's be smart for once.", "We charged in last time. Maybe not again.",
+                  "We were reckless last time. Let's not push it." },
+    tired = { "I'm wiped tonight. The easy way, please.", "Long week. Let's keep it simple.", "I'm running on fumes. Easy does it." },
+    celebrating = { "I'm in too good a mood to play it safe.", "Tonight's a good night. Let's go big.", "I'm feeling lucky tonight." },
+    stressed = { "I just need one thing to go right tonight.", "No surprises, please. Not tonight.", "Let's do the one we know works." },
+    quiet = { "I've barely done anything tonight.", "Let me have this one. I've been quiet all night.",
+              "My turn, surely. I've hardly had a go." },
+}
+M.VOTE_PUSH = 1.4          -- what losing the last vote adds to a friend's own pick (twice running: twice that)
+M.VOTE_HABIT = 1.1         -- what the last pick's kind adds to the other kind, for the friends who like it
+
+-- An option's kind, for the table's habit: "bold" (a roll, a fight, a risk) or "safe" (a warning
+-- heeded, a fight avoided, careful hands), or nil (neither: a purchase, a way through).
+function M.vote_kind(o)
+    local m = o.mus or {}
+    if o.roll or m.fight or m.risk or m.harsh or o.then_moment then
+        return "bold"
+    elseif m.warn or m.no_fight or m.careful then
+        return "safe"
+    end
+    return nil
+end
+-- (Who likes which kind: the ones who came for a fight or for chaos go bold after a careful pick; the
+-- ones who came for a plan or an easy night go careful after a reckless one.)
+local KIND_FANS = { bold = { "butt_kicker", "instigator", "explorer" }, safe = { "tactician", "casual" } }
+
+local function fan_of(p, kind)
+    local n = 0
+    for _, a in ipairs(KIND_FANS[kind] or {}) do
+        n = math.max(n, score.arch(p, a))
+    end
+    return n
+end
+
+-- What carries over for friend p on option o, beside who they are: bonus, reason (a VOTE_WHY key).
+-- The night so far (their mood this week, the spotlight tonight) and the votes before (the habit).
+local function carry(night, p, o, votes, avg_spot)
+    local bonus, why, whyv = 0, nil, 0
+    local function add(n, key)
+        bonus = bonus + n
+        if n > whyv then
+            why, whyv = key, n
+        end
+    end
+    local kind = M.vote_kind(o)
+    local m = o.mus or {}
+    local easy = kind ~= "bold"
+    local mood = p.mood
+    if mood == "tired" then
+        if easy then
+            add(1.3, "tired")
+        elseif m.fight then
+            bonus = bonus - 0.6
+        end
+    elseif mood == "celebrating" and kind == "bold" then
+        add(1.2, "celebrating")
+    elseif mood == "stressed" and kind ~= "bold" then
+        add(1.2, "stressed")
+    end
+    -- Leading this one, and quiet all night: the option that's theirs to play.
+    if night.actor == p and (p.m.spotlight or 0) < avg_spot - 8 then
+        local theirs = false
+        for _, list in ipairs({ o.effects or {}, (o.roll and o.roll.success and o.roll.success.effects) or {} }) do
+            for _, e in ipairs(list) do
+                theirs = theirs or (e[1] == "actor" and (e.spotlight or 0) > 0)
+            end
+        end
+        if theirs then
+            add(1.4, "quiet")
+        end
+    end
+    -- The table's habit: the last pick's kind, and the friends who like the other kind.
+    local last = votes and votes.last
+    if last and last.kind and kind and kind ~= last.kind then
+        local f = fan_of(p, kind)
+        if f > 0 then
+            add(M.VOTE_HABIT * f * math.min(2, last.streak or 1), last.kind == "safe" and "safe_last" or "bold_last")
+        end
+    end
+    return bonus, why
+end
 
 local function short_want(o)
     return o.want or util.lower_first((string.gsub(o.label or "", "[%.!]+$", "")))
@@ -1894,20 +1986,47 @@ function M.table_pick(night, copy, vars)
         return live[1] or 1
     end
     local vals, first, why = {}, {}, {}
+    -- (What carries over from the votes before, R10: kept with the adventure, so it lasts the weeks.)
+    local adv = night.campaign.adv
+    local votes = adv and adv.votes or {}
+    local avg_spot = 0
+    for _, p in ipairs(night.players) do
+        avg_spot = avg_spot + (p.m.spotlight or 0)
+    end
+    avg_spot = avg_spot / math.max(1, #night.players)
     for _, p in ipairs(night.players) do
         vals[p.key] = {}
-        local best, bv
+        local best, bv, plain, pv
         for _, i in ipairs(live) do
             local v, w = lean(night, p, opts[i])
+            local cb, cw = carry(night, p, opts[i], votes, avg_spot)
             v = v + night.rng:next() * 1.6
-            vals[p.key][i] = { v = v, why = w }
-            if not bv or v > bv then
-                best, bv = i, v
+            if not pv or v > pv then
+                plain, pv = i, v
+            end
+            vals[p.key][i] = { v = v + cb, why = w, cwhy = cw, cb = cb }
+            if not bv or v + cb > bv then
+                best, bv = i, v + cb
             end
         end
         first[p.key] = best
-        why[p.key] = vals[p.key][best].why
+        -- (The reason they give is what swung it: the night so far or the last vote, when that turned
+        -- their pick or weighed as much as who they are.)
+        local b = vals[p.key][best]
+        why[p.key] = (b.cwhy and (plain ~= best or b.cb >= 1)) and b.cwhy or b.why
     end
+    -- A friend who lost the last vote holds out for theirs this time (twice running: harder), and says so.
+    local pushers = {}
+    for _, p in ipairs(night.players) do
+        local n = (votes.lost or {})[p.key]
+        if n and n > 0 then
+            local b = vals[p.key][first[p.key]]
+            b.v = b.v + M.VOTE_PUSH * math.min(2, n)
+            why[p.key] = "pushed"
+            pushers[p.key] = true
+        end
+    end
+    local wanted = util.copy(first)         -- (what each wanted before the talk: who lost, for next time)
     -- (A card that says what its lead wants, "{actor_char} wants a closer look", has them vote for
     -- it: the second playtest review heard Oswin want a closer look, then Sam vote to give the knight
     -- a wide berth. F18.)
@@ -1925,12 +2044,17 @@ function M.table_pick(night, copy, vars)
     end
     local function tally()
         local n, top, top_n = {}, nil, 0
+        -- (Two against two: the side of whoever went along last time, then the side of whoever found
+        -- it, then the keener side. R10.)
+        local care = {}
         for _, p in ipairs(night.players) do
             local i = first[p.key]
             n[i] = (n[i] or 0) + 1
+            care[i] = (care[i] or 0) + math.min(4, vals[p.key][i].v) + (pushers[p.key] and 100 or 0)
+                + (p == night.actor and 10 or 0)
         end
         for _, i in ipairs(live) do
-            if (n[i] or 0) > top_n then
+            if (n[i] or 0) > top_n or ((n[i] or 0) == top_n and top_n > 0 and care[i] > care[top]) then
                 top, top_n = i, n[i]
             end
         end
@@ -1965,9 +2089,10 @@ function M.table_pick(night, copy, vars)
             local said_n = night.lean_why_n[p.key] or 0
             local rested = night.lean_last[p.key] == night.lean_talks - 1
             local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not."))
+                or (w and M.VOTE_WHY[w] and night:fresh(M.VOTE_WHY[w], "vote_" .. w, true))
                 or (w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and not rested
                     and night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key, true)) or nil
-            if reason and w ~= "hurt" then
+            if reason and w ~= "hurt" and not M.VOTE_WHY[w] then
                 night.lean_why_n[p.key] = said_n + 1
                 night.lean_last[p.key] = night.lean_talks
             end
@@ -1983,7 +2108,9 @@ function M.table_pick(night, copy, vars)
     if top_n <= half then
         for _, p in ipairs(night.players) do
             local mine = vals[p.key][first[p.key]].v
-            if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < 1.2 then
+            -- (Not the one holding out after last time; a friend with half an eye on their phone, sooner.)
+            local easy = p.mood == "distracted" and 2 or 1.2
+            if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < easy and not pushers[p.key] then
                 first[p.key] = top
                 -- (Whoever comes round says so: nobody's counted for what they argued against.)
                 night:emit({ kind = "say", who = p.key, text = (said[p.key] and "Okay, okay. " or "Fine by me. ")
@@ -2017,7 +2144,7 @@ function M.table_pick(night, copy, vars)
                 log = "You give them a little push: \"If it were me, I'd " .. short_want(opts[i]) .. ".\"" })
         end
         table.insert(card.options, { label = "\"It's up to you.\"", leave = true,
-            sub = "They settle it themselves: whoever found it has the last word.",
+            sub = "They settle it themselves: whoever gave way last time gets this one, or else whoever found it.",
             effects = { { "arch:storyteller", fun = 1 }, { "arch:casual", fun = -1 } },
             log = "You shrug behind the screen. \"Your call.\"" })
         local was_a = night.actor
@@ -2052,11 +2179,8 @@ function M.table_pick(night, copy, vars)
             end
         end
     end
-    -- Whoever found it settles a tie.
-    if tied > 1 then
-        local a = night.actor
-        top = (a and first[a.key]) or top
-    end
+    -- A tie goes to the side of whoever went along last time, then of whoever found it, then to the
+    -- keener side (tally's order).
     local names = {}
     night.party_backers = {}
     for _, p in ipairs(order) do
@@ -2071,6 +2195,27 @@ function M.table_pick(night, copy, vars)
     end
     night:say("The table decides: " .. short_want(opts[top]) .. ((nudged_to == top and " (on your nudge)")
         or ((#names > 0 and #names < #night.players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
+    -- What the next vote remembers (R10): who went along with what they didn't want (they push next
+    -- time), and what kind of pick this was (the table notices a habit).
+    if adv then
+        adv.votes = adv.votes or {}
+        local vt = adv.votes
+        -- (The one who minded most: they push next time, harder if it's twice running.)
+        local loser, gap = nil, 0.8
+        for _, p in ipairs(night.players) do
+            local mine = wanted[p.key]
+            local g = mine ~= top and (vals[p.key][mine].v - vals[p.key][top].v) or 0
+            if g >= gap then
+                loser, gap = p.key, g
+            end
+        end
+        local again = loser and vt.lost and vt.lost[loser] or 0
+        vt.lost = loser and { [loser] = again + 1 } or {}
+        local kind = M.vote_kind(opts[top])
+        if kind then
+            vt.last = { kind = kind, streak = (vt.last and vt.last.kind == kind) and ((vt.last.streak or 1) + 1) or 1, card = copy.id }
+        end
+    end
     return top
 end
 

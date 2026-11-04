@@ -178,6 +178,10 @@ local function play_night(night)
                 text_ok(o.label, "option")
             end
             local pick = (style == "careful") and 1 or rng:int(1, #opts)
+            -- (Asked to settle a choice that's the players' own, the careful DM leaves it to them: R10.)
+            if style == "careful" and string.find(ev.card.id or "", "^table_asks_") then
+                pick = #opts
+            end
             if opts[pick].disabled then
                 pick = 1
             end
