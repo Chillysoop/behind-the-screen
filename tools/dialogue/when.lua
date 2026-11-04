@@ -786,12 +786,26 @@ A.people = function(p)
     return R("In your notes on the museum's people, and the hover on " .. pp.name .. "'s name", "Always")
 end
 
-A.portraits = function(p)
-    local who = p[2]
-    if p[3] == "painting" then
-        return R("In the Hall of Paintings, on " .. Q("The paint is wet") .. ", when the painting is " .. HERO[who] .. "'s", "Always")
+local function portrait_line(whose, f)
+    local card = Q("The paint is wet")
+    if f == "painting" then
+        return R("In the Hall of Paintings, on " .. card .. ", when the painting is " .. whose, "Always")
+    elseif f == "hint" then
+        return R("In the Hall of Paintings, on " .. card .. ": the danger you can see, when the painting is " .. whose, "Always")
+    elseif f == "danger" then
+        return R("In the Hall of Paintings, if you warn them about " .. whose .. " painting, and in your notes on fair warning", "Sometimes")
+    elseif f == "bite" or f == "aspect" then
+        return R("In the Hall of Paintings, on " .. card .. ": a missed roll reaching into " .. whose .. " painting", "On a failure")
     end
-    return R("In the Hall of Paintings: what comes out of " .. HERO[who] .. "'s painting on " .. Q("The paint is wet"), "On a success")
+    return R("In the Hall of Paintings: what comes out of " .. whose .. " painting on " .. card, "On a success")
+end
+
+A.portraits = function(p)
+    return portrait_line(HERO[p[2]] .. "'s", p[3])
+end
+
+A.portrait_default = function(p)
+    return portrait_line("anyone else's (the elf in the snow)", p[2])
 end
 
 A.premise = function()
