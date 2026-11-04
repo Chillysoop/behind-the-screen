@@ -833,24 +833,65 @@ end
 -- is the DM's call first, behind the screen (MODULE.explore): a trap can go off, give them a
 -- chance to spot it, or never go off at all; a find can be handed over, made more of, moved
 -- somewhere they'll look later, or not be there tonight.
+-- What each kind of friend says walking over to a place on the board. A place says what it is (its
+-- map spec's form: one or many, and a kind: a loose thing, a fixture too big or fixed to move, a
+-- picture, a figure shaped like someone, a person, or an area), and a line names the kinds it fits
+-- (`only`, every kind without it), so nobody asks "Is the shears in the grass a clue?" or offers to
+-- take the front doors home (the second playtest review). {it}, {is}, {does} follow the place: "it",
+-- "is", "does" for one, "them", "are", "do" for many. calm: only in a room with no fight in it.
+local OBJ = { "thing", "fixture", "picture", "figure" }       -- (something you can poke, not a person or an area)
 local LOOK_SAY = {
-    explorer = { "Hang on. I want a proper look at {place}.", "Nobody touch {place}. I'm looking first.",
-                 "Okay, what's the deal with {place}?" },
-    tactician = { "{place}. Could be useful later. Noting it.", "Is {place} cover? It looks like cover.",
+    explorer = { "Hang on. I want a proper look at {place}.",
+                 { "Nobody touch {place}. I'm looking first.", only = OBJ },
+                 "Okay, what's the deal with {place}?",
+                 { "Where did {place} come from? I need to know.", only = { "thing", "picture", "figure" } } },
+    tactician = { "{place}. Could be useful later. Noting it.",
+                  { "Could we hide behind {place} in a pinch?", only = { "fixture", "figure" } },
                   "Anything about {place} that's going to hurt us?" },
-    butt_kicker = { "Does {place} fight back? No? Moving on.", "Can I hit {place}? I want to hit it.",
-                    "Cool. Where are the monsters?" },
-    storyteller = { "Who left {place} here? There's a story in that.", "I love that this museum has {place}.",
-                    "Wait. Is {place} a clue?" },
-    instigator = { "I poke {place} with a stick.", "I lick it. I'm licking {place}.", "What happens if I knock {place} over?" },
-    method_actor = { "\"Stay close,\" I tell the others, and step up to {place}.", "\"I've seen one of these before. Never like this.\"",
+    butt_kicker = { { "{does} {place} fight back? No? Moving on.", only = OBJ },
+                    { "Can I hit {place}? I want to hit {it}.", only = { "thing", "fixture", "figure" } },
+                    { "Cool. Where are the monsters?", calm = true },
+                    "{place}? Fine. Anything in here I'm allowed to hit?" },
+    storyteller = { { "Who left {place} here? There's a story in that.", only = { "thing" } },
+                    { "I love that this museum has {place}.", only = OBJ },
+                    { "Wait. Could {place} be a clue?", only = OBJ },
+                    "There's a story behind {place}. I can feel it." },
+    instigator = { { "I poke {place} with a stick.", only = { "thing", "fixture", "picture", "figure", "area" } },
+                   { "I lick {it}. I'm licking {place}.", only = { "thing", "fixture", "figure" } },
+                   { "What happens if I knock {place} over?", only = { "thing", "figure" } },
+                   "What happens if I shout at {place}? Just a little shout." },
+    method_actor = { "\"Stay close,\" I tell the others, and step up to {place}.",
+                     { "\"I've seen one of these before. Never like this.\"", one = true, only = OBJ },
                      "\"Careful. Nothing in this place is what it looks like.\"" },
-    power_gamer = { "Is {place} worth anything? Can we sell it?", "Does {place} actually do anything?",
+    power_gamer = { { "{is} {place} worth anything? Can we sell {it}?", only = { "thing", "picture", "figure" } },
+                    { "{does} {place} actually do anything?", only = { "thing", "fixture", "figure" } },
                     "I check {place} for anything magic." },
-    casual = { "Ha. {place}. Neat.", "Ooh. Look at {place}.", "Can we take {place} home? No? Fine." },
+    casual = { "Ha. {place}. Neat.", "Ooh. Look at {place}.",
+               { "Can we take {place} home? No? Fine.", only = { "thing", "picture" } } },
 }
 M.LOOK_SAY = LOOK_SAY
 local LOOK_IC = { method_actor = true }
+
+-- The lines a friend of this kind can say about this place, filled in (pl: a board place with its
+-- form; how.calm: the room has no fight in it).
+function M.look_lines(arch, pl, how)
+    local out = {}
+    local many = pl and pl.many
+    local kind = (pl and pl.kind) or "thing"
+    local vars = { place = util.lower_first((pl and pl.name) or "it"), it = many and "them" or "it",
+                   is = many and "are" or "is", does = many and "do" or "does" }
+    for _, l in ipairs(LOOK_SAY[arch] or {}) do
+        local text, ok = l, true
+        if type(l) == "table" then
+            text = l[1]
+            ok = (not l.only or util.contains(l.only, kind)) and not (l.one and many) and not (l.calm and not (how and how.calm))
+        end
+        if ok then
+            table.insert(out, util.sentence_case(util.fill(text, vars)))
+        end
+    end
+    return out
+end
 
 local function look_card(night, sc, pl, ex)
     local what = util.lower_first(pl.name or "it")
@@ -1137,9 +1178,11 @@ function M.explore(night, sc)
             M.handle(night, { francs = 1 }, sc)
         end
         local arch = LOOK_SAY[p.primary] and p.primary or "casual"
-        local line = night:fresh(LOOK_SAY[arch], "look_" .. arch)
-        night:emit({ kind = "say", who = p.key, text = util.sentence_case(util.fill(line, { place = util.lower_first(pl.name or "it") })),
-                     ic = LOOK_IC[arch] or false })
+        -- ("Where are the monsters?" only where there are none: no fight in the room, before or after.)
+        local room = MODULE.rooms[sc.room] or {}
+        local lines = M.look_lines(arch, pl, { calm = not room.encounter and not sc.fought })
+        local line = night:fresh(lines, "look_" .. arch)
+        night:emit({ kind = "say", who = p.key, text = line, ic = LOOK_IC[arch] or false })
         score.nudge_engagement(p, 4)
         night:apply({ { "actor", spotlight = 2 }, { "arch:explorer", fun = 1 } })
         night.table_min = (night.table_min or 0) + 2

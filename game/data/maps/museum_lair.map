@@ -69,10 +69,10 @@ wheel     | own_words | candelabra, cartwheel, candles, pulley, rope  | a cartwh
 pottery   | own_words | pottery, shards, broken pots, shattered       | shattered pottery crunching underfoot
 
 spots:
--- key   | x,y   | name                     | line
-10A      | 16,7  | Euryale's couch          | A tall woman in a white hood and a purple cloak lounges on a long couch, bronze eyes on you. She offers you a drink.
-landing  | 5,7   | the top of the stairs    | Smoke hangs in the air. Through the doors either side, statues stand frozen mid-scream.
-statues  | 13,7  | the frozen visitors      | Six visitors turned to stone, frozen mid-flinch, scattered round the room where they stood.
-mosaics  | 10,2  | the snake-haired sisters | Among the mosaics, a hanging of three sisters with snakes for hair.
-pedestals | 13,4 | the empty pedestals      | Pedestals that once held delicate pots. She smashed them all; the shards are everywhere.
-wheel    | 14,5  | the cartwheel candelabra | A wheel of candles hangs on a rope and pulley from the wall. Cut the rope and it falls.
+-- key   | x,y   | name                     | line | form
+10A      | 16,7  | Euryale's couch          | A tall woman in a white hood and a purple cloak lounges on a long couch, bronze eyes on you. She offers you a drink. | one fixture
+landing  | 5,7   | the top of the stairs    | Smoke hangs in the air. Through the doors either side, statues stand frozen mid-scream. | one area
+statues  | 13,7  | the frozen visitors      | Six visitors turned to stone, frozen mid-flinch, scattered round the room where they stood. | many figures
+mosaics  | 10,2  | the snake-haired sisters | Among the mosaics, a hanging of three sisters with snakes for hair. | many pictures
+pedestals | 13,4 | the empty pedestals      | Pedestals that once held delicate pots. She smashed them all; the shards are everywhere. | many fixtures
+wheel    | 14,5  | the cartwheel candelabra | A wheel of candles hangs on a rope and pulley from the wall. Cut the rope and it falls. | one fixture

@@ -68,13 +68,13 @@ fruit    | own_words | fruit, low bushes, bushes              | low bushes heavy
 masonry  |           | masonry, stonework                     | chunks of fallen stonework
 
 spots:
--- key  | x,y   | name                          | line
-1A      | 10,8  | the plaque by the pond        | A small iron sign warns visitors about the bushes and says water helps. It's signed FF.
-1B      | 11,10 | the horned beast              | A bush clipped into a great three-horned beast stands between the paths, thorns bristling.
-1C      | 10,3  | the bristly bush by the doors | A bush in the shape of a boar sits on the path right in front of the museum's doors.
-1D      | 5,5   | the cat on the left terrace   | Up the broken steps, a bush clipped into a crouching cat watches the pond.
-1E      | 16,5  | the cat on the right terrace  | Its twin on the other terrace, the same crouching cat in leaves and thorns.
-pond    | 12,7  | the pond's edge               | Still, dark water. Get too close and something slimy reaches out of it.
-shears  | 17,7  | the shears in the grass       | A gardener's shears lie where someone dropped them. They'd do as a short blade.
-hammer  | 7,1   | the sledgehammer by the doors | A heavy sledgehammer for knocking in stakes leans against the museum wall.
-doors   | 11,2  | the museum's doors            | Tall oak doors wound with gold. They creak, but they aren't locked.
+-- key  | x,y   | name                          | line | form
+1A      | 10,8  | the plaque by the pond        | A small iron sign warns visitors about the bushes and says water helps. It's signed FF. | one fixture
+1B      | 11,10 | the horned beast              | A bush clipped into a great three-horned beast stands between the paths, thorns bristling. | one figure
+1C      | 10,3  | the bristly bush by the doors | A bush in the shape of a boar sits on the path right in front of the museum's doors. | one figure
+1D      | 5,5   | the cat on the left terrace   | Up the broken steps, a bush clipped into a crouching cat watches the pond. | one figure
+1E      | 16,5  | the cat on the right terrace  | Its twin on the other terrace, the same crouching cat in leaves and thorns. | one figure
+pond    | 12,7  | the pond's edge               | Still, dark water. Get too close and something slimy reaches out of it. | one area
+shears  | 17,7  | the shears in the grass       | A gardener's shears lie where someone dropped them. They'd do as a short blade. | many things
+hammer  | 7,1   | the sledgehammer by the doors | A heavy sledgehammer for knocking in stakes leans against the museum wall. | one thing
+doors   | 11,2  | the museum's doors            | Tall oak doors wound with gold. They creak, but they aren't locked. | many fixtures

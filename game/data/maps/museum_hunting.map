@@ -80,15 +80,15 @@ city     |           | skyscrapers, trains, trams                     | a model 
 bird     | own_words | bird, flightless bird, yellow feathers         | a stuffed bird the size of a horse
 
 spots:
--- key  | x,y   | name                      | line
-6A      | 14,11 | the giant skull           | The armoured skull of a burrowing beast breaks up through the floor. It's hollow inside.
-6B      | 13,13 | the model city            | A model city twenty feet long, its towers taller than a person, tiny trains whirring through it.
-6C      | 6,12  | the big yellow bird       | A stuffed flightless bird as big as a horse, chewing on stuffed greens. Something stands very still behind it.
-6D      | 2,9   | the spiky sketch          | An artist's drawing of an enormous wingless beast covered in spikes.
-6E      | 8,6   | the pickling jars         | Two jars of yellow-green brine, each holding something like a brain with a beak.
-6F      | 6,9   | the jungle                | Ten feet of dense jungle you can't see through. Humid, and full of distant birdsong.
-6G      | 3,5   | the misted cabinet        | A glass case fogged over from inside. Something grows in there. Break it and it spreads.
-6H      | 6,3   | the razorbark tree        | A tree reaching right up to the ceiling. Its bark is worth money to the right buyer.
-6I      | 11,4  | the cave model            | A model cave system with six peep holes. Through one, a skeletal hand wearing a gleaming ring.
-6J      | 15,4  | the little kitchen        | A whole working kitchen: knives, pots and polished cupboard doors you can see reflections in.
-stairs  | 5,7   | the top of the stairs     | Where the stairs from the gift shop come up. The hall ahead is full of exhibits, and it feels like being watched.
+-- key  | x,y   | name                      | line | form
+6A      | 14,11 | the giant skull           | The armoured skull of a burrowing beast breaks up through the floor. It's hollow inside. | one fixture
+6B      | 13,13 | the model city            | A model city twenty feet long, its towers taller than a person, tiny trains whirring through it. | one fixture
+6C      | 6,12  | the big yellow bird       | A stuffed flightless bird as big as a horse, chewing on stuffed greens. Something stands very still behind it. | one figure
+6D      | 2,9   | the spiky sketch          | An artist's drawing of an enormous wingless beast covered in spikes. | one picture
+6E      | 8,6   | the pickling jars         | Two jars of yellow-green brine, each holding something like a brain with a beak. | many things
+6F      | 6,9   | the jungle                | Ten feet of dense jungle you can't see through. Humid, and full of distant birdsong. | one area
+6G      | 3,5   | the misted cabinet        | A glass case fogged over from inside. Something grows in there. Break it and it spreads. | one fixture
+6H      | 6,3   | the razorbark tree        | A tree reaching right up to the ceiling. Its bark is worth money to the right buyer. | one fixture
+6I      | 11,4  | the cave model            | A model cave system with six peep holes. Through one, a skeletal hand wearing a gleaming ring. | one fixture
+6J      | 15,4  | the little kitchen        | A whole working kitchen: knives, pots and polished cupboard doors you can see reflections in. | one fixture
+stairs  | 5,7   | the top of the stairs     | Where the stairs from the gift shop come up. The hall ahead is full of exhibits, and it feels like being watched. | one area

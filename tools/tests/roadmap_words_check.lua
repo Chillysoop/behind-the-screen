@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F21" }
+local ITEMS = { "F21", "F22" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",

@@ -37,8 +37,10 @@ A spec, in short:
     floor  | base  | marble             | a marble floor
 
     spots:
-    -- key | x,y | name        | line
-    3A     | 9,6 | the pedestal | A raised stand with a button carved like a woman.
+    -- key | x,y | name        | line                                               | form
+    3A     | 9,6 | the pedestal | A raised stand with a button carved like a woman. | one fixture
+
+A spot's form says how the table talks about it: one or many, and what kind (FORM_KINDS).
 """
 import os
 import re
@@ -203,6 +205,26 @@ def _turn(s, where):
     raise SpecError(f"{where}: turn must be 0-3 or auto, got {s!r}")
 
 
+# What a spot is, for the lines that name it (game/model/museum_night.lua, looking round): a loose thing,
+# something built in or too big to move, a picture, a figure shaped like someone, a person, or an area.
+FORM_KINDS = ("thing", "fixture", "picture", "figure", "person", "area")
+
+
+def _form(text, where):
+    """'many things' -> ('many', 'thing'); '' -> None (the builder warns)."""
+    words = text.split()
+    if not words:
+        return None
+    if len(words) != 2 or words[0] not in ("one", "many"):
+        raise SpecError(f"{where}: a spot's form is 'one KIND' or 'many KINDs', got {text!r}")
+    kind = words[1]
+    if words[0] == "many" and kind.endswith("s"):
+        kind = kind[:-1]
+    if kind not in FORM_KINDS:
+        raise SpecError(f"{where}: a spot's kind is one of {', '.join(FORM_KINDS)}, got {words[1]!r}")
+    return (words[0], kind)
+
+
 def _fields(line, n):
     parts = [p.strip() for p in line.split("|")]
     if len(parts) > n:
@@ -290,11 +312,11 @@ def parse(text, path="<spec>"):
                                          words=[w.strip() for w in words.split(",") if w.strip()],
                                          say=say or None, line=lineno))
         elif section == "spots":
-            key, xy, name, line = _fields(stripped, 4)
+            key, xy, name, line, form = _fields(stripped, 5)
             if not key or not name or not line:
-                raise SpecError(f"{where}: a spot is 'key | x,y | name | one line'")
+                raise SpecError(f"{where}: a spot is 'key | x,y | name | one line | form'")
             x, y = _xy(xy, where)
-            spec["spots"].append(dict(key=key, x=x, y=y, name=name, line=line, lineno=lineno))
+            spec["spots"].append(dict(key=key, x=x, y=y, name=name, line=line, form=_form(form, where), lineno=lineno))
     return spec
 
 
@@ -613,7 +635,10 @@ def compile_spec(spec, kit):
                     if any(max(abs(a - x), abs(b - y)) <= 1 for a, b, _ in squares(k, px, py, pr)):
                         if f["id"] not in near:
                             near.append(f["id"])
-        spots.append(dict(id=s["key"], x=x, y=y, name=s["name"], line=s["line"], near=near))
+        if not s.get("form"):
+            warnings.append(f"{name}: {tag}: no form (one or many, and what kind: {', '.join(FORM_KINDS)}); 'one thing' for now")
+        many, kind = s.get("form") or ("one", "thing")
+        spots.append(dict(id=s["key"], x=x, y=y, name=s["name"], line=s["line"], near=near, many=(many == "many"), kind=kind))
     if len(spots) < 3:
         warnings.append(f"{name}: only {len(spots)} spots (give a room a handful)")
 
@@ -681,7 +706,8 @@ def board_lua(b, indent="    "):
     out.append(f"{i2}places = {{")
     for s in b["spots"]:
         near = "{ " + ", ".join(lua_str(n) for n in s["near"]) + " }" if s["near"] else "{}"
-        out.append(f"{i3}{{ id = {lua_str(s['id'])}, x = {s['x']}, y = {s['y']}, name = {lua_str(s['name'])}, near = {near},")
+        form = (", many = true" if s.get("many") else "") + f", kind = {lua_str(s.get('kind') or 'thing')}"
+        out.append(f"{i3}{{ id = {lua_str(s['id'])}, x = {s['x']}, y = {s['y']}, name = {lua_str(s['name'])}, near = {near}{form},")
         out.append(f"{i3}  line = {lua_str(s['line'])} }},")
     out.append(f"{i2}}},")
     out.append(f"{i1}}},")

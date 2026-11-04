@@ -66,10 +66,10 @@ bodies   | own_words | bodies, corpses, dried                       | dried-up b
 books    | own_words | books, piles of books, dull books            | piles of dry old books
 
 spots:
--- key    | x,y   | name                   | line
-9A        | 15,8  | the lecturer           | A thin grey man you can almost see through, eyes of milky mist, droning on without a mouth.
-benches   | 7,5   | the benches            | Two rows of splintered old seats. A few dried-up bodies slump on them as if they fell asleep.
-board     | 18,8  | the blackboard         | Scribbled notes behind the lectern, and an old box of chalk gone mostly to powder.
-windows   | 9,2   | the blanketed windows  | Ragged blankets over every window. With the door shut, the world outside is simply gone.
-notes     | 14,8  | the carpet of notes    | Ghostly pages drift around the lectern, deep as a rug, dropped and forgotten.
-books     | 4,11  | the piles of books     | Stacks of ancient books, each one duller than the last.
+-- key    | x,y   | name                   | line | form
+9A        | 15,8  | the lecturer           | A thin grey man you can almost see through, eyes of milky mist, droning on without a mouth. | one person
+benches   | 7,5   | the benches            | Two rows of splintered old seats. A few dried-up bodies slump on them as if they fell asleep. | many fixtures
+board     | 18,8  | the blackboard         | Scribbled notes behind the lectern, and an old box of chalk gone mostly to powder. | one fixture
+windows   | 9,2   | the blanketed windows  | Ragged blankets over every window. With the door shut, the world outside is simply gone. | many fixtures
+notes     | 14,8  | the carpet of notes    | Ghostly pages drift around the lectern, deep as a rug, dropped and forgotten. | one thing
+books     | 4,11  | the piles of books     | Stacks of ancient books, each one duller than the last. | many things

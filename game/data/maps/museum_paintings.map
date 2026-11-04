@@ -65,16 +65,16 @@ benches   |           |                                                | benches
 cupboard  | own_words | cupboard, mop, bucket, turpentine              | a cleaning cupboard
 
 spots:
--- key  | x,y   | name                        | line
-4A      | 2,6   | the white-haired elf        | A dark elf with two curved swords and a black panther, in a snowfield. Reach in and the cold bites.
-4B      | 3,3   | the red-bearded king        | A dwarf king with jewels in his beard, a cave behind him, half wild and half fine stonework.
-4C      | 7,2   | the dice game               | Five people round a table rolling dice, one of them behind a little screen. It looks oddly familiar.
-4D      | 10,2  | the airship                 | An airship roars over a broken land, its side engine spitting strange fire.
-4E      | 13,2  | the clown family            | A family of clowns outside a shabby circus, makeup running, the ringmaster grinning behind them.
-4F      | 16,2  | the unknown lady            | A woman with folded arms on a carved chair, a road winding to icy mountains behind her.
-4G      | 18,2  | the warrior on the bridge   | A woodblock print of a warrior in scarlet armour on a bridge, blade ready.
-4H      | 19,4  | the empty throne            | A gold throne with bats and skulls carved on it, a glass of something red on the table beside it.
-4K      | 19,5  | the knight of shades        | Black armour, and red light where the face should be. The brushwork is perfect. It's watching.
-4I      | 16,10 | the ship and the squid      | A galleon in spray, sailors running, a monstrous squid wrapped round the hull.
-4J      | 14,12 | the duellist                | A cocky half-elf in an open doublet, a pistol smoking in his outstretched hand.
-cupboard | 3,7  | the cleaning cupboard       | A mop, a bucket, and a little bottle of turpentine.
+-- key  | x,y   | name                        | line | form
+4A      | 2,6   | the white-haired elf        | A dark elf with two curved swords and a black panther, in a snowfield. Reach in and the cold bites. | one picture
+4B      | 3,3   | the red-bearded king        | A dwarf king with jewels in his beard, a cave behind him, half wild and half fine stonework. | one picture
+4C      | 7,2   | the dice game               | Five people round a table rolling dice, one of them behind a little screen. It looks oddly familiar. | one picture
+4D      | 10,2  | the airship                 | An airship roars over a broken land, its side engine spitting strange fire. | one picture
+4E      | 13,2  | the clown family            | A family of clowns outside a shabby circus, makeup running, the ringmaster grinning behind them. | one picture
+4F      | 16,2  | the unknown lady            | A woman with folded arms on a carved chair, a road winding to icy mountains behind her. | one picture
+4G      | 18,2  | the warrior on the bridge   | A woodblock print of a warrior in scarlet armour on a bridge, blade ready. | one picture
+4H      | 19,4  | the empty throne            | A gold throne with bats and skulls carved on it, a glass of something red on the table beside it. | one picture
+4K      | 19,5  | the knight of shades        | Black armour, and red light where the face should be. The brushwork is perfect. It's watching. | one picture
+4I      | 16,10 | the ship and the squid      | A galleon in spray, sailors running, a monstrous squid wrapped round the hull. | one picture
+4J      | 14,12 | the duellist                | A cocky half-elf in an open doublet, a pistol smoking in his outstretched hand. | one picture
+cupboard | 3,7  | the cleaning cupboard       | A mop, a bucket, and a little bottle of turpentine. | one fixture
