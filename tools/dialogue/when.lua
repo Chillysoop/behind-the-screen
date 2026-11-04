@@ -2016,6 +2016,8 @@ local function code_line(p)
             " side (at most twice a night, each line once, never two talks running)", "Sometimes")
     elseif top == "BREAK_START" then
         return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
+    elseif top == "GENTLE_STOP" then
+        return R("The first night only, when it's late and you've already played one more room: the night ends there", one_of(3))
     elseif top == "BREAK_END" then
         return R("The break, once a night: everyone comes back to the table", one_of(4))
     elseif top == "READY" then

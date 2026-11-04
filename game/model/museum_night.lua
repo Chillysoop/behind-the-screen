@@ -3487,9 +3487,22 @@ function M.end_session(night, nxt)
     night.cliff_stop = true
 end
 
+-- A first night that already had its one more room ends there (R6: a gentler first night; a DM who
+-- kept saying "one more" made night 1 as busy as any other).
+M.GENTLE_STOP = {
+    "It's a first night, and it's late: the table calls it here.",
+    "First nights run short. Everyone agrees to stop here.",
+    "\"Let's leave it there for a first night.\" Nobody argues.",
+}
+
 -- It's getting late: the DM's call, wrap up or one more room. Returns true when you called it.
 function M.ask_wrap(night, nxt)
     local planned = night.table_planned or 210
+    if night.gentle and night.one_more then
+        night:say(night:fresh(M.GENTLE_STOP, "gentle_stop"), "aside")
+        M.end_session(night, nxt)
+        return true
+    end
     night.mus.wrap_asks = (night.mus.wrap_asks or 0) + 1
     local late = (night.table_min or 0) > planned
     local card = { id = "mus_wrap", type = "table", trigger = "museum", title = late and "It's late" or "It's getting late",

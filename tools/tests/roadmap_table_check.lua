@@ -844,7 +844,12 @@ end)
 case("DET", function()
     -- (Two favours due the same week are asked in the same order every run: the order was pairs().)
     local c = first_night(21)
-    c.adv.favors = { flitwidget = 3, telpur = 3 }
+    -- (Goodwill is read from the event log now: events.lua, R7.)
+    local events = require "game.model.events"
+    for _, who in ipairs({ "telpur", "flitwidget" }) do
+        events.add(c, { kind = "help", who = "party", whom = "mus_" .. who, n = 3, favor = true,
+                        seen = { ["mus_" .. who] = true } })
+    end
     c.adv.favor_done = {}
     local ids = {}
     for _, pr in ipairs(adventure.prompts(c)) do
