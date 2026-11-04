@@ -131,6 +131,40 @@ function M.night_start(night)
             M.say(night, e, "start")
         end
     end
+    -- Anything else the week between gave them that comes along (the adventure's asides with an
+    -- `intro`: Telpur's talking shoelace): its first night, the table hears it's there before it
+    -- pipes up in a fight (F5: the shoelace's first line was mid-fight, with no introduction).
+    local adventure = util.lazy("game.model.adventure")
+    for _, a in ipairs((adventure.data or {}).asides or {}) do
+        local key = "aside:" .. a.id
+        if a.intro and not adv.introduced[key] and adventure.test(night.campaign, a.when) then
+            local owner = a.owner and night.campaign:player(a.owner)
+            if not a.owner or (owner and util.contains(night.players, owner)) then
+                adv.introduced[key] = night.campaign.week or 0
+                night:say(a.intro, "good")
+            end
+        end
+    end
+end
+
+-- An ally who fights beside them for the first time tonight without having walked in with them
+-- (the Steam Mech, woken a session ago, joining the boss fight): the table hears it arrive (F5:
+-- El Roboto joined the fight unannounced). lines: the adventure's `ally_join` by monster id.
+function M.ally_arrives(night, allies)
+    local adventure = util.lazy("game.model.adventure")
+    local lines = (adventure.data or {}).ally_join or {}
+    night.allies_announced = night.allies_announced or {}
+    local out = {}
+    for _, a in ipairs(allies or {}) do
+        local id = type(a) == "table" and a.id or a
+        local line = lines[id]
+        if line and not night.allies_announced[id] then
+            night.allies_announced[id] = true
+            local st = night.campaign.adv or {}
+            table.insert(out, util.fill(line, { mech = st.mech_name or "The Mech" }))
+        end
+    end
+    return out
 end
 
 -- Looking around: the looker's companion helps. Returns the bonus for the look, and whether they
@@ -162,7 +196,7 @@ end
 -- left)" and the fight carried on as if nothing happened). It's said out loud, the friend who
 -- plays them (or brought them) reacts, and the adventure remembers: a person who fell comes round
 -- after the fight (M.after_fight), and the wrap-up can say so (flag "<id>_fell").
-function M.fell(night, c)
+function M.fell(night, c, captioned)
     if not c then
         return
     end
@@ -179,7 +213,9 @@ function M.fell(night, c)
     end
     local name = (e and e.name) or c.name or "Their ally"
     local lines = e and e.lines or {}
-    night:say(util.fill(lines.down or "{name} goes down, and doesn't get up.", { name = name }), "bad")
+    if not captioned then
+        night:say(util.fill(lines.down or "{name} goes down, and doesn't get up.", { name = name }), "bad")
+    end
     -- Who reacts: whoever was playing them, else the friend who brought them, else anyone.
     local key = c.pilot or (e and e.owner)
     local p = key and night.campaign:player(key)
@@ -227,6 +263,10 @@ function M.maybe_find(night, p)
     M.join(night.campaign, id)
     night:say(util.fill("Something small and whiskery is watching {char} from under an exhibit. It's a rat. {char} names him "
         .. def.name .. " on the spot.", { char = p.char }), "good")
+    -- (Being found is how they're introduced: "Pip has a new friend tonight" a week after Pip named
+    -- him was the second playtest review's first find. F5.)
+    adv.introduced = adv.introduced or {}
+    adv.introduced[id] = night.campaign.week or 0
     night:react({ [p.key] = "cheer" })
     require("game.model.score").add(p, "fun", 5)
     return true

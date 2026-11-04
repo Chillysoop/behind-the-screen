@@ -330,10 +330,16 @@ M.rooms = {
 M.asides = {
     { id = "fussed", when = { flag = "fussed" }, no_sneak = true,
       text = "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything." },
-    { id = "shoelace", when = { flag = "shoelace" },
+    { id = "shoelace", when = { flag = "shoelace" }, owner = "jess",
+      intro = "Pip has a new shoelace tonight, a present from Telpur's own boot. It talks. It hasn't stopped since the gift shop.",
       text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked." },
     { id = "telpur", when = { flag = "telpur_along" }, no_sneak = true,
       text = "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming." },
+}
+-- An ally fighting beside them who didn't walk in with them: said as the fight starts, the first
+-- time it's there tonight (companions.ally_arrives, museum_night.arm).
+M.ally_join = {
+    steam_mech = "{mech} clanks up the stairs behind them, steam hissing, and takes its place in the line.",
 }
 -- "Last time, they ..." at the start of a night: what each room came to, as a clause.
 M.recap = {

@@ -1315,6 +1315,10 @@ function M.arm(night, sc)
     end
     st.items_used = st.items_used or {}
     local lines = {}
+    -- (The Mech they woke last session walks in with them: said before what it can do. F5.)
+    for _, l in ipairs(require("game.model.companions").ally_arrives(night, sc.encounter.allies)) do
+        table.insert(lines, l)
+    end
     -- Once a night, at the first fight: what the week between left them with (MODULE.asides).
     night.mus.asides = night.mus.asides or {}
     for _, a in ipairs(MODULE.asides or {}) do

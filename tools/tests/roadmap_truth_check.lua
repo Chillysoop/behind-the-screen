@@ -106,7 +106,11 @@ local function play(seed, style)
         local prep = c:start_week()
         for _, m in ipairs(c.chat or {}) do
             if m.ask and not m.answered then
-                museum_week.answer_chat(c, m, ({ careful = 1, random = rng:int(1, 3), careless = 3 })[style])
+                local pick = ({ careful = 1, random = rng:int(1, 3), careless = 3 })[style]
+                if m.ask == "pip_pet" then
+                    pick = ({ careful = 1, random = 2, careless = 2 })[style]     -- (found in the museum: F5)
+                end
+                museum_week.answer_chat(c, m, pick)
             end
         end
         for _, pr in ipairs(c.adv.prompts) do
@@ -363,6 +367,11 @@ table.insert(watchers, function(R, N, ev)
                 add("F4", "allies_fell")
                 N.ally_fell = { name = a.name, said = false, answered = false }
             end
+
+            -- (The Mech venting itself to a stop: its caption on the mat says it.)
+            if st.kind == "feature" and st.name == "Overheats and shuts down" then
+                N.vented = true
+            end
             if st.kind == "feature" and st.name == "Powers down" then
                 add("F4", "power_downs")
                 if not (a and a.monster == "steam_mech") then
@@ -370,6 +379,10 @@ table.insert(watchers, function(R, N, ev)
                 end
             end
         end
+        if N.ally_fell and N.vented then
+            N.ally_fell.said = true
+        end
+        N.vented = nil
     elseif N.ally_fell and (ev.kind == "narrate" or ev.kind == "say") then
         local af = N.ally_fell
         if ev.kind == "narrate" and ev.text and string.find(ev.text, af.name, 1, true) then
@@ -398,6 +411,56 @@ table.insert(night_end, function(R, N)
         add("F4", "wrap_ups_with_telpur_along")
         if not N.thanks_telpur then
             fail("F4", N.tag .. ": Telpur came along, and the thanks scene in his own shop never mentions him")
+        end
+    end
+end)
+
+-- F5: a companion is introduced once: found, or joined, or given between sessions.
+table.insert(watchers, function(R, N, ev)
+    local text = ev.text
+    if not text or (ev.kind ~= "narrate" and ev.kind ~= "say") then
+        if ev.kind == "battle" and ev.phase == "start" then
+            for _, a in ipairs(ev.allies or {}) do
+                if a.monster == "steam_mech" then
+                    add("F5", "mech_fights")
+                    if not N.mech_named or N.mech_named == "no" then
+                        fail("F5", N.tag .. ": " .. tostring(a.name) .. " joins the fight with no word that it's there"
+                            .. (N.mech_first and (" (first heard: '" .. N.mech_first .. "')") or ""))
+                    end
+                end
+            end
+        end
+        return
+    end
+    -- (The first word of the Mech tonight says it's there: not its red switch, as if it always was.)
+    local mech = R.c.adv.mech_name
+    if mech and not N.mech_named and string.find(text, mech, 1, true) then
+        N.mech_named = string.find(text, "clanks up", 1, true) or string.find(text, "My name is", 1, true)
+            or string.find(text, "looks down at them", 1, true) or false
+        if not N.mech_named then
+            N.mech_named = "no"
+            N.mech_first = text
+        end
+    end
+    if string.find(text, "names him Exhibit B", 1, true) then
+        add("F5", "exhibit_b_found")
+        R.exhibit_b_met = (R.exhibit_b_met or 0) + 1
+    elseif string.find(text, "new friend tonight", 1, true) then
+        add("F5", "exhibit_b_joined")
+        R.exhibit_b_met = (R.exhibit_b_met or 0) + 1
+    end
+    if (R.exhibit_b_met or 0) > 1 and not R.exhibit_b_twice then
+        R.exhibit_b_twice = true
+        fail("F5", N.tag .. ": Exhibit B is introduced a second time: '" .. text .. "'")
+    end
+    if string.find(text, "new shoelace tonight", 1, true) then
+        add("F5", "shoelace_introduced")
+        R.shoelace_met = true
+    elseif string.find(text, "talking shoelace", 1, true) then
+        add("F5", "shoelace_lines")
+        if not R.shoelace_met then
+            fail("F5", N.tag .. ": the talking shoelace speaks up before anyone said Pip has it")
+            R.shoelace_met = true
         end
     end
 end)

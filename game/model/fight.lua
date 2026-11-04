@@ -651,10 +651,10 @@ local function react(night, f, steps, who)
                 if c.boss then
                     boss_dead = true
                 end
-            elseif c and c.ally and not c.pc and not c.shut_down then
+            elseif c and c.ally and not c.pc then
                 -- (An ally's fall is said, and someone reacts: companions.fell. The Mech venting
-                -- itself to a stop has its own line, the overheat moment.)
-                require("game.model.companions").fell(night, c)
+                -- itself to a stop already has its caption, the overheat moment: just the reaction.)
+                require("game.model.companions").fell(night, c, c.shut_down and true or nil)
             end
         elseif s.kind == "down" then
             downed = f.by_ref[s.id]
