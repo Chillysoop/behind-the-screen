@@ -1019,6 +1019,7 @@ local VOICE = {
     good = { "YOU, NARRATING", "#cdbb98" }, bad = { "YOU, NARRATING", "#cdbb98" }, twist = { "YOU, NARRATING", "#cdbb98" },
     thread = { "YOU, NARRATING", "#cdbb98" }, interlude = { "YOU, NARRATING", "#cdbb98" }, goal = { "FOR YOU", "#8a7c6a" },
     system = { "FOR YOU", "#8a7c6a" }, warn = { "FOR YOU", "#8a7c6a" }, quote = { "YOU, IN CHARACTER", "#e8b84a" },
+    table = { "AT THE TABLE", "#9fbf8f" },          -- (table life: what the heroes get up to between the big moments)
 }
 M.VOICE = VOICE
 

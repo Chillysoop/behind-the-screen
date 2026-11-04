@@ -498,14 +498,14 @@ M.moments = {
             effects = { { "arch:power_gamer", fun = 5, reward = 4 }, { "arch:tactician", fun = 3 }, { "arch:storyteller", boredom = 3 } },
             table_min = 3 },
           { label = "Keep it a surprise. They'll find out.",
-            log = "\"You'll see!\" says Flitwidget, and shoos them up the steps. \"It's bigger on the inside, I promise!\"",
+            log = "\"You'll see!\" says Flitwidget, and shoos them up the steps. \"There's a lot more of it than there looks, trust me!\"",
             effects = { { "arch:explorer", fun = 3 }, { "arch:storyteller", fun = 2 } } },
       } },
 
     -- The garden ----------------------------------------------------------------------------------
     { id = "mus_plaque", room = "garden", spot = "1A", at = "start", type = "story", actor = { "explorer", "tactician", "storyteller" }, party = true,
       title = "A sign by the pond",
-      text = "{actor_char} finds a little iron plaque by the pond: \"Beware the bushes. In case of emergency, use water.\" Signed FF.",
+      text = "{actor_char} finds a little iron plaque by the pond: \"Mind the hedges. If they get lively, try the water.\" Signed FF.",
       options = {
           { label = "Use the water. Douse the hedges.", want = "douse the hedges with pond water",
             log = "Helmets full of pond water hit the topiary. The smallest hedge-beast twists, sprouts and roots itself to the spot. The big ones keep coming.",
@@ -537,10 +537,10 @@ M.moments = {
     -- The entrance hall -------------------------------------------------------------------------
     { id = "mus_box", room = "entrance", spot = "2B", at = "start", type = "story", actor = { "instigator", "method_actor" }, party = true,
       title = "The donation box",
-      text = "A glass case of coins from every world: \"This museum relies on donations.\" {actor_char} looks at the case, then the lock, then the metal guard standing right there.",
+      text = "A glass case of coins from every world, and a little card: \"Every coin keeps the lamps lit.\" {actor_char} looks at the case, then the lock, then the metal guard standing right there.",
       options = {
           { label = "Somebody drops a coin in.", want = "drop a coin in",
-            log = "A coin clinks in, and the statue booms: \"THANK YOU FOR YOUR DONATION.\" Something warm settles over {actor_char}.",
+            log = "A coin clinks in, and the statue booms: \"YOUR GENEROSITY IS NOTED.\" Something warm settles over {actor_char}.",
             effects = { { "arch:casual", fun = 4 }, { "arch:method_actor", fun = 2 }, { "all", reward = 4 } },
             mus = { francs = 1, flag = "boon", inspire = "The museum thanks {char} for the donation.", careful = 1, favor = { who = "flitwidget", n = 1 } } },
           { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
@@ -900,6 +900,9 @@ M.npc_sheet = {
 -- (the one who plays them in a fight, and who talks about them); monster: their stat block if they
 -- fight (they're in initiative, with a mini); pocket: a pet that hides in a fight instead. helps:
 -- what they do when the party looks around (museum_night.explore). lines: what's said about them.
+-- Table life: small moments that play themselves (game/model/table_life.lua), room by room.
+M.table_life = require "game.data.museum.table_life"
+
 M.companions = {
     order = { "exhibit_b", "telpur" },
     exhibit_b = { name = "Exhibit B", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
@@ -915,7 +918,7 @@ M.companions = {
                monster = "telpur", cast = "mus_telpur",
                helps = { bonus = 1, find = 0.1, find_line = "Telpur knows this museum: \"Under the third tile. Flitwidget hides Francs everywhere.\"" },
                lines = {
-                   join = "Telpur is coming with them tonight. He insisted, loudly, until somebody tied him to a pack strap. He has opinions about every exhibit.",
+                   join = "Telpur is coming with them tonight. They insisted, loudly, until somebody tied them to a pack strap. They have opinions about every exhibit.",
                    start = { "Telpur, from the backpack: \"Onward! Mind the laces.\"", "Telpur is already complaining about the walking." },
                    look = { "Telpur: \"I'd not touch that. Then again, I'm a boot.\"", "Telpur: \"In my day we had a museum like this. Smaller. More screaming.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
@@ -1370,7 +1373,7 @@ M.showdown = {
     drink = {
         id = "mus_drink", type = "story", actor = { "method_actor", "instigator", "casual" }, party = true,   -- (theirs to drink or not: November 3)
         title = "A drink",
-        text = "Euryale pours from a carafe of red wine. \"You all look so tired. Sit. Drink.\" {actor_char} reaches for a cup.",
+        text = "Euryale pours from a carafe of red wine. \"Such a long climb. Rest your feet, and have a glass.\" {actor_char} reaches for a cup.",
         text_if = { { when = { flag = "rematch" }, text = "The carafe is out again. \"Back so soon? Sit. Drink. You'll need it.\" {actor_char} reaches for a cup." } },
         options = {
             { label = "{actor_char} drinks.", want = "drink the wine",
@@ -1463,10 +1466,10 @@ M.lead_order = { "knight_of_shades", "briar_beast", "giant_scarab_swarm", "kruth
 -- How the prologue ends, by how they dealt with Euryale.
 M.endings = {
     fallen = { name = "Euryale falls",
-               line = "She shrinks as she falls, her skin peeling into strips that slither into the cracks. Only a purple robe, a white hood and an emerald bow are left.",
+               line = "She crumples as she falls, and whatever she was slips away into the gaps in the floor like smoke. Only a purple robe, a white hood and an emerald bow are left.",
                -- (How she fell changes what's left: her own reflection turned her to stone.)
                stone_line = "Euryale stands where the mirror caught her, stone from hood to bow. Around the lair, the other statues start to soften back into people.",
-               flit = "\"Splendid! Though I doubt she's really gone. Gorgons rarely die properly.\"" },
+               flit = "\"Splendid! Though I wouldn't bet my caravan she's gone for good. Her kind have a habit of coming back.\"" },
     bargain = { name = "A bargain with a Gorgon",
                 line = "Euryale leaves the museum with a promise: they'll look for two clay jars, and she'll owe them a favour.",
                 flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"" },
@@ -1602,7 +1605,7 @@ M.talk = {
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
-                 guarded = { "No touching. No refunds. Boss's orders." },
+                 guarded = { "Hands where I can see them. Everything's paid for or it stays put." },
                  lie = { "Me? Just a boot. Nothing upstairs at all." } },
         again = { warm = { "My favourite customers! What'll it be?", "Back again? Mind the marbles." },
                   guarded = { "No refunds on anything you bought last time. Before you ask." },
@@ -1624,17 +1627,17 @@ M.npc_lines = {
         npc_bad = { "Now, now. Let's not upset the exhibits.", "That's... not how I would have done it. But it's done." },
     },
     mus_telpur = {
-        npc_greet = { "Oh, bloody 'ell, fell asleep again. Welcome to the gift shop.", "Browse all you like. No refunds. Boss's orders." },
+        npc_greet = { "Wha? Oh! Customers. I was resting my laces. Welcome to the gift shop.", "Browse all you like. Whatever you break, you've bought." },
         npc_again = { "Back again? Lovely. Still no refunds.", "My favourite customers. Mind the marbles." },
         npc_good = { "Lovely choice. Very lovely. Can't take it back, mind.", "A customer with taste. Rare, round 'ere." },
         npc_bad = { "Don't touch the marbles unless you're buying the marbles.", "I was a duke of the underworld, you know. I don't have to take this." },
     },
     mus_euryale = {
-        npc_greet = { "Welcome. You all look so tired.", "Come in. Sit. I've been listening to you all the way up." },
-        npc_good = { "Impressive. Very impressive.", "You're cleverer than the others were." },
+        npc_greet = { "Welcome. What a long way you've come.", "Come in. Sit. I've been listening to you all the way up." },
+        npc_good = { "Oh, well done. Well done indeed.", "You're cleverer than the others were." },
         npc_bad = { "That was a mistake. A small one. You'll make bigger.", "Do you know how long I sat in that jar?" },
         npc_taunt = { "Look at me. Just for a moment.", "Every one of these statues was braver than you." },
-        npc_down = { "Not... impressive enough.", "This is not over. It is never over, for my kind." },
+        npc_down = { "Clever... but not clever enough.", "This is not over. It is never over, for my kind." },
     },
     mus_lecturer = {
         npc_greet = { "...and so, as I was saying, the history of soil...", "Sit. Sit. We are only on chapter forty." },

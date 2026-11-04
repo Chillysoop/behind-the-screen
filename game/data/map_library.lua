@@ -413,7 +413,7 @@ L.boards = {
             { id = "notes", x = 14, y = 8, name = "the carpet of notes", near = {},
               line = "Ghostly pages drift around the lectern, deep as a rug, dropped and forgotten." },
             { id = "books", x = 4, y = 11, name = "the piles of books", near = { "books" },
-              line = "Stacks of books as dry and dull as they are old." },
+              line = "Stacks of ancient books, each one duller than the last." },
         },
     },
     museum_lair = {
@@ -451,7 +451,7 @@ L.boards = {
             { id = "landing", x = 5, y = 7, name = "the top of the stairs", near = {},
               line = "Smoke hangs in the air. Through the doors either side, statues stand frozen mid-scream." },
             { id = "statues", x = 13, y = 7, name = "the frozen visitors", near = { "statues", "wheel" },
-              line = "Six visitors turned to stone, each one twisted with fear, scattered round the room like a dance that stopped." },
+              line = "Six visitors turned to stone, frozen mid-flinch, scattered round the room where they stood." },
             { id = "mosaics", x = 10, y = 2, name = "the snake-haired sisters", near = { "walls", "mosaics" },
               line = "Among the mosaics, a hanging of three sisters with snakes for hair." },
             { id = "pedestals", x = 13, y = 4, name = "the empty pedestals", near = { "pedestals", "pottery" },

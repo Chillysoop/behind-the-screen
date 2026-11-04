@@ -86,6 +86,11 @@ local function play_night(night)
             if show then
                 print(string.format("  ## fight: %s, %d rounds", tostring(ev.winner), sm.rounds or 0))
             end
+        elseif ev.kind == "tiny_roll" then
+            if show then
+                print(string.format("  (small roll) %s %s: %d %s %d = %d", ev.who, ev.skill or "?", ev.roll,
+                    ev.mod < 0 and "-" or "+", math.abs(ev.mod), ev.total))
+            end
         elseif ev.kind == "mark" then
             if show then
                 print("  ** EURYALE'S CARD: " .. ev.name .. " (" .. ev.why .. ")")

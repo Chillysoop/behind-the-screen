@@ -329,7 +329,7 @@ M.goal_play = {
               lose = "{char} pokes it. It pokes back." },
         },
         moment = { text = "{actor_char} makes a dash for the steps through the thorns.", skill = { "athletics", "acrobatics" } },
-        talk = { "In case of emergency, use water. Who writes that on a sign?", "Is the pond allowed to do that?" },
+        talk = { "'If they get lively, try the water.' Who writes that on a sign?", "Is the pond allowed to do that?" },
     },
     mus_donation = {
         intent = { "Donations, huh. Who's got a coin?", "That is a lot of money in a glass box." },
@@ -378,7 +378,7 @@ M.goal_play = {
         approaches = {
             { skill = "persuasion", cast = true, say = "We're helping your boss, you know. Discount?",
               win = "{Cast} {grumbles|grumble} and knocks a Franc off. Just this once.",
-              lose = "\"No discounts. No refunds. Boss's orders.\"" },
+              lose = "\"No discounts. Prices are prices.\"" },
             { skill = "insight", cast = true, say = "Were you really a duke of somewhere fiery?",
               win = "{Cast} {puffs|puff} up: a great lord of the underworld, once. It's all a bit hazy now.",
               lose = "{Cast} {changes|change} the subject to marbles. Very good marbles." },

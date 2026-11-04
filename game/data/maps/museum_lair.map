@@ -72,7 +72,7 @@ spots:
 -- key   | x,y   | name                     | line
 10A      | 16,7  | Euryale's couch          | A tall woman in a white hood and a purple cloak lounges on a long couch, bronze eyes on you. She offers you a drink.
 landing  | 5,7   | the top of the stairs    | Smoke hangs in the air. Through the doors either side, statues stand frozen mid-scream.
-statues  | 13,7  | the frozen visitors      | Six visitors turned to stone, each one twisted with fear, scattered round the room like a dance that stopped.
+statues  | 13,7  | the frozen visitors      | Six visitors turned to stone, frozen mid-flinch, scattered round the room where they stood.
 mosaics  | 10,2  | the snake-haired sisters | Among the mosaics, a hanging of three sisters with snakes for hair.
 pedestals | 13,4 | the empty pedestals      | Pedestals that once held delicate pots. She smashed them all; the shards are everywhere.
 wheel    | 14,5  | the cartwheel candelabra | A wheel of candles hangs on a rope and pulley from the wall. Cut the rope and it falls.

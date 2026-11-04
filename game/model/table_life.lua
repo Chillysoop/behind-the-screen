@@ -83,9 +83,27 @@ end
 local function candidates(night, sc, room, phase)
     local s = seen(night)
     local out, w = {}, {}
+    local adventure = require "game.model.adventure"
+    local companions = require "game.model.companions"
+    local knobs = night.prep and night.prep.museum and night.prep.museum.knobs or {}
     local function add(b, kind, weight)
         if (b.id and s[b.id]) or (not b.id and night.tl_bits and night.tl_bits[b]) then
             return
+        end
+        -- (Only when it holds: after the lair, with Pip's rat along...)
+        if b.when then
+            if b.when.companion then
+                local along = false
+                for _, e in ipairs(companions.active(night.campaign, night.players)) do
+                    along = along or e.id == b.when.companion
+                end
+                if not along then
+                    return
+                end
+            end
+            if not adventure.test(night.campaign, b.when, knobs) then
+                return
+            end
         end
         table.insert(out, { kind = kind, b = b })
         table.insert(w, weight)
@@ -265,7 +283,9 @@ local function ask(night, sc, q, last)
     local text = (total >= 15 and q.better) or q.answer
     local name = night.tl_people and night.tl_people[q.who]
     if name and text then
-        night:emit({ kind = "npc", name = name, text = util.fill(text, { char = p.char }) })
+        -- (The caption adds its own quote marks.)
+        text = string.gsub(util.fill(text, { char = p.char }), '^"(.*)"$', "%1")
+        night:emit({ kind = "npc", name = name, text = text })
     end
     score.nudge_engagement(p, 2)
     night:apply({ { "arch:method_actor", fun = 1 }, { "arch:storyteller", fun = 1 } })
@@ -281,15 +301,10 @@ local function bit(night, sc, t, last)
     if not p then
         return nil
     end
-    local lines = t.lines or {}
-    say(night, p, lines[1], t.kind == "banter" or t.kind == "cantrip")
-    if lines[2] then
-        local other = pick_friend(night, nil, nil, p)
-        if t.kind == "haggle" or t.dm then
-            dm(night, lines[2], { char = p.char })
-        else
-            say(night, other, lines[2])
-        end
+    -- (Told the way the table tells it: what the heroes get up to, and who says what, in one line
+    -- each. Not out of one friend's mouth: "Telpur: 'No eating in the shop'" isn't Sam's to say.)
+    for _, line in ipairs(t.lines or {}) do
+        night:say(util.fill(line, { char = p.char }), "table")
     end
     if t.kind == "haggle" then
         -- Double or nothing (Telpur's shop): a Franc back, or one more on the price.
