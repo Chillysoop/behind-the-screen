@@ -352,6 +352,7 @@ local function curio(night, sc, b, last)
         level = nil         -- (whatever the card made of it, none of the three answers was said)
     else
         dm(night, b[level], { char = p.char })
+        night.heard_lore = night.heard_lore or (level == "lore") or nil     -- ("the clue from earlier": barks' context)
     end
     local reacts = M.reactions(night, b, level)
     if #reacts > 0 and night.rng:chance(0.7) then
@@ -474,7 +475,10 @@ function M.room(night, sc, phase)
     night.tl = night.tl or { n = 0 }
     local tl = night.tl
     local night_cap = M.PER_NIGHT[lvl] or 8
-    if tl.n >= night_cap or (night.table_min or 0) > (night.table_planned or 210) - 40 then
+    -- (Late in the evening there's no time for it, unless you asked for one more room and it's a
+    -- short one: then its small business is the scene.)
+    local one_more = night.one_more and (sc.quick or sc.virtual)
+    if (tl.n >= night_cap and not one_more) or ((night.table_min or 0) > (night.table_planned or 210) - 40 and not one_more) then
         return 0
     end
     -- Who's here to ask: the room's own person (not a foe), by the name the table hears.
@@ -494,6 +498,10 @@ function M.room(night, sc, phase)
     local n = (phase == "after") and 1 or cap
     if night.speed_hint == 3 then
         n = math.min(n, 1)           -- (at 2x, one)
+    end
+    if one_more then
+        n = math.max(n, 2)
+        night_cap = math.max(night_cap, tl.n + n)
     end
     local done, last = 0, tl.last
     for _ = 1, n do

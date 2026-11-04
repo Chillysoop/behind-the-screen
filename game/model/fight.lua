@@ -875,9 +875,31 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     return night:decision(card, vars)
 end
 
-local function spawn_reinforcements(night, f, b)
+-- Who comes as "more of them" in this room, when anyone fits (an adventure's `reinforcements`: the
+-- room's own kind, said by name, and kept softer or out under Session Zero's lines and veils). Nil:
+-- nothing fits here, and the card doesn't offer it (the second playtest review: "more of them come
+-- crashing out of the exhibits" in the lecture theatre, never said what they were).
+function M.reinforcement(night, sc)
+    local adv = night.mus and util.lazy("game.model.adventure")
+    local list = adv and adv.data.reinforcements
+    if not list then
+        return true      -- (outside an adventure: the shared card as it is)
+    end
+    local r = sc and list[sc.room]
+    if not r then
+        return nil
+    end
+    local t = night.campaign.table or {}
+    if r.tag and t.lines and t.lines[r.tag] then
+        return nil       -- (a line drawn under it at Session Zero: it never happens)
+    end
+    local soft = r.tag and t.veils and t.veils[r.tag]
+    return { id = r.id, n = r.n or 1, label = r.label, log = soft and r.soft or r.line }
+end
+
+local function spawn_reinforcements(night, f, b, rf)
     local fam = f.plan_fam
-    local id = fam and fam.minion and fam.minion[1]
+    local id = (type(rf) == "table" and rf.id) or (fam and fam.minion and fam.minion[1])
     if not id then
         -- More of what's already here (more huntlings from the dioramas), not goblins from nowhere.
         local count, best, bn = {}, nil, 0
@@ -897,7 +919,7 @@ local function spawn_reinforcements(night, f, b)
             taken[c.x * 1000 + c.y] = true
         end
     end
-    local spots = M.squares_near(f.blocked, taken, f.layout.foes[1] + 2, f.layout.foes[2], 3, 1, b.W, b.H)
+    local spots = M.squares_near(f.blocked, taken, f.layout.foes[1] + 2, f.layout.foes[2], (type(rf) == "table" and rf.n) or 3, 1, b.W, b.H)
     for _, sq in ipairs(spots) do
         f.count = f.count + 1
         local m = creature.new_monster(id, " " .. f.count)
@@ -1221,13 +1243,16 @@ function M.run(night, sc, plan)
         end
         -- The boss is about to go down early.
         if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
-            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round }, src)
+            local rf = M.reinforcement(night, night.scene)
+            local adjust = (rf == nil and { drop = { reinforce = true } })
+                or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
+            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round }, src, nil, adjust)
             if o and o.battle == "second_phase" then
                 tgt.hp = total + math.floor(tgt.hp_max * 0.5)
                 tgt.phase2 = true
                 table.insert(night.turn_steps, { kind = "feature", id = tgt.mini, name = "Second phase" })
             elseif o and o.battle == "reinforce" then
-                spawn_reinforcements(night, f, bb)
+                spawn_reinforcements(night, f, bb, rf)
             end
             return total
         end

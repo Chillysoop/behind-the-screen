@@ -33,6 +33,18 @@ M.fits = {
     { "out of spells", "no_slots" },
 }
 
+-- context: the same for lines said outside a fight's turns (a room starting, a boss showing up): a
+-- phrase and what the room has to hold (barks.lua CONTEXT). The second playtest review: "Hm. Nobody to
+-- talk to." with Euryale right there, "I'll just be over here with the chips." as the danger's
+-- announced, "Big guy. Big sword." of a Gorgon with a bow.
+M.context = {
+    { "nobody to talk to", "nobody_here" }, { "talk to everyone here", "someone_here" }, { "who's in charge here", "someone_here" },
+    { "talk to them first", "someone_here" }, { "insult them while we fight", "fight_here" }, { "another fight", "fight_here" },
+    { "here with the chips", "calm" }, { "clue from earlier", "clue_found" }, { "wake me up when something needs hitting", "no_fight_here" },
+    { "that's a big one", "big_foe" }, { "big guy", "big_foe" }, { "focus fire on the boss", "several_foes" },
+    { "dibs on the big one", "several_foes" }, { "that boss knows what it's doing", "boss_is_a_thing" },
+}
+
 M.NUMBERS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
 
 M.made = {

@@ -216,7 +216,7 @@
   {"id": "boss_appears.dev.1", "trigger": "boss_appears", "speaker": "dev", "text": "Dibs on the big one.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "boss_appears.dev.2", "trigger": "boss_appears", "speaker": "dev", "text": "Ooh, that's {boss}? I'm hitting {boss}.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "boss_appears.dev.3", "trigger": "boss_appears", "speaker": "dev", "text": "Finally. A real fight.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
-  {"id": "boss_appears.dev.4", "trigger": "boss_appears", "speaker": "dev", "text": "Big guy. Big sword. Let's see.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
+  {"id": "boss_appears.dev.4", "trigger": "boss_appears", "speaker": "dev", "text": "That's a big one. Let's see what it's got.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "turn.dev.1", "trigger": "turn", "speaker": "dev", "text": "My turn. I hit it.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "turn.dev.2", "trigger": "turn", "speaker": "dev", "text": "Brannoc charges!", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},
   {"id": "turn.dev.3", "trigger": "turn", "speaker": "dev", "text": "Who's biggest? I'm going for them.", "status": "draft", "source": "claude-opus-5-5 via --dry-run, 2026-10-10"},

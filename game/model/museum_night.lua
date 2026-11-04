@@ -1445,7 +1445,7 @@ function M.arm(night, sc)
     for _, a in ipairs(MODULE.asides or {}) do
         if not night.mus.asides[a.id] and adventure.test(c, a.when, knobs) then
             night.mus.asides[a.id] = true
-            night:say(a.text, "dm")
+            night:say((a.in_room and a.in_room[sc.room]) or a.text, "dm")
             if a.no_sneak then
                 sc.no_sneak = true       -- (night.lua's combat_scene: no scouting, nobody surprised)
             end
@@ -2817,8 +2817,16 @@ function M.intro(night)
             if not night.pc_list then
                 fight.party(night)          -- (fresh from the rest: the morning's buffs go up now)
             end
-            night:say("As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
-                .. fight.buff_line(night), "recap")
+            -- (Where they rest is the gift shop, the one safe place to sleep; where they start is where they
+            -- stopped. The second playtest review: "a long rest in the gift shop", then "Out of the World of
+            -- Tomorrow".)
+            local here = st.pos or st.last_room
+            local line = (here == nil or here == "gift_shop")
+                and "As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
+                or ("As promised in the group chat: they start tonight after a long rest in the gift shop, and a walk back up to "
+                    .. (here == "stairs" and "the top of the stairs" or util.lower_first(MODULE.rooms[here].name))
+                    .. ", where they stopped. Fully healed, every spell back.")
+            night:say(line .. fight.buff_line(night), "recap")
         end
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
@@ -2922,6 +2930,9 @@ function M.ask_wrap(night, nxt)
         M.end_session(night, nxt)
         return true
     end
+    -- (You chose to play on: the room that follows is a real scene, even a short one. The second
+    -- playtest review: "One more room" was one line about the stairs, then goodbyes.)
+    night.one_more = true
     return false
 end
 

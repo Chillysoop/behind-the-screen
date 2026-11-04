@@ -580,14 +580,55 @@ function M:bark(p, trigger, extra)
     if extra and extra.moment then
         text, id = barks.pick(self, trigger, p, extra.moment, v)
     else
+        -- (A line has to fit the room it's said in: barks.context_fits.)
+        local ctx = self:bark_context(extra and extra.ctx)
         local line
-        text, line = self.talk:line(trigger, p, v)
+        text, line = self.talk:line(trigger, p, v, function(l)
+            return barks.context_fits(l.text, ctx)
+        end)
         id = line and line.id
     end
     if text then
         self:emit({ kind = "say", who = p.key, text = text, ic = talk_mod.in_character(trigger), line = id })
     end
     return text
+end
+
+-- Who's in front of them as a fight starts: the leader's size, how many, whether it's a person.
+function M:boss_context(plan, sc)
+    local ok, mons = pcall(require, "game.rules.data.monsters")
+    local foes = (plan and plan.ids) or (sc and sc.encounter) or {}
+    local id = foes[1]
+    local m = ok and type(mons) == "table" and type(id) == "string" and mons[id] or nil
+    local size = m and m.size
+    local big = size == "large" or size == "huge" or size == "gargantuan"
+    local person = m and (m.type == "humanoid" or id == "euryale" or m.person)
+    return { big = big and true or false, foes = #foes, thing = not person }
+end
+
+-- What the room holds, for a line said outside a fight's turns (barks.context_fits): someone to talk
+-- to, a fight, danger, something learned tonight. more: facts the caller knows (a boss's size).
+function M:bark_context(more)
+    local sc = self.scene
+    local ctx = {}
+    if sc then
+        local cast = sc.comps and sc.comps.cast
+        ctx.someone = (cast ~= nil and not cast.foe and not self:muted(cast)) or (cast ~= nil and cast.villain == true) or nil
+        if self.mus then
+            local mus = util.lazy("game.model.museum_night")
+            local r = util.lazy("game.model.adventure").data.rooms[sc.room or ""]
+            ctx.fight = (r and r.encounter ~= nil) or mus.has_fight(sc) or nil
+            ctx.calm = not util.lazy("game.model.table_life").danger_ahead(self, sc) or sc.fought == true or nil
+        else
+            ctx.fight = sc.type == "combat" or sc.type == "set_piece" or nil
+            ctx.calm = not ctx.fight or nil
+        end
+    end
+    ctx.clue = self.heard_lore or nil
+    for k, val in pairs(more or {}) do
+        ctx[k] = val
+    end
+    return ctx
 end
 
 -- The DM voicing the scene's cast.
@@ -3453,7 +3494,7 @@ function M:combat_scene(sc)
     end
     self:say(self.talk:fight("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
-    self:bark(boss_fan, "boss_appears")
+    self:bark(boss_fan, "boss_appears", { ctx = self:boss_context(plan, sc) })
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"

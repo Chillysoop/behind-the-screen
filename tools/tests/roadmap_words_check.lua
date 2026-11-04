@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F21", "F22", "F26" }
+local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F15", "F16", "F17", "F21", "F22", "F26" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -234,6 +234,9 @@ for room, r in pairs(TL.rooms or {}) do
         end
         DULL[b.dull] = true
     end
+    for _, q in ipairs(r.npc_questions or {}) do
+        CURIO_BY_ASK[util.sentence_case(q.ask)] = CURIO_BY_ASK[util.sentence_case(q.ask)] or { question = true }
+    end
 end
 local HINTS = {}
 for _, id in ipairs(adventure.data.companions and adventure.data.companions.order or {}) do
@@ -268,7 +271,7 @@ local function small_moments(run)
     for i, r in ipairs(log) do
         if r.k == "tiny_roll" and i > 1 and log[i - 1].k == "say" then
             local hit = CURIO_BY_ASK[log[i - 1].text or ""]
-            if hit then
+            if hit and hit.b then
                 local m = { i = i, b = hit.b, room = r.room, who = r.ev.who, scene = r.scene, week = r.week }
                 for j = i + 1, math.min(#log, i + 6) do
                     local q = log[j]
@@ -404,7 +407,7 @@ function CHECKS.F26(run)
             end
             last_who, last_scene = r.ev.who, r.week .. "/" .. tostring(r.scene)
             local hit = i > 1 and log[i - 1].k == "say" and CURIO_BY_ASK[log[i - 1].text or ""]
-            if hit and hit.b.spot and looked[r.room .. "/" .. hit.b.spot] then
+            if hit and hit.b and hit.b.spot and looked[r.room .. "/" .. hit.b.spot] then
                 fail("F26", where(run, r) .. ": " .. hit.b.id .. " pokes at a place someone just looked at")
             end
         elseif r.k == "decision" or r.k == "scene" or r.k == "battle" then
@@ -542,6 +545,121 @@ function CHECKS.F9(run)
                         break
                     end
                 end
+            end
+        end
+    end
+end
+
+-- F15: Flitwidget's thanks takes two different steps, the second about the reward.
+function CHECKS.F15(run)
+    local first
+    for _, r in ipairs(run.log) do
+        if r.k == "decision" and r.card == "talk_mus_flitwidget_1" then
+            first = {}
+            for _, o in ipairs(r.opts or {}) do
+                first[o.label] = true
+            end
+        elseif r.k == "decision" and r.card == "talk_mus_flitwidget_2" and first then
+            local same, reward = 0, 0
+            for _, o in ipairs(r.opts or {}) do
+                if first[o.label] then
+                    same = same + 1
+                end
+                if has(string.lower(o.label), "reward") then
+                    reward = reward + 1
+                end
+            end
+            if same > 0 then
+                fail("F15", where(run, r) .. ": Flitwidget's second card repeats " .. same .. " of his first lines")
+            elseif reward == 0 and r.epilogue then
+                fail("F15", where(run, r) .. ": asked about the reward, he doesn't answer it")
+            else
+                add("F15", "thanks_in_two_steps")
+            end
+            first = nil
+        end
+    end
+end
+
+-- F16: in the lair, lines remember Euryale is right there; her last words are last words.
+local LAIR_NOT = { "Nobody to talk to", "Whatever's in here knows they're coming", "Big guy. Big sword", "Clever... but not clever enough" }
+function CHECKS.F16(run)
+    for _, r in ipairs(run.log) do
+        if r.room == "lair" and r.text then
+            for _, bad in ipairs(LAIR_NOT) do
+                if has(r.text, bad) then
+                    fail("F16", where(run, r) .. ": with Euryale right there, \"" .. r.text .. "\"")
+                end
+            end
+            if r.k == "npc" and has(r.name, "Euryale") then
+                add("F16", "euryale_speaks")
+            end
+        end
+    end
+end
+
+-- F17: rests and travel name the room they're in, reinforcements fit the room and say who they are,
+-- and one more room is a real scene.
+function CHECKS.F17(run)
+    local log = run.log
+    local rooms_with = adventure.data.reinforcements or {}
+    local prev_room, cur_room
+    for i, r in ipairs(log) do
+        if r.room and r.room ~= cur_room then
+            prev_room, cur_room = cur_room, r.room     -- (a short room like the stairs has no scene card)
+        end
+        if r.k == "narrate" and has(r.text, "come crashing out of the exhibits") then
+            fail("F17", where(run, r) .. ": nameless reinforcements: " .. r.text)
+        end
+        if r.k == "decision" and r.card == "boss_crit" then
+            local offered
+            for _, o in ipairs(r.opts or {}) do
+                offered = offered or (has(o.label, "reinforcements") or has(o.label, "more") or has(o.label, "another")
+                    or has(o.label, "scarabs") or has(o.label, "huntlings")) and o.label or nil
+            end
+            if offered and not rooms_with[r.room or ""] then
+                fail("F17", where(run, r) .. ": reinforcements offered where nobody fits: " .. offered)
+            elseif offered and has(offered, "reinforcements burst in") then
+                fail("F17", where(run, r) .. ": reinforcements not named: " .. offered)
+            else
+                add("F17", "early_knockout_cards_that_fit_the_room")
+            end
+        end
+        if r.k == "narrate" and has(r.text, "after a long rest in the gift shop") then
+            for j = i + 1, math.min(#log, i + 40) do
+                local q = log[j]
+                local from = q.k == "narrate" and q.text and string.match(q.text, "^Out of (.-), ")
+                if from then
+                    if from ~= "the gift shop" and not has(r.text, "walk back up to") then
+                        fail("F17", where(run, r) .. ": rested \"in the gift shop\", then " .. q.text)
+                    else
+                        add("F17", "rests_where_they_are")
+                    end
+                    break
+                elseif q.k == "scene" then
+                    break
+                end
+            end
+        end
+        if r.k == "narrate" and r.room == "stairs" and has(r.text, "Between the two studies") and prev_room == "gift_shop" then
+            fail("F17", where(run, r) .. ": straight out of the gift shop, \"" .. r.text .. "\"")
+        end
+        if r.k == "decision" and r.card == "mus_wrap" and r.pick == 2 then
+            local beats = 0
+            for j = i + 1, #log do
+                local q = log[j]
+                if q.k == "narrate" and (has(q.text, "That's a wrap") or q.style == "system") then
+                    break
+                end
+                if q.k == "tiny_roll" or q.k == "decision" or (q.k == "narrate" and (q.style == "table" or q.style == "dm"))
+                    or (q.k == "say" and q.ev.ic) then
+                    beats = beats + 1
+                end
+            end
+            if beats < 2 then
+                fail("F17", where(run, r) .. ": one more room, and only " .. beats .. " beat(s) in it")
+            else
+                add("F17", "one_more_room_is_a_scene")
             end
         end
     end
@@ -859,6 +977,71 @@ function UNITS.F9()
     local d = adventure.data.portrait_default
     if not (d and d.danger and has(d.hint or "", "rost")) then
         fail("F9", "the elf in the snow's painting has no cold to it")
+    end
+end
+
+-- F16: Euryale's last words aren't a victory taunt.
+function UNITS.F16()
+    local down = adventure.data.npc_lines and adventure.data.npc_lines.mus_euryale and adventure.data.npc_lines.mus_euryale.npc_down or {}
+    for _, t in ipairs(down) do
+        if has(t, "not clever enough") or has(t, "You'll make bigger") then
+            fail("F16", "her last words are a taunt: " .. t)
+        end
+    end
+    add("F16", "last_words", #down)
+    local B = require "game.model.barks"
+    if not B.context_fits then
+        fail("F16", "barks.context_fits (lines that fit the room) is missing")
+        return
+    end
+    if B.context_fits("Hm. Nobody to talk to. Pip will talk to the walls.", { someone = true }) then
+        fail("F16", "\"Nobody to talk to\" fits a room with someone in it")
+    end
+    if B.context_fits("That's a big one. Let's see what it's got.", { big = false, foes = 4 }) then
+        fail("F16", "\"a big one\" fits a fight against someone her size")
+    end
+end
+
+-- F17: reinforcements only where someone fits, by name, and none of Sam's creepy-crawlies under a line.
+function UNITS.F17()
+    local fight = require "game.model.fight"
+    if not fight.reinforcement then
+        fail("F17", "fight.reinforcement is missing")
+        return
+    end
+    adventure.enter()
+    local c = campaign_mod.new(3)
+    adventure.enter(c)
+    local s0 = social.default_choices()
+    c:session_zero(s0)
+    local night = { mus = {}, campaign = c }
+    for id, r in pairs(adventure.data.rooms) do
+        if r.encounter then
+            local rf = fight.reinforcement(night, { room = id })
+            if rf then
+                add("F17", "rooms_with_named_reinforcements")
+                if not (rf.label and rf.log and rf.id) then
+                    fail("F17", id .. ": reinforcements without a name or a line")
+                end
+            else
+                add("F17", "rooms_with_nobody_to_send")
+            end
+        end
+    end
+    for _, id in ipairs({ "lecture", "entrance", "paintings" }) do
+        if fight.reinforcement(night, { room = id }) then
+            fail("F17", id .. ": reinforcements offered, though nobody there fits")
+        end
+    end
+    c.table = c.table or {}
+    c.table.lines = { bugs = "sam" }
+    if fight.reinforcement(night, { room = "chamber" }) or fight.reinforcement(night, { room = "hunting" }) then
+        fail("F17", "creepy-crawly reinforcements with a line drawn under them")
+    end
+    c.table.lines, c.table.veils = {}, { bugs = "sam" }
+    local soft = fight.reinforcement(night, { room = "chamber" })
+    if not (soft and has(soft.log, "shadows")) then
+        fail("F17", "veiled creepy-crawlies come in plain view")
     end
 end
 

@@ -410,9 +410,30 @@ A.all_in = function(p)
     return R("At the first session's introductions, if " .. NAME[p[2]] .. " is all in", one_of(#MODULE.all_in[p[2]]))
 end
 
+A.reinforcements = function(p)
+    local room, f = p[2], p[3]
+    local card = Q("An early knockout")
+    if f == "label" then
+        return R("In a fight " .. lowfirst(in_room(room)) .. ", on " .. card .. ": the option to send more", "Always")
+    elseif f == "soft" then
+        return R("In a fight " .. lowfirst(in_room(room)) .. ", if you send more on " .. card .. " and the table veiled creepy-crawlies",
+            "If chosen")
+    end
+    return R("In a fight " .. lowfirst(in_room(room)) .. ", if you send more on " .. card, "If chosen")
+end
+
 A.asides = function(p)
     local a = MODULE.asides[p[2]]
-    return R("As the night's first fight starts" .. if_(a and a.when), "Always")
+    if p[3] == "in_room" then
+        return R("As the night's first fight starts, if it's " .. lowfirst(in_room(p[4])) .. if_(a and a.when), "Always")
+    end
+    local rooms = {}
+    for r in pairs(a and a.in_room or {}) do
+        table.insert(rooms, lowfirst(in_room(r)))
+    end
+    table.sort(rooms)
+    return R("As the night's first fight starts" .. (#rooms > 0 and (", unless it's " .. table.concat(rooms, " or ")) or "")
+        .. if_(a and a.when), "Always")
 end
 
 A.author = function()
@@ -952,14 +973,15 @@ end
 
 local STANCE = { warm = "Warm", guarded = "Guarded", lie = "A lie" }
 local TALK_SET = { open = "meeting the party for the first time", again = "seeing them again in a later session",
-                   ask = "when the hero asks what they know", done = "at his thanks, either turn" }
+                   ask = "when the hero asks what they know", done = "at his thanks, his first words",
+                   done_ask = "at his thanks, when the hero asks about the reward" }
 A.talk = function(p)
     local who = NPC_NAME[p[2]] or p[2]
     -- (takeover.talk runs only in a full room: never the gift shop or the street. At Flitwidget's
-    -- thanks the museum is done, so both turns use his "done" lines.)
+    -- thanks the museum is done: his "done" lines first, then "done_ask" when they ask about the reward.)
     if p[2] == "mus_telpur" then
         return R("Not said: the gift shop is a short room, and short rooms have no " .. Q("Talk as …") .. " card", "Never")
-    elseif p[3] ~= "done" then
+    elseif p[3] ~= "done" and p[3] ~= "done_ask" then
         return R("Not said: you only talk as Flitwidget at his thanks, once it's over, and then his " .. Q("done") .. " lines are used",
             "Never")
     end
@@ -1302,6 +1324,14 @@ local function bark_line(p)
         local rule = B.fits[p[2]]
         return R("Not said: a fight line with " .. Q(rule[1], 4) .. " in it only plays when "
             .. (FACT_FITS[rule[2]] or "it fits"), "Never")
+    elseif p[1] == "context" then
+        local CTX = { nobody_here = "nobody's there to talk to", someone_here = "someone's there to talk to",
+                      fight_here = "the room has a fight in it", no_fight_here = "the room has no fight in it",
+                      calm = "the room's danger is settled", clue_found = "something was learned earlier tonight",
+                      big_foe = "the one leading the fight is Large or bigger", several_foes = "there's more than one foe",
+                      boss_is_a_thing = "the one leading the fight is a creature, not a person" }
+        local rule = B.context[p[2]]
+        return R("Not said: a table line with " .. Q(rule[1], 4) .. " in it only plays when " .. (CTX[rule[2]] or "it fits"), "Never")
     elseif p[1] == "made" then
         local tr, who = p[2], p[3]
         local l = B.made[tr][who][p[4]]

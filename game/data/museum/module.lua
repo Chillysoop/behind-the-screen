@@ -291,7 +291,9 @@ M.rooms = {
     stairs = {
         name = "The stairs up", part = 2, type = "exploration", quick = true, cost = 0, at = { 50, 12 }, map = "Stairs", stop = true, virtual = true,
         read = "At the far end of the hunting floor, a narrow stair climbs toward a smell of smoke and wine.",
-        read_if = { { when = { done = "offices" }, text = "Between the two studies, a narrow stair climbs toward a smell of smoke and wine." } },
+        read_if = { { when = { from = "gift_shop", done = "offices" }, text = "Up from the gift shop, back across the quiet hunting floor, and to the narrow stair between the two studies. It climbs toward a smell of smoke and wine." },
+                    { when = { from = "gift_shop" }, text = "Up from the gift shop, back across the quiet hunting floor, to the narrow stair at its far end. It climbs toward a smell of smoke and wine." },
+                    { when = { done = "offices" }, text = "Between the two studies, a narrow stair climbs toward a smell of smoke and wine." } },
         sum = "Up to Euryale. The night stops at the top step.",
         next = { "lair" },
     },
@@ -322,6 +324,20 @@ M.rooms = {
         },
     },
 }
+-- More of them, when the DM calls reinforcements on an early knockout (fight.lua M.reinforcement): the
+-- room's own kind, by name. A room not listed has nobody to send (the entrance's guard, the Knight, the
+-- Lecturer stand alone), so the card doesn't offer it there. tag: a Session Zero content tag (a line
+-- drawn: never; a veil: the soft words).
+M.reinforcements = {
+    garden = { id = "briar_beast", n = 1, label = "It falls, but another hedge-beast wakes.",
+               line = "{boss} falls, but the garden isn't done: another briar beast tears itself out of the topiary." },
+    chamber = { id = "giant_scarab_swarm", n = 1, tag = "bugs", label = "It falls, but scarabs pour out of the floor.",
+                line = "{boss} falls, and a swarm of scarabs boils up out of the cracks in the floor.",
+                soft = "{boss} falls, and something swarms up out of the cracks in the floor. You keep it in the shadows." },
+    hunting = { id = "kruthik_huntling", n = 2, tag = "bugs", label = "It falls, but two more huntlings drop in.",
+                line = "{boss} falls, and two more huntlings drop out of the dioramas.",
+                soft = "{boss} falls, and two more of the hunters come out of the dioramas. You keep them in the shadows." },
+}
 -- Once a night, as the first fight starts (museum_night.arm), when they hold: what the week
 -- between left them with. no_sneak: nobody gets the drop on anyone this time.
 M.asides = {
@@ -330,7 +346,9 @@ M.asides = {
     { id = "shoelace", when = { flag = "shoelace" },
       text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked." },
     { id = "telpur", when = { flag = "telpur_along" }, no_sneak = true,
-      text = "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming." },
+      text = "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming.",
+      -- (Upstairs she already knows, and she's right there: the second playtest review.)
+      in_room = { lair = "Telpur, tied to a pack strap, tells Euryale exactly what he thinks of her couch. Loudly. To her face." } },
 }
 -- "Last time, they ..." at the start of a night: what each room came to, as a clause.
 M.recap = {
@@ -1616,10 +1634,14 @@ M.talk = {
                          "Here is what I know, all of it, and some of it twice." },
                 guarded = { "Some things a curator keeps to himself.", "Ask me again when my museum's quiet." },
                 lie = { "Incidents. With the exhibits. That's all.", "The gift shop is lovely this time of year." } },
-        -- (When it's over: the museum is his again.)
+        -- (When it's over: the museum is his again. done: his first words; done_ask: when they ask about
+        -- the reward, his answer to that, not the same words again: the second playtest review.)
         done = { warm = { "You did it. My museum! Quiet as a library. Have a biscuit. Have two." },
                  guarded = { "It's over. I'll be counting the exhibits for a week, mind." },
                  lie = { "I never doubted you for a moment. Well. One moment. Possibly two." } },
+        done_ask = { warm = { "Your reward! Gold, a pick from the shop, and my undying thanks. Let's talk numbers over tea." },
+                     guarded = { "The reward. Yes. Once I've counted every exhibit. And the spoons." },
+                     lie = { "Reward? I'm sure I said biscuits. Biscuits were always the reward." } },
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
@@ -1655,7 +1677,8 @@ M.npc_lines = {
         npc_good = { "Oh, well done. Well done indeed.", "You're cleverer than the others were." },
         npc_bad = { "That was a mistake. A small one. You'll make bigger.", "Do you know how long I sat in that jar?" },
         npc_taunt = { "Look at me. Just for a moment.", "Every one of these statues was braver than you." },
-        npc_down = { "Clever... but not clever enough.", "This is not over. It is never over, for my kind." },
+        -- (Her last words as she falls: no victory taunt. The second playtest review.)
+        npc_down = { "Tell my sisters... I kept a lovely house.", "So this is what my statues felt. How... quiet." },
     },
     mus_lecturer = {
         npc_greet = { "...and so, as I was saying, the history of soil...", "Sit. Sit. We are only on chapter forty." },

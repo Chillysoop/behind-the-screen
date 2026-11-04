@@ -81,6 +81,36 @@ function M.fits(text, mo)
     return true
 end
 
+-- The room's facts, for lines said outside a fight's turns (DATA.context). ctx = { someone (a person
+-- to talk to is here), fight (the room has a fight in it), calm (no danger in it), clue (something
+-- learned tonight), big (the foe in front of them is Large or bigger), foes (how many), thing (the
+-- boss is a creature, not a person) }.
+local CONTEXT = {
+    nobody_here = function(c) return not c.someone end,
+    someone_here = function(c) return c.someone == true end,
+    fight_here = function(c) return c.fight == true end,
+    no_fight_here = function(c) return not c.fight end,
+    calm = function(c) return c.calm == true end,
+    clue_found = function(c) return c.clue == true end,
+    big_foe = function(c) return c.big == true end,
+    several_foes = function(c) return (c.foes or 0) > 1 end,
+    boss_is_a_thing = function(c) return c.thing == true end,
+}
+M.CONTEXT = CONTEXT
+
+function M.context_fits(text, ctx)
+    if not text or not ctx then
+        return true
+    end
+    local low = string.lower(text)
+    for _, rule in ipairs(DATA.context or {}) do
+        if string.find(low, rule[1], 1, true) and not CONTEXT[rule[2]](ctx) then
+            return false
+        end
+    end
+    return true
+end
+
 -- The fill-ins a moment offers ({Foe} for the start of a sentence).
 local function fills(mo, p)
     local v = {}
