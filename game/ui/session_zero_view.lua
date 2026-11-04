@@ -245,14 +245,24 @@ local function rules(app, c)
     local x, w = 1072, 504
     kit.text(x, 84, "TABLE RULES", "ui14", theme.dim)
     local y = 108
-    for _, rk in ipairs(s0.rules.order) do
+    for ri, rk in ipairs(s0.rules.order) do
         local r = s0.rules[rk]
+        -- (The last rule sits just above the button: what people said goes on its header line.)
+        local last = ri == #s0.rules.order
         -- (Four rules with the table clock's length, A14: rows are compact to fit above the button.)
         kit.text(x, y, r.name, "ui18b", theme.text)
         if r.compact then
             -- When a hero dies (B3): the options side by side, the about line saved for the chosen one.
             local cur = c.rules[rk] and r[c.rules[rk]]
-            kit.text(x + kit.width(r.name, "ui18b") + 10, y + 3, cur and cur.about or r.about, "ui14", theme.dim,
+            local head = cur and cur.about or r.about
+            if last and cur and cur.says then
+                for _, key in ipairs(ORDER) do
+                    if cur.says[key] and head == (cur.about or r.about) then
+                        head = content.players[key].name .. ': "' .. cur.says[key] .. '"'
+                    end
+                end
+            end
+            kit.text(x + kit.width(r.name, "ui18b") + 10, y + 3, head, "ui14", theme.dim,
                 { w = w - kit.width(r.name, "ui18b") - 10, lines = 1 })
             y = y + 24
             local bw = (w - 3 * 6) / #r.order
@@ -300,8 +310,10 @@ local function rules(app, c)
                 end
             end
         end
-        kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
-        y = y + 22
+        if not (last and r.compact) then
+            kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
+            y = y + 22
+        end
     end
     return y
 end

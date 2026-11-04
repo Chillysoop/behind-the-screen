@@ -568,6 +568,7 @@ for _, rk in ipairs(content.session_zero.rules.order) do
     if not app.s0.rules[rk] then app.s0.rules[rk] = content.session_zero.rules[rk].order[1] end
 end
 app.refresh()
+dump("1b_session_zero_answered")     -- (every rule answered: the last row's reaction clears the button)
 if not click_key("s0_next") then problem("no way on from Session Zero") end
 if not (app.s0 and app.s0.page == "hooks") then problem("the hooks page didn't open") end
 dump("2_hooks")
