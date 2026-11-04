@@ -2,7 +2,7 @@
 -- in anything else, everyone's start square free with room around it, the party can reach the
 -- monsters, and every feature has words the DM can mention it by. Every place in the game has a
 -- board to use. Run from the project root: lua tools/tests/board_check.lua
--- With an argument, prints a board as text: lua tools/tests/board_check.lua kettle
+-- With an argument, prints a board as text: lua tools/tests/board_check.lua museum_garden
 
 package.path = "./?.lua;" .. package.path
 

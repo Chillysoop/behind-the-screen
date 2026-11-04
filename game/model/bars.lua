@@ -2,9 +2,10 @@
 -- and Commitment, and how Commitment decides who keeps coming. Pure Lua.
 --
 -- Nobody leaves without warning. When Commitment drops below WAVER_AT the
--- player says so in the group chat. Only after WAVER_WEEKS weeks of that, and
--- still below LEAVE_AT, do they take a break. A break lasts a few weeks; then
--- they come back with a fresh start, because there's no hard fail.
+-- player's card says so (game/ui/player_cards.lua). Only after WAVER_WEEKS weeks
+-- of that, and still below LEAVE_AT, do they take a break. A break lasts a few
+-- weeks; then they come back with a fresh start, because there's no hard fail.
+-- (The museum prologue brings the whole table every week: museum_week.start_week.)
 
 local score = require "game.model.score"
 local util = require "game.model.util"

@@ -1,4 +1,4 @@
-"""Render a GUI node dump from gui_smoke.lua to a PNG, roughly as Defold would.
+"""Render a GUI node dump (DUMP_DIR=out lua tools/tests/museum_smoke.lua 1) to a PNG, roughly as Defold would.
     python3 tools/tests/render_dump.py <dump.txt> <out.png> [background.png]
 """
 import math

@@ -8,13 +8,14 @@ A cozy single-player game where you are the Dungeon Master for four simulated fr
 2. `README.md`: every system in detail, controls, the project layout, and every test.
 3. `docs/design/`: notes on changes, including the step-by-step rework that was set aside.
 
-**This branch: `v2-museum` (October 30).** v2 runs a real published adventure, *The Museum of Nightmares* by
-Luke Russell (DMs Guild), as a one-shot prologue: Session Zero, why each hero came, then the museum room by room
-for as many sessions as it takes, a boss night, and a journey recap. The random story deck, factions, seeds, the
-valley map and the campaign planner are switched off while it runs (`campaign.module = "museum"`); the four
+**This branch: `v2-museum`.** There is one game: a real published adventure, *The Museum of Nightmares* by Luke
+Russell (DMs Guild), run as a one-shot prologue in the adventure (module) format: Session Zero, why each hero came,
+then the museum room by room for as many sessions as it takes, a boss night, and a journey recap. The October game
+(the Silent Bells campaign with its random story deck, factions, seeds, valley map and campaign planner) is gone: it
+was removed in the November 4 purge, and the `v2-museum-before-purge` branch and git history keep it. The four
 friends, Session Zero, the rules engine and game night stay. The design and the feedback behind it are in
 `docs/design/2026-10-30-museum-v2.md`. `main` is still the October 20 build; don't merge this into it unless asked.
-A longer, full pre-written adventure will follow as the main campaign, through the same adventure format.
+A longer, full pre-written adventure will follow as the main campaign, in the same adventure format.
 **Before starting it, read `docs/design/longer-adventure-notes.md`:** the November 2 playtest feedback on cause
 and effect, what to build first (one event log, one shape for conditional text, the truth test as the gate), what's
 still open from the museum, and a checklist.
@@ -25,7 +26,7 @@ Where v2 lives:
 | --- | --- |
 | `game/data/museum/module.lua` | The adventure: rooms, the doors between them (`links`), what a second look can still find, knobs, room moments, Euryale's marks, requests, loose ends, favors, the showdown, endings. Every line in our own words. |
 | `game/data/museum/cards.lua` | Its places, people, goals, snags and prizes as ordinary cards, plus how the heroes play each goal. |
-| `game/model/adventure.lua` | The adventure's state: the map, marks, flags, Francs, hooks, prompts. It also switches the shared content over (`adventure.enter`) and filters out anything from the old story. |
+| `game/model/adventure.lua` | The adventure's state: the map, marks, flags, Francs, hooks, prompts. It also switches the shared content over to the adventure's words (`adventure.enter`), and `adventure.fits` keeps out shared lines about things its world doesn't have. |
 | `game/model/museum_week.lua`, `game/model/museum_night.lua` | The week (prep hours, knobs) and the night (rooms, forks where the table picks the way, trips back with a reason, side rooms, moments, Euryale's interludes, boss night). |
 | `game/model/thoughts.lua`, `game/data/thoughts.lua` | What the four friends think and don't say on game night (a want that's nagging them, their take on a call, the week they've had, a roll that looked convenient, Pip's plan to go off alone): how many the DM catches is their Empathy. A caught thought shows only a tell until the DM reads it with an Insight roll (`thoughts.read`: d20 + Empathy + familiarity against the thought's dc and how hard that friend is to read; clear, gist, miss then ask, or a misread on a 1, on its own dice). Each has two answers and "Let it be". The night director calls in at its beats; `game/ui/night_view.lua` draws the cloud over the panel and the card, and calls `thoughts.read`/`ask`/`respond` between beats. |
 | `game/model/standing.lua`, `game/ui/recap_view.lua` | The DM's recap on game night: the Story sidebar (top left: the adventure's sides from `MODULE.sides`, each person's line now, who at the table is drawn to them) and the Table sidebar (top right: each friend's reason for coming and whether it's paid off, what they love, who they're drawn to or put off by, how they seem tonight, the last thought you read, how well you know them). Story and Table buttons in the top bar, S for both; the night waits while one is open. Affinity: the kinds of player a person appeals to (`likes`), the hero whose reason is in their room, and the moments since (`standing.note`, from `museum_night.play_moment`). |
@@ -76,7 +77,9 @@ Where v2 lives:
   required literally somewhere (`game/game.gui_script` does it for `game.model.museum_night`), or the
   built game stops with "module not found". `tools/tests/require_check.py` checks both.
 - **No globals.** Every function and variable is `local` or a field of the module's `M`.
-- **Old saves must keep loading.** `game/model/save.lua` migrates them; `tools/tests/save_check.lua` checks it.
+- **Museum saves must keep loading.** The autosave and the three slots (`museum_save.txt`, `museum_slot1..3.txt`)
+  point into the game data only by card (`{"components", "mus_*"}`); `game/model/save.lua` migrates anything that
+  moves, and `tools/tests/save_check.lua` checks it. (Saves from the October game no longer load.)
 - **Generated files are not hand-edited.** Meshes, textures, sprites, fonts, `main/main.collection`,
   `main/props/`, `main/board/`, `main/scene_data.lua` and `game/ui/metrics.lua` come from `tools/*.py`. Change the
   generator and rerun it (README, "Regenerating assets").
@@ -91,14 +94,19 @@ Where v2 lives:
   Every flag set is read by something, every mark changes boss night, a log that hurts someone hurts them
   (`mus.hurt`), and anything picked up works later (`MODULE.items`). One system owns each beat (a prize,
   an ending, a death); the rest record. The truth test fails otherwise.
+- **Therefore or but, never and then.** Every beat a night plays should follow from an earlier one ("therefore")
+  or complicate it ("but"), and the recap tells the night as that chain. A moment that just comes next ("and
+  then") is a weak moment. This is Trey Parker and Matt Stone's writers' room rule. The Main Campaign Design doc
+  (https://claude.ai/artifact/UjVzYSuuqJmGo2FDs4UmSw) describes how the event log will record and check it.
 - **The adventure owns its fiction.** Session Zero's pitch and asks, the prep notes, the people's memory,
   the gifts, the recap's words and its magic items come from the module (`MODULE.session_zero`, `content`,
   `prep_notes`, `memory`, `talk`, `keepsakes`, `recap_beats`, `magic_items`); shared systems fall back to
   neutral words, never another story's.
-- **The prologue is strictly the book.** Nothing from the Silent Bells (Ilsa, Kessrick, Millbrook, the Kettle...)
-  may show while the museum runs: `adventure.foreign` lists the old names and `game/data/fiction_words.lua` the
-  old world's places, people, creatures and callbacks (`adventure.fits`); `adventure.enter` filters shared lines,
-  and the museum tests fail on any that slip through. Never copy the book's text; paraphrase it.
+- **The prologue is strictly the book.** Nothing from the old Silent Bells campaign (Ilsa, Kessrick, Millbrook, the
+  Kettle...) may show: the shared data holds none of it since the purge, `adventure.foreign` lists the old names and
+  `game/data/fiction_words.lua` the old world's places, people, creatures and callbacks (`adventure.fits`), and the
+  museum tests fail on any that slip back in. Shared lines about things the museum doesn't have (a goblin, a mayor)
+  wait for an adventure that does. Never copy the book's text; paraphrase it.
 
 ## Checking your work
 

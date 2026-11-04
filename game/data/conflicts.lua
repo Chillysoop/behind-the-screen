@@ -1,12 +1,12 @@
--- Table conflicts (M6): the three slice scenarios. Each one builds pressure from
--- what happens at the table and has several valid fixes. Data only: tune freely.
--- The model is game/model/social.lua.
+-- Table conflicts (M6): three ways a table falls out. Each one builds pressure from
+-- what happens at the table and is settled there. Data only: tune freely. The model
+-- is game/model/social.lua.
 --
--- pressure: 0..100. At BREWING people start noticing (its card can come up on game
---           night). At ACTIVE it costs the people involved Commitment every week
---           until it's settled.
+-- pressure: 0..100. At BREWING people start noticing (the spotlight and rules
+--           conflicts' cards can come up on game night). At ACTIVE it costs the
+--           people involved Commitment every week until it's settled.
 -- side:     who's on each side; hurt: who loses Commitment while it's active.
--- fixes:    every way it can be settled, with the line the report shows.
+-- fixes:    how it gets settled, with the line the report shows.
 
 return {
     order = { "spotlight", "rules", "tone" },
@@ -52,7 +52,6 @@ return {
         brewing = "Jess's jokes keep landing in Mara's serious moments.",
         active = "Mara and Jess want two different games.",
         fixes = {
-            table = "You protected the quiet moments at the table until it stuck.",
             split = "One week, two scenes: Mara got her serious beat and Jess got her goofy one.",
         },
     },
