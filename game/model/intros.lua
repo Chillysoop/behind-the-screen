@@ -58,7 +58,7 @@ function M.run(night, who)
             end
         end
     else
-        night:say("Before we start: who are you? Introduce yourselves, and your characters.", "system")
+        night:say("Before we start: who are you? Introduce yourselves, and your characters.", "dm")   -- (said to the table)
     end
     for i, p in ipairs(players) do
         local d = data.PLAYERS[p.key]
