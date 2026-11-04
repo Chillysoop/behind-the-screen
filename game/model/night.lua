@@ -3049,7 +3049,7 @@ function M:decision(card, extra)
                             skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
                             leans = self:leans(o.preview or o.effects), promise = keeps or nil,
                             sub = (o.kb == "actor" and kb_note) or o.sub, sub_tone = o.sub_tone,
-                            disabled = o.disabled }
+                            disabled = o.disabled, cost = o.cost }
     end
     view.who = card.who
     view.intermission = card.intermission       -- (the break: night_view draws the table getting up)

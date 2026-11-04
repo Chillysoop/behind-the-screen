@@ -182,13 +182,30 @@ local function play_night(night)
             if style == "careful" and string.find(ev.card.id or "", "^table_asks_") then
                 pick = #opts
             end
+            -- (A way out that costs something, R5: Euryale getting away for half the reward. The careful
+            -- DM takes it only with the party in real trouble: someone down, or most of their hit points gone.)
+            if style == "careful" and opts[pick] and opts[pick].cost then
+                local hp, max, down = 0, 0, false
+                for _, pc in ipairs(night.pc_list or {}) do
+                    hp, max = hp + math.max(0, pc.hp or 0), max + (pc.hp_max or 0)
+                    down = down or ((pc.hp or 1) <= 0 and not pc.dead)
+                end
+                if not down and hp > 0.35 * max then
+                    for i, o in ipairs(opts) do
+                        if not o.cost and not o.disabled then
+                            pick = i
+                            break
+                        end
+                    end
+                end
+            end
             if opts[pick].disabled then
                 pick = 1
             end
             if show then
                 print("  >> " .. ev.card.title .. ": " .. ev.card.text)
                 for i, o in ipairs(opts) do
-                    print(string.format("     %s%d. %s", i == pick and "*" or " ", i, o.label))
+                    print(string.format("     %s%d. %s%s", i == pick and "*" or " ", i, o.label, o.cost and ("  (" .. tostring(o.sub) .. ")") or ""))
                 end
             end
             answer = pick

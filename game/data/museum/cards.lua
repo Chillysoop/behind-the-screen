@@ -451,9 +451,13 @@ M.goal_play = {
     mus_settle_up = {
         intent = { "Biscuits. He has biscuits. Best night ever.", "So. About that reward." },
         approaches = {
-            { skill = "persuasion", cast = true, say = "So. The reward. Thirty gold each seems low, for a Gorgon.",
+            { skill = "persuasion", cast = true, say = "So. The reward. Thirty gold each seems low, for a Gorgon.", when = { not_ending = "escape" },
               win = "{Cast} {sighs|sigh} and makes it forty each. \"Don't tell Telpur.\"", mus_win = { gold = 40 },
               lose = "\"Thirty each. And a biscuit. Final offer.\"" },
+            -- (She got away: half the reward, R5. The haggle starts from fifteen.)
+            { skill = "persuasion", cast = true, say = "Fifteen each? She's out of your museum, isn't she?", when = { ending = "escape" },
+              win = "{Cast} {sighs|sigh} and makes it twenty each. \"Out is something. Don't tell Telpur.\"", mus_win = { gold = 40 },
+              lose = "\"Fifteen each. Half a job, half the gold. And a biscuit.\"" },
             { skill = "insight", cast = true, say = "You look worried, for a man who just got his museum back. What is it?",
               win = "{Cast} {lowers|lower} his voice: news from the mountains. A murder up the mountain road, and nobody asking the right questions.",
               lose = "{Cast} {changes|change} the subject to biscuits. Very good biscuits." },

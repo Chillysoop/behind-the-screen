@@ -490,8 +490,10 @@ function M.reward(night, sc)
         night:say(r.said or ("They earn " .. util.lower_first(r.line)), "reward", { francs = tostring(st.francs) })
         return
     end
-    night:say("They earn " .. util.lower_first(r.line), "reward", { gold = tostring(st.gold or 30) })
-    M.note_got(night, r.id == "mus_thanks" and (util.int(st.gold or 30) .. " gold each and a pick from the gift shop")
+    -- (Half, if she got away: R5. The thanks says what it pays, read from the one place.)
+    local gold = adventure.reward_gold(night.campaign)
+    night:say("They earn " .. util.lower_first(r.line), "reward", { gold = util.int(gold) })
+    M.note_got(night, r.id == "mus_thanks" and (util.int(gold) .. " gold each and a pick from the gift shop")
         or util.lower_first(r.got or r.name))
 end
 
@@ -2138,8 +2140,14 @@ function M.table_pick(night, copy, vars)
                 end
             end
             local against = i ~= top or tied > 1
-            table.insert(card.options, { label = "Nudge them: " .. short_want(opts[i]), nudge = i,
-                sub = #names > 0 and (util.join_names(names) .. (#names == 1 and " wants this." or " want this.")) or "Nobody's for this yet.",
+            -- (What letting her go costs, said where you'd nudge them to it: R5.)
+            local esc_sub
+            if opts[i].escape then
+                esc_sub = select(2, adventure.escape_cost(night.campaign))
+            end
+            table.insert(card.options, { label = "Nudge them: " .. short_want(opts[i]), nudge = i, cost = esc_sub and "escape" or nil,
+                sub = (#names > 0 and (util.join_names(names) .. (#names == 1 and " wants this." or " want this.")) or "Nobody's for this yet.")
+                    .. (esc_sub and (" " .. esc_sub) or ""),
                 effects = { { "all", trust = (against and (night.mus.nudged or 0) >= 1) and -1 or 0 } },
                 log = "You give them a little push: \"If it were me, I'd " .. short_want(opts[i]) .. ".\"" })
         end

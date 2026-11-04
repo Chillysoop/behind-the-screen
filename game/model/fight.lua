@@ -968,6 +968,10 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
                     end
                     oc.label = lab
                     oc.log = (adjust.log and adjust.log[o.battle]) or oc.log
+                    -- (What it costs, said on the card: R5, the boss who gets away.)
+                    oc.sub = (adjust.sub and adjust.sub[o.battle]) or oc.sub
+                    oc.cost = (adjust.cost and adjust.cost[o.battle]) or oc.cost
+                    oc.sub_tone = oc.cost and "orange" or oc.sub_tone
                     table.insert(copy.options, oc)
                 else
                     table.insert(copy.options, o)
@@ -1632,6 +1636,11 @@ function M.run(night, sc, plan)
             if sc.boss_style and boss_alive and not sc.extras_only then
                 adjust.label.flee = M_.boss_label
                 adjust.log.flee = M_.boss_log
+                -- Letting her run costs half the reward (R5, D2): the card says so, as the board did.
+                local _, esc_sub = util.lazy("game.model.adventure").escape_cost(night.campaign)
+                if esc_sub then
+                    adjust.sub, adjust.cost = { flee = esc_sub }, { flee = "escape" }
+                end
             elseif boss_alive and f.boss.villain then
                 adjust.label.flee = M_.villain_label
             end

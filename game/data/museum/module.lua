@@ -1526,10 +1526,10 @@ M.showdown = {
                                    mus = { ending = "bargain", aspect = "Talked a Gorgon into a bargain" } },
                        fail = { log = "\"You know nothing about my sisters.\" The hood comes down, a little.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
-            { label = "Offer her a cut of the donation box.", want = "buy her off with the donation box", needs = { mark = "robbed" },
+            { label = "Offer her a cut of the donation box.", want = "buy her off with the donation box", needs = { mark = "robbed" }, escape = true,
               roll = { dc = 13, skill = { "deception", "persuasion" }, convenient = "success",
                        success = { log = "\"Thieves after my own heart.\" She takes the coin, and the back curtain, and she's gone.",
-                                   effects = { { "actor", spotlight = 12, fun = 8 }, { "arch:instigator", fun = 8 }, { "arch:storyteller", fun = 2 } },
+                                   effects = { { "actor", spotlight = 12, fun = 8 }, { "arch:instigator", fun = 8 }, { "arch:storyteller", fun = 2 }, { "arch:power_gamer", fun = -2 } },
                                    mus = { ending = "escape", aspect = "Paid a Gorgon to leave" } },
                        fail = { log = "\"You would rob your host twice?\" She laughs, and reaches for her bow.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
@@ -1553,6 +1553,13 @@ M.showdown = {
     -- Said in the fight, the moment she yields (fight.lua: a boss prepped to yield, below a third
     -- of her hit points); then the yield card plays, once the fight has stopped.
     yield_line = "Euryale stops fighting, and her whole collection goes still around her.",
+    -- What letting her get away costs (R5, D2: Conner, "make the escape card cost something visible on
+    -- the boss board"): the book's reward is for a Gorgon beaten, so one who walks out, runs from a long
+    -- fight or is paid to leave earns half of it. Shown on the showdown board, on every card that lets
+    -- her go, and paid out in Flitwidget's thanks (adventure.reward_gold).
+    escape = { share = 0.5,
+               sub = "It costs: she's out, not beaten, and Flitwidget pays half the reward.",
+               board = "If she gets away, Flitwidget pays half the reward: {half} gold each, not {full}. Letting her run from a long fight, letting her go when she yields and paying her off all count." },
     -- She died, but her collection still won the fight: she's fallen all the same.
     dead_but_lost = "Euryale is dead, but her collection drives them back down the stairs. By morning, without her, the exhibits go still.",
     yield = {
@@ -1560,8 +1567,9 @@ M.showdown = {
         title = "\"Enough\"",
         text = "Down on one knee, snakes hissing, Euryale lowers her bow. \"Enough. I yield. Let me go, and you'll never see me again.\"",
         options = {
-            { label = "Let her go.", want = "let her go", log = "Nobody lifts a weapon as she gathers up her bow and stands.",
-              effects = { { "arch:storyteller", fun = 6 }, { "arch:casual", fun = 4 }, { "arch:butt_kicker", fun = -3 } }, mus = { ending = "escape", aspect = "Let a Gorgon walk free" } },
+            { label = "Let her go.", want = "let her go", log = "Nobody lifts a weapon as she gathers up her bow and stands.", escape = true,
+              effects = { { "arch:storyteller", fun = 6 }, { "arch:casual", fun = 4 }, { "arch:butt_kicker", fun = -3 }, { "arch:power_gamer", fun = -3 } },
+              mus = { ending = "escape", aspect = "Let a Gorgon walk free" } },
             { label = "Make her a deal: her sisters, for her help.", want = "make her a deal",
               log = "A long silence. Then a nod. \"For my sisters.\"",
               effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:butt_kicker", fun = -2 } }, mus = { ending = "bargain" } },
@@ -1601,7 +1609,7 @@ M.endings = {
                 flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"" },
     escape = { name = "Euryale slips away",
                line = "Euryale is gone through the black curtain, out into the world. The statues in the lair start to soften back into people. Somewhere out there, a Gorgon is loose: a problem for another night.",
-               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly.\"" },
+               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly. Half the reward, I think, for half a job.\"" },
     slept = { name = "Euryale, asleep",
               line = "They carry Euryale out through the black curtain, snoring softly, and leave her somewhere far from the museum. The statues in the lair start to soften back into people.",
               flit = "\"Asleep? On a lecture? I always said it was a very good lecture.\"" },
