@@ -101,7 +101,8 @@ end
 -- A line about them, by their owner (a pet) or from them (a person who talks), once in a while.
 -- kind: start | look | fight | win.
 function M.say(night, e, kind)
-    local lines = e and e.lines and e.lines[kind]
+    -- (hint: "something's here", said only when there is; a companion without hints just looks.)
+    local lines = e and e.lines and (e.lines[kind] or (kind == "hint" and e.lines.look))
     if not lines or #lines == 0 then
         return false
     end
@@ -141,11 +142,12 @@ function M.help_look(night, p)
         return 0, nil
     end
     night.companion_found = night.companion_found or {}
-    M.say(night, e, "look")
     if not night.companion_found[e.id] and night.rng:chance(e.helps.find or 0) then
         night.companion_found[e.id] = true
+        M.say(night, e, "hint")         -- (the nose leads somewhere: the find comes next)
         return e.helps.bonus or 0, e
     end
+    M.say(night, e, "look")
     return e.helps.bonus or 0, nil
 end
 

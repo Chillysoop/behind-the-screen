@@ -75,7 +75,7 @@ return {
     ask_straight = { label = "Ask {them} straight out", log = "\"{name}, you okay over there?\" {name} tells you.", table_min = 2 },
 
     answers = {
-        next_moment = { label = "Give {them} the next moment", log = "You make a mental note: the next moment is {name}'s." },
+        next_moment = { label = "Give {them} the next moment", log = "You make a mental note: the next moment is {name}'s.", screen = true },
         ask = { label = "Ask what {char} is doing", log = "\"{char}, what are you doing while this happens?\"", table_min = 1 },
         detail = { label = "Let {char} notice something", log = "You add one more detail, just for {name}, and watch {them} sit up.",
                    table_min = 1 },
@@ -95,7 +95,8 @@ return {
         early_break = { label = "Plan a break for halfway", log = "\"Break at the halfway mark, everyone.\" {name} nods, grateful.",
                         table_min = 6 },
         keep_light = { label = "Keep tonight light", log = "You lean into the jokes tonight and go easy on the grim stuff." },
-        early_moment = { label = "Give {them} something to do early", log = "You make a note to put {name} on the spot early, to pull {them} in." },
+        early_moment = { label = "Give {them} something to do early", log = "You make a note to put {name} on the spot early, to pull {them} in.",
+                         screen = true },
         news = { label = "Make room for the news", log = "\"{name}, didn't you have news?\" {news}", table_min = 5 },
     },
     -- What each friend's good news is, when you make room for it (so it's actually told).

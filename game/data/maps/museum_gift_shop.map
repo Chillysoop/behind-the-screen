@@ -60,9 +60,9 @@ souvenirs |           | marbles, snake, beans                     | tables of so
 cases     |           |                                           | glass cases of things for sale
 
 spots:
--- key    | x,y  | name                 | line
-5A        | 10,7 | the counter          | A brass and ivory register, and a worn leather boot that is more than it looks.
-stairs    | 16,8 | the foot of the stairs | Stairs climb the east wall to the second floor. A boot could never manage them.
-shelves   | 10,2 | the shelves          | Bags of marbles, guide books, a rubber snake, a jar of beans. No refunds.
-souvenirs | 13,4 | the souvenir table   | Odd little things laid out for sale, each with a price in Flitwidget Francs.
-cases     | 9,10 | the glass cases      | Locked cases of rarer things, some of them clearly from further into the museum.
+-- key    | x,y  | name                 | line | form
+5A        | 10,7 | the counter          | A brass and ivory register, and a worn leather boot that is more than it looks. | one fixture
+stairs    | 16,8 | the foot of the stairs | Stairs climb the east wall to the second floor. A boot could never manage them. | one area
+shelves   | 10,2 | the shelves          | Bags of marbles, guide books, a rubber snake, a jar of beans. No refunds. | many fixtures
+souvenirs | 13,4 | the souvenir table   | Odd little things laid out for sale, each with a price in Flitwidget Francs. | one fixture
+cases     | 9,10 | the glass cases      | Locked cases of rarer things, some of them clearly from further into the museum. | many fixtures

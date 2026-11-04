@@ -59,8 +59,8 @@ console | own_words | console, speaker, grille, voice             | a brass cons
 benches |           |                                             | benches for admiring the future
 
 spots:
--- key  | x,y  | name                 | line
-8A      | 10,8 | the steam mech       | Eight feet of brass plates over clockwork, a green battery glowing behind its helmet. A panel in its chest might open.
-console | 7,7  | the speaker console  | The grilles crackle and a cheerful voice welcomes everyone to the World of Tomorrow.
-cases   | 8,3  | the cases of tomorrow | Glass cases of odd machines from a world that hasn't happened yet.
-door    | 2,7  | the door to the hall | The way back out to the Hunting Grounds.
+-- key  | x,y  | name                 | line | form
+8A      | 10,8 | the steam mech       | Eight feet of brass plates over clockwork, a green battery glowing behind its helmet. A panel in its chest might open. | one fixture
+console | 7,7  | the speaker console  | The grilles crackle and a cheerful voice welcomes everyone to the World of Tomorrow. | one fixture
+cases   | 8,3  | the cases of tomorrow | Glass cases of odd machines from a world that hasn't happened yet. | many fixtures
+door    | 2,7  | the door to the hall | The way back out to the Hunting Grounds. | one fixture

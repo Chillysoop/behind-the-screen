@@ -58,10 +58,10 @@ lamps    |       | chandelier, light, blue light           | stands of lamps bur
 busts    |       |                                         | busts of forgotten curators on their plinths
 
 spots:
--- key  | x,y  | name                           | line
-2B      | 10,8 | the donation case              | A glass case bound in blue steel, stuffed with every kind of money there is. A sign asks for a donation.
-2A      | 18,7 | the metal man between the doors | A statue of a man in metal armour. Leave the case be and he stays a statue.
-hall    | 19,4 | the door to the Hall of Paintings | A gold and mahogany sign by the north door points to the paintings.
-chamber | 19,10 | the door to the Chamber of Ancients | Its twin by the south door points to the Chamber of Ancients.
-light   | 10,5 | under the chandelier           | Pale blue and white light pours down from the chandelier and puddles on the marble.
-front   | 2,7  | the front doors                | The great carved doors you came in by, still creaking.
+-- key  | x,y  | name                           | line | form
+2B      | 10,8 | the donation case              | A glass case bound in blue steel, stuffed with every kind of money there is. A sign asks for a donation. | one fixture
+2A      | 18,7 | the metal man between the doors | A statue of a man in metal armour. Leave the case be and he stays a statue. | one figure
+hall    | 19,4 | the door to the Hall of Paintings | A gold and mahogany sign by the north door points to the paintings. | one fixture
+chamber | 19,10 | the door to the Chamber of Ancients | Its twin by the south door points to the Chamber of Ancients. | one fixture
+light   | 10,5 | the pool of light under the chandelier | Pale blue and white light pours down from the chandelier and puddles on the marble. | one area
+front   | 2,7  | the front doors                | The great carved doors you came in by, still creaking. | many fixtures

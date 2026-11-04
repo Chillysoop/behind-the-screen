@@ -139,13 +139,18 @@ rest (plain, short, ours).
     floor  | base      | floor, sand, dust      | a marble floor dusted with sand
     jackal | own_words | jackal, jug, small jug | a small clay jug with a jackal on it
 
-**`spots:`** the places in the room worth going to: `key | x,y | name | one line`. Give every
-room a handful. Use the book's keys where it has them (3A, 3B...), each on a free square beside
-the thing it's about, with one plain line in our own words. The game walks heroes to them and
-lets the table choose among them.
+**`spots:`** the places in the room worth going to: `key | x,y | name | one line | form`. Give
+every room a handful. Use the book's keys where it has them (3A, 3B...), each on a free square
+beside the thing it's about, with one plain line in our own words. The game walks heroes to them and
+lets the table choose among them. The name is a noun phrase ("the pool of light under the chandelier",
+not "under the chandelier"): the friends say it in their own sentences. The form says how they talk
+about it: `one` or `many` (how the name reads: "the shears" are many), and a kind: `thing` (loose,
+something you could pick up), `fixture` (built in, or too big to move), `picture`, `figure` (shaped
+like someone: a statue, a clipped hedge), `person` or `area` (somewhere to stand). A spot without a
+form is built as `one thing`, with a warning.
 
     spots:
-    3A | 10,6 | the pedestal | A raised stand with a button carved like a woman.
+    3A | 10,6 | the pedestal | A raised stand with a button carved like a woman. | one fixture
 
 ## What the builder checks
 
@@ -166,13 +171,13 @@ the `boards.lua` shape (title, light, party, npc, foes, features) plus:
     adventure = "museum", room = "chamber", order = 3,
     source = "adventure", credit = "...", about = "...", tags = { ... },
     places = {
-        { id = "3A", x = 10, y = 6, name = "the pedestal", near = { "pedestal" },
+        { id = "3A", x = 10, y = 6, name = "the pedestal", near = { "pedestal" }, kind = "fixture",
           line = "A raised stand with a button carved like a woman..." },
     },
 
 `places` are the spec's spots (named `places` so they aren't confused with `board.compile`'s
 `spots`, the squares a hero walks to when a feature drops in); `near` lists the features beside
-each one (not the floor, walls or paths).
+each one (not the floor, walls or paths); `kind` and `many` are the spot's form.
 
 ## House style for the boards
 

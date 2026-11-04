@@ -90,7 +90,7 @@ return {
           log = "'Remember what we said at Session Zero?' A couple of nods.",
           effects = { doer = { fun = -3 }, objectors = { trust = 2 } } },
         { id = "outlet", label = "Give {actor_char} a better outlet next scene.", heat = 0.8,
-          log = "You make a note: something for {actor_char} to get stuck into next time.",
+          log = "You make a note: something for {actor_char} to get stuck into next time.", screen = true,
           effects = { doer = { investment = 2 }, objectors = { trust = 1 } } },
     },
 

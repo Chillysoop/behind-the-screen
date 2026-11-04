@@ -71,12 +71,12 @@ lamps     | own_words | lamps, lamp, blue fire, ether                | lamps wit
 bones     | own_words | bones, rack of bones, mummified              | a rack of old wrapped bones across the doorway
 
 spots:
--- key | x,y   | name                    | line
-3A     | 10,6  | the pedestal            | A raised stand with a button carved like a woman. Something is meant to sit on top of it.
-3B     | 8,8   | the bone guardian       | Gold and bleached bone, three skull faces, and a staff topped with a fanged skull.
-3C     | 7,11  | the jackal jug          | A small clay jug with a jackal carved on its side.
-3D     | 7,3   | the curved daggers      | Two curved daggers whose rings are locked together. They won't come apart easily.
-3E     | 12,3  | the cracked tablet      | A sandstone tablet covered in old signs. Someone with the right notes could read a line or two.
-3F     | 17,8  | the notebook            | A small notebook full of notes on an old picture-writing, dropped by the wall.
-3G     | 14,11 | the falcon jar          | A big clay jar with a falcon carved on it.
-3H     | 12,11 | the crocodile tap       | A crocodile set into the wall. Pull its jaw back and water runs out.
+-- key | x,y   | name                    | line | form
+3A     | 10,6  | the pedestal            | A raised stand with a button carved like a woman. Something is meant to sit on top of it. | one fixture
+3B     | 8,8   | the bone guardian       | Gold and bleached bone, three skull faces, and a staff topped with a fanged skull. | one figure
+3C     | 7,11  | the jackal jug          | A small clay jug with a jackal carved on its side. | one thing
+3D     | 7,3   | the curved daggers      | Two curved daggers whose rings are locked together. They won't come apart easily. | many things
+3E     | 12,3  | the cracked tablet      | A sandstone tablet covered in old signs. Someone with the right notes could read a line or two. | one fixture
+3F     | 17,8  | the notebook            | A small notebook full of notes on an old picture-writing, dropped by the wall. | one thing
+3G     | 14,11 | the falcon jar          | A big clay jar with a falcon carved on it. | one thing
+3H     | 12,11 | the crocodile tap       | A crocodile set into the wall. Pull its jaw back and water runs out. | one fixture

@@ -410,9 +410,31 @@ A.all_in = function(p)
     return R("At the first session's introductions, if " .. NAME[p[2]] .. " is all in", one_of(#MODULE.all_in[p[2]]))
 end
 
+A.reinforcements = function(p)
+    local room, f = p[2], p[3]
+    local card = Q("An early knockout")
+    if f == "label" then
+        return R("In a fight " .. lowfirst(in_room(room)) .. ", on " .. card .. ": the option to send more", "Always")
+    elseif f == "soft" then
+        return R("In a fight " .. lowfirst(in_room(room)) .. ", if you send more on " .. card .. " and the table veiled creepy-crawlies",
+            "If chosen")
+    end
+    return R("In a fight " .. lowfirst(in_room(room)) .. ", if you send more on " .. card, "If chosen")
+end
+
 A.asides = function(p)
     local a = MODULE.asides[p[2]]
-    return R("As the night's first fight starts" .. if_(a and a.when), "Always")
+    if p[3] == "in_room" then
+        return R("As the night's first fight starts, if it's " .. lowfirst(in_room(p[4])) .. if_(a and a.when), "Always")
+    end
+    local rooms = {}
+    for r in pairs(a and a.in_room or {}) do
+        table.insert(rooms, lowfirst(in_room(r)))
+    end
+    table.sort(rooms)
+    local rest = (a and not a.no_sneak) and " (never two weeks running)" or ""
+    return R("As the night's first fight starts" .. (#rooms > 0 and (", unless it's " .. table.concat(rooms, " or ")) or "")
+        .. if_(a and a.when) .. rest, (a and a.lines) and one_of(#a.lines) or "Always")
 end
 
 A.author = function()
@@ -485,7 +507,11 @@ A.companions = function(p)
         elseif kind == "start" then
             return R("At the start of each later night with " .. name .. " along: " .. voice, one_of(#list))
         elseif kind == "look" then
-            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along: " .. voice, one_of(#list))
+            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along, and there's nothing much there: " .. voice,
+                one_of(#list))
+        elseif kind == "hint" then
+            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along, and there's something there (a find, or an "
+                .. "answer worth the sniffing): " .. voice, one_of(#list))
         elseif kind == "fight" then
             return R("As a fight starts with " .. name .. " along, more often than not: " .. voice, one_of(#list))
         elseif kind == "win" then
@@ -782,12 +808,26 @@ A.people = function(p)
     return R("In your notes on the museum's people, and the hover on " .. pp.name .. "'s name", "Always")
 end
 
-A.portraits = function(p)
-    local who = p[2]
-    if p[3] == "painting" then
-        return R("In the Hall of Paintings, on " .. Q("The paint is wet") .. ", when the painting is " .. HERO[who] .. "'s", "Always")
+local function portrait_line(whose, f)
+    local card = Q("The paint is wet")
+    if f == "painting" then
+        return R("In the Hall of Paintings, on " .. card .. ", when the painting is " .. whose, "Always")
+    elseif f == "hint" then
+        return R("In the Hall of Paintings, on " .. card .. ": the danger you can see, when the painting is " .. whose, "Always")
+    elseif f == "danger" then
+        return R("In the Hall of Paintings, if you warn them about " .. whose .. " painting, and in your notes on fair warning", "Sometimes")
+    elseif f == "bite" or f == "aspect" then
+        return R("In the Hall of Paintings, on " .. card .. ": a missed roll reaching into " .. whose .. " painting", "On a failure")
     end
-    return R("In the Hall of Paintings: what comes out of " .. HERO[who] .. "'s painting on " .. Q("The paint is wet"), "On a success")
+    return R("In the Hall of Paintings: what comes out of " .. whose .. " painting on " .. card, "On a success")
+end
+
+A.portraits = function(p)
+    return portrait_line(HERO[p[2]] .. "'s", p[3])
+end
+
+A.portrait_default = function(p)
+    return portrait_line("anyone else's (the elf in the snow)", p[2])
 end
 
 A.premise = function()
@@ -934,14 +974,15 @@ end
 
 local STANCE = { warm = "Warm", guarded = "Guarded", lie = "A lie" }
 local TALK_SET = { open = "meeting the party for the first time", again = "seeing them again in a later session",
-                   ask = "when the hero asks what they know", done = "at his thanks, either turn" }
+                   ask = "when the hero asks what they know", done = "at his thanks, his first words",
+                   done_ask = "at his thanks, when the hero asks about the reward" }
 A.talk = function(p)
     local who = NPC_NAME[p[2]] or p[2]
     -- (takeover.talk runs only in a full room: never the gift shop or the street. At Flitwidget's
-    -- thanks the museum is done, so both turns use his "done" lines.)
+    -- thanks the museum is done: his "done" lines first, then "done_ask" when they ask about the reward.)
     if p[2] == "mus_telpur" then
         return R("Not said: the gift shop is a short room, and short rooms have no " .. Q("Talk as …") .. " card", "Never")
-    elseif p[3] ~= "done" then
+    elseif p[3] ~= "done" and p[3] ~= "done_ask" then
         return R("Not said: you only talk as Flitwidget at his thanks, once it's over, and then his " .. Q("done") .. " lines are used",
             "Never")
     end
@@ -967,10 +1008,28 @@ local function fond_of(who)
     return #keys > 0 and names(keys) or nil
 end
 
+local ANSWER_WORDS = { dull = "the plain answer (a roll under 10)", detail = "the detail (a roll of 10 to 16)",
+                       lore = "the bit of lore (17 or more)" }
+
 local function small_moment(p)
-    -- p: rooms/<room>/<part>/<i>/<field>...
+    -- p: rooms/<room>/<part>/<i>/<field>..., or people/<who>/<slip|misheard>/<i>
+    if p[1] == "people" then
+        local who = p[2] == "telpur" and "Telpur" or (p[2] == "flitwidget" and "Flitwidget") or tostring(p[2])
+        if p[3] == "slip" then
+            return R("A natural 20 asking " .. who .. " a question in a quiet moment, if you pick " .. Q(who .. " lets something slip"),
+                "If chosen")
+        end
+        return R("A natural 1 asking " .. who .. " a question in a quiet moment, if you pick " .. Q(who .. " hears a different question"),
+            "If chosen")
+    end
     local room, part, i = p[2], p[3], p[4]
     local TLD = MODULE.table_life
+    if part == "scare" then
+        if room == "lair" or room == "street" then
+            return R("Not said: no little scares " .. at_room(room), "Never")
+        end
+        return R("A natural 1 poking at something " .. at_room(room) .. ", if you pick the little scare", "If chosen")
+    end
     local rd = TLD.rooms[room] or {}
     local b = rd[part] and rd[part][i] or {}
     local f = p[5]
@@ -993,7 +1052,18 @@ local function small_moment(p)
         elseif f == "lore" then
             return R(where .. ": someone pokes at " .. what .. " and rolls 17 or more", "On a success")
         elseif f == "react" then
-            return R(where .. ": often, a friend's reaction to someone poking at " .. what, one_of(#(b.react or {})))
+            local lvl = p[6]
+            local list = (b.react or {})[lvl] or {}
+            local entry = list[p[7]]
+            local cond_words = type(entry) == "table" and entry.when and if_(entry.when) or ""
+            if lvl == "any" then
+                return R(where .. ": often, a friend's reaction to someone poking at " .. what .. ", whatever you answer" .. cond_words,
+                    "Sometimes")
+            end
+            return R(where .. ": often, a friend's reaction after " .. (ANSWER_WORDS[lvl] or "your answer") .. " about " .. what
+                .. cond_words, one_of(#list))
+        elseif f == "see" then
+            return R(where .. ": what you describe first, before a friend pokes at " .. what, "Sometimes")
         elseif f == "what" then
             return R(where .. ": its name on the natural 20 or 1 card", "Sometimes")
         elseif f == "crit1" then
@@ -1255,6 +1325,14 @@ local function bark_line(p)
         local rule = B.fits[p[2]]
         return R("Not said: a fight line with " .. Q(rule[1], 4) .. " in it only plays when "
             .. (FACT_FITS[rule[2]] or "it fits"), "Never")
+    elseif p[1] == "context" then
+        local CTX = { nobody_here = "nobody's there to talk to", someone_here = "someone's there to talk to",
+                      fight_here = "the room has a fight in it", no_fight_here = "the room has no fight in it",
+                      calm = "the room's danger is settled", clue_found = "something was learned earlier tonight",
+                      big_foe = "the one leading the fight is Large or bigger", several_foes = "there's more than one foe",
+                      boss_is_a_thing = "the one leading the fight is a creature, not a person" }
+        local rule = B.context[p[2]]
+        return R("Not said: a table line with " .. Q(rule[1], 4) .. " in it only plays when " .. (CTX[rule[2]] or "it fits"), "Never")
     elseif p[1] == "made" then
         local tr, who = p[2], p[3]
         local l = B.made[tr][who][p[4]]
@@ -1391,6 +1469,11 @@ local function tb_line(p)
         end
         local by = (b.by == "roller" and "the one who rolled") or (b.by == "other" and "a friend, to the one who rolled") or nil
         local speaker = who and (by and (who .. ", as " .. by) or who) or (by or "anyone")
+        local line = b.lines[p[4]]
+        if type(line) == "table" and line.late then
+            return R("Sometimes, " .. (TB_WHEN[b.when] or "at the table") .. ": whoever the group chat said would be late this week"
+                .. (line.late ~= "any" and (", because of the " .. line.late) or "") .. ", out of character", "Sometimes")
+        end
         return R("Sometimes, " .. (TB_WHEN[b.when] or "at the table") .. ": " .. speaker .. ", out of character", one_of(#b.lines))
     elseif p[1] == "stunts" then
         local st = T.stunts[p[2]]
@@ -1668,6 +1751,7 @@ local TT = {
     bored = "In a quiet stretch while the heroes work a room, if {name} is losing interest",
     phone = "In a quiet stretch while the heroes work a room, if {name} has nearly tuned out: back from {pos} phone",
     ruling_good = "When you rule {hero}'s roll generously",
+    ruling_rueful = "When you rule {hero}'s near miss kindly: still a miss, but {subj} learns from it",
     ruling_bad = "When you rule a roll harshly against the party",
     open_roll = "When you roll a big moment in the open",
     suspicious = "Under {pos} breath, when your hidden rolls look convenient",
@@ -1798,7 +1882,7 @@ local function code_line(p)
         local who = ARCH_WHO[k] or {}
         return R("When the table talks over a choice: " .. names(who) .. "'s reason for leaning one way, when the " ..
             "option suits " .. (#who == 1 and (POS[who[1]] or "their") or "their") .. " " .. string.gsub(k, "_", " ") ..
-            " side (at most twice a night)", "Sometimes")
+            " side (at most twice a night, each line once, never two talks running)", "Sometimes")
     elseif top == "BREAK_START" then
         return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
     elseif top == "BREAK_END" then
@@ -1813,6 +1897,40 @@ local function code_line(p)
             return R("Just before a fight: the party reacts first, on a good Perception or Insight roll", "On a success")
         end
         return R("Just before a fight: the party is too slow, on a poor Perception or Insight roll", "On a failure")
+    elseif top == "BREAK_LOGS" then
+        local pick = ({ nothing = "nothing happens in the game", short = "the heroes take a short rest",
+                        long = "the heroes take a long rest (in the gift shop)", research = "the heroes read up" })[k] or k
+        return R("The break, once a night, if you say " .. pick .. " meanwhile",
+            one_of(#(require("game.model.museum_night").BREAK_LOGS[k] or {})))
+    elseif top == "WEEKLY" then
+        local W2 = require("game.model.museum_night").WEEKLY
+        local what = ({ ready = "As game night starts, once everyone's sat down",
+                        ask_look = "When the table can't settle a choice and a friend asks you (a card or a fork)",
+                        thread = "When a room is the one a hero came to the museum for",
+                        skim = "The first room tonight you never read, as it starts",
+                        skim_again = "Any later room tonight you never read, as it starts",
+                        improv = "The first room tonight you chose to make up, as it starts",
+                        improv_again = "Any later room tonight you chose to make up, as it starts",
+                        close = "When you call the night",
+                        stop_fight = "When you call the night right after a fight",
+                        stop_flat = "When you call the night after a quiet room",
+                        book_down = "When you choose to make up a room you never prepped",
+                        from_book = "The first room tonight you read from the book at the table",
+                        from_book_again = "Any later room tonight you read from the book at the table",
+                        easy = "At a fork, when a friend who doesn't much mind comes round to the others" })[k] or "Game night"
+        return R(what, one_of(#(W2[k] or {})))
+    elseif top == "INSPIRE_LINES" then
+        return R("When you give a hero Heroic Inspiration (from a card or their tile)", one_of(#require("game.model.night").INSPIRE_LINES))
+    elseif top == "WRAP_LINES" then
+        return R("The very end of game night, after the goodbyes", one_of(#require("game.model.night").WRAP_LINES))
+    elseif top == "FRANC_LINES" then
+        return R("When you rule a great roll " .. Q("Yes, and...") .. ": the Franc that turns up",
+            one_of(#require("game.model.night").FRANC_LINES))
+    elseif top == "FIGHT_CAPTIONS" then
+        local what = ({ start = "As a fight starts", party_win = "When the party wins a fight against several",
+                        party_win_one = "When the party wins a fight against one foe, by name",
+                        party_win_fled = "When the party wins and the rest of the foes run" })[k] or "In a fight"
+        return R(what, one_of(#(require("game.model.night").FIGHT_CAPTIONS[k] or {})))
     end
 end
 

@@ -582,6 +582,23 @@
    "max": 90
   },
   {
+   "id": "ruling_rueful",
+   "group": "DM calls",
+   "voice": "table",
+   "when": "The DM ruled a near miss kindly: it still failed, but they learned something from it. Rueful, never a cheer.",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
    "id": "ruling_bad",
    "group": "DM calls",
    "voice": "table",

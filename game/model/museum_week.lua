@@ -293,10 +293,13 @@ function M.night_lines(c, night)
     end
     local week = c.week - 1
     local rng = c.rng
-    local function put(key, lines)
+    -- (Fresh across weeks, and never the same words twice running: night.fresh's memory, keyed by the
+    -- kind of post. R3, the second playtest review: the same three chat lines most weeks.)
+    local function put(key, lines, kind)
         local p = c:player(key)
         if p and not out[key] then
-            out[key] = util.fill(rng:pick(lines), { char = string.lower(p.char or ""), name = p.name })
+            local pick = kind and M.fresh_line(c, lines, "chat_" .. kind) or rng:pick(lines)
+            out[key] = util.fill(pick, { char = string.lower(p.char or ""), name = p.name })
         end
     end
     -- A hero lost.
@@ -350,8 +353,11 @@ function M.night_lines(c, night)
         end
         if best and not string.find(best.title or "", "^Round") then
             local what = strip(best.title)
-            put(p.key, bd > 0 and { "that \"" .. what .. "\" moment. more of that please", "\"" .. what .. "\" was the best part of the night, no notes" }
-                or { "the \"" .. what .. "\" bit... not my favourite", "not gonna lie, the \"" .. what .. "\" bit kind of killed it for me" })
+            put(p.key, bd > 0 and { "that \"{what}\" moment. more of that please", "\"{what}\" was the best part of the night, no notes",
+                                    "can we talk about \"{what}\" though", "still buzzing about \"{what}\"" }
+                or { "the \"{what}\" bit... not my favourite", "not gonna lie, the \"{what}\" bit kind of killed it for me",
+                     "not a fan of \"{what}\", if i'm honest" }, bd > 0 and "best" or "worst")
+            out[p.key] = out[p.key] and util.fill(out[p.key], { what = what })
         end
     end
     local adv = c.adv
@@ -369,19 +375,27 @@ end
 -- you (MODULE.chat_ask: answer it from the prep board). Requests are private messages now, one-on-one
 -- with you (adventure.prompts), not posts to the group.
 local REPLY = {
-    good = { "honestly same", "that bit was SO good", "best part of the night tbh", "still thinking about it" },
+    good = { "honestly same", "that bit was SO good", "best part of the night tbh", "still thinking about it", "SAME", "it really was" },
     bad = { "rip", "we don't talk about that", "never again lol", "it was very funny from where i was sitting" },
     plain = { "lol", "real", "honestly yeah", "100%" },
 }
+M.REPLY = REPLY      -- (for the roadmap words check)
+
+-- A line for the group chat that hasn't been posted lately (night.fresh's campaign memory).
+function M.fresh_line(c, lines, key)
+    local night_mod = util.lazy("game.model.night")
+    return night_mod.fresh({ campaign = c, rng = c.rng }, lines, key)
+end
 local function tone_of(text)
     local t = string.lower(text or "")
     for _, w in ipairs({ "annoyed", "rip", "floor", "refund", "not over", "on rails", "killed it for me", "not my favourite",
-                         "nudged", "outvoted", "hated", "never" }) do
+                         "nudged", "outvoted", "hated", "never", "not a fan" }) do
         if string.find(t, w, 1, true) then
             return "bad"
         end
     end
-    for _, w in ipairs({ "more of that", "best", "love", "thrilled", "emotional", "ten out of ten", "so good", "finally" }) do
+    for _, w in ipairs({ "more of that", "best", "love", "thrilled", "emotional", "ten out of ten", "so good", "finally", "buzzing",
+                         "talk about" }) do
         if string.find(t, w, 1, true) then
             return "good"
         end
@@ -408,7 +422,8 @@ function M.write_chat(c)
         end
         local q = cands[rng:int(1, #cands)]
         replied_by[q.key] = true
-        table.insert(msgs, { who = q.name, key = q.key, text = rng:pick(REPLY[tone_of(m.text)]), reply = true })
+        local tone = tone_of(m.text)
+        table.insert(msgs, { who = q.name, key = q.key, text = M.fresh_line(c, REPLY[tone], "chat_reply_" .. tone), reply = true })
     end
     -- Last night's own events first (three at most), then the rooms.
     local own = M.night_lines(c, c.night)
@@ -473,6 +488,13 @@ function M.write_chat(c)
     if #banter > 0 and c.week > 1 then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
+        -- Who said they'd be late, and why: game night's arrivals say the same (night.behavior_line_ok).
+        if b.late then
+            st.late = { week = c.week }
+            for k, why in pairs(b.late) do
+                st.late[k] = why
+            end
+        end
         -- What they said they bought is what they bring (the playtest, November 3: Sam's green dice
         -- were still grey on the table).
         if b.dice then

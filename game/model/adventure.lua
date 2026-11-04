@@ -443,6 +443,9 @@ function M.test(campaign, cond, knobs)
     if cond.seen and not (st.seen or {})[cond.seen] then
         return false               -- (a moment card that played)
     end
+    if cond.from and st.came_from ~= cond.from then
+        return false               -- (the room they've just walked in from)
+    end
     if cond.not_soft and M.test(campaign, { soft = cond.not_soft }) then
         return false
     end
@@ -818,6 +821,7 @@ function M.enter_room(campaign, id, week)
     local r = MODULE.rooms[id]
     st.choices = nil
     st.at = id
+    st.came_from = st.pos       -- (where they walked in from: a room's read can say so, cond.from)
     st.pos = id
     local left = {}
     local part = r.part or 1

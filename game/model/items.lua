@@ -131,6 +131,7 @@ function M.apply(campaign, key, pc)
             if e.weapon then
                 pc.magic_weapon = math.max(pc.magic_weapon or 0, e.weapon)
                 pc.item_weapon = e.weapon
+                pc.weapon_item = string.lower(d.name)      -- (what the table calls their weapon now)
             end
             if e.ac then
                 pc.item_ac = (pc.item_ac or 0) + e.ac

@@ -15,13 +15,17 @@
 --    - every mark that lands gets her line upstairs, that night or the next;
 --    - an item picked up is on someone's sheet;
 --    - every line fits the adventure (adventure.fits): nothing from the old story;
---    - a hero who's been replaced isn't named doing things afterwards.
+--    - a hero who's been replaced isn't named doing things afterwards;
+--    - (roadmap phase 1) a Franc said to turn up on a great roll is paid; a fight won "by name" had one
+--      foe; "+1, they learned from the last miss" follows a near miss you ruled "No, but"; a promised
+--      rest walks them back up to the room they really stopped in.
 
 package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local adventure = require "game.model.adventure"
 local MODULE = require "game.data.museum.module"
+local util_lower_first = require("game.model.util").lower_first
 local cards = require "game.data.museum.cards"
 
 local failures = 0
@@ -294,12 +298,57 @@ local function play(seed, style)
                 old_names[p.old_char] = true
             end
         end
+        local night_mod = require "game.model.night"
+        local francs_before = c.adv.francs or 0
+        local stopped_in = c.adv.pos or c.adv.last_room
+        local learned = {}
         local ev = night:advance()
         local guard = 0
         while ev.kind ~= "done" and guard < 5000 do
             guard = guard + 1
             local answer
             local text = (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") and ev.text or nil
+            -- (Roadmap phase 1: lines that assert an outcome, against the state.)
+            if ev.kind == "narrate" and text then
+                for _, l in ipairs(night_mod.FRANC_LINES or {}) do
+                    local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char}", ".-") .. "$"
+                    if string.find(text, pat) and (c.adv.francs or 0) <= francs_before then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', and no Franc was paid")
+                    end
+                end
+                for _, l in ipairs((night_mod.FIGHT_CAPTIONS or {}).party_win_one or {}) do
+                    local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[Ff]oe}", ".-") .. "$"
+                    if string.find(text, pat) then
+                        local foes = 0
+                        for _, cr in ipairs((night.battle and night.battle.creatures) or {}) do
+                            foes = foes + ((cr.side == "foes" and not cr.ally) and 1 or 0)
+                        end
+                        if foes > 1 then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "' over a fight with " .. foes .. " foes")
+                        end
+                    end
+                end
+                local back_to = string.match(text, "a walk back up to (.-), where they stopped")
+                if back_to then
+                    local want = stopped_in == "stairs" and "the top of the stairs"
+                        or (MODULE.rooms[stopped_in or ""] and util_lower_first(MODULE.rooms[stopped_in].name))
+                    if back_to ~= want then
+                        fail(tag .. " week " .. w .. ": the rest walks them back to " .. back_to .. ", but they stopped in " .. tostring(stopped_in))
+                    end
+                elseif string.find(text, "after a long rest in the gift shop, fully healed", 1, true) and stopped_in and stopped_in ~= "gift_shop" then
+                    fail(tag .. " week " .. w .. ": a rest 'in the gift shop', but they stopped in " .. stopped_in)
+                end
+            end
+            if ev.kind == "ruling" and ev.tier == "near" and ev.success == false and ev.actor then
+                learned[ev.actor] = true          -- (the truth test always rules the first option: "No, but...")
+            end
+            if ev.kind == "roll_where" and ev.text and string.find(ev.text, "they learned from the last miss", 1, true) then
+                if not learned[ev.actor] then
+                    fail(tag .. " week " .. w .. ": +1 for a lesson nobody learned (" .. tostring(ev.actor) .. ")")
+                end
+                learned[ev.actor] = nil
+            end
+            francs_before = c.adv.francs or 0
             if text then
                 if not adventure.fits(text) then
                     fail(tag .. " week " .. w .. ": a line from outside the adventure: '" .. text .. "'")

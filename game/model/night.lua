@@ -488,7 +488,16 @@ function M.bystander(loc)
 end
 
 -- A caption. Every sentence starts with a capital, whatever was substituted (A3).
+-- A line to the table that's really a note only the DM knows ("Behind your screen, you move a note")
+-- gets the screen's own caption (the second playtest review).
+function M.screen_note(text)
+    return type(text) == "string" and string.find(string.lower(text), "behind your screen", 1, true) ~= nil
+end
+
 function M:say(text, style, extra)
+    if style == "dm" and M.screen_note(text) then
+        style = "screen"
+    end
     return self:emit({ kind = "narrate", text = util.sentence_case(util.fill(text, self:vars(extra))),
                        style = style or "narration" })
 end
@@ -496,10 +505,12 @@ end
 -- A line from a list that hasn't been said tonight (A5): each one once before any repeats. With a
 -- key, the memory lasts across weeks (November 3: lines repeated from one session to the next):
 -- a line said in the last three sessions waits, and when every one has been said lately, the
--- one said longest ago comes back first.
+-- one said longest ago comes back first. Never the same line twice in a row (R2, the second
+-- playtest review), and with `once`, never twice in one session: nil once every line has been said
+-- tonight.
 M.FRESH_WEEKS = 3
 
-function M:fresh(list, key)
+function M:fresh(list, key, once)
     if type(list) ~= "table" then
         return list
     end
@@ -508,21 +519,38 @@ function M:fresh(list, key)
         camp.fresh_said = camp.fresh_said or {}
         local said = camp.fresh_said[key] or {}
         camp.fresh_said[key] = said
+        camp.fresh_last = camp.fresh_last or {}
+        local last = camp.fresh_last[key]
         local week = camp.week or 0
         local free, oldest, ow = {}, nil, nil
         for i, l in ipairs(list) do
             local w = type(l) == "string" and said[l] or nil
-            if not w or week - w >= M.FRESH_WEEKS then
+            if (#list > 1 and l == last) or (once and w == week) then
+                -- (just said, or said tonight already)
+            elseif not w or week - w >= M.FRESH_WEEKS then
                 table.insert(free, i)
             elseif not ow or w < ow then
                 oldest, ow = i, w
             end
         end
         -- (Said tonight beats said last week: tonight's never repeats while anything else is left.)
-        local i = (#free > 0 and self.rng:pick(free)) or oldest or 1
+        local i = (#free > 0 and self.rng:pick(free)) or oldest
+        if not i then
+            if once then
+                return nil
+            end
+            i = 1
+            for j, l in ipairs(list) do
+                if l ~= last then
+                    i = j
+                    break
+                end
+            end
+        end
         local l = list[i]
         if type(l) == "string" then
             said[l] = week
+            camp.fresh_last[key] = l
         end
         -- (Forget what's long past, so the save stays small.)
         for t, w in pairs(said) do
@@ -542,15 +570,22 @@ function M:fresh(list, key)
         end
     end
     if #free == 0 then
+        if once then
+            return nil
+        end
+        local was = used.last
         for i in pairs(used) do
             used[i] = nil
         end
         for i = 1, #list do
-            free[i] = i
+            if i ~= was or #list == 1 then
+                table.insert(free, i)
+            end
         end
     end
     local i = self.rng:pick(free)
     used[i] = true
+    used.last = i
     return list[i]
 end
 
@@ -571,14 +606,55 @@ function M:bark(p, trigger, extra)
     if extra and extra.moment then
         text, id = barks.pick(self, trigger, p, extra.moment, v)
     else
+        -- (A line has to fit the room it's said in: barks.context_fits.)
+        local ctx = self:bark_context(extra and extra.ctx)
         local line
-        text, line = self.talk:line(trigger, p, v)
+        text, line = self.talk:line(trigger, p, v, function(l)
+            return barks.context_fits(l.text, ctx)
+        end)
         id = line and line.id
     end
     if text then
         self:emit({ kind = "say", who = p.key, text = text, ic = talk_mod.in_character(trigger), line = id })
     end
     return text
+end
+
+-- Who's in front of them as a fight starts: the leader's size, how many, whether it's a person.
+function M:boss_context(plan, sc)
+    local ok, mons = pcall(require, "game.rules.data.monsters")
+    local foes = (plan and plan.ids) or (sc and sc.encounter) or {}
+    local id = foes[1]
+    local m = ok and type(mons) == "table" and type(id) == "string" and mons[id] or nil
+    local size = m and m.size
+    local big = size == "large" or size == "huge" or size == "gargantuan"
+    local person = m and (m.type == "humanoid" or id == "euryale" or m.person)
+    return { big = big and true or false, foes = #foes, thing = not person }
+end
+
+-- What the room holds, for a line said outside a fight's turns (barks.context_fits): someone to talk
+-- to, a fight, danger, something learned tonight. more: facts the caller knows (a boss's size).
+function M:bark_context(more)
+    local sc = self.scene
+    local ctx = {}
+    if sc then
+        local cast = sc.comps and sc.comps.cast
+        ctx.someone = (cast ~= nil and not cast.foe and not self:muted(cast)) or (cast ~= nil and cast.villain == true) or nil
+        if self.mus then
+            local mus = util.lazy("game.model.museum_night")
+            local r = util.lazy("game.model.adventure").data.rooms[sc.room or ""]
+            ctx.fight = (r and r.encounter ~= nil) or mus.has_fight(sc) or nil
+            ctx.calm = not util.lazy("game.model.table_life").danger_ahead(self, sc) or sc.fought == true or nil
+        else
+            ctx.fight = sc.type == "combat" or sc.type == "set_piece" or nil
+            ctx.calm = not ctx.fight or nil
+        end
+    end
+    ctx.clue = self.heard_lore or nil
+    for k, val in pairs(more or {}) do
+        ctx[k] = val
+    end
+    return ctx
 end
 
 -- The DM voicing the scene's cast.
@@ -1797,6 +1873,20 @@ function M:hurt(p)
     return c ~= nil and not c.dead and (c.hp or 0) < (c.hp_max or 1) * 0.6
 end
 
+-- A table habit's line that has a condition: late = a reason, true only for the friend the group chat
+-- said would be late this week, for that reason (or any reason: "any").
+function M.behavior_line_ok(night, line, p)
+    if type(line) ~= "table" then
+        return true
+    end
+    if line.late then
+        local late = night.campaign.adv and night.campaign.adv.late
+        local why = late and late.week == night.campaign.week and late[p.key]
+        return why ~= nil and (line.late == "any" or line.late == why)
+    end
+    return true
+end
+
 function M:table_behavior(when, roller, sure)
     self.tb = self.tb or { n = 0, used = {}, hooks = {} }
     local tb = self.tb
@@ -1831,6 +1921,13 @@ function M:table_behavior(when, roller, sure)
             end
             if #free > 0 then
                 for _, p in ipairs(self.players) do
+                    -- (A line with a condition only for the friend it's true of: late as the chat said.)
+                    local pfree = {}
+                    for _, i in ipairs(free) do
+                        if M.behavior_line_ok(self, b.lines[i], p) then
+                            table.insert(pfree, i)
+                        end
+                    end
                     local w = arch_weight(b.archetype, p)
                     if not class_ok(b, p) then
                         w = 0
@@ -1845,8 +1942,8 @@ function M:table_behavior(when, roller, sure)
                     elseif b.mood == "bored" and p.engagement >= 0.45 then
                         w = 0
                     end
-                    if w > 0 then
-                        table.insert(cands, { b = b, p = p, free = free })
+                    if w > 0 and #pfree > 0 then
+                        table.insert(cands, { b = b, p = p, free = pfree })
                         table.insert(weights, w)
                     end
                 end
@@ -1863,7 +1960,8 @@ function M:table_behavior(when, roller, sure)
     tb.used[b.id] = true
     tb.hooks[hook] = true
     camp.tb_said[b.id .. "#" .. i] = week
-    local text = util.fill(b.lines[i], self:vars({ other_char = roller and roller.char or "" }))
+    local raw = b.lines[i]
+    local text = util.fill(type(raw) == "table" and raw[1] or raw, self:vars({ other_char = roller and roller.char or "" }))
     local pose = TB_POSE[b.id] or (b.mood == "bored" and "yawn")
         or (string.find(b.effect or "", "^fun%+") and "laugh") or (b.by == "other" and "cheer") or "lean"
     self:react({ [p.key] = pose })
@@ -1970,8 +2068,7 @@ function M:give_inspiration(p, by_tile)
     score.add(p, "fun", 4)
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "token", who = p.key, what = "inspiration" })
-    self:say("You flick the Heroic Inspiration token across the table. It lands in front of " .. p.name
-        .. ": one reroll, to spend whenever " .. p.char .. " needs it.", "dm")
+    self:say(util.fill(self:fresh(M.INSPIRE_LINES, "inspire_line"), { name = p.name, char = p.char }), "dm")
     self:event("inspiration", { who = p.key, text = p.char .. " earned Heroic Inspiration." })
     if again then
         self:fairness_noticed(p, "inspiration")
@@ -2347,6 +2444,12 @@ function M:big_roll(spec, record)
         mod = mod + near_bonus   -- last time was a near miss (B2)
         self.edge_next[p.key] = nil
     end
+    -- A near miss you ruled "No, but...": they learned from it, +1 on this roll.
+    local learned = p and self.learned and self.learned[p.key]
+    if learned then
+        mod = mod + learned
+        self.learned[p.key] = nil
+    end
     if p then
         mod = mod + self:take_research(p)
     end
@@ -2364,6 +2467,9 @@ function M:big_roll(spec, record)
     end
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
     text = text .. " " .. M.odds_line(dc, mod)
+    if learned then
+        text = text .. " (That includes +" .. util.int(learned) .. ": they learned from the last miss.)"
+    end
     -- The scene's final roll says so, and what it's for (the card-led playtest, October 16:
     -- "nothing says this is the goal roll").
     if spec.final then
@@ -2388,7 +2494,9 @@ function M:big_roll(spec, record)
     elseif self:decision_count() >= 15 then
         if not self.calls_out_said then
             self.calls_out_said = true
-            self:say("That's your calls for tonight. From here the dice decide, out in the open, and you narrate what they say.", "system")
+            -- (Only the big rolls stop asking: other calls still come. The second playtest review.)
+            self:say("That's your calls on the big rolls for tonight. From here those dice decide, out in the open, and you narrate what they say.",
+                "system")
         end
         where = "open"
     else
@@ -2609,9 +2717,20 @@ function M:big_roll(spec, record)
         if self.mus then
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
         end
-        ruled = "Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket."
+        ruled = util.fill(self:fresh(M.FRANC_LINES, "franc_line"), { char = p and p.char or "someone" })
     end
-    if ro.tone == "good" then
+    if ro.tone == "good" and not success then
+        -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves
+        -- you!" right after a failed roll). What they learned is real: +1 on that hero's next roll.
+        if ruled then
+            self:say(ruled, "good")
+        end
+        if p then
+            self.learned = self.learned or {}
+            self.learned[p.key] = 1
+        end
+        self:bark(self.actor, "ruling_rueful")
+    elseif ro.tone == "good" then
         if ruled and not inspired then
             self:say(ruled, "good")
         end
@@ -2902,7 +3021,7 @@ function M:decision(card, extra)
     table.insert(self.decisions, { card = card.id, option = pick, rolls = {}, table = auto and true or nil })
     self.why = auto and ("the table's choice at \"" .. card.title .. "\"") or ("your call on \"" .. card.title .. "\"")
     if o.log then
-        self:say(o.log, "dm", extra)
+        self:say(o.log, o.screen and "screen" or "dm", extra)
     end
     -- Breaks and lookups take real time at the table (A14).
     self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
@@ -3190,7 +3309,7 @@ function M:safety_check(sc)
                 local what = f.tag == "kids" and "the kids" or f.tag
                 if outcome == "veil" then
                     -- Agreed at Session Zero: it happens off screen.
-                    self:say("You keep " .. what .. " off screen, like you promised " .. p.name .. ".", "dm")
+                    self:say("You keep " .. what .. " off screen, like you promised " .. p.name .. ".", "screen")
                     score.add(p, "trust", 1)
                     table.insert(self.safety, { kind = "veil", key = p.key, tag = f.tag })
                 elseif outcome == "xcard" then
@@ -3422,9 +3541,9 @@ function M:combat_scene(sc)
     if not scouted and self:idle() < 60 and self.rng:chance(0.4) then
         self:stunt(sc)
     end
-    self:say(self.talk:fight("start", self:vars()), "dm")
+    self:say(self:fight_caption("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
-    self:bark(boss_fan, "boss_appears")
+    self:bark(boss_fan, "boss_appears", { ctx = self:boss_context(plan, sc) })
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"
@@ -3472,8 +3591,20 @@ function M:combat_scene(sc)
         -- that had run for it, the combat audit, Nov 2.)
         -- (A boss who yielded already said so, in her own words: fight.lua's yield.)
         local how = (f and (f.fled or #sc.foes_ran > 0) and "party_win_fled") or "party_win"
+        -- (One foe isn't "the last one": it's named.)
+        local foes = 0
+        for _, c in pairs(f and f.by_ref or {}) do
+            if c.side == "foes" then
+                foes = foes + 1
+            end
+        end
+        local v = self:vars()
+        if how == "party_win" and foes == 1 and f.boss_name then
+            how = "party_win_one"
+            v.foe, v.Foe = util.lower_first(f.boss_name), util.capitalize(f.boss_name)
+        end
         if not (f and f.yielded) then
-            self:say(self.talk:fight(how, self:vars()), "good")
+            self:say(self:fight_caption(how, v), "good")
         end
         local poses = {}
         for _, p in ipairs(self.players) do
@@ -3577,17 +3708,61 @@ end
 -- Before a fight: who reacts first. The result sets who's surprised.
 -- The museum's fights are in plain sight by the time anyone could scout (the playtest, November 4:
 -- "the knight climbs out of its frame", then "Pip creeps ahead to scout"): who reacts first, instead.
+-- (Three or more ways each: anything said every week is where players first notice the machine, R3.)
 local READY = {
-    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening." },
-    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others." },
-    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast." },
-    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out." },
+    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening.",
+              "{actor_char} slips sideways, out of the light." },
+    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others.",
+                "{actor_char} rolls a shoulder and moves to the front." },
+    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast.",
+               "{actor_char} counts the exits, then the enemies." },
+    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out.",
+               "{actor_char} grips their holy symbol and stands their ground." },
 }
 local REACTED = {
-    success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes." },
-    fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready." },
+    success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes.",
+                "Nobody's caught napping. They're set before it moves." },
+    fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready.",
+             "It moves first, and they're still reaching for their weapons." },
 }
 M.READY, M.REACTED = READY, REACTED   -- (for the Dialogue Desk: tools/dialogue/export.lua)
+
+-- Heroic Inspiration, flicked across the table (most nights): three ways.
+M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It lands in front of {name}: one reroll, to spend whenever {char} needs it.",
+                    "The Heroic Inspiration token skids across the table and stops in front of {name}: one reroll, whenever {char} needs it.",
+                    "You slide the Heroic Inspiration token over to {name}. One reroll, for whenever {char} needs it." }
+
+-- The night's last line, and the Franc on a great roll: said every week, so three or more ways (R3).
+M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
+                 "And that's a wrap. Somebody's already clearing the pizza boxes.", "Lights up. Someone stacks the character sheets." }
+M.FRANC_LINES = { "Better than they hoped: a Flitwidget Franc pops into {char}'s pocket.",
+                  "Better than they hoped: {char} finds a Flitwidget Franc they're sure wasn't there a moment ago.",
+                  "Better than they hoped: there's a crisp Flitwidget Franc in {char}'s hand. The gnome's face winks on it.",
+                  "Better than they hoped: a Flitwidget Franc flutters down out of nowhere into {char}'s palm." }
+
+-- The DM's word as a fight starts and ends, three or more ways each, fresh across weeks (R3: "The
+-- last one falls. Silence, then cheering." over a single foe, three weeks running). one: the fight
+-- had one foe, named. Other fight captions are scene_beats' (talk:fight).
+local FIGHT_CAPTIONS = {
+    start = { "Weapons out. Here we go.", "Here they come.", "Chairs scrape. Here we go.", "Dice up. Here it comes.",
+              "Everyone leans in over the mat." },
+    party_win = { "The last one falls. Silence, then cheering.", "It's over. Everyone breathes out.",
+                  "The last of them goes down, and the whole table exhales.", "That's the last one. Somebody actually applauds." },
+    party_win_one = { "{Foe} falls. Silence, then cheering.", "{Foe} goes down and stays down. Everyone breathes out.",
+                      "That's {foe} done. The table exhales.", "{Foe} drops. A beat, then high fives across the table." },
+    party_win_fled = { "The rest scatter and don't look back. The fight is theirs.",
+                       "And they're gone, running hard. Nobody's chasing them. It's over.",
+                       "What's left of them bolts. Nobody's sorry to see them go." },
+}
+M.FIGHT_CAPTIONS = FIGHT_CAPTIONS
+
+function M:fight_caption(what, vars)
+    local pool = FIGHT_CAPTIONS[what]
+    if not pool then
+        return self.talk:fight(what, vars)
+    end
+    return util.fill(self:fresh(pool, "fight_" .. what), vars or {})
+end
 
 -- Party tension (A17) -------------------------------------------------------------------------------
 -- Characters sometimes do things that land on each other: a needless scrap, pocketing a
@@ -3656,6 +3831,16 @@ function M:party_moment(sc)
         end
     elseif roll < 0.62 then
         local cands, w = eligible(fr.bonds)
+        -- (Somebody just handed over what they found: "lets them have first pick" right after it is
+        -- the same thing said twice. The second playtest review.)
+        if self.handed_off and self.handed_off == (sc and sc.index or true) then
+            for i = #cands, 1, -1 do
+                if cands[i].def.id == "share_the_loot" then
+                    table.remove(cands, i)
+                    table.remove(w, i)
+                end
+            end
+        end
         if #cands > 0 then
             local pick = self.rng:weighted(cands, w)
             self:bond_act(sc, pick.def, pick.p)
@@ -3683,7 +3868,7 @@ function M:friction_act(sc, def, doer)
         for _, id in ipairs(order) do
             for _, r in ipairs(fr.responses) do
                 if r.id == id and (not r.needs_target or target) then
-                    table.insert(opts, { label = util.fill(r.label, v), log = util.fill(r.log, v), resp = r })
+                    table.insert(opts, { label = util.fill(r.label, v), log = util.fill(r.log, v), resp = r, screen = r.screen })
                 end
             end
         end
@@ -4444,6 +4629,7 @@ function M:play_scene(sc)
     self:settle_scene(sc)
     mus.explore_after(self, sc)    -- (looking around once the fight's done: museum_night.explore)
     mus.moments(self, sc, "end")
+    mus.quiet_stretch(self, sc)    -- (the small moments, once the room's danger is settled)
     mus.reward(self, sc)          -- only what they earned, said once (museum_night.reward)
     -- How the scene went, as a card beside the table while the night moves on (the newcomer
     -- playtest, October 16: "damp squib" and "empty-handed" in the log, then "Loved it" in the
@@ -4585,7 +4771,7 @@ function M:run_tail()
     for i = 1, math.min(self:idle() > 60 and 1 or 2, #leaving) do
         self:bark(leaving[i], "wrap")
     end
-    self:say("That's a wrap. Chairs scrape, someone stacks the dice.", "system")
+    self:say(self:fresh(M.WRAP_LINES, "wrap_system"), "system")
     self:emit({ kind = "done" })
 end
 

@@ -29,7 +29,7 @@ return {
         { id = "fist_bump", archetype = "any", by = "other", when = "after_crit", mood = "any", lines = { "fist bump. across the table. come on.", "you're carrying this fight, honestly.", "i'm putting that on your character sheet as a fun fact." }, effect = "social+ group" }, -- cheer_other exists
     
         -- rules and numbers
-        { id = "rules_lookup", archetype = "tactician", when = "rules", mood = "engaged", lines = { "hang on, does advantage stack?", "it's in the glossary somewhere... page... page...", "okay, i found it, but you're not going to like it." }, effect = "boredom+ group" },
+        { id = "rules_lookup", archetype = "tactician", when = "rules", mood = "engaged", lines = { "hang on, does advantage stack?", "it's in the glossary somewhere... page... page...", "okay, it's in here somewhere. give me a second." }, effect = "boredom+ group" },
         { id = "technically_actually", archetype = "power_gamer", when = "rules", mood = "engaged", lines = { "technically that should be a bonus action.", "i'm not saying you're wrong. i'm saying the book is right.", "your table, your call. but it's on page two hundred." }, effect = "boredom+ group" }, -- rules_lawyer exists
         { id = "check_dm_math", archetype = "tactician", when = "combat", mood = "engaged", lines = { "wait, did you add the cover bonus?", "so that's a nineteen, not a seventeen.", "sorry. go on. it still hits, doesn't it." }, effect = "challenge+ group" },
         { id = "spell_lookup_midturn", archetype = "any", class = { "wizard", "cleric" }, when = "combat", mood = "any", lines = { "what does this spell even do again?", "it's on my phone, one sec.", "okay it does... less than i hoped." }, effect = "boredom+ group" },
@@ -70,7 +70,9 @@ return {
         { id = "loot_split", archetype = "power_gamer", when = "end", mood = "engaged", lines = { "okay, how are we splitting the gold?", "i call first pick. i called it first.", "the cleric gets the potions, that's just maths." }, effect = "fun+ speaker" },
     
         -- table life
-        { id = "arrival_chatter", archetype = "any", when = "start", mood = "any", lines = { "sorry i'm late, traffic was awful.", "did i miss anything? we haven't started? great." }, effect = "social+ group" },
+        -- (Late only for whoever the group chat said would be, and for the reason they gave: { line, late = reason }.
+        -- The second playtest review: Jess was late for "traffic", and the chat had said the bus.)
+        { id = "arrival_chatter", archetype = "any", when = "start", mood = "any", lines = { { "sorry i'm late. the bus, again.", late = "bus" }, { "did i miss anything? we haven't started? great.", late = "any" }, "made it! who's got the snacks?" }, effect = "social+ group" },
         -- Only once there's a last session to have left off from.
         { id = "arrival_recap", archetype = "any", when = "start", mood = "any", min_week = 2, lines = { "wait, where did we leave off?" }, effect = "social+ group" },
         { id = "food_order", archetype = "casual", when = "start", mood = "any", lines = { "before we start: pizza or tacos?", "i'm not doing pineapple again.", "order now so it gets here before the boss fight." }, effect = "social+ group" },
