@@ -9,7 +9,7 @@
 --   plain  the plain word, the card's title
 --   text   what it means, a line or two, for someone who has never played
 --   dnd    what D&D calls it (optional): shown under the text, so they learn the real word too
---   tags   where it applies (optional): fight, sheet, table, story, report. No tags: anywhere the
+--   tags   where it applies (optional): fight, sheet, table, report. No tags: anywhere the
 --          glossary is on. A screen turns the glossary on with the tags it wants.
 -- Order matters: longer phrases first, so "Three-Quarters Cover" wins over "Cover".
 -- Data only: tune freely.
@@ -237,13 +237,6 @@ return {
     { id = "session_zero", match = { "Session Zero", "SESSION ZERO" }, plain = "The talk before the first game",
       text = "Everyone agrees what the game will be like: the tone, what's off limits, the house rules.",
       dnd = "Session Zero" },
-    -- The lore screen's words (the lore playtest, October 16).
-    { id = "hand_of_cards", match = { "hand of cards", "your hand" }, plain = "Your hand of cards",
-      text = "The cards you prep from: places, people, goals, twists and rewards the story has dealt you. Scenes won and "
-          .. "lost add new ones for the next session.", tags = { "story" } },
-    { id = "world_moves", match = { "%f[%w][Ww]orld moves?%f[%W]" }, plain = "World moves",
-      text = "Every session each faction does something off screen. On the prep board you let it happen (it rolls), "
-          .. "play it out tonight as a card, or hold one back.", tags = { "story" } },
     { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]" }, plain = "A loose end",
       text = "A story left alone so long the table noticed. Until a card brings it back, the players who care lose a "
           .. "little Investment every session." },
@@ -263,27 +256,9 @@ return {
       text = "If it's fun and it fits, it works, even when the rules say otherwise.", dnd = "Rule of cool" },
     { id = "book", match = { "By the book", "by the book" }, plain = "Look it up",
       text = "Find the rule and play it as written, even if it slows things down.", tags = { "table" } },
-    { id = "fail_forward", match = { "Fail forward", "fail forward" }, plain = "Fail, but keep moving",
-      text = "The roll fails, but the story still moves on, at a cost. Nobody's stuck.", dnd = "Failing forward" },
-    { id = "stock", match = { "Stock move", "stock move" }, plain = "A trick up your sleeve",
-      text = "A move any DM keeps ready for when they're stuck: a messenger arrives, a storm rolls in. It fits "
-          .. "almost anywhere." },
     { id = "improv", match = { "%f[%w]improvise%f[%W]", "%f[%w]improvised%f[%W]", "%f[%w]improv hand%f[%W]" },
-      plain = "Making it up", text = "What you didn't prep, you make up at the table. Cards that fit the moment "
-          .. "work best.", tags = { "table", "story" } },
-    -- The improv hand's labels (the re-test, October 16: "Quantum ogre", "A stretch", "Mara's line").
-    { id = "quantum", match = { "Quantum ogre" }, plain = "Your prep, moved",
-      text = "Something you prepared for somewhere else turns up here instead: wherever they go, the fight finds them. "
-          .. "Players rarely notice, but explorers who catch it feel their choices didn't matter.",
-      dnd = "The quantum ogre (a DM trick)", tags = { "table" } },
-    { id = "unused", match = { "Unused encounter" }, plain = "A fight you haven't used",
-      text = "A fight that's in your deck and hasn't happened yet. Play it and it happens here, now.", tags = { "table" } },
-    { id = "fits", match = { "Fits this scene" }, plain = "Made for this",
-      text = "Suits this kind of scene: it counts fully.", tags = { "table" } },
-    { id = "always", match = { "Always works" }, plain = "Fine anywhere",
-      text = "Fits almost any scene: never the best card, never a bad one.", tags = { "table" } },
-    { id = "stretch", match = { "A stretch" }, plain = "Doesn't quite fit",
-      text = "It'll work, but it doesn't suit this scene, and it pulls the scene down a little.", tags = { "table" } },
+      plain = "Making it up", text = "What you didn't prep, you make up at the table.", tags = { "table" } },
+    -- What a player asked for at Session Zero, where a card would break it (the re-test, October 16).
     { id = "their_line", match = { "%f[%w]%u%l+'s line" }, plain = "Their line",
       text = "Something this player asked at Session Zero never to happen in the game. Playing it breaks that promise.",
       tags = { "table" } },
@@ -299,27 +274,9 @@ return {
     { id = "ruling", match = { "%f[%w]ruling%f[%W]", "Rules calls" }, plain = "A rules call",
       text = "When the rules aren't clear, the DM decides. Quick and fair beats slow and perfect." },
 
-    -- The story and the campaign ---------------------------------------------------------------
-    { id = "front", match = { "SECOND FRONT", "second front", "%f[%w]fronts%f[%W]" }, plain = "A threat",
-      text = "A danger moving in the background, with its own plan. It acts every week whether the heroes deal "
-          .. "with it or not.", dnd = "A front", tags = { "story" } },
-    { id = "doom", match = { "%f[%w]Doom%f[%W]" }, plain = "If nobody stops it",
-      text = "Where the threat's plan ends if it gets there. The numbered steps are how it gets closer.",
-      tags = { "story" } },
-    { id = "truths", match = { "%f[%w]TRUTHS%f[%W]", "%f[%w]truths%f[%W]" }, plain = "Facts about the world",
-      text = "Things you decide are true before anyone plays: what the land is like, what people believe.",
-      tags = { "story" } },
-    { id = "threads", match = { "FEATURED THREADS", "%f[%w]threads%f[%W]" }, plain = "Hero stories",
-      text = "Each hero brings a storyline from their past. Featured ones come up sooner.", tags = { "story" } },
-    { id = "arc", match = { "%f[%w]arc%f[%W]" }, plain = "The story so far",
-      text = "A run of sessions telling one story, from the first hook to the ending.", tags = { "story" } },
-    { id = "seed", match = { "%f[%w]SEEDS%f[%W]", "Plant a mystery" }, plain = "Plant it now, pay it off later",
-      text = "A small hint dropped tonight that pays off in a later session. Players love it when it does.",
-      dnd = "Foreshadowing", tags = { "story" } },
+    -- The heroes ---------------------------------------------------------------------------------
     { id = "level", match = { "%f[%w]LEVEL %d", "%f[%w]Level %d" }, plain = "How experienced the heroes are",
       text = "The heroes' level. Every couple of good nights they level up: more health, new tricks.", dnd = "Character level" },
-    { id = "deck", match = { "WAITING IN YOUR DECK" }, plain = "Cards for later",
-      text = "Story cards that come into your hand in later weeks, as the story gets there.", tags = { "story" } },
 
     -- How the players are doing ------------------------------------------------------------------
     { id = "fun", match = { "%f[%w]Fun%f[%W]" }, plain = "Fun",

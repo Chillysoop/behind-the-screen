@@ -1774,9 +1774,7 @@ function M:behavior_fits(b, sc, week)
     if b.where and not content.fits_setting(b, sc and sc.comps.location) then
         return false
     end
-    if b.needs == "met_before" then
-        return false      -- (someone from the old notebook: the adventure's people aren't in it)
-    elseif b.needs == "cast" then
+    if b.needs == "cast" then
         local cast = sc and sc.comps.cast
         if not cast or self:muted(cast) or cast.talks == false or cast.revered then
             return false
@@ -3427,9 +3425,6 @@ function M:combat_scene(sc)
     self:say(self.talk:fight("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
     self:bark(boss_fan, "boss_appears")
-    if sc.comps.cast and content.encounters.by_cast[sc.comps.cast.id] then
-        self:npc_line("taunt")
-    end
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"

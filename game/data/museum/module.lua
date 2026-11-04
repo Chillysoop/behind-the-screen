@@ -108,8 +108,7 @@ M.hooks = {
     },
 }
 
--- What each player adds when they're all in at the first session's introductions (in place of the
--- old story's flourishes).
+-- What each player adds when they're all in at the first session's introductions.
 M.all_in = {
     mara = { "I've already started a notebook for the museum. Page one is just questions.", "I made Thessaly a library card. For a museum. I know." },
     dev = { "I sharpened Brannoc's greatsword. In my head. For an hour.", "His greatsword has a name. It's Ember." },
@@ -117,7 +116,7 @@ M.all_in = {
     sam = { "Oswin brought snacks for the museum. So did I.", "Oswin has a little prayer for doors. He says it at every door." },
 }
 
--- What the heroes are in the prologue (replaces the old backstories while it runs).
+-- What the heroes are in the prologue (adventure.enter puts it on the players).
 M.heroes = {
     mara = { gist = "Thessaly, a wizard who wants to know everything", short = "Mysteries, reveals, notes. Long fights lose her." },
     dev = { gist = "Brannoc, a fighter who hits first", short = "Fights and cool weapons. Long talks lose him." },
@@ -1178,8 +1177,8 @@ M.ruling_costs = {
              "Close enough, and they pay for it: a scrape that stings for the rest of the night." },
 }
 
--- The friends' gifts at the real table (game/data/keepsakes.lua), in this adventure's words: they
--- never played the old campaign, so no gift can be from it (the 3D pieces stay as they are).
+-- The friends' gifts at the real table (game/data/keepsakes.lua), in this adventure's words (the 3D
+-- pieces stay as they are).
 M.keepsakes = {
     dice_tower = { name = "a dice tower shaped like a crooked little house", short = "dice tower",
                    line = "Painted it myself. The dice come out the front door.",
