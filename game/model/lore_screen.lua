@@ -117,7 +117,7 @@ end
 -- The big questions a clue counts toward: { { q, found, need } }.
 local function questions_of(campaign, id)
     local out = {}
-    local questions = lazy("game.model.questions")
+    local questions = require "game.model.questions"
     for _, q in ipairs(questions.list()) do
         if util.contains(q.clues or {}, id) then
             local st = questions.status(campaign, q)

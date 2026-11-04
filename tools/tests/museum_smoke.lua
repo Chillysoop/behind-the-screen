@@ -629,7 +629,7 @@ for week = 1, WEEKS do
     -- The notebook, every tab: nothing from the old story in there either.
     if week == 2 or week == 3 then
         local notes_view = require "game.ui.notes_view"
-        for _, t in ipairs(notes_view.MUSEUM_TABS) do
+        for _, t in ipairs(notes_view.TABS) do
             call(app.open_notes, t[1])
             dump_once("4n_notes_" .. t[1] .. "_w" .. week)
             scan("the notebook's " .. t[1] .. " tab" .. where)
