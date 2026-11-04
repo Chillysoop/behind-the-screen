@@ -373,6 +373,10 @@ function M.load(src)
     -- A save from before the inventory (the second playtest review, F10) held what the party carried
     -- in flags, marks and who-picked-it-up notes, and the potions on the sheets: into each hero's
     -- inventory it goes (items.start, once).
+    -- A save from before the event log (R7) has its story in st.path, st.marks, the packs and st.favors:
+    -- into the log it goes, once, before anything reads it (events.start), so what the people
+    -- remember and the favors they owe come out the same.
+    require("game.model.events").start(campaign)
     require("game.model.items").start(campaign)
     -- A save from before November 4 kept the stunts said lately by their place in a longer list
     -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.

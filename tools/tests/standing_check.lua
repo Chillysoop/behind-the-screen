@@ -84,7 +84,8 @@ adventure.add_mark(c, "knight", "paintings")
 check(line_of("mus_knight").tone == "bad", "his mark says he's waiting for her: " .. line_of("mus_knight").line)
 local eu = line_of("mus_euryale")
 check(eu.line:find("1 mark") and eu.with and eu.with:find("Knight"), "Euryale counts her mark and who's with her: " .. eu.line .. " " .. eu.with)
-c.adv.favors.flitwidget = 2
+-- (Goodwill is a favor done for him, in the event log now (R7), the way a moment's option earns it.)
+adventure.apply(c, { favor = { who = "flitwidget", n = 2 } }, "street")
 check(line_of("mus_flitwidget").line:find("Delighted"), "a good word with Flitwidget shows")
 c.adv.flags.telpur_along = true
 check(line_of("mus_telpur").line:find("Coming along"), "Telpur coming along shows")

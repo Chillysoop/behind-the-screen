@@ -579,9 +579,11 @@ local function play(seed, style)
                 end
                 -- Telpur's prices moved only for something he knows about.
                 if ev.kind == "price" then
-                    local lv = people_mod.level(c, "mus_telpur")
-                    if (ev.n > 0 and people_mod.RANK[lv] >= 0) or (ev.n < 0 and people_mod.RANK[lv] < 2) then
-                        fail(tag .. " week " .. w .. ": Telpur moved his prices " .. ev.n .. " while he's " .. lv)
+                    local lv = ev.level
+                    if not lv or people_mod.MARKUP[lv] ~= ev.n then
+                        fail(tag .. " week " .. w .. ": Telpur moved his prices " .. ev.n .. " while he was " .. tostring(lv))
+                    elseif ev.n > 0 and not (ev.from and events_mod.get(c, ev.from) and events_mod.knows(c, "mus_telpur", events_mod.get(c, ev.from))) then
+                        fail(tag .. " week " .. w .. ": Telpur put his prices up, and the log has nothing he knows that he'd mind")
                     end
                 end
                 -- A linked beat follows from something earlier in the log.

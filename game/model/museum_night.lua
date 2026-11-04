@@ -124,12 +124,12 @@ function M.beat_clause(night, card, o, i, rolled_ok)
     end
     -- (Looking round a room: what they went over to.)
     if card.look then
-        return who .. " had a look at " .. card.look
+        return events.word("look", { char = who, what = card.look })
     end
     -- (A roll that didn't come off was a try, not a deed: "they tried to put her to sleep".)
     if o.roll and not rolled_ok and o.want and string.match(o.want, "^%a+") and PAST[string.lower(string.match(o.want, "^%a+"))] then
         local w = string.gsub(string.gsub(o.want, "%f[%a]us%f[%A]", "them"), "%f[%a]we%f[%A]", "they")
-        return subj .. " tried to " .. w
+        return events.word("tried", { who = subj, want = w })
     end
     local p = M.past(o.want)
     return p and (subj .. " " .. p) or nil
@@ -320,7 +320,7 @@ function M.handle(night, mus, sc)
         local who = night.actor
         M.log_beat(night, { kind = "find", who = who and who.key or "party", thing = "francs", n = mus.francs,
                             from = events.cause(c),
-                            text = mus.find_text or ((who and who.char or "they") .. " found " .. (mus.francs == 1 and "a Flitwidget Franc" or (util.int(mus.francs) .. " Flitwidget Francs"))) })
+                            text = mus.find_text or events.word(mus.francs == 1 and "find" or "finds", { char = who and who.char or "they", n = util.int(mus.francs) }) })
     end
     if mus.spend then
         night.mus.bought = true
@@ -606,7 +606,7 @@ function M.reward(night, sc)
         -- (The room's pay, in the log: it follows from how they got through it.)
         M.log_beat(night, { kind = "find", who = "party", thing = "francs", n = r.francs, pay = true,
                             from = sc.fight_ev or sc.last_beat,
-                            text = "Flitwidget's pay came through: " .. (r.francs == 1 and "a Franc" or (util.int(r.francs) .. " Francs")) }, sc)
+                            text = events.word(r.francs == 1 and "pay" or "pays", { n = util.int(r.francs) }) }, sc)
         night:say(r.said or ("They earn " .. util.lower_first(r.line)), "reward", { francs = tostring(st.francs) })
         return
     end
@@ -694,6 +694,7 @@ function M.play_moment(night, card, sc)
     local markup = 0
     if card.shop then
         local _, d = people.price(night.campaign, 1, "mus_telpur")
+        local lv = people.level(night.campaign, "mus_telpur")
         markup = d
         if d ~= 0 then
             local line = people.line(night, "mus_telpur", d > 0 and "price_up" or "price_down")
@@ -702,9 +703,8 @@ function M.play_moment(night, card, sc)
             end
             local why = people.knows_of(night.campaign, "mus_telpur", "steal", nil, true)
                 or events.last(night.campaign, { kind = "help", whom = "mus_telpur" })
-            local ev = M.log_beat(night, { kind = "price", who = "mus_telpur", n = d, from = why,
-                                           text = d > 0 and ("Telpur put his prices up " .. (d == 1 and "a Franc" or (util.int(d) .. " Francs")))
-                                               or "Telpur took a Franc off his prices for them" }, sc)
+            local ev = M.log_beat(night, { kind = "price", who = "mus_telpur", n = d, from = why, level = lv,
+                                           text = events.word(d > 1 and "price_up_n" or (d > 0 and "price_up") or "price_down", { n = util.int(d) }) }, sc)
             ev.how = why and "therefore" or nil
         end
     end
@@ -915,8 +915,8 @@ function M.play_moment(night, card, sc)
             local sev = M.log_beat(night, { kind = "setback", card = card.id, who = night.actor and night.actor.key or "party",
                                             from = mev, how = "but",
                                             text = (fb and util.fill(fb, { char = who, actor_char = who }))
-                                                or (card.trap and ("a trap went off: " .. card.trap))
-                                                or (mev.text and "it didn't work") or nil })
+                                                or (card.trap and events.word("trap", { what = card.trap }))
+                                                or (mev.text and events.word("didnt")) or nil })
             events.set_cause(c, sev)
         end
         M.handle(night, out and out.mus, sc)
@@ -1492,7 +1492,7 @@ function M.explore(night, sc)
         end
         if found then
             night:say(found.helps.find_line, "good")
-            M.handle(night, { francs = 1, find_text = (found.name or "Their pet") .. " found a Flitwidget Franc" }, sc)
+            M.handle(night, { francs = 1, find_text = events.word("pet_find", { pet = found.name or "Their pet" }) }, sc)
         end
         local arch = LOOK_SAY[p.primary] and p.primary or "casual"
         -- ("Where are the monsters?" only where there are none: no fight in the room, before or after.)
@@ -2921,13 +2921,13 @@ function M.go_back(night, b)
     -- one; they went to spend what they'd found.)
     do
         local name = util.lower_first(r.name)
-        local from, how, text = nil, nil, "they went back to " .. name
+        local from, how, text = nil, nil, events.word("back", { room = name })
         if b.why == "flee" then
-            from, how, text = events.last(c, { kind = "fight", outcome = "lost" }), "but", "they fell back to " .. name
+            from, how, text = events.last(c, { kind = "fight", outcome = "lost" }), "but", events.word("flee", { room = name })
         elseif b.why == "rest" then
-            from, text = events.last(c, { kind = "fight", session = c.week }), "they went back to " .. name .. " to rest"
+            from, text = events.last(c, { kind = "fight", session = c.week }), events.word("rest", { room = name })
         elseif b.why == "shop" then
-            from, text = events.last(c, { kind = "find", session = c.week }), "they went back to the gift shop with Francs to spend"
+            from, text = events.last(c, { kind = "find", session = c.week }), events.word("shop", { room = name })
         end
         local ev = M.log_beat(night, { kind = "enter", who = "party", where = b.id, back = b.why, from = from, how = from and (how or "therefore") or nil,
                                        text = text }, sc)
@@ -3370,19 +3370,16 @@ function M.log_enter(night, id, sc)
         return nil
     end
     local name = util.lower_first(r.name)
-    local from, text
+    local own = MODULE.beats and MODULE.beats.rooms and MODULE.beats.rooms[id]
+    local text = own or events.word("enter", { room = name })
+    local from
     for _, p in ipairs(adventure.hooked(c, id)) do
         if not from and present(night, p.key) then
             from = hook_event(c, p)
-            text = "they went into " .. name .. ", the place " .. p.char .. " came for"
+            text = events.word("hooked", { enter = text, char = p.char })
         end
     end
-    local own = MODULE.beats and MODULE.beats.rooms and MODULE.beats.rooms[id]
-    if own and text then
-        text = own .. ", the place " .. string.match(text, ", the place (.*)$")
-    end
-    local ev = M.log_beat(night, { kind = "enter", who = "party", where = id, from = from,
-                                   text = text or own or ("they went into " .. name) }, sc)
+    local ev = M.log_beat(night, { kind = "enter", who = "party", where = id, from = from, text = text }, sc)
     if sc then
         sc.enter_ev = ev.id
     end
@@ -3518,6 +3515,11 @@ function M.run(night)
                 end
                 M.play(night, id)
                 if r.stop and (id == "stairs" or #night.scenes >= 3 or night.table_min > night.table_planned * 0.55) then
+                    -- (A night that ran long in this room and stops on it, before its break came round,
+                    -- still takes the break before it ends: every night has one, F1.)
+                    if not night.had_break and id ~= "stairs" then
+                        M.maybe_break(night, true)
+                    end
                     -- (Say so: a night that just stopped left the table wondering why.)
                     if id ~= "stairs" and not night.end_early then
                         night:say("It's a good place to stop. \"We'll pick it up here next week,\" you tell them, and nobody argues.", "dm")
@@ -3577,7 +3579,7 @@ function M.lecturer_report(night)
         if line then
             night:say(line, "interlude")
             first.beat = true
-            first.text = "the Lecturer told Euryale about " .. what
+            first.text = events.word("lecturer", { what = what })
         end
     end
 end
@@ -3797,7 +3799,7 @@ function M.showdown_start(night, sc)
         local about = kind and people.knows_of(c, "mus_euryale", kind)
         local t = about and about.told and about.told.mus_euryale
         M.log_beat(night, { kind = "says", who = "mus_euryale", from = t or about, how = "therefore",
-                            text = "Euryale knew what the Lecturer had told her" }, sc)
+                            text = events.word("euryale") }, sc)
     end
     if boss.opener == "ambush" then
         night:say("No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
@@ -3875,7 +3877,7 @@ function M.thanks_word(night, sc)
     local broke = people.notice(c, "mus_flitwidget", rooms, { ["break"] = true })
     if #broke > 0 then
         M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1], how = "therefore",
-                            text = "Flitwidget saw what was left of " .. (broke[1].thing or "his exhibits") }, sc)
+                            text = events.word("notice", { thing = broke[1].thing or "his exhibits" }) }, sc)
     end
     local told = people.pass_on(c, "mus_telpur", "mus_flitwidget", { where = "thanks", kinds = { steal = true, harm = true } })
     for i, t in ipairs(told) do
@@ -3883,7 +3885,7 @@ function M.thanks_word(night, sc)
         local p = about and about.who and c:player(about.who)
         if i == 1 and p then
             t.beat = true
-            t.text = "Telpur had a word with Flitwidget about " .. p.char
+            t.text = events.word("told", { char = p.char })
             sc.last_beat = t.id
         end
     end
@@ -3898,7 +3900,7 @@ function M.thanks_word(night, sc)
         local why = (#broke > 0 and events.last(c, { kind = "notice", who = "mus_flitwidget" })) or told[1]
             or people.knows_of(c, "mus_flitwidget", "harm") or people.knows_of(c, "mus_flitwidget", "steal")
         M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = 10, from = why,
-                            text = "Flitwidget took the breakages out of their reward" }, sc)
+                            text = events.word("docked") }, sc)
         local dl = people.line(night, "mus_flitwidget", "docked")
         if dl then
             night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = dl })

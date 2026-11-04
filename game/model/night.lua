@@ -2767,6 +2767,7 @@ function M:big_roll(spec, record)
     -- A triumph never reads as a near thing (playtest, October 13: a natural 20 came out
     -- "Handled. Barely").
     local branch_log = (success and tier == "triumph" and branch.big) or branch.log
+        or (branch.fresh and self:fresh(branch.fresh[1], branch.fresh[2]))
     self:say(branch_log, success and "good" or "bad")
     self:apply(branch.effects)
     self:apply(ro.effects)
@@ -3188,7 +3189,7 @@ function M:decision(card, extra)
             if q then
                 events.add(self.campaign, { kind = "alone", who = q.key, where = self.scene.room, from = events.cause(self.campaign),
                                             beat = (q == self.actor) or nil,
-                                            text = (q == self.actor) and (util.join_names(names) .. (#names > 1 and " went off on their own" or " went off alone")) or nil })
+                                            text = (q == self.actor) and util.fill(M.ALONE_TEXT[#names > 1 and 2 or 1], { names = util.join_names(names) }) or nil })
             end
         end
     end
@@ -3744,6 +3745,8 @@ end
 -- A fight in the event log (R7): who they fought (the leader by name), how many, who ran, who fell,
 -- the boss's fate, how it came out, and what it followed from: the choice that started it
 -- ("therefore"), or the room turning on them ("but"). Its clause tells it for the chain (R14).
+-- (A hero going off alone, for the log's chain: one of them, or two.)
+M.ALONE_TEXT = { "{names} went off alone", "{names} went off on their own" }
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",
@@ -4467,9 +4470,11 @@ function M:scout(sc)
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "perception", "insight" },
                    quiet = true,     -- (spotting them first isn't a recap beat)
-                   success = { log = self:fresh(REACTED.success, "react_yes"),
+                   -- (Drawn when it's said, not both before the roll: a line drawn and never heard
+                   -- doesn't stand between two that are, so the table never hears one twice running.)
+                   success = { fresh = { REACTED.success, "react_yes" },
                                effects = { { "actor", spotlight = 8 }, { "arch:tactician", fun = 4 } } },
-                   fail = { log = self:fresh(REACTED.fail, "react_no"),
+                   fail = { fresh = { REACTED.fail, "react_no" },
                             effects = { { "all", challenge = 6 }, { "arch:butt_kicker", fun = 2 } } } }
     table.insert(self.decisions, { card = "scout", option = 0, rolls = {} })
     local ok = self:big_roll(spec)

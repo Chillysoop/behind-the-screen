@@ -558,7 +558,7 @@ table.insert(watchers, function(R, N, ev)
     end
     -- A party card: the lead says what the card says they want, and whoever acts backs the call.
     if N.party_key and N.party_key ~= night.moment_key then
-        N.party_card, N.proposal, N.backers, N.party_key = nil, nil, nil, nil
+        N.party_card, N.proposal, N.backers, N.party_key, N.proposal_done = nil, nil, nil, nil, nil
     end
     if ev.kind == "narrate" and night.party_choice and night.moment_key and not N.party_card then
         N.party_key = night.moment_key
@@ -570,7 +570,11 @@ table.insert(watchers, function(R, N, ev)
             end
         end
     end
-    if ev.kind == "say" and N.proposal and ev.who == N.lead and string.find(text, "^Let's ") then
+    -- (Once the table has decided, the talk is over: a cheer after the roll, "Let's GO!", isn't a proposal.)
+    if ev.kind == "narrate" and N.proposal and string.find(text, "^The table decides") then
+        N.proposal_done = true
+    end
+    if ev.kind == "say" and N.proposal and not N.proposal_done and ev.who == N.lead and string.find(text, "^Let's ") then
         add("F18", "proposals_voiced")
         if not string.find(string.lower(text), string.lower(N.proposal), 1, true) then
             fail("F18", N.tag .. ": the card says " .. N.lead .. "'s hero wants to " .. N.proposal .. ", and they say '" .. text .. "'")

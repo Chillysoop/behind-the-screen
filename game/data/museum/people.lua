@@ -17,12 +17,12 @@
 return {
   memory = {
     order = { "mus_flitwidget", "mus_telpur", "mus_lecturer", "mus_euryale", "exhibit_b" },
-    mus_flitwidget = { name = "Flitwidget", sees = { "street", "thanks" } },
-    mus_telpur = { name = "Telpur", sees = { "gift_shop", "thanks" } },
-    mus_lecturer = { name = "the Lecturer", sees = { "lecture" }, hears = { "gift_shop", "hunting", "offices", "tomorrow", "stairs" } },
-    mus_euryale = { name = "Euryale", sees = { "lair" } },
+    mus_flitwidget = { sees = { "street", "thanks" } },
+    mus_telpur = { sees = { "gift_shop", "thanks" } },
+    mus_lecturer = { sees = { "lecture" }, hears = { "gift_shop", "hunting", "offices", "tomorrow", "stairs" } },
+    mus_euryale = { sees = { "lair" } },
     -- (Pip's rat: hers from the start, and he doesn't mind a bit of thieving.)
-    exhibit_b = { name = "Exhibit B", companion = true, start = { jess = 6 }, weights = { steal = { to = -6, other = 0 } } },
+    exhibit_b = { companion = true, start = { jess = 6 }, weights = { steal = { to = -6, other = 0 } } },
   },
 
   lines = {

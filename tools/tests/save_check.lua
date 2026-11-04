@@ -368,5 +368,39 @@ do
     end
 end
 
+-- A save from before the event log (R7): the rooms walked, Euryale's marks, what's in their packs and
+-- the favors owed were kept apart (st.path, st.marks, the inventory, st.favors). It loads into the log,
+-- once: the people's goodwill reads the same, the journey's fights are still there, and nothing new is
+-- told as a beat. A save made with the log keeps it as it is.
+do
+    local events = require "game.model.events"
+    local adventure = require "game.model.adventure"
+    local c = new_campaign(44)
+    local st = c.adv
+    c.events = nil
+    st.path = { { room = "street", week = 1, outcome = "win" }, { room = "paintings", week = 1, outcome = "win", fought = true } }
+    st.done.street, st.done.paintings = "win", "win"
+    st.marks.knight = { week = 1, room = "paintings" }
+    st.mark_list = { "knight" }
+    st.favors = { flitwidget = 2, telpur = -1 }
+    c.items = { { id = "twin_daggers", holder = "jess", week = 1, from = "found" } }
+    c.items_started = true
+    local b = save.load(save.dump(c))
+    check(b ~= nil, "a save from before the log loads")
+    if b then
+        check(#events.list(b) > 0, "an old save: its story is in the log")
+        check(events.any(b, { kind = "fight", where = "paintings", session = 1 }), "an old save: the fight in the paintings is in the log")
+        check(events.any(b, { kind = "mark", thing = "knight" }), "an old save: her marks are in the log")
+        check(events.any(b, { kind = "get", thing = "twin_daggers", who = "jess" }), "an old save: what they carry is in the log")
+        check(adventure.favor(b, "flitwidget") == 2 and adventure.favor(b, "telpur") == -1, "an old save: the favors owed read the same")
+        check(#events.beats(b, 1) == 0, "an old save: nothing in it is told as a new beat")
+        local again = save.load(save.dump(b))
+        check(again and #events.list(again) == #events.list(b), "an old save, migrated, keeps its log as it is")
+        check(adventure.recap_clause(b, st.path[2]) == adventure.data.recap.paintings.fought.win, "an old save: the recap still says they fought the knight")
+    end
+    local fresh = new_campaign(45)
+    check(fresh.events == nil and save.load(save.dump(fresh)).events == nil, "a new campaign's save has no log until something happens")
+end
+
 print(string.format("%d of %d checks pass; biggest save %.0f KB", checks - failures, checks, biggest / 1024))
 os.exit(failures == 0 and 0 or 1)

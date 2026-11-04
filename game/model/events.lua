@@ -30,9 +30,13 @@ local M = {}
 -- How the chain joins a beat to the one it follows from.
 M.LINK_WORD = { therefore = "so", but = "but" }
 
+-- (Reading never makes the log: a campaign has none until something happens, so a save made before
+-- then reads back the same.)
+local NONE = setmetatable({}, { __newindex = function()
+    error("the event log is written with events.add", 2)
+end })
 function M.list(c)
-    c.events = c.events or {}
-    return c.events
+    return c.events or NONE
 end
 
 function M.get(c, id)
@@ -56,7 +60,8 @@ end
 -- Write one event. ev.from may be an event or its id; with ev.from == nil and ev.follows ~= false,
 -- nothing is linked (links are the caller's to make: a beat that only comes next has none).
 function M.add(c, ev)
-    local list = M.list(c)
+    c.events = c.events or {}
+    local list = c.events
     ev.id = #list + 1
     ev.session = ev.session or c.week or 0
     if ev.where == nil and c.adv then
@@ -171,6 +176,14 @@ function M.tell(c, teller, listener, about, opts)
     return ev
 end
 
+-- The words a beat is told with, from the adventure (MODULE.beats.words): key, and what fills it in.
+-- An adventure without them falls back to the key's own neutral words, given here as `plain`.
+function M.word(key, vars, plain)
+    local ok, adv = pcall(require, "game.model.adventure")
+    local w = ok and adv.data and adv.data.beats and adv.data.beats.words or {}
+    return util.fill(w[key] or plain or key, vars or {})
+end
+
 -- The night's chain (R14) ---------------------------------------------------------------------
 
 -- The story beats of one session, in the order they happened.
@@ -275,11 +288,12 @@ function M.start(c)
         return
     end
     local st = c.adv
-    local list = M.list(c)
     local started = #(st.path or {}) > 0 or #(st.mark_list or {}) > 0
     if not started then
         return
     end
+    c.events = {}
+    local list = c.events
     for _, step in ipairs(st.path or {}) do
         M.add(c, { kind = "enter", who = "party", where = step.room, session = step.week or 0, old = true })
         if step.fought then
@@ -304,6 +318,7 @@ function M.start(c)
                        seen = { ["mus_" .. who] = true }, where = false, old = true })
         end
     end
+    st.favors = {}              -- (the log has them now: one owner)
     return list
 end
 

@@ -217,6 +217,7 @@ local function tiny(night, p, skill)
     local name, mod = night:best_skill(p, { skill or "perception" })
     local dd = night.rng:d20()
     local total = dd + (mod or 0)
+    night.tl_roller = p.key
     night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or skill or "perception") })
     return dd, total
 end
@@ -324,7 +325,8 @@ function M.take(night, sc, idea)
         local seen = {}
         local ev = events.add(c, { kind = "steal", who = p.key, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
                                    outcome = "got", seen = seen, from = motive, beat = true,
-                                   text = p.char .. " lifted " .. t.short .. ((t.shelf or string.find(t.short, who, 1, true)) and "" or (" off " .. who)) })
+                                   text = events.word((t.shelf or string.find(t.short, who, 1, true)) and "lifted" or "lifted_off",
+                                                      { char = p.char, thing = t.short, who = who }) })
         sc.last_beat = ev.id
         local prev = events.cause(c)
         events.set_cause(c, ev)
@@ -350,7 +352,7 @@ function M.take(night, sc, idea)
     local seen = witnesses(night, sc, t)
     local ev = events.add(c, { kind = "steal", who = p.key, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
                                outcome = "caught", seen = seen, from = motive, beat = true,
-                               text = p.char .. " went for " .. t.short .. ", and " .. who .. " caught them at it" })
+                               text = events.word("caught", { char = p.char, thing = t.short, who = who }) })
     sc.last_beat = ev.id
     night.ideas = night.ideas or {}
     night.ideas.caught = true
@@ -371,12 +373,12 @@ local function help(night, sc, idea)
     local hd = t.def
     local v = { char = p.char }
     night.actor = p
-    night:say(fill(night:fresh(hd.lines, "idea_help_" .. t.owner.id), v), "table")
+    night:say(fill(night:fresh(hd.lines, "idea_help_" .. t.owner.id), v), "narration")
     local _, total = tiny(night, p, hd.skill)
     local ev = events.add(c, { kind = "help", who = p.key, whom = t.owner.id, where = sc.room, n = total >= 10 and 1 or 0.5,
                                seen = { [t.owner.id] = true }, beat = true,
                                from = people.knows_of(c, t.owner.id, "steal", p.key, true) or nil, how = nil,
-                               text = p.char .. " helped " .. (t.owner.short or t.owner.name) })
+                               text = events.word("helped", { char = p.char, who = t.owner.short or t.owner.name }) })
     if ev.from then
         ev.how = "therefore"          -- (making amends: it follows from what they did)
     end
@@ -392,7 +394,7 @@ local function look(night, sc, idea, kind)
     local def = t.def
     local v = { char = p.char }
     night.actor = p
-    night:say(fill(def.go, v), "table")
+    night:say(fill(def.go, v), "narration")
     local _, total = tiny(night, p, def.skill)
     local text = (total >= 12 and def.detail) or def.dull
     if text then
@@ -406,10 +408,14 @@ end
 -- A room's ideas: the strongest one, if a friend wants it enough. Same quiet stretch as the small
 -- moments (never in a fight, at 4x, in the lair, or late in the evening). Returns how many played.
 function M.room(night, sc, phase)
-    if not sc or night.end_early or sc.boss or sc.showdown or night.fast or (sc.ideas_played and sc.ideas_played >= 1) then
+    -- (One more room, asked for late: its small business is the scene, so up to two ideas, and a
+    -- smaller want will do.)
+    local one_more = night.one_more and (sc and (sc.quick or sc.virtual))
+    local cap = one_more and 2 or 1
+    if not sc or night.end_early or sc.boss or sc.showdown or night.fast or (sc.ideas_played and sc.ideas_played >= cap) then
         return 0
     end
-    if (night.table_min or 0) > (night.table_planned or 210) - 40 then
+    if (night.table_min or 0) > (night.table_planned or 210) - 40 and not one_more then
         return 0
     end
     local tl = require "game.model.table_life"
@@ -417,12 +423,22 @@ function M.room(night, sc, phase)
     night.ideas = night.ideas or { n = 0, done = {} }
     local ni = night.ideas
     ni.n, ni.done = ni.n or 0, ni.done or {}
-    if ni.n >= (M.PER_NIGHT[lvl] or 3) then
+    if ni.n >= (M.PER_NIGHT[lvl] or 3) and not one_more then
         return 0
     end
-    local list = M.ideas(night, sc, phase)
-    local top = list[1]
-    if not top or top.w < M.IDEA_AT then
+    -- (Whoever just had a small moment sits this one out, while anyone else is here: F26.)
+    local last, roller = night.tl and night.tl.last, night.tl_roller
+    local others = 0
+    for _, p in ipairs(here(night)) do
+        others = others + ((p.key ~= last and p.key ~= roller) and 1 or 0)
+    end
+    local top
+    for _, idea in ipairs(M.ideas(night, sc, phase)) do
+        if not top and not (others > 0 and (idea.p.key == last or idea.p.key == roller)) then
+            top = idea
+        end
+    end
+    if not top or top.w < M.IDEA_AT - (one_more and 1.5 or 0) then
         return 0
     end
     sc.ideas_played = (sc.ideas_played or 0) + 1
@@ -447,7 +463,11 @@ function M.room(night, sc, phase)
         night.tl.last = who.key
         night.table_min = (night.table_min or 0) + 1
     end
-    return who and 1 or 0
+    local n = who and 1 or 0
+    if who and one_more and sc.ideas_played < cap then
+        n = n + M.room(night, sc, phase)
+    end
+    return n
 end
 
 return M

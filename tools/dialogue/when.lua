@@ -396,6 +396,9 @@ end
 -- The adventure (game/data/museum/module.lua) ------------------------------------------------------
 
 local A = {}
+-- The night told as a chain (R14: game/model/events.lua): the session report's "How it went" and
+-- the journey recap's route read each beat in these words.
+local CHAIN_AT = "In the session report's \"How it went\" and on the journey recap's route"
 
 A.ANSWER_NAMES = function(p)
     return R("Between sessions: a button for answering a friend's private request", "Your pick")
@@ -537,6 +540,8 @@ A.endings = function(p)
         return R("On boss night, Flitwidget's word right after the ending " .. Q(e.name, 5), "Always")
     elseif f == "stone_line" then
         return R("On boss night, when Euryale falls turned to stone by the mirror, in place of the usual line", "Always")
+    elseif f == "chain" then
+        return R(CHAIN_AT .. ", the night the prologue ends " .. Q(e.name, 5), "Always")
     end
 end
 
@@ -703,12 +708,58 @@ A.marks = function(p)
         return R("On Euryale's card: what " .. Q(m.name, 5) .. " changes on boss night", "Always")
     elseif f == "thought" then
         return R("Upstairs, Euryale's thought when " .. Q(m.name, 5) .. " lands on her card", "Always")
+    elseif f == "chain" then
+        return R(CHAIN_AT .. ", once " .. why, "Always")
+    elseif f == "unchain" then
+        return R(CHAIN_AT .. ", when " .. Q(m.name, 5) .. " comes off her card", "Always")
     elseif f == "thought_if" or f == "why_if" then
         local alt = m[f][p[4]]
         local what = f == "thought_if" and ("Upstairs, Euryale's thought when " .. Q(m.name, 5) .. " lands")
             or ("On Euryale's card, the reason under " .. Q(m.name, 5))
         return R(what .. if_(alt and alt.when), "Always")
     end
+end
+
+A.beats = function(p)
+    local top, k, i, f = p[2], p[3], p[4], p[5]
+    local W = {
+        enter = "when the party walks into a room", hooked = "when the room is the one a hero came to the museum for",
+        back = "when they go back to a room they've cleared", flee = "when they fall back after losing a fight",
+        rest = "when they go back to a room to rest", shop = "when they go back to the gift shop to spend Francs",
+        look = "when a friend looks round a room and something's there", tried = "when a roll on the table's choice didn't come off",
+        didnt = "when a roll goes wrong and the card has no words of its own for it", trap = "when a trap you left goes off",
+        find = "when someone finds a Franc", finds = "when someone finds more than one Franc", pet_find = "when a pet finds a Franc",
+        pay = "when a room pays its Franc", pays = "when a room pays more than one Franc",
+        price_up = "when Telpur puts his prices up a Franc", price_up_n = "when Telpur puts his prices up more than a Franc",
+        price_down = "when Telpur takes a Franc off for friends", lecturer = "when the Lecturer passes on what he heard",
+        euryale = "on boss night, when Euryale says what the Lecturer told her", notice = "at the thanks, when Flitwidget sees his broken exhibits",
+        told = "at the thanks, when Telpur tells Flitwidget about a theft", docked = "at the thanks, when Flitwidget docks the reward",
+        lifted = "when a friend lifts something off a shelf", lifted_off = "when a friend lifts something off someone",
+        caught = "when a friend is caught lifting something", helped = "when a friend helps one of the museum's people",
+        refused = "when someone won't answer a friend they've gone off",
+    }
+    if top == "words" then
+        return R(CHAIN_AT .. ", " .. (W[k] or "for that beat"), "Always")
+    elseif top == "rooms" then
+        return R(CHAIN_AT .. ", when the party walks into " .. lowfirst(in_room(k)), "Always")
+    end
+    local m
+    for _, mm in ipairs(MODULE.moments) do
+        if mm.id == top then
+            m = mm
+        end
+    end
+    m = m or (MODULE.showdown.drink.id == top and MODULE.showdown.drink) or (MODULE.showdown.talk.id == top and MODULE.showdown.talk)
+        or (MODULE.showdown.yield.id == top and MODULE.showdown.yield)
+    local o = m and m.options[k]
+    local lab = o and Q(o.label, 5) or "that option"
+    local title = m and Q(m.title, 5) or "the card"
+    if i == "ok" then
+        return R(CHAIN_AT .. ", when " .. lab .. " is picked at " .. title .. " and the roll succeeds", "On a success")
+    elseif i == "fail" then
+        return R(CHAIN_AT .. ", when " .. lab .. " is picked at " .. title .. " and the roll fails", "On a failure")
+    end
+    return R(CHAIN_AT .. ", when " .. lab .. " is picked at " .. title, "If chosen")
 end
 
 A.mech_names = function()
@@ -1822,6 +1873,58 @@ local function table_talk(e, cells)
     return nil
 end
 
+-- People who remember, and the friends' own ideas (game/data/museum/people.lua; game/model/people.lua
+-- and game/model/ideas.lua read it) ------------------------------------------------------------------
+local PERSON = { mus_flitwidget = "Flitwidget", mus_telpur = "Telpur", mus_euryale = "Euryale", mus_lecturer = "The Lecturer",
+                 exhibit_b = "Exhibit B" }
+local PEOPLE_WHEN = {
+    again = "when the party comes back to see them, and what they did is on their mind",
+    price_up = "at the gift shop's counter, as the shopping card comes up, when he thinks less of the party",
+    price_down = "at the gift shop's counter, as the shopping card comes up, when he's very fond of the party",
+    refuse = "when a friend asks them a question and they've gone off that friend's hero",
+    caught = "when a friend is caught trying to lift something off them",
+    helped = "when a friend helps them out, on their own idea",
+    thanks = "at the thanks, at the end, by what he knows and how he feels about them",
+    docked = "at the thanks, when he docks the reward for what they broke or did",
+    heard = "on boss night, first thing, when the Lecturer has told her what the party did",
+    pass_on = "at the end of a night while he's still lecturing, when he passes on what he heard",
+}
+local function people_line(p)
+    local top = p[1]
+    if top == "lines" then
+        local who, what, i = p[2], p[3], p[4]
+        local entries = MODULE.people_lines[who][what]
+        local e = entries[i]
+        local n = type(e.text) == "table" and #e.text or 1
+        local cond = e.when and if_(e.when) or ""
+        local first = i == 1 and #entries > 1 and " (checked first)" or ""
+        return R((PERSON[who] or who) .. ", " .. (PEOPLE_WHEN[what] or what) .. cond .. first, n > 1 and one_of(n) or "Always")
+    elseif top == "about" then
+        local W = { steal = "a theft he heard about", ["break"] = "an exhibit they broke", help = "a kindness", harm = "harm they did" }
+        return R("In the Lecturer's report upstairs, when what he passes on is " .. (W[p[2]] or p[2]), "Always")
+    elseif top == "ideas" then
+        local verb, a, b = p[2], p[3], p[4]
+        if verb == "pockets" then
+            return R("When a friend wants to lift something off " .. (PERSON[a] or a) .. ": what they've spotted, on the card and in what's said", "Sometimes")
+        elseif verb == "take" then
+            local W = { notice = "the DM notices what a friend's eyeing", say = "the friend says so out loud",
+                        object = "someone at the table pushes back", join = "someone at the table joins in",
+                        ok = "it works", no = "you say no, and they take it", fail = "they're seen" }
+            local n = #(MODULE.ideas.take[a] or {})
+            return R("When a friend has the idea of lifting something (the friends' own ideas): " .. (W[a] or a), one_of(n))
+        elseif verb == "help" then
+            return R("When a friend has the idea of helping " .. (PERSON[a] or a) .. " (the friends' own ideas)", one_of(#MODULE.ideas.help[a].lines))
+        elseif verb == "follow" then
+            local W = { go = "", dull = ": what they see on a low roll", detail = ": what they see on a good roll" }
+            return R("When a friend has the idea of following " .. (PERSON[a] or a) .. W[b] , b == "go" and "Always" or (b == "dull" and "On a failure" or "On a success"))
+        elseif verb == "hide" then
+            local W = { go = "", dull = ": on a low roll", detail = ": on a good roll" }
+            return R("When a friend has the idea of hiding, " .. lowfirst(in_room(a)) .. W[b], b == "go" and "Always" or (b == "dull" and "On a failure" or "On a success"))
+        end
+    end
+    return nil
+end
+
 -- Dispatch ----------------------------------------------------------------------------------------
 
 local FILE = {
@@ -1836,6 +1939,7 @@ local FILE = {
     ["game/data/rests.lua"] = rest_line,
     ["game/data/museum/cards.lua"] = card_line,
     ["game/data/museum/table_life.lua"] = small_moment,
+    ["game/data/museum/people.lua"] = people_line,
     ["game/data/friction.lua"] = function(p)
         return friction_line(p[1], p[2], p[3])
     end,
@@ -1942,6 +2046,17 @@ local function code_line(p)
             one_of(#nt.FOE_LINES + #nt.FOE_HIDDEN))
     elseif top == "FOE_ALONE" then
         return R("As a fight starts, saying who they're up against: one foe on their own", one_of(#require("game.model.night").FOE_ALONE))
+    elseif top == "FIGHT_TEXT" then
+        local W = { chose = "a fight they chose to start", sprang = "a fight that came at them", won = "how it ended: they won",
+                    won_ran_one = "how it ended: the one foe got away", won_ran = "how it ended: won, with some getting away",
+                    yielded = "how it ended: the boss asked them to stop", dead = "how it ended: the boss fell",
+                    ran = "how it ended: the boss got away", lost = "how it ended: they lost" }
+        return R("In the session report's \"How it went\" and the journey recap's route, telling " .. (W[k] or "a fight"), "Always")
+    elseif top == "ALONE_TEXT" then
+        return R("In the session report's \"How it went\", when " .. (k == 1 and "a hero goes off alone" or "two heroes go off on their own"), "Always")
+    elseif top == "GOT" then
+        return R("In the session report's \"How it went\", when a hero " .. ({ found = "finds", bought = "buys", given = "is given",
+            stolen = "steals", drop = "takes off someone beaten" })[k] .. " something", "Always")
     end
 end
 
@@ -1953,7 +2068,7 @@ function W.describe(e, cells)
         ok, r = pcall(table_talk, e, cells or {})
     elseif e.file == "game/data/museum/module.lua" then
         ok, r = pcall(adventure_line, e.path)
-    elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" then
+    elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" or e.file == "game/model/items.lua" then
         ok, r = pcall(code_line, e.path)
     elseif FILE[e.file] then
         ok, r = pcall(FILE[e.file], e.path)

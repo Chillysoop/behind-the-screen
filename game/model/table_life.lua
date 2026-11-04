@@ -202,6 +202,7 @@ local function tiny_roll(night, p, skill)
     end
     local d = night.rng:d20()
     local total = d + (mod or 0) + bonus
+    night.tl_roller = p.key           -- (whose little die rolled last: the friends' ideas give someone else a turn)
     night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = (mod or 0) + bonus, total = total,
                  skill = skills.name(name or skill or "perception") })
     return d, total, e and bonus > 0 and e or nil
@@ -429,7 +430,7 @@ local function ask(night, sc, q, last, forced)
             local events = require "game.model.events"
             local why = people.knows_of(night.campaign, pid, "steal", p.key, true) or people.knows_of(night.campaign, pid, "harm", p.key, true)
             local ev = events.add(night.campaign, { kind = "refuse", who = pid, whom = p.key, where = sc.room, from = why, beat = true,
-                                                    text = (string.match(name, "^([^,]+)") or name) .. " wouldn't answer " .. p.char })
+                                                    text = events.word("refused", { who = string.match(name, "^([^,]+)") or name, char = p.char }) })
             sc.last_beat = ev.id
             score.add(p, "fun", -1)
             return p

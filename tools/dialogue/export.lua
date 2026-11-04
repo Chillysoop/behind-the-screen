@@ -20,6 +20,7 @@ local ADV_FILES = {
     { file = "game/data/museum/module.lua", mod = "game.data.museum.module", group = "Adventure" },
     { file = "game/data/museum/cards.lua", mod = "game.data.museum.cards", group = "Adventure cards" },
     { file = "game/data/museum/table_life.lua", mod = "game.data.museum.table_life", group = "Small moments" },
+    { file = "game/data/museum/people.lua", mod = "game.data.museum.people", group = "People who remember" },
 }
 local SHARED_FILES = {
     { file = "game/data/barks.lua", mod = "game.data.barks", group = "Fight barks" },
@@ -39,11 +40,13 @@ local CODE_TABLES = {
       keys = { "LOOK_SAY", "LEAN_WHY", "BREAK_START", "BREAK_END", "BREAK_LOGS", "WEEKLY" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",
-               "FOE_ALONE" } },
+               "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT" } },
+    { file = "game/model/items.lua", mod = "game.model.items", group = "Game night", keys = { "GOT" } },
 }
 -- Parts of a file listed under another file: the module pulls in its small moments, which are listed under
 -- game/data/museum/table_life.lua (where an edit to them goes).
-local SKIP_TOP = { ["game/data/museum/module.lua"] = { table_life = true } }
+local SKIP_TOP = { ["game/data/museum/module.lua"] = { table_life = true, people_memory = true, people_lines = true, people_about = true,
+                                                         ideas = true } }
 
 
 -- Where each room is in the book (the reader's own copy: page numbers only).
@@ -62,7 +65,8 @@ local NOT_TEXT = { id = true, when = true, kind = true, type = true, trigger = t
     lean = true, leans = true, arch = true, doers = true, needs = true, sprite = true, icon = true, font = true,
     key = true, there = true, warn = true, risk = true, harsh = true, drag = true, hurt = true, speaker = true,
     suits = true, objects = true, enjoys = true, feeds = true, tag_taste = true, content = true, promise = true,
-    card = true, minion = true, where = true, fixed_actor = true, effect = true }
+    card = true, minion = true, where = true, fixed_actor = true, effect = true, sees = true, hears = true, start = true,
+    weights = true, breaks = true, thing = true, kind = true, whom = true }
 local PLAYERS = { mara = true, dev = true, jess = true, sam = true }
 local HEROES = { mara = "Thessaly", dev = "Brannoc", jess = "Pip", sam = "Oswin" }
 local json = require "game.model.jsonlite"

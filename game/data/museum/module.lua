@@ -416,6 +416,25 @@ M.recap = {
 -- "but"); false: not a beat (a call that changes nothing in the story). An option missing here is
 -- told from its `want` ("set the bushes on fire": "they set the bushes on fire"). {char}: the hero.
 M.beats = {
+    -- The words for the night's own beats, wherever the code tells one ({room}, {char}, {what}, {who},
+    -- {thing}, {n}, {want}, {pet}: filled in as it happens).
+    words = {
+        enter = "they went into {room}", hooked = "{enter}, the place {char} came for",
+        back = "they went back to {room}", flee = "they fell back to {room}", rest = "they went back to {room} to rest",
+        shop = "they went back to the gift shop with Francs to spend",
+        look = "{char} had a look at {what}", tried = "{who} tried to {want}", didnt = "it didn't work",
+        trap = "a trap went off: {what}",
+        find = "{char} found a Flitwidget Franc", finds = "{char} found {n} Flitwidget Francs", pet_find = "{pet} found a Flitwidget Franc",
+        pay = "Flitwidget's pay came through: a Franc", pays = "Flitwidget's pay came through: {n} Francs",
+        price_up = "Telpur put his prices up a Franc", price_up_n = "Telpur put his prices up {n} Francs",
+        price_down = "Telpur took a Franc off his prices for them",
+        lecturer = "the Lecturer told Euryale about {what}", euryale = "Euryale knew what the Lecturer had told her",
+        notice = "Flitwidget saw what was left of {thing}", told = "Telpur had a word with Flitwidget about {char}",
+        docked = "Flitwidget took the breakages out of their reward",
+        lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
+        caught = "{char} went for {thing}, and {who} caught them at it",
+        helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
+    },
     rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",
               street = "they met Flitwidget in the street" },
     mus_truth = { { did = "{char} pressed Flitwidget for the truth", ok = "{char} got the truth out of Flitwidget",
