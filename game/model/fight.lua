@@ -474,6 +474,11 @@ function M.step(night, ev)
         s.id, s.target = ref(ev.att), ref(ev.tgt)
         s.hit, s.crit, s.roll, s.total, s.ac = ev.hit, ev.crit, ev.roll, ev.total, ev.ac
         s.ranged, s.blocked, s.weapon, s.spell = ev.ranged, ev.blocked, ev.weapon, ev.spell
+        -- (A hero fighting with a weapon they picked up fights with it: "Crit with the shortsword!" from
+        -- the hero the table was told fights with the twin daggers. The second playtest review.)
+        if s.weapon and not s.spell and ev.att and ev.att.weapon_item and not ev.ranged then
+            s.weapon = ev.att.weapon_item
+        end
         s.dmg, s.to_hit, s.cover_what = ev.dmg, ev.to_hit, ev.cover_what
         s.dm = ev.att.side ~= "party"
         s.hidden = s.dm and night.dm_rolls == "hidden"

@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F15", "F16", "F17", "F21", "F22", "F26" }
+local ITEMS = { "F2", "F6", "F7", "F8", "F9", "F15", "F16", "F17", "F21", "F22", "F24", "F26", "R2", "R3" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -373,7 +373,7 @@ function CHECKS.F8(run)
                 end
             end
         end
-        if r.k == "narrate" and has(r.text, "tentacle") then
+        if (r.k == "narrate" and has(r.text, "tentacle")) or (r.k == "decision" and has(r.ctext, "tentacle")) then
             seen_text.tentacle = true
         end
         if r.k == "decision" and r.card == "mus_office_door" then
@@ -660,6 +660,168 @@ function CHECKS.F17(run)
                 fail("F17", where(run, r) .. ": one more room, and only " .. beats .. " beat(s) in it")
             else
                 add("F17", "one_more_room_is_a_scene")
+            end
+        end
+    end
+end
+
+-- F24, R2, R3: what's said every week or every fight comes three or more ways, never the same twice
+-- running; catchphrases once a session and not from the same friend two talks running; a single foe
+-- isn't "the last one"; a crit names the weapon in the hero's hand.
+local function weekly_lists()
+    local mn, nt = require "game.model.museum_night", require "game.model.night"
+    local out = {}
+    local function put(name, list, min)
+        if type(list) == "table" then
+            table.insert(out, { name = name, list = list, min = min or 3 })
+        end
+    end
+    for k, l in pairs(mn.WEEKLY or {}) do
+        -- (The first of a night is one line on purpose: the later ones vary.)
+        put("WEEKLY." .. k, l)
+    end
+    for k, l in pairs(mn.BREAK_LOGS or {}) do
+        put("BREAK_LOGS." .. k, l)
+    end
+    put("BREAK_START", mn.BREAK_START)
+    put("BREAK_END", mn.BREAK_END)
+    put("WRAP_LINES", nt.WRAP_LINES)
+    put("FRANC_LINES", nt.FRANC_LINES)
+    put("INSPIRE_LINES", nt.INSPIRE_LINES)
+    for k, l in pairs(nt.FIGHT_CAPTIONS or {}) do
+        put("FIGHT_CAPTIONS." .. k, l)
+    end
+    for k, l in pairs(nt.READY or {}) do
+        put("READY." .. k, l)
+    end
+    for k, l in pairs(nt.REACTED or {}) do
+        put("REACTED." .. k, l)
+    end
+    for k, l in pairs(mn.LEAN_WHY or {}) do
+        put("LEAN_WHY." .. k, l)
+    end
+    return out
+end
+
+-- A line as said, back to its list's entry: names and numbers stand in for the fill-ins.
+local function pattern_of(t)
+    local p = string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
+    p = string.gsub(p, "{[%w_]+}", ".-")
+    return "^" .. p .. "$"
+end
+
+function CHECKS.F24(run)
+    local lists = weekly_lists()
+    local pats = {}
+    for _, L in ipairs(lists) do
+        for _, t in ipairs(L.list) do
+            table.insert(pats, { list = L.name, text = t, pat = pattern_of(t) })
+        end
+    end
+    local last_of, uses = {}, 0
+    local skim_n, item_n = {}, {}
+    local holds = {}          -- hero -> the weapon item the table was told they fight with
+    local foes_in_fight
+    for _, r in ipairs(run.log) do
+        if r.k == "battle" and r.ev.phase == "end" then
+            local sm = r.ev.summary or {}
+            foes_in_fight = #(sm.beaten or {}) + #(sm.ran or {})      -- (everyone who fought them, reinforcements too)
+        end
+        if (r.k == "narrate" or r.k == "say") and r.text and not (r.k == "say" and string.find(r.text, "^Let's ")) then
+            -- (Its list: the line itself if it's said word for word, else the line whose fill-ins fit.)
+            local hit
+            for _, p in ipairs(pats) do
+                if r.text == p.text then
+                    hit = p
+                end
+            end
+            for _, p in ipairs(pats) do
+                if not hit and string.find(p.text, "{") and string.find(r.text, p.pat) then
+                    hit = p
+                end
+            end
+            if hit then
+                uses = uses + 1
+                if last_of[hit.list] == r.text then
+                    fail("F24", where(run, r) .. ": the same " .. hit.list .. " line twice running: " .. r.text)
+                end
+                last_of[hit.list] = r.text
+            end
+        end
+        local mn = require "game.model.museum_night"
+        local first_of = nil
+        for _, kind in ipairs({ "skim", "improv", "from_book" }) do
+            for _, t in ipairs(mn.WEEKLY and mn.WEEKLY[kind] or {}) do
+                if r.k == "narrate" and r.text == t then
+                    first_of = kind
+                end
+            end
+        end
+        if r.k == "narrate" and (first_of or has(r.text, "You never read this room properly")) then
+            local k = r.week .. (first_of or "skim")
+            skim_n[k] = (skim_n[k] or 0) + 1
+            if skim_n[k] > 1 then
+                fail("F24", where(run, r) .. ": said again tonight: " .. r.text)
+            end
+        end
+        if r.k == "narrate" and r.style == "good" and r.text then
+            local who, item = string.match(r.text, "^(%a+) fights with the (.-) from")
+            if who then
+                holds[who] = item
+                local k = r.week .. who .. item
+                item_n[k] = (item_n[k] or 0) + 1
+                if item_n[k] > 1 then
+                    fail("F24", where(run, r) .. ": the item line again at another fight: " .. r.text)
+                end
+            end
+            if (has(r.text, "The last one falls") or has(r.text, "The last of them goes down")) and foes_in_fight == 1 then
+                fail("F24", where(run, r) .. ": \"" .. r.text .. "\" over a single foe")
+            end
+        end
+        if r.k == "say" and r.text and has(r.text, "Crit with the ") then
+            local p = run.c:player(r.ev.who)
+            local item = p and holds[p.char]
+            local ranged = has(string.lower(r.text), "bow") or has(string.lower(r.text), "sling") or has(string.lower(r.text), "dart")
+            if item and not ranged and not has(string.lower(r.text), item) then
+                fail("F24", where(run, r) .. ": " .. p.char .. " fights with the " .. item .. ", but \"" .. r.text .. "\"")
+            else
+                add("F24", "crits_that_name_the_weapon")
+            end
+        end
+    end
+    add("F24", "weekly_lines_said", uses)
+end
+
+-- R2: a friend's reason when the table talks it over: each line once a session, and never from the
+-- same friend in two talks running.
+function CHECKS.R2(run)
+    local mn = require "game.model.museum_night"
+    local talk, said, last = 1, {}, {}
+    for _, r in ipairs(run.log) do
+        if r.k == "narrate" and r.style == "aside" and has(r.text, "The table decides") then
+            talk = talk + 1
+        elseif r.k == "scene" then
+            talk = talk + 1
+        end
+        if r.k == "say" and r.text and string.find(r.text, "^Let's ") then
+            local p = run.c:player(r.ev.who)
+            for arch, list in pairs(mn.LEAN_WHY or {}) do
+                for _, line in ipairs(list) do
+                    local t = util.fill(line, { char = p and p.char or "" })
+                    if string.sub(r.text, -#t) == t then
+                        local k = r.week .. "|" .. r.ev.who .. "|" .. t
+                        if said[k] then
+                            fail("R2", where(run, r) .. ": " .. r.ev.who .. " says it again tonight: " .. t)
+                        end
+                        said[k] = true
+                        local lk = r.week .. "|" .. r.ev.who
+                        if last[lk] and last[lk] == talk - 1 then
+                            fail("R2", where(run, r) .. ": " .. r.ev.who .. " gives a reason two talks running: " .. r.text)
+                        end
+                        last[lk] = talk
+                        add("R2", "reasons_given")
+                    end
+                end
             end
         end
     end
@@ -1042,6 +1204,68 @@ function UNITS.F17()
     local soft = fight.reinforcement(night, { room = "chamber" })
     if not (soft and has(soft.log, "shadows")) then
         fail("F17", "veiled creepy-crawlies come in plain view")
+    end
+end
+
+-- R3: anything said every week comes three or more ways; R2: fresh() never says the same line twice
+-- running, and once a session means once.
+function UNITS.R3()
+    for _, L in ipairs(weekly_lists()) do
+        if #L.list < L.min then
+            fail("R3", L.name .. ": only " .. #L.list .. " way(s) to say it")
+        else
+            add("R3", "weekly_lists_with_three_or_more")
+        end
+    end
+    -- The chat's own weekly lines.
+    local mw = require "game.model.museum_week"
+    for k, l in pairs(mw.REPLY or {}) do
+        if #l < 3 then
+            fail("R3", "the chat's " .. k .. " replies: only " .. #l)
+        end
+    end
+    if #(adventure.data.chat_banter or {}) < 3 then
+        fail("R3", "the chat's banter: fewer than three")
+    end
+end
+
+function UNITS.R2()
+    local night_mod = require "game.model.night"
+    adventure.enter()
+    local c = campaign_mod.new(9)
+    local fake = setmetatable({ campaign = c, rng = require("game.model.rng").new(3) }, { __index = night_mod })
+    local list = { "one", "two", "three" }
+    local prev
+    for i = 1, 40 do
+        c.week = 1 + math.floor(i / 7)
+        local l = fake:fresh(list, "r2_test")
+        if l == prev then
+            fail("R2", "fresh() said \"" .. l .. "\" twice running")
+            break
+        end
+        prev = l
+    end
+    c.week = 20
+    local seen, n = {}, 0
+    for _ = 1, 5 do
+        local l = fake:fresh(list, "r2_once", true)
+        if l then
+            if seen[l] then
+                fail("R2", "fresh(once) said \"" .. l .. "\" twice in a session")
+            end
+            seen[l], n = true, n + 1
+        end
+    end
+    if n ~= 3 then
+        fail("R2", "fresh(once) gave " .. n .. " lines from three in a session")
+    else
+        add("R2", "once_a_session_holds")
+    end
+    local mn = require "game.model.museum_night"
+    for k, l in pairs(mn.LEAN_WHY or {}) do
+        if #l < 3 then
+            fail("R2", "LEAN_WHY." .. k .. ": fewer than three reasons")
+        end
     end
 end
 

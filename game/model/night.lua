@@ -505,10 +505,12 @@ end
 -- A line from a list that hasn't been said tonight (A5): each one once before any repeats. With a
 -- key, the memory lasts across weeks (November 3: lines repeated from one session to the next):
 -- a line said in the last three sessions waits, and when every one has been said lately, the
--- one said longest ago comes back first.
+-- one said longest ago comes back first. Never the same line twice in a row (R2, the second
+-- playtest review), and with `once`, never twice in one session: nil once every line has been said
+-- tonight.
 M.FRESH_WEEKS = 3
 
-function M:fresh(list, key)
+function M:fresh(list, key, once)
     if type(list) ~= "table" then
         return list
     end
@@ -517,21 +519,38 @@ function M:fresh(list, key)
         camp.fresh_said = camp.fresh_said or {}
         local said = camp.fresh_said[key] or {}
         camp.fresh_said[key] = said
+        camp.fresh_last = camp.fresh_last or {}
+        local last = camp.fresh_last[key]
         local week = camp.week or 0
         local free, oldest, ow = {}, nil, nil
         for i, l in ipairs(list) do
             local w = type(l) == "string" and said[l] or nil
-            if not w or week - w >= M.FRESH_WEEKS then
+            if (#list > 1 and l == last) or (once and w == week) then
+                -- (just said, or said tonight already)
+            elseif not w or week - w >= M.FRESH_WEEKS then
                 table.insert(free, i)
             elseif not ow or w < ow then
                 oldest, ow = i, w
             end
         end
         -- (Said tonight beats said last week: tonight's never repeats while anything else is left.)
-        local i = (#free > 0 and self.rng:pick(free)) or oldest or 1
+        local i = (#free > 0 and self.rng:pick(free)) or oldest
+        if not i then
+            if once then
+                return nil
+            end
+            i = 1
+            for j, l in ipairs(list) do
+                if l ~= last then
+                    i = j
+                    break
+                end
+            end
+        end
         local l = list[i]
         if type(l) == "string" then
             said[l] = week
+            camp.fresh_last[key] = l
         end
         -- (Forget what's long past, so the save stays small.)
         for t, w in pairs(said) do
@@ -551,15 +570,22 @@ function M:fresh(list, key)
         end
     end
     if #free == 0 then
+        if once then
+            return nil
+        end
+        local was = used.last
         for i in pairs(used) do
             used[i] = nil
         end
         for i = 1, #list do
-            free[i] = i
+            if i ~= was or #list == 1 then
+                table.insert(free, i)
+            end
         end
     end
     local i = self.rng:pick(free)
     used[i] = true
+    used.last = i
     return list[i]
 end
 
@@ -2020,8 +2046,7 @@ function M:give_inspiration(p, by_tile)
     score.add(p, "fun", 4)
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "token", who = p.key, what = "inspiration" })
-    self:say("You flick the Heroic Inspiration token across the table. It lands in front of " .. p.name
-        .. ": one reroll, to spend whenever " .. p.char .. " needs it.", "dm")
+    self:say(util.fill(self:fresh(M.INSPIRE_LINES, "inspire_line"), { name = p.name, char = p.char }), "dm")
     self:event("inspiration", { who = p.key, text = p.char .. " earned Heroic Inspiration." })
     if again then
         self:fairness_noticed(p, "inspiration")
@@ -2668,7 +2693,7 @@ function M:big_roll(spec, record)
         if self.mus then
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
         end
-        ruled = "Better than they hoped: a Flitwidget Franc pops into " .. (p and p.char or "someone") .. "'s pocket."
+        ruled = util.fill(self:fresh(M.FRANC_LINES, "franc_line"), { char = p and p.char or "someone" })
     end
     if ro.tone == "good" and not success then
         -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves
@@ -3492,7 +3517,7 @@ function M:combat_scene(sc)
     if not scouted and self:idle() < 60 and self.rng:chance(0.4) then
         self:stunt(sc)
     end
-    self:say(self.talk:fight("start", self:vars()), "dm")
+    self:say(self:fight_caption("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
     self:bark(boss_fan, "boss_appears", { ctx = self:boss_context(plan, sc) })
     local result, f = fight.run(self, sc, plan)
@@ -3542,8 +3567,20 @@ function M:combat_scene(sc)
         -- that had run for it, the combat audit, Nov 2.)
         -- (A boss who yielded already said so, in her own words: fight.lua's yield.)
         local how = (f and (f.fled or #sc.foes_ran > 0) and "party_win_fled") or "party_win"
+        -- (One foe isn't "the last one": it's named.)
+        local foes = 0
+        for _, c in pairs(f and f.by_ref or {}) do
+            if c.side == "foes" then
+                foes = foes + 1
+            end
+        end
+        local v = self:vars()
+        if how == "party_win" and foes == 1 and f.boss_name then
+            how = "party_win_one"
+            v.foe, v.Foe = util.lower_first(f.boss_name), util.capitalize(f.boss_name)
+        end
         if not (f and f.yielded) then
-            self:say(self.talk:fight(how, self:vars()), "good")
+            self:say(self:fight_caption(how, v), "good")
         end
         local poses = {}
         for _, p in ipairs(self.players) do
@@ -3647,17 +3684,61 @@ end
 -- Before a fight: who reacts first. The result sets who's surprised.
 -- The museum's fights are in plain sight by the time anyone could scout (the playtest, November 4:
 -- "the knight climbs out of its frame", then "Pip creeps ahead to scout"): who reacts first, instead.
+-- (Three or more ways each: anything said every week is where players first notice the machine, R3.)
 local READY = {
-    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening." },
-    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others." },
-    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast." },
-    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out." },
+    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening.",
+              "{actor_char} slips sideways, out of the light." },
+    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others.",
+                "{actor_char} rolls a shoulder and moves to the front." },
+    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast.",
+               "{actor_char} counts the exits, then the enemies." },
+    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out.",
+               "{actor_char} grips their holy symbol and stands their ground." },
 }
 local REACTED = {
-    success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes." },
-    fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready." },
+    success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes.",
+                "Nobody's caught napping. They're set before it moves." },
+    fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready.",
+             "It moves first, and they're still reaching for their weapons." },
 }
 M.READY, M.REACTED = READY, REACTED   -- (for the Dialogue Desk: tools/dialogue/export.lua)
+
+-- Heroic Inspiration, flicked across the table (most nights): three ways.
+M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It lands in front of {name}: one reroll, to spend whenever {char} needs it.",
+                    "The Heroic Inspiration token skids across the table and stops in front of {name}: one reroll, whenever {char} needs it.",
+                    "You slide the Heroic Inspiration token over to {name}. One reroll, for whenever {char} needs it." }
+
+-- The night's last line, and the Franc on a great roll: said every week, so three or more ways (R3).
+M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
+                 "And that's a wrap. Somebody's already clearing the pizza boxes.", "Lights up. Someone stacks the character sheets." }
+M.FRANC_LINES = { "Better than they hoped: a Flitwidget Franc pops into {char}'s pocket.",
+                  "Better than they hoped: {char} finds a Flitwidget Franc they're sure wasn't there a moment ago.",
+                  "Better than they hoped: there's a crisp Flitwidget Franc in {char}'s hand. The gnome's face winks on it.",
+                  "Better than they hoped: a Flitwidget Franc flutters down out of nowhere into {char}'s palm." }
+
+-- The DM's word as a fight starts and ends, three or more ways each, fresh across weeks (R3: "The
+-- last one falls. Silence, then cheering." over a single foe, three weeks running). one: the fight
+-- had one foe, named. Other fight captions are scene_beats' (talk:fight).
+local FIGHT_CAPTIONS = {
+    start = { "Weapons out. Here we go.", "Here they come.", "Chairs scrape. Here we go.", "Dice up. Here it comes.",
+              "Everyone leans in over the mat." },
+    party_win = { "The last one falls. Silence, then cheering.", "It's over. Everyone breathes out.",
+                  "The last of them goes down, and the whole table exhales.", "That's the last one. Somebody actually applauds." },
+    party_win_one = { "{Foe} falls. Silence, then cheering.", "{Foe} goes down and stays down. Everyone breathes out.",
+                      "That's {foe} done. The table exhales.", "{Foe} drops. A beat, then high fives across the table." },
+    party_win_fled = { "The rest scatter and don't look back. The fight is theirs.",
+                       "And they're gone, running hard. Nobody's chasing them. It's over.",
+                       "What's left of them bolts. Nobody's sorry to see them go." },
+}
+M.FIGHT_CAPTIONS = FIGHT_CAPTIONS
+
+function M:fight_caption(what, vars)
+    local pool = FIGHT_CAPTIONS[what]
+    if not pool then
+        return self.talk:fight(what, vars)
+    end
+    return util.fill(self:fresh(pool, "fight_" .. what), vars or {})
+end
 
 -- Party tension (A17) -------------------------------------------------------------------------------
 -- Characters sometimes do things that land on each other: a needless scrap, pocketing a
@@ -4656,7 +4737,7 @@ function M:run_tail()
     for i = 1, math.min(self:idle() > 60 and 1 or 2, #leaving) do
         self:bark(leaving[i], "wrap")
     end
-    self:say("That's a wrap. Chairs scrape, someone stacks the dice.", "system")
+    self:say(self:fresh(M.WRAP_LINES, "wrap_system"), "system")
     self:emit({ kind = "done" })
 end
 

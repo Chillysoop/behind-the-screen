@@ -432,8 +432,9 @@ A.asides = function(p)
         table.insert(rooms, lowfirst(in_room(r)))
     end
     table.sort(rooms)
+    local rest = (a and not a.no_sneak) and " (never two weeks running)" or ""
     return R("As the night's first fight starts" .. (#rooms > 0 and (", unless it's " .. table.concat(rooms, " or ")) or "")
-        .. if_(a and a.when), "Always")
+        .. if_(a and a.when) .. rest, (a and a.lines) and one_of(#a.lines) or "Always")
 end
 
 A.author = function()
@@ -1876,7 +1877,7 @@ local function code_line(p)
         local who = ARCH_WHO[k] or {}
         return R("When the table talks over a choice: " .. names(who) .. "'s reason for leaning one way, when the " ..
             "option suits " .. (#who == 1 and (POS[who[1]] or "their") or "their") .. " " .. string.gsub(k, "_", " ") ..
-            " side (at most twice a night)", "Sometimes")
+            " side (at most twice a night, each line once, never two talks running)", "Sometimes")
     elseif top == "BREAK_START" then
         return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
     elseif top == "BREAK_END" then
@@ -1891,6 +1892,40 @@ local function code_line(p)
             return R("Just before a fight: the party reacts first, on a good Perception or Insight roll", "On a success")
         end
         return R("Just before a fight: the party is too slow, on a poor Perception or Insight roll", "On a failure")
+    elseif top == "BREAK_LOGS" then
+        local pick = ({ nothing = "nothing happens in the game", short = "the heroes take a short rest",
+                        long = "the heroes take a long rest (in the gift shop)", research = "the heroes read up" })[k] or k
+        return R("The break, once a night, if you say " .. pick .. " meanwhile",
+            one_of(#(require("game.model.museum_night").BREAK_LOGS[k] or {})))
+    elseif top == "WEEKLY" then
+        local W2 = require("game.model.museum_night").WEEKLY
+        local what = ({ ready = "As game night starts, once everyone's sat down",
+                        ask_look = "When the table can't settle a choice and a friend asks you (a card or a fork)",
+                        thread = "When a room is the one a hero came to the museum for",
+                        skim = "The first room tonight you never read, as it starts",
+                        skim_again = "Any later room tonight you never read, as it starts",
+                        improv = "The first room tonight you chose to make up, as it starts",
+                        improv_again = "Any later room tonight you chose to make up, as it starts",
+                        close = "When you call the night",
+                        stop_fight = "When you call the night right after a fight",
+                        stop_flat = "When you call the night after a quiet room",
+                        book_down = "When you choose to make up a room you never prepped",
+                        from_book = "The first room tonight you read from the book at the table",
+                        from_book_again = "Any later room tonight you read from the book at the table",
+                        easy = "At a fork, when a friend who doesn't much mind comes round to the others" })[k] or "Game night"
+        return R(what, one_of(#(W2[k] or {})))
+    elseif top == "INSPIRE_LINES" then
+        return R("When you give a hero Heroic Inspiration (from a card or their tile)", one_of(#require("game.model.night").INSPIRE_LINES))
+    elseif top == "WRAP_LINES" then
+        return R("The very end of game night, after the goodbyes", one_of(#require("game.model.night").WRAP_LINES))
+    elseif top == "FRANC_LINES" then
+        return R("When you rule a great roll " .. Q("Yes, and...") .. ": the Franc that turns up",
+            one_of(#require("game.model.night").FRANC_LINES))
+    elseif top == "FIGHT_CAPTIONS" then
+        local what = ({ start = "As a fight starts", party_win = "When the party wins a fight against several",
+                        party_win_one = "When the party wins a fight against one foe, by name",
+                        party_win_fled = "When the party wins and the rest of the foes run" })[k] or "In a fight"
+        return R(what, one_of(#(require("game.model.night").FIGHT_CAPTIONS[k] or {})))
     end
 end
 

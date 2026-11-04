@@ -1331,13 +1331,23 @@ function M.read(night, sc)
     if sc.backup then
         night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "screen")
     elseif sc.improv then
-        night:say("You never prepped it, so you wing it: the room in a few strokes, and on to what matters.", "screen")
+        night:say(night.mus.winged and night:fresh(M.WEEKLY.improv_again, "weekly_improv_again")
+            or night:fresh(M.WEEKLY.improv, "weekly_improv"), "screen")
+        night.mus.winged = true
     end
     if not sc.prepped then
         -- (You chose to read it from the book: say that, not that you skimmed it.)
-        night:say((night.mus.from_book and night.mus.from_book[sc.room])
-            and "You read the room straight from the book while they wait: a few minutes of turning pages and quiet."
-            or "You never read this room properly. You skim the page while they wait.", "warn")
+        if night.mus.from_book and night.mus.from_book[sc.room] then
+            night:say(night.mus.read_book and night:fresh(M.WEEKLY.from_book_again, "weekly_from_book_again")
+                or night:fresh(M.WEEKLY.from_book, "weekly_from_book"), "warn")
+            night.mus.read_book = true
+        else
+            -- (Once a night in full; after that, shorter: "You never read this room properly." four times
+            -- in one night, the second playtest review.)
+            night:say(night.mus.skimmed and night:fresh(M.WEEKLY.skim_again, "weekly_skim_again")
+                or night:fresh(M.WEEKLY.skim, "weekly_skim"), "warn")
+            night.mus.skimmed = true
+        end
         night.table_min = night.table_min + 5
         night:apply({ { "arch:tactician", fun = -2 }, { "all", boredom = 3 } })
     end
@@ -1373,7 +1383,7 @@ function M.room_start(night, sc)
         if util.contains(night.players, p) then
             local h = adventure.hook(c, p.key)
             night:react({ [p.key] = "lean" })
-            night:say(p.name .. " sits up. This is what " .. p.char .. " came to the museum for.", "thread")
+            night:say(util.fill(night:fresh(M.WEEKLY.thread, "weekly_thread"), { name = p.name, char = p.char }), "thread")
             -- The reason itself, paid off in the room: a real beat, not just a nod.
             if h.payoff then
                 night:say(h.payoff, "thread")
@@ -1442,10 +1452,14 @@ function M.arm(night, sc)
     local lines = {}
     -- Once a night, at the first fight: what the week between left them with (MODULE.asides).
     night.mus.asides = night.mus.asides or {}
+    st.asides_week = st.asides_week or {}
     for _, a in ipairs(MODULE.asides or {}) do
-        if not night.mus.asides[a.id] and adventure.test(c, a.when, knobs) then
+        -- (One that changes nothing isn't said two weeks running: R2.)
+        local rested = not a.no_sneak and st.asides_week[a.id] == (c.week or 0) - 1
+        if not night.mus.asides[a.id] and adventure.test(c, a.when, knobs) and not rested then
             night.mus.asides[a.id] = true
-            night:say((a.in_room and a.in_room[sc.room]) or a.text, "dm")
+            st.asides_week[a.id] = c.week or 0
+            night:say((a.in_room and a.in_room[sc.room]) or (a.lines and night:fresh(a.lines, "aside_" .. a.id)) or a.text, "dm")
             if a.no_sneak then
                 sc.no_sneak = true       -- (night.lua's combat_scene: no scouting, nobody surprised)
             end
@@ -1474,7 +1488,9 @@ function M.arm(night, sc)
             if it.once then
                 st.items_used[it.id] = c.week
             end
-            if it.line then
+            night.mus.items_said = night.mus.items_said or {}
+            if it.line and not night.mus.items_said[it.id] then
+                night.mus.items_said[it.id] = true
                 table.insert(lines, util.fill(it.line, { holder = holder and holder.char or "Somebody",
                                                           mech = st.mech_name or "The Mech" }))
             end
@@ -1860,15 +1876,23 @@ function M.table_pick(night, copy, vars)
         return a.key < b.key
     end)
     local said = {}
+    -- (A friend's reason is a catchphrase: each one once a session, and never from the same friend two
+    -- talks running. R2, the second playtest review: "Less talking, more hitting" after nearly every
+    -- one of Dev's suggestions.)
+    night.lean_talks = (night.lean_talks or 0) + 1
+    night.lean_last = night.lean_last or {}
     for _, p in ipairs(order) do
         if spoke < 3 and (spoke < 2 or first[p.key] ~= first[order[1].key]) then
             local w = why[p.key]
             night.lean_why_n = night.lean_why_n or {}
             local said_n = night.lean_why_n[p.key] or 0
+            local rested = night.lean_last[p.key] == night.lean_talks - 1
             local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not."))
-                or (w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key)) or nil
+                or (w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and not rested
+                    and night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key, true)) or nil
             if reason and w ~= "hurt" then
                 night.lean_why_n[p.key] = said_n + 1
+                night.lean_last[p.key] = night.lean_talks
             end
             local line = "Let's " .. short_want(opts[first[p.key]]) .. "." .. (reason and (" " .. util.fill(reason, { char = p.char })) or "")
             night:emit({ kind = "say", who = p.key, text = util.sentence_case(line), ic = false })
@@ -1899,7 +1923,8 @@ function M.table_pick(night, copy, vars)
         local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
         local card = { id = "table_asks_" .. (copy.id or "x"), type = "table", trigger = "museum_fixed", fixed_actor = true,
                        title = "They ask you",
-                       text = "The table can't agree. " .. asker.name .. " looks up from the map: \"What do you think?\"",
+                       text = "The table can't agree. " .. util.fill(night:fresh(M.WEEKLY.ask_look, "weekly_ask_look"), { name = asker.name })
+                           .. ": \"What do you think?\"",
                        options = {} }
         for _, i in ipairs(live) do
             local names = {}
@@ -2355,7 +2380,9 @@ function M.fork(night, options, backs, sides)
             local mine = vals[p.key][first[p.key]].v
             if first[p.key] ~= top and mine - vals[p.key][top].v < 1.0 then
                 first[p.key] = top
-                night:emit({ kind = "say", who = p.key, text = "Fine, " .. label_of(top) .. ". I'm easy.", ic = false })
+                local way = label_of(top)
+                night:emit({ kind = "say", who = p.key, ic = false,
+                             text = util.fill(night:fresh(M.WEEKLY.easy, "weekly_easy"), { way = way, Way = util.capitalize(way) }) })
             end
         end
     end
@@ -2379,8 +2406,9 @@ function M.fork(night, options, backs, sides)
     if (split and night.rng:chance(0.8)) or (hint_id and night.rng:chance(0.35)) then
         local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
         local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum_fixed", fixed_actor = true, title = fk.title,
-                       text = (split and "They can't agree. " or "They've more or less decided, but ") .. asker.name
-                           .. " looks up from the map: \"Where would you go?\"", options = {} }
+                       text = (split and "They can't agree. " or "They've more or less decided, but ")
+                           .. util.fill(night:fresh(M.WEEKLY.ask_look, "weekly_ask_look"), { name = asker.name })
+                           .. ": \"Where would you go?\"", options = {} }
         for i in ipairs(choices) do
             local names = {}
             for _, p in ipairs(night.players) do
@@ -2534,7 +2562,7 @@ function M.whats_there(night, id)
         { label = "Improvise it: keep it short and sweet.", there = "improv",
           sub = "No skimming. The room's big moments, quickly; it lands a little thinner than prepped.",
           effects = { { "arch:storyteller", fun = 2 }, { "arch:method_actor", fun = 1 }, { "arch:tactician", fun = -1 } },
-          log = "You put the book down. \"So. You open the door, and...\"" },
+          book_down = true },
     } }
     if donor then
         table.insert(card.options, { label = "Move your prep for " .. util.lower_first(MODULE.rooms[donor].name) .. " here.", there = "move",
@@ -2543,6 +2571,9 @@ function M.whats_there(night, id)
             log = "You slide your notes for " .. util.lower_first(MODULE.rooms[donor].name) .. " across. Nobody needs to know." })
     end
     local o = night:decision(card)
+    if o and o.book_down then
+        night:say(night:fresh(M.WEEKLY.book_down, "weekly_book_down"), "dm")      -- (only the line that's said is remembered)
+    end
     if o and o.there == "book" then
         night.mus.from_book = night.mus.from_book or {}
         night.mus.from_book[id] = true
@@ -2752,7 +2783,7 @@ function M.intro(night)
     end
     night:dice_moment()
     require("game.model.keepsakes").at_night(night)
-    night:say("Everyone's here. Dice out.", "system")
+    night:say(night:fresh(M.WEEKLY.ready, "weekly_ready"), "system")
     night:table_behavior("start")
     require("game.model.companions").night_start(night)      -- (Exhibit B says hi: companions.lua)
     local first = adventure.frontier(c)[1]
@@ -2890,15 +2921,15 @@ function M.end_session(night, nxt)
         c.last_cliff = util.lower_first(nxt.name)
     end
     night.ended_on_cliff = (k == "cliff") or nil
-    night:say("You close the book. \"And that's where we stop tonight.\"", "dm")
+    night:say(night:fresh(M.WEEKLY.close, "weekly_close"), "dm")
     if k == "cliff" then
         night:say("Groans round the table, the good kind. Nobody wants to wait a week for " .. util.lower_first(nxt.name) .. ".", "good")
         night:apply({ { "all", fun = 3 }, { "arch:storyteller", fun = 2 }, { "arch:instigator", fun = 2 } })
     elseif k == "fight" then
-        night:say("A good place to stop. Dice go back in their bags with a happy rattle.", "good")
+        night:say(night:fresh(M.WEEKLY.stop_fight, "weekly_stop_fight"), "good")
         night:apply({ { "all", fun = 2 } })
     else
-        night:say("It peters out a bit. Somebody asks if that's it.", "aside")
+        night:say(night:fresh(M.WEEKLY.stop_flat, "weekly_stop_flat"), "aside")
         night:apply({ { "all", fun = -1 }, { "arch:butt_kicker", fun = -1 } })
     end
     if early then
@@ -3116,6 +3147,68 @@ local BREAK_END = {
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
 }
 M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END   -- (for the Dialogue Desk)
+-- The rest of what the table hears every week, three or more ways each (R3, the second playtest
+-- review: "weekly lines are where players first notice the machine"): everyone sitting down, a
+-- friend asking you, a hero finding what they came for, a room you skim, the way a night stops.
+M.WEEKLY = {
+    ready = { "Everyone's here. Dice out.", "Everyone's sat down. Dice out, sheets out.", "The whole table's here. Dice out.",
+              "Snacks on the table, dice in hands. Everyone's here." },
+    -- (a friend asking you, at a card the table can't settle: "{name} looks up from the map")
+    ask_look = { "{name} looks up from the map", "{name} turns to you", "{name} glances over the screen at you",
+                 "{name} taps the table and looks at you" },
+    -- (a hero's reason for coming, right here)
+    thread = { "{name} sits up. This is what {char} came to the museum for.", "{name} leans in. This is why {char} is here.",
+               "{name} goes very still. This is what {char} came for." },
+    -- (a room you never read: the first tonight, then any after it)
+    skim = { "You never read this room properly. You skim the page while they wait.",
+             "You didn't get to this room in your prep. You skim the page while they wait.",
+             "This room's a blank in your notes. You speed-read it while the table waits." },
+    skim_again = { "Another room you haven't read. More page-turning while they wait.", "You skim this one too. The table waits.",
+                   "Back to skimming. Somebody gets up for a drink." },
+    -- (a room you never prepped and chose to make up: the first tonight, then any after it)
+    improv = { "You never prepped it, so you wing it: the room in a few strokes, and on to what matters.",
+               "No prep for this one, so you make it up: a few quick strokes, and on to the good bit.",
+               "You wing it: the room in a sentence or two, and straight to what matters." },
+    -- (you put the book down to make a room up: the card's log)
+    book_down = { "You put the book down. \"So. You open the door, and...\"", "You close the book. \"Right. So. You walk in, and...\"",
+                  "You push your notes aside. \"Okay. Picture this...\"" },
+    -- (you read a room from the book at the table: the first tonight, then any after it)
+    from_book = { "You read the room straight from the book while they wait: a few minutes of turning pages and quiet.",
+                  "You read this room off the page as you go. A few quiet minutes of page-turning.",
+                  "Book open, you read the room out as you find it. The table waits through the pauses." },
+    from_book_again = { "Back to the book for this one. More pages, more quiet.", "Another room read straight off the page. They wait, mostly patiently.",
+                        "The book comes out again. Somebody checks their phone while you read." },
+    -- (a friend who doesn't much mind comes round at a fork)
+    easy = { "Fine, {way}. I'm easy.", "{Way} works for me.", "Okay, {way}. Lead on.", "Sure. {Way} it is." },
+    improv_again = { "No notes for this one either. You wing it, short and sweet.", "Another one you make up as you go. A few strokes, and on.",
+                     "Winging it again. Nobody at the table can tell." },
+    -- (how a night ends when you call it)
+    close = { "You close the book. \"And that's where we stop tonight.\"", "You put the pencil down. \"That's where we leave it tonight.\"",
+              "You close the book on your notes. \"Let's stop there for tonight.\"" },
+    stop_fight = { "A good place to stop. Dice go back in their bags with a happy rattle.",
+                   "A good place to stop, right after a fight. Everyone's still buzzing.",
+                   "Off the back of a fight, a fine place to stop. High fives all round." },
+    stop_flat = { "It peters out a bit. Somebody asks if that's it.", "It fizzles a little. Somebody checks the time.",
+                  "A slightly flat stop. Somebody says \"Oh. Okay.\"" },
+}
+
+-- What the heroes did while the table took its break, by your pick: three or more ways each, since
+-- the break comes every week (R3: "Twenty minutes of pizza and gossip..." every week).
+M.BREAK_LOGS = {
+    nothing = { "Twenty minutes of pizza and gossip. Everyone comes back a bit happier and a bit sleepier.",
+                "Twenty minutes of snacks and somebody's holiday photos. Everyone's back, crumbs and all.",
+                "A proper break: pizza, a stretch, and a long argument about the best kind of dice.",
+                "Twenty minutes off. Somebody tells the story of their week. Everyone comes back warm." },
+    short = { "While the pizza goes round, the party sits with their backs to a wall for an hour.",
+              "While the table eats, the heroes catch their breath: an hour with their boots off.",
+              "An hour in the museum while the pizza goes round: bandages, water, a quiet sit." },
+    long = { "The party beds down for the night. By the time the pizza's gone, they've slept eight hours.",
+             "The heroes sleep the night through while the table eats. They wake up stiff, and whole.",
+             "Eight hours of sleep in the museum, in the time it takes to finish the pizza." },
+    research = { "Somebody gets the notes out. By the time the pizza's done, there's a plan, sort of.",
+                 "Notebooks open between the pizza boxes. By the end of the break, there's a plan. Mostly.",
+                 "The break turns into a study session: the museum, the Gorgon, and a lot of arrows on paper." },
+}
 M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
 M.BREAK_MIN = 20           -- table minutes it takes
 
@@ -3142,20 +3235,24 @@ function M.maybe_break(night, before_boss)
                    title = "Let's take a break",
                    text = "Twenty minutes of pizza, stretching and gossip. Is anything happening in the game while you're all away from the table?",
                    options = {
-                       { label = "Nothing. It's just a break.", log = "Twenty minutes of pizza and gossip. Everyone comes back a bit happier and a bit sleepier.",
+                       { label = "Nothing. It's just a break.", break_log = "nothing",
                          effects = { { "all", social = 3, fun = 2 } } },
                        { label = "They take a short rest while we eat.", sub = "An hour in the game: Hit Dice, Second Wind, Channel Divinity, Arcane Recovery.",
-                         log = "While the pizza goes round, the party sits with their backs to a wall for an hour.", rest = "short",
+                         break_log = "short", rest = "short",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:tactician", fun = 2 } } },
                        { label = "They take a long rest here.", sub = safe and "A full night's sleep: everything back." or "Nowhere here is safe enough to sleep.",
                          disabled = not safe, rest = "long",
-                         log = "The party beds down for the night. By the time the pizza's gone, they've slept eight hours.",
+                         break_log = "long",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:butt_kicker", challenge = -2 } } },
                        { label = "They read up: the museum, the Gorgon, their notes.", sub = "The next two rolls tonight get +2: they did their homework.",
-                         log = "Somebody gets the notes out. By the time the pizza's done, there's a plan, sort of.", research = 2,
+                         break_log = "research", research = 2,
                          effects = { { "arch:storyteller", fun = 3, story = 3 }, { "arch:tactician", fun = 3 }, { "arch:butt_kicker", fun = -1 } } },
                    } }
     local o = night:decision(card)
+    if o and o.break_log then
+        -- (Picked after the call, so only the line that's said is remembered: R2.)
+        night:say(night:fresh(M.BREAK_LOGS[o.break_log], "break_" .. o.break_log), "dm")
+    end
     night.table_min = (night.table_min or 0) + M.BREAK_MIN
     for _, p in ipairs(night.players) do
         score.add(p, "boredom", -6)

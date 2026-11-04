@@ -340,13 +340,24 @@ M.reinforcements = {
 }
 -- Once a night, as the first fight starts (museum_night.arm), when they hold: what the week
 -- between left them with. no_sneak: nobody gets the drop on anyone this time.
+-- (lines: other ways to say it, fresh across weeks. One that changes nothing, like the shoelace, isn't
+-- said two weeks running: the second playtest review heard the same pair at every fight.)
 M.asides = {
     { id = "fussed", when = { flag = "fussed" }, no_sneak = true,
-      text = "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything." },
+      text = "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything.",
+      lines = { "Flitwidget's voice floats up from somewhere below: \"Everything all right up there? Anybody dead?\" So much for sneaking up on anything.",
+                "From somewhere downstairs: \"Coo-ee! Just checking you're all alive!\" Whatever's in here heard that too.",
+                "Flitwidget calls up the stairs to ask if anyone wants tea. Loudly. So much for the element of surprise." } },
     { id = "shoelace", when = { flag = "shoelace" },
-      text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked." },
+      text = "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked.",
+      lines = { "Pip's talking shoelace, one of Telpur's, has advice for everyone. Nobody asked.",
+                "Pip's shoelace pipes up with a battle plan. It's mostly about knots.",
+                "The talking shoelace on Pip's boot tells everyone to stand up straight." } },
     { id = "telpur", when = { flag = "telpur_along" }, no_sneak = true,
       text = "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming.",
+      lines = { "Telpur, tied to a pack strap, has opinions about every exhibit, out loud. Whatever's in here knows they're coming.",
+                "Telpur, swinging from a pack strap, announces the party at the top of his voice. So much for creeping in.",
+                "Telpur hums a marching song from the pack strap. Loudly. Nothing in here is going to be surprised." },
       -- (Upstairs she already knows, and she's right there: the second playtest review.)
       in_room = { lair = "Telpur, tied to a pack strap, tells Euryale exactly what he thinks of her couch. Loudly. To her face." } },
 }
