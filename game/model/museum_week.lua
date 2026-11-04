@@ -630,6 +630,15 @@ function M.after_night(c, night, rep)
         francs_spent = math.max(0, (mus.francs_start or st.francs or 0) + (mus.francs_earned or 0) - (st.francs or 0)),
         got = mus.got or {},
     }
+    -- From the event log (R7, R14): what was lifted tonight (it's in someone's pack, and the report says
+    -- so), and the night told as a chain of what led to what, with how well it hangs together.
+    local events = require "game.model.events"
+    rep.museum.lifted = {}
+    for _, ev in ipairs(events.find(c, { kind = "steal", outcome = "got", session = c.week })) do
+        table.insert(rep.museum.lifted, { text = ev.text, who = ev.who, thing = ev.thing })
+    end
+    rep.museum.chain = (events.chain(c, c.week))
+    rep.museum.measure = events.measure(c, c.week)
     if night.ended_on_cliff then
         rep.museum.stopped = c.last_cliff
     end

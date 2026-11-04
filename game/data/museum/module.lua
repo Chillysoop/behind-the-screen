@@ -40,6 +40,7 @@ local M = {}
 -- time (2 to 13): at these prices about two in three can buy one thing, one in four could buy two,
 -- almost none all three, and one in twelve can't buy anything yet. Change a price here and nowhere else.
 local PRICE = { tenets = 4, manual = 4, arrows = 5 }
+M.PRICE = PRICE           -- (Telpur's price on the day reads these: what he thinks of them moves it, people.price)
 local function priced(label, n)
     return label .. " (" .. n .. " Francs)"
 end
@@ -406,6 +407,68 @@ M.recap = {
                alone = { moment = "mus_alone", options = { 1, 3 }, who = "jess",
                          text = "waited at the foot of the stairs while {char} crept up alone for a look" } },
     lair = { win = "faced Euryale", lose = "faced Euryale, and she sent them back down the stairs" },
+}
+
+-- The night as a chain (R14: game/model/events.lua, the session report and the journey recap): each
+-- beat told as a short clause, joined to the beat it follows from with "so" or "but". rooms: walking
+-- into a room, where "they went into ..." doesn't read. Then each moment's options, by their place on
+-- the card: did (what was done), ok (when its roll worked), fail (what went wrong: a beat of its own,
+-- "but"); false: not a beat (a call that changes nothing in the story). An option missing here is
+-- told from its `want` ("set the bushes on fire": "they set the bushes on fire"). {char}: the hero.
+M.beats = {
+    rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",
+              street = "they met Flitwidget in the street" },
+    mus_truth = { { did = "{char} pressed Flitwidget for the truth", ok = "{char} got the truth out of Flitwidget",
+                    fail = "Flitwidget changed the subject to the gift shop" },
+                  "Flitwidget told them about the Gorgon anyway" },
+    mus_francs_intro = { false, false },
+    mus_plaque = { "they doused the hedges with pond water", "they set the bushes on fire", "they went at the hedges with steel" },
+    mus_pond = { { did = "{char} leaned over the dark pond", ok = "{char} fished a little brass key out of the pond",
+                   fail = "a tentacle dragged {char} into the pond" }, false },
+    mus_box = { "they dropped a coin in the donation box", "{char} went for the donation box's lock" },
+    mus_box_lock = { { did = "{char} picked the lock with the guard right there", ok = "{char} emptied the donation box",
+                       fail = "the pick snapped, and the Sentinel turned round" }, false },
+    mus_tablet = { { did = "they tried the old ritual", ok = "they stilled the guardian with the old ritual",
+                     fail = "the glyphs swam, and it came to blades" }, "they skipped the tablet and fought the guardian" },
+    mus_falcon = { "the falcon jar flung {char} across the room", false },
+    mus_tidy = { "they tidied up for Flitwidget", "{char} kept the twin daggers", false },
+    mus_reach = { { did = "{char} reached into a wet painting", ok = "{char} pulled something out of a painting",
+                    fail = "the painting bit {char}" }, false },
+    mus_dice_painting = { false, false },
+    mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
+    mus_return_paint = { "they put the painted weapons back", "they kept the painted weapons until they dripped away" },
+    mus_telpur_bit = { "{char} did Telpur's voice, all of it", false },
+    mus_tracks = { "they followed the scratch marks, weapons out", "they went round and made the hunters come to them" },
+    mus_mirror = { "{char} took one of the mirror-bright cupboard doors", "they left the exhibits alone" },
+    mus_office_door = { "they tried the brass key from the pond on the office door",
+                        { did = "they shouldered the office door", fail = "the door held, and opening it took a lot of noise" },
+                        { did = "{char} picked the office lock", fail = "the pick snapped, and a shoulder did it in the end" } },
+    mus_office_inside = { false, false },
+    mus_whispers = { { did = "a voice whispered in the dark to {char}", ok = "{char} shook off the whispers",
+                       fail = "something old learned {char}'s name" }, "a voice in the dark said {char}'s name" },
+    mus_code = { { did = "{char} raced the clock for the Mech's code", ok = "{char} woke the Steam Mech",
+                   fail = "the Mech's panel snapped shut" },
+                 { did = "{char} worked at the Mech's code", ok = "{char} woke the Steam Mech",
+                   fail = "the code changed, and the Mech stayed a statue" },
+                 { did = "{char} raced the clock for the Mech's code", ok = "{char} woke the Steam Mech",
+                   fail = "the Mech's panel snapped shut" } },
+    mus_hyper = { { did = "they flipped the Mech's red switch", ok = "the Mech's red switch worked, once",
+                    fail = "the Mech overheated and burnt out" }, "they saved the red switch for the Gorgon" },
+    mus_earplugs = { "{char} blocked out the drone with candle wax", "the wax didn't keep the drone out of {char}'s head" },
+    mus_alone = { "{char} crept up the stairs alone", false, "{char} crept up alone and met Euryale's eyes" },
+    mus_lair_frame = { { did = "{char} reached into the frame behind her couch", ok = "{char} pulled a painted blade out of the frame",
+                         fail = "the frame bit {char}" }, "they forgot the frame and drew steel" },
+    mus_drink = { { did = "{char} drank Euryale's wine", ok = "{char} drank Euryale's wine and kept a clear head",
+                    fail = "the wine charmed {char}" }, "nobody drank Euryale's wine" },
+    mus_ultimatum = { "they chose to fight her",
+                      { did = "they offered to find her sisters", ok = "they talked of her sisters, and she listened",
+                        fail = "she wouldn't hear about her sisters" },
+                      { did = "they offered her a cut of the donation box", ok = "she took a cut of the donation box",
+                        fail = "she laughed at the offer of the donation box" },
+                      { did = "they handed her a page of the Lecturer's notes", ok = "she read the Lecturer's notes and fell asleep",
+                        fail = "she'd read the Lecturer's notes before" },
+                      { did = "they asked what she really wanted", ok = "they talked her round", fail = "she wouldn't be talked round" } },
+    mus_yield = { "they let her go", "they made her a deal: her sisters, for her help", "{char} finished it" },
 }
 
 -- How the rooms join, door to door, as on the book's maps (each way). The party walks through
@@ -892,7 +955,8 @@ M.moments = {
                      success = { log = "The Mech swells, missiles pop out of its shoulders, and it shuts itself down again before anything explodes. Impressive. Terrifying. The switch is scorched: it won't do that again for a while.",
                                  effects = { { "actor", fun = 8 }, { "arch:power_gamer", fun = 5 } }, mus = { risk = true, flag = "hyper_spent" } },
                      fail = { log = "It overheats with a shriek of steam and a smell of burnt clockwork. The Mech won't be walking anywhere now.",
-                              effects = { { "actor", fun = 2 }, { "arch:tactician", fun = -4 } }, mus = { risk = true, harsh = true, unmark = "mech", flag = "mech_burnt", aspect = "Burnt out the Steam Mech" } } } },
+                              effects = { { "actor", fun = 2 }, { "arch:tactician", fun = -4 } }, mus = { risk = true, harsh = true, unmark = "mech", flag = "mech_burnt", aspect = "Burnt out the Steam Mech",
+                                                                                                    deeds = { { kind = "break", whom = "flitwidget", thing = "the Steam Mech" } } } } } },
           { label = "\"Save it for the Gorgon.\"", want = "save it for the Gorgon",
             log = "{actor_char} snaps the panel shut. For the Gorgon.",
             effects = { { "arch:tactician", fun = 4 }, { "arch:instigator", fun = -2 } }, mus = { warn = true, flag = "hyper_saved" } },
@@ -986,6 +1050,12 @@ M.npc_sheet = {
 -- sprite: a pet's own mini (a person's comes from their cast card or stat block).
 -- Table life: small moments that play themselves (game/model/table_life.lua), room by room.
 M.table_life = require "game.data.museum.table_life"
+-- Who remembers what the party did, what they say about it, and the friends' own ideas (R11, R12,
+-- R13: game/model/people.lua, game/model/ideas.lua).
+do
+    local P = require "game.data.museum.people"
+    M.people_memory, M.people_lines, M.people_about, M.ideas = P.memory, P.lines, P.about, P.ideas
+end
 
 M.companions = {
     order = { "exhibit_b", "telpur" },
@@ -1061,46 +1131,46 @@ M.explore = {
 }
 
 M.marks = {
-    topiary = { name = "Topiary at her couch", why = "Briar Guardians left standing in the garden", from = { "garden" },
+    topiary = { chain = "a hedge-beast went up to wait at her couch", name = "Topiary at her couch", why = "Briar Guardians left standing in the garden", from = { "garden" },
                 showdown = "A Briar Beast fights beside her", foe = "briar_beast",
                 thought = "One of my hedges is still standing. Come here, kitten." },
-    garden_burned = { party = true, name = "She smelled the smoke", why = "They set her garden on fire",
+    garden_burned = { chain = "Euryale smelled the smoke upstairs", breaks = "his garden", party = true, name = "She smelled the smoke", why = "They set her garden on fire",
                       showdown = "She skips the drink and the small talk", talk = -2,
                       thought = "Fire. How crude. I liked that garden." },
-    robbed = { party = true, name = "Thieves, like her", why = "They tried to rob the donation box",
+    robbed = { chain = "word reached Euryale that they were thieves, like her", party = true, name = "Thieves, like her", why = "They tried to rob the donation box",
                showdown = "They can offer her a cut of the box to leave", thought = "They tried the gnome's little money box. Oh, I like them already." },
-    scarabs = { name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
+    scarabs = { chain = "its scarabs crawled up through the walls to her", breaks = "the Bone Construct", name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
                 thought = "They smashed the old guardian. Its beetles are mine now." },
-    calmed = { party = true, name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
+    calmed = { chain = "Euryale had one guard fewer", party = true, name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
                showdown = "Nothing comes up from below to help her", talk = 1,
                thought = "They did the water ritual properly. Nobody does it properly." },
-    knight = { name = "A knight in a frame", why = "The Knight of Shades was never woken",
+    knight = { chain = "the knight went to wait in a frame in her lair", name = "A knight in a frame", why = "The Knight of Shades was never woken",
                why_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "The Knight of Shades got away from them" } },
                thought_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "My knight came crawling back into a frame up here. They'll meet him again." } },
                showdown = "The Knight steps out of a painting in her lair", foe = "knight_of_shades",
                thought = "They walked straight past my knight. He'll keep." },
-    pack = { name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
+    pack = { chain = "the huntlings that ran went to her", name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
              showdown = "The survivors hunt beside her", foe = "kruthik_huntling",
              thought = "The little hunters came running to me. Good dogs." },
-    mirror = { party = true, name = "A mirror in their packs", why = "They took a polished cupboard door",
+    mirror = { chain = "they had a mirror she would have to face", party = true, name = "A mirror in their packs", why = "They took a polished cupboard door",
                showdown = "Her stare can be turned back on her", opt = "mirror",
                thought = "One of them took a cupboard door. Why would anyone take a door?" },
-    know = { party = true, name = "They know what she is", why = "They read up on gorgons",
+    know = { chain = "they knew what she was", party = true, name = "They know what she is", why = "They read up on gorgons",
              showdown = "They know to look away, and about her sisters", opt = "averted",
              thought = "Someone downstairs is reading about my kind. How flattering. How annoying." },
-    bracelet = { party = true, name = "A bracelet of protection", why = "Flitwidget slipped them one",
+    bracelet = { chain = "Flitwidget gave them a bracelet against her stare", party = true, name = "A bracelet of protection", why = "Flitwidget slipped them one",
                  showdown = "Advantage on saves against her stare", opt = "averted",
                  thought = "The gnome gave them a trinket. How sweet. We'll see what it's worth." },
-    mech = { party = true, name = "A machine on their side", why = "They woke the Steam Mech",
+    mech = { chain = "the Steam Mech was on their side", unchain = "the Steam Mech was on nobody's side any more", party = true, name = "A machine on their side", why = "They woke the Steam Mech",
              showdown = "The Mech fights for them, and she goes for its commander", ally = "steam_mech",
              thought = "The gnome's toy is walking about. It's pointed at me, isn't it." },
-    drone = { name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
+    drone = { chain = "the Lecturer's drone went on through the floors", unchain = "the drone through the floor stopped", name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
               showdown = "They come up half asleep: they lose their edge against her charm", opt = "drowsy",
               thought = "The bore is still droning. They'll come up here half asleep." },
-    pages = { party = true, name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
+    pages = { chain = "they kept pages that put readers to sleep", party = true, name = "Sleeping pages", why = "They took the Lecturer's notes", from = { "lecture" },
               showdown = "A trick: get her to read one", thought = "They silenced the bore and kept his notes. Clever, or just tidy?" },
-    careful = { party = true, name = "Careful hands", why = "They were gentle with the exhibits",
+    careful = { chain = "Euryale noticed their careful hands", party = true, name = "Careful hands", why = "They were gentle with the exhibits",
                 showdown = "She's curious about them, and easier to talk round", talk = 2,
                 thought = "They put my exhibits back where they found them. Who does that?" },
 }
@@ -1255,6 +1325,10 @@ M.items = {
       text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page." },
     { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
       text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
+    -- (Lifted off Telpur's shelf, not bought: R13. It works like the ones he sells, for as long as they hold it.)
+    { id = "arrows_lifted", when = { holds = "arrows_lifted" }, opt = "fire_arrows", once = true, name = "a quiver of fire arrows, lifted", carry = true,
+      text = "A quiver of Telpur's fire arrows, off his bottom shelf and never paid for: every hero's first weapon hit each turn burns. Enough for one fight.",
+      line = "{holder} hands round the fire arrows nobody paid for: every hero's first weapon hit each turn burns, this fight only." },
     { id = "shoelace", when = { flag = "shoelace" }, name = "Telpur's talking shoelace", carry = true, to = "jess",
       text = "One of Telpur's own laces, a present from the gift shop. It talks. It has opinions about everything." },
 }
@@ -1581,24 +1655,24 @@ M.lead_order = { "knight_of_shades", "briar_beast", "giant_scarab_swarm", "kruth
 
 -- How the prologue ends, by how they dealt with Euryale.
 M.endings = {
-    fallen = { name = "Euryale falls",
+    fallen = { chain = "the museum was Flitwidget's again", name = "Euryale falls",
                line = "She crumples as she falls, and whatever she was slips away into the gaps in the floor like smoke. Only a purple robe, a white hood and an emerald bow are left.",
                -- (How she fell changes what's left: her own reflection turned her to stone.)
                stone_line = "Euryale stands where the mirror caught her, stone from hood to bow. Around the lair, the other statues start to soften back into people.",
                flit = "\"Splendid! Though I wouldn't bet my caravan she's gone for good. Her kind have a habit of coming back.\"" },
-    bargain = { name = "A bargain with a Gorgon",
+    bargain = { chain = "they struck a bargain with Euryale, and she left the museum", name = "A bargain with a Gorgon",
                 line = "Euryale leaves the museum with a promise: they'll look for two clay jars, and she'll owe them a favour.",
                 flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"" },
-    escape = { name = "Euryale slips away",
+    escape = { chain = "Euryale slipped away", name = "Euryale slips away",
                line = "Euryale is gone through the black curtain, out into the world. The statues in the lair start to soften back into people. Somewhere out there, a Gorgon is loose: a problem for another night.",
                flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly.\"" },
-    slept = { name = "Euryale, asleep",
+    slept = { chain = "Euryale slept, and they carried her out", name = "Euryale, asleep",
               line = "They carry Euryale out through the black curtain, snoring softly, and leave her somewhere far from the museum. The statues in the lair start to soften back into people.",
               flit = "\"Asleep? On a lecture? I always said it was a very good lecture.\"" },
-    ally = { name = "An unlikely ally",
+    ally = { chain = "Euryale came over to their side", name = "An unlikely ally",
              line = "Euryale stays, as curator of her own quiet wing. The statues soften back into people, blinking, one by one.",
              flit = "\"Co-curators? I... suppose she does have an eye for arrangement.\"" },
-    timeout = { name = "Still upstairs",
+    timeout = { chain = "Euryale stayed upstairs", name = "Still upstairs",
                 line = "Weeks went by and Euryale is still upstairs. Flitwidget packs up the caravan and moves on, very carefully.",
                 flit = "\"Perhaps we come back to this one.\"" },
 }

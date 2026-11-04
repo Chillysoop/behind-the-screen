@@ -19,8 +19,42 @@
 --                      gone = week, destroyed, introduced = week }... }
 
 local util = require "game.model.util"
+local events = require "game.model.events"
 
 local M = {}
+
+-- Every thing that changes hands is an event in the log (R7: game/model/events.lua): what, who has it
+-- now, how they got it (found, bought, given, stolen, off someone beaten), from whom, and the moment it
+-- followed from. The inventory owns what each hero carries; the log owns how it got there.
+local starting = false
+local GOT = { found = "came away with", bought = "bought", given = "was given", stolen = "lifted", drop = "came away with" }
+local function log_get(campaign, it, whom, how_got)
+    if starting or how_got == "start" or not campaign then
+        return
+    end
+    local p = it.holder and campaign.player and campaign:player(it.holder)
+    local about = M.about(it)
+    local t = it.thing and M.thing(it.thing)
+    local name = (t and util.lower_first(t.name or t.title)) or (about.magic and ("the " .. string.lower(about.name or "thing")))
+        or util.lower_first(about.name or "something")
+    local cause = events.cause(campaign)
+    -- (A beat of its own only when nothing else tells it: a moment's choice already says what they
+    -- took, and a theft is told by the theft.)
+    local by_moment = cause and (events.get(campaign, cause) or {}).handing
+    local text
+    if p then
+        if how_got == "stolen" and whom then
+            local who = whom.short or whom.name or "someone"
+            text = p.char .. " lifted " .. name .. " off " .. who
+        else
+            text = p.char .. " " .. (GOT[how_got] or "came away with") .. " " .. name
+        end
+    end
+    events.add(campaign, { kind = "get", who = it.holder, whom = whom and whom.id or nil, thing = it.thing or it.id, how_got = how_got,
+                           entry = it, from = cause, beat = (p and how_got ~= "bought" and how_got ~= "stolen" and not by_moment and campaign.night ~= nil) or nil,
+                           text = text })
+end
+M.log_get = log_get
 
 local function data()
     return require "game.rules.data.magic_items"
@@ -128,7 +162,8 @@ end
 
 -- A thing changes hands: into a hero's inventory. A non-stacking thing they already have isn't
 -- given twice. holder: a player key (nil: the thing's own `to`, else the first friend at the table).
-function M.give(campaign, id, holder, from)
+-- whom: who it came from, for the log (one of the museum's people, as npcs.lua has them: { id, name }).
+function M.give(campaign, id, holder, from, whom)
     local t = M.thing(id)
     if not t then
         return nil
@@ -154,6 +189,7 @@ function M.give(campaign, id, holder, from)
         it.count = 1
     end
     table.insert(M.list(campaign), it)
+    log_get(campaign, it, whom, it.from)
     return it
 end
 
@@ -164,6 +200,10 @@ function M.use(campaign, id, holder)
             it.count = it.count and (it.count - 1) or nil
             if not it.count or it.count <= 0 then
                 it.gone = campaign.week or 0
+            end
+            if not starting then
+                events.add(campaign, { kind = "use", who = it.holder, thing = it.thing or it.id, entry = it, gone = it.gone ~= nil or nil,
+                                       from = events.cause(campaign) })
             end
             return it
         end
@@ -179,6 +219,15 @@ function M.start(campaign)
         return
     end
     campaign.items_started = true
+    starting = true             -- (what a hero starts with, or an old save held, isn't news: not logged as found)
+    local ok, err = pcall(M.start_body, campaign)
+    starting = false
+    if not ok then
+        error(err, 0)
+    end
+end
+
+function M.start_body(campaign)
     local party = require "game.rules.party"
     local ps = campaign.party_state
     for _, p in ipairs(campaign.players or {}) do
@@ -292,8 +341,9 @@ function M.pick_holder(campaign, id, players)
     return nil
 end
 
--- The party earns an item. Returns the entry and who carries it.
-function M.earn(campaign, id, players)
+-- The party earns an item. Returns the entry and who carries it. how_got, whom: for the log (found,
+-- or off someone beaten: "drop"; stolen, and who from).
+function M.earn(campaign, id, players, how_got, whom)
     local d = M.def(id)
     if not d then
         return nil
@@ -308,7 +358,9 @@ function M.earn(campaign, id, players)
     if d.effect.charges then
         it.charges = d.effect.charges.n
     end
+    it.from = how_got or it.from
     table.insert(M.list(campaign), it)
+    log_get(campaign, it, whom, it.from)
     return it, p
 end
 

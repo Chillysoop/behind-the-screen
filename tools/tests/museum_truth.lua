@@ -315,6 +315,21 @@ local function play(seed, style)
         local francs_before = c.adv.francs or 0
         local stopped_in = c.adv.pos or c.adv.last_room
         local learned = {}
+        -- Lines from the museum's people that say what they know (R11), to check against the log.
+        local people_heard = {}
+        local KNOWS = {}
+        for pid, moments in pairs(MODULE.people_lines or {}) do
+            for _, entries in pairs(moments) do
+                for _, e in ipairs(entries) do
+                    local k = e.when and e.when.knows
+                    if k then
+                        for _, t in ipairs(type(e.text) == "table" and e.text or { e.text }) do
+                            KNOWS[t] = { who = k.who, kind = k.kind }
+                        end
+                    end
+                end
+            end
+        end
         local ev = night:advance()
         local guard = 0
         while ev.kind ~= "done" and guard < 5000 do
@@ -362,6 +377,14 @@ local function play(seed, style)
                 learned[ev.actor] = nil
             end
             francs_before = c.adv.francs or 0
+            if text and ev.kind == "npc" then
+                for line, k in pairs(KNOWS) do
+                    local pat = "^" .. string.gsub(string.gsub(line, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char}", ".-") .. "$"
+                    if string.find(text, pat) then
+                        table.insert(people_heard, { who = k.who, kind = k.kind, text = text })
+                    end
+                end
+            end
             if text then
                 if not adventure.fits(text) then
                     fail(tag .. " week " .. w .. ": a line from outside the adventure: '" .. text .. "'")
@@ -518,6 +541,85 @@ local function play(seed, style)
             fail(tag .. ": a night never ended")
         end
         local rep = c:finish_night()
+        -- The event log (R7) against what the night said and what the state holds.
+        do
+            local events_mod = require "game.model.events"
+            local people_mod = require "game.model.people"
+            for _, ev in ipairs(events_mod.find(c, { session = c.week })) do
+                -- A thing that changed hands is in the pack the log says (or used up there).
+                if ev.kind == "get" and ev.entry then
+                    local found = false
+                    for _, e in ipairs(items_mod.list(c)) do
+                        found = found or e == ev.entry
+                    end
+                    if not found then
+                        fail(tag .. " week " .. w .. ": the log has " .. tostring(ev.thing) .. " going to " .. tostring(ev.who) .. ", and nobody's pack has it")
+                    elseif ev.entry.holder ~= ev.who and not ev.entry.gone then
+                        fail(tag .. " week " .. w .. ": the log gives " .. tostring(ev.thing) .. " to " .. tostring(ev.who) .. ", the pack says " .. tostring(ev.entry.holder))
+                    end
+                end
+                -- A theft that worked put the thing in the thief's pack; one that didn't was seen.
+                if ev.kind == "steal" and ev.outcome == "got" then
+                    local has = false
+                    for _, e in ipairs(items_mod.list(c)) do
+                        has = has or ((e.thing == ev.thing or e.id == ev.thing) and e.holder == ev.who)
+                    end
+                    if not has then
+                        fail(tag .. " week " .. w .. ": '" .. tostring(ev.text) .. "', and it isn't in their pack")
+                    end
+                    local listed = false
+                    for _, l in ipairs((rep.museum or {}).lifted or {}) do
+                        listed = listed or l.text == ev.text
+                    end
+                    if not listed then
+                        fail(tag .. " week " .. w .. ": '" .. tostring(ev.text) .. "', and the report doesn't say so")
+                    end
+                elseif ev.kind == "steal" and ev.outcome == "caught" and not (ev.seen and ev.seen[ev.whom]) then
+                    fail(tag .. " week " .. w .. ": a theft caught with nobody seeing it")
+                end
+                -- Telpur's prices moved only for something he knows about.
+                if ev.kind == "price" then
+                    local lv = people_mod.level(c, "mus_telpur")
+                    if (ev.n > 0 and people_mod.RANK[lv] >= 0) or (ev.n < 0 and people_mod.RANK[lv] < 2) then
+                        fail(tag .. " week " .. w .. ": Telpur moved his prices " .. ev.n .. " while he's " .. lv)
+                    end
+                end
+                -- A linked beat follows from something earlier in the log.
+                if ev.from and not (events_mod.get(c, ev.from) and ev.from < ev.id) then
+                    fail(tag .. " week " .. w .. ": " .. ev.kind .. " beat follows from an event that isn't before it")
+                end
+            end
+            -- Every mark on her card is in the log, and nothing the log took off is on it.
+            for _, id in ipairs(c.adv.mark_list) do
+                local on = events_mod.last(c, { kind = "mark", thing = id })
+                local off = events_mod.last(c, { kind = "unmark", thing = id })
+                if not on then
+                    fail(tag .. " week " .. w .. ": mark '" .. id .. "' is on her card and not in the log")
+                elseif off and off.id > on.id then
+                    fail(tag .. " week " .. w .. ": mark '" .. id .. "' came off in the log, and it's still on her card")
+                end
+            end
+            -- Each fight the night played is in the log, ending the way the scene says it did.
+            for _, sc in ipairs(night.scenes or {}) do
+                local fev = sc.fight_ev and events_mod.get(c, sc.fight_ev)
+                if sc.result and not fev then
+                    fail(tag .. " week " .. w .. ": a fight in " .. tostring(sc.room) .. " that isn't in the log")
+                elseif fev then
+                    if (fev.outcome == "won") ~= (sc.result.winner == "party") then
+                        fail(tag .. " week " .. w .. ": the log says the fight in " .. sc.room .. " was " .. fev.outcome .. ", the fight says " .. tostring(sc.result.winner))
+                    end
+                    if (fev.fate == "dead") ~= (sc.boss_dead ~= nil) or (fev.fate == "ran") ~= (sc.boss_ran ~= nil) then
+                        fail(tag .. " week " .. w .. ": the log's boss fate " .. tostring(fev.fate) .. " isn't the fight's")
+                    end
+                end
+            end
+            -- The people's lines that say what they know: the log says they know it.
+            for _, t in ipairs(people_heard) do
+                if not people_mod.knows_of(c, t.who, t.kind) then
+                    fail(tag .. " week " .. w .. ": " .. t.who .. " said '" .. t.text .. "' without knowing of any " .. t.kind)
+                end
+            end
+        end
         -- (Something found means the report says so; nobody ends the night on 0 HP or as stone.)
         if found_tonight and rep and rep.museum and #(rep.museum.got or {}) == 0 and (rep.museum.francs_tonight or 0) == 0 then
             fail(tag .. " week " .. w .. ": a prize was found tonight, but the report says nothing was picked up")

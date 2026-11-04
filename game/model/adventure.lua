@@ -398,11 +398,37 @@ end
 
 -- Conditions on moments and options ------------------------------------------------------------
 
-function M.test(campaign, cond, knobs)
+-- hero: the player key a line is about (an `opinion` of "actor" means what they think of this hero).
+function M.test(campaign, cond, knobs, hero)
     if not cond then
         return true
     end
     local st = campaign.adv
+    -- What the museum's people think, and know, read from the event log (R7, R11: people.lua):
+    -- opinion = { who, of = hero key | "actor" | nil (the party), at_least, at_most }; knows = { who,
+    -- kind, by = hero key | "actor", to = true (done to them) }; event = { kind, ... } (it's in the log).
+    if cond.opinion then
+        if not require("game.model.people").test(campaign, cond.opinion, hero) then
+            return false
+        end
+    end
+    if cond.knows then
+        local k = cond.knows
+        local by = k.by == "actor" and hero or k.by
+        if not require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to) then
+            return false
+        end
+    end
+    if cond.not_knows then
+        local k = cond.not_knows
+        local by = k.by == "actor" and hero or k.by
+        if require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to) then
+            return false
+        end
+    end
+    if cond.event and not require("game.model.events").any(campaign, cond.event) then
+        return false
+    end
     if cond.knob and not (knobs and knobs[cond.knob]) then
         return false
     end
@@ -505,9 +531,21 @@ function M.memory(campaign, id)
     return out
 end
 
+-- Something the party did that one of them would know about: a deed in the log (R7), not a copy.
 function M.deed(campaign, id, deed)
-    local n = M.meet(campaign, id)
-    n.deeds[deed] = n.deeds[deed] or (campaign.week or 1)
+    M.meet(campaign, id)
+    require("game.model.events").add(campaign, { kind = "harm", who = "party", whom = id, deed = deed, seen = { [id] = true } })
+end
+
+-- How much goodwill one of the museum's people has from the party's favors (MODULE.favors: who =
+-- "flitwidget" | "telpur"): the favors done for them less the ones done against them, read from the
+-- log (events.lua; an old save's st.favors went into it once, events.start).
+function M.favor(campaign, who)
+    local n = 0
+    for _, ev in ipairs(require("game.model.events").find(campaign, { whom = "mus_" .. who, favor = true })) do
+        n = n + (ev.n or 0)
+    end
+    return n
 end
 
 -- How easy Euryale is to talk round: the marks that make her curious, minus the ones that anger her.
@@ -907,7 +945,9 @@ function M.recap_clause(campaign, step)
         return util.fill(a.text, { char = p and p.char or "one of them" })
     end
     local lose = step.outcome == "lose"
-    if step.fought and rc.fought then
+    -- (Whether its fight happened is the log's to say, R7: a fight there that session.)
+    local fought = require("game.model.events").any(campaign, { kind = "fight", where = step.room, session = step.week })
+    if fought and rc.fought then
         return lose and rc.fought.lose or rc.fought.win
     end
     return lose and rc.lose or rc.win
@@ -940,13 +980,26 @@ end
 
 -- Marks, flags, Francs, favors --------------------------------------------------------------
 
-function M.add_mark(campaign, id, room)
+-- holder: the hero whose doing it was, if anyone's (for the log: whose deed it was).
+function M.add_mark(campaign, id, room, holder)
     local st = campaign.adv
     if not MODULE.marks[id] or st.marks[id] then
         return false
     end
     st.marks[id] = { week = campaign.week, room = room }
     table.insert(st.mark_list, id)
+    -- (In the log: it follows from whatever the night was playing when it landed, R7.)
+    local events = require "game.model.events"
+    local m = MODULE.marks[id]
+    local ev = events.add(campaign, { kind = "mark", who = "party", thing = id, where = (room ~= "loose" and room) or false,
+                                      from = events.cause(campaign), beat = campaign.night ~= nil or nil,
+                                      text = m.chain or ("it went on Euryale's card: " .. util.lower_first(m.name)) })
+    st.marks[id].ev = ev.id
+    -- (A mark that means one of Flitwidget's exhibits is broken is a deed against him: R11.)
+    if m.breaks then
+        events.add(campaign, { kind = "break", who = holder or "party", whom = "mus_flitwidget", thing = m.breaks, from = ev.id,
+                               where = (room ~= "loose" and room) or false })
+    end
     -- (A mark that's something in their packs, the Lecturer's notes, is in someone's: items.lua.
     -- M.apply has already given it to whoever's choice it was; any other way it lands, a holder.)
     local items = require "game.model.items"
@@ -962,6 +1015,11 @@ function M.remove_mark(campaign, id)
     if not st.marks[id] then
         return
     end
+    local events = require "game.model.events"
+    local m = MODULE.marks[id]
+    events.add(campaign, { kind = "unmark", who = "party", thing = id, from = events.cause(campaign) or st.marks[id].ev,
+                           how = "but", beat = campaign.night ~= nil or nil,
+                           text = m and m.unchain or ("it came off Euryale's card: " .. util.lower_first(m and m.name or id)) })
     st.marks[id] = nil
     for i, m in ipairs(st.mark_list) do
         if m == id then
@@ -992,7 +1050,7 @@ function M.apply(campaign, mus, room, holder)
             items.use(campaign, mus.use)
         end
     end
-    if mus.mark and M.add_mark(campaign, mus.mark, room) then
+    if mus.mark and M.add_mark(campaign, mus.mark, room, holder) then
         table.insert(added, mus.mark)
     end
     if mus.unmark then
@@ -1017,8 +1075,23 @@ function M.apply(campaign, mus, room, holder)
             table.insert(added, "careful")
         end
     end
+    -- Siding with someone (a favor) and anything else done for or against one of the museum's people
+    -- is a deed in the log (R7, R11): their goodwill, and what they think of the hero who did it, are
+    -- read from there (game/model/people.lua). st.favors was its own copy; it's the log now.
+    local events = require "game.model.events"
     if mus.favor then
-        st.favors[mus.favor.who] = (st.favors[mus.favor.who] or 0) + mus.favor.n
+        local whom = "mus_" .. mus.favor.who
+        events.add(campaign, { kind = mus.favor.n > 0 and "help" or "harm", who = holder or "party", whom = whom, n = mus.favor.n,
+                               favor = true, seen = { [whom] = true }, where = room ~= "loose" and room or false,
+                               from = events.cause(campaign) })
+    end
+    for _, d in ipairs(mus.deeds or {}) do
+        local whom = d.whom and ((string.find(d.whom, "^mus_") and d.whom) or ("mus_" .. d.whom)) or nil
+        local p = holder and campaign.player and campaign:player(holder)
+        events.add(campaign, { kind = d.kind or "harm", who = holder or "party", whom = whom, n = d.n, thing = d.thing,
+                               seen = whom and d.seen ~= false and { [whom] = true } or {}, where = room ~= "loose" and room or false,
+                               from = events.cause(campaign), beat = d.text and campaign.night ~= nil or nil,
+                               text = d.text and util.fill(d.text, { char = p and p.char or "they" }) or nil })
     end
     if mus.gold then
         st.gold = mus.gold          -- (the reward, as bargained: what the thanks pays out)
@@ -1163,7 +1236,7 @@ function M.prompts(campaign)
         end
     end
     for who, def in pairs(MODULE.favors) do
-        if not st.favor_done[who] and (st.favors[who] or 0) >= MODULE.FAVOR_AT then
+        if not st.favor_done[who] and M.favor(campaign, who) >= MODULE.FAVOR_AT then
             table.insert(out, { kind = "favor", def = def, id = who })
         end
     end
@@ -1415,6 +1488,7 @@ function M.where(campaign)
 end
 
 -- The journey recap at the end: the route, what each room left behind, Euryale's final card.
+M.JOURNEY_CLAUSES = 3        -- (a room's story on the route: its first few beats, one line)
 function M.journey(campaign)
     local st = campaign.adv
     local rooms = {}
@@ -1427,8 +1501,14 @@ function M.journey(campaign)
                     table.insert(marks, MODULE.marks[id].name)
                 end
             end
+            -- (The room's story is the log's: its beats there that session, as a chain, R14; and whether its
+            -- fight happened is a fight in the log, R7.)
+            local events = require "game.model.events"
+            local told = events.chain(campaign, step.week, M.JOURNEY_CLAUSES, step.room)
+            local fought = events.any(campaign, { kind = "fight", where = step.room, session = step.week })
             table.insert(rooms, { id = step.room, name = r.name, week = step.week, outcome = step.outcome, marks = marks,
-                                  at = r.at, fought = (step.fought and r.optional_fight) and r.boss_name or nil })
+                                  at = r.at, fought = (fought and r.optional_fight) and r.boss_name or nil,
+                                  chain = told[1] and (string.gsub(table.concat(told, " "), "%.$", "")) or nil })
         end
     end
     local skipped = {}

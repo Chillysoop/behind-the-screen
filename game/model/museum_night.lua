@@ -15,6 +15,10 @@ local standing = require "game.model.standing"
 local ties = require "game.model.ties"
 local fight = require "game.model.fight"
 
+local events = require "game.model.events"
+local people = require "game.model.people"
+local _ideas = require "game.model.ideas"      -- (reached lazily from table_life.lua: required here so it's built in)
+
 local MODULE = adventure.data
 local M = {}
 
@@ -54,6 +58,114 @@ local function mus_vars(night, sc)
     v.portrait = port
     v.reach_hint = port.hint and (" " .. port.hint) or ""
     return v
+end
+
+-- The event log (R7, R14: game/model/events.lua) ---------------------------------------------------
+-- Every beat the night plays goes in the log with what it follows from: a room walked into for a
+-- reason, the moment a choice came from, what a roll turned. Consequences (a mark, a thing changing
+-- hands, a fight) follow from the cause the night is playing (events.cause).
+
+-- The party's own words for what they chose (an option's `want`, "set the bushes on fire"), as a
+-- clause for the chain: "they set the bushes on fire".
+local PAST = { buy = "bought", reach = "reached", skip = "skipped", save = "saved", give = "gave", work = "worked",
+               leave = "left", forget = "forgot", keep = "kept", douse = "doused", set = "set", flip = "flipped",
+               drop = "dropped", pick = "picked", tidy = "tidied", shoulder = "shouldered", take = "took", go = "went",
+               try = "tried", have = "had", follow = "followed", put = "put", drink = "drank", fight = "fought",
+               let = "let", make = "made", finish = "finished", talk = "talked", read = "read", wake = "woke",
+               smash = "smashed", ask = "asked", help = "helped", hide = "hid", poke = "poked", lift = "lifted" }
+function M.past(phrase)
+    if type(phrase) ~= "string" then
+        return nil
+    end
+    local lead, first, rest = string.match(phrase, "^(just )(%a+)(.*)$")
+    if not lead then
+        lead, first, rest = "", string.match(phrase, "^(%a+)(.*)$")
+    end
+    local v = first and PAST[string.lower(first)]
+    if not v then
+        return nil
+    end
+    rest = string.gsub(rest, "%f[%a]us%f[%A]", "them")
+    rest = string.gsub(rest, "%f[%a]we%f[%A]", "they")
+    return lead .. v .. rest
+end
+
+-- The clause a moment's beat is told with: the adventure's own (MODULE.beats: did, ok when its roll
+-- worked), else the party's want in the past tense. nil: it isn't a beat (a call that changed nothing
+-- in the story: "Not this time").
+local function changes(mus)
+    return type(mus) == "table" and (mus.flag or mus.mark or mus.francs or mus.fight or mus.no_fight or mus.drop or mus.hurt
+        or mus.ending or mus.resolve or mus.spend or mus.careful or mus.favor or mus.unmark or mus.use or mus.deeds) ~= nil
+end
+function M.beat_clause(night, card, o, i, rolled_ok)
+    local b = MODULE.beats and MODULE.beats[card.id]
+    local ob = b and b[i]
+    local who = night.actor and night.actor.char or "they"
+    local subj = card.party and "they" or who
+    local function fill(t)
+        return t and util.fill(t, { char = who, actor_char = who, mech = (st_of(night).mech_name or "the Mech") }) or nil
+    end
+    if type(ob) == "table" then
+        if rolled_ok and ob.ok then
+            return fill(ob.ok)
+        end
+        if ob.did then
+            return fill(ob.did)
+        end
+    elseif type(ob) == "string" then
+        return fill(ob)
+    end
+    if ob == false then
+        return nil
+    end
+    local out = o.roll and (rolled_ok and o.roll.success or o.roll.fail) or nil
+    if not (changes(o.mus) or o.roll or (out and changes(out.mus))) then
+        return nil
+    end
+    -- (Looking round a room: what they went over to.)
+    if card.look then
+        return who .. " had a look at " .. card.look
+    end
+    -- (A roll that didn't come off was a try, not a deed: "they tried to put her to sleep".)
+    if o.roll and not rolled_ok and o.want and string.match(o.want, "^%a+") and PAST[string.lower(string.match(o.want, "^%a+"))] then
+        local w = string.gsub(string.gsub(o.want, "%f[%a]us%f[%A]", "them"), "%f[%a]we%f[%A]", "they")
+        return subj .. " tried to " .. w
+    end
+    local p = M.past(o.want)
+    return p and (subj .. " " .. p) or nil
+end
+
+-- What a card (or one of its options) waits on: the event that made it possible (a flag a moment set,
+-- a mark on her card, a moment that played, a choice on an earlier card). Its beat follows from that.
+local function gate_cause(night, conds)
+    local c = night.campaign
+    for _, cond in ipairs(conds) do
+        if type(cond) == "table" then
+            local ev = (cond.flag and events.last(c, { kind = "moment", flag = cond.flag }))
+                or (cond.flag and events.last(c, { kind = "moment", flag2 = cond.flag }))
+                or (cond.mark and events.last(c, { kind = "mark", thing = cond.mark }))
+                or (cond.seen and events.last(c, { kind = "moment", card = cond.seen }))
+                or (cond.chose and events.last(c, { kind = "moment", card = cond.chose[1] }))
+                or (cond.holds and events.last(c, { kind = "get", thing = cond.holds }))
+            if ev then
+                return ev
+            end
+        end
+    end
+    return nil
+end
+M.gate_cause = gate_cause
+
+-- A beat of the night, written to the log (the room it's in, the hero it's about).
+function M.log_beat(night, ev, sc)
+    sc = sc or night.scene
+    ev.where = ev.where or (sc and sc.room) or nil
+    ev.beat = ev.text ~= nil or nil
+    local e = events.add(night.campaign, ev)
+    if sc and e.beat then
+        sc.last_beat = e.id
+    end
+    return e
 end
 
 -- Building a room's scene -------------------------------------------------------------------------
@@ -204,6 +316,11 @@ function M.handle(night, mus, sc)
     end
     if mus.francs and mus.francs > 0 then
         night.mus.francs_earned = (night.mus.francs_earned or 0) + mus.francs      -- (for the report)
+        -- (A find, in the log: it follows from what they were doing when it turned up.)
+        local who = night.actor
+        M.log_beat(night, { kind = "find", who = who and who.key or "party", thing = "francs", n = mus.francs,
+                            from = events.cause(c),
+                            text = mus.find_text or ((who and who.char or "they") .. " found " .. (mus.francs == 1 and "a Flitwidget Franc" or (util.int(mus.francs) .. " Flitwidget Francs"))) })
     end
     if mus.spend then
         night.mus.bought = true
@@ -212,10 +329,8 @@ function M.handle(night, mus, sc)
     if mus.got then
         M.note_got(night, mus.got)
     end
-    -- What the museum's people would know about, for when they see the party again.
-    for _, d in ipairs(mus.deeds or {}) do
-        adventure.deed(c, d[1], d[2])
-    end
+    -- (What the museum's people would know about, for when they see the party again: mus.deeds,
+    -- logged by adventure.apply, R7.)
     for _, id in ipairs(added) do
         table.insert(night.mus.pending, id)
     end
@@ -314,6 +429,7 @@ function M.handle(night, mus, sc)
     if sc then
         if mus.fight then
             sc.fight_on = true
+            sc.fight_from = events.cause(c)      -- (the fight follows from the choice that started it)
         end
         if mus.no_fight then
             sc.no_fight = true
@@ -487,6 +603,10 @@ function M.reward(night, sc)
         night.mus.room_francs = night.mus.room_francs or {}
         night.mus.room_francs[sc.room] = true
         night.actor = night.actor or night:pick_actor({ "power_gamer", "instigator", "casual" })
+        -- (The room's pay, in the log: it follows from how they got through it.)
+        M.log_beat(night, { kind = "find", who = "party", thing = "francs", n = r.francs, pay = true,
+                            from = sc.fight_ev or sc.last_beat,
+                            text = "Flitwidget's pay came through: " .. (r.francs == 1 and "a Franc" or (util.int(r.francs) .. " Francs")) }, sc)
         night:say(r.said or ("They earn " .. util.lower_first(r.line)), "reward", { francs = tostring(st.francs) })
         return
     end
@@ -569,16 +689,51 @@ function M.play_moment(night, card, sc)
         copy.trigger = "museum_fixed"
     end
     copy.options = {}
+    -- Telpur's prices on the day (R11): the shelf's own (MODULE.PRICE), moved by what he thinks of
+    -- the party now. He says so, and the log has why (a theft he saw, or a friend's discount).
+    local markup = 0
+    if card.shop then
+        local _, d = people.price(night.campaign, 1, "mus_telpur")
+        markup = d
+        if d ~= 0 then
+            local line = people.line(night, "mus_telpur", d > 0 and "price_up" or "price_down")
+            if line then
+                night:emit({ kind = "npc", name = "Telpur", cast = "mus_telpur", text = line })
+            end
+            local why = people.knows_of(night.campaign, "mus_telpur", "steal", nil, true)
+                or events.last(night.campaign, { kind = "help", whom = "mus_telpur" })
+            local ev = M.log_beat(night, { kind = "price", who = "mus_telpur", n = d, from = why,
+                                           text = d > 0 and ("Telpur put his prices up " .. (d == 1 and "a Franc" or (util.int(d) .. " Francs")))
+                                               or "Telpur took a Franc off his prices for them" }, sc)
+            ev.how = why and "therefore" or nil
+        end
+    end
     for _, o in ipairs(card.options) do
         if option_ok(night, o) then
             local oc = o
-            if o.price and (st.francs or 0) < o.price then
+            if o.price and markup ~= 0 and o.mus and o.mus.spend then
+                local price = people.price(night.campaign, o.price, "mus_telpur")
                 oc = {}
                 for k, v in pairs(o) do
                     oc[k] = v
                 end
+                oc.mus = {}
+                for k, v in pairs(o.mus) do
+                    oc.mus[k] = v
+                end
+                oc.price, oc.mus.spend = price, price
+                oc.of = o                   -- (the option as written: what the DM chose, st.chose)
+                oc.label = (string.gsub(o.label, "%(%d+ Francs%)", "(" .. util.int(price) .. " Francs)"))
+            end
+            if oc.price and (st.francs or 0) < oc.price then
+                local was = oc
+                oc = {}
+                for k, v in pairs(was) do
+                    oc[k] = v
+                end
                 oc.disabled = true
-                oc.label = o.label .. " (not enough Francs)"
+                oc.of = was.of or o
+                oc.label = was.label .. " (not enough Francs)"
             end
             table.insert(copy.options, oc)
         end
@@ -720,20 +875,54 @@ function M.play_moment(night, card, sc)
     end
     -- What the DM chose, by the option's place on the card as written: lines later on (a goal's
     -- ending, the group chat, what an NPC remembers) say only what follows from it.
+    local chosen_i
     for i, opt in ipairs(card.options) do
-        if opt.label == o.label or (o.label and opt.label and string.sub(o.label, 1, #opt.label) == opt.label) then
+        if opt == o or opt == o.of or opt.label == o.label or (o.label and opt.label and string.sub(o.label, 1, #opt.label) == opt.label) then
             st.chose[card.id] = i
+            chosen_i = i
             break
         end
     end
+    -- The moment in the log (R7, R14): what was chosen, by whom, and what it follows from (what made
+    -- it possible: a flag, a mark, an earlier card; the moment it follows on from), before what it
+    -- does, so everything it causes follows from it.
+    local c = night.campaign
+    local rolled_ok = o.roll and night.last_roll and true or false
+    local out_pre = o.roll and (rolled_ok and o.roll.success or o.roll.fail) or nil
+    local prev_cause = events.cause(c)
+    local gate = (card.follows_ev and events.get(c, card.follows_ev))
+        or gate_cause(night, { card.when, o.needs, o.when, card.needs })
+    local mev = M.log_beat(night, { kind = "moment", card = card.id, opt = chosen_i, look = card.look and true or nil, who = night.actor and night.actor.key or "party",
+                                    party = card.party or nil, flag = o.mus and o.mus.flag or nil,
+                                    flag2 = out_pre and out_pre.mus and out_pre.mus.flag or nil,
+                                    rolled = o.roll and (rolled_ok and "ok" or "fail") or nil,
+                                    text = M.beat_clause(night, card, o, chosen_i or 0, rolled_ok), from = gate })
+    events.set_cause(c, mev)
+    if sc and mev.beat and not card.look then
+        sc.last_moment = mev.id
+    end
+    mev.handing = true                  -- (what it hands over is told by the moment itself: items.lua)
     M.handle(night, o.mus, sc)
     local got = gained(o.mus)
     local out
     if o.roll then
         out = night.last_roll and o.roll.success or o.roll.fail
+        -- (A roll that went wrong turns the moment: a beat of its own, "but".)
+        if not night.last_roll then
+            local b = MODULE.beats and MODULE.beats[card.id]
+            local fb = b and type(b[chosen_i or 0]) == "table" and b[chosen_i].fail
+            local who = night.actor and night.actor.char or "they"
+            local sev = M.log_beat(night, { kind = "setback", card = card.id, who = night.actor and night.actor.key or "party",
+                                            from = mev, how = "but",
+                                            text = (fb and util.fill(fb, { char = who, actor_char = who }))
+                                                or (card.trap and ("a trap went off: " .. card.trap))
+                                                or (mev.text and "it didn't work") or nil })
+            events.set_cause(c, sev)
+        end
         M.handle(night, out and out.mus, sc)
         got = out ~= nil and gained(out.mus) and night.last_roll and true or false
     end
+    mev.handing = nil
     local with = {}
     local room = sc and MODULE.rooms[sc.room]
     if room and room.comps and room.comps.cast then
@@ -759,10 +948,12 @@ function M.play_moment(night, card, sc)
                     fm[k] = v
                 end
                 fm.keep_actor = true
+                fm.follows_ev = mev.id          -- (it follows on from this one: "therefore")
                 M.play_moment(night, fm, sc)
             end
         end
     end
+    events.set_cause(c, prev_cause)
     M.ties_beat(night, sc)
     return o
 end
@@ -1014,7 +1205,7 @@ local function look_card(night, sc, pl, ex)
         local hurt = { log = t.hit, effects = { { "actor", spotlight = 4, challenge = 4 }, { "arch:butt_kicker", fun = 1 } },
                        mus = { hurt = t.hurt or { 1, 4 }, harsh = true } }
         return { id = "mus_look_trap_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
-                 keep_actor = true, actor = { "explorer" },
+                 keep_actor = true, actor = { "explorer" }, look = what, trap = t.what,
                  title = "A trap: " .. what,
                  text = "{actor_char} is heading for " .. what .. ". Your notes put a trap there: " .. t.what .. ". They haven't seen it.",
                  options = {
@@ -1036,7 +1227,7 @@ local function look_card(night, sc, pl, ex)
     local n = f.francs or 1
     local st = st_of(night)
     return { id = "mus_look_find_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
-             keep_actor = true, actor = { "explorer" },
+             keep_actor = true, actor = { "explorer" }, look = what,
              title = "Something to find: " .. what,
              text = "{actor_char} is poking around " .. what .. ". Your notes put " .. f.what .. " here.",
              options = {
@@ -1181,7 +1372,9 @@ function M.drops_social(night, sc)
     local npcs = require "game.model.npcs"
     local items_mod = require "game.model.items"
     local c = night.campaign
-    for _, how in ipairs({ "pocket", "ask" }) do
+    -- (A pocket the DM filled is one of the friends' own ideas now: game/model/ideas.lua lifts it, the
+    -- one way anyone picks a pocket in the museum, R13. An ask is still asked here.)
+    for _, how in ipairs({ "ask" }) do
         for _, w in ipairs(npcs.waiting(c, sc.room, how)) do
             if night.end_early or not night:room(12) then
                 return
@@ -1299,7 +1492,7 @@ function M.explore(night, sc)
         end
         if found then
             night:say(found.helps.find_line, "good")
-            M.handle(night, { francs = 1 }, sc)
+            M.handle(night, { francs = 1, find_text = (found.name or "Their pet") .. " found a Flitwidget Franc" }, sc)
         end
         local arch = LOOK_SAY[p.primary] and p.primary or "casual"
         -- ("Where are the monsters?" only where there are none: no fight in the room, before or after.)
@@ -1472,6 +1665,9 @@ function M.room_start(night, sc)
         if not require("game.model.table_life").danger_ahead(night, sc) then
             require("game.model.table_life").room(night, sc, "enter")
         end
+    end
+    if sc.room == "thanks" then
+        M.thanks_word(night, sc)
     end
     M.drops_social(night, sc)
     M.moments(night, sc, "start")
@@ -2721,6 +2917,22 @@ function M.go_back(night, b)
     st.last_room = b.id
     local sc = M.build_scene(night, b.id)
     sc.revisit = b.why
+    -- (In the log: a trip back has its reason. They fled a fight they lost; they went to rest after
+    -- one; they went to spend what they'd found.)
+    do
+        local name = util.lower_first(r.name)
+        local from, how, text = nil, nil, "they went back to " .. name
+        if b.why == "flee" then
+            from, how, text = events.last(c, { kind = "fight", outcome = "lost" }), "but", "they fell back to " .. name
+        elseif b.why == "rest" then
+            from, text = events.last(c, { kind = "fight", session = c.week }), "they went back to " .. name .. " to rest"
+        elseif b.why == "shop" then
+            from, text = events.last(c, { kind = "find", session = c.week }), "they went back to the gift shop with Francs to spend"
+        end
+        local ev = M.log_beat(night, { kind = "enter", who = "party", where = b.id, back = b.why, from = from, how = from and (how or "therefore") or nil,
+                                       text = text }, sc)
+        sc.enter_ev = ev.id
+    end
     local room_fight = sc.encounter
     sc.encounter, sc.optional_fight = nil, nil
     table.insert(night.scenes, sc)
@@ -2817,6 +3029,9 @@ function M.after_room(night, sc)
     local st = st_of(night)
     local id = sc.room
     local outcome = sc.outcome or "win"
+    -- (What the room leaves behind follows from how it went: its fight, else its last beat.)
+    local prev_cause = events.cause(c)
+    events.set_cause(c, sc.fight_ev or sc.last_moment or sc.enter_ev)
     local function mark(m)
         if adventure.add_mark(c, m, id) then
             table.insert(night.mus.pending, m)
@@ -2869,6 +3084,7 @@ function M.after_room(night, sc)
     end
     M.ties_beat(night, sc)
     M.interlude(night, sc)
+    events.set_cause(c, prev_cause)
 end
 
 -- The cut upstairs: Euryale's thought as each new mark lands on her card.
@@ -3117,13 +3333,60 @@ end
 function M.enter(night, id)
     local c = night.campaign
     local lb_marks = MODULE.rooms[id].boss and adventure.left_behind(c) or {}
+    -- (What they left behind downstairs follows from leaving it: the last thing they did there.)
+    if #lb_marks > 0 then
+        events.set_cause(c, events.last(c, { beat = true }))
+    end
     local left = adventure.enter_room(c, id, c.week)
     for _, lb in ipairs(lb_marks) do
         if adventure.add_mark(c, lb.mark, lb.room) then
             table.insert(night.mus.pending, lb.mark)
         end
     end
+    if #lb_marks > 0 then
+        events.set_cause(c, nil)
+    end
     return left
+end
+
+-- Why they walked in, in the log: a room a hero came to the museum for follows from their reason
+-- (their hook, Session Zero); any other room is simply where they went next, with no link of its own.
+local function hook_event(c, p)
+    local h = adventure.hook(c, p.key)
+    if not h then
+        return nil
+    end
+    local ev = events.last(c, { kind = "hook", who = p.key, thing = h.id })
+    if not ev then
+        ev = events.add(c, { kind = "hook", who = p.key, thing = h.id, where = h.room or false, session = 0 })
+    end
+    return ev
+end
+
+function M.log_enter(night, id, sc)
+    local c = night.campaign
+    local r = MODULE.rooms[id]
+    if r.virtual and not r.stop then
+        return nil
+    end
+    local name = util.lower_first(r.name)
+    local from, text
+    for _, p in ipairs(adventure.hooked(c, id)) do
+        if not from and present(night, p.key) then
+            from = hook_event(c, p)
+            text = "they went into " .. name .. ", the place " .. p.char .. " came for"
+        end
+    end
+    local own = MODULE.beats and MODULE.beats.rooms and MODULE.beats.rooms[id]
+    if own and text then
+        text = own .. ", the place " .. string.match(text, ", the place (.*)$")
+    end
+    local ev = M.log_beat(night, { kind = "enter", who = "party", where = id, from = from,
+                                   text = text or own or ("they went into " .. name) }, sc)
+    if sc then
+        sc.enter_ev = ev.id
+    end
+    return ev
 end
 
 function M.play(night, id)
@@ -3133,6 +3396,7 @@ function M.play(night, id)
     local sc = M.build_scene(night, id)
     table.insert(night.scenes, sc)
     sc.index = #night.scenes
+    M.log_enter(night, id, sc)
     local fun_in = {}
     for _, p in ipairs(night.players) do
         fun_in[p.key] = score.fun(p)
@@ -3272,7 +3536,50 @@ function M.run(night)
     -- Anything that went on her card tonight and hasn't had her line yet (the night stopped
     -- before the room's end): she gets it now, before everyone goes home.
     M.interlude(night)
+    M.lecturer_report(night)
     night:run_tail()
+end
+
+-- The Lecturer, droning above the gift shop and the second floor, hears what's done there, and
+-- passes it on to Euryale upstairs (R11: "the Lecturer passes on what he saw"), every night he's still
+-- lecturing. Silencing him stops it. The table hears it as a cut upstairs; it's in the log.
+local NOISY = { ["break"] = true, steal = true, harm = true }
+function M.lecturer_report(night)
+    local c = night.campaign
+    local st = st_of(night)
+    if night.end_early and not night.cliff_stop then
+        -- (A night that ended early still ends: the Lecturer reports all the same.)
+    end
+    if st.done.lecture == "win" or st.ending then
+        return
+    end
+    local d = people.def("mus_lecturer")
+    local rooms = {}
+    for _, r in ipairs(d.sees or {}) do
+        rooms[r] = true
+    end
+    for _, r in ipairs(d.hears or {}) do
+        rooms[r] = true
+    end
+    -- (He hears what makes a noise: a shout of "thief", a smash. A pocket picked clean makes none.)
+    for _, ev in ipairs(people.notice(c, "mus_lecturer", rooms, NOISY)) do
+        if ev.kind == "steal" and ev.outcome ~= "caught" then
+            ev.seen.mus_lecturer = nil
+        end
+    end
+    local told = people.pass_on(c, "mus_lecturer", "mus_euryale", { kinds = NOISY })
+    local first = told[1]
+    local about = first and events.get(c, first.about)
+    if about then
+        local p = about.who and c.player and c:player(about.who)
+        local what = util.fill((MODULE.people_about or {})[about.kind] or "the party", { char = p and p.char or "one of them" })
+        local line = people.line(night, "mus_lecturer", "pass_on", nil, { what = what })
+        if line then
+            night:say(line, "interlude")
+            first.beat = true
+            first.text = "the Lecturer told Euryale about " .. what
+        end
+    end
 end
 
 -- The break (the playtest, November 3: "a more pronounced 'let's take a break' moment; all sessions
@@ -3482,6 +3789,16 @@ function M.showdown_start(night, sc)
         st.flags.tapestry = true
         night:say(best.char .. " notices a tapestry on the wall: three sisters, all with snake-slit eyes.", "good")
     end
+    -- What the Lecturer told her on the way up (R11: people.pass_on), in her own words, first thing.
+    local heard, entry = people.line(night, "mus_euryale", "heard")
+    if heard then
+        night:emit({ kind = "npc", name = "Euryale", cast = "mus_euryale", text = heard })
+        local kind = entry and entry.when and entry.when.knows and entry.when.knows.kind
+        local about = kind and people.knows_of(c, "mus_euryale", kind)
+        local t = about and about.told and about.told.mus_euryale
+        M.log_beat(night, { kind = "says", who = "mus_euryale", from = t or about, how = "therefore",
+                            text = "Euryale knew what the Lecturer had told her" }, sc)
+    end
     if boss.opener == "ambush" then
         night:say("No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
         -- An ambush is a surprise (SRD 5.2.1: Disadvantage on Initiative), unless someone was ready.
@@ -3545,6 +3862,50 @@ end
 
 -- The book's ending, played as boss night's last scene: back in the gift shop with Flitwidget, the
 -- reward, and the first hint of what comes next. Not a room on the map.
+-- Flitwidget back in his museum (R11): he sees what's left of his exhibits, Telpur has a word with him
+-- about anything taken off the shelf, and what he thinks of them now is in his thanks (his line) and in
+-- what he pays (a docked reward). Each is in the log, following from what it's about.
+function M.thanks_word(night, sc)
+    local c = night.campaign
+    local st = st_of(night)
+    local rooms = {}
+    for id in pairs(MODULE.rooms) do
+        rooms[id] = true
+    end
+    local broke = people.notice(c, "mus_flitwidget", rooms, { ["break"] = true })
+    if #broke > 0 then
+        M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1], how = "therefore",
+                            text = "Flitwidget saw what was left of " .. (broke[1].thing or "his exhibits") }, sc)
+    end
+    local told = people.pass_on(c, "mus_telpur", "mus_flitwidget", { where = "thanks", kinds = { steal = true, harm = true } })
+    for i, t in ipairs(told) do
+        local about = events.get(c, t.about)
+        local p = about and about.who and c:player(about.who)
+        if i == 1 and p then
+            t.beat = true
+            t.text = "Telpur had a word with Flitwidget about " .. p.char
+            sc.last_beat = t.id
+        end
+    end
+    local line = people.line(night, "mus_flitwidget", "thanks")
+    if line then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
+    end
+    -- (Wary of them: the breakages come out of the reward. He says so.)
+    if people.RANK[people.level(c, "mus_flitwidget")] < 0 and not st.gold_docked then
+        st.gold_docked = 10
+        st.gold = math.max(10, (st.gold or 30) - 10)
+        local why = (#broke > 0 and events.last(c, { kind = "notice", who = "mus_flitwidget" })) or told[1]
+            or people.knows_of(c, "mus_flitwidget", "harm") or people.knows_of(c, "mus_flitwidget", "steal")
+        M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = 10, from = why,
+                            text = "Flitwidget took the breakages out of their reward" }, sc)
+        local dl = people.line(night, "mus_flitwidget", "docked")
+        if dl then
+            night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = dl })
+        end
+    end
+end
+
 function M.thanks(night)
     if night.end_early then
         return
@@ -3628,6 +3989,12 @@ function M.after_showdown(night, sc)
         end
     end
     local e = st.ending and MODULE.endings[st.ending]
+    -- (How it ended, in the log: it follows from the fight, or the card that settled it.)
+    if e then
+        M.log_beat(night, { kind = "ending", who = "party", thing = st.ending, where = "lair",
+                            from = events.last(c, { kind = "moment", session = c.week, where = "lair" }) and sc.last_beat or sc.fight_ev or sc.last_beat,
+                            text = e.chain or util.lower_first(e.name) }, sc)
+    end
     table.insert(night.mus.rooms, { room = "lair", outcome = e and "win" or "lose" })
     -- The goal came out how the ending says, whoever won the last of the fight: recorded for the
     -- recap in the ending's own words (the ending line is what the table hears).

@@ -46,6 +46,7 @@ local maps = require "game.model.maps"
 local dice_sets = require "game.model.dice_sets"
 local board_mod = require "game.model.board"
 local thoughts = require "game.model.thoughts"
+local events = require "game.model.events"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -678,6 +679,12 @@ function M:npc_line(what, extra)
         sc.greeted[cast.id] = true
         local adv = util.lazy("game.model.adventure")
         again = adv.met(self.campaign, cast.id) and (adv.meet(self.campaign, cast.id).week or 0) < (self.campaign.week or 0)
+        -- (Someone who remembers what the party did says so first: R11, people.lua.)
+        local own = again and util.lazy("game.model.people").line(self, cast.id, "again")
+        if own then
+            self:emit({ kind = "npc", name = self:cast_label(cast), cast = cast.id, text = own })
+            return own
+        end
         if again then
             text, line = self.talk:npc(cast.id .. "@again", what, self:vars(extra))
         end
@@ -3168,12 +3175,22 @@ function M:decision(card, extra)
     end
     if o.split and self.scene then
         local away = {}
+        local names = {}
         for _, q in ipairs({ self.actor, self.other }) do
             if q then
                 away[q.key] = true
+                table.insert(names, q.char)
             end
         end
         self.scene.split = { away = away }
+        -- (In the log, R7: a hero going off alone, and who.)
+        for _, q in ipairs({ self.actor, self.other }) do
+            if q then
+                events.add(self.campaign, { kind = "alone", who = q.key, where = self.scene.room, from = events.cause(self.campaign),
+                                            beat = (q == self.actor) or nil,
+                                            text = (q == self.actor) and (util.join_names(names) .. (#names > 1 and " went off on their own" or " went off alone")) or nil })
+            end
+        end
     end
     self.last_roll = nil
     if o.roll then
@@ -3624,6 +3641,8 @@ function M:combat_scene(sc)
     sc.boss_yielded = (f and f.yielded and fb and not fb.dead) or nil
     sc.boss_ran = (fb and fb.removed and not fb.dead and not sc.boss_yielded) or nil
     sc.boss_dead = (fb and fb.dead) and (fb.dead_why or "beaten") or nil
+    -- The fight, in the log (R7): every line after it about how it went reads it from there.
+    local fev = self:log_fight(sc, f, result)
     -- A hero died (B3): what happens next, by what Session Zero agreed.
     self.dead_handled = self.dead_handled or {}
     for _, c in ipairs(self.pc_list or {}) do
@@ -3653,21 +3672,17 @@ function M:combat_scene(sc)
         -- (Any foe that ran, not just a called retreat: "the last one falls" was said over a boss
         -- that had run for it, the combat audit, Nov 2.)
         -- (A boss who yielded already said so, in her own words: fight.lua's yield.)
-        local how = (f and (f.fled or #sc.foes_ran > 0) and "party_win_fled") or "party_win"
+        -- (How it ended is the log's: the fight event says how many there were and how many ran.)
+        local how = ((f and f.fled) or fev.ran > 0) and "party_win_fled" or "party_win"
         -- (One foe isn't "the last one": it's named.)
-        local foes = 0
-        for _, c in pairs(f and f.by_ref or {}) do
-            if c.side == "foes" then
-                foes = foes + 1
-            end
-        end
+        local foes = fev.foes
         local v = self:vars()
-        if how == "party_win" and foes == 1 and f.boss_name then
+        if how == "party_win" and foes == 1 and fev.boss then
             how = "party_win_one"
-            v.foe, v.Foe = util.lower_first(f.boss_name), util.capitalize(f.boss_name)
+            v.foe, v.Foe = util.lower_first(fev.boss), util.capitalize(fev.boss)
         end
         -- (Only one ran: "the rest scatter" said over a boss who ran alone, the second playtest review.)
-        if how == "party_win_fled" and #sc.foes_ran == 1 then
+        if how == "party_win_fled" and fev.ran == 1 then
             how = "party_win_fled_one"
             for _, c in pairs(f and f.by_ref or {}) do
                 if c.side == "foes" and c.removed and not c.dead and c.removed_why ~= "yield" then
@@ -3724,6 +3739,71 @@ function M:combat_scene(sc)
             c.down, c.hp = false, math.max(1, c.hp)    -- stabilized after the fight, back on their feet at 1
         end
     end
+end
+
+-- A fight in the event log (R7): who they fought (the leader by name), how many, who ran, who fell,
+-- the boss's fate, how it came out, and what it followed from: the choice that started it
+-- ("therefore"), or the room turning on them ("but"). Its clause tells it for the chain (R14).
+local FIGHT_TEXT = {
+    -- How it started: their choice, or the room coming at them.
+    chose = "they fought {boss}", sprang = "{boss} came at them",
+    -- How it ended.
+    won = ", and they won", won_ran_one = ", and it got away", won_ran = ", and they won, but some got away",
+    yielded = ", until {boss} asked them to stop", dead = ", and {boss} fell", ran = ", and {boss} got away",
+    lost = ", and it was too much for them",
+}
+M.FIGHT_TEXT = FIGHT_TEXT
+function M:log_fight(sc, f, result)
+    local c = self.campaign
+    local foes, ran, beaten = 0, {}, {}
+    local boss_id
+    for _, cr in pairs(f and f.by_ref or {}) do
+        if cr.side == "foes" then
+            foes = foes + 1
+        end
+    end
+    for _, id in ipairs(sc.foes_ran or {}) do
+        table.insert(ran, id)
+    end
+    for _, id in ipairs(sc.foes_beaten or {}) do
+        table.insert(beaten, id)
+    end
+    table.sort(ran)
+    table.sort(beaten)
+    if f and f.boss then
+        boss_id = f.boss.monster_id
+    end
+    local boss = (f and f.boss_name) or (sc.encounter and sc.encounter.boss_name) or "them"
+    local outcome = result.winner == "party" and "won" or "lost"
+    local fate = (sc.boss_dead and "dead") or (sc.boss_ran and "ran") or (sc.boss_yielded and "yielded") or nil
+    local key
+    if fate == "yielded" then
+        key = "yielded"
+    elseif sc.boss and fate == "dead" then
+        key = "dead"
+    elseif sc.boss and fate == "ran" then
+        key = "ran"
+    elseif outcome == "lost" then
+        key = "lost"
+    elseif #ran > 0 then
+        key = (#ran == 1 and foes == 1) and "won_ran_one" or "won_ran"
+    else
+        key = "won"
+    end
+    local from, how = sc.fight_from, "therefore"
+    if not from then
+        from, how = sc.enter_ev, "but"          -- (it came at them: the room turned on them)
+    end
+    -- (Boss night: they came up to face her, so the fight is theirs.)
+    if sc.boss and how == "but" then
+        how = "therefore"
+    end
+    local ev = events.add(c, { kind = "fight", who = "party", whom = boss_id, where = sc.room, outcome = outcome, foes = foes,
+                               ran = #ran, ran_ids = ran, beaten = beaten, boss = boss, fate = fate, rounds = result.rounds,
+                               from = from, how = from and how or nil, beat = true,
+                               text = util.fill(FIGHT_TEXT[(how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
+    sc.fight_ev, sc.last_beat = ev.id, ev.id
+    return ev
 end
 
 -- The foes a fight puts on the mat, said the way a DM would: "The pack leader, with four wolves

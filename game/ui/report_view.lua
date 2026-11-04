@@ -174,6 +174,23 @@ local function recap_panel(app, rep, x, y, w, h)
         gl.card_spot(x + w - 68, ty - 2, 52, 26, b.cut and "Cut (Undo to keep it)" or "Cut", CUT_TIP)
         ty = ty + math.max(th, 24) + 8
     end
+    -- How the night went, one thing to the next (R14): the event log's chain, "so" and "but", as much
+    -- of it as fits above the note.
+    local chain = rep.museum and rep.museum.chain or {}
+    if #chain > 0 and ty + 44 <= y + h - 166 then
+        ty = ty + 4
+        kit.text(x + 16, ty, "HOW IT WENT, ONE THING TO THE NEXT", "ui14", theme.dim)
+        ty = ty + 20
+        local cw = w - 32
+        for _, line in ipairs(chain) do
+            local th = kit.text_height(line, "ui14", cw)
+            if ty + th > y + h - 166 then
+                break
+            end
+            kit.text(x + 16, ty, line, "ui14", theme.text, { w = cw })
+            ty = ty + th + 2
+        end
+    end
     -- The DM's note: one line, typed.
     local ny = y + h - 156
     local typing = app.report_note
@@ -429,6 +446,10 @@ function M.build(app)
             table.insert(earned, { util.int(mu.francs_tonight) .. (mu.francs_tonight == 1 and " Flitwidget Franc" or " Flitwidget Francs")
                 .. " tonight" .. ((mu.francs_spent or 0) > 0 and (", " .. util.int(mu.francs_spent) .. " spent") or "")
                 .. " (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
+        end
+        -- Anything lifted tonight (the event log: R7, R13), and who has it now.
+        for _, l in ipairs(mu.lifted or {}) do
+            table.insert(earned, { "Lifted: " .. util.sentence_case(l.text) .. ".", theme.gold })
         end
         -- Each thing on its own line, with a hover: what it does, and who has it.
         local mn = require "game.model.museum_night"

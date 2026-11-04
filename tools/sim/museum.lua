@@ -12,6 +12,8 @@ local adventure = require "game.model.adventure"
 local campaign_mod = require "game.model.campaign"
 local social = require "game.model.social"
 local museum_week = require "game.model.museum_week"
+local events = require "game.model.events"
+local chain_stats = { sessions = 0, beats = 0, linked = 0, longest = 0 }
 
 local seed = tonumber(arg[1]) or 1
 local style = arg[2] or "careful"
@@ -282,6 +284,25 @@ for w = 1, adventure.data.MAX_WEEKS do
         print(string.format("  -- report: avg %s; rooms %d; new marks: %s; warned %d",
             tostring(rep.average), #rep.museum.rooms, table.concat(rep.museum.marks, ", "), rep.museum.warned or 0))
     end
+    -- Therefore or but (R14): how tonight's beats hang together, from the event log.
+    do
+        local m = events.measure(c, c.week)
+        chain_stats.sessions = chain_stats.sessions + 1
+        chain_stats.beats = chain_stats.beats + m.beats
+        chain_stats.linked = chain_stats.linked + m.linked
+        chain_stats.longest = math.max(chain_stats.longest, m.longest)
+        local starts = {}
+        for _, st in ipairs(m.starts) do
+            table.insert(starts, tostring(st.where) .. "/" .. tostring(st.card or st.kind))
+        end
+        print(string.format("  -- chain week %d: %d of %d beats linked (%d%%), longest unlinked run %d; unlinked runs start at %s",
+            w, m.linked, m.beats, math.floor(m.share * 100 + 0.5), m.longest, #starts > 0 and table.concat(starts, ", ") or "none"))
+        if show then
+            for _, line in ipairs((events.chain(c, c.week))) do
+                print("  -- " .. line)
+            end
+        end
+    end
     if c:level_up() and show then
         print("  -- LEVEL UP to " .. c.level)
     end
@@ -313,6 +334,25 @@ for k, n in pairs(thoughts_seen.reads) do
     table.insert(rd, k .. "=" .. n)
 end
 table.sort(rd)
+-- What the museum's people think of the party at the end (R11: people.lua, from the event log).
+do
+    local people = require "game.model.people"
+    local ops = {}
+    for _, id in ipairs(people.all()) do
+        local sc, lv = people.opinion(c, id)
+        local by = {}
+        for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+            local _, hl = people.opinion(c, id, key)
+            if hl ~= "neutral" then
+                table.insert(by, key .. " " .. hl)
+            end
+        end
+        table.insert(ops, string.format("%s %s (%.1f)%s", string.gsub(id, "^mus_", ""), lv, sc, #by > 0 and (" [" .. table.concat(by, ", ") .. "]") or ""))
+    end
+    local m = chain_stats
+    print(string.format("  people: %s; chain %d of %d beats linked (%d%%) over %d sessions, longest unlinked run %d",
+        table.concat(ops, "; "), m.linked, m.beats, math.floor(100 * m.linked / math.max(1, m.beats) + 0.5), m.sessions, m.longest))
+end
 local fam = {}
 for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
     table.insert(fam, key .. " " .. require("game.model.familiar").level(c, key))

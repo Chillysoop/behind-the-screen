@@ -29,7 +29,7 @@ function M.has(campaign)
     return campaign ~= nil and campaign.module ~= nil and campaign.adv ~= nil and sides() ~= nil
 end
 
-local function holds(st, when)
+local function holds(st, when, campaign)
     if not when then
         return true
     end
@@ -42,7 +42,7 @@ local function holds(st, when)
     if when.flag and not st.flags[when.flag] then
         return false
     end
-    if when.favor and ((st.favors or {})[when.favor.who] or 0) < (when.favor.at or 1) then
+    if when.favor and require("game.model.adventure").favor(campaign, when.favor.who) < (when.favor.at or 1) then
         return false
     end
     return true
@@ -52,7 +52,7 @@ end
 function M.member_line(campaign, m)
     local st = campaign.adv
     for _, s in ipairs(m.states or {}) do
-        if holds(st, s.when) then
+        if holds(st, s.when, campaign) then
             return util.fill(s.text, { mech = st.mech_name or "the Mech" }), s.tone or "quiet", true
         end
     end

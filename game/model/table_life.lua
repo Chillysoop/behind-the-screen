@@ -360,8 +360,8 @@ M.crit_card, M.ask_crit = crit_card, ask_crit      -- (for the roadmap words che
 
 -- A friend pokes at something: what's there, their line, the little die, your answer, someone's
 -- reaction to what you said.
-local function curio(night, sc, b, last)
-    local p = pick_friend(night, b.who, last)
+local function curio(night, sc, b, last, forced)
+    local p = forced or pick_friend(night, b.who, last)
     if not p then
         return nil
     end
@@ -410,16 +410,33 @@ end
 
 -- A question for someone in the room: in character, a little Persuasion or Insight, and an answer
 -- that says more on a good roll.
-local function ask(night, sc, q, last)
-    local p = pick_friend(night, { "method_actor", "storyteller", "instigator", "explorer" }, last)
+local function ask(night, sc, q, last, forced)
+    local p = forced or pick_friend(night, { "method_actor", "storyteller", "instigator", "explorer" }, last)
     if not p then
         return nil
     end
     night.actor = p
     say(night, p, q.ask, true)
+    local name = night.tl_people and night.tl_people[q.who]
+    -- Someone who's gone off this hero won't answer them (R11: what they did is in the log, and they
+    -- remember it: people.lua). A refusal, in their own words, and in the log.
+    local people = require "game.model.people"
+    local pid = "mus_" .. tostring(q.who)
+    if name and people.RANK[people.level(night.campaign, pid, p.key)] < 0 then
+        local line = people.line(night, pid, "refuse", p)
+        if line then
+            night:emit({ kind = "npc", name = name, text = (string.gsub(line, '^"(.*)"$', "%1")) })
+            local events = require "game.model.events"
+            local why = people.knows_of(night.campaign, pid, "steal", p.key, true) or people.knows_of(night.campaign, pid, "harm", p.key, true)
+            local ev = events.add(night.campaign, { kind = "refuse", who = pid, whom = p.key, where = sc.room, from = why, beat = true,
+                                                    text = (string.match(name, "^([^,]+)") or name) .. " wouldn't answer " .. p.char })
+            sc.last_beat = ev.id
+            score.add(p, "fun", -1)
+            return p
+        end
+    end
     local d, total = tiny_roll(night, p, q.skill or "persuasion")
     local text = (total >= 15 and q.better) or q.answer
-    local name = night.tl_people and night.tl_people[q.who]
     local slip
     if name and M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14) then
         local o = ask_crit(night, sc, p, q, name, d)
@@ -476,6 +493,56 @@ local function bit(night, sc, t, last)
     end
     score.nudge_engagement(p, 2)
     return p
+end
+
+-- For the friends' own ideas (game/model/ideas.lua): the curios still to poke at here and the
+-- questions still to ask, and poking or asking with a given friend.
+function M.open_curios(night, sc)
+    local d = data()
+    local room = d and d.rooms and d.rooms[sc.room]
+    local out = {}
+    if not room then
+        return out
+    end
+    local list = candidates(night, sc, room, "enter", nil)
+    for _, x in ipairs(list) do
+        if x.kind == "curio" then
+            table.insert(out, x.b)
+        end
+    end
+    return out
+end
+function M.open_questions(night, sc, phase)
+    local d = data()
+    local room = d and d.rooms and d.rooms[sc.room]
+    local out = {}
+    if not room or phase == "after" then
+        return out
+    end
+    local list = candidates(night, sc, room, phase, nil)
+    for _, x in ipairs(list) do
+        if x.kind == "ask" then
+            table.insert(out, x.b)
+        end
+    end
+    return out
+end
+function M.poke(night, sc, b, last, p)
+    local who = curio(night, sc, b, last, p)
+    if who and b.id then
+        seen(night)[b.id] = night.campaign.week or 0
+    end
+    return who
+end
+function M.ask_one(night, sc, q, last, p)
+    local who = ask(night, sc, q, last, p)
+    if who and q.id then
+        seen(night)[q.id] = night.campaign.week or 0
+    elseif who then
+        night.tl_bits = night.tl_bits or {}
+        night.tl_bits[q] = true
+    end
+    return who
 end
 
 -- Is there still danger in this room (a fight, or a moment with a danger that can still play)? Small
@@ -581,6 +648,10 @@ function M.room(night, sc, phase)
         end
     end
     tl.last = last
+    -- The friends' own ideas (R12): after the small moments, the strongest idea anyone has here.
+    if tl.n < night_cap or one_more then
+        done = done + util.lazy("game.model.ideas").room(night, sc, phase)
+    end
     return done
 end
 
