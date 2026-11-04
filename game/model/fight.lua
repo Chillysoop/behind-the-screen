@@ -634,6 +634,11 @@ function M.museum_moments(night, f, steps)
     return poses
 end
 
+-- A condition on a hero that has somebody reaching for the rulebook next time (rules_lookup).
+M.QUESTIONS = { Charmed = "being charmed", Restrained = "turning to stone", Petrified = "turning to stone",
+                Asleep = "Sleep", Grappled = "getting out of a grapple", Listening = "the Lecturer's droning",
+                Prone = "getting up off the floor", Frightened = "being frightened" }
+
 -- What happened in the fight that lines afterwards can lean on (F13, the second playtest review:
 -- "Oswin's prayer catches Thessaly a heartbeat before they drop" when she took no damage, "pulled off a
 -- move together" with no move): night.fight_record = { saves = { { by, to } }, combos = { { a, b } },
@@ -647,8 +652,22 @@ function M.record(night, f, bb, steps, who)
         night.fight_record = rec
     end
     local round = bb.round or 0
+    f.happened = f.happened or {}
     for _, s in ipairs(steps) do
         local t = s.id and f.by_ref[s.id]
+        -- What a rules question can be about (F14: "that's not how grappling works" when nobody
+        -- grappled): a Bless cast, a grapple, a fighter toe to toe with something, a condition worth
+        -- looking up.
+        if s.kind == "spell" and s.name == "Bless" and t and t.pc then
+            f.happened.bless = f.happened.bless or { who = s.id }
+        elseif s.kind == "condition" and s.name == "Grappled" and t then
+            f.happened.grapple = f.happened.grapple or { who = t.pc and s.id or (who and who.pc and who.mini) or nil }
+        elseif s.kind == "attack" and t and t.pc and t.class == "fighter" and not s.ranged and s.target then
+            f.happened.melee = { who = s.id, foe = f.by_ref[s.target] }
+        end
+        if s.kind == "condition" and t and t.pc and M.QUESTIONS[s.name] then
+            night.rules_question = M.QUESTIONS[s.name]
+        end
         if s.kind == "heal" and t and t.pc and s.by and s.by ~= s.id then
             local before = (s.hp or 0) - (s.amount or 0)
             if before <= 0 or before <= (t.hp_max or 1) * 0.25 then
@@ -1455,23 +1474,38 @@ function M.run(night, sc, plan)
             and not night.used_cards.potion_action and night:decision_count() < 14 then
             moment(night, f, "potion", {}, f.potion_by)
         end
-        -- A rules question comes up mid-fight.
-        if r == 2 and sc.rules_card and night:decision_count() < 14 and alive_foes(bb) > 0 then
-            night.actor = night:pick_actor(sc.rules_card.actor)
-            -- (About a foe still standing: "moves round behind the briar triceratops" after it had
-            -- crumpled, the playtest log showed.)
+        -- A rules question comes up mid-fight, once what it's about has happened in this fight (F14:
+        -- a card's `fight_needs`: a Bless, a grapple, a fighter in melee), asked by whoever it
+        -- happened to, about a foe still standing.
+        local rc = sc.rules_card
+        local need = rc and rc.fight_needs
+        local did = need and (f.happened or {})[need]
+        if r >= 2 and rc and (not need or did) and night:decision_count() < 14 and alive_foes(bb) > 0 then
+            local by = did and did.who and f.by_ref[did.who]
+            local byp = by and by.pc and player_of(night, by)
+            if need == "bless" then
+                -- (Someone it blessed asks, not the one who cast it.)
+                night.actor = night:pick_actor(rc.actor, byp)
+            else
+                night.actor = byp or night:pick_actor(rc.actor)
+            end
             local target
-            if f.boss and not f.boss.dead and not f.boss.removed then
+            local foe = did and did.foe
+            if foe and not foe.dead and not foe.removed then
+                target = (foe == f.boss and f.boss_name) or barks.foe_label(foe)
+            elseif f.boss and not f.boss.dead and not f.boss.removed then
                 target = f.boss_name
             else
                 for _, c in ipairs(bb.creatures) do
                     if not target and c.side == "foes" and not c.dead and not c.removed then
-                        target = "the " .. string.lower(c.name)
+                        target = barks.foe_label(c)
                     end
                 end
             end
-            night:decision(sc.rules_card, target and { boss = target } or nil)
-            sc.rules_card = nil
+            if not (need == "melee" and not (foe and not foe.dead and not foe.removed)) then
+                night:decision(rc, target and { boss = target } or nil)
+                sc.rules_card = nil
+            end
         -- Or the DM picks the monsters' tactics, if nothing has come up for a while (right at the
         -- start, if the walk into the fight was long).
         elseif not f.used.tactics and alive_foes(bb) >= 2

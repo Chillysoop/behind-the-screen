@@ -411,6 +411,7 @@ function M:vars(extra)
         v.boss = sc.boss_name or "the villain"
         v.Boss = util.capitalize(v.boss)
     end
+    v.question = self.rules_question     -- (what someone wants to look up: fight.lua QUESTIONS)
     for k, val in pairs(self.mus_vars or {}) do
         v[k] = val          -- v2: the museum's own fill-ins (the painting, the Mech's name)
     end
@@ -2238,6 +2239,9 @@ function M:headache_ok(needs, sc)
     end
     if needs.after_break and not (self.had_break or self.snacked) then
         return false
+    end
+    if needs.question and not self.rules_question then
+        return false              -- (nothing's come up yet worth reaching for the book over)
     end
     -- calm: nothing dangerous in the room (a fight still to come, a boss, the wrap-up), the party
     -- can afford to wander off (F11: the party split as the Knight climbed out of its frame, and in

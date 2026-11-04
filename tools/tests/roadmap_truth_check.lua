@@ -1013,6 +1013,65 @@ table.insert(watchers, function(R, N, ev)
     end
 end)
 
+-- F14: a rules card is about something that happened in this fight, and names a foe still standing.
+local barks_ok, barks_mod = pcall(require, "game.model.barks")
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    if ev.kind == "battle" and ev.phase == "start" then
+        N.did = {}
+    elseif ev.kind == "turn" and N.did then
+        for _, st in ipairs(ev.steps or {}) do
+            if st.kind == "spell" and st.name == "Bless" then
+                N.did.bless = true
+            elseif st.kind == "condition" and st.name == "Grappled" then
+                N.did.grapple = true
+            elseif st.kind == "feature" and st.name == "Potion of Healing" then
+                N.did.potion = true
+            elseif st.kind == "attack" and not st.ranged and night.pcs and night.pcs[st.id] and night.pcs[st.id].class == "fighter" then
+                N.did.melee = true
+            end
+            if st.kind == "condition" and night.pcs and night.pcs[st.id] then
+                N.question = true
+            end
+        end
+    end
+    if ev.kind ~= "decision" then
+        return
+    end
+    local id = ev.card.id
+    local need = ({ grapple = "grapple", stacking = "bless", potion_action = "potion", flanking = "melee" })[id]
+    if need then
+        add("F14", "rules_cards")
+        if not (N.did and N.did[need]) then
+            fail("F14", N.tag .. ": '" .. ev.card.title .. "' when nothing like it happened in this fight")
+        end
+        local foe = string.match(ev.card.text or "", "round behind (.-)%. ")
+        if foe then
+            local alive = false
+            for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
+                if c.side == "foes" and not c.dead and not c.removed then
+                    local label = barks_ok and barks_mod.foe_label(c) or c.name
+                    alive = alive or string.lower(label) == string.lower(foe) or string.lower(c.name) == string.lower(foe)
+                        or ("the " .. string.lower(c.name)) == string.lower(foe)
+                        or (c.boss and night.scene and night.scene.boss_name and string.lower(night.scene.boss_name) == string.lower(foe))
+                end
+            end
+            add("F14", "foes_named")
+            if not alive then
+                fail("F14", N.tag .. ": flanking behind " .. foe .. ", who isn't standing")
+            end
+        end
+    elseif id == "rules_lookup" then
+        add("F14", "lookups")
+        if not (night.rules_question or R.question_seen) then
+            fail("F14", N.tag .. ": 'Looking it up' with no question asked: '" .. tostring(ev.card.text) .. "'")
+        end
+    end
+    if N.question then
+        R.question_seen = true
+    end
+end)
+
 -- (The statue: the chat said "yes, but it's dangerous" to a rest in the gift shop.)
 local function play_night_simply(c, rng)
     local night = c:start_night()

@@ -209,7 +209,7 @@ return {
     },
 
     {
-        id = "grapple", type = "rules", scenes = { "combat", "set_piece", "exploration" },
+        id = "grapple", type = "rules", scenes = { "combat", "set_piece" }, fight_needs = "grapple",
         actor = { "tactician", "power_gamer" },
         title = "That's not how grappling works",
         text = "{actor} insists grappling doesn't work like that. The table goes quiet.",
@@ -228,10 +228,10 @@ return {
     },
 
     {
-        id = "stacking", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric",
+        id = "stacking", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric", fight_needs = "bless",
         actor = { "power_gamer", "tactician" },
         title = "Do those stack?",
-        text = "{actor} asks if Oswin's Bless stacks with their other bonus. Then: does a second Bless, from a scroll, stack on top?",
+        text = "{actor} asks if Oswin's Bless stacks with their other bonus. Then: would a second Bless stack on top?",
         options = {
             -- SRD 5.2.1: different effects add together; the same spell's effects don't (p. 108).
             { label = "Different effects stack. The same spell twice doesn't.", leans = "book",
@@ -251,7 +251,7 @@ return {
         id = "potion_action", type = "rules", trigger = "potion",
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
-        text = "{actor} drinks a healing potion and asks if that's their whole turn.",
+        text = "{actor} drank a healing potion last turn, and wants to know: was that their whole turn?",
         options = {
             { label = "A Bonus Action, like the current rules say.", leans = "book",
               log = "Glug, then they still get to swing. Everyone approves.",
@@ -266,7 +266,7 @@ return {
     },
 
     {
-        id = "flanking", type = "rules", scenes = { "combat", "set_piece" }, actor_class = "fighter",
+        id = "flanking", type = "rules", scenes = { "combat", "set_piece" }, actor_class = "fighter", fight_needs = "melee",
         actor = { "tactician", "power_gamer" },
         title = "Flanking",
         text = "{actor} moves {actor_char} round behind {boss}. 'That's flanking. I get Advantage, right?'",
@@ -334,11 +334,13 @@ return {
     -- happened (needs, checked in game/model/night.lua headache_ok), and comes back on later
     -- nights instead of being spent.
     {
-        id = "rules_lookup", type = "pacing", scenes = { "combat", "set_piece", "puzzle" }, headache = true,
-        needs = { archetype = { "power_gamer", "tactician" } },
+        -- (Only once something's come up worth looking up: a condition from a fight earlier tonight.
+        -- F14: "Looking it up..." with no question asked.)
+        id = "rules_lookup", type = "pacing", scenes = { "combat", "set_piece" }, headache = true,
+        needs = { archetype = { "power_gamer", "tactician" }, question = true },
         actor = { "power_gamer", "tactician" },
         title = "Looking it up",
-        text = "{actor} is sure there's a rule for this. The book is out. Pages are turning. Everyone else is watching the pages turn.",
+        text = "{actor} is sure there's a rule for {question}, after the last fight. The book is out. Pages are turning. Everyone else is watching the pages turn.",
         options = {
             { label = "Let them find it.", table_min = 6, looked = true,
               log = "Six minutes later: they were right. Mostly.",
