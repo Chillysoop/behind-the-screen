@@ -241,7 +241,16 @@ end
 -- After the fight: a person who fell comes round, sore and talking (they're a companion, not a
 -- foe: nobody leaves them on the floor), and the table hears it.
 function M.after_fight(night)
+    -- (In a set order, by stat block and name: the keys are the creatures themselves.)
+    local fell = {}
     for c in pairs(night.allies_fell or {}) do
+        table.insert(fell, c)
+    end
+    table.sort(fell, function(a, b)
+        local ka, kb = tostring(a.monster_id) .. "/" .. tostring(a.name), tostring(b.monster_id) .. "/" .. tostring(b.name)
+        return ka < kb
+    end)
+    for _, c in ipairs(fell) do
         if not night.allies_back or not night.allies_back[c] then
             night.allies_back = night.allies_back or {}
             night.allies_back[c] = true

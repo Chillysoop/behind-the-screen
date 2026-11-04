@@ -596,7 +596,7 @@ function M.room_prep(c, id)
         table.insert(out, { kind = "handout", text = "Have ready: " .. util.join_names(pn.handouts) })
     end
     local t = c.table or {}
-    for tag, rooms in pairs(MODULE.content or {}) do
+    for tag, rooms in util.sorted_pairs(MODULE.content or {}) do
         local what = rooms[id]
         local key = what and ((t.lines and t.lines[tag]) or (t.veils and t.veils[tag]) or (t.pushed and t.pushed[tag]))
         local p = key and c:player(key)

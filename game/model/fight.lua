@@ -604,7 +604,7 @@ function M.museum_moments(night, f, steps)
             local mt = m.text
             if m.soft and night.mus then
                 local adv = util.lazy("game.model.adventure")
-                for tag, alt in pairs(m.soft) do
+                for tag, alt in util.sorted_pairs(m.soft) do
                     if adv.test(night.campaign, { soft = tag }) then
                         mt = alt
                         util.lazy("game.model.museum_night").soft_check(night, { { when = { soft = tag } } })
@@ -692,7 +692,7 @@ function M.record(night, f, bb, steps, who)
             end
         elseif s.kind == "death" and t and t.side == "foes" then
             local killer = who and who.pc and who.mini
-            for other, r in pairs(rec.hits[s.id] or {}) do
+            for other, r in util.sorted_pairs(rec.hits[s.id] or {}) do
                 if killer and other ~= killer and round - r <= 1 then
                     table.insert(rec.combos, { a = killer, b = other })
                     break

@@ -350,8 +350,8 @@ function M.add_npc_lines(lib)
         return
     end
     lib.museum_lines = true
-    for speaker, triggers in pairs(MODULE.npc_lines) do
-        for trigger, list in pairs(triggers) do
+    for speaker, triggers in util.sorted_pairs(MODULE.npc_lines) do
+        for trigger, list in util.sorted_pairs(triggers) do
             -- (Seeing the party again is a greeting too, by a speaker of its own: "{id}@again".)
             local tr, sp = trigger, speaker
             if trigger == "npc_again" then
@@ -1162,7 +1162,7 @@ function M.prompts(campaign)
             table.insert(out, { kind = "loose", def = le, id = le.id })
         end
     end
-    for who, def in pairs(MODULE.favors) do
+    for who, def in util.sorted_pairs(MODULE.favors) do
         if not st.favor_done[who] and (st.favors[who] or 0) >= MODULE.FAVOR_AT then
             table.insert(out, { kind = "favor", def = def, id = who })
         end
@@ -1182,9 +1182,16 @@ function M.prompts(campaign)
     if due and due.week < (campaign.week or 1) and not st.answered["ruling_" .. due.week] then
         table.insert(out, { kind = "ruling", id = "ruling_" .. due.week, def = { topic = due.topic or "that rule" } })
     end
+    -- (A stable order: the same week asks the same questions in the same order every run.)
+    for i, pr in ipairs(out) do
+        pr.n = i
+    end
     table.sort(out, function(a, b)
         local order = { ruling = 0, request = 1, loose = 2, favor = 3 }
-        return order[a.kind] < order[b.kind]
+        if order[a.kind] ~= order[b.kind] then
+            return order[a.kind] < order[b.kind]
+        end
+        return a.n < b.n
     end)
     return out
 end
@@ -1221,7 +1228,7 @@ function M.request_ask(campaign, rq)
     end
     local ps = campaign.party_state
     local hp, n = 0, 0
-    for _, s in pairs((ps and not ps.rested and ps.pcs) or {}) do
+    for _, s in util.sorted_pairs((ps and not ps.rested and ps.pcs) or {}) do
         hp = hp + (s.hp or 1) / math.max(1, s.hp_max or 1)
         n = n + 1
     end
@@ -1270,7 +1277,7 @@ end
 
 local function like_for(p, likes)
     local n = 0
-    for arch, v in pairs(likes or {}) do
+    for arch, v in util.sorted_pairs(likes or {}) do
         n = n + v * score.arch(p, arch)
     end
     return n
