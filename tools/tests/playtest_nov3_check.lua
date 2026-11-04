@@ -268,7 +268,17 @@ local function play(seed, style)
                     local acted = (did.spell or 0) + (did.attack or 0) + (did.feature or 0) > 0
                     if (h.swings or 0) > 0 or (h.dealt or 0) > 0 or acted then
                         add(26, "hero_fights_with_a_swing")
-                    elseif (sm.rounds or 0) >= 4 and not h.dead and (h.downs or 0) == 0 then
+                    elseif (sm.rounds or 0) >= 4 and not h.dead and (h.downs or 0) == 0
+                        and not (function()
+                            -- (Held all fight by something that stops them acting, the Lecturer's drone say:
+                            -- they couldn't swing. Wave 2 saw Brannoc listen to all four rounds.)
+                            for _, e in ipairs((night.pcs and night.pcs[h.id] and night.pcs[h.id].effects) or {}) do
+                                if e.conds and e.conds.incapacitated then
+                                    return true
+                                end
+                            end
+                            return false
+                        end)() then
                         local did = {}
                         for k, n in pairs((N.steps or {})[h.id] or {}) do
                             table.insert(did, k .. "=" .. n)

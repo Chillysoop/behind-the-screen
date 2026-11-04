@@ -546,7 +546,7 @@ table.insert(watchers, function(R, N, ev)
             add("F18", "hints_against_an_agreed_table")
         end
     end
-    if ev.kind == "say" and N.hinted and string.find(text, "We'd all just agreed", 1, true) then
+    if ev.kind == "say" and N.hinted and string.find(text, "just agreed on", 1, true) then
         N.grumbled = true
         add("F18", "grumbles")
     end
@@ -636,9 +636,13 @@ local function holds(c, key, id)
 end
 local HAS_LINES = {
     { "^(%a+) fights with the twin daggers", "daggers", "twin_daggers" },
+    { "^(%a+) has the twin daggers out", "daggers", "twin_daggers" },          -- (three ways since wave 2)
+    { "^(%a+) draws the twin daggers", "daggers", "twin_daggers" },
     { "^(%a+) has the polished cupboard door ready", "mirror" },
     { "^(%a+) has the Mech manual open", "manual" },
     { "^(%a+) has the vorpal sword out", "vorpal_sword", "vorpal_sword" },
+    { "^(%a+) unwraps the vorpal sword", "vorpal_sword", "vorpal_sword" },
+    { "^(%a+) draws the vorpal sword", "vorpal_sword", "vorpal_sword" },
     { "(%a+) has Telpur's paint%-touched dagger", "paint_dagger" },
 }
 table.insert(watchers, function(R, N, ev)
