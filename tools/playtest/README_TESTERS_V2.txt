@@ -11,8 +11,48 @@ You don't need to know D&D, and there's no way to "lose": every ending is a real
 ending, and the prologue sets up the full campaign that comes next.
 
 
-NEW IN THIS BUILD (November 3, later)
--------------------------------------
+NEW IN THIS BUILD (November 4)
+------------------------------
+- Fair warning works the way a table does it. When a card has a danger in it, you can
+  describe it, ask "Are you sure?", or say nothing. When something harsh happens, the
+  table asks one question: did we know? Warned about that very thing, or a die everyone
+  saw, and it lands as fair. Out of nowhere, and it costs you their Trust. Warn about
+  everything, though, and the table stops feeling the danger. How harsh the museum gets
+  (gentle, fair or brutal) is a table rule at Session Zero. The planning board and your
+  notes list what they've been warned about.
+- Pause and speed buttons at the top right of game night: Pause, 1x, 2x, 4x (or P).
+- Inspiration is yours to give. On a great moment the game asks if you want to hand it
+  over, and the Inspire button on any player's tile gives it whenever you like.
+- Who's who: the people in a choice show their faces and names, the players' and their
+  heroes', so you can skim them.
+- A player speaking in character turns into their hero for a moment. Captions say who
+  you're talking to: the table, the scene (read aloud), or one player.
+- Rolls: the sum is spelled out (13 + 5 = 18) and the total lands big over the roller.
+  When you set a DC there's a third choice: pick it yourself and say it out loud.
+- Fights start where the minis already stand, and the mat only shows what the party can
+  see. Walls block sight, so they open doors and walk in to see who's there. People who
+  join the party (Telpur) fight with their own mini, played by their friend at the
+  table. The fighters find their way round walls instead of getting stuck.
+- Spell slots, Second Wind, Channel Divinity and the rest go down when used and come
+  back on a short or long rest, by the rules.
+- Every session takes at least one break. At the break you pick what happens in the
+  story meanwhile: nothing, a short rest, a long rest (where it's safe), or research.
+- A hero who drops gets a proper moment: the death-save card shows each roll. If a hero
+  dies, their friend stays at the table and can play a companion, run the monsters with
+  you, or watch.
+- The report: "Look" replays a fight with health bars, spells and damage, and "How the
+  table felt" shows how far each bar moved. The recap only says what really happened.
+- Moods carry from week to week: a great night means they arrive happy next time.
+- Companions: if Pip gets her rat, Exhibit B rides along, helps her look around, and
+  gets talked about. Dice a friend buys in the group chat show up at the table.
+- Click any person's name in the story and notes, or their mini on the board, for their
+  sheet. The hero sheets' header is tidied up.
+- Stairs on the floor plans and boards point the right way (up or down).
+- The lecturer and Euryale are on the board as soon as the party can see them. The
+  drink, the ultimatum and yielding are the players' choices now, not yours.
+
+NEW IN THE NOVEMBER 3 BUILD (later)
+-----------------------------------
 - The prep board's room list fits any window: it pages, and the mouse wheel scrolls it.
 - The floor plans show the stairs between floors (point at one to see where it goes).
 - "Prep it" says what prepping does. Hours left over: sleep well (+1 to reading the table),
@@ -92,8 +132,9 @@ HOW IT GOES
   drawn from the book's maps. The floors are open: the players pick where to go,
   and they'll go back to a room only with a reason (a corner they missed, a hint
   from you, the shop, a rest, or running away). When a card slides across your
-  screen, you make the call. A harsh call lands better when the party took
-  chances knowingly (the "fair warning" count on the planning board).
+  screen, you make the call. A harsh call lands better when the party saw the
+  danger coming: you warned them, they asked, or a die everyone saw (the warnings
+  count on the planning board lists what they know).
 - Euryale's card: every room the party clears, skips or botches leaves a mark on
   the boss's card. The last session is built from what they did.
 - What they're thinking: now and then a pale cloud appears over a player's panel.
@@ -144,6 +185,7 @@ Almost everything is the mouse. A few keys help:
   M                music on / off
 On game night:
   Space            skip ahead
+  P                pause (or the Pause / 1x / 2x / 4x buttons, top right)
   F / G            faster / slower
   Tab              the night's log
   S                your recap: the story's sides (left) and the table (right)
@@ -151,6 +193,7 @@ On game night:
   T                a gentle timer on each call
   C                a photo of the table
   1 to 6           pick a card's option (or an answer to a thought you opened)
+  Click a mini     who that is (a person's sheet)
   Right mouse drag look around    Mouse wheel  zoom    R  reset the camera
 
 
@@ -158,7 +201,8 @@ WHAT'S NOT FINAL
 ----------------
 The garden's beasts have their own minis now, but most of the museum's other monsters
 still borrow one from the earlier build, so a scarab swarm may look like something else
-for now. (The rooms have their own boards.) The rules, the story and the choices are
+for now, and Exhibit B rides in Pip's pocket without a mini of his own. (The rooms have
+their own boards.) The rules, the story and the choices are
 what's being tested. "Playtest guide.pdf" in this folder covers all of this with a
 little more room, plus what we'd most like you to look out for.
 

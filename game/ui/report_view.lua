@@ -494,18 +494,41 @@ local function felt_panel(app, rep, x, y, w, h)
         -- playtest, October 16: four unlabelled icons).
         local bx = x + w - 220
         require("game.ui.gloss").card_spot(bx + 186, ry + 2, 20, 82, "Which way it moved",
-            "+ went up tonight, - went down, = about the same. Your Empathy decides how sure you can be.")
+            "+ went up tonight, - went down, = about the same. Inside the bar, the bright stretch is what it gained "
+            .. "tonight and the hollow red one what it lost; the thin line is where it started. Your Empathy decides "
+            .. "how sure you can be.")
         for k, key in ipairs(score.LONG) do
             local by = ry + 10 + (k - 1) * 20
             local read = empathy.long(level, p, key, app.campaign.week, i)
             kit.icon(bx, by - 3, 14, key, theme.long[key])
             kit.text(bx + 19, by - 6, score.LONG_NAMES[key], "ui14", theme.dim)
-            if read.lo then
-                kit.bar(bx + 112, by, 74, 7, 0, 100, theme.long[key], { range = { read.lo, read.hi } })
-            else
-                kit.bar(bx + 112, by, 74, 7, read.fill, 100, theme.long[key])
-            end
             local mark = row.long and row.long[key] and empathy.mark(level, row.long[key].delta)
+            if read.lo then
+                kit.bar(bx + 112, by - 1, 74, 9, 0, 100, theme.long[key], { range = { read.lo, read.hi } })
+            else
+                kit.bar(bx + 112, by - 1, 74, 9, read.fill, 100, theme.long[key])
+                -- How far it moved tonight, inside the bar (the playtest, November 3): what it gained
+                -- lit up, what it lost as a hollow stretch where the bar used to reach.
+                local d = row.long[key] and row.long[key].delta or 0
+                if mark and mark ~= "=" and p then
+                    local now = math.max(0, math.min(100, p[key] or 0))
+                    local was = math.max(0, math.min(100, (p[key] or 0) - d))
+                    local moved = now - was
+                    local a = math.max(0, math.min(100, read.fill - moved))
+                    local lo, hi = math.min(a, read.fill), math.max(a, read.fill)
+                    if hi - lo >= 1 then
+                        local sx, sw = bx + 112 + 74 * lo / 100, math.max(2, 74 * (hi - lo) / 100)
+                        if moved > 0 then
+                            kit.box(sx, by - 1, sw, 9, kit.rgba("#ffffff", 0.55), { round = false })
+                        else
+                            kit.box(sx, by - 1, sw, 9, kit.rgba("#e86a5a", 0.35), { round = false })
+                            kit.box(sx, by - 1, sw, 1, kit.rgba("#e86a5a", 0.9), { round = false })
+                            kit.box(sx, by + 7, sw, 1, kit.rgba("#e86a5a", 0.9), { round = false })
+                        end
+                        kit.box(bx + 112 + 74 * a / 100 - 1, by - 3, 2, 13, kit.rgba("#f3e7cf", 0.9), { round = false })
+                    end
+                end
+            end
             if mark then
                 local mc = theme[MARK_COLOR[mark]]
                 if key == "suspicion" and mark ~= "=" then
@@ -905,6 +928,8 @@ end
 
 function M.snapshot_overlay(app)
     local sn = app.snapshot_view
+    -- A fight's moment plays back with everyone's hit points and what they did (night_view).
+    require("game.ui.night_view").draw_replay_hud(app, sn)
     kit.box(0, 820, kit.W, 80, kit.rgba("#140e0b", 0.85), { round = false })
     kit.text(40, 834, (sn.title and (sn.title .. ", session " .. util.int(sn.week)) or ("Session " .. util.int(sn.week))), "ui14",
         theme.dim)

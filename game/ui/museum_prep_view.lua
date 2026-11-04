@@ -195,8 +195,11 @@ local function between(app)
         kit.picture(x + 26, box_y + 52, 36, 36, panels.face(def.who))
         kit.text(x + 76, box_y + 50, p.name .. " messages you, just you:", "ui18b", theme.text)
         kit.text(x + 76, box_y + 76, "\"" .. (pr.ask or def.ask) .. "\"", "story22", theme.text, { w = w - 110 })
-        kit.text(x + 24, box_y + 136, "Every DM gets these. Fair, absurd, or both: how do you answer?", "ui18", theme.dim, { w = w - 48 })
-        local by = box_y + 176
+        -- What they mean, when it's from a few sessions back (the playtest, November 3: "I don't remember
+        -- that"): the request's own reminder, then the line every DM knows.
+        local hint = (def.about and (def.about .. " ") or "") .. "Every DM gets these. Fair, absurd, or both: how do you answer?"
+        kit.text(x + 24, box_y + 136, hint, "ui18", theme.dim, { w = w - 48, lines = 2 })
+        local by = box_y + 176 + (def.about and 24 or 0)
         for _, ans in ipairs(MODULE.ANSWERS) do
             local a = def.answers[ans]
             kit.button(x + 24, by, w - 48, 92, "", function()
@@ -593,14 +596,14 @@ function M.draw_stairs(app, plan)
                 ux, uy = lo.x + lo.w - 19, lo.y + 2       -- (a narrow room: its top corner, off the name)
             end
             local ends = {
-                { x = ux, y = uy, title = "Stairs up",
+                { x = ux, y = uy, title = "Stairs up", dir = "up",
                   text = "From " .. room_label(lo_id) .. " up to " .. room_label(hi_id) .. ", on the floor above." },
             }
             if hi.backdrop and f.down then
-                table.insert(ends, { x = f.down[1] - 8, y = f.down[2] - 18, title = "Stairs down",
+                table.insert(ends, { x = f.down[1] - 8, y = f.down[2] - 18, title = "Stairs down", dir = "down",
                     text = "From " .. room_label(hi_id) .. " down to " .. room_label(lo_id) .. ", on the floor below." })
             else
-                table.insert(ends, { x = hi.x + 3, y = hi.y + hi.h - 19, title = "Stairs down",
+                table.insert(ends, { x = hi.x + 3, y = hi.y + hi.h - 19, title = "Stairs down", dir = "down",
                     text = "From " .. room_label(hi_id) .. " down to " .. room_label(lo_id) .. ", on the floor below." })
             end
             -- (A room that is the stairs, by its name, needs no mark of its own.)
@@ -610,6 +613,11 @@ function M.draw_stairs(app, plan)
             for _, e in ipairs(ends) do
                 kit.box(e.x - 1, e.y - 1, 18, 18, kit.rgba("#000000", 0.55), { radius = 4 })
                 kit.icon(e.x, e.y, 16, "stairs", theme.gold)
+                -- Which way they go (the playtest, November 3: the stairs up from below read as more stairs up).
+                if e.dir then
+                    kit.box(e.x + 11, e.y - 6, 12, 12, kit.rgba("#000000", 0.7), { radius = 6 })
+                    kit.icon(e.x + 12, e.y - 5, 10, e.dir, e.dir == "up" and theme.green or theme.orange)
+                end
                 local gloss = util.lazy("game.ui.gloss")
                 if gloss.card_spot then
                     gloss.card_spot(e.x - 2, e.y - 2, 20, 20, e.title, e.text)
@@ -1054,8 +1062,10 @@ local function top_bar(app, prep)
     kit.text(900, 32, util.int(left) .. " of " .. util.int(prep.budget) .. " left", "ui18b", left > 0 and theme.text or theme.orange)
     kit.text(1060, 14, "FRANCS", "ui14", theme.dim)
     kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
-    kit.text(1130, 14, "FAIR WARNING", "ui14", theme.dim)
-    kit.text(1130, 32, util.int(c.adv.bank or 0) .. " in the bank", "ui18b", theme.teal)
+    local warnings = require "game.model.warnings"
+    local nw = warnings.count(c)
+    kit.text(1130, 14, "WARNINGS", "ui14", theme.dim)
+    kit.text(1130, 32, util.int(nw) .. (nw == 1 and " danger known" or " dangers known"), "ui18b", theme.teal)
     -- What the three numbers mean, on hover (the new-player playtest: nobody knew).
     local gloss = util.lazy("game.ui.gloss")
     if gloss.card_spot then
@@ -1067,9 +1077,12 @@ local function top_bar(app, prep)
         gloss.card_spot(1056, 10, 66, 46, "Flitwidget Francs",
             "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
             .. "The party spends them in the gift shop.")
-        gloss.card_spot(1126, 10, 120, 46, "Fair warning",
-            "Each time the party takes a risk knowingly, or you warn them, one goes in the bank. A harsh call later spends one "
-            .. "and lands as fair. With none in the bank, a harsh call feels arbitrary and costs Trust.")
+        local known = warnings.summary(c, 5)
+        gloss.card_spot(1126, 10, 140, 46, "Fair warning",
+            "A harsh call lands as fair when they knew about that danger: you described it, asked \"Are you sure?\", or they "
+            .. "found out for themselves. A die rolled in the open is fair on its own. Unwarned, it feels like it came out of "
+            .. "nowhere. Warn about everything, though, and nothing feels dangerous. "
+            .. (#known > 0 and ("They know: " .. table.concat(known, "; ") .. ".") or "They haven't been warned about anything yet."))
     end
     -- A milestone level the report offered and you left for later (level 3 after the gift shop).
     local lv = c:level_status()

@@ -115,10 +115,42 @@ function M.draw(app, on_click)
         -- The Heroic Inspiration token in front of them (B4).
         chip.token = kit.dot(x + TEXT_X + kit.width(p.name, "ui18b") + 14, y + 17, 14, theme.gold)
         gui.set_enabled(chip.token, p.heroic and true or false)
+        -- Give it yourself, any time on game night (the playtest, November 3): the button beside
+        -- their name, gone while they hold the token.
+        if app.give_inspiration and p.present and app.screen == "night" and app.night then
+            local bx = x + TEXT_X + kit.width(p.name, "ui18b") + 28
+            chip.inspire = kit.button(bx, y + 6, math.min(68, x + ROLL_X - bx - 4), 22, "Inspire", function()
+                app.give_inspiration(p.key)
+            end, { font = "ui14", key = "inspire_" .. p.key, color = kit.rgba("#4a3a1e", 0.95), hover = kit.rgba("#6a5228"),
+                   text_color = theme.gold,
+                   on_hover = function(_, on)
+                       local gl = require "game.ui.gloss"
+                       if on then
+                           gl.show("Give Heroic Inspiration", "Flick " .. p.char .. " the token for great play: one reroll, whenever "
+                               .. p.name .. " wants it. Your call, any time. Give it to the same friend too often and the others notice.",
+                               nil, bx, y + 6, 68, 22)
+                       else
+                           gl.hide()
+                       end
+                   end })
+            M.show_inspire(chip, not p.heroic)
+        end
         -- (The re-test, October 16: "the gold dot by Mara's name" meant nothing.)
         require("game.ui.gloss").card_spot(x + TEXT_X + kit.width(p.name, "ui18b") + 5, y + 8, 18, 18,
             "Heroic Inspiration", "A token you gave " .. p.name .. " for great play. " .. p.char .. " can spend it to reroll "
             .. "one die, and it goes back to you when they do.", nil, chip.token)
+        -- Who's with them (companions.lua): a paw by the name, the companion's card on hover.
+        local okc, companions = pcall(require, "game.model.companions")
+        local comp = okc and app.campaign.module and app.night and companions.of(app.night, p) or nil
+        if comp then
+            -- (On the corner of their hero's mini: who's riding along with them.)
+            local cx, cy = x + 98, y + 60
+            kit.dot(cx + 9, cy + 9, 20, kit.rgba("#000000", 0.7))
+            local icon = kit.icon(cx + 1, cy + 1, 16, comp.kind == "pet" and "paw" or "hand", theme.gold)
+            require("game.ui.gloss").card_spot(cx - 2, cy - 2, 22, 22, comp.name, util.capitalize(comp.what or "")
+                .. ". With " .. p.char .. (comp.pocket and ": rides in a pocket, and helps when they look around." or
+                (": in every fight, played by " .. p.name .. ", and helps when they look around.")), nil, icon)
+        end
         local role = p.char .. ", " .. p.class_name .. " " .. util.int(level)
         if kit.width(role, "ui14") > TEXT_W then
             -- A long name (a new hero after a death): their first name is enough here.
@@ -143,7 +175,9 @@ function M.draw(app, on_click)
             chip.die = kit.icon(rx + ROLL_W / 2 - 21, y + 12, 42, "d20", kit.rgba("#ffffff", 0.12))
             chip.num = kit.text(rx + ROLL_W / 2, y + 33, "", "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
             chip.what = kit.text(rx + ROLL_W / 2, y + 58, "no rolls yet", "ui14", theme.faint, { pivot = gui.PIVOT_N })
-            chip.res = kit.text(rx + ROLL_W / 2, y + 76, "", "ui14", theme.dim, { pivot = gui.PIVOT_N })
+            -- The sum, bold (the playtest, November 3: "13 + 5 = 18, with 18 big"), and what it was against.
+            chip.res = kit.text(rx + ROLL_W / 2, y + 74, "", "ui18b", theme.dim, { pivot = gui.PIVOT_N, gloss = false })
+            chip.vs = kit.text(rx + ROLL_W / 2, y + 96, "", "ui14", theme.dim, { pivot = gui.PIVOT_N, gloss = false })
             -- What the last roll's numbers mean, on hover (the hover audit, November 3): the words
             -- change with every roll, so one card for the whole box.
             local gl = require("game.ui.gloss")
@@ -200,7 +234,9 @@ function M.refresh(app, scene_break)
                 local pose = t.pose
                 if chip.shown_pose ~= pose then
                     chip.shown_pose = pose
-                    gui.play_flipbook(chip.face, M.face(key, pose))
+                    if chip.side ~= "char" then
+                        gui.play_flipbook(chip.face, M.face(key, pose))
+                    end
                 end
             end
         end
@@ -214,8 +250,37 @@ function M.pose(app, key, pose)
     app.chip_pose[key] = { pose = pose, until_t = (app.clock_t or 0) + POSE_HOLD }
     if chip and chip.face then
         chip.shown_pose = pose
-        gui.play_flipbook(chip.face, M.face(key, pose))
+        if chip.side ~= "char" then
+            gui.play_flipbook(chip.face, M.face(key, pose))
+        end
     end
+end
+
+-- The tile's token has two sides (the playtest, November 3: "a two-sided token for speaking as a
+-- player vs as a character"): their face, and their hero. It flips to the hero while they talk in
+-- character, and back after.
+function M.flip_token(app, key, side)
+    local chip = app.chips and app.chips[key]
+    if not (chip and chip.face) or (chip.side or "face") == side then
+        return
+    end
+    chip.side = side
+    local p = app.campaign:player(key)
+    local n = chip.face
+    local function swap()
+        if side == "char" then
+            gui.play_flipbook(n, M.mini(p))
+            gui.set_size(n, vmath.vector3(53, 66, 0))
+            gui.set_position(n, vmath.vector3(chip.x + 13, kit.H - (chip.y + 8), 0))
+        else
+            gui.play_flipbook(n, M.face(key, chip.shown_pose))
+            gui.set_size(n, vmath.vector3(66, 66, 0))
+            gui.set_position(n, vmath.vector3(chip.x + 7, kit.H - (chip.y + 8), 0))
+        end
+        gui.animate(n, "scale", vmath.vector3(1, 1, 1), gui.EASING_OUTQUAD, 0.12)
+    end
+    gui.set_scale(n, vmath.vector3(1, 1, 1))
+    gui.animate(n, "scale", vmath.vector3(0.05, 1, 1), gui.EASING_INQUAD, 0.12, 0, swap)
 end
 
 -- The stats rows: hit points and AC under the face, and one row of the class's resources, each a
@@ -332,6 +397,9 @@ function M.roll(app, key, r)
     gui.set_text(chip.what, kit.ellipsize(r.what or "", "ui14", ROLL_W - 6))
     gui.set_color(chip.what, theme.text)
     gui.set_text(chip.res, "")
+    if chip.vs then
+        gui.set_text(chip.vs, "")
+    end
 end
 
 -- A new scene: last scene's rolls come off the panels (the second card-led playtest, October 17:
@@ -346,6 +414,9 @@ function M.clear_rolls(app)
             gui.set_text(chip.what, "no rolls yet")
             gui.set_color(chip.what, theme.faint)
             gui.set_text(chip.res, "")
+            if chip.vs then
+                gui.set_text(chip.vs, "")
+            end
         end
     end
 end
@@ -371,21 +442,23 @@ function M.show_roll(app, key, r, quiet)
     gui.set_text(chip.num, r.hidden and "?" or util.int(r.roll or 0))
     gui.set_text(chip.what, kit.ellipsize(r.what or "", "ui14", ROLL_W - 6))
     gui.set_color(chip.what, theme.text)
-    local res
-    if r.total and r.mod and r.mod < 0 and not r.hidden then
-        -- (A die showing 14 beside a 13 read as a mistake: the second playtest. Say the minus.)
-        res = util.int(r.roll or 0) .. util.int(r.mod) .. "=" .. util.int(r.total)
-    elseif r.total and r.mod and r.mod ~= 0 then
-        res = util.int(r.total)
-    elseif r.total then
-        res = util.int(r.total)
-    else
-        res = ""
+    -- The working, then the total: "13 + 5 = 18" (a minus says so), and "vs DC 14" under it.
+    local res = ""
+    if r.total and not r.hidden then
+        local m = r.mod or 0
+        if r.roll and m ~= 0 then
+            res = util.int(r.roll) .. (m < 0 and " - " or " + ") .. util.int(math.abs(m)) .. " = " .. util.int(r.total)
+        else
+            res = util.int(r.total)
+        end
+    elseif r.hidden then
+        res = "?"
     end
-    if r.against then
-        res = res .. " vs " .. r.against
+    gui.set_text(chip.res, kit.ellipsize(res, "ui18b", ROLL_W - 4))
+    if chip.vs then
+        gui.set_text(chip.vs, r.against and kit.ellipsize("vs " .. r.against, "ui14", ROLL_W - 6) or "")
+        gui.set_color(chip.vs, theme.dim)
     end
-    gui.set_text(chip.res, kit.ellipsize(res, "ui14", ROLL_W - 6))
     gui.set_color(chip.res, result_color(r))
     if not quiet then
         gui.set_scale(chip.die, vmath.vector3(1.25, 1.25, 1))
@@ -399,6 +472,22 @@ function M.set_token(app, key, on)
     local chip = app.chips and app.chips[key]
     if chip and chip.token then
         gui.set_enabled(chip.token, on and true or false)
+    end
+    if chip then
+        M.show_inspire(chip, not on)
+    end
+end
+
+-- The Inspire button on a tile: there while they don't hold the token.
+function M.show_inspire(chip, on)
+    local b = chip.inspire
+    if not b then
+        return
+    end
+    b.enabled = on and true or false
+    pcall(gui.set_enabled, b.node, on and true or false)
+    if b.label then
+        pcall(gui.set_enabled, b.label, on and true or false)
     end
 end
 
@@ -419,6 +508,7 @@ function M.light(app, key, seconds, kind)
     gui.set_enabled(chip.glow, true)
     gui.set_enabled(chip.ic_bg, true)
     gui.set_enabled(chip.ic, true)
+    M.flip_token(app, key, (kind or "ic") == "ic" and "char" or "face")
 end
 
 function M.lit(app, key)
@@ -459,6 +549,7 @@ function M.update(app, dt)
                 gui.set_enabled(chip.glow, false)
                 gui.set_enabled(chip.ic_bg, false)
                 gui.set_enabled(chip.ic, false)
+                M.flip_token(app, key, "face")
             end
         end
     end
@@ -469,6 +560,10 @@ function M.update(app, dt)
             s.tick = s.tick - dt
             if s.t >= s.dur then
                 M.show_roll(app, key, s.r)
+                -- The numbers, big, over their tile for a moment (night_view.roll_banner).
+                if app.roll_landed and not s.r.hidden and s.r.what ~= "Initiative" then
+                    app.roll_landed(key, s.r)
+                end
             elseif s.tick <= 0 then
                 s.tick = 0.05
                 gui.set_text(chip.num, util.int(math.random(1, 20)))

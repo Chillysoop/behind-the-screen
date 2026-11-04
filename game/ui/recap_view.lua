@@ -94,7 +94,11 @@ local function draw_story(app)
             if y + 22 + lh > bottom then
                 break
             end
-            kit.text(x + 16, y, r.name, "ui18b", r.boss and theme.text or theme.text, { w = w - 96, lines = 1 })
+            local nn = kit.text(x + 16, y, r.name, "ui18b", r.boss and theme.text or theme.text, { w = w - 96, lines = 1, gloss = false })
+            -- (Their name opens their sheet: the playtest, November 3.)
+            if r.id then
+                require("game.ui.gloss").npc_spot(x + 14, y - 2, math.min(kit.width(r.name, "ui18b"), w - 96) + 4, 24, r.id, nn)
+            end
             kit.text(x + 16, y + 22, line, "ui14", TONE[r.tone] or theme.dim, { w = w - 96 })
             -- Who's drawn to them (a full ring: keen), and who's put off (dimmed, with a red dot).
             local fx = x + M.W - 16

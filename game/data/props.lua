@@ -242,6 +242,8 @@ return {
         words = { "steps", "terrace" }, say = "wide stone steps up to a terrace" },
     stairs_straight = { fw = 2, fh = 3, blocks = false, cover = false, rough = false, light = 0.0,
         words = { "stairs", "staircase", "stair", "upstairs" }, say = "a staircase going up" },
+    stairs_down = { fw = 2, fh = 3, blocks = false, cover = false, rough = false, light = 0.0,
+        words = { "stairs", "staircase", "stair", "downstairs", "down" }, say = "a stairwell going down" },
     donation_box = { fw = 1, fh = 1, blocks = true, cover = true, rough = false, light = 0.0,
         words = { "donation", "donations", "donation box", "offering", "gilded" }, say = "a gilded donation box", one = "donation box", deg = "half" },
     canopic_jars = { fw = 1, fh = 1, blocks = true, cover = true, rough = false, light = 0.0,

@@ -160,6 +160,7 @@ function M.new(campaign, prep, opts)
     self.promise_noted = {}
     for _, p in ipairs(self.players) do
         score.reset_session(p)
+        score.start_carry(p)     -- (how they came in: last session's mood, a week softer)
     end
     -- Build the scenes from the board.
     self.scenes = {}
@@ -237,6 +238,16 @@ function M:emit(ev)
         end
         self.th.flushing = false
     end
+    -- What you did from the screen between beats (the token from a tile): its moment at the table now.
+    if self.ui_later and #self.ui_later > 0 and not self.ui_flushing then
+        self.ui_flushing = true
+        local list = self.ui_later
+        self.ui_later = {}
+        for _, fn in ipairs(list) do
+            fn(self)
+        end
+        self.ui_flushing = false
+    end
     if self.board_id then
         self:board_hear(ev)
     end
@@ -245,6 +256,30 @@ function M:emit(ev)
     end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
+    -- Where each hero's mini stands now: a fight starts from there, not from a huddle at the
+    -- board's start (the playtest, November 3).
+    if ev.kind == "scene" and ev.party then
+        self.mini_pos = {}
+        for _, q in ipairs(ev.party) do
+            if q.id and q.x then
+                self.mini_pos[q.id] = { q.x, q.y }
+            end
+        end
+    elseif ev.kind == "walk" and ev.actor and ev.path and #ev.path > 0 then
+        self.mini_pos = self.mini_pos or {}
+        local last = ev.path[#ev.path]
+        self.mini_pos[ev.actor] = { last[1], last[2] }
+    elseif ev.kind == "check" and ev.actor and ev.spot then
+        self.mini_pos = self.mini_pos or {}
+        self.mini_pos[ev.actor] = { ev.spot[1], ev.spot[2] }
+    end
+    -- How far into the evening: the mood they came in with gives way to tonight (score.fun).
+    if self.players and self.table_planned then
+        local t = (self.table_min or 0) / math.max(60, self.table_planned)
+        for _, p in ipairs(self.players) do
+            p.carry_t = t
+        end
+    end
     -- Each player's night as the table saw it (their tells), for the report's verdict.
     if ev.t > 0 and self.players then
         local lived = self.lived or { time = 0, sum = {}, low = {} }
@@ -353,8 +388,24 @@ function M:board_hear(ev)
     end
     if self.npc_pending and (k == "npc" or self.npc_cue or (k == "narrate" and board_mod.names(self.npc_words, ev.text))
         or (pacing.DECISION_KINDS[k] and k ~= "improv") or k == "check") then
+        -- (Out of sight: the party walks in first, then they're there. sight.lua)
+        if not self.seeing then
+            self.seeing = true
+            self.npc_pending = nil
+            self:come_into_view(self.scene)
+            self.seeing = nil
+        end
         ev.npc_show = true
         self.npc_pending = nil
+    elseif self.npc_pending and k == "walk" and not self.seeing and self.scene and self.scene.npc_at then
+        -- A hero walked round the corner and can see them now.
+        local sight = require "game.model.sight"
+        local st = sight.stage(self, self.scene)
+        local last = ev.path and ev.path[#ev.path]
+        if st and last and sight.los(st, last, self.scene.npc_at) then
+            ev.npc_show = true
+            self.npc_pending = nil
+        end
     end
 end
 
@@ -439,6 +490,16 @@ end
 -- Skill checks (real-session pass) ---------------------------------------------------------
 
 -- A hero's modifier for a skill, from their character sheet at the party's level.
+-- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
+function M:take_research(p)
+    if (self.research or 0) <= 0 then
+        return 0
+    end
+    self.research = self.research - 1
+    self:say(util.fill("{char} remembers something from the break's reading: +2.", { char = p.char }), "aside")
+    return 2
+end
+
 function M:mod_for(p, skill)
     local c = self.campaign
     local sub = c.subclasses and c.subclasses[p.class]
@@ -1286,12 +1347,93 @@ function M:walk(p, to, path, sc)
     if not sq then
         return nil
     end
-    local pts = { { sq[1], sq[2] } }
+    -- Round the walls and through the doors, not through them (game/model/sight.lua): the squares
+    -- of the way there, a door opening as they reach it.
+    local pts
+    local sight = require "game.model.sight"
+    local st = sight.stage(self, sc)
+    local from = self.mini_pos and self.mini_pos[p.key]
+    if st and from then
+        local route = sight.path(st, from, sq)
+        if route and #route > 0 and #route <= 40 then
+            self:open_doors(st, route)
+            pts = route
+        end
+    end
+    pts = pts or { { sq[1], sq[2] } }
     for _, s in ipairs(path or {}) do
         table.insert(pts, { s[1], s[2] })
     end
     self:emit({ kind = "walk", actor = p.key, path = pts })
     return sq
+end
+
+-- Is the scene's person in plain view of the party where they stand? (Then they're on the mat
+-- from the start, not waiting to be named: the playtest, November 3.)
+function M:npc_in_view(sc, party, npc)
+    if not npc then
+        return false
+    end
+    local sight = require "game.model.sight"
+    local st = sight.stage(self, sc)
+    if not st then
+        return false
+    end
+    local froms = {}
+    for _, q in ipairs(party or {}) do
+        table.insert(froms, { q.x, q.y })
+    end
+    return sight.seen(st, froms, { npc.x, npc.y })
+end
+
+-- The doors a walk goes through open, and stay open tonight (the board swaps the piece).
+function M:open_doors(st, route)
+    local sight = require "game.model.sight"
+    for _, d in ipairs(sight.doors_on(st, route)) do
+        self.doors_open = self.doors_open or {}
+        self.doors_open[st.id] = self.doors_open[st.id] or {}
+        self.doors_open[st.id][d.x .. "," .. d.y] = true
+        self:emit({ kind = "door", x = d.x, y = d.y, fid = d.fid, state = "open" })
+    end
+end
+
+-- Before the person in the scene comes on the mat: if no hero can see where they are (a wall, a
+-- shut door), the party walks in until someone can (the playtest, November 3: "check sightlines;
+-- they need to move through doors to see the room and the NPCs inside it").
+function M:come_into_view(sc)
+    local at = sc and sc.npc_at
+    if not (at and self.mini_pos) then
+        return
+    end
+    local sight = require "game.model.sight"
+    local st = sight.stage(self, sc)
+    if not st then
+        return
+    end
+    local froms = {}
+    for _, p in ipairs(self.players) do
+        if self.mini_pos[p.key] then
+            table.insert(froms, self.mini_pos[p.key])
+        end
+    end
+    if #froms == 0 or sight.seen(st, froms, at) then
+        return
+    end
+    local taken = { [at[1] .. "," .. at[2]] = true }
+    for _, p in ipairs(self.players) do
+        local from = self.mini_pos[p.key]
+        if from then
+            local route = sight.path(st, from, nil, function(x, y)
+                return sight.walkable(st, x, y) and not taken[x .. "," .. y] and sight.los(st, { x, y }, at)
+            end)
+            if route and #route > 0 and #route <= 40 then
+                local last = route[#route]
+                taken[last[1] .. "," .. last[2]] = true
+                self:open_doors(st, route)
+                self:emit({ kind = "walk", actor = p.key, path = route })
+            end
+        end
+    end
 end
 
 -- The place's map, if there is one (B9).
@@ -1316,7 +1458,9 @@ function M:staging(sc)
     end
     local npc
     local cast = sc.comps.cast
-    if cast and not (sc.type == "combat" or sc.type == "set_piece") then
+    -- (A fight's one figure who's there from the start, the Lecturer at his lectern, Euryale on her
+    -- couch, is on the mat before the fight: cast.visible. The playtest, November 3.)
+    if cast and (not (sc.type == "combat" or sc.type == "set_piece") or cast.visible) then
         -- Where this person would be: the board can say (the stranger in the corner, Gus behind the bar).
         local at = (layout.npc_at and layout.npc_at[cast.id]) or layout.npc
         local sq = fight.squares_near(blocked, taken, at[1], at[2], 1, 1,
@@ -2241,6 +2385,7 @@ function M:hero_action(sc, used, dc, need, spots)
         mod = mod + near_bonus
         self.edge_next[p.key] = nil
     end
+    mod = mod + self:take_research(p)
     local total = roll + mod
     local success = total >= dc
     local name = skills.name(a.skill)
@@ -2326,6 +2471,10 @@ function M:hero_action(sc, used, dc, need, spots)
     -- (A second miss at the same move isn't the first miss again, word for word: the second playtest.)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
+    -- A natural 20 is a moment the token's made for, if you want to give it (offer_inspiration).
+    if roll == 20 then
+        self:offer_inspiration(p, p.char .. " rolled a natural 20.")
+    end
     -- (v2: what it changes in the adventure, as a moment's option would: a bigger reward, a flag.)
     local am = success and a.mus_win or (not success and a.mus_lose)
     if am and self.mus then
@@ -2737,6 +2886,7 @@ function M:stunt(sc)
         self:react({ [p.key] = "cheer" })
         if roll == 20 then
             self:highlight(7, p.char .. " pulls off a stunt nobody will forget", { p }, "stunt")
+            self:offer_inspiration(p, p.char .. " just pulled off a stunt nobody will forget.")
         end
     else
         score.add(p, "spotlight", 2)
@@ -2753,7 +2903,7 @@ end
 -- moment. Giving it to the same player twice inside three sessions, the rest of the table
 -- notices.
 M.FAIR_WINDOW = 3
-function M:give_inspiration(p)
+function M:give_inspiration(p, by_tile)
     self.inspiration_given = p.key
     p.heroic = true
     local camp = self.campaign
@@ -2773,6 +2923,49 @@ function M:give_inspiration(p)
     if again then
         self:fairness_noticed(p, "inspiration")
     end
+end
+
+-- Heroic Inspiration is the DM's to give (the playtest, November 3: "the DM should be prompted to
+-- give it or not, not given freely"). A great moment offers it as a call: the token, or not this
+-- time. One offer a night, never to someone already holding one, and only while the night has
+-- calls to spare. why: what they did, said on the card.
+function M:offer_inspiration(p, why)
+    if not p or p.heroic or self.inspiration_given or self.inspiration_offered or not self:room(13) then
+        return false
+    end
+    self.inspiration_offered = true
+    local prev_actor = self.actor
+    self.actor = p
+    local card = { id = "inspire_offer", type = "table", trigger = "museum_fixed", fixed_actor = true,
+                   title = "Heroic Inspiration?",
+                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever they need it. "
+                       .. "You can also give it any time from their tile.",
+                   options = {
+                       { label = "Yes: flick {actor_char} the token.", inspire = true,
+                         effects = { { "actor", fun = 2 } } },
+                       { label = "Not this time.", log = "You keep the token behind your screen for now.",
+                         effects = { { "arch:power_gamer", fun = -1 } } },
+                   } }
+    local o = self:decision(card)
+    if o and o.inspire then
+        self:give_inspiration(p)
+    end
+    self.actor = prev_actor or self.actor
+    return o and o.inspire or false
+end
+
+-- The token from their tile (the playtest, November 3): the DM's own call, any time. The UI sets
+-- it at once; the table's reaction plays at the next beat (the night is mid-step when you click).
+function M:inspire_from_tile(p)
+    if not p or p.heroic then
+        return false
+    end
+    p.heroic = true
+    self.ui_later = self.ui_later or {}
+    table.insert(self.ui_later, function(night)
+        night:give_inspiration(p, true)
+    end)
+    return true
 end
 
 -- The killing blow (M8, B4). Who's waited longest for one: the player with the fewest killing
@@ -3124,6 +3317,9 @@ function M:big_roll(spec, record)
         mod = mod + near_bonus   -- last time was a near miss (B2)
         self.edge_next[p.key] = nil
     end
+    if p then
+        mod = mod + self:take_research(p)
+    end
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
     local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)
     local by = spec.secret and "dm" or "player"
@@ -3170,9 +3366,26 @@ function M:big_roll(spec, record)
                             skill = skill, skill_name = name, mod = mod, by = by, promise = promise,
                             final = spec.final })
     end
+    -- Your own DC, said out loud (the playtest, November 3): "dc:16" from the card.
+    local own_dc = type(where) == "string" and tonumber(string.match(where, "^dc:(%d+)$")) or nil
     if where ~= "hidden" then
         where = "open"
     end
+    if own_dc and by == "player" then
+        own_dc = util.clamp(own_dc, 2, 30)
+        local diff = own_dc - dc
+        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what they need.",
+            self:vars()), "dm")
+        -- (Much easier than the book's: the ones here for a challenge feel it. Much harder: everyone does.)
+        if diff <= -4 then
+            self:apply({ { "arch:butt_kicker", challenge = -2 }, { "arch:power_gamer", challenge = -1 }, { "arch:casual", fun = 1 } })
+        elseif diff >= 4 then
+            self:apply({ { "all", challenge = 2 }, { "arch:casual", fun = -1 } })
+        end
+        dc = own_dc
+    end
+    -- (A harsh result from a die everyone saw is fair on its own: warnings.judge.)
+    self.last_roll_where, self.last_roll_fresh = where, true
     if where == "open" and self.rng:chance(0.35) then
         self:bark(self:pick_actor(nil), "open_roll")
     end
@@ -3688,6 +3901,7 @@ function M:decision(card, extra)
                             disabled = o.disabled, answer = o.answer }   -- (a pull's answers)
     end
     view.who = card.who
+    view.intermission = card.intermission       -- (the break: night_view draws the table getting up)
     if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
         self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
     end
@@ -5457,6 +5671,7 @@ function M:do_rest(o, asked, kind, sc)
          or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
     self.rests = self.rests or {}
     table.insert(self.rests, { kind = long and "long" or "short", interrupted = interrupted, place = kind })
+    self:emit({ kind = "rested", long = long })     -- (the tiles show what came back)
     if not interrupted and (o.beat or self:arch_present("storyteller") or self:arch_present("method_actor")) and self:idle() < 80 then
         self:rest_beat(kind)
     end
@@ -6287,15 +6502,16 @@ function M:snapshot(caption, weight, who, by_dm)
                    title = self.scene and self.scene.title }
     -- Mid-fight: the fight so far, up to this moment, to play back (the last 20 turns).
     if self.battle and self.fight_frames and #self.fight_frames > 1 then
-        local fr = {}
+        local fr, acts = {}, {}
         for i = math.max(1, #self.fight_frames - 19), #self.fight_frames do
             table.insert(fr, self.fight_frames[i])
+            table.insert(acts, self.fight_acts and self.fight_acts[i] or {})
         end
         local kinds = {}
         for id, k in pairs(self.fight_kinds or {}) do
-            kinds[id] = { side = k.side, class = k.class, monster = k.monster }
+            kinds[id] = { side = k.side, class = k.class, monster = k.monster, name = k.name, hp_max = k.hp_max }
         end
-        snap.frames, snap.kinds = fr, kinds
+        snap.frames, snap.kinds, snap.acts = fr, kinds, acts
         snap.wake = self.fight_wake
     end
     table.insert(self.snapshots, snap)
@@ -6469,7 +6685,7 @@ function M:play_scene(sc)
     self:board_set(self:board_for(sc), sc)
     self:emit({ kind = "scene", index = sc.index, total = (not self.mus) and #self.scenes or nil, title = sc.title, type = sc.type, board = self:board_for(sc),
                 type_name = content.scenes[sc.type].name, terrain = sc.terrain, party = party, npc = npc,
-                npc_hidden = npc ~= nil,
+                npc_hidden = npc ~= nil and not (self.mus and self:npc_in_view(sc, party, npc)),
                 pieces = map and map.template == sc.terrain and maps.cells(map) or nil,
                 cast = cast and cast.name, goal = goal and goal.name, story = is_story })
     thoughts.dawn(self)          -- a thought you misread: it comes to you now what it really was
@@ -6496,7 +6712,7 @@ function M:play_scene(sc)
     self:safety_check(sc)
     local module = sc.module and require("game.model.books").module(sc.module)
     -- The person in the scene appears on the mat when the DM names them (or they speak).
-    self.npc_pending = npc ~= nil or nil
+    self.npc_pending = (npc ~= nil and not (self.mus and self:npc_in_view(sc, party, npc))) or nil
     local mus = sc.room and util.lazy("game.model.museum_night")
     if module then
         self:say(module.read_aloud, "narration")      -- the book's own boxed text, read out

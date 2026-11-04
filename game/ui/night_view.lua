@@ -171,7 +171,7 @@ end
 local MUSEUM_SPRITE = {
     briar_beast = "briar_beast", briar_boar = "briar_boar", briar_triceratops = "briar_triceratops", sentinel = "animated_armor",
     bone_construct = "skeleton", giant_scarab_swarm = "swarm_of_rats", knight_of_shades = "animated_armor",
-    kruthik_huntling = "giant_crab", the_lecturer = "specter", steam_mech = "animated_armor", euryale = "npc_sable",
+    kruthik_huntling = "giant_crab", the_lecturer = "specter", steam_mech = "animated_armor", euryale = "npc_sable", telpur = "npc_hermit",
 }
 
 local function monster_sprite(id, n)
@@ -279,19 +279,35 @@ function M.start(app)
 end
 
 function M.build(app)
+    app.speed_now = function()
+        return speed(app)
+    end
+    app.roll_landed = function(key, r)
+        M.roll_banner(app, key, r)
+    end
+    -- The Inspire button on a tile: the token's on the table at once, the table's reaction next beat.
+    app.give_inspiration = function(key)
+        local p = app.night and app.campaign:player(key)
+        if p and app.night:inspire_from_tile(p) then
+            panels.set_token(app, key, true)
+            M.float(app, key, "Heroic Inspiration!", theme.gold)
+            post("spark", { id = key, color = SPARK.crit })
+        end
+    end
     app.layers.base = kit.layer("night_base")
     M.draw_frame(app)
     app.layers.log = kit.layer("night_log")
     M.draw_log(app)
     app.layers.fx = kit.layer("night_fx")
     app.bubbles, app.floaters = {}, {}
-    app.side, app.toast_card = nil, nil     -- (their nodes went with the old layers)
+    app.side, app.toast_card, app.roll_card = nil, nil, nil     -- (their nodes went with the old layers)
+    app.dying_nodes = nil
+    for id in pairs(app.ds or {}) do
+        M.dying(app, id)        -- (a hero still down when the screen is rebuilt: their card again)
+    end
     M.draw_caption(app)
     battle_hud.draw(app)
     M.draw_thinks(app)
-    app.speed_now = function()
-        return speed(app)
-    end
     if app.pending then
         M.show_modal(app, app.pending, true)
     elseif app.night_done then
@@ -311,8 +327,9 @@ local function status_text(app)
     local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
     -- (No call count up here: the night's end card has it, October 20. Short, so the End session
     -- button fits beside it: November 3.)
-    return tc .. (app.campaign and app.campaign.module and "\n" or "   ") .. "Speed " .. (speed(app) < 1 and "0.5" or util.int(speed(app)))
-        .. "x   Rolls: " .. ((n and n.dm_rolls) or "hidden") .. "   Timer: " .. (app.timer_on and "on" or "off")
+    -- (The speed is its own buttons now, beside this: the playtest, November 3.)
+    return tc .. (app.campaign and app.campaign.module and "\n" or "   ") .. (speed(app) < 1 and "Half speed   " or "")
+        .. "Rolls: " .. ((n and n.dm_rolls) or "hidden") .. "   Timer: " .. (app.timer_on and "on" or "off")
 end
 
 -- How wide the scene's name may run in the top bar (v2: room for the Story button beside Notes).
@@ -378,21 +395,22 @@ function M.draw_frame(app)
         end, { font = "ui14", key = "night_table" })
     end
     app.n_status = kit.text(app.campaign.module and 1440 or 1576, app.campaign.module and 4 or 8, status_text(app), "ui14", theme.text,
-        { pivot = gui.PIVOT_NE })
+        { pivot = gui.PIVOT_NE, gloss = false })
+    -- Pause and the night's speed, clickable (the playtest, November 3): Pause, 1x, 2x, 4x.
+    M.draw_speed(app, app.campaign.module and 1100 or 1110, 10)
     -- The keys: the first session's first scene only (the card-led playtest, October 16: one more
     -- line nobody read after the first scene; October 20: back at the start of every night). The
     -- hover card below keeps them. (No "1-4 camera": the night aims the camera itself, and a card's
     -- options show their own numbers.)
     app.n_keys = nil
     if not app.keys_hidden and app.campaign.week <= 1 then
-        app.n_keys = kit.text(1576, app.campaign.module and 62 or 32, "Space skip  F/G speed  Tab log  H your rolls  T timer  C photo"
+        app.n_keys = kit.text(1576, app.campaign.module and 62 or 32, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo"
             .. (app.campaign.module and "  S recap" or "  S story log"), "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
-    gloss.card_spot(1100, 4, 476, 24, "The evening at a glance",
-        "The time at the table, and when you said you'd stop. Speed: how fast the night plays (F faster, G slower, "
-        .. "down to half speed; Space skips ahead). Your rolls (H): whether you roll for the monsters behind your screen "
+    gloss.card_spot(app.campaign.module and 1270 or 1300, 4, app.campaign.module and 172 or 276, 44, "The evening at a glance",
+        "The time at the table, and when you said you'd stop. Your rolls (H): whether you roll for the monsters behind your screen "
         .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo"
         .. (app.campaign.module and ", S opens your recap: the story's sides and the table, side by side." or ", S opens the Story log."))
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
@@ -470,6 +488,7 @@ function M.refresh_status(app)
     if app.n_status then
         gui.set_text(app.n_status, status_text(app))
     end
+    M.paint_speed(app)
 end
 
 function M.refresh_chips(app, scene_break)
@@ -725,6 +744,7 @@ end
 -- minis and all. nil clears the table again.
 function M.restage_snapshot(app, sn)
     app.replay = nil
+    app.replay_last = nil
     if not sn then
         post("vignette")
         app.terrain = nil
@@ -760,9 +780,9 @@ function M.restage_snapshot(app, sn)
         local function parse(fr)
             local out = {}
             for part in string.gmatch(fr, "[^;]+") do
-                local id, x, y, d = string.match(part, "^([^:]+):(%d+):(%d+):(%d)$")
+                local id, x, y, d, hp = string.match(part, "^([^:]+):(%d+):(%d+):(%d):?(%d*)$")
                 if id then
-                    out[id] = { x = tonumber(x), y = tonumber(y), down = d == "1" }
+                    out[id] = { x = tonumber(x), y = tonumber(y), down = d == "1", hp = tonumber(hp) }
                 end
             end
             return out
@@ -785,7 +805,8 @@ function M.restage_snapshot(app, sn)
             table.insert(first, { id = "snap_" .. id, sprite = sprite, x = at.x, y = at.y, side = k.side or "foe" })
         end
         post("spawn", { list = first })
-        app.replay = { frames = frames, i = 1, t = -0.8, step = 0.4, kinds = sn.kinds or {} }
+        app.replay = { frames = frames, i = 1, t = -0.8, step = 0.55, kinds = sn.kinds or {}, acts = sn.acts or {} }
+        app.replay_last = app.replay
         app.zoom(sn.camera or 2)
         return
     end
@@ -830,10 +851,92 @@ function M.update_replay(app, dt)
             end
         end
         r.i = r.i + 1
+        -- What they did this turn, like the real fight (the playtest, November 3): the swing, the
+        -- spell's spark, the hit, and the numbers in the ticker; the bars follow.
+        local said = {}
+        for _, a in ipairs(r.acts[r.i] or {}) do
+            local an = a.a and (r.kinds[a.a] and r.kinds[a.a].name) or nil
+            local tn = a.t and (r.kinds[a.t] and r.kinds[a.t].name) or nil
+            if a.k == "a" and a.a and a.t then
+                post("lunge", { id = "snap_" .. a.a, target = "snap_" .. a.t, ranged = a.ranged, time = 0.3 })
+                table.insert(said, (an or "Someone") .. (a.hit and (a.crit and " crits " or " hits ") or " misses ") .. (tn or "someone")
+                    .. (a.w and (" (" .. a.w .. ")") or ""))
+            elseif a.k == "s" and a.a then
+                post("spark", { id = "snap_" .. (a.t or a.a), color = SPARK.crit })
+                table.insert(said, (an or "Someone") .. " casts " .. (a.w or "a spell") .. (tn and (" on " .. tn) or ""))
+            elseif a.k == "d" and a.t then
+                post("hit", { id = "snap_" .. a.t })
+                table.insert(said, util.int(a.n or 0) .. " damage to " .. (tn or "someone") .. (a.crit and "!" or ""))
+            elseif a.k == "h" and a.t then
+                post("spark", { id = "snap_" .. a.t, color = theme.green })
+                table.insert(said, (tn or "Someone") .. " heals " .. util.int(a.n or 0))
+            end
+        end
+        r.ticker = #said > 0 and table.concat(said, ".  ") .. "." or r.ticker
+        M.paint_replay(app)
     end
     if r.i >= #r.frames then
         app.replay = nil
     end
+end
+
+-- The replay's panel (report_view's Look): everyone in the fight with their hit points, and what
+-- just happened. Drawn into the current layer; M.paint_replay keeps it up to date.
+function M.draw_replay_hud(app, sn)
+    app.replay_hud = nil
+    local r = app.replay_last
+    if not (sn and sn.frames and #sn.frames > 1 and r) then
+        return
+    end
+    local ids = {}
+    for id, k in pairs(r.kinds) do
+        table.insert(ids, { id = id, k = k })
+    end
+    table.sort(ids, function(a, b)
+        if (a.k.side == "party") ~= (b.k.side == "party") then
+            return a.k.side == "party"
+        end
+        return a.id < b.id
+    end)
+    local x, y, w = 1196, 76, 388
+    local n = math.min(#ids, 10)
+    kit.box(x, y, w, 44 + n * 34, kit.rgba("#140e0b", 0.88), { radius = 12 })
+    kit.text(x + 16, y + 12, "THE FIGHT, PLAYED BACK", "ui14", theme.gold, { gloss = false })
+    local hud = { rows = {}, w = 170 }
+    hud.turn = kit.text(x + w - 16, y + 12, "", "ui14", theme.dim, { pivot = gui.PIVOT_NE, gloss = false })
+    for i = 1, n do
+        local e = ids[i]
+        local ry = y + 40 + (i - 1) * 34
+        local col = e.k.side == "party" and theme.green or theme.red
+        kit.text(x + 16, ry + 4, kit.ellipsize(e.k.name or e.id, "ui14", 150), "ui14", theme.text, { gloss = false })
+        local fill = kit.bar(x + 172, ry + 9, hud.w, 9, e.k.hp_max or 1, math.max(1, e.k.hp_max or 1), col)
+        local t = kit.text(x + w - 16, ry + 4, "", "ui14", theme.dim, { pivot = gui.PIVOT_NE, gloss = false })
+        hud.rows[e.id] = { fill = fill, text = t, max = math.max(1, e.k.hp_max or 1) }
+    end
+    kit.box(300, 744, 1000, 56, kit.rgba("#140e0b", 0.88), { radius = 12 })
+    hud.ticker = kit.text(800, 760, "", "ui18b", theme.text, { pivot = gui.PIVOT_N, w = 960, lines = 1, gloss = false })
+    app.replay_hud = hud
+    M.paint_replay(app)
+end
+
+function M.paint_replay(app)
+    local hud, r = app.replay_hud, app.replay_last
+    if not (hud and r) then
+        return
+    end
+    local fr = r.frames[r.i] or {}
+    for id, row in pairs(hud.rows) do
+        local at = fr[id]
+        local hp = at and at.hp
+        if hp then
+            pcall(kit.set_bar, row.fill, hud.w, hp, row.max)
+            pcall(gui.set_text, row.text, at.down and (hp > 0 and (util.int(hp) .. " HP, down") or "Down") or (util.int(hp) .. " / " .. util.int(row.max)))
+        elseif not at then
+            pcall(gui.set_text, row.text, "Gone")
+        end
+    end
+    pcall(gui.set_text, hud.turn, "Turn " .. util.int(r.i) .. " of " .. util.int(#r.frames))
+    pcall(gui.set_text, hud.ticker, kit.ellipsize(r.ticker or "", "ui18b", 960))
 end
 
 -- The DM's camera (B1): three snapshots a night of whatever's on the table right now.
@@ -889,10 +992,14 @@ function M.draw_caption(app)
     -- A read-aloud passage (A9) is a boxed passage of its own: parchment, a gold rule down its
     -- left side, a small "Read aloud" tag, and the text large and set left.
     c.rule = kit.box(0, 0, 6, 40, theme.gold, { round = false })
-    c.tag = kit.text(0, 0, "READ ALOUD      Space: next", "ui14", theme.ink_dim, { gloss = false })   -- (the second playtest: "is it waiting for me?")
+    c.tag = kit.text(0, 0, "READ ALOUD TO THE PLAYERS: SETTING THE SCENE      Space: next", "ui14", theme.ink_dim, { gloss = false })   -- (the second playtest: "is it waiting for me?")
     c.text = kit.text(0, 0, "", "story22", theme.text, { pivot = gui.PIVOT_N, gloss = false })
+    -- Whose voice it is (the playtest, November 3: "more clear what the DM says to the players vs.
+    -- what is context setting"): a small tab on the caption's top edge.
+    c.voice_bg = kit.box(0, 0, 100, 22, theme.panel3, { radius = 8 })
+    c.voice = kit.text(0, 0, "", "ui14", theme.bg, { pivot = gui.PIVOT_N, gloss = false })
     c.life, c.age, c.color = 0, 0, theme.text
-    for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+    for _, n in ipairs({ c.box, c.rule, c.tag, c.text, c.voice_bg, c.voice }) do
         gui.set_enabled(n, false)
     end
     app.caption = c
@@ -900,8 +1007,24 @@ function M.draw_caption(app)
 end
 
 -- Lay the caption's nodes out in its rect (the read-aloud box or the plain caption).
+-- The caption's voice, by its style: you talking to the table out of character, you narrating
+-- what happens, or a note that's only for you.
+local VOICE = {
+    dm = { "YOU, TO THE TABLE", "#7fb2e5" },
+    good = { "YOU, NARRATING", "#cdbb98" }, bad = { "YOU, NARRATING", "#cdbb98" }, twist = { "YOU, NARRATING", "#cdbb98" },
+    thread = { "YOU, NARRATING", "#cdbb98" }, interlude = { "YOU, NARRATING", "#cdbb98" }, goal = { "FOR YOU", "#8a7c6a" },
+    system = { "FOR YOU", "#8a7c6a" }, warn = { "FOR YOU", "#8a7c6a" }, quote = { "YOU, IN CHARACTER", "#e8b84a" },
+}
+M.VOICE = VOICE
+
 local function place_caption(c, x, y, w, h)
     place(c.box, x, y)
+    if c.voice_on then
+        local vw = kit.width(gui.get_text(c.voice), "ui14") + 18
+        gui.set_size(c.voice_bg, vmath.vector3(vw, 22, 0))
+        place(c.voice_bg, x + 16, y - 16)
+        place(c.voice, x + 16 + vw / 2, y - 14)
+    end
     if c.read then
         place(c.rule, x + 14, y + 14)
         gui.set_size(c.rule, vmath.vector3(4, h - 28, 0))
@@ -985,6 +1108,17 @@ function M.caption(app, text, style)
     gui.set_enabled(c.text, true)
     gui.set_enabled(c.rule, read)
     gui.set_enabled(c.tag, read)
+    local v = (not read) and VOICE[style]
+    c.voice_on = v and true or false
+    gui.set_enabled(c.voice_bg, c.voice_on)
+    gui.set_enabled(c.voice, c.voice_on)
+    if v then
+        gui.set_text(c.voice, v[1])
+        c.voice_color = kit.rgba(v[2])
+        gui.set_color(c.voice_bg, c.voice_color)
+        gui.set_color(c.voice, theme.bg)
+        place_caption(c, app.caption_rect.x, app.caption_rect.y, app.caption_rect.w, app.caption_rect.h)
+    end
     gui.set_color(c.text, c.color)
     gui.set_color(c.box, caption_box_color(c, 1))
     gui.set_color(c.tag, theme.ink_dim)
@@ -1024,6 +1158,133 @@ function M.toast(app, top, text)
     t.nodes[5] = kit.text(x + w - 18, y + 12, "N: open your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     t.colors = { theme.gold, kit.rgba("#201813", 0.96), theme.gold, theme.text, theme.faint }
     app.toast_card = t
+end
+
+-- Down at 0 Hit Points: a red card over their tile, their death saves as they're rolled (three
+-- successes and they're stable, three failures and they die). Redrawn on every save.
+function M.dying(app, id)
+    local chip = app.chips and app.chips[id]
+    local t = app.ds and app.ds[id]
+    if not (chip and t and app.layers and app.layers.fx) then
+        return
+    end
+    M.drop_dying(app, id, true)
+    kit.use(app.layers.fx)
+    local w, h = 300, 64
+    local x, y = chip.x + (panels.W - w) / 2, chip.y - 84 - h - 8
+    local col = t.stable and theme.teal or theme.red
+    local nodes = {}
+    local function add(n)
+        table.insert(nodes, n)
+    end
+    add(kit.box(x - 2, y - 2, w + 4, h + 4, col, { radius = 12 }))
+    add(kit.box(x, y, w, h, kit.rgba("#201813", 0.97), { radius = 11 }))
+    local p = app.campaign:player(id)
+    local who = (p and p.char) or (app.names and app.names[id]) or "They"
+    add(kit.text(x + 14, y + 8, t.stable and (who .. " is stable") or (who .. " is dying"), "ui18b", col, { gloss = false }))
+    add(kit.text(x + 14, y + 36, "Saves", "ui14", theme.dim, { gloss = false }))
+    for i = 1, 3 do
+        add(kit.dot(x + 70 + (i - 1) * 20, y + 44, 14, i <= t.s and theme.teal or kit.rgba("#ffffff", 0.15)))
+    end
+    add(kit.text(x + 150, y + 36, "Fails", "ui14", theme.dim, { gloss = false }))
+    for i = 1, 3 do
+        add(kit.dot(x + 200 + (i - 1) * 20, y + 44, 14, i <= t.f and theme.red or kit.rgba("#ffffff", 0.15)))
+    end
+    app.dying_nodes = app.dying_nodes or {}
+    app.dying_nodes[id] = nodes
+end
+
+function M.drop_dying(app, id, keep)
+    local nodes = app.dying_nodes and app.dying_nodes[id]
+    if nodes then
+        kit.remove(nodes)
+        app.dying_nodes[id] = nil
+    end
+    if not keep and app.ds then
+        app.ds[id] = nil
+    end
+end
+
+-- Clicking a person's mini on the mat opens their sheet (npc_view): the scene's person, or a foe
+-- who is one of the adventure's people (by their stat block). lx, ly: layout coordinates.
+function M.click_mini(app, lx, ly)
+    local an = app.anchors and app.anchors.minis
+    if not an or not app.mini_npc then
+        return false
+    end
+    for id, npc in pairs(app.mini_npc) do
+        local a = an[id]
+        if a and a[1] and a[2] then
+            local ax, ay = a[1] * kit.W, a[2] * kit.H
+            if math.abs(lx - ax) <= 30 and ly >= ay - 10 and ly <= ay + 90 then
+                local gloss = require "game.ui.gloss"
+                if gloss.on_npc then
+                    gloss.on_npc(npc)
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- Which minis are the adventure's people: the scene's person by their card, a foe by its stat block.
+local function npc_for_monster(monster)
+    local ok, npcs = pcall(require, "game.model.npcs")
+    if not ok then
+        return nil
+    end
+    for _, n in ipairs(npcs.all()) do
+        if n.monster and n.monster == monster then
+            return n.id
+        end
+    end
+    return nil
+end
+
+-- A roll's numbers, big enough to read across the table (the playtest, November 3: "13 + 5 = 18,
+-- with 18 big and highlighted"): over the roller's tile as their die lands, then gone.
+function M.roll_banner(app, key, r)
+    M.drop_roll_banner(app)
+    local chip = app.chips and app.chips[key]
+    if not (chip and app.layers and app.layers.fx and r.total) then
+        return
+    end
+    kit.use(app.layers.fx)
+    local col = r.crit and theme.gold or (r.success == true and theme.green) or (r.success == false and theme.red) or theme.teal
+    local word = (r.crit and "Natural 20!") or (r.fumble and "Natural 1") or (r.success == true and "Success")
+        or (r.success == false and "Miss") or ""
+    local m = r.mod or 0
+    local sum = (r.roll and m ~= 0) and (util.int(r.roll) .. (m < 0 and " - " or " + ") .. util.int(math.abs(m)) .. " =") or "Rolled"
+    local total = util.int(r.total)
+    local top = (r.what or "Roll") .. (r.against and (" vs " .. r.against) or "")
+    local sw, tw = kit.width(sum, "ui22b"), kit.width(total, "title30")
+    local ww = kit.width(word, "ui18b")
+    local w = math.max(250, 28 + sw + 10 + tw + (ww > 0 and (18 + ww) or 0))
+    local h = 76
+    local x = chip.x + (panels.W - w) / 2
+    local y = chip.y - h - 8
+    local t = { age = 0, life = (app.in_battle and 1.6 or 2.6) / math.sqrt(speed(app)), nodes = {}, colors = {} }
+    local function add(n, c)
+        table.insert(t.nodes, n)
+        table.insert(t.colors, c)
+    end
+    add(kit.box(x - 2, y - 2, w + 4, h + 4, col, { radius = 12 }), col)
+    add(kit.box(x, y, w, h, kit.rgba("#201813", 0.97), { radius = 11 }), kit.rgba("#201813", 0.97))
+    add(kit.text(x + 14, y + 8, kit.ellipsize(top, "ui14", w - 28), "ui14", theme.dim, { gloss = false }), theme.dim)
+    add(kit.text(x + 14, y + 34, sum, "ui22b", theme.text, { gloss = false }), theme.text)
+    add(kit.text(x + 14 + sw + 10, y + 27, total, "title30", col, { gloss = false }), col)
+    if ww > 0 then
+        add(kit.text(x + w - 14, y + 38, word, "ui18b", col, { pivot = gui.PIVOT_NE, gloss = false }), col)
+    end
+    app.roll_card = t
+end
+
+function M.drop_roll_banner(app)
+    if app.roll_card then
+        kit.remove(app.roll_card.nodes)
+        app.roll_card = nil
+    end
 end
 
 function M.drop_toast(app)
@@ -1468,9 +1729,10 @@ function M.update_fx(app, dt)
             if a == 0 then
                 c.life = 0
                 app.caption_rect = nil
-                for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+                for _, n in ipairs({ c.box, c.rule, c.tag, c.text, c.voice_bg, c.voice }) do
                     gui.set_enabled(n, false)
                 end
+                c.voice_on = false
                 -- (Its underlines go with it, and so do their hovers: a spot sits on its node.)
                 for _, n in ipairs(c.gloss_nodes or {}) do
                     pcall(gui.set_enabled, n, false)
@@ -1481,6 +1743,10 @@ function M.update_fx(app, dt)
         gui.set_color(c.box, caption_box_color(c, a))
         gui.set_color(c.tag, alpha_of(theme.ink_dim, a))
         gui.set_color(c.rule, alpha_of(theme.gold, a))
+        if c.voice_on and c.voice_color then
+            gui.set_color(c.voice_bg, alpha_of(c.voice_color, a))
+            gui.set_color(c.voice, alpha_of(theme.bg, a))
+        end
     end
     local t = app.title_card
     if t then
@@ -1489,6 +1755,15 @@ function M.update_fx(app, dt)
             M.drop_title(app)
         elseif t.life - t.age < 0.5 then
             fade(t.nodes, t.colors, (t.life - t.age) / 0.5)
+        end
+    end
+    local rc = app.roll_card
+    if rc then
+        rc.age = rc.age + dt
+        if rc.age >= rc.life then
+            M.drop_roll_banner(app)
+        elseif rc.life - rc.age < 0.4 then
+            fade(rc.nodes, rc.colors, (rc.life - rc.age) / 0.4)
         end
     end
     local tc = app.toast_card
@@ -1546,8 +1821,9 @@ function M.update(app, dt)
     M.update_fx(app, dt)
     panels.update(app, dt)
     battle_hud.update(app, dt)
-    -- The DM's notes or a character sheet is open: the table waits. (So does a person's sheet.)
-    if app.overlay or app.npc_sheet then
+    -- The DM's notes or a character sheet is open: the table waits. (So does a person's sheet,
+    -- and the Pause button.)
+    if app.overlay or app.npc_sheet or app.paused then
         return
     end
     -- So does a friend's thought you're reading (v2), and your recap. (The thought's own clock runs.)
@@ -1591,7 +1867,7 @@ function M.update(app, dt)
 end
 
 function M.skip(app)
-    if not (app.pending or app.rolling or app.night_done) then
+    if not (app.pending or app.rolling or app.night_done or app.paused) then
         app.timer = 0
     end
 end
@@ -1606,6 +1882,59 @@ end
 function M.slow_down(app)
     app.speed_i = math.max(1, (app.speed_i or M.SPEED_1X) - 1)
     M.refresh_status(app)
+end
+
+-- Pause (the button, or P): the table waits, cards and thoughts and all, until you carry on.
+function M.toggle_pause(app)
+    app.paused = not app.paused or nil
+    M.toast(app, app.paused and "PAUSED" or "PLAYING", app.paused and "The table waits. Click Play, or press P, to carry on."
+        or "Back to the table.")
+    M.refresh_status(app)
+end
+
+function M.set_speed(app, i)
+    app.speed_i = i
+    app.paused = nil
+    M.refresh_status(app)
+end
+
+local SPEED_BTNS = { { "Pause", 52 }, { "1x", 38, 2 }, { "2x", 38, 3 }, { "4x", 38, 4 } }
+
+-- The buttons: whichever is on is lit (gold), Pause turns into Play while the night waits.
+function M.paint_speed(app)
+    for _, b in ipairs(app.n_speed or {}) do
+        local on = (b.speed_i == nil and app.paused) or (b.speed_i ~= nil and not app.paused and (app.speed_i or M.SPEED_1X) == b.speed_i)
+        pcall(gui.set_color, b.node, on and theme.gold or b.color)
+        if b.label then
+            pcall(gui.set_color, b.label, on and theme.bg or kit.rgba("#f3e7cf"))
+            if b.speed_i == nil then
+                pcall(gui.set_text, b.label, app.paused and "Play" or "Pause")
+            end
+        end
+    end
+end
+
+function M.draw_speed(app, x, y)
+    app.n_speed = {}
+    local gl = require "game.ui.gloss"
+    local bx = x
+    for _, d in ipairs(SPEED_BTNS) do
+        local si = d[3]
+        local b = kit.button(bx, y, d[2], 38, d[1], function()
+            if si then
+                M.set_speed(app, si)
+            else
+                M.toggle_pause(app)
+            end
+        end, { font = "ui14", key = si and ("night_speed_" .. d[1]) or "night_pause" })
+        b.speed_i = si
+        table.insert(app.n_speed, b)
+        bx = bx + d[2] + 4
+    end
+    gl.card_spot(x, y, bx - x - 4, 38, "Game speed",
+        "How fast the night plays at the table: 1x, twice as fast, or four times. Pause stops everything, even a call's "
+        .. "timer and a friend's thought, until you press Play. Keys: F faster, G down to half speed, P pause, Space skips ahead.")
+    M.paint_speed(app)
 end
 
 function M.toggle_timer(app)
@@ -1691,9 +2020,14 @@ local function stage(app, ev)
         post_board("board", { id = id, show = ev.show or "base", def = board_mod.encode(id) })
     end
     local npc
+    app.mini_npc = {}
     if ev.npc then
         npc = { sprite = CAST_SPRITE[ev.npc.cast] or "npc_stranger", x = ev.npc.x, y = ev.npc.y }
         app.names.npc = ev.npc.name
+        local okn, npcs = pcall(require, "game.model.npcs")
+        if okn and npcs.get(ev.npc.cast) then
+            app.mini_npc.npc = ev.npc.cast
+        end
     end
     -- The person in the scene steps onto the mat when the DM names them.
     app.stage_party = party_list(ev.party, app)
@@ -1931,6 +2265,14 @@ function M.play_step(app, s, pace)
         post("down", { id = s.id })
         M.float(app, s.id, "Down!", theme.orange, true)
         set_hp(app, s.id, 0)
+        -- A hero at 0: a moment the whole table feels (the playtest, November 3: "a more pronounced
+        -- downed scene"). Over their tile until they're up, stable or gone: their death saves.
+        if is_party(app, s.id) then
+            app.ds = app.ds or {}
+            app.ds[s.id] = { s = 0, f = 0 }
+            M.dying(app, s.id)
+            post("pose", { who = s.id, pose = "gasp", hold = true })
+        end
         -- The first time, what it means (a newcomer thinks "down" is "dead").
         if is_party(app, s.id) and not app.down_said then
             app.down_said = true
@@ -1942,6 +2284,7 @@ function M.play_step(app, s, pace)
     elseif k == "up" then
         post("up", { id = s.id })
         M.float(app, s.id, "Back up!", theme.green, true)
+        M.drop_dying(app, s.id)
     elseif k == "death" then
         if app.hp[s.id] then
             post("down", { id = s.id })
@@ -2050,6 +2393,22 @@ function M.play_step(app, s, pace)
         end
     elseif k == "death_save" then
         M.add_die(app, { roll = s.roll, success = (s.roll or 0) >= 10, crit = s.roll == 20, fumble = s.roll == 1 })
+        local t = app.ds and app.ds[s.id]
+        if t then
+            local r = s.roll or 0
+            if r == 1 then
+                t.f = t.f + 2
+            elseif r >= 10 and r < 20 then
+                t.s = t.s + 1
+            elseif r < 10 then
+                t.f = t.f + 1
+            end
+            if r == 20 then
+                M.drop_dying(app, s.id)
+            else
+                M.dying(app, s.id)
+            end
+        end
         M.float(app, s.id, "Death save: " .. util.int(s.roll or 0), (s.roll or 0) >= 10 and theme.teal or theme.red)
         if is_party(app, s.id) then
             panels.roll(app, s.id, { roll = s.roll, total = s.roll, against = "DC 10", what = "Death save",
@@ -2057,6 +2416,10 @@ function M.play_step(app, s, pace)
         end
     elseif k == "stable" then
         M.float(app, s.id, "Stable", theme.teal)
+        if app.ds and app.ds[s.id] then
+            app.ds[s.id].stable = true
+            M.dying(app, s.id)
+        end
     elseif k == "fortitude" then
         M.float(app, s.id, "Undead Fortitude", theme.purple)
     elseif k == "flee" and s.why == "yield" then
@@ -2291,10 +2654,12 @@ function M.handle(app, ev)
         M.toast(app, "EURYALE'S CARD: " .. string.upper(ev.name), ev.showdown .. ". (" .. ev.why .. ".)")
         M.push(app, "Euryale's card: " .. ev.name .. ". " .. ev.showdown .. ".", "clue", true)
     elseif k == "warning" then
-        -- v2: the fair-warning bank (a harsh call feels earned when they took the chance knowingly).
-        app.fair_warning = ev.bank
-        if ev.unearned then
-            M.push(app, "A harsh call with nothing in the bank. It felt arbitrary.", "warn", true)
+        -- v2: fair warning (warnings.lua): what they know now, or a harsh call judged against it.
+        if ev.what and ev.how then
+            local how = require("game.model.warnings").HOW[ev.how] or ev.how
+            M.push(app, "They know: " .. ev.what .. " (" .. how .. ").", "aside", true)
+        elseif ev.unearned then
+            M.push(app, "A harsh call with no warning. It felt arbitrary.", "warn", true)
         end
     elseif k == "stage_dress" then
         -- v2: the board dresses itself without a line about it (ev.reveal did the work above).
@@ -2323,6 +2688,11 @@ function M.handle(app, ev)
         end
         M.push(app, ev.name .. ": \"" .. ev.text .. "\"", "quote", true)
         review.on_line(app, ev)
+    elseif k == "rested" then
+        M.refresh_hp(app)        -- (a rest: hit points and resources back on the tiles)
+    elseif k == "door" then
+        -- A hero walking through a door outside a fight (sight.lua): it swings open on the mat.
+        post_board("door", { fid = ev.fid, state = ev.state })
     elseif k == "walk" then
         -- A hero crossing the mat to something (museum_night.explore, a moment's spot): square by
         -- square, at a walk (table.script works the pace out from how far it is).
@@ -2337,6 +2707,10 @@ function M.handle(app, ev)
             -- the line comes from the mini when it's on the board. Table talk stays at their head.
             panels.light(app, ev.who, secs / speed(app), "ic")
             post("glow", { id = ev.who, time = secs / speed(app) })
+            -- ...and at the table they turn into their hero while they say it (two sides of a token).
+            if p then
+                post("become", { who = ev.who, sprite = p.mini or CLASS_SPRITE[p.class] or "fighter", time = secs / speed(app) })
+            end
             if anchor_xy(app, { mini = ev.who }) then
                 anchor = { mini = ev.who }
             end
@@ -2452,10 +2826,16 @@ function M.handle(app, ev)
                 end
                 return monster_sprite(f.monster, i)
             end
+            app.mini_npc = app.mini_npc or {}
             for i, f in ipairs(ev.foes or {}) do
                 app.names[f.id] = f.name
                 if f.boss then
                     app.boss_id = f.id
+                end
+                -- (One of the adventure's people: a click on the mini opens their sheet.)
+                local who = (f.cast and require("game.model.npcs").get(f.cast) and f.cast) or npc_for_monster(f.monster)
+                if who then
+                    app.mini_npc[f.id] = who
                 end
                 -- one at a time, the way the DM sets the minis out
                 table.insert(list, { id = f.id, sprite = foe_sprite(f, i), x = f.x, y = f.y, delay = 0.3 + (i - 1) * 0.12 })
@@ -2463,8 +2843,15 @@ function M.handle(app, ev)
             -- On the party's side (the museum's Steam Mech, v2): a mini beside the heroes.
             app.ally_ids = {}
             for i, a in ipairs(ev.allies or {}) do
-                app.names[a.id] = a.name
+                -- (A companion in the fight says who's playing them: "Telpur (Jess)".)
+                local pl = a.pilot and app.campaign:player(a.pilot)
+                app.names[a.id] = a.name .. (pl and (" (" .. pl.name .. ")") or "")
                 table.insert(app.ally_ids, a.id)
+                local who = npc_for_monster(a.monster)
+                if who then
+                    app.mini_npc = app.mini_npc or {}
+                    app.mini_npc[a.id] = who
+                end
                 table.insert(list, { id = a.id, sprite = monster_sprite(a.monster, i), x = a.x, y = a.y, side = "party",
                                      delay = 0.2 + (i - 1) * 0.12 })
             end
@@ -2488,6 +2875,10 @@ function M.handle(app, ev)
         else
             app.in_battle = false
             battle_hud.stop(app)
+            for id in pairs(app.ds or {}) do
+                M.drop_dying(app, id, true)       -- (the fight's over: whoever's down is seen to)
+            end
+            app.ds = nil
             post("clear", { side = "foe", how = "flee" })
             for _, id in ipairs(app.ally_ids or {}) do
                 post("flee", { id = id })
@@ -2851,6 +3242,9 @@ function M.pick_key(app, n)
         if n == 1 or n == 2 then
             M.answer(app, n == 1 and "open" or "hidden")
             return true
+        elseif n == 3 and ev.by ~= "dm" then
+            M.answer(app, "dc:" .. util.int(app.dc_pick_for == ev and app.dc_pick or ev.dc or 15))
+            return true
         end
     elseif ev.kind == "improv" then
         if ev.cards and ev.cards[n] then
@@ -2935,7 +3329,11 @@ end
 
 -- The top bar's buttons that keep working while a call or a thought waits on you: you can look
 -- things up before you decide (the playtest, November 3).
-M.PASS = { night_story = true, night_notes = true, night_maps = true, night_table = true, night_log = true, night_end = true }
+M.PASS = { night_story = true, night_notes = true, night_maps = true, night_table = true, night_log = true, night_end = true,
+           night_pause = true, night_speed_1x = true, night_speed_2x = true, night_speed_4x = true }
+for _, k in ipairs(content.players.order) do
+    M.PASS["inspire_" .. k] = true      -- (the token from a tile, while a call waits)
+end
 
 -- How long an open thought waits for you (the playtest, November 3: "a countdown of maybe 30
 -- seconds to be resolved, or they auto dismiss"). Real seconds; anything you do restarts it.
@@ -3297,9 +3695,10 @@ local function dodge_caption(app, x0, x1)
     else
         c.life = 0
         app.caption_rect = nil
-        for _, n in ipairs({ c.box, c.rule, c.tag, c.text }) do
+        for _, n in ipairs({ c.box, c.rule, c.tag, c.text, c.voice_bg, c.voice }) do
             gui.set_enabled(n, false)
         end
+        c.voice_on = false
     end
 end
 
@@ -3326,6 +3725,19 @@ function M.draw_modal(app, ev, instant)
         dodge_caption(app, nil)
     end
     local slide = 0
+    if ev.kind == "decision" and ev.card and ev.card.intermission then
+        -- The break (museum_night.maybe_break): the whole table gets up. A dimmed room and a banner,
+        -- so it reads as a pause in the evening, not one more call.
+        kit.box(0, 58, kit.W, kit.H - 58, kit.rgba("#000000", 0.42), { round = false })
+        local bx, by, bw, bh = 120, 190, 780, 150
+        kit.box(bx - 2, by - 2, bw + 4, bh + 4, theme.gold, { radius = 16 })
+        kit.box(bx, by, bw, bh, kit.rgba("#201813", 0.97), { radius = 15 })
+        kit.icon(bx + 28, by + 40, 72, "hourglass", theme.gold)
+        kit.text(bx + 124, by + 26, "INTERMISSION", "ui14", theme.gold)
+        kit.text(bx + 124, by + 48, "Back in twenty minutes.", "read26", theme.text, { gloss = false })
+        kit.text(bx + 124, by + 92, "The table gets up, stretches, and argues about pizza toppings. Pick what, if anything, "
+            .. "happens in the game while they're away.", "ui18", theme.dim, { w = bw - 150, gloss = false })
+    end
     if ev.kind == "decision" then
         local x, w = RIGHT_X, RIGHT_W
         local card = ev.card
@@ -3336,11 +3748,15 @@ function M.draw_modal(app, ev, instant)
         local tw = (portrait or face) and (w - 120) or (w - 40)
         local title_h = math.max(math.min(80, kit.text_height(card.title, "title30", tw)), portrait and 40 or 0)
         local text_h = kit.text_height(card.text, "ui18", w - 40)
+        -- Who's in this call, at a glance (the playtest, November 3: portraits beside the names, so a
+        -- card is skimmable): its lead first, then anyone else it names.
+        local who = M.people_in(app, ev.actor, { card.title, card.text })
+        local who_h = #who > 0 and 46 or 0
         -- How bad it could get, on a fight's call (the newcomer playtest, October 16).
         local danger_h = card.danger and (kit.text_height(card.danger, "ui18", w - 64) + 16) or 0
         -- What you agreed at Session Zero, on the call it's about.
         local promise_h = card.promise and (kit.text_height(card.promise, "ui14", w - 40) + 8) or 0
-        local labels, h = {}, 62 + title_h + 12 + text_h + 18 + (danger_h > 0 and (danger_h + 10) or 0) + promise_h
+        local labels, h = {}, 62 + title_h + 12 + who_h + text_h + 18 + (danger_h > 0 and (danger_h + 10) or 0) + promise_h
         local lean_h = {}
         local sub_h = {}
         for i, o in ipairs(card.options) do
@@ -3362,8 +3778,11 @@ function M.draw_modal(app, ev, instant)
             kit.dot(x + w - 54, y + 46, 70, panels.COLORS[card.who] or theme.panel3)
             kit.picture(x + w - 86, y + 14, 64, 64, face)
         end
-        kit.text(x + 20, y + 62 + title_h, card.text, "ui18", theme.ink, { w = w - 40 })
-        local oy = y + 62 + title_h + 12 + text_h + 8
+        if who_h > 0 then
+            M.people_strip(app, x + 20, y + 58 + title_h, w - 40, who)
+        end
+        kit.text(x + 20, y + 62 + title_h + who_h, card.text, "ui18", theme.ink, { w = w - 40 })
+        local oy = y + 62 + title_h + who_h + 12 + text_h + 8
         if promise_h > 0 then
             kit.text(x + 20, oy - 4, card.promise, "ui14", theme.ink_dim, { w = w - 40 })
             oy = oy + promise_h
@@ -3485,10 +3904,10 @@ function M.draw_modal(app, ev, instant)
         local x, w = left_x(app), LEFT_W
         local text_h = kit.text_height(ev.text or "", "ui18", w - 40)
         local promise_h = ev.promise and (kit.text_height(ev.promise, "ui14", w - 40) + 8) or 0
-        local h = 110 + text_h + promise_h + 136 + 10 + (app.pending_left and 34 or 0)
+        local player_roll = ev.by ~= "dm"
+        local h = 110 + text_h + promise_h + 136 + (player_roll and 78 or 0) + 10 + (app.pending_left and 34 or 0)
         local y = card_y(h)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
-        local player_roll = ev.by ~= "dm"
         badge(x + 20, y + 18, player_roll and (ev.final and "THE SCENE'S FINAL ROLL" or "BIG ROLL") or "SECRET CHECK",
             theme.decision.screen)
         kit.text(x + 20, y + 52, player_roll and "Set the DC" or "Where do you roll it?", "title30", theme.ink)
@@ -3507,6 +3926,11 @@ function M.draw_modal(app, ev, instant)
         kit.button(x + 20, oy + 68, w - 40, 58, hidden_label, function()
             M.answer(app, "hidden")
         end, { align = "left", pad_y = 8, color = theme.decision.screen, hover = theme.button_hover, key_hint = 2 })
+        -- Or your own DC, said out loud (the playtest, November 3): the book's suggestion is only that.
+        if player_roll then
+            M.draw_dc_pick(app, ev, x + 20, oy + 136, w - 40)
+            oy = oy + 78
+        end
         timer_bar(app, x + 20, oy + 136, w - 40, "in the open")
         slide = -640
     end
@@ -3514,6 +3938,40 @@ function M.draw_modal(app, ev, instant)
     if not instant and slide ~= 0 then
         slide_in(app.layers.modal, slide)
     end
+end
+
+-- The DC ladder (SRD 5.2.1, "Difficulty Class"): what a number means at the table.
+local DC_WORDS = { { 5, "Very easy" }, { 10, "Easy" }, { 15, "Medium" }, { 20, "Hard" }, { 25, "Very hard" }, { 30, "Nearly impossible" } }
+local function dc_word(n)
+    local best = DC_WORDS[1][2]
+    for _, d in ipairs(DC_WORDS) do
+        if n >= d[1] - 2 then
+            best = d[2]
+        end
+    end
+    return best
+end
+
+-- Pick it yourself: a number you choose, said out loud, with what it means beside it.
+function M.draw_dc_pick(app, ev, x, y, w)
+    app.dc_pick = app.dc_pick_for == ev and app.dc_pick or (ev.dc or 15)
+    app.dc_pick_for = ev
+    local n = app.dc_pick
+    kit.box(x, y, w, 68, kit.rgba("#000000", 0.08), { radius = 10 })
+    kit.text(x + 14, y + 8, "Or set your own DC, out loud:", "ui14", theme.ink_dim)
+    kit.button(x + 14, y + 28, 32, 32, "-", function()
+        app.dc_pick = math.max(2, n - 1)
+        M.show_modal(app, app.pending, true)
+    end, { key = "dc_minus" })
+    kit.text(x + 62, y + 30, "DC " .. util.int(n), "ui22b", theme.ink, { gloss = false })
+    kit.button(x + 128, y + 28, 32, 32, "+", function()
+        app.dc_pick = math.min(30, n + 1)
+        M.show_modal(app, app.pending, true)
+    end, { key = "dc_plus" })
+    kit.text(x + 172, y + 36, dc_word(n) .. (n == ev.dc and " (the book's)" or ""), "ui14", theme.ink_dim, { gloss = false })
+    kit.button(x + w - 190, y + 24, 176, 40, "Say DC " .. util.int(n), function()
+        M.answer(app, "dc:" .. util.int(n))
+    end, { font = "ui18b", key = "dc_say", key_hint = 3, color = theme.button, hover = theme.button_hover })
 end
 
 -- For the real-click harness (tools/tests/ui_play/): which card is up and where its buttons are.
@@ -3531,17 +3989,65 @@ function M.draw_leans(app, x, y, leans)
     local fx = x
     for _, group in ipairs({ { 1, theme.green, " would love it" }, { -1, theme.red, " wouldn't" } }) do
         local names = {}
+        local keys = {}
         for _, p in ipairs(app.campaign.players) do
             if leans[p.key] == group[1] then
                 table.insert(names, p.name)
+                table.insert(keys, p.key)
             end
         end
         if #names > 0 then
-            kit.dot(fx + 7, y + 12, 12, group[2])
+            -- Their faces first, ringed in the lean's colour, then the words.
+            for _, k in ipairs(keys) do
+                kit.dot(fx + 11, y + 13, 24, group[2])
+                kit.picture(fx + 1, y + 3, 20, 20, panels.face(k))
+                fx = fx + 24
+            end
             local line = util.join_names(names) .. group[3]
-            kit.text(fx + 18, y + 4, line, "ui14", group[2])
-            fx = fx + 18 + kit.width(line, "ui14") + 22
+            kit.text(fx + 4, y + 4, line, "ui14", group[2])
+            fx = fx + 4 + kit.width(line, "ui14") + 22
         end
+    end
+end
+
+-- The friends a call is about: its lead (the actor's key), then anyone named in its words (by
+-- their name or their hero's), in seat order.
+function M.people_in(app, lead, texts)
+    local out, seen = {}, {}
+    local function add(p)
+        if p and not seen[p.key] then
+            seen[p.key] = true
+            table.insert(out, p)
+        end
+    end
+    if lead then
+        add(app.campaign:player(lead))
+    end
+    local all = table.concat(texts or {}, " ")
+    for _, p in ipairs(app.campaign.players) do
+        local first = p.char and string.match(p.char, "^(%S+)")
+        if (p.name and string.find(all, "%f[%w]" .. p.name .. "%f[^%w]")) or (first and string.find(all, "%f[%w]" .. first .. "%f[^%w]")) then
+            add(p)
+        end
+    end
+    return out
+end
+
+-- A row of who's who: their face and their hero's mini, then "Pip (Jess)". Lead first, marked.
+function M.people_strip(app, x, y, w, people)
+    local cx = x
+    for i, p in ipairs(people) do
+        local label = (p.char and string.match(p.char, "^(%S+)") or p.name) .. " (" .. p.name .. ")"
+        local cw = 66 + kit.width(label, "ui14") + 14
+        if cx + cw > x + w then
+            break
+        end
+        kit.box(cx, y, cw, 40, i == 1 and kit.rgba("#e8b84a", 0.22) or kit.rgba("#000000", 0.07), { radius = 20 })
+        kit.dot(cx + 20, y + 20, 34, panels.COLORS[p.key] or theme.panel3)
+        kit.picture(cx + 4, y + 4, 32, 32, panels.face(p.key))
+        kit.picture(cx + 38, y + 4, 26, 32, panels.mini(p))
+        kit.text(cx + 66, y + 11, label, "ui14", theme.ink, { gloss = false })
+        cx = cx + cw + 8
     end
 end
 

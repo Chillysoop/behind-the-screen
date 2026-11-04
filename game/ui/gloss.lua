@@ -285,6 +285,35 @@ function M.card_spot(x, y, w, h, title, text, dnd, node)
     end, node)
 end
 
+local function util_cap(s)
+    s = s or ""
+    return string.upper(string.sub(s, 1, 1)) .. string.sub(s, 2)
+end
+
+-- A person's name drawn on its own (a recap row, a notebook entry): their card on hover, their
+-- sheet on a click (npc_view). Nothing if they have no sheet.
+function M.npc_spot(x, y, w, h, id, node)
+    local ok, npcs = pcall(require, "game.model.npcs")
+    local n = ok and npcs.get(id)
+    if not n then
+        return nil
+    end
+    local sp = kit.spot(x, y, w, h, function(_, on)
+        if on then
+            M.show(n.name, util_cap(n.role) .. ". " .. (n.about or "") .. " Click for their sheet.", nil, x, y, w, h)
+        else
+            M.hide()
+        end
+    end, node)
+    sp.on_click = function()
+        M.hide()
+        if M.on_npc then
+            M.on_npc(id)
+        end
+    end
+    return sp
+end
+
 kit.gloss_hook = M.hook
 -- Every screen that doesn't choose its own: every term but the old lore screen's story words.
 kit.gloss_default = { fight = true, table = true, report = true, sheet = true }

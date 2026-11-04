@@ -45,7 +45,7 @@ legend:
 D       | wall_door       | doors    | auto
 E       | wall_door       | studies  | auto
 P       | wall_painting   | sketch   | auto
-S       | stairs_straight | stairs   | 3
+S       | stairs_down     | stairs   | 3
 O       | oak             | tree     |
 v       | diorama_cave    | cave     |
 k       | diorama_kitchen | kitchen  |

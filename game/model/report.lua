@@ -134,6 +134,7 @@ function M.build(campaign, night)
         if p.present then
             local fun, drift = M.felt(night, p, score.fun(p))
             row.fun = fun
+            p.last_fun = fun        -- (where next session's smile bar starts: score.start_carry)
             row.drift = drift
             row.tier = score.tier(fun)
             row.meters = {}

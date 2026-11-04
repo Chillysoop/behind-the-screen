@@ -84,21 +84,34 @@ local function tab_museum(app, x, y, w, h)
     kit.text(x, y + h - 22, MODULE.credit, "ui14", theme.faint, { w = w })
 end
 
--- Upstairs: Euryale's card, and the fair-warning bank.
+-- Upstairs: Euryale's card, and what they've been warned about.
 local function tab_upstairs(app, x, y, w, h)
     local c = app.campaign
+    local warnings = require "game.model.warnings"
     util.lazy("game.ui.museum_prep_view").boss_card(app, x, y, 640, h - 40, true)
     local bx = x + 664
-    kit.text(bx, y, "FAIR WARNING", "ui14", theme.dim)
-    kit.text(bx, y + 22, util.int(c.adv.bank or 0) .. " in the bank", "ui22b", theme.teal)
-    kit.text(bx, y + 56, "Every chance the party takes after a warning goes in the bank. A harsh call spends one, and the table "
-        .. "takes it as fair. A harsh call with nothing in the bank feels arbitrary, and costs you their Trust.", "ui14", theme.dim,
-        { w = w - 664 })
-    kit.text(bx, y + 170, "HARSH CALLS SO FAR", "ui14", theme.dim)
-    kit.text(bx, y + 192, util.int(c.adv.harsh.paid) .. " fair, " .. util.int(c.adv.harsh.unpaid) .. " arbitrary", "ui18b",
-        c.adv.harsh.unpaid > 0 and theme.orange or theme.text)
-    kit.text(bx, y + 240, "FLITWIDGET FRANCS", "ui14", theme.dim)
-    kit.text(bx, y + 262, util.int(c.adv.francs or 0), "ui22b", theme.gold)
+    local bw = w - 664
+    kit.text(bx, y, "WHAT THEY'VE BEEN WARNED ABOUT", "ui14", theme.dim)
+    local known = warnings.summary(c, 6)
+    local ty = y + 22
+    if #known == 0 then
+        kit.text(bx, ty, "Nothing yet.", "ui18b", theme.text)
+        ty = ty + 30
+    end
+    for _, line in ipairs(known) do
+        kit.text(bx, ty, line, "ui14", theme.text, { w = bw, lines = 2 })
+        ty = ty + 40
+    end
+    kit.text(bx, ty + 6, "When something harsh happens, the table asks: did we know? A warning about that very thing, or a "
+        .. "die everyone saw, and it lands as fair. Out of nowhere, and it costs you their Trust. Warn about everything, "
+        .. "though, and nothing feels dangerous.", "ui14", theme.dim, { w = bw, lines = 5 })
+    local hy = ty + 110
+    local harsh = c.adv.harsh or { paid = 0, unpaid = 0 }
+    kit.text(bx, hy, "HARSH CALLS SO FAR", "ui14", theme.dim)
+    kit.text(bx, hy + 22, util.int(harsh.paid) .. " fair, " .. util.int(harsh.unpaid) .. " out of nowhere", "ui18b",
+        harsh.unpaid > 0 and theme.orange or theme.text)
+    kit.text(bx, hy + 64, "FLITWIDGET FRANCS", "ui14", theme.dim)
+    kit.text(bx, hy + 86, util.int(c.adv.francs or 0), "ui22b", theme.gold)
 end
 
 -- The museum's people: who they've met, and what they know of them.
@@ -114,9 +127,11 @@ local function tab_museum_people(app, x, y, w, h)
         if pp.id == "mus_mech" and c.adv.marks.mech and c.adv.mech_name then
             name = pp.name .. ", " .. c.adv.mech_name
         end
-        kit.text(x, y, seen and name or "Someone they haven't met", "ui22b", seen and theme.text or theme.faint)
+        local nn = kit.text(x, y, seen and name or "Someone they haven't met", "ui22b", seen and theme.text or theme.faint, { gloss = false })
         if seen then
             kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
+            -- Their sheet, from their name (the playtest, November 3).
+            require("game.ui.gloss").npc_spot(x - 2, y - 2, math.min(kit.width(name, "ui22b"), 310) + 4, 30, pp.id, nn)
         end
         local mem = seen and adventure.memory(c, pp.id) or {}
         local about = seen and (pp.about .. (#mem > 0 and (" Knows " .. util.join_names(mem) .. ".") or "")) or "Not met yet."

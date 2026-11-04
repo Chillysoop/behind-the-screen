@@ -349,9 +349,9 @@ return {
       plain = "How dangerous the fight is",
       text = "The game's guess from practice fights. Breezy: nobody falls. Tense: someone might drop. Dangerous: someone "
           .. "probably drops. Deadly: a hero could die, or the party could lose." },
-    { id = "fair_warning", match = { "FAIR WARNING", "Fair warning", "fair warning" }, plain = "Fair warning",
-      text = "Each time the party takes a risk knowingly, or you warn them, one goes in the bank. A harsh call spends "
-          .. "one and lands as fair. With none in the bank, a harsh call feels arbitrary and costs Trust." },
+    { id = "fair_warning", match = { "FAIR WARNING", "Fair warning", "fair warning", "WARNINGS" }, plain = "Fair warning",
+      text = "A harsh call lands as fair when they knew about that danger: you described it, asked \"Are you sure?\", or they "
+          .. "found out themselves. A die rolled in the open is fair too. Unwarned, it feels arbitrary and costs Trust." },
     { id = "prep_hours", match = { "PREP HOURS", "Prep hours", "prep hours" }, plain = "Prep hours",
       text = "Your week before game night. Prepping a room (reading it, setting out its map and minis) costs hours; a "
           .. "room you didn't prep plays thinner, and the table can tell." },

@@ -4,6 +4,7 @@
 local state = require "main.state"
 
 go.property("pop", 0)
+go.property("flip", 1)     -- (turning round: 1 facing, 0 edge-on, for "become")
 
 function init(self)
     self.base_anim = go.get("#sprite", "animation")
@@ -13,9 +14,31 @@ function init(self)
     -- forwards "outline" { color, time }).
     msg.post("#outline", "disable")
     self.outline_t = nil
+    self.grow = 1
+end
+
+-- Turn edge-on, swap what they look like, turn back.
+local function turn_into(self, anim, grow)
+    go.cancel_animations("#person", "flip")
+    go.animate("#person", "flip", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_INQUAD, 0.14, 0, function()
+        sprite.play_flipbook("#sprite", anim)
+        sprite.play_flipbook("#outline", anim)
+        self.grow = grow
+        go.animate("#person", "flip", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_OUTQUAD, 0.14)
+    end)
 end
 
 function update(self, dt)
+    -- Speaking in character: they're their hero for a moment (the playtest, November 3), then back.
+    if self.become_t then
+        self.become_t = self.become_t - dt
+        if self.become_t <= 0 then
+            self.become_t = nil
+            if not self.away then
+                turn_into(self, self.anim or self.base_anim, 1)
+            end
+        end
+    end
     if self.outline_t then
         self.outline_t = self.outline_t - dt
         if self.outline_t <= 0 then
@@ -28,20 +51,30 @@ function update(self, dt)
     go.set_rotation(vmath.quat_rotation_y(math.atan2(eye.x - p.x, eye.z - p.z)))
     local s = 1 + math.sin(state.time * 1.3 + self.phase) * 0.008
     local pop = self.pop
-    go.set_scale(vmath.vector3(self.base_scale.x * (1 + pop * 0.6), self.base_scale.y * s * (1 + pop), self.base_scale.z))
+    local g = self.grow or 1
+    go.set_scale(vmath.vector3(self.base_scale.x * (1 + pop * 0.6) * math.max(0.02, self.flip) * g, self.base_scale.y * s * (1 + pop) * g,
+        self.base_scale.z))
 end
 
 function on_message(self, message_id, message)
     if message_id == hash("pose") then
         self.anim = message.anim
-        if self.away then
-            return
+        if self.away or self.become_t then
+            return       -- (a hero for the moment: the pose waits till they're back)
         end
         sprite.play_flipbook("#sprite", message.anim)
         sprite.play_flipbook("#outline", message.anim)
         -- A little hop so the change reads from across the room.
         self.pop = 0.04
         go.animate("#person", "pop", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBACK, 0.35)
+    elseif message_id == hash("become") then
+        if self.away then
+            return
+        end
+        if not self.become_t then
+            turn_into(self, message.anim, message.grow or 1.5)
+        end
+        self.become_t = message.time or 2.5
     elseif message_id == hash("outline") then
         if self.away then
             return

@@ -677,6 +677,20 @@ add("euryale", {
     role = "leader",
 })
 
+-- Telpur, when the party takes him along (museum_week's keep_boot request): a talking boot who was
+-- once a lord of the underworld, or says he was. Our own numbers, not the book's: small, quick,
+-- mostly mouth. He fights on the party's side, played by whoever asked for him (companions.lua).
+add("telpur", {
+    name = "Telpur", source = M.MUSEUM, size = "tiny", type = "fey",
+    ac = 13, hp = 9, hit_dice = "2d4+4", speed = 20,
+    abilities = { str = 6, dex = 14, con = 14, int = 12, wis = 10, cha = 16 },
+    cr = "0", xp = 0, pb = 2,
+    attacks = {
+        { id = "pointy_toe", name = "Pointy Toe", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 4, 2, "bludgeoning" } } },
+    },
+    role = "skirmisher",
+})
+
 M.museum_order = { "briar_beast", "briar_boar", "briar_triceratops", "kruthik_huntling", "giant_scarab_swarm",
                    "bone_construct", "the_lecturer", "knight_of_shades", "steam_mech", "sentinel", "euryale" }
 

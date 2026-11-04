@@ -228,30 +228,38 @@ function M.draw(app)
     kit.dot(X + 62, Y + 56, 92, panels.COLORS[s.key] or theme.panel3)
     kit.picture(X + 16, Y + 10, 92, 92, panels.face(s.key))
     kit.picture(X + 114, Y + 14, 68, 85, panels.mini(app.campaign:player(s.key), s.class))
-    kit.text(X + 196, Y + 14, s.name, "title30", theme.text)
+    -- Three rows, each kept to the room left of the page buttons (the playtest, November 3: the
+    -- played-by, dies and wants lines ran into each other): the name and who plays them, what
+    -- they are, and what happens if they die.
+    local tx = X + 196
+    local room = (X + W - 600) - tx - 16
+    local name = kit.ellipsize(s.name, "title30", math.floor(room * 0.6))
+    kit.text(tx, Y + 10, name, "title30", theme.text, { gloss = false })
+    local by = "played by " .. s.player
+    kit.text(tx + kit.width(name, "title30") + 14, Y + 22, kit.ellipsize(by, "ui18", room - kit.width(name, "title30") - 14),
+        "ui18", theme.gold, { gloss = false })
     local line = s.species .. " " .. s.class_name .. ", level " .. util.int(s.level)
         .. (s.subclass_name and (", " .. s.subclass_name) or "") .. ".  " .. s.background .. " background."
-    kit.text(X + 196, Y + 56, line, "ui18", theme.dim)
-    kit.text(X + 196, Y + 80, "Played by " .. s.player, "ui14", theme.gold)
+    kit.text(tx, Y + 52, kit.ellipsize(line, "ui18", room), "ui18", theme.dim)
     -- When this hero dies (B3): the table's rule, or theirs if you've agreed to honour it. Revisit
     -- it here any time.
     local death = require "game.model.death"
     local camp = app.campaign
     local mode, pref = death.mode_for(camp, s.key), death.pref(s.key)
-    local dx = X + 196 + kit.width("Played by " .. s.player, "ui14") + 18
-    local dline = "If " .. s.name .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
-    local wants = pref and pref ~= mode and (s.player .. " wants: " .. string.lower(death.data.MODE[pref].short) .. ".")
-    local room = (X + W - 600) - dx - 20
+    local first = string.match(s.name, "^(%S+)") or s.name
+    local dline = "If " .. first .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
+    local wants = pref and pref ~= mode and (s.player .. " would rather: " .. string.lower(death.data.MODE[pref].short) .. ".")
     local honour = pref and pref ~= mode
     local undo = camp.death_overrides and camp.death_overrides[s.key]
     local bw = (honour or undo) and 120 or 0
-    -- Two short lines: the rule, and what the player would rather (A8: nothing cut off).
-    kit.text(dx, wants and Y + 72 or Y + 80, kit.ellipsize(dline, "ui14", room - bw - 8), "ui14", theme.dim)
+    local droom = room - (bw > 0 and (bw + 12) or 0)
+    local dw = math.min(kit.width(dline, "ui14"), wants and math.floor(droom * 0.55) or droom)
+    kit.text(tx, Y + 84, kit.ellipsize(dline, "ui14", dw), "ui14", theme.dim)
     if wants then
-        kit.text(dx, Y + 90, kit.ellipsize(wants, "ui14", room - bw - 8), "ui14", theme.gold)
+        kit.text(tx + dw + 12, Y + 84, kit.ellipsize(wants, "ui14", droom - dw - 12), "ui14", theme.gold)
     end
     if honour or undo then
-        kit.button(dx + room - bw, Y + 74, bw, 28, honour and "Honour it" or "Table's rule", function()
+        kit.button(tx + room - bw, Y + 78, bw, 28, honour and "Honour it" or "Table's rule", function()
             death.set_override(camp, s.key, honour and pref or nil)
             M.draw(app)
         end, { font = "ui14", key = "sheet_death" })

@@ -130,46 +130,42 @@ end
 
 -- Fair warning (Straps: a harsh call feels earned when they took the chance knowingly) -----------
 
-function M.bank(night, n, why)
-    local st = st_of(night)
-    st.bank = math.max(0, (st.bank or 0) + n)
-    night:emit({ kind = "warning", bank = st.bank, why = why })
-    -- (The first time, what the bank is for: nobody knew, the playtest found.)
-    local explain = ""
-    if not st.bank_explained then
-        st.bank_explained = true
-        explain = " (Each one lets a harsh call later land as fair instead of arbitrary.)"
-    end
-    night:say(why .. " Fair warning in the bank: " .. util.int(st.bank) .. "." .. explain, "aside")
-end
-
+-- Something harsh just happened. Did they know? (warnings.lua: warned about this very thing, a die
+-- everyone saw, or a table that asked for brutal; a grim table forgives one a night.)
+local HARSH_FAIR = {
+    warned = "It stings, but nobody argues. They'd been warned.",
+    open = "Everyone saw the die. Nobody argues with a die.",
+    brutal = "Brutal. But it's the game they asked for at Session Zero, and they know it.",
+    tone = "It's grim, and so is the game you all agreed to. Nobody argues.",
+}
 function M.harsh(night, sc)
     local st = st_of(night)
     local mus = night.mus
+    local warnings = require "game.model.warnings"
     mus.harsh_tonight = (mus.harsh_tonight or 0) + 1
-    local free = adventure.free_harsh(night.campaign) - (mus.harsh_free_used or 0)
-    local earned = false
-    if free > 0 then
+    local why = warnings.judge(night, night.moment_key)
+    if not why and adventure.free_harsh(night.campaign) - (mus.harsh_free_used or 0) > 0 then
         mus.harsh_free_used = (mus.harsh_free_used or 0) + 1
-        earned = true
-    elseif (st.bank or 0) > 0 then
-        st.bank = st.bank - 1
-        earned = true
+        why = "tone"
     end
-    if earned then
+    local dial = warnings.dial(night.campaign)
+    if why then
         st.harsh.paid = st.harsh.paid + 1
-        night:say("It stings, but nobody argues. They knew the risk.", "good")
+        night:say(HARSH_FAIR[why], "good")
         night:apply({ { "arch:butt_kicker", fun = 3 }, { "arch:instigator", fun = 3 }, { "all", challenge = 4 } })
-        night:emit({ kind = "warning", bank = st.bank, spent = true })
+        if dial == "gentle" then
+            night:apply({ { "all", fun = -1 } })      -- (fair, but they asked for gentle)
+        end
+        night:emit({ kind = "warning", judged = why, fair = true })
     else
         st.harsh.unpaid = st.harsh.unpaid + 1
-        night:say("That came out of nowhere. Somebody mutters about it, and the table goes quiet.", "bad")
+        night:say("That came out of nowhere. Nobody saw it coming, and nobody was warned. The table goes quiet.", "bad")
         for _, p in ipairs(night.players) do
-            score.add(p, "trust", -3)
+            score.add(p, "trust", dial == "gentle" and -5 or -3)
             night:suspect(p, 2, "a harsh call with no warning")
         end
         night:apply({ { "all", fun = -3 } })
-        night:emit({ kind = "warning", bank = st.bank, unearned = true })
+        night:emit({ kind = "warning", unearned = true })
         -- The one who minds most keeps it to themselves (what they think, game/model/thoughts.lua).
         local sharp
         for _, p in ipairs(night.players) do
@@ -305,9 +301,9 @@ function M.handle(night, mus, sc)
                 .. util.int(pc.hp_max) .. " HP).", "bad")
         end
     end
+    -- (The museum's thanks is an offer: the token is yours to give. The playtest, November 3.)
     if mus.inspire and who and not who.heroic then
-        who.heroic = true
-        night:emit({ kind = "token", who = who.key, what = "inspiration" })
+        night:offer_inspiration(who, type(mus.inspire) == "string" and util.fill(mus.inspire, { char = who.char }) or nil)
     end
     if mus.ready and sc then
         sc.ready = true      -- (fight.lua: the room's ambushers don't surprise them)
@@ -341,11 +337,17 @@ function M.handle(night, mus, sc)
             sc.fight_on = nil
         end
     end
-    if mus.risk then
-        M.bank(night, 1, "They took that chance knowingly.")
+    -- Fair warning is about the thing (warnings.lua): an option that says they know what they're
+    -- walking into is a warning (not when the players chose it themselves: then it's what you told
+    -- them, or what they found, that counts), and your "are you sure?" in a card is one too.
+    local warnings = require "game.model.warnings"
+    local wkey = night.moment_key or (sc and sc.room and ("room:" .. sc.room)) or nil
+    local wwhat = night.moment_what or (sc and sc.room and MODULE.rooms[sc.room] and ("what's in " .. util.lower_first(MODULE.rooms[sc.room].name)))
+    if mus.risk and not night.party_choice then
+        warnings.warn(night, wkey, wwhat, "knew")
     end
     if mus.warn then
-        M.bank(night, 1, "You warned them.")
+        warnings.warn(night, wkey, wwhat, "asked")
         night:apply({ { "arch:butt_kicker", challenge = -2 } })
     end
     if mus.harsh then
@@ -528,6 +530,10 @@ function M.play_moment(night, card, sc)
         end
     end
     copy.trigger = copy.trigger or "museum"
+    -- What fair warning is judged against (warnings.lua): this moment, its danger.
+    night.moment_key, night.moment_what = card.id, card.danger
+    night.party_choice = card.party and true or nil
+    night.last_roll_fresh = false
     -- Each moment finds its own lead, not whoever took the room's first one (the playtest, Nov 2:
     -- the plaque and then the tablet were always Mara's). A moment for the person who's already
     -- in it (keep_actor) keeps them.
@@ -599,6 +605,10 @@ function M.play_moment(night, card, sc)
             night.actor = best or night.actor
             copy.fixed_actor = true
         end
+        -- They picked something that can go badly: does anyone tell them? (warnings.lua)
+        if chosen and card.danger then
+            M.warn_step(night, card, copy)
+        end
     end
     local o = night:decision(copy, night.mus_vars)
     if not o then
@@ -655,6 +665,61 @@ function M.play_moment(night, card, sc)
     end
     M.ties_beat(night, sc)
     return o
+end
+
+-- Could this option end badly? (A harsh outcome, on it or on its roll's miss.)
+local function risky(o)
+    return o and ((o.mus and o.mus.harsh) or (o.roll and o.roll.fail and o.roll.fail.mus and o.roll.fail.mus.harsh)) and true or false
+end
+M.risky = risky
+
+-- The players have picked something risky (a party moment): your call, behind the screen, on what
+-- they know before they do it. Describe the danger (a warning in the story), ask "Are you sure?"
+-- (out of character: the careful ones may back down, the bold ones dig in), or say nothing.
+local CAREFUL = { tactician = true, casual = true, storyteller = true }
+function M.warn_step(night, card, copy)
+    local warnings = require "game.model.warnings"
+    local chosen = copy.options[copy.party_pick]
+    if not risky(chosen) or warnings.warned(night.campaign, card.id) or not night:room(12) then
+        return
+    end
+    local vars = night:vars(night.mus_vars)
+    local wcard = { id = "warn_" .. card.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
+                    title = "Before they do it",
+                    text = "{actor_char} is about to " .. (chosen.want or "go ahead") .. ". If it goes wrong, it goes badly ("
+                        .. card.danger .. "). Do they know that?",
+                    options = {
+                        { label = "Describe the danger first.", sub = "A warning in the story. They go ahead knowing.", warn = "told",
+                          log = "You lean in and tell them: " .. card.danger .. ".",
+                          effects = { { "arch:explorer", fun = 1 }, { "arch:storyteller", fun = 1 } } },
+                        { label = "Ask them: \"Are you sure?\"", sub = "Out of character. The careful ones might think again.", warn = "asked",
+                          log = "\"Are you sure?\" you ask, and let it hang there." },
+                        { label = "Say nothing. Let it play.", sub = "Suspense. If it goes badly, it came out of nowhere.",
+                          effects = { { "arch:instigator", fun = 1 }, { "arch:butt_kicker", fun = 1 } } },
+                    } }
+    local o = night:decision(wcard, night.mus_vars)
+    if not (o and o.warn) then
+        return
+    end
+    warnings.warn(night, card.id, card.danger, o.warn)
+    local lead = night.actor
+    if o.warn == "asked" and lead then
+        -- The one doing it answers, as who they are: a careful player backs down to something safer.
+        local safe
+        for i, opt in ipairs(copy.options) do
+            if not risky(opt) and not opt.disabled and i ~= copy.party_pick then
+                safe = safe or i
+            end
+        end
+        if CAREFUL[lead.primary] and safe then
+            night:emit({ kind = "say", who = lead.key, text = "...Actually, no. Let's not.", ic = false })
+            copy.party_pick = safe
+            night:say(util.fill("{actor_char} thinks better of it.", vars), "dm")
+        else
+            night:emit({ kind = "say", who = lead.key, text = "Yes. Very sure.", ic = false })
+            night:apply({ { "actor", fun = 2 } })
+        end
+    end
 end
 
 -- The DM's ties and locks (game/model/ties.lua) at a beat of the night: a moment just played, a
@@ -1010,6 +1075,19 @@ function M.explore(night, sc)
         if pl.line then
             night:say(pl.line, "narration")
         end
+        -- Their companion helps (companions.lua): a sniff round, an old boot's memory. A pet they
+        -- were told to find turns up here.
+        local companions = require "game.model.companions"
+        companions.maybe_find(night, p)
+        local bonus, found = companions.help_look(night, p)
+        if bonus > 0 then
+            night.edge_next = night.edge_next or {}
+            night.edge_next[p.key] = math.max(night.edge_next[p.key] or 0, bonus)
+        end
+        if found then
+            night:say(found.helps.find_line, "good")
+            M.handle(night, { francs = 1 }, sc)
+        end
         local arch = LOOK_SAY[p.primary] and p.primary or "casual"
         local line = night:fresh(LOOK_SAY[arch], "look_" .. arch)
         night:emit({ kind = "say", who = p.key, text = util.sentence_case(util.fill(line, { place = util.lower_first(pl.name or "it") })),
@@ -1277,9 +1355,10 @@ function M.stage(night, sc, title)
     local back = sc.revisit ~= nil
     night:emit({ kind = "scene", index = sc.index, title = sc.title, type = sc.type,
                  board = night:board_for(sc), type_name = back and "A trip back" or content.scenes[sc.type].name, terrain = sc.terrain,
-                 party = party, npc = npc, npc_hidden = npc ~= nil, cast = (not back) and cast and cast.name or nil,
-                 goal = (not back) and goal and goal.name or nil })
-    night.npc_pending = npc ~= nil or nil
+                 party = party, npc = npc, npc_hidden = npc ~= nil and not night:npc_in_view(sc, party, npc),
+                 cast = (not back) and cast and cast.name or nil, goal = (not back) and goal and goal.name or nil })
+    -- (In plain view from where they come in: on the mat at once. Behind a wall: when they walk in.)
+    night.npc_pending = (npc ~= nil and not night:npc_in_view(sc, party, npc)) or nil
     return party, npc
 end
 
@@ -2473,6 +2552,7 @@ function M.intro(night)
     require("game.model.keepsakes").at_night(night)
     night:say("Everyone's here. Dice out.", "system")
     night:table_behavior("start")
+    require("game.model.companions").night_start(night)      -- (Exhibit B says hi: companions.lua)
     local first = adventure.frontier(c)[1]
     local part = first and MODULE.rooms[first] and MODULE.rooms[first].part or 1
     if (st.weeks or 0) <= 1 then
@@ -2709,7 +2789,7 @@ function M.run(night)
     local st = st_of(night)
     st.weeks = (st.weeks or 0) + 1
     night.scenes = {}
-    night.mus = { added = {}, pending = {}, rooms = {}, harsh_log = {}, bank_start = st.bank, francs_start = st.francs or 0, got = {} }
+    night.mus = { added = {}, pending = {}, rooms = {}, harsh_log = {}, francs_start = st.francs or 0, got = {} }
     local ahead = adventure.ahead(c)
     night.mus.total = math.max(1, #ahead)
     c.last_cliff = nil
@@ -2794,12 +2874,76 @@ function M.run(night)
             if #night.scenes > 0 then
                 night:clock_tells()
             end
+            M.maybe_break(night)
         end
     end
     -- Anything that went on her card tonight and hasn't had her line yet (the night stopped
     -- before the room's end): she gets it now, before everyone goes home.
     M.interlude(night)
     night:run_tail()
+end
+
+-- The break (the playtest, November 3: "a more pronounced 'let's take a break' moment; all sessions
+-- should have at least one"). Once a night, between rooms, a little past a third of the evening:
+-- pizza, stretching, phones out. You choose whether anything happens in the game meanwhile: a
+-- short rest, a long one where it's safe, or the party reading up.
+M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
+M.BREAK_MIN = 20           -- table minutes it takes
+
+function M.maybe_break(night, before_boss)
+    if night.had_break or night.end_early or (#night.scenes == 0 and not before_boss) then
+        return false
+    end
+    local planned = night.table_planned or 210
+    local t = night.table_min or 0
+    if not before_boss and (t < math.max(60, planned * M.BREAK_AT) or t > planned - 30) then
+        return false
+    end
+    night.had_break = true
+    local st = st_of(night)
+    local room = MODULE.rooms[st.pos or st.last_room or ""] or {}
+    local safe = room.rest and true or false
+    local poses = {}
+    for i, p in ipairs(night.players) do
+        poses[p.key] = ({ "yawn", "laugh", "phone", "cheer" })[(i - 1) % 4 + 1]
+    end
+    night:react(poses)
+    night:say("\"Okay, let's take a break.\" Chairs scrape back. Someone's already on the phone to the pizza place.", "dm")
+    local card = { id = "table_break", type = "table", intermission = true,
+                   title = "Let's take a break",
+                   text = "Twenty minutes of pizza, stretching and gossip. Is anything happening in the game while you're all away from the table?",
+                   options = {
+                       { label = "Nothing. It's just a break.", log = "Twenty minutes of pizza and gossip. Everyone comes back a bit happier and a bit sleepier.",
+                         effects = { { "all", social = 3, fun = 2 } } },
+                       { label = "They take a short rest while we eat.", sub = "An hour in the game: Hit Dice, Second Wind, Channel Divinity, Arcane Recovery.",
+                         log = "While the pizza goes round, the party sits with their backs to a wall for an hour.", rest = "short",
+                         effects = { { "all", social = 2, fun = 1 }, { "arch:tactician", fun = 2 } } },
+                       { label = "They take a long rest here.", sub = safe and "A full night's sleep: everything back." or "Nowhere here is safe enough to sleep.",
+                         disabled = not safe, rest = "long",
+                         log = "The party beds down for the night. By the time the pizza's gone, they've slept eight hours.",
+                         effects = { { "all", social = 2, fun = 1 }, { "arch:butt_kicker", challenge = -2 } } },
+                       { label = "They read up: the museum, the Gorgon, their notes.", sub = "The next two rolls tonight get +2: they did their homework.",
+                         log = "Somebody gets the notes out. By the time the pizza's done, there's a plan, sort of.", research = 2,
+                         effects = { { "arch:storyteller", fun = 3, story = 3 }, { "arch:tactician", fun = 3 }, { "arch:butt_kicker", fun = -1 } } },
+                   } }
+    local o = night:decision(card)
+    night.table_min = (night.table_min or 0) + M.BREAK_MIN
+    for _, p in ipairs(night.players) do
+        score.add(p, "boredom", -6)
+        if p.mood == "tired" or p.mood == "distracted" then
+            score.add(p, "fun", 3)       -- (the ones who were flagging get their second wind)
+        end
+    end
+    if o and o.rest then
+        if not night.pc_list then
+            fight.party(night)
+        end
+        night:do_rest({ rest = o.rest == "long" and "long" or "short" }, o.rest, "town", night.scene)
+    elseif o and o.research then
+        night.research = (night.research or 0) + o.research
+    end
+    night:say("Everyone settles back in. \"Right. Where were we?\"", "dm")
+    return true
 end
 
 -- Boss night ---------------------------------------------------------------------------------------
@@ -2814,6 +2958,8 @@ function M.boss_night(night)
             return
         end
     end
+    -- Five minutes before the big one: the night's break (M.maybe_break).
+    M.maybe_break(night, true)
     M.enter(night, "lair")
     M.interlude(night)
     local sc = M.build_scene(night, "lair")

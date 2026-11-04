@@ -42,7 +42,7 @@ legend:
 /       | wall_diag       | walls    | auto
 T       | tapestry        | mosaics  | auto
 d       | door_open       | doors    |
-S       | stairs_straight | stairs   | 3
+S       | stairs_down     | stairs   | 3
 V       | statue_victim   | statues  |
 W       | statue_victim_b | statues  |
 X       | statue_victim_c | statues  |

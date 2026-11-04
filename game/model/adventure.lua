@@ -1378,7 +1378,10 @@ function M.answer_request(campaign, id, answer)
     end
     hold_marks(campaign, M.apply(campaign, a.mus))
     if a.mus and a.mus.warn then
-        st.bank = st.bank + 1
+        -- (They asked, and you told them straight: they know now.)
+        local asker = campaign:player(rq.who)
+        local what = util.fill(a.reply or "a danger", { char = asker and asker.char or "they" })
+        require("game.model.warnings").note(campaign, type(a.mus.warn) == "string" and a.mus.warn or id, what, "told")
     end
     return reactions, a
 end
@@ -1416,8 +1419,11 @@ function M.answer_favor(campaign, who, help_i, hurt_i)
     local h, u = def.helps[help_i], def.hurts[hurt_i]
     hold_marks(campaign, M.apply(campaign, h and h.mus))
     hold_marks(campaign, M.apply(campaign, u and u.mus))
-    if (h and h.mus and h.mus.warn) or (u and u.mus and u.mus.warn) then
-        st.bank = st.bank + 1
+    for _, o in ipairs({ h or false, u or false }) do
+        if o and o.mus and o.mus.warn then
+            require("game.model.warnings").note(campaign, type(o.mus.warn) == "string" and o.mus.warn or ("favor_" .. who),
+                o.label, "told")
+        end
     end
     return h, u
 end

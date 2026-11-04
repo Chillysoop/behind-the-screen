@@ -95,15 +95,28 @@ local S0 = {
 
     -- The table rules.
     rules = {
-        order = { "xcard", "dice", "rulings", "length", "death" },
+        order = { "xcard", "dice", "rulings", "length", "death", "harsh" },
         xcard = {
             name = "The X-card",
-            about = "Anyone can tap it to skip something, no questions asked.",
+            about = "Anyone can tap it to skip something, no questions asked.", compact = true,
             order = { "on", "off" },
-            on = { name = "Use it", like = { mara = 1, dev = -1, jess = 0, sam = 2 },
+            on = { name = "Use it", about = "Anyone can tap it to skip something.", like = { mara = 1, dev = -1, jess = 0, sam = 2 },
                    says = { sam = "Love that. I probably won't need it, but still.", dev = "We're not going to use that, but okay." } },
-            off = { name = "Skip it", like = { mara = 0, dev = 0, jess = 0, sam = -1 },
+            off = { name = "Skip it", about = "No card on the table.", like = { mara = 0, dev = 0, jess = 0, sam = -1 },
                     says = { sam = "Oh. Okay. I'll just say something if I need to." } },
+        },
+        -- How harsh it gets (the playtest, November 3: fair warning, the way a table does it). What a
+        -- harsh call costs when nobody was warned (game/model/warnings.lua).
+        harsh = {
+            name = "How harsh it gets",
+            about = "When something goes badly wrong.", compact = true,
+            order = { "gentle", "fair", "brutal" },
+            gentle = { name = "Gentle", about = "Warn them first. Even a fair hit stings a little.", like = { mara = 0, dev = -1, jess = 1, sam = 2 },
+                       says = { sam = "Yes please. I like my heroes in one piece.", dev = "So nothing bad happens? Ever?" } },
+            fair = { name = "Fair", about = "Harsh things happen, after a warning.", like = { mara = 1, dev = 0, jess = 0, sam = 1 },
+                     says = { mara = "If we saw it coming, it's fair." } },
+            brutal = { name = "Brutal", about = "Warnings are a kindness, not a promise.", like = { mara = 1, dev = 2, jess = 0, sam = -2 },
+                       says = { dev = "Good. Make it hurt.", sam = "I'm going to need more snacks." } },
         },
         dice = {
             name = "Your screen",
@@ -149,7 +162,7 @@ local S0 = {
     defaults = {
         tone = "mixed",
         asks = { mara = "agree", sam = "agree", dev = "agree", jess = "push" },
-        rules = { xcard = "on", dice = "big_open", rulings = "quick", length = "half", death = "meaningful" },
+        rules = { xcard = "on", dice = "big_open", rulings = "quick", length = "half", death = "meaningful", harsh = "fair" },
     },
 }
 

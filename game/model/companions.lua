@@ -1,0 +1,168 @@
+-- Who comes along with the party (the playtest, November 3: "Pip asks to adopt a rat named Exhibit
+-- B... a system that covers more companions in the future"; "NPCs that join the party should be in
+-- initiative with a mini, piloted by one of the players"). The adventure lists them (MODULE.
+-- companions): a pet that rides in a pocket, or a person who walks with them. Each belongs to a
+-- friend at the table, who talks about them, plays them in a fight, and gets the help they give
+-- when the party looks around. Pure Lua.
+--
+-- campaign.adv.companions = { [id] = { week = joined, found = true|nil } }; campaign.adv.companion_find = id
+
+local util = require "game.model.util"
+
+local M = {}
+
+local function data()
+    local ok, adv = pcall(require, "game.model.adventure")
+    return ok and adv.data and adv.data.companions or nil
+end
+
+function M.def(id)
+    local d = data()
+    return d and d[id] or nil
+end
+
+-- Join the party (a chat answer, a flag, a find).
+function M.join(campaign, id)
+    if not M.def(id) then
+        return false
+    end
+    campaign.adv = campaign.adv or {}
+    campaign.adv.companions = campaign.adv.companions or {}
+    if campaign.adv.companions[id] then
+        return false
+    end
+    campaign.adv.companions[id] = { week = campaign.week or 0 }
+    if campaign.adv.companion_find == id then
+        campaign.adv.companion_find = nil
+    end
+    return true
+end
+
+-- Who's with them now: joined, or a flag the story set (Telpur coming along), and whose friend is
+-- at the table. Each: the def with its id.
+function M.active(campaign, players)
+    local d = data()
+    if not d then
+        return {}
+    end
+    local adv = campaign.adv or {}
+    local out = {}
+    for _, id in ipairs(d.order or {}) do
+        local def = d[id]
+        local joined = adv.companions and adv.companions[id]
+        if not joined and def.joins and def.joins.flag and adv.flags and adv.flags[def.joins.flag] then
+            joined = true
+        end
+        local owner = def.owner
+        local here = true
+        if players and owner then
+            here = false
+            for _, p in ipairs(players) do
+                if p.key == owner then
+                    here = true
+                end
+            end
+        end
+        if joined and here then
+            local e = {}
+            for k, v in pairs(def) do
+                e[k] = v
+            end
+            e.id = id
+            table.insert(out, e)
+        end
+    end
+    return out
+end
+
+-- The ones who fight: an ally in initiative with its mini, played by its owner.
+function M.fighters(night)
+    local out = {}
+    for _, e in ipairs(M.active(night.campaign, night.players)) do
+        if e.monster and not e.pocket then
+            -- (Someone whose hero fell tonight can take them over: death.after_fall.)
+            local pilot = (night.pilots and night.pilots[e.id]) or e.owner
+            table.insert(out, { id = e.monster, name = e.name, commander = pilot, pilot = pilot })
+        end
+    end
+    return out
+end
+
+-- Whose companion is this hero's? (the first one they own)
+function M.of(night, p)
+    for _, e in ipairs(M.active(night.campaign, night.players)) do
+        if p and e.owner == p.key then
+            return e
+        end
+    end
+    return nil
+end
+
+-- A line about them, by their owner (a pet) or from them (a person who talks), once in a while.
+-- kind: start | look | fight | win.
+function M.say(night, e, kind)
+    local lines = e and e.lines and e.lines[kind]
+    if not lines or #lines == 0 then
+        return false
+    end
+    local owner = night.campaign:player(e.owner)
+    local text = night:fresh(lines, "companion_" .. e.id .. "_" .. kind)
+    if e.kind == "person" then
+        night:say(text, "quote")
+    elseif owner then
+        night:emit({ kind = "say", who = owner.key, text = text, ic = false })
+    else
+        return false
+    end
+    return true
+end
+
+-- The start of a night: each companion gets a line (and a pet found last week is waiting).
+function M.night_start(night)
+    for _, e in ipairs(M.active(night.campaign, night.players)) do
+        M.say(night, e, "start")
+    end
+end
+
+-- Looking around: the looker's companion helps. Returns the bonus for the look, and whether they
+-- found something (once a night each).
+function M.help_look(night, p)
+    local e = M.of(night, p)
+    if not e or not e.helps then
+        return 0, nil
+    end
+    night.companion_found = night.companion_found or {}
+    M.say(night, e, "look")
+    if not night.companion_found[e.id] and night.rng:chance(e.helps.find or 0) then
+        night.companion_found[e.id] = true
+        return e.helps.bonus or 0, e
+    end
+    return e.helps.bonus or 0, nil
+end
+
+-- A pet that hides when the fight starts; a person who's in it.
+function M.fight_start(night)
+    for _, e in ipairs(M.active(night.campaign, night.players)) do
+        if night.rng:chance(0.6) then
+            M.say(night, e, "fight")
+        end
+    end
+end
+
+-- "If Pip can find one": the next time their owner looks around, they find the pet.
+function M.maybe_find(night, p)
+    local adv = night.campaign.adv or {}
+    local id = adv.companion_find
+    local def = id and M.def(id)
+    if not (def and p and def.owner == p.key) then
+        return false
+    end
+    M.join(night.campaign, id)
+    night:say(util.fill("Something small and whiskery is watching {char} from under an exhibit. It's a rat. {char} names him "
+        .. def.name .. " on the spot.", { char = p.char }), "good")
+    night:react({ [p.key] = "cheer" })
+    require("game.model.score").add(p, "fun", 5)
+    return true
+end
+
+return M

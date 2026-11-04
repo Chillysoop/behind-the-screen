@@ -192,8 +192,8 @@ for w = 1, adventure.data.MAX_WEEKS do
     play_night(night)
     local rep = c:finish_night()
     if show then
-        print(string.format("  -- report: avg %s; rooms %d; new marks: %s; bank %d",
-            tostring(rep.average), #rep.museum.rooms, table.concat(rep.museum.marks, ", "), rep.museum.bank or 0))
+        print(string.format("  -- report: avg %s; rooms %d; new marks: %s; warned %d",
+            tostring(rep.average), #rep.museum.rooms, table.concat(rep.museum.marks, ", "), rep.museum.warned or 0))
     end
     if c:level_up() and show then
         print("  -- LEVEL UP to " .. c.level)

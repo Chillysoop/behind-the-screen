@@ -1409,6 +1409,36 @@ def b_stairs_straight(P, rng):
         P.paint.add(gm.sphere((x, 5.0, d / 2 - 0.6), 0.5, 7, 4, sw("gold")))
 
 
+def b_stairs_down(P, rng):
+    """A stairwell going DOWN to the floor below (the playtest, November 3: the stairs up from the gift
+    shop looked like more stairs up, on the floor above): an opening in the floor, the steps dropping
+    away into the dark toward the north, a banister round three sides. Open to the south."""
+    w, d = 2 * SQ, 3 * SQ
+    n, tread = 6, 2.0
+    well_w = w - 2.0
+    # The well's lip, then each step a little darker and lower in the eye: a stair dropping away.
+    P.paint.add(gm.box((0, 0.04, 0), (w - 0.2, 0.08, d - 0.2), sw("wood_dark")))
+    shades = ("wood_mid", "wood_mid", "wood_dark", "wood_dark", "char", "char")
+    for i in range(n):
+        z1 = d / 2 - 0.4 - i * tread
+        P.paint.add(gm.box((0, 0.12 - i * 0.012, z1 - tread / 2), (well_w, 0.06, tread - 0.15), sw(shades[i])))
+        P.paint.add(gm.box((0, 0.16 - i * 0.012, z1 - 0.2), (3.0, 0.03, 0.35), sw("red_cloth" if i < 3 else "char")))
+    # The banister: along both long sides and across the far (north) end, newel posts at the corners.
+    rail_h = 3.0
+    for s in (-1, 1):
+        x = s * (w / 2 - 0.4)
+        P.paint.add(gm.box((x, rail_h, 0), (0.35, 0.35, d - 0.6), sw("wood_dark")))
+        for k in range(5):
+            z = -d / 2 + 0.6 + k * (d - 1.2) / 4
+            P.paint.add(gm.box((x, rail_h / 2, z), (0.2, rail_h, 0.2), sw("wood_light")))
+        P.paint.add(gm.box((x, 1.9, d / 2 - 0.5), (0.7, 3.8, 0.7), sw("wood_dark")))
+        P.paint.add(gm.sphere((x, 4.0, d / 2 - 0.5), 0.45, 7, 4, sw("gold")))
+    P.paint.add(gm.box((0, rail_h, -d / 2 + 0.4), (w - 0.8, 0.35, 0.35), sw("wood_dark")))
+    for k in range(1, 4):
+        x = -w / 2 + 0.4 + k * (w - 0.8) / 4
+        P.paint.add(gm.box((x, rail_h / 2, -d / 2 + 0.4), (0.2, rail_h, 0.2), sw("wood_light")))
+
+
 def b_donation_box(P, rng):
     """An ornate gilded box on a stand, a slot in its lid. (The book's box holds every coin there is.)"""
     P.paint.add(gm.box((0, 0.3, 0), (2.8, 0.6, 2.8), sw("wood_dark")))
@@ -2010,6 +2040,8 @@ KINDS = {
     "garden_steps": K(b_garden_steps, 2, 3, blocks=False, words=("steps", "terrace"), say="wide stone steps up to a terrace"),
     "stairs_straight": K(b_stairs_straight, 2, 3, blocks=False, words=("stairs", "staircase", "stair", "upstairs"),
                          say="a staircase going up"),
+    "stairs_down": K(b_stairs_down, 2, 3, blocks=False, words=("stairs", "staircase", "stair", "downstairs", "down"),
+                     say="a stairwell going down"),
     "donation_box": K(b_donation_box, cover=True, words=("donation", "donations", "donation box", "offering", "gilded"),
                       say="a gilded donation box"),
     "canopic_jars": K(b_canopic_jars, cover=True, words=("jars", "jar", "canopic", "urns"), say="old jars with animal heads"),

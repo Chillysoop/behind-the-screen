@@ -194,6 +194,65 @@ function M.fall(night, p, rec, goodbye)
     campaign.new_char = campaign.new_char or {}
     campaign.new_char[p.key] = { week = campaign.week, was = p.char }
     table.insert(night.canon, p.char .. " " .. rec.how)
+    M.after_fall(night, p)
+end
+
+-- The table, after (the playtest, November 3: "does the player immediately leave the table? How
+-- does the table react?"). A friend says something; the player stays, and you decide what they do
+-- with the rest of the night: play someone who's with the party, help you run the monsters, or
+-- watch and start on their new hero.
+M.FRIEND_SAYS = { "No. No no no. {char}.", "That was a good death, {name}. Honestly.", "I'm so sorry. {char} was the best of us.",
+                  "Okay, I'm actually sad about this." }
+M.STAYS_SAYS = { "I'm staying. I want to see how it ends.", "I'm not going anywhere. Pass the crisps.",
+                 "Can I at least do the voices for the monsters?" }
+function M.after_fall(night, p)
+    local friend, best
+    local rapport = require "game.model.rapport"
+    for _, q in ipairs(night.players) do
+        if q ~= p then
+            local r = rapport.rel(night.campaign, q.key, p.key)
+            local v = type(r) == "table" and (r.rapport or 0) or 0
+            if not best or v > best then
+                friend, best = q, v
+            end
+        end
+    end
+    if friend then
+        night:emit({ kind = "say", who = friend.key, text = util.fill(night:fresh(M.FRIEND_SAYS, "fall_friend"), { char = p.char, name = p.name }),
+                     ic = false })
+    end
+    night:emit({ kind = "say", who = p.key, text = night:fresh(M.STAYS_SAYS, "fall_stays"), ic = false })
+    night.watching = night.watching or {}
+    night.watching[p.key] = true
+    if not night:room(14) then
+        return
+    end
+    local companions = require "game.model.companions"
+    local ally
+    for _, e in ipairs(companions.active(night.campaign, night.players)) do
+        if e.monster and not e.pocket then
+            ally = e
+        end
+    end
+    local card = { id = "fallen_seat", type = "table", trigger = "museum_fixed", fixed_actor = true,
+                   title = "{actor} is still at the table",
+                   text = "{actor_char} is gone, but {actor} isn't going anywhere. What do they do for the rest of the night?",
+                   options = {} }
+    if ally then
+        table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.", sub = ally.name .. " is in every fight; {actor} runs them.",
+                                     pilot = ally.id, effects = { { "actor", fun = 5, spotlight = 4 } } })
+    end
+    table.insert(card.options, { label = "{actor} helps you run the monsters.", sub = "They'll love it. The others might find the monsters a little meaner.",
+                                 effects = { { "actor", fun = 4, social = 3 }, { "others", challenge = 2 } }, monsters = true })
+    table.insert(card.options, { label = "{actor} watches, and starts on a new hero.", effects = { { "actor", fun = -1, investment = 2 } } })
+    night.actor = p
+    local o = night:decision(card)
+    if o and o.pilot then
+        night.pilots = night.pilots or {}
+        night.pilots[o.pilot] = p.key
+    elseif o and o.monsters then
+        night.monster_helper = p.key
+    end
 end
 
 -- A fudged last save. The second and later ones cost Trust with the players who came for stakes.

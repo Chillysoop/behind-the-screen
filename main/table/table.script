@@ -389,6 +389,12 @@ function on_message(self, message_id, message)
     elseif message_id == hash("remove_now") then
         -- (Gone on the spot: a figure that becomes a fight's mini where it stands.)
         remove(self, message.id, "remove")
+    elseif message_id == hash("become") then
+        -- In character: the player at the table turns into their hero for a moment (person.script).
+        if self.people[message.who] then
+            msg.post(msg.url(nil, "/" .. message.who, "person"), "become",
+                { anim = hash(message.sprite), time = message.time, grow = message.grow })
+        end
     elseif message_id == hash("outline") then
         -- Who's talking or thinking: their outline at the table, in the colour for how (panels.SPEAK).
         if self.people[message.who] then

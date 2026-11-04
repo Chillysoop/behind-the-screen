@@ -959,6 +959,10 @@ function on_input(self, action_id, action)
         if guard(self, kit.on_click, action.x, action.y) then
             return true
         end
+        -- A person's mini on the mat: their sheet (the playtest, November 3).
+        if app.screen == "night" and not app.npc_sheet and night_view.click_mini(app, action.x, kit.H - action.y) then
+            return true
+        end
         return app.screen ~= "night"
     end
     if action_id == A.confirm and action.pressed then
@@ -1058,6 +1062,9 @@ function on_input(self, action_id, action)
         if action.pressed then
             if action_id == A.fast then
                 guard(self, night_view.cycle_speed, app)
+                return true
+            elseif action_id == hash("prev_cell") then
+                guard(self, night_view.toggle_pause, app)      -- P: pause the night
                 return true
             elseif action_id == A.slow then
                 guard(self, night_view.slow_down, app)

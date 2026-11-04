@@ -182,6 +182,7 @@ function M.load_state(night)
             end
             c.arcane_used = s.arcane_used
             c.mage_armor = s.mage_armor or false
+            c.aid_hp = s.aid_hp
         end
     end
     return any
@@ -201,7 +202,7 @@ function M.save_state(night, rested)
     for _, c in ipairs(night.pc_list or {}) do
         st.pcs[c.player_key] = { hp = math.max(1, c.hp), hp_max = c.hp_max, temp = c.temp or 0, res = copy(c.res),
                                  hd_left = c.hd and c.hd.left, arcane_used = c.arcane_used or nil,
-                                 mage_armor = c.mage_armor or nil }
+                                 mage_armor = c.mage_armor or nil, aid_hp = c.aid_hp or nil }
     end
     camp.party_state = st
 end
@@ -1050,7 +1051,15 @@ function M.run(night, sc, plan)
         end
     end
     local taken = {}
-    local party_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #night.pc_list, 1, b.W, b.H)
+    -- Each hero starts the fight where their mini was standing (the playtest, November 3: "characters
+    -- stay where they were instead of resetting to a cluster"): the nearest open square to it. A hero
+    -- the table hasn't moved yet starts at the board's own start.
+    local party_spots = {}
+    for i, c in ipairs(night.pc_list) do
+        local at = night.mini_pos and night.mini_pos[c.mini]
+        local sq = at and M.squares_near(blocked, taken, at[1], at[2], 1, 1, b.W, b.H)[1]
+        party_spots[i] = sq or M.squares_near(blocked, taken, layout.party[1], layout.party[2], 1, 1, b.W, b.H)[1]
+    end
     local party_out = {}
     -- Split up this scene (night.lua, "Splitting the party"): whoever wandered off isn't here yet.
     local split = sc.split and sc.split.away or nil
@@ -1186,7 +1195,30 @@ function M.run(night, sc, plan)
         museum.charm_start(b, f.boss, f.by_ref[mo.charmed])
     end
     local allies_out = {}
-    local allies = encounter.make_allies(mo.allies, night.pc_list, mo.commander)
+    -- Whoever's with the party fights with them (companions.lua): Telpur in initiative, with a mini,
+    -- played by whoever asked for him (the playtest, November 3).
+    local ally_list = {}
+    for _, a in ipairs(mo.allies or {}) do
+        table.insert(ally_list, a)
+    end
+    local companions = require "game.model.companions"
+    for _, a in ipairs(night.campaign.module and companions.fighters(night) or {}) do
+        -- Played by their owner; or by a friend whose hero fell tonight (then they answer to no hero).
+        local pc = night.pcs and night.pcs[a.pilot]
+        if pc and not pc.dead then
+            table.insert(ally_list, { id = a.id, name = a.name, commander = pc.class, pilot = a.pilot })
+        elseif night.watching and night.watching[a.pilot] then
+            table.insert(ally_list, { id = a.id, name = a.name, commander = false, pilot = a.pilot })
+        end
+    end
+    if night.campaign.module then
+        companions.fight_start(night)
+    end
+    local allies = encounter.make_allies(ally_list, night.pc_list, mo.commander)
+    for i, m in ipairs(allies) do
+        local a = ally_list[i]
+        m.pilot = type(a) == "table" and a.pilot or nil
+    end
     local ally_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #allies, 1, b.W, b.H)
     for i, m in ipairs(allies) do
         m.mini = "a" .. i
@@ -1194,7 +1226,7 @@ function M.run(night, sc, plan)
         b:add(m, sq[1], sq[2])
         f.by_ref[m.mini] = m
         table.insert(allies_out, { id = m.mini, monster = m.monster_id, x = sq[1], y = sq[2], name = m.name, ally = true,
-                                   hp = m.hp, hp_max = m.hp_max, commander = m.commander and m.commander.mini or nil })
+                                   hp = m.hp, hp_max = m.hp_max, commander = m.commander and m.commander.mini or nil, pilot = m.pilot })
     end
     f.allies = allies
     -- Someone joining mid-fight (the bone construct's scarabs) gets a mini on the mat.
@@ -1539,25 +1571,52 @@ function M.run(night, sc, plan)
     night.fight_frames = {}
     night.fight_wake = f.wake       -- (the hedges that got up: the report's replay lifts them too)
     night.fight_kinds = {}
+    night.fight_acts = {}
+    -- Each turn's frame: where everyone is, down or not, and their hit points (the report's replay
+    -- shows the bars: the playtest, November 3).
     local function frame(bb)
         local fr = {}
         for _, cr in ipairs(bb.creatures) do
             if cr.x and not cr.removed and cr.mini then
-                table.insert(fr, cr.mini .. ":" .. cr.x .. ":" .. cr.y .. ":" .. ((cr.dead or cr.down) and 1 or 0))
+                table.insert(fr, cr.mini .. ":" .. cr.x .. ":" .. cr.y .. ":" .. ((cr.dead or cr.down) and 1 or 0) .. ":"
+                    .. math.max(0, math.floor(cr.hp or 0)))
                 if not night.fight_kinds[cr.mini] then
-                    night.fight_kinds[cr.mini] = { side = cr.side == "party" and "party" or "foe", class = cr.class, monster = cr.monster_id }
+                    night.fight_kinds[cr.mini] = { side = cr.side == "party" and "party" or "foe", class = cr.class, monster = cr.monster_id,
+                                                   name = cr.name, hp_max = cr.hp_max }
                 end
             end
         end
         table.insert(night.fight_frames, table.concat(fr, ";"))
         if #night.fight_frames > 60 then
             table.remove(night.fight_frames, 1)
+            table.remove(night.fight_acts, 1)
         end
+    end
+    -- What happened in a turn, in a few words each, for the replay: attacks, spells, damage, healing.
+    local function acts_of(steps)
+        local out = {}
+        for _, st in ipairs(steps or {}) do
+            if st.kind == "attack" and st.id and st.target then
+                table.insert(out, { k = "a", a = st.id, t = st.target, hit = st.hit and true or nil, crit = st.crit or nil,
+                                    w = st.weapon or st.spell, ranged = st.ranged or nil })
+            elseif st.kind == "spell" and st.id then
+                table.insert(out, { k = "s", a = st.id, t = type(st.target) == "string" and st.target or nil, w = st.name })
+            elseif st.kind == "damage" and st.id then
+                table.insert(out, { k = "d", t = st.id, n = st.amount, crit = st.crit or nil })
+            elseif st.kind == "heal" and st.id then
+                table.insert(out, { k = "h", t = st.id, n = st.amount })
+            end
+            if #out >= 8 then
+                break
+            end
+        end
+        return out
     end
     frame(b)
     opts.after_turn = function(bb, c)
         frame(bb)
         local steps = night:flush_turn()
+        night.fight_acts[#night.fight_frames] = acts_of(steps)
         if steps and #steps > 0 then
             react(night, f, steps, c)
             for _, s in ipairs(steps) do
@@ -1676,6 +1735,13 @@ function M.run(night, sc, plan)
     end
     night.battle = nil
     night.fights = night.fights + 1
+    -- (Where everyone ended up is where they stand when the room goes on.)
+    night.mini_pos = night.mini_pos or {}
+    for _, c in ipairs(night.pc_list or {}) do
+        if c.x and not c.dead then
+            night.mini_pos[c.mini] = { c.x, c.y }
+        end
+    end
     night:emit({ kind = "battle", phase = "end", winner = result.winner, rounds = result.rounds,
                  summary = M.summary(b, f, result) })
     return result, f

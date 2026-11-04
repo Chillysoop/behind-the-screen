@@ -1752,6 +1752,53 @@ function B:paths(c, max_ft, occ)
     return dist, parent
 end
 
+-- How far it is to walk to (tx, ty) from every square, round the walls and through the doors this
+-- creature can open, in feet (creatures don't count: they move). A map: x * 1000 + y -> feet. The AI
+-- closes in by this, not by a straight line (the playtest, November 3: Brannoc stood behind a wall
+-- the whole fight, as near as the crow flies). Cached until a door opens or shuts.
+function B:walk_field(tx, ty, opener)
+    local fc = self.field_cache
+    if not fc or fc.v ~= (self.stage_v or 0) then
+        fc = { v = self.stage_v or 0 }
+        self.field_cache = fc
+    end
+    local key = (tx * 1000 + ty) * 2 + (opener and 1 or 0)
+    if fc[key] then
+        return fc[key]
+    end
+    local W, H = self.W, self.H
+    local blocked, doors = self.blocked or {}, self.doors
+    local start = tx * 1000 + ty
+    local field = { [start] = 0 }
+    local q, head = { start }, 1
+    while head <= #q do
+        local k = q[head]
+        head = head + 1
+        local x = math.floor(k / 1000)
+        local y = k - x * 1000
+        local d = field[k]
+        for _, dir in ipairs(DIRS) do
+            local nx, ny = x + dir[1], y + dir[2]
+            if nx >= 1 and ny >= 1 and nx <= W and ny <= H then
+                local nk = nx * 1000 + ny
+                if field[nk] == nil then
+                    local dr = doors and doors[nx .. "," .. ny]
+                    local wall = blocked[nk] and not dr
+                    if dr and dr.state ~= "open" and (dr.state == "locked" or not opener) then
+                        wall = true
+                    end
+                    if not wall then
+                        field[nk] = d + 5
+                        table.insert(q, nk)
+                    end
+                end
+            end
+        end
+    end
+    fc[key] = field
+    return field
+end
+
 -- Pick the reachable, unoccupied square that best satisfies score(x, y) (higher is better),
 -- using at most max_ft of movement. Returns x, y, cost (or nil).
 function B:best_square(c, max_ft, score)

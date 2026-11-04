@@ -235,13 +235,30 @@ end
 
 -- The week -------------------------------------------------------------------------------------
 
+-- The week they've had: real life, mostly, but a great session last week carries into it (they're
+-- still buzzing, telling people about it) and a flat one sours it a little (the playtest, November 3).
+function M.week_mood(rng, p)
+    local order = content.moods.order
+    local lf = p.last_fun
+    if not lf then
+        return rng:pick(order)
+    end
+    local tilt = lf >= 70 and { celebrating = 3, chatty = 2, tired = 0.7, distracted = 0.5, stressed = 0.8 }
+        or (lf < 40 and { celebrating = 0.3, chatty = 0.7, tired = 1.4, distracted = 2, stressed = 1.2 }) or {}
+    local weights = {}
+    for i, m in ipairs(order) do
+        weights[i] = tilt[m] or 1
+    end
+    return rng:weighted(order, weights)
+end
+
 function M.start_week(c)
     c.week = c.week + 1
     local rng = c.rng
     c.empathy_up = nil
     c.looked = nil
     for _, p in ipairs(c.players) do
-        p.mood = rng:pick(content.moods.order)
+        p.mood = M.week_mood(rng, p)
         p.mood_known = false
         -- The prologue is short and everyone's keen: the whole table comes every week.
         p.on_break = false
@@ -458,6 +475,14 @@ function M.write_chat(c)
     if #banter > 0 and c.week > 1 then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
+        -- What they said they bought is what they bring (the playtest, November 3: Sam's green dice
+        -- were still grey on the table).
+        if b.dice then
+            local ds = require "game.model.dice_sets"
+            if ds.data.SETS[b.dice] then
+                ds.get(c).players[b[1]] = b.dice
+            end
+        end
         if b[3] and b[4] and c:player(b[3]) then
             table.insert(msgs, { who = c:player(b[3]).name, key = b[3], text = b[4], reply = true })
         end
@@ -500,6 +525,14 @@ function M.answer_chat(c, m, i)
         if mm == m then
             at = k + 1
         end
+    end
+    -- (A yes to a pet: they're with the party from the next night. "If they can find one": the next
+    -- time their owner looks around. companions.lua)
+    if r.companion then
+        require("game.model.companions").join(c, r.companion)
+    elseif r.companion_find then
+        c.adv = c.adv or {}
+        c.adv.companion_find = r.companion_find
     end
     table.insert(c.chat, at, { who = "You", key = "dm", text = r.say })
     if r.back and p then
@@ -568,7 +601,7 @@ function M.after_night(c, night, rep)
     rep.museum = {
         rooms = mus.rooms or {},
         marks = mus.added or {},
-        bank = st.bank, harsh = mus.harsh_log or {},
+        warned = require("game.model.warnings").count(c), harsh = mus.harsh_log or {},
         where = adventure.where(c),
         ending = st.ending,
         francs = st.francs,

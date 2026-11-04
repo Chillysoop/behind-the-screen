@@ -673,6 +673,13 @@ for week = 1, WEEKS do
             if app.overlay then problem("the ties editor's X didn't close it") end
             if adventure.way_closed(c, "garden", "entrance") then problem("the ties editor's X didn't take the lock back off") end
         end
+        -- A hero's sheet: the header's three rows stay on the screen (November 3).
+        if app.open_sheet then
+            call(app.open_sheet, "jess")
+            dump_once("4h_hero_sheet")
+            scan("a hero's sheet" .. where)
+            call(app.close_overlay)
+        end
         -- A person's sheet (November 3): a name in a line opens it; the DM puts things in their
         -- pockets and picks how the party gets them.
         do
@@ -824,6 +831,18 @@ for week = 1, WEEKS do
             click_key("recap_close_left")
             click_key("recap_close_right")
             if app.recap_left or app.recap_right then problem("the recap sidebars didn't close" .. where) end
+        end
+        -- Pause and the speed buttons (November 3): Pause holds the night, 4x and back to 1x stick.
+        if g == 80 and not app.night_done then
+            if not click_key("night_pause") then problem("no Pause button on game night" .. where) end
+            if not app.paused then problem("Pause didn't pause" .. where) end
+            local t0, ev0 = app.night.clock, app.beat_t
+            call(update, self, 5)
+            if app.beat_t ~= ev0 or app.night.clock ~= t0 then problem("the night ran on while paused" .. where) end
+            if not click_key("night_speed_4x") then problem("no 4x button" .. where) end
+            if app.paused or (app.speed_now and app.speed_now() ~= 4) then problem("4x didn't play at four times" .. where) end
+            click_key("night_speed_1x")
+            if app.speed_now and app.speed_now() ~= 1 then problem("1x didn't go back to normal speed" .. where) end
         end
         -- v2: a friend's thought. Read the first few and answer them; a card that opened by itself
         -- (Pip about to go off alone) gets an answer too, or the night would wait on it forever.

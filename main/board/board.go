@@ -479,6 +479,10 @@ components {
   component: "/main/board/props/stairs_straight.factory"
 }
 components {
+  id: "stairs_down"
+  component: "/main/board/props/stairs_down.factory"
+}
+components {
   id: "donation_box"
   component: "/main/board/props/donation_box.factory"
 }

@@ -72,7 +72,7 @@ M.PALETTE = {
         { kind = "bench_museum", name = "Lecture bench" }, { kind = "couch", name = "Couch" },
         { kind = "souvenir_table", name = "Souvenirs" }, { kind = "hedge", name = "Hedge" },
         { kind = "topiary", name = "Topiary" }, { kind = "garden_steps", name = "Garden steps" },
-        { kind = "stairs_straight", name = "Stairs" } } },
+        { kind = "stairs_straight", name = "Stairs up" }, { kind = "stairs_down", name = "Stairs down" } } },
     { group = "Traps, starts", tools = true, items = {
         { id = "trap", name = "Trap" }, { id = "party", name = "Heroes" }, { id = "foes", name = "Monsters" },
         { id = "erase", name = "Clear" } } },

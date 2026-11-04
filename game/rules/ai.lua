@@ -93,9 +93,11 @@ local function approach(b, c, t, reach)
         return false
     end
     local foes = enemies(b, c)
+    -- (By the walk, not the crow: round a wall, through a door. battle.walk_field)
+    local field = b.walk_field and b:walk_field(t.x, t.y, b.doors and b:opens_doors(c)) or nil
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
-        local s = -d
+        local s = -((field and field[x * 1000 + y]) or (d + 500))
         if d <= reach then
             s = 1000 - adjacent_enemies(b, c, x, y, foes) * 3
         end
@@ -156,9 +158,10 @@ local function get_in_range(b, c, t, range)
         return true
     end
     local foes = enemies(b, c)
+    local field = b.walk_field and b:walk_field(t.x, t.y, b.doors and b:opens_doors(c)) or nil
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
-        local s = in_shot(b, x, y, t, range) and 100 or -d
+        local s = in_shot(b, x, y, t, range) and 100 or -(((field and field[x * 1000 + y]) or (d + 500)) * 0.2)
         s = s - adjacent_enemies(b, c, x, y, foes) * 20 + 6 * cover_from(b, x, y, foes)
         return s
     end)
