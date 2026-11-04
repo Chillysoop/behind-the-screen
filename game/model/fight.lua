@@ -1,8 +1,7 @@
--- Fights on game night: builds the encounter from the scene card, runs it on the
--- M3 rules engine turn by turn, and turns the engine's events into beats for the
--- table (minis moving, dice in the strip, speech bubbles). The DM's decision cards
--- arrive at the moments the fight creates: a crit about to end the boss in round
--- one, a hidden roll that would drop a hero, a fight dragging on. Pure Lua.
+-- Fights on game night: takes the room's encounter, runs it on the M3 rules engine turn by
+-- turn, and turns the engine's events into beats for the table (minis moving, dice in the strip,
+-- speech bubbles). The DM's decision cards arrive at the moments the fight creates: a crit about
+-- to end the boss in round one, a hidden roll that would drop a hero, a fight dragging on. Pure Lua.
 
 local battle = require "game.rules.battle"
 local creature = require "game.rules.creature"
@@ -16,14 +15,11 @@ local score = require "game.model.score"
 local util = require "game.model.util"
 local takeover = require "game.model.takeover"
 local maps = require "game.model.maps"
-local villains = require "game.model.villains"
 local museum = require "game.rules.museum"
 local barks = require "game.model.barks"
 local BARKS = require "game.data.barks"
 
 local M = {}
-
-local HUMANOID_BOSS = { bandit_captain = true, tough = true, goblin_boss = true, cultist = true, bandit = true }
 
 -- Placement ----------------------------------------------------------------------------------
 
@@ -247,25 +243,8 @@ local function ready_for_battle(c)
     c.knocked_out = nil          -- (the Sentinel's fists, last fight)
 end
 
--- After a fight: a short rest. Everyone gets back half of what they lost.
-function M.short_rest(night)
-    for _, c in ipairs(night.pc_list or {}) do
-        if not c.dead then
-            c.down = false
-            c.hp = math.max(1, c.hp)
-            c.hp = c.hp + math.ceil((c.hp_max - c.hp) / 2)
-        end
-    end
-end
-
 -- The encounter ------------------------------------------------------------------------------
 
--- Build the fight with the difficulty meter (M3): add monsters until the meter's
--- "someone drops" forecast reaches what the scene asks for. Cozy by default:
--- an easy scene aims low, a hard one or a set piece aims for real danger.
-M.AIM = { 0.3, 0.5, 0.68 }
-
--- Which monsters a scene brings: its cast's, else its location's, else the default.
 -- The meter counts a fight's hazard too (A10).
 local function hz_opts(sc)
     local hz = M.hazard_of and M.hazard_of(sc)
@@ -292,62 +271,12 @@ end
 -- How low a boss prepped to yield gets before she asks to stop (a share of her hit points).
 M.YIELD_AT = 0.3
 
+-- Which monsters a scene brings: its cast's, else its location's, else its own, else the default.
 function M.family(sc)
     local enc = content.encounters
     local cast = sc.comps and sc.comps.cast
     local loc = sc.comps and sc.comps.location
     return (cast and enc.by_cast[cast.id]) or (loc and enc.by_location[loc.id]) or own_family(sc) or enc.default
-end
-
--- The fight a scene suggests (what game night builds if the DM doesn't build their own):
--- add monsters until the meter's "someone drops" forecast reaches what the scene asks for.
--- scene: { comps, type, difficulty }; level, n: the party's level and size.
--- A lead too big for a small party on its own (a bandit captain against two level 2 heroes is
--- past High before anyone else joins): a lighter one of the same kind leads instead. Story
--- villains keep their own stat block. (The newcomer playtest, October 16: the first fight's
--- suggestion was over High, and nothing on the screen said how to make it easier.)
-M.LIGHT = { bandit_captain = "tough" }
-
-function M.suggest(sc, level, n)
-    local enc = content.encounters
-    local fam = M.family(sc)
-    local step = util.clamp(sc.difficulty or 2, 1, 3) + ((sc.type == "set_piece") and 1 or 0)
-    local aim = M.AIM[util.clamp(step, 1, 3)]
-    local ids = { fam.boss }
-    local cast0 = sc.comps and sc.comps.cast
-    local light = M.LIGHT[fam.boss]
-    if light and not (cast0 and enc.by_cast[cast0.id]) then
-        local m0 = encounter.meter(level, n, ids, hz_opts(sc))
-        if m0.budget and m0.xp > m0.budget[3] then
-            ids = { light }
-        end
-    end
-    local k = 0
-    while #ids < enc.max_monsters do
-        local id = fam.minion[(k % #fam.minion) + 1]
-        local try = {}
-        for _, x in ipairs(ids) do
-            table.insert(try, x)
-        end
-        table.insert(try, id)
-        local m = encounter.meter(level, n, try, hz_opts(sc))
-        if not m.someone_drops or m.someone_drops > aim then
-            break
-        end
-        ids = try
-        k = k + 1
-    end
-    -- A story villain is never a pushover (A7): at least Moderate on the SRD 5.2.1 budget.
-    local cast = sc.comps and sc.comps.cast
-    if cast and (cast.villain or cast.foe) and enc.by_cast[cast.id] then
-        local m = encounter.meter(level, n, ids, hz_opts(sc))
-        while m.xp < m.budget[2] and #ids < enc.max_monsters do
-            table.insert(ids, fam.minion[(k % #fam.minion) + 1])
-            k = k + 1
-            m = encounter.meter(level, n, ids, hz_opts(sc))
-        end
-    end
-    return ids, fam, aim
 end
 
 -- The Museum of Nightmares (v2): what an encounter can bring besides its monsters (see
@@ -394,36 +323,29 @@ local function meter_opts(sc, mo)
     return o
 end
 
+-- The fight as the room has it (its encounter, or the one boss night builds): its monsters as
+-- they are, the meter's read on them, and the battle's options.
 function M.plan(night, sc)
     local enc = content.encounters
     local cast = sc.comps.cast
-    local loc = sc.comps.location
     local fam = M.family(sc)
     local level = night.campaign.level or 2
     local n = math.max(1, #night.pc_list)
-    -- The DM built this fight in prep (the encounter builder): use it as built.
-    if sc.encounter and sc.encounter.ids and #sc.encounter.ids > 0 then
-        local ids = {}
-        for _, id in ipairs(sc.encounter.ids) do
-            table.insert(ids, id)
-        end
-        local boss_name = sc.encounter.boss_name or fam.name
-        -- The scene's villain is always on the mat, leading (A7).
-        local cfam = cast and enc.by_cast[cast.id]
-        if cfam and boss_name ~= cfam.name then
-            ids[1] = cfam.boss
-            boss_name = cfam.name
-        end
-        local mo = M.museum_options(sc)
-        local meter = encounter.meter(level, n, ids, meter_opts(sc, mo))
-        return { ids = ids, boss_name = boss_name, aim = 0, meter = meter, crew = cfam and cfam.crew or nil,
-                 cast = cast and enc.by_cast[cast.id] and cast.id, built = true, museum = mo }
+    local ids = {}
+    for _, id in ipairs(sc.encounter.ids) do
+        table.insert(ids, id)
     end
-    local ids, _, aim = M.suggest(sc, level, n)
+    local boss_name = sc.encounter.boss_name or fam.name
+    -- The scene's villain is always on the mat, leading (A7).
+    local cfam = cast and enc.by_cast[cast.id]
+    if cfam and boss_name ~= cfam.name then
+        ids[1] = cfam.boss
+        boss_name = cfam.name
+    end
     local mo = M.museum_options(sc)
     local meter = encounter.meter(level, n, ids, meter_opts(sc, mo))
-    return { ids = ids, boss_name = fam.name, aim = aim, meter = meter, crew = fam.crew,
-             cast = cast and enc.by_cast[cast.id] and cast.id, museum = mo }
+    return { ids = ids, boss_name = boss_name, meter = meter, crew = cfam and cfam.crew or nil,
+             cast = cast and enc.by_cast[cast.id] and cast.id, built = true, museum = mo }
 end
 
 -- Running it -----------------------------------------------------------------------------------
@@ -747,7 +669,6 @@ local function react(night, f, steps, who)
             night:event("down", { who = victim.key, text = downed.name .. " goes down." })
             -- Said out loud, so the table (and the log) hears it: the death-save card is on the mat.
             night:say(downed.name .. " goes down, and doesn't get up. Death saves.", "bad")
-            villains.bark(night, "knockdown", victim)       -- the villain remembers (and says so)
             poses[victim.key] = "gasp"
             line = { victim, "down_self" }
             score.add(victim, "fun", -2)
@@ -772,10 +693,6 @@ local function react(night, f, steps, who)
         for _, p in ipairs(night.players) do
             poses[p.key] = "cheer"
         end
-        if f.boss_name then
-            night.campaign.bosses_down = night.campaign.bosses_down or {}
-            night.campaign.bosses_down[f.boss_name] = night.campaign.bosses_down[f.boss_name] or night.campaign.week
-        end
         -- The villain gets a last word, played for fun.
         -- (Only when it's them who fell: not when her collection's leader drops while she sleeps.)
         if night.scene and night.scene.comps.cast and not f.last_words and not night.scene.extras_only then
@@ -789,15 +706,6 @@ local function react(night, f, steps, who)
                 night:highlight(8, P.char .. " brings down " .. (f.boss_name or "the boss"), { P }, "villain_falls")
             else
                 line = nil
-            end
-            -- The final hit answers a villain's taunt, even without the killing-blow card.
-            local boss = f.boss
-            if boss and boss.person and not f.used.killing_blow then
-                local r = villains.retort(night, boss.person, P)
-                if r then
-                    night:emit({ kind = "say", who = P.key, text = r, ic = true })
-                    line = nil
-                end
             end
         end
     elseif crit and P then
@@ -907,8 +815,8 @@ end
 local MAX_CARDS_PER_FIGHT = 3
 -- The nice-to-have calls wait for room under the night's decisions (B8: the boss's turn and the
 -- killing blow come first).
-local STORY_MOMENT = { escape_earned = true, escape_cheap = true, last_save = true }
-local OPTIONAL_CAP = { cornered = 13, tactics = 13, dragging = 13, potion = 13, parley = 13, killing_blow = 13, boss_crit = 13,
+local STORY_MOMENT = { escape_earned = true, last_save = true }
+local OPTIONAL_CAP = { cornered = 13, tactics = 13, dragging = 13, potion = 13, killing_blow = 13, boss_crit = 13,
                        death_roll = 13 }
 
 -- adjust: { drop = { [battle] = true }, label = { [battle] = text } }: options that would do
@@ -981,7 +889,7 @@ local function spawn_reinforcements(night, f, b)
                 end
             end
         end
-        id = best or (night.campaign.module and "giant_scarab_swarm") or "goblin_warrior"
+        id = best or "giant_scarab_swarm"
     end
     local taken = {}
     for _, c in ipairs(b.creatures) do
@@ -1028,10 +936,10 @@ function M.run(night, sc, plan)
     local f = { used = {}, by_ref = {}, count = 0, blocked = blocked, layout = layout, boss_name = plan.boss_name,
                 cards = sc.talked and 1 or 0 }     -- a word before the fight (B8) was this fight's first call
     local enc = content.encounters
-    -- Who comes as "more of them": the scene's own kind; in an adventure, more of what's already
-    -- on the mat (spawn_reinforcements), never the old story's default goblins.
+    -- Who comes as "more of them": the scene's own kind, else more of what's already on the mat
+    -- (spawn_reinforcements), never the old story's default goblins.
     f.plan_fam = (sc.comps.cast and enc.by_cast[sc.comps.cast.id]) or (sc.comps.location and enc.by_location[sc.comps.location.id])
-        or (not night.campaign.module and enc.default) or nil
+        or nil
     -- Doors aren't scenery in a fight: a shut one opens as someone walks through (Set the stage).
     local fight_blocked = blocked
     local doors
@@ -1192,14 +1100,11 @@ function M.run(night, sc, plan)
         if i == 1 then
             m.boss = true
             m.name = util.capitalize(plan.boss_name)
-            -- A cast villain leading the fight (B6): who they are, for Grudge and the escape card.
-            -- (Not when she's gone and only her collection fights: the knight leading them isn't
-            -- Euryale, and has no last words of hers. A cast that never talks has none either.)
+            -- A cast villain leading the fight (B6), for the killing blow and the escape card. (Not
+            -- when she's gone and only her collection fights: the knight leading them isn't Euryale.)
             local cast = sc.comps.cast
             if cast and (cast.villain or cast.foe) and not night:muted(cast) and not sc.extras_only then
                 m.villain = true
-                m.person = require("game.model.ledger").person_of(cast)
-                m.mute = cast.talks == false or nil
             end
         end
         local sq = foe_spots[i] or { b.W - 1, i }
@@ -1225,7 +1130,7 @@ function M.run(night, sc, plan)
         table.insert(ally_list, a)
     end
     local companions = require "game.model.companions"
-    for _, a in ipairs(night.campaign.module and companions.fighters(night) or {}) do
+    for _, a in ipairs(companions.fighters(night)) do
         -- Played by their owner; or by a friend whose hero fell tonight (then they answer to no hero).
         local pc = night.pcs and night.pcs[a.pilot]
         if pc and not pc.dead then
@@ -1234,9 +1139,7 @@ function M.run(night, sc, plan)
             table.insert(ally_list, { id = a.id, name = a.name, commander = false, pilot = a.pilot })
         end
     end
-    if night.campaign.module then
-        companions.fight_start(night)
-    end
+    companions.fight_start(night)
     local allies = encounter.make_allies(ally_list, night.pc_list, mo.commander)
     for i, m in ipairs(allies) do
         local a = ally_list[i]
@@ -1260,11 +1163,6 @@ function M.run(night, sc, plan)
             f.by_ref[c.mini] = c
         end
     end
-    -- The villain on the mat remembers what happens here.
-    if f.boss and f.boss.villain and f.boss.person then
-        night.villain_here = f.boss.person
-    end
-    night.villain_barks = {}
     -- Surprise from the scouting roll: Disadvantage on Initiative (p. 13).
     for _, c in ipairs(b.creatures) do
         c.surprised = (sc.surprise == "foes" and c.side == "foes") or (sc.surprise == "party" and c.side == "party") or nil
@@ -1337,15 +1235,7 @@ function M.run(night, sc, plan)
         if (tgt.boss or tgt.villain) and src.side == "party" and total >= tgt.hp + (tgt.temp or 0) and not tgt.dead
             and not tgt.phase2_pending and not f.used.killing_blow and night:room(15) then
             local actor = player_of(night, src)
-            local other = night:killing_blow_other(actor, tgt.person)
-            -- The villain's last words: the biggest taunt nobody has answered yet.
-            if tgt.villain and tgt.person and not tgt.mute and not f.last_words then
-                f.last_words = true
-                night:flush_turn()
-                local _, lw = villains.last_words(night, tgt.person)
-                night:emit({ kind = "npc", name = f.boss_name and util.capitalize(f.boss_name) or tgt.name, cast = tgt.person,
-                             text = lw, voiced = true })
-            end
+            local other = night:killing_blow_other(actor)
             local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt }, src,
                 other and night.pcs and night.pcs[other.key] or nil)
             if o and o.kb then
@@ -1517,39 +1407,17 @@ function M.run(night, sc, plan)
                 end
             end
         end
-        -- The boss is beaten and backed into a corner: talk?
-        local boss = f.boss
-        if boss and not boss.dead and not boss.removed and HUMANOID_BOSS[boss.monster_id] and boss.hp <= boss.hp_max * 0.4
-            and alive_foes(bb) >= 1 and not f.used.parley and night.rng:chance(0.6) and night:decision_count() < 14 then
-            local o = moment(night, f, "parley", { boss = f.boss_name })
-            if o and o.battle == "surrender" then
-                for _, c in ipairs(bb.creatures) do
-                    if c.side == "foes" and not c.dead and not c.removed then
-                        bb:remove(c, "surrender")
-                    end
-                end
-                bb.force_end = "party"
-                f.surrendered = true
-            end
-        end
-        -- The villain is beaten and looking for a way out (B6): let them escape, or finish it. An
-        -- escape the story set up is earned; one out of nowhere is cheap, and Tacticians notice.
+        -- The villain is beaten and looking for a way out (B6): let them escape, or finish it. (In an
+        -- adventure's rooms there's always somewhere to run: deeper into the exhibits.)
         local vb = f.boss
         -- (Some never run: a guardian bound to its chamber, a ghost to its lecture hall. And a boss
         -- the DM prepped to yield or to fight to the last doesn't take a way out instead: that's
         -- the boss card's call, M.yield_check.)
         local stays = (sc.comps and sc.comps.cast and sc.comps.cast.stays) or sc.boss_style ~= nil
         if vb and vb.villain and not stays and not vb.dead and not vb.removed and r >= 2 and vb.hp <= vb.hp_max * 0.45
-            and not f.used.escape_earned and not f.used.escape_cheap and not bb.force_end and night:room(15)
-            and night.rng:chance(0.8) then
-            local ledger_mod = require "game.model.ledger"
-            -- (In an adventure's rooms there's always somewhere to run: deeper into the exhibits.)
-            local mod = night.campaign.module
-            local earned = mod or (vb.person and ledger_mod.met(night.campaign, vb.person)) or (sc.comps.complication ~= nil)
-            local trig = earned and "escape_earned" or "escape_cheap"
-            f.used.escape_earned, f.used.escape_cheap = true, true
-            f.used[trig] = nil
-            local o = moment(night, f, trig, { boss = f.boss_name })
+            and not f.escape_asked and not bb.force_end and night:room(15) and night.rng:chance(0.8) then
+            f.escape_asked = true      -- (asked once a fight, whether or not the card could come up)
+            local o = moment(night, f, "escape_earned", { boss = f.boss_name })
             if o and o.battle == "escape" then
                 bb:remove(vb, "flee")
                 for _, c in ipairs(bb.creatures) do
@@ -1559,9 +1427,7 @@ function M.run(night, sc, plan)
                 end
                 bb.force_end = "party"
                 f.fled = true
-                night:event("escape", { who = "party", to = vb.person, text = util.capitalize(f.boss_name or vb.name) .. " got away"
-                    .. ((mod and ", deeper into the museum.") or (earned and ", the way they'd planned all along.") or ", in a puff of smoke.") })
-                villains.bark(night, "escape")
+                night:event("escape", { who = "party", text = util.capitalize(f.boss_name or vb.name) .. " got away, deeper into the museum." })
             end
         end
         -- Round six and counting (or a long stretch with nothing for the DM to do).
@@ -1765,7 +1631,7 @@ function M.run(night, sc, plan)
             night:emit({ kind = "token", who = p.key, what = "inspiration", spent = true })
         end
     end
-    if f.surrendered or f.fled then
+    if f.fled then
         result.winner = "party"
     end
     night.battle = nil
@@ -1784,15 +1650,13 @@ end
 
 -- How the fight went, for the card when it's over (the newcomer playtest, October 16: no fight
 -- summary, and "runs for it" with "the last one falls" left it unclear whether they'd won).
---   how     won, fled (the foes ran), surrendered, escaped (the villain got away), lost
+--   how     won, fled (the foes ran), yielded, escaped (the villain got away), lost
 --   heroes  { id, name, hp, hp_max, hits, swings, dealt, beaten, downs, dead }
 --   beaten, ran: the foes' names; boss: the boss's name, and how it ended for them
 function M.summary(b, f, result)
     local how = "won"
     if result.winner ~= "party" then
         how = "lost"
-    elseif f.surrendered then
-        how = "surrendered"
     elseif f.yielded then
         how = "yielded"
     elseif f.fled then
