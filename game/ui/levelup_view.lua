@@ -60,7 +60,11 @@ function M.modal(app)
     kit.text(x + w / 2, y + 22, "LEVEL " .. util.int(m.level) .. "!", "title30", theme.gold, { pivot = gui.PIVOT_N })
     local sub = m.level == 3 and "Everyone picks a subclass. You don't get a say, and that's the fun part."
         or "Everyone takes an Ability Score Improvement: +2 to their best ability."
-    kit.text(x + w / 2, y + 64, sub, "ui18", theme.dim, { pivot = gui.PIVOT_N })
+    kit.text(x + w / 2, y + 52, sub, "ui18", theme.dim, { pivot = gui.PIVOT_N })
+    -- (The refill a new level brings, said out loud: F23.)
+    if m.refill then
+        kit.text(x + w / 2, y + 76, m.refill, "ui18", theme.green, { pivot = gui.PIVOT_N, w = w - 80, lines = 1 })
+    end
     local cw, gap = 310, 20
     local cx0 = x + (w - (4 * cw + 3 * gap)) / 2
     for i, p in ipairs(c.players) do

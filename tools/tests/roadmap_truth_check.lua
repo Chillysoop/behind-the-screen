@@ -1231,6 +1231,31 @@ table.insert(run_end, function(R)
     end
 end)
 
+-- F23: a level-up's refill is said on its screen, and is real: the next night starts at full.
+table.insert(after_level, function(R, N)
+    local m = N.level
+    if m then
+        add("F23", "level_ups")
+        if not (m.refill and string.find(m.refill, "back to full", 1, true)) then
+            fail("F23", N.tag .. ": level " .. tostring(m.level) .. ", and the level-up screen doesn't say everyone's back to full")
+        end
+        R.refilled = true
+    end
+end)
+table.insert(watchers, function(R, N, ev)
+    if R.refilled and ev.kind == "scene" then
+        R.refilled = nil
+        local ts = require "game.model.tile_stats"
+        for _, p in ipairs(N.night.players) do
+            local t = ts.of(R.c, N.night, p.key)
+            add("F23", "heroes_checked_after_level_up")
+            if t and t.hp and t.hp_max and t.hp < t.hp_max then
+                fail("F23", N.tag .. ": the level-up said full, and " .. p.char .. " starts on " .. t.hp .. " of " .. t.hp_max)
+            end
+        end
+    end
+end)
+
 -- (The statue: the chat said "yes, but it's dangerous" to a rest in the gift shop.)
 local function play_night_simply(c, rng)
     local night = c:start_night()
