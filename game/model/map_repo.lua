@@ -268,8 +268,7 @@ end
 
 -- What a map's squares are, for the little preview: { [x..","..y] = "wall"|"cover"|"water"|"ground"|"plants"|"door" }.
 local WATER = { pond = true, stream_ns = true, water_strip = true, puddle = true, ritual_basin = false }
-local PLANTS = { hedge = true, topiary = true, oak = true, pine = true, bush = true, tall_grass = true, flowers = true,
-                 dead_tree = true }
+local PLANTS = { hedge = true, topiary = true, oak = true, pine = true, bush = true, tall_grass = true }
 function M.preview(campaign, ref)
     local id = M.board_of(campaign, ref)
     if not id then

@@ -20,10 +20,8 @@ import numpy as np
 import gen_meshes as gm
 import gen_sprites
 import gen_sprites_m4
-import gen_terrain
 import gen_textures as gt
 import gen_ui
-import terrain_layout
 from gen_common import ROOT, path
 
 # ----------------------------------------------------------------- layout
@@ -31,6 +29,7 @@ from gen_common import ROOT, path
 TABLE_Y = 75.0
 MAT_Y = TABLE_Y + 0.15
 MAT_X0, MAT_Z0, MAT_W, MAT_H = -56.0, -34.5, 100.0, 65.0
+GRID_W, GRID_H = 20, 13       # the battle mat's squares: x west to east, y north to south (game/model/board.lua)
 BASE_TOP = MAT_Y + 0.6
 TRAY = dict(cx=60.0, cz=33.0, w=24.0, d=18.0, wall=1.2, h=4.0, base=0.6)
 FELT_Y = TABLE_Y + TRAY["base"] + 0.02
@@ -360,57 +359,6 @@ def pizza_slice(k):
         r = 2.6 + j * 2.2 + rng.uniform(-0.3, 0.3)
         m.add(gm.cylinder((math.cos(a) * r, base + 0.55, math.sin(a) * r), 0.95, 0.95, 0.12, 10,
                           gm.swatch(PAL("mug_red")), caps=(False, True)))
-    return m
-
-
-def terrain():
-    stone = gm.triplanar(12)
-    rocks = gm.Mesh()
-    for (x, z, r, s) in [(22.0, -28.0, 4.2, 1), (27.5, -23.5, 3.0, 2), (18.5, -31.0, 2.4, 3), (32.0, -28.0, 2.0, 4),
-                         (40.0, -14.0, 2.6, 5), (-48.0, 22.0, 3.0, 6), (-6.0, 22.0, 1.8, 7)]:
-        rk = gm.rock((x, MAT_Y + r * 0.35, z), r, s, stone)
-        rocks.add(gm.flatten_below(rk, MAT_Y))
-    # campfire ring
-    fx, fz = FIRE
-    for k in range(9):
-        a = k / 9 * 2 * math.pi
-        rk = gm.rock((fx + math.cos(a) * 3.6, MAT_Y + 0.45, fz + math.sin(a) * 3.6), 1.1, 20 + k, stone, squash=0.8)
-        rocks.add(gm.flatten_below(rk, MAT_Y))
-    # ruined wall
-    ruin = gm.Mesh()
-    rng = np.random.default_rng(9)
-    for row in range(3):
-        n_blocks = [4, 3, 1][row]
-        for b in range(n_blocks):
-            x = 25.0 + b * 4.6 + (2.3 if row % 2 else 0) + rng.uniform(-0.3, 0.3)
-            blk = gm.box((0, 0, 0), (4.3, 3.0, 3.4), stone)
-            ruin.add(blk.transformed(yaw=rng.uniform(-0.08, 0.08),
-                                     offset=(x, MAT_Y + 1.5 + row * 3.05, -3.0 + rng.uniform(-0.3, 0.3))))
-    fallen = gm.box((0, 0, 0), (4.3, 3.0, 3.4), stone)
-    ruin.add(fallen.transformed(yaw=0.7, roll=0.15, offset=(31.0, MAT_Y + 1.5, 2.5)))
-    # trees
-    trees = gm.Mesh()
-    tx, tz = -50.0, -15.0
-    trees.add(gm.cylinder((tx, MAT_Y, tz), 1.3, 1.0, 7, 8, gm.swatch(PAL("bark"))))
-    for (y0, r, h, c) in [(5, 7.0, 9, "leaf_b"), (10, 5.5, 8, "leaf_a"), (15, 3.8, 7, "leaf_c")]:
-        trees.add(gm.cylinder((tx, MAT_Y + y0, tz), r, 0.0, h, 9, gm.swatch(PAL(c)), smooth=False))
-    bx, bz = 38.0, -27.0
-    trees.add(gm.cylinder((bx, MAT_Y, bz), 1.0, 0.8, 4, 8, gm.swatch(PAL("bark"))))
-    for (dx, dy, dz, r, c, s) in [(0, 7, 0, 4.5, "leaf_a", 31), (2.5, 5.5, 1.5, 3.4, "leaf_b", 32), (-2.5, 6, -1, 3.2, "leaf_c", 33)]:
-        trees.add(gm.rock((bx + dx, MAT_Y + dy, bz + dz), r, s, gm.swatch(PAL(c)), squash=0.9))
-    # campfire logs
-    logs = gm.Mesh()
-    for k, a in enumerate((0.3, 1.35, 2.4)):
-        lg = gm.box((0, 0, 0), (6.0, 1.1, 1.1), gm.swatch(PAL("log")))
-        logs.add(lg.transformed(yaw=a, roll=0.18 * (1 if k % 2 else -1), offset=(fx, MAT_Y + 0.9, fz)))
-    return rocks, ruin, trees, logs
-
-
-def bases():
-    m = gm.Mesh()
-    for (name, (x, z), sw) in MINIS:
-        m.add(gm.cylinder((x, MAT_Y, z), 2.25, 2.1, 0.6, 20, gm.swatch(PAL(sw))))
-        m.add(gm.cylinder((x, MAT_Y + 0.6, z), 1.6, 1.6, 0.01, 20, gm.swatch(PAL("base")), caps=(False, True)))
     return m
 
 
@@ -868,7 +816,7 @@ def main():
     lua.append(f"    fire = {lua_vec((FIRE[0], MAT_Y, FIRE[1]))},")
     lua.append("    -- battle mat grid (M4): square (x, y) is 1-based, x west to east, y north to south")
     lua.append(f"    grid = {{ x0 = {fmt(MAT_X0)}, z0 = {fmt(MAT_Z0)}, size = 5, y = {fmt(MAT_Y)}, base_top = {fmt(BASE_TOP)}, "
-               f"w = {terrain_layout.GRID_W}, h = {terrain_layout.GRID_H} }},")
+               f"w = {GRID_W}, h = {GRID_H} }},")
     lua.append(f"    mini = {{ scale = {fmt(MINI_SCALE)}, height = {fmt(art_h)} }},")
     lua.append("    large = { " + ", ".join(f"{k} = {fmt(v)}" for k, v in LARGE.items()) + " },")
     # Where each standee's art starts (share of the sprite from the top), so HP bars sit just over the head.

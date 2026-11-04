@@ -85,11 +85,11 @@ local function merged_words(f, kind)
 end
 
 -- Where a hazard comes from on this board (game/rules/hazards.lua): a fire spreads from the
--- hearth or the campfire, a flood rises out of the water, ice forms where the frost is.
+-- hearth or the campfire, a flood rises out of the water.
 local SOURCE = {
     campfire = { "fire", "campfire" }, hearth = { "fire", "hearth" }, candelabra = { "fire", "candles" },
     brazier = { "fire", "brazier" }, puddle = { "water", "standing water" }, stream_ns = { "water", "stream" },
-    pond = { "water", "pond" }, water_strip = { "water", "water" }, frost = { "ice", "frost" },
+    pond = { "water", "pond" }, water_strip = { "water", "water" },
 }
 M.SOURCE = SOURCE
 
