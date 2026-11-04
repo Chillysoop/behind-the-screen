@@ -21,6 +21,7 @@
   --rule: #3a2e24; --gold: #e8b84a; --gold-soft: #3e3019; --teal: #6fc2bb; --teal-soft: #1d3634;
   --red: #e0836b; --chip: #382c22; color-scheme: dark }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
 .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; max-width: 1600px; margin: 0 auto; }
@@ -77,6 +78,30 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
 .book h2 { font-family: var(--display); font-size: 18px; margin: 0 0 4px; }
 .book p { color: var(--muted); font-size: 14px; margin: 6px 0; }
 .book canvas { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--rule); margin-top: 10px; background: #fff; }
+/* Inline editing: the line's own text is the editor (a textarea over a mirror that tints the fill-ins). */
+.ed { position: relative; margin: 2px -7px 0; }
+.ed .hl, .ed .ta { font-family: var(--display); font-size: 16.5px; line-height: 1.55; padding: 4px 6px; margin: 0;
+  border: 1px solid transparent; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+  letter-spacing: normal; font-weight: 400; }
+.ed .hl { position: absolute; inset: 0; color: var(--ink); pointer-events: none; overflow: hidden; }
+.ed .hl mark { background: var(--teal-soft); color: var(--teal); border-radius: 3px; }
+.ed .ta { position: relative; display: block; width: 100%; min-height: 0; resize: none; overflow: hidden; background: transparent;
+  color: transparent; caret-color: var(--ink); cursor: text; }
+.ed .ta::selection { color: transparent; background: var(--gold-soft); }
+.ed .ta:hover { border-color: var(--rule); }
+.ed .ta:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.when { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; color: var(--muted); margin: 0 0 4px; }
+.when b { flex: none; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; padding: 1px 7px;
+  border-radius: 999px; background: var(--chip); color: var(--muted); }
+.when b.always { background: var(--teal-soft); color: var(--teal); }
+.when b.never { background: transparent; border: 1px dashed var(--rule); color: var(--faint); }
+.under { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 13px; color: var(--faint); margin-top: 4px; }
+.under .was { font-family: var(--display); font-size: 14px; text-decoration: line-through; overflow-wrap: anywhere; }
+.under .link { all: unset; cursor: pointer; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.under .link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.under .state { margin-left: auto; }
+.note-in { margin-top: 6px; font-size: 14px; padding: 6px 9px; }
+.hint { font-size: 13px; color: var(--faint); margin: 0 0 10px; }
 .empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--rule); border-radius: 10px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: 14px; }
 @media (max-width: 1180px) { .desk { grid-template-columns: 230px minmax(0, 1fr); } .desk .book-pane { grid-column: 1 / -1; } .book { position: static; max-height: none; } }
@@ -88,7 +113,7 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
   <header class="top">
     <div>
       <h1>Dialogue Desk</h1>
-      <p class="sub" id="sub">Every line the game can say, beside the book. Edit a line, save it, and ask Claude to apply your edits: they go straight into the game.</p>
+      <p class="sub" id="sub">Every line the game can say, beside the book. Click a line to change it; it saves when you move on. Ask Claude to apply your edits and they go into the game.</p>
     </div>
     <div class="stats" aria-live="polite">
       <div class="stat"><b id="n-lines">…</b><span>lines</span></div>
@@ -125,10 +150,12 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
       </div>
       <label class="check"><input type="checkbox" id="only-edited"> Only lines I've edited</label>
       <label class="check"><input type="checkbox" id="hide-shared"> Only this adventure's own lines</label>
+      <label class="check"><input type="checkbox" id="show-never"> Also show lines that never play <span id="n-never"></span></label>
     </aside>
 
     <main class="pane" aria-label="Lines">
       <p class="count" id="count">Loading the lines…</p>
+      <p class="hint">Click any line to edit it. Enter or Tab saves and moves to the next; Esc puts it back.</p>
       <div id="list"></div>
       <div class="more"><button class="btn" id="more" type="button" hidden>Show more</button></div>
     </main>
@@ -156,7 +183,7 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
   const PAGE = 150;
   const HEROES = { mara: "Thessaly", dev: "Brannoc", jess: "Pip", sam: "Oswin" };
   const NAMES = { mara: "Mara", dev: "Dev", jess: "Jess", sam: "Sam" };
-  const S = { data: null, edits: {}, room: "", speaker: "", group: "", role: "", q: "", onlyEdited: false, hideShared: false, shown: PAGE, db: null, pdf: null, editing: null };
+  const S = { data: null, edits: {}, room: "", speaker: "", group: "", role: "", q: "", onlyEdited: false, hideShared: false, showNever: false, shown: PAGE, db: null, pdf: null, editing: null };
   const $ = id => document.getElementById(id);
 
   // A stable key per line: its file and its place in the data (FNV-1a).
@@ -190,6 +217,7 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
     const e = S.edits[l.key];
     if (S.onlyEdited && !e) return false;
     if (S.hideShared && l.shared) return false;
+    if (!S.showNever && l.odds === "Never" && !e) return false;
     if (S.room && l.room !== S.room) return false;
     if (S.speaker === "narration" && l.speaker) return false;
     if (S.speaker && S.speaker !== "narration" && l.speaker !== S.speaker) return false;
@@ -197,7 +225,7 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
     if (S.role && l.role !== S.role) return false;
     if (S.q) {
       const q = S.q.toLowerCase();
-      const hay = (l.text + " " + (e ? e.new : "") + " " + pathLabel(l.path) + " " + l.file).toLowerCase();
+      const hay = (l.text + " " + (e ? e.new : "") + " " + pathLabel(l.path) + " " + l.file + " " + (l.when || "")).toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -212,12 +240,12 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
 
   function render() {
     if (!S.data) return;
-    const list = $("list"); list.textContent = "";
+    const list = $("list"); list.textContent = ""; CARDS.clear();
     const hits = S.data.lines.filter(matches);
     $("count").textContent = hits.length.toLocaleString() + (hits.length === 1 ? " line" : " lines") + (S.room ? " in " + roomName(S.room) : "") + (hits.length > S.shown ? ", showing the first " + S.shown.toLocaleString() : "");
     if (hits.length === 0) {
       const d = document.createElement("div"); d.className = "empty";
-      d.textContent = S.onlyEdited ? "No edits yet. Pick a line and press Edit." : "No lines match. Try a wider filter.";
+      d.textContent = S.onlyEdited ? "No edits yet. Click any line to change it." : "No lines match. Try a wider filter.";
       list.appendChild(d);
     }
     let lastGroup = null;
@@ -231,67 +259,133 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
       list.appendChild(card(l));
     }
     $("more").hidden = hits.length <= S.shown;
+    for (const v of CARDS.values()) v.fit();
     counts();
     showBook();
   }
 
+  // One card per line. The line's text is its own editor: click, type, move on (it saves on the way out).
+  const CARDS = new Map();     // key -> { el, l, paint }
   function card(l) {
-    const e = S.edits[l.key];
     const c = document.createElement("article");
-    c.className = "line" + (e ? (e.status === "applied" ? " applied" : " edited") : "");
+    c.className = "line";
     const m = document.createElement("div"); m.className = "meta";
     const who = document.createElement("span"); who.className = "who";
     who.textContent = l.speaker ? (NAMES[l.speaker] + (HEROES[l.speaker] ? " · " + HEROES[l.speaker] : "")) : (l.role === "DM's answer" ? "You, the DM" : "Narration / DM");
     m.appendChild(who);
     const role = document.createElement("span"); role.className = "pill"; role.textContent = l.moment ? l.role + " · " + l.moment : l.role; m.appendChild(role);
     if (l.room) { const r = document.createElement("span"); r.className = "pill"; r.textContent = roomName(l.room); m.appendChild(r); }
-    if (e) { const s = document.createElement("span"); s.className = "pill " + (e.status === "applied" ? "teal" : "gold"); s.textContent = e.status === "applied" ? "In the game" : "Saved for Claude"; m.appendChild(s); }
+    const st = document.createElement("span"); st.className = "pill"; st.hidden = true; m.appendChild(st);
     const p = document.createElement("span"); p.className = "path"; p.textContent = pathLabel(l.path); m.appendChild(p);
     c.appendChild(m);
-    if (S.editing === l.key) {
-      const ta = document.createElement("textarea"); ta.id = "ta-" + l.key; ta.value = e ? e.new : l.text; ta.setAttribute("aria-label", "New wording");
-      c.appendChild(ta);
-      const note = document.createElement("input"); note.type = "search"; note.id = "note-" + l.key; note.placeholder = "A note for Claude (optional): why, or what to watch for"; note.value = e && e.note || ""; note.style.marginTop = "8px";
-      c.appendChild(note);
-      const row = document.createElement("div"); row.className = "row";
-      const save = button("Save", "primary", () => saveEdit(l, ta.value, note.value));
-      const cancel = button("Cancel", "", () => { S.editing = null; render(); });
-      row.append(save, cancel);
-      if (e) row.append(button("Undo my edit", "quiet", () => dropEdit(l)));
-      const orig = document.createElement("span"); orig.className = "grow"; c.appendChild(row);
-      const o = document.createElement("div"); o.className = "text old"; richText(o, l.text); o.style.textDecoration = "none"; o.title = "As the game says it now";
-      const lbl = document.createElement("p"); lbl.className = "label"; lbl.style.marginTop = "10px"; lbl.textContent = "As the game says it now";
-      c.append(lbl, o);
-      setTimeout(() => ta.focus(), 0);
-    } else {
-      const t = document.createElement("div"); t.className = "text"; richText(t, e ? e.new : l.text); c.appendChild(t);
-      if (e && e.new !== l.text) { const o = document.createElement("div"); o.className = "text old"; richText(o, l.text); c.appendChild(o); }
-      if (e && e.note) { const n = document.createElement("p"); n.className = "sub"; n.textContent = "Note: " + e.note; c.appendChild(n); }
-      const row = document.createElement("div"); row.className = "row";
-      row.append(button(e ? "Edit again" : "Edit", "", () => { S.editing = l.key; render(); }));
-      if (l.room && S.pdf) row.append(button("Book pages", "quiet", () => { S.room = l.room; markRoom(); render(); }));
-      c.appendChild(row);
+    // When it's said, and whether it always is.
+    if (l.when) {
+      const w = document.createElement("p"); w.className = "when";
+      const odds = document.createElement("b"); odds.textContent = l.odds || "Sometimes";
+      if (/^always/i.test(l.odds || "")) odds.className = "always";
+      else if (l.odds === "Never") odds.className = "never";
+      const t = document.createElement("span"); t.textContent = l.when;
+      w.append(odds, t); c.appendChild(w);
     }
+    const ed = document.createElement("div"); ed.className = "ed";
+    const hl = document.createElement("div"); hl.className = "hl"; hl.setAttribute("aria-hidden", "true");
+    const ta = document.createElement("textarea"); ta.className = "ta"; ta.rows = 1; ta.spellcheck = true;
+    ta.setAttribute("aria-label", "Line: " + l.text.slice(0, 60));
+    ed.append(hl, ta); c.appendChild(ed);
+    const under = document.createElement("div"); under.className = "under";
+    const was = document.createElement("span"); was.className = "was";
+    const undo = document.createElement("button"); undo.className = "link"; undo.type = "button"; undo.tabIndex = -1; undo.textContent = "Undo";
+    const noteBtn = document.createElement("button"); noteBtn.className = "link"; noteBtn.type = "button"; noteBtn.tabIndex = -1;
+    const state = document.createElement("span"); state.className = "state";
+    under.append(was, undo, noteBtn);
+    if (l.room && S.pdf) {
+      const bk = document.createElement("button"); bk.className = "link"; bk.type = "button"; bk.tabIndex = -1; bk.textContent = "Book pages";
+      bk.addEventListener("click", () => { S.room = l.room; markRoom(); render(); });
+      under.append(bk);
+    }
+    under.append(state); c.appendChild(under);
+    const note = document.createElement("input"); note.className = "note-in"; note.type = "text"; note.hidden = true;
+    note.placeholder = "A note for Claude (optional): why, or what to watch for";
+    c.appendChild(note);
+
+    const current = () => { const e = S.edits[l.key]; return e ? e.new : l.text; };
+    const mirror = () => {
+      hl.textContent = "";
+      const parts = String(ta.value).split(/(\{[A-Za-z_]+\})/);
+      for (const part of parts) {
+        if (/^\{[A-Za-z_]+\}$/.test(part)) { const mk = document.createElement("mark"); mk.textContent = part; hl.appendChild(mk); }
+        else if (part) hl.appendChild(document.createTextNode(part));
+      }
+      hl.appendChild(document.createTextNode("​"));
+      if (!ta.isConnected) return;
+      ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px";
+    };
+    const paint = (force) => {
+      const e = S.edits[l.key];
+      c.className = "line" + (e ? (e.status === "applied" ? " applied" : " edited") : "");
+      st.hidden = !e; if (e) { st.className = "pill " + (e.status === "applied" ? "teal" : "gold"); st.textContent = e.status === "applied" ? "In the game" : "Saved for Claude"; }
+      if (force || document.activeElement !== ta) { ta.value = current(); mirror(); }
+      const changed = e && e.new !== l.text && e.status !== "applied";
+      was.hidden = !changed; undo.hidden = !e || e.status === "applied";
+      if (changed) { was.textContent = "Was: " + l.text; }
+      if (document.activeElement !== note) note.value = (e && e.note) || "";
+      noteBtn.textContent = note.value ? "Note: " + note.value.slice(0, 60) + (note.value.length > 60 ? "…" : "") : "Add a note";
+    };
+    const commit = async () => {
+      const text = ta.value.replace(/\s+$/, "");
+      const e = S.edits[l.key];
+      const noteText = note.value.trim();
+      if (text === current() && noteText === ((e && e.note) || "")) return;
+      if (text === l.text && !noteText) { await dropEdit(l, state); paint(true); return; }
+      const body = { file: l.file, path: l.path, old: l.text, new: text, note: noteText, group: l.group, status: "pending", at: new Date().toISOString() };
+      S.edits[l.key] = body; paint(); counts();
+      await store(l, body, state);
+    };
+    ta.addEventListener("input", mirror);
+    ta.addEventListener("keydown", ev => {
+      if (ev.key === "Escape") { ev.preventDefault(); ta.value = current(); mirror(); ta.blur(); }
+      else if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); moveOn(ta); }
+    });
+    ta.addEventListener("blur", commit);
+    note.addEventListener("blur", () => { if (!note.value) note.hidden = true; commit(); });
+    note.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); note.blur(); } });
+    noteBtn.addEventListener("click", () => { note.hidden = false; note.focus(); });
+    undo.addEventListener("click", async () => { await dropEdit(l, state); note.value = ""; note.hidden = true; paint(true); });
+    paint(true);
+    CARDS.set(l.key, { el: c, l, paint, ta, fit: mirror });
     return c;
   }
 
-  function button(label, kind, fn) {
-    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (kind ? " " + kind : ""); b.textContent = label; b.addEventListener("click", fn); return b;
+  // Enter: on to the next line's text (Tab does the same by itself).
+  function moveOn(ta) {
+    const all = Array.from(document.querySelectorAll("#list .ta"));
+    const i = all.indexOf(ta);
+    if (i >= 0 && all[i + 1]) { all[i + 1].focus(); all[i + 1].scrollIntoView({ block: "nearest" }); }
+    else ta.blur();
   }
 
-  async function saveEdit(l, text, note) {
-    text = text.replace(/\s+$/, "");
-    if (text === l.text && !note) { await dropEdit(l); return; }
-    const body = { file: l.file, path: l.path, old: l.text, new: text, note: note || "", group: l.group, status: "pending", at: new Date().toISOString() };
-    S.edits[l.key] = body; S.editing = null; render();
-    if (!S.db) { toast("Saved in this page only: copy your edits as text to send them."); return; }
-    try { await S.db.collection("edits").doc(l.key).set(body); toast("Saved for Claude"); }
-    catch (err) { toast(err && err.code === "quota_exceeded" ? "The edit store is full: ask Claude to apply and clear it." : "Couldn't save that edit. Try again in a moment."); }
+  // One write at a time per line; the newest wording wins.
+  const queue = {}, busy = {};
+  async function store(l, body, state) {
+    if (!S.db) { state.textContent = "Saved on this page only"; return; }
+    queue[l.key] = body;
+    if (busy[l.key]) return;
+    busy[l.key] = true;
+    while (queue[l.key]) {
+      const d = queue[l.key]; queue[l.key] = null;
+      state.textContent = "Saving…";
+      try { await S.db.collection("edits").doc(l.key).set(d); state.textContent = "Saved"; }
+      catch (err) { state.textContent = "Not saved"; toast(err && err.code === "quota_exceeded" ? "The edit store is full: ask Claude to apply and clear it." : "Couldn't save that edit. Try again in a moment."); }
+    }
+    busy[l.key] = false;
   }
 
-  async function dropEdit(l) {
-    delete S.edits[l.key]; S.editing = null; render();
-    if (S.db) { try { await S.db.collection("edits").doc(l.key).delete(); toast("Edit removed"); } catch (err) { toast("Couldn't remove it. Try again."); } }
+  async function dropEdit(l, state) {
+    delete S.edits[l.key]; counts();
+    if (S.db) {
+      try { await S.db.collection("edits").doc(l.key).delete(); if (state) state.textContent = "Back as it was"; }
+      catch (err) { toast("Couldn't remove it. Try again."); }
+    }
   }
 
   function roomName(id) {
@@ -330,6 +424,10 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
     let qt; $("q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value.trim(); S.shown = PAGE; render(); }, 180); });
     $("only-edited").addEventListener("change", e => { S.onlyEdited = e.target.checked; S.shown = PAGE; render(); });
     $("hide-shared").addEventListener("change", e => { S.hideShared = e.target.checked; S.shown = PAGE; render(); });
+    $("show-never").addEventListener("change", e => { S.showNever = e.target.checked; S.shown = PAGE; render(); });
+    const nn = d.lines.filter(l => l.odds === "Never").length;
+    $("n-never").textContent = nn ? "(" + nn.toLocaleString() + ")" : "";
+    $("show-never").closest("label").hidden = nn === 0;
     $("more").addEventListener("click", () => { S.shown += PAGE; render(); });
   }
 
@@ -403,9 +501,14 @@ button.btn.quiet { border-color: transparent; background: transparent; color: va
       if (!snap.metadata.fromCache) clearTimeout(slow);
       const next = {};
       for (const d of snap.docs) { const v = d.data(); if (v) next[d.id] = v; }
-      S.edits = next; render();
+      for (const k of Object.keys(S.edits)) if (queue[k] || busy[k]) next[k] = S.edits[k];   // (ours, still on the way)
+      S.edits = next;
+      for (const v of CARDS.values()) v.paint();
+      counts();
+      if (S.onlyEdited && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#list"))) render();
     }, () => { clearTimeout(slow); toast("Saved edits couldn't load. They're still there: reload to try again."); });
   }
+  let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { for (const v of CARDS.values()) v.fit(); }, 150); });
   boot();
 })();
 </script>

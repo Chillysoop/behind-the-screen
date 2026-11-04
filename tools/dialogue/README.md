@@ -5,7 +5,11 @@ edits back into the game.
 
 - `export.lua` makes `dialogue.json`: every line, with its file, its place in the data, its room,
   who says it, and what kind of line it is. The book's text is never in it: the page opens the
-  reader's own PDF in their browser and shows the room's pages there.
+  reader's own PDF in their browser and shows the room's pages there. It reads the adventure's data,
+  the shared data, the friends' table talk, and a few tables of lines kept in the code beside what
+  uses them (`CODE_TABLES`: looking round, why a friend leans one way, the break, reacting before a
+  fight; each module exposes its table as a field). Small moments are listed once, under their own
+  file, though the module pulls them in.
 - `when.lua` (used by `export.lua`) adds two fields to every line: `when`, one plain sentence on when
   it's said (the room, the card or moment by its title, the condition), and `odds`, how sure it is:
   "Always", "1 of N", "Your pick" (an option you choose from), "If chosen" (what follows a pick),
@@ -18,9 +22,8 @@ edits back into the game.
   are saved to the page's database, one document per line, under `edits/`.
 - `reach.lua` and `reach_match.py` check which lines can actually play: `reach.lua` runs whole prologues
   headless and records every line dealt and every piece of text shown; `reach_match.py` marks each
-  exported line seen or not, grouped by where it lives. The export leaves out the older game's
-  systems that an adventure switches off (its `old_entry` and `keep_line` rules say which, and why).
-  Re-run both when a new adventure arrives, before trusting the desk's list.
+  exported line seen or not, grouped by where it lives. Re-run both when a new adventure arrives,
+  before trusting the desk's list.
 - `collect.py` merges the saved edits (read into a folder) into one list; `apply.py` writes them
   into the data files, only where the old line appears exactly once, and reports what it skipped.
 
@@ -33,4 +36,5 @@ The loop, when Conner says "apply my dialogue edits":
 5. Re-run `lua tools/dialogue/export.lua dialogue.json` and republish the desk, so it shows the lines
    as they now are.
 
-For another adventure: change `ADV_FILES` and `BOOK_PAGES` in `export.lua`.
+For another adventure: change `ADV_FILES`, `CODE_TABLES` and `BOOK_PAGES` in `export.lua`, and add its rules
+to `when.lua`.

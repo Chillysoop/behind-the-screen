@@ -1612,6 +1612,7 @@ local LEAN_WHY = {
     power_gamer = { "That's the best payoff.", "Best reward, easy.", "More loot that way." },
     method_actor = { "It's what {char} would do.", "{char} wouldn't have it any other way.", "{char} is already halfway there." },
 }
+M.LEAN_WHY = LEAN_WHY      -- (for the Dialogue Desk: tools/dialogue/export.lua)
 M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 
 -- What one option is worth to one friend, and the reason that weighed most. o: the card's option.
@@ -2977,6 +2978,7 @@ local BREAK_END = {
     "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
 }
+M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END   -- (for the Dialogue Desk)
 M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
 M.BREAK_MIN = 20           -- table minutes it takes
 

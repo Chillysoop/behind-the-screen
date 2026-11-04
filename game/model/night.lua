@@ -3587,6 +3587,7 @@ local REACTED = {
     success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes." },
     fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready." },
 }
+M.READY, M.REACTED = READY, REACTED   -- (for the Dialogue Desk: tools/dialogue/export.lua)
 
 -- Party tension (A17) -------------------------------------------------------------------------------
 -- Characters sometimes do things that land on each other: a needless scrap, pocketing a

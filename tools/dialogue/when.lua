@@ -1010,6 +1010,8 @@ local function small_moment(p)
             return R(where .. ": a friend asks " .. who .. " this, in character" .. if_(b.when), "Sometimes")
         elseif f == "better" then
             return R(where .. ": " .. who .. "'s fuller answer, if the asker rolls 15 or more", "On a success")
+        elseif f == "answer" then
+            return R(where .. ": " .. who .. "'s answer, if the asker rolls under 15", "On a failure")
         end
     elseif part == "table_bits" then
         local kind = TL_KIND[b.kind] or "a little table business"
@@ -1664,6 +1666,7 @@ local TT = {
     victory_close = "When the party wins a fight, but only just",
     defeat = "When the party loses a fight or has to fall back",
     bored = "In a quiet stretch while the heroes work a room, if {name} is losing interest",
+    phone = "In a quiet stretch while the heroes work a room, if {name} has nearly tuned out: back from {pos} phone",
     ruling_good = "When you rule {hero}'s roll generously",
     ruling_bad = "When you rule a roll harshly against the party",
     open_roll = "When you roll a big moment in the open",
@@ -1775,6 +1778,44 @@ local function adventure_line(p)
     return h and h(p) or nil
 end
 
+-- Lines kept in the game's code (export.lua's CODE_TABLES) --------------------------------------
+
+-- Who looks round first by their main type (museum_night look_card: LOOK_SAY[p.primary], else casual).
+local PRIMARY_WHO = { storyteller = "mara", butt_kicker = "dev", method_actor = "jess", casual = "sam" }
+local CLASS_WHO = { wizard = "mara", fighter = "dev", rogue = "jess", cleric = "sam" }
+
+local function code_line(p)
+    local top, k, i = p[1], p[2], p[3]
+    if top == "LOOK_SAY" then
+        local who = PRIMARY_WHO[k]
+        if not who then
+            return R("Not said: looking round, a friend speaks by their main type, and none of the four is " ..
+                string.gsub(k, "_", " ") .. " first", "Never")
+        end
+        return R("Looking round a room, before its business: " .. NAME[who] .. " walks over to something on the map " ..
+            "and says what " .. SUBJ[who] .. " makes of it", one_of(#(require("game.model.museum_night").LOOK_SAY[k] or {})))
+    elseif top == "LEAN_WHY" then
+        local who = ARCH_WHO[k] or {}
+        return R("When the table talks over a choice: " .. names(who) .. "'s reason for leaning one way, when the " ..
+            "option suits " .. (#who == 1 and (POS[who[1]] or "their") or "their") .. " " .. string.gsub(k, "_", " ") ..
+            " side (at most twice a night)", "Sometimes")
+    elseif top == "BREAK_START" then
+        return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
+    elseif top == "BREAK_END" then
+        return R("The break, once a night: everyone comes back to the table", one_of(4))
+    elseif top == "READY" then
+        local who = CLASS_WHO[k]
+        return R("Just before a fight, about half the time (not when the party's ambushed or given away): " ..
+            (who and (HERO[who] .. ", if it's " .. HERO[who] .. " who reacts first") or "whoever reacts first"),
+            "Sometimes")
+    elseif top == "REACTED" then
+        if k == "success" then
+            return R("Just before a fight: the party reacts first, on a good Perception or Insight roll", "On a success")
+        end
+        return R("Just before a fight: the party is too slow, on a poor Perception or Insight roll", "On a failure")
+    end
+end
+
 -- e: an exported line. cells: table-talk cell sizes ("trigger|speaker|split" -> n).
 -- Returns { when, odds } and whether a rule matched (false: the fallback).
 function W.describe(e, cells)
@@ -1783,6 +1824,8 @@ function W.describe(e, cells)
         ok, r = pcall(table_talk, e, cells or {})
     elseif e.file == "game/data/museum/module.lua" then
         ok, r = pcall(adventure_line, e.path)
+    elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" then
+        ok, r = pcall(code_line, e.path)
     elseif FILE[e.file] then
         ok, r = pcall(FILE[e.file], e.path)
     end
