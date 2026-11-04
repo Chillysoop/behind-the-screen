@@ -2988,9 +2988,11 @@ function M.maybe_break(night, before_boss)
     end
     local planned = night.table_planned or 210
     local t = night.table_min or 0
-    if not before_boss and (t < math.max(60, planned * M.BREAK_AT) or t > planned - 30) then
+    -- (Brought forward on a friend's thought, "let's break after this bit": the next room's end.)
+    if not before_boss and not night.break_soon and (t < math.max(60, planned * M.BREAK_AT) or t > planned - 30) then
         return false
     end
+    night.break_soon = nil
     night.had_break = true
     local st = st_of(night)
     local room = MODULE.rooms[st.pos or st.last_room or ""] or {}

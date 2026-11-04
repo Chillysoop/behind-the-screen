@@ -2199,7 +2199,7 @@ function M:headache_ok(needs, sc)
     if needs.first_scene and not (sc and sc.index == 1) then
         return false
     end
-    if needs.after_break and not self.had_break then
+    if needs.after_break and not (self.had_break or self.snacked) then
         return false
     end
     if needs.before_fight and not (sc and (sc.type == "combat" or sc.type == "set_piece") and not sc.result) then
@@ -2906,9 +2906,8 @@ function M:decision(card, extra)
     end
     -- Breaks and lookups take real time at the table (A14).
     self.table_min = (self.table_min or 0) + (o.table_min or 0) + (o.looked and 8 or 0)
-    if (o.table_min or 0) >= 10 then
-        self.had_break = true   -- for the headaches that follow a break (B4)
-    end
+    -- (A long option isn't the night's break: Pip's ten minutes alone on the stairs took the break
+    -- card's place, the second playtest review. Only museum_night.maybe_break sets had_break.)
     if o.canon then
         table.insert(self.canon, util.fill(o.canon, self:vars(extra)))
     end

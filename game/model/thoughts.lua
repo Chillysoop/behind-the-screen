@@ -110,7 +110,9 @@ function M.think(night, p, need, opts)
     local answers = {}
     for _, aid in ipairs(def.answers) do
         local a = DATA.answers[aid]
-        table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
+        if M.offered(night, aid) then
+            table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
+        end
     end
     local tell = util.fill(def.tell or "seems to be thinking something", v)
     local t = { id = id, who = p.key, need = need, scene = sc, answers = def.answers, keep = opts.keep, glow = glow,
@@ -134,6 +136,15 @@ function M.think(night, p, need, opts)
 end
 
 -- Still something to answer? (A thought passes when its scene ends, or when what it was about happens.)
+-- An answer that can still do what it says tonight: the break can't come sooner once it's been.
+local AFTER_BREAK_GONE = { snack = true, early_break = true }
+function M.offered(night, aid)
+    if AFTER_BREAK_GONE[aid] and (night.had_break or night.break_soon) then
+        return false
+    end
+    return true
+end
+
 function M.is_open(night, id)
     local th = night.th
     local t = th and th.list[id]
@@ -274,7 +285,9 @@ function M.answers_for(night, id)
     local v = p and vars(p) or {}
     local out = {}
     for _, aid in ipairs((DATA.needs[sn.need] or {}).answers or {}) do
-        table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
+        if M.offered(night, aid) then
+            table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
+        end
     end
     return out
 end
@@ -493,13 +506,17 @@ M.EFFECTS = {
         end
         return true
     end,
+    -- (The night's break is one card, museum_night.maybe_break: these answers bring it sooner, after
+    -- this room, and never stand in for it. The second playtest review: "Break at the halfway mark",
+    -- and then no break card all night.)
     snack = function(night, p)
         for _, o in ipairs(night.players) do
             score.add(o, "social", 4)
             score.add(o, "boredom", -4)
         end
         score.add(p, "fun", 4)
-        night.had_break = true
+        night.break_soon = true
+        night.snacked = true
         return true
     end,
     prize = function(_, p)
@@ -560,7 +577,7 @@ M.EFFECTS = {
         for _, o in ipairs(night.players) do
             score.add(o, "social", 3)
         end
-        night.had_break = true
+        night.break_soon = true
         return true
     end,
     keep_light = function(_, p)
