@@ -1430,7 +1430,6 @@ function M:hero_action(sc, dc, spots)
     for j, p in ipairs(self.players) do
         local shine = st.shine[p.class] or 0
         weights[j] = 1 + 2 * shine + math.max(0, (40 - p.m.spotlight) / 20)
-            + ((self.prep and self.prep.spot == p.key) and 1.5 or 0)   -- this session is for them (S6)
     end
     local p = self.rng:weighted(self.players, weights)
     self.actor = p
@@ -1829,8 +1828,8 @@ function M:table_behavior(when, roller, sure)
     local week = camp.week or 1
     local cands, weights = {}, {}
     for _, b in ipairs(content.table_behaviors) do
-        if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week)
-            and (not b.style or b.style == (self.campaign.style or "frontier")) then
+        -- (A campaign style's own habits belong to the old valley: adventure.enter takes them out.)
+        if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week) then
             local free = {}
             for i in ipairs(b.lines) do
                 local last = camp.tb_said[b.id .. "#" .. i]
@@ -1895,29 +1894,17 @@ function M:table_behavior(when, roller, sure)
     return b.id
 end
 
--- The players go off the map (A12): a curveball card, at most one a night, when someone at the
--- table is the type to do it and the scene allows it.
-local FOE_KIND = { goblin_boss = "humanoid", goblin_warrior = "humanoid", bandit_captain = "humanoid", bandit = "humanoid",
-                   tough = "humanoid", cultist = "humanoid", dire_wolf = "beast", wolf = "beast", ghoul = "undead",
-                   skeleton = "undead", zombie = "undead", ogre = "giant" }
-M.FOE_KIND = FOE_KIND
-
-function M:foe_kind(sc)
-    local ids = sc and sc.plan and sc.plan.ids
-    return ids and FOE_KIND[ids[1]] or nil
-end
-
 -- Before a fight, a hero tries something flashy (A12): a quick check; a win gives the party the
--- first move. Which stunt depends on what they're up against and who's at the table.
+-- first move. Which stunt depends on who's at the table and where they are. (A stunt for one kind
+-- of foe, the old valley's goblins, wolves and the dead, has nobody to play to in the museum.)
 function M:stunt(sc)
     local camp = self.campaign
     camp.stunts_said = camp.stunts_said or {}
     local week = camp.week or 1
-    local kind = self:foe_kind(sc)
     local cands, weights = {}, {}
     for i, st in ipairs(content.stunts) do
         local last = camp.stunts_said[i]
-        if (not st.foes or st.foes == kind) and content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
+        if not st.foes and content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
             for _, p in ipairs(self.players) do
                 local w = arch_weight(st.archetype, p)
                 if w > 0 and class_ok(st, p) then
