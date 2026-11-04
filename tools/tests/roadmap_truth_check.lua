@@ -1072,6 +1072,79 @@ table.insert(watchers, function(R, N, ev)
     end
 end)
 
+-- F19: fight turns keep the rules: one spell slot a turn (a free cast and a cantrip don't count), a
+-- charmed hero's idle turn gets a word, and turning to stone resolves out loud.
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    if ev.kind == "turn" then
+        if N.charmed_idle then
+            fail("F19", N.tag .. ": " .. N.charmed_idle .. "'s turn passed, charmed, with no word")
+        end
+        N.charmed_idle = nil
+        local slots = 0
+        for _, st in ipairs(ev.steps or {}) do
+            if st.kind == "spell" and st.id == ev.who and (st.level or 0) > 0 and not st.free and not st.reaction then
+                slots = slots + 1
+            end
+            if st.kind == "condition" and st.name == "Turning to stone" then
+                N.stoning = N.stoning or {}
+                N.stoning[st.id] = true
+                add("F19", "turning_to_stone")
+            elseif (st.kind == "condition_end" and st.name == "Turning to stone") or (st.kind == "feature" and st.name == "Turned to stone") then
+                if N.stoning and (N.stoning[st.id] or N.stoning[st.id] == false) then
+                    N.stone_said = N.stone_said or {}
+                    -- (Stone wins: the effect ends as it turns to stone, in the same turn.)
+                    if st.kind == "feature" or N.stone_said[st.id] ~= "is stone now" then
+                        N.stone_said[st.id] = st.kind == "feature" and "is stone now" or "shakes it off"
+                    end
+                    N.stoning[st.id] = false
+                end
+            end
+        end
+        if slots > 0 then
+            add("F19", "slot_turns")
+        end
+        if slots > 1 then
+            fail("F19", N.tag .. ": " .. tostring(ev.who) .. " spends " .. slots .. " spell slots in one turn")
+        end
+        -- (A charmed hero whose turn did nothing.)
+        local pc = ev.who and night.pcs and night.pcs[ev.who]
+        if pc and not pc.dead and not pc.down then
+            local charmed = false
+            for _, e in ipairs(pc.effects or {}) do
+                charmed = charmed or e.charmed_by ~= nil
+            end
+            local acted = false
+            for _, st in ipairs(ev.steps or {}) do
+                acted = acted or ((st.kind == "attack" or st.kind == "spell") and st.id == ev.who)
+            end
+            if charmed and not acted then
+                N.charmed_idle = pc.name
+                add("F19", "charmed_idle_turns")
+            end
+        end
+    elseif ev.kind == "narrate" and ev.text then
+        if N.charmed_idle and string.find(ev.text, N.charmed_idle, 1, true) then
+            N.charmed_idle = nil
+            add("F19", "charmed_turns_said")
+        end
+        for id, what in pairs(N.stone_said or {}) do
+            local pc = night.pcs and night.pcs[id]
+            if string.find(ev.text, what, 1, true) and (not pc or string.find(ev.text, pc.name, 1, true)) then
+                N.stone_said[id] = nil
+                add("F19", "stone_resolved_out_loud")
+            end
+        end
+    elseif ev.kind == "battle" and ev.phase == "end" then
+        for id in pairs(N.stone_said or {}) do
+            if night.pcs and night.pcs[id] then
+                fail("F19", N.tag .. ": " .. id .. "'s turning to stone resolved, and nobody said so")
+            end
+        end
+        N.stone_said, N.stoning, N.charmed_idle = nil, nil, nil
+    end
+end)
+
 -- (The statue: the chat said "yes, but it's dangerous" to a rest in the gift shop.)
 local function play_night_simply(c, rng)
     local night = c:start_night()

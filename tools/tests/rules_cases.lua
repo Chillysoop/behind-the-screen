@@ -1467,6 +1467,33 @@ case("dm-target-shot", "Told who to go after, a monster that can't reach them sh
         end)(), false)
     end)
 
+case("one-slot-a-turn", "One spell slot a turn; a free Quick Reflection doesn't count, and says it's free", "p. 105",
+    "On a turn, you can expend only one spell slot to cast a spell. A spell cast without a slot (Quick Reflection) is no slot spent.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "mirror_mage"), 5, 5)
+        at(b, mon("goblin_warrior"), 9, 5)
+        local spells_cast = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "spell" and ev.caster == w then
+                table.insert(spells_cast, ev)
+            end
+        end
+        b.active = w
+        b.turn_counter = (b.turn_counter or 0) + 1
+        ai.take_turn(b, w)
+        local paid, free = 0, 0
+        for _, ev in ipairs(spells_cast) do
+            if (ev.slot or 0) > 0 and ev.free then
+                free = free + 1
+            elseif (ev.slot or 0) > 0 then
+                paid = paid + 1
+            end
+        end
+        t:eq("at most one slot spent", paid <= 1, true)
+        t:eq("the free Mirror Image says so", free, 1)
+    end)
+
 case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
     "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
     function(t)

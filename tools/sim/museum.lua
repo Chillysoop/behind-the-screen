@@ -97,7 +97,7 @@ local function play_night(night)
             for _, st in ipairs(ev.steps or {}) do
                 local k = st.kind
                 if k == "spell" then
-                    table.insert(bits, "spell " .. id(st.id) .. ":" .. tostring(st.name) .. ((st.level and st.level > 0) and (" (slot " .. st.level .. ")") or (st.level == 0 and " (cantrip)" or ""))
+                    table.insert(bits, "spell " .. id(st.id) .. ":" .. tostring(st.name) .. ((st.level and st.level > 0) and (" (" .. (st.free and ("level " .. st.level .. ", free: " .. st.free) or ("slot " .. st.level)) .. ")") or (st.level == 0 and " (cantrip)" or ""))
                         .. (st.reaction and " [reaction]" or "") .. (type(st.target) == "string" and (" -> " .. st.target) or ""))
                 elseif k == "feature" then
                     table.insert(bits, "feature " .. id(st.id) .. ":" .. tostring(st.name) .. (type(st.target) == "string" and (" -> " .. st.target) or ""))

@@ -492,6 +492,7 @@ function M.step(night, ev)
         s.id, s.name, s.spell, s.target = ref(ev.caster), ev.name, ev.id, target_ref(ev.target)
         s.reaction = ev.reaction
         s.level = ev.slot
+        s.free = ev.free          -- (cast without a slot: Quick Reflection, Magic Initiate, the wand)
         s.area, s.shape = M.area(night, ev)
     elseif k == "initiative" then
         s.order = {}
@@ -696,6 +697,38 @@ function M.record(night, f, bb, steps, who)
     end
 end
 
+-- A charmed hero with nobody they're willing to hit doesn't just stand there in silence (the
+-- playtest, Nov 2; the second playtest review, F19: a charmed hero's turn passed with no word): every
+-- turn of theirs that goes by charmed and idle gets a caption, the first one saying why. Called after
+-- every turn, even one with nothing in it.
+M.CHARMED_AGAIN = { "{char} is still under {charmer}'s spell, and lets the turn go by.",
+                    "{char} can't bring themselves to raise a hand against {charmer}. Another turn goes by." }
+function M.charmed_turn(night, f, who, steps)
+    if not (who and who.pc and not who.dead and not who.down) then
+        return
+    end
+    local charmer
+    for _, e in ipairs(who.effects or {}) do
+        if e.charmed_by then
+            charmer = e.charmed_by
+        end
+    end
+    if not charmer then
+        return
+    end
+    for _, s in ipairs(steps or {}) do
+        if (s.kind == "attack" or s.kind == "spell") and s.id == who.mini then
+            return
+        end
+    end
+    f.charm_said = f.charm_said or {}
+    local v = barks.fills({ charmer = barks.foe_label(charmer) }, nil)
+    v.char = who.name
+    local again = f.charm_said[who.mini]
+    f.charm_said[who.mini] = true
+    night:say(util.fill(night:fresh(again and M.CHARMED_AGAIN or BARKS.charmed_captions, again and "charmed_again" or "charmed_caption"), v), "dm")
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
@@ -727,6 +760,18 @@ local function react(night, f, steps, who)
             end
         elseif s.kind == "up" then
             healed_up = f.by_ref[s.id]
+        elseif s.kind == "condition_end" and s.name == "Turning to stone" then
+            -- (Turning to stone resolves out loud, either way: F19. Stone has its caption, the
+            -- petrified moment; shaking it off had none.)
+            local c = f.by_ref[s.id]
+            if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
+                night:say(c.name .. " shakes it off: the grey drains out of their legs, and they can move again.", "good")
+            end
+        elseif s.kind == "feature" and s.museum == "petrified" then
+            local c = f.by_ref[s.id]
+            if c and c.pc then
+                night:say(c.name .. " is stone now, mid-step. Only Euryale falling will bring them back.", "bad")
+            end
         end
     end
     if downed and downed.pc then
@@ -820,29 +865,6 @@ local function react(night, f, steps, who)
             extra.moment.ally = downed.name
         end
         night:bark(line[1], line[2], extra)
-    end
-    -- A charmed hero with nobody they're willing to hit doesn't just stand there in silence (the
-    -- playtest, Nov 2): the table hears why, once a fight for each hero.
-    if who and who.pc and not who.dead then
-        local charmer
-        for _, e in ipairs(who.effects or {}) do
-            if e.charmed_by then
-                charmer = e.charmed_by
-            end
-        end
-        local acted = false
-        for _, s in ipairs(steps) do
-            if (s.kind == "attack" or s.kind == "spell") and s.id == who.mini then
-                acted = true
-            end
-        end
-        f.charm_said = f.charm_said or {}
-        if charmer and not acted and not f.charm_said[who.mini] then
-            f.charm_said[who.mini] = true
-            local v = barks.fills({ charmer = barks.foe_label(charmer) }, nil)
-            v.char = who.name
-            night:say(util.fill(night:fresh(BARKS.charmed_captions, "charmed_caption"), v), "dm")
-        end
     end
     if crit and P and not boss_dead then
         night:table_behavior("after_crit", P)
@@ -1653,6 +1675,7 @@ function M.run(night, sc, plan)
         frame(bb)
         local steps = night:flush_turn()
         night.fight_acts[#night.fight_frames] = acts_of(steps)
+        M.charmed_turn(night, f, c, steps)
         if steps and #steps > 0 then
             M.record(night, f, bb, steps, c)
             react(night, f, steps, c)

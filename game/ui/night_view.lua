@@ -2267,7 +2267,8 @@ function M.play_step(app, s, pace)
         end
         if s.name then
             M.float(app, s.id, s.name, theme.purple)
-            M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level) .. ")") or "")
+            M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level)
+                .. (s.free and (", free: " .. s.free) or "") .. ")") or "")
                 .. (s.area and (", " .. util.int(#s.area) .. " squares") or "") .. ".", "system")
         end
     elseif k == "hazard" then
