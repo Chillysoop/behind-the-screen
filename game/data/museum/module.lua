@@ -1097,6 +1097,17 @@ M.companions = {
                lines = {
                    join = "Telpur is coming with them tonight. They insisted, loudly, until somebody tied them to a pack strap. They have opinions about every exhibit.",
                    start = { "Telpur, from the backpack: \"Onward! Mind the laces.\"", "Telpur is already complaining about the walking." },
+                   -- (What he thinks of them now, first: R11, people.lua. A companion remembers too.)
+                   start_if = {
+                       { when = { knows = { who = "mus_telpur", kind = "steal", to = true } },
+                         text = { "Telpur rides along tonight, laces folded, keeping a very close eye on everyone's hands.",
+                                  "Telpur, from the backpack: \"I'm counting my laces. Both of them. Every hour.\"",
+                                  "Telpur is coming, but he's made them promise: nobody so much as looks at his shelf again." } },
+                       { when = { opinion = { who = "mus_telpur", at_least = "devoted" } },
+                         text = { "Telpur, from the backpack: \"My favourite people! Onward, and mind the laces.\"",
+                                  "Telpur has polished himself for the occasion. He's very proud to be along.",
+                                  "Telpur, beaming, if a boot can beam: \"Best customers I ever had. Lead on.\"" } },
+                   },
                    look = { "Telpur: \"I'd not touch that. Then again, I'm a boot.\"", "Telpur: \"In my day we had a museum like this. Smaller. More screaming.\"" },
                    hint = { "Telpur: \"Now that, I'd look at twice.\"", "Telpur: \"Warmer. Warmer. I'd look there, if I had hands.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },

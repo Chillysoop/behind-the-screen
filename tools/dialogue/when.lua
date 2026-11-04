@@ -238,6 +238,24 @@ local function cond(c)
         local e = MODULE.endings[c.ending]
         add("the ending is " .. Q(e and e.name or c.ending, 5))
     end
+    -- (What the museum's people think and know, from the event log: R11.)
+    local PN = { mus_flitwidget = "Flitwidget", mus_telpur = "Telpur", mus_euryale = "Euryale", mus_lecturer = "the Lecturer",
+                 exhibit_b = "Exhibit B" }
+    local DEED = { steal = "a theft", ["break"] = "a broken exhibit", help = "a kindness", harm = "harm done" }
+    if c.opinion then
+        local o = c.opinion
+        local of = (o.of == "actor" and "the hero") or (o.of and HERO[o.of]) or "the party"
+        add((PN[o.who] or o.who) .. (o.at_least and (" thinks at least " .. o.at_least) or "") .. (o.at_most and (" thinks no better than " .. o.at_most) or "")
+            .. " of " .. of)
+    end
+    for _, key in ipairs({ "knows", "not_knows" }) do
+        local k = c[key]
+        if k then
+            local what = (DEED[k.kind] or k.kind) .. (k.by == "actor" and " by the hero" or "") .. (k.to and (" against " .. (PN[k.who] or k.who)) or "")
+                .. (k.whom and (" against " .. (PN[k.whom] or k.whom)) or "")
+            add((key == "not_knows" and "not if " or "") .. (PN[k.who] or k.who) .. " knows of " .. what)
+        end
+    end
     if c.not_ending then
         local e = MODULE.endings[c.not_ending]
         add("not if the ending is " .. Q(e and e.name or c.not_ending, 5))
@@ -509,6 +527,10 @@ A.companions = function(p)
             return R("At the start of the first night " .. name .. " comes along", "Always")
         elseif kind == "start" then
             return R("At the start of each later night with " .. name .. " along: " .. voice, one_of(#list))
+        elseif kind == "start_if" then
+            local alt = list[p[5]]
+            return R("At the start of each later night with " .. name .. " along, in place of the usual, " .. voice .. if_(alt and alt.when),
+                one_of(alt and #alt.text or 3))
         elseif kind == "look" then
             return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along, and there's nothing much there: " .. voice,
                 one_of(#list))

@@ -415,14 +415,14 @@ function M.test(campaign, cond, knobs, hero)
     if cond.knows then
         local k = cond.knows
         local by = k.by == "actor" and hero or k.by
-        if not require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to) then
+        if not require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom) then
             return false
         end
     end
     if cond.not_knows then
         local k = cond.not_knows
         local by = k.by == "actor" and hero or k.by
-        if require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to) then
+        if require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom) then
             return false
         end
     end

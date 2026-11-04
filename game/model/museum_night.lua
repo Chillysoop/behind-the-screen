@@ -2978,6 +2978,11 @@ function M.go_back(night, b)
             end
             night:do_rest("short", "town")
         end
+        -- (A breather is a quiet stretch: the room's small business, and the friends' own ideas, when
+        -- there's time for them, or when you asked for one more room and this is it. F17.)
+        if b.why ~= "flee" and not night.end_early then
+            M.quiet_stretch(night, sc)
+        end
     end
     sc.outcome = sc.outcome or "win"
     sc.had_roll = true

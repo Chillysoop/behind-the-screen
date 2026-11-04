@@ -77,6 +77,10 @@ return {
       -- His thanks, when it's over: what he knows comes first, then how he feels about them.
       thanks = {
         { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true } },
+          text = { "Before the biscuits: my healing draught, if you please. I know where it went.",
+                   "Thank you, all of you. And whoever has my draught: I'll be counting my pockets after tea.",
+                   "My museum's back. My draught isn't. We'll call it even. Nearly." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", whom = "mus_telpur" } },
           text = { "Telpur's had a word with me about the shelf. I'll keep one hand on my cash box, if it's all the same.",
                    "Thank you, all of you. Mostly. Telpur tells me some of my stock went for a walk.",
                    "My museum's back. Some of my stock isn't, Telpur says. We'll call it even. Nearly." } },
@@ -128,8 +132,8 @@ return {
       take = { instigator = 3, power_gamer = 1.5, method_actor = 1, explorer = 0.5 },
       ask = { storyteller = 2, method_actor = 2, explorer = 1, casual = 1, instigator = 1 },
       help = { casual = 2, tactician = 1.5, method_actor = 1, storyteller = 1 },
-      follow = { explorer = 2, instigator = 1.5, storyteller = 1 },
-      hide = { casual = 1.5, tactician = 1 },
+      follow = { explorer = 2.5, instigator = 1.5, storyteller = 1.5 },
+      hide = { casual = 2, tactician = 1 },
       poke = { explorer = 2.5, storyteller = 1, casual = 1, butt_kicker = 0.5 },
     },
     class = { take = { rogue = 2 }, help = { cleric = 1.5, fighter = 0.5 }, poke = { wizard = 0.5 }, ask = { wizard = 0.5 },

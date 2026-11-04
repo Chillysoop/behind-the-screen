@@ -117,10 +117,12 @@ function M.test(c, cond, hero)
     return true
 end
 
--- Does this person know of a deed of this kind (by this hero, if one is named), done to them if `to`?
-function M.knows_of(c, person, kind, by, to)
+-- Does this person know of a deed of this kind (by this hero, if one is named), done to them if `to`,
+-- or done to `whom`?
+function M.knows_of(c, person, kind, by, to, whom)
     for _, ev in ipairs(events.list(c)) do
-        if ev.kind == kind and (not by or ev.who == by) and (not to or ev.whom == person) and events.knows(c, person, ev) then
+        if ev.kind == kind and (not by or ev.who == by) and (not to or ev.whom == person) and (not whom or ev.whom == whom)
+            and events.knows(c, person, ev) then
             return ev
         end
     end

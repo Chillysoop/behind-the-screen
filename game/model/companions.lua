@@ -103,6 +103,14 @@ end
 function M.say(night, e, kind)
     -- (hint: "something's here", said only when there is; a companion without hints just looks.)
     local lines = e and e.lines and (e.lines[kind] or (kind == "hint" and e.lines.look))
+    -- (What they think of the party now comes first, when it shows: lines.<kind>_if, R11.)
+    for _, alt in ipairs(e and e.lines and e.lines[kind .. "_if"] or {}) do
+        if util.lazy("game.model.adventure").test(night.campaign, alt.when) then
+            lines = alt.text
+            kind = kind .. "_if"
+            break
+        end
+    end
     if not lines or #lines == 0 then
         return false
     end

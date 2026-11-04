@@ -30,6 +30,7 @@ local M = {}
 M.PER_ROOM = { lots = 1, some = 1, quiet = 1 }
 M.PER_NIGHT = { lots = 3, some = 3, quiet = 2 }
 M.IDEA_AT = 3.2          -- how strong an idea has to be before a friend acts on it
+M.CLOSE = 1.0            -- how close behind the strongest want another can be and still get picked
 M.CALL_CAP = 13          -- the night's call budget a card of theirs fits under (night:room)
 
 local function module()
@@ -147,9 +148,14 @@ function M.want(night, p, verb, target)
             w = w + 0.5          -- (a chance to make amends)
         end
     end
-    -- (Already caught at it tonight: they lie low for a bit.)
+    -- (Already caught at it tonight: they lie low for a bit. And what they've done tonight already
+    -- appeals less than something new.)
     if verb == "take" and night.ideas and night.ideas.caught then
         w = w - 2
+    end
+    local did = night.ideas and night.ideas.by and night.ideas.by[p.key .. ":" .. verb]
+    if did then
+        w = w - 1.2 * did
     end
     return w + night.rng:next() * 0.8, hooked and h or nil
 end
@@ -160,6 +166,10 @@ function M.ideas(night, sc, phase)
     local d = data()
     local out = {}
     local done = (night.ideas and night.ideas.done) or {}
+    if not night.tl_people or night.tl_people_room ~= sc then
+        tl.set_people(night, sc)
+        night.tl_people_room = sc
+    end
     local list = M.people_here(night, sc)
     local function add(p, verb, target, key)
         if done[key] then
@@ -432,18 +442,32 @@ function M.room(night, sc, phase)
     for _, p in ipairs(here(night)) do
         others = others + ((p.key ~= last and p.key ~= roller) and 1 or 0)
     end
-    local top
+    -- (The strongest wants, and any close behind them: which one a friend acts on is a little
+    -- chance among them, so the same room doesn't always go the same way.)
+    local at = M.IDEA_AT - (one_more and 1.5 or 0)
+    local close, weights = {}, {}
+    local best
     for _, idea in ipairs(M.ideas(night, sc, phase)) do
-        if not top and not (others > 0 and (idea.p.key == last or idea.p.key == roller)) then
-            top = idea
+        if not (others > 0 and (idea.p.key == last or idea.p.key == roller)) and idea.w >= at then
+            best = best or idea.w
+            if idea.w >= best - M.CLOSE then
+                table.insert(close, idea)
+                table.insert(weights, idea.w - at + 0.5)
+            end
         end
     end
-    if not top or top.w < M.IDEA_AT - (one_more and 1.5 or 0) then
+    local top = #close > 0 and night.rng:weighted(close, weights) or nil
+    if not top then
         return 0
     end
     sc.ideas_played = (sc.ideas_played or 0) + 1
     ni.n = ni.n + 1
     ni.done[top.key] = true
+    ni.by = ni.by or {}
+    ni.by[top.p.key .. ":" .. top.verb] = (ni.by[top.p.key .. ":" .. top.verb] or 0) + 1
+    -- (Every idea acted on is in the log, whatever it was: the friends' own, not a card's.)
+    events.add(night.campaign, { kind = "idea", verb = top.verb, who = top.p.key, where = sc.room,
+                                 whom = top.target and top.target.owner and top.target.owner.id or nil })
     local who
     if top.verb == "take" then
         who = M.take(night, sc, top)

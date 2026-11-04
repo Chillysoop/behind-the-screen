@@ -991,7 +991,19 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     end
     f.cards = f.cards + 1
     f.used[trigger] = true
-    night:flush_turn()
+    -- (What the turn did before the card goes on the mat now; the turn's reactions still see it all.)
+    local early = night:flush_turn()
+    if early and #early > 0 then
+        night.turn_early = night.turn_early or {}
+        for _, st in ipairs(early) do
+            table.insert(night.turn_early, st)
+            -- (An ally who fell in those steps is said now, before the card: F4.)
+            local c = st.kind == "death" and f.by_ref[st.id]
+            if c and c.ally and not c.pc then
+                require("game.model.companions").fell(night, c, c.shut_down and true or nil)
+            end
+        end
+    end
     night.actor = player_of(night, actor_c) or night:pick_actor(card.actor)
     night.other = player_of(night, other_c)
     if not night.other then
@@ -1704,6 +1716,16 @@ function M.run(night, sc, plan)
     opts.after_turn = function(bb, c)
         frame(bb)
         local steps = night:flush_turn()
+        -- (A card in the middle of the turn put its first steps on the mat early: the reactions,
+        -- an ally's fall among them, read the whole turn.)
+        if night.turn_early then
+            local all = night.turn_early
+            night.turn_early = nil
+            for _, st in ipairs(steps or {}) do
+                table.insert(all, st)
+            end
+            steps = all
+        end
         night.fight_acts[#night.fight_frames] = acts_of(steps)
         M.charmed_turn(night, f, c, steps)
         if steps and #steps > 0 then

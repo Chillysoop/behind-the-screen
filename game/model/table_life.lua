@@ -496,6 +496,24 @@ local function bit(night, sc, t, last)
     return p
 end
 
+-- Who's here to ask: the room's own person (not a foe), by the name the table hears.
+function M.set_people(night, sc, room)
+    room = room or (data() and data().rooms and data().rooms[sc.room]) or {}
+    night.tl_people = {}
+    local cast = sc.comps and sc.comps.cast
+    if cast and cast.name and not sc.fight_now then
+        local key = string.gsub(string.gsub(cast.id or "", "^mus_", ""), "_.*$", "")
+        night.tl_people[key] = cast.name
+    end
+    for _, q in ipairs(room.npc_questions or {}) do
+        if q.who == "flitwidget" and (sc.room == "street" or sc.room == "gift_shop") then
+            night.tl_people.flitwidget = night.tl_people.flitwidget or "Flitwidget"
+        elseif q.who == "telpur" and sc.room == "gift_shop" then
+            night.tl_people.telpur = night.tl_people.telpur or "Telpur"
+        end
+    end
+end
+
 -- For the friends' own ideas (game/model/ideas.lua): the curios still to poke at here and the
 -- questions still to ask, and poking or asking with a given friend.
 function M.open_curios(night, sc)
@@ -592,20 +610,7 @@ function M.room(night, sc, phase)
     if (tl.n >= night_cap and not one_more) or ((night.table_min or 0) > (night.table_planned or 210) - 40 and not one_more) then
         return 0
     end
-    -- Who's here to ask: the room's own person (not a foe), by the name the table hears.
-    night.tl_people = {}
-    local cast = sc.comps and sc.comps.cast
-    if cast and cast.name and not sc.fight_now then
-        local key = string.gsub(string.gsub(cast.id or "", "^mus_", ""), "_.*$", "")
-        night.tl_people[key] = cast.name
-    end
-    for _, q in ipairs(room.npc_questions or {}) do
-        if q.who == "flitwidget" and (sc.room == "street" or sc.room == "gift_shop") then
-            night.tl_people.flitwidget = night.tl_people.flitwidget or "Flitwidget"
-        elseif q.who == "telpur" and sc.room == "gift_shop" then
-            night.tl_people.telpur = night.tl_people.telpur or "Telpur"
-        end
-    end
+    M.set_people(night, sc, room)
     local n = (phase == "after") and 1 or cap
     if night.speed_hint == 3 then
         n = math.min(n, 1)           -- (at 2x, one)
