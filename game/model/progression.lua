@@ -3,8 +3,8 @@
 -- The DM decides when (the report and the prep board offer it once the party has
 -- played READY_AFTER nights at a level, and flag it overdue after OVERDUE_AFTER).
 -- The players decide what: at level 3 everyone picks a subclass on their own, from
--- who they are (archetypes), what they've enjoyed (their meter history) and the story
--- (seeds that nudge them). You can't pick for them; a seed can only make one tempting.
+-- who they are (archetypes) and what they've enjoyed (their meter history). You can't
+-- pick for them.
 
 local content = require "game.model.content"
 local score = require "game.model.score"
@@ -65,27 +65,8 @@ function M.start_week(campaign)
     end
 end
 
--- How much a seed nudges this subclass, and the strongest seed behind it.
-local function seed_nudge(campaign, sub)
-    local d = data()
-    local total, best, best_v = 0, nil, 0
-    for _, s in ipairs(campaign.seeds and campaign.seeds.planted or {}) do
-        local def = content.seeds[s.id]
-        local w = def.nudge and def.nudge[sub]
-        if w then
-            local v = (s.state == "paid" and d.SEED_PAID or d.SEED_PLANTED) + d.SEED_HYPED * (s.hype or 0)
-            v = v * w
-            total = total + v
-            if v > best_v then
-                best, best_v = def, v
-            end
-        end
-    end
-    return total, best
-end
-
 -- Score every subclass of this player's class. Returns a list of
--- { id, total, arch, hist, seed, seed_def } sorted best first (without noise).
+-- { id, total, arch, hist } sorted best first (without noise).
 function M.scores(campaign, p)
     local d = data()
     local out = {}
@@ -101,32 +82,7 @@ function M.scores(campaign, p)
             end
             hist = n > 0 and d.HISTORY * hist / n or 0
         end
-        local seed, seed_def = seed_nudge(campaign, id)
-        table.insert(out, { id = id, arch = arch, hist = hist, seed = seed, seed_def = seed_def,
-                            total = arch + hist + seed })
-    end
-    -- Nudge, never force: a seed can't lift a subclass more than SEED_EDGE past the best
-    -- other option (as that option stands before this cap).
-    local edge = d.SEED_EDGE or math.huge
-    local raw = {}
-    for i, s in ipairs(out) do
-        raw[i] = s.total
-    end
-    for i, s in ipairs(out) do
-        if s.seed > 0 then
-            local other = -math.huge
-            for j = 1, #out do
-                if j ~= i and raw[j] > other then
-                    other = raw[j]
-                end
-            end
-            if other > -math.huge then
-                -- Only the total is capped: the seed still gets the credit (reason_of,
-                -- has_reason, the "why" line) when it's what the player cares about.
-                local cap = math.max(0, other + edge - (s.arch + s.hist))
-                s.total = s.arch + s.hist + math.min(s.seed, cap)
-            end
-        end
+        table.insert(out, { id = id, arch = arch, hist = hist, total = arch + hist })
     end
     table.sort(out, function(a, b)
         return a.total > b.total
@@ -134,11 +90,8 @@ function M.scores(campaign, p)
     return out
 end
 
--- The biggest reason behind a pick: "seed", "hist" or "arch".
+-- The biggest reason behind a pick: "hist" or "arch".
 local function reason_of(s)
-    if s.seed >= 0.3 and s.seed >= s.arch * 0.5 then
-        return "seed"
-    end
     if s.hist > 0.12 and s.hist > s.arch * 0.5 then
         return "hist"
     end
@@ -186,11 +139,10 @@ function M.pick(campaign, p, rng)
     end
     local why = reason_of(best)
     local sd = d.subclasses[best.id]
-    local text = util.fill(sd.why[why], { name = p.name, char = p.char,
-                                          seed = best.seed_def and best.seed_def.name or "the story" })
+    local text = util.fill(sd.why[why], { name = p.name, char = p.char })
     return {
         key = p.key, class = p.class, sub = best.id, sub_name = subclasses.list[best.id].name,
-        reason = why, why = text, scores = list, odds = o.odds, nudged = why == "seed",
+        reason = why, why = text, scores = list, odds = o.odds,
     }
 end
 
@@ -214,7 +166,7 @@ function M.level_up(campaign)
             campaign.picks[p.key] = pick
             table.insert(moment.picks, pick)
             if not p.on_break then
-                score.add(p, "investment", d.PICK_INVESTMENT + (pick.nudged and d.NUDGED_INVESTMENT or 0))
+                score.add(p, "investment", d.PICK_INVESTMENT)
                 score.add(p, "commitment", 2)
             end
         end
@@ -230,11 +182,10 @@ function M.level_up(campaign)
     return moment
 end
 
--- Something real behind a subclass: the player's archetypes, the nights they've had, or a
--- seed they cared about.
+-- Something real behind a subclass: the player's archetypes, or the nights they've had.
 function M.has_reason(s)
     local d = data()
-    return s.arch >= d.FLOOR or s.seed >= d.FLOOR or s.hist >= d.HIST_FLOOR
+    return s.arch >= d.FLOOR or s.hist >= d.HIST_FLOOR
 end
 
 -- A pick feels true to its player when something real is behind it. Used by the M6 gate.

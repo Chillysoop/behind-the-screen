@@ -337,12 +337,7 @@ local function tab_party(app, x, y, w, h)
             py = para(px + 14, py + 4, cw - 28, p.on_break and "Taking a break from Thursdays." or "Out this week.", "ui14",
                 theme.orange)
         end
-        -- What they've been through (B2, B3): a reputation, a scar, the hero they lost.
-        local fails = require "game.model.fails"
-        local rep = fails.reputation(c, p.key)
-        if rep then
-            py = para(px + 14, py + 4, cw - 28, "Known at the table as " .. rep .. ".", "ui14", theme.purple)
-        end
+        -- What they've been through (B3): a scar, the hero they lost.
         if p.scar then
             py = para(px + 14, py + 2, cw - 28, p.scar, "ui14", theme.dim)
         end
@@ -358,14 +353,13 @@ local function tab_party(app, x, y, w, h)
     end
 end
 
--- The shelf of fallen heroes (B3), under the party: name, class, level, how they fell, and the
--- reputation they had.
+-- The shelf of fallen heroes (B3), under the party: name, class, level, and how they fell.
 function M.fallen_rows(app)
     local rows = {}
     for _, f in ipairs(app.campaign.fallen or {}) do
         local p = app.campaign:player(f.key)
         table.insert(rows, f.char .. " (" .. (p and p.name or "?") .. "), " .. util.capitalize(f.class or "hero") .. " " .. util.int(f.level or 1)
-            .. ": " .. f.how .. ", session " .. util.int(f.week) .. (f.rep and (". Remembered as " .. f.rep .. ".") or "."))
+            .. ": " .. f.how .. ", session " .. util.int(f.week) .. ".")
     end
     return rows
 end

@@ -101,8 +101,6 @@ function M.new(campaign, prep, opts)
     self.callouts = 0
     self.cooks = 0
     self.used_cards = {}
-    -- The first weeks after a change of course (A18).
-    require("game.model.styles").night_start(campaign, self.players)
     -- Where the party left off (A16): fights since their last Long Rest carry over.
     do
         local ps = campaign.party_state
@@ -193,9 +191,6 @@ function M:emit(ev)
     end
     if self.board_id then
         self:board_hear(ev)
-    end
-    if ev.kind == "say" and ev.ic then
-        require("game.model.awards").heard(self, ev)   -- in character, toward the table awards
     end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t

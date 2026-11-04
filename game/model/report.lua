@@ -46,8 +46,6 @@ function M.why(p, night)
         if e.ev and e.who == p.key then
             if e.ev == "death" then
                 return "Lost " .. (p.old_char or p.char) .. " tonight."
-            elseif e.ev == "theory" then
-                return "Their theory came true."
             elseif e.ev == "killing_blow" then
                 return "Landed the killing blow."
             end
@@ -147,17 +145,6 @@ function M.build(campaign, night)
                 p.thread_progress = p.thread_progress + p.thread_hits
                 -- (No bare count: "(2)" meant nothing to anyone, October 15.)
                 table.insert(rep.threads, p.char .. "'s story moved tonight: " .. p.thread .. ".")
-            elseif p.thread and not campaign.module then   -- (v2: the prologue has no hero threads)
-                -- And whose didn't, so a hero going quiet shows the night it happens (or died).
-                local fell
-                for _, d in ipairs(campaign.deaths or {}) do
-                    if d.key == p.key and d.char == p.char and d.week == campaign.week then
-                        fell = d
-                    end
-                end
-                table.insert(rep.threads, fell and (p.char .. ((fell.outcome == "scar" and " died tonight, and came back at a cost.")
-                    or (fell.outcome == "quest" and " fell tonight. There may be a way back.") or " died tonight."))
-                    or (p.char .. "'s story didn't come up tonight."))
             end
             local moment = p.best and p.best.text or nil
             row.moment = moment
@@ -203,7 +190,6 @@ function M.build(campaign, night)
 
     for _, c in ipairs(night.canon) do
         table.insert(rep.canon, c)
-        table.insert(campaign.canon, c)
     end
 
     -- Average Fun, for the headline.
@@ -240,9 +226,8 @@ function M.build(campaign, night)
             row.why, generic = M.why(p, night)
             row.call = night.player_call and night:player_call(p.key) or nil
             row.why_generic = generic or nil
-            -- What the table saw outranks a meter, not a death or a theory come true.
-            if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Their theory")
-                and not string.find(row.why, "^Landed") then
+            -- What the table saw outranks a meter, not a death or a killing blow.
+            if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Landed") then
                 row.why = row.drift
                 row.why_generic = nil
             end

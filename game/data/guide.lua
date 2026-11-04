@@ -336,16 +336,6 @@ return {
             text = "Each player now shows Commitment, Trust, Investment and Suspicion. Weeks of low Commitment and they take a break. Talk (2h) is a one-on-one: how their week is going, and a chance to fix things.",
         },
         {
-            id = "prep_world", screen = "prep", at = LEFT, leave = true, timeout = 25,
-            when = function(app, c)
-                return c.week >= 2 and not app.sel and not app.convo and require("game.model.world").pending(c) > 0
-            end,
-            done = function(app) return app.overlay == "notes" end,
-            anchor = { 908, 4, 320, 30 },
-            title = "New: the world moves",
-            text = "Every faction makes a move off screen each week. Open it (top of the board) to let it happen, bring one on screen as a card, or hold it a week.",
-        },
-        {
             id = "prep_levelup", screen = "prep", at = LEFT,
             when = function(app, c)
                 local st = c.level_status and c:level_status()

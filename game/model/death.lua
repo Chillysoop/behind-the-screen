@@ -133,7 +133,6 @@ function M.on_death(night, p, c, sc)
                   how = "fell at " .. ((sc and sc.comps.location and (sc.comps.location.short or util.lower_first(sc.comps.location.name))) or "the table")
                       .. ((night.battle_boss_name and (" to " .. night.battle_boss_name)) or ""),
                   outcome = outcome, mini = p.mini or nil }
-    rec.rep = require("game.model.fails").reputation(campaign, p.key)
     rec.fair = fair
     table.insert(campaign.deaths, rec)
     local dev = { who = p.key, text = p.char .. " died. " .. util.capitalize(rec.how) .. ".", weight = 10 }

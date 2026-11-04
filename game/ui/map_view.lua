@@ -251,12 +251,6 @@ function M.draw(app, x, y, w, h, ids, hazard)
     end
     local hint = app.map_why or "Click a square to set it down. Click your piece again to turn it; a door goes shut, open, locked."
     kit.text(x, ly + 26, hint, "ui14", app.map_why and theme.orange or theme.faint, { w = W * C })
-    if m and m.changed then
-        local ledger = require "game.model.ledger"
-        local st = ledger.place_state(app.campaign, loc.id)
-        kit.text(x, ly + 48, "The world changed this place since you set it" .. (st and (": " .. string.lower(st.label)) or "")
-            .. ". Check the map still fits.", "ui14", theme.orange, { w = W * C - 200 })
-    end
     M.key(x, ly + 84, W * C)
     if m then
         kit.button(x + W * C - 150, ly + 44, 150, 28, "Clear the map", function()

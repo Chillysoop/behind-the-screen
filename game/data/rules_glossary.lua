@@ -1,7 +1,7 @@
 -- The rules glossary (the newcomer playtest, October 16): the D&D words the game uses, each
 -- with a plain word first and one line on what it means at the table. Words in the text light
--- up with a faint underline; point at one for its card (game/ui/gloss.lua). The story's own
--- names (people, places, storylines) are game/data/glossary.lua's.
+-- up with a faint underline; point at one for its card (game/ui/gloss.lua). An adventure's own
+-- words are its MODULE.glossary.
 --
 -- Each term:
 --   id     unique

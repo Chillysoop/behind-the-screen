@@ -1622,7 +1622,6 @@ function M.run(night, sc, plan)
     end
     local result = b:run(opts)
     night:flush_turn()
-    require("game.model.awards").after_fight(night)   -- toward the table awards (each hero's fight)
     for _, c in ipairs(night.pc_list or {}) do
         local p = player_of(night, c)
         if p and p.heroic and not c.heroic then

@@ -171,27 +171,11 @@ local function scrub(t, seen)
 end
 M.scrub = scrub
 
--- The prologue's own arc, in the shape the rest of the game reads (content.arc): its premise and
--- people for the notebook, and no beats (the module is the story).
-local function module_arc()
-    local people = {}
-    for _, p in ipairs(MODULE.people) do
-        table.insert(people, { id = p.id, name = p.name, role = p.role, about = p.about, known = p.known })
-    end
-    return {
-        name = MODULE.title, pitch = MODULE.pitch, SESSIONS = MODULE.MAX_WEEKS,
-        questions = {}, premise = MODULE.premise, people = people, beats = {},
-        STORY_INVESTMENT = 2, finale = {}, module = true,
-    }
-end
-
 -- Switch the game's shared content over to the prologue (once per run; the v2 build only ever
 -- runs the module). Old-story lines are filtered out, the heroes are who the book needs.
 function M.enter(campaign)
     if not M.entered then
         M.entered = true
-        M.bells_arc = M.bells_arc or content.arc
-        content.arc = module_arc()
         for key, h in pairs(MODULE.heroes) do
             local pd = content.players[key]
             if pd then
@@ -243,24 +227,12 @@ function M.enter(campaign)
                 end
             end
         end
-        if content.improv then
-            strip_list(content.improv.stock)
-        end
-        -- Each campaign style's own table habits (back to the tavern, the goblin chief) belong to the
-        -- old valley: none of them in the museum.
-        for i = #content.table_behaviors, 1, -1 do
-            if content.table_behaviors[i].style then
-                table.remove(content.table_behaviors, i)
-            end
-        end
         local seen = {}
-        scrub(content.curveballs, seen)
         scrub(content.decisions, seen)
         scrub(content.table_behaviors, seen)
         scrub(content.stunts, seen)
-        for _, name in ipairs({ "friction", "rests", "table_behaviors", "scene_beats", "fails", "improv", "table_talk",
-                                "keepsakes", "inspiration", "convos", "chat", "actions", "actions_more",
-                                "killing_blows", "handouts", "awards", "dice", "moods", "takeover" }) do
+        for _, name in ipairs({ "friction", "rests", "table_behaviors", "scene_beats", "keepsakes", "chat", "actions",
+                                "actions_more", "killing_blows", "dice", "moods", "takeover" }) do
             local ok, data = pcall(require, "game.data." .. name)
             if ok then
                 scrub(data, seen)

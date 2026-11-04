@@ -85,7 +85,7 @@ function M.build_scene(night, id)
             prepped, backup = true, true
         end
     end
-    local q = r.virtual and 0.6 or prep_mod.quality(r.type, comps, night.prep and night.prep.inspired or {})
+    local q = r.virtual and 0.6 or prep_mod.quality(r.type, comps)
     local sc = {
         type = r.type, comps = comps, missing = {}, room = id, quick = r.quick or (improv and true) or nil, virtual = r.virtual,
         prepped = prepped or r.virtual,

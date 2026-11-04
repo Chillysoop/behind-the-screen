@@ -8,7 +8,6 @@
 local content = require "game.model.content"
 local score = require "game.model.score"
 local util = require "game.model.util"
-local ledger = require "game.model.ledger"
 local skills = require "game.rules.skills"
 local data = require "game.data.takeover"
 
@@ -223,16 +222,6 @@ function M.talk(night, sc)
         return false
     end
     local campaign = night.campaign
-    local pid = ledger.person_of(cast)
-    -- A villain doesn't chat: they remember (the monologue, game/model/villains.lua).
-    local villains = require "game.model.villains"
-    local vp = villains.present(night, sc)
-    if vp then
-        night.took_talk = true
-        sc.card_done = true
-        sc.talked = true
-        return villains.monologue(night, sc, cast, vp)
-    end
     local p = talker(night, sc, cast)
     if not p then
         return false
@@ -241,9 +230,8 @@ function M.talk(night, sc)
     sc.card_done = true
     sc.talked = true
     night.actor, night.other = p, nil
-    local att = pid and ledger.att(campaign, pid, night) or 0
-    local feel = pid and (util.capitalize(cast.short or cast.name) .. " is " .. string.lower(ledger.label(att)) .. " toward the party.")
-        or (cast.villain and "They're no friend of the party." or "They don't know the party yet.")
+    local att = 0   -- (nobody starts out for or against the party: what they remember of it is below)
+    local feel = cast.villain and "They're no friend of the party." or "They don't know the party yet."
     -- v2: the museum's people remember the party, as the DM would.
     local adventure = night.mus and require("game.model.adventure")
     local module_talk = adventure and adventure.data.talk and adventure.data.talk[cast.id]
@@ -261,7 +249,7 @@ function M.talk(night, sc)
     end
     local goal = sc.comps.goal and not night:muted(sc.comps.goal) and sc.comps.goal
     local info = {
-        id = pid or cast.id, cast = cast, p = p, name = cast.short or cast.name, speaker = M.speaker(night.talk.lib, cast),
+        id = cast.id, cast = cast, p = p, name = cast.short or cast.name, speaker = M.speaker(night.talk.lib, cast),
         feel = feel, knows = sc.goal_clue ~= nil, fits = M.in_character(cast, att),
         about = goal and util.lower_first(goal.short or goal.name) or "what's going on",
         goal = goal and goal.name or nil,
@@ -279,7 +267,7 @@ function M.talk(night, sc)
     if night.decisions[#night.decisions] and night.decisions[#night.decisions].card == "talk_" .. info.id .. "_2" then
         table.remove(night.decisions)
     end
-    local entry = { who = p.key, to = pid or cast.id, voiced = true }
+    local entry = { who = p.key, to = cast.id, voiced = true }
     if second == "warm" then
         reply(night, p, "warm")
         entry.did, entry.d = "talk_warm", (first == "lie" and 0 or 1)
@@ -324,7 +312,7 @@ function M.talk(night, sc)
     end
     entry.stances = { first, second }
     night:note(sc, entry)
-    night.took_talk_with = { pid = pid, cast = cast.id, first = first, second = second, did = entry.did }
+    night.took_talk_with = { cast = cast.id, first = first, second = second, did = entry.did }
     return true
 end
 

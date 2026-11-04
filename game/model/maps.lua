@@ -135,25 +135,10 @@ function M.rules_text(kind)
     return table.concat(out, " ")
 end
 
--- The world's state of a place (S7), if it has one.
-local function place_state(campaign, lid)
-    local ledger = require "game.model.ledger"
-    local nb = campaign.notebook
-    if not nb then
-        return nil, nil
-    end
-    local st = ledger.world_state(campaign).places[lid]
-    return ledger.place_state(campaign, lid), st and st.state
-end
-
 -- The terrain set a place gets with no map: by the place, then by what it is, then by the scene.
 function M.auto_template(campaign, loc, scene_type)
     local t = content.terrain
     if loc then
-        local st = place_state(campaign, loc.id)
-        if st and st.terrain then
-            return st.terrain          -- the world changed the place (S7)
-        end
         if t.by_location[loc.id] then
             return t.by_location[loc.id]
         end
@@ -209,22 +194,13 @@ function M.migrate(m)
     return m
 end
 
--- The saved map for a place, kept up to date with the world: a new state that brings its own
--- template swaps it, and pieces that land on the new set's scenery come off.
+-- The saved map for a place.
 function M.get(campaign, lid)
     local m = lid and campaign.maps and campaign.maps[lid]
     if not m then
         return nil
     end
     M.migrate(m)
-    local st, state = place_state(campaign, lid)
-    if state ~= m.state then
-        m.changed = state            -- the builder says so
-        m.state = state
-        if st and st.terrain and st.terrain ~= m.template then
-            M.set_template(m, st.terrain)
-        end
-    end
     return m
 end
 
@@ -240,8 +216,7 @@ end
 -- Start a map for a place: its template, nothing drawn yet.
 function M.new(campaign, lid, template)
     campaign.maps = campaign.maps or {}
-    local _, state = place_state(campaign, lid)
-    local m = { v = 2, template = template, props = {}, removed = {}, traps = {}, week = campaign.week, state = state }
+    local m = { v = 2, template = template, props = {}, removed = {}, traps = {}, week = campaign.week }
     campaign.maps[lid] = m
     return m
 end

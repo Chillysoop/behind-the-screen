@@ -1,6 +1,5 @@
 -- The week in the museum (v2): starting a week, the prep board's hours and choices, and what the
--- adventure keeps after a night. The prologue is strictly the module, so the old weekly machinery
--- (the story deck, factions, seeds, the valley) stays switched off while it runs. Engine-free.
+-- adventure keeps after a night. Engine-free.
 
 local content = require "game.model.content"
 local util = require "game.model.util"

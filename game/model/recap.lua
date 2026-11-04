@@ -209,8 +209,7 @@ function M.build(campaign, night, rng)
     -- report and a third after a click were three names for one night). The name it was planned
     -- under comes first and stays unless the DM picks another, which then names it everywhere.
     local titles = {}
-    local beat = campaign.arc_beat and campaign:arc_beat()
-    local planned = beat and beat.title and util.title_case(beat.title)
+    local planned
     -- (v2: an adventure's night is named for its rooms, "The Garden and the Entrance Hall".)
     if night.mus and campaign.adv then
         local MODULE = util.lazy("game.model.adventure").data
@@ -338,11 +337,8 @@ function M.last_session(campaign)
             table.insert(pool, s)
         end
     end
-    -- A clue that came with a handout sticks (game/model/handouts.lua): it leads.
-    local handed = require("game.model.handouts").last_week_cards(campaign)
     local function rank(s)
-        return (pinned[s.order] and 100 or 0) + ((s.clue and handed[s.clue]) and 60 or 0) + (s.kind == "clue" and 20 or 0)
-            + (s.kind == "goal" and 15 or 0) + (s.weight or 0)
+        return (pinned[s.order] and 100 or 0) + (s.kind == "clue" and 20 or 0) + (s.kind == "goal" and 15 or 0) + (s.weight or 0)
     end
     table.sort(pool, function(a, b)
         if rank(a) ~= rank(b) then

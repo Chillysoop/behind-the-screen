@@ -1,11 +1,11 @@
 -- The Museum of Nightmares, cardified: every place, person, goal, snag and prize in the
--- adventure as a card in the same shape as game/data/components.lua, so game night plays them
--- with its usual machinery. Adapted from "The Museum of Nightmares" by Luke Russell (DMs Guild)
+-- adventure as a card (the fields are listed in game/model/content.lua), so game night plays
+-- them with its usual machinery. Adapted from "The Museum of Nightmares" by Luke Russell (DMs Guild)
 -- for private playtesting; every line here is written in our own words, not the book's.
 -- Data only: tune freely. The module (rooms, moments, marks) is game/data/museum/module.lua.
 --
--- These cards never go into a story deck: content.lua files them under reserve = "museum",
--- and the adventure (game/model/adventure.lua) puts them on the night's rooms itself.
+-- These cards are never dealt: the adventure (game/model/adventure.lua) puts them on the
+-- night's rooms itself.
 
 local M = {}
 
