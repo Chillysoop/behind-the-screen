@@ -2542,7 +2542,7 @@ function M.handle(app, ev)
         if p then
             M.float(app, ev.who, ev.gift and ("The dice you gave: " .. (ev.name or "")) or ("New dice! " .. (ev.name or "")),
                 theme.gold)
-            M.push(app, ev.gift and (p.name .. " brought the dice you gave them: " .. (ev.name or "") .. ".")
+            M.push(app, ev.gift and (p.name .. " brought the dice you gave " .. util.pronoun_of(p.name).them .. ": " .. (ev.name or "") .. ".")
                 or (p.name .. " shows off a new set of dice: " .. (ev.name or "") .. "."), "reaction", true)
         end
         if app.tumble_die then
@@ -2554,8 +2554,8 @@ function M.handle(app, ev)
         app.keepsake_seen = true
         local p = player(app, ev.who)
         if p then
-            M.float(app, ev.who, "Their " .. (ev.short or "gift") .. ", all set up!", theme.heart)
-            M.push(app, p.name .. " spots the " .. (ev.short or "gift") .. " they gave you, out on your side of the table.",
+            M.float(app, ev.who, util.capitalize(util.pronoun_of(p.name).their) .. " " .. (ev.short or "gift") .. ", all set up!", theme.heart)
+            M.push(app, p.name .. " spots the " .. (ev.short or "gift") .. " " .. util.pronoun_of(p.name).they .. " gave you, out on your side of the table.",
                 "reaction")
         end
         if app.place_keepsakes then

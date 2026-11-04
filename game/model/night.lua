@@ -3424,11 +3424,11 @@ function M:safety_check(sc)
                 else
                     self:react({ [p.key] = "arms" })
                     if f.kind == "line" then
-                        self:say(p.name .. " goes quiet. She drew a line at this at Session Zero.", "warn")
+                        self:say(util.fill("{name} goes quiet. {Name_they} drew a line at this at Session Zero.", { name = p.name }), "warn")
                         score.add(p, "trust", -10)
                         score.add(p, "commitment", -3)
                     else
-                        self:say(p.name .. " goes quiet. They asked you about this at Session Zero.", "warn")
+                        self:say(util.fill("{name} goes quiet. {Name_they} asked you about this at Session Zero.", { name = p.name }), "warn")
                         score.add(p, "trust", -4)
                         score.add(p, "commitment", -2)
                     end

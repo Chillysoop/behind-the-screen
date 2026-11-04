@@ -245,7 +245,7 @@ function M.card(app, prep, p, i, forecast)
         local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
         kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
         gloss.card_spot(x + 10, y + 82, kit.width(mood_text, "ui14") + 28, 22, "Mood this week",
-            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how they'll take game night.")
+            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how " .. util.pronoun_of(p.name)["they'll"] .. " take game night.")
             or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. A one-on-one (Talk) finds out."))
         -- How well you know them (v2, game/model/familiar.lua): dots, and the words on hover.
         local fam = require "game.model.familiar"
@@ -257,7 +257,7 @@ function M.card(app, prep, p, i, forecast)
         gloss.card_spot(x + 168, y + 82, 84, 22, "You know " .. p.name .. ": " .. string.lower(fam.name(app.campaign, p.key)),
             "How well you know " .. p.name .. " at the table: what a look or a quiet means. It makes "
             .. ((require "game.data.thoughts").pronouns[p.key] or { their = "their" }).their
-            .. " thoughts on game night easier to read. It grows as you play together, read them right, and talk.")
+            .. " thoughts on game night easier to read. It grows as you play together, read " .. util.pronoun_of(p.name).them .. " right, and talk.")
         goodwill(app, p, x + 262, y + 86)
         -- Forecast for Thursday, from the board as it stands.
         kit.text(x + 14, y + 108, "Game night", "ui14", theme.dim)

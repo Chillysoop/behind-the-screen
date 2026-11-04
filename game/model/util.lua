@@ -56,7 +56,10 @@ function M.contains(list, value)
 end
 
 -- A hero's own pronouns (D6: Thessaly she, Brannoc he, Pip she, Oswin he; the new characters
--- theirs), by the hero's name: game/data/players.lua and the pregens in game/data/death.lua.
+-- theirs), by the hero's name: game/data/players.lua and the pregens in game/data/death.lua. The
+-- friends at the table have theirs (Mara she, Dev he, Jess she, Sam he: game/data/thoughts.lua), and so
+-- do the adventure's people, by the name on their card (a cast card's `pronoun`: Flitwidget he, Telpur
+-- he, the Lecturer he, Euryale she) and the companions (MODULE.companions' `pronoun`: Exhibit B he).
 M.PRONOUNS = {
     she = { they = "she", them = "her", their = "her", theirs = "hers", themselves = "herself", ["they're"] = "she's",
             ["they've"] = "she's", ["they'll"] = "she'll", ["they'd"] = "she'd" },
@@ -90,6 +93,22 @@ function M.pronoun_of(name)
                 pronoun_names[g.name] = g.pronouns
             end
         end
+        -- (The adventure's people, by their short name, and "The Lecturer" as well as "the Lecturer".)
+        local okc, content = pcall(M.lazy, "game.model.content")
+        for _, card in M.sorted_pairs(okc and content.components or {}) do
+            if card.kind == "cast" and card.short and M.PRONOUNS[card.pronoun or ""] then
+                pronoun_names[card.short] = pronoun_names[card.short] or card.pronoun
+                pronoun_names[M.capitalize(card.short)] = pronoun_names[M.capitalize(card.short)] or card.pronoun
+            end
+        end
+        local oka, adv = pcall(M.lazy, "game.model.adventure")
+        local comps = oka and adv.data and adv.data.companions or {}
+        for _, id in ipairs(comps.order or {}) do
+            local d = comps[id]
+            if d and d.name and M.PRONOUNS[d.pronoun or ""] then
+                pronoun_names[d.name] = pronoun_names[d.name] or d.pronoun
+            end
+        end
     end
     return M.PRONOUNS[pronoun_names[name or ""] or "they"] or M.PRONOUNS.they
 end
@@ -98,7 +117,9 @@ end
 -- vars.plural (the slice rework, A3: "Rook's bandits are", "Gus is"): the first word for one,
 -- the second for a group. A hero's pronouns: {actor_their}, {target_them}, {char_they} and so on
 -- (actor, target, other, doer, lowest: the hero named by {actor_char} etc.; char, new, old: the
--- hero named by {char}...), capitalised as {Actor_they}. D6.
+-- hero named by {char}...), capitalised as {Actor_they}. {friend_their} and the like are the friend's
+-- at the table that {actor} names (Mara, not Thessaly: a new character can be someone else); any other
+-- name in vars works the same ({Name_they} for {name}: "Mara goes quiet. She asked you..."). D6.
 local PRON_WORD = { they = true, them = true, their = true, theirs = true, themselves = true, ["they're"] = true,
                     ["they've"] = true, ["they'll"] = true, ["they'd"] = true }
 function M.fill(template, vars)
@@ -112,6 +133,9 @@ function M.fill(template, vars)
             if who and PRON_WORD[word] then
                 local low = string.lower(string.sub(who, 1, 1)) .. string.sub(who, 2)
                 local name = vars[low .. "_char"] or vars[low]
+                if low == "friend" then
+                    name = vars.friend or vars.actor        -- (the friend {actor} names, not their hero)
+                end
                 if type(name) == "string" then
                     local w = M.pronoun_of(name)[word]
                     return (low ~= who) and (string.upper(string.sub(w, 1, 1)) .. string.sub(w, 2)) or w

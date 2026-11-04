@@ -351,7 +351,7 @@ function M:forecast_reasons(key)
     end
     local n = self.talk_notes and self.talk_notes[key]
     if n and n.want_type and by_type[n.want_type] then
-        add(1.5, "You're giving " .. p.name .. " what they asked for: " .. n.want .. ".")
+        add(1.5, "You're giving " .. p.name .. " what " .. util.pronoun_of(p.name).they .. " asked for: " .. n.want .. ".")
     elseif n and n.want_type then
         add(0.8, p.name .. " asked for " .. n.want .. ", and there isn't one yet.")
     end

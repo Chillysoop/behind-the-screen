@@ -1568,7 +1568,7 @@ function M.soft_check(night, alts)
                 p = present(night, t.pushed[tag])
                 night.mus.soft[tag] = true
                 night:react({ [p.key] = "arms" })
-                night:say(p.name .. " goes quiet. They asked you about this at Session Zero.", "warn")
+                night:say(util.fill("{name} goes quiet. {Name_they} asked you about this at Session Zero.", { name = p.name }), "warn")
                 score.add(p, "trust", -4)
                 score.add(p, "fun", -6)
             end

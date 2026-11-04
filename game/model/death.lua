@@ -50,7 +50,7 @@ function M.options(campaign, p)
         add("Bring {actor_char} back, and it leaves a mark.", "scar")
         add("Let {actor_char} go. Say goodbye.", "goodbye")
     else
-        add("Ask {actor}. It's their call.", "ask")
+        add("Ask {actor}. It's {friend_their} call.", "ask")
         add("Say goodbye. {actor_char} gets last words, and the table holds a wake.", "goodbye")
     end
     return opts, mode
@@ -224,10 +224,11 @@ function M.after_fall(night, p)
                    text = "{actor_char} is gone, but {actor} isn't going anywhere. What does {actor} do for the rest of the night?",
                    options = {} }
     if ally then
-        table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.", sub = ally.name .. " is in every fight; {actor} runs them.",
+        table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.",
+                                     sub = ally.name .. " is in every fight; {actor} runs " .. util.pronoun_of(ally.name).them .. ".",
                                      pilot = ally.id, effects = { { "actor", fun = 5, spotlight = 4 } } })
     end
-    table.insert(card.options, { label = "{actor} helps you run the monsters.", sub = "They'll love it. The others might find the monsters a little meaner.",
+    table.insert(card.options, { label = "{actor} helps you run the monsters.", sub = "{Friend_they'll} love it. The others might find the monsters a little meaner.",
                                  effects = { { "actor", fun = 4, social = 3 }, { "others", challenge = 2 } }, monsters = true })
     table.insert(card.options, { label = "{actor} watches, and starts on a new hero.", effects = { { "actor", fun = -1, investment = 2 } } })
     night.actor = p

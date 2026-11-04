@@ -70,7 +70,7 @@ M.people = {
     { id = "mus_flitwidget", name = "Formicarius Flitwidget", role = "The curator", known = true,
       about = "A gnome with a huge moustache and a feathered hat. Cheerful, manic, and not telling them everything." },
     { id = "mus_telpur", name = "Telpur", role = "Runs the gift shop",
-      about = "A talking boot. Says they were once a great lord of the underworld. It's all a bit hazy." },
+      about = "A talking boot. Says he was once a great lord of the underworld. It's all a bit hazy." },
     { id = "mus_euryale", name = "Euryale", role = "The Gorgon upstairs", known = true,
       about = "Calm, clever, and very patient. She turns people to stone, but only when she has to." },
     { id = "mus_mech", name = "The Steam Mech", role = "The World of Tomorrow's pride",
@@ -513,9 +513,9 @@ M.second_look = {
 }
 -- Why the table would go back somewhere ({names}, {want}, {room}).
 M.revisit_why = {
-    missed = "{names} {want} another look at {room}. They're sure they missed something in there.",
+    missed = "{names} {want} another look at {room}. {Names_they're} sure {names_they} missed something in there.",
     hint = "You let slip that {room} still has something in it.",
-    passed = "{names} {want} to see {room}. They walked right past it.",
+    passed = "{names} {want} to see {room}. The party walked right past it.",
     shop = "{names} {want} to nip back to the gift shop and spend some Francs.",
     rest = "Everyone's hurting. {names} {want} to fall back to the gift shop for a breather.",
 }
@@ -788,7 +788,7 @@ M.moments = {
       } },
     { id = "mus_dice_painting", room = "paintings", spot = "4C", at = "mid", when = { knob = "dice" }, type = "table", actor = { "method_actor", "instigator", "casual" },
       title = "Five people and some dice",
-      text = "A small painting: five people round a table, rolling dice. One sits behind a little screen. {actor_char} stops dead. They look familiar.",
+      text = "A small painting: five people round a table, rolling dice. One sits behind a little screen. {actor_char} stops dead. The people in it look familiar.",
       options = {
           { label = "Lean in. The painted DM gives them a little wave.",
             log = "Somebody at the real table actually screams. Then everybody laughs.",
@@ -827,7 +827,7 @@ M.moments = {
     -- The gift shop ---------------------------------------------------------------------------
     { id = "mus_telpur_bit", room = "gift_shop", at = "start", when = { knob = "comedy" }, type = "table", actor = { "method_actor", "instigator", "casual" },
       title = "Telpur, Duke of Somewhere",
-      text = "Telpur clears their throat, which is hard for a boot. \"Once I was a great lord of the underworld. Now I do the till. No refunds.\"",
+      text = "Telpur clears his throat, which is hard for a boot. \"Once I was a great lord of the underworld. Now I do the till. No refunds.\"",
       options = {
           { label = "Do the voice. All of it.",
             log = "The voice is terrible. Jess cries laughing. Sam has to put his drink down.",
@@ -1087,7 +1087,7 @@ end
 
 M.companions = {
     order = { "exhibit_b", "telpur" },
-    exhibit_b = { name = "Exhibit B", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
+    exhibit_b = { name = "Exhibit B", pronoun = "he", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
                   sprite = "exhibit_b",
                   helps = { bonus = 2, find = 0.25, find_line = "Exhibit B scurries off under an exhibit and comes back with a Flitwidget Franc in his teeth." },
                   lines = {
@@ -1100,11 +1100,11 @@ M.companions = {
                       fight = { "Exhibit B, pocket! NOW!", "Nobody step on Exhibit B.", "Exhibit B is in the pocket. We're fine. Mostly." },
                       win = { "Exhibit B was very brave in the pocket.", "Exhibit B gets the first crumb of the victory snack." },
                   } },
-    telpur = { name = "Telpur", kind = "person", what = "the talking boot from the gift shop", owner = "jess", joins = { flag = "telpur_along" },
+    telpur = { name = "Telpur", pronoun = "he", kind = "person", what = "the talking boot from the gift shop", owner = "jess", joins = { flag = "telpur_along" },
                monster = "telpur", cast = "mus_telpur",
                helps = { bonus = 1, find = 0.1, find_line = "Telpur knows this museum: \"Under the third tile. Flitwidget hides Francs everywhere.\"" },
                lines = {
-                   join = "Telpur is coming with them tonight. They insisted, loudly, until somebody tied them to a pack strap. They have opinions about every exhibit.",
+                   join = "Telpur is coming with them tonight. He insisted, loudly, until somebody tied him to a pack strap. He has opinions about every exhibit.",
                    start = { "Telpur, from the backpack: \"Onward! Mind the laces.\"", "Telpur is already complaining about the walking." },
                    -- (What he thinks of them now, first: R11, people.lua. A companion remembers too.)
                    start_if = {
@@ -1354,9 +1354,9 @@ M.items = {
                 "The silver bracelet Flitwidget slipped them glints: Advantage on saves against her stare.",
                 "Flitwidget's bracelet is on a wrist and ready: Advantage on saves against her stare." } },
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
-      line = "They've read up on gorgons: eyes down, Advantage on saves against her stare.",
-      lines = { "They've read up on gorgons: eyes down, Advantage on saves against her stare.",
-                "They know what she is: eyes on her feet, never her face. Advantage on saves against her stare.",
+      line = "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
+      lines = { "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
+                "Everyone knows what she is: eyes on her feet, never her face. Advantage on saves against her stare.",
                 "The gorgon book did its job: everyone keeps their eyes low. Advantage on saves against her stare." } },
     { id = "charmed", when = { flag = "charmed" }, rooms = { "lair" }, boss = true, once = true, charm = true,
       line = "{holder} is still smiling at Euryale over the wine: {holder_they} starts the fight charmed by her." },
@@ -1512,7 +1512,7 @@ M.requests = {
                  { state = "party", text = "can we start next time with a proper rest in the gift shop? we're all running on fumes" } },
       answers = {
           yes = { reply = "Yes. You wake up fully rested. Telpur snored all night.", asker = 3, mus = { flag = "rested" } },
-          laugh = { reply = "Yes, but Telpur talks in their sleep. About hell. In detail.", asker = 2, mus = { flag = "rested" } },
+          laugh = { reply = "Yes, but Telpur talks in his sleep. About hell. In detail.", asker = 2, mus = { flag = "rested" } },
           reason = { reply = "Time's funny in the museum. You pick up right where you stopped, bruises and all.", asker = -2 },
           danger = { reply = "You rest, and wake to find a statue at the foot of the stairs that wasn't there before.", asker = 1, mus = { flag = "rested", warn = true } },
       } },
@@ -1522,7 +1522,7 @@ M.requests = {
       about = "Telpur is the talking boot behind the gift shop's counter, who says he was once a great lord of the underworld. "
           .. "Jess loved him.",
       answers = {
-          yes = { reply = "Telpur agrees to come along, as long as nobody wears them.", asker = 3, mus = { flag = "telpur_along" } },
+          yes = { reply = "Telpur agrees to come along, as long as nobody wears him.", asker = 3, mus = { flag = "telpur_along" } },
           laugh = { reply = "Telpur gives {char} a shoelace. It still talks. It won't stop.", asker = 2, mus = { flag = "shoelace" } },
           reason = { reply = "Telpur's bound to the shop. Visiting hours only.", asker = -1 },
           danger = { reply = "Telpur comes along, and talks during every sneaky bit.", asker = 2, mus = { flag = "telpur_along", warn = true } },

@@ -1,6 +1,7 @@
 -- Roadmap wave 2, "the table": the items Conner said yes to that are about the friends at the table
 -- and what the DM gets (R10 the friends choose differently from run to run, R5/D2 Euryale's escape
--- costs something, R6 a gentler first night, D6 the heroes' own pronouns, Exhibit B on the table,
+-- costs something, R6 a gentler first night, D6 everyone's own pronouns (the heroes, the friends at
+-- the table, the museum's people), Exhibit B on the table,
 -- wave 1's leftovers, and the same seed playing the same way every run). Whole prologues: the museum
 -- sim (tools/sim/museum.lua, its three DMs) played in this process over several seeds, watched
 -- through its events; one smoke run with DUMP_DIR for what's on screen; and targeted cases.
@@ -17,6 +18,7 @@ local ITEMS = { "run", "R10", "R5", "R6", "D6", "EB", "LEFT", "DET" }
 local NAMES = { run = "whole prologues", R10 = "the friends choose differently", R5 = "Euryale's escape costs",
     R6 = "a gentler first night", D6 = "the heroes' own pronouns", EB = "Exhibit B on the table",
     LEFT = "wave 1's leftovers", DET = "the same seed, the same night" }
+NAMES.D6 = "everyone's own pronouns"
 
 local fails = {}
 local function fail(item, msg)
@@ -656,13 +658,101 @@ case("R6", function()
 end)
 
 -- D6: the heroes' own pronouns -------------------------------------------------------------------------
--- A heuristic over everything the table heard: a hero's name, then within the same clause "they",
--- "their" or "them", with nobody else named and no group word in between.
+-- A heuristic over everything the table heard: someone named (a hero, a friend at the table, one of the
+-- museum's people), then within the same clause "they", "their" or "them", with nobody else named and
+-- no group word in between; and a line where one friend is named and the next sentence starts "They"
+-- ("Mara goes quiet. They asked you about this"). The museum's people talk to and about the party, so
+-- for them only what can't be the party counts: "they" or "their" right after the name ("Telpur
+-- clears their throat"), and a next sentence that starts "They" or "Their" with nobody else in it.
+local PRON = { they = true, their = true, them = true, themselves = true, themself = true, theirs = true,
+               ["they're"] = true, ["they've"] = true, ["they'll"] = true, ["they'd"] = true }
+local GROUP = { "and", "everyone", "everybody", "party", "both", "all", "others", "rest", "heroes", "table", "nobody",
+                "anyone", "someone", "each", "group", "friends", "heroes'", "people", "us", "we", "you" }
+local FRIENDS = { "Mara", "Dev", "Jess", "Sam" }
+local PEOPLE = { "Telpur", "Flitwidget", "Euryale", "Lecturer" }
+local ALL_NAMES = {}
+for _, list in ipairs({ HEROES, FRIENDS, PEOPLE }) do
+    for _, h in ipairs(list) do
+        table.insert(ALL_NAMES, h)
+    end
+end
+local function is_group(w)
+    for _, g in ipairs(GROUP) do
+        if w == g then
+            return true
+        end
+    end
+    for _, o in ipairs(ALL_NAMES) do
+        if w == string.lower(o) or w == string.lower(o) .. "'s" then
+            return true
+        end
+    end
+    return false
+end
+-- Who's named in a sentence (own: not "Euryale's card", which is about the card).
+local function names_in(sentence, own)
+    local out = {}
+    for _, h in ipairs(ALL_NAMES) do
+        local i, j = string.find(sentence, "%f[%a]" .. h .. "%f[%A]")
+        if i and not (own and string.sub(sentence, j + 1, j + 2) == "'s") then
+            table.insert(out, h)
+        end
+    end
+    return out
+end
+-- The clauses of a text that call one named person "they": a list of { name, clause }.
+local function pron_hits(text)
+    local hits = {}
+    for clause in string.gmatch(text .. ".", "([^%.!%?;:\"]+)") do
+        for _, h in ipairs(ALL_NAMES) do
+            local person = util.contains(PEOPLE, h)
+            local i, j = string.find(clause, "%f[%a]" .. h .. "%f[%A]")
+            if i and not string.find(string.sub(clause, j + 1, j + 1), ",") then
+                local words = {}
+                for w in string.gmatch(string.lower(string.sub(clause, j + 1)), "[%a']+") do
+                    table.insert(words, w)
+                end
+                local hit
+                for k, w in ipairs(words) do
+                    if PRON[w] and (not person or (k <= 2 and (w == "they" or w == "their" or w == "they're" or w == "they've"))) then
+                        hit = true
+                        break
+                    end
+                    if is_group(w) or (person and k >= 2) then
+                        hit = false
+                        break
+                    end
+                end
+                if hit then
+                    table.insert(hits, { h, clause })
+                end
+            end
+        end
+    end
+    -- One person named, and the next sentence goes on about "they".
+    local sentences = {}
+    for sn in string.gmatch(text, "[^%.!%?]+[%.!%?]*") do
+        table.insert(sentences, sn)
+    end
+    for k = 1, #sentences - 1 do
+        local named = names_in(sentences[k], true)
+        local nxt = sentences[k + 1]
+        local first = string.match(nxt, "^%s*\"?([%a']+)")
+        if #named == 1 and (first == "They" or first == "Their" or first == "They're" or first == "They've") and #names_in(nxt) == 0 then
+            local group = false
+            for w in string.gmatch(string.lower(sentences[k]), "[%a']+") do
+                for _, g in ipairs(GROUP) do
+                    group = group or w == g
+                end
+            end
+            if not group and not string.find(sentences[k], "\"", 1, true) then
+                table.insert(hits, { named[1], sentences[k] .. nxt })
+            end
+        end
+    end
+    return hits
+end
 do
-    local PRON = { they = true, their = true, them = true, themselves = true, themself = true, theirs = true,
-                   ["they're"] = true, ["they've"] = true, ["they'll"] = true, ["they'd"] = true }
-    local GROUP = { "and", "everyone", "everybody", "party", "both", "all", "others", "rest", "heroes", "table", "nobody",
-                    "anyone", "someone", "each", "group", "friends" }
     local seen = {}
     local n = 0
     for _, t in ipairs(W.texts) do
@@ -671,46 +761,20 @@ do
             if string.find(text, "{%a+_[%a']+}") then
                 fail("D6", t.where .. ": an unfilled pronoun in '" .. text .. "'")
             end
-            for clause in string.gmatch(text .. ".", "([^%.!%?;:\"]+)") do
-                n = n + 1
-                for _, h in ipairs(HEROES) do
-                    local i, j = string.find(clause, "%f[%a]" .. h .. "%f[%A]")
-                    if i and not string.find(string.sub(clause, j + 1, j + 1), ",") then
-                        local rest = string.lower(string.sub(clause, j + 1))
-                        local hit
-                        local words = {}
-                        for w in string.gmatch(rest, "[%a']+") do
-                            table.insert(words, w)
-                        end
-                        for _, w in ipairs(words) do
-                            if PRON[w] then
-                                hit = true
-                                break
-                            end
-                            for _, g in ipairs(GROUP) do
-                                if w == g then
-                                    hit = false
-                                end
-                            end
-                            for _, o in ipairs(HEROES) do
-                                if w == string.lower(o) then
-                                    hit = false
-                                end
-                            end
-                            if hit == false then
-                                break
-                            end
-                        end
-                        if hit and not seen[clause] then
-                            seen[clause] = true
-                            fail("D6", t.where .. ": '" .. text .. "'")
-                        end
+            n = n + 1
+            for _, hit in ipairs(pron_hits(text)) do
+                if not seen[hit[2]] then
+                    seen[hit[2]] = true
+                    add("D6", "single_they_" .. (util.contains(HEROES, hit[1]) and "heroes" or util.contains(FRIENDS, hit[1]) and "friends" or "people"))
+                    fail("D6", t.where .. ": " .. hit[1] .. " called they: '" .. text .. "'")
+                    if os.getenv("D6_ALL") then
+                        print("D6HIT", hit[1], text)
                     end
                 end
             end
         end
     end
-    set("D6", "clauses_read", n)
+    set("D6", "lines_read", n)
 end
 case("D6", function()
     local cases = {
@@ -721,6 +785,16 @@ case("D6", function()
         { "{new} rubs {new_their} wrists.", { new = "Bryn" }, "Bryn rubs her wrists." },
         { "before {actor_they've} left.", { actor_char = "Oswin" }, "before he's left." },
         { "{actor_char} and {actor_their} pack.", { actor_char = "a stranger" }, "a stranger and their pack." },
+        -- (The friends at the table, and the museum's people: theirs too.)
+        { "{name} goes quiet. {Name_they} asked you about this.", { name = "Mara" }, "Mara goes quiet. She asked you about this." },
+        { "{actor} stands on {friend_their} chair.", { actor = "Dev", actor_char = "Bryn" }, "Dev stands on his chair." },
+        { "{names} want another look. {Names_they're} sure.", { names = "Jess and Sam" }, "Jess and Sam want another look. They're sure." },
+        { "{names} wants another look. {Names_they're} sure.", { names = "Jess" }, "Jess wants another look. She's sure." },
+        { "{who} clears {who_their} throat.", { who = "Telpur" }, "Telpur clears his throat." },
+        { "{who} lowers {who_their} bow.", { who = "Euryale" }, "Euryale lowers her bow." },
+        { "{Who} clears {who_their} throat.", { Who = "The Lecturer", who = "the Lecturer" }, "The Lecturer clears his throat." },
+        { "{who} sniffs {who_their} way round.", { who = "Exhibit B" }, "Exhibit B sniffs his way round." },
+        { "{who} tips {who_their} hat.", { who = "Flitwidget" }, "Flitwidget tips his hat." },
     }
     for _, cs in ipairs(cases) do
         local got = util.fill(cs[1], cs[2])
@@ -805,6 +879,17 @@ case("EB", function()
         local s = read(name) or ""
         if string.find(s, "mini_exhibit_b", 1, true) then
             pics = pics + 1
+        end
+        -- D6 on screen: no one person called "they" in what the screens say.
+        for line in string.gmatch(s, "[^\n]+") do
+            local text = string.match(line, "^text\t.*\t([^\t]*)$")
+            if text and #text > 0 then
+                text = string.gsub(text, "\\n", " ")
+                add("D6", "screen_lines_read")
+                for _, hit in ipairs(pron_hits(text)) do
+                    fail("D6", name .. ": " .. hit[1] .. " called they on screen: '" .. text .. "'")
+                end
+            end
         end
         -- R5: the showdown board says what letting her go costs.
         if string.find(name, "showdown", 1, true) then

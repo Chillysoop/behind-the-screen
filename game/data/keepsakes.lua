@@ -68,7 +68,7 @@ return {
         { at = 3, text = "{name} lights up. That was exactly the right way to take it." },
         { at = 1, text = "{name} smiles, glad it landed." },
         { at = 0, text = "{name} nods, and that's that." },
-        { at = -99, text = "{name} looks a little flat. They'd hoped you'd make more of it." },
+        { at = -99, text = "{name} looks a little flat. {Name_they'd} hoped you'd make more of it." },
     },
     SAID = {
         gush = "You make a fuss over it, out loud, while everyone's still putting their coats on.",

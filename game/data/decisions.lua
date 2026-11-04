@@ -69,7 +69,7 @@ return {
             { label = "Sure. {other}, go ahead.", share = true,
               log = "{other} sits up. Everyone leans in.",
               effects = { { "all", social = 3 } } },
-            { label = "Keep it {actor}'s. It was their hit.", share = false,
+            { label = "Keep it {actor}'s. It was {friend_their} hit.", share = false,
               log = "'Nice thought, but that one's yours, {actor}.'",
               effects = { { "actor", fun = 1 }, { "others", fun = -1 } } },
         },
@@ -100,7 +100,7 @@ return {
         text = "{actor_char} is about to drop {boss} in round {round}. That's the villain you spent all week on.",
         options = {
             { label = "Let it drop. They earned it.", battle = "let",
-              log = "{boss} crumples. {actor} stands on their chair.",
+              log = "{boss} crumples. {actor} stands on {friend_their} chair.",
               effects = { { "actor", spotlight = 16, fun = 8 }, { "arch:butt_kicker", fun = 5 }, { "arch:power_gamer", fun = 4 },
                           { "arch:tactician", challenge = -6 }, { "arch:storyteller", story = -4 } } },
             { label = "Second phase! It rises, angrier.", battle = "second_phase",
@@ -139,7 +139,7 @@ return {
         text = "{target_count} enemies have {actor_char} pinned, and {actor_char} is down to {hp} hit points.",
         options = {
             { label = "Let the dice fall where they fall.", battle = "let",
-              log = "You pick up the dice. {actor} covers their eyes.",
+              log = "You pick up the dice. {actor} covers {friend_their} eyes.",
               effects = { { "all", challenge = 6 }, { "arch:tactician", fun = 3, trust = 2 } } },
             { label = "They get distracted by something shiny.", battle = "distract",
               log = "Something glitters on the floor. Every one of them dives for it.",
@@ -175,7 +175,7 @@ return {
         text = "{actor_char} just failed a third death save. By the rules, {actor_char} is dead. {actor} is staring at you.",
         options = {
             { label = "The rules stand. {actor_char} dies.", battle = "let",
-              log = "The table goes very quiet. {actor} puts down their dice.",
+              log = "The table goes very quiet. {actor} puts down {friend_their} dice.",
               canon = "{actor_char} died at {location}",
               effects = { { "actor", fun = -12, investment = 8 }, { "all", story = 14, challenge = 10, trust = 3 },
                           { "arch:tactician", fun = 4 } } },
@@ -251,7 +251,7 @@ return {
         id = "potion_action", type = "rules", trigger = "potion",
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
-        text = "{actor} drank a healing potion last turn, and wants to know: was that their whole turn?",
+        text = "{actor} drank a healing potion last turn, and wants to know: was that {actor_their} whole turn?",
         options = {
             { label = "A Bonus Action, like the current rules say.", leans = "book",
               log = "Glug, then they still get to swing. Everyone approves.",

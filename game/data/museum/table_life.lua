@@ -103,7 +103,7 @@ return {
           answer = "\"Any coin you like! I keep a drawer for every kind of money there is. One drawer is just buttons.\"",
           better = "\"And a little something from the gift shop on top, if you bring my museum back in one piece.\"" },
         { who = "flitwidget", skill = "insight", ask = "Is anyone still in there?",
-          answer = "\"My assistant, Telpur, minds the gift shop. Find them. They know the place better than I do.\"",
+          answer = "\"My assistant, Telpur, minds the gift shop. Find him. He knows the place better than I do.\"",
           better = "\"Telpur is a little... unusual. Be polite, make no jokes about feet, and never ask for a refund.\"" },
       },
       table_bits = {

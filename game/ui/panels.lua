@@ -138,7 +138,7 @@ function M.draw(app, on_click)
         -- (The re-test, October 16: "the gold dot by Mara's name" meant nothing.)
         require("game.ui.gloss").card_spot(x + TEXT_X + kit.width(p.name, "ui18b") + 5, y + 8, 18, 18,
             "Heroic Inspiration", "A token you gave " .. p.name .. " for great play. " .. p.char .. " can spend it to reroll "
-            .. "one die, and it goes back to you when they do.", nil, chip.token)
+            .. "one die, and it goes back to you once " .. util.pronoun_of(p.char)["they've"] .. " used it.", nil, chip.token)
         -- Who's with them (companions.lua): a paw by the name, the companion's card on hover.
         local okc, companions = pcall(require, "game.model.companions")
         local comp = okc and app.night and companions.of(app.night, p) or nil
@@ -150,8 +150,8 @@ function M.draw(app, on_click)
             local icon = comp.sprite and kit.picture(cx - 3, cy - 8, 24, 28, "mini_" .. comp.sprite, kit.rgba("#ffffff"))
                 or kit.icon(cx + 1, cy + 1, 16, comp.kind == "pet" and "paw" or "hand", theme.gold)
             require("game.ui.gloss").card_spot(cx - 2, cy - 2, 22, 22, comp.name, util.capitalize(comp.what or "")
-                .. ". With " .. p.char .. (comp.pocket and ": rides in a pocket, and helps when they look around." or
-                (": in every fight, played by " .. p.name .. ", and helps when they look around.")), nil, icon)
+                .. ". With " .. p.char .. (comp.pocket and (": rides in a pocket, and helps " .. util.pronoun_of(p.char).them .. " look around.") or
+                (": in every fight, played by " .. p.name .. ", and helps the party look around.")), nil, icon)
         end
         local role = p.char .. ", " .. p.class_name .. " " .. util.int(level)
         if kit.width(role, "ui14") > TEXT_W then
