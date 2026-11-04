@@ -85,7 +85,7 @@ Where v2 lives:
   (`game/data/rules_glossary.lua`, plus an adventure's own `MODULE.glossary`) is on for every screen by
   default (`kit.gloss_default`); speech and the chat turn it off (`gloss = false`).
 - **The prototype notice stays.** Every launch opens on "Before you play" (`game/ui/intro_view.lua`) until the
-  player clicks Agree. Tests agree to it first (`tools/tests/gui_smoke.lua`, `game/ui/autotest.lua`).
+  player clicks Agree. Tests agree to it first (`tools/tests/museum_smoke.lua`, `game/ui/autotest.lua`).
 - **Say only what's true (November 2, `docs/design/2026-11-02-cause-and-effect.md`).** A line that asserts
   an outcome reads it from state or carries a condition (`when`, `text_if`, `read_if`, `line_if`, `win_if`).
   Every flag set is read by something, every mark changes boss night, a log that hurts someone hurts them
@@ -127,17 +127,11 @@ least:
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
 
-`tools/tests/gui_smoke.lua` drives the October 20 flow (the planner, backstories, the valley board), which this
-branch no longer shows; it isn't expected to pass here.
-
 Then run the checks for the area you touched. The README's "Tuning and tests" section lists each one, for
-example:
-- `lua tools/sim/slice.lua` for the four-session slice;
-- `lua tools/tests/story_check.lua` and `lua tools/tests/chronicle_check.lua` for the story;
-- `lua tools/tests/rules_cases.lua` for the rules.
+example `lua tools/tests/rules_cases.lua` for the rules, `lua tools/tests/rest_check.lua` for rests.
 
-`DUMP_DIR=out lua tools/tests/gui_smoke.lua 1` also writes every screen's nodes, so you can see what a screen shows
-without the engine.
+`DUMP_DIR=out lua tools/tests/museum_smoke.lua 1` also writes every screen's nodes, so you can see what a screen
+shows without the engine.
 
 ## Building
 

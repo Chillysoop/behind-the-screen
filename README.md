@@ -163,12 +163,6 @@ reasons: who they are as a player, what their nights have been like, or a seed t
 get a say. At level 4 everyone takes an Ability Score Improvement. Game night fights use the new level and
 subclasses from then on.
 
-**The gate.** `lua tools/sim/social.lua [campaigns] [weeks]` (default 8 x 10, about 7 minutes) runs simulated DMs
-who ignore conflicts, talk them out, say it straight, fix them at the table or plan around them, across five
-Session Zero set-ups, then checks every conflict can be settled at least two ways, ignoring one costs the people
-in it, fixes land within 1 to 3 weeks, every subclass pick is true to its player, seeds nudge picks without
-forcing them, seeds pay off when followed up and go stale when not, and the safety tools work.
-
 ## The slice and the playtest round (M7)
 
 **The arc.** The slice is Session Zero and the first four sessions of a 20-session campaign, *The Silent Bells*
@@ -211,7 +205,7 @@ maximized.
 
 The package is a release build with `tools/playtest/playtest.ini` over `game.project`: the draft dialogue still
 plays (`drafts = 1`), F2, F3 and F4 are off (they're debug-build keys, and `playtest = 1`), and no debug ports open, so Windows Firewall stays
-quiet. `tools/playtest/sample_logs.lua` writes pretend logs to try the analyzer on.
+quiet. `tools/playtest/samples/` holds pretend logs to try the analyzer on.
 
 ## A real session at the table (the real-session pass)
 
@@ -514,42 +508,31 @@ See *The slice and the playtest round* above for running a round with outside te
 Everything in `game/data/` is safe to edit. After changing it, run the headless tests from the project root
 with any Lua 5.1+ or LuaJIT interpreter:
 
-    lua tools/tests/sim_weeks.lua      # simulates 720 weeks with three DM styles and checks the numbers
-    lua tools/tests/gui_smoke.lua      # clicks through the whole slice of the real UI against a mock GUI, then continues a save
-    lua tools/tests/rules_cases.lua    # 60 hand-checked SRD 5.2.1 combat cases (M3 and since)
-    lua tools/sim/nights.lua           # 288 game nights with six DM styles against the M4 gate (about 20 seconds)
+    for s in 1 2 3 4 5 6 7 8; do lua tools/tests/museum_smoke.lua $s || break; done
+                                       # the whole prologue through the real UI against a mock GUI
+                                       # (DUMP_DIR=out writes every screen's nodes; TRANSCRIPT=file what a player reads)
+    for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
+                                       # the prologue headless, three kinds of DM ("log" after the style: every line)
+    lua tools/tests/museum_truth.lua   # cause and effect: every flag read, every mark does something
+    lua tools/tests/thoughts_check.lua # the friends' thoughts: lines, answers, Empathy, whole prologues
+    lua tools/tests/standing_check.lua # the DM's recap: sides, people's lines, who's drawn to whom
+    lua tools/tests/ties_check.lua     # ties and locks: block and open, refusals, saves, whole prologues
+    lua tools/tests/barks_check.lua    # fight barks fit the moment; a handed-off killing blow is told, not re-swung
+    lua tools/tests/map_repo_check.lua # the map repository and the open floors
+    GLOSS_AUDIT=1 lua tools/tests/museum_smoke.lua 1   # every game word on screen has a hover
+    lua tools/tests/museum_fights.lua  # the museum's monsters on the rules engine (about 2 minutes)
+    lua tools/tests/rules_cases.lua    # hand-checked SRD 5.2.1 combat cases (M3 and since)
+    lua tools/tests/save_check.lua     # museum saves load back and play on, mid-prologue too (about 2 minutes)
+    lua tools/tests/playtest_nov3_check.lua 8   # the November 3 notes, played: whole prologues
+    lua tools/tests/table_life_check.lua  # small moments: they happen, never in fights or at 4x
+    lua tools/tests/rest_check.lua     # Short and Long Rests by SRD 5.2.1, the party's state carried across nights
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
-    lua tools/tests/social_check.lua   # M6 data hangs together; Session Zero, conversations, seeds, level-ups work
-    lua tools/sim/social.lua           # the M6 gate: conflicts, subclass picks, seeds (about 7 minutes)
-    lua tools/sim/slice.lua            # the M7 slice: four sessions with three simulated DMs (about 30 seconds)
-    lua tools/tests/save_check.lua     # save after any session, load, play on: nothing may change (about 40 seconds)
-    lua tools/tests/a11_check.lua      # the fix pass's gates (A1 to A18)
-    lua tools/tests/m8_check.lua       # M8's gates: events, fun failure, death, moments, jokes, Grudges, takeovers, maps
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua kettle prints one)
-    lua tools/tests/board_story_check.lua  # pieces drop in on the words that name them; people step in when named
-    lua tools/tests/table_check.lua    # dice sets and gifts, first-session intros, the session-start recap, the clock,
-                                       # table awards, gifts from the table (Goodwill)
-    lua tools/tests/story_check.lua    # the story playtest: foes named, places and favours consistent, cliffhangers end
-                                       # the night; storylines (loose ends wear down, come back), handouts
-    lua tools/tests/chronicle_check.lua  # the Story log: every scene filed under its storylines, logs that read,
-                                       # live and planned entries, keywords, saves, old saves rebuilt, fallen heroes,
-                                       # and the backstories Session Zero writes in
     python3 tools/tests/require_check.py  # no require cycles (the engine's builder refuses them)
     python3 tools/validate.py          # every Lua file parses, every resource and sprite animation exists
     tools/tests/engine_check.sh        # Linux + Xvfb: the real engine plays itself, saves, continues (about 10 minutes)
-    MODES=4 tools/tests/engine_check.sh  # the same, showing off notes, sheets, the builder, checks and a fight in screenshots
+    MODES=4 tools/tests/engine_check.sh  # one session's game night in screenshots
     MODES=6 tools/tests/engine_check.sh  # the board gallery: every board set out in full, one screenshot each
-    AUDIT=1 lua tools/tests/gui_smoke.lua  # also lists every text the screens had to cut short, and where
-
-## Simulation harness (M2)
-
-    lua tools/sim/run.lua [campaigns] [weeks]     # default 16 campaigns x 24 weeks, about 3 minutes
-
-Seven simulated DMs (balanced, story first, combat only, ignores Sam, cooks the dice, random, wings it) each run
-the campaigns against the real model. It prints the M2 gate checks and writes `tools/sim/report.html`, a page of
-charts you can open in any browser: Suspicion and Trust when you cook dice, Investment by prep style, a player
-being ignored, every player's favourite scene type, one campaign week by week, and every break any player took.
-DM styles live in `tools/sim/dm_styles.lua`; add your own there.
 
 ## Rules engine (M3)
 
