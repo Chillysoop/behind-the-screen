@@ -152,7 +152,7 @@ return {
         id = "death_roll", type = "screen", trigger = "death_roll",
         actor = { "butt_kicker", "method_actor", "explorer", "instigator", "storyteller", "casual" },
         title = "A roll that could drop them",
-        text = "Behind your screen, {target} hits {actor_char} for {damage}. That's enough to knock them out cold. Nobody saw the die.",
+        text = "Behind your screen, {target} hits {actor_char} for {damage}. That's enough to knock {actor_them} out cold. Nobody saw the die.",
         options = {
             { label = "Let it ride. Call the hit.", battle = "let",
               log = "You read out the damage. {actor} groans.",
@@ -161,7 +161,7 @@ return {
               log = "'It... misses. Barely.'",
               effects = { { "actor", fun = 3 }, { "all", challenge = -4 }, { "arch:tactician", fun = -2 } } },
             { label = "Offer a deal: stay up, but with a scar.", battle = "deal",
-              log = "{actor_char} stays on their feet. The scar will be part of every story from now on.",
+              log = "{actor_char} stays on {actor_their} feet. The scar will be part of every story from now on.",
               canon = "{actor_char}'s scar from {target}",
               effects = { { "actor", spotlight = 12, story = 10, investment = 6 }, { "arch:storyteller", story = 6 },
                           { "arch:method_actor", fun = 6 } } },
@@ -231,7 +231,7 @@ return {
         id = "stacking", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric", fight_needs = "bless",
         actor = { "power_gamer", "tactician" },
         title = "Do those stack?",
-        text = "{actor} asks if Oswin's Bless stacks with their other bonus. Then: would a second Bless stack on top?",
+        text = "{actor} asks if Oswin's Bless stacks with his other bonus. Then: would a second Bless stack on top?",
         options = {
             -- SRD 5.2.1: different effects add together; the same spell's effects don't (p. 108).
             { label = "Different effects stack. The same spell twice doesn't.", leans = "book",
@@ -291,7 +291,7 @@ return {
         actor = { "explorer", "instigator", "storyteller" },
         other = { "butt_kicker", "tactician", "casual" },
         title = "Splitting the party",
-        text = "{actor_char} wants to look around on their own. {other_char} heads off the other way. Both are already walking.",
+        text = "{actor_char} wants to look around on {actor_their} own. {other_char} heads off the other way. Both are already walking.",
         options = {
             { label = "Let them split and cut between them.", split = true,
               sub = "Until this scene's done they're apart: a fight here starts without them, and they come running.",

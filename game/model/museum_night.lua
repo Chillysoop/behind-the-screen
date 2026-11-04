@@ -1447,7 +1447,7 @@ function M.room_start(night, sc)
             st.aspects[p.key] = st.aspects[p.key] or {}
             table.insert(st.aspects[p.key], 1, "Came for " .. util.lower_first(h.name) .. ", and found it in "
                 .. util.lower_first(MODULE.rooms[sc.room].name))
-            night:highlight(6, p.char .. " finds what they came for: " .. util.lower_first(h.name), { p }, "thread")
+            night:highlight(6, util.fill("{char} finds what {char_they} came for: ", { char = p.char }) .. util.lower_first(h.name), { p }, "thread")
         end
     end
     -- What the week between promised, paying off here (the room's callbacks): a line, and maybe

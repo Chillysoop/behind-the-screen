@@ -594,13 +594,13 @@ M.moments = {
       } },
     { id = "mus_pond", room = "garden", danger = "the pond: something with tentacles lives in it", spot = "pond", at = "end", type = "story", actor = { "instigator", "explorer" },
       title = "The dark pond",
-      text = "{actor_char} wants a closer look at the pond. As they lean over the water, a grey tentacle slides up through the lilies, tastes the air, and sinks back down. Everyone saw it.",
+      text = "{actor_char} wants a closer look at the pond. As {actor_they} leans over the water, a grey tentacle slides up through the lilies, tastes the air, and sinks back down. Everyone saw it.",
       options = {
           { label = "Let them. They know what's in there.",
             roll = { dc = 10, skill = { "acrobatics", "athletics" }, convenient = "success",
                      success = { log = "{actor_char} dodges a tentacle and fishes out a little brass key. Nobody knows what it opens. Yet.",
                                  effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, flag = "brass_key", aspect = "Fished a brass key out of a haunted pond" } },
-                     fail = { log = "A tentacle wraps {actor_char}'s ankle and drags them in up to the waist. They come out cut and furious.",
+                     fail = { log = "A tentacle wraps {actor_char}'s ankle and drags {actor_them} in up to the waist. {Actor_they} comes out cut and furious.",
                               effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, drag = { "pond", "pond" }, aspect = "Was dragged into a haunted pond" } } } },
           { label = "\"Are you sure? It's got tentacles.\"",
             log = "{actor_char} thinks better of it. The pond burbles, disappointed.",
@@ -618,7 +618,7 @@ M.moments = {
                         { "all", reward = 2 } },
             mus = { francs = 1, flag = "boon", inspire = "The museum thanks {char} for the donation.", careful = 1, favor = { who = "flitwidget", n = 1 } } },
           { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
-            log = "{actor_char} cracks their knuckles and kneels by the case.",
+            log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",
             effects = { { "actor", spotlight = 6 }, { "arch:instigator", fun = 5 }, { "arch:method_actor", fun = 2 }, { "arch:power_gamer", fun = 3 } } },
       } },
     -- The DM's call once they go for the lock: let it ride (a roll, the guard right there), or stop it.
@@ -635,7 +635,7 @@ M.moments = {
                               effects = { { "actor", spotlight = 6, challenge = 4 }, { "arch:butt_kicker", fun = 4 }, { "arch:tactician", trust = -1 } },
                               mus = { risk = true, fight = true, favor = { who = "flitwidget", n = -1 }, aspect = "Tried to rob a museum's donation box" } } } },
           { label = "Rein them in, out of character: \"Not this one.\"",
-            log = "You give {actor_char} a look over the screen. They put the picks away, sulking.",
+            log = "You give {actor_char} a look over the screen. {Actor_they} puts the picks away, sulking.",
             effects = { { "actor", fun = -6, trust = -1 }, { "others", fun = 2 } } },
       } },
 
@@ -701,7 +701,7 @@ M.moments = {
                      fail = { log = "The painting bites. {actor_char} pulls back an arm numb to the elbow, empty-handed.",
                               effects = { { "actor", spotlight = 6, challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 }, aspect = "Got frostbite from a painting" } } } },
           { label = "\"Better not touch the paintings.\"",
-            log = "{actor_char} keeps their hands in their pockets. The painted figure looks almost disappointed.",
+            log = "{actor_char} keeps {actor_their} hands in {actor_their} pockets. The painted figure looks almost disappointed.",
             effects = { { "arch:explorer", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
     { id = "mus_dice_painting", room = "paintings", spot = "4C", at = "mid", when = { knob = "dice" }, type = "table", actor = { "method_actor", "instigator", "casual" },
@@ -732,7 +732,7 @@ M.moments = {
       } },
     { id = "mus_return_paint", room = "paintings", at = "end", when = { flag = "paint" }, type = "story", actor = { "method_actor", "casual", "tactician" }, party = true,
       title = "Put the paint back?",
-      text = "The painted weapons are starting to drip. {actor_char} could slide them back into their paintings before they melt.",
+      text = "The painted weapons are starting to drip. {actor_char} could slide each one back into its own painting before it melts.",
       options = {
           { label = "Put them back. It feels polite.", want = "put the painted weapons back",
             log = "Each one slides home. A Franc appears, and the duellist in the frame tips his hat.",
@@ -762,7 +762,7 @@ M.moments = {
       options = {
           -- (Their prices: PRICE, at the top of this file.)
           { label = priced("A scholar's book on gorgon-worshippers", PRICE.tenets), price = PRICE.tenets, want = "buy the book on gorgon-worshippers",
-            log = "The Tenets of the Rotting Temple. {actor_char} starts reading before they've left the shop.",
+            log = "The Tenets of the Rotting Temple. {actor_char} starts reading before {actor_they've} left the shop.",
             effects = { { "arch:storyteller", fun = 6, story = 5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { mark = "know", spend = PRICE.tenets, favor = { who = "telpur", n = 1 } } },
           { label = priced("The Mech Instruction Manual", PRICE.manual), price = PRICE.manual, want = "buy the Mech manual",
@@ -785,7 +785,7 @@ M.moments = {
     -- The Hunting Grounds ---------------------------------------------------------------------
     { id = "mus_tracks", room = "hunting", spot = "6I", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" }, party = true,
       title = "Scratch marks",
-      text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points out they're very easy to follow. Almost as if someone wanted them followed.",
+      text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points out that the trail is very easy to follow. Almost as if someone wanted it followed.",
       options = {
           { label = "Follow them anyway. They know it's bait.", want = "follow the marks anyway, weapons out",
             log = "They follow the trail with weapons out. The huntlings spring the trap, and the party was ready for it.",
@@ -801,7 +801,7 @@ M.moments = {
       text = "In the kitchen diorama, the cupboard doors are polished to a mirror shine. {actor_char} could prise one off.",
       options = {
           { label = "Take one. You never know.", want = "take one of the mirror-bright doors",
-            log = "{actor_char} unscrews a cupboard door and straps it to their pack. Nobody asks why. Someone should.",
+            log = "{actor_char} unscrews a cupboard door and straps it to {actor_their} pack. Nobody asks why. Someone should.",
             effects = { { "actor", spotlight = 6 }, { "arch:tactician", fun = 4 }, { "arch:explorer", fun = 3 }, { "arch:power_gamer", fun = 3 } },
             mus = { mark = "mirror", aspect = "Carried a cupboard door upstairs to fight a Gorgon" } },
           { label = "Leave the exhibits alone.", want = "leave the exhibits alone",
@@ -849,7 +849,7 @@ M.moments = {
       } },
     { id = "mus_whispers", room = "offices", spot = "7B", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
       title = "Whispers",
-      text = "{actor_char} bends over the archivist's body. A faint voice starts whispering, to them alone.",
+      text = "{actor_char} bends over the archivist's body. A faint voice starts whispering, to {actor_them} alone.",
       options = {
           { label = "Roll for it, behind the screen.",
             roll = { dc = 13, skill = { "insight", "religion" }, secret = true, convenient = "success",
@@ -910,7 +910,7 @@ M.moments = {
     -- The lecture theatre ---------------------------------------------------------------------
     { id = "mus_earplugs", room = "lecture", at = "start", type = "rules", actor = { "tactician", "casual", "storyteller" },
       title = "Can I block my ears?",
-      text = "{actor_char} wants to stuff candle wax in their ears before going in. \"If I can't hear him, he can't bore me, right?\"",
+      text = "{actor_char} wants to stuff candle wax in {actor_their} ears before going in. \"If I can't hear him, he can't bore me, right?\"",
       options = {
           { label = "Yes. It's a good idea, and it works.",
             log = "Wax in, cloth over. It works. Nobody else thought of it.",
@@ -948,7 +948,7 @@ M.moments = {
                      success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
                                  effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 4 }, { "arch:method_actor", fun = 3 } },
                                  mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
-                     fail = { log = "The frame bites. {actor_char} pulls back numb fingers with nothing in them.",
+                     fail = { log = "The frame bites. {actor_char} pulls back numb, empty fingers.",
                               effects = { { "actor", challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 } } } } },
           { label = "No time. Swords out.", want = "forget the frame and draw steel",
             log = "They draw steel. The knight's armour drinks the first blow like ink.",
@@ -1057,7 +1057,7 @@ M.explore = {
                                      line = "{actor_char} peels off a strip of razorbark without losing a finger. Somebody will pay a Franc for that." } },
                 traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
                                      spot_dc = 13, hurt = { 1, 6 },
-                                     hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks them off their feet. Something in the jungle chitters.",
+                                     hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks {actor_them} off {actor_their} feet. Something in the jungle chitters.",
                                      dodge = "{actor_char} feels the vine tighten and steps out of the loop just in time.",
                                      spotted = "{actor_char} spots the loop of vine in the leaves and cuts it. Something in the jungle chitters, disappointed." } } },
     offices = { "drawings", "7A", looks = 1 },        -- (the eye on every wall is behind the locked door)
@@ -1249,7 +1249,7 @@ M.items = {
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
       line = "They've read up on gorgons: eyes down, Advantage on saves against her stare." },
     { id = "charmed", when = { flag = "charmed" }, rooms = { "lair" }, boss = true, once = true, charm = true,
-      line = "{holder} is still smiling at Euryale over the wine: they start the fight charmed by her." },
+      line = "{holder} is still smiling at Euryale over the wine: {holder_they} starts the fight charmed by her." },
     { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword", carry = true,
       line = "{holder} has the vorpal sword out. Telpur's forty Francs were well spent." },
     { id = "vorpal", when = { flag = "vorpal_lair" }, rooms = { "lair" }, boss = true,
@@ -1289,7 +1289,7 @@ M.friction = {
                    log = "You make a note, and you keep it: the next big moment is {actor_char}'s.", screen = true },
     },
     bonds = {
-        share_the_loot = "{actor_char} lets {target_char} have first pick of whatever they find next: 'You'll get more use out of it than me.'",
+        share_the_loot = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
         stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
     },
 }
@@ -1658,7 +1658,7 @@ M.chat_ask = {
                     companion_find = "exhibit_b" },
                   { label = "No pets in the museum.", say = "no pets in the museum, sorry", back = "flitwidget would allow it", effects = { fun = -2, trust = -1 } } } },
     { id = "sam_rules", who = "sam", from = 2, text = "@DM quick one: does a healing spell work through a closed door",
-      replies = { { label = "Only if Oswin can see them.", say = "only if oswin can see them", back = "fair", effects = { trust = 2 } },
+      replies = { { label = "Only if Oswin can see who he's healing.", say = "only if oswin can see who he's healing", back = "fair", effects = { trust = 2 } },
                   { label = "I'll look it up and get back to you.", say = "i'll look it up and get back to you", back = "appreciate it", effects = { trust = 1, commitment = 1 } },
                   { label = "Sure, why not.", say = "sure, why not", back = "...ok cool", effects = { trust = -1, fun = 1 } } } },
     { id = "gorgon_strength", who = "dev", from = 2, text = "@DM how strong is the gorgon. like on a scale of one to brannoc",

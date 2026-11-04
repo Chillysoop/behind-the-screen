@@ -55,16 +55,68 @@ function M.contains(list, value)
     return false
 end
 
+-- A hero's own pronouns (D6: Thessaly she, Brannoc he, Pip she, Oswin he; the new characters
+-- theirs), by the hero's name: game/data/players.lua and the pregens in game/data/death.lua.
+M.PRONOUNS = {
+    she = { they = "she", them = "her", their = "her", theirs = "hers", themselves = "herself", ["they're"] = "she's",
+            ["they've"] = "she's", ["they'll"] = "she'll", ["they'd"] = "she'd" },
+    he = { they = "he", them = "him", their = "his", theirs = "his", themselves = "himself", ["they're"] = "he's",
+           ["they've"] = "he's", ["they'll"] = "he'll", ["they'd"] = "he'd" },
+    they = { they = "they", them = "them", their = "their", theirs = "theirs", themselves = "themselves", ["they're"] = "they're",
+             ["they've"] = "they've", ["they'll"] = "they'll", ["they'd"] = "they'd" },
+}
+local pronoun_names
+function M.pronoun_of(name)
+    if not pronoun_names then
+        pronoun_names = {}
+        local ok, players = pcall(M.lazy, "game.data.players")
+        for _, key in ipairs(ok and players.order or {}) do
+            local d = players[key]
+            if d and d.char then
+                pronoun_names[d.char] = d.pronouns
+            end
+        end
+        -- (The players themselves, for a line that names the friend: game/data/thoughts.lua's pronouns.)
+        local okt, th = pcall(M.lazy, "game.data.thoughts")
+        for key, pr in pairs(okt and th.pronouns or {}) do
+            local d = ok and players[key]
+            if d and d.name then
+                pronoun_names[d.name] = (pr.them == "her" and "she") or (pr.them == "him" and "he") or "they"
+            end
+        end
+        local okd, death = pcall(M.lazy, "game.data.death")
+        for _, list in pairs(okd and death.PREGENS or {}) do
+            for _, g in ipairs(list) do
+                pronoun_names[g.name] = g.pronouns
+            end
+        end
+    end
+    return M.PRONOUNS[pronoun_names[name or ""] or "they"] or M.PRONOUNS.they
+end
+
 -- Fill {key} placeholders. Unknown keys are left as they are. {one|many} picks by
 -- vars.plural (the slice rework, A3: "Rook's bandits are", "Gus is"): the first word for one,
--- the second for a group.
+-- the second for a group. A hero's pronouns: {actor_their}, {target_them}, {char_they} and so on
+-- (actor, target, other, doer, lowest: the hero named by {actor_char} etc.; char, new, old: the
+-- hero named by {char}...), capitalised as {Actor_they}. D6.
+local PRON_WORD = { they = true, them = true, their = true, theirs = true, themselves = true, ["they're"] = true,
+                    ["they've"] = true, ["they'll"] = true, ["they'd"] = true }
 function M.fill(template, vars)
     template = string.gsub(template, "{([%w' ]*)|([%w' ]*)}", function(one, many)
         return (vars and vars.plural) and many or one
     end)
-    local out = string.gsub(template, "{([%w_]+)}", function(k)
+    local out = string.gsub(template, "{([%w_']+)}", function(k)
         local v = vars[k]
         if v == nil then
+            local who, word = string.match(k, "^(%a+)_([%a']+)$")
+            if who and PRON_WORD[word] then
+                local low = string.lower(string.sub(who, 1, 1)) .. string.sub(who, 2)
+                local name = vars[low .. "_char"] or vars[low]
+                if type(name) == "string" then
+                    local w = M.pronoun_of(name)[word]
+                    return (low ~= who) and (string.upper(string.sub(w, 1, 1)) .. string.sub(w, 2)) or w
+                end
+            end
             return "{" .. k .. "}"
         end
         return tostring(v)

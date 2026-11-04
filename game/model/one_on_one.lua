@@ -162,7 +162,7 @@ function M.choose(campaign, prep, t, i)
                 reply = p.char .. " came for " .. util.lower_first(h.name) .. ", in " .. util.lower_first(room.name)
                     .. ". We haven't got there yet. I'm patient. Mostly."
             else
-                reply = p.char .. "'s still finding their feet. I like them more every week, though."
+                reply = util.fill("{char}'s still finding {char_their} feet. I like {char_them} more every week, though.", { char = p.char })
             end
             score.add(p, "investment", 3)
             t.learned.story = true

@@ -98,7 +98,7 @@ return {
           win = "{Boss} forgets everyone else and goes for {char}, back wide open to the rest of the party.",
           lose = "{Boss} looks at {char}, looks at {other_char}, and picks {other_char}. Sorry." },
         { id = "hold_the_line", skill = "athletics", archetype = "butt_kicker", say = "Get behind me! I'll hold the line!",
-          win = "{char} plants their feet and holds the gap while the others get into position.",
+          win = "{char} plants {char_their} feet and holds the gap while the others get into position.",
           lose = "The press pushes back harder. {char} gives ground, one step at a time." },
     },
 }

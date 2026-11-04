@@ -27,7 +27,7 @@ M.TEMPLATES = {
              "For a moment it looked bad for {char}.", "{char} dropped, and everyone leaned in." },
     death = { "{text}.", "The table lost {char} tonight.", "{char} didn't make it.",
               "{char}'s story ended tonight." },
-    goodbye = { "They said goodbye to {char} properly.", "{char}'s last words got a silence after them.",
+    goodbye = { "They said goodbye to {char} properly.", "{char}'s last words got a long silence.",
                 "{who} gave {char} a send-off nobody will forget." },
     back = { "{char} came back, changed.", "Death didn't keep {char}, but it left a mark.", "{char} is back. Mostly." },
     killing_blow = { "{char} landed the killing blow. {who} described every second of it.", "{text}.",

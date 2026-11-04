@@ -2135,7 +2135,7 @@ function M:offer_inspiration(p, why)
     self.actor = p
     local card = { id = "inspire_offer", type = "table", trigger = "museum_fixed", fixed_actor = true,
                    title = "Heroic Inspiration?",
-                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever they need it. "
+                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever {actor_they} needs it. "
                        .. "You can also give it any time from their tile.",
                    options = {
                        { label = "Yes: flick {actor_char} the token.", inspire = true,
@@ -2589,7 +2589,7 @@ function M:big_roll(spec, record)
     if own_dc and by == "player" then
         own_dc = util.clamp(own_dc, 2, 30)
         local diff = own_dc - dc
-        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what they need.",
+        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what {actor_they} needs.",
             self:vars()), "dm")
         -- (Much easier than the book's: the ones here for a challenge feel it. Much harder: everyone does.)
         if diff <= -4 then
@@ -3831,12 +3831,12 @@ end
 local READY = {
     rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening.",
               "{actor_char} slips sideways, out of the light." },
-    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants their feet between it and the others.",
+    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants {actor_their} feet between it and the others.",
                 "{actor_char} rolls a shoulder and moves to the front." },
-    wizard = { "{actor_char} has a spell on their lips before anyone else moves.", "{actor_char} reads the room, fast.",
+    wizard = { "{actor_char} has a spell on {actor_their} lips before anyone else moves.", "{actor_char} reads the room, fast.",
                "{actor_char} counts the exits, then the enemies." },
     cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out.",
-               "{actor_char} grips their holy symbol and stands their ground." },
+               "{actor_char} grips {actor_their} holy symbol and stands {actor_their} ground." },
 }
 local REACTED = {
     success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes.",
@@ -3855,7 +3855,7 @@ M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It
 M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
                  "And that's a wrap. Somebody's already clearing the pizza boxes.", "Lights up. Someone stacks the character sheets." }
 M.FRANC_LINES = { "Better than they hoped: a Flitwidget Franc pops into {char}'s pocket.",
-                  "Better than they hoped: {char} finds a Flitwidget Franc they're sure wasn't there a moment ago.",
+                  "Better than hoped: {char} finds a Flitwidget Franc {char_they're} sure wasn't there a moment ago.",
                   "Better than they hoped: there's a crisp Flitwidget Franc in {char}'s hand. The gnome's face winks on it.",
                   "Better than they hoped: a Flitwidget Franc flutters down out of nowhere into {char}'s palm." }
 
