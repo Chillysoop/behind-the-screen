@@ -238,8 +238,8 @@ return {
       text = "Everyone agrees what the game will be like: the tone, what's off limits, the house rules.",
       dnd = "Session Zero" },
     { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]" }, plain = "A loose end",
-      text = "A story left alone so long the table noticed. Until a card brings it back, the players who care lose a "
-          .. "little Investment every session." },
+      text = "A room the party skipped, with someone or something still in it. Between sessions you decide what "
+          .. "happens to it, and where it turns up." },
     { id = "lines", match = { "%f[%w]LINES%f[%W]", "A line:" }, plain = "A line",
       text = "Something that never happens in the game, full stop.", dnd = "Lines (and veils)" },
     { id = "veils", match = { "%f[%w]VEILS%f[%W]", "%f[%w]veils?%f[%W]", "A veil:" }, plain = "A veil",
