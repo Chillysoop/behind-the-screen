@@ -85,8 +85,14 @@ function M.fits(text)
     end
     local low = string.lower(string.gsub(text, "{[%w_]+}", " "))
     for _, ph in ipairs(LEX.phrases) do
-        if string.find(low, ph, 1, true) then
-            return false
+        -- (At a word's start: "as always" isn't in "I was always a boot".)
+        local at = string.find(low, ph, 1, true)
+        while at do
+            local before = at > 1 and string.sub(low, at - 1, at - 1) or " "
+            if not string.find(before, "%a") then
+                return false
+            end
+            at = string.find(low, ph, at + 1, true)
         end
     end
     local v = M.vocab()
