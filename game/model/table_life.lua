@@ -40,17 +40,41 @@ function M.set_crits(campaign, on)
     campaign.small_crits = on and true or false
 end
 
+-- The friends whose heroes are in this scene (night:at_hand): a hero who wandered off doesn't poke
+-- at things, ask or haggle in the room they left (F11).
+local function here(night)
+    return night.at_hand and night:at_hand() or night.players
+end
+
+-- Does a line name a hero who isn't in this scene (off elsewhere, or not at the table tonight)?
+local function names_absent(night, text)
+    if type(text) ~= "string" then
+        return false
+    end
+    local in_scene = {}
+    for _, p in ipairs(here(night) or {}) do
+        in_scene[p.key] = true
+    end
+    for key, names in pairs(require("game.model.dialogue").NAMES) do
+        if not in_scene[key] and string.find(text, "%f[%a]" .. names[2] .. "%f[%A]") then
+            return true
+        end
+    end
+    return false
+end
+
 -- Who'd do it: their kind of player, a friend who's drifting gets first go, and whoever just had a
 -- beat sits this one out (the second playtest review: one friend took several turns running).
 local function pick_friend(night, who, last, not_p)
     local list, w = {}, {}
     local others = 0
-    for _, p in ipairs(night.players) do
+    local players = here(night)
+    for _, p in ipairs(players) do
         if p ~= not_p and p.key ~= last and not (night.watching and night.watching[p.key]) then
             others = others + 1
         end
     end
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         if p ~= not_p and not (night.watching and night.watching[p.key]) and not (others > 0 and p.key == last) then
             local v = 1
             for _, a in ipairs(who or {}) do
@@ -93,6 +117,20 @@ local function candidates(night, sc, room, phase, last)
     local knobs = night.prep and night.prep.museum and night.prep.museum.knobs or {}
     local function add(b, kind, weight)
         if (b.id and s[b.id]) or (not b.id and night.tl_bits and night.tl_bits[b]) then
+            return
+        end
+        -- (Nothing that names a hero who isn't in this scene, and no friend's own bit without them:
+        -- Brannoc's five chestnuts with Brannoc off elsewhere. F11.)
+        if kind == "bit" then
+            if b.who and not util.contains(here(night), night.campaign:player(b.who) or false) then
+                return
+            end
+            for _, l in ipairs(b.lines or {}) do
+                if names_absent(night, l) then
+                    return
+                end
+            end
+        elseif names_absent(night, b.ask) or names_absent(night, b.see) then
             return
         end
         -- (Only when it holds: after the lair, with Pip's rat along...)
@@ -311,7 +349,7 @@ local function reactor(night, p, text)
         end
     end
     local q = night.campaign:player(named or "")
-    if q and util.contains(night.players, q) and q ~= p then
+    if q and util.contains(here(night), q) and q ~= p then
         -- (pick_friend's not_p only takes one: keep the other out by making them "last".)
         return pick_friend(night, { "butt_kicker", "casual", "storyteller" }, q.key, p)
     end
@@ -354,7 +392,12 @@ local function curio(night, sc, b, last)
         dm(night, b[level], { char = p.char })
         night.heard_lore = night.heard_lore or (level == "lore") or nil     -- ("the clue from earlier": barks' context)
     end
-    local reacts = M.reactions(night, b, level)
+    local reacts = {}
+    for _, t in ipairs(M.reactions(night, b, level)) do
+        if not names_absent(night, t) then
+            table.insert(reacts, t)
+        end
+    end
     if #reacts > 0 and night.rng:chance(0.7) then
         local text = night.rng:pick(reacts)
         say(night, reactor(night, p, text), text)
@@ -403,7 +446,7 @@ end
 -- A little bit of table life: a snack, a cantrip trick, planning at the door, a souvenir.
 local function bit(night, sc, t, last)
     local p = (t.who and night.campaign:player(t.who)) or pick_friend(night, nil, last)
-    if p and not util.contains(night.players, p) then
+    if p and not util.contains(here(night), p) then
         p = pick_friend(night, nil, last)
     end
     if not p then

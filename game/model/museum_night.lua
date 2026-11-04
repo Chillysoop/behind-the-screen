@@ -670,7 +670,7 @@ function M.play_moment(night, card, sc)
         local chosen = copy.options[copy.party_pick]
         if chosen and chosen.roll and chosen.roll.best then
             local best, bm
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(night:at_hand()) do
                 local _, m = night:best_skill(p, chosen.roll.skill)
                 if m and (not bm or m > bm) then
                     best, bm = p, m
@@ -696,7 +696,7 @@ function M.play_moment(night, card, sc)
         end
         if sk then
             local best, bm
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(night:at_hand()) do        -- (of the heroes in this scene: F11)
                 local _, m = night:best_skill(p, sk)
                 if m and (not bm or m > bm) then
                     best, bm = p, m
@@ -1163,7 +1163,7 @@ local ASK_KEEN = { storyteller = 0.7, method_actor = 0.7, casual = 0.6, power_ga
 
 local function keenest(night, keen, skill)
     local best, bw
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(night:at_hand()) do       -- (a hero in this scene: F11)
         local w = (keen[p.primary] or 0.15) + ((p.class == "rogue" and skill == "sleight_of_hand") and 0.4 or 0)
         local _, m = night:best_skill(p, { skill })
         w = w + (m or 0) * 0.04

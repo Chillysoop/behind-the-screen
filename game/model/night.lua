@@ -1370,7 +1370,8 @@ function M:banter()
     if self:idle() > 80 then
         return
     end
-    local l, p = self.talk:banter(self.players)
+    -- (Between heroes in this scene: one who wandered off isn't here to bicker with. F11.)
+    local l, p = self.talk:banter(self:at_hand())
     if not l then
         return
     end
@@ -3891,7 +3892,10 @@ local function doer_weight(def, p, campaign)
 end
 
 function M:party_moment(sc)
-    if #self.players < 2 or self.end_early then
+    -- (What a hero does to another happens between heroes in this scene: one who wandered off
+    -- isn't in it, F11.)
+    local here = self:at_hand()
+    if #here < 2 or self.end_early then
         return
     end
     local moments = self:scene_moments(sc)
@@ -3903,7 +3907,7 @@ function M:party_moment(sc)
             local once = self.campaign.adv and (self.campaign.adv.acts_done or {})[def.id]
             if moments[def.when or "any"] and (def.needs ~= "cast" or (sc.comps.cast and not self:muted(sc.comps.cast)))
                 and not (self.friction_done and self.friction_done[def.id]) and not once then
-                for _, p in ipairs(self.players) do
+                for _, p in ipairs(here) do
                     local dw = doer_weight(def, p, self.campaign)
                     if dw > 0 then
                         table.insert(cands, { def = def, p = p })
@@ -4019,11 +4023,12 @@ function M:friction_act(sc, def, doer)
         poses[p.key] = "laugh"
     end
     self:react(poses)
-    -- (Only someone at the table whose hero is still standing gives the look.)
+    -- (Only someone at the table whose hero is still standing, and in this scene, gives the look.)
     local who
+    local here = self:at_hand()
     for _, q in ipairs(out.objectors) do
         local qc = self.pcs and self.pcs[q.key]
-        if not who and util.contains(self.players, q) and not (qc and qc.dead) then
+        if not who and util.contains(here, q) and not (qc and qc.dead) then
             who = q
         end
     end
@@ -4040,10 +4045,11 @@ end
 
 function M:bond_act(sc, def, doer)
     local target
+    local here = self:at_hand()       -- (heroes in this scene: F11)
     if def.amends then
         -- Amends come from someone others are hot with.
         local best, bh
-        for _, p in ipairs(self.players) do
+        for _, p in ipairs(here) do
             if p ~= doer then
                 local rel = rapport.rel(self.campaign, p.key, doer.key)
                 if rel and rel.heat > 10 and (not bh or rel.heat > bh) then
@@ -4068,7 +4074,7 @@ function M:bond_act(sc, def, doer)
             local a = def.needs_fight == "saves" and e.by or e.a
             local b = def.needs_fight == "saves" and e.to or e.b
             if not found and a == doer.key and b ~= doer.key then
-                found = find_present(self.players, b)
+                found = find_present(here, b)
             end
         end
         if not found then
@@ -4079,7 +4085,7 @@ function M:bond_act(sc, def, doer)
         local found
         for key in pairs(rec and rec.close or {}) do
             if key ~= doer.key and not found then
-                found = find_present(self.players, key)
+                found = find_present(here, key)
             end
         end
         if not found then
@@ -4100,7 +4106,7 @@ function M:bond_act(sc, def, doer)
         end
         if not acted(target) then
             target = nil
-            for _, p in ipairs(self.players) do
+            for _, p in ipairs(here) do
                 if p ~= doer and acted(p) then
                     target = target or p
                 end
