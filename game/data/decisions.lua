@@ -286,7 +286,8 @@ return {
 
     {
         id = "split_party", type = "pacing", scenes = { "exploration", "mystery", "social" },
-        headache = true, needs = { players = 3, archetype = { "explorer", "instigator" } },
+        -- (Never with danger in the room, never twice in two sessions: the second playtest review.)
+        headache = true, needs = { players = 3, archetype = { "explorer", "instigator" }, calm = true, every = 2, every_key = "split_party" },
         actor = { "explorer", "instigator", "storyteller" },
         other = { "butt_kicker", "tactician", "casual" },
         title = "Splitting the party",

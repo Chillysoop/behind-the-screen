@@ -776,6 +776,45 @@ case("F10", function()
     add("F10", "unit_cases")
 end)
 
+-- F11: the party splits only when nothing's dangerous in the room, not in the wrap-up, not twice in
+-- two sessions, and a hero who wandered off doesn't act in the scene they left.
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    local sc = night.scene
+    if ev.kind == "scene" then
+        N.away = nil
+    end
+    if ev.kind == "decision" and ev.card.id == "split_party" then
+        add("F11", "split_cards")
+        if sc and (sc.boss or sc.epilogue or sc.showdown or (sc.encounter and not sc.no_fight and not sc.resolved and not sc.result)) then
+            fail("F11", N.tag .. ": the party splits in " .. tostring(sc.room) .. ", with " .. ((sc.epilogue and "the wrap-up going on")
+                or "danger in the room"))
+        end
+        if R.last_split and N.w - R.last_split < 2 then
+            fail("F11", N.tag .. ": a split card in week " .. N.w .. " after one in week " .. R.last_split)
+        end
+        R.last_split = N.w
+        N.split_card = true
+    end
+    if N.split_card and sc and sc.split and not N.away then
+        N.away = sc.split.away
+        add("F11", "splits")
+    end
+    if N.away and sc and not sc.split then
+        N.away = nil
+    end
+    if N.away then
+        local who = (ev.kind == "check" or ev.kind == "roll" or ev.kind == "roll_where") and (ev.actor)
+            or (ev.kind == "say" and ev.ic and ev.who) or nil
+        if who and N.away[who] then
+            fail("F11", N.tag .. ": " .. who .. "'s hero wandered off, and acts in the scene they left (" .. ev.kind
+                .. (ev.text and (": '" .. ev.text .. "'") or "") .. ")")
+        elseif who then
+            add("F11", "acts_by_heroes_still_here")
+        end
+    end
+end)
+
 for _, style in ipairs(STYLES) do
     for run = 1, RUNS do
         local seed = 500 + run * 31

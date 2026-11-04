@@ -622,7 +622,17 @@ function M.play_moment(night, card, sc)
         copy.party_pick = M.table_pick(night, copy, night.mus_vars)
         -- Whoever acts on what the table settled is someone who wanted it (F18: a hero acted against
         -- their own player's vote). The card keeps the words it was read out with.
-        local backers = night.party_backers or {}
+        -- (And whose hero is here: not one who wandered off, F11.)
+        local backers = {}
+        local here = {}
+        for _, p in ipairs(night:at_hand()) do
+            here[p] = true
+        end
+        for _, p in ipairs(night.party_backers or {}) do
+            if here[p] then
+                table.insert(backers, p)
+            end
+        end
         local backs = false
         for _, p in ipairs(backers) do
             backs = backs or p == night.actor

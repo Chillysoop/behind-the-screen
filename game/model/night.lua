@@ -664,7 +664,7 @@ function M:pick_roller(skill_list, sc, prefer)
     if owed then
         return owed
     end
-    local players = self.players
+    local players = self:at_hand()
     self.big_rolls = self.big_rolls or {}
     local total = 0
     for _, n in pairs(self.big_rolls) do
@@ -725,12 +725,30 @@ function M:pick_roller(skill_list, sc, prefer)
     return pick(low) or pick(players) or players[1]
 end
 
+-- The friends whose heroes are in this scene: a hero who split off (split_party) is elsewhere until
+-- it's over, and doesn't act in it (F11, the second playtest review: "Brannoc heads off the other
+-- way", then Dev: "Get behind me! I'll hold the line!"). Everyone, when nobody's away.
+function M:at_hand()
+    local split = self.scene and self.scene.split
+    if not (split and split.away) then
+        return self.players
+    end
+    local out = {}
+    for _, p in ipairs(self.players) do
+        if not split.away[p.key] then
+            table.insert(out, p)
+        end
+    end
+    return #out > 0 and out or self.players
+end
+
 -- Pick a present player, preferring these archetypes (primary first).
 function M:pick_actor(prefs, exclude)
+    local players = self:at_hand()
     for _, pass in ipairs({ "primary", "secondary" }) do
         for _, a in ipairs(prefs or {}) do
             local found = {}
-            for _, p in ipairs(self.players) do
+            for _, p in ipairs(players) do
                 if p ~= exclude and p[pass] == a then
                     table.insert(found, p)
                 end
@@ -741,13 +759,13 @@ function M:pick_actor(prefs, exclude)
         end
     end
     local others = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(players) do
         if p ~= exclude then
             table.insert(others, p)
         end
     end
     if #others == 0 then
-        return self.players[1]
+        return players[1]
     end
     return self.rng:pick(others)
 end
@@ -757,7 +775,7 @@ end
 -- friend on the card's list took it every run (the plaque was always Mara's).
 function M:pick_lead(prefs, exclude)
     local pool = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(self:at_hand()) do
         if p ~= exclude then
             table.insert(pool, p)
         end
@@ -1422,11 +1440,12 @@ function M:hero_action(sc, dc, spots)
     local st = content.scenes[sc.type]
     -- Players who shine here act more; quiet players get a turn too.
     local weights = {}
-    for j, p in ipairs(self.players) do
+    local here = self:at_hand()
+    for j, p in ipairs(here) do
         local shine = st.shine[p.class] or 0
         weights[j] = 1 + 2 * shine + math.max(0, (40 - p.m.spotlight) / 20)
     end
-    local p = self.rng:weighted(self.players, weights)
+    local p = self.rng:weighted(here, weights)
     self.actor = p
     self.other = self:pick_actor(nil, p)
     -- What they'd try: what the goal asks of them first (the card-led night: every scene played
@@ -1905,7 +1924,7 @@ function M:stunt(sc)
     for _, st in ipairs(content.stunts) do
         local last = camp.stunts_said[st.id]
         if content.fits_setting(st, sc.comps.location) and (not last or week - last >= 3) then
-            for _, p in ipairs(self.players) do
+            for _, p in ipairs(self:at_hand()) do
                 local w = arch_weight(st.archetype, p)
                 if w > 0 and class_ok(st, p) then
                     table.insert(cands, { st = st, p = p })
@@ -2210,6 +2229,20 @@ function M:headache_ok(needs, sc)
     end
     if needs.after_break and not (self.had_break or self.snacked) then
         return false
+    end
+    -- calm: nothing dangerous in the room (a fight still to come, a boss, the wrap-up), the party
+    -- can afford to wander off (F11: the party split as the Knight climbed out of its frame, and in
+    -- the thanks scene). every = n: at most once in n sessions.
+    if needs.calm and sc and (sc.boss or sc.showdown or sc.epilogue
+        or (sc.encounter and not sc.no_fight and not sc.resolved and not sc.result)
+        or (sc.comps and M.cast_is(sc.comps.cast, "hostile"))) then
+        return false
+    end
+    if needs.every and self.campaign.headache_week then
+        local last = self.campaign.headache_week[needs.every_key or "?"]
+        if last and (self.campaign.week or 0) - last < needs.every then
+            return false
+        end
     end
     if needs.before_fight and not (sc and (sc.type == "combat" or sc.type == "set_piece") and not sc.result) then
         return false
@@ -2994,6 +3027,10 @@ function M:decision(card, extra)
     -- and no cutting back and forth"): for the rest of this scene the ones who wandered off are
     -- elsewhere. A fight here starts without them, and the DM cuts to them between rounds until they
     -- come running (fight.lua).
+    if card.needs and card.needs.every then
+        self.campaign.headache_week = self.campaign.headache_week or {}
+        self.campaign.headache_week[card.needs.every_key or card.id] = self.campaign.week or 0
+    end
     if o.split and self.scene then
         local away = {}
         for _, q in ipairs({ self.actor, self.other }) do
