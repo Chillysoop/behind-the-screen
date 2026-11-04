@@ -5,8 +5,7 @@
 -- meters:   multipliers on what each session meter is worth tonight.
 -- cancel:   added chance they cancel this week.
 -- pressure: life pulling on them; drags Commitment down a little this week.
--- tell:     what shows under them at the table. What they say about it in the
---           group chat is the chat_mood trigger in the dialogue library.
+-- tell:     what shows under them at the table.
 
 return {
     order = { "fine", "fine", "fine", "tired", "celebrating", "stressed", "chatty", "distracted" },
