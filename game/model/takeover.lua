@@ -5,7 +5,6 @@
 -- so the night's 8 to 15 decisions hold. The lines come from the dialogue library (talk_open,
 -- talk_ask, talk_reply); the table's reactions are in game/data/takeover.lua. Pure Lua.
 
-local content = require "game.model.content"
 local score = require "game.model.score"
 local util = require "game.model.util"
 local skills = require "game.rules.skills"

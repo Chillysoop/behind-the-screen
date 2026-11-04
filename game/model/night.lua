@@ -4217,7 +4217,6 @@ function M:climax(sc)
     table.insert(self.decisions, { card = "climax_" .. sc.type, option = 0, rolls = {} })
     local ok = self:big_roll(spec)
     sc.outcome = ok and "win" or "lose"
-    sc.final_by = best and best.key or nil      -- who moved the story (campaign.finish_night credits it)
     sc.goal_said = true
     self:goal_event(sc)
 end
