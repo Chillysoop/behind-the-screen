@@ -190,17 +190,6 @@ function M.keepsake_shots(app, a)
         a.wait = 1.4
         return true
     end
-    -- A handout lands at a player's seat: a shot once it's settled.
-    if a.hand_step == 1 then
-        shot(a, "handout_landed")
-        a.hand_step = 2
-        return true
-    end
-    if not a.hand_step and app.handout_seen then
-        a.hand_step = 1
-        a.wait = 1.6
-        return true
-    end
     return false
 end
 
@@ -262,7 +251,6 @@ function M.night_shots(app, a)
     if once("read_aloud", ev.kind == "narrate" and app.caption and app.caption.read and app.caption.life > 0) then return true end
     if once("in_character", ev.kind == "say" and ev.ic) then return true end
     if once("npc_talk", ev.kind == "npc" and app.on_table and app.on_table.npc) then return true end
-    if once("clue", ev.kind == "clue") then return true end
     if once("opening", ev.kind == "narrate" and ev.style == "opening") then return true end
     -- The DM's map on the table (B9), when the fight on it starts.
     if ev.kind == "battle" and ev.phase == "start" and ev.pieces and not a.shots.map_on_table then
