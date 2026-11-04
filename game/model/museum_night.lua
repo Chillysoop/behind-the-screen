@@ -218,6 +218,7 @@ function M.handle(night, mus, sc)
     if mus.flag == "notebook" then
         st.flags.notebook = true
     end
+
     -- (Who drank her wine and is still smiling: they start the fight charmed, MODULE.items.)
     if mus.flag == "charmed" and night.actor then
         st.charmed_hero = night.actor.key
@@ -375,12 +376,24 @@ end
 
 function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
+    local text = win and goal.win or (goal.lose or goal.win)
     for _, alt in ipairs((win and goal.win_if or goal.lose_if) or {}) do
         if alt_holds(night, sc, alt) then
-            return alt.text
+            text = alt.text
+            break
         end
     end
-    return win and goal.win or (goal.lose or goal.win)
+    M.heard(night, text)
+    return text
+end
+
+-- A name the table has now heard said (F13: "Okay, the Witness." before anyone had): lines that
+-- name it later wait on the flag.
+function M.heard(night, text)
+    local st = st_of(night)
+    if text and string.find(text, "Witness", 1, true) then
+        st.flags.witness_named = true
+    end
 end
 
 -- Does the party hold a room's prize now? (Its `has`: a flag, a mark, or bought tonight.)

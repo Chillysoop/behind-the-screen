@@ -1527,7 +1527,7 @@ M.epilogue = {
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {
-    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "notebook" } },
+    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_named" } },
              "That was a prologue? I've already got a notebook for the campaign." },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
     jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
@@ -1592,7 +1592,7 @@ M.chat = {
                   mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
     gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
     hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
-    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "notebook" } },
+    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_named" } },
                 sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
     tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
     lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },

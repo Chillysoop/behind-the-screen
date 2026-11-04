@@ -634,6 +634,49 @@ function M.museum_moments(night, f, steps)
     return poses
 end
 
+-- What happened in the fight that lines afterwards can lean on (F13, the second playtest review:
+-- "Oswin's prayer catches Thessaly a heartbeat before they drop" when she took no damage, "pulled off a
+-- move together" with no move): night.fight_record = { saves = { { by, to } }, combos = { { a, b } },
+-- close = { [hero mini] = true } }. A save is a heal on someone down or at a quarter of their hit
+-- points or less; a combo, a foe two heroes both hit within a round of each other, finished by one of
+-- them; a close call, a hero who went down or fell to under a third of their hit points.
+function M.record(night, f, bb, steps, who)
+    local rec = night.fight_record
+    if not rec or rec.fight ~= f then
+        rec = { fight = f, saves = {}, combos = {}, close = {}, hits = {} }
+        night.fight_record = rec
+    end
+    local round = bb.round or 0
+    for _, s in ipairs(steps) do
+        local t = s.id and f.by_ref[s.id]
+        if s.kind == "heal" and t and t.pc and s.by and s.by ~= s.id then
+            local before = (s.hp or 0) - (s.amount or 0)
+            if before <= 0 or before <= (t.hp_max or 1) * 0.25 then
+                table.insert(rec.saves, { by = s.by, to = s.id })
+            end
+        elseif s.kind == "down" and t and t.pc then
+            rec.close[s.id] = true
+        elseif s.kind == "damage" and t then
+            if t.pc and (s.hp or 0) > 0 and (s.hp or 0) <= (t.hp_max or 1) / 3 then
+                rec.close[s.id] = true
+            end
+            local by = s.src and f.by_ref[s.src]
+            if t.side == "foes" and by and by.pc then
+                rec.hits[s.id] = rec.hits[s.id] or {}
+                rec.hits[s.id][s.src] = round
+            end
+        elseif s.kind == "death" and t and t.side == "foes" then
+            local killer = who and who.pc and who.mini
+            for other, r in pairs(rec.hits[s.id] or {}) do
+                if killer and other ~= killer and round - r <= 1 then
+                    table.insert(rec.combos, { a = killer, b = other })
+                    break
+                end
+            end
+        end
+    end
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
@@ -1577,6 +1620,7 @@ function M.run(night, sc, plan)
         local steps = night:flush_turn()
         night.fight_acts[#night.fight_frames] = acts_of(steps)
         if steps and #steps > 0 then
+            M.record(night, f, bb, steps, c)
             react(night, f, steps, c)
             for _, s in ipairs(steps) do
                 if s.kind ~= "move" then

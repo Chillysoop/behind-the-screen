@@ -976,6 +976,10 @@ function M.apply(campaign, mus, room, holder)
     if mus.flag then
         st.flags[mus.flag] = true
     end
+    -- (The Witness, named out loud: it whispered their name, or a line about it in the notebook.)
+    if mus.flag == "whispered" or mus.flag == "studied" then
+        st.flags.witness_named = true
+    end
     if mus.francs then
         st.francs = st.francs + mus.francs
     end

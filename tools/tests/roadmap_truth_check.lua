@@ -946,6 +946,73 @@ table.insert(night_end, function(R, N)
     end
 end)
 
+-- F13: lines that say something happened, only when it did (museum_truth.lua has the same rules over
+-- its own prologues). Each says what it claims and what the state says.
+table.insert(watchers, function(R, N, ev)
+    local text = ev.text
+    if not text then
+        if ev.kind == "thought" then
+            return
+        end
+        return
+    end
+    local c, night = R.c, N.night
+    local rec = night.fight_record or {}
+    local by, to = string.match(text, "^(%a+)'s prayer catches (%a+) a heartbeat before they drop")
+    if by then
+        add("F13", "last_second_heals")
+        local ok = false
+        for _, e in ipairs(rec.saves or {}) do
+            ok = ok or (e.by == char_key(c, by) and e.to == char_key(c, to))
+        end
+        if not ok then
+            fail("F13", N.tag .. ": '" .. text .. "', and " .. to .. " was never close to dropping")
+        end
+    end
+    local a, b = string.match(text, "^(%a+) and (%a+) pulled off a move together")
+    if a then
+        add("F13", "moves_together")
+        local ok = false
+        for _, e in ipairs(rec.combos or {}) do
+            ok = ok or (e.a == char_key(c, a) and e.b == char_key(c, b))
+        end
+        if not ok then
+            fail("F13", N.tag .. ": '" .. text .. "', with no foe they both hit")
+        end
+    end
+    if string.find(text, "An hour's rest", 1, true) then
+        add("F13", "short_rests")
+        if string.find(text, "Nobody had Hit Dice left", 1, true) then
+            local hurt = false
+            for _, pc in ipairs(night.pc_list or {}) do
+                hurt = hurt or (not pc.dead and pc.hp < pc.hp_max)
+            end
+            if not hurt then
+                fail("F13", N.tag .. ": 'nobody had Hit Dice left' when nobody was hurt")
+            end
+        end
+    end
+    if ev.kind == "say" and string.find(text, "the Witness", 1, true) then
+        add("F13", "witness_named")
+        if not c.adv.flags.witness_named then
+            fail("F13", N.tag .. ": '" .. text .. "' before anyone heard the name")
+        end
+    end
+    if string.find(text, "every painting back where it hangs", 1, true) then
+        add("F13", "hall_crossed")
+        if (c.adv.chose or {}).mus_knight_frame == 1 then
+            fail("F13", N.tag .. ": '" .. text .. "' after the knight came out of his frame")
+        end
+    end
+    local sc = night.scene
+    if string.find(text, "^Out of hiding comes") or string.find(text, " steps into the open, ") then
+        add("F13", "out_of_hiding")
+        if sc and (sc.wake or sc.fight_on or sc.talked or sc.showdown) then
+            fail("F13", N.tag .. ": '" .. text .. "' for foes already in plain view")
+        end
+    end
+end)
+
 -- (The statue: the chat said "yes, but it's dangerous" to a rest in the gift shop.)
 local function play_night_simply(c, rng)
     local night = c:start_night()

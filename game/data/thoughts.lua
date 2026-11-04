@@ -114,7 +114,7 @@ return {
             story_after = { "We skipped right past the best part.", "I wanted to stay and look closer. Oh well." },
             pace = { "Still fighting. I'm drawing {char}'s hat in the margin.", "Fights are fine. This one is a lot of fine." },
             spotlight = { "{char} has a spell for exactly this. Nobody's looked my way." },
-            fairness = { "That die said six a second ago. I'm sure it did." },
+            fairness = { "That was a {die} on the die. And that's how it came out?", "Something about that roll doesn't add up. I'm writing it down." },
             glow = { "This is exactly the night I hoped for.", "I'm writing that one down. In ink." },
             plan = { "If nobody else reads that, I'm reading it myself." },
         },

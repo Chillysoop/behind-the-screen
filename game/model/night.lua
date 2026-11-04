@@ -2624,7 +2624,7 @@ function M:big_roll(spec, record)
         self:event("cooked", { who = p and p.key or "party", text = "You cooked " .. ((p and by == "player") and (p.char .. "'s ") or "a ")
             .. name .. " roll behind the screen." })
         local convenient = (success and spec.convenient == "success") or (not success and spec.convenient == "fail")
-        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll")
+        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll", by == "player" and value or nil)
     end
     -- A third lucky break in a row looks convenient even when it's honest.
     if success and where == "hidden" then
@@ -2715,7 +2715,9 @@ function M:big_roll(spec, record)
     return success
 end
 
-function M:add_cook_suspicion(convenient, what)
+-- die: the number on a die the whole table saw (a player's own roll), for what the sharpest eye
+-- thinks; nil when the die was behind the screen.
+function M:add_cook_suspicion(convenient, what, die)
     local why = convenient and ("the cooked " .. (what or "roll") .. " that went the party's way")
         or ("the " .. (what or "roll") .. " you cooked behind the screen")
     for _, p in ipairs(self.players) do
@@ -2733,7 +2735,7 @@ function M:add_cook_suspicion(convenient, what)
         self:react({ [sharp.key] = "arms" })
         self:bark(sharp, "suspicious")
     elseif sharp then
-        thoughts.doubt(self, sharp)          -- they don't say it; they think it
+        thoughts.doubt(self, sharp, die and { die = util.int(die) } or nil)      -- they don't say it; they think it
     end
 end
 
@@ -3603,8 +3605,12 @@ local function a_an(name)
 end
 M.FOE_LINES = {
     "{Boss}, with {rest} behind them.",
-    "Out of hiding comes {boss}, with {rest}.",
     "It's {boss}, with {rest} at their back.",
+}
+-- (Only for foes nobody's seen yet: "out of hiding" over a knight already climbing out of its frame,
+-- or Euryale mid-conversation, the second playtest review. F13.)
+M.FOE_HIDDEN = {
+    "Out of hiding comes {boss}, with {rest}.",
     "{Boss} steps into the open, {rest} close behind.",
 }
 M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty." }
@@ -3637,6 +3643,20 @@ function M:foe_line(plan, sc)
     local v = { boss = boss, Boss = util.capitalize(boss), rest = util.join_names(parts) }
     if #parts == 0 then
         return util.fill(self:fresh(M.FOE_ALONE, "foe_alone"), v)
+    end
+    -- In view already: someone on the mat (the room's person, not still hidden), pieces that came
+    -- alive, a moment that started the fight, a talk first.
+    local seen = sc.wake or sc.fight_on or sc.talked or sc.showdown
+        or (self.stage_now and self.stage_now.npc and not self.npc_pending)
+    if not seen then
+        local pool = {}
+        for _, l in ipairs(M.FOE_LINES) do
+            table.insert(pool, l)
+        end
+        for _, l in ipairs(M.FOE_HIDDEN) do
+            table.insert(pool, l)
+        end
+        return util.fill(self:fresh(pool, "foe_lines_hidden"), v)
     end
     return util.fill(self:fresh(M.FOE_LINES, "foe_lines"), v)
 end
@@ -3847,9 +3867,38 @@ function M:bond_act(sc, def, doer)
     else
         target = self:pick_actor(nil, doer)
     end
+    -- What the line says happened has to have happened (fight.record, F13): a prayer that caught
+    -- someone before they dropped is a heal on someone down or nearly; a move together is a foe they
+    -- both hit and one of them finished; standing over someone needs them to have been in trouble.
+    local rec = self.fight_record
+    if def.needs_fight then
+        local found
+        for _, e in ipairs(rec and rec[def.needs_fight] or {}) do
+            local a = def.needs_fight == "saves" and e.by or e.a
+            local b = def.needs_fight == "saves" and e.to or e.b
+            if not found and a == doer.key and b ~= doer.key then
+                found = find_present(self.players, b)
+            end
+        end
+        if not found then
+            return
+        end
+        target = found
+    elseif def.needs_close then
+        local found
+        for key in pairs(rec and rec.close or {}) do
+            if key ~= doer.key and not found then
+                found = find_present(self.players, key)
+            end
+        end
+        if not found then
+            return
+        end
+        target = found
+    end
     -- A fight's teamwork only between two who did something in it (the playtest, Nov 2: a hero
     -- charmed the whole fight "pulled off a move together" with a friend).
-    if def.when == "fight" then
+    if def.when == "fight" and not def.needs_fight and not def.needs_close then
         local function acted(p)
             local c = p and self.pcs and self.pcs[p.key]
             local s = c and c.stats
@@ -3893,6 +3942,12 @@ function M:do_rest(rest, kind)
     self.table_min = self.table_min + (long and 15 or 8)
     local spend = rest_rules.SPEND
     local healed = 0
+    local hurt = 0          -- (who needed it: "nobody had Hit Dice left" right after a long rest, F13)
+    for _, c in ipairs(self.pc_list) do
+        if not c.dead and (c.hp or 0) < (c.hp_max or 0) then
+            hurt = hurt + 1
+        end
+    end
     for _, c in ipairs(self.pc_list) do
         local p = self.campaign:player(c.player_key)
         if long then
@@ -3920,6 +3975,7 @@ function M:do_rest(rest, kind)
     end
     self:say(long and ("A full night's rest. Everyone wakes whole, spells back, ready." .. fight.buff_line(self)) or
         (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
+         or (hurt == 0 and "An hour's rest. Nobody needed patching up, and the features are back.")
          or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
     self.rests = self.rests or {}
     table.insert(self.rests, { kind = long and "long" or "short", place = kind })

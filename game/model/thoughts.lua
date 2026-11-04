@@ -66,7 +66,10 @@ local function scene_index(night)
 end
 
 -- A line for this friend and need: their own, else anyone's; an "_after" line when a call just cost them.
-local function line_for(night, p, need, after)
+-- extra: what the moment knows ({die}: the number on the die everyone saw). A line that needs a
+-- fill-in the moment hasn't got isn't said (F13: "That die said six a second ago" after a 4, or
+-- after a roll behind the screen nobody saw).
+local function line_for(night, p, need, after, extra)
     local mine = DATA.lines[p.key] or {}
     local key = after and (need .. "_after") or need
     local list = mine[key] or DATA.generic[key]
@@ -76,7 +79,33 @@ local function line_for(night, p, need, after)
     if not list then
         return nil
     end
-    return util.sentence_case(util.fill(night:fresh(list, "thought_" .. p.key .. "_" .. key), vars(p)))
+    local v = vars(p)
+    for k, val in pairs(extra or {}) do
+        v[k] = val
+    end
+    local ok = {}
+    for _, l in ipairs(list) do
+        local fits = true
+        for k in string.gmatch(l, "{([%w_]+)}") do
+            fits = fits and v[k] ~= nil
+        end
+        if fits then
+            table.insert(ok, l)
+        end
+    end
+    if #ok == 0 then
+        list = DATA.generic[key] or {}
+        ok = {}
+        for _, l in ipairs(list) do
+            if not string.find(l, "{die}", 1, true) then
+                table.insert(ok, l)
+            end
+        end
+        if #ok == 0 then
+            return nil
+        end
+    end
+    return util.sentence_case(util.fill(night:fresh(ok, "thought_" .. p.key .. "_" .. key), v))
 end
 
 -- A thought goes up: { id, who, need, scene, answers }. opts: after (a call just cost them), keep
@@ -100,7 +129,7 @@ function M.think(night, p, need, opts)
     if not opts.any_scene and th.by_scene[sc] then
         return nil
     end
-    local text = line_for(night, p, need, opts.after)
+    local text = line_for(night, p, need, opts.after, opts.vars)
     if not text then
         return nil
     end
@@ -425,11 +454,11 @@ function M.mood(night)
 end
 
 -- A roll that looked convenient, or a harsh call out of nowhere: the sharpest eye wonders.
-function M.doubt(night, p)
+function M.doubt(night, p, extra)
     if not p or not night.rng:chance(0.7) then
         return nil
     end
-    return M.think(night, p, "fairness", { any_scene = true })
+    return M.think(night, p, "fairness", { any_scene = true, vars = extra })
 end
 
 -- Outvoted at a fork, Pip's player decides to go it alone (the BBQ story): a beat before she does.
