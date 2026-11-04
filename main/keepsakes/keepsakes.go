@@ -34,19 +34,3 @@ components {
   id: "bell"
   component: "/main/keepsakes/bell.factory"
 }
-components {
-  id: "handout_letter"
-  component: "/main/keepsakes/handout_letter.factory"
-}
-components {
-  id: "handout_map"
-  component: "/main/keepsakes/handout_map.factory"
-}
-components {
-  id: "handout_note"
-  component: "/main/keepsakes/handout_note.factory"
-}
-components {
-  id: "handout_sketch"
-  component: "/main/keepsakes/handout_sketch.factory"
-}

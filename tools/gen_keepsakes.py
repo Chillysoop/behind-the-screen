@@ -181,49 +181,6 @@ def k_bell(P):
     P.paint.add(gm.sphere((0, 7.5, 0), 0.6, 10, 6, sw("wood_mid")))
 
 
-def paper_sheet(P, w, d, color="paper", y=0.0):
-    """A sheet lying flat, a hair above the table."""
-    P.paint.add(gm.box((0, y + 0.08, 0), (w, 0.16, d), sw(color)))
-
-
-def h_letter(P):
-    """A folded letter with a red wax seal."""
-    paper_sheet(P, 9.0, 6.0)
-    P.paint.add(gm.box((0, 0.2, -0.8), (8.6, 0.06, 0.12), sw("canvas_dark")))
-    for k in range(4):
-        P.paint.add(gm.box((-1.0 + (k % 2) * 0.6, 0.18, 1.2 - k * 0.7), (5.0 - (k % 2) * 1.6, 0.04, 0.16), sw("ink")))
-    P.paint.add(gm.cylinder((2.6, 0.16, -1.8), 0.7, 0.7, 0.25, 12, sw("red_cloth")))
-
-
-def h_map(P):
-    """A hand-drawn map: a river, a road, a few trees and an X."""
-    paper_sheet(P, 12.0, 9.0, "canvas")
-    for (x, z, a, L) in [(-4.0, 2.0, 0.5, 3.0), (-1.6, 0.8, 0.2, 2.6), (1.0, 0.4, -0.3, 2.8), (3.6, -0.8, -0.6, 2.6)]:
-        P.paint.add(gm.box((0, 0, 0), (L, 0.04, 0.35), sw("water")).transformed(yaw=a, offset=(x, 0.19, z)))
-    for (x, z, a, L) in [(-3.0, -2.6, 0.1, 3.4), (0.2, -2.0, -0.4, 3.0), (3.0, 2.2, 0.3, 2.6)]:
-        P.paint.add(gm.box((0, 0, 0), (L, 0.04, 0.16), sw("ink")).transformed(yaw=a, offset=(x, 0.19, z)))
-    for (x, z) in [(-3.6, -0.6), (-2.8, -1.2), (2.6, 2.8), (3.4, 3.2)]:
-        P.paint.add(gm.box((x, 0.19, z), (0.6, 0.04, 0.6), sw("leaf_b")))
-    for s_ in (-1, 1):
-        P.paint.add(gm.box((0, 0, 0), (1.0, 0.04, 0.22), sw("red_cloth")).transformed(yaw=s_ * math.pi / 4, offset=(2.4, 0.2, -2.4)))
-
-
-def h_note(P):
-    """A torn page of notes."""
-    paper_sheet(P, 7.0, 8.0)
-    for k in range(6):
-        P.paint.add(gm.box((-0.4 + (k % 3) * 0.3, 0.18, 2.8 - k * 1.1), (5.2 - (k % 3) * 1.2, 0.04, 0.16), sw("ink")))
-
-
-def h_sketch(P):
-    """A sketch of a place: a roofline and a door in charcoal."""
-    paper_sheet(P, 9.0, 7.0)
-    P.paint.add(gm.box((0, 0.18, 0.8), (4.0, 0.04, 2.6), sw("stone_dark")))
-    for s_ in (-1, 1):
-        P.paint.add(gm.box((0, 0, 0), (2.8, 0.04, 0.22), sw("ink")).transformed(yaw=s_ * 0.6, offset=(s_ * 1.1, 0.2, -1.2)))
-    P.paint.add(gm.box((0, 0.2, 1.4), (0.8, 0.04, 1.4), sw("char")))
-
-
 GIFTS = {
     "dice_tower": k_dice_tower,
     "map": k_map,
@@ -233,11 +190,6 @@ GIFTS = {
     "mini": k_mini,
     "notebook": k_notebook,
     "bell": k_bell,
-    # handouts (game/data/handouts.lua): paper at the players' seats
-    "handout_letter": h_letter,
-    "handout_map": h_map,
-    "handout_note": h_note,
-    "handout_sketch": h_sketch,
 }
 
 
