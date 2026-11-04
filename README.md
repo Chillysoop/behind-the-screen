@@ -27,6 +27,9 @@ the `step-by-step` branch, and Codex's guided edition is on `streamlined-edition
 
 What's in it, by the milestones it was built in:
 
+- **Wave 2, the museum as a small sandbox:** one event log behind every line, people who remember the party, the
+  friends' own ideas (Pip lifting something nobody planted), the night told as a chain of so and but, a table that
+  chooses differently from run to run, a gentle first night, an escape that costs, and everyone's own pronouns.
 - **The adventure (v2):** the module format (`game/data/museum/`), the museum's map, rooms, moments, marks, people,
   prompts, showdown and endings, the prep board on the book's floor plans, the hooks page and the journey recap.
 - **M8, the DM's craft:** one event log behind the recap and the report, dice jail and running jokes, death at the
@@ -164,6 +167,65 @@ table, and their sheet lists it under CARRYING. The gift shop's prices are at th
 **Said three ways.** Anything the table hears every week or every fight comes three or more ways, fresh across
 weeks and never twice running (`night:fresh`); the lines kept in the code are listed for the Dialogue Desk with the
 rest (`CODE_TABLES` in `tools/dialogue/export.lua`).
+
+## The world remembers (wave 2)
+
+The museum runs on the pieces the longer sandbox adventure will need, proven at museum scale first.
+
+**One event log.** `game/model/events.lua` keeps one list of what happened, saved with the campaign: who did what
+to whom, where, in which session, who saw it, and the earlier event it follows from ("therefore") or turns
+("but"). Every line that says what happened reads it from there, and the truth test checks the packs, Euryale's
+card and the fights against it. `items.lua` writes every thing that changes hands, `adventure.lua` her marks and
+the deeds for or against the museum's people, `museum_night.lua` the rooms, moments and finds, `night.lua` the
+fights and a hero going off alone, `ideas.lua` the friends' own ideas and `people.lua` word passed on. A save
+from before the log gets its rooms, fights, marks, packs and favors written in once (`events.start`).
+
+**Therefore or but.** The report and the journey tell each night as the log's chain: "Pip went for the donation
+box's lock, so Pip emptied the donation box. So they fought the Sentinel, and they won." A "so" or "but" sits only
+right after the clause it follows from, a link is only for a real cause (a room's own fight, one that came whatever
+they did, starts a sentence of its own), and nothing is stitched on with "and then". The words are the adventure's
+(`MODULE.beats`). The sims print each night's share of linked beats and its longest unlinked run.
+
+**People who remember.** Flitwidget, Telpur, the Lecturer, Euryale and the companions each think something of each
+hero and of the party, from hostile to devoted, read from the log: what they saw, or were told
+(`game/model/people.lua`, the museum's in `game/data/museum/people.lua`). Their lines are picked most specific
+first, by what they think (`opinion`), what they know (`knows`, `not_knows`) and what's in the log (`event`).
+Caught at Telpur's shelf, the party pays a Franc or two more and he won't answer their questions; broken exhibits
+sour Flitwidget's thanks and dock the reward; the Lecturer drones what he hears through the floor up to Euryale,
+and she opens boss night with it.
+
+**The friends' own ideas.** In a room's quiet stretch a friend reaches for something on their own: asks someone a
+question, lifts something, helps, follows someone, hides from the speech, pokes a curio (`game/model/ideas.lua`).
+Pip notices what a museum person carries (nobody planted it), Jess says so out loud and someone may object; it comes
+to you as a card while the night has a call to spare (allow it, a roll, or no), else the dice decide in the open. A
+miss means someone saw it, and they remember. What's taken goes in Pip's pack.
+
+**The table chooses differently.** Each option on a party card has its own fans among the four, and what carries
+over is said out loud: the friend who gave way last time holds out for theirs ("I went along last time. This one's
+mine."), the table notices its habit ("We played it safe last time"), the week each friend has had weighs in, and
+at Euryale's ultimatum what they brought against her counts for the fight ("What did I bring a cupboard door up
+here for, then?"). The memory is `campaign.adv.votes`; the words are `museum_night.VOTE_WHY`, on the Dialogue Desk.
+
+**A gentle first night.** On the adventure's first night (`night.gentle`) you get the story's own calls, the break
+and the wrap, one big roll to rule on, one thought and at most one rules question; the fight's calls, finds behind
+the screen, the table asking you and small-moment crits wait for the second night, and a first night that's had its
+one more room ends there.
+
+**Letting her go costs.** If Euryale gets away (she runs from a long fight, they let her go when she yields, or they
+pay her off), Flitwidget pays half the reward (`MODULE.showdown.escape`, `adventure.reward_gold`). The showdown
+board says so, and so does every option that lets her go.
+
+**Everyone's own pronouns.** The heroes (Thessaly she, Brannoc he, Pip she, Oswin he), the friends at the table
+(Mara she, Dev he, Jess she, Sam he) and the museum's people (Flitwidget, Telpur and the Lecturer he, Euryale she,
+Exhibit B he) are never "they" on their own. Lines say `{actor_their}`, `{char_they}` or `{Actor_they}` for the
+hero they name, `{friend_their}` for the friend `{actor}` names, and `{Name_they}` for any name in the fill
+(`util.fill`); a group stays "they".
+
+**Exhibit B on the table.** When Pip's rat comes along, his own mini stands at the corner of Pip's square and goes
+where she goes (`main/table/table.script`), and Pip's tile shows his picture.
+
+**The same seed, the same night.** Every loop whose order changes what happens or what's said walks its keys in
+sorted order (`util.sorted_pairs`), so a seed plays the same way every run and gives the same event log.
 
 ## Session Zero, the table and leveling up (M6)
 
@@ -374,6 +436,7 @@ questions after a session and the end-of-prologue survey add their own lines (`"
 | `game/ui/session_zero_view.lua`, `museum_setup_view.lua`, `levelup_view.lua` | Session Zero, the hooks page, the level-up moment |
 | `game/model/save.lua`, `game/ui/saves_view.lua` | Saving and loading: the autosave and three slots |
 | `game/ui/slice_end_view.lua`, `museum_journey_view.lua`, `ambience.lua`, `autotest.lua` | The journey recap and survey at the end of the prologue; sound, light and snacks; the in-engine autotest |
+| `game/model/events.lua`, `people.lua`, `ideas.lua`, `game/data/museum/people.lua` | Wave 2: the event log and its chain, people who remember, the friends' own ideas and what the museum's people carry |
 | `game/model/recap.lua`, `takeover.lua`, `maps.lua`, `death.lua`, `fails.lua`, `jokes.lua`, `loot.lua` | M8: the report's recap and verdict, taking over, the DM's own maps, death at the table, dice jail, running jokes, the dice box |
 | `game/ui/report_view.lua`, `rewards_view.lua`, `map_repo_view.lua`, `map_view.lua` | The report, the dice box, the map repository and the map maker |
 | `game/data/guide.lua`, `game/ui/guide_view.lua` | The first-session tips: what each says, when it shows, and the pinned layer that draws them |
@@ -393,7 +456,8 @@ with any Lua 5.1+ or LuaJIT interpreter:
 
     for s in 1 2 3 4 5 6 7 8; do lua tools/tests/museum_smoke.lua $s || break; done
                                        # the whole prologue through the real UI against a mock GUI
-                                       # (DUMP_DIR=out writes every screen's nodes; TRANSCRIPT=file what a player reads)
+                                       # (DUMP_DIR=out writes every screen's nodes and board_minis.txt, the minis
+                                       # the table is told to stand; TRANSCRIPT=file what a player reads)
     for st in careful random careless; do for s in 1 2 3 4; do lua tools/sim/museum.lua $s $st || break; done; done
                                        # the prologue headless, three kinds of DM ("log" after the style: every line,
                                        # every roll with its die, every attack with who swung at whom)
@@ -414,6 +478,12 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # danger near, promises kept, lines tied to what happened, the recap...)
     lua tools/tests/roadmap_words_check.lua [runs]   # the round-two word fixes, played (reactions that follow the
                                        # answer, the book's rooms and prices, lines three ways, behind your screen...)
+    lua tools/tests/roadmap_table_check.lua [seeds]  # wave 2 at the table, played: no card's commonest pick over
+                                       # about two in three, Euryale's escape costs, the gentle first night,
+                                       # everyone's own pronouns, Exhibit B on the board, the same seed three times
+    lua tools/tests/roadmap_world_check.lua [runs]   # wave 2's world, played: the log against the packs, her card
+                                       # and the fights, people who remember, the friends' ideas, the pickpocket
+                                       # slice, the chain with no false causes, and the therefore-or-but baseline
     lua tools/tests/rest_check.lua     # Short and Long Rests by SRD 5.2.1, the party's state carried across nights
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua museum_garden prints one)

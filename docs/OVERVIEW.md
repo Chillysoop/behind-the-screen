@@ -23,9 +23,9 @@ The fantasy is being a good DM: the friend who makes Thursday the best night of 
 2. **Why each hero came.** Each player has two of the book's hooks and leans toward one; you pick. A hook ties the hero to a room, where they sit up when it plays.
 3. **Between sessions.** The group chat: the friends talk about last night, and one of them asks you something. Then the week's prompts: a player's request (yes, with a laugh, no with a reason, or yes but it's dangerous), a loose end (where a skipped card turns up again), a rules call to post or leave, and a favor (one way it helps, one way it hurts).
 4. **Prep on the museum map.** The board is the book's floor plans. You have 10 hours: prep the rooms the party might reach (an unprepped room plays thinner), set the book's advice as knobs, read each room's notes (who you'll voice, what to have ready), talk to a friend (1 hour), and spend spare hours on sleep or a backup page. Up to two unused hours carry over. "Ties and locks" lets you bend the adventure, and the map repository puts any map on the table.
-5. **Game night.** It plays itself on a 3D tabletop: each room's board goes down, paper minis walk and fight on the rules engine, and the friends talk, cheer, yawn or check their phones. The table picks the way at forks. You make the calls the book's moments need, read what your friends are thinking, rule on rolls and decide which go behind the screen.
+5. **Game night.** It plays itself on a 3D tabletop: each room's board goes down, paper minis walk and fight on the rules engine, and the friends talk, cheer, yawn or check their phones. The table picks the way at forks. You make the calls the book's moments need, read what your friends are thinking, rule on rolls and decide which go behind the screen. The first night is gentler: the story's own calls, one big roll, one thought, and the rest waits for the second.
 6. **The report.** A dice box first (earned from how the night went), then a recap you can edit, how each friend felt (least happy first), a verdict, gifts, and the level-up when it's ready.
-7. **Boss night.** A showdown board (how Euryale opens, how far she goes), a talk, the fight, and an ending: she falls, a bargain, she slips away, she sleeps, or an unlikely ally. Then the journey: the route, what each room left behind, each hero's story in short lines, and what each friend wants next.
+7. **Boss night.** A showdown board (how Euryale opens, how far she goes), a talk, the fight, and an ending: she falls, a bargain, she slips away (for half the reward), she sleeps, or an unlikely ally. Then the journey: the route, what each room left behind, each hero's story in short lines, and what each friend wants next.
 
 ## The table: four friends you have to read
 
@@ -59,13 +59,19 @@ The story is a pre-written adventure, cut into pieces that remember. The game do
 
 **Cards that remember.** Euryale's card on the prep board collects marks as the party goes. Each mark comes from something they did and changes boss night: who fights beside her, what the party brings, or how easily she talks.
 
-**The table chooses.** At a fork the friends talk it over and settle where to go from what they want; the DM can only nudge when asked. After they pick, the DM decides what's there: the book's room, something improvised, or another prepped encounter moved in.
+**The table chooses.** At a fork the friends talk it over and settle where to go from what they want; the DM can only nudge when asked. After they pick, the DM decides what's there: the book's room, something improvised, or another prepped encounter moved in. They choose differently from run to run: each option has its own fans, the friend who gave way last time holds out for theirs, the table notices its habit, and the week each friend has had weighs in, all said out loud.
 
 **Harsh calls that feel fair.** A warning is about a thing. When the party was warned (you described it, asked "Are you sure?", or they found out), a die was rolled in the open, or the table agreed to brutal at Session Zero, a harsh outcome lands as fair. Otherwise it costs Trust. Too many warnings in a night drain the suspense.
 
 **Only what's true.** A line that says what happened reads it from the adventure's state or carries a condition. Every flag set is read by something, every mark changes boss night, and anything picked up works later. The truth test (`tools/tests/museum_truth.lua`) plays whole prologues and fails on a line that contradicts what happened.
 
-**Therefore or but.** Every beat a night plays should follow from an earlier one or complicate it, and the recap tells the night as that chain. The longer adventure's event log is meant to record and check it (see the Main Campaign Design doc, linked from `AGENTS.md`).
+**One event log.** What happened in the adventure is one list (`game/model/events.lua`): who did what to whom, where, who saw it, and what it follows from. Every line that says what happened reads it from there; no two systems keep their own copy.
+
+**Therefore or but.** Every beat a night plays should follow from an earlier one or complicate it, and the report and the journey tell the night as that chain, joined with "so" and "but" only where the earlier beat really caused or turned the later one; a beat that would have happened anyway starts a sentence of its own. The sims measure each night's share of linked beats and its longest unlinked run, and the rooms that start the most get rewritten first (see the Main Campaign Design doc, linked from `AGENTS.md`).
+
+**People who remember.** Flitwidget, Telpur, the Lecturer, Euryale and the companions each think something of each hero and of the party, read from the log through what they saw or were told. It changes what they say, what they charge and what they do: Telpur's prices go up after a theft at his shelf, broken exhibits sour Flitwidget's thanks and his reward, and the Lecturer passes what he hears up to Euryale.
+
+**The friends' own ideas.** The room's cards aren't the only things that can happen. In a quiet stretch a friend reaches for something on their own: a question, a curio, a helping hand, someone to follow, somewhere to hide, or something to lift off someone who never planted it. Most just happen on a small die; one that could turn someone against the party comes to you as a card.
 
 ## How the DM learns where the story is
 
@@ -169,7 +175,7 @@ The fantasy is the best part of being a DM without the parts that make people qu
 **Open:**
 
 1. A "just the adventure" mode, for players who want the story without the table.
-2. The longer adventure that follows the prologue. Before starting it, read `docs/design/longer-adventure-notes.md`: one event log as the source of truth, one shape for conditional text, and the truth test as the gate.
+2. The longer adventure that follows the prologue. Before starting it, read `docs/design/longer-adventure-notes.md`: one event log as the source of truth (the museum's is `game/model/events.lua`), one shape for conditional text, and the truth test as the gate.
 
 ## Glossary
 
@@ -181,6 +187,7 @@ The fantasy is the best part of being a DM without the parts that make people qu
 | Commitment | How likely a friend is to keep coming. It follows recent fun; when it sinks, their card says so. |
 | Cooking | Moving a hidden DC to change how a roll lands. It raises Suspicion. |
 | Decision card | A moment on game night that needs the DM: a room's moment, a fight's call, a rules question, a table problem. |
+| Event log | The one record of what happened in the adventure: who did what, who saw it, and what it follows from. Lines, people's opinions and the night's chain read it. |
 | Empathy | The DM's skill at reading the table, 1 to 5. It decides how precisely you see the friends' bars and how many thoughts you catch. |
 | Fair warning | Knowing about a danger before a harsh call lands. Warned, it feels fair; unwarned, it costs Trust. |
 | Familiarity | How well you know one friend, "New to you" to "Like a book". It helps you read their thoughts. |
@@ -191,6 +198,7 @@ The fantasy is the best part of being a DM without the parts that make people qu
 | Knob | The book's advice for running a room, as a choice on the prep board. |
 | Loose end, favor, request | The week's prompts between sessions: where a skipped card turns up, one way something helps and one way it hurts, a player asking for something. |
 | Mark | Something the party did, written on Euryale's card. Each one changes boss night. |
+| Opinion | What one of the museum's people thinks of a hero or the party, hostile to devoted, from what they saw or were told. |
 | Session Zero | The first meeting: tone, lines and veils, table rules. Its agreements apply all campaign. |
 | Suspicion | How much the table suspects you're cooking the dice. It is always a blurred band. |
 | Taking over | Once a night, speaking as a key person or running the boss's turn yourself. |
