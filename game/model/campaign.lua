@@ -12,7 +12,6 @@ local util = require "game.model.util"
 local social = require "game.model.social"
 local progression = require "game.model.progression"
 local jokes = require "game.model.jokes"
-local death = require "game.model.death"
 
 local M = {}
 M.__index = M
@@ -147,7 +146,6 @@ function M:finish_night()
     rep.safety = night.safety
     rep.table_text = night.clock_text and night:length_text()
     rep.jokes = jokes.after_night(self, night)   -- running jokes born tonight (B5)
-    death.after_night(self, night)                -- a way back that played (B3)
     rep.snapshots = night.snapshots or {}          -- the night's framed moments (B1, B7)
     rep.broken = self.broken_now
     for id in pairs(night.met or {}) do

@@ -221,20 +221,4 @@ function M.word(campaign, a, b)
     return "Fine", "dim"
 end
 
--- The group chat between weeks: someone hurt vents (once per pair per stage change).
-function M.chat(campaign, msgs)
-    local data = content.friction
-    for _, s in ipairs(M.strained(campaign)) do
-        local key = s.a.key .. "_" .. s.b.key
-        campaign.vented = campaign.vented or {}
-        if campaign.vented[key] ~= s.stage and not s.hurt.on_break then
-            campaign.vented[key] = s.stage
-            local i = ((campaign.week or 1) % #data.vents) + 1
-            table.insert(msgs, { who = s.hurt.name, key = s.hurt.key,
-                                 text = util.fill(data.vents[i], { doer_char = s.doer.char }) })
-            return
-        end
-    end
-end
-
 return M

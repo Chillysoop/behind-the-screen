@@ -76,18 +76,13 @@ function M.run(night, who)
             night:emit({ kind = "say", who = p.key, text = pick(d.hello), ic = false })
             local si = rng:int(1, #d.story)
             -- v2: in the museum, the reason they say is the one the DM picked for their hero.
-            if night.campaign.module then
-                local adventure = require "game.model.adventure"
-                local h = adventure.hook(night.campaign, p.key)
-                for k, hk in ipairs(adventure.data.hooks[p.key] or {}) do
-                    if h and hk.id == h.id and d.story[k] then
-                        si = k
-                    end
+            local adventure = require "game.model.adventure"
+            local h = adventure.hook(night.campaign, p.key)
+            for k, hk in ipairs(adventure.data.hooks[p.key] or {}) do
+                if h and hk.id == h.id and d.story[k] then
+                    si = k
                 end
             end
-            -- The Story log quotes it under their backstory.
-            night.campaign.intro_told = night.campaign.intro_told or {}
-            night.campaign.intro_told[p.key] = si
             local grim = d.grim and d.grim[si]
             night:emit({ kind = "say", who = p.key, text = d.story[si], ic = true })
             if keen and d.all_in then

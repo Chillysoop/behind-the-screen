@@ -1,10 +1,9 @@
 -- Death at the table (M8, B3). "The last death save" is the way in: fudge it (the existing
 -- cooked roll), or let it ride, and then this flow: what happens next, filtered by what Session
--- Zero agreed and what each player asked for; the goodbye; a new character next week, or the way
--- back at a cost; and the shelf of fallen heroes. game/data/death.lua has the words and numbers.
+-- Zero agreed and what each player asked for; the goodbye; a new character next week, or back
+-- with a scar; and the shelf of fallen heroes. game/data/death.lua has the words and numbers.
 -- Pure Lua.
 
-local content = require "game.model.content"
 local score = require "game.model.score"
 local util = require "game.model.util"
 local data = require "game.data.death"
@@ -37,7 +36,6 @@ end
 --   goodbye   they're gone: last words and a wake, a new character next week
 --   quick     gone, without the goodbye (a small cost)
 --   scar      back now, with a scar in canon
---   quest     a way back, next week, through a quest
 --   ask       the player decides (by who they are)
 function M.options(campaign, p)
     local mode = M.mode_for(campaign, p.key)
@@ -50,10 +48,6 @@ function M.options(campaign, p)
         add("Move on quickly. A new character joins next week.", "quick")
     elseif mode == "cost" then
         add("Bring {actor_char} back, and it leaves a mark.", "scar")
-        -- (Not in an adventure: its rooms are the book's, and no quest scene could ever come up.)
-        if not campaign.module then
-            add("There's a way back: a quest, next week.", "quest")
-        end
         add("Let {actor_char} go. Say goodbye.", "goodbye")
     else
         add("Ask {actor}. It's their call.", "ask")
@@ -62,15 +56,14 @@ function M.options(campaign, p)
     return opts, mode
 end
 
--- What a player picks when it's their call.
+-- What a player picks when it's their call: a good ending, or back at any cost (an adventure's
+-- rooms are the book's, so there's no quest scene to earn a way back in).
 function M.player_choice(p)
     local a = p.primary
     if a == "method_actor" or a == "storyteller" then
         return "goodbye"
-    elseif a == "casual" or a == "instigator" then
-        return "scar"
     end
-    return "quest"
+    return "scar"
 end
 
 -- Did this outcome honour what they wanted? 1 yes, -1 no, 0 neither.
@@ -115,11 +108,8 @@ function M.on_death(night, p, c, sc)
     local asked = outcome == "ask"
     if asked then
         outcome = M.player_choice(p)
-        if outcome == "quest" and campaign.module then
-            outcome = "scar"           -- (no quest scenes in an adventure: they ask to come back)
-        end
         night:emit({ kind = "say", who = p.key, text = outcome == "goodbye" and "Let them go. It's a good ending."
-            or (outcome == "scar" and "Bring them back. I don't care what it costs." or "Is there a way back? I want to earn it."), ic = false })
+            or "Bring them back. I don't care what it costs.", ic = false })
     end
     local h = honoured(M.pref(p.key), outcome, asked)
     local fair = h >= 0 and outcome ~= "quick"           -- a death the villain can be taunted about
@@ -140,7 +130,7 @@ function M.on_death(night, p, c, sc)
     -- What came of it, for the recap (October 15: "We lost Brannoc", when he came back), and the
     -- canon line the death save wrote ("Brannoc died at ...") says how it ended.
     dev.outcome = outcome
-    local after = (outcome == "scar" and ", and came back") or (outcome == "quest" and ", and there may be a way back") or nil
+    local after = (outcome == "scar" and ", and came back") or nil
     if after then
         for i = #(night.canon or {}), 1, -1 do
             if string.find(night.canon[i], p.char .. " died", 1, true) then
@@ -158,10 +148,6 @@ function M.on_death(night, p, c, sc)
         night:say(scar, "narration")
         night:highlight(9, p.char .. " came back", { p }, "back")
         rec.back = campaign.week
-    elseif outcome == "quest" then
-        campaign.death_quest = campaign.death_quest or {}
-        campaign.death_quest[p.key] = { week = campaign.week, char = p.char }
-        night:say(util.fill(data.QUEST.line, { char = p.char }), "narration")
     end
     return outcome
 end
@@ -294,7 +280,7 @@ function M.start_week(campaign)
             p.pregen = pick.id
             p.mini = pick.mini
             p.hook = pick.hook
-            -- The fallen hero's backstory ended with them (deck.thread_live); the new one's starts here.
+            -- The fallen hero's story ended with them; the new one's starts here.
             p.thread = util.lower_first(pick.hook)
             p.thread_progress = 0
             nc.done = true
@@ -328,53 +314,6 @@ function M.intro(night)
                 score.add(p, "fun", 4)
                 night:react({ [p.key] = "lean" })
                 night:event("new_character", { who = p.key, text = p.char .. " joins the party, in " .. nc.was .. "'s place.", weight = 7 })
-            end
-        end
-    end
-end
-
--- A way back (the quest): the scene with "The way back" decides it. win: back with a scar.
-function M.quest_card(campaign, key)
-    local q = campaign.death_quest and campaign.death_quest[key]
-    if not q or q.card then
-        return nil
-    end
-    local p = campaign:player(key)
-    local c = content.register({
-        runtime = true, id = "way_back_" .. key .. "_" .. util.int(campaign.week), kind = "goal",
-        name = data.QUEST.name .. " (" .. q.char .. ")", cost = 1, difficulty = 2,
-        fits = { "exploration", "puzzle", "set_piece", "mystery" }, tags = { "heart", "danger" },
-        meters = { story = 6, challenge = 4 },
-        line = util.fill(data.QUEST.line, { char = q.char }),
-        win = util.fill(data.QUEST.win, { char = q.char }), lose = util.fill(data.QUEST.lose, { char = q.char }),
-        thread = key, way_back = key,
-    })
-    campaign.registered = campaign.registered or {}
-    table.insert(campaign.registered, c)
-    q.card = c.id
-    return c, p
-end
-
--- After the night: a way-back scene that played brings them back, or closes the door.
-function M.after_night(campaign, night)
-    for key, q in pairs(campaign.death_quest or {}) do
-        if q.card and not q.done then
-            for _, sc in ipairs(night.scenes or {}) do
-                if sc.comps.goal and sc.comps.goal.id == q.card and sc.outcome then
-                    q.done = true
-                    q.won, q.done_week = sc.outcome == "win", campaign.week   -- (for the next recap)
-                    local p = campaign:player(key)
-                    if sc.outcome == "win" then
-                        p.scar = util.fill(data.SCARS[1], { char = q.char })
-                    else
-                        local rec = { key = key, char = q.char, class = p.class, level = campaign.level or 2, week = campaign.week,
-                                      how = "never came back from the dark", outcome = "lost" }
-                        campaign.fallen = campaign.fallen or {}
-                        table.insert(campaign.fallen, rec)
-                        campaign.new_char = campaign.new_char or {}
-                        campaign.new_char[key] = { week = campaign.week, was = q.char }
-                    end
-                end
             end
         end
     end

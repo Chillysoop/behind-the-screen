@@ -38,17 +38,12 @@ local WANT_LINES = {
 -- What they'd love to see: their story if it's been quiet, else the kind of scene they like best.
 local function want_of(campaign, p)
     -- (v2: in an adventure, what they came for is the reason their hero came, in its room.)
-    if campaign.module and campaign.adv then
-        local adv = require "game.model.adventure"
-        local h = adv.hook(campaign, p.key)
-        local room = h and adv.data.rooms[h.room]
-        if room and not (campaign.adv.hook_paid or {})[p.key] and not campaign.adv.done[h.room] then
-            return "Any chance we get to " .. util.lower_first(room.name) .. " soon? That's what " .. p.char .. " came to the museum for.",
-                p.char .. "'s reason for coming", room.type, true
-        end
-    elseif p.thread and (p.thread_hits or 0) == 0 and (campaign.week or 1) >= 2 then
-        return "Any chance my backstory comes up? It's been ages since anything about " .. p.thread .. ".",
-            p.char .. "'s backstory", nil, true
+    local adv = require "game.model.adventure"
+    local h = adv.hook(campaign, p.key)
+    local room = h and adv.data.rooms[h.room]
+    if room and not (campaign.adv.hook_paid or {})[p.key] and not campaign.adv.done[h.room] then
+        return "Any chance we get to " .. util.lower_first(room.name) .. " soon? That's what " .. p.char .. " came to the museum for.",
+            p.char .. "'s reason for coming", room.type, true
     end
     local best, bv
     for t in pairs(WANT_LINES) do
@@ -157,8 +152,8 @@ function M.choose(campaign, prep, t, i)
             t.learned.feel = fun >= 65 and "loving the game" or (fun >= 45 and "enjoying it, mostly" or "up and down about the game")
         else
             -- Their hero's story: what they came to the museum for, and whether it's come up.
-            local adv = campaign.module and require("game.model.adventure")
-            local h = adv and adv.hook(campaign, p.key)
+            local adv = require "game.model.adventure"
+            local h = adv.hook(campaign, p.key)
             local room = h and adv.data.rooms[h.room]
             if h and room and (campaign.adv.hook_paid or {})[p.key] then
                 reply = p.char .. " got what " .. (p.char) .. " came for, in " .. util.lower_first(room.name)

@@ -42,12 +42,6 @@ function M.offer(campaign, rng)
     return d.offer
 end
 
-function M.pick_dm(campaign, id)
-    if data.SETS[id] then
-        M.get(campaign).dm = id
-    end
-end
-
 function M.dm(campaign)
     local d = M.get(campaign)
     return d.dm or (d.offer and d.offer[1]) or "amethyst"

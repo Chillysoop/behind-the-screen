@@ -390,9 +390,6 @@ function M.museum_death()
         end
     end
     d.WAKE = "They hold the wake in the gift shop. Telpur leaves a candle burning on the counter for {char} all night."
-    d.QUEST = { name = "The way back", line = "There's a way to bring {char} back: Flitwidget swears one of his exhibits can do it, for a price.",
-                win = "{char} opens their eyes on the gift shop floor. They're back, and they remember the dark.",
-                lose = "The exhibit stays silent. {char} isn't coming back. The table says goodbye properly." }
     d.INTRO = {
         sibling = "{new} steps through the black curtain carrying {old}'s pack. 'I heard. I'm coming with you. Don't argue.'",
         hired = "{new} has been waiting by the caravan steps all evening. 'The gnome paid me in advance,' {new} says. 'I'd like to earn it.'",
@@ -466,18 +463,6 @@ function M.new_state()
         -- happen when, and the heroes' reasons a tie moved to another room.
         locks = {}, ties = {}, hook_room = {}, lock_news = {}, tie_seq = 0,
     }
-end
-
-function M.on(campaign)
-    return campaign and campaign.module ~= nil and campaign.adv ~= nil
-end
-
-function M.room(id)
-    return MODULE.rooms[id]
-end
-
-function M.state(campaign)
-    return campaign.adv
 end
 
 -- Conditions on moments and options ------------------------------------------------------------

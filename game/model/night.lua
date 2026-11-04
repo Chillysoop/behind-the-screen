@@ -1823,7 +1823,6 @@ function M:table_behavior(when, roller, sure)
     local week = camp.week or 1
     local cands, weights = {}, {}
     for _, b in ipairs(content.table_behaviors) do
-        -- (A campaign style's own habits belong to the old valley: adventure.enter takes them out.)
         if b.when == when and not tb.used[b.id] and self:behavior_fits(b, sc, week) then
             local free = {}
             for i in ipairs(b.lines) do
@@ -4151,8 +4150,7 @@ function M:progress_view(sc)
         return nil
     end
     local need = pr.need or 3
-    return { wins = math.min(pr.wins, need), setbacks = pr.setbacks, need = need, max = content.scene_beats.setbacks,
-             lead = sc.warm_lead and true or nil }
+    return { wins = math.min(pr.wins, need), setbacks = pr.setbacks, need = need, max = content.scene_beats.setbacks }
 end
 
 function M:progress_event(sc)
@@ -4206,17 +4204,11 @@ function M:climax(sc)
         success = { log = goal.win, effects = cl.success.effects }
         fail = { log = goal.lose or cl.fail.log, effects = cl.fail.effects }
     end
-    -- Someone in the scene told them where to look (a warm word, takeover.talk): 2 easier, on top of
-    -- whatever the dots did (the second card-led playtest, October 17: with the groundwork done too,
-    -- the warm word counted for nothing).
+    -- What the dots did to it: groundwork done makes it easier.
     local edge = sc.edge or 0
     local whys = {}
     if edge < 0 then
         table.insert(whys, "they did the groundwork")
-    end
-    if sc.warm_lead then
-        edge = edge - 2
-        table.insert(whys, sc.warm_lead .. " told them where to look")
     end
     local why = #whys > 0 and util.join_names(whys) or nil
     local spec = { dc = cl.dc + (sc.difficulty - 2) + edge, convenient = "success", success = success,
@@ -4275,18 +4267,15 @@ function M:note(sc, entry)
     return entry
 end
 
--- The night's events (M8, B1). The notebook's ledger is the one event log: besides who did
--- what to whom, it keeps the moments a table talks about afterwards. Recaps, running jokes,
--- awards, Grudge and the report all read these; nothing reads the raw night.
---   ev     the kind: moment, crit, fumble, down, death, killing_blow, inspiration, clue, payoff,
---          cooked, callout, fail_card, jail, joke, theory, escape, villain_falls, stunt, curveball
+-- The night's events (M8, B1). The night's ledger is the one event log: besides who did what,
+-- it keeps the moments a table talks about afterwards. The recap, running jokes and the report
+-- read these.
+--   ev     the kind: moment, crit, fumble, down, death, killing_blow, inspiration, cooked, callout,
+--          jail, escape, villain_falls, stunt, talk, boss_turn, goal, new_character, unfair
 --   who    the player it's about (a key), or "party"; keys: everyone in it
---   to     a person or faction it touched, if any;  text: a line for the recap
---   weight how big a moment it was, 1 to 10;  tags: anything a reader filters on
+--   text   a line for the recap;  weight how big a moment it was, 1 to 10
 M.EVENT_WEIGHT = { moment = 4, crit = 6, fumble = 5, down = 6, death = 10, killing_blow = 8, inspiration = 5,
-                   clue = 5, payoff = 8, cooked = 3, callout = 6, fail_card = 4, jail = 3, joke = 4, theory = 7,
-                   escape = 7, villain_falls = 9, stunt = 5, curveball = 5, talk = 6, boss_turn = 3, taunt = 6, interrupt = 6,
-                   retort = 9 }
+                   cooked = 3, callout = 6, jail = 3, escape = 7, villain_falls = 9, stunt = 5, talk = 6, boss_turn = 3 }
 
 function M:event(ev, fields)
     local e = fields or {}
@@ -4309,8 +4298,8 @@ end
 -- every mini and its square, the camera, a caption in the DM's hand and who was in it. The
 -- report re-stages one on the table to show it. Six a night at most catch themselves; the DM can
 -- take three more with the camera button.
-M.SNAP_KINDS = { death = true, killing_blow = true, villain_falls = true, theory = true, crit = true, escape = true,
-                 goodbye = true, payoff = true, defeat = true, new_character = true }
+M.SNAP_KINDS = { death = true, killing_blow = true, villain_falls = true, crit = true, escape = true, goodbye = true,
+                 new_character = true }
 M.SNAP_AUTO, M.SNAP_DM = 6, 3
 
 function M:snapshot(caption, weight, who, by_dm)

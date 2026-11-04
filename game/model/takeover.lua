@@ -16,15 +16,13 @@ M.data = data
 
 M.STANCES = { "warm", "guarded", "lie" }
 M.STANCE_NAME = { warm = "Warm", guarded = "Guarded", lie = "A lie" }
--- People whose voice sheet goes by another name (Wren is the hooded stranger until she isn't).
-M.VOICE_ALIAS = { wren = "stranger" }
 -- Before a fight, it's the villain having their say before the dice come out.
 M.TALK_SCENES = { social = true, mystery = true, downtime = true, exploration = true, puzzle = true, combat = true,
                   set_piece = true }
 
 -- Who voices this person: their own voice sheet if the library has their lines, else the plain one.
 function M.speaker(lib, cast)
-    local id = M.VOICE_ALIAS[cast.id] or cast.id
+    local id = cast.id
     local t = lib.trigger and lib.trigger.talk_open
     if t and t.speaker_set and t.speaker_set[id] then
         return id
@@ -150,7 +148,6 @@ local function turn(night, step, info)
     if step == 1 then
         card.title = "Talk as " .. name
         card.text = info.p.char .. " walks up to " .. name .. ". " .. info.feel
-            .. (info.knows and " They know something the party needs." or "")
             .. " You speak for them: what are their first words?"
     else
         card.title = info.p.char .. " asks"
@@ -158,9 +155,7 @@ local function turn(night, step, info)
         card.text = (info.ask and (info.p.char .. " asks " .. name .. " " .. info.ask .. ". ")
             or (info.p.char .. " asks " .. name .. " what they know"
                 .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")))
-            .. (info.knows and "Warm, and they point the party the right way: the scene's final roll gets easier. Guarded keeps it "
-                .. "back for now. A lie sends them the wrong way, unless someone sees through it."
-                or "Warm, and they open up. Guarded keeps their secrets. A lie might get caught.")
+            .. "Warm, and they open up. Guarded keeps their secrets. A lie might get caught."
     end
     local fits = info.fits
     for i, stance in ipairs(M.STANCES) do
@@ -250,7 +245,7 @@ function M.talk(night, sc)
     local goal = sc.comps.goal and not night:muted(sc.comps.goal) and sc.comps.goal
     local info = {
         id = cast.id, cast = cast, p = p, name = cast.short or cast.name, speaker = M.speaker(night.talk.lib, cast),
-        feel = feel, knows = sc.goal_clue ~= nil, fits = M.in_character(cast, att),
+        feel = feel, fits = M.in_character(cast, att),
         about = goal and util.lower_first(goal.short or goal.name) or "what's going on",
         goal = goal and goal.name or nil,
         ask = goal and goal.ask or nil, module_talk = module_talk, met = met,
@@ -272,15 +267,6 @@ function M.talk(night, sc)
         reply(night, p, "warm")
         entry.did, entry.d = "talk_warm", (first == "lie" and 0 or 1)
         sc.talked_warm = true                -- (nobody "catches them in a lie" after this)
-        if sc.goal_clue then
-            -- They point the way; the scene's final roll finds it, as the lore screen said (the card-led
-            -- playtest, October 16: the map went into the notes before a single roll, then was found
-            -- again at the end).
-            sc.warm_lead = util.capitalize(info.name)
-            night:say(util.capitalize(info.name) .. " tells " .. p.char .. " where to look. The scene's final roll will be easier.",
-                "good")
-            night:progress_event(sc)     -- the top bar says so at once
-        end
         night:highlight(6, util.capitalize(info.name) .. " told " .. p.char .. " the truth", { p }, "talk")
     elseif second == "guarded" then
         reply(night, p, "guarded")
@@ -298,11 +284,6 @@ function M.talk(night, sc)
             reply(night, p, "lie_believed")
             night:apply(data.BELIEVED)
             entry.did, entry.d = "talk_lie", 0
-            -- What they knew stays hidden tonight; it's still out there.
-            if sc.goal_clue then
-                sc.goal_clue = nil
-                entry.hid = true
-            end
             table.insert(night.canon, util.capitalize(info.name) .. " lied to " .. p.char .. ", and got away with it")
         end
     end

@@ -29,11 +29,8 @@ end
 function M.status(campaign)
     local d = data()
     local s = { level = campaign.level, nights = campaign.level_nights, max = campaign.level >= d.MAX_LEVEL }
-    s.ready = not s.max and campaign.level_nights >= d.READY_AFTER
-    if campaign.module then
-        -- v2: the book's milestones (game/model/museum_week.lua).
-        s.ready = not s.max and require("game.model.util").lazy("game.model.museum_week").level_ready(campaign) == true
-    end
+    -- v2: the book's milestones (game/model/museum_week.lua).
+    s.ready = not s.max and util.lazy("game.model.museum_week").level_ready(campaign) == true
     s.overdue = s.ready and campaign.level_nights >= d.OVERDUE_AFTER
     return s
 end
@@ -186,16 +183,6 @@ end
 function M.has_reason(s)
     local d = data()
     return s.arch >= d.FLOOR or s.hist >= d.HIST_FLOOR
-end
-
--- A pick feels true to its player when something real is behind it. Used by the M6 gate.
-function M.true_to_player(pick)
-    for _, e in ipairs(pick.scores) do
-        if e.id == pick.sub then
-            return M.has_reason(e)
-        end
-    end
-    return false
 end
 
 return M

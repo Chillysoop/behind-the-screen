@@ -14,7 +14,6 @@ local M = {}
 M.WAVER_AT = 25
 M.LEAVE_AT = 20
 M.WAVER_WEEKS = 2
-M.RETURN_COMMITMENT = 40
 M.BREAK_WEEKS = { 3, 5 }
 M.SIDELINED_AT = 32 -- Spotlight below this for a night counts as sidelined
 M.FUN_PAR = 52      -- a night at this Fun neither builds nor drains Commitment
@@ -105,27 +104,6 @@ function M.standing(p, rng)
     end
     p.wavering = 0
     return nil
-end
-
--- Start of a week for someone on a break: count down, maybe come back.
-function M.tick_break(p)
-    p.back = false
-    if not p.on_break then
-        return
-    end
-    if p.just_left then
-        -- The week they leave, they say so; the countdown starts next week.
-        return
-    end
-    p.break_left = p.break_left - 1
-    if p.break_left <= 0 then
-        p.on_break = false
-        p.back = true
-        p.wavering = 0
-        p.sidelined = 0
-        p.recent_fun = nil
-        p.commitment = math.max(p.commitment, M.RETURN_COMMITMENT)
-    end
 end
 
 -- A one-on-one check-in with someone on a break: they feel missed.

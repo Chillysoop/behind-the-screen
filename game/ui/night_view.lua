@@ -549,9 +549,7 @@ function M.draw_pips(app)
     -- said nothing about what they were doing to it until the scene's end).
     local lx = x + pr.max * 14 + 8
     local word, col, short
-    -- (A warm word from someone in the scene counts too: the second playtest, October 17, saw
-    -- "normal" straight after the card promised "easier".)
-    local edge = ((pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)) + (pr.lead and -2 or 0)
+    local edge = (pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)
     if edge < 0 then
         word, short, col = "final roll: easier (DC " .. util.int(edge) .. ")", "final roll: easier", theme.green
     elseif edge > 0 then

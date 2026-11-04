@@ -54,16 +54,13 @@ M.LAST_WORDS = {
 }
 M.WAKE = "They hold the wake at the Crooked Kettle. Gus pours one for {char} and leaves it on the bar all night."
 
--- Coming back at a cost: a scar in canon (it stays), a debt (a seed), or a quest (next week).
+-- Coming back at a cost: a scar in canon (it stays).
 M.SCARS = {
     "{char} came back with one eye gone pale. It sees things, sometimes.",
     "{char} came back without a shadow. Nobody mentions it.",
     "{char} came back, and the dead talk to {char} now, a little, at night.",
     "{char} came back owing the thing that sent them back. It will ask, one day.",
 }
-M.QUEST = { name = "The way back", line = "There's a way to bring {char} back: a shrine in the hills, and a price at the end of it.",
-            win = "{char} opens their eyes. They're back, and they remember the dark.",
-            lose = "The shrine is silent. {char} isn't coming back. The table says goodbye properly." }
 
 -- New characters: two for each class the rules engine supports. Same class as the fallen, so
 -- the party still works; the player keeps their own voice. intro: how they join.
