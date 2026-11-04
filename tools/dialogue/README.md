@@ -8,6 +8,11 @@ edits back into the game.
   reader's own PDF in their browser and shows the room's pages there.
 - `desk.html` is the page (published as a claude.ai artifact, with `dialogue.json` beside it). Edits
   are saved to the page's database, one document per line, under `edits/`.
+- `reach.lua` and `reach_match.py` check which lines can actually play: `reach.lua` runs whole prologues
+  headless and records every line dealt and every piece of text shown; `reach_match.py` marks each
+  exported line seen or not, grouped by where it lives. The export leaves out the older game's
+  systems that an adventure switches off (its `old_entry` and `keep_line` rules say which, and why).
+  Re-run both when a new adventure arrives, before trusting the desk's list.
 - `collect.py` merges the saved edits (read into a folder) into one list; `apply.py` writes them
   into the data files, only where the old line appears exactly once, and reports what it skipped.
 
