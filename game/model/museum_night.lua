@@ -974,9 +974,16 @@ function M.explore_after(night, sc)
     if not sc.explored and not night.end_early and (not sc.fought or sc.outcome == "win") then
         sc.explored = true
         M.explore(night, sc)
-        -- Then the small stuff, once it's safe (table_life.lua): poking at things, a question, a snack.
-        require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
     end
+end
+
+-- The small stuff, once the room's danger is settled (table_life.lua): poking at things, a question,
+-- a snack. After the room's last moments, so nobody browses while something's still coming.
+function M.quiet_stretch(night, sc)
+    if night.end_early or (sc.fought and sc.outcome ~= "win") then
+        return
+    end
+    require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
 end
 
 -- Who takes a magic item the party just got is the players' call (the playtest, November 3:
@@ -1155,6 +1162,8 @@ function M.explore(night, sc)
         end
         local p = night:pick_lead({ "explorer", "instigator", "storyteller", "power_gamer" }, last)
         last = p
+        night.tl = night.tl or { n = 0 }
+        night.tl.last = p and p.key or night.tl.last      -- (and sits out the next small moment)
         local i = night.rng:int(1, #open)
         local pid = table.remove(open, i)
         local pl = by_id[pid]
@@ -1333,7 +1342,10 @@ function M.room_start(night, sc)
     if not M.has_fight(sc) then
         M.explore(night, sc)
         sc.explored = true
-        require("game.model.table_life").room(night, sc, "enter")
+        -- (A quiet room's small stuff comes now; a room with danger in it waits: quiet_stretch.)
+        if not require("game.model.table_life").danger_ahead(night, sc) then
+            require("game.model.table_life").room(night, sc, "enter")
+        end
     end
     M.drops_social(night, sc)
     M.moments(night, sc, "start")
@@ -1499,6 +1511,7 @@ function M.quick_room(night, sc)
     end
     M.explore_after(night, sc)
     M.moments(night, sc, "end")
+    M.quiet_stretch(night, sc)
     local r = sc.comps.reward
     M.reward(night, sc)
     if not sc.virtual and not night.end_early then

@@ -909,7 +909,10 @@ M.companions = {
                   lines = {
                       join = "Pip has a new friend tonight: a museum rat called Exhibit B, riding in her hood. He seems to approve of the museum.",
                       start = { "Exhibit B is in my hood. Say hi, Exhibit B.", "Exhibit B came. He insisted.", "I brought Exhibit B a tiny bit of cheese for the museum." },
-                      look = { "Exhibit B, go sniff that. Good boy.", "Exhibit B doesn't like it. That's a sign.", "Exhibit B's whiskers are going. Something's here." },
+                      -- (look: a sniff round, whatever's there; hint: only when there's something to find.)
+                      look = { "Exhibit B, go sniff that. Good boy.", "Exhibit B sniffs it, sneezes, and loses interest.",
+                               "Exhibit B has a look too. He's not impressed." },
+                      hint = { "Exhibit B's whiskers are going. Something's here.", "Exhibit B won't leave it alone. There's something there." },
                       fight = { "Exhibit B, pocket! NOW!", "Nobody step on Exhibit B.", "Exhibit B is in the pocket. We're fine. Mostly." },
                       win = { "Exhibit B was very brave in the pocket.", "Exhibit B gets the first crumb of the victory snack." },
                   } },
@@ -920,6 +923,7 @@ M.companions = {
                    join = "Telpur is coming with them tonight. They insisted, loudly, until somebody tied them to a pack strap. They have opinions about every exhibit.",
                    start = { "Telpur, from the backpack: \"Onward! Mind the laces.\"", "Telpur is already complaining about the walking." },
                    look = { "Telpur: \"I'd not touch that. Then again, I'm a boot.\"", "Telpur: \"In my day we had a museum like this. Smaller. More screaming.\"" },
+                   hint = { "Telpur: \"Now that, I'd look at twice.\"", "Telpur: \"Warmer. Warmer. I'd look there, if I had hands.\"" },
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
                    win = { "Telpur: \"Another victory for the Lord of Laces.\"", "Telpur takes most of the credit." },
                } },

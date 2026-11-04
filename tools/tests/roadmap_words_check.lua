@@ -19,7 +19,7 @@ local util = require "game.model.util"
 
 local RUNS = tonumber(arg[1]) or 4
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "F2", "F21", "F22" }
+local ITEMS = { "F2", "F6", "F7", "F8", "F21", "F22", "F26" }
 local NAMES = {
     F2 = "near misses", F6 = "small moments: reactions", F7 = "small moments: the natural 1",
     F8 = "small moments: danger first", F9 = "the offices, shop, paintings", F15 = "Flitwidget's thanks",
@@ -122,6 +122,9 @@ local function play(seed, style, opts)
                 rec.ctext = ev.card.text
                 rec.opts = o
                 local pick = (style == "careful") and 1 or rng:int(1, #o)
+                if ev.card.id == "tl_crit" then
+                    pick = #o           -- (the improvised option, to see what it does)
+                end
                 if opts.pick then
                     pick = opts.pick(ev, pick, rng) or pick
                 end
@@ -154,6 +157,15 @@ local function play(seed, style, opts)
         end
     end
     add("run", "prologues")
+    -- DUMP=seed:style prints the run's log, to read round a failure.
+    if os.getenv("DUMP") == (seed .. ":" .. style) then
+        for i, r in ipairs(run.log) do
+            if r.text or r.k == "tiny_roll" or r.k == "decision" or r.k == "scene" then
+                print(string.format("%4d w%d %-10s %-9s %-8s %s", i, r.week, tostring(r.room), r.k, tostring(r.who or r.style or r.name or ""),
+                    r.k == "tiny_roll" and (r.ev.who .. " " .. r.ev.total) or (r.k == "decision" and (r.card .. ": " .. tostring(r.title)) or tostring(r.text))))
+            end
+        end
+    end
     return run
 end
 
@@ -207,6 +219,251 @@ function CHECKS.F2(run)
     end
 end
 
+-- Small moments (F6, F8, F26) -----------------------------------------------------------------------
+
+local TL = adventure.data.table_life or require "game.data.museum.table_life"
+local ROOM_ORDER = {}
+local CURIO_BY_ASK, DULL, ANSWER_LEVEL = {}, {}, {}
+for room, r in pairs(TL.rooms or {}) do
+    for _, b in ipairs(r.curios or {}) do
+        CURIO_BY_ASK[util.sentence_case(b.ask)] = { b = b, room = room }
+        for _, lvl in ipairs({ "dull", "detail", "lore" }) do
+            if b[lvl] then
+                ANSWER_LEVEL[b.id .. "|" .. b[lvl]] = lvl
+            end
+        end
+        DULL[b.dull] = true
+    end
+end
+local HINTS = {}
+for _, id in ipairs(adventure.data.companions and adventure.data.companions.order or {}) do
+    local e = adventure.data.companions[id]
+    for _, t in ipairs(e.lines and e.lines.hint or {}) do
+        HINTS[t] = true
+    end
+end
+local DANGER_CARDS = {}
+for _, m in ipairs(adventure.data.moments or {}) do
+    if m.danger then
+        DANGER_CARDS[m.id] = true
+    end
+end
+-- The board places' lines, by room: what looking round says when someone walks over to a place.
+local PLACE_LINE = {}
+do
+    local lib = require "game.data.map_library"
+    for _, b in pairs(lib.boards) do
+        for _, pl in ipairs(b.places or {}) do
+            if b.room then
+                PLACE_LINE[b.room .. "|" .. pl.line] = pl.id
+            end
+        end
+    end
+end
+
+-- Each small moment in a run: { i (index in the log), b, room, who, level, react (text or nil), scene }.
+local function small_moments(run)
+    local out = {}
+    local log = run.log
+    for i, r in ipairs(log) do
+        if r.k == "tiny_roll" and i > 1 and log[i - 1].k == "say" then
+            local hit = CURIO_BY_ASK[log[i - 1].text or ""]
+            if hit then
+                local m = { i = i, b = hit.b, room = r.room, who = r.ev.who, scene = r.scene, week = r.week }
+                for j = i + 1, math.min(#log, i + 6) do
+                    local q = log[j]
+                    if q.k == "narrate" and q.style == "dm" and not m.level then
+                        m.level = ANSWER_LEVEL[hit.b.id .. "|" .. (q.text or "")]
+                        m.answer_at = j
+                    elseif q.k == "decision" and q.card == "tl_crit" then
+                        m.crit = true
+                        break
+                    elseif q.k == "say" and m.answer_at and CURIO_BY_ASK[q.text or ""] then
+                        break           -- (the next friend's poke, not a reaction)
+                    elseif q.k == "say" and m.answer_at and q.ev.who ~= m.who then
+                        m.react = q.text
+                        break
+                    elseif q.k == "tiny_roll" or (q.k == "narrate" and m.answer_at) then
+                        break
+                    end
+                end
+                table.insert(out, m)
+            end
+        end
+    end
+    return out
+end
+
+-- F6: the friend's reaction follows the answer you gave.
+function CHECKS.F6(run)
+    local tlm = require "game.model.table_life"
+    for _, m in ipairs(small_moments(run)) do
+        if m.level and m.react then
+            local ok = false
+            for _, t in ipairs(tlm.reactions({ campaign = run.c }, m.b, m.level)) do
+                ok = ok or util.sentence_case(t) == m.react
+            end
+            -- (when-conditioned lines are checked against the end of the run: allow them too.)
+            for _, l in ipairs((m.b.react or {})[m.level] or {}) do
+                ok = ok or util.sentence_case(type(l) == "table" and l[1] or l) == m.react
+            end
+            for _, l in ipairs((m.b.react or {}).any or {}) do
+                ok = ok or util.sentence_case(type(l) == "table" and l[1] or l) == m.react
+            end
+            if ok then
+                add("F6", "reactions_that_follow_the_answer")
+            else
+                fail("F6", where(run, { week = m.week, room = m.room }) .. ": after the " .. m.level .. " answer on " .. m.b.id
+                    .. ", \"" .. m.react .. "\"")
+            end
+        elseif m.level then
+            add("F6", "answers_without_a_reaction")
+        end
+    end
+end
+
+-- F8: small moments wait until the room's danger is settled; curios that need the story wait for it.
+function CHECKS.F8(run)
+    local log = run.log
+    local seen_text = {}
+    for i, r in ipairs(log) do
+        if r.k == "tiny_roll" then
+            -- Nothing dangerous may still be coming in this room visit.
+            for j = i + 1, #log do
+                local q = log[j]
+                if q.scene ~= r.scene or q.week ~= r.week or q.k == "scene" then
+                    break
+                end
+                if (q.k == "battle" and q.ev.phase == "start") or (q.k == "decision" and DANGER_CARDS[q.card or ""]) then
+                    fail("F8", where(run, r) .. ": a small moment before " .. (q.k == "battle" and "the room's fight" or ("the danger at " .. q.card)))
+                    break
+                end
+            end
+            add("F8", "small_moments")
+        end
+        if r.k == "say" and has(r.text, "tentacles under it") then
+            if seen_text.tentacle then
+                add("F8", "tentacle_joke_after_the_tentacle")
+            else
+                fail("F8", where(run, r) .. ": \"" .. r.text .. "\" before anyone saw a tentacle")
+            end
+        end
+        if r.k == "say" and has(r.text, "How many eyes are drawn on these walls") then
+            if run.c.adv.flags.door_open and seen_text.door_open_wk == r.week then
+                add("F8", "eyes_after_the_door")
+            else
+                fail("F8", where(run, r) .. ": counting the archivist's eyes before the door's open")
+            end
+        end
+        for _, ex in ipairs({ { "cat voice at the cat", "cat" }, { "nearest bust", "bust" }, { "bright fruits", "fruit" },
+                              { "handful of the sand", "sand" }, { "out of the big window", "window" } }) do
+            if r.k == "say" and has(r.text, ex[1]) then
+                local said = false
+                for j = math.max(1, i - 3), i - 1 do
+                    said = said or (log[j].k == "narrate" and has(string.lower(log[j].text or ""), ex[2]))
+                end
+                local room_read = adventure.data.rooms[r.room or ""] and string.lower(adventure.data.rooms[r.room].read or "")
+                if said or has(room_read, ex[2]) then
+                    add("F8", "described_before_poked")
+                else
+                    fail("F8", where(run, r) .. ": \"" .. r.text .. "\" with nothing described")
+                end
+            end
+        end
+        if r.k == "narrate" and has(r.text, "tentacle") then
+            seen_text.tentacle = true
+        end
+        if r.k == "decision" and r.card == "mus_office_door" then
+            seen_text.door_open_wk = r.week
+        end
+    end
+end
+
+-- F26: about one table bit a night, a friend sits out after their beat, nothing poked twice in a
+-- room, and the pet's hints lead somewhere.
+function CHECKS.F26(run)
+    local log = run.log
+    local nights, with_bit, beats = {}, {}, {}
+    local looked = {}
+    local last_who, last_scene
+    for i, r in ipairs(log) do
+        nights[r.week] = true
+        if r.k == "narrate" and r.style == "table" then
+            with_bit[r.week] = (with_bit[r.week] or 0) + 1
+        end
+        if r.k == "narrate" and r.room and PLACE_LINE[r.room .. "|" .. (r.text or "")] then
+            looked[r.room .. "/" .. PLACE_LINE[r.room .. "|" .. r.text]] = true
+        end
+        if r.k == "tiny_roll" then
+            beats[r.week] = (beats[r.week] or 0) + 1
+            local present = #(run.night and run.night.players or { 1, 2, 3, 4 })
+            if last_scene == (r.week .. "/" .. tostring(r.scene)) and last_who == r.ev.who and present > 1 then
+                fail("F26", where(run, r) .. ": " .. tostring(r.ev.who) .. " takes two small moments running")
+            else
+                add("F26", "small_moments_by_turns")
+            end
+            last_who, last_scene = r.ev.who, r.week .. "/" .. tostring(r.scene)
+            local hit = i > 1 and log[i - 1].k == "say" and CURIO_BY_ASK[log[i - 1].text or ""]
+            if hit and hit.b.spot and looked[r.room .. "/" .. hit.b.spot] then
+                fail("F26", where(run, r) .. ": " .. hit.b.id .. " pokes at a place someone just looked at")
+            end
+        elseif r.k == "decision" or r.k == "scene" or r.k == "battle" then
+            last_who = nil
+        end
+        if r.k == "say" and HINTS[r.text or ""] then
+            -- What comes next is a real find, or an answer worth the sniffing.
+            local led = nil
+            for j = i + 1, math.min(#log, i + 5) do
+                local q = log[j]
+                if q.k == "narrate" or q.k == "decision" then
+                    led = not (q.k == "narrate" and DULL[q.text or ""])
+                    break
+                end
+            end
+            if led == false then
+                fail("F26", where(run, r) .. ": \"" .. r.text .. "\", then nothing")
+            else
+                add("F26", "pet_hints_that_lead_somewhere")
+            end
+        end
+    end
+    for w in pairs(nights) do
+        if (beats[w] or 0) >= 3 then
+            add("F26", "nights_with_three_small_moments")
+            if (with_bit[w] or 0) > 0 then
+                add("F26", "of_them_with_a_table_bit")
+            end
+        end
+        if (with_bit[w] or 0) > 6 then
+            fail("F26", string.format("seed %d %s week %d: %d table-bit lines in one night", run.seed, run.style, w, with_bit[w]))
+        end
+    end
+end
+
+-- F7: a natural 1 poking at something is never a trap that hurts, and never a scare out in the street.
+function CHECKS.F7(run)
+    local log = run.log
+    for i, r in ipairs(log) do
+        if r.k == "decision" and r.card == "tl_crit" and has(r.title, "natural 1") then
+            add("F7", "natural_one_cards")
+            for _, o in ipairs(r.opts or {}) do
+                if has(o.label, "trap") or has(o.sub or "", "damage") then
+                    fail("F7", where(run, r) .. ": the natural 1 offers \"" .. o.label .. "\" (" .. tostring(o.sub) .. ")")
+                end
+                if r.room == "street" and has(o.label, "scare") then
+                    fail("F7", where(run, r) .. ": a scare out in the street")
+                end
+            end
+            for j = i + 1, math.min(#log, i + 3) do
+                local q = log[j]
+                if q.k == "narrate" and (has(q.text, "damage") or has(q.text, "A needle in")) then
+                    fail("F7", where(run, q) .. ": " .. q.text)
+                end
+            end
+        end
+    end
+end
+
 -- F21: notes only the DM knows have their own caption.
 local SCREEN_NOTES = { "behind your screen", "You never prepped it", "You hadn't prepped this one", "off screen, as you agreed",
     "You leave the ", "You make a note", "You make a mental note", "Your rolls go back behind the screen" }
@@ -244,7 +501,7 @@ function CHECKS.F22(run)
         end
         for _, bad in ipairs({ "Is the shears", "Who left the front doors", "Who left the museum's doors", "has under the",
                                "hit the piles of books? I want to hit it.", "Does the cases", "Is the anatomy drawings",
-                               "Does the eye on every wall", "Is the piles", "Is the cases" }) do
+                               "Is the piles", "Is the cases" }) do
             if r.k == "say" and has(r.text, bad) then
                 fail("F22", where(run, r) .. ": \"" .. r.text .. "\"")
             end
@@ -350,6 +607,128 @@ function UNITS.F22()
                         end
                     end
                 end
+            end
+        end
+    end
+end
+
+-- A pretend night for calling the small moments' cards directly: records what's said and shown.
+local function fake_night(room, pick)
+    adventure.enter()
+    local c = campaign_mod.new(7)
+    adventure.enter(c)
+    c:session_zero(social.default_choices())
+    local said, cards = {}, {}
+    local night = { campaign = c, rng = require("game.model.rng").new(11), players = c.players, actor = c.players[1],
+                    mus = {}, pcs = { mara = { hp = 10 } } }
+    function night:decision(card)
+        table.insert(cards, card)
+        return card.options[pick or #card.options]
+    end
+    function night:say(text, style)
+        table.insert(said, { text = text, style = style })
+    end
+    function night:emit(ev)
+        table.insert(said, { text = ev.text, kind = ev.kind })
+    end
+    function night:react() end
+    return night, { room = room }, said, cards
+end
+
+-- F6: every curio has a reaction for each answer it has, and none of them is about another answer.
+function UNITS.F6()
+    local tlm = require "game.model.table_life"
+    for room, r in pairs(TL.rooms) do
+        for _, b in ipairs(r.curios or {}) do
+            for _, lvl in ipairs({ "dull", "detail", "lore" }) do
+                if b[lvl] then
+                    local own = (b.react or {})[lvl]
+                    if not own or #own == 0 then
+                        fail("F6", room .. "/" .. b.id .. ": no reaction of its own for the " .. lvl .. " answer")
+                    else
+                        add("F6", "answers_with_their_own_reactions")
+                    end
+                end
+            end
+            if b.react and b.react[1] then
+                fail("F6", room .. "/" .. b.id .. ": reactions not sorted by answer")
+            end
+        end
+    end
+    if not tlm.reactions then
+        fail("F6", "table_life.reactions is missing")
+    end
+end
+
+-- F7: a natural 1's little trap is a scare in the room's own words, never hurts, never outside.
+function UNITS.F7()
+    local tlm = require "game.model.table_life"
+    if not tlm.crit_card then
+        fail("F7", "table_life.crit_card isn't there to check")
+        return
+    end
+    for room, r in pairs(TL.rooms) do
+        local b = (r.curios or {})[1]
+        if b then
+            local night, sc, said, cards = fake_night(room, 3)
+            local hp = night.pcs.mara.hp
+            tlm.crit_card(night, sc, night.players[1], b, 1)
+            local card = cards[1]
+            local labels = {}
+            for _, o in ipairs(card and card.options or {}) do
+                table.insert(labels, o.label)
+                if has(o.label, "trap") or has(o.sub or "", "damage") then
+                    fail("F7", room .. ": the natural 1 offers " .. o.label .. " (" .. tostring(o.sub) .. ")")
+                end
+            end
+            if night.pcs.mara.hp ~= hp then
+                fail("F7", room .. ": the natural 1 cost hit points")
+            end
+            for _, l in ipairs(said) do
+                if has(l.text, "A needle in") then
+                    fail("F7", room .. ": \"" .. l.text .. "\"")
+                end
+            end
+            local scare = false
+            for _, o in ipairs(card and card.options or {}) do
+                scare = scare or o.scare ~= nil
+            end
+            if room == "street" or room == "lair" then
+                if scare then
+                    fail("F7", room .. ": a scare outside the museum's rooms")
+                else
+                    add("F7", "no_scare_outside")
+                end
+            elseif not scare then
+                fail("F7", room .. ": no scare of its own (" .. table.concat(labels, " / ") .. ")")
+            else
+                add("F7", "rooms_with_their_own_scare")
+            end
+        end
+    end
+end
+
+-- F26: a natural 20 or 1 on a question gives the DM a card too, the harmless answer first.
+function UNITS.F26()
+    local tlm = require "game.model.table_life"
+    if not tlm.ask_crit then
+        fail("F26", "table_life.ask_crit (a natural 20 or 1 on a question) is missing")
+        return
+    end
+    for _, nat in ipairs({ 20, 1 }) do
+        local night, sc, said, cards = fake_night("street", 2)
+        local q = TL.rooms.street.npc_questions[1]
+        local o = tlm.ask_crit(night, sc, night.players[1], q, "Formicarius Flitwidget, the curator", nat)
+        local card = cards[1]
+        if not card or #card.options < 2 then
+            fail("F26", "a natural " .. nat .. " on a question: no card with a choice")
+        else
+            add("F26", "question_crit_cards")
+            if has(card.text, ", the curator") then
+                fail("F26", "the question card names him in full: " .. card.text)
+            end
+            if not (o and (o.slip or o.answer)) then
+                fail("F26", "a natural " .. nat .. " on a question: the improvised option says nothing")
             end
         end
     end

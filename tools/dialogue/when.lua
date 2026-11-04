@@ -485,7 +485,11 @@ A.companions = function(p)
         elseif kind == "start" then
             return R("At the start of each later night with " .. name .. " along: " .. voice, one_of(#list))
         elseif kind == "look" then
-            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along: " .. voice, one_of(#list))
+            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along, and there's nothing much there: " .. voice,
+                one_of(#list))
+        elseif kind == "hint" then
+            return R("When " .. HERO[c.owner] .. " looks around with " .. name .. " along, and there's something there (a find, or an "
+                .. "answer worth the sniffing): " .. voice, one_of(#list))
         elseif kind == "fight" then
             return R("As a fight starts with " .. name .. " along, more often than not: " .. voice, one_of(#list))
         elseif kind == "win" then
@@ -967,10 +971,28 @@ local function fond_of(who)
     return #keys > 0 and names(keys) or nil
 end
 
+local ANSWER_WORDS = { dull = "the plain answer (a roll under 10)", detail = "the detail (a roll of 10 to 16)",
+                       lore = "the bit of lore (17 or more)" }
+
 local function small_moment(p)
-    -- p: rooms/<room>/<part>/<i>/<field>...
+    -- p: rooms/<room>/<part>/<i>/<field>..., or people/<who>/<slip|misheard>/<i>
+    if p[1] == "people" then
+        local who = p[2] == "telpur" and "Telpur" or (p[2] == "flitwidget" and "Flitwidget") or tostring(p[2])
+        if p[3] == "slip" then
+            return R("A natural 20 asking " .. who .. " a question in a quiet moment, if you pick " .. Q(who .. " lets something slip"),
+                "If chosen")
+        end
+        return R("A natural 1 asking " .. who .. " a question in a quiet moment, if you pick " .. Q(who .. " hears a different question"),
+            "If chosen")
+    end
     local room, part, i = p[2], p[3], p[4]
     local TLD = MODULE.table_life
+    if part == "scare" then
+        if room == "lair" or room == "street" then
+            return R("Not said: no little scares " .. at_room(room), "Never")
+        end
+        return R("A natural 1 poking at something " .. at_room(room) .. ", if you pick the little scare", "If chosen")
+    end
     local rd = TLD.rooms[room] or {}
     local b = rd[part] and rd[part][i] or {}
     local f = p[5]
@@ -993,7 +1015,18 @@ local function small_moment(p)
         elseif f == "lore" then
             return R(where .. ": someone pokes at " .. what .. " and rolls 17 or more", "On a success")
         elseif f == "react" then
-            return R(where .. ": often, a friend's reaction to someone poking at " .. what, one_of(#(b.react or {})))
+            local lvl = p[6]
+            local list = (b.react or {})[lvl] or {}
+            local entry = list[p[7]]
+            local cond_words = type(entry) == "table" and entry.when and if_(entry.when) or ""
+            if lvl == "any" then
+                return R(where .. ": often, a friend's reaction to someone poking at " .. what .. ", whatever you answer" .. cond_words,
+                    "Sometimes")
+            end
+            return R(where .. ": often, a friend's reaction after " .. (ANSWER_WORDS[lvl] or "your answer") .. " about " .. what
+                .. cond_words, one_of(#list))
+        elseif f == "see" then
+            return R(where .. ": what you describe first, before a friend pokes at " .. what, "Sometimes")
         elseif f == "what" then
             return R(where .. ": its name on the natural 20 or 1 card", "Sometimes")
         elseif f == "crit1" then

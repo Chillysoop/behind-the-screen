@@ -4473,6 +4473,7 @@ function M:play_scene(sc)
     self:settle_scene(sc)
     mus.explore_after(self, sc)    -- (looking around once the fight's done: museum_night.explore)
     mus.moments(self, sc, "end")
+    mus.quiet_stretch(self, sc)    -- (the small moments, once the room's danger is settled)
     mus.reward(self, sc)          -- only what they earned, said once (museum_night.reward)
     -- How the scene went, as a card beside the table while the night moves on (the newcomer
     -- playtest, October 16: "damp squib" and "empty-handed" in the log, then "Loved it" in the

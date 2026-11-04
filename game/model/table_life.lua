@@ -40,12 +40,18 @@ function M.set_crits(campaign, on)
     campaign.small_crits = on and true or false
 end
 
--- Who'd do it: their kind of player, a friend who's drifting gets first go, and not the same friend
--- twice running.
+-- Who'd do it: their kind of player, a friend who's drifting gets first go, and whoever just had a
+-- beat sits this one out (the second playtest review: one friend took several turns running).
 local function pick_friend(night, who, last, not_p)
     local list, w = {}, {}
+    local others = 0
     for _, p in ipairs(night.players) do
-        if p ~= not_p and not (night.watching and night.watching[p.key]) then
+        if p ~= not_p and p.key ~= last and not (night.watching and night.watching[p.key]) then
+            others = others + 1
+        end
+    end
+    for _, p in ipairs(night.players) do
+        if p ~= not_p and not (night.watching and night.watching[p.key]) and not (others > 0 and p.key == last) then
             local v = 1
             for _, a in ipairs(who or {}) do
                 if a == p.primary then
@@ -58,9 +64,6 @@ local function pick_friend(night, who, last, not_p)
             end
             if (p.engagement or 0.5) < 0.45 then
                 v = v + 2
-            end
-            if last and p.key == last then
-                v = v * 0.2
             end
             table.insert(list, p)
             table.insert(w, v)
@@ -80,9 +83,11 @@ end
 
 -- What could happen here now: the room's curios nobody's poked at yet, questions for whoever's in
 -- the room (and not hostile), and its little table bits.
-local function candidates(night, sc, room, phase)
+local function candidates(night, sc, room, phase, last)
     local s = seen(night)
     local out, w = {}, {}
+    local looked = night.campaign.adv and night.campaign.adv.looked or {}
+    local tl = night.tl or {}
     local adventure = require "game.model.adventure"
     local companions = require "game.model.companions"
     local knobs = night.prep and night.prep.museum and night.prep.museum.knobs or {}
@@ -109,7 +114,10 @@ local function candidates(night, sc, room, phase)
         table.insert(w, weight)
     end
     for _, c in ipairs(room.curios or {}) do
-        add(c, "curio", 3)
+        -- (Not the thing someone just walked over to and looked at: the second playtest review.)
+        if not (c.spot and looked[sc.room .. "/" .. c.spot]) then
+            add(c, "curio", 3)
+        end
     end
     if phase ~= "after" then
         local present = night.tl_people or {}
@@ -119,8 +127,14 @@ local function candidates(night, sc, room, phase)
             end
         end
     end
+    -- About one table bit a night (the second playtest review: one in about 27 moments): rare until
+    -- the night has had a beat or two without one, likely then, and rare again once there's been one.
+    local bit_w = ((tl.bits or 0) > 0 and 0.4) or (((tl.n or 0) >= 1) and 12) or 1
     for _, t in ipairs(room.table_bits or {}) do
-        add(t, "bit", 1)
+        -- (A bit that's one friend's waits if that friend just had a beat.)
+        if not (t.who and t.who == last) then
+            add(t, "bit", bit_w)
+        end
     end
     return out, w
 end
@@ -200,8 +214,15 @@ local function crit_card(night, sc, p, b, nat)
         table.insert(card.options, { label = "A little mishap: noisy.", sub = "Whatever's in the next fight hears them coming.",
             mishap = b.crit1 or "{actor_char} knocks it over with a clatter that echoes all the way down the hall.",
             effects = { { "actor", fun = 1 }, { "arch:instigator", fun = 2 }, { "arch:tactician", fun = -1 } } })
-        table.insert(card.options, { label = "A small trap: it stings.", sub = "1d4 damage, never enough to drop them.", trap = true,
-            effects = { { "actor", challenge = 3 }, { "arch:butt_kicker", fun = 1 } } })
+        -- A scare and a scratch, in this room's own words, and only inside the museum (the second
+        -- playtest review: "A needle in a trodden handbill... 2 damage" out on the public street).
+        local room = data() and data().rooms and data().rooms[sc.room]
+        local scare = room and room.scare
+        if scare then
+            table.insert(card.options, { label = "A little scare: a jolt and a scratch.", sub = "No lasting harm. They jump; the table laughs.",
+                scare = type(scare) == "table" and night.rng:pick(scare) or scare,
+                effects = { { "actor", challenge = 3, fun = 1 }, { "arch:butt_kicker", fun = 1 }, { "arch:instigator", fun = 1 } } })
+        end
     end
     local o = night:decision(card)
     night.actor = prev or night.actor
@@ -223,19 +244,84 @@ local function crit_card(night, sc, p, b, nat)
     elseif o.mishap then
         night:say(util.fill(o.mishap, vars), "bad")
         night.noisy = true          -- (the next fight: nobody sneaks up on anyone. night.lua combat_scene)
-    elseif o.trap then
-        local hurt = night.rng:int(1, 4)
-        local c = night.pcs and night.pcs[p.key]
-        if c then
-            hurt = math.min(hurt, math.max(0, c.hp - 1))
-            c.hp = c.hp - hurt
-        end
-        night:say(util.fill("A needle in " .. what .. ". {char} yelps: " .. util.int(hurt) .. " damage, and a lesson learned.", vars), "bad")
-        night:emit({ kind = "hp" })     -- (the tile shows the hit points)
+    elseif o.scare then
+        night:say(util.fill(o.scare, vars), "twist")
+        night:react({ [p.key] = "gasp" })
     end
 end
 
--- A friend pokes at something: their line, the little die, your answer, someone's reaction.
+-- A natural 20 or 1 on a question (the second playtest review: "a natural 1 or 20 on a question does
+-- nothing"): your call, in one card, the harmless answer first. They tell you more than they meant
+-- to, or they hear a different question altogether (the adventure's people: their `slip` and
+-- `misheard` lines).
+local function ask_crit(night, sc, p, q, name, nat)
+    local d = data() or {}
+    local who = (d.people or {})[q.who] or {}
+    local card = { id = "tl_crit", type = "table", trigger = "museum_fixed", fixed_actor = true, options = {} }
+    local prev = night.actor
+    night.actor = p
+    local plain = (nat == 20 and q.better) or q.answer
+    name = string.match(name, "^([^,]+)") or name       -- ("Telpur", not "Telpur, a talking boot")
+    card.title = nat == 20 and "A natural 20" or "A natural 1"
+    card.text = "{actor_char} rolled a natural " .. util.int(nat) .. " asking " .. name .. " a question. Improvise something?"
+    table.insert(card.options, { label = "Just the answer.", sub = "Nothing more. On you go.", answer = plain,
+        effects = { { "actor", fun = 1 } } })
+    if nat == 20 and who.slip then
+        table.insert(card.options, { label = name .. " lets something slip.", sub = "A little more than they meant to say.",
+            answer = plain, slip = night.rng:pick(who.slip), effects = { { "actor", fun = 3, spotlight = 3 }, { "arch:storyteller", fun = 2 },
+            { "arch:method_actor", fun = 2 } } })
+    elseif nat == 1 and who.misheard then
+        table.insert(card.options, { label = name .. " hears a different question.", sub = "A muddle, and a laugh.",
+            answer = night.rng:pick(who.misheard), laugh = true, effects = { { "all", fun = 1 }, { "arch:casual", fun = 2 } } })
+    end
+    local o = night:decision(card)
+    night.actor = prev or night.actor
+    return o
+end
+
+-- What a friend says back depends on what you said (the second playtest review: "Leave the biscuit."
+-- after an answer with no biscuit in it). react = { dull = {...}, detail = {...}, lore = {...},
+-- any = {...} }: the answer's own, or one about the poking itself. A line may carry a `when`.
+function M.reactions(night, b, level)
+    local out = {}
+    local adventure = require "game.model.adventure"
+    local function take(list)
+        for _, l in ipairs(type(list) == "table" and list or { list }) do
+            local text = type(l) == "table" and l[1] or l
+            if type(text) == "string" and (type(l) ~= "table" or not l.when or adventure.test(night.campaign, l.when)) then
+                table.insert(out, text)
+            end
+        end
+    end
+    local r = b.react or {}
+    if level then
+        take(r[level])
+    end
+    take(r.any)
+    return out
+end
+
+-- Who says a reaction: not the one who did it, and not someone whose own hero it names.
+local function reactor(night, p, text)
+    local dialogue = require "game.model.dialogue"
+    local named
+    for key, names in pairs(dialogue.NAMES) do
+        if string.find(text, "%f[%a]" .. names[2] .. "%f[%A]") then
+            named = key
+        end
+    end
+    local q = night.campaign:player(named or "")
+    if q and util.contains(night.players, q) and q ~= p then
+        -- (pick_friend's not_p only takes one: keep the other out by making them "last".)
+        return pick_friend(night, { "butt_kicker", "casual", "storyteller" }, q.key, p)
+    end
+    return pick_friend(night, { "butt_kicker", "casual", "storyteller" }, nil, p)
+end
+
+M.crit_card, M.ask_crit = crit_card, ask_crit      -- (for the roadmap words check's unit cases)
+
+-- A friend pokes at something: what's there, their line, the little die, your answer, someone's
+-- reaction to what you said.
 local function curio(night, sc, b, last)
     local p = pick_friend(night, b.who, last)
     if not p then
@@ -249,20 +335,28 @@ local function curio(night, sc, b, last)
             night:walk(p, { pl.x, pl.y }, nil, sc)
         end
     end
+    -- (Something nobody's described yet gets a line first: "I do a cat voice at the cat" with no cat.)
+    if b.see then
+        night:say(util.fill(b.see, { char = p.char }), "narration")
+    end
     say(night, p, b.ask)
     local d, total, pet = tiny_roll(night, p, b.skill)
+    local crit = M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14)
+    local level = ((d == 20 or total >= M.LORE_AT) and b.lore and "lore") or (total >= M.DETAIL_AT and b.detail and "detail") or "dull"
     if pet then
-        require("game.model.companions").say(night, pet, "look")
+        -- (The pet's nose leads somewhere: "something's here" only when there is.)
+        require("game.model.companions").say(night, pet, (level ~= "dull" and not crit) and "hint" or "look")
     end
-    if M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14) then
+    if crit then
         crit_card(night, sc, p, b, d)
+        level = nil         -- (whatever the card made of it, none of the three answers was said)
     else
-        local ans = ((d == 20 or total >= M.LORE_AT) and b.lore) or (total >= M.DETAIL_AT and b.detail) or b.dull
-        dm(night, ans, { char = p.char })
+        dm(night, b[level], { char = p.char })
     end
-    if b.react and #b.react > 0 and night.rng:chance(0.7) then
-        local other = pick_friend(night, { "butt_kicker", "casual", "storyteller" }, nil, p)
-        say(night, other, night.rng:pick(b.react))
+    local reacts = M.reactions(night, b, level)
+    if #reacts > 0 and night.rng:chance(0.7) then
+        local text = night.rng:pick(reacts)
+        say(night, reactor(night, p, text), text)
     end
     -- (The friends who love poking around get a lift; whoever did it is back in the room.)
     score.nudge_engagement(p, 3)
@@ -279,13 +373,26 @@ local function ask(night, sc, q, last)
     end
     night.actor = p
     say(night, p, q.ask, true)
-    local _, total = tiny_roll(night, p, q.skill or "persuasion")
+    local d, total = tiny_roll(night, p, q.skill or "persuasion")
     local text = (total >= 15 and q.better) or q.answer
     local name = night.tl_people and night.tl_people[q.who]
-    if name and text then
+    local slip
+    if name and M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14) then
+        local o = ask_crit(night, sc, p, q, name, d)
+        if o then
+            text, slip = o.answer or text, o.slip
+        end
+    end
+    local function line(t)
         -- (The caption adds its own quote marks.)
-        text = string.gsub(util.fill(text, { char = p.char }), '^"(.*)"$', "%1")
-        night:emit({ kind = "npc", name = name, text = text })
+        t = string.gsub(util.fill(t, { char = p.char }), '^"(.*)"$', "%1")
+        night:emit({ kind = "npc", name = name, text = t })
+    end
+    if name and text then
+        line(text)
+        if slip then
+            line(slip)
+        end
     end
     score.nudge_engagement(p, 2)
     night:apply({ { "arch:method_actor", fun = 1 }, { "arch:storyteller", fun = 1 } })
@@ -315,7 +422,7 @@ local function bit(night, sc, t, last)
             dm(night, "Telpur sighs. \"Fine. One Franc off, for the face.\"")
         elseif (adv.francs or 0) > 0 then
             adv.francs = adv.francs - 1
-            dm(night, "Telpur adds a Franc to the bill. \"Lace tax.\" Pip pays it, grumbling.")
+            dm(night, "Telpur adds a Franc to the bill. \"Lace tax.\" {char} pays it, grumbling.", { char = p.char })
         end
     end
     if t.keepsake then
@@ -327,9 +434,33 @@ local function bit(night, sc, t, last)
     return p
 end
 
--- A room's quiet stretch: when it starts (after the look round), or after its fight. A beat or two,
--- never late in the evening, never at 4x, never in the lair.
+-- Is there still danger in this room (a fight, or a moment with a danger that can still play)? Small
+-- moments wait until it's settled (the second playtest review: poking at jars and sand while the
+-- guardian lifts its staff, a joke about the pond's tentacle before anyone had seen it).
+function M.danger_ahead(night, sc)
+    local adventure = require "game.model.adventure"
+    local MODULE = adventure.data or {}
+    local r = (MODULE.rooms or {})[sc.room] or {}
+    if r.encounter then
+        return true
+    end
+    local knobs = night.prep and night.prep.museum and night.prep.museum.knobs or {}
+    for _, m in ipairs(MODULE.moments or {}) do
+        if m.room == sc.room and m.danger and adventure.test(night.campaign, m.when, knobs) then
+            return true
+        end
+    end
+    return false
+end
+
+-- A room's quiet stretch: when it starts (after the look round), or once its danger is settled (after
+-- its fight and its last moments). A beat or two, never late in the evening, never at 4x, never in
+-- the lair. Once a visit.
 function M.room(night, sc, phase)
+    if not sc or sc.tl_played then
+        return 0
+    end
+    sc.tl_played = true
     if night.end_early or not sc or sc.boss or sc.showdown or sc.epilogue or night.fast then
         return 0
     end
@@ -369,7 +500,7 @@ function M.room(night, sc, phase)
         if tl.n >= night_cap then
             break
         end
-        local list, w = candidates(night, sc, room, phase)
+        local list, w = candidates(night, sc, room, phase, last)
         if #list == 0 then
             break
         end
@@ -381,6 +512,9 @@ function M.room(night, sc, phase)
             who = ask(night, sc, pick.b, last)
         else
             who = bit(night, sc, pick.b, last)
+            if who then
+                tl.bits = (tl.bits or 0) + 1
+            end
         end
         if pick.b.id then
             seen(night)[pick.b.id] = night.campaign.week or 0
