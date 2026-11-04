@@ -1959,9 +1959,16 @@ end
 
 local function party_list(list, app)
     local out = {}
+    local okc, companions = pcall(require, "game.model.companions")
     for _, p in ipairs(list or {}) do
         local pl = app and app.campaign:player(p.id)
         table.insert(out, { id = p.id, class = p.class, sprite = (pl and pl.mini) or CLASS_SPRITE[p.class] or "fighter", x = p.x, y = p.y })
+        -- A pet who's come along (Exhibit B, Pip's rat) stands at the corner of their owner's square
+        -- on the board, and goes where they go (main/table/table.script).
+        local comp = okc and pl and app.night and companions.of(app.night, pl) or nil
+        if comp and comp.kind == "pet" and comp.sprite then
+            table.insert(out, { id = comp.id, sprite = comp.sprite, x = p.x, y = p.y, owner = p.id })
+        end
     end
     return out
 end

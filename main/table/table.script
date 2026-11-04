@@ -23,9 +23,17 @@ local BOARD = msg.url("main", "/board", "board")
 
 -- Minis -----------------------------------------------------------------------------------
 
+-- A pet riding along with its owner (companions.lua: Exhibit B, Pip's rat): a small mini at the
+-- corner of the owner's square, that goes where they go.
+local PET_SIZE = 0.5
+local function pet_off()
+    local g = scene.grid
+    return vmath.vector3(g.size * 0.36, 0, g.size * 0.32)
+end
+
 local function spawn(self, m)
-    local pos = square(m.x, m.y)
-    local size = scene.large[m.sprite] or 1
+    local pos = square(m.x, m.y) + (m.off or vmath.vector3())
+    local size = m.size or scene.large[m.sprite] or 1
     -- Scale and lift go in at creation so the standee never shows at full sprite size.
     local s = scene.mini.scale * size
     local id = factory.create("#mini_factory", pos, nil, { lift = m.drop and 30 or 0 }, vmath.vector3(s, s, s))
@@ -35,7 +43,7 @@ local function spawn(self, m)
         vmath.vector3(0.01, 1, 0.01))
     msg.post(msg.url(nil, id, "mini"), "setup", { base = base, shadow = shadow, anim = hash(m.sprite), side = m.side,
                                                  who = m.id, size = size, drop = m.drop, delay = m.delay })
-    self.minis[m.id] = { go = id, x = m.x, y = m.y, side = m.side, size = size, sprite = m.sprite }
+    self.minis[m.id] = { go = id, x = m.x, y = m.y, side = m.side, size = size, sprite = m.sprite, owner = m.owner, off = m.off }
 end
 
 -- The shelf of fallen heroes (M8, B3): their minis stand on top of the bookshelf, a little
@@ -69,6 +77,27 @@ local function remove(self, id, how)
     end
     self.minis[id] = nil
     msg.post(msg.url(nil, m.go, "mini"), how or "remove")
+    -- (Their pet goes with them.)
+    for pid, pm in pairs(self.minis) do
+        if pm.owner == id then
+            remove(self, pid, how)
+        end
+    end
+end
+
+-- The pets of a mini that just moved follow it, a step behind.
+local function pets_follow(self, id, path, step)
+    for pid, pm in pairs(self.minis) do
+        if pm.owner == id then
+            local pts = {}
+            for _, pt in ipairs(path) do
+                table.insert(pts, pt + pm.off)
+            end
+            local o = self.minis[id]
+            pm.x, pm.y = o.x, o.y
+            msg.post(msg.url(nil, pm.go, "mini"), "walk", { path = pts, step = step })
+        end
+    end
 end
 
 local function mini_msg(self, id, what, data)
@@ -91,14 +120,16 @@ local function stage(self, message)
     for i, p in ipairs(message.party or {}) do
         keep[p.id] = true
         local m = self.minis[p.id]
+        local off = p.owner and pet_off() or nil
         if m then
             if m.x ~= p.x or m.y ~= p.y then
-                mini_msg(self, p.id, "walk", { path = { square(p.x, p.y) }, step = 0.5 })
+                mini_msg(self, p.id, "walk", { path = { square(p.x, p.y) + (off or vmath.vector3()) }, step = 0.5 })
                 m.x, m.y = p.x, p.y
             end
         else
             spawn(self, { id = p.id, sprite = p.sprite or CLASS_SPRITE[p.class] or p.class, x = p.x, y = p.y,
-                          side = "party", drop = true, delay = (message.fresh and 0.9 or 0.1) + i * 0.12 })
+                          side = "party", drop = true, delay = (message.fresh and 0.9 or 0.1) + i * 0.12,
+                          owner = p.owner, off = off, size = p.owner and PET_SIZE or nil })
         end
     end
     if message.npc then
@@ -340,6 +371,7 @@ function on_message(self, message_id, message)
                 step = message.per_square * math.max(1, far)
             end
             mini_msg(self, message.id, "walk", { path = pts, step = step })
+            pets_follow(self, message.id, pts, step)
         end
     elseif message_id == hash("lunge") then
         local t = self.minis[message.target]

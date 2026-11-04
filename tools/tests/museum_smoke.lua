@@ -155,7 +155,21 @@ end
 
 -- msg, sys, hash ------------------------------------------------------------------
 local posted = {}
-msg = { post = function(url, id, m) table.insert(posted, { url = url, id = id, m = m or {} }) end }
+-- (With DUMP_DIR, the minis the table is told to stand on the board go to board_minis.txt: one line
+-- a "stage" message, each mini as id:sprite@x,y, a pet with ^owner. The 3D table isn't a GUI dump.)
+local stage_log = os.getenv("DUMP_DIR") and io.open(os.getenv("DUMP_DIR") .. "/board_minis.txt", "w")
+msg = { post = function(url, id, m)
+    table.insert(posted, { url = url, id = id, m = m or {} })
+    if stage_log and id == "stage" and m and m.party then
+        local bits = {}
+        for _, q in ipairs(m.party) do
+            table.insert(bits, tostring(q.id) .. ":" .. tostring(q.sprite) .. "@" .. tostring(q.x) .. "," .. tostring(q.y)
+                .. (q.owner and ("^" .. q.owner) or ""))
+        end
+        stage_log:write(table.concat(bits, " ") .. "\n")
+        stage_log:flush()
+    end
+end }
 function hash(s) return s end
 local save = os.tmpname()
 local other_saves = {}

@@ -146,7 +146,9 @@ function M.draw(app, on_click)
             -- (On the corner of their hero's mini: who's riding along with them.)
             local cx, cy = x + 98, y + 60
             kit.dot(cx + 9, cy + 9, 20, kit.rgba("#000000", 0.7))
-            local icon = kit.icon(cx + 1, cy + 1, 16, comp.kind == "pet" and "paw" or "hand", theme.gold)
+            -- (A pet with a mini of their own shows it: Exhibit B, not a paw.)
+            local icon = comp.sprite and kit.picture(cx - 3, cy - 8, 24, 28, "mini_" .. comp.sprite, kit.rgba("#ffffff"))
+                or kit.icon(cx + 1, cy + 1, 16, comp.kind == "pet" and "paw" or "hand", theme.gold)
             require("game.ui.gloss").card_spot(cx - 2, cy - 2, 22, 22, comp.name, util.capitalize(comp.what or "")
                 .. ". With " .. p.char .. (comp.pocket and ": rides in a pocket, and helps when they look around." or
                 (": in every fight, played by " .. p.name .. ", and helps when they look around.")), nil, icon)
