@@ -342,19 +342,27 @@ M.asides = {
 M.ally_join = {
     steam_mech = "{mech} clanks up the stairs behind them, steam hissing, and takes its place in the line.",
 }
--- "Last time, they ..." at the start of a night: what each room came to, as a clause.
+-- "Last time, they ..." at the start of a night: what each room came to, as a clause. fought: the
+-- clause when the room's fight happened (its fight is optional: the second playtest review, F20, heard
+-- "crossed the Hall of Paintings" after a fight with the Knight of Shades). alone: who went where,
+-- when it wasn't the whole party ({char}: the hero whose moment it was).
 M.recap = {
     street = { win = "took Flitwidget's job", lose = "took Flitwidget's job without the whole story" },
     garden = { win = "got through the living garden", lose = "got through the garden, scratched and bleeding" },
-    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard" },
+    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard",
+                 fought = { win = "fought their way past the donation box's guard", lose = "fled the entrance hall's guard" } },
     chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct" },
-    paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings" },
+    paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings",
+                  fought = { win = "fought the Knight of Shades out of his frame in the Hall of Paintings",
+                             lose = "backed out of the Hall of Paintings, the Knight of Shades after them" } },
     gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
     hunting = { win = "beat the huntlings on the second floor", lose = "held off the huntlings, just" },
     offices = { win = "found the archivist's notebook", lose = "left the offices with more questions than answers" },
     tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech" },
     lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class" },
-    stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door" },
+    stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door",
+               alone = { moment = "mus_alone", options = { 1, 3 }, who = "jess",
+                         text = "waited at the foot of the stairs while {char} crept up alone for a look" } },
     lair = { win = "faced Euryale", lose = "faced Euryale, and she sent them back down the stairs" },
 }
 

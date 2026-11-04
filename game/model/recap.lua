@@ -104,6 +104,8 @@ end
 -- Build the recap for a finished night: { titles = {3}, title = 1, beats = { {kind, text, weight} },
 -- note = "", snapshots = {...} }.
 -- Drops any beat whose sentence is the opening of another's.
+-- (And one that's inside another: "The Lecturer falls." beside "Oswin's blow lands, and the Lecturer
+-- falls.", the second playtest review, F20.)
 function M.drop_echoes(beats)
     local function stem(t)
         return string.lower((string.gsub(t or "", "[%.!?\"'%s]+$", "")))
@@ -111,7 +113,8 @@ function M.drop_echoes(beats)
     for i = #beats, 1, -1 do
         local a = stem(beats[i].text)
         for j, b in ipairs(beats) do
-            if j ~= i and #a > 0 and #stem(b.text) > #a and string.sub(stem(b.text), 1, #a) == a then
+            local sb = stem(b.text)
+            if j ~= i and #a > 0 and #sb > #a and (string.sub(sb, 1, #a) == a or (#a >= 12 and string.find(sb, a, 1, true))) then
                 table.remove(beats, i)
                 break
             end

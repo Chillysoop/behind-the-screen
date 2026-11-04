@@ -96,7 +96,7 @@ end)
 -- always does (F1), and a tired friend is at the table every week so that thought comes up.
 
 local thoughts = require "game.model.thoughts"
-local watchers, night_end, run_end, after_pick = {}, {}, {}, {}
+local watchers, night_end, run_end, after_pick, after_level = {}, {}, {}, {}, {}
 
 local function play(seed, style)
     local c, rng = new_campaign(seed, style)
@@ -235,12 +235,12 @@ local function play(seed, style)
         if guard >= 6000 then
             fail("run", N.tag .. ": the night never ended")
         end
+        N.report = c:finish_night()
         for _, fn in ipairs(night_end) do
             fn(R, N)
         end
-        N.report = c:finish_night()
         N.level = c:level_up()
-        for _, fn in ipairs(R.after_level or {}) do
+        for _, fn in ipairs(after_level) do
             fn(R, N)
         end
         if adventure.over(c) then
@@ -917,8 +917,19 @@ table.insert(watchers, function(R, N, ev)
         if focus and fb and not fb.down and not fb.dead and ev.side == "foes" then
             for _, st in ipairs(ev.steps or {}) do
                 if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
+                    -- (Blocked, a melee foe hits the one in its way: it can't shove past everyone.
+                    -- Anything that could reach or shoot the one you named goes for them.)
+                    local me
+                    for _, cr in ipairs((night.battle and night.battle.creatures) or {}) do
+                        if cr.mini == ev.who then
+                            me = cr
+                        end
+                    end
+                    local far = me and fb.x and me.x and math.max(math.abs(me.x - fb.x), math.abs(me.y - fb.y)) > 1 and not st.ranged
                     if st.target == focus then
                         add("F12", "focus_kept")
+                    elseif far then
+                        add("F12", "focus_blocked")
                     else
                         fail("F12", N.tag .. ": you said go for " .. focus .. ", and " .. tostring(ev.who) .. " attacks " .. tostring(st.target))
                     end
@@ -1142,6 +1153,81 @@ table.insert(watchers, function(R, N, ev)
             end
         end
         N.stone_said, N.stoning, N.charmed_idle = nil, nil, nil
+    end
+end)
+
+-- F20: the recaps tell what happened: a fight in a room whose fight is optional, who climbed the
+-- stairs, and no beat said twice.
+table.insert(watchers, function(R, N, ev)
+    local night = N.night
+    if ev.kind == "battle" and ev.phase == "start" and night.scene then
+        N.fought_rooms = N.fought_rooms or {}
+        N.fought_rooms[night.scene.room] = true
+    end
+    if ev.kind == "narrate" and ev.text and string.find(ev.text, "^Last time, they ") then
+        add("F20", "last_time_recaps")
+        for room in pairs(R.last_fought or {}) do
+            local r = adventure.data.rooms[room]
+            if r and r.optional_fight and r.boss_name then
+                local name = string.gsub(r.boss_name, "^the ", "")
+                add("F20", "optional_fights_recapped")
+                if not string.find(ev.text, name, 1, true) then
+                    fail("F20", N.tag .. ": last session had a fight with " .. r.boss_name .. ", and the recap says '" .. ev.text .. "'")
+                end
+            end
+        end
+        if R.pip_alone and string.find(ev.text, "climbed the stairs", 1, true) then
+            fail("F20", N.tag .. ": only " .. R.pip_alone .. " went up the stairs, and the recap says they all climbed them")
+        end
+    end
+end)
+table.insert(after_pick, function(R, N, ev, o)
+    if ev.card.id == "mus_alone" and o and (string.find(o.label or "", "^Let it ride") or string.find(o.label or "", "^Let it cost them")) then
+        local p = R.c:player("jess")
+        N.pip_alone = p and p.char
+    end
+end)
+table.insert(night_end, function(R, N)
+    R.last_fought = {}
+    for room in pairs(N.fought_rooms or {}) do
+        -- (Only rooms finished tonight: the recap tells last session's rooms.)
+        for _, step in ipairs(R.c.adv.path or {}) do
+            if step.room == room and step.week == R.c.week then
+                R.last_fought[room] = true
+            end
+        end
+    end
+    R.pip_alone = N.pip_alone
+    R.fights_by_week = R.fights_by_week or {}
+    for room in pairs(N.fought_rooms or {}) do
+        R.fights_by_week[R.c.week .. ":" .. room] = true
+    end
+    -- The report's recap: no beat that's inside another ("the Lecturer falls" twice).
+    local beats = N.report and N.report.recap and N.report.recap.beats or {}
+    for i, a in ipairs(beats) do
+        for j, b in ipairs(beats) do
+            local sa = string.lower(string.gsub(a.text or "", "[%.!?\"'%s]+$", ""))
+            local sb = string.lower(b.text or "")
+            if i ~= j and #sa >= 12 and #sb > #sa and string.find(sb, sa, 1, true) then
+                fail("F20", N.tag .. ": the recap says it twice: '" .. a.text .. "' and '" .. b.text .. "'")
+            end
+        end
+    end
+end)
+table.insert(run_end, function(R)
+    local j = adventure.journey(R.c)
+    for _, step in ipairs(R.c.adv.path or {}) do
+        local r = adventure.data.rooms[step.room]
+        if r and r.optional_fight and R.fights_by_week and R.fights_by_week[step.week .. ":" .. step.room] then
+            local shown = false
+            for _, jr in ipairs(j.rooms or {}) do
+                shown = shown or (jr.id == step.room and jr.week == step.week and jr.fought ~= nil)
+            end
+            add("F20", "journey_fights")
+            if not shown then
+                fail("F20", R.tag .. ": the journey recap leaves out the fight with " .. tostring(r.boss_name))
+            end
+        end
     end
 end)
 

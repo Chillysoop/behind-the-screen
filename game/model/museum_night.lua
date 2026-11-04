@@ -2696,7 +2696,7 @@ function M.after_room(night, sc)
         end
     end
     table.insert(night.mus.rooms, { room = id, outcome = outcome })
-    adventure.leave_room(c, id, outcome, c.week)
+    adventure.leave_room(c, id, outcome, c.week, sc.fought and true or nil)
     -- What they came away with, in words that match what happened (the goal's got_if), for the
     -- story so far: not "the truth about the Gorgon" when they never heard it.
     local goal = sc.comps and sc.comps.goal
@@ -2767,8 +2767,7 @@ function M.intro(night)
             if step.week ~= last_week then
                 break
             end
-            local rc = MODULE.recap and MODULE.recap[step.room]
-            local clause = rc and (step.outcome == "lose" and rc.lose or rc.win)
+            local clause = adventure.recap_clause(c, step)
             if clause and not util.contains(bits, clause) then
                 table.insert(bits, 1, clause)
             end

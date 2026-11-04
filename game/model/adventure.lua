@@ -881,11 +881,32 @@ local function set_frontier(campaign, id)
 end
 
 -- The room is done: where the party can go from here.
-function M.leave_room(campaign, id, outcome, week)
+-- fought: the room's fight happened (the recaps say so: F20).
+function M.leave_room(campaign, id, outcome, week, fought)
     local st = campaign.adv
     st.done[id] = outcome or "win"
-    table.insert(st.path, { room = id, week = week, outcome = outcome or "win" })
+    table.insert(st.path, { room = id, week = week, outcome = outcome or "win", fought = fought or nil })
     return set_frontier(campaign, id)
+end
+
+-- What a room came to, as a clause for "Last time, they ..." (MODULE.recap): the fight if there
+-- was one, who went where when it wasn't everyone.
+function M.recap_clause(campaign, step)
+    local rc = MODULE.recap and MODULE.recap[step.room]
+    if not rc then
+        return nil
+    end
+    local st = campaign.adv
+    local a = rc.alone
+    if a and st.chose and util.contains(a.options or {}, st.chose[a.moment]) then
+        local p = campaign:player(a.who)
+        return util.fill(a.text, { char = p and p.char or "one of them" })
+    end
+    local lose = step.outcome == "lose"
+    if step.fought and rc.fought then
+        return lose and rc.fought.lose or rc.fought.win
+    end
+    return lose and rc.lose or rc.win
 end
 
 -- The DM locked or opened something (game/model/ties.lua): where the party can go next, worked
@@ -1403,7 +1424,7 @@ function M.journey(campaign)
                 end
             end
             table.insert(rooms, { id = step.room, name = r.name, week = step.week, outcome = step.outcome, marks = marks,
-                                  at = r.at })
+                                  at = r.at, fought = (step.fought and r.optional_fight) and r.boss_name or nil })
         end
     end
     local skipped = {}
