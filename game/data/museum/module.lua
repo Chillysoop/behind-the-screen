@@ -1634,7 +1634,7 @@ M.showdown = {
         text_if = { { when = { mark = "garden_burned" }, text = "Euryale doesn't sit. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
                     { when = { flag = "rematch" }, text = "Euryale sets down her cup. \"I'll ask once more. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." } },
         options = {
-            { label = "Weapons out.", want = "fight her", log = "Steel answers for them. Euryale stands, smiling. \"As you like.\"",
+            { label = "Weapons out.", want = "fight her", edges = true, log = "Steel answers for them. Euryale stands, smiling. \"As you like.\"",
               effects = { { "arch:butt_kicker", fun = 6 }, { "arch:storyteller", fun = -1 } }, mus = { fight = true } },
             { label = "Bargain: help her find her sisters.", want = "bargain: her sisters for her leaving", needs = { mark = "know" }, alt_needs = { flag = "tapestry" },
               roll = { dc = 14, skill = { "persuasion", "insight" }, convenient = "success",
@@ -1666,6 +1666,23 @@ M.showdown = {
                        fail = { log = "\"You do not get to know me.\" The calm comes back, colder.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
         },
+    },
+    -- What the party brought that's good against her in a fight, for the ultimatum's vote when it has
+    -- "Weapons out" (its `edges`), R10: a friend who likes a fair, clever fight counts them all ("We came
+    -- ready for her: a mirror for her stare."), and whoever carries one wants to use it ("What did I
+    -- bring a cupboard door up here for, then?"). item: whose it is (its holder, at the table);
+    -- commander: the Mech's (the one who woke it). text: in anyone's words; mine: in the holder's.
+    edges = {
+        { when = { holds_here = "mirror" }, item = "mirror", text = "a mirror for her stare", mine = "a cupboard door" },
+        { when = { mark = "know", holds_here = "gorgon_book" }, item = "gorgon_book", text = "everything the book says about gorgons",
+          mine = "a whole book on gorgons" },
+        { when = { holds_here = "bracelet" }, item = "bracelet", text = "Flitwidget's bracelet", mine = "Flitwidget's bracelet" },
+        { when = { mark = "mech", flag = "hyper_saved" }, commander = true, text = "the Mech's red switch, saved for her",
+          mine = "my Mech's red switch" },
+        { when = { mark = "mech", not_flag = "hyper_saved" }, commander = true, text = "the Mech on our side", mine = "my Mech" },
+        { when = { holds_here = "arrows" }, item = "arrows", text = "Telpur's fire arrows", mine = "fire arrows" },
+        { when = { holds_here = "arrows_lifted" }, item = "arrows_lifted", text = "a quiver of fire arrows", mine = "a quiver of fire arrows" },
+        { when = { holds_here = "vorpal_sword" }, item = "vorpal_sword", text = "the vorpal sword", mine = "a vorpal sword" },
     },
     -- Said in the fight, the moment she yields (fight.lua: a boss prepped to yield, below a third
     -- of her hit points); then the yield card plays, once the fight has stopped.

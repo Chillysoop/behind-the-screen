@@ -430,6 +430,94 @@ case("R10", function()
     add("R10", "unit_cases")
 end)
 
+-- The ultimatum after the world merge: with the fight and the Lecturer's page the only answers, the
+-- table read her the page every time (18 of 18 over 40 seeds), since only Dev wanted the fight. What
+-- they brought against her now counts for "Weapons out": a planner counts it all, whoever carries a
+-- thing wants to use it, and each says so in words that name it. (Played without Dev, the fight's
+-- own fan, so the others are heard: with nothing brought, nobody else ever wants it.)
+case("R10", function()
+    local items_mod = require "game.model.items"
+    local card = card_by_id("mus_ultimatum")
+    local fight_o, page_o
+    for _, o in ipairs(card.options) do
+        if o.edges then
+            fight_o = o
+        elseif o.mus and o.mus.use == "pages" then
+            page_o = o
+        end
+    end
+    if not (fight_o and page_o) then
+        fail("R10", "the ultimatum's fight doesn't count what they brought against her (no `edges`)")
+        return
+    end
+    local function trials(ready)
+        local r = { fight_wins = 0, others_for_fight = 0, mine = 0, edges = 0, wrong = 0 }
+        for trial = 1, 24 do
+            local c, night = first_night(300 + trial)
+            night.gentle = nil
+            if ready then
+                items_mod.give(c, "mirror", "jess", "found")
+                adventure.add_mark(c, "mirror", "tomorrow")
+                adventure.add_mark(c, "mech", "tomorrow")
+                c.adv.mech_commander = "sam"
+            end
+            local without = {}
+            for _, p in ipairs(night.players) do
+                if p.key ~= "dev" then
+                    table.insert(without, p)
+                end
+            end
+            night.players = without
+            night.actor = c:player("mara")
+            local copy = { id = card.id, options = { fight_o, page_o } }
+            local i, evs = run_beats(function()
+                return mn.table_pick(night, copy, night.mus_vars)
+            end)
+            if i == 1 then
+                r.fight_wins = r.fight_wins + 1
+            end
+            for _, ev in ipairs(evs) do
+                local t = type(ev) == "table" and ev.kind == "say" and ev.text or ""
+                if string.find(t, "^Let's fight her") then
+                    r.others_for_fight = r.others_for_fight + 1
+                end
+                if string.find(t, "cupboard door", 1, true) then
+                    r.mine = r.mine + 1
+                    if ev.who ~= "jess" then
+                        r.wrong = r.wrong + 1       -- (only the one who carries it calls it theirs)
+                    end
+                end
+                if string.find(t, "for her stare", 1, true) or string.find(t, "my Mech", 1, true) then
+                    r.edges = r.edges + 1
+                end
+                if string.find(t, "Mech", 1, true) and string.find(t, "my Mech", 1, true) and ev.who ~= "sam" then
+                    r.wrong = r.wrong + 1
+                end
+            end
+        end
+        return r
+    end
+    local bare, ready = trials(false), trials(true)
+    set("R10", "ultimatum_fight_wins", string.format("%d of 24 bare, %d of 24 ready for her", bare.fight_wins, ready.fight_wins))
+    if bare.mine + bare.edges > 0 then
+        fail("R10", "with nothing brought against her, a friend says they came ready for her")
+    end
+    if bare.others_for_fight > 0 then
+        fail("R10", "with nothing brought against her and Dev away, someone wants the fight anyway")
+    end
+    if ready.others_for_fight == 0 or ready.mine + ready.edges == 0 then
+        fail("R10", string.format("with a mirror and the Mech, nobody but Dev wants the fight (%d), or nobody says why (%d)",
+            ready.others_for_fight, ready.mine + ready.edges))
+    end
+    if ready.wrong > 0 then
+        fail("R10", "a friend calls something theirs that someone else carries")
+    end
+    if ready.fight_wins <= bare.fight_wins then
+        fail("R10", "what they brought against her never turns the table to the fight")
+    end
+    add("R10", "unit_cases")
+end)
+
 -- R5, D2: Euryale's escape costs something you can see -----------------------------------------------
 do
     local e = W.endings.careful or { n = 0 }

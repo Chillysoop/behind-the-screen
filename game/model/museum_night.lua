@@ -2095,9 +2095,38 @@ M.VOTE_WHY = {
     stressed = { "I just need one thing to go right tonight.", "No surprises, please. Not tonight.", "Let's do the one we know works." },
     quiet = { "I've barely done anything tonight.", "Let me have this one. I've been quiet all night.",
               "My turn, surely. I've hardly had a go." },
+    -- ({edge}: what they brought against her, M.edges; {mine}: the one this friend carries.)
+    edges = { "We came ready for her: {edge}.", "We've got {edge}. We can take her, fair and square.",
+              "Let's do this properly. We've got {edge}." },
+    mine = { "What did I bring {mine} up here for, then?", "I've been saving {mine} for her.",
+             "I've got {mine}. I want to use it on her." },
 }
 M.VOTE_PUSH = 1.4          -- what losing the last vote adds to a friend's own pick (twice running: twice that)
 M.VOTE_HABIT = 1.1         -- what the last pick's kind adds to the other kind, for the friends who like it
+M.VOTE_EDGE = 2.4          -- what each thing they brought against her adds to fighting her (up to three), for a planner
+M.VOTE_MINE = 2.5          -- and what each one a friend carries adds, for them (up to two)
+
+-- What the party brought that's good against Euryale in a fight (MODULE.showdown.edges, the ones
+-- whose `when` holds): a list of { text, mine, holder } (holder: the hero key whose it is, at the
+-- table), and the words for the first two.
+function M.edges(c)
+    local items_mod = require "game.model.items"
+    local out, words = {}, {}
+    for _, e in ipairs((MODULE.showdown or {}).edges or {}) do
+        if adventure.test(c, e.when) then
+            local holder
+            if e.item then
+                holder = select(2, items_mod.holding(c, e.item, true))
+            elseif e.commander then
+                local p = c.adv.mech_commander and c:player(c.adv.mech_commander)
+                holder = p and p.present and p.key or nil
+            end
+            table.insert(out, { text = e.text, mine = e.mine, holder = holder })
+            table.insert(words, e.text)
+        end
+    end
+    return out, util.join_names({ words[1], words[2] })
+end
 
 -- An option's kind, for the table's habit: "bold" (a roll, a fight, a risk) or "safe" (a warning
 -- heeded, a fight avoided, careful hands), or nil (neither: a purchase, a way through).
@@ -2122,9 +2151,10 @@ local function fan_of(p, kind)
     return n
 end
 
--- What carries over for friend p on option o, beside who they are: bonus, reason (a VOTE_WHY key).
--- The night so far (their mood this week, the spotlight tonight) and the votes before (the habit).
-local function carry(night, p, o, votes, avg_spot)
+-- What carries over for friend p on option o, beside who they are: bonus, reason (a VOTE_WHY key),
+-- and the words that reason needs ({mine}). The night so far (their mood this week, the spotlight
+-- tonight), the votes before (the habit), and against Euryale, what they brought (edges: M.edges).
+local function carry(night, p, o, votes, avg_spot, edges)
     local bonus, why, whyv = 0, nil, 0
     local function add(n, key)
         bonus = bonus + n
@@ -2159,6 +2189,26 @@ local function carry(night, p, o, votes, avg_spot)
             add(1.4, "quiet")
         end
     end
+    -- They came ready for her (R10, after the world merge: with the fight and the Lecturer's page the
+    -- only answers left, the table read her the page every time, as only Dev wanted the fight): a
+    -- friend who likes a fair, clever fight counts what they brought against her, and says what it is.
+    local words
+    if o.edges and edges and #edges > 0 then
+        local f = math.max(score.arch(p, "tactician"), 0.5 * score.arch(p, "power_gamer"))
+        if f > 0 then
+            add(M.VOTE_EDGE * f * math.min(3, #edges), "edges")
+        end
+        local mine = {}
+        for _, e in ipairs(edges) do
+            if e.holder == p.key and e.mine then
+                table.insert(mine, e.mine)
+            end
+        end
+        if #mine > 0 then
+            add(M.VOTE_MINE * math.min(2, #mine), "mine")
+            words = { mine = mine[1] }
+        end
+    end
     -- The table's habit: the last pick's kind, and the friends who like the other kind.
     local last = votes and votes.last
     if last and last.kind and kind and kind ~= last.kind then
@@ -2167,7 +2217,7 @@ local function carry(night, p, o, votes, avg_spot)
             add(M.VOTE_HABIT * f * math.min(2, last.streak or 1), last.kind == "safe" and "safe_last" or "bold_last")
         end
     end
-    return bonus, why
+    return bonus, why, words
 end
 
 local function short_want(o)
@@ -2197,17 +2247,18 @@ function M.table_pick(night, copy, vars)
         avg_spot = avg_spot + (p.m.spotlight or 0)
     end
     avg_spot = avg_spot / math.max(1, #night.players)
+    local edges, edge_words = M.edges(night.campaign)
     for _, p in ipairs(night.players) do
         vals[p.key] = {}
         local best, bv, plain, pv
         for _, i in ipairs(live) do
             local v, w = lean(night, p, opts[i])
-            local cb, cw = carry(night, p, opts[i], votes, avg_spot)
+            local cb, cw, cwords = carry(night, p, opts[i], votes, avg_spot, edges)
             v = v + night.rng:next() * 1.6
             if not pv or v > pv then
                 plain, pv = i, v
             end
-            vals[p.key][i] = { v = v + cb, why = w, cwhy = cw, cb = cb }
+            vals[p.key][i] = { v = v + cb, why = w, cwhy = cw, cb = cb, words = cwords }
             if not bv or v + cb > bv then
                 best, bv = i, v + cb
             end
@@ -2306,7 +2357,9 @@ function M.table_pick(night, copy, vars)
                 night.lean_why_n[p.key] = said_n + 1
                 night.lean_last[p.key] = night.lean_talks
             end
-            local line = "Let's " .. short_want(opts[first[p.key]]) .. "." .. (reason and (" " .. util.fill(reason, { char = p.char })) or "")
+            local mine = (vals[p.key][first[p.key]].words or {}).mine
+            local line = "Let's " .. short_want(opts[first[p.key]]) .. "."
+                .. (reason and (" " .. util.fill(reason, { char = p.char, edge = edge_words, mine = mine })) or "")
             night:emit({ kind = "say", who = p.key, text = util.sentence_case(line), ic = false })
             said[p.key] = true
             spoke = spoke + 1
