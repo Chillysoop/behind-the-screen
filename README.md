@@ -274,6 +274,16 @@ when Pip can't). The reward is real gold and one number everywhere: Flitwidget s
 really holds against them, the haggle talks it up ten, an escape halves it, and the report says why
 (`adventure.reward_vars`, `adventure.reward_why`). Every Franc in or out of the pool is in the log and said.
 
+**Votes, words and the chat.** A friend's bid comes from the moment and their state, not their seat: their
+hero hurt or another's, a rough or easy last fight, boredom, what the card's own words point at, what happened
+earlier ("We've already burnt his garden"). A friend gives way only when another pushes, in their own voice; a quiet
+friend whose vote settles it says so; the credit names only friends the table heard; "last time" claims are true. A
+card whose risk falls on something other than them (`risks`: the Mech's switch) doesn't make a hurt hero shy of it.
+Looking round, each place has its own lines and a place with nothing to say gets nothing; barks fit the room (no
+lock where there's none, "Finally" only at the first fight). The group chat is written from the log, never from card
+titles, and a sad week has no jokes. The chain reads as a story: "In the entrance hall, they dropped a coin in", a
+fight told by how it ended after the choice that started it, no beat that repeats its cause, the Francs in one line.
+
 **What they know is true.** The friends know only what the party heard (the Witness, the jugs, the lady by the
 mountains). Session Zero's lines and veils are said at the table after the first night's introductions
 (`intros.asks`), so the night's reminders quote something everyone heard.
@@ -550,6 +560,8 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # three DMs) exactly as the sim plays them: one owner per action, only what's
                                        # owned fires and what's given is shown, the money adds up, memory and knowledge
                                        # are true; plus targeted cases (ALL=1 lists every failure)
+    lua tools/tests/round3_words_check.lua [seeds]   # round three, batch C: votes from the moment, looking round,
+                                       # the chat from the log, pronouns, the chain as a story
     lua tools/tests/round3_screens_check.lua [seeds]   # round three, batch D: nothing cut without a hover, the prep
                                        # board and report in full, CARRYING, the stats explained, the engine
                                        # screenshots' fixes (about 40s)

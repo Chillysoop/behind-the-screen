@@ -59,7 +59,7 @@ The story is a pre-written adventure, cut into pieces that remember. The game do
 
 **Cards that remember.** Euryale's card on the prep board collects marks as the party goes. Each mark comes from something they did and changes boss night: who fights beside her, what the party brings, or how easily she talks.
 
-**The table chooses.** At a fork the friends talk it over and settle where to go from what they want; the DM can only nudge when asked. After they pick, the DM decides what's there: the book's room, something improvised, or another prepped encounter moved in. They choose differently from run to run: each option has its own fans, the friend who gave way last time holds out for theirs, the table notices its habit, and the week each friend has had weighs in, all said out loud.
+**The table chooses.** At a fork the friends talk it over and settle where to go from what they want; the DM can only nudge when asked. After they pick, the DM decides what's there: the book's room, something improvised, or another prepped encounter moved in. They choose differently from run to run: each option has its own fans, the friend who gave way last time holds out for theirs, the table notices its habit, and the week each friend has had weighs in, all said out loud. A bid comes from the moment as much as the friend: a hurt hero, a rough last fight, what happened earlier in the night. A friend only gives way when another pushes.
 
 **Harsh calls that feel fair.** A warning is about a thing. When the party was warned (you described it, asked "Are you sure?", or they found out), a die was rolled in the open, or the table agreed to brutal at Session Zero, a harsh outcome lands as fair. Otherwise it costs Trust. Too many warnings in a night drain the suspense.
 
@@ -84,7 +84,7 @@ The player is the DM, so the game has to keep a lot of moving story in their hea
 **During prep:**
 
 - **The prep board** is the museum's floor plans: the rooms ahead, the ones done, the doors and the stairs, and Euryale's card with its marks. Each room says what prepping it does, who you'll voice and what to have ready.
-- **The group chat** in the left column: what the friends said about last night, and the week's prompts.
+- **The group chat** in the left column: what the friends said about last night, written from what happened (a sad week has no jokes), and the week's prompts.
 - **The friends' cards** on the right: how each is doing, their mood once you've talked, their Goodwill, how well you know them, and what pulls them toward each room.
 
 **During game night:**
