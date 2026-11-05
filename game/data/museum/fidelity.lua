@@ -151,4 +151,43 @@ M.rooms = {
     },
 }
 
+-- What the friends can't know until the table's heard it (the knowledge playtest of November 5): a friend line
+-- with one of a fact's `words` needs a line said to the table before it with one of its `told_by`
+-- (tools/tests/knowledge_check.lua, FACTS). Book pages where the book keeps it for the DM, or says what shows it.
+M.facts = {
+    { id = "the ritual", page = 13, words = { "ritual" }, told_by = { "ritual" } },
+    { id = "her sisters, trapped", page = 27, words = { "her sisters" }, told_by = { "her sisters" } },
+    { id = "who's upstairs", page = 16, words = { "whatever's upstairs", "about upstairs", "for upstairs", "what's upstairs is" },
+      told_by = { "upstairs is", "what is upstairs", "what's upstairs" } },
+    { id = "her drink", page = 25, words = { "drink anything", "don't drink", "nobody drink" },
+      told_by = { "have a drink", "have a glass", "a drink", "pours" } },
+    { id = "the drone makes you sit", page = 37, words = { "sit down" }, told_by = { "on the benches", "sit." } },
+    { id = "the bird's name", page = 21, words = { "mythril" }, told_by = { "mythril" } },
+    { id = "the bird's six wings", page = 21, words = { "six wings" }, told_by = { "six wings", "six wing" } },
+    { id = "the sunken city", page = 22, words = { "map of the sea", "under the sea", "sunken" },
+      told_by = { "under the sea", "sunken city", "beneath the sea" } },
+    { id = "Telpur's claim", page = 17, words = { "demon" }, told_by = { "demon", "underworld", "duke" } },
+    { id = "the pack", page = 20, words = { "in packs", "hunts in packs" }, told_by = { "pack hunters", "a pack of", "hunt together" } },
+    -- (Once they know she's a Gorgon, that gorgons come in threes is old stories, for a History roll to recall.)
+    { id = "her sisters, three", page = 27, words = { "in threes" }, told_by = { "three sisters", "gorgon" } },
+    { id = "the pond's tentacles", page = 10, words = { "tentacle" }, told_by = { "tentacle" } },
+    { id = "the pedestal", page = 13, words = { "pedestal" }, told_by = { "pedestal" } },
+    { id = "the jackal jug", page = 13, words = { "jackal" }, told_by = { "jackal" } },
+    { id = "the falcon jug", page = 13, words = { "falcon" }, told_by = { "falcon" } },
+    { id = "the killings", page = 6, words = { "killing people", "killed people" },
+      told_by = { "killed", "never came out", "didn't come out", "never came back" } },
+    { id = "her stare", page = 35, words = { "look at her eyes", "her stare", "her gaze", "meet her eyes" },
+      told_by = { "gorgon", "turned to stone", "to stone", "her eyes" } },
+    { id = "the blackboard", page = 24, words = { "blackboard" }, told_by = { "blackboard", "chalk" } },
+    { id = "the window blankets", page = 24, words = { "blanket" }, told_by = { "blanket" } },
+    { id = "the cleaning cupboard", page = 16, words = { "cleaning cupboard" }, told_by = { "cupboard" } },
+    { id = "the red-bearded king", page = 14, words = { "dwarf king", "red-bearded", "his beard" }, told_by = { "king" } },
+    { id = "the ship painting", page = 15, words = { "stormy sea" }, told_by = { "sea", "ship" } },
+    { id = "the notes put readers to sleep", page = 24, words = { "to sleep with the", "put her to sleep", "send her to sleep" },
+      told_by = { "asleep", "yawns", "sleep" } },
+    { id = "the archivist's desk", page = 21, words = { "his desk" }, told_by = { "desk" } },
+    { id = "the archivist's body", page = 21, words = { "that body", "the body" }, told_by = { "body", "slumped", "corpse", "dead" } },
+    { id = "the painting of five", page = 14, words = { "painting of us" }, told_by = { "five people", "rolling dice" } },
+}
+
 return M

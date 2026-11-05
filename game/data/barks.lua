@@ -253,10 +253,15 @@ M.told = {
     -- And the one who cast it.
     friendly_sorry = { "Sorry! Sorry. I'll aim better.", "Okay. That one's on me.", "In my defence, it was a very good spell." },
     friendly_sorry_down = { "Oh no. That was me. That was me, wasn't it?", "I did that. I'm so sorry.", "Nobody say anything. I know." },
+    -- The bone guardian's swarm, as it bursts out (never crawling on anyone: Sam's veil at Session Zero).
+    scarabs = { "Something bursts out of {name}'s ribs: a swarm of scarabs, spreading across the sand.",
+                "{name} cracks open, and a swarm of scarabs pours out onto the floor.",
+                "A swarm of scarabs boils out of {name}'s chest and joins the fight." },
     -- Euryale's big moments, and the Mech's.
-    veil = { "Euryale pulls back her white hood. The snakes uncoil, hissing.",
-             "Off comes the hood. A crown of snakes rears up and hisses at the room.",
-             "Euryale throws back her hood, and every snake on her head turns to look at them." },
+    -- (The hood off is when the table learns what she is, as the book has it, p26: each says so.)
+    veil = { "Euryale pulls back her white hood. The snakes uncoil, hissing. She's a Gorgon.",
+             "Off comes the hood. A crown of snakes rears up and hisses at the room: she's a Gorgon.",
+             "Euryale throws back her hood, and every snake on her head turns to look at them. A Gorgon." },
     petrify = { "Euryale fixes them with her bronze eyes. {caught} {start} to go grey from the feet up.",
                 "Her eyes catch the light, and {caught} {start} to turn to stone, slowly, from the ground up.",
                 "One look from Euryale, and {caught} {start} to stiffen. The grey is climbing." },

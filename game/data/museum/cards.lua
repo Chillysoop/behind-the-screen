@@ -63,7 +63,8 @@ M.cards = {
       deal = "a pooled purchase, and some gossip about upstairs" },
     { id = "mus_euryale", kind = "cast", visible = true, short = "Euryale", pronoun = "she", villain = true, name = "Euryale, the Gorgon",
       fits = { "set_piece", "social", "combat" }, tags = { "danger", "talk", "heart" }, difficulty = 3,
-      line = "Euryale waits among her statues in a white hood, calm as a host. Her eyes are bronze.",
+      -- (As the book's read-aloud has her, p25: a woman in a white hood. Her name is Flitwidget's to tell.)
+      line = "At the far side of the room, a tall woman in a white hood and a purple cloak sits at ease on a long couch. She turns. Her eyes are bronze.",
       deal = "she lets them leave the museum alive",
       secret = "she misses being free, and her two sisters are still sealed in clay pots somewhere" },
     { id = "mus_briar", kind = "cast", short = "the topiary", group = true, foe = true, talks = false, name = "The Briar Guardians",
@@ -89,8 +90,10 @@ M.cards = {
       line = "At the far end of the hall hangs a portrait of a knight in black armour." },
     { id = "mus_huntlings", kind = "cast", short = "the huntlings", group = true, foe = true, talks = false,
       name = "Kruthik Huntlings", fits = { "combat" }, tags = { "danger", "action" }, difficulty = 2,
-      line = "Something armoured and many-legged shifts in the jungle diorama. Something in the cave model answers it.",
-      line_if = { { when = { soft = "bugs" }, text = "Something shifts in the jungle diorama. Something in the cave model answers it." } } },
+      -- (Hidden among the exhibits until they strike, as the book has it, p19 and p20: nothing said as the
+      -- room opens, and the read has only the mess and the feeling of being watched. The knowledge playtest.)
+      seen = false,
+      line = "Something armoured and many-legged shifts in the jungle diorama. Something in the cave model answers it." },
     { id = "mus_lecturer", kind = "cast", visible = true, stays = true, short = "the Lecturer", pronoun = "he", foe = true, name = "The Lecturer",
       fits = { "combat", "social" }, tags = { "danger", "funny" }, difficulty = 2,
       line = "A gaunt, see-through man at a lectern, eyes like milk, no mouth at all. The lecture is already in their heads." },
@@ -103,7 +106,7 @@ M.cards = {
       fits = { "social" }, tags = { "talk", "mystery" },
       line = "Goal: find out why the museum's shut, and what the job really is.",
       win = "They shake on it. Flitwidget will pay in any coin they like, and his own.",
-      win_if = { { when = { not_flag = "truth" }, text = "They take the job knowing only what the brochure says. Flitwidget winks, and hands them a map of the museum." } },
+      win_if = { { when = { not_flag = "truth" }, text = "They shake on it anyway. Flitwidget winks, and waves them toward the curtains." } },
       lose = "Flitwidget sticks to the brochure: \"incidents with the exhibits\". They're going in half blind.",
       got = "the job, and the truth about the Gorgon",
       -- (What the story so far says they came away with, by what really happened: got_if, as win_if.)
@@ -315,7 +318,7 @@ M.cards = {
       owner = "moment", has = { mark = "mech" } },
     { id = "mus_sleep_notes", kind = "reward", name = "Three pages of lecture notes", fits = { "combat", "social" },
       tags = { "loot", "funny" }, meters = { reward = 6 },
-      line = "three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line.", got = "the Lecturer's notes",
+      line = "three ghostly pages of lecture notes. Just the first line of one makes everyone yawn.", got = "the Lecturer's notes",
       lost = "",
       -- (The one who'd have dropped it got away with it: round three, B16.)
       ran = "No notes: the Lecturer took them with him." },
@@ -375,7 +378,7 @@ M.goal_play = {
         talk = { "Do we get a receipt?", "I'm not saying rob it. I'm saying look at it." },
     },
     mus_ritual = {
-        intent = { "Three skulls. I hate it. Somebody find the off switch.", "There's writing on that tablet. Cover me." },
+        intent = { "Three skulls. I hate it. Somebody find a way past it.", "There's writing on that tablet. Cover me." },
         approaches = {
             { skill = "history", say = "These glyphs: falcon, jackal, crocodile. It's a recipe.",
               win = "{char} reads a line: the falcon holds five, the jackal holds three, and the goddess wants exactly four.",
@@ -396,7 +399,7 @@ M.goal_play = {
             { skill = "arcana", say = "The paint's still wet. On a painting that's centuries old.",
               win = "{char} works it out: things can come out of these paintings, and only for about an hour.",
               lose = "{char} gets paint on {char_their} sleeve and can't get it off." },
-            { skill = "perception", say = "That painting of a stormy sea. Is it... rocking?",
+            { skill = "perception", say = "One of these paintings is moving. Is it... rocking?",
               win = "{char} spots a mop and a bottle of turpentine in a cleaning cupboard. Useful, somehow.",
               lose = "{char} stares at a painting of a stormy sea until {char_they} feels seasick." },
         },
@@ -414,12 +417,12 @@ M.goal_play = {
               lose = "{Cast} {changes|change} the subject to marbles. Very good marbles." },
         },
         moment = { text = "{actor_char} counts out the party's Francs on the counter.", skill = { "persuasion", "insight" } },
-        talk = { "Do you think the boot is a demon or just a boot?", "Those marbles on the counter. I'm buying the marbles. Don't stop me." },
+        talk = { "Do you think the boot is magic, or just a very determined boot?", "Those marbles on the counter. I'm buying the marbles. Don't stop me." },
     },
     mus_hunt = {
-        intent = { "Stay together. Whatever's in here hunts in packs.", "Something's in the jungle. Something's in the caves too." },
+        intent = { "Stay together. Something in here is watching us.", "Is something in that jungle moving, or is it me?" },
         approaches = {
-            { skill = "survival", say = "These scratch marks are a trail. A trail somebody wanted us to find.",
+            { skill = "survival", say = "These scratch marks are a trail. Where does it go?",
               win = "{char} reads it right: the tracks are bait. Nobody walks into the trap.",
               lose = "{char} follows the tracks right where the huntlings wanted." },
             { skill = "perception", say = "Look in the cupboard doors. They're like mirrors.",
@@ -435,11 +438,11 @@ M.goal_play = {
     mus_archivist = {
         intent = { "Locked from the inside. Nobody does that unless they're scared of something.", "A study. Notes. Finally, something to read." },
         approaches = {
-            { skill = "investigation", say = "His desk. Letters, a map of the sea, a list of names. Let me look.",
+            { skill = "investigation", say = "His desk. Letters, notes, a list of names. Let me look.",
               win = "{char} finds the last page he wrote: \"It sees through every eye I draw. I have to stop drawing.\"",
               lose = "{char} sorts papers for ten minutes and finds mostly receipts." },
             -- (Not once it's been named: "Thessaly can't place it" right after "It's a mythril singer".)
-            { skill = "nature", say = "That bird under the dome next door. Six wings. A mythril singer?", when = { not_flag = "bird_named" },
+            { skill = "nature", say = "That bird under the dome next door. Six wings, all eyes. What is it?", when = { not_flag = "bird_named" },
               win = "{char} recognises it: miners carry them, because they sing when there's magic about.",
               lose = "{char} can't place it. A songbird with too many wings, and that's all anyone gets." },
             { skill = "arcana", say = "This writing makes my head hurt when I look straight at it.",
@@ -483,7 +486,7 @@ M.goal_play = {
             -- (The reward as it stands, in words, after Flitwidget has said it: the book's thirty, less
             -- anything he docked; talked up ten from there. Round three: "ten gold less each" and then
             -- "makes it forty each".)
-            { skill = "persuasion", cast = true, say = "So. The reward. {Gold_word} gold each seems low, for a Gorgon.", when = { not_ending = "escape" },
+            { skill = "persuasion", cast = true, say = "So. The reward. {Gold_word} gold each seems low, for what was up there.", when = { not_ending = "escape" },
               win = "{Cast} {sighs|sigh} and makes it {gold_up_word} each. \"Don't tell Telpur.\"", mus_win = { gold_up = 10 },
               lose = "\"{Gold_word} each. And a biscuit. Final offer.\"" },
             -- (She got away: half the reward, R5. The haggle starts from half.)
@@ -496,10 +499,10 @@ M.goal_play = {
             -- (Not after a bargain over her sisters: they've just heard all about them.)
             -- (What they know counts: the gorgon book (its reader has Advantage), and the tapestry in
             -- her lair. A miss with either can't be "not one story", the second playtest review. F10.)
-            { skill = "history", say = "Gorgons come in threes. Where are her sisters?", when = { not_ending = "bargain" }, topic = "gorgons",
+            { skill = "history", say = "Gorgons come in threes, don't they? Where are the other two?", when = { not_ending = "bargain", told = "gorgon" }, topic = "gorgons",
               win = "{char} pieces it together: two more sisters, somewhere out there in the world.",
               lose = "{char} can't remember a single story about Gorgon sisters. Not one.",
-              lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the gorgon book: three sisters. Where the other two went, it doesn't say." },
+              lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the scholar's book: gorgons, three sisters to a line. Where the other two went, it doesn't say." },
                           { when = { flag = "tapestry" }, text = "{char} brings up the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },
         },
         moment = { text = "{actor_char} picks one thing from the gift shop shelf to keep.", skill = { "insight", "persuasion" } },
@@ -507,7 +510,7 @@ M.goal_play = {
         talk_sad = { "Can someone pass the tea? Thanks.", "I'm glad we got this far. Together, I mean.", "Are you okay? Honestly?" },
     },
     mus_face_her = {
-        intent = { "So that's her. She's smaller than I thought.", "Nobody look at her eyes. Nobody drink anything." },
+        intent = { "So that's who's in charge. She's smaller than I thought.", "Nobody touch anything up here. I mean it." },
         approaches = {
             { skill = "insight", cast = true, say = "Why stay in here? You could go anywhere.",
               win = "{Cast} {pauses|pause}. Out there was noise and chaos. In here, even the dust settles where she says.",

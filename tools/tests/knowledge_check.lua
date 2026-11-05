@@ -7,6 +7,11 @@
 --          sheet's) comes after the table heard it said: the pitch and their own reasons for coming at Session
 --          Zero, the DM's words, the people's, the story told, the DM's answers in the chat. A name a friend
 --          makes up themselves (Exhibit B) is theirs from the start.
+--   FACTS  every friend line with one of the book's facts the friends can't know until they're told (the
+--          ritual, her sisters, her drink, the bird's name...: game/data/museum/fidelity.lua's `facts`) comes
+--          after a line said to the table that told it
+--   MASKED no friend line named something the table hadn't been told, so that game night had to say it as
+--          they'd know it (game/model/told.lua; the sim prints each one)
 --   TWICE  a campaign played in the same process straight after another plays exactly as it does on its own:
 --          nothing from the first (a cache, a memory, a "last time") reaches a line of the second.
 -- Each fails on 1ea3901 (KNOWN: Mara asks about Flitwidget by name in the chat before anyone's said it).
@@ -15,11 +20,11 @@ package.path = "./?.lua;./tools/tests/?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local SEEDS = tonumber(arg[1]) or 2
-local ITEMS = { "KNOWN", "TWICE" }
+local ITEMS = { "KNOWN", "FACTS", "MASKED", "TWICE" }
 local fails, E = {}, {}
 local function fail(item, msg)
     fails[item] = fails[item] or { n = 0 }
-    if #fails[item] < 12 then
+    if #fails[item] < 12 or os.getenv("ALL") then
         table.insert(fails[item], msg)
     end
     fails[item].n = fails[item].n + 1
@@ -67,6 +72,15 @@ for _, r in util.sorted_pairs(F.rooms) do
             if string.match(w, "^%u%l") and not string.find(w, "%.") then
                 noun(w)
             end
+        end
+    end
+end
+-- (And what the table must be told before it's said: MODULE.told, the registry's own names.)
+for _, d in util.sorted_pairs(MODULE.told or {}) do
+    for _, w in ipairs(d.words or {}) do
+        -- (A plural is its singular: "gorgons" is matched by "Gorgon".)
+        if string.match(w, "^%u") and not string.match(w, "s$") then
+            noun(w)
         end
     end
 end
@@ -161,9 +175,19 @@ for _, a in ipairs(MODULE.chat_ask or {}) do
     ask_by[a.id] = a
 end
 
+local FACTS = F.facts or {}
+local function has_ci(text, w)
+    return string.find(string.lower(text or ""), string.lower(w), 1, true) ~= nil
+end
 local function scan(R)
     local known = known_at_start()
+    local fact_told = {}
     for _, l in ipairs(R.L) do
+        local masked = string.match(l, "^  %-%- masked friend line: (.*)$")
+        if masked then
+            add("MASKED", "masked")
+            fail("MASKED", R.tag .. ": " .. string.sub(masked, 1, 160))
+        end
         local tag, text = string.match(l, "^  %[([^%]]+)%] (.*)$")
         local thinker, thought = string.match(l, "^  %((%a+) thinks%) (.-)%s%s%[")
         local friend_text
@@ -187,6 +211,17 @@ local function scan(R)
             friend_text = thought
         end
         if friend_text then
+            for _, fct in ipairs(FACTS) do
+                for _, w in ipairs(fct.words) do
+                    if not fact_told[fct.id] and has_ci(friend_text, w) then
+                        add("FACTS", "facts_said")
+                        fail("FACTS", string.format("%s: %s knows %s (p%d) before anyone's told them: '%s'", R.tag,
+                            thinker or (tag == "chat" and "a friend in the chat" or tag), fct.id, fct.page, string.sub(friend_text, 1, 120)))
+                        fact_told[fct.id] = true
+                        break
+                    end
+                end
+            end
             add("KNOWN", "friend_lines")
             for key, n in util.sorted_pairs(names_in(friend_text)) do
                 add("KNOWN", "names_said")
@@ -201,6 +236,13 @@ local function scan(R)
             -- (Not the DM's own unspoken doing: "You let your eyes linger on the tablet.")
             for key in pairs(names_in(text)) do
                 known[key] = true
+            end
+            for _, fct in ipairs(FACTS) do
+                for _, w in ipairs(fct.told_by) do
+                    if has_ci(text, w) then
+                        fact_told[fct.id] = true
+                    end
+                end
             end
         end
     end

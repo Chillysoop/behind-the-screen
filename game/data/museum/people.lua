@@ -224,16 +224,16 @@ return {
       -- On boss night, what the Lecturer told her (people.pass_on), most specific first.
       heard = {
         { when = { knows = { who = "mus_euryale", kind = "steal" } },
-          text = { "My lecturer tells me one of you has quick fingers. Keep them where I can see them.",
+          text = { "I hear one of you has quick fingers. Keep them where I can see them.",
                    "I hear one of you helps themselves to other people's things. So do I. We'll get on, or we won't.",
-                   "The bore downstairs says you rob shops. How refreshing." } },
+                   "I'm told you rob shops. How refreshing." } },
         { when = { knows = { who = "mus_euryale", kind = "break" } },
-          text = { "He tells me you broke half the gnome's toys on the way up. I don't mind. They were his.",
+          text = { "I hear you broke half the gnome's toys on the way up. I don't mind. They were his.",
                    "I hear you've been smashing exhibits. Mine are sturdier.",
-                   "The Lecturer says you leave a mess. So do I." } },
+                   "You leave a mess, I'm told. So do I." } },
         { when = { knows = { who = "mus_euryale", kind = "help" } },
-          text = { "He says you tidy up after yourselves. How very odd.", "I'm told you're kind to the gnome's things. Be kind to mine.",
-                   "Polite guests, he says. We'll see." } },
+          text = { "I'm told you tidy up after yourselves. How very odd.", "I'm told you're kind to the gnome's things. Be kind to mine.",
+                   "Polite guests, I hear. We'll see." } },
       },
     },
     mus_lecturer = {

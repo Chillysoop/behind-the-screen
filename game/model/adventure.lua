@@ -258,7 +258,7 @@ function M.enter(campaign)
             for _, o in ipairs(ee.options or {}) do
                 if o.battle == "escape" then
                     o.label = "Let {boss_them} go. {Boss_they'll} be waiting upstairs."
-                    o.log = "{boss} is gone before anyone can stop {boss_them}, up toward Euryale."
+                    o.log = "{boss} is gone before anyone can stop {boss_them}, up the stairs."
                 elseif o.battle == "let" then
                     o.log = "Somebody gets in the way first. {boss} isn't leaving."
                 end
@@ -437,6 +437,17 @@ function M.test(campaign, cond, knobs, hero)
         end
     end
     if cond.event and not require("game.model.events").any(campaign, cond.event) then
+        return false
+    end
+    -- What the table has been told (game/model/told.lua): a key, or a list of keys all told.
+    if cond.told then
+        for _, k in ipairs(type(cond.told) == "table" and cond.told or { cond.told }) do
+            if not require("game.model.told").knows(campaign, k) then
+                return false
+            end
+        end
+    end
+    if cond.not_told and require("game.model.told").knows(campaign, cond.not_told) then
         return false
     end
     if cond.knob and not (knobs and knobs[cond.knob]) then

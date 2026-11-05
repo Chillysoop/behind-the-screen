@@ -678,6 +678,16 @@ function M.write_chat(c)
         st.chat_asked[q.id] = c.week
         table.insert(msgs, { who = c:player(q.who).name, key = q.who, text = q.text, ask = q.id })
     end
+    -- (Everyone in the chat calls things what the table knows them as: "those hunters", not the DM's kruthik
+    -- huntlings. game/model/told.lua; the knowledge playtest.)
+    local told = require "game.model.told"
+    for _, m in ipairs(msgs) do
+        if type(m.text) == "string" then
+            local masked = told.mask(c, m.text)
+            -- (Lowercase, as the chat is: "the hooded woman" mid-post stays lowercase anyway.)
+            m.text = (m.text == string.lower(m.text)) and string.lower(masked) or masked
+        end
+    end
     return msgs
 end
 

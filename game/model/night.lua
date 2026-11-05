@@ -33,6 +33,8 @@ local prep_mod = require "game.model.prep"
 local util = require "game.model.util"
 local talk_mod = require "game.model.talk"
 local pacing = require "game.model.pacing"
+local told = require "game.model.told"
+local voice_of = require "game.model.voice"
 local fight = require "game.model.fight"
 local social = require "game.model.social"
 local rest_rules = require "game.rules.rest"
@@ -89,6 +91,7 @@ local function snapshot(players)
 end
 
 function M.new(campaign, prep, opts)
+    told.use(campaign)
     opts = opts or {}
     local self = setmetatable({}, M)
     self.campaign = campaign
@@ -240,6 +243,33 @@ function M:emit(ev)
     end
     if self.board_id then
         self:board_hear(ev)
+    end
+    -- What the table has been told (game/model/told.lua; the knowledge playtest): a line said to the table
+    -- tells what it says, and says each name it hasn't been told yet as the table knows it ("the hooded
+    -- woman" until someone has said Euryale). The friends' own words tell nobody anything.
+    if ev.tells then
+        told.tell(self.campaign, ev.tells)
+    end
+    if self.campaign and ev.text and (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") then
+        local heard = ev.kind ~= "narrate" or (voice_of.heard(ev.style) and ev.style ~= "aside"
+            and not (ev.style == "dm" and voice_of.of(ev.text) == "you"))
+        if heard then
+            if ev.kind ~= "say" then
+                told.hear(self.campaign, ev.text)
+            end
+            local was = ev.text
+            local untold = ev.kind == "say" and told.untold(self.campaign, was) or {}
+            ev.text = told.mask(self.campaign, ev.text)
+            if ev.kind == "say" and #untold > 0 then
+                -- (A friend's line that named what they don't know yet: said as they'd know it, and noted for
+                -- the knowledge check, so the line gets fixed where it's written.)
+                self.masked = self.masked or {}
+                table.insert(self.masked, was .. "  [" .. table.concat(untold, ", ") .. "]")
+            end
+            if ev.kind ~= "say" then
+                told.hear(self.campaign, ev.text)
+            end
+        end
     end
     -- In character more as they settle in (Conner's playtest, C8): a plain bid for what the party does
     -- ("Let's douse the hedges with pond water.") is said by the hero, more often each night played
@@ -631,7 +661,9 @@ function M:fresh(list, key, once)
         local free, oldest, ow = {}, nil, nil
         for i, l in ipairs(list) do
             local w = type(l) == "string" and said[l] or nil
-            if (#list > 1 and l == last) or (once and w == week) then
+            if type(l) == "string" and not told.ok(camp, l) then
+                -- (A line naming what the table hasn't been told yet waits: the knowledge playtest.)
+            elseif (#list > 1 and l == last) or (once and w == week) then
                 -- (just said, or said tonight already)
             elseif not w or week - w >= M.FRESH_WEEKS then
                 table.insert(free, i)
@@ -3204,7 +3236,9 @@ function M:big_roll(spec, record)
     -- The card the DM just ruled on showed these numbers, and so does the die: said again as a
     -- caption it was the third telling of one roll (the card-led playtest, October 16). Cooked,
     -- it's news: what the table hears isn't what the die said.
-    self:say(line, cooked and "dice" or "record")
+    -- (A roll behind the screen, or a cooked one, is the DM's alone: what the table hears is the outcome. The
+    -- knowledge playtest heard "Behind the screen, the die says 9 + 6 = 15, against DC 13" said aloud.)
+    self:say(line, (cooked or where ~= "open") and "screen" or "record")
     if cooked then
         self.rolls.cooked = self.rolls.cooked + 1
         self.cooks = self.cooks + 1
@@ -3235,6 +3269,9 @@ function M:big_roll(spec, record)
     -- "Handled. Barely").
     local branch_log = (success and tier == "triumph" and branch.big) or branch.log
         or (branch.fresh and self:fresh(branch.fresh[1], branch.fresh[2]))
+    if branch.tells then
+        told.tell(self.campaign, branch.tells)
+    end
     self:say(branch_log, success and "good" or "bad")
     self:apply(branch.effects)
     self:apply(ro.effects)
@@ -3572,6 +3609,10 @@ function M:decision(card, extra)
     local o = card.options[pick]
     table.insert(self.decisions, { card = card.id, option = pick, rolls = {}, table = auto and true or nil })
     self.why = auto and ("the table's choice at \"" .. card.title .. "\"") or ("your call on \"" .. card.title .. "\"")
+    -- (What the choice tells the table, told before its line is said: the confession names Euryale.)
+    if o.tells then
+        told.tell(self.campaign, o.tells)
+    end
     if o.log then
         self:say(o.log, o.screen and "screen" or "dm", extra)
     end

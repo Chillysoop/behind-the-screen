@@ -28,10 +28,13 @@ function M.foe_label(c)
         return nil
     end
     local n = (string.gsub(c.name, "%s+%d+$", ""))
+    -- (As the table knows them: "the hooded woman" until someone's said Euryale, "the black knight" for the
+    -- DM's Knight of Shades. game/model/told.lua.)
+    local told_name = require("game.model.told").name
     if string.sub(n, 1, 4) == "The " or string.sub(n, 1, 4) == "the " or c.boss or c.person then
-        return n
+        return told_name(n)
     end
-    return "the " .. n
+    return told_name("the " .. n)
 end
 local foe_label = M.foe_label
 

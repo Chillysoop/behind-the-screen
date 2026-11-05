@@ -952,6 +952,22 @@ function M.play_moment(night, card, sc)
             night.mus_vars.gift_the = ev.gift or night.mus_vars.gift_the      -- (what they pulled out, as the log has it)
         end
     end
+    -- What the heroes see as a card of yours opens (`see`: the knowledge playtest, November 5), said to the table
+    -- before you decide: the archivist at his desk, the tentacle in the pond. A card's own words are yours.
+    if card.see and not card.party then
+        if string.find(card.see == true and (copy.text or "") or card.see, "{[Aa]ctor") and not night.actor then
+            night.actor = night:take_owed("cards") or night:pick_lead(card.actor)
+            copy.fixed_actor = true
+            copy.trigger = "museum_fixed"
+        end
+        if card.spot and night.actor and not copy.walked then
+            night:walk(night.actor, card.spot, nil, sc)
+            copy.walked = true
+        end
+        -- (`see = true`: the card's own words, as they stand tonight, text_if and all.)
+        local words = card.see == true and copy.text or card.see
+        night:say(util.sentence_case(util.fill(words, night:vars(night.mus_vars))), "narration")
+    end
     -- The players' own choice (card.party): they talk it over, and play what they settle on.
     if card.party then
         if not night.actor then
@@ -5154,7 +5170,7 @@ M.BREAK_LOGS = {
              "Eight hours of sleep in the museum, in the time it takes to finish the pizza." },
     research = { "Somebody gets the notes out. By the time the pizza's done, there's a plan, sort of.",
                  "Notebooks open between the pizza boxes. By the end of the break, there's a plan. Mostly.",
-                 "The break turns into a study session: the museum, the Gorgon, and a lot of arrows on paper." },
+                 "The break turns into a study session: the museum, its exhibits, and a lot of arrows on paper." },
 }
 M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
 M.BREAK_MIN = 20           -- table minutes it takes
@@ -5304,7 +5320,7 @@ function M.showdown_start(night, sc)
     if boss.opener == "ambush" then
         -- (A second time up her stairs, she remembers the first: round three, B3.)
         night:say(st.flags.rematch and night:fresh(MODULE.showdown.ambush_again, "ambush_again")
-            or "No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
+            or "An arrow is already on the string when they reach the top step.", "bad")
         -- An ambush is a surprise (SRD 5.2.1: Disadvantage on Initiative), unless someone was ready.
         local rb, rm
         for _, p in ipairs(night.players) do

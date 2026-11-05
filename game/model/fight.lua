@@ -878,7 +878,7 @@ local TOLD = BARKS.told
 local function told(night, key, vars)
     local line = night:fresh(TOLD[key], "told_" .. key)
     if line then
-        night:say(util.fill(line, vars or {}), (key == "petrify" or key == "stone" or key == "veil" or key == "charmed"
+        night:say(util.fill(line, vars or {}), (key == "petrify" or key == "stone" or key == "veil" or key == "charmed" or key == "scarabs"
             or key == "overheat" or key == "power_down" or key == "friendly_down" or key == "friendly_fire") and "bad" or "good")
     end
     return line
@@ -900,7 +900,13 @@ function M.tell_moments(night, f, steps)
         local c = s.id and f.by_ref[s.id]
         local kind = s.museum
         if kind == "veil" and c and not said.veil then
+            -- (The hood off: now the table knows what she is, as the book has it, p26. game/model/told.lua.)
+            require("game.model.told").tell(night.campaign, { "gorgon", "hood_off" })
             said.veil = told(night, "veil")
+        elseif kind == "scarabs" and c and not said.scarabs then
+            -- (Said, so the table knows what it's fighting: Sam's veil keeps them off anyone, not out of the
+            -- story. The knowledge playtest heard only "You keep the creepy-crawlies off screen".)
+            said.scarabs = told(night, "scarabs", { name = barks.foe_label(c) or "the guardian" })
         elseif kind == "petrify" and c then
             -- (Who her stare caught this turn: everyone whose feet started to go grey, but her own.)
             local caught = {}

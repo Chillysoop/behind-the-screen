@@ -152,16 +152,21 @@ local function candidates(night, sc, room, phase, last)
         table.insert(out, { kind = kind, b = b })
         table.insert(w, weight)
     end
+    -- (Only what the table could ask about: a curio or a question with a `when`, an adventure.test, waits for it.
+    -- "What do you make of the Gorgon?" when nobody had said there was one: the knowledge playtest.)
+    local function ok(x)
+        return not x.when or require("game.model.adventure").test(night.campaign, x.when)
+    end
     for _, c in ipairs(room.curios or {}) do
         -- (Not the thing someone just walked over to and looked at: the second playtest review.)
-        if not (c.spot and looked[sc.room .. "/" .. c.spot]) then
+        if not (c.spot and looked[sc.room .. "/" .. c.spot]) and ok(c) then
             add(c, "curio", 3)
         end
     end
     if phase ~= "after" then
         local present = night.tl_people or {}
         for _, q in ipairs(room.npc_questions or {}) do
-            if present[q.who] then
+            if present[q.who] and ok(q) then
                 add(q, "ask", 2)
             end
         end

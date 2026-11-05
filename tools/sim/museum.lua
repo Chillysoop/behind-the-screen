@@ -306,6 +306,13 @@ for w = 1, adventure.data.MAX_WEEKS do
     check(prep:spent() <= prep.budget, "budget respected (" .. prep:spent() .. ")")
     local night = c:start_night()
     play_night(night)
+    -- (A friend's line that named what the table hadn't been told, said as they'd know it: game/model/told.lua.
+    -- The knowledge check fails on each, so it's fixed where it's written.)
+    if show then
+        for _, m in ipairs(night.masked or {}) do
+            print("  -- masked friend line: " .. m)
+        end
+    end
     local rep = c:finish_night()
     if show then
         print(string.format("  -- report: avg %s; rooms %d; new marks: %s; warned %d",
