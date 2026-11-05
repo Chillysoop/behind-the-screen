@@ -1431,7 +1431,21 @@ function M.look_lines(arch, pl, how)
     return out
 end
 
-local function look_card(night, sc, pl, ex)
+-- Poking around is an Investigation check in the open (Conner's playtest, C13: the find card didn't say
+-- whether they'd rolled): the small die over their tile, the total on the card, so the DM's call can
+-- follow it. Returns the total.
+M.FIND_DC = 12
+local function poke_roll(night, p)
+    local skills = require "game.rules.skills"
+    local name, mod = night:best_skill(p, { "investigation" })
+    mod = (mod or 0) + night:take_learned(p)
+    local d = night.rng:d20()
+    local total = d + mod
+    night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "investigation") })
+    return total, d
+end
+
+local function look_card(night, sc, pl, ex, p)
     local what = util.lower_first(pl.name or "it")
     if ex.trap then
         local t = ex.trap
@@ -1459,12 +1473,26 @@ local function look_card(night, sc, pl, ex)
     local f = ex.find
     local n = f.francs or 1
     local st = st_of(night)
+    local total, d
+    if p then
+        total, d = poke_roll(night, p)
+    end
+    local found = total and total >= M.FIND_DC
+    local function a_num(x)
+        local t = util.int(x)
+        return ((t == "8" or t == "11" or t == "18" or string.find(t, "^8")) and "an " or "a ") .. t
+    end
+    local rolled = total and (" with " .. a_num(total) .. " Investigation check"
+        .. (d == 20 and " (a natural 20)" or (d == 1 and " (a natural 1)" or ""))) or ""
+    local who = p and ("{actor_char} ({actor})") or "{actor_char}"
     return { id = "mus_look_find_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
              keep_actor = true, actor = { "explorer" }, look = what,
              title = "Something to find: " .. what,
-             text = "{actor_char} is poking around " .. what .. ". Your notes put " .. f.what .. " here.",
+             text = who .. " is poking around " .. what .. rolled .. ". Your notes put " .. f.what .. " here"
+                 .. (total and (", and it takes a " .. util.int(M.FIND_DC) .. " to find.") or "."),
              options = {
                  { label = "They find it.", log = f.line,
+                   sub = total and (found and ("Their " .. util.int(total) .. " finds it.") or ("Generous: " .. a_num(total) .. " wouldn't usually find it.")) or nil,
                    effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:power_gamer", fun = 2 } }, mus = { francs = n } },
                  { label = "Make it more: " .. util.int(n + 1) .. " Francs.", sub = "Generous. A little less to earn later.",
                    log = f.line .. " And another one, just past it.",
@@ -1474,7 +1502,10 @@ local function look_card(night, sc, pl, ex)
                    log = "{actor_char} finds dust and cobwebs. Behind your screen, you move a note to another room.",
                    effects = { { "arch:explorer", fun = -1 } }, later = n },
                  { label = "There's nothing here tonight.", log = "{actor_char} finds dust and cobwebs. Nothing else.",
-                   effects = { { "arch:explorer", fun = -2 }, { "arch:power_gamer", fun = -1 } } },
+                   sub = total and (found and ("Harsh: their " .. util.int(total) .. " should find it, and they'll feel it.")
+                       or ("Fair: " .. a_num(total) .. " misses it.")) or nil,
+                   effects = (total and found) and { { "arch:explorer", fun = -2 }, { "arch:power_gamer", fun = -1 }, { "actor", fun = -3 } }
+                       or { { "arch:explorer", fun = -2 }, { "arch:power_gamer", fun = -1 } } },
              } }
 end
 
@@ -1763,7 +1794,7 @@ function M.explore(night, sc)
         -- own moments under the 8-to-15 budget. Without one, they just look.)
         if ex and night:room(11) and not sc.look_card then
             sc.look_card = true
-            local card = look_card(night, sc, pl, ex)
+            local card = look_card(night, sc, pl, ex, p)
             local o = M.play_moment(night, card, sc)
             if o and o.later then
                 st.find_later = (st.find_later or 0) + o.later

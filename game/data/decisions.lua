@@ -298,7 +298,8 @@ return {
         options = {
             { label = "Let them split and cut between them.", split = true,
               sub = "Until this scene's done they're apart: a fight here starts without them, and they come running.",
-              log = "You cut back and forth like a heist movie.",
+              -- (And then you do: night:split_off cuts to each of them alone, then back. C18.)
+              log = "They split up. You'll cut between them.",
               effects = { { "arch:explorer", fun = 5 }, { "arch:method_actor", fun = 3 }, { "all", boredom = 3 } } },
             -- The way back to the card (the card-led playtest, October 16: none of the three named it).
             { label = "Steer them back: {goal}.",

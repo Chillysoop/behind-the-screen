@@ -513,7 +513,8 @@ function init(self)
             app.save_campaign()
             app.prep_dirty = nil
             app.prep_started = app.time
-            -- Back to the campfire vignette, everyone in their chair.
+            -- Back to the campfire vignette, everyone in their chair (the museum: the board where they stopped,
+            -- Conner's playtest, C11; the night view lays it when the night starts).
             msg.post(TABLE, "vignette")
             app.paint_dice()
             app.update_shelf()

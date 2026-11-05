@@ -2333,6 +2333,25 @@ local function code_line(p)
                         from_book_again = "Any later room tonight you read from the book at the table",
                         easy = "At a fork, when a friend who doesn't much mind comes round to the others" })[k] or "Game night"
         return R(what, one_of(#(W2[k] or {})))
+    elseif top == "OWN_DC" then
+        return R("When you set a DC yourself on a big roll: what you say out loud", one_of(#require("game.model.night").OWN_DC))
+    elseif top == "INSPIRE_SAY" then
+        return R("A friend spending Heroic Inspiration on a roll worth rerolling", one_of(#require("game.model.night").INSPIRE_SAY))
+    elseif top == "SPLIT_OFF" or top == "SPLIT_CUT" or top == "SPLIT_WIN" or top == "SPLIT_LOSE" or top == "SPLIT_BACK"
+        or top == "SPLIT_REGROUP" or top == "SPLIT_REGROUP_ONE" then
+        local what = ({ SPLIT_OFF = "You let the party split: each one going off, toward the far side of the room",
+                        SPLIT_CUT = "The cut to a hero who split off, alone",
+                        SPLIT_WIN = "A hero alone rolls well: what they notice (+1 on their next check)",
+                        SPLIT_LOSE = "A hero alone rolls badly: nothing there",
+                        SPLIT_BACK = "Cutting back to the rest of the party",
+                        SPLIT_REGROUP = "The scene's end: two who split off rejoin the others",
+                        SPLIT_REGROUP_ONE = "The scene's end: one who split off rejoins the others" })[top]
+        return R(what, one_of(#require("game.model.night")[top]))
+    elseif top == "FORK_SAY" or top == "FORK_SAME" or top == "READ_LINES" then
+        local what = ({ FORK_SAY = "At a fork: a friend says where they'd go",
+                        FORK_SAME = "At a fork: a second friend agrees",
+                        READ_LINES = "At a fork, behind your screen: your hunch about where each of them would go" })[top]
+        return R(what, one_of(#require("game.model.museum_night")[top]))
     elseif top == "INSPIRE_LINES" then
         return R("When you give a hero Heroic Inspiration (from a card or their tile)", one_of(#require("game.model.night").INSPIRE_LINES))
     elseif top == "RESEARCH_LINES" then

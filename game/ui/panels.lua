@@ -16,6 +16,7 @@ M.Y, M.W, M.H = 766, 376, 128     -- (128 tall since November 3: a row for the h
 M.STEP = 392
 local TEXT_X, TEXT_W = 118, 130
 local ROLL_X, ROLL_W = 254, 116
+M.ROLL_X, M.ROLL_W = ROLL_X, ROLL_W      -- (the death-save card sits over it: night_view.dying)
 local POSE_HOLD = 2.6
 local ROLL_SPIN = 0.55
 

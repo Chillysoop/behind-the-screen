@@ -48,7 +48,11 @@ local CHIP_Y, CHIP_W, CHIP_H = panels.Y, panels.W, panels.H
 local RIGHT_X, RIGHT_W = 984, 592
 local LEFT_X, LEFT_W = 24, 560
 -- The DM's narration sits above a row kept free for the players' speech bubbles.
-local CAPTION_BOTTOM, CAPTION_W = 664, 900
+-- (Up from 664: the friends' speech above their tiles has its own band under it, and a bubble stays above
+-- the IN/OUT OF CHARACTER tag that sits on a tile's top edge. Conner's playtest, C9.)
+local CAPTION_BOTTOM, CAPTION_W = 622, 900
+local TAG_CLEAR = 36            -- (the speaking tag: 24 tall, 6 above the tile, and a gap)
+M.LAYOUT = { caption_bottom = CAPTION_BOTTOM, bubble_floor = panels.Y - TAG_CLEAR, tag_top = panels.Y - 30 }
 local CARD_BOTTOM = 760
 -- Longer read-alouds: the recap and the session's opening.
 -- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in. It gets
@@ -255,6 +259,7 @@ function M.start(app)
     end
     post("seats", { present = present })
     post("clear", { how = "sweep" })
+    M.stage_opening(app)
     post("track", { on = true })
     cam(app, 1)
     M.build(app)
@@ -1191,26 +1196,27 @@ function M.dying(app, id)
     end
     M.drop_dying(app, id, true)
     kit.use(app.layers.fx)
-    local w, h = 300, 64
-    local x, y = chip.x + (panels.W - w) / 2, chip.y - 84 - h - 8
+    -- (On their own tile, over its last-roll box: a death save is their roll now. Above the tile it sat
+    -- on the DM screen's notes and beside the next tile: Conner's playtest, C27.)
+    local w, h = panels.ROLL_W, panels.H - 16
+    local x, y = chip.x + panels.ROLL_X, chip.y + 8
     local col = t.stable and theme.teal or theme.red
     local nodes = {}
     local function add(n)
         table.insert(nodes, n)
     end
-    add(kit.box(x - 2, y - 2, w + 4, h + 4, col, { radius = 12 }))
-    add(kit.box(x, y, w, h, kit.rgba("#201813", 0.97), { radius = 11 }))
-    local p = app.campaign:player(id)
-    local who = (p and p.char) or (app.names and app.names[id]) or "They"
-    add(kit.text(x + 14, y + 8, t.stable and (who .. " is stable") or (who .. " is dying"), "ui18b", col, { gloss = false }))
-    add(kit.text(x + 14, y + 36, "Saves", "ui14", theme.dim, { gloss = false }))
+    add(kit.box(x - 2, y - 2, w + 4, h + 4, col, { radius = 10 }))
+    add(kit.box(x, y, w, h, kit.rgba("#201813", 0.97), { radius = 9 }))
+    add(kit.text(x + w / 2, y + 8, t.stable and "Stable" or "Dying", "ui18b", col, { gloss = false, pivot = gui.PIVOT_N }))
+    add(kit.text(x + 10, y + 42, "Saves", "ui14", theme.dim, { gloss = false }))
     for i = 1, 3 do
-        add(kit.dot(x + 70 + (i - 1) * 20, y + 44, 14, i <= t.s and theme.teal or kit.rgba("#ffffff", 0.15)))
+        add(kit.dot(x + 62 + (i - 1) * 18, y + 50, 13, i <= t.s and theme.teal or kit.rgba("#ffffff", 0.15)))
     end
-    add(kit.text(x + 150, y + 36, "Fails", "ui14", theme.dim, { gloss = false }))
+    add(kit.text(x + 10, y + 74, "Fails", "ui14", theme.dim, { gloss = false }))
     for i = 1, 3 do
-        add(kit.dot(x + 200 + (i - 1) * 20, y + 44, 14, i <= t.f and theme.red or kit.rgba("#ffffff", 0.15)))
+        add(kit.dot(x + 62 + (i - 1) * 18, y + 82, 13, i <= t.f and theme.red or kit.rgba("#ffffff", 0.15)))
     end
+
     app.dying_nodes = app.dying_nodes or {}
     app.dying_nodes[id] = nodes
 end
@@ -1626,9 +1632,9 @@ function M.place_bubbles(app)
                 x = util.clamp(ax - b.w / 2, col_x, col_x + col_w - b.w)
             end
             -- (Above a friend's thought cloud, when there's one over their panel.)
-            local floor = col_x and (CHIP_Y - 8) or CARD_BOTTOM
+            local floor = col_x and (CHIP_Y - TAG_CLEAR) or CARD_BOTTOM
             if col_x and b.anchor.head and app.thinking and app.thinking[b.anchor.head] then
-                floor = CHIP_Y - 38
+                floor = CHIP_Y - 38 - TAG_CLEAR + 8
             end
             local y = util.clamp(ay - b.h - 16, 64, floor - b.h)
             -- Never over the DM's caption: go above it.
@@ -2186,6 +2192,47 @@ local function stage(app, ev)
         post("pieces", { cells = ev.pieces })
         app.pieces_key = key
     end
+end
+
+-- Before the first scene: the board where they stopped (the first room, on the first night), the party on
+-- it, never the old campfire vignette (Conner's playtest, C11: a session opened on a wood camp while the
+-- party was inside the museum). Display only: built from a throwaway copy of the room's scene.
+function M.stage_opening(app)
+    local c, night = app.campaign, app.night
+    local st = c and c.adv
+    local ok_a, adventure = pcall(require, "game.model.adventure")
+    local MODULE = ok_a and adventure.data
+    if not (st and night and MODULE and MODULE.rooms) then
+        return false
+    end
+    local room = st.pos or st.last_room or (MODULE.order and MODULE.order[1])
+    local r = room and MODULE.rooms[room]
+    -- (Stopped on the stairs, a room with no board of its own: the room they're stood at the door of.)
+    if r and r.virtual and r.next and r.next[1] then
+        room = r.next[1]
+        r = MODULE.rooms[room]
+    end
+    if not r or r.virtual then
+        return false
+    end
+    local mn = require "game.model.museum_night"
+    local keep_map, keep_backup = night.map_next, night.mus and night.mus.backup_used
+    local ok, sc = pcall(mn.build_scene, night, room)
+    night.map_next = keep_map
+    if night.mus then
+        night.mus.backup_used = keep_backup
+    end
+    if not (ok and sc) then
+        return false
+    end
+    sc.terrain = night:terrain_for(sc)
+    local ok2, party = pcall(night.staging, night, sc)
+    if not ok2 then
+        return false
+    end
+    post("clear_minis")
+    stage(app, { board = night:board_for(sc), party = party })
+    return true
 end
 
 -- What a mini or a player is called in the log.

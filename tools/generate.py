@@ -76,14 +76,16 @@ PEOPLE = [  # name, (x, z)
     ("jess", (34.0, -80.0)),
     ("sam", (106.0, -14.0)),
 ]
-PERSON_SCALE = 0.21
+PERSON_SCALE = 0.20     # (0.21 till November 5: smaller, so faces fit the Table view, C2)
 # Whole bodies on chairs (A9): the standee reaches the floor, the head where it always was.
 PERSON_PX = (300, 655)
 PERSON_BOTTOM = 0.0
 
 PRESETS = [
     dict(name="Room", eye=(232.0, 212.0, 290.0), target=(-8.0, 84.0, -24.0), fov=42.0, drift=2.0),
-    dict(name="Table", eye=(-4.0, 160.0, 110.0), target=(-4.0, 75.0, -6.0), fov=46.0, drift=0.8),
+    # (Wider, and a touch higher: every face at the table in view, the back two under the top bar and the two
+    # at the sides inside the screen. Conner's playtest, C2. The eye stays put: sight.lua's EYE_* read it.)
+    dict(name="Table", eye=(-4.0, 160.0, 110.0), target=(-4.0, 80.0, -10.0), fov=54.0, drift=0.8),
     dict(name="Imagination", eye=(-33.0, 90.0, 24.0), target=(8.0, 79.0, -16.0), fov=40.0, drift=0.25),
     dict(name="Dice tray", eye=(58.0, 118.0, 78.0), target=(60.0, 76.0, 33.0), fov=30.0, drift=0.15),
 ]
@@ -255,8 +257,19 @@ def mug(x, z, colour, rng):
     m.add(gm.cylinder((x, TABLE_Y, z), 4.0, 4.2, 9.5, 18, sw, caps=(True, False)))
     m.add(gm.cylinder((x, TABLE_Y + 0.6, z), 3.6, 3.8, 8.9, 18, sw, caps=(False, False), inside=True))
     m.add(gm.cylinder((x, TABLE_Y + 9.5, z), 4.2, 3.8, 0.01, 18, sw, caps=(False, False)))
-    m.add(gm.cylinder((x, TABLE_Y + 7.4, z), 3.6, 3.6, 0.01, 18, gm.swatch(PAL("coffee")), caps=(False, True)))
+    # (The coffee is its own model, so it goes down as the night goes on: drink(), main/snacks/snacks.script.)
     m.add(gm.box((x + 4.8, TABLE_Y + 5, z), (1.6, 5, 1.4), sw))
+    return m
+
+
+MUGS = [(-66.0, 22.0), (-60.0, -42.0), (66.0, 6.0)]
+DRINK_TOP = 7.4          # the coffee's surface in a full mug, above the table
+
+
+def drink():
+    """The coffee in a mug, around its own origin (the surface's middle): drunk over game night (C10)."""
+    m = gm.Mesh()
+    m.add(gm.cylinder((0.0, 0.0, 0.0), 3.62, 3.62, 0.01, 18, gm.swatch(PAL("coffee")), caps=(False, True)))
     return m
 
 
@@ -649,6 +662,9 @@ def main():
         snack_comps.append((name, f"/main/snacks/{name}.model"))
     snack_comps.append(("snacks", "/main/snacks/snacks.script"))
     w("main/snacks/pizza.go", go_file(snack_comps))
+    gm.write_glb(path("assets/meshes", "drink.glb"), drink(), "drink")
+    w("main/snacks/drink.model", model_file("drink", T + "palette.png"))
+    w("main/snacks/drink.go", go_file([("model", "/main/snacks/drink.model")]))
     gm.write_glb(path("assets/meshes", "chips.glb"), chips(), "chips")
     w("main/snacks/chips.model", model_file("chips", T + "palette.png"))
     w("main/snacks/chips.go", go_file([("model", "/main/snacks/chips.model")]))
@@ -785,6 +801,8 @@ def main():
     col += instance("audio", "/main/audio/audio.go")  # sounds: tools/gen_audio.py
     col += instance("pizza", "/main/snacks/pizza.go", PLATE)
     col += instance("chips", "/main/snacks/chips.go", CHIPS_ORIGIN)
+    for i, (mx, mz) in enumerate(MUGS):
+        col += instance(f"drink_{i + 1}", "/main/snacks/drink.go", (mx, TABLE_Y + DRINK_TOP, mz))
     col += instance("lamp", "/main/lamp/lamp.go", LAMP_PIVOT)
     bulb = tuple(a + b for a, b in zip(LAMP_PIVOT, BULB_OFFSET))
     col += instance("lamp_halo", "/main/fx/halo.go", (bulb[0], bulb[1] - 2, bulb[2]), scale=0.22)

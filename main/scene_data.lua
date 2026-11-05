@@ -3,7 +3,7 @@
 return {
     presets = {
         { name = "Room", eye = vmath.vector3(232.0, 212.0, 290.0), target = vmath.vector3(-8.0, 84.0, -24.0), fov = 42.0, drift = 2.0 },
-        { name = "Table", eye = vmath.vector3(-4.0, 160.0, 110.0), target = vmath.vector3(-4.0, 75.0, -6.0), fov = 46.0, drift = 0.8 },
+        { name = "Table", eye = vmath.vector3(-4.0, 160.0, 110.0), target = vmath.vector3(-4.0, 80.0, -10.0), fov = 54.0, drift = 0.8 },
         { name = "Imagination", eye = vmath.vector3(-33.0, 90.0, 24.0), target = vmath.vector3(8.0, 79.0, -16.0), fov = 40.0, drift = 0.25 },
         { name = "Dice tray", eye = vmath.vector3(58.0, 118.0, 78.0), target = vmath.vector3(60.0, 76.0, 33.0), fov = 30.0, drift = 0.15 },
     },
@@ -16,10 +16,10 @@ return {
     mini_tops = { animated_armor = 0.16, bandit = 0.21, bandit_captain = 0.12, bone_construct = 0.16, briar_beast = 0.34, briar_boar = 0.42, briar_triceratops = 0.32, brown_bear = 0.2, bugbear_warrior = 0.2, cleric = 0.22, cultist = 0.11, dire_wolf = 0.27, euryale = 0.14, exhibit_b = 0.42, fighter = 0.06, flitwidget = 0.07, ghoul = 0.28, giant_crab = 0.2, giant_scarab_swarm = 0.29, giant_spider = 0.44, gnoll_warrior = 0.17, goblin_boss = 0.03, goblin_club = 0.33, goblin_spear = 0.2, guard = 0.08, knight_of_shades = 0.09, kobold_warrior = 0.28, kruthik_huntling = 0.53, merrow = 0.0, npc_stranger = 0.12, ogre = 0.21, pirate = 0.26, pregen_aldith = 0.22, pregen_bryn = 0.06, pregen_corwin = 0.03, pregen_hesk = 0.06, pregen_lark = 0.14, pregen_rufus = 0.22, pregen_tam = 0.14, pregen_ysolde = 0.03, rogue = 0.14, scout = 0.14, sentinel = 0.14, skeleton = 0.27, specter = 0.22, spy = 0.22, steam_mech = 0.07, swarm_of_rats = 0.47, telpur = 0.32, the_lecturer = 0.18, tough = 0.23, warrior_veteran = 0.2, wizard = 0.03, wolf = 0.27, worg = 0.27, zombie = 0.24 },
     -- where each player's head is (speech bubbles)
     heads = {
-        dev = vmath.vector3(-106.0, 139.55, -6.0),
-        mara = vmath.vector3(-38.0, 139.55, -80.0),
-        jess = vmath.vector3(34.0, 139.55, -80.0),
-        sam = vmath.vector3(106.0, 139.55, -14.0),
+        dev = vmath.vector3(-106.0, 133.0, -6.0),
+        mara = vmath.vector3(-38.0, 133.0, -80.0),
+        jess = vmath.vector3(34.0, 133.0, -80.0),
+        sam = vmath.vector3(106.0, 133.0, -14.0),
     },
     lamp = { bulb_offset = vmath.vector3(0.0, -125.0, 0.0) },
     dice = { spawn = vmath.vector3(52.0, 91.0, 31.0), throw = vmath.vector3(95.0, -20.0, 25.0), floor_y = 75.62 },

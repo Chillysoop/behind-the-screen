@@ -181,6 +181,18 @@ end }
 
 -- Load the script ---------------------------------------------------------------
 dofile("game/game.gui_script")
+-- (With DUMP_DIR, each night's start and the board on the table by then go to board_minis.txt too:
+-- "NIGHT <week> <board>", the board where they stopped, never the old campfire vignette. C11.)
+if stage_log then
+    local nv = require "game.ui.night_view"
+    local real_start = nv.start
+    nv.start = function(app, ...)
+        local r = real_start(app, ...)
+        stage_log:write("NIGHT " .. tostring(app.campaign and app.campaign.week) .. " " .. tostring(app.terrain) .. "\n")
+        stage_log:flush()
+        return r
+    end
+end
 local kit = require "game.ui.kit"
 local rng = require("game.model.rng").new(SEED)
 local content = require "game.model.content"

@@ -17,13 +17,13 @@ M.CARRY_END = 0.3       -- how much of the mood they came in with still counts b
 
 -- A new night: the bar starts where the last one left them (a week softer). p.last_fun is the
 -- report's (report.lua); no last night, no carry.
+-- The first night of a new game they've been looking forward to (Conner's playtest, C1: every friend
+-- sat frowning through the opening of session 1): they come in happy, and the night takes over.
+M.FIRST_NIGHT = 62
 function M.start_carry(p)
     p.carry_target, p.carry_s0, p.carry_t = nil, nil, 0
-    if not p.last_fun then
-        return
-    end
     local s0 = M.fun(p)
-    p.carry_target = util.clamp(50 + (p.last_fun - 50) * M.CARRY_WEEK, 5, 95)
+    p.carry_target = p.last_fun and util.clamp(50 + (p.last_fun - 50) * M.CARRY_WEEK, 5, 95) or M.FIRST_NIGHT
     p.carry_s0 = s0
 end
 M.BANTER = 5 -- Social every scene gives just from being at the table together (snacks, jokes)

@@ -81,6 +81,9 @@ function M.screen(app, screen)
         M.mood("late", M.NIGHT_SECONDS)
         M.music("night")
         M.snacks_eaten(0)
+        if app then
+            app.snack_step = 0
+        end
     elseif screen == "report" then
         M.mood("late", 4)
         M.music("prep")
@@ -96,10 +99,18 @@ end
 -- Game night events (night_view.handle).
 function M.night_event(app, ev)
     local k = ev.kind
-    if k == "scene" then
-        local total = math.max(ev.total or 3, 1)
-        M.snacks_eaten(((ev.index or 1) - 1) / total)
-    elseif k == "roll" then
+    -- The snacks follow the table's clock, in chunks: a slice, a handful of chips, a mouthful of coffee every
+    -- sixth of the evening agreed at Session Zero (Conner's playtest, C10: they went by how many scenes, and
+    -- a museum night has more than three).
+    local night = app and app.night
+    if night and night.table_min and night.table_planned then
+        local step = math.floor(6 * math.min(1, night.table_min / math.max(60, night.table_planned + 30)))
+        if step ~= app.snack_step then
+            app.snack_step = step
+            M.snacks_eaten(step / 6)
+        end
+    end
+    if k == "roll" then
         M.sfx("dice")
     elseif k == "check" then
         if ev.crit then

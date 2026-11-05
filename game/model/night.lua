@@ -1231,9 +1231,31 @@ function M:poses()
         elseif fun < 38 then
             pose = "frown"
         end
+        -- (Their hero dying, dead or turned to stone, or a death at the table tonight: nobody sits there
+        -- grinning. Conner's playtest, C27: "beaming" while Brannoc was dying.)
+        local worry = M.worry(self, p)
+        if worry then
+            pose = worry.pose
+        end
         out[p.key] = pose
     end
     return out
+end
+
+-- How a friend looks when it's going badly for their hero or the table (C27): the face and the words
+-- under it, or nil when nothing's wrong. Their own hero first.
+M.WORRY = { down = { pose = "gasp", tell = "holding their breath" }, stone = { pose = "gasp", tell = "staring at the stone" },
+            dead = { pose = "frown", tell = "very quiet" }, charmed = { pose = "think", tell = "chewing a nail" },
+            somber = { pose = "frown", tell = "quiet" } }
+function M.worry(night, p)
+    local st = able.state(night, p)
+    if st and M.WORRY[st] then
+        return M.WORRY[st]
+    end
+    if able.somber(night) then
+        return M.WORRY.somber
+    end
+    return nil
 end
 
 -- Below LOW_TELL a player is visibly drifting (doodling, on their phone); a bad mood's tell shows
@@ -1263,6 +1285,10 @@ function M:tells()
             elseif (mood.fun or 0) >= 0 and p.engagement >= 0.5 then
                 text = mood.tell
             end
+        end
+        local worry = M.worry(self, p)
+        if worry then
+            text = worry.tell
         end
         out[p.key] = { text = text, engagement = p.engagement, fun = score.fun(p), pose = poses[p.key] }
     end
@@ -3628,6 +3654,7 @@ function M:decision(card, extra)
             end
         end
         self.scene.split = { away = away }
+        self:split_off(self.scene)
         -- (In the log, R7: a hero going off alone, and who.)
         for _, q in ipairs({ self.actor, self.other }) do
             if q then
@@ -4279,6 +4306,124 @@ end
 -- (What they went off to do, and which way: the card has one look round on their own and the other head
 -- off the other way. "Thessaly and Oswin went off together" was neither, round three's merge.)
 M.ALONE_TEXT = { "{a} went off on {a_their} own to look around", "{a} went off on {a_their} own to look around, and {b} went the other way" }
+
+-- Splitting the party, played (Conner's playtest, C18: it was one line, "You cut back and forth like a
+-- heist movie", and nothing cut): the ones going off walk to the far side of the room, the DM cuts to each
+-- of them alone (a small roll: what they notice on their own is +1 on their next check, a real one,
+-- campaign.learned), cuts back to the rest, and at the scene's end they regroup, out loud.
+M.SPLIT_OFF = { "{char} heads off toward {place} alone.", "{char} peels away from the others, toward {place}.",
+                "{char} wanders off to {place} on {char_their} own." }
+M.SPLIT_CUT = { "Cut to {char}, alone by {place}.", "Meanwhile, by {place}: {char}, on {char_their} own.",
+                "Over by {place}, {char} has the place to {char_them}self." }
+M.SPLIT_WIN = { "{char} gets a long look at how the room fits together from over there: +1 on {char_their} next check.",
+                "Alone and unhurried, {char} spots what the others walked past: +1 on {char_their} next check.",
+                "{char} takes {char_their} time, and it pays: +1 on {char_their} next check." }
+M.SPLIT_LOSE = { "{char} finds a lot of dust, and nothing else.", "Nothing over there but cobwebs, and {char} knows it.",
+                 "{char} pokes about for a while. Nothing." }
+M.SPLIT_BACK = { "Back to the others.", "Cut back to the rest of the party.", "And back to everyone else." }
+M.SPLIT_REGROUP = { "{names} catch up with the others.", "{names} drift back to the group.", "The party's back together: {names} rejoin." }
+M.SPLIT_REGROUP_ONE = { "{names} catches up with the others.", "{names} drifts back to the group.", "The party's back together: {names} rejoins." }
+
+function M:split_off(sc)
+    local split = sc and sc.split
+    if not (split and split.away) then
+        return
+    end
+    local places = self:board_places(sc)
+    local here = {}
+    for _, q in ipairs(self:at_hand()) do
+        local at = self.mini_pos and self.mini_pos[q.key]
+        if at then
+            table.insert(here, at)
+        end
+    end
+    -- (The places furthest from the ones staying: one each.)
+    local taken = {}
+    local function far_place()
+        local best, bd
+        for _, pl in ipairs(places or {}) do
+            if not taken[pl.id] and pl.x then
+                local d = 0
+                for _, at in ipairs(here) do
+                    d = d + math.max(math.abs(pl.x - at[1]), math.abs(pl.y - at[2]))
+                end
+                if not bd or d > bd then
+                    best, bd = pl, d
+                end
+            end
+        end
+        if best then
+            taken[best.id] = true
+        end
+        return best
+    end
+    split.at = {}
+    for _, p in ipairs(self.players) do
+        if split.away[p.key] then
+            local pl = far_place()
+            local vars = { char = p.char, place = pl and util.lower_first(pl.name or "the far side") or "the far side of the room" }
+            self:say(util.fill(self:fresh(M.SPLIT_OFF, "split_off"), vars), "narration")
+            if pl then
+                self:walk(p, { pl.x, pl.y }, nil, sc)
+            end
+            split.at[p.key] = vars.place
+        end
+    end
+    -- The cut to each of them, alone: a small roll in the open.
+    local skills = require "game.rules.skills"
+    for _, p in ipairs(self.players) do
+        if split.away[p.key] then
+            local vars = { char = p.char, place = split.at[p.key] }
+            self:say(util.fill(self:fresh(M.SPLIT_CUT, "split_cut"), vars), "narration")
+            local name, mod = self:best_skill(p, { "perception", "investigation" })
+            mod = (mod or 0) + self:take_learned(p)
+            local d = self.rng:d20()
+            local total = d + mod
+            self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception") })
+            if total >= 13 then
+                local c = self.campaign
+                c.learned = c.learned or {}
+                c.learned[p.key] = (c.learned[p.key] or 0) + 1
+                self:say(util.fill(self:fresh(M.SPLIT_WIN, "split_win"), vars), "good")
+            else
+                self:say(util.fill(self:fresh(M.SPLIT_LOSE, "split_lose"), vars), "narration")
+            end
+        end
+    end
+    self:say(self:fresh(M.SPLIT_BACK, "split_back"), "narration")
+    split.cut = true
+end
+
+function M:split_regroup(sc)
+    local split = sc and sc.split
+    if not (split and split.away and split.cut) or split.regrouped then
+        return
+    end
+    split.regrouped = true
+    local names, who = {}, {}
+    for _, p in ipairs(self.players) do
+        if split.away[p.key] and not able.state(self, p) then
+            table.insert(names, p.char)
+            table.insert(who, p)
+        end
+    end
+    if #names == 0 or self.end_early then
+        return
+    end
+    self:say(util.fill(self:fresh(#names > 1 and M.SPLIT_REGROUP or M.SPLIT_REGROUP_ONE, "split_regroup"), { names = util.join_names(names) }), "narration")
+    -- (Back beside the others, walking.)
+    local near
+    for _, q in ipairs(self.players) do
+        if not split.away[q.key] and self.mini_pos and self.mini_pos[q.key] then
+            near = self.mini_pos[q.key]
+        end
+    end
+    if near then
+        for _, p in ipairs(who) do
+            self:walk(p, { near[1], near[2] }, nil, sc)
+        end
+    end
+end
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",
@@ -5260,6 +5405,7 @@ end
 -- A scene that settled without its big moment (the scene card's own roll, a cut, a fight):
 -- how it went, and its goal's payoff in its own words.
 function M:settle_scene(sc)
+    self:split_regroup(sc)
     if not sc.outcome then
         local pr = sc.progress
         if sc.result then
