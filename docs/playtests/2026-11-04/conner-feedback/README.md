@@ -60,3 +60,6 @@ each player wants), shot_3 (Mara's bubble over the read-aloud panel), shot_4 (Sa
 26. The friends must NEVER have meta knowledge of having played the session before. It is ALWAYS the players' first
     time playing it in the game (no "last time we did the ritual" across runs, no lines that assume they know the
     adventure, the rooms or what's coming).
+27. The "Brannoc is dying" death-save card overlaps other UI elements: it sits on top of the DM screen's sticky notes
+    and the friends' tiles (shot_7). (Also visible in shot_7: Dev's tile says "beaming" while his hero is dying at
+    0/33; the mood label should follow the moment.)
