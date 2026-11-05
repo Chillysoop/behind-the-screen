@@ -341,7 +341,8 @@ function CHECKS.F8(run)
     local log = run.log
     local seen_text = {}
     for i, r in ipairs(log) do
-        if r.k == "tiny_roll" then
+        -- (`what`: a roll a card or a split is about, poking around for a find, not a small moment.)
+        if r.k == "tiny_roll" and not r.ev.what then
             -- Nothing dangerous may still be coming in this room visit.
             for j = i + 1, #log do
                 local q = log[j]
@@ -408,7 +409,7 @@ function CHECKS.F26(run)
         if r.k == "narrate" and r.room and PLACE_LINE[r.room .. "|" .. (r.text or "")] then
             looked[r.room .. "/" .. PLACE_LINE[r.room .. "|" .. r.text]] = true
         end
-        if r.k == "tiny_roll" then
+        if r.k == "tiny_roll" and not r.ev.what then
             beats[r.week] = (beats[r.week] or 0) + 1
             local present = #(run.night and run.night.players or { 1, 2, 3, 4 })
             if last_scene == (r.week .. "/" .. tostring(r.scene)) and last_who == r.ev.who and present > 1 then
