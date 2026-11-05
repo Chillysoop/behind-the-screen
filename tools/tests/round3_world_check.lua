@@ -347,12 +347,23 @@ local function notes_owner(T)
                 pages_by = h
                 add("B1", "pages_picked_up")
             end
+            -- (A fallen hero's pack, notes and all, shared out: whoever picks it up carries them now. Seed 34
+            -- careful, week 7: Corwin Vell took up Thessaly's pack and handed Euryale the page.)
+            if string.find(e.text, "Lecturer's notes", 1, true) and (string.find(e.text, " picks it up", 1, true)
+                or string.find(e.text, " shoulders ", 1, true)) then
+                local by = string.match(e.text, "([%u][%a]*[ ]?[%u]?[%a]*) picks it up")
+                    or string.match(e.text, "([%u][%a]*[ ]?[%u]?[%a]*) kneels")
+                    or string.match(e.text, "([%u][%a]*[ ]?[%u]?[%a]*) shoulders")
+                if by then
+                    pages_by = hero_in(by) or by
+                end
+            end
             if string.find(e.text, "The table decides: put her to sleep with the Lecturer's notes", 1, true) then
                 pending_page = true
             elseif pending_page and e.who == "record" then
                 pending_page = nil
                 add("B1", "page_handed")
-                if pages_by and hero_in(e.text) ~= pages_by then
+                if pages_by and not string.find(e.text, pages_by, 1, true) then
                     fail("B1", tag(T, e.w) .. ": " .. pages_by .. " picked up the pages, and '" .. e.text .. "' hands Euryale one")
                 end
             end
