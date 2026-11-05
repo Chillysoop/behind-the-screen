@@ -2939,6 +2939,7 @@ function M.handle(app, ev)
             end
             -- On the party's side (the museum's Steam Mech, v2): a mini beside the heroes.
             app.ally_ids = {}
+            app.allies_info = ev.allies
             for i, a in ipairs(ev.allies or {}) do
                 -- (A companion in the fight says who's playing them: "Telpur (Jess)".)
                 local pl = a.pilot and app.campaign:player(a.pilot)
@@ -2977,10 +2978,14 @@ function M.handle(app, ev)
             end
             app.ds = nil
             post("clear", { side = "foe", how = "flee" })
-            for _, id in ipairs(app.ally_ids or {}) do
-                post("flee", { id = id })
+            -- (An ally the party brought, Telpur on his strap, goes back where he rides, and the Mech stays
+            -- where it stands: nobody on their side runs off the table. Conner's playtest, C19.)
+            for _, a in ipairs(app.allies_info or {}) do
+                if a.rides_with then
+                    post("sweep_one", { id = a.id })
+                end
             end
-            app.ally_ids = nil
+            app.ally_ids, app.allies_info = nil, nil
             for id in pairs(app.hp) do
                 post("up", { id = id })
             end

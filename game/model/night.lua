@@ -1415,21 +1415,76 @@ function M:walk(p, to, path, sc)
     end
     -- Round the walls and through the doors, not through them (game/model/sight.lua): the squares
     -- of the way there, a door opening as they reach it.
+    -- Never through a wall (Conner's playtest, C24: minis slid straight across the map when no way
+    -- round was found): no way there, they go as near as they can get; nowhere nearer, they stay put.
     local pts
     local from = self.mini_pos and self.mini_pos[p.key]
     if st and from then
         local route = sight.path(st, from, sq)
-        if route and #route > 0 and #route <= 40 then
+        if not route then
+            route = M.toward(st, from, sq)
+            sq = route and route[#route] or from
+        end
+        if route and #route > 0 then
             self:open_doors(st, route)
             pts = route
+        elseif route then
+            pts = {}
         end
     end
-    pts = pts or { { sq[1], sq[2] } }
+    if not pts then
+        if st and from then
+            return nil
+        end
+        pts = { { sq[1], sq[2] } }      -- (not on the mat yet: set down, not walked)
+    end
+    -- (And on into the feature they reach for, a step at a time: the pond's water, then back out.)
     for _, s in ipairs(path or {}) do
-        table.insert(pts, { s[1], s[2] })
+        local last = pts[#pts] or from
+        if last and math.max(math.abs(s[1] - last[1]), math.abs(s[2] - last[2])) <= 1 then
+            table.insert(pts, { s[1], s[2] })
+        end
+    end
+    if #pts == 0 then
+        return sq
     end
     self:emit({ kind = "walk", actor = p.key, path = pts })
     return sq
+end
+
+-- The walk to the reachable square nearest `to` (the board's open floor from `from`), or {} when
+-- `from` is already as near as they can get. nil without a stage.
+function M.toward(st, from, to)
+    local sight = require "game.model.sight"
+    if not st then
+        return nil
+    end
+    local best, bd
+    local seen = { [from[1] .. "," .. from[2]] = true }
+    local q, head = { from }, 1
+    while head <= #q do
+        local cur = q[head]
+        head = head + 1
+        local d = math.max(math.abs(cur[1] - to[1]), math.abs(cur[2] - to[2]))
+        if not bd or d < bd then
+            best, bd = cur, d
+        end
+        for dy = -1, 1 do
+            for dx = -1, 1 do
+                local x, y = cur[1] + dx, cur[2] + dy
+                local k = x .. "," .. y
+                if (dx ~= 0 or dy ~= 0) and not seen[k] and sight.walkable(st, x, y)
+                    and (dx == 0 or dy == 0 or sight.walkable(st, cur[1] + dx, cur[2]) or sight.walkable(st, cur[1], cur[2] + dy)) then
+                    seen[k] = true
+                    table.insert(q, { x, y })
+                end
+            end
+        end
+    end
+    if not best or (best[1] == from[1] and best[2] == from[2]) then
+        return {}
+    end
+    return sight.path(st, from, best) or {}
 end
 
 -- The other minis standing on this scene's board (the heroes but `who`, and the person once they're on
@@ -1974,6 +2029,12 @@ function M:hero_action(sc, dc, spots)
     -- Investigation and Religion behind the offices' partitions.)
     if spot then
         spot = self:stand_near(spot, p.key, sc, require("game.model.sight").stage(self, sc))
+        -- (They walk there first, round the walls; the check is rolled where they got to. C24.)
+        local at = self.mini_pos and self.mini_pos[p.key]
+        if at and not (at[1] == spot[1] and at[2] == spot[2]) then
+            self:walk(p, spot, nil, sc)
+            spot = nil
+        end
     end
     self:emit({ kind = "check", text = text, roll = roll, bonus = mod, total = total, dc = dc, success = success,
                 actor = p.key, char = p.char, skill = a.skill, skill_name = name, crit = roll == 20,

@@ -1711,7 +1711,8 @@ function M.run(night, sc, plan)
         b:add(m, sq[1], sq[2])
         f.by_ref[m.mini] = m
         table.insert(allies_out, { id = m.mini, monster = m.monster_id, x = sq[1], y = sq[2], name = m.name, ally = true,
-                                   hp = m.hp, hp_max = m.hp_max, commander = m.commander and m.commander.mini or nil, pilot = m.pilot })
+                                   hp = m.hp, hp_max = m.hp_max, commander = m.commander and m.commander.mini or nil, pilot = m.pilot,
+                                   rides_with = m.pilot })       -- (a companion: back with them after the fight)
     end
     f.allies = allies
     -- Someone joining mid-fight (the bone construct's scarabs) gets a mini on the mat.

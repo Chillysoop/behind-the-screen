@@ -121,6 +121,13 @@ local function stage(self, message)
         keep[p.id] = true
         local m = self.minis[p.id]
         local off = p.owner and pet_off() or nil
+        -- (More than a step away: the DM lifts the mini and sets it down there, never slides it across the
+        -- map through whatever's in the way. Conner's playtest, C24. A walk round the walls is the model's:
+        -- a "walk" with its path.)
+        if m and (m.x ~= p.x or m.y ~= p.y) and math.max(math.abs(m.x - p.x), math.abs(m.y - p.y)) > 1 and not p.owner then
+            remove(self, p.id, "remove")
+            m = nil
+        end
         if m then
             if m.x ~= p.x or m.y ~= p.y then
                 mini_msg(self, p.id, "walk", { path = { square(p.x, p.y) + (off or vmath.vector3()) }, step = 0.5 })
@@ -136,6 +143,10 @@ local function stage(self, message)
         keep.npc = true
         local n = message.npc
         local m = self.minis.npc
+        if m and m.sprite == n.sprite and math.max(math.abs(m.x - n.x), math.abs(m.y - n.y)) > 1 then
+            remove(self, "npc", "remove")      -- (set down, not slid across: C24)
+            m = nil
+        end
         if m and m.sprite == n.sprite then
             if m.x ~= n.x or m.y ~= n.y then
                 mini_msg(self, "npc", "walk", { path = { square(n.x, n.y) }, step = 0.5 })
@@ -149,9 +160,11 @@ local function stage(self, message)
                           delay = message.fresh and 1.4 or 0.3 })
         end
     end
-    for id in pairs(self.minis) do
+    -- (Anyone not in this scene: a foe runs for it, anyone else the DM picks up off the mat. An ally never
+    -- runs off the edge of the table: Conner's playtest, C19, Telpur after the Hunting Grounds.)
+    for id, m in pairs(self.minis) do
         if not keep[id] then
-            remove(self, id, "flee")
+            remove(self, id, m.side == "foe" and "flee" or "sweep")
         end
     end
 end
@@ -418,6 +431,9 @@ function on_message(self, message_id, message)
         for id in pairs(self.minis) do
             remove(self, id, "remove")
         end
+    elseif message_id == hash("sweep_one") then
+        -- (Picked up off the mat by the DM: an ally going back on its owner's pack strap.)
+        remove(self, message.id, "sweep")
     elseif message_id == hash("remove_now") then
         -- (Gone on the spot: a figure that becomes a fight's mini where it stands.)
         remove(self, message.id, "remove")
