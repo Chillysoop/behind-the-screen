@@ -1897,6 +1897,10 @@ M.showdown = {
                        fail = { log = "{actor_char} decides Euryale is lovely, actually, and lowers the weapon. If this comes to a fight, {actor_char} starts it charmed.",
                                 effects = { { "actor", fun = 2, spotlight = 8 }, { "arch:instigator", fun = 4 }, { "others", challenge = 4 } }, mus = { flag = "charmed", risk = true, aspect = "Was charmed by a Gorgon, briefly" } } } },
             { label = "Nobody drinks.", want = "leave the wine alone", short = "leave the wine", lean = "safe", log = "Untouched cups. Euryale sighs, as if they've hurt her feelings.",
+              -- (A table that knows what she is thinks twice about her wine: R10, the friends drank 70% of the time.)
+              pulls = { { when = { flag = "truth" }, who = { "tactician", "storyteller", "casual" }, n = 1.2,
+                          say = { "She turned people to stone. I'm not drinking anything she pours.", "Flitwidget told us what she is. No wine, thanks.",
+                                  "A Gorgon's wine? Hard pass." } } },
               effects = { { "arch:tactician", fun = 3 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },
                           { "arch:method_actor", fun = -2 } } },
         },

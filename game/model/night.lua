@@ -178,6 +178,19 @@ end
 M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, ruling = 2.5,
                 roll_where = 1.5, turn = 1.0, round = 0.6, dice = 1, intro = 0.5, cinematic = 3 }
 
+-- A roll of its own for something that's only how a line is said or what the DM guesses (in character
+-- or not, the DM's hunch at a fork): from the night's clock, the week and a key, so it doesn't draw on
+-- the night's dice and change what happens. 0 to 1.
+function M.side_roll(night, key)
+    local h = 2166136261
+    local s = tostring(key) .. "|" .. tostring(night.clock or 0) .. "|" .. tostring(night.campaign and night.campaign.week or 0)
+        .. "|" .. tostring(night.campaign and night.campaign.seed or 0)
+    for i = 1, #s do
+        h = (h * 16777619 + string.byte(s, i)) % 4294967296
+    end
+    return (h % 100000) / 100000
+end
+
 -- A line a hero could say in the story as well as their player at the table: a bid for what the party
 -- does, with nothing of the real table in it (the night, the dice, a vote, the snacks).
 local TABLE_ONLY = { "tonight", "week", "dice", "roll", "vote", "dm", "pizza", "snack", "phone", "session", "my turn", "i'm easy", "the table" }
@@ -224,7 +237,9 @@ function M:emit(ev)
         local p = self.campaign and self.campaign.player and self.campaign:player(ev.who)
         local fam = p and require("game.model.familiar").level(self.campaign, ev.who) or 1
         local share = math.min(0.7, 0.08 + 0.12 * ((self.campaign and self.campaign.week or 1) - 1) + 0.06 * (fam - 1))
-        if p and self.rng:chance(share) then
+        -- (Its own die, from the line and the moment: the night's dice stay as they were. The same seed
+        -- plays the same way, and the votes' variety holds: roadmap_table_check's R10.)
+        if p and M.side_roll(self, ev.who .. (ev.text or "")) < share then
             ev.ic = true
         end
     end

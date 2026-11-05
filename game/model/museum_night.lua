@@ -2206,6 +2206,9 @@ function M.go_way(way)
     end
     return way
 end
+local function night_side(night, key)
+    return require("game.model.night").side_roll(night, key)
+end
 function M.fork_read(night, voters, first, choices, said_of, truth)
     if #choices < 2 or #voters == 0 then
         return
@@ -2216,14 +2219,17 @@ function M.fork_read(night, voters, first, choices, said_of, truth)
         local lv = familiar.level(night.campaign, p.key)
         local right = 0.45 + 0.12 * lv
         local i = first[p.key]
-        if not night.rng:chance(right) then
+        -- (Its own dice, night.side_roll: the hunch never changes what the night's dice do.)
+        if night_side(night, p.key .. "read") >= right then
             local other = {}
             for j in ipairs(choices) do
                 if j ~= i then
                     table.insert(other, j)
                 end
             end
-            i = night.rng:pick(other) or i
+            if #other > 0 then
+                i = other[1 + math.floor(night_side(night, p.key .. "which") * #other) % #other]
+            end
         end
         table.insert(bits, p.name .. " would go " .. M.go_way(said_of(i)))
     end
@@ -3620,8 +3626,14 @@ function M.fork(night, options, backs, sides)
         voters = night.players
     end
     local choices = {}
+    -- (You said one more room: not the stairs, which end the night at her door, while there's a room
+    -- to play. The gate after the final pass's merge, 569 random: "one more room" was the stairs and
+    -- goodbyes, a fourth time that night.)
+    local skip_stairs = night.one_more and (#options + #backs + #sides) > 1
     for _, id in ipairs(options) do
-        table.insert(choices, { id = id, steps = fresh[id] or 1 })
+        if not (skip_stairs and id == "stairs") then
+            table.insert(choices, { id = id, steps = fresh[id] or 1 })
+        end
     end
     for _, b in ipairs(backs) do
         table.insert(choices, { back = b, id = b.id })
@@ -4860,6 +4872,14 @@ function M.run(night)
             -- Getting late: your call, never the clock's (the playtest, November 3). Asked before
             -- each room from here on.
             if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
+                -- (Late, and the only way on is the stairs to her door: that's not one more room, it's the
+                -- end of the night either way, so the night ends here. 569 random: "one more room" was the
+                -- stairs and goodbyes.)
+                local only_stairs = #options == 1 and options[1] == "stairs" and #backs == 0 and #sides == 0
+                if only_stairs and night.table_min > night.table_planned then
+                    M.end_session(night, nxt)
+                    break
+                end
                 if M.ask_wrap(night, #options == 1 and nxt or nil) then
                     break
                 end
