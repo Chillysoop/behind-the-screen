@@ -1113,7 +1113,13 @@ local function react(night, f, steps, who)
                 end
             end
             local losing = pmax > 0 and fmax > 0 and fhp / fmax > php / pmax + 0.25
-            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or losing) then
+            -- (Nor the second time down in one fight: 53 careful week 4, Pip back up and straight down again,
+            -- and the rest down a few lines on.)
+            local b = night.battle or {}
+            b.downed_keys = b.downed_keys or {}
+            local again = b.downed_keys[victim.key]
+            b.downed_keys[victim.key] = true
+            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or losing or again) then
                 line = { victim, "down_self" }
             end
             score.add(victim, "fun", -2)
