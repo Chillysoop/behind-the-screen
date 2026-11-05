@@ -833,16 +833,16 @@ end)
 
 -- EB: Exhibit B on the table, and R5's board: one smoke run with DUMP_DIR -------------------------------
 case("EB", function()
-    local dir = os.tmpname()
-    os.remove(dir)
-    os.execute("mkdir -p " .. dir)
-    local fh = io.popen("DUMP_DIR=" .. dir .. " lua tools/tests/museum_smoke.lua 1 2>&1")
-    local said = fh:read("*a")
-    fh:close()
-    if not string.find(said, "museum smoke 1:", 1, true) then
-        fail("EB", "the smoke run didn't finish: " .. string.sub(said, -300))
+    local function smoke_into(dir, seed)
+        os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+        local fh = io.popen("DUMP_DIR=" .. dir .. " lua tools/tests/museum_smoke.lua " .. seed .. " 2>&1")
+        local said = fh:read("*a")
+        fh:close()
+        if not string.find(said, "museum smoke " .. seed .. ":", 1, true) then
+            fail("EB", "the smoke run didn't finish: " .. string.sub(said, -300))
+        end
     end
-    local function read(name)
+    local function read_in(dir, name)
         local f = io.open(dir .. "/" .. name)
         if not f then
             return nil
@@ -851,8 +851,26 @@ case("EB", function()
         f:close()
         return s
     end
+    -- Seed 1's screens for D6 and R5; for Exhibit B, the first of a few seeds whose Pip takes him
+    -- along (seed 1 did until the third playtest's screen fixes changed how its first report plays:
+    -- the tip no longer sits on its Level up button, so the party levels up a week sooner).
+    local dir = os.tmpname()
+    os.remove(dir)
+    smoke_into(dir, 1)
+    local ebdir, seed = dir, 1
+    if not string.find(read_in(dir, "board_minis.txt") or "", "exhibit_b", 1, true) then
+        ebdir = dir .. "_eb"
+        for _, s in ipairs({ 2, 3, 4 }) do
+            smoke_into(ebdir, s)
+            seed = s
+            if string.find(read_in(ebdir, "board_minis.txt") or "", "exhibit_b", 1, true) then
+                break
+            end
+        end
+    end
+    set("EB", "seed", seed)
     -- On the board: his mini at Pip's square, his owner's.
-    local minis = read("board_minis.txt") or ""
+    local minis = read_in(ebdir, "board_minis.txt") or ""
     local beside, apart = 0, 0
     for line in string.gmatch(minis, "[^\n]+") do
         local jx, jy = string.match(line, "jess:[%w_]+@(%d+),(%d+)")
@@ -874,12 +892,16 @@ case("EB", function()
     end
     -- On Pip's tile: his picture, not the paw.
     local pics = 0
-    local p = io.popen("ls " .. dir)
+    local p = io.popen("ls " .. ebdir)
     for name in p:lines() do
-        local s = read(name) or ""
-        if string.find(s, "mini_exhibit_b", 1, true) then
+        if string.find(read_in(ebdir, name) or "", "mini_exhibit_b", 1, true) then
             pics = pics + 1
         end
+    end
+    p:close()
+    p = io.popen("ls " .. dir)
+    for name in p:lines() do
+        local s = read_in(dir, name) or ""
         -- D6 on screen: no one person called "they" in what the screens say.
         for line in string.gmatch(s, "[^\n]+") do
             local text = string.match(line, "^text\t.*\t([^\t]*)$")
@@ -905,7 +927,7 @@ case("EB", function()
     if pics == 0 then
         fail("EB", "Pip's tile never shows Exhibit B's picture")
     end
-    os.execute("rm -r " .. dir)
+    os.execute("rm -rf " .. dir .. " " .. dir .. "_eb")
 end)
 
 -- LEFT: wave 1's leftovers ----------------------------------------------------------------------------

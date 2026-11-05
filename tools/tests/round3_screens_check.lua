@@ -392,7 +392,7 @@ for _, r in ipairs(runs) do
         end
         for _, t in ipairs(d.texts) do
             if string.find(t.text, "^Picked up: .- and .-%(%u%l+ has it%)") then
-                fail("P", S .. name .. ": \"" .. t.text .. "\" (several things: has them)")
+                fail("P", S .. name .. ": \"" .. t.text .. "\" (several things, \"has it\")")
             end
             if t.font == "ui14" and t.y > 500 and t.y < 640 and string.find(t.text, "^%l") and string.find(t.text, "%.$")
                 and t.x > 30 and t.x < 760 then
@@ -605,7 +605,8 @@ for _, r in ipairs(runs) do
         local bare = name:find("^4_prep_w") or name:find("^4b_") or name:find("^4c_") or name:find("^6c_")
             or name:find("^6r_rewards_w%d+$") or name:find("^7_journey") or name:find("^3_between")
             or (name:find("^6_report_w") and not plain_find(d.joined, "as everyone packs up"))
-        if bare then
+        -- (A first-session tip is a panel over the screen on purpose.)
+        if bare and not plain_find(d.joined, "hide tips") then
             add("P", "screens_free_of_overlaps")
             for _, o in ipairs(overlaps_in(d)) do
                 fail("P", S .. name .. ": text drawn over text: \"" .. o .. "\"")

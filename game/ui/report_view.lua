@@ -165,16 +165,53 @@ function M.draw_chain(chain, x, y, w, max_y, partial)
         end
         return #chain
     end
-    local n = #chain
-    if partial then
-        while n > 0 and #kit.wrap(table.concat(chain, " ", 1, n), "ui14", w) > room do
-            n = n - 1
-        end
-        if n == 0 then
-            return 0
+    -- Paragraphs: a new one at each sentence about the party ("They went into the offices."), so a
+    -- "They" never reads as the one hero just named before it, and the night falls into its rooms.
+    local paras = {}
+    for i, line in ipairs(chain) do
+        if i == 1 or string.find(line, "^They[%s']") or string.find(line, "^Their ") then
+            table.insert(paras, { first = i, last = i })
+        else
+            paras[#paras].last = i
         end
     end
-    kit.text(x, y, table.concat(chain, " ", 1, n), "ui14", theme.text, { w = w, lines = math.max(1, room) })
+    local function lines_of(pa, upto)
+        return #kit.wrap(table.concat(chain, " ", pa.first, math.min(pa.last, upto)), "ui14", w)
+    end
+    -- How many sentences fit, whole.
+    local n, used = 0, 0
+    for _, pa in ipairs(paras) do
+        local whole = lines_of(pa, pa.last)
+        if used + whole <= room then
+            n, used = pa.last, used + whole
+        else
+            for k = pa.last - 1, pa.first, -1 do
+                if used + lines_of(pa, k) <= room then
+                    n = k
+                    break
+                end
+            end
+            break
+        end
+    end
+    if not partial and n < #chain then
+        n = #chain      -- (all of it: the last paragraph cut, with its hover)
+    end
+    local ty = y
+    for _, pa in ipairs(paras) do
+        if pa.first > n or ty + lh > max_y + 1 then
+            break
+        end
+        local text = table.concat(chain, " ", pa.first, math.min(pa.last, n))
+        local left = math.max(1, math.floor((max_y - ty) / lh))
+        if #kit.wrap(text, "ui14", w) > left then
+            -- (Out of room: the rest of the night in this last paragraph, cut, the whole of it on hover.)
+            kit.text(x, ty, table.concat(chain, " ", pa.first, n), "ui14", theme.text, { w = w, lines = left })
+            break
+        end
+        kit.text(x, ty, text, "ui14", theme.text, { w = w })
+        ty = ty + #kit.wrap(text, "ui14", w) * lh
+    end
     return n
 end
 
@@ -559,12 +596,10 @@ function M.build(app)
         for _, g in ipairs(mu.got or {}) do
             local info = mn.item_info(app.campaign, g)
             local who = info and info.holder
-            -- ("has them" for more than one thing: "fire arrows and slime (Brannoc has it)", the third playtest.)
-            local lg = string.lower(g)
-            local many = string.find(lg, " and ", 1, true) or (string.find(lg, "s$") and not string.find(lg, "^an? ")
-                and not string.find(lg, "^one "))
-            table.insert(earned, { "Picked up: " .. g .. (who and (" (" .. who.char .. (many and " has them)" or " has it)")) or "") .. ".", theme.gold,
-                                   tip = info and { info.title, info.text .. (who and (" " .. who.char .. " (" .. who.name .. ") has it.") or "") } or nil })
+            -- (Whose pack it's in, which reads right for one thing or several: "fire arrows and slime
+            -- (Brannoc has it)" in the third playtest.)
+            table.insert(earned, { "Picked up: " .. g .. (who and (", in " .. who.char .. "'s pack") or "") .. ".", theme.gold,
+                                   tip = info and { info.title, info.text .. (who and (" In " .. who.char .. "'s pack.") or "") } or nil })
         end
     end
     if #earned == 0 then
