@@ -170,6 +170,9 @@ M.heroes = {
 -- rules that read them (a "grim" table takes its first harsh call on the chin) still do.
 M.session_zero = {
     pitch = "What should the museum feel like?",
+    -- What you've told them going in: the premise, as the book's opening has the town talking about it. All
+    -- they know of the adventure before the first night (tools/tests/knowledge_check.lua).
+    told = "You've told them the premise: Formicarius Flitwidget's travelling museum is in town, and a Gorgon has got loose in it.",
     tones = {
         mixed = { name = "A spooky funhouse", blurb = "The book's own feel: weird rooms, real teeth, and a talking boot.",
                   says = { mara = "Creepy with a wink. As long as the Gorgon is properly scary.",
@@ -201,7 +204,7 @@ M.session_zero = {
                 text = "Bugs can be in it. Just don't describe them crawling on anyone. Fade to black?",
                 agree = { label = "Creepy-crawlies stay off screen.", reply = "Amazing. I'll stop dreading every jar." },
                 push = { label = "Let's see how it goes.", reply = "Oh. Okay. I'll just brace myself, I guess." } },
-        jess = { text = "Let Pip talk to people. Flitwidget, the boot, even the Gorgon. Don't cut my chats short to get to a fight.",
+        jess = { text = "Let Pip talk to people. Flitwidget, the Gorgon, anyone. Don't cut my chats short to get to a fight.",
                  agree = { reply = "YES. Pip has questions for every exhibit that talks." } },
     },
     rules = {
@@ -327,7 +330,7 @@ M.rooms = {
     tomorrow = {
         name = "The World of Tomorrow", part = 2, type = "puzzle", cost = 1, at = { 50, 24 }, map = "Tomorrow",
         comps = { location = "mus_tomorrow", cast = "mus_mech", goal = "mus_wake_mech", complication = "mus_panel", reward = "mus_mech_ally" },
-        read = "Static, neon, and a delighted voice from the ceiling welcoming them to the future.",
+        read = "Static, neon, and a delighted voice from the ceiling welcoming them to the future, and to its star: the Steam Mech.",
         sum = "A brass war machine that obeys whoever cracks its code and speaks its name.",
         next = { "offices", "lecture", "stairs" }, knobs = { "timer" },
     },
@@ -618,7 +621,8 @@ M.forks = {
     wings = { text = "Two gold-and-mahogany signs: the Chamber of Ancients one way, the Hall of Paintings the other. The table splits.",
               title = "Which wing?" },
     second_wing = { text = "One wing done. The other is right there, and so is the gift shop at the foot of the stairs.", title = "The other wing?" },
-    hub = { text = "Three doors off the hunting floor, and a narrow stair going up. Everyone has an opinion.", title = "Where next?" },
+    hub = { text = "Three doors off the hunting floor, each with a gold-and-mahogany sign: the offices, the World of Tomorrow, the lecture theatre. And a narrow stair going up. Everyone has an opinion.",
+            title = "Where next?" },
     roam = { text = "There's a way on. There's also a reason to go back.", title = "Onward, or back?" },
 }
 -- What the party sees from where it's standing, at a fork (museum_night.fork): by the room they're
@@ -633,7 +637,7 @@ M.fork_at = {
     chamber = { text = "The Chamber of Ancients is behind them, its hot wind dying down." },
     paintings = { text = "The Hall of Paintings is behind them, its frames still dripping." },
     gift_shop = { text = "The gift shop: a curtain back to the wings, and a narrow stair going up." },
-    hunting = { text = "Three doors off the hunting floor, and a narrow stair going up." },
+    hunting = { text = "Three doors off the hunting floor, each with a gold-and-mahogany sign: the offices, the World of Tomorrow, the lecture theatre. And a narrow stair going up." },
     offices = { text = "Out of the studies, back onto the hunting floor." },
     tomorrow = { text = "Out of the World of Tomorrow, back onto the hunting floor." },
     lecture = { text = "Out of the lecture theatre, back onto the hunting floor, ears still ringing." },
@@ -969,7 +973,7 @@ M.moments = {
       } },
     { id = "mus_shopping", room = "gift_shop", spot = "5A", at = "mid", type = "story", actor = { "power_gamer", "tactician", "storyteller" }, party = true,
       title = "What do they buy?",
-      text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching.",
+      text = "The party pools its Flitwidget Francs on the counter: {francs} of them. Telpur waits, laces twitching, by the price tags: {stock}.",
       shop = true,
       options = {
           -- (Their prices: PRICE, at the top of this file.)

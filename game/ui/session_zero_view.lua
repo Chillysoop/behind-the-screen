@@ -313,8 +313,12 @@ function M.build_all(app)
     end
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, "Before the first night, everyone talks it through: how the museum should feel, what's off the table, how you'll run it.",
-        "ui18", theme.dim, { w = 1300, lines = 1 })
+    -- (What you've told them going in, the premise: all they know of the adventure before the first night,
+    -- and what their Session Zero lines can name. The knowledge check, class 5.)
+    local told = content.session_zero and content.session_zero.told
+    kit.text(280, told and 14 or 24, (told and (told .. " Now") or "Before the first night,")
+        .. " everyone talks it through: how the museum should feel, what's off the table, how you'll run it.",
+        "ui18", theme.dim, { w = 1300, lines = 2 })
     pitch(app, c)
     asks(app, c)
     rules(app, c)

@@ -135,7 +135,7 @@ M.rooms = {
     },
     tomorrow = {
         pages = { 22, 23 }, map = "museum_tomorrow",
-        sees = "neon, static, a cheerful voice from the ceiling, and a brass war machine standing still",
+        sees = "neon, static, a cheerful voice from the ceiling that names the Steam Mech, and the brass war machine itself, standing still",
         foes = { { cast = "mus_mech", starts = "still", wakes = "code", page = 23, at = "8A", anchor = "npc" } },
     },
     lecture = {

@@ -162,6 +162,7 @@ function M.enter(campaign)
         local s0, ms0 = content.session_zero, MODULE.session_zero
         if s0 and ms0 then
             s0.pitch = ms0.pitch or s0.pitch
+            s0.told = ms0.told or s0.told
             for _, part in ipairs({ "tones", "asks" }) do
                 for key, over in pairs(ms0[part] or {}) do
                     local base = s0[part][key]

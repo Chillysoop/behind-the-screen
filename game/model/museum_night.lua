@@ -895,6 +895,18 @@ function M.play_moment(night, card, sc)
         copy.fixed_actor = true      -- (the painting is theirs: the big-roll share doesn't hand it on. F18)
     end
     night.mus_vars = mus_vars(night, sc)
+    -- The price tags on the shelf, said as the shop opens (the knowledge check: "Let's buy the Mech
+    -- manual" wants the manual seen first).
+    if card.shop then
+        local tags = {}
+        for _, o in ipairs(copy.options) do
+            if o.price then
+                local thing = string.gsub(string.gsub(o.label, "%s*%(.-%)", ""), "%s+$", "")
+                table.insert(tags, string.lower(string.sub(thing, 1, 1)) .. string.sub(thing, 2))
+            end
+        end
+        night.mus_vars.stock = #tags > 0 and util.join_names(tags) or "nothing he'll part with"
+    end
     -- Reaching into a painting risks what that painting risks (the book: cold, a blade, or nothing at
     -- all): its own danger, its own miss, and no roll for one that's safe.
     if card.id == "mus_reach" then
