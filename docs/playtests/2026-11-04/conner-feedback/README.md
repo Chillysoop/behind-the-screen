@@ -57,3 +57,6 @@ each player wants), shot_3 (Mara's bubble over the read-aloud panel), shot_4 (Sa
 24. Nobody passes through walls unless a spell, ability or feature allows it. Even in quiet moments on the maps,
     pathing has to be real.
 25. When you choose "they get +1 on their next roll", they must actually get it on their next roll.
+26. The friends must NEVER have meta knowledge of having played the session before. It is ALWAYS the players' first
+    time playing it in the game (no "last time we did the ritual" across runs, no lines that assume they know the
+    adventure, the rooms or what's coming).
