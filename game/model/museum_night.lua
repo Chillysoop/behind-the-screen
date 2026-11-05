@@ -155,6 +155,9 @@ function M.beat_clause(night, card, o, i, rolled_ok)
                                     gift = night.mus_vars and night.mus_vars.gift_the or "the painted weapon" }) or nil
     end
     if type(ob) == "table" then
+        if rolled_ok and ob.empty and night.mus_vars and night.mus_vars.gift_empty then
+            return fill(ob.empty)
+        end
         if rolled_ok and ob.ok then
             return fill(ob.ok)
         end
@@ -564,11 +567,17 @@ end
 function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
     local text = win and goal.win or (goal.lose or goal.win)
+    local alt_said = false
     for _, alt in ipairs((win and goal.win_if or goal.lose_if) or {}) do
         if alt_holds(night, sc, alt) then
             text = alt.text
+            alt_said = true
             break
         end
+    end
+    -- (After a death, a goal's quiet win: not "shakes every hand twice". able.somber.)
+    if win and not alt_said and goal.win_sad and able.somber(night) then
+        text = goal.win_sad
     end
     M.heard(night, text)
     return text
@@ -695,7 +704,7 @@ function M.reward(night, sc)
     end
     -- (Half, if she got away: R5. The thanks says what it pays, read from the one place.)
     local gold = adventure.reward_gold(night.campaign)
-    night:say("They earn " .. util.lower_first(r.line), "reward", { gold = util.int(gold) })
+    night:say("They earn " .. util.lower_first(able.pick(night, r.line, r.line_sad)), "reward", { gold = util.int(gold) })
     local why = r.id == "mus_thanks" and adventure.reward_why(night.campaign)
     M.note_got(night, r.id == "mus_thanks" and (util.int(gold) .. " gold each" .. (why and (" (" .. why .. ")") or "") .. " and a pick from the gift shop")
         or util.lower_first(r.got or r.name))
@@ -1667,7 +1676,8 @@ function M.explore(night, sc)
         -- nothing at all about a place with nothing to say. (The third playtest, alive 6: a stock line,
         -- "There's a story behind the X", at every place, 11 a prologue.)
         local says = MODULE.explore_say and MODULE.explore_say[sc.room] and MODULE.explore_say[sc.room][pid]
-        if says and not sc.look_said then
+        -- (No "There's a tiny train!" while the table grieves: able.somber. The look still happens.)
+        if says and not sc.look_said and not able.somber(night) then
             sc.look_said = true
             local line = night:fresh(says, "look_" .. sc.room .. "_" .. pid)
             if line then
@@ -1801,7 +1811,16 @@ function M.callbacks(night, sc)
                 local d = items_mod.def(cb.give.magic)
                 M.note_got(night, d and string.lower(d.name) or nil)
             end
-            night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
+            -- (A callback's other ways, `text` as a list, and its quiet one after a death, `sad` (false:
+            -- unsaid then): "Telpur ... tells everyone who'll listen how he took a hit for the party" word
+            -- for word every time, and after a wake. Round three's merge.)
+            local text = able.pick(night, cb.text, cb.sad)
+            if type(text) == "table" then
+                text = night:fresh(text, "callback_" .. key)
+            end
+            if text then
+                night:say(util.fill(text, { given = given and given.char or "the party" }), "narration")
+            end
         end
     end
 end
@@ -4651,6 +4670,19 @@ local BREAK_END = {
     "Everyone finds their dice again. One of Sam's has rolled under the sofa.",
 }
 M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END   -- (for the Dialogue Desk)
+-- The break on a night a hero died (able.somber): no pizza-place phone call, nobody "comes back warm".
+-- start: the call; nothing: what the heroes did, when it's just a break; back: back at the table.
+M.BREAK_SAD = {
+    start = { "\"Let's take a break.\" Nobody argues. Chairs scrape back, quietly.",
+              "\"Twenty minutes, everyone.\" Somebody fills the mugs. Nobody says much.",
+              "\"Let's stop for a bit.\" Phones stay face down. Somebody opens a window." },
+    nothing = { "Twenty quiet minutes. Somebody makes tea nobody drinks.",
+                "A quiet break: a stretch, a glass of water, not much talk.",
+                "Twenty minutes off. Somebody squeezes a shoulder on the way to the kitchen." },
+    back = { "Everyone sits back down. It's quieter than before. \"Okay. Where were we?\"",
+             "Chairs pulled back in, gently. \"Right. Let's keep going.\"",
+             "Everyone drifts back to the table and picks up their dice without a word." },
+}
 -- The rest of what the table hears every week, three or more ways each (R3, the second playtest
 -- review: "weekly lines are where players first notice the machine"): everyone sitting down, a
 -- friend asking you, a hero finding what they came for, a room you skim, the way a night stops.
@@ -4746,7 +4778,9 @@ function M.maybe_break(night, before_boss)
         poses[p.key] = ({ "yawn", "laugh", "phone", "cheer" })[(i - 1) % 4 + 1]
     end
     night:react(poses)
-    night:say(night:fresh(BREAK_START, "break_start"), "dm")
+    -- (After a death, a quiet break: round three's merge heard "Everyone comes back warm".)
+    local sad = able.somber(night) ~= nil
+    night:say(sad and night:fresh(M.BREAK_SAD.start, "break_sad_start") or night:fresh(BREAK_START, "break_start"), "dm")
     local card = { id = "table_break", type = "table", intermission = true,
                    title = "Let's take a break",
                    text = "Twenty minutes of pizza, stretching and gossip. Is anything happening in the game while you're all away from the table?",
@@ -4767,7 +4801,11 @@ function M.maybe_break(night, before_boss)
     local o = night:decision(card)
     if o and o.break_log then
         -- (Picked after the call, so only the line that's said is remembered: R2.)
-        night:say(night:fresh(M.BREAK_LOGS[o.break_log], "break_" .. o.break_log), "dm")
+        if sad and M.BREAK_SAD[o.break_log] then
+            night:say(night:fresh(M.BREAK_SAD[o.break_log], "break_sad_" .. o.break_log), "dm")
+        else
+            night:say(night:fresh(M.BREAK_LOGS[o.break_log], "break_" .. o.break_log), "dm")
+        end
     end
     night.table_min = (night.table_min or 0) + M.BREAK_MIN
     for _, p in ipairs(night.players) do
@@ -4784,7 +4822,7 @@ function M.maybe_break(night, before_boss)
     elseif o and o.research then
         night.research = (night.research or 0) + o.research
     end
-    night:say(night:fresh(BREAK_END, "break_end"), "dm")
+    night:say(sad and night:fresh(M.BREAK_SAD.back, "break_sad_back") or night:fresh(BREAK_END, "break_end"), "dm")
     return true
 end
 
@@ -4936,8 +4974,10 @@ function M.thanks_word(night, sc)
     local c = night.campaign
     local st = st_of(night)
     local ending = st.ending and MODULE.endings[st.ending]
-    if ending and ending.flit then
-        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(ending.flit, "^\"(.*)\"$", "%1")) })
+    -- (After a death, his word on how it ended is a quiet one: not "Splendid!" right after his grief.)
+    local flit = ending and able.pick(night, ending.flit, ending.flit_sad)
+    if flit then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(flit, "^\"(.*)\"$", "%1")) })
     end
     local rooms = {}
     for id in pairs(MODULE.rooms) do
@@ -4954,7 +4994,19 @@ function M.thanks_word(night, sc)
         local p = about and about.who and c:player(about.who)
         if i == 1 and p then
             t.beat = true
-            t.text = events.word("told", { char = p.char })
+            -- (What he told: a theft, by the thing taken, as the pocket's own words name it.)
+            local thing
+            for _, list in util.sorted_pairs((MODULE.ideas or {}).pockets or {}) do
+                for _, pk in ipairs(list) do
+                    if about.kind == "steal" and pk.thing == about.thing then
+                        thing = pk.short
+                    end
+                end
+            end
+            local char = about.char or p.char
+            t.text = (thing and about.outcome == "got" and events.word("told_got", { char = char, thing = thing }))
+                or (thing and about.outcome == "caught" and events.word("told_caught", { char = char, thing = thing }))
+                or events.word("told", { char = char })
             sc.last_beat = t.id
         end
     end
@@ -5149,7 +5201,13 @@ function M.after_showdown(night, sc)
             table.insert(st.path, { room = "lair", week = c.week, outcome = "lose" })
             table.insert(night.mus.rooms, { room = "lair", outcome = "lose" })
             night:goal_event(sc)       -- (for the recap; the lines above already said it)
-            break_after_lair(night)
+            -- (Beaten, sent home: the table's quiet for the rest of the night, and the night ends here,
+            -- with no break to come back from: round three's merge heard "Everyone comes back warm" and
+            -- "Recap, quick: where were we standing?" right before the goodnights.)
+            if not (night.loss and night.loss.night) then
+                night.loss = { scene = sc, kind = "lost", night = true }
+            end
+            night.break_after_lair = nil
             return
         end
     end
@@ -5178,10 +5236,30 @@ function M.after_showdown(night, sc)
         for _, line in ipairs(MODULE.epilogue) do
             night:say(line, "narration")
         end
+        -- (After a death tonight, the friends want the campaign the quiet way: not "Same heroes, bigger
+        -- fights?" nor "Oswin says a prayer for the road" with Oswin dead. Round three's merge.
+        -- MODULE.want_more_sad: `own` lines for the friend whose hero died, else theirs for a friend's.)
+        local lost = {}
+        for _, pc in ipairs(night.pc_list or {}) do
+            if pc.dead then
+                table.insert(lost, pc)
+            end
+        end
+        local sad = #lost > 0 and MODULE.want_more_sad
         for _, p in ipairs(night.players) do
             -- (A line about something only if it happened: { text, when }.)
             local lines = {}
-            for _, l in ipairs(MODULE.want_more[p.key] or {}) do
+            local others = {}
+            local own = false
+            for _, pc in ipairs(lost) do
+                if pc.player_key == p.key then
+                    own = true
+                else
+                    table.insert(others, pc.name)
+                end
+            end
+            local pool = sad and (sad[p.key] or {})[(own or #others == 0) and "own" or "other"] or MODULE.want_more[p.key]
+            for _, l in ipairs(pool or {}) do
                 if type(l) == "string" then
                     table.insert(lines, l)
                 elseif adventure.test(c, l.when) then
@@ -5189,7 +5267,7 @@ function M.after_showdown(night, sc)
                 end
             end
             if #lines > 0 then
-                local line = util.fill(night.rng:pick(lines), { char = p.char })
+                local line = util.fill(night.rng:pick(lines), { char = p.char, lost = util.join_names(others) })
                 st.want_said = st.want_said or {}
                 st.want_said[p.key] = line           -- (the journey quotes what they really said)
                 night:emit({ kind = "say", who = p.key, text = line, ic = false })

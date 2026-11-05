@@ -67,6 +67,10 @@ M.PRONOUNS = {
            ["they've"] = "he's", ["they'll"] = "he'll", ["they'd"] = "he'd" },
     they = { they = "they", them = "them", their = "their", theirs = "theirs", themselves = "themselves", ["they're"] = "they're",
              ["they've"] = "they've", ["they'll"] = "they'll", ["they'd"] = "they'd" },
+    -- (A construct, a swarm, a beast: the Sentinel, the Knight of Shades, a huntling. Round three's merge:
+    -- "Who does they go for?" for the biggest huntling.)
+    it = { they = "it", them = "it", their = "its", theirs = "its", themselves = "itself", ["they're"] = "it's",
+           ["they've"] = "it's", ["they'll"] = "it'll", ["they'd"] = "it'd" },
 }
 local pronoun_names
 function M.pronoun_of(name)
@@ -109,8 +113,56 @@ function M.pronoun_of(name)
                 pronoun_names[d.name] = pronoun_names[d.name] or d.pronoun
             end
         end
+        -- (The adventure's monsters, one at a time, by every name the table calls them: the stat block's
+        -- ("Knight of Shades", "Kruthik Huntling"), with "the", the room's boss_name ("the biggest
+        -- huntling") and MODULE.foe_names. Each by its cast card's pronoun, through MODULE.npc_sheet's
+        -- monster, else MODULE.foe_pronouns. Round three's merge: "The Knight of Shades came at them,
+        -- and they brought them down"; "Who does they go for?" for the biggest huntling.)
+        local data = oka and adv.data or {}
+        local okm, mons = pcall(M.lazy, "game.rules.data.monsters")
+        local by_id = {}
+        for id, pr in M.sorted_pairs(data.foe_pronouns or {}) do
+            by_id[id] = pr
+        end
+        for _, cid in ipairs((data.npc_sheet or {}).order or {}) do
+            local e = data.npc_sheet[cid]
+            local card = okc and content.components and content.components[cid]
+            if e and e.monster and card and M.PRONOUNS[card.pronoun or ""] then
+                by_id[e.monster] = card.pronoun
+            end
+        end
+        local function put(n, pr)
+            if type(n) == "string" and n ~= "" then
+                pronoun_names[n] = pronoun_names[n] or pr
+                pronoun_names[M.capitalize(n)] = pronoun_names[M.capitalize(n)] or pr
+            end
+        end
+        for id, pr in M.sorted_pairs(by_id) do
+            local m = okm and type(mons) == "table" and mons[id]
+            if m and m.name then
+                put(m.name, pr)
+                if string.sub(m.name, 1, 4) ~= "The " then
+                    put("the " .. m.name, pr)
+                    put("the " .. string.lower(m.name), pr)
+                else
+                    put("the " .. string.sub(m.name, 5), pr)
+                end
+            end
+            put((data.foe_names or {})[id], pr)
+        end
+        for _, r in M.sorted_pairs(data.rooms or {}) do
+            local first = r.encounter and r.encounter[1]
+            if r.boss_name and first and by_id[first] then
+                put(r.boss_name, by_id[first])
+            end
+        end
     end
-    return M.PRONOUNS[pronoun_names[name or ""] or "they"] or M.PRONOUNS.they
+    local key = name or ""
+    if not pronoun_names[key] then
+        -- (The mat's numbered label, "Kruthik Huntling 2": the same one.)
+        key = string.gsub(key, "%s+%d+$", "")
+    end
+    return M.PRONOUNS[pronoun_names[key] or "they"] or M.PRONOUNS.they
 end
 
 -- Fill {key} placeholders. Unknown keys are left as they are. {one|many} picks by

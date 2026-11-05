@@ -135,7 +135,7 @@ M.made = {
         },
         mara = {
             { "{Foe} got me. I knew I should have stood further back." },
-            { "Down. Note for later: {foe} hits harder than it looks." },
+            { "Down. Note for later: {foe} hits harder than {foe_they} looks." },
         },
         jess = {
             { "{char} is taking a little nap, courtesy of {foe}." },

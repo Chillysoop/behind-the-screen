@@ -14,6 +14,7 @@
 local util = require "game.model.util"
 local score = require "game.model.score"
 local skills = require "game.rules.skills"
+local able = require "game.model.able"
 
 local M = {}
 
@@ -628,6 +629,10 @@ function M.room(night, sc, phase)
     end
     sc.tl_played = true
     if night.end_early or not sc or sc.boss or sc.showdown or sc.epilogue or night.fast then
+        return 0
+    end
+    -- (Nobody pokes at curios or haggles for a laugh while the table grieves: round three, able.somber.)
+    if able.somber(night) then
         return 0
     end
     local lvl = M.level(night.campaign)

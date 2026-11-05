@@ -84,7 +84,9 @@ end
 -- The table after a loss (B17, the third playtest: "Okay, round two. Pip is angry now." and a fist bump
 -- right after Oswin died; "Too easy." after Hans was destroyed). "death": a hero died tonight (the rest
 -- of the night); "ally": someone fighting beside them was destroyed (the rest of that scene); "wipe": the
--- whole party went down (the rest of the night). nil when the table can laugh.
+-- whole party went down (the rest of the night); "lost": Euryale beat them and sent them back down her
+-- stairs (the rest of the night: the merge of round three heard "Everyone comes back warm" right after).
+-- nil when the table can laugh.
 function M.somber(night)
     if not night then
         return nil
@@ -105,12 +107,40 @@ function M.somber(night)
     return nil
 end
 
--- Lines that cheer, joke or brag ("Too easy.", a crit's whoop, a fist bump): they wait while the table's
--- grieving. Getting back up after a death is said quietly instead (M.UP_QUIET).
-M.CHEER = { victory = true, crit = true, kill = true, cheer_other = true, scene_like = true, big_hit = true,
-            fight_chat = true, hit = true, boss_appears = true, thanks = true }
+-- Lines that cheer, joke or brag ("Too easy.", a crit's whoop, a fist bump, "Dice jail!", "YES! I love
+-- this DM!", "Who finished the salsa?", "Pip would like to file a complaint.", "Can Brannoc attack the
+-- scenery?"): they wait while the table's grieving. Getting back up after a death is said quietly
+-- instead (M.UP_QUIET), and the goodbyes come from their own quiet pool (M.QUIET).
+M.CHEER = { victory = true, victory_close = true, crit = true, kill = true, cheer_other = true, scene_like = true,
+            big_hit = true, fight_chat = true, hit = true, boss_appears = true, thanks = true, fumble = true,
+            ruling_good = true, snack = true, banter = true, check_win = true, level_up = true, miss = true, ouch = true,
+            groan_other = true, scene_dislike = true, bored = true }
 function M.hush(night, trigger)
     return M.CHEER[trigger] == true and M.somber(night) ~= nil
+end
+
+-- The table talk that has a quiet pool of its own for a night like that (game/data/dialogue: the
+-- goodbyes, "Good game!" and "Same time next week" after a death; the report card's word, "Best night in
+-- ages", for the friends who still had a good night of it). The rest of the gate, in one place for every
+-- line source that can cheer: night:bark (above), night:react (no cheering faces), the break
+-- (museum_night.BREAK_SAD; none after a lost boss fight, the night ends there), a won fight's caption
+-- (night.FIGHT_CAPTIONS.party_win_sad), the wrap (night:run_tail), people.line (a person's `<what>_sad`
+-- lines: Flitwidget's thanks and reward), night:npc_line (a person's "@sad" greeting and praise), a card's
+-- `again_sad`, `win_sad`, `line_sad`, `intent_sad`, `talk_sad`, an ending's `flit_sad`, a room's callback
+-- `sad`, a companion's `up_sad` and `react_sad`, `want_more_sad`, Flitwidget's `done_sad` talk, the
+-- thoughts that glow (thoughts.CHEERY), small moments and rest scenes (none).
+M.QUIET = { wrap = "wrap_sad", report_quote = "report_sad" }
+function M.quiet_trigger(night, trigger)
+    return (M.somber(night) ~= nil and M.QUIET[trigger]) or trigger
+end
+
+-- A list's quiet version on a night like that, else the list itself (a table or a string). sad: the
+-- quiet version (nil: the list stands; false: nothing's said).
+function M.pick(night, list, sad)
+    if sad ~= nil and M.somber(night) ~= nil then
+        return sad or nil
+    end
+    return list
 end
 
 -- A hero back on their feet while the table grieves ({char}: who got up; {lost}: who they lost).

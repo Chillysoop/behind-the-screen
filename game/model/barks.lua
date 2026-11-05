@@ -133,6 +133,10 @@ local function fills(mo, p)
         end
     end
     put("foe", lower_name(mo.foe))
+    -- (The foe's own pronoun, {foe_they}: "Euryale hits harder than she looks", not "than it looks".)
+    -- (One creature the adventure doesn't name a pronoun for is "it", never "they looks".)
+    local fp = mo.foe and util.pronoun_of(mo.foe).they or nil
+    put("foe_they", fp == "they" and "it" or fp)
     put("weapon", mo.weapon and string.lower(mo.weapon) or nil)
     put("spell", mo.spell)
     put("left", mo.left and mo.left > 0 and number_word(mo.left) or nil)

@@ -398,9 +398,13 @@ local function play(seed, style)
         if guard >= 5000 then
             fail(0, string.format("seed %d %s week %d: the night never ended", seed, style, w))
         end
-        -- 14: every session takes a break.
+        -- 14: every session takes a break. (Not a boss night that was only her lair, lost: the break waits
+        -- for her part to be settled, and that night ends there, with nothing to come back to. Round three.)
         add(14, "nights")
-        if N.breaks == 0 then
+        local mr = night.mus and night.mus.rooms or {}
+        if N.breaks == 0 and #mr == 1 and mr[1].room == "lair" and mr[1].outcome == "lose" then
+            add(14, "lost_lair_nights_without_a_break")
+        elseif N.breaks == 0 then
             local rooms = {}
             for _, sc2 in ipairs(night.scenes) do
                 table.insert(rooms, tostring(sc2.room))

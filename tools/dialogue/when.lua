@@ -559,6 +559,12 @@ A.companions = function(p)
                 type(list) == "table" and one_of(#list) or "Always")
         elseif kind == "up" then
             return R("After a fight " .. name .. " went down in: " .. name .. " comes round", type(list) == "table" and one_of(#list) or "Always")
+        elseif kind == "react_sad" then
+            return R("In a fight, right after " .. name .. " drops, on a night a hero died or the party lost: whoever's playing "
+                .. name .. ", else " .. owner .. ", in place of the usual", one_of(#list))
+        elseif kind == "up_sad" then
+            return R("After a fight " .. name .. " went down in, on a night a hero died or the party lost: " .. name
+                .. " comes round, quietly, in place of the usual", one_of(#list))
         end
     end
 end
@@ -592,6 +598,8 @@ A.endings = function(p)
         return R("On boss night, when the prologue ends with " .. Q(e.name, 5) .. "; also in the journey recap", "Always")
     elseif f == "flit" then
         return R("On boss night, Flitwidget's word right after the ending " .. Q(e.name, 5), "Always")
+    elseif f == "flit_sad" then
+        return R("On boss night, Flitwidget's word right after the ending " .. Q(e.name, 5) .. ", when a hero died that night", "Always")
     elseif f == "stone_line" then
         return R("On boss night, when Euryale falls turned to stone by the mirror, in place of the usual line", "Always")
     elseif f == "chain" then
@@ -883,6 +891,16 @@ A.npc_lines = function(p)
             return R("At Flitwidget's thanks, when he greets the party again", n)
         end
         return R("When Telpur greets the party again, in a later session", n)
+    elseif tr == "npc_again_sad" then
+        if sp == "mus_flitwidget" then
+            return R("At Flitwidget's thanks, when he greets the party again on a night a hero died, in place of the usual", n)
+        end
+        return R("When Telpur greets the party again on a night a hero died or they lost, in place of the usual", n)
+    elseif tr == "npc_good_sad" then
+        if sp ~= "mus_flitwidget" then
+            return R("Not said: " .. who .. " is only met in a short room or a fight, with no checks or talk", "Never")
+        end
+        return R("At Flitwidget's thanks on a night a hero died, sometimes, right after a hero's roll goes well, in place of the usual", n)
     elseif tr == "npc_good" or tr == "npc_bad" then
         if sp ~= "mus_flitwidget" then
             return R("Not said: " .. who .. " is only met in a short room or a fight, with no checks or talk", "Never")
@@ -1043,7 +1061,9 @@ A.rooms = function(p)
     elseif f == "sum" then
         return R("On the prep board and in your notes, under " .. rname(id), "Always")
     elseif f == "callbacks" then
-        return R("As they enter " .. rname(id) .. if_(r.callbacks[p[4]].when), "Always")
+        local cb = r.callbacks[p[4]]
+        local n = type(cb[p[5]]) == "table" and one_of(#cb[p[5]]) or "Always"
+        return R("As they enter " .. rname(id) .. if_(cb.when) .. (p[5] == "sad" and ", on a night a hero died or they lost, in place of the usual" or ""), n)
     elseif f == "boss_name" then
         return R(in_room(id) .. ": what the fight's leader is called", "Always")
     end
@@ -1144,17 +1164,25 @@ A.want_more = function(p)
     return R("When the prologue ends, " .. NAME[who] .. "'s parting word" .. if_(c), one_of(#MODULE.want_more[who]))
 end
 
+A.want_more_sad = function(p)
+    local who, k = p[2], p[3]
+    return R("When the prologue ends on a night a hero died, " .. NAME[who] .. "'s parting word"
+        .. (k == "own" and ", when it was " .. POS[who] .. " hero" or ", when it was a friend's hero"), one_of(#MODULE.want_more_sad[who][k]))
+end
+
 local STANCE = { warm = "Warm", guarded = "Guarded", lie = "A lie" }
 local TALK_SET = { open = "meeting the party for the first time", again = "seeing them again in a later session",
                    ask = "when the hero asks what they know", done = "at his thanks, his first words",
-                   done_ask = "at his thanks, when the hero asks about the reward" }
+                   done_ask = "at his thanks, when the hero asks about the reward",
+                   done_sad = "at his thanks on a night a hero died, his first words",
+                   done_ask_sad = "at his thanks on a night a hero died, when the hero asks about the reward" }
 A.talk = function(p)
     local who = NPC_NAME[p[2]] or p[2]
     -- (takeover.talk runs only in a full room: never the gift shop or the street. At Flitwidget's
     -- thanks the museum is done: his "done" lines first, then "done_ask" when they ask about the reward.)
     if p[2] == "mus_telpur" then
         return R("Not said: the gift shop is a short room, and short rooms have no " .. Q("Talk as …") .. " card", "Never")
-    elseif p[3] ~= "done" and p[3] ~= "done_ask" then
+    elseif not TALK_SET[p[3]] or p[3] == "open" or p[3] == "again" or p[3] == "ask" then
         return R("Not said: you only talk as Flitwidget at his thanks, once it's over, and then his " .. Q("done") .. " lines are used",
             "Never")
     end
@@ -1350,12 +1378,17 @@ local function card_line(p)
         end
         if f == "intent" then
             return R("As they enter " .. rname(rid) .. ", a friend says what the party is after", one_of(#gp.intent))
+        elseif f == "intent_sad" then
+            return R("As they enter " .. rname(rid) .. " on a night a hero died, a friend says what the party is after, quietly",
+                one_of(#gp.intent_sad))
         end
         if not has_checks(rid) then
             return R("Not said: " .. rname(rid) .. " is a fight, and these are for rooms worked without one", "Never")
         end
         if f == "talk" then
             return R(where .. ", if there's no fight: a friend's aside as the heroes work", "Sometimes")
+        elseif f == "talk_sad" then
+            return R(where .. ", on a night a hero died: a friend's quiet aside as the heroes work, in place of the usual", "Sometimes")
         elseif f == "approaches" then
             local g = p[5]
             if g == "say" then
@@ -1400,6 +1433,8 @@ local function card_line(p)
             return R(where .. ", when the party first sees " .. who .. if_(c.line_if[p[4]].when), "Always")
         elseif f == "again" then
             return R("When the party meets " .. who .. " again later", "Always")
+        elseif f == "again_sad" then
+            return R("When the party meets " .. who .. " again later, on a night a hero died or they lost", "Always")
         elseif f == "deal" or f == "secret" then
             return R("Not said: no line in the museum asks for " .. poss(who) .. " " .. f, "Never")
         end
@@ -1422,6 +1457,8 @@ local function card_line(p)
             return R("At the end of " .. room .. ", if it went well" .. (c.win_if and ", unless a variant below fits" or ""), "Always")
         elseif f == "win_if" then
             return R("At the end of " .. room .. ", if it went well" .. alt_tail(c.win_if[p[4]], true), "Always")
+        elseif f == "win_sad" then
+            return R("At the end of " .. room .. ", if it went well, on a night a hero died, unless a variant above fits", "Always")
         elseif f == "lose" then
             return R("At the end of " .. room .. ", if it went badly", "Always")
         elseif f == "lose_if" then
@@ -1461,6 +1498,8 @@ local function card_line(p)
                 return R("Not said: " .. (c.owner and "a moment in the room hands this over" or "the room says its own line instead"), "Never")
             end
             return R("At the end of " .. rn .. ", if it went well: " .. Q("They earn …"), "Always")
+        elseif f == "line_sad" then
+            return R("At the end of " .. rn .. ", if it went well, on a night a hero died: " .. Q("They earn …") .. ", in place of the usual", "Always")
         elseif f == "said" then
             local list = {}
             for _, id in ipairs(rooms) do
@@ -1970,6 +2009,7 @@ local TT = {
     callout = "When {name} asks to see your hidden roll",
     level_up = "When you announce the party levels up",
     wrap = "At the end of the session, packing up",
+    wrap_sad = "At the end of a session where a hero died or Euryale beat them, packing up quietly",
     crit = "When {name} rolls a natural 20",
     down_self = "In a fight, when {hero} drops to 0 hit points",
     up_again = "In a fight, when {hero} is back on {pos} feet",
@@ -1984,7 +2024,7 @@ local TT = {
 local TIER = { loved = "{subj} loved the night", fun = "{subj} had fun", fine = "{subj} found it fine", bored = "{subj} was bored",
                out = "{subj} checked out" }
 local MOOD = { warm = "the talk goes warm", guarded = "the talk stays guarded", lie_caught = "{subj} catches the lie",
-               lie_believed = "{subj} believes the lie" }
+               lie_believed = "{subj} believes the lie", sad = "it's a night a hero died, whatever the mood" }
 
 local LIB, LIB_BY_ID
 local function lib()
@@ -2011,7 +2051,9 @@ local function table_talk(e, cells)
     end
     local split = l.tier or l.mood
     local n = one_of(cells[(tr or "") .. "|" .. (who or "") .. "|" .. (split or "")])
-    if tr == "report_quote" then
+    if tr == "report_sad" then
+        return R(fill("After a session where a hero died or Euryale beat them, {name}'s quote on the report, if {subj} still had a good night of it"), n)
+    elseif tr == "report_quote" then
         return R(fill("After the session, {name}'s quote on the report, if " .. (TIER[l.tier] or "the night went that way")), n)
     elseif tr == "talk_reply" then
         return R(fill("When you talk as Flitwidget at his thanks: {hero}'s answer when " .. (MOOD[l.mood] or "it fits")), n)
@@ -2051,6 +2093,10 @@ local PEOPLE_WHEN = {
     docked = "at the thanks, when he docks the reward for what they broke or did",
     heard = "on boss night, first thing, when the Lecturer has told her what the party did",
     grief = "at the wake, back in the gift shop, on a night a hero died",
+    thanks_sad = "at the thanks on a night a hero died, quietly, in place of the usual, by what he knows",
+    reward_sad = "at the thanks on a night a hero died, saying what the reward is, quietly, in place of the usual",
+    docked_sad = "at the thanks on a night a hero died, when he docks the reward, quietly, in place of the usual",
+    again_sad = "when the party comes back to see him on a night a hero died or they lost, in place of the usual",
     pass_on = "at the end of a night while he's still lecturing, when he passes on what he heard",
 }
 local function people_line(p)
@@ -2215,6 +2261,11 @@ local function code_line(p)
             return R("Just before a fight: the party reacts first, on a good Perception or Insight roll", "On a success")
         end
         return R("Just before a fight: the party is too slow, on a poor Perception or Insight roll", "On a failure")
+    elseif top == "BREAK_SAD" then
+        local what = ({ start = "the DM calls it", nothing = "if you say nothing happens in the game meanwhile",
+                        back = "everyone comes back to the table" })[k] or k
+        return R("The break, on a night a hero died or the whole party went down, in place of the usual: " .. what,
+            one_of(#(require("game.model.museum_night").BREAK_SAD[k] or {})))
     elseif top == "BREAK_LOGS" then
         local pick = ({ nothing = "nothing happens in the game", short = "the heroes take a short rest",
                         long = "the heroes take a long rest (in the gift shop)", research = "the heroes read up" })[k] or k
@@ -2256,7 +2307,9 @@ local function code_line(p)
         local what = ({ start = "As a fight starts", party_win = "When the party wins a fight against several",
                         party_win_one = "When the party wins a fight against one foe, by name",
                         party_win_fled = "When the party wins and the rest of the foes run",
-                        party_win_fled_one = "When the party wins and the one foe left runs, by name" })[k] or "In a fight"
+                        party_win_fled_one = "When the party wins and the one foe left runs, by name",
+                        party_win_sad = "When the party wins a fight on a night a hero died, or one that cost them the Mech" })[k]
+            or "In a fight"
         return R(what, one_of(#(require("game.model.night").FIGHT_CAPTIONS[k] or {})))
     elseif top == "FOE_LINES" then
         local nt = require "game.model.night"

@@ -36,6 +36,11 @@ return {
           text = { "My favourite customers! Mind the marbles.", "Back again! I kept the good stuff behind the counter for you.",
                    "Oh, lovely. Come in, come in. Wipe your feet. I'm a boot, I notice." } },
       },
+      -- (After a death or a lost boss fight: no "My favourite customers!". able.somber.)
+      again_sad = {
+        { text = { "Come in. Sit down. No charge for sitting.", "Oh. Oh, no. Come in, all of you.",
+                   "I heard. Sit. The shop's shut for the night. Not to you." } },
+      },
       -- His prices, when what they did has moved them (people.price).
       price_up = {
         { when = { opinion = { who = "mus_telpur", at_most = "hostile" } },
@@ -110,10 +115,37 @@ return {
           text = { "The best help I've ever had, and I've had a great deal of help.", "My heroes! I'll tell every town on the road about you.",
                    "I knew you had the look. I always know." } },
       },
+      -- His thanks after a death or a lost boss fight (able.somber; people.line asks `<what>_sad` first):
+      -- what he knows, said quietly, and no "Splendid". Round three's merge heard "Splendid, splendid"
+      -- right after his grief. (Never {char}: the one he'd name may be the one who died.)
+      thanks_sad = {
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "got" } },
+          text = { "Thank you, all of you. My draught? I know where it went. Not tonight.",
+                   "My museum's back. My draught isn't. It doesn't seem to matter much tonight.",
+                   "Thank you. And whoever has my draught: keep it. You may need it more than I do." } },
+        { when = { event = { kind = "steal", whom = "mus_flitwidget", outcome = "got" } },
+          text = { "Thank you, all of you. My healing draught's gone missing too. It doesn't matter. Not tonight.",
+                   "Thank you. I seem to have lost my healing draught somewhere. It hardly matters now.",
+                   "My museum's back. My draught isn't. Tonight, I don't much mind." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "caught" } },
+          text = { "Thank you. All of you. The pocket business doesn't matter tonight.",
+                   "I've quite forgotten the pocket business. Tonight it doesn't matter at all.",
+                   "Thank you. Whatever was in my pockets, I'd trade it all to have tonight back." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", whom = "mus_telpur" } },
+          text = { "Telpur's told me about the shelf. We'll talk about it another day. Not tonight.",
+                   "Thank you, all of you. Telpur says some of my stock went for a walk. It can wait.",
+                   "My museum's back. Some of my stock isn't, Telpur says. It doesn't matter tonight." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "break" } },
+          text = { "You saved it. I'll sweep up the rest another day.", "My museum. What's left of it. Thank you, all the same.",
+                   "Thank you. The sweeping up can wait for tomorrow." } },
+        { text = { "Thank you. All of you. I wish it hadn't cost so much.", "You did what I asked. I'm sorry for what it cost.",
+                   "Thank you. I'll remember tonight. All of it." } },
+      },
       -- (A hero died tonight: he says so, at the wake, before anything about rewards. Round three, B1.)
+      -- ({was|were}: two heroes lost, "Brannoc and Oswin were", not "was": round three's merge.)
       grief = { { when = { event = { kind = "death" } },
                   text = { "{char}. I'm so sorry. I asked you all in here, and I'm so sorry.",
-                           "{char} was the bravest of you. Don't argue. Not tonight.",
+                           "{char} {was|were} the bravest of you. Don't argue. Not tonight.",
                            "Sit down, all of you. The tea can wait. This one's for {char}." } } },
       -- His reward, when he's docked it: for what he really holds against them (what they broke, his
       -- donation box, his draught), and the number it comes to ({gold_word}: the reward now, in words).
@@ -131,6 +163,20 @@ return {
                    "I've taken the donation box out of it. {Gold_word} gold each. Only fair.",
                    "{Gold_word} gold each. Ten less, for the business with my donation box." } },
       },
+      -- (The same, after a death: what he holds against them still counts, said quietly. able.somber.)
+      docked_sad = {
+        { when = { knows = { who = "mus_flitwidget", kind = "break" } },
+          text = { "I've taken the breakages out of it: {broke}. {Gold_word} gold each. I'm sorry. It's the principle.",
+                   "{Gold_word} gold each, less ten for {broke}. I'm sorry to say it tonight.",
+                   "Ten off each, for {broke}. {Gold_word} each. I wish I didn't have to." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "got" } },
+          text = { "Ten off each, for my draught. {Gold_word} gold each. I'm sorry to say it tonight.",
+                   "I've taken my healing draught out of it. {Gold_word} gold each. I'm sorry.",
+                   "{Gold_word} each. Ten less, for my waistcoat pocket. I wish I didn't have to." } },
+        { text = { "Ten off each, for my donation box. {Gold_word} gold each. I'm sorry. It's the principle.",
+                   "I've taken the donation box out of it. {Gold_word} gold each. I'm sorry to say it tonight.",
+                   "{Gold_word} gold each. Ten less, for my donation box. I wish I didn't have to." } },
+      },
       -- The reward, said before anyone haggles over it (round three: "thirty gold each seems low" with
       -- no number ever said), when he hasn't docked it (docked says the number itself).
       reward = {
@@ -141,6 +187,16 @@ return {
         { text = { "Now. Your reward: {gold_word} gold each, as promised, and a pick from the shop.",
                    "{Gold_word} gold each, as I said, and anything from the gift shop you like. Within reason.",
                    "The reward! {Gold_word} gold each and a pick from the gift shop. I always pay my heroes." } },
+      },
+      -- (The same, after a death: no "The reward! ... I always pay my heroes". Round three's merge.)
+      reward_sad = {
+        { when = { ending = "escape" },
+          text = { "{Gold_word} gold each, then, and a pick from the shop. It doesn't feel like enough tonight.",
+                   "{Gold_word} gold each, for a Gorgon who's gone, not beaten. Take it. Please.",
+                   "{Gold_word} gold each, and anything from the shop. I'm sorry it isn't more." } },
+        { text = { "Your reward: {gold_word} gold each, and a pick from the shop. It doesn't seem enough, tonight.",
+                   "{Gold_word} gold each, as I promised. And anything from the shop. Anything at all.",
+                   "{Gold_word} gold each, and a pick from the gift shop. I wish I could give you more than gold." } },
       },
     },
     mus_euryale = {
@@ -206,13 +262,19 @@ return {
       fail = { "{who} turns round at exactly the wrong moment.", "{who} looks down, straight at {char}'s hand.",
                "{char}'s fingers close on it just as {who} turns." },
     },
+    -- (lines: what the table hears; did: the same deed, line for line, as the night's recap says it.
+    -- "Oswin helped Telpur." said nothing, round three's merge.)
     help = {
       mus_telpur = { skill = "athletics", lines = { "{char} helps Telpur straighten the souvenirs a customer knocked flat.",
                                                      "{char} hands Telpur the marbles that rolled under the counter.",
-                                                     "{char} rights the postcard stand for Telpur, who can't reach." } },
+                                                     "{char} rights the postcard stand for Telpur, who can't reach." },
+                     did = { "{char} straightened Telpur's souvenirs for him", "{char} picked up Telpur's marbles from under the counter",
+                             "{char} put Telpur's postcard stand back up" } },
       mus_flitwidget = { skill = "persuasion", lines = { "{char} helps Flitwidget shoo the crowd back from the caravan.",
                                                           "{char} holds the ladder while Flitwidget climbs back onto the roof.",
-                                                          "{char} hands round Flitwidget's leaflets for him." } },
+                                                          "{char} hands round Flitwidget's leaflets for him." },
+                         did = { "{char} helped Flitwidget shoo the crowd away", "{char} held Flitwidget's ladder for him",
+                                 "{char} handed round Flitwidget's leaflets" } },
     },
     follow = {
       mus_flitwidget = { skill = "stealth", go = "{char} slips round the back of the caravan after Flitwidget.",

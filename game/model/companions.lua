@@ -244,7 +244,12 @@ function M.fell(night, c, captioned)
         p = night.players[1]
     end
     if p then
-        night:emit({ kind = "say", who = p.key, text = util.fill(pick(lines.react, "react") or "{name}! No!", { name = name }), ic = false })
+        -- (A joke's reaction waits while the table grieves: "Do boots breathe?" after a death. able.somber.)
+        local react = lines.react
+        if lines.react_sad and util.lazy("game.model.able").somber(night) then
+            react = lines.react_sad
+        end
+        night:emit({ kind = "say", who = p.key, text = util.fill(pick(react, "react") or "{name}! No!", { name = name }), ic = false })
         night:react({ [p.key] = "gasp" })
     end
     if e then
@@ -275,9 +280,15 @@ function M.after_fight(night)
             night.allies_back[c] = true
             for _, e in ipairs(M.active(night.campaign, night.players)) do
                 if e.monster and e.monster == c.monster_id and e.kind == "person" then
+                    -- (Not "Did we win? I was resting my eyes" after a wipe or a death: their quiet way,
+                    -- `up_sad`. able.somber; round three's merge.)
                     local up = e.lines and e.lines.up
+                    local key = "companion_up_" .. e.id
+                    if e.lines and e.lines.up_sad and util.lazy("game.model.able").somber(night) then
+                        up, key = e.lines.up_sad, "companion_up_sad_" .. e.id
+                    end
                     if type(up) == "table" then
-                        up = night:fresh(up, "companion_up_" .. e.id)
+                        up = night:fresh(up, key)
                     end
                     night:say(util.fill(up or "{name} comes round, sore, and very glad it's over.", { name = e.name }), "good")
                 end

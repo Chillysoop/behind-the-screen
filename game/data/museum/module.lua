@@ -340,10 +340,24 @@ M.rooms = {
         sum = "The reward, a pick from the shop, and what comes next.",
         callbacks = {
             -- (Telpur's own shop: the wrap-up remembers him, the second playtest review. F4.)
-            { when = { flag = "telpur_fell" }, text = "Telpur is back on his counter with a sock tied round his middle like a bandage. He tells everyone who'll listen how he took a hit for the party." },
-            { when = { flag = "telpur_along", not_flag = "telpur_fell" }, text = "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day." },
+            -- (Three ways, and a quiet one after a death, `sad`: Telpur's knockout and its follow-up played
+            -- the same way every time, the third playtest; and he boasted at a wake, round three's merge.)
+            { when = { flag = "telpur_fell" },
+              text = { "Telpur is back on his counter with a sock tied round his middle like a bandage. He tells everyone who'll listen how he took a hit for the party.",
+                       "Telpur is back on his counter, one lace in a sling. Every customer hears how he threw himself in harm's way. It gets bigger every time.",
+                       "Telpur is propped on his counter on a cushion, very carefully. \"Battle wound,\" he tells anyone who looks. \"Took it for the team.\"" },
+              sad = { "Telpur is back on his counter with a sock tied round his middle like a bandage. For once, he doesn't say a word about it.",
+                      "Telpur sits on his counter, one lace in a sling, and keeps his story to himself tonight.",
+                      "Telpur is propped on a cushion on his counter. Nobody asks about the battle wound, and he doesn't tell it." } },
+            { when = { flag = "telpur_along", not_flag = "telpur_fell" },
+              text = { "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day.",
+                       "Telpur hops back onto his counter and starts on the story of the night. In his version, he did most of it.",
+                       "Telpur is back on his counter, dusting off his laces and telling the snow globes how it went upstairs." },
+              sad = { "Telpur hops back onto his counter, laces still dusty from upstairs, and for once says nothing at all.",
+                      "Telpur climbs back onto his counter without a word and sits very still.",
+                      "Telpur is back on his counter. He starts to tell the story of the night, then stops." } },
             { when = { flag = "told" }, text = "\"Telpur told me everything, you know,\" says Flitwidget, pouring the tea. \"Everything.\" He doesn't say which bits he minded." },
-            { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it." },
+            { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it.", sad = false },
             -- (Said downstairs: it's where they found it, on the way out of her lair.)
             { when = { flag = "vorpal_lair" }, text = "On the way out of her lair, {given} looked behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
               give = { magic = "vorpal_sword", who = "dev" } },
@@ -414,7 +428,7 @@ M.recap = {
     chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct",
                 fought = { win = "smashed the Bone Construct", lose = "barely got away from the Bone Construct" } },
     paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings",
-                  fought = { win = "fought the Knight of Shades out of his frame in the Hall of Paintings",
+                  fought = { win = "fought the Knight of Shades out of its frame in the Hall of Paintings",
                              lose = "backed out of the Hall of Paintings, the Knight of Shades after them" } },
     gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
     hunting = { win = "beat the huntlings on the second floor", lose = "came off worst against the huntlings" },
@@ -450,6 +464,9 @@ M.beats = {
         price_down = "Telpur took a Franc off his prices for them",
         lecturer = "the Lecturer told Euryale about {what}", euryale = "Euryale knew what the Lecturer had told her",
         notice = "Flitwidget saw what was left of {thing}", told = "Telpur had a word with Flitwidget about {char}",
+        -- (What Telpur told him, when it was a theft: "had a word about Pip" said nothing. Round three's merge.)
+        told_got = "Telpur told Flitwidget that {char} had lifted {thing}",
+        told_caught = "Telpur told Flitwidget that {char} had tried to lift {thing}",
         docked = "Flitwidget took ten gold each off their reward",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
@@ -482,7 +499,10 @@ M.beats = {
                      fail = "the glyphs swam, and it came to blades" }, "they skipped the tablet and fought the guardian" },
     mus_falcon = { "the falcon jar flung {char} across the room", false },
     mus_tidy = { "they tidied up for Flitwidget", "{char} kept the twin daggers", false },
-    mus_reach = { { did = "{char} reached into a wet painting", ok = "{char} pulled something out of a painting",
+    -- (What came out, by name: "pulled something out of a painting" said nothing, round three's merge.
+    -- empty: the painting with nothing to give.)
+    mus_reach = { { did = "{char} reached into a wet painting", ok = "{char} reached into a painting and pulled out {gift}",
+                    empty = "{char} reached into a painting and came back with a question",
                     fail = "the painting bit {char}" }, false },
     mus_dice_painting = { false, false },
     mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
@@ -858,12 +878,12 @@ M.moments = {
       options = {
           { label = "Take a closer look. Whatever happens, happens.", want = "take a closer look at the knight", short = "look closer",
             pulls = { { when = { flag = "paint" }, who = { "butt_kicker", "explorer", "instigator" }, n = 1.5,
-                        say = { "We've got painted weapons. Let's see what they do to him.", "Wet paint in our hands, a painted knight over there. Come on.",
+                        say = { "We've got painted weapons. Let's see what they do to it.", "Wet paint in our hands, a painted knight over there. Come on.",
                                 "That's what the painted weapons are for, surely." } } },
             log = "The knight grips the edge of its frame and climbs out, oil streaming off its armour.",
             effects = { { "arch:butt_kicker", fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:instigator", fun = 2 }, { "all", challenge = 4 } },
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
-          { label = "Give it a wide berth.", want = "give the knight a wide berth", short = "leave him be",
+          { label = "Give it a wide berth.", want = "give the knight a wide berth", short = "leave it be",
             log = "Nobody goes near it. Wherever they go in the hall, the knight's painted eyes follow.",
             effects = { { "arch:casual", fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:storyteller", fun = 5 }, { "arch:method_actor", fun = 2.5 },
                         { "arch:butt_kicker", fun = -3 } },
@@ -1093,10 +1113,10 @@ M.moments = {
 
     -- Euryale's lair ---------------------------------------------------------------------------
     -- The knight they walked past climbs out of a frame behind her couch. Its paint is still wet,
-    -- and the book's answer to him is paint (weapons out of a painting cut him like he's paper).
-    { id = "mus_lair_frame", room = "lair", danger = "the knight's frame: the paint is wet, and he's watching", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" }, party = true,
+    -- and the book's answer to it is paint (weapons out of a painting cut it like paper).
+    { id = "mus_lair_frame", room = "lair", danger = "the knight's frame: the paint is wet, and it's watching", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" }, party = true,
       title = "The frame behind the couch",
-      text = "The black knight steps out of a frame behind her couch, and the paint he left behind is still wet. {actor_char} could reach in for something to fight him with.",
+      text = "The black knight steps out of a frame behind her couch, and the paint it left behind is still wet. {actor_char} could reach in for something to fight it with.",
       options = {
           { label = "Reach in. It's worth the chill.", want = "reach into the frame for a painted blade", short = "reach in",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
@@ -1139,7 +1159,7 @@ M.npc_sheet = {
     mus_bone_construct = { room = "chamber", sprite = "bone_construct", monster = "bone_construct", hows = { "beaten" }, match = { "Bone Construct" },
                            about = "Gold and bleached bone with three skull faces. It guards the chamber's pedestal." },
     mus_knight = { room = "paintings", sprite = "knight_of_shades", monster = "knight_of_shades", hows = { "beaten" },
-                   match = { "Knight of Shades" }, about = "Black armour and red light where a face should be. He climbs out of his painting." },
+                   match = { "Knight of Shades" }, about = "Black armour and red light where a face should be. It climbs out of its painting." },
     mus_lecturer = { room = "lecture", sprite = "the_lecturer", monster = "the_lecturer", hows = { "beaten", "ask" }, match = { "the Lecturer", "The Lecturer" },
                      about = "A grey ghost who drones on without a mouth. Fall asleep in his lecture and you may not wake up." },
     mus_mech = { room = "tomorrow", sprite = "steam_mech", monster = "steam_mech", hows = { "ask", "beaten" }, match = { "Steam Mech" } },
@@ -1205,6 +1225,12 @@ M.companions = {
                    up = { "Telpur comes round in a tangle of laces. \"I meant to do that. Tactical nap.\"",
                           "Telpur sits up, dazed. \"Did we win? I was resting my eyes. Both eyelets.\"",
                           "Telpur groans and wriggles upright. \"Nobody tell Flitwidget I was napping on the job.\"" },
+                   -- (After a death or a lost fight, no jokes: "Did we win?" after a wipe, round three's merge.
+                   -- able.somber, companions.fell and after_fight.)
+                   react_sad = { "Telpur! Somebody get to him!", "Not Telpur too.", "Telpur's down. Please, someone." },
+                   up_sad = { "Telpur comes round in a tangle of laces, looks at the others, and doesn't make a joke of it.",
+                              "Telpur sits up slowly. For once, the boot has nothing to say.",
+                              "Telpur wriggles upright and stays very quiet." },
                } },
 }
 
@@ -1309,9 +1335,9 @@ M.marks = {
                thought = "They did the water ritual properly. Nobody does it properly." },
     knight = { chain = "the knight went to wait in a frame in her lair", name = "A knight in a frame", why = "The Knight of Shades was never woken",
                why_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "The Knight of Shades got away from them" } },
-               thought_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "My knight came crawling back into a frame up here. They'll meet him again." } },
+               thought_if = { { when = { chose = { "mus_knight_frame", 1 } }, text = "My knight came crawling back into a frame up here. They'll meet it again." } },
                showdown = "The Knight steps out of a painting in her lair", foe = "knight_of_shades",
-               thought = "They walked straight past my knight. He'll keep." },
+               thought = "They walked straight past my knight. It'll keep." },
     pack = { chain = "the huntlings that ran went to her", name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
              showdown = "The survivors hunt beside her", foe = "kruthik_huntling",
              thought = "The little hunters came running to me. Good dogs." },
@@ -1360,7 +1386,7 @@ M.sides = {
                        { when = { done = "chamber" }, text = "Beaten", tone = "good" } } },
           { id = "mus_knight", name = "The Knight of Shades", role = "A painting that fights", room = "paintings",
             likes = { butt_kicker = 2, power_gamer = 1 },
-            states = { { when = { mark = "knight" }, text = "Still in his frame: he'll step out in her lair", tone = "bad" },
+            states = { { when = { mark = "knight" }, text = "Still in its frame: it'll step out in her lair", tone = "bad" },
                        { when = { done = "paintings" }, text = "Beaten", tone = "good" } } },
           { id = "mus_huntlings", name = "The kruthik huntlings", role = "The hunting floor's pack", room = "hunting",
             likes = { butt_kicker = 2, tactician = 1 },
@@ -1895,6 +1921,12 @@ M.foe_names = {
     briar_boar = "a briar boar", bone_construct = "the Bone Construct", sentinel = "the Sentinel", the_lecturer = "the Lecturer",
 }
 M.lead_order = { "knight_of_shades", "briar_beast", "giant_scarab_swarm", "kruthik_huntling" }
+-- Each of the museum's monsters one at a time, for a line that names one ({Name_they}, util.pronoun_of):
+-- a cast card's `pronoun` when it has one (M.npc_sheet's monster: the Sentinel, the Bone Construct and
+-- the Knight of Shades "it", constructs all; the Lecturer "he"; Euryale "she"), else these. A swarm, a
+-- hedge-beast, a huntling: "it". (Round three's merge: "Who does they go for?" for the biggest huntling.)
+M.foe_pronouns = { kruthik_huntling = "it", giant_scarab_swarm = "it", briar_beast = "it", briar_triceratops = "it",
+                   briar_boar = "it" }
 
 -- How the prologue ends, by how they dealt with Euryale.
 M.endings = {
@@ -1902,19 +1934,25 @@ M.endings = {
                line = "She crumples as she falls, and whatever she was slips away into the gaps in the floor like smoke. Only a purple robe, a white hood and an emerald bow are left.",
                -- (How she fell changes what's left: her own reflection turned her to stone.)
                stone_line = "Euryale stands where the mirror caught her, stone from hood to bow. Around the lair, the other statues start to soften back into people.",
-               flit = "\"Splendid! Though I wouldn't bet my caravan she's gone for good. Her kind have a habit of coming back.\"" },
+               flit = "\"Splendid! Though I wouldn't bet my caravan she's gone for good. Her kind have a habit of coming back.\"",
+               -- (After a death tonight, his word on it is a quiet one: able.somber, museum_night.thanks_word.)
+               flit_sad = "\"So she's gone. Her kind have a habit of coming back, but not tonight. Not tonight.\"" },
     bargain = { chain = "they struck a bargain with Euryale, and she left the museum", name = "A bargain with a Gorgon",
                 line = "Euryale leaves the museum with a promise: they'll look for the two clay jars her sisters are trapped in, and she'll owe them a favour.",
-                flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"" },
+                flit = "\"A bargain? With her? Well. I suppose that's one way to tidy up.\"",
+                flit_sad = "\"A bargain with her. Well. I'd hoped it would cost less than this.\"" },
     escape = { chain = "Euryale slipped away", name = "Euryale slips away",
                line = "Euryale is gone through the black curtain, out into the world. The statues in the lair start to soften back into people. Somewhere out there, a Gorgon is loose: a problem for another night.",
-               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly. Half the reward, I think, for half a job.\"" },
+               flit = "\"Out? Well, as long as she's out of my museum. Mostly that's what I wanted. Mostly. Half the reward, I think, for half a job.\"",
+               flit_sad = "\"She's out of my museum. Half the reward, I think, for half a job. I'm sorry it cost you so much more.\"" },
     slept = { chain = "Euryale slept, and they carried her out", name = "Euryale, asleep",
               line = "They carry Euryale out through the black curtain, snoring softly, and leave her somewhere far from the museum. The statues in the lair start to soften back into people.",
-              flit = "\"Asleep? On a lecture? I always said it was a very good lecture.\"" },
+              flit = "\"Asleep? On a lecture? I always said it was a very good lecture.\"",
+              flit_sad = "\"Asleep, and carried out. I'm glad it's over. I'm sorry about the rest.\"" },
     ally = { chain = "Euryale came over to their side", name = "An unlikely ally",
              line = "Euryale stays, as curator of her own quiet wing. The statues soften back into people, blinking, one by one.",
-             flit = "\"Co-curators? I... suppose she does have an eye for arrangement.\"" },
+             flit = "\"Co-curators? I... suppose she does have an eye for arrangement.\"",
+             flit_sad = "\"Co-curators. She does have an eye for arrangement. I wish it hadn't cost so much to find out.\"" },
     timeout = { chain = "Euryale stayed upstairs", name = "Still upstairs",
                 line = "Weeks went by and Euryale is still upstairs. Flitwidget packs up the caravan and moves on, very carefully.",
                 flit = "\"Perhaps we come back to this one.\"" },
@@ -1935,6 +1973,24 @@ M.want_more = {
              "Somewhere out there is a museum with a bigger gift shop. Take me there." },
     sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise.",
             "{char} says a prayer for the road. And one for the snacks. Campaign?" },
+}
+-- The same, on a night a hero died (museum_night.after_showdown, able.somber): own, when it was their
+-- hero ({char}: the hero who died); other, when it was a friend's ({lost}: the heroes they lost).
+M.want_more_sad = {
+    mara = { own = { "I'll miss {char}. I'm already thinking about who comes next. Campaign? Yes.",
+                     "{char} would have wanted to see the mountains. Somebody has to go for {char_them}. Campaign." },
+             other = { "For {lost}. Yes. Campaign. I want to see where this goes.",
+                       "I'm writing {lost} into my notes for the campaign. First page." } },
+    dev = { own = { "{char} went down swinging. I'll roll someone new. I'm in.",
+                    "New character, same dice. Campaign. For {char}." },
+            other = { "We do it for {lost}. Every Thursday. I'm in.",
+                      "Campaign. And nobody goes down like {lost} did. Not on my watch." } },
+    jess = { own = { "{char} would want me to keep playing. So. New character. Campaign.",
+                     "I'm keeping {char}'s dice for the next one. Campaign." },
+             other = { "I'm in. We owe {lost} a proper story.", "Campaign. And {lost} gets a statue in it. A nice one." } },
+    sam = { own = { "I'll bring snacks and a new character. {char} would've liked that.",
+                    "I'm not done. Somebody new, for {char}. Campaign." },
+            other = { "I'll be there. For {lost}.", "Campaign. I'll bring the snacks. {lost} would've wanted snacks." } },
 }
 
 -- The group chat between sessions: what the friends say about the room they just played.
@@ -2025,7 +2081,7 @@ M.chat = {
                 { who = "jess", when = { flag = "daggers" }, "the twin daggers are pip's now. legally", "pip has two daggers stuck together and she loves them" } },
     paintings = { { who = "jess", when = { seen = "mus_dice_painting" }, "WHO PAINTED US INTO THE PAINTING", "the painting of us. i'm not ok" },
                   { who = "mara", when = { flag = "portrait_mara" }, "the lady by the mountains. who is she", "i keep thinking about the lady by the mountains" },
-                  { who = "dev", when = { mark = "knight" }, "we left the knight in his painting and i will regret that", "that knight is going to be a problem later isn't he" },
+                  { who = "dev", when = { mark = "knight" }, "we left the knight in its painting and i will regret that", "that knight is going to be a problem later isn't it" },
                   { who = "sam", when = { flag = "paint" }, "a sword out of a painting. art is incredible", "the paint actually came off as a weapon. how" } },
     gift_shop = { { who = "jess", "telpur is my favourite character and he is a shoe", "telpur. the boot. i'd die for him", "a talking boot runs the till and nobody questions it" },
                   { who = "dev", "can i buy the marbles. for throwing", "telpur better have more stock next time", "telpur wouldn't haggle and i respect him" },
@@ -2111,6 +2167,13 @@ M.talk = {
         done_ask = { warm = { "Your reward! {Gold_word} gold each, a pick from the shop, and my undying thanks." },
                      guarded = { "The reward. Yes. Once I've counted every exhibit. And the spoons." },
                      lie = { "Reward? Oh, the gold. Yes. And biscuits. Mostly biscuits." } },
+        -- (The same, on a night a hero died: takeover.module_line, able.somber.)
+        done_sad = { warm = { "You did it. I only wish it hadn't cost you so much." },
+                     guarded = { "It's over. Sit down. I'll count the exhibits another day." },
+                     lie = { "Nobody could have known it would come to this. Nobody." } },
+        done_ask_sad = { warm = { "{Gold_word} gold each, and a pick from the shop. It doesn't seem enough, tonight." },
+                         guarded = { "The reward. Yes. Later. When we've all had some tea." },
+                         lie = { "Reward? Oh, it's all sorted. Don't you worry about the reward tonight." } },
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
@@ -2134,11 +2197,17 @@ M.npc_lines = {
         npc_again = { "My heroes! You're back! Tea?", "There you are! Come in, come in. Mind the exhibits." },
         npc_good = { "Splendid! Marvellous! I knew you had the look.", "Oh, you're good. You're very good. Do you want a job? You have a job." },
         npc_bad = { "Now, now. Let's not upset the exhibits.", "That's... not how I would have done it. But it's done." },
+        -- (After a death or a lost boss fight, seeing them again and praising them, quietly: night:npc_line
+        -- asks "@sad" first. Round three's merge heard "My heroes! You're back! Tea?" after his grief.)
+        npc_again_sad = { "Come in. Sit down, all of you.", "There you are. Come in. Mind the step.", "Come in, come in. Sit by the stove." },
+        npc_good_sad = { "Thank you. That helps, tonight.", "That's kind. Thank you.", "Yes. Yes, that's right. Thank you." },
     },
     mus_telpur = {
         npc_greet = { "Wha? Oh! Customers. I was resting my laces. Welcome to the gift shop.", "Browse all you like. Whatever you break, you've bought." },
         npc_again = { "Back again? Lovely. Still no refunds.", "My favourite customers. Mind the marbles." },
         npc_good = { "Lovely choice. Very lovely. Can't take it back, mind.", "A customer with taste. Rare, round 'ere." },
+        npc_again_sad = { "Come in. The shop's shut. Not to you.", "In you come. Quietly, now.", "Sit. Anywhere. Mind the marbles." },
+        npc_good_sad = { "Ta. That's... ta.", "Good of you. Tonight especially.", "Thank you. Really." },
         npc_bad = { "Don't touch the marbles unless you're buying the marbles.", "I was a duke of the underworld, you know. I don't have to take this." },
     },
     mus_euryale = {

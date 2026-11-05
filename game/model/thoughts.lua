@@ -110,10 +110,16 @@ end
 
 -- A thought goes up: { id, who, need, scene, answers }. opts: after (a call just cost them), keep
 -- (stays open past the scene, until what it's about happens), any_scene (doesn't use up the scene's).
+-- Thoughts that cheer ("Best. Night. Ever.", good news bursting to get out, "Is it break time yet?"):
+-- none while the table grieves (able.somber; round three's merge heard a glow at Flitwidget's wake).
+M.CHEERY = { glow = true, celebrating = true, chatty = true }
 function M.think(night, p, need, opts)
     opts = opts or {}
     local def = DATA.needs[need]
     if not (def and p) or night.no_thoughts then
+        return nil
+    end
+    if M.CHEERY[need] and require("game.model.able").somber(night) then
         return nil
     end
     local th = state(night)

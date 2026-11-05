@@ -52,12 +52,14 @@ M.cards = {
       fits = { "social", "downtime" }, tags = { "funny", "talk" }, difficulty = 1,
       line = "On the caravan's roof, a gnome with a huge blond moustache and a feathered top hat is shooing a crowd away from his own museum.",
       again = "Flitwidget, broom in hand, beaming at them.",
+      again_sad = "Flitwidget is waiting by the counter, his hat in his hands.",
       deal = "the job: get the Gorgon out of his museum, for pay in any coin they like",
       secret = "one of his exhibits, a Gorgon he bought sealed in a clay jar, has broken out and killed visitors" },
     { id = "mus_telpur", kind = "cast", short = "Telpur", pronoun = "he", name = "Telpur, a talking boot",
       fits = { "downtime", "social" }, tags = { "funny", "cozy" }, difficulty = 1,
       line = "The boot on the counter wakes with a snort. His laces curl into a moustache, and he asks if they'd like to browse.",
       again = "Telpur, the talking boot, asleep on the counter again.",
+      again_sad = "Telpur, the talking boot, sits on the counter with his laces folded, quiet for once.",
       deal = "a pooled purchase, and some gossip about upstairs" },
     { id = "mus_euryale", kind = "cast", visible = true, short = "Euryale", pronoun = "she", villain = true, name = "Euryale, the Gorgon",
       fits = { "set_piece", "social", "combat" }, tags = { "danger", "talk", "heart" }, difficulty = 3,
@@ -138,7 +140,7 @@ M.cards = {
                  { when = { flag = "paint" }, text = "They reach the far door with paint on their hands and every painting back where it hangs." } },
       lose = "They back out of the hall with something still stirring in the frames.",
       got = "through, every painting back where it hangs",
-      got_if = { { when = { mark = "knight" }, text = "through, with the knight still in his frame" },
+      got_if = { { when = { mark = "knight" }, text = "through, with the knight still in its frame" },
                  { when = { chose = { "mus_knight_frame", 1 } }, text = "past the Knight of Shades, and through" },
                  { when = { flag = "paint" }, text = "paint on their hands, and through" } } },
     { id = "mus_shop", kind = "goal", ask = "what the shop has, and what's upstairs", name = "Rest in the gift shop",
@@ -184,6 +186,8 @@ M.cards = {
       fits = { "social", "downtime" }, tags = { "cozy", "loot" },
       line = "Goal: collect the reward, and hear what comes next.",
       win = "Flitwidget shakes every hand twice and writes them into the guest book, under 'Heroes (temporary)'.",
+      -- (After a death: no hand-shaking twice. able.somber; museum_night.goal_text.)
+      win_sad = "Flitwidget shakes every hand, slowly, and writes every name in the guest book. Every one.",
       win_if = { { when = { mark = "robbed" }, text = "Flitwidget pays up, a little stiffly, and counts the biscuits after they've gone. He hasn't forgotten the donation box." } },
       lose = "Flitwidget pays up, a little stiffly, and counts the biscuits after they've gone.",
       got = "Flitwidget's thanks" },
@@ -309,7 +313,8 @@ M.cards = {
       owner = "ending" },
     { id = "mus_thanks", kind = "reward", name = "Flitwidget's thanks", fits = { "set_piece", "social" },
       tags = { "loot", "heart" }, meters = { reward = 14 },
-      line = "{gold} gold each, a pick from the gift shop, and a gnome who won't stop shaking their hands.", got = "Flitwidget's thanks" },
+      line = "{gold} gold each, a pick from the gift shop, and a gnome who won't stop shaking their hands.", got = "Flitwidget's thanks",
+      line_sad = "{gold} gold each, a pick from the gift shop, and Flitwidget's quiet thanks." },
 }
 
 -- How the heroes play each of the adventure's goals (the shape of game/data/goal_play.lua): what
@@ -459,6 +464,8 @@ M.goal_play = {
     },
     mus_settle_up = {
         intent = { "Biscuits. He has biscuits. Best night ever.", "So. About that reward." },
+        -- (After a death: not "Best night ever". able.somber; night:say_intent and card_talk.)
+        intent_sad = { "Let's just hear him out.", "We should hear what he has to say. Then home.", "I'll do the talking. Is that okay?" },
         approaches = {
             -- (The reward as it stands, in words, after Flitwidget has said it: the book's thirty, less
             -- anything he docked; talked up ten from there. Round three: "ten gold less each" and then
@@ -484,6 +491,7 @@ M.goal_play = {
         },
         moment = { text = "{actor_char} picks one thing from the gift shop shelf to keep.", skill = { "insight", "persuasion" } },
         talk = { "Can we keep the museum? Like, as a base?", "I want a museum guard badge. Is there a badge?" },
+        talk_sad = { "Can someone pass the tea? Thanks.", "I'm glad we got this far. Together, I mean.", "Are you okay? Honestly?" },
     },
     mus_face_her = {
         intent = { "So that's her. She's smaller than I thought.", "Nobody look at her eyes. Nobody drink anything." },

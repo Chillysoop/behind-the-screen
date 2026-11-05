@@ -2185,8 +2185,7 @@ function M.run(night, sc, plan)
         if pc and lead and not pc.dead and not pc.down then
             b:add_effect(lead, { name = "Taunted", taunt_by = pc, conds = { taunted = true },
                                  expires = { who = lead, at = "end", n = tz.rounds or 3 } })
-            night:say((lead.name or "It") .. " can't take its eyes off " .. pc.name .. ". For the next few rounds, it's "
-                .. pc.name .. " it wants.", "aside")
+            night:say(M.stare_line(night, lead, pc, lead == f.boss), "aside")
         end
     end
     -- Heroic Inspiration (B4): a hero holding the token can spend it in the fight.
@@ -2282,6 +2281,17 @@ function M.summary(b, f, result)
         out.moments = f.moments
     end
     return out
+end
+
+-- A foe stared down before the fight goes for whoever did it (fight.run): said by the foe's own pronoun
+-- and the name the table calls it (the room's boss_name for its boss, never the mat's label). Round
+-- three's merge heard "The Lecturer can't take its eyes off Oswin", and "it's Oswin it wants" of Euryale.
+-- util.pronoun_of, MODULE.foe_pronouns.
+function M.stare_line(night, lead, pc, is_boss)
+    local sc = night and night.scene
+    local foe = util.capitalize((is_boss and sc and sc.boss_name) or barks.foe_label(lead) or "It")
+    return util.fill("{Foe} can't take {foe_their} eyes off {char}. For the next few rounds, it's {char} {foe_they} wants.",
+        { foe = foe, Foe = foe, char = pc.name })
 end
 
 return M

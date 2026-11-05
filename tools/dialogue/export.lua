@@ -38,7 +38,7 @@ local SHARED_FILES = {
 local CODE_TABLES = {
     { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night",
       keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "VOTE_NAMED", "VOTE_PUSH_LINES", "VOTE_CAVE", "VOTE_SIDE", "VOTE_TIE", "BREAK_START",
-               "BREAK_END", "BREAK_LOGS", "WEEKLY", "GENTLE_STOP" } },
+               "BREAK_END", "BREAK_LOGS", "BREAK_SAD", "WEEKLY", "GENTLE_STOP" } },
     { file = "game/model/museum_week.lua", mod = "game.model.museum_week", group = "Group chat", keys = { "CHAT", "CHAT_REPLY" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",

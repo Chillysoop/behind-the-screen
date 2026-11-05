@@ -13,6 +13,13 @@
 --   C   the group chat: from what happened, no card titles, no script, true counts, news that comes out
 --   P   pronouns and broken text: chat, Euryale, single foes, Session Zero, spoken labels; wider pools
 --   S   the chain and the journey read as a story
+--   F   (round three's merge) each foe by its own pronoun: the stare-down ("The Lecturer can't take its eyes
+--       off Oswin"), the boss's card ("Who does they go for?", "who's been hurting it most" of Euryale),
+--       the recap ("they brought them down" of the Knight), the friends ("hits harder than it looks" of
+--       Euryale); the museum's single monsters have one ("it" for a construct, a swarm, a beast)
+--   W   (the merge) a beat says what was done: not "Oswin helped Telpur.", "pulled something out of a
+--       painting", "went off together" (they went different ways) or "had a word with Flitwidget about Pip"
+--   K   (the merge) Telpur's knockout and its follow-up, three ways each, and played that way
 
 package.path = "./?.lua;./tools/tests/?.lua;" .. package.path
 unpack = unpack or table.unpack
@@ -20,9 +27,11 @@ unpack = unpack or table.unpack
 local SEEDS = tonumber(arg[1]) or 8
 local FIRST = 31
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "run", "V", "L", "C", "P", "S" }
+local ITEMS = { "run", "V", "L", "C", "P", "S", "F", "W", "K" }
 local NAMES = { run = "whole prologues", V = "votes from the moment", L = "looking round, fitting lines",
-                C = "the group chat", P = "pronouns, broken text, wider pools", S = "the chain as a story" }
+                C = "the group chat", P = "pronouns, broken text, wider pools", S = "the chain as a story",
+                F = "each foe's own pronoun (the merge)", W = "a beat says what was done (the merge)",
+                K = "Telpur's knockout, three ways (the merge)" }
 
 local fails = {}
 local function fail(item, msg)
@@ -802,6 +811,287 @@ case("S", function()
         fail("S", "case: the Francs found are " .. fl .. " lines: " .. all)
     end
     add("S", "chain_built_by_hand")
+end)
+
+-- F: each foe by its own pronoun (round three's merge) ------------------------------------------------
+-- The name the table hears, and the word that should go with it: the module's cast cards and foe pronouns
+-- through util.pronoun_of, and "it" for one creature it doesn't know (never "they" for one).
+local function their_of(name)
+    local w = util.pronoun_of(name or "").their
+    return w == "their" and "its" or w
+end
+local function them_of(name)
+    local w = util.pronoun_of(name or "").them
+    return w == "them" and "it" or w
+end
+do
+    local n = { stare = 0, cards = 0, recaps = 0, barks = 0 }
+    for _, R in ipairs(RUNS) do
+        local boss_card
+        for _, l in ipairs(R.L) do
+            local t = string.match(l, "^  %[[%w ,|']+%] (.*)$") or string.match(l, "^  %-%- (.*)$") or string.match(l, "^%s+[%* ]%d+%. (.*)$")
+                or string.match(l, "^  >> (.*)$") or ""
+            local foe, word = string.match(t, "^(.-) can't take (%a+) eyes off ")
+            if foe then
+                n.stare = n.stare + 1
+                if word ~= their_of(foe) then
+                    fail("F", R.tag .. ": the stare-down calls " .. foe .. " '" .. word .. "': '" .. t .. "'")
+                end
+            end
+            local b = string.match(t, "^The boss's turn: (.-)'s turn, and you're running it")
+            if b then
+                boss_card = b
+                n.cards = n.cards + 1
+                if has(t, "Who does they go for?") then
+                    fail("F", R.tag .. ": one foe called they: '" .. t .. "'")
+                end
+            elseif string.find(l, "^  >> ") then
+                boss_card = nil
+            end
+            local hw = boss_card and string.match(t, "who's been hurting (%a+) most")
+            if hw and hw ~= them_of(boss_card) then
+                fail("F", R.tag .. ": " .. boss_card .. "'s card says '" .. hw .. "': '" .. t .. "'")
+            end
+            local gone, them = string.match(t, "^(.-) is gone before anyone can stop (%a+)")
+            if gone and not string.find(gone, "s$") and them == "them" then
+                fail("F", R.tag .. ": one foe called them: '" .. t .. "'")
+            end
+            local cb, bt = string.match(t, "^(.-) came at them, and they brought (%a+) down")
+            if cb and cb ~= "They" then
+                n.recaps = n.recaps + 1
+                if bt ~= them_of(cb) then
+                    fail("F", R.tag .. ": the recap brings " .. cb .. " down as '" .. bt .. "': '" .. t .. "'")
+                end
+            end
+            local hf, hl = string.match(t, "^Down%. Note for later: (.-) hits harder than (%a+) looks")
+            if hf then
+                n.barks = n.barks + 1
+                if hl ~= util.pronoun_of(hf).they and not (hl == "it" and util.pronoun_of(hf).they == "they") then
+                    fail("F", R.tag .. ": '" .. t .. "'")
+                end
+            end
+        end
+    end
+    for k, v in pairs(n) do
+        set("F", k .. "_read", v)
+    end
+end
+
+-- The museum's monsters, one at a time: "it" for a construct, a swarm, a beast, "he" and "she" for the
+-- Lecturer and Euryale, by every name the table calls them (the stat block's, the mat's numbered label,
+-- the room's boss_name, MODULE.foe_names).
+case("F", function()
+    adventure.enter()
+    local want = { ["the Knight of Shades"] = "it", ["Knight of Shades"] = "it", ["the Sentinel"] = "it", ["the Bone Construct"] = "it",
+                   ["the biggest huntling"] = "it", ["Kruthik Huntling 2"] = "it", ["the scarab swarm"] = "it",
+                   ["the briar triceratops"] = "it", ["Briar Beast 1"] = "it", ["the Lecturer"] = "he", ["The Lecturer"] = "he",
+                   ["Euryale"] = "she", ["Telpur"] = "he" }
+    for name, pr in util.sorted_pairs(want) do
+        local got = util.pronoun_of(name).they
+        if got ~= pr then
+            fail("F", "case: " .. name .. " is '" .. got .. "', not '" .. pr .. "'")
+        end
+    end
+    -- (The stare-down, said: by the foe's own pronoun.)
+    local fight = require "game.model.fight"
+    if type(fight.stare_line) ~= "function" then
+        fail("F", "case: the stare-down line isn't said by the foe's pronoun (fight.stare_line)")
+    else
+        local cases = { { "the Lecturer", { name = "The Lecturer", boss = true }, "his", "he" },
+                        { "Euryale", { name = "Euryale", boss = true }, "her", "she" },
+                        { "the biggest huntling", { name = "Kruthik Huntling 3" }, "its", "it" } }
+        for _, k in ipairs(cases) do
+            local line = fight.stare_line({ scene = { boss_name = k[1] } }, k[2], { name = "Oswin" }, k[2].boss)
+            if not (has(line, " " .. k[3] .. " eyes off Oswin") and has(line, "it's Oswin " .. k[4] .. " wants")) then
+                fail("F", "case: the stare-down says: '" .. tostring(line) .. "'")
+            end
+        end
+    end
+    -- (The Knight of Shades is a construct, "it" on its cast card and in the book: never "he" in a line.)
+    local seen = {}
+    local function walk(t, path)
+        if type(t) == "string" then
+            local low = string.lower(t)
+            if string.find(low, "knight", 1, true) and (string.find(low, "%f[%a]he%f[%A]") or string.find(low, "%f[%a]his%f[%A]")
+                or string.find(low, "%f[%a]him%f[%A]") or string.find(low, "%f[%a]he'll%f[%A]") or string.find(low, "%f[%a]he's%f[%A]")
+                or string.find(low, "isn't he")) and not string.find(low, "brannoc", 1, true) then
+                fail("F", "case: the Knight is 'he' at " .. path .. ": '" .. t .. "'")
+            end
+        elseif type(t) == "table" and not seen[t] then
+            seen[t] = true
+            for k, v in util.sorted_pairs(t) do
+                walk(v, path .. "." .. tostring(k))
+            end
+        end
+    end
+    walk(MODULE, "MODULE")
+    walk(require("game.data.museum.cards"), "cards")
+    add("F", "case_monster_pronouns")
+end)
+
+-- W: a beat says what was done (round three's merge) ---------------------------------------------------
+do
+    local vague, read = 0, 0
+    local VAGUE = { "pulled something out of a painting", "went off together", "had a word with Flitwidget about" }
+    for _, R in ipairs(RUNS) do
+        for _, l in ipairs(R.L) do
+            local t = string.match(l, "^  %-%- (.*)$")
+            if t and not string.find(t, "^report:") and not string.find(t, "^chain week") then
+                read = read + 1
+                if string.find(t, "helped [%a ]+%.$") and not string.find(t, "helped [%a']+ [%a]") then
+                    vague = vague + 1
+                    fail("W", R.tag .. ": a beat that doesn't say what they did: '" .. t .. "'")
+                end
+                for _, v in ipairs(VAGUE) do
+                    if has(t, v) then
+                        vague = vague + 1
+                        fail("W", R.tag .. ": a beat that doesn't say what was done: '" .. t .. "'")
+                    end
+                end
+            end
+        end
+    end
+    set("W", "beats_read", read)
+    set("W", "beats_that_say_nothing", vague)
+end
+-- (Each kindness has its deed, line for line: what the table heard, as the recap says it.)
+case("W", function()
+    for who, d in util.sorted_pairs(MODULE.ideas.help or {}) do
+        if not (d.did and #d.did == #d.lines) then
+            fail("W", "case: helping " .. who .. " has " .. #(d.did or {}) .. " deeds for " .. #d.lines .. " lines: the recap can't say what they did")
+        end
+        for _, t in ipairs(d.did or {}) do
+            if string.find(t, "helped [%a ]+$") and not string.find(t, "helped [%a']+ [%a]") then
+                fail("W", "case: '" .. t .. "' says nothing")
+            end
+        end
+    end
+    local w = MODULE.beats.words
+    for _, k in ipairs({ "told_got", "told_caught" }) do
+        if not w[k] then
+            fail("W", "case: Telpur's word to Flitwidget about a theft has no words for what was taken (" .. k .. ")")
+        end
+    end
+    local reach = MODULE.beats.mus_reach and MODULE.beats.mus_reach[1]
+    if not (reach and reach.ok and has(reach.ok, "{gift}")) then
+        fail("W", "case: the painting's beat doesn't say what came out: '" .. tostring(reach and reach.ok) .. "'")
+    end
+    local alone = require("game.model.night").ALONE_TEXT
+    if not alone or has(alone[2] or "", "together") then
+        fail("W", "case: two heroes split up, and the recap has them going off together")
+    end
+    add("W", "case_deeds")
+end)
+
+-- K: Telpur's knockout three ways (round three's merge) ------------------------------------------------
+-- Over all the runs, each part heard more than once comes in more than one way: his fall, his friend's cry,
+-- his coming round, and what he tells the gift shop about it afterwards.
+do
+    local tl = MODULE.companions.telpur.lines
+    local fell_cb, along_cb
+    for _, cb in ipairs((MODULE.rooms.thanks or {}).callbacks or {}) do
+        if cb.when and cb.when.flag == "telpur_fell" then
+            fell_cb = cb
+        elseif cb.when and cb.when.flag == "telpur_along" then
+            along_cb = cb
+        end
+    end
+    local function list(x)
+        return type(x) == "table" and x or { x }
+    end
+    local function both(a, b)
+        local out = {}
+        for _, t in ipairs(list(a)) do
+            table.insert(out, t)
+        end
+        for _, t in ipairs(b and list(b) or {}) do
+            table.insert(out, t)
+        end
+        return out
+    end
+    local parts = { down = list(tl.down), react = both(tl.react, tl.react_sad), up = both(tl.up, tl.up_sad),
+                    after = both(fell_cb and fell_cb.text, fell_cb and fell_cb.sad) }
+    for part, lines in util.sorted_pairs(parts) do
+        local heard, ways = 0, {}
+        local set_of = {}
+        for _, t in ipairs(lines) do
+            set_of[t] = true
+        end
+        for _, R in ipairs(RUNS) do
+            for _, l in ipairs(R.L) do
+                local t = string.match(l, "^  %[[%w ,|']+%] (.*)$")
+                if t and set_of[t] then
+                    heard = heard + 1
+                    ways[t] = true
+                end
+            end
+        end
+        local nw = 0
+        for _ in pairs(ways) do
+            nw = nw + 1
+        end
+        set("K", part, heard .. " heard, " .. nw .. " ways")
+        if heard >= 2 and nw < 2 then
+            fail("K", "Telpur's " .. part .. " is heard " .. heard .. " times, all the same: '" .. next(ways) .. "'")
+        end
+    end
+    -- (The words themselves: three or more of each, the follow-up too.)
+    for part, x in util.sorted_pairs({ down = tl.down, react = tl.react, up = tl.up, after_he_fell = fell_cb and fell_cb.text,
+                                       after_he_came = along_cb and along_cb.text }) do
+        if #list(x) < 3 then
+            fail("K", "Telpur's " .. part .. " has " .. #list(x) .. " way(s)")
+        end
+    end
+end
+-- (Played: three knockouts in a row on one night come out three different ways, and so do three comings round.)
+case("K", function()
+    adventure.enter()
+    local c = campaign_mod.new(93)
+    adventure.enter(c)
+    c:session_zero(social.default_choices())
+    c:start_week()
+    local night = c:start_night()
+    c.adv.flags.telpur_along = true
+    local comps = require "game.model.companions"
+    local out = {}
+    local co = coroutine.create(function()
+        for _ = 1, 3 do
+            night.allies_fell, night.allies_back = nil, nil
+            local t = { monster_id = "telpur", name = "Telpur" }
+            comps.fell(night, t)
+            comps.after_fight(night)
+        end
+    end)
+    local guard = 0
+    while coroutine.status(co) ~= "dead" and guard < 100 do
+        guard = guard + 1
+        local ok, ev = coroutine.resume(co, 1)
+        if not ok then
+            error(ev)
+        end
+        if type(ev) == "table" and ev.text then
+            table.insert(out, ev)
+        end
+    end
+    local downs, ups = {}, {}
+    for _, ev in ipairs(out) do
+        if ev.style == "bad" then
+            downs[ev.text] = true
+        elseif ev.style == "good" then
+            ups[ev.text] = true
+        end
+    end
+    local nd, nu = 0, 0
+    for _ in pairs(downs) do
+        nd = nd + 1
+    end
+    for _ in pairs(ups) do
+        nu = nu + 1
+    end
+    if nd < 3 or nu < 3 then
+        fail("K", "case: three knockouts in a row are said " .. nd .. " way(s), and three comings round " .. nu .. " way(s)")
+    end
+    add("K", "case_three_in_a_row")
 end)
 
 -- The report --------------------------------------------------------------------------------------

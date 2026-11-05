@@ -133,7 +133,15 @@ end
 -- most specific first, as the data lists them; each entry's text is one line or several (picked
 -- fresh). vars fill it ({char}: the hero it's about). Returns the line, and the entry it came from.
 function M.line(night, person, what, hero, vars)
-    local lines = ((module().people_lines or {})[person] or {})[what]
+    local own = (module().people_lines or {})[person] or {}
+    local lines = own[what]
+    -- (After a death or a lost boss fight, a person with quiet words for the moment says those instead:
+    -- Flitwidget's "Splendid, splendid" and "I always pay my heroes" right after his grief, round
+    -- three's merge. able.somber.)
+    if own[what .. "_sad"] and util.lazy("game.model.able").somber(night) then
+        what = what .. "_sad"
+        lines = own[what]
+    end
     if not lines then
         return nil
     end

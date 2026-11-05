@@ -150,7 +150,13 @@ function M.build(campaign, night)
             local moment = p.best and p.best.text or nil
             row.moment = moment
             -- What they say for the report card, in their own voice ("The bit where {moment}").
-            local quote, line = night.talk:line("report_quote", p, { split = row.tier,
+            -- (After a death or a lost boss fight, a friend who still had a good night says it the quiet
+            -- way, not "Best night in ages": round three's merge. The bored and the out keep their own.)
+            local trig = "report_quote"
+            if row.tier ~= "bored" and row.tier ~= "out" then
+                trig = require("game.model.able").quiet_trigger(night, trig)
+            end
+            local quote, line = night.talk:line(trig, p, { split = row.tier,
                 moment = util.mid_sentence(moment, M.names(campaign)) })
             row.quote = quote or content.chat.verdicts[row.tier]
             row.quote_line = line and line.id

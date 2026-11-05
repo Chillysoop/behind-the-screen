@@ -334,7 +334,7 @@ function M.take(night, sc, idea)
     if ok then
         adv.lifted[t.id] = c.week or 0
         local seen = {}
-        local ev = events.add(c, { kind = "steal", who = p.key, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
+        local ev = events.add(c, { kind = "steal", who = p.key, char = p.char, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
                                    outcome = "got", seen = seen, from = motive, beat = true,
                                    text = events.word((t.shelf or string.find(t.short, who, 1, true)) and "lifted" or "lifted_off",
                                                       { char = p.char, thing = t.short, who = who }) })
@@ -361,7 +361,7 @@ function M.take(night, sc, idea)
     end
     -- Seen: the one robbed (and anyone else there) knows now, and remembers.
     local seen = witnesses(night, sc, t)
-    local ev = events.add(c, { kind = "steal", who = p.key, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
+    local ev = events.add(c, { kind = "steal", who = p.key, char = p.char, whom = t.owner.id, thing = t.thing or t.magic, where = sc.room,
                                outcome = "caught", seen = seen, from = motive, beat = true,
                                text = events.word("caught", { char = p.char, thing = t.short, who = who }) })
     sc.last_beat = ev.id
@@ -384,12 +384,16 @@ local function help(night, sc, idea)
     local hd = t.def
     local v = { char = p.char }
     night.actor = p
-    night:say(fill(night:fresh(hd.lines, "idea_help_" .. t.owner.id), v), "narration")
+    local said = night:fresh(hd.lines, "idea_help_" .. t.owner.id)
+    night:say(fill(said, v), "narration")
     local _, total = tiny(night, p, hd.skill)
+    -- (The recap says what they did, the same deed the table heard: hd.did, line for line.)
+    local i = util.index_of(hd.lines, said)
+    local did = i and hd.did and hd.did[i]
     local ev = events.add(c, { kind = "help", who = p.key, whom = t.owner.id, where = sc.room, n = total >= 10 and 1 or 0.5,
                                seen = { [t.owner.id] = true }, beat = true,
                                from = people.knows_of(c, t.owner.id, "steal", p.key, true) or nil, how = nil,
-                               text = events.word("helped", { char = p.char, who = t.owner.short or t.owner.name }) })
+                               text = did and util.fill(did, v) or events.word("helped", { char = p.char, who = t.owner.short or t.owner.name }) })
     if ev.from then
         ev.how = "therefore"          -- (making amends: it follows from what they did)
     end

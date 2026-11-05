@@ -631,6 +631,9 @@ function M:bark(p, trigger, extra)
     if able.hush(self, trigger) then
         return
     end
+    -- (The goodbyes after a death or a lost boss fight come from their own quiet pool: "Good game!" and
+    -- "Same time next week" were heard after both, the merge of round three.)
+    trigger = able.quiet_trigger(self, trigger)
     if trigger == "up_again" and able.somber(self) == "death" then
         local lost = {}
         for _, pc in ipairs(self.pc_list or {}) do
@@ -742,8 +745,22 @@ function M:npc_line(what, extra)
             self:emit({ kind = "npc", name = self:cast_label(cast), cast = cast.id, text = own })
             return own
         end
-        if again then
+        if again and able.somber(self) then
+            -- (Seeing them again after a death or a lost boss fight: their quiet words, or nothing. Round
+            -- three's merge heard "My heroes! You're back! Tea?" right after Flitwidget's grief.)
+            text, line = self.talk:npc(cast.id .. "@sad", what, self:vars(extra))
+            if not text then
+                return nil
+            end
+        elseif again then
             text, line = self.talk:npc(cast.id .. "@again", what, self:vars(extra))
+        end
+    end
+    -- (Their praise, the same: "Splendid! Marvellous!" waits for a happier night.)
+    if not text and what == "good" and able.somber(self) then
+        text, line = self.talk:npc(cast.id .. "@sad", what, self:vars(extra))
+        if not text then
+            return nil
         end
     end
     if not text and not again then
@@ -756,6 +773,14 @@ function M:npc_line(what, extra)
 end
 
 function M:react(poses)
+    -- (No cheering or laughing faces while the table grieves: round three, able.somber.)
+    if able.somber(self) then
+        local quiet = {}
+        for k, pose in pairs(poses) do
+            quiet[k] = (pose == "cheer" or pose == "laugh") and "think" or pose
+        end
+        poses = quiet
+    end
     if next(poses) then
         self:emit({ kind = "react", poses = poses })
     end
@@ -1212,7 +1237,8 @@ function M:describe(c, style)
     if not text then
         -- (The museum's people, met before, are described as people the party knows.)
         if c.again and c.kind == "cast" and adv.met(self.campaign, c.id) then
-            text = c.again
+            -- (Not "beaming at them" after a death or a lost boss fight: able.somber.)
+            text = able.pick(self, c.again, c.again_sad)
         else
             text = content.line_for(c, sc and sc.comps.location)
         end
@@ -1443,6 +1469,10 @@ function M:banter()
     if self:idle() > 80 then
         return
     end
+    -- (Nobody bickers for a laugh while the table grieves: able.somber, round three's merge.)
+    if able.hush(self, "banter") then
+        return
+    end
     -- (Between heroes in this scene: one who wandered off isn't here to bicker with. F11.)
     local l, p = self.talk:banter(self:at_hand())
     if not l then
@@ -1514,8 +1544,9 @@ function M:say_intent(sc)
     if not p then
         return
     end
-    -- (Not a line about a hero who fell: "Brannoc wants a name", with Brannoc gone.)
-    local lines = self:without_fallen(gp.intent)
+    -- (Not a line about a hero who fell: "Brannoc wants a name", with Brannoc gone. Nor "Best night
+    -- ever" after a death: a goal's quiet `intent_sad`, able.somber.)
+    local lines = self:without_fallen(able.pick(self, gp.intent, gp.intent_sad))
     if #lines == 0 then
         return
     end
@@ -1567,7 +1598,13 @@ function M:card_talk(sc)
     if #pool == 0 then
         return false
     end
-    local lines = self:without_fallen(gp.talk)
+    -- (While the table grieves, only a goal's quiet `talk_sad`, else nothing: "She has a couch." after a
+    -- death in her lair. able.somber.)
+    local talk = able.pick(self, gp.talk, gp.talk_sad or false)
+    if not talk then
+        return false
+    end
+    local lines = self:without_fallen(talk)
     if #lines == 0 then
         return false
     end
@@ -3329,7 +3366,8 @@ function M:decision(card, extra)
             if q then
                 events.add(self.campaign, { kind = "alone", who = q.key, where = self.scene.room, from = events.cause(self.campaign),
                                             beat = (q == self.actor) or nil,
-                                            text = (q == self.actor) and util.fill(M.ALONE_TEXT[#names > 1 and 2 or 1], { names = util.join_names(names) }) or nil })
+                                            text = (q == self.actor) and util.fill(M.ALONE_TEXT[#names > 1 and 2 or 1],
+                                                { a = names[1], b = names[2] }) or nil })
             end
         end
     end
@@ -3870,6 +3908,10 @@ function M:combat_scene(sc)
                 end
             end
         end
+        -- (Not "Somebody actually applauds" over a fight that cost a hero, or the Mech: round three's merge.)
+        if able.somber(self) then
+            how = "party_win_sad"
+        end
         if not (f and f.yielded) then
             self:say(self:fight_caption(how, v), "good")
         end
@@ -3942,7 +3984,9 @@ end
 -- the boss's fate, how it came out, and what it followed from: the choice that started it
 -- ("therefore"), or the room turning on them ("but"). Its clause tells it for the chain (R14).
 -- (A hero going off alone, for the log's chain: one of them, or two.)
-M.ALONE_TEXT = { "{names} went off alone", "{names} went off together" }
+-- (What they went off to do, and which way: the card has one look round on their own and the other head
+-- off the other way. "Thessaly and Oswin went off together" was neither, round three's merge.)
+M.ALONE_TEXT = { "{a} went off on {a_their} own to look around", "{a} went off on {a_their} own to look around, and {b} went the other way" }
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",
@@ -4138,6 +4182,9 @@ local FIGHT_CAPTIONS = {
     party_win_fled_one = { "{Tgt} is gone, running hard, and nobody's chasing. The fight is theirs.",
                            "{Tgt} gets away, and that's the last of them. It's over.",
                            "{Tgt} runs for it. Nobody follows. The fight is theirs." },
+    -- (Won, at a price: a hero died in it, or the Mech. able.somber.)
+    party_win_sad = { "It's over. Nobody cheers.", "The last of them goes down. Nobody says anything for a while.",
+                      "It's done. Nobody at the table feels like cheering." },
 }
 M.FIGHT_CAPTIONS = FIGHT_CAPTIONS
 
@@ -4531,6 +4578,10 @@ end
 
 -- A little scene while they rest: a pair at the fire, a dream, someone cooking.
 function M:rest_beat(kind)
+    -- (Not "Both laugh" while the table grieves: round three, able.somber.)
+    if able.somber(self) then
+        return
+    end
     local camp = self.campaign
     camp.beats_seen = camp.beats_seen or {}
     local cands, w = {}, {}
@@ -5285,16 +5336,18 @@ function M:run_tail()
     if late then
         self:say(self:fresh(M.LATE_LINES, "late_night"), "warn", { time = self:clock_text(), agreed = self:clock_text(self.table_planned) })
     end
+    local sad = able.somber(self)
     if self.dm_ended then
         -- (You closed the book yourself, and the table already reacted: museum_night.end_session.)
-    elseif late and pv.finish_high then
-        self:say(self:fresh(M.LATE_HIGH, "late_high"), "good")
-    elseif self.end_early then
-        self:say("Groans all round. Nobody wants to wait a whole week.", "good")
-    elseif pv.finish_high and next(self.dead_handled or {}) then
-        -- Not "applause" after someone's hero died tonight (the story playtest).
+    elseif pv.finish_high and (next(self.dead_handled or {}) or sad == "death") then
+        -- Not "applause" after someone's hero died tonight (the story playtest), late or not: "It was
+        -- a good night" came first on a late one, round three's merge.
         self:say("Nobody's in a hurry to pack up. It was a big night, and a sad one.", "good")
-    elseif pv.finish_high and last and last.outcome == "lose" then
+    elseif late and pv.finish_high and not sad then
+        self:say(self:fresh(M.LATE_HIGH, "late_high"), "good")
+    elseif self.end_early and not sad then
+        self:say("Groans all round. Nobody wants to wait a whole week.", "good")
+    elseif pv.finish_high and ((last and last.outcome == "lose") or sad) then
         self:say("It ends on a loss, and somehow nobody's sorry they came.", "good")
     elseif pv.finish_high then
         self:say("It ends on a high. Somebody actually applauds.", "good")

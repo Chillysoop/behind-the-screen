@@ -18,13 +18,14 @@ local util = require "game.model.util"
 local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 2
-local ITEMS = { "run", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "D" }
+local ITEMS = { "run", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "D", "Q" }
 local NAMES = {
     run = "whole prologues",
     A1 = "who can't act doesn't", A2 = "friendly fire is said", A3 = "destroyed stays destroyed",
     A4 = "the big payoffs are told", A5 = "the DM's picks steer the foes", A6 = "no browsing after a loss",
     A7 = "recaps lead with the losses", A8 = "the break at a lull, a late night costs",
     D = "from the screens: minis, night 1, homework",
+    Q = "the quiet after a loss (the merge)",
 }
 
 local fails = {}
@@ -226,7 +227,9 @@ able.CHEER = { victory = true, crit = true, kill = true, cheer_other = true, sce
 -- A line said from one of a table's templates ({fills} match anything).
 local function from(list, text)
     for _, t in ipairs(list or {}) do
-        local pat = "^" .. string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w_']+}", ".-") .. "$"
+        -- ({one|many} too: "{char} {was|were} the bravest of you".)
+        local pat = "^" .. string.gsub(string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w' ]*|[%w' ]*}", ".-"),
+            "{[%w_']+}", ".-") .. "$"
         if string.find(text or "", pat) then
             return true
         end
@@ -670,9 +673,20 @@ local function a5_watch(R, night, ev, w)
     R.a5 = A
     local where = R.tag .. " W" .. w
     if ev.kind == "narrate" and ev.text then
-        local foe, name = string.match(ev.text, "^(.-) can't take its eyes off (.-)%. For the next few rounds")
+        -- (By the foe's own pronoun, "his eyes", "her eyes", and its spoken name, "The Lecturer", "The
+        -- biggest huntling": the foe is the one the stare-down marked. Round three's merge.)
+        local foe, name = string.match(ev.text, "^(.-) can't take %a+ eyes off (.-)%. For the next few rounds")
         local c = foe and creature_named(night, foe)
         local t = name and creature_named(night, name)
+        if foe and t and not c then
+            for _, x in ipairs((night.battle and night.battle.creatures) or {}) do
+                for _, e in ipairs(x.effects or {}) do
+                    if e.taunt_by and (e.taunt_by == t or e.taunt_by.name == name) and x.side ~= t.side then
+                        c = x
+                    end
+                end
+            end
+        end
         if c and t then
             A.want = { by = c.mini, t = t.mini, name = name, until_round = (night.battle.round or 0) + 3, why = "the taunt" }
             add("A5", "taunts")
@@ -1006,6 +1020,175 @@ local function d_watch(R, night, ev, w)
     end
 end
 
+-- Q: the quiet after a loss (round three's merge). Once a hero has died tonight, the whole party went down,
+-- or Euryale beat them and sent them home, nothing cheers for the rest of the night, whatever says it: the
+-- table's whoops, jokes and goodbyes ("Good game!", "Same time next week"), the report card's word ("Best
+-- night in ages"), Flitwidget ("My heroes! You're back! Tea?", "Splendid, splendid...", "The reward! ... I
+-- always pay my heroes", "beaming at them"), Dev's "Best night ever", the break ("Everyone comes back
+-- warm"), a fight's applause, the wrap ("It ends on a high"), Telpur's jokes, the friends' last words
+-- ("Same heroes, bigger fights?"), small moments, rest scenes and the thoughts that glow. And a lost boss
+-- fight ends the night: no break after it, right before the goodnights. Read from the check's own lists
+-- of those lines (the module's and the code's), so it runs against old code too.
+local QCHEER = { wrap = true, victory_close = true, fumble = true, ruling_good = true, snack = true, banter = true,
+                 check_win = true, miss = true, ouch = true, groan_other = true, scene_dislike = true, bored = true }
+for k in pairs(able.CHEER) do
+    QCHEER[k] = true
+end
+local QUIET_TEXT = {}
+do
+    local mn = require "game.model.museum_night"
+    local nm = require "game.model.night"
+    local M = adventure.data
+    local function put(list, why)
+        if type(list) == "string" then
+            list = { list }
+        end
+        for _, t in ipairs(list or {}) do
+            local text = type(t) == "table" and (t[1] or t.text) or t
+            if type(text) == "string" then
+                table.insert(QUIET_TEXT, { (string.gsub(text, "^\"(.*)\"$", "%1")), why })
+            end
+        end
+    end
+    put(mn.BREAK_START, "the break's call")
+    put(mn.BREAK_END, "back from the break")
+    put(mn.BREAK_LOGS and mn.BREAK_LOGS.nothing, "the break")
+    put(nm.FIGHT_CAPTIONS and nm.FIGHT_CAPTIONS.party_win, "a fight's end")
+    put(nm.FIGHT_CAPTIONS and nm.FIGHT_CAPTIONS.party_win_one, "a fight's end")
+    put(nm.LATE_HIGH, "the wrap")
+    put("It ends on a high. Somebody actually applauds.", "the wrap")
+    put("Groans all round. Nobody wants to wait a whole week.", "the wrap")
+    for _, who in ipairs({ "mus_flitwidget", "mus_telpur" }) do
+        local nl = M.npc_lines and M.npc_lines[who] or {}
+        put(nl.npc_again, who .. "'s greeting")
+        put(nl.npc_good, who .. "'s praise")
+        local pl = M.people_lines and M.people_lines[who] or {}
+        for _, k in ipairs({ "thanks", "reward", "again" }) do
+            for _, e in ipairs(pl[k] or {}) do
+                put(e.text, who .. "'s " .. k)
+            end
+        end
+    end
+    for _, cid in ipairs({ "mus_flitwidget", "mus_telpur" }) do
+        local card = require("game.model.content").components[cid]
+        put(card and card.again, "the cast's arrival")
+    end
+    local settle = require("game.model.content").components.mus_settle_up
+    put(settle and settle.win, "the thanks' end")
+    put("They earn {gold} gold each, a pick from the gift shop, and a gnome who won't stop shaking their hands.", "the reward")
+    for _, e in util.sorted_pairs(M.endings or {}) do
+        put(e.flit, "Flitwidget's word on the ending")
+    end
+    local talk = M.talk and M.talk.mus_flitwidget or {}
+    for _, k in ipairs({ "done", "done_ask" }) do
+        for _, list in util.sorted_pairs(talk[k] or {}) do
+            put(list, "Flitwidget's talk")
+        end
+    end
+    for _, cb in ipairs((M.rooms.thanks or {}).callbacks or {}) do
+        if cb.sad ~= nil or (type(cb.text) == "string" and string.find(cb.text, "how he took a hit", 1, true))
+            or (type(cb.text) == "string" and string.find(cb.text, "how he saved the day", 1, true))
+            or (type(cb.text) == "string" and string.find(cb.text, "caravan guards", 1, true)) then
+            put(cb.text, "the thanks' callback")
+        end
+    end
+    local tl = M.companions and M.companions.telpur and M.companions.telpur.lines or {}
+    put(tl.up, "Telpur coming round")
+    put(tl.react, "Telpur's friend")
+    for _, list in util.sorted_pairs(M.want_more or {}) do
+        put(list, "the last word")
+    end
+    local GP = require("game.data.museum.cards").goal_play or {}
+    for _, gid in ipairs({ "mus_settle_up", "mus_shop" }) do
+        local gp = GP[gid]
+        for _, t in ipairs(gp and gp.intent or {}) do
+            if string.find(t, "Best night ever", 1, true) or string.find(t, "I love it here", 1, true) then
+                put(t, "a goal's opening")
+            end
+        end
+        put(gp and gp.talk, "the table's talk")
+    end
+    for _, b in ipairs(require("game.data.rests").beats) do
+        put(b.line, "a rest scene")
+    end
+    for _, room in util.sorted_pairs(M.explore_say or {}) do
+        for _, list in util.sorted_pairs(room) do
+            put(list, "a look round")
+        end
+    end
+end
+local QTHOUGHT = { glow = true, celebrating = true, chatty = true }
+local function quiet_watch(R, night, ev, w)
+    local Q = R.q or {}
+    R.q = Q
+    if Q.week ~= w then
+        Q.week, Q.why, Q.lair_lost = w, nil, nil
+    end
+    local where = R.tag .. " W" .. w
+    -- (What made the night a sad one, read off the mat and the table: a death, a wipe, a lost boss fight.)
+    if not Q.why then
+        for _, pc in ipairs(night.pc_list or {}) do
+            if pc.dead then
+                Q.why = "a hero died"
+            end
+        end
+        if night.watching and next(night.watching) then
+            Q.why = "a hero died"
+        end
+        if ev.kind == "narrate" and ev.text and string.find(ev.text, "round on the floor with 1 hit point", 1, true)
+            and string.find(ev.text, "beaten", 1, true) then
+            Q.why = "the whole party went down"
+        end
+        if Q.why then
+            add("Q", "sad_nights")
+        end
+    end
+    if ev.kind == "narrate" and ev.text == "She lets them go. She wants them to come back." then
+        Q.why = Q.why or "Euryale beat them"
+        Q.lair_lost = true
+        add("Q", "lost_boss_fights")
+    end
+    if not Q.why then
+        return
+    end
+    if ev.kind == "say" then
+        local tr = trigger_of(ev.line)
+        if (tr and QCHEER[tr]) or (type(ev.line) == "string" and string.find(ev.line, "^tb_")) then
+            fail("Q", where .. ": " .. Q.why .. ", and " .. ev.who .. " says (" .. tostring(ev.line) .. "): " .. ev.text)
+        end
+        add("Q", "lines_after_a_loss")
+    end
+    if (ev.kind == "say" or ev.kind == "narrate" or ev.kind == "npc") and ev.text then
+        for _, q in ipairs(QUIET_TEXT) do
+            if from({ q[1] }, ev.text) then
+                fail("Q", where .. ": " .. Q.why .. ", and " .. q[2] .. " cheers: " .. ev.text)
+                break
+            end
+        end
+    end
+    if ev.kind == "decision" and ev.card.id == "table_break" and Q.lair_lost then
+        fail("Q", where .. ": Euryale beat them and the night's ending, and the table takes a break first")
+    elseif ev.kind == "tiny_roll" then
+        fail("Q", where .. ": " .. Q.why .. ", and a small moment plays: " .. tostring(ev.who) .. " pokes at " .. tostring(ev.skill))
+    elseif ev.kind == "thought" and QTHOUGHT[ev.need] then
+        fail("Q", where .. ": " .. Q.why .. ", and " .. tostring(ev.name) .. "'s thought glows: " .. tostring(ev.text))
+    end
+end
+-- (The report card's word, after the night: "Best night in ages" from a friend who had a good night of it.)
+local function quiet_after(R, night, rep, w)
+    local Q = R.q
+    if not (Q and Q.week == w and Q.why) then
+        return
+    end
+    for _, row in ipairs(rep and rep.players or {}) do
+        if row.quote_line and string.find(row.quote_line, "^report_quote%.") and row.tier ~= "bored" and row.tier ~= "out" then
+            fail("Q", R.tag .. " W" .. w .. ": " .. Q.why .. ", and " .. row.name .. "'s word for the report card is: " .. tostring(row.quote))
+        elseif row.quote_line then
+            add("Q", "report_words_checked")
+        end
+    end
+end
+
 -- Whole prologues ----------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 31 to 38, three DMs), more seeds, and "fragile" ones where Oswin goes
 -- into Euryale's lair on 1 hit point with two failed death saves waiting: deaths are rare, and every
@@ -1050,12 +1233,14 @@ local function run(seed, style, fragile)
             a7_watch(R, night, ev, w)
             a8_watch(R, night, ev, w)
             d_watch(R, night, ev, w)
+            quiet_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
             lair_after(R, night)
             a7_after(R, night, rep, w)
             a8_after(R, night, rep, w)
+            quiet_after(R, night, rep, w)
         end,
         pick = function(R, night, ev, pick)
             -- (A fragile run lets the dice stand on a hero's life: no fudging, a goodbye.)
@@ -1113,6 +1298,9 @@ do
 end
 if not (E.A1 and (E.A1.deaths or 0) >= 2) then
     fail("A1", "fewer than two deaths in all the runs: nothing to check the dead against")
+end
+if not (E.Q and (E.Q.sad_nights or 0) >= 3 and (E.Q.lost_boss_fights or 0) >= 1) then
+    fail("Q", "too few sad nights in all the runs (a death, a wipe, a lost boss fight): nothing to check the quiet against")
 end
 
 -- Targeted cases -----------------------------------------------------------------------------------
@@ -1320,6 +1508,92 @@ case("A6", function()
         end
     end
     add("A6", "case_leaving_lines")
+end)
+
+-- Q: Oswin is dead. The goodbyes are the quiet ones; nobody fumbles for a laugh, cheers a ruling, talks
+-- snacks or brags; Flitwidget doesn't call them splendid, and his thanks and reward are the quiet ones; no
+-- cheering faces.
+case("Q", function()
+    local c, night = first_room(74)
+    night.watching = { sam = true }
+    local dev = c:player("dev")
+    local said = drive(night, function()
+        for _, tr in ipairs({ "wrap", "wrap", "fumble", "snack", "ruling_good", "victory_close", "miss", "ouch", "check_win",
+                              "groan_other", "scene_dislike", "bored" }) do
+            night:bark(dev, tr, { other = "Mara", other_char = "Thessaly" })
+        end
+        night:npc_line("good")
+        night:react({ dev = "cheer", jess = "laugh", mara = "gasp" })
+    end)
+    local quiet = 0
+    for _, e in ipairs(said) do
+        if e.kind == "say" then
+            local tr = trigger_of(e.line)
+            if tr == "wrap_sad" then
+                quiet = quiet + 1
+            else
+                fail("Q", "case: Oswin is dead, and Dev says (" .. tostring(e.line) .. "): " .. tostring(e.text))
+            end
+        elseif e.kind == "npc" then
+            for _, q in ipairs(QUIET_TEXT) do
+                if from({ q[1] }, e.text) then
+                    fail("Q", "case: Oswin is dead, and Flitwidget says: " .. tostring(e.text))
+                end
+            end
+        elseif e.kind == "react" then
+            for k, pose in util.sorted_pairs(e.poses or {}) do
+                if pose == "cheer" or pose == "laugh" then
+                    fail("Q", "case: Oswin is dead, and " .. k .. " is drawn to " .. pose)
+                end
+            end
+        end
+    end
+    if quiet == 0 then
+        fail("Q", "case: Oswin is dead, and nobody says goodnight at all")
+    end
+    local people = require "game.model.people"
+    for _, what in ipairs({ "thanks", "reward" }) do
+        local line = people.line(night, "mus_flitwidget", what, nil, night:vars({ broke = "my garden" }))
+        for _, q in ipairs(QUIET_TEXT) do
+            if line and from({ q[1] }, line) then
+                fail("Q", "case: Oswin is dead, and Flitwidget's " .. what .. " is: " .. line)
+            end
+        end
+        if not line then
+            fail("Q", "case: Oswin is dead, and Flitwidget has no " .. what .. " at all")
+        end
+    end
+    add("Q", "case_dead_oswin_quiet")
+end)
+
+-- Q: the break on a night a hero died is a quiet one: not "Twenty minutes off. Somebody tells the story of
+-- their week. Everyone comes back warm."
+case("Q", function()
+    local mn = require "game.model.museum_night"
+    for trial = 1, 6 do
+        local c, night = first_room(80 + trial)
+        night.watching = { sam = true }
+        night.had_break = nil
+        local said = drive(night, function()
+            mn.maybe_break(night, true)
+        end)
+        local took = false
+        for _, e in ipairs(said) do
+            if e.kind == "decision" and e.card.id == "table_break" then
+                took = true
+            elseif (e.kind == "narrate" or e.kind == "say") and e.text then
+                for _, q in ipairs(QUIET_TEXT) do
+                    if from({ q[1] }, e.text) then
+                        fail("Q", "case: Oswin is dead, and " .. q[2] .. ": " .. e.text)
+                    end
+                end
+            end
+        end
+        if not took then
+            fail("Q", "case: Oswin is dead, and the night's break never comes")
+        end
+    end
+    add("Q", "case_quiet_break")
 end)
 
 -- Report -------------------------------------------------------------------------------------------

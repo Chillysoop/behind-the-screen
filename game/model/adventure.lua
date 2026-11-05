@@ -356,6 +356,9 @@ function M.add_npc_lines(lib)
             local tr, sp = trigger, speaker
             if trigger == "npc_again" then
                 tr, sp = "npc_greet", speaker .. "@again"
+            elseif string.sub(trigger, -4) == "_sad" then
+                -- (After a death or a lost boss fight, by a speaker of its own: "{id}@sad". night:npc_line.)
+                tr, sp = (trigger == "npc_again_sad") and "npc_greet" or string.sub(trigger, 1, -5), speaker .. "@sad"
             end
             for i, text in ipairs(list) do
                 table.insert(lib.lines, { id = trigger .. "." .. speaker .. "." .. i, trigger = tr, speaker = sp,

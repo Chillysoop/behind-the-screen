@@ -269,7 +269,14 @@ table.insert(watchers, function(R, N, ev)
 end)
 table.insert(night_end, function(R, N)
     add("F1", "nights")
-    if (N.breaks or 0) == 0 and not N.night.end_early then
+    -- (A boss night that was only her lair, lost: the break waited for her part to be settled, and the
+    -- night ends there, beaten, with nothing to come back to. Round three: "Everyone comes back warm"
+    -- right before the goodnights.)
+    local rooms = N.night.mus and N.night.mus.rooms or {}
+    local lost_lair_only = #rooms == 1 and rooms[1].room == "lair" and rooms[1].outcome == "lose"
+    if (N.breaks or 0) == 0 and lost_lair_only then
+        add("F1", "lost_lair_nights_without_a_break")
+    elseif (N.breaks or 0) == 0 and not N.night.end_early then
         fail("F1", N.tag .. ": no break card all night" .. (N.break_promised and " (one was promised)" or ""))
     elseif (N.breaks or 0) > 1 then
         fail("F1", N.tag .. ": " .. N.breaks .. " break cards")

@@ -94,6 +94,23 @@
    "max": 90
   },
   {
+   "id": "wrap_sad",
+   "group": "Arriving and leaving",
+   "voice": "table",
+   "when": "The session ends after a hero died tonight, or after Euryale beat them: quiet goodnights, no \"Good game!\", no \"same time next week\".",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 90
+  },
+  {
    "id": "banter",
    "group": "Scenes",
    "voice": "character",
@@ -724,6 +741,23 @@
    "max": 80
   },
   {
+   "id": "report_sad",
+   "group": "Session report",
+   "voice": "table",
+   "when": "Said right after a session where a hero died, or Euryale beat them, for the report card, by a friend who still had a good night of it (loved, fun or fine). Quiet, never \"best night in ages\".",
+   "speakers": [
+    "mara",
+    "dev",
+    "jess",
+    "sam"
+   ],
+   "fill": [
+    "char",
+    "name"
+   ],
+   "max": 80
+  },
+  {
    "id": "npc_greet",
    "group": "NPCs",
    "voice": "npc",
@@ -999,7 +1033,7 @@
    "id": "talk_reply",
    "group": "Taking over",
    "voice": "character",
-   "when": "The hero answers the NPC the DM is voicing (M8, B8), in character. mood: warm (they told you), guarded (they wouldn't), lie_caught (you see through their lie), lie_believed (you take the lie at face value).",
+   "when": "The hero answers the NPC the DM is voicing (M8, B8), in character. mood: warm (they told you), guarded (they wouldn't), lie_caught (you see through their lie), lie_believed (you take the lie at face value); sad (any of those, on a night a hero died or Euryale beat them: quiet, never a joke).",
    "speakers": [
     "mara",
     "dev",
@@ -1016,7 +1050,8 @@
      "warm",
      "guarded",
      "lie_caught",
-     "lie_believed"
+     "lie_believed",
+     "sad"
     ]
    },
    "max": 100

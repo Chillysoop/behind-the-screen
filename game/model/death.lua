@@ -276,7 +276,8 @@ function M.hold_wake(night)
     local names = util.join_names(due)
     night:say(util.fill(data.WAKE, { char = names }), "narration")
     local ok, people = pcall(require, "game.model.people")
-    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil, { char = names }) or nil
+    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
+        { char = names, plural = #due > 1 or nil }) or nil
     if line then
         night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
     end

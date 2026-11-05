@@ -290,7 +290,9 @@ local function strip(t)
     return string.lower((string.gsub(t or "", "[\"%[%]]", "")))
 end
 M.CHAT = {
-    lost_hero = { "still not over {was}. rolling up someone new, be nice to {was_them}", "rip {was}. i'm making a new one and they'll be worse at everything",
+    -- (Not the hero who died's pronoun for the new one, nor "they" for one person: the new hero isn't
+    -- rolled up yet. Round three's merge: "rolling up someone new, be nice to her" of a new he.)
+    lost_hero = { "still not over {was}. rolling up someone new, be nice to the new kid", "rip {was}. new character incoming. worse at everything, guaranteed",
                   "{was} deserved better. new character incoming" },
     lost_hero_reply = { "{was} deserved better tbh", "pouring one out for {was}", "we will remember {was}" },
     down_once = { "{char} hit the floor and i'm still annoyed about it", "next time {char} is standing at the back", "{char} took a nap on the floor. not by choice" },
@@ -361,7 +363,7 @@ function M.night_lines(c, night)
     for key, nc in util.sorted_pairs(c.new_char or {}) do
         if nc.week == week and nc.was then
             local was = string.lower(nc.was)
-            put(key, "lost_hero", { was = was, was_them = util.pronoun_of(nc.was).them })
+            put(key, "lost_hero", { was = was })
             for _, q in ipairs(c.players) do
                 if q.key ~= key and not out[q.key] then
                     put(q.key, "lost_hero_reply", { was = was })

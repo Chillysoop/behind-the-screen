@@ -135,6 +135,11 @@ local function module_line(night, info, step, stance)
     -- (Two different steps: his first words, then the answer to what they asked. The second playtest
     -- review: the second card at the thanks was word for word the first.)
     local over = night.campaign.adv and night.campaign.adv.ending and mt.done
+    -- (After a death tonight, the quiet versions: not "You did it. My museum! ... Have a biscuit. Have
+    -- two." at his wake, round three's merge. able.somber.)
+    if over and mt.done_sad and require("game.model.able").somber(night) then
+        mt = { done = mt.done_sad, done_ask = mt.done_ask_sad or mt.done_sad }
+    end
     local set = (over and (step == 1 and mt.done or (mt.done_ask or mt.done)))
         or (step == 1 and (info.met and mt.again or mt.open)) or mt.ask
     local list = set and set[stance]
@@ -192,6 +197,11 @@ end
 
 -- The hero answers, in character.
 local function reply(night, p, mood)
+    -- (On a night a hero died, the hero's answer is a quiet one, whatever the mood: not "Oh, that's
+    -- delicious. Thank you, darling." at Flitwidget's wake. able.somber.)
+    if require("game.model.able").somber(night) then
+        mood = "sad"
+    end
     local text, l = night.talk:line("talk_reply", p, { split = mood, must = true })
     if text then
         night:emit({ kind = "say", who = p.key, text = text, ic = true, line = l and l.id })
@@ -404,7 +414,9 @@ function M.boss_turn(night, f, b, c)
     local opts = {}
     -- Say only what's true (playtest, October 13: "who's been hurting it most" before anyone had
     -- touched it, and "barely standing" at full hit points).
-    local why_threat = (hurt[threat] or 0) > 0 and ", who's been hurting it most"
+    -- (By the boss's own pronoun: "who's been hurting her most" of Euryale, not "it". Round three's merge.)
+    local bp = util.pronoun_of(boss)
+    local why_threat = (hurt[threat] or 0) > 0 and (", who's been hurting " .. (bp.them == "them" and "it" or bp.them) .. " most")
         or util.fill(", the biggest threat on {char_their} feet", { char = threat.name })
     table.insert(opts, { label = "Go for " .. threat.name .. why_threat .. "." .. attack_words(c),
                          effects = data.BOSS.clever, target = threat, kind = "clever", who = threat_p })
