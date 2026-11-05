@@ -1466,7 +1466,9 @@ local function bark_line(p)
                       fight_here = "the room has a fight in it", no_fight_here = "the room has no fight in it",
                       calm = "the room's danger is settled", clue_found = "something was learned earlier tonight",
                       big_foe = "the one leading the fight is Large or bigger", several_foes = "there's more than one foe",
-                      boss_is_a_thing = "the one leading the fight is a creature, not a person" }
+                      boss_is_a_thing = "the one leading the fight is a creature, not a person",
+                      on_time = "the night hasn't run past the time agreed at Session Zero", before_midnight = "it isn't nearly midnight",
+                      nobody_died = "no hero died tonight" }
         local rule = B.context[p[2]]
         return R("Not said: a table line with " .. Q(rule[1], 4) .. " in it only plays when " .. (CTX[rule[2]] or "it fits"), "Never")
     elseif p[1] == "told" then
@@ -2153,6 +2155,10 @@ local function code_line(p)
         return R(what, one_of(#(W2[k] or {})))
     elseif top == "INSPIRE_LINES" then
         return R("When you give a hero Heroic Inspiration (from a card or their tile)", one_of(#require("game.model.night").INSPIRE_LINES))
+    elseif top == "LATE_LINES" then
+        return R("The end of a night run more than a quarter of an hour past the time agreed at Session Zero", one_of(#require("game.model.night").LATE_LINES))
+    elseif top == "LATE_HIGH" then
+        return R("The end of a good night run long, in place of the applause", one_of(#require("game.model.night").LATE_HIGH))
     elseif top == "WRAP_LINES" then
         return R("The very end of game night, after the goodbyes", one_of(#require("game.model.night").WRAP_LINES))
     elseif top == "FRANC_LINES" then

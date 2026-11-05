@@ -96,6 +96,9 @@ local CONTEXT = {
     big_foe = function(c) return c.big == true end,
     several_foes = function(c) return (c.foes or 0) > 1 end,
     boss_is_a_thing = function(c) return c.thing == true end,
+    on_time = function(c) return not c.late end,
+    before_midnight = function(c) return not c.midnight end,
+    nobody_died = function(c) return not c.died end,
 }
 M.CONTEXT = CONTEXT
 

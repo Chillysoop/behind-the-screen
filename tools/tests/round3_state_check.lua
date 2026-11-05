@@ -835,6 +835,53 @@ local function a7_after(R, night, rep, w)
     end
 end
 
+-- A8: the break comes at a lull, never in her lair between the stand-off and the first blow; a night run
+-- past the time agreed at Session Zero is said at the table, isn't cheered as if it weren't, has nobody
+-- asking "same time next week?", and the report says what it cost.
+local function a8_watch(R, night, ev, w)
+    local A = R.a8 or {}
+    R.a8 = A
+    local where = R.tag .. " W" .. w
+    local sc = night.scene
+    if ev.kind == "decision" and ev.card.id == "table_break" then
+        if sc and sc.room == "lair" and not sc.result and not (night.mus and night.mus.rooms and #night.mus.rooms > 0
+            and night.mus.rooms[#night.mus.rooms].room == "lair") then
+            fail("A8", where .. ": the break comes in her lair, before the fight's settled")
+        else
+            add("A8", "breaks_at_a_lull")
+        end
+    end
+    local late = (night.table_min or 0) > (night.table_planned or 210) + 15
+    if ev.kind == "narrate" and ev.text then
+        if from(require("game.model.night").LATE_LINES or {}, ev.text) then
+            A.late_said = w
+        end
+        if late and ev.text == "It ends on a high. Somebody actually applauds." then
+            fail("A8", where .. ": a night run long ends: " .. ev.text)
+        end
+    elseif ev.kind == "say" and late and type(ev.line) == "string" and string.find(ev.line, "^wrap%.")
+        and string.find(string.lower(ev.text or ""), "same time next week", 1, true) then
+        fail("A8", where .. ": a night run long, and " .. ev.who .. " says: " .. ev.text)
+    end
+end
+local function a8_after(R, night, rep, w)
+    local A = R.a8 or {}
+    local where = R.tag .. " W" .. w
+    local over = (night.table_min or 0) - (night.table_planned or 210)
+    if over > 15 then
+        add("A8", "late_nights")
+        if A.late_said ~= w and not night.end_early then
+            fail("A8", where .. ": the night ran " .. math.floor(over) .. " minutes past the agreed end, and nobody at the table says so")
+        end
+        local tt = rep and rep.table_text or ""
+        if not string.find(tt, "you agreed at Session Zero", 1, true) then
+            fail("A8", where .. ": a night run long, and the report says: " .. tostring(tt))
+        else
+            add("A8", "late_reported")
+        end
+    end
+end
+
 -- Whole prologues ----------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 31 to 38, three DMs), more seeds, and "fragile" ones where Oswin goes
 -- into Euryale's lair on 1 hit point with two failed death saves waiting: deaths are rare, and every
@@ -877,11 +924,13 @@ local function run(seed, style, fragile)
             a5_watch(R, night, ev, w)
             a6_watch(R, night, ev, w)
             a7_watch(R, night, ev, w)
+            a8_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
             lair_after(R, night)
             a7_after(R, night, rep, w)
+            a8_after(R, night, rep, w)
         end,
         pick = function(R, night, ev, pick)
             -- (A fragile run lets the dice stand on a hero's life: no fudging, a goodbye.)

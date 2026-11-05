@@ -4067,12 +4067,14 @@ function M.boss_night(night)
             return
         end
     end
-    -- The night's break (M.maybe_break): after the stairs if they climbed them tonight, else after
-    -- the talk, right before the fight (night.lua combat_scene). Never first thing.
+    -- The night's break (M.maybe_break): after the stairs if they climbed them tonight, at the lair
+    -- door; else once her part is settled, before the gift shop (M.after_showdown). Never first thing,
+    -- and never between the stand-off and the first blow (round three, A8: "They draw steel." then
+    -- "Break time." on 19 of 22 boss nights).
     if #night.scenes > 0 then
         M.maybe_break(night, true)
     else
-        night.break_before_fight = true
+        night.break_after_lair = true
     end
     M.enter(night, "lair")
     M.interlude(night)
@@ -4328,12 +4330,14 @@ function M.lair_losses(night, sc, lost)
     end
 end
 
-function M.after_showdown(night, sc)
-    -- (No fight after the talk, so no break before it: take it now, before the ending plays out.)
-    if night.break_before_fight and not night.had_break then
-        night.break_before_fight = nil
+local function break_after_lair(night)
+    if night.break_after_lair and not night.had_break then
+        night.break_after_lair = nil
         M.maybe_break(night, true)
     end
+end
+
+function M.after_showdown(night, sc)
     local c = night.campaign
     local st = st_of(night)
     local boss = st.boss or {}
@@ -4370,6 +4374,7 @@ function M.after_showdown(night, sc)
             table.insert(st.path, { room = "lair", week = c.week, outcome = "lose" })
             table.insert(night.mus.rooms, { room = "lair", outcome = "lose" })
             night:goal_event(sc)       -- (for the recap; the lines above already said it)
+            break_after_lair(night)
             return
         end
     end
@@ -4392,6 +4397,7 @@ function M.after_showdown(night, sc)
         st.done.lair = "win"
         table.insert(st.path, { room = "lair", week = c.week, outcome = "win" })
         st.at, st.choices = nil, nil
+        break_after_lair(night)       -- (the lull: her part's over, the gift shop's next)
         M.thanks(night)
         for _, line in ipairs(MODULE.epilogue) do
             night:say(line, "narration")

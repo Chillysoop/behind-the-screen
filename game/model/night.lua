@@ -678,6 +678,10 @@ function M:bark_context(more)
         end
     end
     ctx.clue = self.heard_lore or nil
+    -- (The clock: a night run past the time agreed at Session Zero, and past midnight. Round three, A8.)
+    ctx.late = (self.table_min or 0) > (self.table_planned or 210) + 15 or nil
+    ctx.midnight = ((self.table_start or 19 * 60) + (self.table_min or 0)) >= 23 * 60 + 30 or nil
+    ctx.died = able.somber(self) == "death" or nil
     for k, val in pairs(more or {}) do
         ctx[k] = val
     end
@@ -2210,7 +2214,8 @@ function M:killing_blow_other(actor)
         end
     end
     local best
-    for _, p in ipairs(self.players) do
+    -- (A friend whose hero is down or gone doesn't tell it: round three, A1.)
+    for _, p in ipairs(self:at_hand()) do
         if p ~= actor and (not best or (count[p.key] or 0) < (count[best.key] or 0)
             or ((count[p.key] or 0) == (count[best.key] or 0) and p.m.spotlight < best.m.spotlight)) then
             best = p
@@ -3646,12 +3651,6 @@ function M:combat_scene(sc)
     elseif card then
         self:decision(card)
     end
-    -- Boss night's break, when nothing came before the lair: after the talk, before the fight
-    -- ("let's take five before the big one"), not before anyone has played.
-    if self.break_before_fight and not self.had_break then
-        self.break_before_fight = nil
-        util.lazy("game.model.museum_night").maybe_break(self, true)
-    end
     -- Who sees whom first: a paused roll before the fight.
     sc.surprise = nil
     local scouted = false
@@ -4492,6 +4491,7 @@ function M:table_verdicts()
         out.players[p.key] = { verdict = v, ideal = ideal, fading_at = self.fading and self.fading[p.key] }
         if mins > self.table_planned + 15 and ideal < mins then
             score.add(p, "trust", -1)   -- "you said half ten"
+            out.players[p.key].trust = -1
         end
     end
     self.table_report = out
@@ -4518,7 +4518,17 @@ function M:length_text()
     local diff = r.minutes - r.planned
     local head
     if diff > 15 then
-        head = "Ran " .. hm(diff) .. " long (" .. hm(r.minutes) .. ", planned " .. hm(r.planned) .. ")."
+        -- (Past the time agreed at Session Zero, and what it cost: round three, A8.)
+        local knocked = {}
+        for _, p in ipairs(self.players) do
+            local v = r.players[p.key]
+            if v and v.trust then
+                table.insert(knocked, p.name)
+            end
+        end
+        head = "Ran " .. hm(diff) .. " past the " .. self:clock_text(r.planned) .. " you agreed at Session Zero (" .. hm(r.minutes) .. " at the table)."
+            .. (#knocked > 0 and (" " .. util.join_names(knocked) .. (#knocked == 1 and " trusts" or " trust")
+                .. " you a little less for it.") or "")
     elseif diff < -30 then
         head = "Finished " .. hm(-diff) .. " early (" .. hm(r.minutes) .. ")."
     else
@@ -5033,6 +5043,19 @@ function M:run()
     return util.lazy("game.model.museum_night").run(self)
 end
 
+-- A night run long, said at the end of it ({time}: now; {agreed}: the end agreed at Session Zero), and
+-- a good night's ending when everyone's too tired to cheer it. Three ways each (R3).
+M.LATE_LINES = {
+    "It's {time}. You all agreed to stop at {agreed}, and everyone's yawning into their dice.",
+    "{time}. Somebody points at the clock: Session Zero said {agreed}. Nobody laughs.",
+    "It's gone {time}, well past the {agreed} you all agreed on. Phones are out, checking alarms for the morning.",
+}
+M.LATE_HIGH = {
+    "It was a good night. Everyone's too tired to say so.",
+    "A good ending, and a groggy one. Coats go on in a hurry.",
+    "They loved it, probably. Ask them tomorrow, after some sleep.",
+}
+
 -- The end of every night: how it landed, where the party rests, the goodbyes.
 function M:run_tail()
     thoughts.dawn(self)
@@ -5088,8 +5111,17 @@ function M:run_tail()
         end
     end
     local last = played[#played]
+    -- A night run past the time agreed at Session Zero is said, and it costs (table_verdicts: Trust and
+    -- fun for whoever wanted to be home; the report says so). Round three, A8: "12:24 am (till 10:00 pm)",
+    -- then "It ends on a high" and "Same time next week?".
+    local late = (self.table_min or 0) > (self.table_planned or 210) + 15
+    if late then
+        self:say(self:fresh(M.LATE_LINES, "late_night"), "warn", { time = self:clock_text(), agreed = self:clock_text(self.table_planned) })
+    end
     if self.dm_ended then
         -- (You closed the book yourself, and the table already reacted: museum_night.end_session.)
+    elseif late and pv.finish_high then
+        self:say(self:fresh(M.LATE_HIGH, "late_high"), "good")
     elseif self.end_early then
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")
     elseif pv.finish_high and next(self.dead_handled or {}) then

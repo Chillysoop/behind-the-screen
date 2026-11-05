@@ -43,6 +43,10 @@ M.context = {
     { "here with the chips", "calm" }, { "clue from earlier", "clue_found" }, { "wake me up when something needs hitting", "no_fight_here" },
     { "that's a big one", "big_foe" }, { "big guy", "big_foe" }, { "focus fire on the boss", "several_foes" },
     { "dibs on the big one", "several_foes" }, { "that boss knows what it's doing", "boss_is_a_thing" },
+    -- (Round three, A8 and A1: not after a night run long or past midnight, nor a night a hero died.)
+    { "same time next week", "on_time" }, { "by midnight", "before_midnight" }, { "that was fun", "nobody_died" },
+    { "hooray", "nobody_died" }, { "how close that was", "nobody_died" }, { "count off", "nobody_died" },
+    { "are we... alive", "nobody_died" }, { "dead-dead", "nobody_died" }, { "everyone alive", "nobody_died" },
 }
 
 M.NUMBERS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
@@ -260,8 +264,8 @@ M.told = {
                    "The stone closes over her. Euryale stands there, caught in her own reflection, for good.",
                    "One last hiss, and then nothing. Euryale has turned to stone." },
     stone = { "{char} is stone now, mid-step. Until her hold breaks, {char_they} {stays} that way.",
-              "{char} turns to stone. Only Euryale's hold breaking will bring {char_them} back.",
-              "The grey reaches {char}'s eyes. {char} is a statue now, until her hold on the lair breaks." },
+              "The grey reaches {char}'s eyes. {char} is stone now, until her hold on the lair breaks.",
+              "{char} is stone now, a statue among her statues, until her hold breaks." },
     stone_other = { "{char} is caught in her stare too, and turns to stone mid-step.",
                     "Her stare doesn't care whose side anyone's on: {char} is stone now.",
                     "{char} goes grey and still, caught in her eyes." },

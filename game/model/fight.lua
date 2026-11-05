@@ -803,6 +803,11 @@ function M.tell_moments(night, f, steps)
         elseif kind == "mirror" and c then
             local it, key = require("game.model.items").holding(night.campaign, "mirror")
             local hp = key and night.campaign:player(key)
+            -- (Its holder down or gone: whoever's nearest grabs it. Round three, A1.)
+            if hp and not able.can_fight(night, hp) then
+                local here = night:at_hand(true)
+                hp = here[1]
+            end
             local holder = (hp and hp.char) or "Someone"
             told(night, "mirror", { holder = holder })
             -- (Did it take? Her own save, a step or two on.)
