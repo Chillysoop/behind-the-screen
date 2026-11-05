@@ -837,7 +837,9 @@ function M:pick_roller(skill_list, sc, prefer)
             table.insert(low, p)
         end
     end
-    return pick(low) or pick(players) or players[1]
+    -- (Nobody at hand can act, every hero dead or stone: someone at the table still rolls for the scene
+    -- rather than nobody. It can't happen outside a fight short of all four dying in one night.)
+    return pick(low) or pick(players) or players[1] or self.players[1]
 end
 
 -- The friends whose heroes are in this scene: a hero who split off (split_party) is elsewhere until

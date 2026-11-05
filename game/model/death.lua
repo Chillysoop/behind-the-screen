@@ -199,6 +199,69 @@ function M.fall(night, p, rec, goodbye)
     campaign.new_char[p.key] = { week = campaign.week, was = p.char }
     table.insert(night.canon, p.char .. " " .. rec.how)
     M.after_fall(night, p)
+    M.settle_pack(night, p)
+end
+
+-- What the dead hero carried (round three, A1, found by batch B: the bracelet showed on "Sister Aldith's
+-- wrist", the new hero in the dead one's seat): it's settled out loud, never inherited. The friends whose
+-- heroes can act share it out, a magic thing to whoever can use it, the rest to the closest friend; with
+-- nobody left to take it, it stays with them. Each change of hands is in the log ("given", from the dead).
+-- The words: game/data/death.lua PACK_SHARED, PACK_LEFT.
+function M.settle_pack(night, p)
+    local campaign = night.campaign
+    local items = require "game.model.items"
+    local events = require "game.model.events"
+    local held = items.held_by(campaign, p.key)
+    if #held == 0 then
+        return
+    end
+    local able = require "game.model.able"
+    local here = {}
+    for _, q in ipairs(night.players) do
+        if q ~= p and able.can_act(night, q) then
+            table.insert(here, q)
+        end
+    end
+    if #here == 0 then
+        for _, it in ipairs(held) do
+            it.left_with = p.key
+            it.gone = campaign.week or 0
+        end
+        night:say(night:fresh(data.PACK_LEFT, "pack_left"), "narration", { char = p.char })
+        return
+    end
+    -- (The friend closest to them takes what isn't for anyone in particular.)
+    local rapport = require "game.model.rapport"
+    local close, best = here[1], nil
+    for _, q in ipairs(here) do
+        local r = rapport.rel(campaign, q.key, p.key)
+        local v = type(r) == "table" and (r.rapport or 0) or 0
+        if not best or v > best then
+            close, best = q, v
+        end
+    end
+    local gets, order = {}, {}
+    for _, it in ipairs(held) do
+        local to = close
+        if items.def(it.id) then
+            to = items.pick_holder(campaign, it.id, here) or close
+        end
+        it.holder = to.key
+        items.log_get(campaign, it, { id = p.key, name = p.char }, "given")
+        local about = items.about(it)
+        local t = it.thing and items.thing(it.thing)
+        local name = (t and util.lower_first(t.name or t.title)) or util.lower_first(about.name or "something")
+        if not gets[to.key] then
+            gets[to.key] = {}
+            table.insert(order, to)
+        end
+        table.insert(gets[to.key], name)
+    end
+    local parts = {}
+    for _, q in ipairs(order) do
+        table.insert(parts, q.char .. " takes " .. util.join_names(gets[q.key]))
+    end
+    night:say(night:fresh(data.PACK_SHARED, "pack_shared"), "narration", { char = p.char, gets = table.concat(parts, "; ") })
 end
 
 -- The wake (round three, B1): held where they rest, once the fight that took them is over and

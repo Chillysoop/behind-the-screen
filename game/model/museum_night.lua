@@ -577,6 +577,9 @@ function M.has_reward(night, sc, r)
 end
 
 function M.has_reward_raw(night, sc, r)
+    if r.ran and sc.boss_ran then
+        return false
+    end
     if r.owner == "ending" then
         return night.campaign.adv.ending ~= nil
     end
@@ -603,6 +606,11 @@ function M.reward(night, sc)
         if r.lost and r.lost ~= "" then
             night:say(r.lost, "bad")
         end
+        return
+    end
+    -- (Its keeper got away with it: said, not handed over.)
+    if r.ran and sc.boss_ran then
+        night:say(r.ran, "bad")
         return
     end
     if r.francs then
@@ -3323,7 +3331,10 @@ function M.after_room(night, sc)
                 adventure.remove_mark(c, "drone")
                 night:say("Upstairs, the drone through the floor stops. Euryale notices the quiet.", "interlude")
             end
-            mark("pages")
+            -- (Not if he got away: he took his notes with him. Round three, B16.)
+            if not sc.boss_ran then
+                mark("pages")
+            end
         else
             mark("drone")
         end

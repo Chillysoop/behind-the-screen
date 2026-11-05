@@ -275,8 +275,9 @@ M.told = {
     charmed = { "{char} lowers {char_their} weapon. {Charmer}'s voice is the nicest thing {char} has heard all night.",
                 "{char}'s face goes soft. {Charmer} is a friend now, as far as {char} knows.",
                 "{char} smiles at {charmer}, dreamy. Charmed." },
-    hyper = { "{mech}'s chest panel flips open and the red switch goes down: HYPER DESTROYER MODE. The floor shakes.",
-              "Click. The red switch. {mech} goes rigid, then unfolds into something much bigger and much louder.",
+    -- (The mode itself; flipping the switch has its own line, fight.saved_switch, when it was saved for her.)
+    hyper = { "{mech}'s plates slam open and the steam turns red: HYPER DESTROYER MODE. The floor shakes.",
+              "{mech} goes rigid, then unfolds into something much bigger and much louder.",
               "{mech} lets out a shriek of steam and goes into Hyper Destroyer Mode. Everyone steps back." },
     overheat = { "{mech} shrieks, vents a cloud of scalding steam, and goes still. It isn't getting up again.",
                  "Too hot, too long: {mech} burns out in a hiss of steam and smoke.",

@@ -222,6 +222,16 @@ end
 able.CHEER = { victory = true, crit = true, kill = true, cheer_other = true, scene_like = true, big_hit = true,
                fight_chat = true, hit = true, boss_appears = true, thanks = true }
 
+-- A line said from one of a table's templates ({fills} match anything).
+local function from(list, text)
+    for _, t in ipairs(list or {}) do
+        local pat = "^" .. string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w_']+}", ".-") .. "$"
+        if string.find(text or "", pat) then
+            return true
+        end
+    end
+    return false
+end
 -- Cards that are about the hero who can't act, not them acting: allowed.
 local ABOUT_THEM = { hero_dies = true, fallen_seat = true, last_save = true, death_roll = true, potion = true,
                      dragging = true, cornered = true, boss_turn = true }
@@ -284,6 +294,19 @@ local function gate(R, night, ev, w)
             fail("A1", where .. ": " .. tostring(char_of(night, key)) .. " is " .. s .. ", but rolls: " .. tostring(ev.text or ev.skill_name or ev.skill))
         end
         add("A1", "rolls")
+    elseif ev.kind == "narrate" and ev.style == "dm" and ev.text then
+        -- (A thought you answered by having their hero do something: not a hero who can't act.)
+        local TA = require("game.data.thoughts").answers
+        for _, aid in ipairs({ "talk", "ask", "detail", "prize" }) do
+            if from({ TA[aid].log }, ev.text) then
+                for _, p in ipairs(night.players) do
+                    local s = state(p.key)
+                    if s and s ~= "charmed" and string.find(ev.text, p.char, 1, true) then
+                        fail("A1", where .. ": " .. p.char .. " is " .. s .. ", but you answer a thought with: " .. ev.text)
+                    end
+                end
+            end
+        end
     elseif ev.kind == "narrate" and (ev.style == "twist" or ev.style == "good" or ev.style == "narration") then
         for _, p in ipairs(night.players) do
             local s = state(p.key)
@@ -295,16 +318,6 @@ local function gate(R, night, ev, w)
     end
 end
 
--- A line said from one of a table's templates ({fills} match anything).
-local function from(list, text)
-    for _, t in ipairs(list or {}) do
-        local pat = "^" .. string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w_']+}", ".-") .. "$"
-        if string.find(text or "", pat) then
-            return true
-        end
-    end
-    return false
-end
 local TOLD = require("game.data.barks").told or {}
 local death_data = require "game.data.death"
 
@@ -444,6 +457,7 @@ local function after_death(R, night, ev, w)
         if pc.dead and not n.deaths[pc.name] then
             n.deaths[pc.name] = true
             add("A1", "deaths")
+
         end
     end
     if not next(n.deaths) then
@@ -464,6 +478,12 @@ local function after_death(R, night, ev, w)
         end
         n.wake_at = night.scene and night.scene.room
         add("A1", "wakes")
+    elseif ev.kind == "decision" and ev.card.id == "hero_dies" and ev.actor then
+        -- (What they carried as the death card comes up: what the fight used up is gone already.)
+        n.packs = n.packs or {}
+        n.packs[ev.actor] = #require("game.model.items").held_by(night.campaign, ev.actor)
+    elseif ev.kind == "narrate" and (from(death_data.PACK_SHARED or {}, ev.text) or from(death_data.PACK_LEFT or {}, ev.text)) then
+        n.pack_said = true
     elseif ev.kind == "npc" and ev.cast == "mus_flitwidget" then
         local gl = adventure.data.people_lines.mus_flitwidget.grief
         local grief = gl and gl[1] and gl[1].text or {}
@@ -497,6 +517,20 @@ local function night_done(R, night, rep, w)
     local where = R.tag .. " W" .. w
     if not n.wake_at and not night.end_early then
         fail("A1", where .. ": a hero died with a goodbye, and there was no wake")
+    end
+    -- (What the dead carried is settled out loud, never left in their seat for whoever sits there next.)
+    for key, had in util.sorted_pairs(n.packs or {}) do
+        local still = #require("game.model.items").held_by(night.campaign, key)
+        local pc = night.pcs and night.pcs[key]
+        if not (pc and pc.dead) then
+            -- (brought back: still theirs)
+        elseif still > 0 then
+            fail("A1", where .. ": " .. key .. "'s hero died, and " .. still .. " thing(s) are still in that seat's pack")
+        elseif had > 0 and not n.pack_said then
+            fail("A1", where .. ": " .. key .. "'s hero died carrying " .. had .. " thing(s), and nobody said where they went")
+        elseif had > 0 then
+            add("A1", "packs_settled")
+        end
     end
     if n.grief_due and not n.grief then
         fail("A1", where .. ": a hero died, and Flitwidget thanks them without a word about it")
@@ -773,7 +807,9 @@ local function a7_watch(R, night, ev, w)
                 fail("A7", where .. ": the Sentinel was fought, and: " .. text)
             end
         end
-        if string.find(text, "The Lecturer fades", 1, true) and events_mod.any(night.campaign, { kind = "fight", where = "lecture", fate = "ran" }) then
+        local escaped = events_mod.any(night.campaign, { kind = "fight", where = "lecture", fate = "ran" })
+        if escaped and (string.find(text, "The Lecturer fades", 1, true) or string.find(text, "pages of lecture notes", 1, true)
+            or string.find(text, "notes drift to the floor", 1, true)) then
             fail("A7", where .. ": the Lecturer got away, and: " .. text)
         end
         if ev.style == "recap" then
@@ -801,6 +837,14 @@ local function a7_after(R, night, rep, w)
     local A = R.a7 or {}
     local wk = A.week and A.week[w] or { downs = {} }
     local where = R.tag .. " W" .. w
+    -- (A Lecturer who got away took his notes: no sleeping pages on her card. Batch B found it.)
+    local c = night.campaign
+    if events_mod.any(c, { kind = "fight", where = "lecture", fate = "ran", session = c.week }) then
+        add("A7", "lecturer_escapes")
+        if c.adv.marks.pages then
+            fail("A7", where .. ": the Lecturer got away, and they have his notes anyway")
+        end
+    end
     local chain = rep and rep.museum and rep.museum.chain or {}
     -- (What the night cost, from the mat: who went down, who died, a wipe, an ally lost.)
     local lead = events_mod.losses and events_mod.losses(night.campaign, night.campaign.week) or {}
@@ -961,6 +1005,7 @@ for s = 31, 38 do
 end
 for s = 31, 34 do
     run(s, "random", "every")
+    run(s, "careless", "every")
 end
 do
     local distinct = 0
@@ -1081,6 +1126,46 @@ case("A1", function()
         end
     end
     add("A1", "case_dead_oswin")
+end)
+
+-- A1: Oswin dies carrying the bracelet and a healing potion. They're shared out, out loud, to friends whose
+-- heroes can act (the bracelet to whoever can use it), the log says they were given, and nothing's left in
+-- Sam's seat for the hero who sits there next week.
+case("A1", function()
+    local items = require "game.model.items"
+    local death = require "game.model.death"
+    local c, night = first_room(73)
+    local sam = c:player("sam")
+    for _, it in ipairs(items.held_by(c, "sam")) do
+        it.holder = "mara"
+    end
+    items.give(c, "bracelet", "sam", "given")
+    local before = #items.held_by(c, "sam")
+    night.watching = { sam = true }
+    local out = drive(night, function()
+        death.settle_pack(night, sam)
+    end)
+    if #items.held_by(c, "sam") > 0 then
+        fail("A1", "case: Oswin's pack is still in Sam's seat")
+    end
+    local said = false
+    for _, e in ipairs(out) do
+        said = said or (e.kind == "narrate" and from(death_data.PACK_SHARED or {}, e.text))
+    end
+    if not said then
+        fail("A1", "case: Oswin's things changed hands and nobody said so")
+    end
+    local it = items.holding(c, "bracelet")
+    if not it or it.holder == "sam" then
+        fail("A1", "case: the bracelet didn't go to a friend")
+    end
+    if not events_mod.any(c, { kind = "get", how_got = "given", whom = "sam" }) then
+        fail("A1", "case: the log doesn't say Oswin's things were given on")
+    end
+    if before == 0 then
+        fail("A1", "case: Oswin had nothing to begin with")
+    end
+    add("A1", "case_pack_settled")
 end)
 
 -- A3: Owen the Steam Mech is destroyed in a lost fight in her lair, along with the Knight of Shades and a

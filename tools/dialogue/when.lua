@@ -1427,6 +1427,8 @@ local function card_line(p)
             return R("At the end of " .. util.join_names(list, "or") .. ", if it went well, as the Franc is counted", "Always")
         elseif f == "lost" then
             return R("At the end of " .. rn .. ", if it went badly", "Always")
+        elseif f == "ran" then
+            return R("At the end of " .. rn .. ", if it went well but the one who'd have dropped it got away", "Always")
         end
     end
     return nil
@@ -1795,6 +1797,10 @@ local function death_line(p)
         end
         table.sort(who)
         return R("The night after a hero dies for good, as their new hero turns up, if it's " .. util.join_names(who, "or"), "Always")
+    elseif f == "PACK_SHARED" then
+        return R("When a hero dies for good: the friends share out what they carried, out loud", one_of(#D.PACK_SHARED))
+    elseif f == "PACK_LEFT" then
+        return R("When a hero dies for good and nobody's left standing to take what they carried", one_of(#D.PACK_LEFT))
     elseif f == "LAST_WORDS" then
         local key = CLASS_KEY[p[2]]
         return R("When " .. HERO[key] .. " dies and you say goodbye: " .. NAME[key] .. "'s last words", one_of(#D.LAST_WORDS[p[2]]))

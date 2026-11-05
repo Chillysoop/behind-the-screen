@@ -176,10 +176,10 @@ M.cards = {
       win = "The drone stops mid-word. The Lecturer fades, and three pages of notes drift to the floor.",
       -- (He got away: not "fades", not "silenced". Round three, B16.)
       win_if = { { when = { event = { kind = "fight", where = "lecture", fate = "ran" } },
-                   text = "The Lecturer drifts off through the wall, still droning, and three pages of notes flutter down behind him." } },
+                   text = "The Lecturer drifts off through the wall, still droning, his notes clutched to his chest." } },
       lose = "They stagger out yawning, with the drone still going behind the door.",
       got = "the Lecturer's notes",
-      got_if = { { when = { event = { kind = "fight", where = "lecture", fate = "ran" } }, text = "the notes the Lecturer dropped as he fled" } } },
+      got_if = { { when = { event = { kind = "fight", where = "lecture", fate = "ran" } }, text = "an empty lecture theatre" } } },
     { id = "mus_settle_up", kind = "goal", ask = "about the reward, and what comes next", name = "Settle up with Flitwidget",
       fits = { "social", "downtime" }, tags = { "cozy", "loot" },
       line = "Goal: collect the reward, and hear what comes next.",
@@ -300,7 +300,9 @@ M.cards = {
     { id = "mus_sleep_notes", kind = "reward", name = "Three pages of lecture notes", fits = { "combat", "social" },
       tags = { "loot", "funny" }, meters = { reward = 6 },
       line = "three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line.", got = "the Lecturer's notes",
-      lost = "" },
+      lost = "",
+      -- (The one who'd have dropped it got away with it: round three, B16.)
+      ran = "No notes: the Lecturer took them with him." },
     { id = "mus_quiet", kind = "reward", name = "A quiet museum", fits = { "set_piece" },
       tags = { "heart" }, meters = { reward = 8 },
       line = "a museum that's quiet again, every exhibit back where it belongs.", got = "a quiet museum",

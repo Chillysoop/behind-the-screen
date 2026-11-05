@@ -96,4 +96,17 @@ M.INTRO = {
 }
 M.INTRO_SPOTLIGHT = 14
 
+-- What the dead hero carried, settled out loud (death.settle_pack: round three, A1). {char}: who died;
+-- {gets}: "Pip takes the bracelet; Brannoc takes a healing potion".
+M.PACK_SHARED = {
+    "They share out what {char} carried: {gets}.",
+    "Quietly, {char}'s pack is shared out: {gets}.",
+    "Nobody wants to, but somebody has to: {gets}. It's what {char} would have wanted.",
+}
+M.PACK_LEFT = {
+    "What {char} carried stays with {char_them}.",
+    "Nobody touches {char}'s pack. It stays where {char_they} fell.",
+    "{char}'s things stay with {char_them}.",
+}
+
 return M

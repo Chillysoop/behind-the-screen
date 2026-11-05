@@ -143,7 +143,7 @@ function M.think(night, p, need, opts)
     local answers = {}
     for _, aid in ipairs(def.answers) do
         local a = DATA.answers[aid]
-        if M.offered(night, aid) then
+        if M.offered(night, aid, p.key) then
             table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
         end
     end
@@ -171,8 +171,15 @@ end
 -- Still something to answer? (A thought passes when its scene ends, or when what it was about happens.)
 -- An answer that can still do what it says tonight: the break can't come sooner once it's been.
 local AFTER_BREAK_GONE = { snack = true, early_break = true }
-function M.offered(night, aid)
+-- (Answers that have their hero do something, notice something or talk in character: not while that hero
+-- is dead, down or stone. Round three, A1: "A question just for Oswin, in a new voice. Sam answers it in
+-- character", with Oswin dead on the floor.)
+M.HERO_ACTS = { ask = true, detail = true, talk = true, prize = true, next_moment = true, early_moment = true }
+function M.offered(night, aid, who)
     if AFTER_BREAK_GONE[aid] and (night.had_break or night.break_soon) then
+        return false
+    end
+    if who and M.HERO_ACTS[aid] and not require("game.model.able").can_act(night, who) then
         return false
     end
     return true
@@ -318,7 +325,7 @@ function M.answers_for(night, id)
     local v = p and vars(p) or {}
     local out = {}
     for _, aid in ipairs((DATA.needs[sn.need] or {}).answers or {}) do
-        if M.offered(night, aid) then
+        if M.offered(night, aid, t.who) then
             table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
         end
     end
