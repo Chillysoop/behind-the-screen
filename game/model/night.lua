@@ -178,6 +178,17 @@ end
 M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, ruling = 2.5,
                 roll_where = 1.5, turn = 1.0, round = 0.6, dice = 1, intro = 0.5, cinematic = 3 }
 
+-- The small rolls around a card or a split (poking around for a find, a hero alone) on their own dice, as
+-- the thoughts' reads are: a find's roll never changes how the night's fights and big rolls fall, so the
+-- same seed plays the same way it did before there was one.
+function M:side_dice()
+    if not self.side_rng then
+        local c = self.campaign or {}
+        self.side_rng = require("game.model.rng").new((c.seed or 1) * 6113 + (c.week or 1) * 92821 + 29)
+    end
+    return self.side_rng
+end
+
 -- A roll of its own for something that's only how a line is said or what the DM guesses (in character
 -- or not, the DM's hunch at a fork): from the night's clock, the week and a key, so it doesn't draw on
 -- the night's dice and change what happens. 0 to 1.
@@ -2758,6 +2769,11 @@ function M:headache_ok(needs, sc)
     if needs.players and #self.players < needs.players then
         return false
     end
+    -- (A calm card is a light one: not on a night a hero died or the table lost, able.somber. The gate
+    -- after Conner's second pass, 33 random: the party split up for a look around right after a death.)
+    if needs.calm and able.somber(self) then
+        return false
+    end
     if needs.archetype then
         local any = false
         for _, p in ipairs(self.players) do
@@ -4377,7 +4393,7 @@ function M:split_off(sc)
             self:say(util.fill(self:fresh(M.SPLIT_CUT, "split_cut"), vars), "narration")
             local name, mod = self:best_skill(p, { "perception", "investigation" })
             mod = (mod or 0) + self:take_learned(p)
-            local d = self.rng:d20()
+            local d = self:side_dice():d20()
             local total = d + mod
             self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception"), what = "split" })
             if total >= 13 then

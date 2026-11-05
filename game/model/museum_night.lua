@@ -1439,7 +1439,7 @@ local function poke_roll(night, p)
     local skills = require "game.rules.skills"
     local name, mod = night:best_skill(p, { "investigation" })
     mod = (mod or 0) + night:take_learned(p)
-    local d = night.rng:d20()
+    local d = night:side_dice():d20()
     local total = d + mod
     -- (`what`: a roll a card is about, not one of table life's small moments, which wait out 4x.)
     night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "investigation"), what = "find" })
