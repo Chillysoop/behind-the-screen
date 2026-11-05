@@ -127,6 +127,14 @@ function M.on_death(night, p, c, sc)
     table.insert(campaign.deaths, rec)
     local dev = { who = p.key, text = p.char .. " died. " .. util.capitalize(rec.how) .. ".", weight = 10 }
     night:event("death", dev)
+    -- (In the event log, the one record: a beat that turns the fight that took them, told first in the
+    -- recap, and what the people there remember. Round three, B1 and A7.)
+    local events = require "game.model.events"
+    local loc = sc and sc.comps and sc.comps.location
+    local room = loc and (loc.short or util.lower_first(loc.name)) or "the museum"
+    rec.ev = events.add(campaign, { kind = "death", who = p.key, where = sc and sc.room, beat = true, lead = true,
+                                    from = sc and sc.fight_ev, how = "but", outcome = nil,
+                                    text = events.word("death", { char = p.char, room = room }, "{char} died") }).id
     -- What came of it, for the recap (October 15: "We lost Brannoc", when he came back), and the
     -- canon line the death save wrote ("Brannoc died at ...") says how it ended.
     dev.outcome = outcome
@@ -137,6 +145,14 @@ function M.on_death(night, p, c, sc)
                 night.canon[i] = night.canon[i] .. after
                 break
             end
+        end
+    end
+    if outcome == "scar" and rec.ev then
+        -- (Brought back: the log says so, and it's no longer a death.)
+        local ev = events.get(campaign, rec.ev)
+        if ev then
+            ev.kind, ev.lead, ev.back = "back", nil, true
+            ev.text = events.word("came_back", { char = p.char }, "{char} nearly died, and came back")
         end
     end
     if outcome == "goodbye" or outcome == "quick" then
@@ -157,8 +173,11 @@ function M.fall(night, p, rec, goodbye)
     local campaign = night.campaign
     if goodbye then
         local lines = data.LAST_WORDS[p.class] or data.LAST_WORDS.fighter
-        night:emit({ kind = "say", who = p.key, text = lines[night.rng:int(1, #lines)], ic = true })
-        night:say(util.fill(data.WAKE, { char = p.char }), "narration")
+        night:emit({ kind = "say", who = p.key, text = lines[night.rng:int(1, #lines)], ic = true, farewell = true })
+        -- (The wake comes once the danger's over, back where they rest: M.hold_wake. Round three, B1: it
+        -- was held while Euryale still knelt in her lair.)
+        night.wake_due = night.wake_due or {}
+        table.insert(night.wake_due, p.char)
         score.add(p, "spotlight", data.GOODBYE.spotlight)
         score.add(p, "story", data.GOODBYE.story)
         for _, q in ipairs(night.players) do
@@ -180,6 +199,88 @@ function M.fall(night, p, rec, goodbye)
     campaign.new_char[p.key] = { week = campaign.week, was = p.char }
     table.insert(night.canon, p.char .. " " .. rec.how)
     M.after_fall(night, p)
+    M.settle_pack(night, p)
+end
+
+-- What the dead hero carried (round three, A1, found by batch B: the bracelet showed on "Sister Aldith's
+-- wrist", the new hero in the dead one's seat): it's settled out loud, never inherited. The friends whose
+-- heroes can act share it out, a magic thing to whoever can use it, the rest to the closest friend; with
+-- nobody left to take it, it stays with them. Each change of hands is in the log ("given", from the dead).
+-- The words: game/data/death.lua PACK_SHARED, PACK_LEFT.
+function M.settle_pack(night, p)
+    local campaign = night.campaign
+    local items = require "game.model.items"
+    local events = require "game.model.events"
+    local held = items.held_by(campaign, p.key)
+    if #held == 0 then
+        return
+    end
+    local able = require "game.model.able"
+    local here = {}
+    for _, q in ipairs(night.players) do
+        if q ~= p and able.can_act(night, q) then
+            table.insert(here, q)
+        end
+    end
+    if #here == 0 then
+        for _, it in ipairs(held) do
+            it.left_with = p.key
+            it.gone = campaign.week or 0
+        end
+        night:say(night:fresh(data.PACK_LEFT, "pack_left"), "narration", { char = p.char })
+        return
+    end
+    -- (The friend closest to them takes what isn't for anyone in particular.)
+    local rapport = require "game.model.rapport"
+    local close, best = here[1], nil
+    for _, q in ipairs(here) do
+        local r = rapport.rel(campaign, q.key, p.key)
+        local v = type(r) == "table" and (r.rapport or 0) or 0
+        if not best or v > best then
+            close, best = q, v
+        end
+    end
+    local gets, order = {}, {}
+    for _, it in ipairs(held) do
+        local to = close
+        if items.def(it.id) then
+            to = items.pick_holder(campaign, it.id, here) or close
+        end
+        it.holder = to.key
+        items.log_get(campaign, it, { id = p.key, name = p.char }, "given")
+        local about = items.about(it)
+        local t = it.thing and items.thing(it.thing)
+        local name = (t and util.lower_first(t.name or t.title)) or util.lower_first(about.name or "something")
+        if not gets[to.key] then
+            gets[to.key] = {}
+            table.insert(order, to)
+        end
+        table.insert(gets[to.key], name)
+    end
+    local parts = {}
+    for _, q in ipairs(order) do
+        table.insert(parts, q.char .. " takes " .. util.join_names(gets[q.key]))
+    end
+    night:say(night:fresh(data.PACK_SHARED, "pack_shared"), "narration", { char = p.char, gets = table.concat(parts, "; ") })
+end
+
+-- The wake (round three, B1): held where they rest, once the fight that took them is over and
+-- whatever came after it is settled (the gift shop, or the night's end), never mid-lair. The
+-- adventure's words (data.WAKE); whoever runs the place says something (people_lines `grief`).
+function M.hold_wake(night)
+    local due = night.wake_due
+    if not due or #due == 0 then
+        return false
+    end
+    night.wake_due = nil
+    local names = util.join_names(due)
+    night:say(util.fill(data.WAKE, { char = names }), "narration")
+    local ok, people = pcall(require, "game.model.people")
+    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil, { char = names }) or nil
+    if line then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
+    end
+    return true
 end
 
 -- The table, after (the playtest, November 3: "does the player immediately leave the table? How
@@ -224,11 +325,13 @@ function M.after_fall(night, p)
                    text = "{actor_char} is gone, but {actor} isn't going anywhere. What does {actor} do for the rest of the night?",
                    options = {} }
     if ally then
+        -- (A card's sub isn't filled in for you: said here with their name.)
         table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.",
-                                     sub = ally.name .. " is in every fight; {actor} runs " .. util.pronoun_of(ally.name).them .. ".",
+                                     sub = ally.name .. " is in every fight; " .. p.name .. " runs " .. util.pronoun_of(ally.name).them .. ".",
                                      pilot = ally.id, effects = { { "actor", fun = 5, spotlight = 4 } } })
     end
-    table.insert(card.options, { label = "{actor} helps you run the monsters.", sub = "{Friend_they'll} love it. The others might find the monsters a little meaner.",
+    table.insert(card.options, { label = "{actor} helps you run the monsters.",
+                                 sub = util.fill("{Friend_they'll} love it. The others might find the monsters a little meaner.", { actor = p.name }),
                                  effects = { { "actor", fun = 4, social = 3 }, { "others", challenge = 2 } }, monsters = true })
     table.insert(card.options, { label = "{actor} watches, and starts on a new hero.", effects = { { "actor", fun = -1, investment = 2 } } })
     night.actor = p

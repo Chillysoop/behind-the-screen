@@ -81,9 +81,11 @@ end
 
 -- Who walks up to them: the hero whose story this is, else whoever at the table talks to everyone.
 local function talker(night, sc, cast)
+    -- (Only a hero who can act walks up: round three, A1. A dead Oswin greeted Flitwidget.)
+    local here = night.at_hand and night:at_hand() or night.players
     for _, c in util.sorted_pairs(sc.comps) do
         if c.thread and not night:muted(c) then
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(here) do
                 if p.key == c.thread then
                     return p
                 end
@@ -98,7 +100,7 @@ local function talker(night, sc, cast)
     -- Whoever likes talking to people, the ones short on the spotlight tonight first: the same
     -- player doing every voice is how one player ends up running the show.
     local list, weights = {}, {}
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(here) do
         local like = 0.4 + score.arch(p, "method_actor") * 1.2 + score.arch(p, "storyteller") + score.arch(p, "instigator") * 0.5
             + score.arch(p, "casual") * 0.3
         local short = math.max(0.2, (110 - (p.m and p.m.spotlight or 50)) / 60)
@@ -456,6 +458,9 @@ function M.boss_turn(night, f, b, c)
         end
     end
     -- The table reacts.
+    -- (Who it goes for holds until it's had a go at them: round three, A5, the knight walked toward
+    -- Thessaly and then swung at Oswin. fight.lua's before_turn.)
+    c.dm_keep = (o.kind == "clever" or o.kind == "cruel") and o.target or nil
     if o.kind == "clever" then
         c.dm_target = o.target
         if threat_p then

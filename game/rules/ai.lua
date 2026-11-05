@@ -625,9 +625,17 @@ local function monster_turn(b, c, plain)
         -- Nothing in reach: shoot if possible, or Dash to close the gap. (The one the DM told it to
         -- go for, if it can shoot them: not whoever's nearest. The second playtest review, F12.)
         local near = by_distance(b, c, enemies(b, c))[1]
-        local told = c.dm_target
-        if ranged and told and not told.dead and not told.down and in_shot(b, c.x, c.y, told, ranged.range[2]) then
+        local keen = told
+        told = told and not told.dead and not told.removed and (not told.down or c.dm_finish) and told or nil
+        if ranged and told and not told.down and in_shot(b, c.x, c.y, told, ranged.range[2]) then
             near = told
+        elseif told and keen then
+            -- (Told who to go for, by the DM or a taunt, and they're out of reach: it keeps after them,
+            -- and doesn't turn on whoever's in its way. Round three, A5: "Go for Brannoc", then two
+            -- swings at Oswin.)
+            c.turn.move = b:speed(c)       -- Dash
+            approach(b, c, told, reach)
+            return
         end
         if near and near ~= told and b:dist(c, near) <= reach and melee then
             t, in_reach = near, true

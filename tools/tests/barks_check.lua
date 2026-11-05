@@ -106,7 +106,7 @@ local function play(seed)
         end
         local night = c:start_night()
         local ev = night:advance()
-        local guard, kb_other, last_steps = 0, nil, nil
+        local guard, kb_other, last_steps, last_who = 0, nil, nil, nil
         while ev.kind ~= "done" and guard < 6000 do
             guard = guard + 1
             local answer
@@ -127,7 +127,8 @@ local function play(seed)
                     for i, o in ipairs(opts) do
                         if string.find(o.label or "", "^Sure") then
                             answer = i
-                            kb_other = { lander = night.actor and night.actor.char, teller = night.other and night.other.key }
+                            -- (Who landed it: their hero, or the ally they play: round three, A5.)
+                            kb_other = { lander = night.kb_lander or (night.actor and night.actor.char), teller = night.other and night.other.key }
                         end
                     end
                     shares = shares + 1
@@ -146,7 +147,21 @@ local function play(seed)
             elseif ev.kind == "roll" then
                 answer = r:d20()
             elseif ev.kind == "turn" then
-                last_steps = ev.steps
+                -- (A card in the middle of a turn puts it on the mat in two halves: the crit bark comes after
+                -- the second, about the whole turn.)
+                if last_steps and ev.who and ev.who == last_who then
+                    local all = {}
+                    for _, s in ipairs(last_steps) do
+                        table.insert(all, s)
+                    end
+                    for _, s in ipairs(ev.steps or {}) do
+                        table.insert(all, s)
+                    end
+                    last_steps = all
+                else
+                    last_steps = ev.steps
+                end
+                last_who = ev.who
                 if ev.say then
                     says = says + 1
                     local low = string.lower(ev.say.text or "")

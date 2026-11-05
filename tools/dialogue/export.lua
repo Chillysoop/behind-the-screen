@@ -40,7 +40,7 @@ local CODE_TABLES = {
       keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "BREAK_START", "BREAK_END", "BREAK_LOGS", "WEEKLY", "GENTLE_STOP" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",
-               "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT" } },
+               "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT", "LATE_LINES", "LATE_HIGH", "RESEARCH_LINES" } },
     { file = "game/model/items.lua", mod = "game.model.items", group = "Game night", keys = { "GOT" } },
 }
 -- Parts of a file listed under another file: the module pulls in its small moments, which are listed under

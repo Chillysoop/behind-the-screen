@@ -422,7 +422,7 @@ L.boards = {
         source = "adventure", credit = "The Museum of Nightmares by Luke Russell (DMs Guild): the Area 3 map, the lair of the gorgon (10A)",
         about = "Smoke, shattered pottery, six frozen visitors, and Euryale waiting on her couch.",
         tags = { "indoor", "museum", "top floor", "boss" },
-        party = { 6, 7 }, npc = { 16, 8 }, foes = { 16, 6 },
+        party = { 6, 7 }, npc = { 14, 9 }, foes = { 15, 6 },
         features = {
             { id = "floor", kind = "floor_marble", at = { { 1, 1, 0 } }, base = true, words = { "floor", "mosaic floor", "smoke", "smoky" }, say = "a mosaic floor under a haze of smoke" },
             { id = "walls", parts = { { kind = "wall_diag", at = {

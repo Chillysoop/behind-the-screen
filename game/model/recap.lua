@@ -20,7 +20,7 @@ M.TEMPLATES = {
              "{who}'s die came up 20. Nobody has stopped talking about it.", "{char} landed the roll of the night.",
              "The 20 that {char} rolled will be in the group chat for weeks." },
     fumble = { "{char} rolled a 1. Of course {char} did.", "A natural 1 for {char}, at the worst moment.",
-               "{who}'s die betrayed them: a 1.", "{char} found out what a 1 looks like up close." },
+               "{who}'s die betrayed {who_them}: a 1.", "{char} found out what a 1 looks like up close." },
     jail = { "{who}'s d20 went to dice jail.", "One d20 is serving time tonight: {who}'s.", "{who} jailed a die. It had it coming.",
              "Dice jail claimed {who}'s d20." },
     down = { "{char} went down, and the table held its breath.", "{char} hit the floor mid-fight.",

@@ -18,6 +18,7 @@ local maps = require "game.model.maps"
 local museum = require "game.rules.museum"
 local barks = require "game.model.barks"
 local BARKS = require "game.data.barks"
+local able = require "game.model.able"
 
 local M = {}
 
@@ -54,6 +55,75 @@ function M.squares_near(blocked, taken, ax, ay, n, spread, W, H)
             if #out >= n then
                 return out
             end
+        end
+    end
+    return out
+end
+
+-- Squares near (ax, ay) where every mini shows (round three, A1 and engine_screens 4: "Thessaly is behind
+-- an interior wall, only her hat shows"; "Oswin is mostly behind Pip"). The camera looks from the south
+-- (a higher y is nearer it), so a mini hides one standing in the same or the next column a row or two
+-- behind it, and a wall in front hides whoever's behind it. First pass: none of that, against the
+-- squares already chosen and `others` (minis standing there already); then as squares_near would.
+function M.squares_shown(blocked, taken, ax, ay, n, W, H, others)
+    local out = {}
+    -- (Only squares in the same room as the anchor: the corners outside an octagon's walls are open
+    -- squares too, and nobody can stand there.)
+    local inside = {}
+    if ax >= 1 and ay >= 1 and ax <= W and ay <= H and not blocked[ax * 1000 + ay] then
+        local queue, head = { { ax, ay } }, 1
+        inside[ax * 1000 + ay] = true
+        while head <= #queue do
+            local q = queue[head]
+            head = head + 1
+            for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                local x, y = q[1] + d[1], q[2] + d[2]
+                local k = x * 1000 + y
+                if x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not inside[k] then
+                    inside[k] = true
+                    table.insert(queue, { x, y })
+                end
+            end
+        end
+    else
+        inside = nil
+    end
+    local function free(x, y)
+        local k = x * 1000 + y
+        return x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not taken[k] and (not inside or inside[k])
+    end
+    local function shows(x, y)
+        if blocked[x * 1000 + y + 1] then
+            return false               -- (a wall right in front of it)
+        end
+        for _, list in ipairs({ out, others or {} }) do
+            for _, s in ipairs(list) do
+                if math.abs(s[1] - x) <= 1 and math.abs(s[2] - y) <= 2 then
+                    return false
+                end
+            end
+        end
+        return true
+    end
+    for r = 0, math.max(W, H) do
+        for dy = -r, r do
+            for dx = -r, r do
+                if math.max(math.abs(dx), math.abs(dy)) == r and #out < n then
+                    local x, y = ax + dx, ay + dy
+                    if free(x, y) and shows(x, y) then
+                        table.insert(out, { x, y })
+                        taken[x * 1000 + y] = true
+                    end
+                end
+            end
+        end
+        if #out >= n or r > 6 then
+            break                       -- (too far from where they should be: crowd in, as before)
+        end
+    end
+    if #out < n then
+        for _, sq in ipairs(M.squares_near(blocked, taken, ax, ay, n - #out, 1, W, H)) do
+            table.insert(out, sq)
         end
     end
     return out
@@ -561,6 +631,23 @@ local function player_of(night, c)
     end
 end
 
+-- Who plays a creature fighting on the party's side that isn't a hero: the friend flying it (its pilot),
+-- else the companion's owner. nil: it's the DM's to run (the Mech, unless a friend took it over).
+function M.ally_player(night, c)
+    if not c or c.pc then
+        return nil
+    end
+    if c.pilot then
+        return night.campaign:player(c.pilot)
+    end
+    for _, e in ipairs(require("game.model.companions").active(night.campaign, night.players)) do
+        if e.monster and e.monster == c.monster_id and e.owner then
+            return night.campaign:player(e.owner)
+        end
+    end
+    return nil
+end
+
 -- The Museum of Nightmares (v2): the fight's big moments, logged the way a hero going down or a
 -- crit is (a night event, a highlight for the biggest) and played on the players' faces. Each
 -- lands in the night's ledger as ev = "moment" with museum = the kind and tags = { "museum", kind }.
@@ -734,10 +821,181 @@ function M.charmed_turn(night, f, who, steps)
     night:say(util.fill(night:fresh(again and M.CHARMED_AGAIN or BARKS.charmed_captions, again and "charmed_again" or "charmed_caption"), v), "dm")
 end
 
+-- What the table hears of a fight's big moments (round three, A4, the third playtest: "the mirror,
+-- Hyper Destroyer Mode and a natural-20 death save happen only on the mat"). One owner: every moment
+-- the rules emit (game/rules/museum.lua's features) that the table can't miss is said here, once, in
+-- the order it happened, from BARKS.told (three ways each). Returns what it said, by kind.
+local TOLD = BARKS.told
+local function told(night, key, vars)
+    local line = night:fresh(TOLD[key], "told_" .. key)
+    if line then
+        night:say(util.fill(line, vars or {}), (key == "petrify" or key == "stone" or key == "veil" or key == "charmed"
+            or key == "overheat" or key == "power_down" or key == "friendly_down" or key == "friendly_fire") and "bad" or "good")
+    end
+    return line
+end
+M.told_line = told
+
+local function names_list(list)
+    return util.join_names(list)
+end
+
+function M.tell_moments(night, f, steps)
+    local said = {}
+    local st = night.campaign and night.campaign.adv
+    local mech = st and st.mech_name or "The Mech"
+    local function is_pc(c)
+        return c and c.pc
+    end
+    for i, s in ipairs(steps) do
+        local c = s.id and f.by_ref[s.id]
+        local kind = s.museum
+        if kind == "veil" and c and not said.veil then
+            said.veil = told(night, "veil")
+        elseif kind == "petrify" and c then
+            -- (Who her stare caught this turn: everyone whose feet started to go grey, but her own.)
+            local caught = {}
+            for j = i + 1, #steps do
+                local t = steps[j]
+                local tc = t.id and f.by_ref[t.id]
+                if t.museum == "petrifying" and tc and tc ~= c then
+                    table.insert(caught, tc.name)
+                elseif t.museum == "petrify" then
+                    break
+                end
+            end
+            if #caught > 0 then
+                said.petrify = told(night, "petrify", { caught = names_list(caught), start = #caught == 1 and "starts" or "start" })
+            else
+                said.petrify = told(night, "petrify_missed")
+            end
+        elseif kind == "mirror" and c then
+            local it, key = require("game.model.items").holding(night.campaign, "mirror")
+            local hp = key and night.campaign:player(key)
+            -- (Its holder down or gone: whoever's nearest grabs it. Round three, A1.)
+            if hp and not able.can_fight(night, hp) then
+                local here = night:at_hand(true)
+                hp = here[1]
+            end
+            local holder = (hp and hp.char) or "Someone"
+            told(night, "mirror", { holder = holder })
+            -- (Did it take? Her own save, a step or two on.)
+            local caught = false
+            for j = i + 1, #steps do
+                local t = steps[j]
+                if t.museum == "petrifying" and t.id == s.id then
+                    caught = true
+                end
+            end
+            said.mirror = told(night, caught and "mirror_caught" or "mirror_missed")
+        elseif kind == "petrified" and c then
+            if is_pc(c) then
+                said.stone = told(night, "stone", { char = c.name, stays = "stays" })
+            elseif c.boss then
+                said.self_stone = told(night, "self_stone")
+            else
+                said.stone = told(night, "stone_other", { char = barks.foe_label(c) and util.capitalize(barks.foe_label(c)) or c.name })
+            end
+        elseif kind == "freed" and is_pc(c) then
+            said.freed = told(night, "freed", { char = c.name })
+        elseif kind == "charmed" and is_pc(c) then
+            local by = s.by and f.by_ref[s.by]
+            local who = (by and barks.foe_label(by)) or "Euryale"
+            said.charmed = told(night, "charmed", { char = c.name, charmer = who, Charmer = util.capitalize(who) })
+        elseif kind == "hyper" and c then
+            said.hyper = told(night, "hyper", { mech = c.name or mech })
+        elseif kind == "overheat" and c then
+            said.overheat = told(night, "overheat", { mech = c.name or mech })
+        elseif kind == "power_down" and c then
+            local t = type(s.target) == "string" and f.by_ref[s.target] or nil
+            said.power_down = told(night, "power_down", { mech = c.name or mech, target = t and t.name or "its commander" })
+        elseif s.kind == "death_save" and s.roll == 20 and is_pc(c) then
+            said.nat20 = told(night, "nat20_save", { char = c.name })
+            f.nat20_up = f.nat20_up or {}
+            f.nat20_up[s.id] = true
+        end
+    end
+    return said
+end
+
+-- Friendly fire (round three, A2, the third playtest: "Thessaly's own Shatter downs Oswin, the hit that
+-- starts his death, and nobody at the table hears it"): a hero's spell or attack that catches their own
+-- side is said aloud, the friend it hit says something to the one who did it, and they own it. In the
+-- fight's record for the recap (night.fight_record.friendly).
+function M.friendly_fire(night, f, steps, who)
+    if not (who and who.pc) then
+        return nil
+    end
+    local hit, downed, seen, spell = {}, {}, {}, nil
+    local victims = {}
+    for _, s in ipairs(steps) do
+        if s.kind == "spell" and s.id == who.mini then
+            spell = spell or s.name
+        elseif s.kind == "damage" and s.src == who.mini and s.id ~= who.mini then
+            local t = f.by_ref[s.id]
+            if t and t.side == who.side and not seen[t] then
+                seen[t] = true
+                table.insert(hit, t.name)
+                table.insert(victims, t)
+                if (s.hp or 1) <= 0 then
+                    table.insert(downed, t.name)
+                end
+            end
+        end
+    end
+    if #hit == 0 then
+        return nil
+    end
+    local caster = player_of(night, who)
+    local v = { char = who.name, spell = spell or "attack", Spell = spell or "The attack", hit = names_list(hit),
+                is = #hit == 1 and "is" or "are", downed = names_list(downed), goes = #downed == 1 and "goes" or "go" }
+    if spell == nil then
+        v.Spell = who.name .. "'s swing"
+    end
+    if #downed > 0 then
+        v.is = #downed == 1 and "is" or "are"
+        told(night, "friendly_down", v)
+    else
+        told(night, "friendly_fire", v)
+    end
+    -- The friend it hit (the one it dropped, first), to the one who did it; then them.
+    local hurt
+    for _, t in ipairs(victims) do
+        local q = t.pc and player_of(night, t)
+        if q and q ~= caster and (not hurt or (t.hp or 1) <= 0) then
+            hurt = q
+        end
+    end
+    if hurt and caster then
+        night:emit({ kind = "say", who = hurt.key, ic = false, line = "told.friendly_hit",
+                     text = util.fill(night:fresh(TOLD.friendly_hit, "told_friendly_hit"), { caster = caster.name, Caster = caster.name }) })
+    end
+    if caster then
+        night:emit({ kind = "say", who = caster.key, ic = false, line = "told.friendly_sorry",
+                     text = night:fresh(#downed > 0 and TOLD.friendly_sorry_down or TOLD.friendly_sorry,
+                                        #downed > 0 and "told_friendly_sorry_down" or "told_friendly_sorry") })
+        local poses = { [caster.key] = "gasp" }
+        if hurt then
+            poses[hurt.key] = "arms"
+        end
+        night:react(poses)
+    end
+    local rec = night.fight_record
+    if rec then
+        rec.friendly = rec.friendly or {}
+        table.insert(rec.friendly, { by = who.mini, char = who.name, spell = spell, hit = hit, downed = downed })
+    end
+    f.friendly = f.friendly or {}
+    table.insert(f.friendly, { by = who.mini, char = who.name, spell = spell, hit = hit, downed = downed })
+    return #downed > 0 and "down" or "hit"
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
     local poses, line = M.museum_moments(night, f, steps), nil
+    local said = M.tell_moments(night, f, steps)
+    local ff = M.friendly_fire(night, f, steps, who)
     local crit, kill, downed, hurt, healed_up, boss_dead = false, false, nil, nil, nil, false
     local kill_name
     for _, s in ipairs(steps) do
@@ -772,11 +1030,6 @@ local function react(night, f, steps, who)
             if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
                 night:say(util.fill("{char} shakes it off: the grey drains out of {char_their} legs, and {char_they} can move again.", { char = c.name }), "good")
             end
-        elseif s.kind == "feature" and s.museum == "petrified" then
-            local c = f.by_ref[s.id]
-            if c and c.pc then
-                night:say(util.fill("{char} is stone now, mid-step. Only Euryale falling will bring {char_them} back.", { char = c.name }), "bad")
-            end
         end
     end
     if downed and downed.pc then
@@ -797,8 +1050,8 @@ local function react(night, f, steps, who)
         end
         local medic
         for _, p in ipairs(night.players) do
-            if p.class == "cleric" and p ~= victim then
-                medic = p
+            if p.class == "cleric" and p ~= victim and able.can_fight(night, p) then
+                medic = p          -- (a healer who's down or stone isn't coming: round three, A1)
             end
         end
         if medic and night.rng:chance(0.6) then
@@ -845,7 +1098,9 @@ local function react(night, f, steps, who)
         local back = player_of(night, healed_up)
         if back then
             poses[back.key] = "cheer"
-            line = { back, night.rng:chance(0.5) and "up_again" or "thanks" }
+            -- (Up on their own natural 20: nobody to thank.)
+            local own = f.nat20_up and f.nat20_up[healed_up.mini]
+            line = { back, (own or night.rng:chance(0.5)) and "up_again" or "thanks" }
         end
     elseif hurt then
         local owch = player_of(night, hurt)
@@ -1152,11 +1407,16 @@ function M.run(night, sc, plan)
     -- Each hero starts the fight where their mini was standing (the playtest, November 3: "characters
     -- stay where they were instead of resetting to a cluster"): the nearest open square to it. A hero
     -- the table hasn't moved yet starts at the board's own start.
+    -- (The nearest one where every mini shows: squares_shown.)
     local party_spots = {}
+    local placed = {}
     for i, c in ipairs(night.pc_list) do
         local at = night.mini_pos and night.mini_pos[c.mini]
-        local sq = at and M.squares_near(blocked, taken, at[1], at[2], 1, 1, b.W, b.H)[1]
-        party_spots[i] = sq or M.squares_near(blocked, taken, layout.party[1], layout.party[2], 1, 1, b.W, b.H)[1]
+        local sq = at and M.squares_shown(blocked, taken, at[1], at[2], 1, b.W, b.H, placed)[1]
+        party_spots[i] = sq or M.squares_shown(blocked, taken, layout.party[1], layout.party[2], 1, b.W, b.H, placed)[1]
+        if party_spots[i] then
+            table.insert(placed, party_spots[i])
+        end
     end
     local party_out = {}
     -- Split up this scene (night.lua, "Splitting the party"): whoever wandered off isn't here yet.
@@ -1392,12 +1652,18 @@ function M.run(night, sc, plan)
         if sc_ and sc_.tgt == tgt and bb.round == sc_.round and bb.active == sc_.turn and not tgt.dead then
             return math.min(total, math.max(0, (tgt.hp or 0) + (tgt.temp or 0) - 1))
         end
+        -- (Who's about to land it: a hero, or an ally fighting with them, Telpur or the Mech, told by its
+        -- own name and played by its friend. Round three, B9: "Brannoc is about to drop the biggest
+        -- huntling", then Telpur's Pointy Toe did.)
+        local ally = src.side == "party" and not src.pc and src or nil
+        local lander = ally and M.ally_player(night, ally) or nil
         -- The boss is about to go down early.
         if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
             local rf = M.reinforcement(night, night.scene)
             local adjust = (rf == nil and { drop = { reinforce = true } })
                 or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
-            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round }, src, nil, adjust)
+            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round, actor_char = ally and ally.name or nil },
+                ally and (lander and night.pcs and night.pcs[lander.key]) or src, nil, adjust)
             if o and o.battle == "second_phase" then
                 tgt.hp = total + math.floor(tgt.hp_max * 0.5)
                 tgt.phase2 = true
@@ -1408,16 +1674,17 @@ function M.run(night, sc, plan)
             return total
         end
         -- The killing blow (B4): a boss or a villain is about to fall. Who describes it?
+        -- (An ally the DM runs lands it: the DM describes it, no card.)
         if (tgt.boss or tgt.villain) and src.side == "party" and total >= tgt.hp + (tgt.temp or 0) and not tgt.dead
-            and not tgt.phase2_pending and not f.used.killing_blow and night:room(15) then
-            local actor = player_of(night, src)
+            and not tgt.phase2_pending and not f.used.killing_blow and night:room(15) and not (ally and not lander) then
+            local actor = (ally and lander) or player_of(night, src)
             local other = night:killing_blow_other(actor)
-            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt }, src,
-                other and night.pcs and night.pcs[other.key] or nil)
+            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt, actor_char = ally and ally.name or nil },
+                (ally and night.pcs and night.pcs[actor.key]) or src, other and night.pcs and night.pcs[other.key] or nil)
             if o and o.kb then
                 -- (You hand it to the table; who tells it is theirs to settle: night:kb_share.)
-                local teller = o.kb == "actor" and night:kb_share(actor, other, tgt, f.boss_name or tgt.name) or nil
-                night:killing_blow(teller, tgt, f.boss_name or tgt.name, actor)
+                local teller = o.kb == "actor" and night:kb_share(actor, other, tgt, f.boss_name or tgt.name, ally and ally.name or nil) or nil
+                night:killing_blow(teller, tgt, f.boss_name or tgt.name, actor, ally and ally.name or nil)
             end
             return total
         end
@@ -1449,6 +1716,10 @@ function M.run(night, sc, plan)
         end
         -- The DM's call on who they go after (the tactics card) holds for every foe's turn, unless
         -- the DM ran this one themselves.
+        local k = c.dm_keep
+        if k and not c.dm_target and not k.dead and not k.removed and not k.down then
+            c.dm_target = k
+        end
         local t = f.focus_on
         if t and c.side == "foes" and not c.dm_target and not t.dead and not t.removed and not t.down then
             c.dm_target = t
@@ -1479,7 +1750,11 @@ function M.run(night, sc, plan)
 
     local opts = {}
     opts.before_round = function(bb, r)
-        night:flush_turn()
+        -- (What happened between turns, a charm from her wine among it, is told too: round three, A4.)
+        local between = night:flush_turn()
+        if between and #between > 0 then
+            M.tell_moments(night, f, between)
+        end
         night:emit({ kind = "round", round = r })
         -- The ones who split off: a cut to them, then they come running (round 3).
         if #(f.away or {}) > 0 then
@@ -1533,8 +1808,13 @@ function M.run(night, sc, plan)
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
             -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.
             if not (night.rng:chance(0.5) and night:table_behavior("combat", nil, true)) then
-                local q = night.rng:pick(night.players)
-                night:bark(q, "fight_chat", { moment = barks.from_fight(night, q) })
+                -- (Only a friend whose hero is in the fight: round three, A1, "I'm moving my mini"
+                -- while Brannoc was on the floor.)
+                local here = night:at_hand(true)
+                local q = #here > 0 and night.rng:pick(here) or nil
+                if q then
+                    night:bark(q, "fight_chat", { moment = barks.from_fight(night, q) })
+                end
             end
         end
         if r >= 2 and r % 2 == 0 and f.boss and not f.boss.dead and plan.cast then
@@ -1552,9 +1832,13 @@ function M.run(night, sc, plan)
         local rc = sc.rules_card
         local need = rc and rc.fight_needs
         local did = need and (f.happened or {})[need]
-        if r >= 2 and rc and (not need or did) and night:decision_count() < 14 and alive_foes(bb) > 0 then
-            local by = did and did.who and f.by_ref[did.who]
-            local byp = by and by.pc and player_of(night, by)
+        local by = did and did.who and f.by_ref[did.who]
+        local byp = by and by.pc and player_of(night, by)
+        -- (Who it happened to asks, once they're back in the fight: a charmed Brannoc didn't ask
+        -- about flanking the Lecturer he wouldn't fight. Round three, A1.)
+        local stuck = (byp and not able.can_fight(night, byp))
+            or (rc and rc.actor_class and night:by_class(rc.actor_class) and not able.can_fight(night, night:by_class(rc.actor_class)))
+        if r >= 2 and rc and (not need or did) and not stuck and night:decision_count() < 14 and alive_foes(bb) > 0 then
             if need == "bless" then
                 -- (Someone it blessed asks, not the one who cast it.)
                 night.actor = night:pick_actor(rc.actor, byp)
@@ -1740,6 +2024,16 @@ function M.run(night, sc, plan)
             steps = all
         end
         night.fight_acts[#night.fight_frames] = acts_of(steps)
+        -- (The DM's pick held until it went at them: done now.)
+        if c.dm_keep then
+            for _, st in ipairs(steps or {}) do
+                if (st.kind == "attack" or st.kind == "spell" or st.kind == "feature") and st.id == c.mini
+                    and st.target == c.dm_keep.mini then
+                    c.dm_keep = nil
+                    break
+                end
+            end
+        end
         M.charmed_turn(night, f, c, steps)
         if steps and #steps > 0 then
             M.record(night, f, bb, steps, c)
@@ -1845,7 +2139,10 @@ function M.run(night, sc, plan)
         c.heroic = p and p.heroic or nil
     end
     local result = b:run(opts)
-    night:flush_turn()
+    local last = night:flush_turn()
+    if last and #last > 0 then
+        M.tell_moments(night, f, last)
+    end
     -- (What they used up in it leaves their packs now: a potion drunk is gone. items.lua)
     for _, c in ipairs(night.pc_list or {}) do
         require("game.model.items").settle(c, night.campaign)

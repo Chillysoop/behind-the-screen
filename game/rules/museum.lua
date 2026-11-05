@@ -435,7 +435,10 @@ function M.euryale_turn(b, c, H)
     local t = euryale_target(b, c, open, H, c.veiled and bow.range[1] or 5)
     -- The DM ran this turn and picked who she goes for (B8): every attack goes at them, and she
     -- doesn't charm someone else instead or turn to whoever's closest (the combat audit, Nov 2).
-    local dm_t = c.dm_target ~= nil and t == c.dm_target and not t.dead and not t.removed
+    -- (A taunt holds her the same way: round three, A5.)
+    local tn = b:find_effect(c, "Taunted")
+    local told = c.dm_target or (tn and tn.taunt_by) or nil
+    local dm_t = told ~= nil and t == told and not t.dead and not t.removed
     -- One attack can be a spell: Charm Person on a fighter or rogue while the hood is on, else
     -- Poison Spray at someone close who doesn't shrug off poison.
     local charm_t
@@ -523,7 +526,8 @@ function M.euryale_turn(b, c, H)
     -- The Crown of Snakes: one more bite once the hood is off.
     if snakes then
         if not t or t.dead or t.down or b:dist(c, t) > 5 or b:any_effect(t, "out_of_fight") then
-            t = next_target(true)
+            -- (Told who she wants: the snakes don't bite whoever else is close.)
+            t = (not dm_t) and next_target(true) or nil
         end
         if t and b:dist(c, t) <= 5 then
             H.attack_with(b, c, t, snakes, false)
@@ -573,10 +577,21 @@ function M.lecturer_turn(b, c, H)
         return true
     end
     local best, bv
-    -- The DM ran this turn and picked who he lectures (B8): them, if he can reach them.
-    local dt = c.dm_target
-    if dt and not dt.dead and not dt.removed and not dt.down and b:dist(c, dt) <= bored.range + (c.turn.move or 0) then
-        best, bv = dt, 1
+    -- The DM ran this turn and picked who he lectures (B8), or someone stared him down (a taunt): them.
+    -- Out of reach this turn, he drifts toward them, and lectures nobody else (round three, A5: "it's
+    -- Oswin it wants", then Bored to Death at Brannoc and Pip).
+    local tn = b:find_effect(c, "Taunted")
+    local dt = (tn and tn.taunt_by) or c.dm_target
+    if dt and (dt.dead or dt.removed or dt.down) then
+        dt = c.dm_target ~= dt and c.dm_target or nil
+    end
+    if dt and not dt.dead and not dt.removed and not dt.down then
+        if b:dist(c, dt) <= bored.range + (c.turn.move or 0) then
+            best, bv = dt, 1
+        else
+            H.get_in_range(b, c, dt, bored.range)
+            return true
+        end
     end
     for _, e in ipairs(best and {} or foes) do
         if (e.type == "humanoid" or e.type == "beast") and not (e.condition_immune and e.condition_immune.charmed)
@@ -790,7 +805,8 @@ function M.flee(b, c, H)
 end
 
 local function kruthik_turn(b, c, H)
-    if M.loses_nerve(b, c) then
+    -- (Not on a turn the DM is running: "Go for Thessaly", and it ran. Round three, A5.)
+    if not c.dm_target and M.loses_nerve(b, c) then
         M.flee(b, c, H)
         return true
     end

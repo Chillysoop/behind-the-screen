@@ -223,8 +223,19 @@ function M.fell(night, c, captioned)
     end
     local name = (e and e.name) or c.name or "Their ally"
     local lines = e and e.lines or {}
+    -- (Not a friend knocked flat who comes round, but a machine gone for good: the table goes quiet for
+    -- the rest of the scene, round three, B3 and A1: "Too easy." after Hans was destroyed.)
+    local gone = not (e and e.kind == "person")
+    if gone then
+        night.loss = { scene = night.scene, kind = "ally" }
+        local adv = util.lazy("game.model.adventure")
+        lines = (adv.data and adv.data.ally_lines and adv.data.ally_lines[c.monster_id]) or lines
+    end
+    local function pick(l, what)
+        return type(l) == "table" and night:fresh(l, "ally_" .. tostring(c.monster_id) .. "_" .. what) or l
+    end
     if not captioned then
-        night:say(util.fill(lines.down or "{name} goes down, and doesn't get up.", { name = name }), "bad")
+        night:say(util.fill(pick(lines.down, "down") or "{name} goes down, and doesn't get up.", { name = name }), "bad")
     end
     -- Who reacts: whoever was playing them, else the friend who brought them, else anyone.
     local key = c.pilot or (e and e.owner)
@@ -233,7 +244,7 @@ function M.fell(night, c, captioned)
         p = night.players[1]
     end
     if p then
-        night:emit({ kind = "say", who = p.key, text = util.fill(lines.react or "{name}! No!", { name = name }), ic = false })
+        night:emit({ kind = "say", who = p.key, text = util.fill(pick(lines.react, "react") or "{name}! No!", { name = name }), ic = false })
         night:react({ [p.key] = "gasp" })
     end
     if e then
@@ -264,7 +275,11 @@ function M.after_fight(night)
             night.allies_back[c] = true
             for _, e in ipairs(M.active(night.campaign, night.players)) do
                 if e.monster and e.monster == c.monster_id and e.kind == "person" then
-                    night:say(util.fill(e.lines and e.lines.up or "{name} comes round, sore, and very glad it's over.", { name = e.name }), "good")
+                    local up = e.lines and e.lines.up
+                    if type(up) == "table" then
+                        up = night:fresh(up, "companion_up_" .. e.id)
+                    end
+                    night:say(util.fill(up or "{name} comes round, sore, and very glad it's over.", { name = e.name }), "good")
                 end
             end
         end

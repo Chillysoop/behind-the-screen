@@ -43,6 +43,10 @@ M.context = {
     { "here with the chips", "calm" }, { "clue from earlier", "clue_found" }, { "wake me up when something needs hitting", "no_fight_here" },
     { "that's a big one", "big_foe" }, { "big guy", "big_foe" }, { "focus fire on the boss", "several_foes" },
     { "dibs on the big one", "several_foes" }, { "that boss knows what it's doing", "boss_is_a_thing" },
+    -- (Round three, A8 and A1: not after a night run long or past midnight, nor a night a hero died.)
+    { "same time next week", "on_time" }, { "by midnight", "before_midnight" }, { "that was fun", "nobody_died" },
+    { "hooray", "nobody_died" }, { "how close that was", "nobody_died" }, { "count off", "nobody_died" },
+    { "are we... alive", "nobody_died" }, { "dead-dead", "nobody_died" }, { "everyone alive", "nobody_died" },
 }
 
 M.NUMBERS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
@@ -213,6 +217,86 @@ M.charmed_captions = {
     "{char} lowers {char_their} weapon. {Charmer} is a friend now, as far as {char} knows.",
     "{char} is charmed: {charmer} seems far too nice to hurt.",
     "{char} hesitates. Whatever {charmer} did, {char} won't fight back.",
+}
+
+-- What the table hears when a fight turns in a way nobody can miss (round three, A2 and A4: Shatter hit
+-- allies twelve times and nobody said so; the mirror, Hyper Destroyer Mode and a natural-20 death save
+-- happened only on the mat). Said by game/model/fight.lua (tell_moments, friendly_fire), each three ways.
+-- {char}: the hero it's about (or who did it); {Name}/{name}: the friend at the table; {spell}; {hit}:
+-- the heroes caught; {is}: "is" or "are" for them; {downed}; {mech}; {holder}: who holds the mirror;
+-- {charmer}; {caught}: the heroes her stare caught; {start}: "starts" or "start" for them.
+M.told = {
+    -- Friendly fire: a hero's own spell catches the party.
+    friendly_fire = {
+        "{Spell} catches {hit} too.",
+        "{char}'s {spell} doesn't pick sides: {hit} {is} caught in it.",
+        "{hit} {is} right in the middle of {char}'s {spell}.",
+    },
+    friendly_down = {
+        "{char}'s {spell} catches {hit}, and drops {downed}.",
+        "{Spell} goes off, and {downed} {is} on the floor. That was {char}'s.",
+        "{char}'s {spell} hits the party too. {downed} {goes} down.",
+    },
+    -- The friend whose hero was hit, to the one who cast it (out of character).
+    friendly_hit = { "{Caster}! That was me!", "Ow. Friendly fire, {caster}. Very friendly.", "Did you just hit me with that, {caster}?" },
+    -- And the one who cast it.
+    friendly_sorry = { "Sorry! Sorry. I'll aim better.", "Okay. That one's on me.", "In my defence, it was a very good spell." },
+    friendly_sorry_down = { "Oh no. That was me. That was me, wasn't it?", "I did that. I'm so sorry.", "Nobody say anything. I know." },
+    -- Euryale's big moments, and the Mech's.
+    veil = { "Euryale pulls back her white hood. The snakes uncoil, hissing.",
+             "Off comes the hood. A crown of snakes rears up and hisses at the room.",
+             "Euryale throws back her hood, and every snake on her head turns to look at them." },
+    petrify = { "Euryale fixes them with her bronze eyes. {caught} {start} to go grey from the feet up.",
+                "Her eyes catch the light, and {caught} {start} to turn to stone, slowly, from the ground up.",
+                "One look from Euryale, and {caught} {start} to stiffen. The grey is climbing." },
+    petrify_missed = { "Euryale fixes them with her bronze eyes, and every one of them looks away in time.",
+                       "Her eyes flash, but nobody meets them. Not one.",
+                       "Euryale glares round the room. Everyone's staring at their boots." },
+    mirror = { "{holder} swings the cupboard door up, and Euryale is looking straight into her own eyes.",
+               "Up comes the mirror-bright door in {holder}'s hands. Euryale catches her own reflection.",
+               "{holder} holds up the polished door. For a heartbeat, Euryale meets her own stare." },
+    mirror_caught = { "The grey starts at her feet. Euryale is turning to stone in her own reflection.",
+                      "Her own eyes do it: the stone creeps up Euryale's legs.",
+                      "She can't look away in time. The grey begins to climb her robe." },
+    mirror_missed = { "She jerks her head away just in time. Close.", "Euryale flinches and looks away. Nearly.",
+                      "She tears her eyes from the door, hissing. It nearly worked." },
+    self_stone = { "Euryale goes still. The grey reaches her eyes, and the Gorgon is a statue in her own lair.",
+                   "The stone closes over her. Euryale stands there, caught in her own reflection, for good.",
+                   "One last hiss, and then nothing. Euryale has turned to stone." },
+    stone = { "{char} is stone now, mid-step. Until her hold breaks, {char_they} {stays} that way.",
+              "The grey reaches {char}'s eyes. {char} is stone now, until her hold on the lair breaks.",
+              "{char} is stone now, a statue among her statues, until her hold breaks." },
+    stone_other = { "{char} is caught in her stare too, and turns to stone mid-step.",
+                    "Her stare doesn't care whose side anyone's on: {char} is stone now.",
+                    "{char} goes grey and still, caught in her eyes." },
+    freed = { "The stone cracks, and {char} steps out of it, gasping.",
+              "{char} cracks out of the stone in a shower of grey dust.",
+              "A crack, a gasp, and {char} is flesh again." },
+    charmed = { "{char} lowers {char_their} weapon. {Charmer}'s voice is the nicest thing {char} has heard all night.",
+                "{char}'s face goes soft. {Charmer} is a friend now, as far as {char} knows.",
+                "{char} smiles at {charmer}, dreamy. Charmed." },
+    -- (The mode itself; flipping the switch has its own line, fight.saved_switch, when it was saved for her.)
+    hyper = { "{mech}'s plates slam open and the steam turns red: HYPER DESTROYER MODE. The floor shakes.",
+              "{mech} goes rigid, then unfolds into something much bigger and much louder.",
+              "{mech} lets out a shriek of steam and goes into Hyper Destroyer Mode. Everyone steps back." },
+    overheat = { "{mech} shrieks, vents a cloud of scalding steam, and goes still. It isn't getting up again.",
+                 "Too hot, too long: {mech} burns out in a hiss of steam and smoke.",
+                 "{mech} shudders, vents, and stops. The green glow behind its helmet goes out." },
+    power_down = { "{mech} grinds to a halt: {target} is down, and nobody's giving it orders.",
+                   "With {target} on the floor, {mech} stops dead and waits for an order that doesn't come.",
+                   "{mech} goes still the moment {target} drops." },
+    -- A natural 20 on a death save: back up with 1 hit point (SRD 5.2.1).
+    nat20_save = { "Natural 20 on the death save: {char}'s eyes snap open, and {char_they're} back on {char_their} feet.",
+                   "A twenty! {char} gasps awake on the floor and gets up, swaying.",
+                   "The die says twenty. {char} sits bolt upright, alive, and grabs a weapon." },
+    -- A lost fight with every hero on the floor (round three, A6), and the friend who says something.
+    wipe = { "Everyone's on the floor. For a long moment, the only thing moving is them.",
+             "One by one, they all go down. Then it's very quiet.",
+             "The last of them hits the floor. Nobody at the table says anything for a second." },
+    wipe_react = { "Did we... all just go down?", "Okay. That's everyone. That's all of us.", "Well. That went about as badly as it could." },
+    -- A hero back on their feet while the table grieves ({lost}: who they lost).
+    up_quiet = { "{char} is up. Nobody cheers.", "{char} gets back up and looks at {lost}. Nobody says anything.",
+                 "{char} is on {char_their} feet again. It doesn't feel like winning." },
 }
 
 return M

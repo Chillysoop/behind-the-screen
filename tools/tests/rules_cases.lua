@@ -1541,6 +1541,60 @@ case("museum-false-appearance", "Topiary that was never topiary: the party start
         t:eq("not with Euryale sitting there", museum.false_appearance(b2) or f2.surprised or false, false)
     end)
 
+-- Round three, A5: the DM's pick and a taunt steer the foes (the third playtest: "Go for Brannoc", then
+-- two swings at Oswin; "it's Oswin it wants", then Bored to Death at Brannoc and Pip).
+case("museum-told-target", "A foe told who to go for keeps after them", "Game night (the DM runs its turn)",
+    "Told to go for a hero it can't reach this turn, it moves toward them, and doesn't swing at whoever's next to it.",
+    function(t)
+        local b = fresh()
+        local near = at(b, pc("cleric", 2), 6, 5)
+        local far = at(b, pc("fighter", 2), 25, 5)
+        local k = at(b, mon("knight_of_shades"), 5, 5)
+        -- (Walled in, with the cleric in the only gap: it can't get to the fighter this turn.)
+        b.blocked = {}
+        for x = 4, 7 do
+            for y = 4, 6 do
+                if not ((x == 5 and y == 5) or (x == 6 and y == 5)) then
+                    b.blocked[x * 1000 + y] = true
+                end
+            end
+        end
+        b.blocked[7 * 1000 + 5] = true
+        k.dm_target = far
+        local swung = {}
+        local attack = b.attack
+        b.attack = function(bb, src, tgt, ...)
+            if src == k then
+                swung[tgt] = (swung[tgt] or 0) + 1
+            end
+            return attack(bb, src, tgt, ...)
+        end
+        b.active = k
+        ai.take_turn(b, k)
+        b.attack = attack
+        t:eq("it doesn't swing at the cleric beside it", swung[near] or 0, 0)
+    end)
+
+case("museum-lecture-taunt", "A taunted Lecturer lectures whoever stared him down", "Museum, Appendix B (The Lecturer)",
+    "Taunted, Bored to Death goes at the taunter, not at whoever's easiest to bore.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)               -- (easier to bore: his Wisdom save is weak)
+        local cl = at(b, pc("cleric", 2), 7, 6)                -- (the cleric stared him down)
+        local l = at(b, mon("the_lecturer"), 9, 5)
+        b:add_effect(l, { name = "Taunted", taunt_by = cl, conds = { taunted = true } })
+        b.active = l
+        local said
+        local old = museum.lecture
+        museum.lecture = function(bb, c, tt)
+            said = tt
+            return old(bb, c, tt)
+        end
+        ai.take_turn(b, l)
+        museum.lecture = old
+        t:eq("he lectures the cleric who stared him down", said == cl, true)
+    end)
+
 case("museum-meter", "The meter counts the scarabs, and the mech on the party's side", "game/rules/encounter.lua",
     "A monster that bursts into more counts with them; allies add their Hit Points and blunt the monsters'.",
     function(t)

@@ -47,6 +47,8 @@ local dice_sets = require "game.model.dice_sets"
 local board_mod = require "game.model.board"
 local thoughts = require "game.model.thoughts"
 local events = require "game.model.events"
+local able = require "game.model.able"
+local BARKS = require "game.data.barks"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -434,12 +436,19 @@ end
 
 -- A hero's modifier for a skill, from their character sheet at the party's level.
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
-function M:take_research(p)
+-- skill: the roll it helps, said with it (round three, from batch D: "+2." didn't say on what).
+M.RESEARCH_LINES = {
+    "{char} remembers something from the break's reading: +2 on this {skill} roll.",
+    "The break's homework pays off: +2 to {char}'s {skill} roll.",
+    "{char} read up on this over pizza: +2 on the {skill} roll.",
+}
+function M:take_research(p, skill)
     if (self.research or 0) <= 0 then
         return 0
     end
     self.research = self.research - 1
-    self:say(util.fill("{char} remembers something from the break's reading: +2.", { char = p.char }), "aside")
+    self:say(self:fresh(M.RESEARCH_LINES, "research_line"), "aside",
+        { char = p.char, skill = skill and skills.name(skill) or "next" })
     return 2
 end
 
@@ -611,6 +620,21 @@ function M:bark(p, trigger, extra)
     if not p then
         return
     end
+    -- (While the table grieves, nobody whoops; a hero back up after a death is said quietly. Round
+    -- three, A1: game/model/able.lua.)
+    if able.hush(self, trigger) then
+        return
+    end
+    if trigger == "up_again" and able.somber(self) == "death" then
+        local lost = {}
+        for _, pc in ipairs(self.pc_list or {}) do
+            if pc.dead then
+                table.insert(lost, pc.name)
+            end
+        end
+        self:say(self:fresh(able.UP_QUIET, "up_quiet"), "narration", { char = p.char, lost = util.join_names(lost) })
+        return
+    end
     local v = self:vars(extra)
     local text, id
     if extra and extra.moment then
@@ -661,6 +685,10 @@ function M:bark_context(more)
         end
     end
     ctx.clue = self.heard_lore or nil
+    -- (The clock: a night run past the time agreed at Session Zero, and past midnight. Round three, A8.)
+    ctx.late = (self.table_min or 0) > (self.table_planned or 210) + 15 or nil
+    ctx.midnight = ((self.table_start or 19 * 60) + (self.table_min or 0)) >= 23 * 60 + 30 or nil
+    ctx.died = able.somber(self) == "death" or nil
     for k, val in pairs(more or {}) do
         ctx[k] = val
     end
@@ -816,24 +844,32 @@ function M:pick_roller(skill_list, sc, prefer)
             table.insert(low, p)
         end
     end
-    return pick(low) or pick(players) or players[1]
+    -- (Nobody at hand can act, every hero dead or stone: someone at the table still rolls for the scene
+    -- rather than nobody. It can't happen outside a fight short of all four dying in one night.)
+    return pick(low) or pick(players) or players[1] or self.players[1]
 end
 
 -- The friends whose heroes are in this scene: a hero who split off (split_party) is elsewhere until
 -- it's over, and doesn't act in it (F11, the second playtest review: "Brannoc heads off the other
 -- way", then Dev: "Get behind me! I'll hold the line!"). Everyone, when nobody's away.
-function M:at_hand()
+-- And only the ones who can act (round three, A1, game/model/able.lua): a hero who's dead, down or
+-- stone (or out of it in a fight) is in nobody's pick; their player still talks, as themselves.
+-- Empty when nobody can.
+function M:at_hand(fight_move)
     local split = self.scene and self.scene.split
-    if not (split and split.away) then
-        return self.players
-    end
-    local out = {}
-    for _, p in ipairs(self.players) do
-        if not split.away[p.key] then
-            table.insert(out, p)
+    local here = self.players
+    if split and split.away then
+        here = {}
+        for _, p in ipairs(self.players) do
+            if not split.away[p.key] then
+                table.insert(here, p)
+            end
+        end
+        if #here == 0 then
+            here = self.players
         end
     end
-    return #out > 0 and out or self.players
+    return able.only(self, here, fight_move)
 end
 
 -- Pick a present player, preferring these archetypes (primary first).
@@ -1352,7 +1388,8 @@ function M:staging(sc)
     local blocked, layout = fight.blocked_set(sc.terrain, self:map_for(sc))
     local taken = {}
     local party = {}
-    local spots = fight.squares_near(blocked, taken, layout.party[1], layout.party[2], #self.players, 1,
+    -- (Spread so every mini shows, none behind another or behind a wall: fight.squares_shown.)
+    local spots = fight.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
         content.terrain_layout.W, content.terrain_layout.H)
     for i, p in ipairs(self.players) do
         local sq = spots[i] or { 2, i + 3 }
@@ -1633,7 +1670,7 @@ function M:hero_action(sc, dc, spots)
         mod = mod + near_bonus
         self.edge_next[p.key] = nil
     end
-    mod = mod + self:take_research(p)
+    mod = mod + self:take_research(p, a.skill)
     local total = roll + mod
     local success = total >= dc
     local name = skills.name(a.skill)
@@ -1942,6 +1979,10 @@ function M:table_behavior(when, roller, sure)
     if tb.n >= TB_MAX or tb.hooks[hook] or #self.players == 0 then
         return nil
     end
+    -- (No fist bumps while the table grieves: round three, A1.)
+    if able.somber(self) and when ~= "rules" and when ~= "start" then
+        return nil
+    end
     if not sure and not self.rng:chance(TB_CHANCE[when] or 0.3) then
         return nil
     end
@@ -2183,7 +2224,8 @@ function M:killing_blow_other(actor)
         end
     end
     local best
-    for _, p in ipairs(self.players) do
+    -- (A friend whose hero is down or gone doesn't tell it: round three, A1.)
+    for _, p in ipairs(self:at_hand()) do
         if p ~= actor and (not best or (count[p.key] or 0) < (count[best.key] or 0)
             or ((count[p.key] or 0) == (count[best.key] or 0) and p.m.spotlight < best.m.spotlight)) then
             best = p
@@ -2211,7 +2253,8 @@ end
 -- The one who landed it may pass the telling to a friend who's waited (their idea, from who they
 -- are: a storyteller or an easy-going player more, someone who came to hit things less); the DM
 -- only says whether that works at the table. Returns who tells it.
-function M:kb_share(actor, other, tgt, boss_name)
+-- lander_name: who landed it, when it's an ally the actor plays (Telpur's toe, not their hero's blow).
+function M:kb_share(actor, other, tgt, boss_name, lander_name)
     if not (actor and other and other ~= actor) then
         return actor
     end
@@ -2234,7 +2277,9 @@ function M:kb_share(actor, other, tgt, boss_name)
         copy[k] = v
     end
     copy.fixed_actor = true
-    local o = self:decision(copy, { boss = boss_name })
+    self.kb_lander = lander_name or actor.char
+    local o = self:decision(copy, { boss = boss_name, actor_char = lander_name })
+    self.kb_lander = nil
     self.actor, self.other = was_a, was_o
     if o and o.share then
         return other
@@ -2244,7 +2289,8 @@ end
 
 -- p: who describes it. by: the player whose hero landed it (the dice log's), when that's someone
 -- else: then p tells the moment, and the blow stays the one who landed it.
-function M:killing_blow(p, tgt, boss_name, by)
+-- by: the friend whose blow it was; by_name: who landed it, when it wasn't their hero (an ally they play).
+function M:killing_blow(p, tgt, boss_name, by, by_name)
     local camp = self.campaign
     camp.killing_blows = camp.killing_blows or {}
     if not p then
@@ -2275,13 +2321,15 @@ function M:killing_blow(p, tgt, boss_name, by)
         pool = lines
     end
     local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = boss_name, char = p.char }))
-    -- Told for someone else's blow: the teller's words about it, never a swing of their own.
-    local told = by and by ~= p
+    -- Told for someone else's blow: the teller's words about it, never a swing of their own. (An ally's
+    -- blow is told that way too, by whoever plays it: Telpur's toe, not Brannoc's sword.)
+    local told = (by and by ~= p) or by_name ~= nil
+    local hero = by_name or (by and by.char)
     if told then
         local tl = (kb.told and (kb.told[p.key] or kb.told.mara)) or {}
         local pick = tl[self.rng:int(1, math.max(1, #tl))]
-        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = by.char }))
-            or (by.char .. "'s blow lands, and " .. boss_name .. " falls.")
+        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = hero }))
+            or (hero .. "'s blow lands, and " .. boss_name .. " falls.")
     end
     -- Handed over: worth less each time it's handed over lately, more on a big one (kb_worth).
     local worth = self:kb_worth(tgt)
@@ -2289,15 +2337,15 @@ function M:killing_blow(p, tgt, boss_name, by)
     table.insert(camp.kb_handed, { week = camp.week, key = p.key })
     score.add(p, "spotlight", kb.SPOTLIGHT * math.max(0.5, worth))
     score.add(p, "fun", kb.FUN * worth)
-    if told and by then
+    if told and by and by ~= p then
         score.add(by, "fun", 2)        -- (it was their idea to share it)
     end
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "say", who = p.key, text = line, ic = true })
     if told then
         -- (The blow is the lander's in the log; the telling is the teller's best moment too.)
-        local text = by.char .. " brings down " .. boss_name .. ", and " .. p.name .. " tells it"
-        self:highlight(8, text, { by }, "killing_blow")
+        local text = hero .. " brings down " .. boss_name .. ", and " .. p.name .. " tells it"
+        self:highlight(8, text, { by or p }, "killing_blow")
         if not p.best or 8 > p.best.score then
             p.best = { score = 8, text = text }
         end
@@ -2527,7 +2575,7 @@ function M:big_roll(spec, record)
         self.learned[p.key] = nil
     end
     if p then
-        mod = mod + self:take_research(p)
+        mod = mod + self:take_research(p, skill)
     end
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
     local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)
@@ -3515,7 +3563,8 @@ function M:flush_turn()
     end
     -- Now and then a player says something about their turn: what they're about to
     -- do, or how it went (a hit, a whiff, a big number, a spell).
-    if who and who.pc and self.rng:chance(ev.brisk and 0.12 or 0.22) then
+    -- (Not on a turn where their hero can't do anything: down, stone, out of it. Round three, A1.)
+    if who and who.pc and able.can_fight(self, who.player_key) and self.rng:chance(ev.brisk and 0.12 or 0.22) then
         local p
         for _, q in ipairs(self.players) do
             if q.key == who.player_key then
@@ -3531,7 +3580,7 @@ function M:flush_turn()
         if walking then
             trigger, at = "walk", "start"
         end
-        if p and trigger then
+        if p and trigger and not able.hush(self, trigger) then
             local mo = barks.from_steps(self, steps, who, p)
             local text, id = barks.pick(self, trigger, p, mo, self:vars({ target = target }))
             if text then
@@ -3612,12 +3661,6 @@ function M:combat_scene(sc)
     elseif card then
         self:decision(card)
     end
-    -- Boss night's break, when nothing came before the lair: after the talk, before the fight
-    -- ("let's take five before the big one"), not before anyone has played.
-    if self.break_before_fight and not self.had_break then
-        self.break_before_fight = nil
-        util.lazy("game.model.museum_night").maybe_break(self, true)
-    end
     -- Who sees whom first: a paused roll before the fight.
     sc.surprise = nil
     local scouted = false
@@ -3652,6 +3695,15 @@ function M:combat_scene(sc)
     sc.outcome = result.winner == "party" and "win" or "lose"
     -- Who's beaten and who got away, for every line after the fight (a boss that ran isn't beaten).
     sc.foes_ran, sc.foes_beaten = {}, {}
+    -- (And who on their side is gone for good: a machine smashed or burnt out, not a friend knocked
+    -- flat who comes round. What's destroyed stays destroyed: round three, B3. museum_night.after_showdown.)
+    sc.allies_lost = {}
+    local persons = {}
+    for _, e in ipairs(require("game.model.companions").active(self.campaign, self.players)) do
+        if e.monster and e.kind == "person" then
+            persons[e.monster] = true
+        end
+    end
     for _, c in util.sorted_pairs(f and f.by_ref or {}) do
         if c.side == "foes" and c.monster_id then
             if c.dead then
@@ -3659,6 +3711,8 @@ function M:combat_scene(sc)
             elseif c.removed and c.removed_why ~= "yield" then
                 table.insert(sc.foes_ran, c.monster_id)
             end
+        elseif c.side == "party" and not c.pc and c.monster_id and c.dead and not persons[c.monster_id] then
+            table.insert(sc.allies_lost, { id = c.monster_id, name = c.name, burnt = c.shut_down or nil })
         end
     end
     -- The boss's own fate, so what's said after can't contradict it: dead (and how), ran, or yielded.
@@ -3682,11 +3736,43 @@ function M:combat_scene(sc)
         end
     end
     -- A hero left on the floor when it's over comes round (stable, so 1 hit point after a while,
-    -- SRD 5.2.1), and the table hears it: nobody cheers or rolls from 0 hit points.
+    -- SRD 5.2.1), and the table hears it: nobody cheers or rolls from 0 hit points. (Said once for all
+    -- of them. A lost fight with every hero on the floor is a wipe: said as one, the table goes quiet
+    -- for the rest of the room, and it leads the night's recap. Round three, A6: four "comes round"
+    -- lines in a row, then a vote over the kitchen diorama.)
+    local floor, standing = {}, 0
     for _, c in ipairs(self.pc_list or {}) do
         if not c.dead and (c.hp or 0) <= 0 then
             c.hp, c.down, c.stable, c.ds = 1, false, nil, nil
-            self:say(c.name .. " comes round on the floor with 1 hit point, groggy but alive.", "aside")
+            table.insert(floor, c.name)
+        elseif not c.dead and able.state(self, c.player_key) == nil then
+            standing = standing + 1         -- (one turned to stone isn't standing either)
+        end
+    end
+    local wiped = result.winner ~= "party" and #floor >= 2 and standing == 0
+    if wiped then
+        self.loss = { scene = sc, kind = "wipe", night = true }
+        self:say(self:fresh(BARKS.told.wipe, "told_wipe"), "bad")
+        self:say(util.join_names(floor) .. " come round on the floor with 1 hit point each, groggy, alive, and beaten.", "aside")
+        local loc = sc.comps and sc.comps.location
+        events.add(self.campaign, { kind = "wipe", who = "party", where = sc.room, beat = true, lead = true, from = sc.fight_ev, how = "but",
+                                    text = events.word("wipe", { room = loc and (loc.short or util.lower_first(loc.name)) or "the museum" },
+                                                       "the whole party went down") })
+    elseif #floor > 0 then
+        self:say(util.join_names(floor) .. (#floor == 1 and " comes" or " come") .. " round on the floor with 1 hit point"
+            .. (#floor == 1 and "" or " each") .. ", groggy but alive.", "aside")
+    end
+    -- (Every hero who went down in it, for the recap's lead: "Brannoc went down twice". Not the dead,
+    -- whose death leads; not after a wipe, which says it for everyone. Round three, A7.)
+    if not wiped then
+        for _, c in ipairs(self.pc_list or {}) do
+            local n = c.stats and c.stats.downs or 0
+            if n > 0 and not c.dead and c.player_key then
+                events.add(self.campaign, { kind = "down", who = c.player_key, char = c.name, n = n, where = sc.room, beat = true,
+                                            lead = true, from = sc.fight_ev, how = "but",
+                                            text = events.word(n > 1 and "down_n" or "down", { char = c.name, n = events.times(n) },
+                                                               n > 1 and "{char} went down {n}" or "{char} went down") })
+            end
         end
     end
     -- (Someone on their side who fell comes round now: companions.lua.)
@@ -3738,7 +3824,9 @@ function M:combat_scene(sc)
     else
         -- A lost fight in the museum is the museum's to tell (they fall back to a room they've
         -- cleared, or she lets them go down the stairs): no cells, no generic defeat scene.
-        self:say("They can't win this one.", "bad")
+        if not wiped then
+            self:say("They can't win this one.", "bad")
+        end
         local poses = {}
         for _, p in ipairs(self.players) do
             poses[p.key] = "gasp"
@@ -3747,7 +3835,15 @@ function M:combat_scene(sc)
         end
         self:react(poses)
         -- (No "defeat" beat of its own: the room's goal says how it went, once, for the recap.)
-        self:bark(self:pick_actor(nil), "defeat")
+        -- (After a wipe, a friend says what everyone's thinking, not a joke.)
+        if wiped then
+            local q = self:pick_actor({ "casual", "tactician", "storyteller" })
+            if q then
+                self:emit({ kind = "say", who = q.key, ic = false, line = "told.wipe_react", text = self:fresh(BARKS.told.wipe_react, "told_wipe_react") })
+            end
+        else
+            self:bark(self:pick_actor(nil), "defeat")
+        end
     end
     -- Tactical fun: close fights thrill Tacticians, stomps bore them.
     local downs = result.pc_downs or 0
@@ -3827,6 +3923,16 @@ function M:log_fight(sc, f, result)
                                from = from, how = from and how or nil, beat = true,
                                text = util.fill(FIGHT_TEXT[(not from or how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
     sc.fight_ev, sc.last_beat = ev.id, ev.id
+    -- (Friendly fire is the recap's too: who it caught, whose spell. Round three, B2.)
+    for _, ff in ipairs(f and f.friendly or {}) do
+        local by = ff.by and self.campaign:player(ff.by)
+        local down = #(ff.downed or {}) > 0
+        events.add(c, { kind = "friendly", who = by and by.key or "party", where = sc.room, beat = true, lead = down or nil,
+                        from = ev.id, how = "but",
+                        text = events.word(down and "friendly_down" or "friendly",
+                            { char = ff.char, spell = ff.spell or "swing", hit = util.join_names(ff.hit), downed = util.join_names(ff.downed or {}) },
+                            down and "{char}'s {spell} dropped {downed}" or "{char}'s {spell} caught {hit} too") })
+    end
     return ev
 end
 
@@ -4395,6 +4501,7 @@ function M:table_verdicts()
         out.players[p.key] = { verdict = v, ideal = ideal, fading_at = self.fading and self.fading[p.key] }
         if mins > self.table_planned + 15 and ideal < mins then
             score.add(p, "trust", -1)   -- "you said half ten"
+            out.players[p.key].trust = -1
         end
     end
     self.table_report = out
@@ -4421,7 +4528,17 @@ function M:length_text()
     local diff = r.minutes - r.planned
     local head
     if diff > 15 then
-        head = "Ran " .. hm(diff) .. " long (" .. hm(r.minutes) .. ", planned " .. hm(r.planned) .. ")."
+        -- (Past the time agreed at Session Zero, and what it cost: round three, A8.)
+        local knocked = {}
+        for _, p in ipairs(self.players) do
+            local v = r.players[p.key]
+            if v and v.trust then
+                table.insert(knocked, p.name)
+            end
+        end
+        head = "Ran " .. hm(diff) .. " past the " .. self:clock_text(r.planned) .. " you agreed at Session Zero (" .. hm(r.minutes) .. " at the table)."
+            .. (#knocked > 0 and (" " .. util.join_names(knocked) .. (#knocked == 1 and " trusts" or " trust")
+                .. " you a little less for it.") or "")
     elseif diff < -30 then
         head = "Finished " .. hm(-diff) .. " early (" .. hm(r.minutes) .. ")."
     else
@@ -4524,7 +4641,7 @@ function M:conversation(sc)
         return
     end
     local talkers = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(self:at_hand()) do
         local w = score.arch(p, "method_actor") * 2 + score.arch(p, "storyteller") + score.arch(p, "casual") * 0.5
             + self.rng:next()
         table.insert(talkers, { p, w })
@@ -4936,6 +5053,19 @@ function M:run()
     return util.lazy("game.model.museum_night").run(self)
 end
 
+-- A night run long, said at the end of it ({time}: now; {agreed}: the end agreed at Session Zero), and
+-- a good night's ending when everyone's too tired to cheer it. Three ways each (R3).
+M.LATE_LINES = {
+    "It's {time}. You all agreed to stop at {agreed}, and everyone's yawning into their dice.",
+    "{time}. Somebody points at the clock: Session Zero said {agreed}. Nobody laughs.",
+    "It's gone {time}, well past the {agreed} you all agreed on. Phones are out, checking alarms for the morning.",
+}
+M.LATE_HIGH = {
+    "It was a good night. Everyone's too tired to say so.",
+    "A good ending, and a groggy one. Coats go on in a hurry.",
+    "They loved it, probably. Ask them tomorrow, after some sleep.",
+}
+
 -- The end of every night: how it landed, where the party rests, the goodbyes.
 function M:run_tail()
     thoughts.dawn(self)
@@ -4991,8 +5121,17 @@ function M:run_tail()
         end
     end
     local last = played[#played]
+    -- A night run past the time agreed at Session Zero is said, and it costs (table_verdicts: Trust and
+    -- fun for whoever wanted to be home; the report says so). Round three, A8: "12:24 am (till 10:00 pm)",
+    -- then "It ends on a high" and "Same time next week?".
+    local late = (self.table_min or 0) > (self.table_planned or 210) + 15
+    if late then
+        self:say(self:fresh(M.LATE_LINES, "late_night"), "warn", { time = self:clock_text(), agreed = self:clock_text(self.table_planned) })
+    end
     if self.dm_ended then
         -- (You closed the book yourself, and the table already reacted: museum_night.end_session.)
+    elseif late and pv.finish_high then
+        self:say(self:fresh(M.LATE_HIGH, "late_high"), "good")
     elseif self.end_early then
         self:say("Groans all round. Nobody wants to wait a whole week.", "good")
     elseif pv.finish_high and next(self.dead_handled or {}) then

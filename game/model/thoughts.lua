@@ -143,7 +143,7 @@ function M.think(night, p, need, opts)
     local answers = {}
     for _, aid in ipairs(def.answers) do
         local a = DATA.answers[aid]
-        if M.offered(night, aid) then
+        if M.offered(night, aid, p.key) then
             table.insert(answers, { id = aid, label = util.sentence_case(util.fill(a.label, v)) })
         end
     end
@@ -171,8 +171,15 @@ end
 -- Still something to answer? (A thought passes when its scene ends, or when what it was about happens.)
 -- An answer that can still do what it says tonight: the break can't come sooner once it's been.
 local AFTER_BREAK_GONE = { snack = true, early_break = true }
-function M.offered(night, aid)
+-- (Answers that have their hero do something, notice something or talk in character: not while that hero
+-- is dead, down or stone. Round three, A1: "A question just for Oswin, in a new voice. Sam answers it in
+-- character", with Oswin dead on the floor.)
+M.HERO_ACTS = { ask = true, detail = true, talk = true, prize = true, next_moment = true, early_moment = true }
+function M.offered(night, aid, who)
     if AFTER_BREAK_GONE[aid] and (night.had_break or night.break_soon) then
+        return false
+    end
+    if who and M.HERO_ACTS[aid] and not require("game.model.able").can_act(night, who) then
         return false
     end
     return true
@@ -318,7 +325,7 @@ function M.answers_for(night, id)
     local v = p and vars(p) or {}
     local out = {}
     for _, aid in ipairs((DATA.needs[sn.need] or {}).answers or {}) do
-        if M.offered(night, aid) then
+        if M.offered(night, aid, t.who) then
             table.insert(out, { id = aid, label = util.sentence_case(util.fill(DATA.answers[aid].label, v)) })
         end
     end
@@ -683,7 +690,8 @@ function M.respond(night, id, aid)
     local a = DATA.answers[aid]
     night.table_min = (night.table_min or 0) + (a.table_min or 0)
     -- What you did goes in the log at the next beat (the night is waiting between beats).
-    table.insert(th.queue, { kind = "narrate", style = a.screen and "screen" or "dm", text = util.sentence_case(util.fill(a.log, vars(p))) })
+    table.insert(th.queue, { kind = "narrate", style = a.screen and "screen" or "dm", text = util.sentence_case(util.fill(a.log, vars(p))),
+                             hero_acts = M.HERO_ACTS[aid] and p.key or nil })
     if good then
         table.insert(th.queue, { kind = "react", poses = { [p.key] = "lean" } })
         if not th.read and night.campaign and night.campaign.gain_empathy then
@@ -727,7 +735,16 @@ function M.take_queue(night)
     end
     local q = th.queue
     th.queue = {}
-    return q
+    -- (An answer that has their hero do something lands at the next beat: not if that hero has gone
+    -- down or worse since. What it did stays done. Round three, A1.)
+    local out = {}
+    for _, e in ipairs(q) do
+        if not (e.hero_acts and not require("game.model.able").can_act(night, e.hero_acts)) then
+            e.hero_acts = nil
+            table.insert(out, e)
+        end
+    end
+    return out
 end
 
 -- For the report and the log: what you caught and what you did about it.
