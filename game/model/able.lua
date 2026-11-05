@@ -84,7 +84,7 @@ end
 -- The table after a loss (B17, the third playtest: "Okay, round two. Pip is angry now." and a fist bump
 -- right after Oswin died; "Too easy." after Hans was destroyed). "death": a hero died tonight (the rest
 -- of the night); "ally": someone fighting beside them was destroyed (the rest of that scene); "wipe": the
--- whole party went down (the rest of that scene). nil when the table can laugh.
+-- whole party went down (the rest of the night). nil when the table can laugh.
 function M.somber(night)
     if not night then
         return nil
@@ -99,7 +99,7 @@ function M.somber(night)
     end
     local sc = night.scene
     local loss = night.loss
-    if loss and sc and loss.scene == sc then
+    if loss and (loss.night or (sc and loss.scene == sc)) then
         return loss.kind
     end
     return nil

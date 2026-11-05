@@ -48,6 +48,7 @@ local board_mod = require "game.model.board"
 local thoughts = require "game.model.thoughts"
 local events = require "game.model.events"
 local able = require "game.model.able"
+local BARKS = require "game.data.barks"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -3726,12 +3727,31 @@ function M:combat_scene(sc)
         end
     end
     -- A hero left on the floor when it's over comes round (stable, so 1 hit point after a while,
-    -- SRD 5.2.1), and the table hears it: nobody cheers or rolls from 0 hit points.
+    -- SRD 5.2.1), and the table hears it: nobody cheers or rolls from 0 hit points. (Said once for all
+    -- of them. A lost fight with every hero on the floor is a wipe: said as one, the table goes quiet
+    -- for the rest of the room, and it leads the night's recap. Round three, A6: four "comes round"
+    -- lines in a row, then a vote over the kitchen diorama.)
+    local floor, standing = {}, 0
     for _, c in ipairs(self.pc_list or {}) do
         if not c.dead and (c.hp or 0) <= 0 then
             c.hp, c.down, c.stable, c.ds = 1, false, nil, nil
-            self:say(c.name .. " comes round on the floor with 1 hit point, groggy but alive.", "aside")
+            table.insert(floor, c.name)
+        elseif not c.dead and able.state(self, c.player_key) == nil then
+            standing = standing + 1         -- (one turned to stone isn't standing either)
         end
+    end
+    local wiped = result.winner ~= "party" and #floor >= 2 and standing == 0
+    if wiped then
+        self.loss = { scene = sc, kind = "wipe", night = true }
+        self:say(self:fresh(BARKS.told.wipe, "told_wipe"), "bad")
+        self:say(util.join_names(floor) .. " come round on the floor with 1 hit point each, groggy, alive, and beaten.", "aside")
+        local loc = sc.comps and sc.comps.location
+        events.add(self.campaign, { kind = "wipe", who = "party", where = sc.room, beat = true, lead = true, from = sc.fight_ev, how = "but",
+                                    text = events.word("wipe", { room = loc and (loc.short or util.lower_first(loc.name)) or "the museum" },
+                                                       "the whole party went down") })
+    elseif #floor > 0 then
+        self:say(util.join_names(floor) .. (#floor == 1 and " comes" or " come") .. " round on the floor with 1 hit point"
+            .. (#floor == 1 and "" or " each") .. ", groggy but alive.", "aside")
     end
     -- (Someone on their side who fell comes round now: companions.lua.)
     require("game.model.companions").after_fight(self)
@@ -3782,7 +3802,9 @@ function M:combat_scene(sc)
     else
         -- A lost fight in the museum is the museum's to tell (they fall back to a room they've
         -- cleared, or she lets them go down the stairs): no cells, no generic defeat scene.
-        self:say("They can't win this one.", "bad")
+        if not wiped then
+            self:say("They can't win this one.", "bad")
+        end
         local poses = {}
         for _, p in ipairs(self.players) do
             poses[p.key] = "gasp"
@@ -3791,7 +3813,15 @@ function M:combat_scene(sc)
         end
         self:react(poses)
         -- (No "defeat" beat of its own: the room's goal says how it went, once, for the recap.)
-        self:bark(self:pick_actor(nil), "defeat")
+        -- (After a wipe, a friend says what everyone's thinking, not a joke.)
+        if wiped then
+            local q = self:pick_actor({ "casual", "tactician", "storyteller" })
+            if q then
+                self:emit({ kind = "say", who = q.key, ic = false, line = "told.wipe_react", text = self:fresh(BARKS.told.wipe_react, "told_wipe_react") })
+            end
+        else
+            self:bark(self:pick_actor(nil), "defeat")
+        end
     end
     -- Tactical fun: close fights thrill Tacticians, stomps bore them.
     local downs = result.pc_downs or 0

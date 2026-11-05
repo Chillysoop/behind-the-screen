@@ -650,6 +650,9 @@ local function a5_watch(R, night, ev, w)
             A.want, want = nil, nil
         end
         for _, st in ipairs(ev.steps or {}) do
+            if want and st.kind == "condition_end" and st.id == want.by and st.name == "Taunted" then
+                A.want, want = nil, nil          -- (the stare-down has worn off)
+            end
             if want and st.id == want.by and (st.kind == "attack" or (st.kind == "feature" and st.name == "Bored to Death")) then
                 local t = cr(want.t)
                 local standing = t and not t.dead and not t.down and not t.removed
@@ -684,6 +687,60 @@ local function a5_watch(R, night, ev, w)
         end
     elseif ev.kind == "battle" and ev.phase == "end" then
         A.want, A.kb = nil, nil
+    end
+end
+
+-- A6: after a lost fight or backing out of a room, nobody browses there: no small rolls, no votes over
+-- what's on the shelves, no look-arounds; a wipe is said once, as a wipe, and the night doesn't cheer
+-- or call it "high fives all round" afterwards.
+local STOP_FIGHT = require("game.model.museum_night").WEEKLY.stop_fight
+local function a6_watch(R, night, ev, w)
+    local sc = night.scene
+    local A = R.a6 or {}
+    R.a6 = A
+    local where = R.tag .. " W" .. w
+    if ev.kind == "scene" then
+        A.round_lines = 0
+        return
+    elseif ev.kind == "scene_end" then
+        A.ended = night.scene
+    end
+    if not sc then
+        return
+    end
+    local lost = sc.outcome == "lose" and sc.room ~= "lair" and sc.room ~= "thanks" and A.ended ~= sc
+    if lost and ev.kind == "tiny_roll" then
+        fail("A6", where .. ": " .. tostring(sc.room) .. " is lost and they're getting out, and " .. tostring(ev.who) .. " rolls a small "
+            .. tostring(ev.skill) .. " roll there")
+    elseif lost and ev.kind == "narrate" and ev.style == "aside" and string.find(ev.text or "", "^The table decides:") then
+        fail("A6", where .. ": " .. tostring(sc.room) .. " is lost and they're getting out, and the table votes: " .. ev.text)
+    elseif lost and ev.kind == "decision" and (string.find(ev.card.id or "", "^find_") or string.find(ev.card.id or "", "^trap_")) then
+        fail("A6", where .. ": " .. tostring(sc.room) .. " is lost and they're getting out, and someone looks around: " .. tostring(ev.card.title))
+    elseif lost and ev.kind == "say" and ev.line == nil and ev.ic == false then
+        -- (fine: table talk)
+    end
+    if ev.kind == "narrate" and ev.text and string.find(ev.text, "round on the floor with 1 hit point", 1, true) then
+        A.round_lines = (A.round_lines or 0) + 1
+        if A.round_lines > 1 then
+            fail("A6", where .. ": coming round after a fight, said one hero at a time: " .. ev.text)
+        end
+        if string.find(ev.text, "beaten", 1, true) then
+            A.wiped = w
+            add("A6", "wipes")
+        end
+    end
+    if A.wiped == w then
+        if ev.kind == "say" then
+            local tr = trigger_of(ev.line)
+            if (tr and able.CHEER[tr]) or (type(ev.line) == "string" and string.find(ev.line, "^tb_")) then
+                fail("A6", where .. ": after a wipe, " .. ev.who .. " whoops: " .. ev.text)
+            end
+        elseif ev.kind == "narrate" and from(STOP_FIGHT, ev.text) then
+            fail("A6", where .. ": after a wipe, the night stops on: " .. ev.text)
+        end
+    end
+    if lost and ev.kind ~= "say" then
+        add("A6", "lost_room_events_checked")
     end
 end
 
@@ -727,6 +784,7 @@ local function run(seed, style, fragile)
             lair_watch(R, night, ev, w)
             telpur_watch(ev)
             a5_watch(R, night, ev, w)
+            a6_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
@@ -924,6 +982,23 @@ case("A3", function()
         fail("A3", "case: the Mech wasn't with them to begin with")
     end
     add("A3", "case_owen_lost")
+end)
+
+-- A6: a moment that plays in the middle of a room, or at its end before the small moments, doesn't say
+-- they've left it ("follow them all the way to the door", "By the gift shop they're puddles").
+case("A6", function()
+    local LEAVING = { "all the way to the door", "carry them out", "by the gift shop", "out the door", "they leave the room" }
+    for _, m in ipairs(adventure.data.moments) do
+        for _, o in ipairs(m.options or {}) do
+            local low = string.lower(o.log or "")
+            for _, pat in ipairs(LEAVING) do
+                if string.find(low, pat, 1, true) then
+                    fail("A6", "case: " .. m.id .. " (" .. tostring(m.at or "start") .. ") says they've left, and the room goes on: " .. o.log)
+                end
+            end
+        end
+    end
+    add("A6", "case_leaving_lines")
 end)
 
 -- Report -------------------------------------------------------------------------------------------

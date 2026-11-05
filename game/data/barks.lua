@@ -284,6 +284,11 @@ M.told = {
     nat20_save = { "Natural 20 on the death save: {char}'s eyes snap open, and {char_they're} back on {char_their} feet.",
                    "A twenty! {char} gasps awake on the floor and gets up, swaying.",
                    "The die says twenty. {char} sits bolt upright, alive, and grabs a weapon." },
+    -- A lost fight with every hero on the floor (round three, A6), and the friend who says something.
+    wipe = { "Everyone's on the floor. For a long moment, the only thing moving is them.",
+             "One by one, they all go down. Then it's very quiet.",
+             "The last of them hits the floor. Nobody at the table says anything for a second." },
+    wipe_react = { "Did we... all just go down?", "Okay. That's everyone. That's all of us.", "Well. That went about as badly as it could." },
     -- A hero back on their feet while the table grieves ({lost}: who they lost).
     up_quiet = { "{char} is up. Nobody cheers.", "{char} gets back up and looks at {lost}. Nobody says anything.",
                  "{char} is on {char_their} feet again. It doesn't feel like winning." },

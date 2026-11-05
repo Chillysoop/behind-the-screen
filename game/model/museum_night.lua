@@ -1132,6 +1132,11 @@ function M.moments(night, sc, at)
     if night.end_early then
         return
     end
+    -- (A lost fight: they're getting out, not fishing in the pond or prising off a cupboard door with the
+    -- huntlings still out there. Round three, A6.)
+    if at == "end" and ((sc.fought and sc.outcome ~= "win") or sc.outcome == "lose") then
+        return
+    end
     local knobs = knobs_of(night)
     for _, m in ipairs(MODULE.moments) do
         -- (fight_only: a moment about the fight, when the talk has just ended it without one.)
@@ -1300,7 +1305,9 @@ end
 -- The small stuff, once the room's danger is settled (table_life.lua): poking at things, a question,
 -- a snack. After the room's last moments, so nobody browses while something's still coming.
 function M.quiet_stretch(night, sc)
-    if night.end_early or (sc.fought and sc.outcome ~= "win") then
+    -- (Nor after backing out of a room: "They back out of the hall", then a compliment for the dwarf
+    -- king's beard. Round three, A6.)
+    if night.end_early or (sc.fought and sc.outcome ~= "win") or sc.outcome == "lose" then
         return
     end
     require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
@@ -3511,6 +3518,10 @@ end
 -- week pays later), late makes everyone tired. Returns how it read: "cliff", "fight", "flat".
 local function stop_kind(night, nxt)
     local last = night.mus.last
+    -- (After a wipe or a death, it's a rough place to stop, not "high fives all round": round three, A6.)
+    if able.somber(night) then
+        return "loss"
+    end
     if nxt and (nxt.boss or nxt.stop) then
         return "cliff"
     end
@@ -3527,7 +3538,9 @@ function M.stop_note(night, nxt)
     local early = (night.table_min or 0) < planned - 45
     local late = (night.table_min or 0) > planned + 15
     local bits = {}
-    if k == "cliff" then
+    if k == "loss" then
+        table.insert(bits, "A rough place to stop: nobody's in the mood for one more room after that.")
+    elseif k == "cliff" then
         table.insert(bits, "A cliffhanger: " .. util.lower_first(nxt.name) .. " is right there. They'll love it.")
     elseif k == "fight" then
         table.insert(bits, "A good place to stop: they've just come out of a fight.")
@@ -3556,7 +3569,9 @@ function M.end_session(night, nxt)
     end
     night.ended_on_cliff = (k == "cliff") or nil
     night:say(night:fresh(M.WEEKLY.close, "weekly_close"), "dm")
-    if k == "cliff" then
+    if k == "loss" then
+        night:say(night:fresh(M.WEEKLY.stop_loss, "weekly_stop_loss"), "aside")
+    elseif k == "cliff" then
         night:say("Groans round the table, the good kind. Nobody wants to wait a week for " .. util.lower_first(nxt.name) .. ".", "good")
         night:apply({ { "all", fun = 3 }, { "arch:storyteller", fun = 2 }, { "arch:instigator", fun = 2 } })
     elseif k == "fight" then
@@ -3941,6 +3956,8 @@ M.WEEKLY = {
                    "Off the back of a fight, a fine place to stop. High fives all round." },
     stop_flat = { "It peters out a bit. Somebody asks if that's it.", "It fizzles a little. Somebody checks the time.",
                   "A slightly flat stop. Somebody says \"Oh. Okay.\"" },
+    stop_loss = { "Nobody argues for one more room. Not after that.", "Dice go back in their bags, quietly. It's been a rough one.",
+                  "\"Let's stop there.\" Nobody says no. Somebody squeezes a shoulder on the way to the kitchen." },
 }
 
 -- What the heroes did while the table took its break, by your pick: three or more ways each, since

@@ -1485,6 +1485,7 @@ local function bark_line(p)
             power_down = "In a fight, when the Steam Mech stops because the hero it answers to went down",
             nat20_save = "In a fight, when a hero on the floor rolls a natural 20 on a death save",
             up_quiet = "In a fight, when a hero gets back up on a night a hero has died (in place of the cheer)",
+            wipe = "When a fight is lost with every hero on the floor", wipe_react = "Right after a fight lost with every hero on the floor: a friend at the table",
         }
         return R(TW[p[2]] or "In a fight", one_of(#B.told[p[2]]))
     elseif p[1] == "made" then
@@ -2139,6 +2140,7 @@ local function code_line(p)
                         close = "When you call the night",
                         stop_fight = "When you call the night right after a fight",
                         stop_flat = "When you call the night after a quiet room",
+                        stop_loss = "When you call the night after a wipe or a death",
                         book_down = "When you choose to make up a room you never prepped",
                         from_book = "The first room tonight you read from the book at the table",
                         from_book_again = "Any later room tonight you read from the book at the table",

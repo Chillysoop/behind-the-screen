@@ -824,7 +824,7 @@ M.moments = {
             effects = { { "arch:butt_kicker", fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:instigator", fun = 3 }, { "all", challenge = 4 } },
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
           { label = "Give it a wide berth.", want = "give the knight a wide berth",
-            log = "Nobody goes near it. The knight's painted eyes follow them all the way to the door.",
+            log = "Nobody goes near it. Wherever they go in the hall, the knight's painted eyes follow.",
             effects = { { "arch:casual", fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:method_actor", fun = 1 },
                         { "arch:butt_kicker", fun = -3 } },
             mus = { no_fight = true, mark = "knight" } },
@@ -837,7 +837,7 @@ M.moments = {
             log = "Each one slides home. A Franc appears, and the duellist in the frame tips his hat.",
             effects = { { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 3 } }, mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
           { label = "Keep them till they drip away.", want = "keep them till they drip away",
-            log = "They carry them out, dripping. By the gift shop they're puddles.",
+            log = "They keep them. The painted blades drip on the floor already: they won't last the night.",
             effects = { { "arch:power_gamer", fun = 4 }, { "arch:instigator", fun = 4 }, { "arch:method_actor", fun = 2 } } },
       } },
 
