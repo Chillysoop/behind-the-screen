@@ -748,7 +748,8 @@ case("R11", function()
     local out = drive(night, function()
         mn.lecturer_report(night)
     end)
-    if not said(out, "^Upstairs, .*Lecturer") then
+    -- (Any of his three ways of saying it: round three's runs drew the one that starts "Through the floor".)
+    if not (said(out, "^Upstairs, .*Lecturer") or said(out, "Lecturer is telling Euryale")) then
         fail("R11", "case: the Lecturer passed nothing on, out loud")
     end
     if not people.knows_of(c, "mus_euryale", "steal") then

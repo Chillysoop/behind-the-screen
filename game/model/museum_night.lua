@@ -1668,7 +1668,10 @@ function M.room_start(night, sc)
     end
     -- A hero's reason for coming is right here.
     for _, p in ipairs(adventure.hooked(c, sc.room)) do
-        if util.contains(night.players, p) then
+        -- (Not for a hero who died and was replaced: the reason was theirs. "Brannoc tightens his grip",
+        -- with Bryn in Dev's seat.)
+        local replaced = c.new_char and c.new_char[p.key] and c.new_char[p.key].done
+        if util.contains(night.players, p) and not replaced then
             local h = adventure.hook(c, p.key)
             night:react({ [p.key] = "lean" })
             night:say(util.fill(night:fresh(M.WEEKLY.thread, "weekly_thread"), { name = p.name, char = p.char }), "thread")

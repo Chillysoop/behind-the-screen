@@ -169,8 +169,18 @@ local function candidates(night, sc, room, phase, last)
     -- the night has had a beat or two without one, likely then, and rare again once there's been one.
     local bit_w = ((tl.bits or 0) > 0 and 0.4) or (((tl.n or 0) >= 1) and 12) or 1
     for _, t in ipairs(room.table_bits or {}) do
-        -- (A bit that's one friend's waits if that friend just had a beat.)
-        if not (t.who and t.who == last) then
+        -- (A bit that's one friend's waits if that friend just had a beat. Not one that names a hero
+        -- who's died and been replaced, or can't act right now: round three, A1.)
+        local names_gone = #night:without_fallen(t.lines or {}) < #(t.lines or {})
+        for _, q in ipairs(night.players) do
+            local able = require "game.model.able"
+            if q.char and not able.can_act(night, q) then
+                for _, l in ipairs(t.lines or {}) do
+                    names_gone = names_gone or string.find(l, "%f[%a]" .. q.char .. "%f[%A]") ~= nil
+                end
+            end
+        end
+        if not (t.who and t.who == last) and not names_gone then
             add(t, "bit", bit_w)
         end
     end
