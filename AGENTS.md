@@ -19,6 +19,10 @@ A longer, full pre-written adventure will follow as the main campaign, in the sa
 **Before starting it, read `docs/design/longer-adventure-notes.md`:** the November 2 playtest feedback on cause
 and effect, what to build first (one event log, one shape for conditional text, the truth test as the gate), what's
 still open from the museum, and a checklist.
+**Then read `docs/design/2026-11-05-root-causes.md`:** the ten kinds of problem four playtest rounds keep finding
+(who may hear a line, the DM speaking for the players, claims with no record behind them, book structure not kept as
+data, and six more), the rule and the check for each, the importer's contract, and the tracker of every open item
+(Conner's 27 points on the November 4 build and the final pass's leftovers). Fix sessions start from its tracker.
 
 Where v2 lives:
 
