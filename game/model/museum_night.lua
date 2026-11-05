@@ -89,6 +89,12 @@ M.WORLD_LINES = {
     between_francs = { "Between sessions, {who} pressed {n} Flitwidget Francs on them, \"for the trouble\". That's {pool} in the pool.",
                        "{who} slipped them {n} Francs between sessions, with a wink. The pool's at {pool}.",
                        "Since last time, {who} has found {n} Francs for them, from somewhere. {pool} in the pool now." },
+    -- Heroes still stone when she's beaten them and lets them go (a lost fight in her lair): how they came
+    -- back, said, before "She lets them go" (the confirming playtest, seed 54: Oswin stone, then whole the
+    -- next week with no word).
+    stone_let_go = { "Euryale waves a hand, and {names} {crack} out of the stone, gasping.",
+                     "The grey drains out of {names} as Euryale turns away.",
+                     "Euryale snaps her fingers. {names} {crack} out of the stone, gasping." },
     -- A promise kept: first pick of the next find, to the friend it was promised to.
     first_pick = { "{by} hangs back: \"First pick's {to_char}'s. I promised.\"",
                    "{to_char} gets first pick, as {by_char} promised.",
@@ -5114,6 +5120,28 @@ local function free_stone(night, sc)
         end
     end
     if #freed > 0 then
+        local st = st_of(night)
+        -- (Beaten, and she lets them go: her hold didn't break, she let it go. In the log, a lead beat, so the
+        -- report and next week's "Last time" say how they came back, and in each one's history.)
+        local let_go = sc and sc.fought and sc.outcome ~= "win" and not st.ending and not sc.extras_only
+            and not (sc.boss_dead or sc.boss_yielded or sc.boss_ran)
+        if let_go then
+            night:say(util.fill(night:fresh(M.WORLD_LINES.stone_let_go, "stone_let_go"),
+                { names = util.join_names(freed), crack = #freed == 1 and "cracks" or "crack" }), "bad")
+            local keys = {}
+            for _, pc in ipairs(night.pc_list or {}) do
+                if util.contains(freed, pc.name) and pc.player_key then
+                    table.insert(keys, pc.player_key)
+                    st.aspects = st.aspects or {}
+                    st.aspects[pc.player_key] = st.aspects[pc.player_key] or {}
+                    table.insert(st.aspects[pc.player_key], "Turned to stone in her lair, until Euryale let go")
+                end
+            end
+            events.add(night.campaign, { kind = "freed", who = "mus_euryale", heroes = keys, where = sc.room, beat = true, lead = true,
+                                         from = sc.fight_ev, how = "therefore",
+                                         text = events.word("freed", { names = util.join_names(freed) }, "Euryale let {names} out of the stone") })
+            return
+        end
         -- (Why it broke, from how her fight ended: the stone line promised "until her hold breaks".)
         local why = (sc and sc.boss_dead and "as she falls and her hold on the lair breaks")
             or (sc and sc.boss_yielded and "as she gives up the fight and her hold on the lair breaks")

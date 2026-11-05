@@ -844,6 +844,7 @@ A.beats = function(p)
         death = "first, when a hero died that night", down = "first, when a hero went down that night",
         down_n = "first, when a hero went down more than once that night", ally_lost = "first, when they lost an ally for good that night",
         wipe = "first, when the whole party went down in a fight that night", came_back = "when a hero who died was brought back",
+        freed = "first, when Euryale beat them and let the heroes she'd turned to stone go",
         friendly = "when a hero's own spell or swing caught the party too", friendly_down = "first, when a hero's own spell or swing dropped someone on their side",
     }
     if top == "words" then
@@ -2266,7 +2267,8 @@ local function code_line(p)
                     overruled = "whoever you nudged the other way", overruled_more = "whoever you nudged the other way more than once",
                     best = "a friend about the moment that made their night, in the party's words", worst = "a friend about the moment that spoiled it",
                     hook = "a friend whose hero found what they came for", hooks = "a friend, when several heroes found what they came for",
-                    caught = "the friend whose hero was caught at someone's stock" }
+                    caught = "the friend whose hero was caught at someone's stock",
+                    stone = "the friend whose hero was stone when Euryale beat them and let them go" }
         return R("In the group chat after a night: " .. (W[k] or "a post about it"), one_of(#(require("game.model.museum_week").CHAT[k] or {})))
     elseif top == "CHAT_REPLY" then
         return R("In the group chat: someone else's answer to a post about " .. string.gsub(k, "_", " "),
@@ -2364,6 +2366,7 @@ local function code_line(p)
                     franc_party = "When a moment everyone did pays a Franc its own words didn't hand over",
                     francs_party = "When a moment everyone did pays more than one Franc",
                     between_francs = "As a night starts, when a favor between sessions put Francs in the pool",
+                    stone_let_go = "In her lair, when she beat them and lets them go: the heroes still stone come back",
                     first_pick = "When the party finds something and a friend was promised first pick (or the gift shop's pick at the thanks)",
                     pocket_back = "At Flitwidget's thanks: what a friend pocketed along the way, given back if it hasn't been already",
                     pocket_back_for = "At Flitwidget's thanks: what a hero pocketed, given back for them by a friend when they can't (dead, or stone)" }

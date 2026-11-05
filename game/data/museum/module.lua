@@ -477,7 +477,7 @@ M.beats = {
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
         -- (The night's losses, told first: round three, A7. events.losses.)
         death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
-        ally_lost = "they lost {name}", wipe = "the whole party went down in {room}",
+        ally_lost = "they lost {name}", freed = "Euryale let {names} out of the stone", wipe = "the whole party went down in {room}",
         came_back = "{char} nearly died, and came back",
         friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
     },

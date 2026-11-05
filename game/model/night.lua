@@ -3846,20 +3846,36 @@ function M:combat_scene(sc)
     -- of them. A lost fight with every hero on the floor is a wipe: said as one, the table goes quiet
     -- for the rest of the room, and it leads the night's recap. Round three, A6: four "comes round"
     -- lines in a row, then a vote over the kitchen diorama.)
-    local floor, standing = {}, 0
+    -- (One who's stone isn't on the floor, at 0 hit points or not: they're stone until her hold on them
+    -- goes, and that's said then. The confirming playtest, seed 54: "Pip turned to stone", then "Brannoc,
+    -- Pip and Thessaly come round on the floor".)
+    local floor, standing, stone = {}, 0, 0
     for _, c in ipairs(self.pc_list or {}) do
+        local is_stone = false
+        for _, e in ipairs((not c.dead and c.effects) or {}) do
+            is_stone = is_stone or e.stone == true
+        end
         if not c.dead and (c.hp or 0) <= 0 then
             c.hp, c.down, c.stable, c.ds = 1, false, nil, nil
-            table.insert(floor, c.name)
+            if is_stone then
+                stone = stone + 1
+            else
+                table.insert(floor, c.name)
+            end
+        elseif is_stone then
+            stone = stone + 1
         elseif not c.dead and able.state(self, c.player_key) == nil then
             standing = standing + 1         -- (one turned to stone isn't standing either)
         end
     end
-    local wiped = result.winner ~= "party" and #floor >= 2 and standing == 0
+    local wiped = result.winner ~= "party" and #floor + stone >= 2 and standing == 0
     if wiped then
         self.loss = { scene = sc, kind = "wipe", night = true }
         self:say(self:fresh(BARKS.told.wipe, "told_wipe"), "bad")
-        self:say(util.join_names(floor) .. " come round on the floor with 1 hit point each, groggy, alive, and beaten.", "aside")
+        if #floor > 0 then
+            self:say(util.join_names(floor) .. (#floor == 1 and " comes round on the floor with 1 hit point, groggy, alive, and beaten."
+                or " come round on the floor with 1 hit point each, groggy, alive, and beaten."), "aside")
+        end
         local loc = sc.comps and sc.comps.location
         events.add(self.campaign, { kind = "wipe", who = "party", where = sc.room, beat = true, lead = true, from = sc.fight_ev, how = "but",
                                     text = events.word("wipe", { room = loc and (loc.short or util.lower_first(loc.name)) or "the museum" },

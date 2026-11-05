@@ -16,10 +16,11 @@ local util = require "game.model.util"
 local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 0
-local ITEMS = { "run", "N1" }
+local ITEMS = { "run", "N1", "S" }
 local NAMES = {
     run = "whole prologues",
     N1 = "the Mech and the notebook: only what happened",
+    S = "stone after a lost boss fight: how each came back",
 }
 
 local fails = {}
@@ -324,6 +325,139 @@ local function n1_witness(R)
     end
 end
 
+-- S: stone after a lost boss fight (screens N2, seed 54 week 4). Pip turned to stone, then "Brannoc, Pip
+-- and Thessaly come round on the floor"; Oswin was stone when Euryale sent them home, and whole the next
+-- week with no word. A hero who's stone isn't on the floor; once she lets them go the table hears how
+-- each came back, and so do the report, next week's "Last time", the chat and their history.
+local function s_watch(R)
+    local c = R.c
+    for w, wk in util.sorted_pairs(R.weeks) do
+        local stone = {}
+        local lost_lair = false
+        for _, s in ipairs(wk.said) do
+            local t = s.text
+            for _, p in ipairs(c.players) do
+                local ch = p.char
+                if string.find(t, ch .. " turns to stone", 1, true) or string.find(t, ch .. " is stone now", 1, true) then
+                    stone[ch] = true
+                elseif stone[ch] and (string.find(t, "crack out of the stone", 1, true) or string.find(t, "cracks out of the stone", 1, true)
+                    or string.find(t, "grey drains out of", 1, true)) and string.find(t, ch, 1, true) then
+                    stone[ch] = "back"
+                end
+                if stone[ch] == true and string.find(t, "on the floor with 1 hit point", 1, true) and string.find(t, ch, 1, true) then
+                    fail("S", R.tag .. " week " .. w .. ": " .. ch .. " is stone, and \"" .. t .. "\"")
+                end
+            end
+            if string.find(t, "She lets them go. She wants them to come back.", 1, true) then
+                lost_lair = true
+                for ch, v in util.sorted_pairs(stone) do
+                    if v ~= "back" then
+                        fail("S", R.tag .. " week " .. w .. ": " .. ch .. " is stone as Euryale sends them home, and nobody says how " .. ch .. " came back")
+                    else
+                        add("S", "said_how_they_came_back")
+                    end
+                    if string.find(t, "as her hold on the lair breaks", 1, true) then
+                        fail("S", R.tag .. ": her hold didn't break, she won")
+                    end
+                end
+            end
+            if lost_lair == false and string.find(t, "out of the stone, gasping, as her hold on the lair breaks", 1, true) then
+                -- (said before "She lets them go" on a loss: her hold never broke)
+                wk.hold_broke = true
+            end
+        end
+        if lost_lair and wk.hold_broke then
+            fail("S", R.tag .. " week " .. w .. ": they lost to her, and the stone \"cracks ... as her hold on the lair breaks\"")
+        end
+        if lost_lair and next(stone) then
+            add("S", "lost_lair_with_stone")
+            local nxt = R.weeks[w + 1]
+            local named = false
+            for _, s in ipairs((nxt and nxt.said) or {}) do
+                if string.find(s.text, "^Last time,") and string.find(s.text, "stone", 1, true) then
+                    named = true
+                end
+            end
+            if nxt and not named then
+                fail("S", R.tag .. " week " .. (w + 1) .. ": \"Last time\" never says they were stone, or how they came back")
+            end
+        end
+    end
+end
+
+-- The UI's own run of seed 54, its screens dumped (DUMP_DIR, tools/tests/museum_smoke.lua), as the
+-- screens review read them: week 4 a lost boss fight with Pip and Oswin stone, week 5 Hans for a party
+-- that never went to the World of Tomorrow.
+local function dump_texts(dir, name)
+    local f = io.open(dir .. "/" .. name)
+    if not f then
+        return nil
+    end
+    local out = {}
+    for line in f:lines() do
+        local kind = string.match(line, "^(%a+)\t")
+        if kind == "text" then
+            local t = string.match(line, "^[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t(.*)$")
+            if t then
+                table.insert(out, (string.gsub(t, "\\n", " ")))
+            end
+        end
+    end
+    f:close()
+    return table.concat(out, "\n")
+end
+local function ui_54()
+    local dir = os.tmpname()
+    os.remove(dir)
+    os.execute("mkdir -p " .. dir)
+    local fh = io.popen("DUMP_DIR=" .. dir .. " lua tools/tests/museum_smoke.lua 54 2>&1")
+    local said = fh:read("*a")
+    fh:close()
+    if not string.find(said, "museum smoke 54:", 1, true) then
+        fail("S", "the seed 54 smoke run didn't finish: " .. string.sub(said, -200))
+        return
+    end
+    local function has(name, pat)
+        local t = dump_texts(dir, name)
+        return t and string.find(t, pat, 1, true) ~= nil, t
+    end
+    -- N3: Hans on the boss board, the Story sidebar and the journey, said as Flitwidget's.
+    local _, journey = has("7_journey.txt", "")
+    if journey and string.find(journey, "Never seen", 1, true) and string.find(journey, "World of Tomorrow", 1, true)
+        and string.find(dump_texts(dir, "6_report_w5.txt") or "", "Hans", 1, true) then
+        add("N1", "ui_54_hans")
+        if not string.find(journey, "Flitwidget woke", 1, true) then
+            fail("N1", "seed 54 (UI): the journey says the World of Tomorrow was never seen, and never how Hans woke")
+        end
+        if not has("4b_showdown.txt", "woken by Flitwidget") then
+            fail("N1", "seed 54 (UI): the showdown board brings \"the Steam Mech (Hans)\" with no word of who woke it")
+        end
+        if not has("5r_story_w5.txt", "Woken by Flitwidget") then
+            fail("N1", "seed 54 (UI): the Story sidebar says Hans was woken, not who by")
+        end
+    end
+    -- N2: week 4's lost boss fight, Pip and Oswin stone.
+    local _, night4 = has("5_night_end_w4.txt", "")
+    if night4 and string.find(night4, "Oswin turns to stone", 1, true) then
+        add("S", "ui_54_stone")
+        if string.find(night4, "Pip and Thessaly come round on the floor", 1, true) then
+            fail("S", "seed 54 (UI) week 4: Pip turned to stone, and \"Brannoc, Pip and Thessaly come round on the floor\"")
+        end
+        local rep = dump_texts(dir, "6_report_w4.txt") or ""
+        if not string.find(rep, "out of the stone", 1, true) then
+            fail("S", "seed 54 (UI) week 4: the report never says how Pip and Oswin came back from stone")
+        end
+        if not string.find(journey or "", "stone", 1, true) then
+            fail("S", "seed 54 (UI): the journey's histories never say Oswin was turned to stone")
+        end
+        local chat = dump_texts(dir, "3_between_w5.txt") or ""
+        if not string.find(chat, "stone", 1, true) then
+            fail("S", "seed 54 (UI) week 5: the chat never mentions being stone")
+        end
+    end
+    os.execute("rm -rf " .. dir)
+end
+
 -- Whole prologues --------------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 51 to 58, three DMs), and more seeds on request.
 local RUNS = {}
@@ -346,8 +480,13 @@ for _, run in ipairs(RUNS) do
             n1_watch(R)
             n1_witness(R)
         end)
+        case("S", function()
+            s_watch(R)
+        end)
     end)
 end
+
+case("S", ui_54)
 
 -- Targeted cases -----------------------------------------------------------------------------------
 
