@@ -258,13 +258,49 @@ function M.line(x1, y1, x2, y2, thickness, color)
     return track(n)
 end
 
--- Text. opts: w (wrap width), pivot, lines (max lines, adds "..."), scale.
+-- Text cut short shows the whole of it on hover (the third playtest: "Should enj...", "Sam's ...",
+-- "She skips the drink..." with no way to read the rest). kit.ellipsize remembers what it cut, by the
+-- short string, and kit.text gives whatever it draws cut, by either, a hover with the full text
+-- (M.cut_hook, set by game/ui/gloss.lua: its card). opts.full = false: no hover (the hover card's own
+-- lines, text that moves after it's drawn).
+M.cut_pending = {}
+local cut_pending_n = 0
+local function remember_cut(short, full)
+    if cut_pending_n > 400 then
+        M.cut_pending, cut_pending_n = {}, 0
+    end
+    if M.cut_pending[short] == nil then
+        cut_pending_n = cut_pending_n + 1
+    end
+    M.cut_pending[short] = full
+end
+
+-- Where a text drawn at x, y with this pivot starts (top-left), for its w by h.
+local function top_left(x, y, w, h, pivot)
+    local fx, fy = 0, 0
+    if pivot == gui.PIVOT_N or pivot == gui.PIVOT_CENTER or pivot == gui.PIVOT_S then
+        fx = 0.5
+    elseif pivot == gui.PIVOT_NE or pivot == gui.PIVOT_E or pivot == gui.PIVOT_SE then
+        fx = 1
+    end
+    if pivot == gui.PIVOT_W or pivot == gui.PIVOT_CENTER or pivot == gui.PIVOT_E then
+        fy = 0.5
+    elseif pivot == gui.PIVOT_SW or pivot == gui.PIVOT_S or pivot == gui.PIVOT_SE then
+        fy = 1
+    end
+    return x - fx * w, y - fy * h
+end
+
+-- Text. opts: w (wrap width), pivot, lines (max lines, adds "..." and a hover with the whole text),
+-- scale, full (false: no hover for a cut).
 function M.text(x, y, str, font, color, opts)
     opts = opts or {}
     str = str or ""
+    local full = M.cut_pending[str]
     if opts.w then
         local lines = M.wrap(str, font, opts.w)
         if opts.lines and #lines > opts.lines then
+            full = full or str
             local keep = {}
             for i = 1, opts.lines do
                 keep[i] = lines[i]
@@ -288,6 +324,18 @@ function M.text(x, y, str, font, color, opts)
     if opts.gloss == false and M.gloss_audit then
         M.gloss_audit[str] = true     -- (plain on purpose: speech, the chat; the hover audit skips it)
     end
+    -- The whole text on hover, under any word's own (a word's spot comes later, so it wins).
+    local cut_spot
+    if full and full ~= str and opts.full ~= false and M.cut_hook and M.current and not opts.scale then
+        local tw, nl = 0, 0
+        for line in string.gmatch(str .. "\n", "(.-)\n") do
+            tw = math.max(tw, M.width(line, font))
+            nl = nl + 1
+        end
+        local th = nl * M.line_height(font)
+        local lx, ly = top_left(x, y, tw, th, opts.pivot or gui.PIVOT_NW)
+        cut_spot = M.cut_hook(lx, ly, tw, th, full)
+    end
     local tags = opts.gloss or M.gloss_tags or M.gloss_default
     local n0 = M.current and #M.current.nodes or 0
     if tags and M.gloss_hook and not opts.scale and opts.gloss ~= false and str ~= "" then
@@ -303,6 +351,9 @@ function M.text(x, y, str, font, color, opts)
     local n = gui.new_text_node(vmath.vector3(x, M.H - y, 0), str)
     if kids then
         M.under_of[n] = kids
+    end
+    if cut_spot then
+        cut_spot.node = n         -- (hidden or deleted with its text)
     end
     gui.set_font(n, font)
     gui.set_pivot(n, opts.pivot or gui.PIVOT_NW)
@@ -355,7 +406,9 @@ function M.ellipsize(str, font, w)
     while #out > 1 and M.width(out .. "...", font) > w do
         out = string.sub(out, 1, #out - 1)
     end
-    return out .. "..."
+    out = out .. "..."
+    remember_cut(out, str)
+    return out
 end
 
 function M.wrap(str, font, w)

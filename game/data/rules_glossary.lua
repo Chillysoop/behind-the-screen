@@ -72,7 +72,7 @@ return {
       text = "How far it moves in a turn, in feet. Every square on the mat is 5 feet.", dnd = "Speed",
       tags = { "fight" } },
     -- (Before the attack bonus: "your Empathy +1," is a DM's skill, not a weapon.)
-    { id = "empathy", match = { "%f[%w]Empathy%f[%W]" }, plain = "Reading the table",
+    { id = "empathy", match = { "%f[%w]Empathy%f[%W]", "%f[%w]EMPATHY%f[%W]" }, plain = "Reading the table",
       text = "Your own skill as a DM at noticing how the players feel. It grows as you play, and the bars "
           .. "get sharper." },
     { id = "to_hit", match = { "%f[%w]%a+ %+%d+%f[,]", "%f[%w]Attack [%+%-]%d" }, plain = "Attack bonus",
@@ -237,7 +237,7 @@ return {
     { id = "session_zero", match = { "Session Zero", "SESSION ZERO" }, plain = "The talk before the first game",
       text = "Everyone agrees what the game will be like: the tone, what's off limits, the house rules.",
       dnd = "Session Zero" },
-    { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]" }, plain = "A loose end",
+    { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]", "LOOSE END" }, plain = "A loose end",
       text = "A room the party skipped, with someone or something still in it. Between sessions you decide what "
           .. "happens to it, and where it turns up." },
     { id = "lines", match = { "%f[%w]LINES%f[%W]", "A line:" }, plain = "A line",
@@ -283,13 +283,14 @@ return {
       text = "How much they're enjoying tonight. It's what the night is scored on, more than whether the heroes "
           .. "win." },
     { id = "commitment", match = { "%f[%w]Commitment%f[%W]" }, plain = "Commitment",
-      text = "How much they want to keep coming. Weeks of it low and they take a break." },
+      text = "How much they want to keep coming. Higher is better: weeks of it low and they take a break." },
     { id = "trust", match = { "%f[%w]Trust%f[%W]" }, plain = "Trust",
-      text = "How much they trust you to be fair. Getting caught cooking the dice costs a lot of it." },
+      text = "How much they trust you to be fair. Higher is better: getting caught cooking the dice, or a harsh call out "
+          .. "of nowhere, costs a lot of it." },
     { id = "investment", match = { "%f[%w]Investment%f[%W]" }, plain = "Investment",
-      text = "How much they care about the story and their hero. Their own story moving fills it." },
+      text = "How much they care about the story and their hero. Higher is better: their own story moving fills it." },
     { id = "suspicion", match = { "%f[%w]Suspicion%f[%W]" }, plain = "Suspicion",
-      text = "Whether they think you're changing rolls behind the screen. Too high and trust starts to slip." },
+      text = "Whether they think you're changing rolls behind the screen. Lower is better: too high and trust starts to slip." },
     { id = "goodwill", match = { "%f[%w]Goodwill%f[%W]" }, plain = "Goodwill",
       text = "Their fondness for you as their DM. Good nights fill it; when it's full they bring you something." },
     { id = "table_score", match = { "Table Score" }, plain = "How the table did",
@@ -351,6 +352,35 @@ return {
       text = "An hour's breather: heroes spend Hit Dice to heal a little, and a few abilities come back.", dnd = "Short rest" },
     { id = "long_rest", match = { "[Ll]ong [Rr]est" }, plain = "A long rest",
       text = "A full night's sleep: all health and every spell come back.", dnd = "Long rest" },
+    -- Words the third playtest's newcomer and lapsed DM didn't know (screens_newcomer 15).
+    { id = "vorpal", match = { "[Vv]orpal sword", "[Vv]orpal [Ss]word" }, plain = "A vorpal sword",
+      text = "The most famous magic sword in the game: on a natural 20 it can cut a head clean off. Every table has "
+          .. "someone who asks for one.", dnd = "Vorpal Sword (legendary magic item)" },
+    { id = "mage_armor", match = { "Mage Armor" }, plain = "Mage Armor",
+      text = "A wizard's spell: a shimmer of force that makes them harder to hit, all day.", dnd = "Mage Armor (spell)",
+      tags = { "sheet", "fight" } },
+    { id = "aid", match = { "%f[%w]Aid%f[%W]" }, plain = "Aid",
+      text = "A cleric's spell: up to three friends get a little more health, for the rest of the day.", dnd = "Aid (spell)",
+      tags = { "sheet", "fight" } },
+    { id = "mastery", match = { "%f[%w]Mastery%f[%W]" }, plain = "Weapon mastery",
+      text = "The newer rules give each weapon a trick its wielder knows. Vex: a hit makes your next attack on that "
+          .. "target easier. Nick: the extra swing with a light second weapon comes free. Graze: a miss still nicks.",
+      dnd = "Weapon Mastery (2024 rules)", tags = { "sheet", "fight" } },
+    { id = "vex", match = { "%f[%w]Vex%f[%W]" }, plain = "Vex",
+      text = "A weapon trick: hit with it, and your next attack on that target has advantage.", dnd = "Vex (weapon mastery)",
+      tags = { "sheet", "fight" } },
+    { id = "nick", match = { "%f[%w]Nick%f[%W]" }, plain = "Nick",
+      text = "A weapon trick: the extra attack with a light second weapon is part of the same action, not a bonus "
+          .. "action.", dnd = "Nick (weapon mastery)", tags = { "sheet", "fight" } },
+    { id = "minis", match = { "%f[%w]Minis%f[%W]", "%f[%w]minis%f[%W]" }, plain = "Minis",
+      text = "The little painted figures for the heroes and the monsters, set out on the map so everyone can see "
+          .. "who's where." },
+    { id = "inspire", match = { "%f[%w]Inspire%f[%W]" }, plain = "Inspire",
+      text = "Hand this hero Heroic Inspiration for great play: a token they can spend to reroll one die.",
+      dnd = "Heroic Inspiration", tags = { "fight", "table" } },
+    { id = "final_roll", match = { "[Ff]inal roll" }, plain = "The scene's final roll",
+      text = "The roll that settles how a scene ends. Good moments on the way (gold dots) make it easier, bad ones "
+          .. "(red dots) harder; normal is neither." },
     { id = "railroad", match = { "%f[%a]railroad%a*" }, plain = "Railroading",
       text = "Steering the players where you planned, whatever they chose. A little is fine; too much and they feel "
           .. "their choices don't matter." },
