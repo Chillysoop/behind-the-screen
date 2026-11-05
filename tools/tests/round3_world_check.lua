@@ -29,7 +29,7 @@ local function fail(item, msg)
     if CUR then
         fails[item].by[CUR] = (fails[item].by[CUR] or 0) + 1
     end
-    if #fails[item] < 8 then
+    if #fails[item] < (os.getenv("ALL") and 100000 or 8) then
         table.insert(fails[item], msg)
     end
     fails[item].n = fails[item].n + 1
@@ -120,6 +120,8 @@ local function play(seed, style)
         if pm.boss then
             c.adv.boss = { opener = rng:chance(0.7) and "talk" or "ambush", style = rng:chance(0.6) and "yields" or "last" }
         end
+        T.pool = T.pool or {}
+        T.pool[w] = { before = c.adv.francs or 0 }
         local night = c:start_night()
         T.nights[w] = night
         local ev = night:advance()
@@ -180,6 +182,8 @@ local function play(seed, style)
         end
         local rep = c:finish_night()
         T.reps[w] = rep
+        T.pool[w].after = c.adv.francs or 0
+        T.pool[w].week = c.week
         local events = require "game.model.events"
         for _, line in ipairs((events.chain(c, c.week))) do
             put({ kind = "chain", w = w, text = line })
@@ -412,13 +416,245 @@ local function asker_owner(T)
     end
 end
 
+-- B2. Only what's owned fires; what's given is shown ----------------------------------------------
+
+-- Telpur's slime bites only when they bought the arrows and the slime (the bucket said at the fight's
+-- start); the quiver Pip lifted off his shelf isn't sold back to them while she has it, and Telpur
+-- knows his own stock when he next sees it.
+local function stock_owned(T)
+    local bucket, lifted, lifted_w, used, spotted = false, false, nil, false, false
+    for _, e in ipairs(T) do
+        if e.kind == "battle" and e.phase == "end" then
+            bucket = false          -- (said as the fight starts, before its first turn: good for that fight)
+        elseif e.kind == "line" then
+            if string.find(e.text, "bucket of slime", 1, true) and string.find(e.text, "Out come", 1, true) then
+                bucket = true
+            end
+            if string.find(e.text, "quiver of Telpur's fire arrows", 1, true) and e.who ~= "narration"
+                and (string.find(e.text, "pocket now", 1, true) or string.find(e.text, "changed hands", 1, true)
+                     or string.find(e.text, "never feels a thing", 1, true)) then
+                lifted, lifted_w = true, e.w
+                add("B2", "quiver_lifted")
+            end
+            if string.find(e.text, "fire arrows nobody paid for", 1, true) then
+                used = true
+            end
+            -- (The shop is the table's own choice: its card is read out, then they talk it over.)
+            if lifted and not used and string.find(e.text, "buy the fire arrows and the slime", 1, true) then
+                fail("B2", tag(T, e.w) .. ": '" .. e.text .. "', while Pip has the quiver she lifted off his shelf")
+            end
+            if lifted and not used and string.find(e.text, "pools its Flitwidget Francs on the counter", 1, true) and e.w > lifted_w
+                and not spotted then
+                fail("B2", tag(T, e.w) .. ": back at Telpur's counter with his stolen quiver on Pip's back, and he never notices")
+            end
+            if e.who == "Telpur" and (string.find(e.text, "my stock", 1, true) or string.find(e.text, "MY arrows", 1, true)
+                or string.find(e.text, "own stock", 1, true)) then
+                spotted = true
+                add("B2", "telpur_spots")
+            end
+        elseif e.kind == "turn" then
+            for _, st in ipairs(e.steps) do
+                if st.kind == "feature" and string.find(st.name or "", "Telpur's slime", 1, true) then
+                    add("B2", "slime_bites")
+                    if not bucket then
+                        fail("B2", tag(T, e.w) .. ": " .. st.name .. " on " .. tostring(st.id) .. ", and nobody brought the slime")
+                    end
+                end
+            end
+        elseif e.kind == "card" and e.card.title == "What do they buy?" and lifted and not used then
+            for _, o in ipairs(e.card.options) do
+                if string.find(o.label or "", "Fire arrows and a bucket of slime", 1, true) then
+                    fail("B2", tag(T, e.w) .. ": Telpur offers the fire arrows while Pip has the quiver she lifted off his shelf")
+                end
+            end
+            if e.w > lifted_w and not spotted then
+                fail("B2", tag(T, e.w) .. ": back at Telpur's counter with his stolen quiver on Pip's back, and he never notices")
+            end
+        end
+    end
+end
+
+-- Flitwidget's bracelet: the table saw him give it, to the hero whose wrist the lair names.
+local function bracelet_given(T)
+    local given_to
+    for _, e in ipairs(T) do
+        if e.kind == "line" and string.find(e.text, "thin silver bracelet", 1, true) then
+            given_to = hero_in(e.text)
+            add("B2", "bracelet_handed_over")
+        elseif e.kind == "line" and string.find(e.text, "bracelet", 1, true) and string.find(e.text, "saves against her stare", 1, true) then
+            add("B2", "bracelet_in_lair")
+            local sentence = string.match(e.text, "([^.]*bracelet[^.]*)") or e.text
+            if not given_to then
+                fail("B2", tag(T, e.w) .. ": '" .. sentence .. "', and nobody saw Flitwidget hand it over")
+            elseif hero_in(sentence) ~= given_to then
+                fail("B2", tag(T, e.w) .. ": " .. given_to .. " was given the bracelet, and '" .. sentence .. "'")
+            end
+        end
+    end
+end
+
+-- B3. Money adds up -------------------------------------------------------------------------------
+
+-- The pool is what the log says went in and out tonight, every Franc that went in was heard going in,
+-- and a Franc the chain credits to a hero was heard going to that hero.
+-- (A line that says a Franc turned up: any said line with a Franc in it but the ones about spending
+-- them, prices and the pool.)
+local FRANC_NOT = { "Spend", "spend", "pools its", "One Franc per", "price", "Francs)" }
+local function franc_line(text)
+    if not string.find(text, "Franc", 1, true) then
+        return false
+    end
+    for _, w in ipairs(FRANC_NOT) do
+        if string.find(text, w, 1, true) then
+            return false
+        end
+    end
+    return true
+end
+local function money_heard(T)
+    local events = require "game.model.events"
+    local heard = {}
+    for _, e in ipairs(T) do
+        if e.kind == "line" and not HERO[e.who] and franc_line(e.text) then
+            heard[e.w] = heard[e.w] or {}
+            table.insert(heard[e.w], e.text)
+        end
+    end
+    for w, pl in pairs(T.pool or {}) do
+        if pl.after then
+            local inn, out, finds = 0, 0, 0
+            for _, ev in ipairs(events.find(T.c, { session = pl.week })) do
+                if ev.kind == "find" and ev.thing == "francs" and not ev.between then
+                    inn, finds = inn + (ev.n or 1), finds + 1
+                elseif ev.kind == "spend" and not ev.between then
+                    out = out + (ev.n or 0)
+                end
+            end
+            add("B3", "nights")
+            if pl.after - pl.before ~= inn - out then
+                fail("B3", tag(T, w) .. ": the pool went from " .. pl.before .. " to " .. pl.after .. ", and the log has " .. inn
+                    .. " in and " .. out .. " out")
+            end
+            if #(heard[w] or {}) < finds then
+                fail("B3", tag(T, w) .. ": " .. finds .. " Franc finds in the log, and the table heard " .. #(heard[w] or {}))
+            else
+                add("B3", "finds_heard", finds)
+            end
+        end
+    end
+    for _, e in ipairs(T) do
+        if e.kind == "chain" then
+            for h in string.gmatch(e.text, "(%a+) found a Flitwidget Franc") do
+                if KEY[h] then
+                    local ok = false
+                    for _, l in ipairs(heard[e.w] or {}) do
+                        ok = ok or (string.find(l, h, 1, true) ~= nil)
+                    end
+                    if not ok then
+                        fail("B3", tag(T, e.w) .. ": the chain says '" .. e.text .. "', and nobody heard a Franc go to " .. h)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- The reward is one number: Flitwidget says it before anyone calls it low, the haggle starts from it
+-- and moves it, and "They earn" pays it.
+local NUM = { five = 5, ten = 10, fifteen = 15, twenty = 20, ["twenty-five"] = 25, thirty = 30, ["thirty-five"] = 35, forty = 40,
+              ["forty-five"] = 45, fifty = 50, ["fifty-five"] = 55, sixty = 60 }
+local function gold_in(text)
+    local low = string.lower(text)
+    local n = string.match(low, "(%d+) gold each") or string.match(low, "makes it (%d+) each")
+    if n then
+        return tonumber(n)
+    end
+    for w in string.gmatch(low, "([%a%-]+) gold each") do
+        if NUM[w] then
+            return NUM[w]
+        end
+    end
+    for w in string.gmatch(low, "makes it ([%a%-]+) each") do
+        if NUM[w] then
+            return NUM[w]
+        end
+    end
+    for w in string.gmatch(low, "\"([%a%-]+) each%.") do
+        if NUM[w] then
+            return NUM[w]
+        end
+    end
+    for w in string.gmatch(low, "([%a%-]+) each[%.%?]") do
+        if NUM[w] then
+            return NUM[w]
+        end
+    end
+    return nil
+end
+local function reward_number(T)
+    local cur
+    for _, e in ipairs(T) do
+        local n = e.kind == "line" and gold_in(e.text)
+        if n then
+            local low = string.find(e.text, "seems low", 1, true) or string.find(e.text, "She's out of your museum", 1, true)
+            if low then
+                add("B3", "reward_haggled")
+                if not cur then
+                    fail("B3", tag(T, e.w) .. ": '" .. e.text .. "', before anyone said what the reward was")
+                elseif n ~= cur then
+                    fail("B3", tag(T, e.w) .. ": the reward was " .. cur .. " each, and '" .. e.text .. "'")
+                end
+            elseif string.find(e.text, "They earn", 1, true) then
+                add("B3", "reward_paid")
+                if cur and n ~= cur then
+                    fail("B3", tag(T, e.w) .. ": the reward was " .. cur .. " each, and '" .. e.text .. "'")
+                end
+            elseif string.find(e.text, "makes it", 1, true) then
+                if cur and n ~= cur + 10 and n ~= cur + 5 then
+                    fail("B3", tag(T, e.w) .. ": talked up from " .. cur .. ", and '" .. e.text .. "'")
+                end
+                cur = n
+            else
+                if cur and string.find(e.text, "And a biscuit", 1, true) and n ~= cur then
+                    fail("B3", tag(T, e.w) .. ": the reward was " .. cur .. " each, and '" .. e.text .. "'")
+                end
+                cur = n
+            end
+        end
+    end
+end
+
+-- What Flitwidget says they broke, they broke: a garden only if it burned, a guardian only if it was smashed.
+local function breakages_true(T)
+    local marks = {}
+    for _, id in ipairs(T.c.adv.mark_list or {}) do
+        marks[id] = true
+    end
+    for _, e in ipairs(T) do
+        if e.kind == "line" and (e.who == "Flitwidget" or string.find(e.who, "Flitwidget", 1, true)) then
+            local low = string.lower(e.text)
+            if (string.find(low, "garden", 1, true) or string.find(low, "set fire", 1, true)) and not marks.garden_burned then
+                fail("B3", tag(T, e.w) .. ": '" .. e.text .. "', and the garden never burned")
+            end
+            if (string.find(low, "guardian", 1, true) or string.find(low, "bone construct", 1, true)) and not marks.scarabs then
+                fail("B3", tag(T, e.w) .. ": '" .. e.text .. "', and nobody smashed the guardian")
+            end
+            if string.find(low, "breakages", 1, true) or string.find(low, "you also", 1, true) or string.find(low, "minus", 1, true) then
+                add("B3", "breakages_said")
+            end
+        end
+    end
+end
+
 -- Targeted cases ---------------------------------------------------------------------------------
 
 -- Run everything ---------------------------------------------------------------------------------
 
 -- (name, scan): a fail is counted under its scan's name, so the line per finding says which part failed.
 local SCANS = { { "lock", lock_owner }, { "voice", voice_owner }, { "praise", praise_owner }, { "paint", paint_owner },
-                { "notes", notes_owner }, { "asker", asker_owner } }
+                { "notes", notes_owner }, { "asker", asker_owner },
+                { "stock", stock_owned }, { "bracelet", bracelet_given }, { "pool", money_heard }, { "reward", reward_number },
+                { "breakages", breakages_true } }
 local t0 = os.clock()
 local runs = 0
 for _, style in ipairs(STYLES) do

@@ -119,10 +119,10 @@ end
 
 -- Does this person know of a deed of this kind (by this hero, if one is named), done to them if `to`,
 -- or done to `whom`?
-function M.knows_of(c, person, kind, by, to, whom)
+function M.knows_of(c, person, kind, by, to, whom, outcome)
     for _, ev in ipairs(events.list(c)) do
         if ev.kind == kind and (not by or ev.who == by) and (not to or ev.whom == person) and (not whom or ev.whom == whom)
-            and events.knows(c, person, ev) then
+            and (not outcome or ev.outcome == outcome) and events.knows(c, person, ev) then
             return ev
         end
     end
@@ -204,6 +204,26 @@ function M.notice(c, person, rooms, kinds)
         end
     end
     return out
+end
+
+-- Someone sees their own things in a hero's hands: a theft of theirs they never saw, its thing still
+-- in a pack at the table tonight (the entry it went into, not any other of the same). They know it
+-- from now on (the theft's `seen`: what their prices and lines read). Returns the theft and the entry.
+function M.spots(c, person, at_table, ok)
+    for _, ev in ipairs(events.find(c, { kind = "steal", whom = person, outcome = "got" })) do
+        if ok and not ok(ev) then
+            ev = nil
+        end
+        local got = ev and events.last(c, { kind = "get", from = ev.id })
+        local it = got and got.entry
+        if ev and it and not it.gone and not it.destroyed and it.holder and (not at_table or at_table[it.holder])
+            and not events.knows(c, person, ev) then
+            ev.seen = ev.seen or {}
+            ev.seen[person] = true
+            return ev, it
+        end
+    end
+    return nil
 end
 
 -- Who's in this room to see something happen: the museum's people whose room it is (or who hear it),

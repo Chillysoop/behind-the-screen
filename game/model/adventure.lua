@@ -406,7 +406,8 @@ function M.test(campaign, cond, knobs, hero)
     local st = campaign.adv
     -- What the museum's people think, and know, read from the event log (R7, R11: people.lua):
     -- opinion = { who, of = hero key | "actor" | nil (the party), at_least, at_most }; knows = { who,
-    -- kind, by = hero key | "actor", to = true (done to them) }; event = { kind, ... } (it's in the log).
+    -- kind, by = hero key | "actor", to = true (done to them), outcome = "got" | "caught" (a theft's) };
+    -- event = { kind, ... } (it's in the log).
     if cond.opinion then
         if not require("game.model.people").test(campaign, cond.opinion, hero) then
             return false
@@ -415,14 +416,14 @@ function M.test(campaign, cond, knobs, hero)
     if cond.knows then
         local k = cond.knows
         local by = k.by == "actor" and hero or k.by
-        if not require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom) then
+        if not require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom, k.outcome) then
             return false
         end
     end
     if cond.not_knows then
         local k = cond.not_knows
         local by = k.by == "actor" and hero or k.by
-        if require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom) then
+        if require("game.model.people").knows_of(campaign, k.who, k.kind, by, k.to, k.whom, k.outcome) then
             return false
         end
     end
@@ -561,6 +562,41 @@ function M.reward_gold(campaign, ending)
         return math.floor(full * esc.share + 0.5), full
     end
     return full, full
+end
+
+-- The reward in words, for the lines that say it (round three: "thirty gold" was never said before a
+-- friend called it low, and "ten gold less" was followed by "forty each"): what the thanks pays now
+-- (gold_word: halved for an escape), and what it would be talked up ten (gold_up_word), read from the
+-- one place, st.gold.
+local WORDS = { [1] = "one", [2] = "two", [3] = "three", [4] = "four", [5] = "five", [6] = "six", [7] = "seven", [8] = "eight",
+                [9] = "nine", [10] = "ten", [15] = "fifteen", [20] = "twenty", [25] = "twenty-five", [30] = "thirty",
+                [35] = "thirty-five", [40] = "forty", [45] = "forty-five", [50] = "fifty", [55] = "fifty-five", [60] = "sixty" }
+function M.gold_word(n)
+    return WORDS[n] or util.int(n)
+end
+function M.reward_vars(campaign)
+    local now, full = M.reward_gold(campaign)
+    local st = campaign.adv or {}
+    local up = full + 10
+    local esc = MODULE.showdown and MODULE.showdown.escape
+    local up_now = (esc and st.ending == "escape") and math.floor(up * esc.share + 0.5) or up
+    return { gold = util.int(now), gold_word = M.gold_word(now), Gold_word = util.capitalize(M.gold_word(now)),
+             gold_up_word = M.gold_word(up_now), Gold_up_word = util.capitalize(M.gold_word(up_now)) }
+end
+-- Why the reward is what it is, for the report: talked up, or docked, from the book's thirty.
+function M.reward_why(campaign)
+    local st = campaign.adv or {}
+    local bits = {}
+    if (st.gold_up or 0) > 0 then
+        table.insert(bits, "talked up " .. M.gold_word(st.gold_up))
+    end
+    if (st.gold_docked or 0) > 0 then
+        table.insert(bits, M.gold_word(st.gold_docked) .. " off for what they did")
+    end
+    if st.ending == "escape" then
+        table.insert(bits, "half, for letting her go")
+    end
+    return #bits > 0 and table.concat(bits, ", ") or nil
 end
 
 -- The escape's cost in words, for the boss board and the cards that let her go.
@@ -1089,9 +1125,20 @@ function M.apply(campaign, mus, room, holder)
     end
     if mus.francs then
         st.francs = st.francs + mus.francs
+        -- (Between sessions, a favor's or a loose end's Francs: in the log, and said at the next night's
+        -- start, so the pool on the board is what the table heard. Game night logs its own finds.)
+        if room == nil or room == "loose" then
+            local events = require "game.model.events"
+            events.add(campaign, { kind = "find", who = "party", thing = "francs", n = mus.francs, between = true, where = false,
+                                   whom = mus.from_whom })
+            st.between_francs = st.between_francs or {}
+            table.insert(st.between_francs, { n = mus.francs, whom = mus.from_whom })
+        end
     end
     if mus.spend then
         st.francs = math.max(0, st.francs - mus.spend)
+        require("game.model.events").add(campaign, { kind = "spend", who = holder or "party", n = mus.spend, where = (room ~= "loose" and room) or false,
+                                                     from = require("game.model.events").cause(campaign) })
     end
     if mus.careful then
         st.careful = st.careful + mus.careful
@@ -1119,6 +1166,11 @@ function M.apply(campaign, mus, room, holder)
     end
     if mus.gold then
         st.gold = mus.gold          -- (the reward, as bargained: what the thanks pays out)
+    end
+    -- (Talked up from what it is now, docked or not: "ten gold less" stays ten gold less.)
+    if mus.gold_up then
+        st.gold = (st.gold or M.REWARD) + mus.gold_up
+        st.gold_up = (st.gold_up or 0) + mus.gold_up
     end
     return added
 end
@@ -1471,8 +1523,19 @@ function M.answer_favor(campaign, who, help_i, hurt_i)
     end
     st.favor_done[who] = { help = help_i, hurt = hurt_i }
     local h, u = def.helps[help_i], def.hurts[hurt_i]
-    hold_marks(campaign, M.apply(campaign, h and h.mus))
-    hold_marks(campaign, M.apply(campaign, u and u.mus))
+    local function from(m)
+        if m and m.francs then
+            local c = {}
+            for k, v in pairs(m) do
+                c[k] = v
+            end
+            c.from_whom = "mus_" .. who        -- (whose Francs they were, for the line that says so)
+            return c
+        end
+        return m
+    end
+    hold_marks(campaign, M.apply(campaign, from(h and h.mus)))
+    hold_marks(campaign, M.apply(campaign, from(u and u.mus)))
     for _, o in ipairs({ h or false, u or false }) do
         if o and o.mus and o.mus.warn then
             require("game.model.warnings").note(campaign, type(o.mus.warn) == "string" and o.mus.warn or ("favor_" .. who),

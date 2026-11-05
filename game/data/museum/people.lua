@@ -60,6 +60,11 @@ return {
       },
       caught = { { text = { "Oi! That's stock! Back on the shelf, {char}.", "I'm a boot, not blind. Shelf. Now.",
                             "You pinch it, you pay double. Put it back." } } },
+      -- (His own stock in a hero's hands, lifted when he wasn't looking: he knows it when he sees it.
+      -- Round three: he sold the same quiver back, and rode along while it was handed round.)
+      spots = { { text = { "Hang on. That quiver on {char}'s back. I priced that quiver. That's my stock!",
+                           "Those arrows. Those are MY arrows. Off MY bottom shelf. {char}!",
+                           "I know my own stock when I see it, {char}. Those fire arrows never went through the till." } } },
       helped = { { text = { "Careful with the snow globes. Ta.", "Oh. That's... actually that's very kind. Mind the marbles.",
                             "Left a bit. Bit more. Lovely. You can come again." } } },
     },
@@ -76,17 +81,28 @@ return {
                             "Marvellous. Nobody ever helps with the crowd." } } },
       -- His thanks, when it's over: what he knows comes first, then how he feels about them.
       thanks = {
-        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true } },
+        -- (The draught that really went: he saw it go, or he's found his waistcoat pocket empty. One he
+        -- caught being lifted went straight back, so he doesn't say it's gone. Round three.)
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "got" } },
           text = { "Before the biscuits: my healing draught, if you please. I know where it went.",
                    "Thank you, all of you. And whoever has my draught: I'll be counting my pockets after tea.",
                    "My museum's back. My draught isn't. We'll call it even. Nearly." } },
+        { when = { event = { kind = "steal", whom = "mus_flitwidget", outcome = "got" } },
+          text = { "Thank you, all of you. Oh, and if anyone sees a little healing draught, it's mine. It's gone missing. Funny, that.",
+                   "My museum's back! Now, has anyone seen my healing draught? It was in this pocket. It isn't now.",
+                   "Splendid, splendid. Though I seem to have lost my healing draught somewhere in all the excitement." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "caught" } },
+          text = { "Thank you, all of you. Even the one with the quick hands. My draught and I have forgiven you.",
+                   "My heroes! Every one of them. Yes, even you, {char}. Hands where I can see them, mind.",
+                   "Thank you. And I've quite forgotten the pocket business. Almost." } },
         { when = { knows = { who = "mus_flitwidget", kind = "steal", whom = "mus_telpur" } },
           text = { "Telpur's had a word with me about the shelf. I'll keep one hand on my cash box, if it's all the same.",
                    "Thank you, all of you. Mostly. Telpur tells me some of my stock went for a walk.",
                    "My museum's back. Some of my stock isn't, Telpur says. We'll call it even. Nearly." } },
+        -- ({broke}: what he knows they broke, in his words, from the log: "my garden", "my tomb guardian".)
         { when = { knows = { who = "mus_flitwidget", kind = "break" }, opinion = { who = "mus_flitwidget", at_most = "wary" } },
           text = { "Thank you. I think. I'll be sweeping up for a month.", "My museum! What's left of it. No, no, thank you. Really.",
-                   "You saved it. You also set fire to quite a lot of it. Biscuit?" } },
+                   "You saved it. You also broke {broke}. Biscuit?" } },
         { when = { chose = { "mus_tidy", 1 }, opinion = { who = "mus_flitwidget", at_least = "warm" } },
           text = { "You put my exhibits back! Nobody ever puts my exhibits back.", "Every jar back on its plinth! I could weep. I might.",
                    "You tidied up after yourselves. In my museum. I'm going to tell everyone." } },
@@ -94,9 +110,33 @@ return {
           text = { "The best help I've ever had, and I've had a great deal of help.", "My heroes! I'll tell every town on the road about you.",
                    "I knew you had the look. I always know." } },
       },
-      -- His reward, when he's counting what they broke.
-      docked = { { text = { "I've taken the breakages out of it. Only fair. Only the big ones.", "Minus a garden. And a guardian. Roughly.",
-                            "Ten gold less each, for the damage. I've been very reasonable." } } },
+      -- His reward, when he's docked it: for what he really holds against them (what they broke, his
+      -- donation box, his draught), and the number it comes to ({gold_word}: the reward now, in words).
+      -- Round three: "Minus a garden. And a guardian." when the hedges were doused and the guardian calmed.
+      docked = {
+        { when = { knows = { who = "mus_flitwidget", kind = "break" } },
+          text = { "I've taken the breakages out of it: {broke}. {Gold_word} gold each, then. Only fair.",
+                   "Minus {broke}. Call it {gold_word} gold each. Roughly.",
+                   "Ten gold less each, for {broke}. {Gold_word} each. I've been very reasonable." } },
+        { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "got" } },
+          text = { "Ten gold less each, for my draught. {Gold_word} gold each. Call it the price of a pocket.",
+                   "I've taken my healing draught out of it. {Gold_word} gold each, then.",
+                   "{Gold_word} each. Ten less, for what went missing from my waistcoat." } },
+        { text = { "Ten gold less each, for my donation box. {Gold_word} each. You know what you did.",
+                   "I've taken the donation box out of it. {Gold_word} gold each. Only fair.",
+                   "{Gold_word} gold each. Ten less, for the business with my donation box." } },
+      },
+      -- The reward, said before anyone haggles over it (round three: "thirty gold each seems low" with
+      -- no number ever said), when he hasn't docked it (docked says the number itself).
+      reward = {
+        { when = { ending = "escape" },
+          text = { "She's out, but she isn't beaten. Half the reward, then: {gold_word} gold each, and a pick from the shop.",
+                   "Half a job, half the gold: {gold_word} each. And a pick from the shop. And a biscuit.",
+                   "{Gold_word} gold each, for a Gorgon who's gone, not beaten. And anything from the shop you like." } },
+        { text = { "Now. Your reward: {gold_word} gold each, as promised, and a pick from the shop.",
+                   "{Gold_word} gold each, as I said, and anything from the gift shop you like. Within reason.",
+                   "The reward! {Gold_word} gold each and a pick from the gift shop. I always pay my heroes." } },
+      },
     },
     mus_euryale = {
       -- On boss night, what the Lecturer told her (people.pass_on), most specific first.

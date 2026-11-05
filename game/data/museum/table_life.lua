@@ -493,9 +493,14 @@ return {
           better = "\"A death among the mountain clans, and nobody asking the right questions. I could use sturdy guards. Know any?\"" },
       },
       table_bits = {
-        { kind = "haggle", who = "dev", lines = {
+        -- (buys: a real purchase out of the pool, at price, a Franc off or on by the roll: table_life.bit.)
+        { kind = "haggle", who = "dev", buys = "marbles", price = 3, lines = {
             "Brannoc leans on the counter. \"How much for the marbles? For throwing.\"",
-            "Telpur: \"Three Francs. And you throw them upstairs, not at my shelves.\"" } },
+            "Telpur: \"Three Francs. And you throw them upstairs, not at my shelves.\"" },
+          cheaper = "Telpur sighs. \"Fine. Two Francs, for the face.\" {char} counts them out of the pool, and the marbles are {char}'s.",
+          even = "Three Francs out of the pool, and the bag of marbles is {char}'s.",
+          dearer = "\"Four. Lace tax.\" {char} pays it out of the pool, grumbling, and pockets the marbles.",
+          short = "{char} counts the pool. Not enough for marbles, even at {n}. \"Next time,\" says Telpur." },
         { kind = "snack", who = "sam", lines = {
             "Oswin finally sits down on an upturned crate and unwraps his sandwiches.",
             "Telpur: \"No eating in the shop.\" A long pause. \"What's in them?\"" } },

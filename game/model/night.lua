@@ -421,6 +421,12 @@ function M:vars(extra)
         v.Boss = util.capitalize(v.boss)
     end
     v.question = self.rules_question     -- (what someone wants to look up: fight.lua QUESTIONS)
+    -- (The reward as it stands, in words: "thirty gold each". One number, adventure.reward_vars.)
+    if self.mus and self.campaign.adv then
+        for k, val in pairs(util.lazy("game.model.adventure").reward_vars(self.campaign)) do
+            v[k] = val
+        end
+    end
     for k, val in pairs(self.mus_vars or {}) do
         v[k] = val          -- v2: the museum's own fill-ins (the painting, the Mech's name)
     end
@@ -2833,6 +2839,9 @@ function M:big_roll(spec, record)
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
         end
         ruled = util.fill(self:fresh(M.FRANC_LINES, "franc_line"), { char = p and p.char or "someone" })
+        -- (In the log too, to whoever rolled it: the pool is what the log says went in. Round three.)
+        events.add(self.campaign, { kind = "find", who = p and p.key or "party", thing = "francs", n = 1, roll = true,
+                                    where = self.scene and self.scene.room, from = events.cause(self.campaign) })
     end
     if ro.tone == "good" and not success then
         -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves

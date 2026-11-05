@@ -1245,6 +1245,27 @@ case("museum-mundane", "The Knight of Shades shrugs off ordinary blows, and pain
         t:eq("a paint-touched one counts as magic, and doubles", r.damage, 20)
     end)
 
+case("museum-fire-arrows", "Telpur's fire arrows and slime, and a quiver of arrows on its own", "Museum, the gift shop",
+    "The arrows and slime: each hero's first weapon hit a turn deals 1d4 more (fire from a bow, acid from a blade). The arrows alone burn a shot, never a sword.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)
+        museum.setup(b, { fire_arrows = true })
+        b.dice:force(15, 3, 4, 2)                            -- greatsword hit, slime 1d4 (2)
+        local feats = 0
+        b.on_event = function(_, ev) if ev.kind == "feature" and string.find(ev.name or "", "Telpur's slime", 1, true) then feats = feats + 1 end end
+        b:attack(f, k, melee(f))
+        t:eq("the slime bites on a sword", feats, 1)
+        museum.setup(b, { fire_arrows = "arrows" })
+        t:eq("the quiver alone is just arrows", b.fire_arrows, "arrows")
+        f.turn.fire_arrows = nil
+        feats = 0
+        b.dice:force(15, 3, 4)
+        b:attack(f, k, melee(f))
+        t:eq("and a sword gets none of it", feats, 0)
+    end)
+
 case("museum-knockout", "The Sentinel's fists knock a hero out instead of killing", "Museum, Appendix B (The Sentinel)",
     "Two non-lethal attacks: a hero it drops is Unconscious and Stable, with no death saves to make.",
     function(t)

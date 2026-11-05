@@ -12,7 +12,8 @@
 --   drowsy    the Lecturer's drone carried upstairs: the heroes save against charms with Disadvantage
 --   earplugs  the heroes stopped their ears: Advantage on their saves against the Lecturer's drone
 --   fire_arrows  Telpur's fire arrows and slime: each hero's first weapon hit on a turn deals 1d4 more
---             (Fire from a ranged weapon, Acid from a melee one)
+--             (Fire from a ranged weapon, Acid from a melee one); "arrows": only the arrows (a quiver
+--             lifted off his shelf, no slime): a ranged weapon hit only
 --   manual    the Mech Instruction Manual, chapter nine: the Steam Mech has Advantage on its
 --             saves against overheating in Hyper Destroyer Mode
 --   no_hyper  the Mech's switch is scorched from a test run: no Hyper Destroyer Mode this fight
@@ -40,7 +41,8 @@ M.OPTIONS = { "paint", "mirror", "averted", "drowsy", "earplugs", "fire_arrows",
 -- The battle's options, from an encounter table (unknown keys are ignored).
 function M.setup(b, opts)
     for _, k in ipairs(M.OPTIONS) do
-        b[k] = (opts and opts[k]) and true or nil
+        local v = opts and opts[k]
+        b[k] = v and ((k == "fire_arrows" and v == "arrows") and "arrows" or true) or nil
     end
 end
 

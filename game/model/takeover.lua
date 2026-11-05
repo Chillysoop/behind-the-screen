@@ -139,7 +139,8 @@ local function module_line(night, info, step, stance)
     if not list or #list == 0 then
         return nil
     end
-    return night:fresh(list, "talk_" .. info.cast.id .. "_" .. step .. "_" .. stance)
+    -- (Filled from the night: a line can say the reward as it stands, "{Gold_word} gold each".)
+    return util.fill(night:fresh(list, "talk_" .. info.cast.id .. "_" .. step .. "_" .. stance), night:vars({ char = info.p and info.p.char }))
 end
 
 local function turn(night, step, info)

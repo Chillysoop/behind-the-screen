@@ -430,9 +430,10 @@ M.beats = {
         price_down = "Telpur took a Franc off his prices for them",
         lecturer = "the Lecturer told Euryale about {what}", euryale = "Euryale knew what the Lecturer had told her",
         notice = "Flitwidget saw what was left of {thing}", told = "Telpur had a word with Flitwidget about {char}",
-        docked = "Flitwidget took the breakages out of their reward",
+        docked = "Flitwidget took ten gold each off their reward",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
+        spotted = "{who} spotted his own {thing} on {char}",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
     },
     rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",
@@ -854,7 +855,9 @@ M.moments = {
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "manual", spend = PRICE.manual, favor = { who = "telpur", n = 1 } } },
+          -- (Not while the quiver Pip lifted off this shelf is still in a pack: he doesn't sell it twice.)
           { label = priced("Fire arrows and a bucket of slime", PRICE.arrows), price = PRICE.arrows, want = "buy the fire arrows and the slime",
+            unless = { holds = "arrows_lifted" },
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "arrows", spend = PRICE.arrows, favor = { who = "telpur", n = 1 } } },
@@ -1139,10 +1142,10 @@ M.companions = {
 M.explore = {
     garden = { "shears", "hammer",
                finds = { shears = { francs = 1, what = "a Flitwidget Franc in the grass",
-                                    line = "Under the shears, pressed into the grass: a Flitwidget Franc." } } },
+                                    line = "Under the shears, pressed into the grass, {actor_char} finds a Flitwidget Franc." } } },
     entrance = { "light", "front",
                  finds = { light = { francs = 1, what = "a Franc someone dropped",
-                                     line = "Something glints on the marble under the chandelier: a Flitwidget Franc." } } },
+                                     line = "Something glints on the marble under the chandelier. {actor_char} picks it up: a Flitwidget Franc." } } },
     chamber = { "3C", "3H", "3G",
                 finds = { ["3C"] = { francs = 1, what = "a Franc at the bottom of the jackal jug",
                                      line = "{actor_char} tips the jackal jug. A Flitwidget Franc rolls out into the sand." } },
@@ -1153,11 +1156,11 @@ M.explore = {
                                      spotted = "{actor_char} notices the hinge is far too strong for a tap, and wedges it open with a stick." } } },
     paintings = { "4D", "4I", "4J",
                   finds = { ["4J"] = { francs = 1, what = "a real Franc tucked in the frame",
-                                       line = "Wedged behind the duellist's frame: a real Flitwidget Franc, not a painted one." } } },
+                                       line = "Wedged behind the duellist's frame, {actor_char} finds a real Flitwidget Franc, not a painted one." } } },
     gift_shop = { "shelves", "souvenirs", looks = 1 },
     hunting = { "6B", "6H", "6F",
                 finds = { ["6H"] = { francs = 1, what = "a strip of razorbark worth a Franc to the right buyer",
-                                     line = "{actor_char} peels off a strip of razorbark without losing a finger. Somebody will pay a Franc for that." } },
+                                     line = "{actor_char} peels off a strip of razorbark without losing a finger, and a Flitwidget Franc drops out from under it." } },
                 traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
                                      spot_dc = 13, hurt = { 1, 6 },
                                      hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks {actor_them} off {actor_their} feet. Something in the jungle chitters.",
@@ -1166,10 +1169,10 @@ M.explore = {
     offices = { "drawings", "7A", looks = 1 },        -- (the eye on every wall is behind the locked door)
     tomorrow = { "cases", "console",
                  finds = { cases = { francs = 1, what = "a Franc stuck in a machine from tomorrow",
-                                     line = "One of tomorrow's machines has a coin slot, and a Flitwidget Franc stuck halfway in it." } } },
+                                     line = "One of tomorrow's machines has a coin slot, and {actor_char} works the Flitwidget Franc stuck halfway in it free." } } },
     lecture = { "books", "board", looks = 1,
                 finds = { books = { francs = 1, what = "a Franc used as a bookmark",
-                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago." } } },
+                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago. {actor_char} pockets it." } } },
 }
 
 M.marks = {
@@ -1309,6 +1312,8 @@ M.outs = {
     no_surprise = "Made the huntlings come to them",
     hyper_saved = "Saved Hyper Destroyer Mode for the Gorgon",
 }
+-- What Flitwidget calls each thing they broke (a mark's `breaks`, a deed's `thing`), in his own voice.
+M.broke_words = { ["his garden"] = "my garden", ["the Bone Construct"] = "my tomb guardian", ["the Steam Mech"] = "my Steam Mech" }
 M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "knight", "pack", "mirror", "know", "bracelet", "mech", "drone", "pages", "careful" }
 
 -- What the party carries, and what it does in the fights after they get it: anything picked up,
@@ -1350,12 +1355,19 @@ M.items = {
       title = "a polished cupboard door",
       text = "A cupboard door from the kitchen diorama, polished like a mirror. Held up in the lair, her own stare can turn back on her.",
       line = "{holder} has the polished cupboard door ready: if she lifts her hood, she meets her own eyes." },
+    -- (from_fondest: Flitwidget gives it to the hero he likes best, from the log. handover: how the
+    -- table sees it given, at the next night's start; the lair's lines say whose wrist. Round three:
+    -- "Flitwidget's bracelet is on a wrist and ready", and nobody ever saw him give it.)
     { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet", carry = true,
+      from_fondest = "mus_flitwidget",
       title = "Flitwidget's bracelet of protection", text = "A thin silver bracelet Flitwidget slipped them. In the lair: Advantage on saves against her stare.",
-      line = "Flitwidget's bracelet of protection is on: Advantage on saves against her stare.",
-      lines = { "Flitwidget's bracelet of protection is on: Advantage on saves against her stare.",
-                "The silver bracelet Flitwidget slipped them glints: Advantage on saves against her stare.",
-                "Flitwidget's bracelet is on a wrist and ready: Advantage on saves against her stare." } },
+      handover = { "Between sessions, Flitwidget caught {holder} by the sleeve and slipped a thin silver bracelet onto {holder_their} wrist. \"For her stare,\" he whispered. \"Don't tell Telpur.\"",
+                   "Before anyone else arrived, Flitwidget pressed a thin silver bracelet into {holder}'s hand. \"Against her eyes. Wear it upstairs.\"",
+                   "Flitwidget found {holder} between sessions and fastened a thin silver bracelet round {holder_their} wrist. \"For the stare. You'll know when.\"" },
+      line = "Flitwidget's bracelet of protection is on {holder}'s wrist: Advantage on saves against her stare.",
+      lines = { "Flitwidget's bracelet of protection is on {holder}'s wrist: Advantage on saves against her stare.",
+                "The silver bracelet Flitwidget gave {holder} glints: Advantage on saves against her stare.",
+                "{holder} turns Flitwidget's bracelet on {holder_their} wrist and keeps {holder_their} eyes low: Advantage on saves against her stare." } },
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
       line = "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
       lines = { "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
@@ -1381,9 +1393,19 @@ M.items = {
     { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
       text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
     -- (Lifted off Telpur's shelf, not bought: R13. It works like the ones he sells, for as long as they hold it.)
-    { id = "arrows_lifted", when = { holds = "arrows_lifted" }, opt = "fire_arrows", once = true, name = "a quiver of fire arrows, lifted", carry = true,
-      text = "A quiver of Telpur's fire arrows, off his bottom shelf and never paid for: every hero's first weapon hit each turn burns. Enough for one fight.",
-      line = "{holder} hands round the fire arrows nobody paid for: every hero's first weapon hit each turn burns, this fight only." },
+    -- (opt_value "arrows": the arrows without the slime, so only a shot burns. Round three: the stolen
+    -- quiver put "Telpur's slime" on everyone's swords.)
+    { id = "arrows_lifted", when = { holds = "arrows_lifted" }, opt = "fire_arrows", opt_value = "arrows", once = true, name = "a quiver of fire arrows, lifted", carry = true,
+      text = "A quiver of Telpur's fire arrows, off his bottom shelf and never paid for: every hero's first shot each turn burns. No slime: that's still on his shelf. Enough for one fight.",
+      line = "{holder} hands round the fire arrows nobody paid for: every hero's first shot each turn burns, this fight only." },
+    -- (Bought off Telpur's counter in a haggle, table_life: out of the pool, into the haggler's pack.
+    -- Said at the night's first fight, three ways: they've got them, for throwing.)
+    { id = "marbles", when = { holds = "marbles" }, name = "a bag of Telpur's marbles", carry = true,
+      text = "A bag of glass marbles off Telpur's counter, bought for throwing. Telpur says upstairs, not at his shelves.",
+      line = "{holder} rattles the bag of Telpur's marbles. Whatever comes at them had better watch its feet.",
+      lines = { "{holder} rattles the bag of Telpur's marbles. Whatever comes at them had better watch its feet.",
+                "{holder} has a handful of Telpur's marbles ready, for throwing. Upstairs, as promised.",
+                "{holder} tips a few of Telpur's marbles into {holder_their} palm, just in case." } },
     { id = "shoelace", when = { flag = "shoelace" }, name = "Telpur's talking shoelace", carry = true, to = "jess",
       text = "One of Telpur's own laces, a present from the gift shop. It talks. It has opinions about everything." },
 }
@@ -1875,9 +1897,9 @@ M.talk = {
         done = { warm = { "You did it. My museum! Quiet as a library. Have a biscuit. Have two." },
                  guarded = { "It's over. I'll be counting the exhibits for a week, mind." },
                  lie = { "I never doubted you for a moment. Well. One moment. Possibly two." } },
-        done_ask = { warm = { "Your reward! Gold, a pick from the shop, and my undying thanks. Let's talk numbers over tea." },
+        done_ask = { warm = { "Your reward! {Gold_word} gold each, a pick from the shop, and my undying thanks." },
                      guarded = { "The reward. Yes. Once I've counted every exhibit. And the spoons." },
-                     lie = { "Reward? I'm sure I said biscuits. Biscuits were always the reward." } },
+                     lie = { "Reward? Oh, the gold. Yes. And biscuits. Mostly biscuits." } },
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },
