@@ -114,6 +114,11 @@ end
 -- The sim itself, played in this process with hooks on the table's picks, the night's events and the
 -- endings, so what's measured is exactly what `lua tools/sim/museum.lua <seed> <style>` plays.
 
+-- (A reason as said: its {back} filled in with when the vote before was.)
+local function says_line(text, l)
+    local pat = string.gsub(string.gsub(l, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"), "{back}", ".-")
+    return string.find(text or "", pat) ~= nil
+end
 local W = { picks = {}, reasons = { picks = 0, said = 0 }, nights = {}, endings = {}, texts = {}, item_lines = {}, vote_lines = {} }
 local cur              -- { seed, style, c }
 local HEROES = { "Thessaly", "Brannoc", "Pip", "Oswin" }
@@ -148,7 +153,7 @@ mn.table_pick = function(night, copy, vars)
     for _, ev in ipairs(said) do
         for key, list in pairs(mn.VOTE_WHY or {}) do
             for _, l in ipairs(list) do
-                if string.find(ev.text or "", l, 1, true) then
+                if says_line(ev.text, l) then
                     W.vote_lines[key] = (W.vote_lines[key] or 0) + 1
                 end
             end
@@ -383,12 +388,12 @@ case("R10", function()
         for _, ev in ipairs(evs) do
             if ev.kind == "say" and ev.text then
                 for _, l in ipairs(mn.VOTE_WHY.pushed) do
-                    if ev.who == "sam" and string.find(ev.text, l, 1, true) then
+                    if ev.who == "sam" and says_line(ev.text, l) then
                         pushed = pushed + 1
                     end
                 end
                 for _, l in ipairs(mn.VOTE_WHY.safe_last) do
-                    if string.find(ev.text, l, 1, true) then
+                    if says_line(ev.text, l) then
                         habit = habit + 1
                         -- (Said by someone whose pick is the bold one: reaching into the frame, not swords out.)
                         if not string.find(ev.text, "reach into the frame", 1, true) then

@@ -113,7 +113,8 @@ M.hooks = {
           votes = { kind = "bold", say = { "The taverns want a story. Let's give them one.", "I didn't come here to tiptoe round it.",
                                            "Dark magic or not, let's get on with it." } },
           intro = "The taverns say the museum's dark magic. Somebody should go in and hit the dark magic. I volunteered.",
-          payoff = "Hedges that walk. Brannoc grins: the taverns were right, it is dark magic, and he gets to hit it." },
+          -- (Nothing they haven't seen yet: the hedges are hedges until they move. Conner's playtest, C4.)
+          payoff = "A whole garden inside a caravan, under a sky that twists. Brannoc grins: the taverns were right, this is dark magic." },
     },
     jess = {
         { id = "charlatan", name = "A con", text = "The gnome is running a con, and Pip isn't in on it. Unacceptable.",
@@ -141,7 +142,8 @@ M.hooks = {
           votes = { kind = "bold", say = { "Streets teach you: don't wait for trouble to find you.", "Bad feeling or not, standing here won't help.",
                                            "Grew up on the streets. Sometimes you just go." } },
           intro = "Everyone says the museum's harmless. I grew up on the streets, and I've got a bad feeling about it.",
-          payoff = "Tracks laid as bait, hunters hiding in the dioramas: Oswin's bad feeling was right all along." },
+          -- (Not what's hiding up here before it moves: root causes, class 1.)
+          payoff = "Every stuffed beast on this floor seems to be looking at Oswin. His bad feeling is worse up here, not better." },
     },
 }
 
@@ -339,10 +341,10 @@ M.rooms = {
     },
     stairs = {
         name = "The stairs up", part = 2, type = "exploration", quick = true, cost = 0, at = { 50, 12 }, map = "Stairs", stop = true, virtual = true,
-        read = "At the far end of the hunting floor, a narrow stair climbs toward a smell of smoke and wine.",
-        read_if = { { when = { from = "gift_shop", done = "offices" }, text = "Up from the gift shop, back across the quiet hunting floor, and to the narrow stair between the two studies. It climbs toward a smell of smoke and wine." },
-                    { when = { from = "gift_shop" }, text = "Up from the gift shop, back across the quiet hunting floor, to the narrow stair at its far end. It climbs toward a smell of smoke and wine." },
-                    { when = { done = "offices" }, text = "Between the two studies, a narrow stair climbs toward a smell of smoke and wine." } },
+        read = "At the far end of the hunting floor, a narrow stair climbs toward a smell of incense and wine.",
+        read_if = { { when = { from = "gift_shop", done = "offices" }, text = "Up from the gift shop, back across the quiet hunting floor, and to the narrow stair between the two studies. It climbs toward a smell of incense and wine." },
+                    { when = { from = "gift_shop" }, text = "Up from the gift shop, back across the quiet hunting floor, to the narrow stair at its far end. It climbs toward a smell of incense and wine." },
+                    { when = { done = "offices" }, text = "Between the two studies, a narrow stair climbs toward a smell of incense and wine." } },
         sum = "Up to Euryale. The night stops at the top step.",
         next = { "lair" },
     },
@@ -701,7 +703,8 @@ M.portraits = {
             bite = "The painted blade flicks out of the frame. {actor_char} snatches back a cut hand, empty.",
             hurt = { 1, 8 }, skill = { "acrobatics" }, aspect = "Got cut by a painted sword" },
     jess = { painting = "a smug duellist with a pistol in each hand", gift = "a painted pistol with one shot in it", safe = true },
-    sam = { painting = "an empty golden throne with bats carved into it", gift = "a glass of something red that is definitely not wine", safe = true },
+    sam = { painting = "an empty golden throne with bats carved into it", gift = "a glass of something red that is definitely not wine", safe = true,
+            not_weapon = true },
 }
 -- Anyone else's: the elf in the snowfield, whose cold bites.
 M.portrait_default = { painting = "a white-haired elf in a snowfield, two curved swords at his sides", gift = "a painted scimitar",
@@ -782,7 +785,7 @@ M.moments = {
                      fail = { log = "A tentacle wraps {actor_char}'s ankle and drags {actor_them} in up to the waist. {Actor_they} comes out cut and furious.",
                               effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, drag = { "pond", "pond" }, aspect = "Was dragged into a haunted pond" } } } },
           { label = "\"Are you sure? It's got tentacles.\"",
-            log = "{actor_char} thinks better of it. The pond burbles, disappointed.",
+            log = "\"Nope,\" says {actor_char}, and backs away from the water. The pond burbles, disappointed.",
             effects = { { "arch:instigator", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
       } },
 
@@ -836,7 +839,7 @@ M.moments = {
             points = { "The notebook's right here. Let's use it.", "Give me a minute with these glyphs. I can do this.", "It's all in the notebook. Somebody hold it off." },
             pulls = { { when = { flag = "water" }, who = { "tactician", "storyteller", "casual" }, n = 0.5,
                         say = { "The water trick worked in the garden. Let's do this one properly too.", "The sign was right about the hedges. The notebook might be right too.",
-                                "Doing it by the book worked last time. Let's do it again." } } },
+                                "Doing it by the book worked in the garden. Let's do it again." } } },
             roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
                      success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
                                  effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 3.5 }, { "arch:butt_kicker", fun = -3 } },
@@ -1542,14 +1545,20 @@ M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "kni
 -- pages). once: used up by its first fight. adv, topic: Advantage on that skill about that subject.
 M.items = {
     { id = "daggers", when = { flag = "daggers" }, magic = "twin_daggers", name = "the twin daggers", carry = true,
-      line = "{holder} fights with the twin daggers from the Chamber of Ancients: they hit like magic weapons.",
+      -- (What they do, said as the rules have it: Conner's playtest, C17, couldn't tell whether they did
+      -- anything. The rules: magic_items.twin_daggers, on {holder}'s sheet under CARRYING.)
+      line = "{holder} fights with the twin daggers from the Chamber of Ancients: +1 to hit and +1 damage.",
       -- (lines: what's said at the night's first fight, three ways, since it's said every week.)
-      lines = { "{holder} fights with the twin daggers from the Chamber of Ancients: they hit like magic weapons.",
-                "{holder} has the twin daggers out, rings locked together: they hit like magic weapons.",
-                "{holder} draws the twin daggers from the chamber, still locked together: they hit like magic weapons." } },
+      lines = { "{holder} fights with the twin daggers from the Chamber of Ancients: +1 to hit and +1 damage.",
+                "{holder} has the twin daggers out, rings locked together: +1 to hit and +1 damage with them.",
+                "{holder} draws the twin daggers from the chamber, still locked together: +1 to hit, +1 damage." } },
     { id = "arrows", when = { flag = "arrows" }, opt = "fire_arrows", once = true, name = "fire arrows and slime", carry = true,
       text = "Telpur's fire arrows and a bucket of slime: every hero's first weapon hit each turn burns or bites. Enough for one fight.",
       line = "Out come Telpur's fire arrows and the bucket of slime: every hero's first weapon hit each turn burns or bites, this fight only." },
+    -- (The painting's gift, said as the hall's fight starts: whose it is and what it does, as the book has
+    -- it. Conner's playtest, C14: was the scimitar anything?)
+    { id = "painted", when = { flag = "paint" }, rooms = { "paintings" },
+      line = "{gift_the} is still wet in {paint_holder}'s hand: it counts as paint, and paint is what the painted things here can't shrug off." },
     { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger", carry = true,
       to = "jess", text = "A dagger Telpur dipped in the hall's wet paint. In the lair, its blows count as magic, and painted things fear it.",
       -- (A loose end's, between sessions: shown handed over at the next night's start, like the bracelet.)
@@ -2325,7 +2334,7 @@ M.openings_from = {
 M.openings = {
     [1] = "Everyone in town is talking about the new museum. The merchants were amazed. The guards were terrified. The children won't stop giggling.",
     [2] = "Past the gift shop and up the stairs, the museum gets untidier, and quieter.",
-    [3] = "The narrow stair. A smell of smoke and wine. A curtain at the top, and someone humming behind it.",
+    [3] = "The narrow stair. A smell of incense and wine. A curtain at the top, and someone humming behind it.",
 }
 -- The names the Steam Mech might have (the book's list).
 M.mech_names = { "Hans", "Nevile", "Yukiko", "El Roboto", "Owen" }

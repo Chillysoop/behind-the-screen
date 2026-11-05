@@ -68,16 +68,25 @@ M.cards = {
       secret = "she misses being free, and her two sisters are still sealed in clay pots somewhere" },
     { id = "mus_briar", kind = "cast", short = "the topiary", group = true, foe = true, talks = false, name = "The Briar Guardians",
       fits = { "combat" }, tags = { "action", "danger" }, difficulty = 1,
-      line = "The clipped hedge-beasts by the path aren't hedges. A triceratops, a boar and a great cat of thorns shake themselves awake." },
+      -- (Hedges until they attack, as the book has it: nothing said as the room opens, the read has the
+      -- hedges; wake: said as their fight starts, unless a moment already woke them. Conner's playtest, C4.)
+      seen = false,
+      wake = "The hedge-beasts by the path shake themselves loose of the earth: a triceratops, a boar and a great cat, all thorns.",
+      line = "Hedges clipped into beasts line the path: a triceratops, a boar, and two great cats." },
     { id = "mus_sentinel", kind = "cast", short = "the Sentinel", pronoun = "it", talks = false, name = "The Sentinel",
       fits = { "puzzle", "combat" }, tags = { "funny", "danger" }, difficulty = 2,
-      line = "The metal statue between the doors hasn't moved. Yet." },
+      -- (A statue, and nothing more, until someone breaks into the box: the read has it. C6.)
+      seen = false,
+      line = "A statue of an armoured metal man stands between the far doors." },
     { id = "mus_bone_construct", kind = "cast", stays = true, short = "the Bone Construct", pronoun = "it", foe = true, talks = false,
       name = "The Bone Construct", fits = { "combat", "puzzle" }, tags = { "danger" }, difficulty = 2,
       line = "Three skulls bound in gold and jewels turn toward them, and a staff topped with a fanged skull comes up." },
     { id = "mus_knight", kind = "cast", short = "the Knight of Shades", pronoun = "it", foe = true, talks = false,
       name = "The Knight of Shades", fits = { "combat" }, tags = { "danger", "action" }, difficulty = 2,
-      line = "At the far end of the hall, a painted knight in black armour, so lifelike it almost breathes." },
+      -- (A painting until someone inspects it, as the book has it: no mini on the mat until it climbs out.
+      -- dormant: not stood on the board as the room's person. C12.)
+      dormant = true,
+      line = "At the far end of the hall hangs a portrait of a knight in black armour." },
     { id = "mus_huntlings", kind = "cast", short = "the huntlings", group = true, foe = true, talks = false,
       name = "Kruthik Huntlings", fits = { "combat" }, tags = { "danger", "action" }, difficulty = 2,
       line = "Something armoured and many-legged shifts in the jungle diorama. Something in the cave model answers it.",

@@ -229,6 +229,7 @@ local function tiny_roll(night, p, skill)
     if e and e.helps and e.pocket then
         bonus = e.helps.bonus or 0
     end
+    bonus = bonus + night:take_learned(p)      -- (a miss they learned from: C25)
     local d = night.rng:d20()
     local total = d + (mod or 0) + bonus
     night.tl_roller = p.key           -- (whose little die rolled last: the friends' ideas give someone else a turn)

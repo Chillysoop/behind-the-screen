@@ -226,6 +226,7 @@ end
 -- The small die, on its own (table_life's): theirs, with the sum.
 local function tiny(night, p, skill)
     local name, mod = night:best_skill(p, { skill or "perception" })
+    mod = (mod or 0) + night:take_learned(p)      -- (a miss they learned from: C25)
     local dd = night.rng:d20()
     local total = dd + (mod or 0)
     night.tl_roller = p.key

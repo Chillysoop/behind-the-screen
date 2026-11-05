@@ -178,6 +178,23 @@ end
 M.TABLE_MIN = { scene = 7, narrate = 0.45, npc = 0.7, say = 0.2, check = 4.5, decision = 4, ruling = 2.5,
                 roll_where = 1.5, turn = 1.0, round = 0.6, dice = 1, intro = 0.5, cinematic = 3 }
 
+-- A line a hero could say in the story as well as their player at the table: a bid for what the party
+-- does, with nothing of the real table in it (the night, the dice, a vote, the snacks).
+local TABLE_ONLY = { "tonight", "week", "dice", "roll", "vote", "dm", "pizza", "snack", "phone", "session", "my turn", "i'm easy", "the table" }
+function M.hero_voiced(text)
+    local t = string.lower(text or "")
+    if not (string.find(t, "^let's %a") or string.find(t, "^i say we %a") or string.find(t, "^can we %a"))
+        or string.find(t, "[%.%?!] .") then
+        return false
+    end
+    for _, w in ipairs(TABLE_ONLY) do
+        if string.find(t, w, 1, true) then
+            return false
+        end
+    end
+    return true
+end
+
 function M:emit(ev)
     -- What you did about a friend's thought (game/model/thoughts.lua) lands at the next beat.
     if self.th and not self.th.flushing and #self.th.queue > 0 then
@@ -199,6 +216,17 @@ function M:emit(ev)
     end
     if self.board_id then
         self:board_hear(ev)
+    end
+    -- In character more as they settle in (Conner's playtest, C8): a plain bid for what the party does
+    -- ("Let's douse the hedges with pond water.") is said by the hero, more often each night played
+    -- and the better the four know each other. Only a line with nothing of the real table in it.
+    if ev.kind == "say" and ev.ic == false and ev.who and M.hero_voiced(ev.text) then
+        local p = self.campaign and self.campaign.player and self.campaign:player(ev.who)
+        local fam = p and require("game.model.familiar").level(self.campaign, ev.who) or 1
+        local share = math.min(0.7, 0.08 + 0.12 * ((self.campaign and self.campaign.week or 1) - 1) + 0.06 * (fam - 1))
+        if p and self.rng:chance(share) then
+            ev.ic = true
+        end
     end
     ev.t = pacing.duration(ev)
     self.clock = self.clock + ev.t
@@ -441,6 +469,31 @@ end
 -- Skill checks (real-session pass) ---------------------------------------------------------
 
 -- A hero's modifier for a skill, from their character sheet at the party's level.
+-- What a hero carries into their next check (Conner's playtest, C25: "+1 on their next roll" never
+-- landed on the checks it should have): a near miss with a pet's help tonight (`edge_next`), and a miss
+-- you ruled "No, but..." (`campaign.learned`, kept until it's used, next week too). Used up here, and
+-- said with the roll (`self.learned_said`, for the check's line).
+function M:take_learned(p)
+    if not p then
+        return 0
+    end
+    local n = 0
+    if self.edge_next and self.edge_next[p.key] then
+        n = n + self.edge_next[p.key]
+        self.edge_next[p.key] = nil
+    end
+    local c = self.campaign
+    local l = c and c.learned and c.learned[p.key]
+    if l and l > 0 then
+        n = n + l
+        c.learned[p.key] = nil
+        self.learned_used = self.learned_used or {}
+        table.insert(self.learned_used, { who = p.key, n = l, week = c.week })
+        self:say(util.fill("{char} remembers the miss: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
+    end
+    return n
+end
+
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
 -- skill: the roll it helps, said with it (round three, from batch D: "+2." didn't say on what).
 M.RESEARCH_LINES = {
@@ -1257,7 +1310,11 @@ function M:describe(c, style)
     if c.kind == "location" then
         self.last_location = c.id
     end
-    self:say(text, style or "narration")
+    -- (A foe that looks like part of the room until it moves, `seen = false`: the room's read has it,
+    -- and nothing more is said. Conner's playtest: "aren't hedges" before anything had woken.)
+    if not (c.kind == "cast" and c.seen == false) then
+        self:say(text, style or "narration")
+    end
     if c.kind == "cast" then
         self.met = self.met or {}
         self.met[c.id] = self.met[c.id] or true
@@ -1513,7 +1570,7 @@ function M:staging(sc)
     local party = {}
     -- (Spread so every mini shows, none behind another or behind a wall: fight.squares_shown.)
     local spots = fight.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
-        content.terrain_layout.W, content.terrain_layout.H, nil, layout.occ)
+        content.terrain_layout.W, content.terrain_layout.H, nil, layout.occ, nil, layout.doors)
     for i, p in ipairs(self.players) do
         local sq = spots[i] or { 2, i + 3 }
         table.insert(party, { id = p.key, class = p.class, x = sq[1], y = sq[2] })
@@ -1522,7 +1579,9 @@ function M:staging(sc)
     local cast = sc.comps.cast
     -- (A fight's one figure who's there from the start, the Lecturer at his lectern, Euryale on her
     -- couch, is on the mat before the fight: cast.visible. The playtest, November 3.)
-    if cast and (not (sc.type == "combat" or sc.type == "set_piece") or cast.visible) then
+    -- (Not one that's a painting until it climbs out, `dormant`: Conner's playtest, the knight's mini
+    -- stood in its frame from the start.)
+    if cast and not cast.dormant and (not (sc.type == "combat" or sc.type == "set_piece") or cast.visible) then
         -- Where this person would be: the board can say (the stranger in the corner, Gus behind the bar).
         local at = (layout.npc_at and layout.npc_at[cast.id]) or layout.npc
         -- (Where the camera sees them, a step or two from the board's spot if a wall or a plinth is in
@@ -1534,7 +1593,7 @@ function M:staging(sc)
             end
         end
         local sq = fight.squares_shown(blocked, taken, at[1], at[2], 1,
-            content.terrain_layout.W, content.terrain_layout.H, stood, layout.occ, 2)[1]
+            content.terrain_layout.W, content.terrain_layout.H, stood, layout.occ, 2, layout.doors)[1]
         if sq then
             npc = { id = "npc", cast = cast.id, name = cast.name, x = sq[1], y = sq[2] }
         end
@@ -1811,14 +1870,24 @@ function M:hero_action(sc, dc, spots)
             roll, other_roll = other_roll, roll
         end
     end
-    -- Last time was a near miss (B2): they know the trick of it now.
-    local near_bonus = self.edge_next and self.edge_next[p.key]
-    if near_bonus then
-        mod = mod + near_bonus
-        self.edge_next[p.key] = nil
-    end
+    -- Last time was a near miss (B2): they know the trick of it now. And a miss you ruled "No, but...":
+    -- +1 on this hero's next check, whichever kind it is (Conner's playtest, C25).
+    local learned = self:take_learned(p)
+    mod = mod + learned
     mod = mod + self:take_research(p, a.skill)
     local total = roll + mod
+    -- (Heroic Inspiration on a near miss that's worth it: Conner's playtest, C15, the friends sat on
+    -- the token. M.spends_inspiration says when a player would.)
+    if not (total >= dc) and M.spends_inspiration(p, roll, mod, dc, "check") then
+        local new = self.rng:d20()
+        p.heroic = nil
+        self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
+        self:say(util.fill("{char} spends Heroic Inspiration: the " .. util.int(roll) .. " becomes a " .. util.int(new) .. ".", { char = p.char }), "dice")
+        self:event("inspiration", { who = p.key, text = p.char .. " spent Heroic Inspiration on a check.", spent = true })
+        self:emit({ kind = "token", who = p.key, what = "inspiration", spent = true })
+        roll = new
+        total = roll + mod
+    end
     local success = total >= dc
     local name = skills.name(a.skill)
     local result
@@ -2281,7 +2350,7 @@ function M:stunt(sc)
     self.other = st.other and self:pick_actor(nil, p) or nil
     local vars = self:vars({ char = p.char, other_char = self.other and self.other.char or "" })
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(st.say, vars)), ic = true })
-    local mod = self:mod_for(p, st.skill)
+    local mod = self:mod_for(p, st.skill) + self:take_learned(p)
     local dc = 12 + util.clamp((sc.difficulty or 2) - 2, -1, 2)
     local roll = self.rng:d20()
     local total = roll + mod
@@ -2323,6 +2392,28 @@ function M:stunt(sc)
     end
     table.insert(self.checks, success)
     return success
+end
+
+-- Your own DC, said to the table.
+M.OWN_DC = { "\"DC {dc}, {actor_char}.\"", "\"You need a {dc}.\"", "\"That's a DC {dc}. Go on.\"" }
+
+-- When a player holding Heroic Inspiration spends it out of a fight (C15): on a natural 1, or a miss a
+-- new die has a fair chance to turn (it needs 15 or less on the d20); on a quick check, only a near
+-- miss (5 or less short). A big roll matters more than a quick one, so they'll take longer odds on it.
+M.INSPIRE_SAY = { "Wait, I've got inspiration. I'm using it.", "Hang on. Inspiration. Rerolling that.",
+                  "I'm spending my inspiration on this one.", "Nope. Inspiration. Again." }
+function M.spends_inspiration(p, roll, mod, dc, kind)
+    if not (p and p.heroic) then
+        return false
+    end
+    local need = dc - mod
+    if roll == 1 and need <= 20 then
+        return true
+    end
+    if kind == "check" then
+        return dc - (roll + mod) <= 5 and need <= 15
+    end
+    return need <= 15
 end
 
 -- Heroic Inspiration (M8, B4): one token a night, flicked across the table after a great
@@ -2547,7 +2638,7 @@ function M:fairness_noticed(p, what)
         end
     end
     if q then
-        self:emit({ kind = "say", who = q.key, text = what == "inspiration" and ("Again? " .. p.char .. " got it last time too.")
+        self:emit({ kind = "say", who = q.key, text = what == "inspiration" and ("Again? " .. p.char .. " got the last one too.")
             or ("That's " .. p.char .. "'s second big finish in a row, just saying."), ic = false })
     end
     self:event("unfair", { who = p.key, text = "The table noticed " .. p.name .. " getting the " .. (what == "inspiration"
@@ -2743,17 +2834,9 @@ function M:big_roll(spec, record)
         self.big_rolls[p.key] = (self.big_rolls[p.key] or 0) + 1
     end
     local skill, mod = self:best_skill(p, spec.skill or { "perception" })
-    local near_bonus = p and self.edge_next and self.edge_next[p.key]
-    if near_bonus then
-        mod = mod + near_bonus   -- last time was a near miss (B2)
-        self.edge_next[p.key] = nil
-    end
-    -- A near miss you ruled "No, but...": they learned from it, +1 on this roll.
-    local learned = p and self.learned and self.learned[p.key]
-    if learned then
-        mod = mod + learned
-        self.learned[p.key] = nil
-    end
+    -- A near miss (B2), or one you ruled "No, but...": they learned from it, +1 on this roll.
+    local learned = self:take_learned(p)
+    mod = mod + learned
     if p then
         mod = mod + self:take_research(p, skill)
     end
@@ -2824,8 +2907,8 @@ function M:big_roll(spec, record)
     if own_dc and by == "player" then
         own_dc = util.clamp(own_dc, 2, 30)
         local diff = own_dc - dc
-        self:say(util.fill("\"DC " .. util.int(own_dc) .. ".\" You set it yourself and say it out loud. {actor_char} knows what {actor_they} needs.",
-            self:vars()), "dm")
+        -- (Just the number, out loud: Conner's playtest, C3, "You set it yourself" right after you had.)
+        self:say(util.fill(self:fresh(M.OWN_DC, "own_dc"), self:vars({ dc = util.int(own_dc) })), "dm")
         -- (Much easier than the book's: the ones here for a challenge feel it. Much harder: everyone does.)
         if diff <= -4 then
             self:apply({ { "arch:butt_kicker", challenge = -2 }, { "arch:power_gamer", challenge = -1 }, { "arch:casual", fun = 1 } })
@@ -2854,11 +2937,12 @@ function M:big_roll(spec, record)
             end
         end
     end
-    -- Heroic Inspiration (B4): a player holding the token rerolls a miss and keeps the new roll.
-    if p and p.heroic and by == "player" and value + mod < dc then
+    -- Heroic Inspiration (B4): a player holding the token rerolls a miss worth rerolling (a natural 1, or
+    -- one a new die could turn: not a hopeless one) and keeps the new roll.
+    if p and by == "player" and value + mod < dc and M.spends_inspiration(p, value, mod, dc, "big") then
         local new = self.rng:d20()
         p.heroic = nil
-        self:emit({ kind = "say", who = p.key, text = "Wait, I've got inspiration. I'm using it.", ic = false })
+        self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
         self:say(util.fill("{actor_char} spends Heroic Inspiration: the " .. util.int(value) .. " becomes a " .. util.int(new)
             .. ", and that's the roll.", self:vars()), "dice")
         self:event("inspiration", { who = p.key, text = p.char .. " spent Heroic Inspiration on a big roll.", spent = true })
@@ -3059,8 +3143,9 @@ function M:big_roll(spec, record)
             self:say(ruled, "good")
         end
         if p then
-            self.learned = self.learned or {}
-            self.learned[p.key] = 1
+            local c = self.campaign
+            c.learned = c.learned or {}
+            c.learned[p.key] = (c.learned[p.key] or 0) + 1
         end
         self:bark(self.actor, "ruling_rueful")
     elseif ro.tone == "good" then
@@ -3891,6 +3976,12 @@ function M:combat_scene(sc)
     elseif (self.rng:chance(0.45) or self:idle() > 50) and self:decision_count() < 13 then
         self:scout(sc)
         scouted = true
+    end
+    -- Pieces of the room that come alive, as they do (`wake` on the cast card), unless a moment in the
+    -- room already woke them (an optional fight starts from one).
+    local cast = sc.comps.cast
+    if cast and cast.wake and not sc.optional_fight and not sc.revisit and not sc.woke then
+        self:say(cast.wake, "narration")
     end
     -- Who they're up against, out loud, before anyone tries anything (the story playtest: "Roll
     -- initiative!" with no name left the table guessing who the enemy was).

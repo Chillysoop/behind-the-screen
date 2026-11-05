@@ -65,7 +65,7 @@ return {
     
         -- story engagement
         { id = "note_taker", archetype = "storyteller", when = "long_scene", mood = "engaged", lines = { "hold on, how do you spell that name?", "writing that down. that's important.", "okay, page four of my notes says..." }, effect = "story+ group" },
-        { id = "recap_volunteer", archetype = "storyteller", needs = "not_first", when = "start", mood = "engaged", lines = { "i'll do the recap!", "previously, on our show...", "last time: lots of yelling, one very good roll." }, effect = "story+ group" },
+        { id = "recap_volunteer", archetype = "storyteller", needs = "not_first", when = "start", mood = "engaged", lines = { "i'll do the recap!", "previously, on our show...", "last week: lots of yelling, one very good roll." }, effect = "story+ group" },
         { id = "cliffhanger_protest", archetype = "any", needs = "cliff", when = "end", mood = "engaged", lines = { "you can't end it THERE.", "a whole week?! i need to know now.", "okay, group chat theories tonight." }, effect = "story+ group" },
         { id = "loot_split", archetype = "power_gamer", when = "end", mood = "engaged", lines = { "okay, how are we splitting the gold?", "i call first pick. i called it first.", "the cleric gets the potions, that's just maths." }, effect = "fun+ speaker" },
     

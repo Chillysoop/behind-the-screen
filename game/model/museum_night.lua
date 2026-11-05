@@ -467,7 +467,12 @@ function M.handle(night, mus, sc)
     -- pulled out of a painting, candle wax in the ears.
     local opt = mus.flag and FLAG_OPT[mus.flag]
     if opt and sc and sc.encounter then
-        sc.encounter[opt] = true
+        -- (The painted weapon is the one hero's who pulled it out, as the book has it: a scimitar that
+        -- counts as paint. Conner's playtest, C14. Wax in the ears is everyone's.)
+        sc.encounter[opt] = (opt == "paint" and night.actor and night.actor.key) or true
+        if opt == "paint" and night.actor then
+            st.paint_by, st.paint_gift = night.actor.key, night.mus_vars and night.mus_vars.gift_the
+        end
     end
     if mus.mark == "mech" then
         st.mech_name = st.mech_name or night.rng:pick(MODULE.mech_names)
@@ -537,6 +542,7 @@ function M.handle(night, mus, sc)
         end
         if mus.drop then
             drop_from(sc, mus.drop)
+            sc.woke = true      -- (a moment that already set the room's pieces moving: no wake line after)
         end
         if mus.resolve then
             sc.resolved = true
@@ -1185,9 +1191,13 @@ function M.reach_for(night, copy, port)
                 oo.effects = win.effects
                 oo.mus = {}
                 for k, v in pairs(win.mus or {}) do
-                    if k ~= "risk" then
+                    -- (Not a weapon, the glass from the throne: nothing painted to fight with. C14.)
+                    if k ~= "risk" and not (port.not_weapon and k == "flag" and v == "paint") then
                         oo.mus[k] = v
                     end
+                end
+                if port.not_weapon and oo.mus.aspect then
+                    oo.mus.aspect = "Pulled something to drink out of a painting"
                 end
                 oo.label = "Let them reach in."
             else
@@ -1269,9 +1279,12 @@ function M.warn_step(night, card, copy)
             end
         end
         if CAREFUL[lead.primary] and safe then
-            night:emit({ kind = "say", who = lead.key, text = "...Actually, no. Let's not.", ic = false })
+            -- (Their decision, in their words: the DM doesn't narrate what a hero thinks. Conner's
+            -- playtest, C5: "Pip thinks better of it." after the friend had said so.)
+            local sw = copy.options[safe].short or copy.options[safe].want
+            night:emit({ kind = "say", who = lead.key, ic = false,
+                         text = sw and ("...Actually, no. Let's " .. sw .. " instead.") or "...Actually, no. Let's not." })
             copy.party_pick = safe
-            night:say(util.fill("{actor_char} thinks better of it.", vars), "dm")
         else
             night:emit({ kind = "say", who = lead.key, text = "Yes. Very sure.", ic = false })
             night:apply({ { "actor", fun = 2 } })
@@ -2040,8 +2053,11 @@ function M.arm(night, sc)
                 night.mus.items_said[it.id] = true
                 -- (Said at every first fight: three ways, fresh across weeks, when the module has them.)
                 local said = (it.lines and night:fresh(it.lines, "item_" .. it.id)) or it.line
+                local pb = st.paint_by and c:player(st.paint_by)
                 table.insert(lines, util.fill(said, { holder = holder and holder.char or "Somebody",
-                                                          mech = st.mech_name or "The Mech" }))
+                                                          mech = st.mech_name or "The Mech",
+                                                          gift_the = st.paint_gift or "the painted weapon",
+                                                          paint_holder = pb and pb.char or "somebody" }))
             end
         end
     end
@@ -2170,6 +2186,45 @@ end
 -- the table minds), the DM hinted there's more, they're hurt and the gift shop is a rest, they
 -- have Francs to spend, or a room they walked past on the floor below. Fleeing a lost fight is
 -- its own trip back (M.flee).
+
+-- A friend saying where they'd go at a fork ({way}: "on to the offices", "back to the gift shop for a
+-- breather"), and a second fan agreeing.
+M.FORK_SAY = { "I say we go {way}.", "Can we go {way}?", "{Way}. That's my vote.", "I want to go {way}." }
+M.FORK_SAME = { "Same.", "Yeah, that.", "Seconded.", "What they said." }
+-- The DM's read of who wants what (C7): behind the screen, as a hunch, and only as good as the DM knows
+-- them (familiar.lua): new to you, it's often wrong; like a book, nearly always right.
+M.READ_LINES = { "Your hunch: {read}.", "Reading the table: {read}.", "Your read on them: {read}." }
+-- "the offices" -> "to the offices"; "on to the offices", "up the stairs" stay as they are.
+function M.go_way(way)
+    if string.find(way or "", "^the ") then
+        return "to " .. way
+    end
+    return way
+end
+function M.fork_read(night, voters, first, choices, said_of, truth)
+    if #choices < 2 or #voters == 0 then
+        return
+    end
+    local familiar = require "game.model.familiar"
+    local bits = {}
+    for _, p in ipairs(voters) do
+        local lv = familiar.level(night.campaign, p.key)
+        local right = 0.45 + 0.12 * lv
+        local i = first[p.key]
+        if not night.rng:chance(right) then
+            local other = {}
+            for j in ipairs(choices) do
+                if j ~= i then
+                    table.insert(other, j)
+                end
+            end
+            i = night.rng:pick(other) or i
+        end
+        table.insert(bits, p.name .. " would go " .. M.go_way(said_of(i)))
+    end
+    night.fork_truth = truth
+    night:say(util.fill(night:fresh(M.READ_LINES, "fork_read"), { read = table.concat(bits, "; ") }), "screen")
+end
 
 local function hurt(night)
     local hp, max = 0, 0
@@ -2393,13 +2448,26 @@ end
 -- water), and something they carry that's for this (the key from the pond). Every reason fits the
 -- option's lean (an option's `lean`, else vote_kind): a tired friend never says "easy does it" for
 -- setting the bushes on fire.
+-- When the vote before was, in the friends' words: "earlier tonight", "last week", "a while back".
+function M.vote_back(night, rec)
+    local now = night.campaign and night.campaign.week or 0
+    local w = rec and rec.week
+    if not w or w >= now then
+        return "earlier tonight"
+    elseif now - w == 1 then
+        return "last week"
+    end
+    return "a while back"
+end
 M.VOTE_WHY = {
-    pushed = { "I went along last time. This one's mine.", "I gave way last time. Not on this one.",
-               "Last time I came round. This time you can." },
-    safe_last = { "We played it safe last time. Let's not.", "We were careful last time. Where's the fun in that?",
-                  "Come on, we played it safe last time." },
-    bold_last = { "We went in swinging last time. Let's be smart for once.", "We charged in last time. Maybe not again.",
-                  "We were reckless last time. Let's not push it." },
+    -- ({back}: when the vote before was, "earlier tonight" or "last week", never "last time": Conner's
+    -- playtest, C26, heard "last time" as a game they'd played before. It's always their first time.)
+    pushed = { "I went along {back}. This one's mine.", "I gave way {back}. Not on this one.",
+               "I came round {back}. This time you can." },
+    safe_last = { "We played it safe {back}. Let's not.", "We were careful {back}. Where's the fun in that?",
+                  "Come on, we played it safe {back}." },
+    bold_last = { "We went in swinging {back}. Let's be smart for once.", "We charged in {back}. Maybe not again.",
+                  "We were reckless {back}. Let's not push it." },
     tired = { "I'm wiped tonight. The easy way, please.", "Long week. Let's keep it simple.", "I'm running on fumes. Easy does it." },
     celebrating = { "I'm in too good a mood to play it safe.", "Tonight's a good night. Let's go big.", "I'm feeling lucky tonight." },
     stressed = { "I just need one thing to go right tonight.", "No surprises, please. Not tonight.", "Let's do the one we know works." },
@@ -2427,12 +2495,12 @@ M.VOTE_WHY = {
 -- friend who'd argued against X, or said nothing). (The third playtest, alive 4: "I lost last time" in three
 -- phrasings, 159 times; name what was lost.)
 M.VOTE_NAMED = {
-    pushed = { "Last time I let you {won}. This one's mine.", "I wanted to {lost} last time, and we didn't. Not again.",
+    pushed = { "I let you {won} {back}. This one's mine.", "I wanted to {lost} {back}, and we didn't. Not again.",
                "I went along when {did}. My turn now." },
-    safe_last = { "{Did} last time. Let's do something braver.", "{Did} last time. Let's not play it safe twice.",
-                  "We were good before: {did}. My turn for some fun." },
-    bold_last = { "{Did} last time. Let's be smart for once.", "{Did} last time. Maybe not again.",
-                  "We pushed our luck before: {did}. Let's not." },
+    safe_last = { "{Did} {back}. Let's do something braver.", "{Did} {back}. Let's not play it safe twice.",
+                  "We were good {back}: {did}. My turn for some fun." },
+    bold_last = { "{Did} {back}. Let's be smart for once.", "{Did} {back}. Maybe not again.",
+                  "We pushed our luck {back}: {did}. Let's not." },
 }
 -- Someone on the winning side talks round one friend who barely minds ({name}: them; {want}, {Want}:
 -- the winning side's), and they come round in their own voice ({name}: whoever talked them round). At
@@ -2457,9 +2525,9 @@ M.VOTE_SIDE = {
 }
 -- Two against two, settled (tally's order): say how. {name}: whose side it went to; {Their}: theirs.
 M.VOTE_TIE = {
-    pushed = { "Two against two. {name} gave way last time, so this one's {name_theirs}.",
-               "It's two each, and {name} went along last time. Nobody argues.",
-               "Two all. Last time {name} gave in, so this time {name} gets the say." },
+    pushed = { "Two against two. {name} gave way {back}, so this one's {name_theirs}.",
+               "It's two each, and {name} went along {back}. Nobody argues.",
+               "Two all. {name} gave in {back}, so this time {name} gets the say." },
     lead = { "Two against two. {name} found it, so it's {name_their} call.",
              "It's two each, and {name} is the one standing there. {Name_their} call.",
              "Two all. {name} found it, so {name} gets the say." },
@@ -2472,9 +2540,9 @@ local MOOD_WHY = { tired = true, celebrating = true, stressed = true, hook = tru
 -- settled the same way, said as it is. (The confirming playtest, truth M8: "Two all" after three voices
 -- for three different things.)
 M.VOTE_TIE_SPLIT = {
-    pushed = { "Everyone wants something different. {name} gave way last time, so this one's {name_theirs}.",
-               "Nobody agrees, and {name} went along last time. {Name_their} pick, then.",
-               "All different. Last time {name} gave in, so this time {name} gets the say." },
+    pushed = { "Everyone wants something different. {name} gave way {back}, so this one's {name_theirs}.",
+               "Nobody agrees, and {name} went along {back}. {Name_their} pick, then.",
+               "All different. {name} gave in {back}, so this time {name} gets the say." },
     lead = { "Everyone wants something different. {name} found it, so it's {name_their} call.",
              "Nobody agrees, and {name} is the one standing there. {Name_their} call.",
              "All different. {name} found it, so {name} gets the say." },
@@ -3054,6 +3122,7 @@ function M.table_pick(night, copy, vars)
                 if w == "pushed" then
                     nv.did = heard_lose and lost_to.did or nil
                 end
+                nv.back = M.vote_back(night, w == "pushed" and lost_to or lastv)
                 for _, l in ipairs(named or {}) do
                     local need = string.match(l, "{(%a+)}")
                     if need and nv[need] then
@@ -3061,6 +3130,7 @@ function M.table_pick(night, copy, vars)
                     end
                 end
                 reason = night:fresh(list, "vote_" .. w, true)
+                reason = reason and util.fill(reason, { back = M.vote_back(night, w == "pushed" and lost_to or lastv) })
             elseif w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and not rested then
                 reason = night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key, true)
             end
@@ -3148,7 +3218,7 @@ function M.table_pick(night, copy, vars)
                 log = "You give them a little push: \"If it were me, I'd " .. short_want(opts[i]) .. ".\"" })
         end
         table.insert(card.options, { label = "\"It's up to you.\"", leave = true,
-            sub = "They settle it themselves: whoever gave way last time gets this one, or else whoever found it.",
+            sub = "They settle it themselves: whoever gave way at the vote before gets this one, or else whoever found it.",
             effects = { { "arch:storyteller", fun = 1 }, { "arch:casual", fun = -1 } },
             log = "You shrug behind the screen. \"Your call.\"" })
         local was_a = night.actor
@@ -3248,7 +3318,7 @@ function M.table_pick(night, copy, vars)
                 if (counts[top] or 0) <= 1 then
                     tbl, tkey = M.VOTE_TIE_SPLIT, "vote_split_"
                 end
-                night:say(util.fill(night:fresh(tbl[kind], tkey .. kind) or tbl[kind][1], { name = by.name }), "aside")
+                night:say(util.fill(night:fresh(tbl[kind], tkey .. kind) or tbl[kind][1], { name = by.name, back = M.vote_back(night, votes.last) }), "aside")
             end
         end
     end
@@ -3318,11 +3388,12 @@ function M.table_pick(night, copy, vars)
         local again = loser and vt.lost and vt.lost[loser] or 0
         vt.lost = loser and { [loser] = again + 1 } or {}
         vt.lost_to = loser and { won = short_want(opts[top]), wanted = short_want(opts[said[loser] or wanted[loser]]),
-                                 did = we_did(copy.id, opts[top]), card = copy.id, heard = said[loser] ~= nil or nil } or nil
+                                 did = we_did(copy.id, opts[top]), card = copy.id, heard = said[loser] ~= nil or nil,
+                                 week = night.campaign.week } or nil
         -- ("Last time" is the vote just gone: one that was neither bold nor careful breaks the habit.)
         local kind = M.vote_kind(opts[top])
         vt.last = { kind = kind, streak = kind and ((vt.last and vt.last.kind == kind) and ((vt.last.streak or 1) + 1) or 1) or 0,
-                    card = copy.id, did = we_did(copy.id, opts[top]) }
+                    card = copy.id, did = we_did(copy.id, opts[top]), week = night.campaign.week }
     end
     return top
 end
@@ -3645,7 +3716,7 @@ function M.fork(night, options, backs, sides)
             at_text = at.after.text
         end
     end
-    fk = { title = fk.title, text = (at_text and (at_text .. " Everyone has an opinion.")) or fk.text }
+    fk = { title = fk.title, text = at_text or fk.text }
     local parts = {}
     for i, ch in ipairs(choices) do
         local names = {}
@@ -3679,7 +3750,11 @@ function M.fork(night, options, backs, sides)
     -- Where they go is the table's to settle, never the DM's (the playtest, November 3): they say
     -- what they want, the ones who barely mind come round, and if they're still split someone asks
     -- you. You can nudge, hint at a room they missed, or leave it to them.
-    night:say(fk.text .. " " .. table.concat(parts, " "), "narration")
+    -- (The read-aloud is the place, and a way the DM locked; what each of them wants is theirs to say,
+    -- and what the DM makes of it is the DM's own read, behind the screen: Conner's playtest, C7, the
+    -- fork's read-aloud told the table what each of them wanted. `parts` is that read, as it truly is.)
+    night:say(fk.text .. (shut and (" " .. shut) or ""), "narration")
+    local truth_parts = parts
     -- (A way, said mid-sentence: "the offices", "up the stairs now", "back to the gift shop".)
     local function low(t)
         local first = string.match(t, "^(%a+)")
@@ -3710,6 +3785,22 @@ function M.fork(night, options, backs, sides)
         end
         return label_of(i)
     end
+    -- Each says where they'd go, in their own words: the first for each way, and one "same" after.
+    for i in ipairs(choices) do
+        local fans = by[i] or {}
+        if #fans > 0 then
+            local way = M.go_way(said_of(i))
+            local line = night:fresh(M.FORK_SAY, "fork_say")
+            -- ("{Way}. That's my vote." wants the place itself: "The offices. That's my vote.")
+            local w = string.find(line, "^{Way}") and said_of(i) or way
+            night:emit({ kind = "say", who = fans[1].key, ic = false,
+                         text = util.fill(line, { way = w, Way = util.capitalize(w) }) })
+            if fans[2] then
+                night:emit({ kind = "say", who = fans[2].key, ic = false, text = night:fresh(M.FORK_SAME, "fork_same") })
+            end
+        end
+    end
+    M.fork_read(night, voters, first, choices, said_of, truth_parts)
     local function tally()
         local n, t, tn = {}, nil, 0
         for _, p in ipairs(voters) do

@@ -69,12 +69,18 @@ end
 -- it, a blocked square straight in front. First pass: none of that, against the squares already chosen
 -- and `others` (minis standing there already), within `reach` (6) of the anchor; then clear of the walls
 -- a little further out, where another mini may stand two rows ahead; then as squares_near would.
-function M.squares_shown(blocked, taken, ax, ay, n, W, H, others, occ, reach)
+function M.squares_shown(blocked, taken, ax, ay, n, W, H, others, occ, reach, doors)
     local sight = require "game.model.sight"
     reach = reach or 6
     local out = {}
     -- (Only squares in the same room as the anchor: the corners outside an octagon's walls are open
-    -- squares too, and nobody can stand there.)
+    -- squares too, and nobody can stand there. With `doors`, the board's doors bound the room, open or
+    -- not: Conner's playtest, C23, Pip and Thessaly set down in the study across the hall, through its
+    -- open door, because the hall was behind a wall from the camera.)
+    local door_at = {}
+    for _, d in ipairs(doors or {}) do
+        door_at[d.x * 1000 + d.y] = true
+    end
     local inside = {}
     if ax >= 1 and ay >= 1 and ax <= W and ay <= H and not blocked[ax * 1000 + ay] then
         local queue, head = { { ax, ay } }, 1
@@ -85,7 +91,7 @@ function M.squares_shown(blocked, taken, ax, ay, n, W, H, others, occ, reach)
             for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
                 local x, y = q[1] + d[1], q[2] + d[2]
                 local k = x * 1000 + y
-                if x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not inside[k] then
+                if x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not inside[k] and not door_at[k] then
                     inside[k] = true
                     table.insert(queue, { x, y })
                 end
@@ -140,6 +146,20 @@ function M.squares_shown(blocked, taken, ax, ay, n, W, H, others, occ, reach)
         end
         if #out >= n then
             break
+        end
+    end
+    if #out < n and inside and doors then
+        -- (Crowd in, inside the room: nobody spills through a door.)
+        for r = 0, math.max(W, H) do
+            for dy = -r, r do
+                for dx = -r, r do
+                    local x, y = ax + dx, ay + dy
+                    if math.max(math.abs(dx), math.abs(dy)) == r and #out < n and free(x, y) then
+                        table.insert(out, { x, y })
+                        taken[x * 1000 + y] = true
+                    end
+                end
+            end
         end
     end
     if #out < n then

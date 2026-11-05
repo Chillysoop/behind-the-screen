@@ -38,11 +38,11 @@ local SHARED_FILES = {
 local CODE_TABLES = {
     { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night",
       keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "VOTE_NAMED", "VOTE_PUSH_LINES", "VOTE_CAVE", "VOTE_SIDE", "VOTE_TIE", "VOTE_TIE_SPLIT", "BREAK_START",
-               "BREAK_END", "BREAK_LOGS", "BREAK_SAD", "WEEKLY", "GENTLE_STOP" } },
+               "BREAK_END", "BREAK_LOGS", "BREAK_SAD", "WEEKLY", "GENTLE_STOP", "FORK_SAY", "FORK_SAME", "READ_LINES" } },
     { file = "game/model/museum_week.lua", mod = "game.model.museum_week", group = "Group chat", keys = { "CHAT", "CHAT_REPLY" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",
-               "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT", "LATE_LINES", "LATE_HIGH", "RESEARCH_LINES" } },
+               "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT", "LATE_LINES", "LATE_HIGH", "RESEARCH_LINES", "OWN_DC", "INSPIRE_SAY" } },
     { file = "game/model/items.lua", mod = "game.model.items", group = "Game night", keys = { "GOT" } },
     { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night", keys = { "WORLD_LINES" } },
     { file = "game/model/fight.lua", mod = "game.model.fight", group = "Game night", keys = { "SWITCH_LINES" } },

@@ -945,7 +945,7 @@ return {
           skill = "religion", who = { "casual", "method_actor" },
           ask = "Can I warm my hands at one of the braziers?",
           dull = "It's warm. That's what braziers are for.",
-          detail = "The oil smells of cinnamon and something older. It's the smoke you smelled all the way up the stairs.",
+          detail = "The oil smells of cinnamon and something older. It's the incense you smelled all the way up the stairs.",
           lore = "Temple oil, the kind burned for a goddess. She isn't praying to anyone. She just likes the smell of being prayed to.",
           react = { dull = { "Don't warm your hands in her house. It's rude." },
                     detail = { "Cinnamon. The Gorgon smells of cinnamon." },

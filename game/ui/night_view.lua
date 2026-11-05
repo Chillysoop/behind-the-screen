@@ -19,6 +19,7 @@ local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
 local empathy = require "game.model.empathy"
 local pacing = require "game.model.pacing"
+local voice = require "game.model.voice"
 local thoughts = require "game.model.thoughts"
 local recap_view = require "game.ui.recap_view"
 local standing = require "game.model.standing"
@@ -947,10 +948,14 @@ end
 -- Lay the caption's nodes out in its rect (the read-aloud box or the plain caption).
 -- The caption's voice, by its style: you talking to the table out of character, you narrating
 -- what happens, or a note that's only for you.
+-- A "dm" line is captioned by what it is (game/model/voice.lua, Conner's playtest C21): words you say
+-- out loud, your own doing, what you hear and see at the table, or the story told. Euryale's thoughts
+-- upstairs are yours alone (C16): the players never hear them.
 local VOICE = {
     dm = { "YOU, TO THE TABLE", "#7fb2e5" },
+    dm_you = { "YOU", "#a9b8c8" }, dm_chatter = { "FROM THE TABLE", "#9fbf8f" }, dm_told = { "YOU, NARRATING", "#cdbb98" },
     good = { "YOU, NARRATING", "#cdbb98" }, bad = { "YOU, NARRATING", "#cdbb98" }, twist = { "YOU, NARRATING", "#cdbb98" },
-    thread = { "YOU, NARRATING", "#cdbb98" }, interlude = { "YOU, NARRATING", "#cdbb98" }, goal = { "FOR YOU", "#8a7c6a" },
+    thread = { "YOU, NARRATING", "#cdbb98" }, interlude = { "BEHIND YOUR SCREEN: UPSTAIRS", "#b98390" }, goal = { "FOR YOU", "#8a7c6a" },
     system = { "FOR YOU", "#8a7c6a" }, warn = { "FOR YOU", "#8a7c6a" }, quote = { "YOU, IN CHARACTER", "#e8b84a" },
     table = { "AT THE TABLE", "#9fbf8f" },          -- (table life: what the heroes get up to between the big moments)
     -- Something only you know (the second playtest review: "You keep the token behind your screen" was
@@ -1098,7 +1103,12 @@ function M.caption(app, text, style)
     gui.set_enabled(c.text, true)
     gui.set_enabled(c.rule, read)
     gui.set_enabled(c.tag, read)
-    local v = (not read) and VOICE[style]
+    local vkey = style
+    if style == "dm" then
+        local k = voice.of(text)
+        vkey = k == "say" and "dm" or ("dm_" .. k)
+    end
+    local v = (not read) and VOICE[vkey]
     c.voice_on = v and true or false
     gui.set_enabled(c.voice_bg, c.voice_on)
     gui.set_enabled(c.voice, c.voice_on)

@@ -17,7 +17,7 @@ tags: indoor, museum, second floor, fight
 order: 9
 party: 3,7
 foes: 17,7
-npc: 14,12
+npc: 17,7
 
 grid:
 |###C####C####C####C#|

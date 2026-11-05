@@ -42,7 +42,8 @@ M.OPTIONS = { "paint", "mirror", "averted", "drowsy", "earplugs", "fire_arrows",
 function M.setup(b, opts)
     for _, k in ipairs(M.OPTIONS) do
         local v = opts and opts[k]
-        b[k] = v and ((k == "fire_arrows" and v == "arrows") and "arrows" or true) or nil
+        -- (paint may name whose weapon it is, a player key: the one who pulled it out of a painting.)
+        b[k] = v and ((k == "fire_arrows" and v == "arrows") and "arrows" or ((k == "paint" and type(v) == "string") and v) or true) or nil
     end
 end
 

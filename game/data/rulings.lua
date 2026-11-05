@@ -55,7 +55,7 @@ return {
             { label = "No, but... they get something out of it.", success = false, tone = "good",
               -- (It used to promise a Franc it no longer pays, and to learn things "on the way down" out in
               -- the street: the second playtest review. What they get is real: +1 on that hero's next roll.)
-              adventure_label = "No, but... they learn from the miss (+1 on {char}'s next roll).",
+              adventure_label = "No, but... they learn from the miss (+1 on {char}'s next check).",
               log = "Not quite, but they learn something from the miss.",
               lines = { "Not quite, but now they know which way not to try it.",
                         "Not quite, but they see enough to know what they're up against.",

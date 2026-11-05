@@ -93,14 +93,14 @@ local function cls(t)
     return nil
 end
 -- Reasons that only fit one kind of option.
-local BOLD_WORDS = { "Let's go big", "too good a mood to play it safe", "feeling lucky", "Where's the fun in that", "played it safe last time",
+local BOLD_WORDS = { "Let's go big", "too good a mood to play it safe", "feeling lucky", "Where's the fun in that", "played it safe",
     "Come on, it'll be chaos", "What's the worst that could happen", "Let's do something braver", "My turn for some fun", "Let's not play it safe twice" }
 local SAFE_WORDS = { "Easy does it", "keep it simple", "The easy way", "No surprises", "Fewer ways for it to go wrong", "safest bet", "smart play",
-    "charged in last time", "went in swinging last time", "reckless last time", "Easiest way through", "Let's be smart for once", "Maybe not again",
+    "We charged in ", "went in swinging", "were reckless ", "Easiest way through", "Let's be smart for once", "Maybe not again",
     "Let's not push it", "pushed our luck before", "Let's be careful", "Gently, please", "The careful way" }
-local HABIT_SAFE = { "played it safe last time", "were careful last time", "Let's do something braver", "Let's not play it safe twice", "We were good before" }
-local HABIT_BOLD = { "went in swinging last time", "charged in last time", "reckless last time", "Let's be smart for once", "Maybe not again", "pushed our luck before" }
-local PUSHED = { "I went along last time", "I gave way last time", "Last time I came round", "Last time I let you", "and we didn't. Not again",
+local HABIT_SAFE = { "played it safe", "We were careful ", "Let's do something braver", "Let's not play it safe twice", "We were good before" }
+local HABIT_BOLD = { "went in swinging", "We charged in ", "were reckless ", "Let's be smart for once", "Maybe not again", "pushed our luck before" }
+local PUSHED = { "I went along ", "I gave way ", "I came round ", "I let you ", "and we didn't. Not again",
     "My turn now" }
 local FRIENDS = { mara = "Mara", dev = "Dev", jess = "Jess", sam = "Sam" }
 

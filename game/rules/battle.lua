@@ -794,9 +794,11 @@ function B:attack(att, tgt, prof, opts)
     local cover, cover_what = self:cover_bonus(att, tgt)
     local ac = self:ac(tgt) + cover
     res.cover = cover > 0 or nil
-    -- Heroic Inspiration on a miss that matters: against the boss.
+    -- Heroic Inspiration on a miss that matters (C15): against the boss, or to finish a foe that's nearly
+    -- down, when a new die has a fair chance to hit (it needs 15 or less).
     local rerolled
-    if att.heroic and roll < crit_range and (roll == 1 or total < ac) and tgt.boss then
+    local matters = tgt.boss or (tgt.hp_max and tgt.hp <= tgt.hp_max / 4)
+    if att.heroic and roll < crit_range and (roll == 1 or total < ac) and matters and ac - (total - roll) <= 15 then
         local riders = total - roll
         rerolled = roll
         roll = self:heroic_reroll(att, roll, true, "attack", mode, luck)
@@ -981,7 +983,9 @@ function B:attack(att, tgt, prof, opts)
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
     -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
-    local paint = self.paint and att.side == "party" and prof.is_weapon or nil
+    -- (b.paint = a player key: only that hero's weapon is painted, the one they pulled out of a painting.)
+    local paint = self.paint and att.side == "party" and prof.is_weapon
+        and (self.paint == true or att.player_key == self.paint) or nil
     local magical = prof.magical or (att.magic_weapon or 0) > 0 or paint or nil
     res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon,
                                               magical = magical, paint = paint, nonlethal = prof.nonlethal })

@@ -54,7 +54,7 @@ features:
 -- id     | flags     | words                                         | say
 floor     | base      | floor, hall, offices                          | a quiet marble hall
 walls     | base      | studies                                       | panelled walls
-stairs    |           | up, smoke                                     | stairs up to the floor above
+stairs    |           | up, incense                                   | stairs up to the floor above
 locked    | own_words | locked, locked door, archivist's door         | a door locked from the inside
 open_door | own_words | door, study door                              | a study door standing open
 eyes      | own_words | diagrams, eye, eyes, symbols, scraps          | diagrams and scraps of paper everywhere, one glowing eye drawn over and over
@@ -71,4 +71,4 @@ drawings | 6,10  | the anatomy drawings     | Pictures of a strange bird's insid
 7B       | 10,3  | the archivist            | A withered body at an ancient desk, quill in hand, eyes carved into its skin. A thick notebook lies open. | one person
 eyes     | 5,3   | the eye on every wall    | Diagrams, strange letters and scraps of paper everywhere, and one glowing eye drawn on almost every surface. | one picture
 door     | 10,6  | the locked door          | Locked from the inside. A hard shove might break it. | one fixture
-stairs   | 6,7   | the stairs up            | Stairs climb between the studies toward the floor above. Smoky air drifts down them. | many areas
+stairs   | 6,7   | the stairs up            | Stairs climb between the studies toward the floor above. A smell of incense drifts down them. | many areas

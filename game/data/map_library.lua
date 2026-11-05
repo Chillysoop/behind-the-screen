@@ -314,7 +314,7 @@ L.boards = {
                 { 9, 9, 0 }, { 12, 9, 0 }, { 14, 9, 0 }, { 16, 9, 0 }, { 18, 9, 0 }, { 20, 9, 0 }, { 1, 10, 3 }, { 20, 10, 1 }, { 1, 11, 3 }, { 20, 11, 1 },
                 { 1, 12, 3 }, { 20, 12, 1 }, { 1, 13, 3 }, { 20, 13, 1 },
             }, base = true, words = { "studies" }, say = "panelled walls" },
-            { id = "stairs", kind = "stairs_straight", at = { { 3, 6, 1 } }, words = { "up", "smoke" }, say = "stairs up to the floor above" },
+            { id = "stairs", kind = "stairs_straight", at = { { 3, 6, 1 } }, words = { "up", "incense" }, say = "stairs up to the floor above" },
             { id = "locked", kind = "door_locked", at = { { 10, 5, 0 } }, words = { "locked", "locked door", "archivist's door" }, own_words = true, say = "a door locked from the inside" },
             { id = "open_door", kind = "door_open", at = { { 10, 9, 0 } }, words = { "door", "study door" }, own_words = true, say = "a study door standing open" },
             { id = "eyes", kind = "wall_notes", at = {
@@ -339,7 +339,7 @@ L.boards = {
             { id = "door", x = 10, y = 6, name = "the locked door", near = { "walls", "locked" }, kind = "fixture",
               line = "Locked from the inside. A hard shove might break it." },
             { id = "stairs", x = 6, y = 7, name = "the stairs up", near = { "stairs" }, many = true, kind = "area",
-              line = "Stairs climb between the studies toward the floor above. Smoky air drifts down them." },
+              line = "Stairs climb between the studies toward the floor above. A smell of incense drifts down them." },
         },
     },
     museum_tomorrow = {
@@ -382,7 +382,7 @@ L.boards = {
         source = "adventure", credit = "The Museum of Nightmares by Luke Russell (DMs Guild): the Area 2 map, the lecture theatre (9A)",
         about = "Rows of old benches facing a droning ghost at his lectern.",
         tags = { "indoor", "museum", "second floor", "fight" },
-        party = { 3, 7 }, npc = { 14, 12 }, foes = { 17, 7 },
+        party = { 3, 7 }, npc = { 17, 7 }, foes = { 17, 7 },
         features = {
             { id = "floor", kind = "floor_marble", at = { { 1, 1, 0 } }, base = true, words = { "floor", "dust", "theatre", "theater" }, say = "a dusty floor that puffs up clouds underfoot" },
             { id = "walls", kind = "wall_room", at = {
