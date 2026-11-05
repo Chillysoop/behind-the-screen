@@ -452,6 +452,13 @@ function M.test(campaign, cond, knobs, hero)
     if cond.not_mark and st.marks[cond.not_mark] then
         return false
     end
+    -- (Whose doing a mark was, from the log: { mark, who }. Flitwidget's Mech, not one they woke.)
+    if cond.mark_by and not (st.marks[cond.mark_by[1]] and M.mark_by(campaign, cond.mark_by[1]) == cond.mark_by[2]) then
+        return false
+    end
+    if cond.not_mark_by and st.marks[cond.not_mark_by[1]] and M.mark_by(campaign, cond.not_mark_by[1]) == cond.not_mark_by[2] then
+        return false
+    end
     if cond.not_knob and knobs and knobs[cond.not_knob] then
         return false
     end
@@ -1057,8 +1064,12 @@ end
 
 -- Marks, flags, Francs, favors --------------------------------------------------------------
 
--- holder: the hero whose doing it was, if anyone's (for the log: whose deed it was).
-function M.add_mark(campaign, id, room, holder)
+-- holder: the hero whose doing it was, if anyone's (for the log: whose deed it was). by: someone else
+-- whose doing it was, between sessions (a loose end: Flitwidget woke the Steam Mech himself), with the
+-- mark's own words for it (`MODULE.marks[id].by[by]`): the log names them, and the card, the board, the
+-- chain and the night's start say it was them (the confirming playtest, seed 57 careful: "They woke the
+-- Steam Mech", and the party never went near it).
+function M.add_mark(campaign, id, room, holder, by)
     local st = campaign.adv
     if not MODULE.marks[id] or st.marks[id] then
         return false
@@ -1068,12 +1079,15 @@ function M.add_mark(campaign, id, room, holder)
     -- (In the log: it follows from whatever the night was playing when it landed, R7.)
     local events = require "game.model.events"
     local m = MODULE.marks[id]
-    local ev = events.add(campaign, { kind = "mark", who = "party", thing = id, where = (room ~= "loose" and room) or false,
-                                      from = events.cause(campaign), beat = campaign.night ~= nil or nil,
-                                      text = m.chain or ("it went on Euryale's card: " .. util.lower_first(m.name)) })
+    local words = by and m.by and m.by[by]
+    local ev = events.add(campaign, { kind = "mark", who = words and by or "party", thing = id, where = (room ~= "loose" and room) or false,
+                                      from = events.cause(campaign), beat = (campaign.night ~= nil or words ~= nil) or nil,
+                                      between = (campaign.night == nil and words ~= nil) or nil,
+                                      text = (words and words.chain) or m.chain or ("it went on Euryale's card: " .. util.lower_first(m.name)) })
     st.marks[id].ev = ev.id
-    -- (A mark that means one of Flitwidget's exhibits is broken is a deed against him: R11.)
-    if m.breaks then
+    -- (A mark that means one of Flitwidget's exhibits is broken is a deed against him: R11. Not when it
+    -- landed some other way: scarabs that crept up from a chamber nobody went into broke nothing.)
+    if m.breaks and not words then
         events.add(campaign, { kind = "break", who = holder or "party", whom = "mus_flitwidget", thing = m.breaks, from = ev.id,
                                where = (room ~= "loose" and room) or false })
     end
@@ -1131,7 +1145,7 @@ function M.apply(campaign, mus, room, holder)
             items.use(campaign, mus.use)
         end
     end
-    if mus.mark and M.add_mark(campaign, mus.mark, room, holder) then
+    if mus.mark and M.add_mark(campaign, mus.mark, room, holder, mus.by) then
         table.insert(added, mus.mark)
     end
     if mus.unmark then
@@ -1210,6 +1224,10 @@ function M.mark_why(campaign, id)
     if type(rec) == "table" and rec.tied then
         return "You tied it to happen"
     end
+    local by = M.mark_words(campaign, id)
+    if by and by.why then
+        return by.why
+    end
     for _, alt in ipairs(m.why_if or {}) do
         if M.test(campaign, alt.when) then
             return alt.text
@@ -1218,9 +1236,56 @@ function M.mark_why(campaign, id)
     return m.why
 end
 
+-- Whose doing a mark on her card was, when it wasn't the party's: the log's (its last "mark" event's
+-- `who`, written by add_mark). nil: the party's, or nobody's in particular.
+function M.mark_by(campaign, id)
+    local ev = require("game.model.events").last(campaign, { kind = "mark", thing = id })
+    local who = ev and ev.who
+    return (who and who ~= "party") and who or nil
+end
+
+-- The mark's own words for who put it there (`MODULE.marks[id].by[who]`: why, showdown, chain, told),
+-- when that wasn't the party.
+function M.mark_words(campaign, id)
+    local m = MODULE.marks[id]
+    local by = m and m.by and M.mark_by(campaign, id)
+    return by and m.by[by] or nil
+end
+
+-- What it changes on boss night, in words that fit how it got there.
+function M.mark_showdown(campaign, id)
+    local by = M.mark_words(campaign, id)
+    return (by and by.showdown) or MODULE.marks[id].showdown
+end
+
+-- An old save's mark that someone else put there between sessions (a loose end's `by`) was logged as
+-- the party's: the log says whose it was now. Once, on load (save.lua).
+function M.mend_marks_by(campaign)
+    local st = campaign.adv
+    if not (st and st.answered and st.marks) then
+        return
+    end
+    local events = require "game.model.events"
+    for _, le in ipairs(MODULE.loose_ends or {}) do
+        local o = type(st.answered[le.id]) == "number" and le.options[st.answered[le.id]]
+        local mus = o and o.mus
+        local rec = mus and mus.by and mus.mark and st.marks[mus.mark]
+        if type(rec) == "table" and rec.room == "loose" then
+            local ev = events.last(campaign, { kind = "mark", thing = mus.mark })
+            if ev and ev.who == "party" and ev.where == nil then
+                ev.who = mus.by
+            end
+        end
+    end
+end
+
 -- What she thinks as it lands, the same way (thought_if, else her thought).
 function M.mark_thought(campaign, id)
     local m = MODULE.marks[id]
+    local by = M.mark_words(campaign, id)
+    if by and by.thought then
+        return by.thought
+    end
     for _, alt in ipairs(m.thought_if or {}) do
         if M.test(campaign, alt.when) then
             return alt.text
@@ -1235,7 +1300,7 @@ function M.boss_card(campaign)
     local marks = {}
     for _, id in ipairs(st.mark_list) do
         local m = MODULE.marks[id]
-        table.insert(marks, { id = id, name = m.name, why = M.mark_why(campaign, id), showdown = m.showdown, thought = M.mark_thought(campaign, id),
+        table.insert(marks, { id = id, name = m.name, why = M.mark_why(campaign, id), showdown = M.mark_showdown(campaign, id), thought = M.mark_thought(campaign, id),
                               week = st.marks[id].week, room = st.marks[id].room })
     end
     return { name = MODULE.base.name, line = MODULE.base.line, marks = marks, talk = M.talk_score(campaign) }
@@ -1637,9 +1702,17 @@ function M.journey(campaign)
             table.insert(skipped, MODULE.rooms[id].name)
         end
     end
+    -- (What someone else did for them between sessions, a loose end's: the confirming playtest's seed 54 had
+    -- Hans fight for them, and the journey only said "Never seen: ... the World of Tomorrow".)
+    local between = {}
+    for _, ev in ipairs(require("game.model.events").find(campaign, { kind = "mark", between = true })) do
+        if ev.text then
+            table.insert(between, { week = ev.session, text = util.sentence_case(ev.text) .. "." })
+        end
+    end
     local ending = st.ending and MODULE.endings[st.ending]
     return { rooms = rooms, skipped = skipped, card = M.boss_card(campaign), ending = ending, ending_id = st.ending,
-             francs = st.francs, weeks = st.weeks or 0, harsh = st.harsh, mech = st.mech_name }
+             francs = st.francs, weeks = st.weeks or 0, harsh = st.harsh, mech = st.mech_name, between = between }
 end
 
 return M

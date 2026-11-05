@@ -4112,7 +4112,8 @@ function M.interlude(night, sc)
         local m = MODULE.marks[id]
         if m and night.campaign.adv.marks[id] then
             local thought = adventure.mark_thought(night.campaign, id)
-            night:emit({ kind = "mark", id = id, name = m.name, why = adventure.mark_why(night.campaign, id), showdown = m.showdown, thought = thought })
+            night:emit({ kind = "mark", id = id, name = m.name, why = adventure.mark_why(night.campaign, id),
+                         showdown = adventure.mark_showdown(night.campaign, id), thought = thought })
             night:say("Upstairs, Euryale: \"" .. thought .. "\"", "interlude")
             table.insert(night.mus.added, id)
         end
@@ -4241,6 +4242,13 @@ function M.intro(night)
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
                 table.insert(night.mus.pending, id)
+                -- (A mark someone else put there between sessions, said as theirs before her line: "Flitwidget
+                -- woke the Steam Mech himself". The confirming playtest: Hans clanked up the stairs, and
+                -- nobody had said how he woke.)
+                local by = st.marks[id] and adventure.mark_words(c, id)
+                if by and by.told then
+                    night:say(util.fill(night:fresh(by.told, "mark_told_" .. id), { mech = st.mech_name or "the Mech" }), "recap")
+                end
             end
             st.unannounced = nil
             M.interlude(night)

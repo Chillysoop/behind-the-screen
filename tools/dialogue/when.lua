@@ -224,6 +224,15 @@ local function cond(c)
     if c.not_mark then
         add(MARK[c.not_mark] and ("not if " .. MARK[c.not_mark]) or nil)
     end
+    -- (Whose doing a mark was, from the log: Flitwidget's Mech, adventure.mark_by.)
+    local BY = { mus_flitwidget = "Flitwidget", mus_bone_construct = "the Bone Construct" }
+    if c.mark_by then
+        add((BY[c.mark_by[2]] or c.mark_by[2]) .. " put " .. Q(MODULE.marks[c.mark_by[1]] and MODULE.marks[c.mark_by[1]].name or c.mark_by[1], 5)
+            .. " on her card between sessions")
+    end
+    if c.not_mark_by then
+        add("not if " .. (BY[c.not_mark_by[2]] or c.not_mark_by[2]) .. " put it on her card between sessions")
+    end
     if c.done then
         add(c.done == "lair" and "Euryale is dealt with" or (rname(c.done) .. " is done"))
     end
@@ -789,6 +798,24 @@ A.marks = function(p)
         return R(CHAIN_AT .. ", once " .. why, "Always")
     elseif f == "unchain" then
         return R(CHAIN_AT .. ", when " .. Q(m.name, 5) .. " comes off her card", "Always")
+    elseif f == "by" then
+        -- (Someone else put it there between sessions, a loose end's `by`: adventure.mark_words.)
+        local BY = { mus_flitwidget = "Flitwidget", mus_bone_construct = "the Bone Construct" }
+        local base = "when " .. (BY[p[4]] or p[4]) .. " put " .. Q(m.name, 5) .. " on her card between sessions (a loose end)"
+        local g = p[5]
+        if g == "why" then
+            return R("On Euryale's card, the reason under " .. Q(m.name, 5) .. ", " .. base, "Always")
+        elseif g == "showdown" then
+            return R("On Euryale's card: what " .. Q(m.name, 5) .. " changes on boss night, " .. base, "Always")
+        elseif g == "chain" then
+            return R(CHAIN_AT .. ", " .. base, "Always")
+        elseif g == "brings" then
+            return R("On the showdown board, under what the party brings, " .. base, "Always")
+        elseif g == "told" then
+            return R("As the next night starts, before Euryale's line, " .. base, one_of(#(m.by[p[4]].told or {})))
+        elseif g == "thought" then
+            return R("Upstairs, Euryale's thought when it lands, " .. base, "Always")
+        end
     elseif f == "thought_if" or f == "why_if" then
         local alt = m[f][p[4]]
         local what = f == "thought_if" and ("Upstairs, Euryale's thought when " .. Q(m.name, 5) .. " lands")
