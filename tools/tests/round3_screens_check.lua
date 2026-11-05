@@ -87,6 +87,12 @@ local function run(seed)
         elseif string.find(line, "^GLOSS  ") then
             table.insert(r.gloss, line)
         elseif f[1] == "FACT" then
+            -- (A screen dumped again under the same name, a second boss night's board: the file holds
+            -- the last one, so the facts are the last one's too.)
+            if r.last_fact ~= f[2] then
+                r.facts[f[2]] = nil
+            end
+            r.last_fact = f[2]
             r.facts[f[2]] = r.facts[f[2]] or {}
             local key = f[3]
             r.facts[f[2]][key] = r.facts[f[2]][key] or {}

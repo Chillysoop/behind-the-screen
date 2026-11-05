@@ -61,11 +61,13 @@ local MODULE = adventure.data
 
 -- The options the reviewers judged careful or bold (alive.md's votes.py): the "last time" and the
 -- mood reasons are checked against these, whatever the code calls them.
-local CAREFUL = { "douse the hedges", "drop a coin", "give the knight a wide berth", "put the painted weapons back", "work out the ritual",
+local CAREFUL = { "douse the hedges", "drop a coin", "give the knight a wide berth", "put the painted weapons back", "put it back", "work out the ritual",
     "tidy up for flitwidget", "leave the exhibits alone", "pick the lock, quietly", "save it for the gorgon", "leave the wine alone",
     "forget the frame", "try the brass key", "leave the mess", "save the francs", "talk her round", "go round and make" }
-local BOLD = { "set the bushes on fire", "just fight them", "have a go at the lock", "take a closer look at the knight", "keep them till they drip",
-    "skip the homework", "keep the twin daggers", "take one of the mirror", "shoulder it open", "flip the switch", "drink the wine",
+-- (Not the mirror-bright door: the module says it's neither, `lean = "none"`, a precaution as much as a
+-- grab, so "It's the smart play" fits it as well as "You never know".)
+local BOLD = { "set the bushes on fire", "just fight them", "have a go at the lock", "take a closer look at the knight", "keep them till they drip", "keep it till it drips",
+    "skip the homework", "keep the twin daggers", "shoulder it open", "flip the switch", "drink the wine",
     "fight her", "reach into the frame", "follow the marks", "put her to sleep" }
 local function cls(t)
     t = string.lower(t or "")

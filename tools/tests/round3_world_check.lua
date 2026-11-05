@@ -267,21 +267,25 @@ end
 local KEY = { Thessaly = "mara", Brannoc = "dev", Pip = "jess", Oswin = "sam" }
 local FRIEND = { mara = "Mara", dev = "Dev", jess = "Jess", sam = "Sam" }
 local function praise_owner(T)
-    local landed, last_decides = {}, nil
+    local landed, last_decides, casting = {}, nil, {}
     for _, e in ipairs(T) do
         if e.kind == "battle" and e.phase == "start" then
-            landed = {}
+            landed, casting = {}, {}
         elseif e.kind == "scene" then
             last_decides = nil
         elseif e.kind == "turn" and e.who then
-            for i, st in ipairs(e.steps) do
-                if st.kind == "attack" and st.hit and st.id == e.who then
-                    landed[e.who] = true
-                elseif st.kind == "spell" and st.id == e.who then
-                    local nx = e.steps[i + 1]
-                    if nx and nx.kind == "damage" and nx.src == e.who then
+            -- (A spell's damage on a foe counts, even when a card splits the turn between the spell and
+            -- its damage: the early knockout card, round three, A5. A missed swing's Graze doesn't.)
+            for _, st in ipairs(e.steps) do
+                if st.kind == "attack" and st.id == e.who then
+                    casting[e.who] = nil
+                    if st.hit then
                         landed[e.who] = true
                     end
+                elseif st.kind == "spell" and st.id == e.who then
+                    casting[e.who] = true
+                elseif st.kind == "damage" and st.src and casting[st.src] and string.find(tostring(st.id), "^f%d") then
+                    landed[st.src] = true
                 end
             end
         elseif e.kind == "line" and string.find(e.text, "The table decides", 1, true) then

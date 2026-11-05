@@ -50,8 +50,9 @@ local function mus_vars(night, sc)
     local v = { francs = tostring(st.francs or 0), mech = st.mech_name or "Hans" }
     local who = night.actor and night.actor.key
     local pick = knobs_of(night).portrait
-    local port = (type(pick) == "string" and MODULE.portraits[pick]) or (who and MODULE.portraits[who])
-        or MODULE.portrait_default or {}
+    local whose = (type(pick) == "string" and MODULE.portraits[pick] and pick) or (who and MODULE.portraits[who] and who) or nil
+    local port = (whose and MODULE.portraits[whose]) or MODULE.portrait_default or {}
+    v.portrait_whose = whose          -- (whose painting this is, if anyone's: the one the hall shows)
     v.painting = port.painting or "a frosty mountain portrait"
     v.gift = port.gift or "a painted scimitar"
     v.gift_the = (string.gsub(v.gift, "^an? ", "the "))      -- (the one they pulled out: "the painted scimitar")
@@ -988,9 +989,10 @@ function M.play_moment(night, card, sc)
     -- (Whose painting the hall showed: the chat and the notes can say so.)
     -- (The painting they were shown: whose it is, the DM's pick or the hero's own, not who leaned in.
     -- Round three: "the lady by the mountains" when the hall showed the elf in the snow.)
-    if card.id == "mus_reach" and night.actor then
-        local pick = knobs_of(night).portrait
-        local whose = (type(pick) == "string" and MODULE.portraits[pick] and pick) or (MODULE.portraits[night.actor.key] and night.actor.key)
+    -- (Read off the fill-ins the card was told with: the hall can show the elf in the snow, nobody's,
+    -- when the card's hero was picked after its words were. Round three, seed 38.)
+    if card.id == "mus_reach" then
+        local whose = night.mus_vars and night.mus_vars.portrait_whose
         if whose then
             st.flags["portrait_" .. whose] = true
         end
@@ -1769,6 +1771,41 @@ function M.read(night, sc)
     end
 end
 
+-- What the week between promised, paying off here (the room's callbacks): a line, and maybe
+-- something handed over for real. Each once (`adv.cb_said`): a trip back to the room plays the ones
+-- that have come true since (round three: the vorpal sword promised after their first visit to the
+-- gift shop was never on Telpur's shelf when they came back to spend their Francs).
+function M.callbacks(night, sc)
+    local c = night.campaign
+    local r = MODULE.rooms[sc.room]
+    local knobs = knobs_of(night)
+    if not c.adv.cb_said then
+        -- (A save from before kept no record: the rooms they've been through have had theirs.)
+        c.adv.cb_said = {}
+        for id in util.sorted_pairs(c.adv.done or {}) do
+            for i in ipairs((MODULE.rooms[id] or {}).callbacks or {}) do
+                c.adv.cb_said[id .. "#" .. i] = true
+            end
+        end
+    end
+    for i, cb in ipairs(r.callbacks or {}) do
+        local key = sc.room .. "#" .. i
+        if not c.adv.cb_said[key] and adventure.test(c, cb.when, knobs) then
+            c.adv.cb_said[key] = c.week
+            local given
+            if cb.give and cb.give.magic then
+                local items_mod = require "game.model.items"
+                local to = cb.give.who and present(night, cb.give.who)
+                local e = items_mod.earn(c, cb.give.magic, to and { to } or night.players)
+                given = e and e.holder and present(night, e.holder)
+                local d = items_mod.def(cb.give.magic)
+                M.note_got(night, d and string.lower(d.name) or nil)
+            end
+            night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
+        end
+    end
+end
+
 function M.room_start(night, sc)
     local c = night.campaign
     local r = MODULE.rooms[sc.room]
@@ -1824,22 +1861,7 @@ function M.room_start(night, sc)
             night:highlight(6, util.fill("{char} finds what {char_they} came for: ", { char = p.char }) .. util.lower_first(h.name), { p }, "thread")
         end
     end
-    -- What the week between promised, paying off here (the room's callbacks): a line, and maybe
-    -- something handed over for real.
-    for _, cb in ipairs(r.callbacks or {}) do
-        if adventure.test(c, cb.when, knobs) then
-            local given
-            if cb.give and cb.give.magic then
-                local items_mod = require "game.model.items"
-                local to = cb.give.who and present(night, cb.give.who)
-                local e = items_mod.earn(c, cb.give.magic, to and { to } or night.players)
-                given = e and e.holder and present(night, e.holder)
-                local d = items_mod.def(cb.give.magic)
-                M.note_got(night, d and string.lower(d.name) or nil)
-            end
-            night:say(util.fill(cb.text, { given = given and given.char or "the party" }), "narration")
-        end
-    end
+    M.callbacks(night, sc)
     -- (A room with a fight in it gets looked around once it's safe: after the fight.)
     if not M.has_fight(sc) then
         M.explore(night, sc)
@@ -2211,7 +2233,7 @@ M.LEAN_WHY = LEAN_WHY      -- (for the Dialogue Desk: tools/dialogue/export.lua)
 M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 
 -- What one option is worth to one friend, and the reason that weighed most. o: the card's option.
-local function lean(night, p, o)
+local function lean(night, p, o, not_them)
     local v, why, whyv = 0, nil, 0
     local function eff(list, w)
         for _, e in ipairs(list or {}) do
@@ -2245,8 +2267,9 @@ local function lean(night, p, o)
         eff(o.roll.fail and o.roll.fail.effects, 0.4)
     end
     eff(o.effects, 1)
-    -- Their hero's state: hurt heroes don't want risks or fights; a fresh fighter does.
-    local hh = hero_hurt(night, p)
+    -- Their hero's state: hurt heroes don't want risks or fights; a fresh fighter does. (Not where
+    -- what's at stake isn't them: the card's `risks`, the Mech's red switch.)
+    local hh = not_them and 0 or hero_hurt(night, p)
     local m = o.mus or {}
     local risky = m.risk or m.fight or o.roll ~= nil or (o.roll and o.roll.fail and o.roll.fail.mus and o.roll.fail.mus.hurt)
     if risky and hh >= 0.4 then
@@ -2634,12 +2657,16 @@ function M.table_pick(night, copy, vars)
     end
     avg_spot = avg_spot / math.max(1, #players)
     local edges, edge_words = M.edges(night.campaign)
-    -- (A card with a risk on it: what being hurt, or a rough fight, makes them shy of.)
+    -- (A card with a risk to them on it: what being hurt, or a rough fight, makes them shy of. Not a
+    -- card whose risk falls on something else, its `risks`: "Oswin's hurt. Let's not." about the
+    -- Mech's red switch, the switch saved for her in two runs of three.)
+    local not_them = copy.risks ~= nil
     local risky = false
     for _, i in ipairs(live) do
         local o = opts[i]
         risky = risky or (o.roll ~= nil) or ((o.mus or {}).fight == true) or ((o.mus or {}).risk == true) or o.then_moment ~= nil
     end
+    risky = risky and not not_them
     -- (Who they are is a lean, not a verdict: a strong taste counts, but less and less the stronger it
     -- is, so the moment can still turn it. And a friend who's had a big night already lets the others
     -- choose: their taste counts for less, and they speak up last.)
@@ -2660,7 +2687,7 @@ function M.table_pick(night, copy, vars)
         vals[p.key] = {}
         local best, bv, plain, pv
         for _, i in ipairs(live) do
-            local v, w = lean(night, p, opts[i])
+            local v, w = lean(night, p, opts[i], not_them)
             v = taste(v, p)
             local cb, cw, cwords = carry(night, p, opts[i], votes, avg_spot, edges, risky)
             v = v + night.rng:next() * M.VOTE_NOISE
@@ -3799,6 +3826,10 @@ function M.go_back(night, b)
             sc.outcome = sc.result and (sc.result.winner == "party" and "win" or "lose") or "win"
         end
     elseif b.why == "shop" or b.why == "rest" or b.why == "flee" then
+        -- (What's come true here since they last stood in it: the vorpal sword on Telpur's shelf.)
+        if b.why ~= "flee" and not night.end_early then
+            M.callbacks(night, sc)
+        end
         if b.why == "shop" then
             night.mus.shopped = true
             for _, m in ipairs(MODULE.moments) do
