@@ -79,6 +79,13 @@ M.WORLD_LINES = {
     francs = { "{n} Flitwidget Francs turn up in {char}'s pocket. The gnome pays for clever.",
                "{char} finds {n} crisp Flitwidget Francs tucked in {char_their} sleeve. Clever pays, in this museum.",
                "There are {n} Flitwidget Francs in {char}'s hand that weren't there a moment ago." },
+    -- (Right after the same roll's triumph Franc: one more, to the same hero.)
+    franc_more = { "And a second Franc for {char}: the gnome pays for clever, too.",
+                   "That's two Flitwidget Francs for {char} off one roll. The gnome pays for clever.",
+                   "Another Flitwidget Franc turns up for {char}, for the clever bit. Two off one roll." },
+    francs_more = { "And {n} more Flitwidget Francs for {char}: the gnome pays for clever, too.",
+                    "{n} more Flitwidget Francs turn up for {char}, for the clever bit.",
+                    "On top of that, {n} more Flitwidget Francs for {char}. The gnome pays for clever." },
     franc_party = { "A Flitwidget Franc flutters down out of nowhere. The gnome pays for clever.",
                     "A crisp Flitwidget Franc turns up on the floor at their feet.",
                     "Somebody finds a Flitwidget Franc in the party's things that wasn't there before." },
@@ -89,6 +96,16 @@ M.WORLD_LINES = {
     between_francs = { "Between sessions, {who} pressed {n} Flitwidget Francs on them, \"for the trouble\". That's {pool} in the pool.",
                        "{who} slipped them {n} Francs between sessions, with a wink. The pool's at {pool}.",
                        "Since last time, {who} has found {n} Francs for them, from somewhere. {pool} in the pool now." },
+    -- Heroes still stone when she's beaten them and lets them go (a lost fight in her lair): how they came
+    -- back, said, before "She lets them go" (the confirming playtest, seed 54: Oswin stone, then whole the
+    -- next week with no word).
+    -- Her garden burned, and she's beaten them once already: back up her stairs, she knows them.
+    burned_again = { "\"You came back. You still smell of my garden.\" No drink this time either.",
+                     "\"Again? You still smell of smoke.\" She doesn't pour anything.",
+                     "Euryale doesn't get up. \"Back from the floor, and still smelling of my garden.\" No drink." },
+    stone_let_go = { "Euryale waves a hand, and {names} {crack} out of the stone, gasping.",
+                     "The grey drains out of {names} as Euryale turns away.",
+                     "Euryale snaps her fingers. {names} {crack} out of the stone, gasping." },
     -- A promise kept: first pick of the next find, to the friend it was promised to.
     first_pick = { "{by} hangs back: \"First pick's {to_char}'s. I promised.\"",
                    "{to_char} gets first pick, as {by_char} promised.",
@@ -374,6 +391,13 @@ function M.handle(night, mus, sc)
         -- three: "They doused the hedges, so Oswin found a Franc" when nobody heard one.)
         if not (mus.told or mus.find_text or night.mus.franc_told) then
             local key = mus.francs == 1 and "franc" or "francs"
+            -- (The same roll's triumph just gave this hero a Franc: this one is another, said as one more,
+            -- not a second "a Franc turns up". The confirming playtest, 51 careful week 1.)
+            local rf = night.mus.roll_franc
+            if who and rf and rf == who.key then
+                key = key .. "_more"
+            end
+            night.mus.roll_franc = nil
             night:say(util.fill(night:fresh(M.WORLD_LINES[who and key or (key .. "_party")], "world_" .. key .. (who and "" or "_party")),
                 night:vars({ char = who and who.char or "they", n = util.int(mus.francs) })), "good")
         end
@@ -419,8 +443,13 @@ function M.handle(night, mus, sc)
                 have = have or e.id == it.magic
             end
             if not have then
-                -- (Whoever picked it up offers it to whoever'll use it best: M.hand_off.)
+                -- (Whoever picked it up offers it to whoever'll use it best: M.hand_off. Who ends up with it is
+                -- what the moment's beat and history say: the confirming playtest's "Brannoc kept the twin
+                -- daggers" for daggers Pip carried all prologue.)
                 local to = M.hand_off(night, it.magic, night.actor)
+                if to and night.actor and to ~= night.actor then
+                    night.mus.handed = { from = night.actor, to = to, name = it.name }
+                end
                 local holder = to and { to } or night.players
                 local e = items_mod.earn(c, it.magic, holder)
                 -- (Tonight's sheets are already built: the item goes on theirs now, for tonight's fights.)
@@ -445,9 +474,11 @@ function M.handle(night, mus, sc)
         st.mech_commander = night.actor and night.actor.key
     end
     if mus.aspect and night.actor then
+        -- (The history is the one who has it now: handed on, theirs.)
+        local whose = (night.mus.handed and night.mus.handed.to) or night.actor
         st.aspects = st.aspects or {}
-        st.aspects[night.actor.key] = st.aspects[night.actor.key] or {}
-        table.insert(st.aspects[night.actor.key], util.fill(mus.aspect, { char = night.actor.char }))
+        st.aspects[whose.key] = st.aspects[whose.key] or {}
+        table.insert(st.aspects[whose.key], util.fill(mus.aspect, { char = whose.char }))
     end
     -- (A history that's since changed says so: the Mech they woke, burnt out.)
     if mus.flag == "mech_burnt" then
@@ -548,7 +579,11 @@ local function alt_holds(night, sc, alt)
     if alt.when and not adventure.test(night.campaign, alt.when, knobs_of(night)) then
         return false
     end
-    if alt.fled ~= nil and alt.fled ~= (sc.foes_ran ~= nil and #sc.foes_ran > 0) then
+    -- (fled = n: exactly that many ran.)
+    local ran = sc.foes_ran and #sc.foes_ran or 0
+    if type(alt.fled) == "number" and alt.fled ~= ran then
+        return false
+    elseif type(alt.fled) == "boolean" and alt.fled ~= (ran > 0) then
         return false
     end
     -- (Whether the room's fight happened: a Sentinel smashed to scrap doesn't watch them leave.)
@@ -596,6 +631,14 @@ function M.heard(night, text)
     end
     if st.flags.witness_named and st.flags.sunken_city then
         st.flags.witness_city = true
+    end
+    -- (And whatever else the adventure names out loud: MODULE.names_heard, the bird.)
+    for flag, words in util.sorted_pairs(MODULE.names_heard or {}) do
+        for _, w in ipairs(words) do
+            if text and not st.flags[flag] and string.find(text, w, 1, true) then
+                st.flags[flag] = true
+            end
+        end
     end
 end
 
@@ -1049,7 +1092,16 @@ function M.play_moment(night, card, sc)
     mev.handing = true                  -- (what it hands over is told by the moment itself: items.lua)
     -- (A Franc the option's own words already handed over isn't said twice; one they didn't is said.)
     night.mus.franc_told = type(o.log) == "string" and string.find(o.log, "Franc", 1, true) and true or nil
+    night.mus.handed = nil
     M.handle(night, o.mus, sc)
+    -- (Handed on to whoever'll use it best: the beat says who carries it.)
+    local ho = night.mus.handed
+    if ho and mev.text then
+        local them = string.find(ho.name or "", "s$") and "them" or "it"
+        mev.text = mev.text .. ", and gave " .. them .. " to " .. ho.to.char
+        mev.holder = ho.to.key
+    end
+    night.mus.handed = nil
     local got = gained(o.mus)
     local out
     if o.roll then
@@ -1819,7 +1871,14 @@ function M.callbacks(night, sc)
                 text = night:fresh(text, "callback_" .. key)
             end
             if text then
-                night:say(util.fill(text, { given = given and given.char or "the party" }), "narration")
+                -- ({dead}: the heroes they've lost, by name.)
+                local dead = {}
+                for _, rec in ipairs(c.fallen or {}) do
+                    if not util.contains(dead, rec.char) then
+                        table.insert(dead, rec.char)
+                    end
+                end
+                night:say(util.fill(text, { given = given and given.char or "the party", dead = util.join_names(dead) }), "narration")
             end
         end
     end
@@ -1881,6 +1940,8 @@ function M.room_start(night, sc)
         end
     end
     M.callbacks(night, sc)
+    -- (Back where a hero fell with nobody to take their pack: it's picked up now. death.pick_up_pack.)
+    require("game.model.death").pick_up_pack(night, sc.room)
     -- (A room with a fight in it gets looked around once it's safe: after the fight.)
     if not M.has_fight(sc) then
         M.explore(night, sc)
@@ -4112,7 +4173,8 @@ function M.interlude(night, sc)
         local m = MODULE.marks[id]
         if m and night.campaign.adv.marks[id] then
             local thought = adventure.mark_thought(night.campaign, id)
-            night:emit({ kind = "mark", id = id, name = m.name, why = adventure.mark_why(night.campaign, id), showdown = m.showdown, thought = thought })
+            night:emit({ kind = "mark", id = id, name = m.name, why = adventure.mark_why(night.campaign, id),
+                         showdown = adventure.mark_showdown(night.campaign, id), thought = thought })
             night:say("Upstairs, Euryale: \"" .. thought .. "\"", "interlude")
             table.insert(night.mus.added, id)
         end
@@ -4241,6 +4303,13 @@ function M.intro(night)
         if st.unannounced and #st.unannounced > 0 then
             for _, id in ipairs(st.unannounced) do
                 table.insert(night.mus.pending, id)
+                -- (A mark someone else put there between sessions, said as theirs before her line: "Flitwidget
+                -- woke the Steam Mech himself". The confirming playtest: Hans clanked up the stairs, and
+                -- nobody had said how he woke.)
+                local by = st.marks[id] and adventure.mark_words(c, id)
+                if by and by.told then
+                    night:say(util.fill(night:fresh(by.told, "mark_told_" .. id), { mech = st.mech_name or "the Mech" }), "recap")
+                end
             end
             st.unannounced = nil
             M.interlude(night)
@@ -4602,8 +4671,15 @@ function M.run(night)
     -- before the room's end): she gets it now, before everyone goes home.
     M.interlude(night)
     M.lecturer_report(night)
-    -- (Nobody went back to the gift shop tonight: the wake, before everyone goes home. Round three, B1.)
-    require("game.model.death").hold_wake(night)
+    -- (Nobody went back to the gift shop tonight: the wake, before everyone goes home. Round three, B1.
+    -- Where they rest, once they've found it; else right where they stopped, and the gift shop hears of it
+    -- when they get there: the confirming playtest, 53 careful.)
+    local st_end = st_of(night)
+    local here = st_end.pos or st_end.last_room
+    local away = not (st_end.done.gift_shop or here == "gift_shop") and here and MODULE.rooms[here]
+    if require("game.model.death").hold_wake(night, away and util.lower_first(MODULE.rooms[here].name) or nil) and away then
+        st_end.flags.wake_away = true
+    end
     night:run_tail()
 end
 
@@ -4927,6 +5003,9 @@ function M.showdown_start(night, sc)
     end
     if not st.marks.garden_burned then
         M.play_moment(night, sh.drink, sc)
+    elseif st.flags.rematch then
+        -- (She beat them once already: not her first-meeting words. The confirming playtest, 56 careful.)
+        night:say(night:fresh(M.WORLD_LINES.burned_again, "burned_again"), "bad")
     else
         night:say("\"You burned my garden.\" No drink. No small talk.", "bad")
     end
@@ -4988,11 +5067,10 @@ function M.thanks_word(night, sc)
     for id in pairs(MODULE.rooms) do
         rooms[id] = true
     end
+    -- (He sees what's left of his exhibits now. It's a beat of the night only when he says so, docking the
+    -- reward for it, below: the confirming playtest heard "Flitwidget saw what was left of the Bone
+    -- Construct" in recaps where he never said a word about it.)
     local broke = people.notice(c, "mus_flitwidget", rooms, { ["break"] = true })
-    if #broke > 0 then
-        M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1], how = "therefore",
-                            text = events.word("notice", { thing = broke[1].thing or "his exhibits" }) }, sc)
-    end
     local told = people.pass_on(c, "mus_telpur", "mus_flitwidget", { where = "thanks", kinds = { steal = true, harm = true } })
     for i, t in ipairs(told) do
         local about = events.get(c, t.about)
@@ -5025,6 +5103,13 @@ function M.thanks_word(night, sc)
         end
     end
     local vars = { broke = #broke_words > 0 and util.join_names(broke_words) or "my exhibits" }
+    -- (And in his words to the table, for the recap: what he saw broken, all of it.)
+    local broke_things = {}
+    for _, ev in ipairs(events.find(c, { kind = "break", whom = "mus_flitwidget" })) do
+        if ev.thing and events.knows(c, "mus_flitwidget", ev) and not util.contains(broke_things, ev.thing) then
+            table.insert(broke_things, ev.thing)
+        end
+    end
     -- (Anything pocketed along the way that hasn't come back comes back now, from the log.)
     -- (By the one who pocketed it while they're still that seat's hero and can act; else a friend gives
     -- it back for them, out loud: round three, A1 with B2.)
@@ -5053,13 +5138,43 @@ function M.thanks_word(night, sc)
     end
     -- (Wary of them: ten gold each comes off the reward, for what he really holds against them. He says
     -- so, and what it comes to: one number, adventure.reward_vars.)
+    -- (One reason, the one he can name from the log, said by him and told the same way in the recap, with
+    -- the figure he said: what comes off what he pays, halved for an escape too. The confirming playtest:
+    -- docked "for the business with my donation box" from a party that dropped a coin in it; the recap
+    -- giving another reason than the table heard; "ten gold off" when the table heard five.)
+    local reason, why, whom
     if people.RANK[people.level(c, "mus_flitwidget")] < 0 and not st.gold_docked then
+        if #broke_things > 0 then
+            reason = "break"
+        elseif people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "got") then
+            reason, why = "draught", people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "got")
+        elseif people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "caught") then
+            reason, why = "caught", people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "caught")
+        elseif told[1] then
+            reason, why = "told", told[1]
+        elseif st.marks.robbed then
+            reason, why = "box", (st.marks.robbed.ev and events.get(c, st.marks.robbed.ev)) or nil
+        end
+    end
+    if reason then
+        if reason == "break" then
+            why = M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1] or events.last(c, { kind = "break", whom = "mus_flitwidget" }),
+                                      how = "therefore", text = events.word("notice", { thing = util.join_names(broke_things) }) }, sc)
+        end
+        local before = adventure.reward_gold(c)
         st.gold_docked = 10
         st.gold = math.max(10, (st.gold or 30) - 10)
-        local why = (#broke > 0 and events.last(c, { kind = "notice", who = "mus_flitwidget" })) or told[1]
-            or people.knows_of(c, "mus_flitwidget", "harm") or people.knows_of(c, "mus_flitwidget", "steal")
-        M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = 10, from = why,
-                            text = events.word("docked") }, sc)
+        local off = before - adventure.reward_gold(c)
+        local p = why and why.who and c:player(why.who)
+        if reason == "told" then
+            local about = events.get(c, why.about)
+            p = about and about.who and c:player(about.who) or p
+        end
+        M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = off, reason = reason, from = why,
+                            text = events.word("docked_" .. reason, { n = adventure.gold_word(off), char = p and p.char or "them" },
+                                               events.word("docked", { n = adventure.gold_word(off) })) }, sc)
+        vars.off_word = adventure.gold_word(off)
+        vars.Off_word = util.capitalize(vars.off_word)
         local dl = people.line(night, "mus_flitwidget", "docked", nil, night:vars(vars))
         if dl then
             night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = dl })
@@ -5106,6 +5221,28 @@ local function free_stone(night, sc)
         end
     end
     if #freed > 0 then
+        local st = st_of(night)
+        -- (Beaten, and she lets them go: her hold didn't break, she let it go. In the log, a lead beat, so the
+        -- report and next week's "Last time" say how they came back, and in each one's history.)
+        local let_go = sc and sc.fought and sc.outcome ~= "win" and not st.ending and not sc.extras_only
+            and not (sc.boss_dead or sc.boss_yielded or sc.boss_ran)
+        if let_go then
+            night:say(util.fill(night:fresh(M.WORLD_LINES.stone_let_go, "stone_let_go"),
+                { names = util.join_names(freed), crack = #freed == 1 and "cracks" or "crack" }), "bad")
+            local keys = {}
+            for _, pc in ipairs(night.pc_list or {}) do
+                if util.contains(freed, pc.name) and pc.player_key then
+                    table.insert(keys, pc.player_key)
+                    st.aspects = st.aspects or {}
+                    st.aspects[pc.player_key] = st.aspects[pc.player_key] or {}
+                    table.insert(st.aspects[pc.player_key], "Turned to stone in her lair, until Euryale let go")
+                end
+            end
+            events.add(night.campaign, { kind = "freed", who = "mus_euryale", heroes = keys, where = sc.room, beat = true, lead = true,
+                                         from = sc.fight_ev, how = "therefore",
+                                         text = events.word("freed", { names = util.join_names(freed) }, "Euryale let {names} out of the stone") })
+            return
+        end
         -- (Why it broke, from how her fight ended: the stone line promised "until her hold breaks".)
         local why = (sc and sc.boss_dead and "as she falls and her hold on the lair breaks")
             or (sc and sc.boss_yielded and "as she gives up the fight and her hold on the lair breaks")
@@ -5244,10 +5381,21 @@ function M.after_showdown(night, sc)
         -- (After a death tonight, the friends want the campaign the quiet way: not "Same heroes, bigger
         -- fights?" nor "Oswin says a prayer for the road" with Oswin dead. Round three's merge.
         -- MODULE.want_more_sad: `own` lines for the friend whose hero died, else theirs for a friend's.)
+        -- (And whoever died on an earlier night: the prologue's dead are named when it ends, not "Same heroes,
+        -- bigger fights?" from Dev, whose Brannoc died in week one. The confirming playtest, 53 careful.)
         local lost = {}
         for _, pc in ipairs(night.pc_list or {}) do
             if pc.dead then
-                table.insert(lost, pc)
+                table.insert(lost, { name = pc.name, player_key = pc.player_key })
+            end
+        end
+        for _, rec in ipairs(c.fallen or {}) do
+            local dup = false
+            for _, l in ipairs(lost) do
+                dup = dup or l.name == rec.char
+            end
+            if not dup then
+                table.insert(lost, { name = rec.char, player_key = rec.key })
             end
         end
         local sad = #lost > 0 and MODULE.want_more_sad
@@ -5258,12 +5406,14 @@ function M.after_showdown(night, sc)
             local own = false
             for _, pc in ipairs(lost) do
                 if pc.player_key == p.key then
-                    own = true
+                    own = pc.name
                 else
                     table.insert(others, pc.name)
                 end
             end
-            local pool = sad and (sad[p.key] or {})[(own or #others == 0) and "own" or "other"] or MODULE.want_more[p.key]
+            -- (`was`: their hero died on an earlier night, and they play someone new now, {now}.)
+            local which = (own and own ~= p.char and "was") or ((own or #others == 0) and "own") or "other"
+            local pool = sad and ((sad[p.key] or {})[which] or (sad[p.key] or {}).own) or MODULE.want_more[p.key]
             for _, l in ipairs(pool or {}) do
                 if type(l) == "string" then
                     table.insert(lines, l)
@@ -5272,7 +5422,8 @@ function M.after_showdown(night, sc)
                 end
             end
             if #lines > 0 then
-                local line = util.fill(night.rng:pick(lines), { char = p.char, lost = util.join_names(others) })
+                -- (An own line's {char} is the hero who died, who may not be the one they play now.)
+                local line = util.fill(night.rng:pick(lines), { char = (sad and own) or p.char, now = p.char, lost = util.join_names(others) })
                 st.want_said = st.want_said or {}
                 st.want_said[p.key] = line           -- (the journey quotes what they really said)
                 night:emit({ kind = "say", who = p.key, text = line, ic = false })

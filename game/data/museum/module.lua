@@ -274,6 +274,9 @@ M.rooms = {
             -- yes never showed.)
             { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as you promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
+            -- (The wake was held before they found the shop: word of it got here first. The confirming
+            -- playtest, 53 careful, held it here with a boot they hadn't met.)
+            { when = { flag = "wake_away" }, text = "Word of {dead} has reached the gift shop before them. A candle is already burning on the counter." },
         },
     },
     hunting = {
@@ -290,7 +293,9 @@ M.rooms = {
         locks = true,
         name = "The offices", part = 2, type = "mystery", cost = 2, at = { 20, 24 }, map = "Offices",
         comps = { location = "mus_offices", goal = "mus_archivist", complication = "mus_whispers", reward = "mus_notebook" },
-        read = "Two quiet studies off the hunting floor. One door is locked from the inside.",
+        -- (The bird sings first, so the twist's "stops singing" is a change: the confirming playtest heard it
+        -- stop in every visit, never start.)
+        read = "Two quiet studies off the hunting floor. In one, a little bird is singing under a glass dome. The other door is locked from the inside.",
         sum = "A six-winged bird, a dead archivist, and the first hint of something called the Witness. No fight.",
         next = { "tomorrow", "lecture", "stairs" }, knobs = { "witness" },
     },
@@ -328,7 +333,10 @@ M.rooms = {
         next = {},
         -- Said as the room starts, when they hold: what the week between promised, paying off here.
         callbacks = {
-            { when = { flag = "she_read" }, text = "The archivist's notebook lies open on her couch. \"Your Witness writes beautifully,\" Euryale says. She has read every page." },
+            -- (The notebook went to her between sessions, a loose end: from the offices they never searched,
+            -- so it's new to them, and so is the Witness. The confirming playtest, seed 57 careful: "Your
+            -- Witness writes beautifully", to a party that never saw the notebook or heard the name.)
+            { when = { flag = "she_read" }, text = "A notebook lies open on her couch, every page full of drawn eyes: the dead archivist's, from the offices they never searched. \"I have read every page,\" Euryale says. \"Something was talking to him.\"" },
         },
     },
     -- Not on the map: boss night's last scene, back downstairs, once she's dealt with (the book's
@@ -467,14 +475,18 @@ M.beats = {
         -- (What Telpur told him, when it was a theft: "had a word about Pip" said nothing. Round three's merge.)
         told_got = "Telpur told Flitwidget that {char} had lifted {thing}",
         told_caught = "Telpur told Flitwidget that {char} had tried to lift {thing}",
-        docked = "Flitwidget took ten gold each off their reward",
+        -- (By the reason he gave, with the figure he said: museum_night.thanks_word.)
+        docked = "Flitwidget took {n} gold each off their reward", docked_break = "Flitwidget took {n} gold each off their reward",
+        docked_draught = "Flitwidget took {n} gold each off their reward, for his healing draught",
+        docked_caught = "Flitwidget took {n} gold each off their reward, for the hand in his waistcoat",
+        docked_told = "Flitwidget took {n} gold each off their reward", docked_box = "Flitwidget took {n} gold each off their reward, for his donation box",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
         spotted = "{who} spotted his own {thing} on {char}",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
         -- (The night's losses, told first: round three, A7. events.losses.)
         death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
-        ally_lost = "they lost {name}", wipe = "the whole party went down in {room}",
+        ally_lost = "they lost {name}", freed = "Euryale let {names} out of the stone", wipe = "the whole party went down in {room}",
         came_back = "{char} nearly died, and came back",
         friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
     },
@@ -492,7 +504,9 @@ M.beats = {
     mus_plaque = { "they doused the hedges with pond water", "they set the bushes on fire", "they went at the hedges with steel" },
     mus_pond = { { did = "{char} leaned over the dark pond", ok = "{char} fished a little brass key out of the pond",
                    fail = "a tentacle dragged {char} into the pond" }, false },
-    mus_box = { "they dropped a coin in the donation box", "{char} went for the donation box's lock" },
+    -- (The lock: kneeling by it with the picks out, which is all they did when you reined them in. The
+    -- confirming playtest: "Pip went for the donation box's lock" after she put the picks away.)
+    mus_box = { "they dropped a coin in the donation box", "{char} knelt by the donation box with {char_their} picks out" },
     mus_box_lock = { { did = "{char} picked the lock with the guard right there", ok = "{char} emptied the donation box",
                        fail = "the pick snapped, and the Sentinel turned round" }, false },
     mus_tablet = { { did = "they tried the old ritual", ok = "they stilled the guardian with the old ritual",
@@ -526,7 +540,8 @@ M.beats = {
     mus_hyper = { { did = "they flipped the Mech's red switch", ok = "the Mech's red switch worked, once",
                     fail = "the Mech overheated and burnt out" }, "they saved the red switch for the Gorgon" },
     mus_earplugs = { "{char} blocked out the drone with candle wax", "the wax didn't keep the drone out of {char}'s head" },
-    mus_alone = { "{char} crept up the stairs alone", false, "{char} crept up alone and met Euryale's eyes" },
+    -- (Glimpsed, not met: no save was made and nobody turned to stone. The confirming playtest, 57 and 58 random.)
+    mus_alone = { "{char} crept up the stairs alone", false, "{char} crept up alone and glimpsed Euryale from the top step" },
     mus_lair_frame = { { did = "{char} reached into the frame behind her couch", ok = "{char} pulled a painted blade out of the frame",
                          fail = "the frame bit {char}" }, "they forgot the frame and drew steel" },
     mus_drink = { { did = "{char} drank Euryale's wine", ok = "{char} drank Euryale's wine and kept a clear head",
@@ -1107,8 +1122,8 @@ M.moments = {
           -- (Not a risk they knew of: you decided she was waiting. Unless someone warned them, it's out
           -- of nowhere, and "They'd been warned" isn't said. Round three.)
           { label = "Let it cost them: Euryale is waiting.",
-            log = "At the top of the stairs, bronze eyes. {actor_char} comes back down very pale, and very quiet.",
-            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
+            log = "From the top step, {actor_char} glimpses bronze eyes past the curtain and looks away just in time, then comes back down very pale, and very quiet.",
+            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Glimpsed a Gorgon from her top step, alone, and came back" } },
       } },
 
     -- Euryale's lair ---------------------------------------------------------------------------
@@ -1194,6 +1209,10 @@ M.companions = {
                       hint = { "Exhibit B's whiskers are going. Something's here.", "Exhibit B won't leave it alone. There's something there." },
                       fight = { "Exhibit B, pocket! NOW!", "Nobody step on Exhibit B.", "Exhibit B is in the pocket. We're fine. Mostly." },
                       win = { "Exhibit B was very brave in the pocket.", "Exhibit B gets the first crumb of the victory snack." },
+                      -- (When the hero he rode with has died and a new one takes the seat: handed on, once.)
+                      handed_on = { "Exhibit B climbs out of {old}'s old hood and into {new}'s pocket. He sniffs {new} twice, and stays.",
+                                    "Jess sets a crumb of cheese on {new}'s shoulder. \"He's yours now. {old} would want that.\" Exhibit B takes the cheese.",
+                                    "Exhibit B rides on {new}'s shoulder now. Every so often he looks round for {old}." },
                   } },
     telpur = { name = "Telpur", pronoun = "he", kind = "person", what = "the talking boot from the gift shop", owner = "jess", joins = { flag = "telpur_along" },
                monster = "telpur", cast = "mus_telpur",
@@ -1329,7 +1348,13 @@ M.marks = {
                showdown = "They can offer her a cut of the box to leave", thought = "They emptied the gnome's little money box. Oh, I like them already." },
     scarabs = { chain = "its scarabs crawled up through the walls to her", breaks = "the Bone Construct", name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
-                thought = "They smashed the old guardian. Its beetles are mine now." },
+                thought = "They smashed the old guardian. Its beetles are mine now.",
+                -- (Crept up from a chamber nobody went into, a loose end: nobody smashed anything, so nothing
+                -- broken for Flitwidget to dock either.)
+                by = { mus_bone_construct = {
+                    why = "Its scarabs crept up to her on their own",
+                    thought = "Nobody came for the old guardian, so its beetles came to me instead.",
+                    chain = "the Bone Construct's scarabs crept upstairs to her on their own" } } },
     calmed = { chain = "Euryale had one guard fewer", party = true, name = "One guard fewer", why = "They calmed the Bone Construct with the ritual",
                showdown = "Nothing comes up from below to help her", talk = 1,
                thought = "They did the water ritual properly. Nobody does it properly." },
@@ -1352,7 +1377,19 @@ M.marks = {
                  thought = "The gnome gave them a trinket. How sweet. We'll see what it's worth." },
     mech = { chain = "the Steam Mech was on the party's side", unchain = "the Steam Mech was on nobody's side any more", party = true, name = "A machine on their side", why = "They woke the Steam Mech",
              showdown = "The Mech fights for them, and she goes for its commander", ally = "steam_mech",
-             thought = "The gnome's toy is walking about. It's pointed at me, isn't it." },
+             thought = "The gnome's toy is walking about. It's pointed at me, isn't it.",
+             -- (by: someone else put it there, between sessions, a loose end's `by`; the log names them, and
+             -- these say so: her card's reason and what it does, the chain's beat, the board, and the line at
+             -- the next night's start, `told` (three ways, {mech} its name). The confirming playtest, seed 57
+             -- careful: "They woke the Steam Mech", and the party never went near the World of Tomorrow.)
+             by = { mus_flitwidget = {
+                 why = "Flitwidget woke it himself, for the fight",
+                 showdown = "The Mech fights for them, and you run it",
+                 chain = "Flitwidget woke the Steam Mech himself, for the fight",
+                 brings = "woken by Flitwidget",
+                 told = { "Between sessions, Flitwidget went up to the World of Tomorrow with an oil can and woke the Steam Mech himself. It's called {mech}, and it's coming up the stairs with them tonight.",
+                          "Flitwidget has news before they start: he woke the Steam Mech himself this week, with a lot of oil and a little swearing. {mech} will follow them up to her.",
+                          "While they were away, Flitwidget cracked the Steam Mech's code on his own. {mech} is awake, and it's coming to the fight." } } } },
     drone = { chain = "the Lecturer's drone went on through the floors", unchain = "the drone through the floor stopped", name = "A drone through the floor", why = "The Lecturer is still lecturing", from = { "lecture" },
               showdown = "They come up half asleep: they lose their edge against her charm", opt = "drowsy",
               thought = "The bore is still droning. They'll come up here half asleep." },
@@ -1421,7 +1458,10 @@ M.sides = {
                        { when = { done = "gift_shop" }, text = "Met: a boot with opinions", tone = "quiet" } } },
           { id = "mus_mech", name = "The Steam Mech", role = "The World of Tomorrow's war machine", room = "tomorrow",
             likes = { power_gamer = 2, butt_kicker = 1, tactician = 1 },
-            states = { { when = { mark = "mech" }, text = "Woken: {mech} fights for them", tone = "good" },
+            states = { { when = { mark_by = { "mech", "mus_flitwidget" } }, text = "Woken by Flitwidget: {mech} fights for them", tone = "good" },
+                       { when = { mark = "mech" }, text = "Woken: {mech} fights for them", tone = "good" },
+                       -- (Lost in her lair, smashed or burnt out: not "still asleep in its alcove", or "never met".)
+                       { when = { flag = "steam_mech_lost" }, text = "Lost: {mech} fell fighting for them", tone = "bad" },
                        { when = { flag = "mech_burnt" }, text = "Burnt out", tone = "bad" },
                        { when = { done = "tomorrow" }, text = "Still asleep in its alcove", tone = "quiet" } } },
       },
@@ -1433,6 +1473,7 @@ M.sides = {
             likes = { storyteller = 2, explorer = 1 },
             states = { { when = { flag = "studied" }, text = "Studied: a line about the Witness", tone = "good" },
                        { when = { flag = "notebook" }, text = "In their packs", tone = "good" },
+                       { when = { flag = "she_read" }, text = "Upstairs: Euryale has it, and has read it", tone = "bad" },
                        { when = { done = "offices" }, text = "Left behind in the dark", tone = "quiet" } } },
           { id = "mus_whispers", name = "The whispers", role = "Something that knows their names", room = "offices",
             likes = { storyteller = 1, method_actor = 1 },
@@ -1485,6 +1526,10 @@ M.items = {
       line = "Out come Telpur's fire arrows and the bucket of slime: every hero's first weapon hit each turn burns or bites, this fight only." },
     { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger", carry = true,
       to = "jess", text = "A dagger Telpur dipped in the hall's wet paint. In the lair, its blows count as magic, and painted things fear it.",
+      -- (A loose end's, between sessions: shown handed over at the next night's start, like the bracelet.)
+      handover = { "Between sessions, Telpur pressed a dagger on {holder}, its blade still tacky with paint from the hall. \"Painted things hate it,\" he says. \"On the house.\"",
+                   "Telpur waved {holder} over before they started: a dagger, dipped in the hall's wet paint. \"For anything that steps out of a frame.\"",
+                   "{holder} has a new dagger tonight, from Telpur, its edge still sticky with the hall's paint. \"Painted things fear it,\" he promised." },
       line = "{holder} has Telpur's paint-touched dagger out: {holder_their} blows count as magic, and painted things fear it." },
     { id = "manual", when = { flag = "manual" }, ally = "steam_mech", opt = "manual", name = "the Mech manual", carry = true,
       title = "the Mech Instruction Manual",
@@ -1532,7 +1577,10 @@ M.items = {
       title = "The Tenets of the Rotting Temple", adv = { "history" }, topic = "gorgons",
       text = "A scholar's book on the people who worship gorgons. Whoever has it has Advantage on History about gorgons, and knows there are three sisters." },
     { id = "notebook", when = { flag = "notebook" }, name = "the archivist's notebook", carry = true, to = "mara",
-      text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page." },
+      text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page.",
+      handover = { "Between sessions, Telpur let {holder} have \"a strange book\" for nothing: a dead man's notebook from the offices upstairs, eyes drawn on every page.",
+                   "Telpur had something under his counter for {holder} this week: \"A strange book. Fell off a shelf upstairs.\" Every page is full of drawn eyes.",
+                   "{holder} came away from Telpur's counter this week with \"a strange book\": the notebook of someone who worked upstairs, eyes on every page." } },
     { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
       text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
     -- (Lifted off Telpur's shelf, not bought: R13. It works like the ones he sells, for as long as they hold it.)
@@ -1723,6 +1771,10 @@ M.requests = {
       } },
 }
 
+-- What the table has heard named, by the words that name it (museum_night.heard sets the flag once a line
+-- says one): the six-winged bird, once someone's said what it is, isn't "can't place it" any more.
+M.names_heard = { bird_named = { "mythril singer", "when there's magic close by", "when there's magic about" } }
+
 -- Loose ends: a card that lost its place. when: what the game noticed. Each option re-homes it.
 M.loose_ends = {
     { id = "knight_left", when = { skipped = "paintings" },
@@ -1735,7 +1787,7 @@ M.loose_ends = {
     { id = "construct_left", when = { skipped = "chamber" },
       text = "They never went into the Chamber of Ancients. What happens to the Bone Construct?",
       options = {
-          { label = "Its scarabs creep upstairs to her", mus = { mark = "scarabs" }, like = { dev = 1, sam = -1 } },
+          { label = "Its scarabs creep upstairs to her", mus = { mark = "scarabs", by = "mus_bone_construct" }, like = { dev = 1, sam = -1 } },
           { label = "It stays bound to its chamber", mus = {}, like = { sam = 1 } },
       } },
     { id = "notebook_left", when = { skipped = "offices" },
@@ -1748,7 +1800,8 @@ M.loose_ends = {
     { id = "mech_left", when = { skipped = "tomorrow" },
       text = "Nobody woke the Steam Mech. Does it sit this one out?",
       options = {
-          { label = "Flitwidget wakes it himself, for the fight", mus = { mark = "mech" }, like = { sam = 2, dev = 1 } },
+          -- (by: his doing, not theirs, in the log and in every line: the mark's `by` words.)
+          { label = "Flitwidget wakes it himself, for the fight", mus = { mark = "mech", by = "mus_flitwidget" }, like = { sam = 2, dev = 1 } },
           { label = "It stays a statue", mus = {}, like = {} },
       } },
 }
@@ -1815,7 +1868,8 @@ M.showdown = {
         id = "mus_ultimatum", type = "story", actor = { "storyteller", "method_actor", "instigator" }, party = true,   -- (their answer, not yours)
         title = "Join the collection",
         text = "Euryale sets down her cup. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer.",
-        text_if = { { when = { mark = "garden_burned" }, text = "Euryale doesn't sit. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
+        text_if = { { when = { mark = "garden_burned", flag = "rematch" }, text = "Euryale doesn't sit. \"I'll ask once more. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
+                    { when = { mark = "garden_burned" }, text = "Euryale doesn't sit. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
                     { when = { flag = "rematch" }, text = "Euryale sets down her cup. \"I'll ask once more. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." } },
         options = {
             { label = "Weapons out.", want = "fight her", edges = true, log = "Steel answers for them. Euryale stands, smiling. \"As you like.\"",
@@ -1864,7 +1918,9 @@ M.showdown = {
         { when = { holds_here = "bracelet" }, item = "bracelet", text = "Flitwidget's bracelet", mine = "Flitwidget's bracelet" },
         { when = { mark = "mech", flag = "hyper_saved" }, commander = true, text = "the Mech's red switch, saved for her",
           mine = "my Mech's red switch" },
-        { when = { mark = "mech", not_flag = "hyper_saved" }, commander = true, text = "the Mech on our side", mine = "my Mech" },
+        { when = { mark_by = { "mech", "mus_flitwidget" } }, text = "Flitwidget's Mech on our side", mine = "Flitwidget's Mech" },
+        { when = { mark = "mech", not_flag = "hyper_saved", not_mark_by = { "mech", "mus_flitwidget" } }, commander = true,
+          text = "the Mech on our side", mine = "my Mech" },
         { when = { holds_here = "arrows" }, item = "arrows", text = "Telpur's fire arrows", mine = "fire arrows" },
         { when = { holds_here = "arrows_lifted" }, item = "arrows_lifted", text = "a quiver of fire arrows", mine = "a quiver of fire arrows" },
         { when = { holds_here = "vorpal_sword" }, item = "vorpal_sword", text = "the vorpal sword", mine = "a vorpal sword" },
@@ -1966,7 +2022,9 @@ M.want_more = {
     mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_city" } },
              "That was a prologue? I've already got a notebook for the campaign.",
              "{char} has so many questions now. So many. Campaign, please.",
-             { "A Gorgon who only wanted her sisters back. I need the rest of that story.", when = { mark = "know" } } },
+             -- (Only once they've heard it from her: the bargain over her sisters. The confirming playtest heard
+             -- it after a gorgon book that only says there are three.)
+             { "A Gorgon who only wanted her sisters back. I need the rest of that story.", when = { ending = "bargain" } } },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go.",
             "{char} wants a rematch with something. Anything. Campaign?" },
     jess = { "{char} is keeping the gnome. {char} is keeping everything. Campaign. Now.", "I want to see where the caravan goes next.",
@@ -1974,21 +2032,27 @@ M.want_more = {
     sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise.",
             "{char} says a prayer for the road. And one for the snacks. Campaign?" },
 }
--- The same, on a night a hero died (museum_night.after_showdown, able.somber): own, when it was their
--- hero ({char}: the hero who died); other, when it was a friend's ({lost}: the heroes they lost).
+-- The same, once a hero has died in the prologue (museum_night.after_showdown): own, when it was their
+-- hero, tonight ({char}: the hero who died); was, their hero, on an earlier night, and they play someone new
+-- now ({now}); other, when it was a friend's ({lost}: the heroes they lost).
 M.want_more_sad = {
-    mara = { own = { "I'll miss {char}. I'm already thinking about who comes next. Campaign? Yes.",
+    mara = { was = { "{now} is ready for the campaign. And I haven't forgotten {char}.",
+                     "I still have {char}'s character sheet. {now} gets the next page. Campaign." },
+             own = { "I'll miss {char}. I'm already thinking about who comes next. Campaign? Yes.",
                      "{char} would have wanted to see the mountains. Somebody has to go for {char_them}. Campaign." },
              other = { "For {lost}. Yes. Campaign. I want to see where this goes.",
                        "I'm writing {lost} into my notes for the campaign. First page." } },
-    dev = { own = { "{char} went down swinging. I'll roll someone new. I'm in.",
+    dev = { was = { "{now} is in. But {char} gets the first toast.", "Same dice as {char}, new hero. Campaign. For {char}." },
+            own = { "{char} went down swinging. I'll roll someone new. I'm in.",
                     "New character, same dice. Campaign. For {char}." },
             other = { "We do it for {lost}. Every Thursday. I'm in.",
                       "Campaign. And nobody goes down like {lost} did. Not on my watch." } },
-    jess = { own = { "{char} would want me to keep playing. So. New character. Campaign.",
+    jess = { was = { "{now} wants the campaign. {char} would have wanted it more.", "I'm keeping {char}'s dice for {now}. Campaign." },
+             own = { "{char} would want me to keep playing. So. New character. Campaign.",
                      "I'm keeping {char}'s dice for the next one. Campaign." },
              other = { "I'm in. We owe {lost} a proper story.", "Campaign. And {lost} gets a statue in it. A nice one." } },
-    sam = { own = { "I'll bring snacks and a new character. {char} would've liked that.",
+    sam = { was = { "{now} brings the snacks now. {char} would've liked that.", "{char} first, then the campaign. {now} is ready." },
+            own = { "I'll bring snacks and a new character. {char} would've liked that.",
                     "I'm not done. Somebody new, for {char}. Campaign." },
             other = { "I'll be there. For {lost}.", "Campaign. I'll bring the snacks. {lost} would've wanted snacks." } },
 }

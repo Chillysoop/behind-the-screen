@@ -1051,7 +1051,18 @@ local function react(night, f, steps, who)
             -- Said out loud, so the table (and the log) hears it: the death-save card is on the mat.
             night:say(downed.name .. " goes down, and doesn't get up. Death saves.", "bad")
             poses[victim.key] = "gasp"
-            line = { victim, "down_self" }
+            -- (No quip from the floor when it's going this badly: a hero already dead tonight, or this drop
+            -- leaves one hero standing or none. The confirming playtest, 56 careful: "Down. Note for later:
+            -- the Kruthik Huntling hits harder than it looks." as the whole party went down.)
+            local up = 0
+            for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
+                if c.pc and not c.dead and (c.hp or 0) > 0 then
+                    up = up + 1
+                end
+            end
+            if not (able.somber(night) == "death" or up <= 1) then
+                line = { victim, "down_self" }
+            end
             score.add(victim, "fun", -2)
             score.add(victim, "challenge", 6)
         end

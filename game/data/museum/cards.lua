@@ -155,7 +155,10 @@ M.cards = {
       fits = { "combat", "exploration" }, tags = { "action", "danger" },
       line = "Goal: get across the floor without being picked off one by one.",
       win = "The last huntling is down, and most of the exhibits are still in one piece.",
-      win_if = { { fled = true, text = "The last huntlings scatter into the dioramas and are gone. Most of the exhibits are still in one piece." } },
+      -- (fled = 1: the one that ran was the last of them. The confirming playtest heard "the last huntlings
+      -- scatter" right after "it gets away, and that's the last of them".)
+      win_if = { { fled = 1, text = "The one that ran is somewhere in the dioramas now. Most of the exhibits are still in one piece." },
+                 { fled = true, text = "The last huntlings scatter into the dioramas and are gone. Most of the exhibits are still in one piece." } },
       lose = "They hold the doorway, but the huntlings are still out there among the dioramas.",
       got = "the run of the second floor" },
     { id = "mus_archivist", kind = "goal", name = "Find out what happened in the offices",
@@ -426,7 +429,8 @@ M.goal_play = {
             { skill = "investigation", say = "His desk. Letters, a map of the sea, a list of names. Let me look.",
               win = "{char} finds the last page he wrote: \"It sees through every eye I draw. I have to stop drawing.\"",
               lose = "{char} sorts papers for ten minutes and finds mostly receipts." },
-            { skill = "nature", say = "That bird under the dome next door. Six wings. A mythril singer?",
+            -- (Not once it's been named: "Thessaly can't place it" right after "It's a mythril singer".)
+            { skill = "nature", say = "That bird under the dome next door. Six wings. A mythril singer?", when = { not_flag = "bird_named" },
               win = "{char} recognises it: miners carry them, because they sing when there's magic about.",
               lose = "{char} can't place it. A songbird with too many wings, and that's all anyone gets." },
             { skill = "arcana", say = "This writing makes my head hurt when I look straight at it.",

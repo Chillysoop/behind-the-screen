@@ -195,16 +195,28 @@ local function candidates(night, sc, room, phase, last)
 end
 
 -- Someone at the table says something (out of character unless it says so).
+-- (What's said here can name something for the table: museum_night.heard. The bird named a "mythril
+-- singer" isn't "can't place it" after.)
+local function heard(night, text)
+    if night.mus and text then
+        util.lazy("game.model.museum_night").heard(night, text)
+    end
+end
+
 local function say(night, p, text, ic)
     if p and text then
-        night:emit({ kind = "say", who = p.key, text = util.sentence_case(util.fill(text, { char = p.char })), ic = ic or false })
+        local t = util.sentence_case(util.fill(text, { char = p.char }))
+        night:emit({ kind = "say", who = p.key, text = t, ic = ic or false })
+        heard(night, t)
     end
 end
 
 -- The DM's answer, to the table.
 local function dm(night, text, vars)
     if text then
-        night:say(util.sentence_case(util.fill(text, vars or {})), "dm")
+        local t = util.sentence_case(util.fill(text, vars or {}))
+        night:say(t, "dm")
+        heard(night, t)
     end
 end
 
@@ -292,8 +304,11 @@ local function crit_card(night, sc, p, b, nat)
             night.mus.francs_earned = (night.mus.francs_earned or 0) + 1
         end
         -- (The pool is what the log says went in, to whoever found it.)
-        require("game.model.events").add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1,
-                                                           where = sc and sc.room })
+        -- (A beat with its words, so the night's "Along the way" counts it: the confirming playtest.)
+        local events = require "game.model.events"
+        events.add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1, where = sc and sc.room,
+                                     beat = true, from = events.cause(night.campaign),
+                                     text = events.word("find", { char = p.char }, "{char} found a Flitwidget Franc") })
         -- (The thing they found is the thing; a Franc turns up with it: "a gold feather... a Franc, in fact" made the find into a Franc.)
         dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it.", vars)
     elseif o.clue then
@@ -501,6 +516,7 @@ local function bit(night, sc, t, last)
     -- each. Not out of one friend's mouth: "Telpur: 'No eating in the shop'" isn't Sam's to say.)
     for _, line in ipairs(t.lines or {}) do
         night:say(util.fill(line, { char = p.char }), "table")
+        heard(night, line)
     end
     if t.kind == "haggle" then
         -- A real purchase (round three: "Lace tax" was paid on marbles nobody bought, and the Francs

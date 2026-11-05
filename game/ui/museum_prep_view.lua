@@ -1088,7 +1088,10 @@ local function showdown(app, prep, x, y, w)
     local enc = adventure.boss_encounter(c)
     local brings = {}
     if st.marks.mech then
-        table.insert(brings, "the Steam Mech" .. (st.mech_name and (" (" .. st.mech_name .. ")") or ""))
+        -- (Flitwidget's, when he woke it between sessions: the mark's own words for who did it.)
+        local by = adventure.mark_words(c, "mech")
+        table.insert(brings, "the Steam Mech" .. (st.mech_name and (" (" .. st.mech_name .. ")") or "")
+            .. ((by and by.brings) and (", " .. by.brings) or ""))
     end
     -- (What they bring is what's in their packs, and whose: items.lua, the one inventory. Used up is
     -- gone; a healing potion is everyone's, so it isn't listed here.)

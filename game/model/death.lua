@@ -223,8 +223,12 @@ function M.settle_pack(night, p)
         end
     end
     if #here == 0 then
+        -- (Where it fell, so it's picked up there: M.pick_up_pack.)
+        local at = night.scene and night.scene.room
         for _, it in ipairs(held) do
             it.left_with = p.key
+            it.left_char = p.char
+            it.left_at = at
             it.gone = campaign.week or 0
         end
         night:say(night:fresh(data.PACK_LEFT, "pack_left"), "narration", { char = p.char })
@@ -264,17 +268,62 @@ function M.settle_pack(night, p)
     night:say(night:fresh(data.PACK_SHARED, "pack_shared"), "narration", { char = p.char, gets = table.concat(parts, "; ") })
 end
 
+-- Back in the room where a hero fell with nobody left to take their pack: whoever can act there picks it
+-- up (their seat's new hero first), out loud and in the log. The confirming playtest, 56 careful: "It stays
+-- where he fell", and the next week Bryn walked in carrying it.
+function M.pick_up_pack(night, room)
+    local campaign = night.campaign
+    local items = require "game.model.items"
+    local able = require "game.model.able"
+    local by_old, order = {}, {}
+    for _, it in ipairs(items.list(campaign)) do
+        if it.left_at and it.left_at == room and it.gone then
+            if not by_old[it.left_with] then
+                by_old[it.left_with] = {}
+                table.insert(order, it.left_with)
+            end
+            table.insert(by_old[it.left_with], it)
+        end
+    end
+    for _, old in ipairs(order) do
+        local who
+        local seat = campaign:player(old)
+        if seat and util.contains(night.players, seat) and able.can_act(night, seat) then
+            who = seat
+        end
+        for _, q in ipairs(night.players) do
+            who = who or (able.can_act(night, q) and q) or nil
+        end
+        if who then
+            local names, char = {}, nil
+            for _, it in ipairs(by_old[old]) do
+                char = char or it.left_char
+                it.holder, it.gone, it.left_at, it.left_with = who.key, nil, nil, nil
+                items.log_get(campaign, it, { id = old, name = it.left_char }, "found")
+                local about = items.about(it)
+                local t = it.thing and items.thing(it.thing)
+                table.insert(names, (it.id == items.POTION and "a healing potion")
+                    or (t and util.lower_first(t.name or t.title)) or util.lower_first(about.name or "something"))
+                it.left_char = nil
+            end
+            night:say(night:fresh(data.PACK_FOUND, "pack_found"), "narration",
+                { char = char or "the one who fell", who = who.char, gets = util.join_names(names) })
+        end
+    end
+end
+
 -- The wake (round three, B1): held where they rest, once the fight that took them is over and
 -- whatever came after it is settled (the gift shop, or the night's end), never mid-lair. The
 -- adventure's words (data.WAKE); whoever runs the place says something (people_lines `grief`).
-function M.hold_wake(night)
+-- here: the room they're in, when that isn't the place they rest (data.WAKE_HERE: before they've found it).
+function M.hold_wake(night, here)
     local due = night.wake_due
     if not due or #due == 0 then
         return false
     end
     night.wake_due = nil
     local names = util.join_names(due)
-    night:say(util.fill(data.WAKE, { char = names }), "narration")
+    night:say(util.fill((here and data.WAKE_HERE) or data.WAKE, { char = names, room = here or "" }), "narration")
     local ok, people = pcall(require, "game.model.people")
     local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
         { char = names, plural = #due > 1 or nil }) or nil
@@ -419,6 +468,14 @@ function M.intro(night)
                 score.add(p, "fun", 4)
                 night:react({ [p.key] = "lean" })
                 night:event("new_character", { who = p.key, text = p.char .. " joins the party, in " .. nc.was .. "'s place.", weight = 7 })
+                -- (A pet that was the fallen hero's running joke is handed on, once, out loud: the confirming
+                -- playtest, 56 careful, had Exhibit B carry on with Tam as if Pip had never been.)
+                for _, e in ipairs(require("game.model.companions").active(campaign, night.players)) do
+                    local said = e.lines and e.lines.handed_on
+                    if e.kind == "pet" and e.owner == key and said then
+                        night:say(util.fill(night:fresh(said, "handed_on_" .. e.id), { new = p.char, old = nc.was }), "narration")
+                    end
+                end
             end
         end
     end

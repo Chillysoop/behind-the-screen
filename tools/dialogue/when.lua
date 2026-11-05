@@ -167,6 +167,7 @@ local FLAG = {
     whispered = "something whispered a hero's name", portrait_mara = "the hall's painting was Thessaly's",
     pip_alone = "Pip goes off alone", rematch = "she sent them back down once already",
     tapestry = "someone noticed the tapestry", deaf = "they blocked their ears with wax",
+    wake_away = "a hero died before they found the gift shop, and the wake was held where they were",
 }
 local MARK = {
     topiary = "a hedge-beast got away", garden_burned = "they burned the garden", robbed = "they emptied the donation box",
@@ -223,6 +224,15 @@ local function cond(c)
     end
     if c.not_mark then
         add(MARK[c.not_mark] and ("not if " .. MARK[c.not_mark]) or nil)
+    end
+    -- (Whose doing a mark was, from the log: Flitwidget's Mech, adventure.mark_by.)
+    local BY = { mus_flitwidget = "Flitwidget", mus_bone_construct = "the Bone Construct" }
+    if c.mark_by then
+        add((BY[c.mark_by[2]] or c.mark_by[2]) .. " put " .. Q(MODULE.marks[c.mark_by[1]] and MODULE.marks[c.mark_by[1]].name or c.mark_by[1], 5)
+            .. " on her card between sessions")
+    end
+    if c.not_mark_by then
+        add("not if " .. (BY[c.not_mark_by[2]] or c.not_mark_by[2]) .. " put it on her card between sessions")
     end
     if c.done then
         add(c.done == "lair" and "Euryale is dealt with" or (rname(c.done) .. " is done"))
@@ -562,6 +572,8 @@ A.companions = function(p)
         elseif kind == "react_sad" then
             return R("In a fight, right after " .. name .. " drops, on a night a hero died or the party lost: whoever's playing "
                 .. name .. ", else " .. owner .. ", in place of the usual", one_of(#list))
+        elseif kind == "handed_on" then
+            return R("The night a new hero takes the seat of " .. HERO[c.owner] .. ", who died: " .. name .. " is handed on, once", one_of(#list))
         elseif kind == "up_sad" then
             return R("After a fight " .. name .. " went down in, on a night a hero died or the party lost: " .. name
                 .. " comes round, quietly, in place of the usual", one_of(#list))
@@ -789,6 +801,24 @@ A.marks = function(p)
         return R(CHAIN_AT .. ", once " .. why, "Always")
     elseif f == "unchain" then
         return R(CHAIN_AT .. ", when " .. Q(m.name, 5) .. " comes off her card", "Always")
+    elseif f == "by" then
+        -- (Someone else put it there between sessions, a loose end's `by`: adventure.mark_words.)
+        local BY = { mus_flitwidget = "Flitwidget", mus_bone_construct = "the Bone Construct" }
+        local base = "when " .. (BY[p[4]] or p[4]) .. " put " .. Q(m.name, 5) .. " on her card between sessions (a loose end)"
+        local g = p[5]
+        if g == "why" then
+            return R("On Euryale's card, the reason under " .. Q(m.name, 5) .. ", " .. base, "Always")
+        elseif g == "showdown" then
+            return R("On Euryale's card: what " .. Q(m.name, 5) .. " changes on boss night, " .. base, "Always")
+        elseif g == "chain" then
+            return R(CHAIN_AT .. ", " .. base, "Always")
+        elseif g == "brings" then
+            return R("On the showdown board, under what the party brings, " .. base, "Always")
+        elseif g == "told" then
+            return R("As the next night starts, before Euryale's line, " .. base, one_of(#(m.by[p[4]].told or {})))
+        elseif g == "thought" then
+            return R("Upstairs, Euryale's thought when it lands, " .. base, "Always")
+        end
     elseif f == "thought_if" or f == "why_if" then
         local alt = m[f][p[4]]
         local what = f == "thought_if" and ("Upstairs, Euryale's thought when " .. Q(m.name, 5) .. " lands")
@@ -817,6 +847,7 @@ A.beats = function(p)
         death = "first, when a hero died that night", down = "first, when a hero went down that night",
         down_n = "first, when a hero went down more than once that night", ally_lost = "first, when they lost an ally for good that night",
         wipe = "first, when the whole party went down in a fight that night", came_back = "when a hero who died was brought back",
+        freed = "first, when Euryale beat them and let the heroes she'd turned to stone go",
         friendly = "when a hero's own spell or swing caught the party too", friendly_down = "first, when a hero's own spell or swing dropped someone on their side",
     }
     if top == "words" then
@@ -1166,8 +1197,12 @@ end
 
 A.want_more_sad = function(p)
     local who, k = p[2], p[3]
-    return R("When the prologue ends on a night a hero died, " .. NAME[who] .. "'s parting word"
-        .. (k == "own" and ", when it was " .. POS[who] .. " hero" or ", when it was a friend's hero"), one_of(#MODULE.want_more_sad[who][k]))
+    if k == "was" then
+        return R("When the prologue ends, once " .. POS[who] .. " hero has died on an earlier night: " .. NAME[who] .. "'s parting word, playing someone new",
+            one_of(#MODULE.want_more_sad[who][k]))
+    end
+    return R("When the prologue ends, once a hero has died, " .. NAME[who] .. "'s parting word"
+        .. (k == "own" and ", when it was " .. POS[who] .. " hero, that night" or ", when it was a friend's hero"), one_of(#MODULE.want_more_sad[who][k]))
 end
 
 local STANCE = { warm = "Warm", guarded = "Guarded", lie = "A lie" }
@@ -1882,6 +1917,10 @@ local function death_line(p)
         return R("When a hero dies for good: the friends share out what they carried, out loud", one_of(#D.PACK_SHARED))
     elseif f == "PACK_LEFT" then
         return R("When a hero dies for good and nobody's left standing to take what they carried", one_of(#D.PACK_LEFT))
+    elseif f == "PACK_FOUND" then
+        return R("Back in the room where a hero fell with nobody left to take their pack: someone picks it up", one_of(#D.PACK_FOUND))
+    elseif f == "WAKE_HERE" then
+        return R("After a fallen hero's last words, before the party has found the gift shop: the wake, where they stopped", "Always")
     elseif f == "LAST_WORDS" then
         local key = CLASS_KEY[p[2]]
         return R("When " .. HERO[key] .. " dies and you say goodbye: " .. NAME[key] .. "'s last words", one_of(#D.LAST_WORDS[p[2]]))
@@ -2239,7 +2278,8 @@ local function code_line(p)
                     overruled = "whoever you nudged the other way", overruled_more = "whoever you nudged the other way more than once",
                     best = "a friend about the moment that made their night, in the party's words", worst = "a friend about the moment that spoiled it",
                     hook = "a friend whose hero found what they came for", hooks = "a friend, when several heroes found what they came for",
-                    caught = "the friend whose hero was caught at someone's stock" }
+                    caught = "the friend whose hero was caught at someone's stock",
+                    stone = "the friend whose hero was stone when Euryale beat them and let them go" }
         return R("In the group chat after a night: " .. (W[k] or "a post about it"), one_of(#(require("game.model.museum_week").CHAT[k] or {})))
     elseif top == "CHAT_REPLY" then
         return R("In the group chat: someone else's answer to a post about " .. string.gsub(k, "_", " "),
@@ -2337,6 +2377,8 @@ local function code_line(p)
                     franc_party = "When a moment everyone did pays a Franc its own words didn't hand over",
                     francs_party = "When a moment everyone did pays more than one Franc",
                     between_francs = "As a night starts, when a favor between sessions put Francs in the pool",
+                    stone_let_go = "In her lair, when she beat them and lets them go: the heroes still stone come back",
+                    burned_again = "Back up her stairs after she beat them once, when they burned her garden: her greeting, no drink",
                     first_pick = "When the party finds something and a friend was promised first pick (or the gift shop's pick at the thanks)",
                     pocket_back = "At Flitwidget's thanks: what a friend pocketed along the way, given back if it hasn't been already",
                     pocket_back_for = "At Flitwidget's thanks: what a hero pocketed, given back for them by a friend when they can't (dead, or stone)" }

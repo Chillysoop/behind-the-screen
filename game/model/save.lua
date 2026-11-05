@@ -378,6 +378,9 @@ function M.load(src)
     -- remember and the favors they owe come out the same.
     require("game.model.events").start(campaign)
     require("game.model.items").start(campaign)
+    -- A save from before the confirming playtest's fixes logged a mark someone else put on her card
+    -- between sessions (Flitwidget's Steam Mech) as the party's: the log says whose it was now.
+    require("game.model.adventure").mend_marks_by(campaign)
     -- A save from before November 4 kept the stunts said lately by their place in a longer list
     -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.
     local said = campaign.stunts_said

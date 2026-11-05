@@ -33,19 +33,12 @@ local function holds(st, when, campaign)
     if not when then
         return true
     end
-    if when.done and not st.done[when.done] then
-        return false
-    end
-    if when.mark and not st.marks[when.mark] then
-        return false
-    end
-    if when.flag and not st.flags[when.flag] then
-        return false
-    end
     if when.favor and require("game.model.adventure").favor(campaign, when.favor.who) < (when.favor.at or 1) then
         return false
     end
-    return true
+    -- (The rest the way every other line reads it, adventure.test: done, mark, flag, and whose doing a mark
+    -- was, `mark_by`, from the log: "Woken by Flitwidget" only for his Mech.)
+    return require("game.model.adventure").test(campaign, when)
 end
 
 -- A person's line now: text, tone ("good" | "bad" | "quiet"), met (false while they're still ahead).

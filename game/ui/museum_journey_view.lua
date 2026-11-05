@@ -36,7 +36,20 @@ function M.build(app, on_next)
     for _, r in ipairs(j.rooms) do
         rows = rows + ((#r.marks > 0) and 1 or 0)
     end
-    local room_for = 425 - y - (j.ending and 62 or 0) - (#j.skipped > 0 and 26 or 0)
+    -- (Rooms never seen, and what someone else did there for them between sessions: Flitwidget woke the
+    -- Mech. The confirming playtest's seed 54 had Hans fight for them, and only "Never seen" here.)
+    local never
+    if #j.skipped > 0 then
+        local names = {}
+        for _, n in ipairs(j.skipped) do
+            table.insert(names, util.lower_first(n))
+        end
+        never = "Never seen: " .. util.join_names(names) .. "."
+        for _, b in ipairs(j.between or {}) do
+            never = never .. " Between sessions (S" .. util.int(b.week or 0) .. "): " .. b.text
+        end
+    end
+    local room_for = 425 - y - (j.ending and 62 or 0) - (never and (kit.text_height(never, "ui14", w) + 10) or 0)
     local show_marks = rows * LH <= room_for
     -- Each room's story in as many lines as the route has room for, whole: all of it, its first
     -- sentence, or that sentence's first clause, so a line never stops halfway (the third playtest:
@@ -74,15 +87,10 @@ function M.build(app, on_next)
             y = y + LH
         end
     end
-    if #j.skipped > 0 then
+    if never then
         y = y + 6
-        local names = {}
-        for _, n in ipairs(j.skipped) do
-            table.insert(names, util.lower_first(n))
-        end
-        local line = "Never seen: " .. util.join_names(names) .. "."
-        kit.text(x, y, line, "ui14", theme.faint, { w = w })
-        y = y + kit.text_height(line, "ui14", w) + 4
+        kit.text(x, y, never, "ui14", theme.faint, { w = w })
+        y = y + kit.text_height(never, "ui14", w) + 4
     end
     if j.ending then
         y = y + 8

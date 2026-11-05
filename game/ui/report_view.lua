@@ -103,7 +103,7 @@ local function wrapup_items(app, rep)
         for _, id in ipairs(mu.marks or {}) do
             local m = MODULE.marks[id]
             if m then
-                table.insert(items, { "Euryale's card: " .. m.name .. ". " .. m.showdown .. ".", theme.gold })
+                table.insert(items, { "Euryale's card: " .. m.name .. ". " .. require("game.model.adventure").mark_showdown(app.campaign, id) .. ".", theme.gold })
             end
         end
         -- (Where it was: "A harsh call felt arbitrary" didn't say which, the third playtest's engine run.)

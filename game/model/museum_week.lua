@@ -298,6 +298,10 @@ M.CHAT = {
     down_once = { "{char} hit the floor and i'm still annoyed about it", "next time {char} is standing at the back", "{char} took a nap on the floor. not by choice" },
     down_twice = { "{char} went down TWICE. i want a refund", "two times on the floor for {char}. two", "{char} spent half the night on the floor. twice" },
     down_many = { "{char} went down {n} times. {n}", "{char} was on the floor more than standing up", "i lost count of how often {char} went down. {n}?" },
+    -- (Stone when she beat them, and she let them go: the friend whose hero it was. The confirming playtest,
+    -- seed 54: Oswin was a statue, and Sam said nothing.)
+    stone = { "{char} was stone when it ended. she just let us go. why", "being a statue was the worst bit. {char} felt every second",
+              "{char} spent the end of that fight as stone. still thinking about the way she looked at us" },
     kill = { "for the record, that last hit was {char}'s", "just saying. {char}. last hit. that's all", "who landed the last hit? {char}. thank you" },
     lost_fight = { "we got absolutely flattened", "that fight went so badly. i loved it. i hated it", "we lost that one. no notes. many notes" },
     overruled_more = { "the DM kept nudging us places. felt a bit on rails ngl", "felt a bit on rails ngl", "a lot of nudging this week. just saying" },
@@ -315,6 +319,7 @@ M.CHAT_REPLY = {
     down = { "rip", "{char} was very brave on that floor", "we'll get you a helmet" },
     kill = { "the stats don't lie", "fine. FINE. it was {char}", "taking that to the grave huh" },
     lost_fight = { "we'll get them next time", "it was very funny from where i was sitting", "never again lol" },
+    stone = { "she wants us back. that's worse", "glad you're not still up there", "we're going back for her" },
     overruled = { "noted", "next time we vote harder", "valid" },
     best = { "honestly same", "that bit was SO good", "still thinking about it", "it really was" },
     worst = { "fair", "yeah that one dragged", "we don't talk about that" },
@@ -380,7 +385,19 @@ function M.night_lines(c, night)
             kb[e.who] = true
         end
     end
-    for key, n in util.sorted_pairs(downs) do
+    -- (Stone when it ended, and let go: theirs before a down's.)
+    local freed = events.last(c, { kind = "freed", session = week })
+    for _, key in ipairs((freed and freed.heroes) or {}) do
+        put(key, "stone")
+        break
+    end
+    -- (Not "oswin hit the floor and i'm still annoyed about it" the week Brannoc died: the confirming playtest,
+    -- 53 careful. A death puts a down in its place.)
+    local died = false
+    for _, nc in pairs(c.new_char or {}) do
+        died = died or (nc.week == week and nc.was ~= nil)
+    end
+    for key, n in util.sorted_pairs(died and {} or downs) do
         put(key, n >= 3 and "down_many" or (n == 2 and "down_twice") or "down_once", { n = util.int(n) })
     end
     for key in util.sorted_pairs(kb) do
@@ -530,7 +547,7 @@ function M.write_chat(c)
         table.insert(msgs, { who = q.name, key = q.key, text = util.fill(M.fresh_line(c, list, "chat_reply_" .. (M.CHAT_REPLY[kind] and kind or "room")), vars or {}),
                              reply = true })
     end
-    local REPLY_KIND = { lost_hero = "lost_hero", down_once = "down", down_twice = "down", down_many = "down", kill = "kill", lost_fight = "lost_fight",
+    local REPLY_KIND = { stone = "stone", lost_hero = "lost_hero", down_once = "down", down_twice = "down", down_many = "down", kill = "kill", lost_fight = "lost_fight",
                          overruled = "overruled", overruled_more = "overruled", best = "best", worst = "worst", hook = "hook", hooks = "hook", caught = "caught" }
     -- Last night's own events first (three at most), then the rooms.
     local own, kinds, vars_of = M.night_lines(c, c.night)
@@ -627,9 +644,21 @@ function M.write_chat(c)
     end
     -- A question for you (one a week, each once): one that fits what's going on, else any still unasked.
     st.chat_asked = st.chat_asked or {}
+    -- (Not about a hero who died: "would brannoc know anything about gorgons", three weeks after he did.
+    -- The confirming playtest, 53 careful.)
+    local function names_the_dead(q)
+        local t = string.lower(q.text or "")
+        for _, rec in ipairs(c.fallen or {}) do
+            if string.find(t, "%f[%a]" .. string.lower(rec.char or "?") .. "%f[%A]") then
+                return true
+            end
+        end
+        return false
+    end
     local open, fits = {}, {}
     for _, q in ipairs(MODULE.chat_ask or {}) do
-        if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when)) then
+        if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when))
+            and not names_the_dead(q) then
             table.insert(open, q)
             if ASK_FITS[q.id] and ASK_FITS[q.id](c) then
                 table.insert(fits, q)
