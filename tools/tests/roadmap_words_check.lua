@@ -227,6 +227,10 @@ local CURIO_BY_ASK, DULL, ANSWER_LEVEL = {}, {}, {}
 for room, r in pairs(TL.rooms or {}) do
     for _, b in ipairs(r.curios or {}) do
         CURIO_BY_ASK[util.sentence_case(b.ask)] = { b = b, room = room }
+        -- (Round three: a curio's other ways of being poked, `asks`, are pokes too.)
+        for _, a in ipairs(b.asks or {}) do
+            CURIO_BY_ASK[util.sentence_case(a)] = { b = b, room = room }
+        end
         for _, lvl in ipairs({ "dull", "detail", "lore" }) do
             if b[lvl] then
                 ANSWER_LEVEL[b.id .. "|" .. b[lvl]] = lvl
@@ -236,6 +240,9 @@ for room, r in pairs(TL.rooms or {}) do
     end
     for _, q in ipairs(r.npc_questions or {}) do
         CURIO_BY_ASK[util.sentence_case(q.ask)] = CURIO_BY_ASK[util.sentence_case(q.ask)] or { question = true }
+        for _, a in ipairs(q.asks or {}) do
+            CURIO_BY_ASK[util.sentence_case(a)] = CURIO_BY_ASK[util.sentence_case(a)] or { question = true }
+        end
     end
 end
 local HINTS = {}

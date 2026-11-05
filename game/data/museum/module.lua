@@ -1043,7 +1043,7 @@ M.moments = {
     -- (risks: what's at stake is the Mech, not them, so a hurt hero or a rough last fight doesn't make
     -- anyone shy of the switch.)
     { id = "mus_hyper", room = "tomorrow", danger = "the red switch: only if absolutely necessary", spot = "8A", at = "end", when = { mark = "mech" }, type = "story", actor = { "instigator", "power_gamer", "butt_kicker" }, party = true, proposes = 1,
-      risks = "the Mech",
+      risks = "mech",
       title = "Hyper Destroyer Mode",
       text = "Inside the Mech's chest panel, a red switch: \"HYPER DESTROYER MODE. Only if absolutely necessary.\" {actor_char} is grinning.",
       options = {

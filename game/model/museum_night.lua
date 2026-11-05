@@ -99,9 +99,9 @@ M.WORLD_LINES = {
                     "{char} gives {thing} back to Flitwidget, a little sheepishly. He pockets it and says nothing." },
     -- The same, when the one who pocketed it can't (dead, or stone): a friend gives it back for them
     -- ({who}: the hero who pocketed it). Round three: "Pip quietly puts a glass eye back" with Pip dead.
-    pocket_back_for = { "{char} puts {thing} back on Flitwidget's counter: {who} pocketed it. Flitwidget nods.",
-                        "{char} finds {thing} that {who} pocketed, and quietly gives it back to Flitwidget.",
-                        "{char} sets {thing} on the counter. \"{who} had this.\" Flitwidget takes it gently." },
+    pocket_back_for = { "In {who}'s place, {char} puts {thing} back on Flitwidget's counter. Flitwidget nods.",
+                        "{char} gives {thing} back to Flitwidget in {who}'s place, a little sheepishly.",
+                        "{char} sets {thing} on the counter, in {who}'s place. Flitwidget takes it gently." },
     -- The archivist's notebook, taken by whoever took the second study in (the room's end).
     notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
                  "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",
