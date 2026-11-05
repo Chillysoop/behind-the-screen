@@ -1075,13 +1075,25 @@ local function react(night, f, steps, who)
             -- (No quip from the floor when it's going this badly: a hero already dead tonight, or this drop
             -- leaves one hero standing or none. The confirming playtest, 56 careful: "Down. Note for later:
             -- the Kruthik Huntling hits harder than it looks." as the whole party went down.)
-            local up = 0
+            -- (Half the party or fewer still standing is going badly too: the final pass's merge, 51 careful
+            -- week 5, "That was my good side!" with two of four up, and the other two down a few lines on.)
+            -- (Nor when the foes are plainly winning: the party's hit points, all told, a long way behind
+            -- theirs. 51 careful week 5: Pip's quip with Euryale at 96 of 127 and the rest down soon after.)
+            local up, pcs = 0, 0
+            local php, pmax, fhp, fmax = 0, 0, 0, 0
             for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
-                if c.pc and not c.dead and (c.hp or 0) > 0 then
-                    up = up + 1
+                if c.pc and not c.dead then
+                    pcs = pcs + 1
+                    php, pmax = php + math.max(0, c.hp or 0), pmax + (c.hp_max or c.hp or 0)
+                    if (c.hp or 0) > 0 then
+                        up = up + 1
+                    end
+                elseif not c.pc and c.side ~= "party" and not c.dead and (c.hp or 0) > 0 then
+                    fhp, fmax = fhp + c.hp, fmax + (c.hp_max or c.hp)
                 end
             end
-            if not (able.somber(night) == "death" or up <= 1) then
+            local losing = pmax > 0 and fmax > 0 and fhp / fmax > php / pmax + 0.25
+            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or losing) then
                 line = { victim, "down_self" }
             end
             score.add(victim, "fun", -2)

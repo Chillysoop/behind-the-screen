@@ -477,6 +477,11 @@ function M.tell_beats(beats, max, finds)
             told[ev.id] = true
         else
             local skip_it = false
+            -- (A step into a room where nothing else that's told happened, said on its own: where they got
+            -- to, not a bare "They went into the gift shop." The final pass's merge, 38 random.)
+            if into and not word then
+                clause = "they reached " .. into
+            end
             if word == "so" and ev.kind == "fight" and ev.tail and prev and names_a_fight(prev.text) then
                 -- (The fight they chose, told by how it ended.)
                 clause = string.gsub(ev.tail, "^, ", "")
