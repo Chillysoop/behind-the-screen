@@ -118,7 +118,7 @@ M.WORLD_LINES = {
     -- ({who}: the hero who pocketed it). Round three: "Pip quietly puts a glass eye back" with Pip dead.
     pocket_back_for = { "In {who}'s place, {char} puts {thing} back on Flitwidget's counter. Flitwidget nods.",
                         "{char} gives {thing} back to Flitwidget in {who}'s place, a little sheepishly.",
-                        "{char} sets {thing} on the counter, in {who}'s place. Flitwidget takes it gently." },
+                        "{char} sets {thing} back on the counter, in {who}'s place. Flitwidget takes it gently." },
     -- The archivist's notebook, taken by whoever took the second study in (the room's end).
     notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
                  "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",

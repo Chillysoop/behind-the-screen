@@ -840,7 +840,12 @@ M.moments = {
             points = { "The notebook's right here. Let's use it.", "Give me a minute with these glyphs. I can do this.", "It's all in the notebook. Somebody hold it off." },
             pulls = { { when = { flag = "water" }, who = { "tactician", "storyteller", "casual" }, n = 0.5,
                         say = { "The water trick worked in the garden. Let's do this one properly too.", "The sign was right about the hedges. The notebook might be right too.",
-                                "Doing it by the book worked in the garden. Let's do it again." } } },
+                                "Doing it by the book worked in the garden. Let's do it again." } },
+                      -- (A table that knows what's waiting upstairs would rather not spend itself here: R10, the
+                      -- friends fought it 69% of the time.)
+                      { when = { flag = "truth" }, who = { "tactician", "storyteller", "casual" }, n = 0.9,
+                        say = { "Save the swords for whatever's upstairs.", "There's a Gorgon up there. Let's not bleed for this one.",
+                                "If we can talk to it in glyphs, that's a fight we don't have to have." } } },
             roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
                      success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
                                  effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 3.5 }, { "arch:butt_kicker", fun = -3 } },
