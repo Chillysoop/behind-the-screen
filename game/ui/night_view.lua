@@ -1077,6 +1077,8 @@ function M.caption(app, text, style)
     gui.set_text(c.text, table.concat(lines, "\n"))
     place_caption(c, cx - w / 2, y, w, h)
     app.caption_rect = { x = cx - w / 2, y = y, w = w, h = h }
+    -- (A bubble already up steps out of the way now, not a frame later: the overlap measure.)
+    M.place_bubbles(app)
     c.color = read and theme.ink or (theme.log[style] or theme.text)
     -- Its game words explain themselves on hover, like the log's (the hover audit, November 3).
     if c.gloss_nodes then
@@ -1148,6 +1150,17 @@ function M.title(app, top, title, sub)
     t.colors = { kit.rgba("#140e0b", 0.8), theme.gold, theme.text, theme.dim }
     t.rect = { x = x, y = y, w = w, h = 118 }
     app.title_card = t
+    -- A toast already up goes under it, as one that comes after it does (the overlap measure: the crits
+    -- toggle's toast under "MEET THE PARTY").
+    local tc = app.toast_card
+    if tc and tc.rect and tc.rect.y < y + 118 + 8 and y < tc.rect.y + tc.rect.h then
+        local dy = (y + 118 + 10) - tc.rect.y
+        for _, n in ipairs(tc.nodes) do
+            local p = gui.get_position(n)
+            gui.set_position(n, vmath.vector3(p.x, p.y - dy, p.z))
+        end
+        tc.rect.y = tc.rect.y + dy
+    end
     if app.bubbles then
         M.place_bubbles(app)
     end
@@ -1172,7 +1185,7 @@ function M.toast(app, top, text, quiet)
     -- With the log open, it sits on the rest of the screen (A11). Under a room's title card, not on it.
     local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
     local x, y = cx - w / 2, app.title_card and (TITLE_Y + 128) or 136
-    local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {} }
+    local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {}, rect = { x = x - 2, y = y - 2, w = w + 4, h = h + 4 } }
     local edge = quiet and alpha_of(theme.faint, 0.6) or theme.gold
     local head = quiet and theme.faint or theme.gold
     t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, edge, { radius = 12 })
@@ -1200,6 +1213,8 @@ function M.dying(app, id)
     -- on the DM screen's notes and beside the next tile: Conner's playtest, C27.)
     local w, h = panels.ROLL_W, panels.H - 16
     local x, y = chip.x + panels.ROLL_X, chip.y + 8
+    -- (The last roll under it makes way: their death saves are their roll now, and nothing reads through.)
+    M.show_last_roll(chip, false)
     local col = t.stable and theme.teal or theme.red
     local nodes = {}
     local function add(n)
@@ -1221,11 +1236,24 @@ function M.dying(app, id)
     app.dying_nodes[id] = nodes
 end
 
+-- The tile's last-roll box, shown or put away (under the death-save card).
+local LAST_ROLL = { "die", "num", "what", "res", "vs", "dice" }
+function M.show_last_roll(chip, on)
+    for _, k in ipairs(LAST_ROLL) do
+        if chip and chip[k] then
+            pcall(gui.set_enabled, chip[k], on)
+        end
+    end
+end
+
 function M.drop_dying(app, id, keep)
     local nodes = app.dying_nodes and app.dying_nodes[id]
     if nodes then
         kit.remove(nodes)
         app.dying_nodes[id] = nil
+        if not keep then
+            M.show_last_roll(app.chips and app.chips[id], true)
+        end
     end
     if not keep and app.ds then
         app.ds[id] = nil
@@ -1298,6 +1326,7 @@ function M.roll_banner(app, key, r)
         table.insert(t.nodes, n)
         table.insert(t.colors, c)
     end
+    t.rect = { x = x - 2, y = y - 2, w = w + 4, h = h + 4 }
     add(kit.box(x - 2, y - 2, w + 4, h + 4, col, { radius = 12 }), col)
     add(kit.box(x, y, w, h, kit.rgba("#201813", 0.97), { radius = 11 }), kit.rgba("#201813", 0.97))
     add(kit.text(x + 14, y + 8, kit.ellipsize(top, "ui14", w - 28), "ui14", theme.dim, { gloss = false }), theme.dim)
@@ -1307,6 +1336,7 @@ function M.roll_banner(app, key, r)
         add(kit.text(x + w - 14, y + 38, word, "ui18b", col, { pivot = gui.PIVOT_NE, gloss = false }), col)
     end
     app.roll_card = t
+    M.place_bubbles(app)
 end
 
 function M.drop_roll_banner(app)
@@ -1341,7 +1371,7 @@ function M.side_card(app, top, title, rows, life)
     end
     h = h + 10
     local x, y = SIDE_X, SIDE_Y
-    local t = { age = 0, life = life / math.sqrt(speed(app)), nodes = {}, colors = {} }
+    local t = { age = 0, life = life / math.sqrt(speed(app)), nodes = {}, colors = {}, rect = { x = x - 2, y = y - 2, w = w + 4, h = h + 4 } }
     local function add(n, c)
         table.insert(t.nodes, n)
         table.insert(t.colors, c)
@@ -1357,6 +1387,7 @@ function M.side_card(app, top, title, rows, life)
         ry = ry + kit.text_height(r[1], font, w - 32) + 6
     end
     app.side = t
+    M.place_bubbles(app)
 end
 
 function M.drop_side(app)
@@ -1618,8 +1649,38 @@ function M.bubble(app, anchor, speaker, text, ic, thought)
     M.place_bubbles(app)
 end
 
+-- What's on screen that a speech bubble mustn't cover (class 7: the overlap measure): the DM's caption,
+-- the room's title card, a roll over a tile (big or small), the room's side card, a toast. Each records its
+-- rectangle when it's drawn; a hidden one (the side card stepping aside for a call) isn't in the way.
+function M.zones(app)
+    local out = {}
+    local function add(r, nodes)
+        if r and not (nodes and nodes[1] and not gui.is_enabled(nodes[1])) then
+            table.insert(out, r)
+        end
+    end
+    add(app.caption_rect)
+    -- (And its voice tag on top, YOU, TO THE TABLE and the rest, 16 above the box: the overlap measure had a
+    -- bubble over it.)
+    local cr = app.caption_rect
+    if cr and app.caption and app.caption.voice_on then
+        add({ x = cr.x, y = cr.y - 18, w = cr.w, h = 18 })
+    end
+    for _, k in ipairs({ "title_card", "roll_card", "tiny_card", "side", "toast_card" }) do
+        local t = app[k]
+        if t then
+            add(t.rect, t.nodes)
+        end
+    end
+    return out
+end
+
 function M.place_bubbles(app)
+    if not app.bubbles then
+        return
+    end
     local placed = {}
+    local zones = M.zones(app)
     local cap = app.caption_rect
     for _, b in ipairs(app.bubbles) do
         local ax, ay, col_x, col_w = anchor_xy(app, b.anchor)
@@ -1649,13 +1710,24 @@ function M.place_bubbles(app)
             if tr and x < tr.x + tr.w + 6 and tr.x < x + b.w + 6 and y < tr.y + tr.h + 6 and tr.y < y + b.h + 6 then
                 y = tr.y + tr.h + 8
             end
-            -- Don't stack on top of a bubble that's already up.
-            for _, o in ipairs(placed) do
-                if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
-                    y = o.y - b.h - 8
-                    if y < 64 then
-                        y = o.y + o.h + 8
+            -- Nor over a roll, the side card or a toast: above it (or under it, with no room above). Then
+            -- don't stack on top of a bubble that's already up. (Round again, in case stepping round one put
+            -- it on another.)
+            for _ = 1, 4 do
+                local moved = false
+                for _, list in ipairs({ zones, placed }) do
+                    for _, o in ipairs(list) do
+                        if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
+                            y = o.y - b.h - 8
+                            if y < 64 then
+                                y = o.y + o.h + 8
+                            end
+                            moved = true
+                        end
                     end
+                end
+                if not moved then
+                    break
                 end
             end
             b.x, b.y = x, y
@@ -2019,8 +2091,10 @@ function M.tiny_roll(app, ev)
     local w = 24 + lw + 10 + sw + tw
     local h = 30
     local x = chip.x + (panels.W - w) / 2
-    local y = chip.y - h - 8
-    local t = { age = 0, life = 1.8 / math.sqrt(speed(app)), nodes = {}, colors = {} }
+    -- (Above the IN/OUT OF CHARACTER tag, as the big roll is: the overlap measure, class 7, had it half
+    -- over "OUT OF CHARACTER".)
+    local y = chip.y - h - TAG_CLEAR
+    local t = { age = 0, life = 1.8 / math.sqrt(speed(app)), nodes = {}, colors = {}, rect = { x = x, y = y, w = w, h = h } }
     local function add(n, c)
         table.insert(t.nodes, n)
         table.insert(t.colors, c)
@@ -2031,6 +2105,7 @@ function M.tiny_roll(app, ev)
     add(kit.text(x + 12 + lw + 10, y + 6, sum, "ui14", theme.text, { gloss = false }), theme.text)
     add(kit.text(x + 12 + lw + 10 + sw, y + 4, total, "ui18b", nat, { gloss = false }), nat)
     app.tiny_card = t
+    M.place_bubbles(app)
 end
 
 function M.drop_tiny_roll(app)

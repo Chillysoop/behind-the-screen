@@ -138,10 +138,11 @@ function M.build(app)
         box_art(bx + bw / 2 - 90, y + 250, 180, 120, true, r and r.color)
         kit.dot(bx + bw / 2, y + 170, 190, kit.rgba(r and r.color or "#f0c060", 0.22))
         kit.picture(bx + bw / 2 - 70, y + 100, 140, 140, "dice_" .. opened.set)
-        kit.text(bx + bw / 2, y + 384, string.upper(r and r.name or ""), "ui18b", col, { pivot = gui.PIVOT_N })
-        kit.text(bx + bw / 2, y + 408, s and s.name or opened.set, "title30", theme.text, { pivot = gui.PIVOT_N })
-        kit.text(bx + bw / 2, y + 448, (s and s.about or "") .. " Into your dice bag: give it to a friend from the report.",
-            "ui18", theme.dim, { pivot = gui.PIVOT_N, w = bw - 80 })
+        -- (A little higher, so a two-line note clears YOUR DICE BAG under it: the overlap measure.)
+        kit.text(bx + bw / 2, y + 378, string.upper(r and r.name or ""), "ui18b", col, { pivot = gui.PIVOT_N })
+        kit.text(bx + bw / 2, y + 400, s and s.name or opened.set, "title30", theme.text, { pivot = gui.PIVOT_N })
+        kit.text(bx + bw / 2, y + 438, (s and s.about or "") .. " Into your dice bag: give it to a friend from the report.",
+            "ui18", theme.dim, { pivot = gui.PIVOT_N, w = bw - 80, lines = 2 })
     else
         local great = earned.quality == "great"
         box_art(bx + bw / 2 - 90, y + 110, 180, 140, false, great and "#f0a030" or nil)

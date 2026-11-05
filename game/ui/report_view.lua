@@ -839,9 +839,11 @@ function M.gift_row(app, rep, x, y)
     local dd = require "game.data.dice"
     local bag = loot.bag(camp)
     if #bag == 0 then
+        -- (The words start after the label, as wide as it really is: the overlap measure had them 3px into it.)
+        local lw = kit.width("YOUR DICE BAG", "ui14") + 10
         kit.text(x, y, "YOUR DICE BAG", "ui14", theme.dim)
-        kit.text(x + 110, y, "Empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
-            { w = 262, lines = 2 })
+        kit.text(x + lw, y, "Empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
+            { w = 372 - lw, lines = 2 })
         return
     end
     -- Tonight's box first, and "NEW DICE" only for it (the third playtest's engine run: "NEW DICE:

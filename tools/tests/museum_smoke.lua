@@ -59,6 +59,7 @@ gui = {
 }
 local alive, alive_count = {}, 0
 local order = {}
+local created = setmetatable({}, { __mode = "k" })      -- (each node's place in the drawing order)
 -- Every piece of text that goes on screen, at any moment, is checked for the old story (set below,
 -- once the adventure is loaded): a line that only flashes up between checkpoints still counts.
 local on_text
@@ -82,6 +83,7 @@ local function new_node(kind, pos, size)
     local n = setmetatable({ kind = kind, pos = pos, size = size or vmath.vector3(0, 0, 0), pivot = "c", enabled = true, alive = true }, NODE_MT)
     alive[n] = true
     table.insert(order, n)
+    created[n] = #order
     alive_count = alive_count + 1
     if alive_count > MAX_NODES then problem("too many nodes: " .. alive_count) end
     return n
@@ -485,6 +487,64 @@ end
 local function overlaps(r, left, top, w, h)
     return r[1] < left + w and left < r[1] + r[3] and r[2] < top + h and top < r[2] + r[4]
 end
+-- OVERLAP_CHECK=1 (tools/tests/overlap_check.lua, class 7): at every dump and every step of game night,
+-- anything covering text that's meant to be read, measured from the nodes (tools/tests/overlap.lua).
+-- OVERLAP lines name each one once per screen; OVERLAP_SCANS counts the screens measured.
+local OVERLAP = os.getenv("OVERLAP_CHECK") and { seen = {}, scans = 0, sig = nil }
+local function overlap_scan(name)
+    if not OVERLAP then return end
+    -- (What's live in the screen's layers, in the order it's drawn; and only when that has changed since
+    -- the last look.)
+    local live = {}
+    for _, l in ipairs(kit.layers or {}) do
+        for _, n in ipairs(l.nodes or {}) do
+            if n.alive and n.enabled ~= false then
+                live[#live + 1] = n
+            end
+        end
+    end
+    table.sort(live, function(p, q) return (created[p] or 0) < (created[q] or 0) end)
+    local parts = {}
+    for i, n in ipairs(live) do
+        parts[i] = n.kind .. (n.text or "") .. n.pos.x .. "," .. n.pos.y
+    end
+    local sig = name .. "#" .. #parts .. "#" .. table.concat(parts, "|")
+    if sig == OVERLAP.sig then return end
+    OVERLAP.sig = sig
+    OVERLAP.scans = OVERLAP.scans + 1
+    -- (Which of game night's moving pieces were up when it looked: the overlap check wants each seen.)
+    if string.find(name, "^night") and app then
+        OVERLAP.pieces = OVERLAP.pieces or {}
+        local up = { caption = app.caption_rect, bubble = app.bubbles and #app.bubbles > 0, roll = app.roll_card,
+                     small_roll = app.tiny_card, dying = app.dying_nodes and next(app.dying_nodes), side_card = app.side,
+                     toast = app.toast_card, title = app.title_card, thinking = app.thinking and next(app.thinking) }
+        for k, v in pairs(up) do
+            if v then
+                OVERLAP.pieces[k] = (OVERLAP.pieces[k] or 0) + 1
+            end
+        end
+    end
+    -- (Measured once per node for as long as it says the same thing in the same place.)
+    OVERLAP.rects = OVERLAP.rects or setmetatable({}, { __mode = "k" })
+    local function rect(n)
+        local key = (n.text or "") .. "|" .. tostring(n.font) .. "|" .. n.pos.x .. "," .. n.pos.y .. "|" .. tostring(n.pivot)
+            .. "|" .. n.size.x .. "," .. n.size.y
+        local c = OVERLAP.rects[n]
+        if c and c.key == key then
+            return c.r
+        end
+        local l, t, w, h = node_rect(n)
+        OVERLAP.rects[n] = { key = key, r = { l, t, w, h } }
+        return OVERLAP.rects[n].r
+    end
+    local function where(p)
+        return p.lay.name .. ": " .. (p.t or p.says or "?") .. " @" .. math.floor(p.r[1]) .. "," .. math.floor(p.r[2])
+            .. " " .. math.floor(p.r[3]) .. "x" .. math.floor(p.r[4])
+    end
+    require("tools.tests.overlap").scan(live, kit, name, rect, function(kind, a, b)
+        print("OVERLAP\t" .. name .. "\t" .. kind .. "\t" .. where(a) .. "\t" .. where(b))
+    end, OVERLAP.seen, kit.W, kit.H)
+end
 -- Pointing at what covers this rectangle: what each hover there draws, one string per hover.
 local function hover_texts(left, top, w, h)
     local tries = {}
@@ -572,6 +632,7 @@ local screen_facts     -- (set below, once the app is up: what the state says a 
 local dumped_decision, dumped_improv, dumped_battle, dumped_talk, dumped_docked, dumped_read
 local dumped_takeover_talk, dumped_takeover_boss
 local function dump(name)
+    overlap_scan(name)
     if SCREEN then
         screen_cuts(name)
         screen_probes(name)
@@ -1105,6 +1166,7 @@ for week = 1, WEEKS do
     while app.screen == "night" and not app.night_done and g < 12000 do
         g = g + 1
         call(update, self, 0.4)
+        overlap_scan("night_w" .. week)
         -- v2: the DM's recap, once a night a little way in: the Story and Table sidebars, then shut.
         if g == 60 and not app.pending and not app.thought_card then
             if not click_key("night_story") then problem("no Story button on game night" .. where) end
@@ -1338,6 +1400,13 @@ if GLOSS then
     table.sort(keys)
     for _, k in ipairs(keys) do print("GLOSS  " .. k .. "  |  " .. string.sub(missing[k], 1, 140)) end
     print(#keys .. " game words on screen without a hover")
+end
+if OVERLAP then
+    print("OVERLAP_SCANS\t" .. OVERLAP.scans)
+    local ks = {}
+    for k in pairs(OVERLAP.pieces or {}) do ks[#ks + 1] = k end
+    table.sort(ks)
+    for _, k in ipairs(ks) do print("OVERLAP_PIECE\t" .. k .. "\t" .. OVERLAP.pieces[k]) end
 end
 print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d, thoughts %d (opened %d, answered %d)", SEED, nights,
     tostring(final_ending), marks_seen, final_level, thoughts_seen, thoughts_opened,
