@@ -749,6 +749,12 @@ local function breakages_true(T)
     for _, id in ipairs(T.c.adv.mark_list or {}) do
         marks[id] = true
     end
+    -- (A mark that came off her card after the lair, the scarabs killed, still happened: the log has it.)
+    for _, ev in ipairs(require("game.model.events").find(T.c, { kind = "mark" })) do
+        if ev.thing then
+            marks[ev.thing] = true
+        end
+    end
     for _, e in ipairs(T) do
         if e.kind == "line" and (e.who == "Flitwidget" or string.find(e.who, "Flitwidget", 1, true)) then
             local low = string.lower(e.text)

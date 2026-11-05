@@ -51,6 +51,12 @@ local function wrapup_items(app, rep)
         end
         -- Where it stands now, second: the line next week starts from (the third playtest: it was last,
         -- and the first to fall off a full column).
+        -- (How long the night ran, straight after: the gate after the final pass's merge, seed 5, pushed
+        -- it under "+10 more" behind a long "At a fork" line.)
+        if rep.table_text then
+            table.insert(items, { rep.table_text, theme.dim })
+            rep.table_said = true
+        end
         if mu.ending then
             table.insert(items, { "The museum is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
             -- (Out of sessions, nothing at the table said so: the report does, with Flitwidget's word.)
@@ -64,9 +70,10 @@ local function wrapup_items(app, rep)
     end
     -- How long the night ran against the time you all agreed, next (the third playtest: a night that ran
     -- two hours over said so only under "+7 more").
-    if rep.table_text then
+    if rep.table_text and not rep.table_said then
         table.insert(items, { rep.table_text, theme.dim })
     end
+    rep.table_said = nil
     -- At the table first: what needs the DM's attention before next week.
     for _, st in ipairs(rep.table or {}) do
         local col = st.state == "fixed" and theme.green or (st.state == "active" and theme.red or theme.orange)

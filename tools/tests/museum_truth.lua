@@ -318,6 +318,7 @@ local function play(seed, style)
     end
     local tag = "seed " .. seed .. " " .. style
     local owed_marks = {}           -- marks on her card nobody's heard her line for yet
+    local learned = {}              -- (a lesson from a miss waits for that hero's next check, next week too: C25)
     for w = 1, MODULE.MAX_WEEKS do
         local prep = c:start_week()
         for _, pr in ipairs(c.adv.prompts) do
@@ -359,7 +360,6 @@ local function play(seed, style)
         local museum_night = require "game.model.museum_night"
         local francs_before = c.adv.francs or 0
         local stopped_in = c.adv.pos or c.adv.last_room
-        local learned = {}
         -- Lines from the museum's people that say what they know (R11), to check against the log.
         local people_heard = {}
         local KNOWS = {}
@@ -431,6 +431,13 @@ local function play(seed, style)
             end
             if ev.kind == "ruling" and ev.tier == "near" and ev.success == false and ev.actor then
                 learned[ev.actor] = true          -- (the truth test always rules the first option: "No, but...")
+            end
+            -- (And a near miss the die settled on its own, with no card: the lesson waits on the campaign,
+            -- `campaign.learned`, which only that ruling sets. C25.)
+            for k, n in pairs(c.learned or {}) do
+                if n and n > 0 then
+                    learned[k] = true
+                end
             end
             if ev.kind == "roll_where" and ev.text and string.find(ev.text, "they learned from the last miss", 1, true) then
                 if not learned[ev.actor] then

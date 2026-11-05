@@ -652,7 +652,7 @@ local function m_watch(R)
         end
         local tally = 0
         for _, line in ipairs(wk.chain or {}) do
-            local one = string.match(line, "^Along the way, %a+ found (%a+) Flitwidget Franc")
+            local one = string.match(line, "^Along the way, .- found (%a+) Flitwidget Franc")  -- (a name with a space: Exhibit B)
             if one then
                 tally = tally + (one == "a" and 1 or (NUMW[one] or 0))
             elseif string.find(line, "^Along the way, Flitwidget Francs turned up: ") then

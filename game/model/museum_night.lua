@@ -1040,6 +1040,11 @@ function M.play_moment(night, card, sc)
             end
         end
     end
+    -- (What the hero stops in front of is said to the table: they all see the painting, so the chat
+    -- and the friends can talk about it after. The gate after the final pass's merge, 35 random.)
+    if card.id == "mus_reach" and night.mus_vars and night.mus_vars.painting then
+        night:say("One painting holds everyone's eye: " .. night.mus_vars.painting .. ".", "narration")
+    end
     local o = night:decision(copy, night.mus_vars)
     if not o then
         return nil
@@ -2223,7 +2228,9 @@ function M.fork_read(night, voters, first, choices, said_of, truth)
         table.insert(bits, p.name .. " would go " .. M.go_way(said_of(i)))
     end
     night.fork_truth = truth
-    night:say(util.fill(night:fresh(M.READ_LINES, "fork_read"), { read = table.concat(bits, "; ") }), "screen")
+    -- (A glance behind the screen, not table time: `glance`, pacing.duration.)
+    night:emit({ kind = "narrate", style = "screen", glance = true,
+                 text = util.sentence_case(util.fill(night:fresh(M.READ_LINES, "fork_read"), { read = table.concat(bits, "; ") })) })
 end
 
 local function hurt(night)
@@ -3124,8 +3131,12 @@ function M.table_pick(night, copy, vars)
                 end
                 nv.back = M.vote_back(night, w == "pushed" and lost_to or lastv)
                 for _, l in ipairs(named or {}) do
-                    local need = string.match(l, "{(%a+)}")
-                    if need and nv[need] then
+                    -- (Every fill-in it needs, not just the first: "We were good {back}: {did}." with no {did}.)
+                    local ok = string.find(l, "{%a+}") ~= nil
+                    for need in string.gmatch(l, "{(%a+)}") do
+                        ok = ok and nv[need] ~= nil
+                    end
+                    if ok then
                         table.insert(list, util.fill(l, nv))
                     end
                 end
@@ -3786,8 +3797,18 @@ function M.fork(night, options, backs, sides)
         return label_of(i)
     end
     -- Each says where they'd go, in their own words: the first for each way, and one "same" after.
+    local here = {}
+    for _, p in ipairs(night:at_hand()) do
+        here[p.key] = true
+    end
     for i in ipairs(choices) do
-        local fans = by[i] or {}
+        -- (Not a friend whose hero wandered off: they aren't in this scene. F11.)
+        local fans = {}
+        for _, p in ipairs(by[i] or {}) do
+            if here[p.key] then
+                table.insert(fans, p)
+            end
+        end
         if #fans > 0 then
             local way = M.go_way(said_of(i))
             local line = night:fresh(M.FORK_SAY, "fork_say")

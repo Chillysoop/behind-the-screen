@@ -69,6 +69,7 @@ Where v2 lives:
 | `game/model/museum_night.lua` (`lair_losses`, `first_pick`, a card's `owner`, an option's `best` and `by_holder`) | Round three: what's destroyed stays destroyed (`lair_losses`: an ally smashed or burnt out comes off her card for good, a lost fight's fallen foes stay fallen). A card's `owner` names the card whose moment handed the thing over; an option's `best` (skills) picks the one best at it among its backers; `by_holder` is done by whoever carries the thing; `first_pick` keeps the friends' first-pick promise. What a hero pocketed comes back at the thanks, by them while they're that seat's hero and can act, else through a friend (`WORLD_LINES.pocket_back_for`). A room's callbacks are said once each (`adv.cb_said`, `M.callbacks`), and a trip back says the ones that came true since. |
 | `game/model/museum_week.lua` (`CHAT`, `write_chat`, `night_lines`), `MODULE.chat`, `MODULE.chat_news` | The group chat written from the log (round three): downs counted truly, a lost fight, a theft caught, the moment that made or spoiled the night in the party's own words (never a card title), one post for whoever found what they came for, good news the table never heard; each room's posts only say what happened there, replies answer the post, and a sad week (a death, a wipe, an ally lost or a lost fight: `museum_week.somber`, from the log) has no jokes or small talk. |
 | `game/model/intros.lua` (`asks`) | Session Zero's lines and veils said at the table after the first night's introductions (round three: `ASKS_OPEN`, `ANSWER`), so the night's reminders quote something everyone heard. |
+| `game/model/voice.lua`, a cast card's `seen`, `wake`, `dormant` | Who may hear a line (Conner's November 4 notes, the root-cause doc's class 1): a "dm" line is captioned as what it is (`voice.of`: words you say, your own doing, what you hear from the table, the story told), Euryale's thoughts upstairs and other notes are behind your screen (`voice.UNHEARD`). A foe that looks like part of the room says nothing as it opens (`seen = false`) and its `wake` line comes as its fight starts; a `dormant` one (the knight) has no mini on the mat until it climbs out. At a fork the friends say where they'd go and your read of them is a hunch behind the screen (`museum_night.fork_read`), as good as you know them. A miss ruled "they learn from it" waits on `campaign.learned` for that hero's next check (`night:take_learned`). |
 | `game/ui/kit.lua` (`cut_hook`) | Text cut short shows the whole of it on hover (round three): `kit.ellipsize` remembers what it cut, `kit.text` calls `kit.cut_hook` (gloss.lua's card); `opts.full = false` turns it off. |
 
 ## Where things live
@@ -182,6 +183,9 @@ least:
     lua tools/tests/round3_screens_check.lua  # the third playtest's screens: nothing cut without a hover, the prep
                                           # board and report in full, CARRYING, the stats explained, the engine
                                           # screenshots' fixes (about 40s)
+    lua tools/tests/final_facts_check.lua     # the final pass's facts: the Mech, stone, deaths, money in the recaps
+    lua tools/tests/conner_nov4_check.lua     # Conner's November 4 notes: who may hear a line, the players decide
+                                          # and say so, claims with something behind them, never "last time"
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
 

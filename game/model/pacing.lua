@@ -54,7 +54,7 @@ function M.duration(ev)
         return 2.5
     elseif k == "dice" then
         return 2.5
-    elseif k == "narrate" and (ev.style == "aside" or ev.style == "record") then
+    elseif k == "narrate" and (ev.style == "aside" or ev.style == "record" or ev.glance) then
         return 0.3      -- the log's, not read out: nothing on screen to wait for
     elseif k == "narrate" or k == "npc" then
         return M.read(ev.text) + 0.4

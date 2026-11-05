@@ -64,6 +64,8 @@ night_mod.emit = function(self, ev)
         IC[w] = IC[w] or { n = 0, ic = 0 }
         IC[w].n = IC[w].n + 1
         IC[w].ic = IC[w].ic + (ev.ic and 1 or 0)
+    elseif ev.kind == "roll_where" and ev.text and string.find(ev.text, "they learned from the last miss", 1, true) then
+        TOKENS.lessons = (TOKENS.lessons or 0) + 1        -- (a big roll's +1, said on its card)
     elseif ev.kind == "token" and ev.what == "inspiration" then
         if ev.spent then
             TOKENS.spent = TOKENS.spent + 1
@@ -294,6 +296,7 @@ each_line(function(R, i, who, text)
     elseif who == "record" and has(text, "remembers the miss") then
         remembered = remembered + 1
     end
+
     if has(text, "twin daggers") and has(text, "hit like magic weapons") then
         fail("R", R.tag .. ": the daggers don't say what they do: '" .. text .. "'")
     end
@@ -302,6 +305,7 @@ each_line(function(R, i, who, text)
     end
 end)
 E.R = E.R or {}
+remembered = remembered + (TOKENS.lessons or 0)
 E.R.near_misses_learned, E.R.learned_used = near, remembered
 if near > 0 and remembered < math.floor(near / 2) then
     fail("R", string.format("%d misses ruled \"they learn from it\", and only %d +1s landed on a check", near, remembered))

@@ -473,9 +473,9 @@ end
 -- landed on the checks it should have): a near miss with a pet's help tonight (`edge_next`), and a miss
 -- you ruled "No, but..." (`campaign.learned`, kept until it's used, next week too). Used up here, and
 -- said with the roll (`self.learned_said`, for the check's line).
-function M:take_learned(p)
+function M:take_learned(p, quiet)
     if not p then
-        return 0
+        return 0, 0
     end
     local n = 0
     if self.edge_next and self.edge_next[p.key] then
@@ -489,9 +489,11 @@ function M:take_learned(p)
         c.learned[p.key] = nil
         self.learned_used = self.learned_used or {}
         table.insert(self.learned_used, { who = p.key, n = l, week = c.week })
-        self:say(util.fill("{char} remembers the miss: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
+        if not quiet then
+            self:say(util.fill("{char} remembers the miss: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
+        end
     end
-    return n
+    return n, l or 0
 end
 
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
@@ -2834,9 +2836,10 @@ function M:big_roll(spec, record)
         self.big_rolls[p.key] = (self.big_rolls[p.key] or 0) + 1
     end
     local skill, mod = self:best_skill(p, spec.skill or { "perception" })
-    -- A near miss (B2), or one you ruled "No, but...": they learned from it, +1 on this roll.
-    local learned = self:take_learned(p)
-    mod = mod + learned
+    -- A near miss (B2), or one you ruled "No, but...": they learned from it, +1 on this roll (said
+    -- with the roll, below).
+    local all_bonus, learned = self:take_learned(p, true)
+    mod = mod + all_bonus
     if p then
         mod = mod + self:take_research(p, skill)
     end
@@ -2854,7 +2857,7 @@ function M:big_roll(spec, record)
     end
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
     text = text .. " " .. M.odds_line(dc, mod)
-    if learned then
+    if learned and learned > 0 then
         text = text .. " (That includes +" .. util.int(learned) .. ": they learned from the last miss.)"
     end
     -- The scene's final roll says so, and what it's for (the card-led playtest, October 16:

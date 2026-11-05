@@ -325,7 +325,11 @@ function M.hold_wake(night, here)
     local names = util.join_names(due)
     night:say(util.fill((here and data.WAKE_HERE) or data.WAKE, { char = names, room = here or "" }), "narration")
     local ok, people = pcall(require, "game.model.people")
-    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
+    -- (Flitwidget grieves only where he is: the gift shop, his thanks. A wake at the night's end with the
+    -- party still in her lair, or anywhere else, is the party's own. The final pass's merge, 34 careful.)
+    local room = night.scene and night.scene.room
+    local with_him = room == "gift_shop" or room == "thanks"
+    local line = with_him and ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
         { char = names, plural = #due > 1 or nil }) or nil
     if line then
         night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })

@@ -359,8 +359,8 @@ future change follows them.
 
 ## The tracker
 
-Status: **open** (nothing done), **partial** (a WIP commit on a final-pass branch, unchecked), **in build** (fixed in
-the November 4 build). Class numbers refer to the sections above. Where a line or file is known, it's named.
+Status: **open** (nothing done), **fixed (c-fix)** (fixed on the c-fix branch, November 5, held by
+tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's work, finished and merged on c-fix). Class numbers refer to the sections above. Where a line or file is known, it's named.
 
 ### Conner's points on the November 4 build
 
@@ -368,57 +368,60 @@ the November 4 build). Class numbers refer to the sections above. Where a line o
 | --- | --- | --- | --- | --- |
 | C1 | Friends start session 1 frowning | 8 | the face/label mapping (game/ui/panels.lua), starting mood | open |
 | C2 | In-character model's head below the table; middle camera should fit every face | 7 | the middle camera view, people model scale (main/people/person.script `become`) | open |
-| C3 | "You set it yourself" after setting a DC | 10 | game/model/night.lua:2738 | open |
-| C4 | Topiary called creatures before waking; "smoke" over hedges not burned | 1, 4 | the garden room and briar cards; cards.lua:107 reads `garden_burned` | open |
-| C5 | DM narrates "Pip thinks better of it" after a warning | 2 | game/model/museum_night.lua:1222; module.lua:747 | open |
-| C6 | "The metal statue ... hasn't moved. Yet." | 1 | game/data/museum/cards.lua:74 | open |
-| C7 | Forks read out what each friend wants; should be DM intuition pop-ups under the story panel, sharper with familiarity | 2 | museum_night.lua fork text (~3450), thoughts.read, familiar.lua | open |
-| C8 | Friends talk in character more as they grow comfortable | 2 | the line picker's in-character share | open |
+| C3 | "You set it yourself" after setting a DC | 10 | game/model/night.lua:2738 | fixed (c-fix) |
+| C4 | Topiary called creatures before waking; "smoke" over hedges not burned | 1, 4 | the garden room and briar cards; cards.lua:107 reads `garden_burned` | fixed (c-fix) |
+| C5 | DM narrates "Pip thinks better of it" after a warning | 2 | game/model/museum_night.lua:1222; module.lua:747 | fixed (c-fix) |
+| C6 | "The metal statue ... hasn't moved. Yet." | 1 | game/data/museum/cards.lua:74 | fixed (c-fix) |
+| C7 | Forks read out what each friend wants; should be DM intuition pop-ups under the story panel, sharper with familiarity | 2 | museum_night.lua fork text (~3450), thoughts.read, familiar.lua | fixed (c-fix) |
+| C8 | Friends talk in character more as they grow comfortable | 2 | the line picker's in-character share | partial: bids in character more each week |
 | C9 | DM caption position clashes with character dialogue; bubbles over the in/out-of-character tags | 7 | game/ui/night_view.lua VOICE (~942), caption and bubble layout | open |
 | C10 | Snacks and drinks eaten in chunks through the night | 9 | the table props and the table clock (main/props, generators) | open |
 | C11 | A session starts on a wood camp while in the museum | 9 | the night's opening before scene 1 is staged (the between-nights campfire) | open |
-| C12 | The knight: a knight mini in a frame from the start; should be a painting that wakes | 1, 4 | the paintings room, `wake = { feature, at }`, the minis | open |
+| C12 | The knight: a knight mini in a frame from the start; should be a painting that wakes | 1, 4 | the paintings room, `wake = { feature, at }`, the minis | fixed (c-fix) |
 | C13 | The find card should show the poking hero's Investigation total | 9 | museum_night.lua look/find cards (~1370, ~1392) | open |
-| C14 | The painting's scimitar: mechanical benefit per the book? | 3, 4 | the paintings room's gift, items.lua | open |
-| C15 | Friends should use the inspiration they hold, well | 3 | the friends' AI, inspiration spending | open |
-| C16 | Euryale's thoughts upstairs said to the table | 1, 4, 5 | museum_night.lua interludes (3963, 4116, 4249, 4472) | open |
-| C17 | "Using the daggers" with no daggers in the inventory | 3 | fight.lua:548, items.lua, the hand-off | open |
+| C14 | The painting's scimitar: mechanical benefit per the book? | 3, 4 | the paintings room's gift, items.lua | fixed (c-fix) |
+| C15 | Friends should use the inspiration they hold, well | 3 | the friends' AI, inspiration spending | fixed (c-fix) |
+| C16 | Euryale's thoughts upstairs said to the table | 1, 4, 5 | museum_night.lua interludes (3963, 4116, 4249, 4472) | fixed (c-fix) |
+| C17 | "Using the daggers" with no daggers in the inventory | 3 | fight.lua:548, items.lua, the hand-off | fixed (c-fix) |
 | C18 | Splitting the party doesn't cut between groups | 9 | decisions.lua:301, night:at_hand | open |
 | C19 | Telpur's mini runs off the table after the Hunting Grounds | 6 | companions on the board, the post-fight placement | open |
-| C20 | The DM says what the players do or want; they should say it | 2 | every dm-style line about the party's choices | open |
-| C21 | "YOU, TO THE TABLE" lines no DM would say; a new "what the DM hears from the table" channel | 1, 2 | night:say styles, night_view VOICE | open |
-| C22 | The Lecturer starts behind the lectern | 4, 6 | the lecture theatre's map spec spawn spots | open |
-| C23 | Pip started in another room of the offices; locked? | 4, 6 | the offices' map spec, its doors, staging | open |
+| C20 | The DM says what the players do or want; they should say it | 2 | every dm-style line about the party's choices | partial: forks and warnings; the DM cards still say what a hero wants |
+| C21 | "YOU, TO THE TABLE" lines no DM would say; a new "what the DM hears from the table" channel | 1, 2 | night:say styles, night_view VOICE | fixed (c-fix) |
+| C22 | The Lecturer starts behind the lectern | 4, 6 | the lecture theatre's map spec spawn spots | fixed (c-fix) |
+| C23 | Pip started in another room of the offices; locked? | 4, 6 | the offices' map spec, its doors, staging | fixed (c-fix) |
 | C24 | No passing through walls, ever, even in quiet moments | 6 | every mini move; sight.walk | open |
-| C25 | "+1 on their next roll" must land on the next roll | 3 | rulings.lua:58, night.lua:2954 | open |
-| C26 | Friends never know they've played before; always the first time | 5 | every friend line that names an adventure fact | open |
+| C25 | "+1 on their next roll" must land on the next roll | 3 | rulings.lua:58, night.lua:2954 | fixed (c-fix) |
+| C26 | Friends never know they've played before; always the first time | 5 | every friend line that names an adventure fact | fixed (c-fix) |
 | C27 | The death-save card overlaps the DM screen and tiles; Dev "beaming" while Brannoc dies | 7, 8 | night_view `dying`, the tiles' labels | open |
 
 ### From the confirming reviews (V-items; the four files in confirming-reviews/)
 
 | ID | What | Class | Status |
 | --- | --- | --- | --- |
-| V1 | **Blocker:** the Steam Mech fights for a party that never woke it (loose end `mech_left`); "They woke the Steam Mech" | 3 | partial (f-facts) |
-| V2 | Euryale's "Your Witness writes beautifully" without the notebook | 1, 5 | partial (f-facts) |
-| V3 | After a lost boss fight, stone heroes back next week with no word; Pip both stone and on the floor | 3 | partial (f-facts) |
-| V4 | Deaths: the wake held in a room not yet reached; chat asks about a dead hero; last-words card gives no last words; epilogue forgets the dead; Euryale's first-meeting speech after a wipe; the dead hero's pack carried in after being left | 3, 10 | partial (f-facts) |
-| V5 | Money in recaps: a donation-box charge after giving; the recap's reason or amount differs from what Flitwidget said; bare "saw what was left" | 3, 10 | partial (f-facts) |
-| V6 | Boss night's chain puts knockouts before the fight; "the frame" unnamed | 10 | partial (f-facts) |
-| V7 | Small contradictions: the bird "can't place it" after being named; sleeping or stone monsters move; "they'd been warned" with no warning; scarabs that "go to her" after being killed; Hit Dice "left" at the first rest; the knight in and out of its frame; "Overdue" at an on-time level; the dice score 55 with no box; "Big rolls: 0 and 0" beside a natural 20 | 10 | partial (f-facts) |
-| V8 | Opening bids still by seat (Dev fights the garden, Sam's coin, Mara's ritual, Dev's knight, the yield's bids); Sam "tired" 27 times | 2, 8 | partial (f-words) |
-| V9 | Payoffs get no reaction: the mirror, Hyper Destroyer Mode, the vorpal sword in hand; and they're missing from the recap | 9, 10 | partial (f-words) |
-| V10 | Templates against facts: "I said yes when we X", "That one hurt", "X's plan, Y's timing", "a move together", the manual line after buying it, Mara's "doesn't add up" with no roll, "Not a bad fight" after a death, chat's false claims | 10 | partial (f-words) |
-| V11 | Votes: "two all" when only three spoke (22 of 41 tie asides) | 10 | partial (f-words) |
-| V12 | Same script every run: Session Zero's limits and reactions, the reward scene, Exhibit B's 11 stock lines, Thessaly the only unhappy reactor; Session Zero quotes never agreed ("rare and meaningful", "10:30 pm") | 2, 10 | partial (f-words) |
-| V13 | Minis: Euryale and Pip missing in the boss-night frame; heroes behind the offices' partitions | 6 | partial (f-screens) |
-| V14 | Cut-offs left: the report's "+N Fun from your call" and "Suspicious of the cooked..." lines, the fork header, Jess's promise, the ties labels, mini-map labels, the Session Zero hint; the Story sidebar drops sections without saying so | 7 | partial (f-screens) |
-| V15 | Unexplained: "cooked" and "the DC was 2"; Investment and Suspicion and which way is good; Empathy not where the Thought card says | 7 | partial (f-screens) |
-| V16 | The handwriting font's capital-looking k; the key strip's backing; the toast's cut letter; the prep header through Ties and locks; prep hours 10 to 8 unexplained | 7 | partial (f-screens) |
+| V1 | **Blocker:** the Steam Mech fights for a party that never woke it (loose end `mech_left`); "They woke the Steam Mech" | 3 | merged (f-facts), its checks pass |
+| V2 | Euryale's "Your Witness writes beautifully" without the notebook | 1, 5 | merged (f-facts), its checks pass |
+| V3 | After a lost boss fight, stone heroes back next week with no word; Pip both stone and on the floor | 3 | merged (f-facts), its checks pass |
+| V4 | Deaths: the wake held in a room not yet reached; chat asks about a dead hero; last-words card gives no last words; epilogue forgets the dead; Euryale's first-meeting speech after a wipe; the dead hero's pack carried in after being left | 3, 10 | merged (f-facts), its checks pass |
+| V5 | Money in recaps: a donation-box charge after giving; the recap's reason or amount differs from what Flitwidget said; bare "saw what was left" | 3, 10 | merged (f-facts), its checks pass |
+| V6 | Boss night's chain puts knockouts before the fight; "the frame" unnamed | 10 | merged (f-facts), its checks pass |
+| V7 | Small contradictions: the bird "can't place it" after being named; sleeping or stone monsters move; "they'd been warned" with no warning; scarabs that "go to her" after being killed; Hit Dice "left" at the first rest; the knight in and out of its frame; "Overdue" at an on-time level; the dice score 55 with no box; "Big rolls: 0 and 0" beside a natural 20 | 10 | merged (f-facts), its checks pass |
+| V8 | Opening bids still by seat (Dev fights the garden, Sam's coin, Mara's ritual, Dev's knight, the yield's bids); Sam "tired" 27 times | 2, 8 | merged (f-words), its checks pass |
+| V9 | Payoffs get no reaction: the mirror, Hyper Destroyer Mode, the vorpal sword in hand; and they're missing from the recap | 9, 10 | merged (f-words), its checks pass |
+| V10 | Templates against facts: "I said yes when we X", "That one hurt", "X's plan, Y's timing", "a move together", the manual line after buying it, Mara's "doesn't add up" with no roll, "Not a bad fight" after a death, chat's false claims | 10 | merged (f-words), its checks pass |
+| V11 | Votes: "two all" when only three spoke (22 of 41 tie asides) | 10 | merged (f-words), its checks pass |
+| V12 | Same script every run: Session Zero's limits and reactions, the reward scene, Exhibit B's 11 stock lines, Thessaly the only unhappy reactor; Session Zero quotes never agreed ("rare and meaningful", "10:30 pm") | 2, 10 | merged (f-words), its checks pass |
+| V13 | Minis: Euryale and Pip missing in the boss-night frame; heroes behind the offices' partitions | 6 | merged (f-screens), its checks pass |
+| V14 | Cut-offs left: the report's "+N Fun from your call" and "Suspicious of the cooked..." lines, the fork header, Jess's promise, the ties labels, mini-map labels, the Session Zero hint; the Story sidebar drops sections without saying so | 7 | merged (f-screens), its checks pass |
+| V15 | Unexplained: "cooked" and "the DC was 2"; Investment and Suspicion and which way is good; Empathy not where the Thought card says | 7 | merged (f-screens), its checks pass |
+| V16 | The handwriting font's capital-looking k; the key strip's backing; the toast's cut letter; the prep header through Ties and locks; prep hours 10 to 8 unexplained | 7 | merged (f-screens), its checks pass |
 
 ### Picking it up
 
-1. Read the three final-pass branches' last commits (f-facts, f-words, f-screens): each is a work-in-progress snapshot
-   on top of bfa5157. Run each branch's checks; finish or discard per item.
-2. Build the class checks in the order 1, 3, 2, 6, 7 (the ones Conner's points hit hardest), each failing on today's
-   code, then fix until they pass. Everything in the tracker should end with a check that holds it.
-3. Then merge, the full gate, a real-engine prologue, a fresh-eyes review, the build, and AGENTS.md gets these rules.
+1. Done (November 5, branch c-fix): the final pass's three branches merged and checked, and classes 1 to 3's
+   items fixed, held by tools/tests/conner_nov4_check.lua.
+2. Next, in this order: class 6 (movement: C19, C24), class 7 (layout: C2, C9, C27), class 8 (faces: C1, C27's
+   label), class 9 (structure: C10, C11, C13, C18). Build each class's check first, failing on today's code.
+3. Then the rest of class 2 (the DM's cards still say what a hero wants; C20) and the general checks for
+   classes 1 to 3 (the spoiler, agency and claim scanners described above: today's check covers the
+   reported cases, not the general property).
+4. Then merge, the full gate, a real-engine prologue, a fresh-eyes review, the build, and AGENTS.md gets these rules.
