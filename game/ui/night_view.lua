@@ -305,7 +305,11 @@ end
 local function status_text(app)
     local n = app.night
     -- The table clock (A14): what time it is at the table, and when you said you'd stop.
-    local tc = (n and n.clock_text) and (n:clock_text() .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
+    -- (Once the night's over, the minute it ended, as its wrap card says: the confirming playtest saw "10:51 pm" up
+    -- here beside "wrapping up at 10:49 pm".)
+    local done_at = app.night_done and n and n.table_report and n.table_report.minutes
+    local tc = (n and n.clock_text) and ((done_at and n:clock_text(math.floor(done_at)) or n:clock_text())
+        .. " (till " .. n:clock_text(n.table_planned) .. ")") or ""
     -- (No call count up here: the night's end card has it, October 20. Short, so the End session
     -- button fits beside it: November 3.)
     -- (The speed is its own buttons now, beside this: the playtest, November 3.)
@@ -379,12 +383,16 @@ function M.draw_frame(app)
     -- line nobody read after the first scene; October 20: back at the start of every night). The
     -- hover card below keeps them. (No "1-4 camera": the night aims the camera itself, and a card's
     -- options show their own numbers.)
-    app.n_keys = nil
+    app.n_keys, app.n_keys_back = nil, nil
     if not app.keys_hidden and app.campaign.week <= 1 then
         -- (Under the dice strip and the small-moment crits toggle, not across them: the third playtest's
         -- first frame had all three on one line.)
-        app.n_keys = kit.text(1576, 102, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S Story/Table", "ui14",
-            theme.faint, { pivot = gui.PIVOT_NE })
+        -- (On its own dark backing, like the rolls strip's label: the confirming playtest's engine run had it
+        -- faint over the window, "H your rolls" lost on the moon.)
+        local keys = "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S Story/Table"
+        local kw = kit.width(keys, "ui14")
+        app.n_keys_back = kit.box(1576 + 6 - kw - 12, 100, kw + 12, 22, kit.rgba("#000000", 0.55), { radius = 6 })
+        app.n_keys = kit.text(1576, 102, keys, "ui14", theme.dim, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
     gloss.card_spot(1270, 4, 172, 44, "The evening at a glance",
@@ -1107,6 +1115,7 @@ function M.caption(app, text, style)
     gui.set_color(c.rule, theme.gold)
 end
 
+M.WRAP_HEAD = "Game night is over."
 local TITLE_Y = 66
 function M.title(app, top, title, sub)
     M.drop_title(app)
@@ -1122,7 +1131,11 @@ function M.title(app, top, title, sub)
     t.nodes[3] = kit.text(800, y + 40, title, "title30", theme.text, { pivot = gui.PIVOT_N })
     t.nodes[4] = kit.text(800, y + 84, sub or "", "ui18", theme.dim, { pivot = gui.PIVOT_N })
     t.colors = { kit.rgba("#140e0b", 0.8), theme.gold, theme.text, theme.dim }
+    t.rect = { x = x, y = y, w = w, h = 118 }
     app.title_card = t
+    if app.bubbles then
+        M.place_bubbles(app)
+    end
 end
 
 -- A note sliding in under the top bar: a clue for the DM's notes. quiet: only the DM knows it (her
@@ -1133,8 +1146,14 @@ function M.toast(app, top, text, quiet)
     kit.use(app.layers.fx)
     local w = quiet and 520 or 620
     local font = quiet and "ui14" or "ui18"
+    -- (Wide enough for its header, which wraps rather than run past the edge: the confirming playtest's
+    -- "...A BRACELET OF PROTECTIO".)
+    local header = quiet and ("BEHIND YOUR SCREEN  " .. top) or top
+    w = math.max(w, math.min(760, kit.width(header, "ui14") + 40 + (quiet and 0 or 150)))
+    local hlines = kit.wrap(header, "ui14", w - 40 - (quiet and 0 or 150))
     local lines = kit.wrap(text, font, w - 40)
-    local h = 40 + #lines * kit.line_height(font) + 12
+    local hh = (#hlines - 1) * kit.line_height("ui14")
+    local h = 40 + hh + #lines * kit.line_height(font) + 12
     -- With the log open, it sits on the rest of the screen (A11). Under a room's title card, not on it.
     local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
     local x, y = cx - w / 2, app.title_card and (TITLE_Y + 128) or 136
@@ -1143,8 +1162,10 @@ function M.toast(app, top, text, quiet)
     local head = quiet and theme.faint or theme.gold
     t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, edge, { radius = 12 })
     t.nodes[2] = kit.box(x, y, w, h, kit.rgba("#201813", quiet and 0.9 or 0.96), { radius = 11 })
-    t.nodes[3] = kit.text(x + 20, y + 12, quiet and ("BEHIND YOUR SCREEN  " .. top) or top, "ui14", head)
-    t.nodes[4] = kit.text(x + 20, y + 34, table.concat(lines, "\n"), font, quiet and theme.dim or theme.text)
+    -- (Plain text: a word's underline is a node of its own, and it stayed behind when the note faded, the
+    -- confirming playtest's stray line under it. The note is in your notes, with its words explained.)
+    t.nodes[3] = kit.text(x + 20, y + 12, table.concat(hlines, "\n"), "ui14", head, { gloss = false })
+    t.nodes[4] = kit.text(x + 20, y + 34 + hh, table.concat(lines, "\n"), font, quiet and theme.dim or theme.text, { gloss = false })
     t.nodes[5] = kit.text(x + w - 18, y + 12, quiet and "" or "N: open your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     t.colors = { edge, kit.rgba("#201813", quiet and 0.9 or 0.96), head, quiet and theme.dim or theme.text, theme.faint }
     app.toast_card = t
@@ -1463,6 +1484,23 @@ function M.fight_rows(sm)
     return rows
 end
 
+-- A room's title card, once its board is down: a new board drops in piece by piece (board.landing), and the
+-- title and the read-aloud after it wait for it (the confirming playtest's 8_45: the lecture theatre's
+-- benches still in the air under its title and read-aloud). The same board again: at once.
+function M.title_after_board(app, ev, top, title, sub)
+    local id = ev.board or ev.terrain
+    local land = (id and id ~= app.terrain) and board_mod.landing(id) or 0
+    app.title_later = nil
+    if land <= 0 then
+        M.title(app, top, title, sub)
+        return
+    end
+    M.drop_title(app)
+    app.title_later = { t = land, top = top, title = title, sub = sub }
+    -- (The night's next beat waits too: its clock runs at the night's speed, the board's in real time.)
+    app.timer = math.max(app.timer or 0, land * speed(app))
+end
+
 function M.drop_title(app)
     if app.title_card then
         kit.remove(app.title_card.nodes)
@@ -1586,6 +1624,12 @@ function M.place_bubbles(app)
             -- Never over the DM's caption: go above it.
             if cap and x < cap.x + cap.w + 6 and cap.x < x + b.w + 6 and y < cap.y + cap.h + 6 and cap.y < y + b.h + 6 then
                 y = cap.y - b.h - 8
+            end
+            -- Nor over the room's title card while it's up: under it (the confirming playtest's 8_14, Flitwidget's
+            -- welcome over "The street outside the museum").
+            local tr = app.title_card and app.title_card.rect
+            if tr and x < tr.x + tr.w + 6 and tr.x < x + b.w + 6 and y < tr.y + tr.h + 6 and tr.y < y + b.h + 6 then
+                y = tr.y + tr.h + 8
             end
             -- Don't stack on top of a bubble that's already up.
             for _, o in ipairs(placed) do
@@ -1823,6 +1867,14 @@ end
 
 function M.update(app, dt)
     app.clock_t = (app.clock_t or 0) + dt
+    local tl = app.title_later
+    if tl then
+        tl.t = tl.t - dt
+        if tl.t <= 0 then
+            app.title_later = nil
+            M.title(app, tl.top, tl.title, tl.sub)
+        end
+    end
     M.update_fx(app, dt)
     panels.update(app, dt)
     battle_hud.update(app, dt)
@@ -2580,6 +2632,9 @@ function M.handle(app, ev)
             if app.n_keys then
                 gui.set_enabled(app.n_keys, false)
             end
+            if app.n_keys_back then
+                gui.set_enabled(app.n_keys_back, false)
+            end
         end
         app.scene_type_name = ev.type_name
         app.scene_label = "Room " .. util.int(ev.index) .. ":  " .. ev.title
@@ -2594,14 +2649,14 @@ function M.handle(app, ev)
         -- (The goal is under the scene's name in the header, right above: the title card says where
         -- and who.)
         local sub = (ev.type_name or "") .. who
-        M.title(app, "ROOM " .. util.int(ev.index), ev.title, sub)
+        M.title_after_board(app, ev, "ROOM " .. util.int(ev.index), ev.title, sub)
         stage(app, ev)
         cam(app, 2)
     elseif k == "stage" then
-        stage(app, ev)
         if ev.title then
-            M.title(app, "THE SCENE SHIFTS", ev.title, "")
+            M.title_after_board(app, ev, "THE SCENE SHIFTS", ev.title, "")
         end
+        stage(app, ev)
         cam(app, 2)
     elseif k == "cinematic" then
         -- The opening of the first session (museum_night.intro).
@@ -3002,6 +3057,7 @@ function M.handle(app, ev)
         post("track", { on = false })
         M.clear_fx(app)
         cam(app, 1)
+        M.refresh_status(app)          -- (the clock up top stops at the minute the night ended)
         M.show_done(app)
     elseif k == "decision" or k == "ruling" or k == "roll_where" then
         if k == "ruling" and ev.tier then
@@ -3992,7 +4048,8 @@ function M.show_done(app)
         y = math.max(70, cr.y - h - 16)
     end
     kit.box(x, y, w, h, theme.paper, { radius = 12 })
-    kit.text(x + w / 2, y + 18, "That's a wrap for tonight.", "ui18b", theme.ink, { pivot = gui.PIVOT_N })
+    -- (Not "That's a wrap" again right after the night's last line said it: the confirming playtest.)
+    kit.text(x + w / 2, y + 18, M.WRAP_HEAD, "ui18b", theme.ink, { pivot = gui.PIVOT_N })
     -- The evening as the table lived it (playtest, October 13: "16:48 at the table" read as a clock).
     -- (The night's length as the report gives it, to the minute: the third playtest saw "1h 53m" here
     -- and "(1h 52m)" on the report. night.table_report is the length the table judged.)

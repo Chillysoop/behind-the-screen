@@ -17,7 +17,9 @@ GUI_FONTS = {
     "ui18b": ("Outfit-Bold.ttf", 18),
     "ui22b": ("Outfit-Bold.ttf", 22),
     "title30": ("Lora-Bold.ttf", 30),
-    "hand24": ("NothingYouCouldDo-Regular.ttf", 24),
+    # (Patrick Hand, OFL: a lowercase k that reads as one. Nothing You Could Do drew "kitchen" and "okay" with a
+    # capital K, the confirming playtest's 8_28 and 8_58. The table's own paper textures keep it: no k there.)
+    "hand24": ("PatrickHand-Regular.ttf", 24),
     "story22": ("Lora-Bold.ttf", 22),
     "read26": ("Lora-Bold.ttf", 26),     # the DM's read-aloud passages on game night (A9)
 }

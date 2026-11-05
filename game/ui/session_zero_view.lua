@@ -216,9 +216,17 @@ local function rules(app, c)
                     end
                 end
             end
-            kit.text(x + kit.width(r.name, "ui18b") + 10, y + 3, head, "ui14", theme.dim,
-                { w = w - kit.width(r.name, "ui18b") - 10, lines = 1 })
-            y = y + 24
+            -- (On a line of its own when it won't fit beside the name: the confirming playtest's "The table's rule.
+            -- A player can still ask you for anoth...".)
+            local nw = kit.width(r.name, "ui18b") + 10
+            if kit.width(head, "ui14") <= w - nw then
+                kit.text(x + nw, y + 3, head, "ui14", theme.dim, { w = w - nw, lines = 1 })
+                y = y + 24
+            else
+                local nl = math.min(2, #kit.wrap(head, "ui14", w))
+                kit.text(x, y + 21, head, "ui14", theme.dim, { w = w, lines = 2 })
+                y = y + 23 + nl * kit.line_height("ui14")
+            end
             local bw = (w - 3 * 6) / #r.order
             for i, ok in ipairs(r.order) do
                 local o = r[ok]
@@ -241,7 +249,7 @@ local function rules(app, c)
             local o = r[ok]
             local chosen = c.rules[rk] == ok
             if chosen then
-                kit.box(x - 3, y - 3, w + 6, 36, theme.select, { radius = 9 })
+                kit.box(x - 2, y - 2, w + 4, 33, theme.select, { radius = 9 })
             end
             kit.button(x, y, w, 30, "", function()
                 c.rules[rk] = ok
@@ -249,7 +257,7 @@ local function rules(app, c)
             end, { color = chosen and theme.panel3 or theme.panel2, hover = theme.button_hover, key = "rule_" .. rk .. "_" .. ok })
             kit.text(x + 12, y + 5, o.name, "ui18", theme.text, { w = 250, lines = 1 })
             chips(x + 262, y + 5, o.like, w - 270)
-            y = y + 34
+            y = y + 31
         end
         end
         -- What people said about the chosen option: whoever feels most strongly about it.
@@ -266,7 +274,7 @@ local function rules(app, c)
         end
         if not (last and r.compact) then
             kit.text(x, y, said or " ", "ui14", theme.dim, { w = w, lines = 1 })
-            y = y + 22
+            y = y + 20
         end
     end
     return y

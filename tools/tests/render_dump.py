@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 FONTS = {
     "ui14": ("Outfit-Regular.ttf", 15), "ui18": ("Outfit-Regular.ttf", 18), "ui18b": ("Outfit-Bold.ttf", 18),
-    "ui22b": ("Outfit-Bold.ttf", 22), "title30": ("Lora-Bold.ttf", 30), "hand24": ("NothingYouCouldDo-Regular.ttf", 24),
+    "ui22b": ("Outfit-Bold.ttf", 22), "title30": ("Lora-Bold.ttf", 30), "hand24": ("PatrickHand-Regular.ttf", 24),
     "story22": ("Lora-Bold.ttf", 22), "read26": ("Lora-Bold.ttf", 26),
 }
 _cache = {}

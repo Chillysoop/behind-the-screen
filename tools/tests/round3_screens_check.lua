@@ -2,7 +2,7 @@
 -- whole prologues through the real UI against the mock GUI (tools/tests/museum_smoke.lua with
 -- SCREEN_CHECK=1, GLOSS_AUDIT=1 and DUMP_DIR), over a few seeds, and for each finding the evidence on
 -- the screens it was seen on. Run from the project root:
---     lua tools/tests/round3_screens_check.lua [seed ...]      (default: 31 34 1 5; about a minute)
+--     lua tools/tests/round3_screens_check.lua [seed ...]      (default: 31 34 1 5 51 54; about a minute and a half)
 -- Prints one line per finding, what was seen, and FAIL lines where a screen contradicts the fix.
 --
 -- CUT    no text cut short ("...") without a hover over it that shows the whole of it
@@ -26,6 +26,20 @@
 -- S14    the night's length is the same minute on the wrap card and the report
 -- S16    the between-sessions screen promises only what it has, and the promise names its rule
 -- S17    the journey's route never stops a room's story halfway
+-- V      the camera sees the minis: every hero as a room opens and as they roll, the room's person, Euryale and
+--        everyone through her talk, a fight's start (measured over many runs; walls and plinths by their height)
+-- The confirming playtest (reviews4: screens_confirm.md, engine_confirm.md):
+-- W      the last cut-offs shown whole: the table card's reasons (wide under the bars), the fork header,
+--        Session Zero, the session log's titles, a friend's card, the ties editor's choices, every map's
+--        names, the dice set beside NEW DICE
+-- SB     the Story sidebar names what it leaves out (hover for it all) and keeps its legend
+-- EX     the words explained where they stand: which way the report's bars are good, Empathy in the Table
+--        sidebar, "How well you know them", a cooked roll said as one (never "the DC was 2"), no frown over
+--        "beaming"; "cooked" and Hyper Destroyer Mode in GLOSS
+-- EN     the engine run's items a dump shows: the key strip's backing, the ties editor dark enough over the
+--        board, the boss board saying where the hours went, a handwriting font with a lowercase k
+-- PL     its polish list: "the" mid-sentence (a fork, why they came, her card), one colon, no stray dash, no
+--        "Lifted: Pip lifted", the clock stopping at the minute the night ended, "That's a wrap" once
 -- P      the polish list: one-of-a-kind minis by name, one colon to a voice, "has them", captions that
 --        start with a capital, the People page, the session log on the newest, the map's labels, the
 --        save slot, the death rule's note, the sheet's wish line, the last caption, no debug line
@@ -37,7 +51,7 @@ for _, a in ipairs(arg or {}) do
     table.insert(SEEDS, tonumber(a))
 end
 if #SEEDS == 0 then
-    SEEDS = { 31, 34, 1, 5 }
+    SEEDS = { 31, 34, 1, 5, 51, 54 }       -- (51 and 54: the confirming playtest's two UI runs)
 end
 
 local fails, seen, order = {}, {}, {}
@@ -50,7 +64,7 @@ end
 local function fail(id, msg)
     note(id)
     fails[id] = fails[id] or {}
-    if #fails[id] < 8 then
+    if #fails[id] < (os.getenv("ALL") and 100000 or 8) then       -- (ALL=1: every failure, not the first eight)
         table.insert(fails[id], msg)
     end
     fails[id].n = (fails[id].n or 0) + 1
@@ -123,7 +137,8 @@ local function run(seed)
                                            h = tonumber(f[5]), pivot = f[6] })
                 end
                 if f[1] == "box" and (tonumber(f[10]) or 1) > 0.01 and f[6] == "nw" then
-                    table.insert(boxes, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), w = tonumber(f[4]), h = tonumber(f[5]) })
+                    table.insert(boxes, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), w = tonumber(f[4]), h = tonumber(f[5]),
+                                          a = tonumber(f[10]) or 1, dark = (tonumber(f[7]) or 1) + (tonumber(f[8]) or 1) + (tonumber(f[9]) or 1) < 0.05 })
                 end
                 if f[1] == "text" and (f[15] or "") ~= "" and (tonumber(f[10]) or 1) > 0.01 then
                     table.insert(texts, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), font = f[11], pivot = f[6],
@@ -214,6 +229,36 @@ local function overlaps_in(d)
         end
     end
     return out
+end
+
+-- The map's marks on its names, within each map on the screen (from its GROUND FLOOR label: the prep board's, the
+-- boss board's and the journey's smaller one, the notes' page).
+local function map_marks(r, S, name, d)
+    for _, g in ipairs(d.texts) do
+        if g.text == "GROUND FLOOR" then
+            local x0, y0 = g.x - 12, g.y - 12
+            local inside = function(x, y)
+                return x >= x0 and x <= x0 + 800 and y >= y0 and y <= y0 + 330
+            end
+            for _, im in ipairs(d.images) do
+                local mark = string.find(im.image, "^icon_stairs") or string.find(im.image, "^icon_up") or string.find(im.image, "^icon_down")
+                    or (im.image == "dot" and im.w == 8)
+                if mark and inside(im.x, im.y) then
+                    local il = im.x - (PX[im.pivot] or 0) * im.w
+                    local it = im.y - (PY[im.pivot] or 0) * im.h
+                    for _, t in ipairs(d.texts) do
+                        if t.font == "ui14" and t.pivot == "n" and inside(t.x, t.y) then
+                            local l, tp, rr, b = rect_of(t)
+                            if il < rr - 1 and il + im.w > l + 1 and it < b - 2 and it + im.h > tp + 2 then
+                                fail("P", S .. name .. ": " .. im.image .. " on the map lands on \"" .. t.text .. "\"")
+                            end
+                        end
+                    end
+                    add("P", "map_marks")
+                end
+            end
+        end
+    end
 end
 
 local runs = {}
@@ -319,25 +364,10 @@ for _, r in ipairs(runs) do
                 fail("S1", S .. name .. ": a boss-night choice is cut: \"" .. b[1] .. "\"")
             end
         end
-        -- The map's marks (stairs, their arrows, the party's dots) never on a room's name (the engine run).
-        if name:find("^4_prep") or name:find("^4b_") then
-            for _, im in ipairs(d.images) do
-                local mark = string.find(im.image, "^icon_stairs") or string.find(im.image, "^icon_up") or string.find(im.image, "^icon_down")
-                    or (im.image == "dot" and im.w == 8)
-                if mark and im.y < 420 then
-                    local il = im.x - (PX[im.pivot] or 0) * im.w
-                    local it = im.y - (PY[im.pivot] or 0) * im.h
-                    for _, t in ipairs(d.texts) do
-                        if t.font == "ui14" and t.pivot == "n" and t.y < 420 and t.x > 420 then
-                            local l, tp, rr, b = rect_of(t)
-                            if il < rr - 1 and il + im.w > l + 1 and it < b - 2 and it + im.h > tp + 2 then
-                                fail("P", S .. name .. ": " .. im.image .. " on the map lands on \"" .. t.text .. "\"")
-                            end
-                        end
-                    end
-                    add("P", "map_marks")
-                end
-            end
+        -- The map's marks (stairs, their arrows, the party's dots) never on a room's name (the engine run;
+        -- the confirming playtest: the stair mark on "Gift shop" and on "down" on the smaller maps too).
+        if name:find("^4_prep") or name:find("^4b_") or name:find("^4n_notes_museum") then
+            map_marks(r, S, name, d)
         end
         -- The map's labels on the prep board.
         if name:find("^4_prep") then
@@ -598,6 +628,7 @@ for _, r in ipairs(runs) do
 
     -- S17: the journey's route. ---------------------------------------------------------------------------------
     each_dump(r, "^7_journey", function(name, d)
+        map_marks(r, S, name, d)
         for _, t in ipairs(d.texts) do
             if string.find(t.text, "^%d+%. ") and t.x > 400 and t.x < 1000 then
                 add("S17", "route_rows")
@@ -695,7 +726,9 @@ for _, r in ipairs(runs) do
         for _, im in ipairs(d.images) do
             if string.find(im.image, "^face_%a+_frown$") then
                 for _, t in ipairs(d.texts) do
-                    if (t.text == "listening" or t.text == "grinning" or t.text == "leaning in") and t.x > im.x and t.x - im.x < 330
+                    -- (And a good mood's words, the confirming playtest's frown over "beaming".)
+                    if (t.text == "listening" or t.text == "grinning" or t.text == "leaning in" or t.text == "beaming"
+                        or t.text == "chatting away") and t.x > im.x and t.x - im.x < 330
                         and math.abs(t.y - im.y) < 80 then
                         fail("S8", S .. name .. ": " .. im.image .. " beside \"" .. t.text .. "\"")
                     end
@@ -703,6 +736,197 @@ for _, r in ipairs(runs) do
             elseif string.find(im.image, "^face_%a+") then
                 add("S8", "faces")
             end
+        end
+    end)
+
+    -- The confirming playtest (reviews4: screens_confirm.md, engine_confirm.md). ----------------------------------
+    -- W: the remaining cut-offs, now whole (a hover isn't enough where the cut part is the point).
+    for _, name in ipairs(r.names) do
+        local d = r.dumps[name]
+        for _, t in ipairs(d.texts) do
+            if is_cut(t.text) then
+                local one = string.gsub(t.text, "\n", " ")
+                local l, _, rr = rect_of(t)
+                local w = l and (rr - l) or 0
+                if name:find("^6_report") and (one:find("^%+%d+ Fun from your call") or one:find("^Suspicious of")) and w < 400 then
+                    fail("W", S .. name .. ": a reason on the table's card is cut in its narrow column: \"" .. one .. "\"")
+                elseif one:find("^At a fork:") then
+                    fail("W", S .. name .. ": the fork header is cut: \"" .. one .. "\"")
+                elseif name:find("^1_session_zero") then
+                    fail("W", S .. name .. ": Session Zero cuts \"" .. one .. "\"")
+                elseif name:find("^4n_notes_log") and one:find("^%d+%.%s+%u") then
+                    fail("W", S .. name .. ": a night's title in the session log is cut: \"" .. one .. "\"")
+                elseif (name:find("^4_prep") or name:find("^4c_") or name:find("^4b_")) and t.x >= 1196 and t.y > 100 then
+                    fail("W", S .. name .. ": a friend's card cuts \"" .. one .. "\"")
+                end
+            end
+        end
+        -- The ties editor's choices beside LEADS TO.
+        if name:find("^4t_") then
+            for _, t in ipairs(d.texts) do
+                if t.text == "LEADS TO" then
+                    for _, u in ipairs(d.texts) do
+                        if u ~= t and math.abs(u.y - t.y) < 2 and u.x > t.x and u.x < t.x + 90 then
+                            add("W", "ties_choices")
+                            if is_cut(u.text) then
+                                fail("W", S .. name .. ": a choice you tie things to is cut: \"" .. string.gsub(u.text, "\n", " ") .. "\"")
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        -- Every map's room names (the boss board's, the journey's, the notes' too).
+        for _, g in ipairs(d.texts) do
+            if g.text == "GROUND FLOOR" then
+                for _, t in ipairs(d.texts) do
+                    if t.font == "ui14" and t.pivot == "n" and t.x >= g.x - 12 and t.x <= g.x + 800 and t.y >= g.y and t.y <= g.y + 330 then
+                        add("W", "map_names")
+                        if is_cut(t.text) then
+                            fail("W", S .. name .. ": a room's name on the map is cut: \"" .. t.text .. "\"")
+                        end
+                    end
+                end
+            end
+        end
+        -- The set of dice beside NEW DICE (or IN BAG), with its rarity.
+        if name:find("^6_report") then
+            for i, t in ipairs(d.texts) do
+                if t.text == "NEW DICE" or string.find(t.text, "^IN BAG") or string.find(t.text, "^IN YOUR BAG") then
+                    local nx = d.texts[i + 1]
+                    if nx and is_cut(nx.text) then
+                        fail("W", S .. name .. ": the dice set's name is cut: \"" .. nx.text .. "\"")
+                    elseif nx then
+                        add("W", "dice_names")
+                    end
+                end
+            end
+        end
+    end
+    -- SB: the Story sidebar says what it leaves out, and keeps its legend.
+    each_dump(r, "^5r_story", function(name, d)
+        local more = plain_find(d.joined, "more of the story") or plain_find(d.joined, "(point here)")
+        for _, p in ipairs(facts(r, name, "story_person")) do
+            if has(r, name, p[1]) then
+                add("SB", "people_shown")
+            elseif more then
+                add("SB", "people_in_more")
+            else
+                fail("SB", S .. name .. ": " .. p[1] .. " is in the story, and the sidebar drops it with no word")
+            end
+        end
+        if not plain_find(d.joined, "a full ring: keen") then
+            fail("SB", S .. name .. ": the sidebar's legend is gone")
+        end
+    end)
+    -- EX: the words explained where they stand.
+    each_dump(r, "^6_report_w", function(name, d)
+        if plain_find(d.joined, "suspicion") then
+            if plain_find(d.joined, "higher is better, but suspicion lower") then
+                add("EX", "reports_saying_which_way_is_good")
+            else
+                fail("EX", S .. name .. ": nothing on the report says which way is good for the bars (Suspicion lower)")
+            end
+        end
+    end)
+    each_dump(r, "^5r_recap", function(name, d)
+        if plain_find(d.joined, "your empathy:") then
+            add("EX", "table_sidebars_with_empathy")
+        else
+            fail("EX", S .. name .. ": the thought card says the Table sidebar shows your Empathy, and it doesn't")
+        end
+        if plain_find(d.joined, "you know them: new to you") then
+            fail("EX", S .. name .. ": \"You know them: new to you\"")
+        end
+    end)
+    for _, name in ipairs(r.names) do
+        for _, t in ipairs(r.dumps[name].texts) do
+            -- A cooked roll's DC said as the one the DM made up ("Behind the screen, the DC was 2").
+            local dc = tonumber(string.match(t.text, "Behind the screen, the DC was (%d+)%."))
+            if dc and dc < 8 then
+                fail("EX", S .. name .. ": \"" .. string.gsub(t.text, "\n", " ") .. "\" (a cooked roll, said as a DC)")
+            end
+            if string.find(t.text, "you cooked it", 1, true) then
+                add("EX", "cooked_rolls_said")
+            end
+        end
+    end
+    -- EN: the real engine's items a dump can show.
+    for _, name in ipairs(r.names) do
+        local d = r.dumps[name]
+        for _, t in ipairs(d.texts) do
+            if string.find(t.text, "^Space skip  P pause") then
+                local backed = false
+                local l, tp, rr = rect_of(t)
+                for _, b in ipairs(d.boxes) do
+                    backed = backed or (b.dark and b.a >= 0.4 and b.y <= tp + 2 and b.y + b.h >= tp + 16 and b.x <= l + 2 and b.x + b.w >= rr - 2)
+                end
+                if backed then
+                    add("EN", "key_strips_backed")
+                else
+                    fail("EN", S .. name .. ": the key strip has no backing")
+                end
+            end
+        end
+        if name:find("^4t_") then
+            -- (The editor's dimming over the prep board: dark enough that its header doesn't read through, 8_07.)
+            local dim = 0
+            for _, b in ipairs(d.boxes) do
+                if b.dark and b.x <= 0 and b.y <= 0 and b.w >= 1600 and b.h >= 900 then
+                    dim = math.max(dim, b.a)
+                end
+            end
+            if dim > 0 and dim < 0.8 then
+                fail("EN", S .. name .. ": the ties editor dims the board only to " .. dim .. ", and its header reads through")
+            elseif dim > 0 then
+                add("EN", "ties_editors_dark_enough")
+            end
+        end
+    end
+    each_dump(r, "^4b_showdown", function(name, d)
+        if plain_find(d.joined, "your week") and plain_find(d.joined, "her lair, 2 hours") then
+            add("EN", "boss_boards_saying_where_the_hours_went")
+        else
+            fail("EN", S .. name .. ": the boss board's hours drop with nothing saying where they went")
+        end
+    end)
+    -- PL: the confirming playtest's polish list.
+    for _, name in ipairs(r.names) do
+        local d = r.dumps[name]
+        for _, t in ipairs(d.texts) do
+            local one = string.gsub(t.text, "\n", " ")
+            if string.find(one, "^At a fork: .*%f[%a]The ") or string.find(one, " and The %l") then
+                fail("PL", S .. name .. ": a capital mid-sentence: \"" .. one .. "\"")
+            end
+            if string.find(one, "Came for %u%l") and not string.find(one, "Came for %u%l+'s") then
+                fail("PL", S .. name .. ": \"" .. one .. "\" (a capital mid-sentence)")
+            end
+            if string.find(one, "^Left on Euryale's card: .-, %u") then
+                fail("PL", S .. name .. ": \"" .. one .. "\" (capitals mid-sentence)")
+            end
+            if string.find(one, ": Cut: it never plays") then
+                fail("PL", S .. name .. ": two colons: \"" .. one .. "\"")
+            end
+            if string.find(one, "^%- ") and name:find("^6_report") then
+                fail("PL", S .. name .. ": a stray dash: \"" .. one .. "\"")
+            end
+            if string.find(one, "^Lifted: %u%l+ lifted ") then
+                fail("PL", S .. name .. ": \"" .. one .. "\"")
+            end
+        end
+    end
+    each_dump(r, "^5_night_end_w", function(name, d)
+        local ended = string.match(d.joined, "wrapping up at (%d+:%d+ [ap]m)")
+        local clock = string.match(d.joined, "(%d+:%d+ [ap]m) %(till ")
+        if ended and clock then
+            if ended == clock then
+                add("PL", "clocks_stopped_at_the_end")
+            else
+                fail("PL", S .. name .. ": the clock says " .. clock .. ", and the night ended at " .. ended)
+            end
+        end
+        if plain_find(d.joined, "that's a wrap for tonight") and string.find(d.joined, "and that's a wrap", 1, true) then
+            fail("PL", S .. name .. ": \"That's a wrap\" twice in a row")
         end
     end)
 
@@ -759,7 +983,7 @@ for _, r in ipairs(runs) do
     each_dump(r, "^5_night_end_w", function(name, d)
         local card
         for _, t in ipairs(d.texts) do
-            if t.text == "That's a wrap for tonight." then
+            if t.text == "That's a wrap for tonight." or t.text == "Game night is over." then
                 card = t
             end
         end
@@ -780,8 +1004,112 @@ for _, r in ipairs(runs) do
     end)
 end
 
+-- V: what the camera sees of the minis (the confirming playtest's real-engine run: Euryale and Pip missing
+-- from the boss night's frame, three of four heroes hidden behind the offices' partitions, Thessaly behind a
+-- cabinet). Measured in the model over many runs (tools/sim/museum.lua with VIEW=1, tools/tests/view_watch.lua:
+-- its own geometry from main/scene_data.lua's Table camera and every piece's height in game/data/props.lua):
+-- each hero as a room opens, the hero rolling a check, the room's person when they speak, Euryale and every
+-- hero through her talk, and everyone as a fight starts. On bfa5157 (these six seeds, three DMs each): the hero
+-- rolling 56% seen, boss night's talk 80% (Mara behind the landing's wall), a room opening 96%, a fight's start 97%.
+local VIEW_RUNS = os.getenv("VIEW_SEEDS") or "51 52 53 54 1 5"
+do
+    local n, ok, misses, measured = {}, {}, {}, 0
+    for seed in string.gmatch(VIEW_RUNS, "%d+") do
+        for _, style in ipairs({ "careful", "random", "careless" }) do
+            local fh = io.popen("VIEW=1 lua tools/sim/museum.lua " .. seed .. " " .. style .. " 2>&1")
+            for line in fh:lines() do
+                local kind, good, all = string.match(line, "^VIEW\t(%a+)\t(%d+)\t(%d+)$")
+                if kind then
+                    measured = measured + 1
+                    n[kind] = (n[kind] or 0) + tonumber(all)
+                    ok[kind] = (ok[kind] or 0) + tonumber(good)
+                end
+                local miss = string.match(line, "^VIEW_MISS\t(.+)$")
+                if miss and #misses < 12 then
+                    table.insert(misses, "seed " .. seed .. " " .. style .. ": " .. string.gsub(miss, "\t", " "))
+                end
+            end
+            fh:close()
+        end
+    end
+    if measured == 0 then
+        fail("V", "the sim measured nothing (VIEW=1 tools/sim/museum.lua prints no VIEW lines)")
+    end
+    -- Every kind of moment, each nearly always seen (and the boss's talk always).
+    local NEED = { stage = 0.98, acting = 0.98, speaks = 0.98, boss = 1.0, fight = 0.98 }
+    for _, kind in ipairs({ "stage", "acting", "speaks", "boss", "fight" }) do
+        local share = (n[kind] or 0) > 0 and ok[kind] / n[kind] or 0
+        add("V", kind .. "_seen_pct", math.floor(share * 1000 + 0.5) / 10)
+        if (n[kind] or 0) == 0 then
+            fail("V", "no " .. kind .. " moments measured")
+        elseif share < NEED[kind] then
+            fail("V", kind .. ": " .. ok[kind] .. " of " .. n[kind] .. " minis seen by the camera (" .. string.format("%.1f%%", share * 100)
+                .. "), and " .. math.floor(NEED[kind] * 100) .. "% are wanted")
+        end
+    end
+    if fails.V then
+        for _, m in ipairs(misses) do
+            fail("V", "missed: " .. m)
+        end
+    end
+    -- The model's camera (game/model/sight.lua) is the game's: main/scene_data.lua's Table preset and grid.
+    local sight = require "game.model.sight"
+    local W = dofile("tools/tests/view_watch.lua").scene
+    if not sight.EYE_H then
+        fail("V", "game/model/sight.lua has no camera (EYE_H, EYE_Z, EYE_X): placing a mini doesn't ask what the camera sees")
+    else
+        local eh = W.eye[2] - W.y
+        local ez = W.eye[3] - (W.z0 - W.size / 2)
+        local ex = (W.eye[1] - W.x0) / W.size + 0.5
+        if math.abs(sight.EYE_H - eh) > 0.05 or math.abs(sight.EYE_Z - ez) > 0.05 or math.abs(sight.EYE_X - ex) > 0.05
+            or math.abs(sight.MINI_H - W.mini_h) > 0.01 then
+            fail("V", string.format("sight.lua's camera (%.2f, %.2f, %.2f) isn't main/scene_data.lua's (%.2f, %.2f, %.2f)",
+                sight.EYE_H, sight.EYE_Z, sight.EYE_X, eh, ez, ex))
+        else
+            add("V", "camera_matches_scene_data")
+        end
+        -- Cases: the offices' partitions hide the next two rows (8_36), the lair's landing wall the next two
+        -- (8_53), and a square three rows back shows.
+        local board = require "game.model.board"
+        local off = board.compile("museum_offices").occ
+        local lair = board.compile("museum_lair").occ
+        local cases = {
+            { off, 4, 8, false, "the offices' hall, straight behind the south partition" },
+            { off, 4, 7, false, "the offices' hall, two rows behind the partition" },
+            { off, 8, 6, true, "the offices' hall, three rows back from the partition" },
+            { off, 10, 3, false, "the archivist's desk, behind the north partition" },
+            { lair, 4, 9, false, "the lair's landing, behind its south wall" },
+            { lair, 14, 9, true, "in front of Euryale's couch" },
+        }
+        for _, cs in ipairs(cases) do
+            local seen = sight.shows(cs[1], cs[2], cs[3])
+            local truth = W and dofile("tools/tests/view_watch.lua").shows(cs[1] == off and "museum_offices" or "museum_lair", cs[2], cs[3])
+            if seen ~= cs[4] or truth ~= cs[4] then
+                fail("V", cs[5] .. " (" .. cs[2] .. "," .. cs[3] .. "): the game says " .. (seen and "seen" or "hidden") .. ", the measure "
+                    .. (truth and "seen" or "hidden") .. ", and it should be " .. (cs[4] and "seen" or "hidden"))
+            else
+                add("V", "cases")
+            end
+        end
+    end
+end
+
+-- EN: the handwriting font draws a lowercase k (engine_confirm: "the party's Kitchen now", "OKay"). Its glyphs
+-- aren't in a dump: game/ui/metrics.lua's advances (tools/gen_ui.py) say which font it is, and Nothing You Could
+-- Do's k is as wide as its K (17.1 to 18.6 pixels), where a lowercase k is clearly narrower.
+do
+    local m = metrics.hand24
+    local k, K = m.adv[string.byte("k") - 31], m.adv[string.byte("K") - 31]
+    if k / K > 0.85 then
+        fail("EN", string.format("the handwriting font's k is as wide as its K (%.1f to %.1f): a capital k (tools/gen_ui.py)", k, K))
+    else
+        add("EN", "hand_font_lowercase_k")
+    end
+end
+
 -- What each finding saw, and the failures. -------------------------------------------------------------------
-local IDS = { "RUN", "CUT", "GLOSS", "E3", "E9", "E11", "E16", "S1", "S2", "S6", "S7", "S8", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P" }
+local IDS = { "RUN", "CUT", "GLOSS", "E3", "E9", "E11", "E16", "S1", "S2", "S6", "S7", "S8", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P",
+              "V", "W", "SB", "EX", "EN", "PL" }
 for _, id in ipairs(IDS) do
     note(id)
 end
@@ -809,7 +1137,8 @@ for _, id in ipairs(IDS) do
 end
 -- Evidence that each finding was really looked at, not just never seen.
 local need = { CUT = "screens", S2 = "on_the_report", S6 = "things_listed", S7 = "stat_hovers", S12 = "headlines_as_the_report",
-               S16 = "screens", S17 = "route_rows", S1 = "marks_whole" }
+               S16 = "screens", S17 = "route_rows", S1 = "marks_whole", V = "cases", W = "map_names", SB = "people_shown",
+               EX = "table_sidebars_with_empathy", EN = "boss_boards_saying_where_the_hours_went" }
 for id, k in pairs(need) do
     if not (seen[id] and seen[id][k]) then
         print("  FAIL " .. id .. ": never saw " .. k)

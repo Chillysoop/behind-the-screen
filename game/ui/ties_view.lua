@@ -414,13 +414,16 @@ local function card(spec, x, y, w, draw)
             if type(o) == "string" then
                 row(label, o, theme.gold, 2)
             else
-                local lw = math.min(kit.width(o.label, "ui14"), (iw - 74) * 0.36)
+                -- (The choice in two lines of its own column rather than cut: the confirming playtest's "Let them
+                -- reach in, an..." and "Take a closer look. W..." were the choices you tie things to.)
+                local lw = math.min(kit.width(o.label, "ui14"), (iw - 74) * 0.5)
                 local words = table.concat(o.words, ", ")
                 local ww = iw - 74 - lw - 10
-                local n = math.min(2, #kit.wrap(words, "ui14", ww))
+                local nl = math.min(2, #kit.wrap(o.label, "ui14", lw))
+                local n = math.max(nl, math.min(2, #kit.wrap(words, "ui14", ww)))
                 if draw then
                     kit.text(x + 14, y + h, label, "ui14", theme.faint)
-                    kit.text(x + 88, y + h, kit.ellipsize(o.label, "ui14", lw), "ui14", theme.dim)
+                    kit.text(x + 88, y + h, o.label, "ui14", theme.dim, { w = lw, lines = 2 })
                     kit.text(x + 88 + lw + 10, y + h, words, "ui14", theme.gold, { w = ww, lines = 2 })
                 end
                 h = h + n * L14 + 2
@@ -858,7 +861,9 @@ function M.draw(app)
         kit.drop(app.tl_layer)
     end
     app.tl_layer = kit.layer("ties", true)
-    kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.55), { round = false })
+    -- (Darker than a small card's dimming: the editor fills the screen, and the prep board's header read through
+    -- the strip above it, the confirming playtest's 8_07.)
+    kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.85), { round = false })
     kit.box(X, Y, W, H, theme.bg, { radius = 14 })
     kit.box(X, Y, W, 64, theme.panel, { radius = 14 })
     kit.text(X + 24, Y + 14, "TIES AND LOCKS", "title30", theme.gold)

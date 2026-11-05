@@ -294,6 +294,9 @@ return {
       text = "Whether they think you're changing rolls behind the screen. Lower is better: too high and trust starts to slip." },
     { id = "goodwill", match = { "%f[%w]Goodwill%f[%W]" }, plain = "Goodwill",
       text = "Their fondness for you as their DM. Good nights fill it; when it's full they bring you something." },
+    { id = "cooked", match = { "%f[%w][Cc]ooked%f[%W]" }, plain = "Cooked",
+      text = "A roll you changed behind your screen: you said it went the other way. Nobody saw, but if the table "
+          .. "suspects it, Suspicion rises and Trust falls." },
     { id = "table_score", match = { "Table Score" }, plain = "How the table did",
       text = "Everyone's fun tonight, pulled toward whoever had the worst night: a good DM brings everyone along." },
     -- The game's own words on screen (the hover audit, November 3: tools/tests/gloss_words.lua).

@@ -76,6 +76,41 @@ local function short_notes(p)
     return d and d.short or p.notes
 end
 
+-- Text that starts at `x1` on its first line and wraps back to `x0` (two lines, the card's), each line
+-- ending by `right`; what's left over is cut with the whole on hover.
+function M.flow_after(x1, x0, y, str, color, right)
+    local words = {}
+    for wd in string.gmatch(str or "", "%S+") do
+        table.insert(words, wd)
+    end
+    local i = 1
+    for ln = 1, 2 do
+        local lx = ln == 1 and x1 or x0
+        local width = right - lx
+        if i > #words then
+            break
+        end
+        local line = words[i]
+        local j = i + 1
+        if ln == 1 and kit.width(line, "ui14") > width then
+            line, j = nil, i            -- (not even a word fits after the warning: start on the next line)
+        end
+        while line and j <= #words and kit.width(line .. " " .. words[j], "ui14") <= width do
+            line = line .. " " .. words[j]
+            j = j + 1
+        end
+        if ln == 2 and j <= #words then
+            line = kit.ellipsize(table.concat(words, " ", i), "ui14", width)
+            kit.cut_pending[line] = str
+            j = #words + 1
+        end
+        if line then
+            kit.text(lx, y + (ln - 1) * 20, line, "ui14", color)
+        end
+        i = j
+    end
+end
+
 local function goodwill_hover(app, p, gw, x0, y0)
     local keepsakes = require "game.model.keepsakes"
     -- (What it is first: the third playtest saw a word and a heart, and no meaning.)
@@ -239,10 +274,21 @@ function M.card(app, prep, p, i, forecast)
         elseif warn and WARNINGS[warn] then
             kit.icon(x + 14, y + 46, 16, "warn", theme.orange)
             kit.text(x + 36, y + 44, WARNINGS[warn], "ui14", theme.orange, { w = w - 50, lines = 1 })
-            kit.text(x + 14, y + 64, feud or short_notes(p), "ui14", feud and theme.orange or theme.dim, { w = w - 28, lines = 1 })
+            if feud then
+                kit.text(x + 14, y + 64, feud, "ui14", theme.orange, { w = w - 28, lines = 1 })
+            else
+                -- (Their notes from the end of the warning's line on, so a promise isn't cut at its verb: the
+                -- confirming playtest's "Talking to NPCs in voice, and chaos. Don't cut her...".)
+                local after = x + 36 + kit.width(WARNINGS[warn], "ui14") + 8
+                M.flow_after(after, x + 14, y + 44, short_notes(p), theme.dim, x + w - 14)
+            end
         elseif feud then
             kit.text(x + 14, y + 44, feud, "ui14", theme.orange, { w = w - 28, lines = 1 })
-            kit.text(x + 14, y + 64, short_notes(p), "ui14", theme.dim, { w = w - 28, lines = 1 })
+            if kit.width(feud, "ui14") <= w - 28 then
+                M.flow_after(x + 14 + kit.width(feud, "ui14") + 8, x + 14, y + 44, short_notes(p), theme.dim, x + w - 14)
+            else
+                kit.text(x + 14, y + 64, short_notes(p), "ui14", theme.dim, { w = w - 28, lines = 1 })
+            end
         else
             kit.text(x + 14, y + 44, p.notes, "ui14", theme.dim, { w = w - 28, lines = 2 })
         end

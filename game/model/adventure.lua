@@ -1665,7 +1665,8 @@ function M.where(campaign)
     if st.choices and #st.choices > 0 then
         local names = {}
         for _, id in ipairs(st.choices) do
-            table.insert(names, MODULE.rooms[id].name)
+            -- (Mid-sentence, "the gift shop", not "The gift shop": the confirming playtest.)
+            table.insert(names, util.lower_first(MODULE.rooms[id].name))
         end
         return "At a fork: " .. util.join_names(names) .. "."
     end

@@ -197,7 +197,7 @@ function M.compile(id)
     local known = boards[id] or dynamic[id]
     local out = { id = known and id or "blank", title = b.title, light = b.light, party = b.party, npc = b.npc,
                   npc_at = b.npc_at or {}, foes = b.foes, pieces = {}, features = {}, by_id = {}, blocked = {}, cover = {}, rough = {}, spots = {},
-                  planks = {}, sources = {}, deg = {}, opaque = {}, doors = {}, slippery = {}, lights = {} }
+                  planks = {}, sources = {}, deg = {}, opaque = {}, doors = {}, slippery = {}, lights = {}, occ = {} }
     local block, clear = {}, {}
     for _, f in ipairs(b.features) do
         local parts = f.parts or { { kind = f.kind, at = f.at } }
@@ -240,6 +240,19 @@ function M.compile(id)
                         if k.opaque then
                             out.opaque[kk] = true
                         end
+                        -- What it hides from the camera (sight.shows): how tall, and how far into the
+                        -- square from its north edge its tall part starts (a wall's slab stands at one
+                        -- edge: the north one unturned, the south one turned half round).
+                        if k.tall and not k.thin then
+                            local front = 0
+                            if k.tall_z and pc.r % 2 == 0 then
+                                front = pc.r == 0 and (k.tall_z[1] + 2.5) or (2.5 - k.tall_z[2])
+                            end
+                            local o = out.occ[kk]
+                            if not o or k.tall > o.h then
+                                out.occ[kk] = { h = k.tall, front = math.max(0, front) }
+                            end
+                        end
                     elseif k.rough then
                         out.rough[kk] = true
                     end
@@ -257,6 +270,7 @@ function M.compile(id)
         block[kk] = nil
         out.rough[kk] = nil
         out.opaque[kk] = nil
+        out.occ[kk] = nil
     end
     local keys = {}
     for kk in pairs(block) do
@@ -293,12 +307,36 @@ function M.compile(id)
     return out
 end
 
+-- How a new board drops onto the mat (main/board/board.script): the old one lifts away for LIFT_WAIT, then
+-- each base feature follows the last by FEATURE_STAGGER, its pieces one after another (a feature's whole run
+-- in at most FEATURE_RUN), each falling for DROP_TIME. `landing` is how long until the last piece is down, so
+-- the room's title and read-aloud can wait for it (the confirming playtest's 8_45: benches in the air under
+-- the lecture theatre's title).
+M.LIFT_WAIT, M.FEATURE_STAGGER, M.FEATURE_RUN, M.DROP_TIME = 0.35, 0.12, 0.6, 0.6
+function M.piece_stagger(n)
+    return math.min(0.07, M.FEATURE_RUN / math.max(1, n))
+end
+function M.landing(id)
+    local ok, c = pcall(M.compile, id)
+    if not ok or not c then
+        return 0
+    end
+    local t, last = 0, 0
+    for _, feat in ipairs(c.features) do
+        if feat.base then
+            last = math.max(last, t + (#feat.pieces - 1) * M.piece_stagger(#feat.pieces))
+            t = t + M.FEATURE_STAGGER
+        end
+    end
+    return M.LIFT_WAIT + last + M.DROP_TIME
+end
+
 -- The layout the rules read (the old terrain sets' shape): blocked squares, spots, starts.
 function M.layout(id)
     local c = M.compile(id)
     return { title = c.title, light = c.light, party = c.party, npc = c.npc, npc_at = c.npc_at, foes = c.foes,
              blocked = c.blocked, spots = c.spots, cover = c.cover, rough = c.rough, planks = c.planks, sources = c.sources,
-             deg = c.deg, opaque = c.opaque, doors = c.doors, slippery = c.slippery, lights = c.lights }
+             deg = c.deg, opaque = c.opaque, doors = c.doors, slippery = c.slippery, lights = c.lights, occ = c.occ }
 end
 
 -- Every board's layout, keyed by id (content.terrain_layout).

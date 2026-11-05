@@ -31,4 +31,6 @@ return {
     { "[Ff]inal roll", "final_roll" }, { "%f[%a]EMPATHY%f[%A]", "empathy" }, { "[Rr]ule of cool", "cool" },
     { "[Dd]ice jail", "dice_jail" }, { "Honour it", "honour" }, { "%f[%a]Goodwill%f[%A]", "goodwill" },
     { "%f[%a]Trust%f[%A]", "trust" },
+    -- The confirming playtest: a fudged roll's word, and the Mech's mode on its status tag.
+    { "%f[%a][Cc]ooked%f[%A]", "cooked" }, { "Hyper Destroyer Mode", "hyper" },
 }

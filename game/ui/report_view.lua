@@ -117,8 +117,9 @@ local function wrapup_items(app, rep)
             table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
         end
     end
+    -- (A sentence like the rest, without a stray dash before it: the confirming playtest.)
     for _, t in ipairs(rep.threads or {}) do
-        table.insert(items, { "- " .. t, theme.text })
+        table.insert(items, { t, theme.text })
     end
     -- Running jokes born tonight (B5).
     for _, j in ipairs(rep.jokes or {}) do
@@ -382,6 +383,40 @@ function M.stat_spot(name, key, mark, blurred, x, y, w, h)
     gl.card_spot(x, y, w, h, name .. ": " .. stat, moved .. " " .. ((t and t.text) or "") .. how)
 end
 
+-- Text that flows down a card: `narrow` wide beside something on its right until `under`, then `wide`
+-- (each line by where it starts), at most `cap` lines and none past `bottom`; what doesn't fit ends in
+-- "..." with the whole of it on hover. Returns where the next line goes.
+function M.flow_text(x, y, str, color, cap, bottom, under, narrow, wide, plain)
+    local words = {}
+    for wd in string.gmatch(str or "", "%S+") do
+        table.insert(words, wd)
+    end
+    local i, n = 1, 0
+    while i <= #words and n < cap and y + 19 <= bottom do
+        local width = (y >= under) and wide or narrow
+        local line = words[i]
+        local j = i + 1
+        while j <= #words and kit.width(line .. " " .. words[j], "ui14") <= width do
+            line = line .. " " .. words[j]
+            j = j + 1
+        end
+        n = n + 1
+        local last = j <= #words and (n >= cap or y + 38 > bottom)
+        if last then
+            -- (The last line that fits: cut, with the whole on hover.)
+            local rest = table.concat(words, " ", i)
+            local shown = kit.ellipsize(rest, "ui14", width)
+            kit.cut_pending[shown] = str
+            line = shown
+            j = #words + 1
+        end
+        kit.text(x, y, line, "ui14", color, { gloss = plain and false or nil })
+        y = y + 19
+        i = j
+    end
+    return y
+end
+
 -- 2. How the table felt: a card per player, the least happy first.
 local function felt_panel(app, rep, x, y, w, h)
     kit.box(x, y, w, h, theme.panel, { radius = 10 })
@@ -390,7 +425,10 @@ local function felt_panel(app, rep, x, y, w, h)
     kit.button(x + 8, y + 6, kit.width(t1, "ui14") + 20, 26, t1, function()
         app.refresh()
     end, { font = "ui14", color = theme.panel3, hover = theme.button_hover, text_color = theme.gold, key = "report_tab_felt" })
-    kit.text(x + w - 16, y + 12, "The least happy first.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    -- (Which way is good, on the screen and not only on hover: the confirming playtest couldn't tell
+    -- whether "-" beside Suspicion was good news.)
+    kit.text(x + w - 16, y + 12, "The least happy first. Bars: higher is better, but Suspicion lower.", "ui14", theme.faint,
+        { pivot = gui.PIVOT_NE })
     local rh = (h - 48) / 4
     for i, row in ipairs(rep.order or rep.players) do
         local ry = y + 40 + (i - 1) * rh
@@ -405,12 +443,15 @@ local function felt_panel(app, rep, x, y, w, h)
         elseif not row.present then
             kit.text(x + 92, ry + 30, "Couldn't make it this week.", "ui14", theme.orange)
         else
-            kit.text(x + 92, ry + 28, row.verdict, "ui18b", tier_color(row.tier))
-            kit.bar(x + 92 + 190, ry + 34, 150, 9, empathy.fill(level, row.fun), 100, tier_color(row.tier))
+            kit.text(x + 92, ry + 26, row.verdict, "ui18b", tier_color(row.tier))
+            kit.bar(x + 92 + 190, ry + 32, 150, 9, empathy.fill(level, row.fun), 100, tier_color(row.tier))
         end
-        -- Then what they said, why, and anything the DM should watch: as much as fits the row.
+        -- Then what they said, why, and anything the DM should watch: as much as fits the row, beside the
+        -- bars and then the panel's whole width under them (the confirming playtest: "+5 Fun from your call
+        -- "Let them. They know..." and "Suspicious of the cooked Perception roll that..." stopped before the
+        -- part that says which call, which roll).
         local tw = w - 330
-        local ty = ry + 52
+        local ty = ry + 48
         local lines = {}
         -- Someone leaving says so first: it's the one line the DM can't miss.
         if standing == "left" then
@@ -424,25 +465,25 @@ local function felt_panel(app, rep, x, y, w, h)
                 table.insert(lines, { row.why, theme.dim, 1 })
             end
             if row.call then
-                table.insert(lines, { row.call, theme.gold, row.why_generic and 2 or 1 })
+                table.insert(lines, { row.call, theme.gold, 2 })
             end
         end
         if row.suspicion_why then
-            table.insert(lines, { "Suspicious of " .. row.suspicion_why .. ".", theme.red, 1 })
+            table.insert(lines, { "Suspicious of " .. row.suspicion_why .. ".", theme.red, 2 })
         end
+        local under = ry + 74          -- (where the bars' last label ends: wider from here down)
+        local bottom = ry + rh - 2
         for _, ln in ipairs(lines) do
-            local lh = math.min(kit.text_height(ln[1], "ui14", tw), ln[3] * 19)
-            if ty + lh > ry + rh - 2 then
+            if ty + 19 > bottom then
                 break
             end
-            kit.text(x + 92, ty, ln[1], "ui14", ln[2], { w = tw, lines = ln[3], gloss = (not ln[4]) and nil or false })
-            ty = ty + lh + 1
+            ty = M.flow_text(x + 92, ty, ln[1], ln[2], ln[3], bottom, under, tw, w - 108, ln[4]) + 1
         end
         -- Their long-term bars and which way they moved, named as on the prep board (the newcomer
         -- playtest, October 16: four unlabelled icons).
         local bx = x + w - 220
         for k, key in ipairs(score.LONG) do
-            local by = ry + 10 + (k - 1) * 20
+            local by = ry + 8 + (k - 1) * 18
             local read = empathy.long(level, p, key, app.campaign.week, i)
             kit.icon(bx, by - 3, 14, key, theme.long[key])
             kit.text(bx + 19, by - 6, score.LONG_NAMES[key], "ui14", theme.dim)
@@ -482,7 +523,7 @@ local function felt_panel(app, rep, x, y, w, h)
             end
             -- What it is, which way it went tonight and whether that's good, on the row (the third
             -- playtest: "nothing says what they are, or whether '-' on Suspicion is good").
-            M.stat_spot(p and p.name or row.name, key, mark, read.lo ~= nil, bx - 2, by - 7, 210, 20)
+            M.stat_spot(p and p.name or row.name, key, mark, read.lo ~= nil, bx - 2, by - 6, 210, 18)
         end
     end
 end
@@ -588,8 +629,12 @@ function M.build(app)
                 .. " (" .. util.int(mu.francs or 0) .. " in the pool).", theme.gold })
         end
         -- Anything lifted tonight (the event log: R7, R13), and who has it now.
+        -- (The sentence on its own when it already says it: "Pip lifted a quiver...", not "Lifted: Pip lifted...",
+        -- the confirming playtest.)
         for _, l in ipairs(mu.lifted or {}) do
-            table.insert(earned, { "Lifted: " .. util.sentence_case(l.text) .. ".", theme.gold })
+            local said = util.sentence_case(l.text)
+            local lead = string.find(said, "^%u%l+ lifted ") and "" or "Lifted: "
+            table.insert(earned, { lead .. said .. ".", theme.gold })
         end
         -- Each thing on its own line, with a hover: what it does, and who has it.
         local mn = require "game.model.museum_night"
@@ -794,7 +839,7 @@ function M.gift_row(app, rep, x, y)
     end
     -- Tonight's box first, and "NEW DICE" only for it (the third playtest's engine run: "NEW DICE:
     -- Rose quartz" every week, the first set in the bag, while the bag filled up). Older sets are
-    -- "IN YOUR BAG", one of how many.
+    -- "IN BAG", one of how many.
     -- (Which one is tonight's: loot.newest_index, one owner.)
     local opened = loot.opened(camp)
     if app.gift_pick_week ~= camp.week then
@@ -804,14 +849,18 @@ function M.gift_row(app, rep, x, y)
     app.gift_pick = util.clamp(app.gift_pick or #bag, 1, #bag)
     local sid = bag[app.gift_pick]
     local new = opened and opened.set == sid
-    kit.text(x, y, new and "NEW DICE" or (#bag > 1 and ("IN YOUR BAG " .. util.int(app.gift_pick) .. "/" .. util.int(#bag))
-        or "IN YOUR BAG"), "ui14", new and theme.gold or theme.dim)
+    local label = new and "NEW DICE" or (#bag > 1 and ("IN BAG " .. util.int(app.gift_pick) .. "/" .. util.int(#bag))
+        or "IN YOUR BAG")
+    kit.text(x, y, label, "ui14", new and theme.gold or theme.dim)
     local set = dd.SETS[sid]
     local r = loot.rarity(set and set.rarity)
-    local lx = x + math.max(84, kit.width("IN YOUR BAG 9/9", "ui14") + 10)
+    -- (The set's name and rarity whole, from just after the label to the arrows: the confirming playtest's
+    -- "Amethyst swirl..." hid its rarity.)
+    local lx = x + kit.width(label, "ui14") + 10
+    local name = (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or "")
+    local room = (#bag > 1 and (x + 316) or (x + 372)) - lx - 32
     kit.picture(lx, y - 4, 26, 26, "dice_" .. sid)
-    kit.text(lx + 32, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
-        r and kit.rgba(r.color) or theme.text, { w = x + 316 - lx - 32, lines = 1 })
+    kit.text(lx + 32, y, name, "ui14", r and kit.rgba(r.color) or theme.text, { w = room, lines = 1 })
     if #bag > 1 then
         kit.button(x + 322, y - 4, 24, 22, "<", function()
             app.gift_pick = (app.gift_pick - 2) % #bag + 1
