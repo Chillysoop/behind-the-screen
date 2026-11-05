@@ -18,8 +18,8 @@ tags: indoor, museum, top floor, boss
 order: 10
 tight: yes
 party: 6,7
-foes: 16,6
-npc: 16,8
+foes: 15,6
+npc: 14,9
 
 grid:
 |  //##T##T##T###//  |

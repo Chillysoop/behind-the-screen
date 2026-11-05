@@ -325,11 +325,13 @@ function M.after_fall(night, p)
                    text = "{actor_char} is gone, but {actor} isn't going anywhere. What does {actor} do for the rest of the night?",
                    options = {} }
     if ally then
+        -- (A card's sub isn't filled in for you: said here with their name.)
         table.insert(card.options, { label = "{actor} plays " .. ally.name .. " from now on.",
-                                     sub = ally.name .. " is in every fight; {actor} runs " .. util.pronoun_of(ally.name).them .. ".",
+                                     sub = ally.name .. " is in every fight; " .. p.name .. " runs " .. util.pronoun_of(ally.name).them .. ".",
                                      pilot = ally.id, effects = { { "actor", fun = 5, spotlight = 4 } } })
     end
-    table.insert(card.options, { label = "{actor} helps you run the monsters.", sub = "{Friend_they'll} love it. The others might find the monsters a little meaner.",
+    table.insert(card.options, { label = "{actor} helps you run the monsters.",
+                                 sub = util.fill("{Friend_they'll} love it. The others might find the monsters a little meaner.", { actor = p.name }),
                                  effects = { { "actor", fun = 4, social = 3 }, { "others", challenge = 2 } }, monsters = true })
     table.insert(card.options, { label = "{actor} watches, and starts on a new hero.", effects = { { "actor", fun = -1, investment = 2 } } })
     night.actor = p

@@ -18,12 +18,13 @@ local util = require "game.model.util"
 local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 2
-local ITEMS = { "run", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8" }
+local ITEMS = { "run", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "D" }
 local NAMES = {
     run = "whole prologues",
     A1 = "who can't act doesn't", A2 = "friendly fire is said", A3 = "destroyed stays destroyed",
     A4 = "the big payoffs are told", A5 = "the DM's picks steer the foes", A6 = "no browsing after a loss",
     A7 = "recaps lead with the losses", A8 = "the break at a lull, a late night costs",
+    D = "from the screens: minis, night 1, homework",
 }
 
 local fails = {}
@@ -926,6 +927,78 @@ local function a8_after(R, night, rep, w)
     end
 end
 
+-- D (batch D's three for us): every mini shows on the board (none on another's square, on a wall, outside
+-- the room, or straight behind another hero), Euryale stands at the front of her lair, the first night's
+-- first thought waits for its first room, and the break's homework says which roll it helped.
+local board_mod = require "game.model.board"
+local boards = {}
+local function d_watch(R, night, ev, w)
+    local D = R.d or {}
+    R.d = D
+    local where = R.tag .. " W" .. w
+    local function check_minis(list, bid, what)
+        if not bid then
+            return
+        end
+        boards[bid] = boards[bid] or select(2, pcall(board_mod.compile, bid))
+        local c = boards[bid]
+        local blocked = {}
+        for _, sq in ipairs((type(c) == "table" and c.blocked) or {}) do
+            blocked[sq[1] * 1000 + sq[2]] = true
+        end
+        local seen = {}
+        for i, a in ipairs(list) do
+            local k = a.x * 1000 + a.y
+            if seen[k] then
+                fail("D", where .. ": " .. what .. ", " .. tostring(a.id) .. " stands on " .. tostring(seen[k]) .. "'s square")
+            end
+            seen[k] = a.id
+            if blocked[k] then
+                fail("D", where .. ": " .. what .. ", " .. tostring(a.id) .. " stands on a wall at " .. a.x .. "," .. a.y)
+            end
+            for j = 1, i - 1 do
+                local b = list[j]
+                if b.x == a.x and math.abs(b.y - a.y) == 1 then
+                    D.behind = (D.behind or 0) + 1
+                end
+            end
+            D.minis = (D.minis or 0) + 1
+        end
+    end
+    if ev.kind == "scene" and ev.party then
+        check_minis(ev.party, ev.board, "as " .. tostring(ev.title) .. " starts")
+        D.scenes = (D.scenes or 0) + 1
+        D.scene_w = D.scene_w or {}
+        D.scene_w[w] = true
+    elseif ev.kind == "battle" and ev.phase == "start" then
+        local list = {}
+        for _, q in ipairs(ev.party or {}) do
+            table.insert(list, q)
+        end
+        check_minis(list, night.scene and night.board_id, "as the fight starts")
+        if night.scene and night.scene.room == "lair" then
+            for _, q in ipairs(ev.foes or {}) do
+                if q.monster == "euryale" then
+                    if q.x >= 16 or q.y <= 7 then
+                        fail("D", where .. ": Euryale starts her fight at the back of her lair, at " .. q.x .. "," .. q.y)
+                    else
+                        add("D", "euryale_at_the_front")
+                    end
+                end
+            end
+        end
+    elseif ev.kind == "thought" and w == 1 and not (D.scene_w and D.scene_w[1]) then
+        fail("D", where .. ": the first night's first thought comes before its first room: " .. tostring(ev.text))
+    elseif ev.kind == "narrate" and ev.text and (string.find(ev.text, "break's reading", 1, true) or string.find(ev.text, "homework pays off", 1, true)
+        or string.find(ev.text, "read up on this", 1, true)) then
+        if not string.find(ev.text, " roll", 1, true) then
+            fail("D", where .. ": the break's homework doesn't say which roll it helps: " .. ev.text)
+        else
+            add("D", "homework_named")
+        end
+    end
+end
+
 -- Whole prologues ----------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 31 to 38, three DMs), more seeds, and "fragile" ones where Oswin goes
 -- into Euryale's lair on 1 hit point with two failed death saves waiting: deaths are rare, and every
@@ -969,6 +1042,7 @@ local function run(seed, style, fragile)
             a6_watch(R, night, ev, w)
             a7_watch(R, night, ev, w)
             a8_watch(R, night, ev, w)
+            d_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
@@ -1016,6 +1090,19 @@ do
         fail("A4", "Telpur goes down and comes round " .. TELPUR.n .. " times, in only " .. distinct .. " ways")
     end
     add("A4", "telpur_knockout_ways", distinct)
+end
+-- (Straight behind another hero, from the camera: rare, when a corner of a room leaves no other square.)
+do
+    local minis, behind = 0, 0
+    for _, R in pairs(runs) do
+        minis = minis + ((R.d and R.d.minis) or 0)
+        behind = behind + ((R.d and R.d.behind) or 0)
+    end
+    add("D", "minis_placed", minis)
+    add("D", "straight_behind", behind)
+    if minis > 0 and behind / minis > 0.03 then
+        fail("D", "a hero stands straight behind another " .. behind .. " times in " .. minis .. " minis set down")
+    end
 end
 if not (E.A1 and (E.A1.deaths or 0) >= 2) then
     fail("A1", "fewer than two deaths in all the runs: nothing to check the dead against")

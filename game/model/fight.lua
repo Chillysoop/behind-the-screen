@@ -60,6 +60,75 @@ function M.squares_near(blocked, taken, ax, ay, n, spread, W, H)
     return out
 end
 
+-- Squares near (ax, ay) where every mini shows (round three, A1 and engine_screens 4: "Thessaly is behind
+-- an interior wall, only her hat shows"; "Oswin is mostly behind Pip"). The camera looks from the south
+-- (a higher y is nearer it), so a mini hides one standing in the same or the next column a row or two
+-- behind it, and a wall in front hides whoever's behind it. First pass: none of that, against the
+-- squares already chosen and `others` (minis standing there already); then as squares_near would.
+function M.squares_shown(blocked, taken, ax, ay, n, W, H, others)
+    local out = {}
+    -- (Only squares in the same room as the anchor: the corners outside an octagon's walls are open
+    -- squares too, and nobody can stand there.)
+    local inside = {}
+    if ax >= 1 and ay >= 1 and ax <= W and ay <= H and not blocked[ax * 1000 + ay] then
+        local queue, head = { { ax, ay } }, 1
+        inside[ax * 1000 + ay] = true
+        while head <= #queue do
+            local q = queue[head]
+            head = head + 1
+            for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                local x, y = q[1] + d[1], q[2] + d[2]
+                local k = x * 1000 + y
+                if x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not inside[k] then
+                    inside[k] = true
+                    table.insert(queue, { x, y })
+                end
+            end
+        end
+    else
+        inside = nil
+    end
+    local function free(x, y)
+        local k = x * 1000 + y
+        return x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not taken[k] and (not inside or inside[k])
+    end
+    local function shows(x, y)
+        if blocked[x * 1000 + y + 1] then
+            return false               -- (a wall right in front of it)
+        end
+        for _, list in ipairs({ out, others or {} }) do
+            for _, s in ipairs(list) do
+                if math.abs(s[1] - x) <= 1 and math.abs(s[2] - y) <= 2 then
+                    return false
+                end
+            end
+        end
+        return true
+    end
+    for r = 0, math.max(W, H) do
+        for dy = -r, r do
+            for dx = -r, r do
+                if math.max(math.abs(dx), math.abs(dy)) == r and #out < n then
+                    local x, y = ax + dx, ay + dy
+                    if free(x, y) and shows(x, y) then
+                        table.insert(out, { x, y })
+                        taken[x * 1000 + y] = true
+                    end
+                end
+            end
+        end
+        if #out >= n or r > 6 then
+            break                       -- (too far from where they should be: crowd in, as before)
+        end
+    end
+    if #out < n then
+        for _, sq in ipairs(M.squares_near(blocked, taken, ax, ay, n - #out, 1, W, H)) do
+            table.insert(out, sq)
+        end
+    end
+    return out
+end
+
 function M.blocked_set(set_name, map)
     if map and map.template == set_name then
         return maps.layout(map)        -- the DM's own map (B9)
@@ -1338,11 +1407,16 @@ function M.run(night, sc, plan)
     -- Each hero starts the fight where their mini was standing (the playtest, November 3: "characters
     -- stay where they were instead of resetting to a cluster"): the nearest open square to it. A hero
     -- the table hasn't moved yet starts at the board's own start.
+    -- (The nearest one where every mini shows: squares_shown.)
     local party_spots = {}
+    local placed = {}
     for i, c in ipairs(night.pc_list) do
         local at = night.mini_pos and night.mini_pos[c.mini]
-        local sq = at and M.squares_near(blocked, taken, at[1], at[2], 1, 1, b.W, b.H)[1]
-        party_spots[i] = sq or M.squares_near(blocked, taken, layout.party[1], layout.party[2], 1, 1, b.W, b.H)[1]
+        local sq = at and M.squares_shown(blocked, taken, at[1], at[2], 1, b.W, b.H, placed)[1]
+        party_spots[i] = sq or M.squares_shown(blocked, taken, layout.party[1], layout.party[2], 1, b.W, b.H, placed)[1]
+        if party_spots[i] then
+            table.insert(placed, party_spots[i])
+        end
     end
     local party_out = {}
     -- Split up this scene (night.lua, "Splitting the party"): whoever wandered off isn't here yet.

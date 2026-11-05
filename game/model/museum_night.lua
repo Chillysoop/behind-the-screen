@@ -1640,6 +1640,10 @@ end
 function M.room_start(night, sc)
     local c = night.campaign
     local r = MODULE.rooms[sc.room]
+    if night.mood_later then
+        night.mood_later = nil
+        thoughts.mood(night)
+    end
     if sc.room == "tomorrow" and not c.adv.mech_name then
         c.adv.mech_name = night.rng:pick(MODULE.mech_names)
     end
@@ -3764,7 +3768,13 @@ function M.run(night)
     night.mus.total = math.max(1, #ahead)
     c.last_cliff = nil
     M.intro(night)
-    thoughts.mood(night)
+    -- (The first night's first thought waits until the first room has started: a newcomer met a
+    -- friend's thought card before they'd seen anything. Round three, from batch D.)
+    if night.gentle then
+        night.mood_later = true
+    else
+        thoughts.mood(night)
+    end
     -- Last week stopped early to give the big one a full evening (M.end_session): it pays now.
     if c.adv.fresh_start and c.adv.fresh_start == c.week - 1 then
         night:say("You stopped early last week so tonight could start with the big one. Everyone's here on time, dice out.", "good")

@@ -436,12 +436,19 @@ end
 
 -- A hero's modifier for a skill, from their character sheet at the party's level.
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
-function M:take_research(p)
+-- skill: the roll it helps, said with it (round three, from batch D: "+2." didn't say on what).
+M.RESEARCH_LINES = {
+    "{char} remembers something from the break's reading: +2 on this {skill} roll.",
+    "The break's homework pays off: +2 to {char}'s {skill} roll.",
+    "{char} read up on this over pizza: +2 on the {skill} roll.",
+}
+function M:take_research(p, skill)
     if (self.research or 0) <= 0 then
         return 0
     end
     self.research = self.research - 1
-    self:say(util.fill("{char} remembers something from the break's reading: +2.", { char = p.char }), "aside")
+    self:say(self:fresh(M.RESEARCH_LINES, "research_line"), "aside",
+        { char = p.char, skill = skill and skills.name(skill) or "next" })
     return 2
 end
 
@@ -1381,7 +1388,8 @@ function M:staging(sc)
     local blocked, layout = fight.blocked_set(sc.terrain, self:map_for(sc))
     local taken = {}
     local party = {}
-    local spots = fight.squares_near(blocked, taken, layout.party[1], layout.party[2], #self.players, 1,
+    -- (Spread so every mini shows, none behind another or behind a wall: fight.squares_shown.)
+    local spots = fight.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
         content.terrain_layout.W, content.terrain_layout.H)
     for i, p in ipairs(self.players) do
         local sq = spots[i] or { 2, i + 3 }
@@ -1662,7 +1670,7 @@ function M:hero_action(sc, dc, spots)
         mod = mod + near_bonus
         self.edge_next[p.key] = nil
     end
-    mod = mod + self:take_research(p)
+    mod = mod + self:take_research(p, a.skill)
     local total = roll + mod
     local success = total >= dc
     local name = skills.name(a.skill)
@@ -2567,7 +2575,7 @@ function M:big_roll(spec, record)
         self.learned[p.key] = nil
     end
     if p then
-        mod = mod + self:take_research(p)
+        mod = mod + self:take_research(p, skill)
     end
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
     local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)

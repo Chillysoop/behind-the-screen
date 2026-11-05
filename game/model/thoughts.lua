@@ -690,7 +690,8 @@ function M.respond(night, id, aid)
     local a = DATA.answers[aid]
     night.table_min = (night.table_min or 0) + (a.table_min or 0)
     -- What you did goes in the log at the next beat (the night is waiting between beats).
-    table.insert(th.queue, { kind = "narrate", style = a.screen and "screen" or "dm", text = util.sentence_case(util.fill(a.log, vars(p))) })
+    table.insert(th.queue, { kind = "narrate", style = a.screen and "screen" or "dm", text = util.sentence_case(util.fill(a.log, vars(p))),
+                             hero_acts = M.HERO_ACTS[aid] and p.key or nil })
     if good then
         table.insert(th.queue, { kind = "react", poses = { [p.key] = "lean" } })
         if not th.read and night.campaign and night.campaign.gain_empathy then
@@ -734,7 +735,16 @@ function M.take_queue(night)
     end
     local q = th.queue
     th.queue = {}
-    return q
+    -- (An answer that has their hero do something lands at the next beat: not if that hero has gone
+    -- down or worse since. What it did stays done. Round three, A1.)
+    local out = {}
+    for _, e in ipairs(q) do
+        if not (e.hero_acts and not require("game.model.able").can_act(night, e.hero_acts)) then
+            e.hero_acts = nil
+            table.insert(out, e)
+        end
+    end
+    return out
 end
 
 -- For the report and the log: what you caught and what you did about it.

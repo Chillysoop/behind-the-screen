@@ -2161,6 +2161,9 @@ local function code_line(p)
         return R(what, one_of(#(W2[k] or {})))
     elseif top == "INSPIRE_LINES" then
         return R("When you give a hero Heroic Inspiration (from a card or their tile)", one_of(#require("game.model.night").INSPIRE_LINES))
+    elseif top == "RESEARCH_LINES" then
+        return R("The roll after a break they spent reading up: the +2, and on which roll (twice a night at most)",
+            one_of(#require("game.model.night").RESEARCH_LINES))
     elseif top == "LATE_LINES" then
         return R("The end of a night run more than a quarter of an hour past the time agreed at Session Zero", one_of(#require("game.model.night").LATE_LINES))
     elseif top == "LATE_HIGH" then
