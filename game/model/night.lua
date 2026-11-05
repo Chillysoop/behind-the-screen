@@ -1922,7 +1922,32 @@ end
 
 -- A table habit's line that has a condition: late = a reason, true only for the friend the group chat
 -- said would be late this week, for that reason (or any reason: "any").
+-- A rules card's lead-in is its own asker's, about this question or none in particular (round three:
+-- "[sam] Wait, doesn't concentration break when you take damage?" and then the card said "Dev asks if
+-- Oswin's Bless stacks"). A line that names a rule is said only before a card about that rule.
+M.RULE_TERMS = { "concentrat", "opportunity attack", "cover", "saving throw", "two attacks", "bonus action", "advantage",
+                 "stack", "flank", "grappl", "modifier" }
+function M.rule_line_ok(text, card)
+    if not card or type(text) ~= "string" then
+        return true
+    end
+    local about = string.lower((card.title or "") .. " " .. (card.text or ""))
+    for _, o in ipairs(card.options or {}) do
+        about = about .. " " .. string.lower(o.label or "") .. " " .. string.lower(o.log or "")
+    end
+    local low = string.lower(text)
+    for _, t in ipairs(M.RULE_TERMS) do
+        if string.find(low, t, 1, true) and not string.find(about, t, 1, true) then
+            return false
+        end
+    end
+    return true
+end
+
 function M.behavior_line_ok(night, line, p)
+    if night.tb_card and not M.rule_line_ok(type(line) == "table" and line.text or line, night.tb_card) then
+        return false
+    end
     if type(line) ~= "table" then
         return true
     end
@@ -1976,7 +2001,9 @@ function M:table_behavior(when, roller, sure)
                         end
                     end
                     local w = arch_weight(b.archetype, p)
-                    if not class_ok(b, p) then
+                    if self.tb_only and p ~= self.tb_only then
+                        w = 0       -- (a rules card's lead-in: its asker's)
+                    elseif not class_ok(b, p) then
                         w = 0
                     elseif b.by == "roller" and p ~= roller then
                         w = 0
@@ -3085,8 +3112,19 @@ function M:decision(card, extra)
     end
     view.who = card.who
     view.intermission = card.intermission       -- (the break: night_view draws the table getting up)
-    if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
-        self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
+    if card.type == "rules" then
+        local asker = self.actor
+        self.tb_only, self.tb_card = asker, card
+        local said = self:table_behavior("rules")
+        self.tb_only, self.tb_card = nil, nil
+        if not said and self.rng:chance(0.7) and asker then
+            local text, line = self.talk:line("rules_lawyer", asker, self:vars(), function(l)
+                return M.rule_line_ok(l.text, card)
+            end)
+            if text then
+                self:emit({ kind = "say", who = asker.key, text = text, ic = talk_mod.in_character("rules_lawyer"), line = line and line.id })
+            end
+        end
     end
     -- A choice that's the players' to make (museum_night.table_pick: they talk it over, and the DM
     -- only nudges when asked) arrives already made: no card for the DM.

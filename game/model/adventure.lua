@@ -1029,7 +1029,7 @@ function M.add_mark(campaign, id, room, holder)
     local items = require "game.model.items"
     local thing = items.thing_for({ mark = id })
     if thing and not thing.magic and not items.owned(campaign, thing.id) then
-        items.give(campaign, thing.id, nil, room == "loose" and "given" or "found")
+        items.give(campaign, thing.id, holder, room == "loose" and "given" or "found")
     end
     return true
 end

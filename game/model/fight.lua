@@ -965,6 +965,7 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         for k, v in pairs(card) do
             copy[k] = v
         end
+        copy.text = adjust.text or copy.text
         copy.options = {}
         for _, o in ipairs(card.options or {}) do
             if not (adjust.drop and o.battle and adjust.drop[o.battle]) then
@@ -1371,6 +1372,7 @@ function M.run(night, sc, plan)
         -- Someone drinks a potion: the potion question can come up now (A7), never before.
         if ev.kind == "feature" and ev.name == "Potion of Healing" and ev.who and ev.who.pc and not f.potion_by then
             f.potion_by = ev.who
+            f.potion_to = ev.target ~= ev.who and ev.target or nil     -- (fed to someone else: who drank it)
         end
         if ev.kind == "attack" and ev.att.side ~= "party" and ev.roll then
             if night.dm_rolls == "hidden" then
@@ -1552,7 +1554,9 @@ function M.run(night, sc, plan)
         local camp = night.campaign
         if f.potion_by and not f.used.potion and not (camp.house_rules and camp.house_rules.potion_action)
             and not night.used_cards.potion_action and night:decision_count() < 14 then
-            moment(night, f, "potion", {}, f.potion_by)
+            local card = content.triggered.potion
+            local to = f.potion_to and f.potion_to.pc and player_of(night, f.potion_to)
+            moment(night, f, "potion", {}, f.potion_by, to and f.potion_to or nil, to and card and card.text_given and { text = card.text_given } or nil)
         end
         -- A rules question comes up mid-fight, once what it's about has happened in this fight (F14:
         -- a card's `fight_needs`: a Bless, a grapple, a fighter in melee), asked by whoever it

@@ -23,8 +23,12 @@ local NAMES = { B1 = "one owner per action", B2 = "only what's owned fires; what
                 B3 = "money adds up", B4 = "memory and knowledge are true" }
 
 local fails = {}
+local CUR                    -- the scan or case running now: fails are counted by it too
 local function fail(item, msg)
-    fails[item] = fails[item] or { n = 0 }
+    fails[item] = fails[item] or { n = 0, by = {} }
+    if CUR then
+        fails[item].by[CUR] = (fails[item].by[CUR] or 0) + 1
+    end
     if #fails[item] < 8 then
         table.insert(fails[item], msg)
     end
@@ -287,11 +291,134 @@ local function praise_owner(T)
     end
 end
 
+-- The painted weapon is the one its puller has: one thing, theirs to put back.
+local function paint_owner(T)
+    local puller
+    for _, e in ipairs(T) do
+        if e.kind == "line" then
+            local p = string.match(e.text, "^(%a+) pulls out .-, still wet")
+            if p and KEY[p] then
+                puller = p
+            elseif string.find(e.text, "starting to drip", 1, true) then
+                add("B1", "paint_drips")
+                if string.find(e.text, "weapons", 1, true) then
+                    fail("B1", tag(T, e.w) .. ": one weapon came out of the painting, and '" .. e.text .. "'")
+                end
+                local named = hero_in(e.text)
+                if puller and named ~= puller then
+                    fail("B1", tag(T, e.w) .. ": " .. puller .. " pulled it out, and '" .. e.text .. "'")
+                end
+            end
+        end
+    end
+end
+
+-- The Lecturer's notes and the archivist's notebook: whoever the report says came away with them was
+-- seen picking them up, and whoever hands Euryale a page is the one carrying them.
+local function notes_owner(T)
+    local heard = {}            -- week -> text of every line, for "was it said"
+    local pages_by, pending_page
+    for _, e in ipairs(T) do
+        if e.kind == "line" then
+            heard[e.w] = (heard[e.w] or "") .. "\n" .. e.text
+            local h = hero_in(e.text)
+            if h and (string.find(e.text, "pages", 1, true)) and (string.find(e.text, "gathers", 1, true)
+                or string.find(e.text, "scoops", 1, true) or string.find(e.text, "picks the pages", 1, true)) then
+                pages_by = h
+                add("B1", "pages_picked_up")
+            end
+            if string.find(e.text, "The table decides: put her to sleep with the Lecturer's notes", 1, true) then
+                pending_page = true
+            elseif pending_page and e.who == "record" then
+                pending_page = nil
+                add("B1", "page_handed")
+                if pages_by and hero_in(e.text) ~= pages_by then
+                    fail("B1", tag(T, e.w) .. ": " .. pages_by .. " picked up the pages, and '" .. e.text .. "' hands Euryale one")
+                end
+            end
+        elseif e.kind == "chain" then
+            for h, what in string.gmatch(e.text, "(%a+) came away with the (%a+'s %a+)") do
+                if KEY[h] and (what == "Lecturer's notes" or what == "archivist's notebook") then
+                    add("B1", "chain_came_away")
+                    local word = what == "Lecturer's notes" and "pages" or "notebook"
+                    local ok = false
+                    for line in string.gmatch(heard[e.w] or "", "[^\n]+") do
+                        ok = ok or (string.find(line, h, 1, true) and string.find(line, word, 1, true) and true)
+                    end
+                    if not ok then
+                        fail("B1", tag(T, e.w) .. ": the chain says " .. h .. " came away with the " .. what .. ", and no line gave them to " .. h)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- A rules question is asked by whoever the card says asks it (the line just before it is theirs), and
+-- the potion question by whoever drank it (or gave it, and says so).
+local KEY_OF_FRIEND = { Mara = "mara", Dev = "dev", Jess = "jess", Sam = "sam" }
+local LEAD_IN = {}           -- every line a rules card's lead-in can be (table talk and the rules_lawyer barks)
+do
+    local f = io.open("game/data/dialogue/lines.json")
+    local data = require("game.model.jsonlite").decode(f:read("*a"))
+    f:close()
+    for _, l in ipairs(data.lines or {}) do
+        if l.trigger == "rules_lawyer" then
+            LEAD_IN[l.text] = true
+        end
+    end
+    for _, b in ipairs(require("game.model.content").table_behaviors or {}) do
+        if b.when == "rules" then
+            for _, l in ipairs(b.lines) do
+                LEAD_IN[type(l) == "table" and l.text or l] = true
+            end
+        end
+    end
+end
+local function asker_owner(T)
+    local potions = {}
+    for i, e in ipairs(T) do
+        if e.kind == "battle" and e.phase == "start" then
+            potions = {}
+        elseif e.kind == "turn" then
+            for _, st in ipairs(e.steps) do
+                if st.kind == "feature" and st.name == "Potion of Healing" then
+                    table.insert(potions, { by = st.id, to = st.target })
+                end
+            end
+        elseif e.kind == "card" and e.card.type == "rules" then
+            local who = KEY_OF_FRIEND[string.match(e.card.text or "", "^(%a+)") or ""]
+            local before = T[i - 1]
+            if who and before and before.kind == "line" and LEAD_IN[before.text] then
+                add("B1", "rules_lead_in")
+                if before.who ~= who then
+                    fail("B1", tag(T, e.w) .. ": [" .. before.who .. "] '" .. before.text .. "', then '" .. e.text .. "'")
+                end
+            end
+            local drank = string.match(e.card.text or "", "^(%a+) drank a healing potion")
+            local gave = string.match(e.card.text or "", "^(%a+) gave %a+ a healing potion")
+            if drank or gave then
+                add("B1", "potion_card")
+                local k = KEY_OF_FRIEND[drank or gave]
+                local ok = false
+                for _, pt in ipairs(potions) do
+                    ok = ok or (pt.by == k and ((drank and (pt.to == k or pt.to == nil)) or (gave and pt.to ~= k)))
+                end
+                if not ok then
+                    fail("B1", tag(T, e.w) .. ": '" .. e.card.text .. "', and the fight's potions were " .. #potions)
+                end
+            end
+        end
+    end
+end
+
 -- Targeted cases ---------------------------------------------------------------------------------
 
 -- Run everything ---------------------------------------------------------------------------------
 
-local SCANS = { lock_owner, voice_owner, praise_owner }
+-- (name, scan): a fail is counted under its scan's name, so the line per finding says which part failed.
+local SCANS = { { "lock", lock_owner }, { "voice", voice_owner }, { "praise", praise_owner }, { "paint", paint_owner },
+                { "notes", notes_owner }, { "asker", asker_owner } }
 local t0 = os.clock()
 local runs = 0
 for _, style in ipairs(STYLES) do
@@ -312,8 +439,9 @@ for _, style in ipairs(STYLES) do
             fail("B1", "seed " .. seed .. " " .. style .. ": error " .. tostring(T))
         else
             runs = runs + 1
-            for _, scan in ipairs(SCANS) do
-                local ok2, err = pcall(scan, T)
+            for _, sc in ipairs(SCANS) do
+                CUR = sc[1]
+                local ok2, err = pcall(sc[2], T)
                 if not ok2 then
                     fail("B1", tag(T) .. ": scan error " .. tostring(err))
                 end
@@ -330,7 +458,12 @@ for _, item in ipairs(ITEMS) do
     for k, n in util.sorted_pairs(E[item] or {}) do
         table.insert(bits, k .. " " .. n)
     end
-    print(string.format("%s %s: %s%s", item, NAMES[item], #bits > 0 and table.concat(bits, ", ") or "-", f and ("  FAIL " .. f.n) or ""))
+    local by = {}
+    for k, n in util.sorted_pairs(f and f.by or {}) do
+        table.insert(by, k .. " " .. n)
+    end
+    print(string.format("%s %s: %s%s", item, NAMES[item], #bits > 0 and table.concat(bits, ", ") or "-",
+        f and ("  FAIL " .. f.n .. (#by > 0 and (" (" .. table.concat(by, ", ") .. ")") or "")) or ""))
     for _, m in ipairs(f or {}) do
         print("   FAIL " .. m)
         total = total + 1

@@ -455,7 +455,7 @@ M.beats = {
                     fail = "the painting bit {char}" }, false },
     mus_dice_painting = { false, false },
     mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
-    mus_return_paint = { "they put the painted weapons back", "they kept the painted weapons until they dripped away" },
+    mus_return_paint = { "{char} slid {gift} back into its painting", "{char} kept {gift} until it dripped away" },
     -- (The voice is the DM's, not a hero's: round three heard "Pip did Telpur's voice" after "[dm] The voice is terrible.")
     mus_telpur_bit = { "Telpur got his full voice, and the table cried laughing", false },
     mus_tracks = { "they followed the scratch marks, weapons out", "they went round and made the hunters come to them" },
@@ -813,15 +813,17 @@ M.moments = {
                         { "arch:butt_kicker", fun = -3 } },
             mus = { no_fight = true, mark = "knight" } },
       } },
+    -- (owner: the one who pulled it out of the painting has it, and it's theirs to put back.)
     { id = "mus_return_paint", room = "paintings", at = "end", when = { flag = "paint" }, type = "story", actor = { "method_actor", "casual", "tactician" }, party = true,
+      owner = "mus_reach",
       title = "Put the paint back?",
-      text = "The painted weapons are starting to drip. {actor_char} could slide each one back into its own painting before it melts.",
+      text = "The paint is running. {actor_char} is still holding {gift_the} from the painting, and it's starting to drip. {Actor_they} could slide it back into its frame before it melts.",
       options = {
-          { label = "Put them back. It feels polite.", want = "put the painted weapons back",
-            log = "Each one slides home. A Franc appears, and the duellist in the frame tips his hat.",
+          { label = "Put it back. It feels polite.", want = "put it back",
+            log = "It slides home without a sound. A Franc appears in {actor_char}'s pocket, and the painted figure in the frame nods.",
             effects = { { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 3 } }, mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "Keep them till they drip away.", want = "keep them till they drip away",
-            log = "They carry them out, dripping. By the gift shop they're puddles.",
+          { label = "Keep it till it drips away.", want = "keep it till it drips away",
+            log = "{actor_char} keeps hold of it, dripping, until it's nothing but a puddle and a damp sleeve.",
             effects = { { "arch:power_gamer", fun = 4 }, { "arch:instigator", fun = 4 }, { "arch:method_actor", fun = 2 } } },
       } },
 
@@ -1651,8 +1653,9 @@ M.showdown = {
                                    mus = { ending = "escape", aspect = "Paid a Gorgon to leave" } },
                        fail = { log = "\"You would rob your host twice?\" She laughs, and reaches for her bow.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
+            -- (by_holder: whoever carries the pages hands one over.)
             { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes",
-              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" },
+              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" }, by_holder = "pages",
               roll = { dc = 13, skill = { "deception", "sleight_of_hand" }, convenient = "success",
                        success = { log = "She reads the first line, frowns, and is asleep before the second.",
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "arch:instigator", fun = 6 }, { "arch:casual", fun = 3 }, { "arch:butt_kicker", fun = -2 } },

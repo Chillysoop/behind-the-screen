@@ -53,12 +53,27 @@ local function mus_vars(night, sc)
         or MODULE.portrait_default or {}
     v.painting = port.painting or "a frosty mountain portrait"
     v.gift = port.gift or "a painted scimitar"
+    v.gift_the = (string.gsub(v.gift, "^an? ", "the "))      -- (the one they pulled out: "the painted scimitar")
     v.gift_empty = port.empty or nil
     -- (What reaching into this painting risks, as the book has it: mus_reach.)
     v.portrait = port
     v.reach_hint = port.hint and (" " .. port.hint) or ""
     return v
 end
+
+-- What's said when something changes hands at the table (round three, batch B: "Thessaly came away with
+-- the Lecturer's notes" in every report, and no line ever gave them to her). Each three ways, fresh
+-- across weeks; on the Dialogue Desk (tools/dialogue/export.lua CODE_TABLES, when.lua).
+M.WORLD_LINES = {
+    -- The Lecturer's notes, picked up by whoever's best with a page (the room's end, the Lecturer silenced).
+    pages = { "{char} gathers the pages up off the floor before they can drift any further.",
+              "{char} scoops up the three pages, careful not to read a single word.",
+              "{char} picks the pages up by one corner and folds them away, unread." },
+    -- The archivist's notebook, taken by whoever took the second study in (the room's end).
+    notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
+                 "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",
+                 "{char} closes the notebook gently and takes it off the desk." },
+}
 
 -- The event log (R7, R14: game/model/events.lua) ---------------------------------------------------
 -- Every beat the night plays goes in the log with what it follows from: a room walked into for a
@@ -103,7 +118,8 @@ function M.beat_clause(night, card, o, i, rolled_ok)
     local who = night.actor and night.actor.char or "they"
     local subj = card.party and "they" or who
     local function fill(t)
-        return t and util.fill(t, { char = who, actor_char = who, mech = (st_of(night).mech_name or "the Mech") }) or nil
+        return t and util.fill(t, { char = who, actor_char = who, mech = (st_of(night).mech_name or "the Mech"),
+                                    gift = night.mus_vars and night.mus_vars.gift_the or "the painted weapon" }) or nil
     end
     if type(ob) == "table" then
         if rolled_ok and ob.ok then
@@ -791,6 +807,19 @@ function M.play_moment(night, card, sc)
     for _, p in ipairs(night.players) do
         fun_before[p.key] = score.fun(p)
     end
+    -- A moment about something one hero has (card.owner: the card whose moment handed it over, as
+    -- the log has it): theirs, whoever's had the spotlight, and whoever the table backs (round three:
+    -- "Oswin could slide each one back" when Pip pulled the one painted scimitar out).
+    local owned
+    if card.owner then
+        local ev = events.last(night.campaign, { kind = "moment", card = card.owner, session = night.campaign.week })
+        owned = ev and present(night, ev.who)
+        if owned then
+            night.actor = owned
+            night.mus_vars = mus_vars(night, sc)
+            night.mus_vars.gift_the = ev.gift or night.mus_vars.gift_the      -- (what they pulled out, as the log has it)
+        end
+    end
     -- The players' own choice (card.party): they talk it over, and play what they settle on.
     if card.party then
         if not night.actor then
@@ -823,7 +852,7 @@ function M.play_moment(night, card, sc)
         for _, p in ipairs(backers) do
             backs = backs or p == night.actor
         end
-        if #backers > 0 and night.actor and not backs then
+        if #backers > 0 and night.actor and not backs and not owned then
             copy.text = util.fill(copy.text or "", vars)
             night.actor = backers[1]
         end
@@ -850,6 +879,16 @@ function M.play_moment(night, card, sc)
             end
             night.actor = best or night.actor
             copy.fixed_actor = true
+        end
+        -- (An option that's done with something someone carries, a page of the Lecturer's notes: theirs
+        -- to do, whoever backed it. Round three: Thessaly had the pages, and Pip read one to Euryale.)
+        if chosen and chosen.by_holder then
+            local _, key = require("game.model.items").holding(night.campaign, chosen.by_holder, true)
+            local h = key and present(night, key)
+            if h and h ~= night.actor then
+                copy.text = util.fill(copy.text or "", night:vars(night.mus_vars))
+                night.actor = h
+            end
         end
         -- They picked something that can go badly: does anyone tell them? (warnings.lua)
         if chosen and card.danger then
@@ -911,6 +950,10 @@ function M.play_moment(night, card, sc)
                                     flag2 = rolled_ok and out_pre and out_pre.mus and out_pre.mus.flag or nil,
                                     rolled = o.roll and (rolled_ok and "ok" or "fail") or nil,
                                     text = M.beat_clause(night, card, o, chosen_i or 0, rolled_ok), from = gate })
+    -- (What came out of a painting, by name: the one thing its puller holds.)
+    if card.id == "mus_reach" and night.mus_vars and not night.mus_vars.gift_empty then
+        mev.gift = night.mus_vars.gift_the
+    end
     -- (Whose plan it was: the friends who wanted what the table settled, for a line that gives one
     -- of them the credit. Round three: "Brannoc's plan" for a ritual Dev argued against.)
     if card.party and night.party_backers then
@@ -3289,9 +3332,16 @@ function M.after_room(night, sc)
     -- notebook" was the room's own find, said as if the whisper brought it. R14.)
     local prev_cause = events.cause(c)
     events.set_cause(c, sc.fight_ev or sc.resolve_ev)
-    local function mark(m)
-        if adventure.add_mark(c, m, id) then
+    local function mark(m, holder)
+        if adventure.add_mark(c, m, id, holder) then
             table.insert(night.mus.pending, m)
+            return true
+        end
+    end
+    -- (Whoever picks something up is said out loud, and it's in their pack: one owner.)
+    local function picked_up(what, p)
+        if p then
+            night:say(util.fill(night:fresh(M.WORLD_LINES[what], "pickup_" .. what), night:vars({ char = p.char })), "narration")
         end
     end
     if id == "garden" and sc.fought and (outcome ~= "win" or fled_count(sc) > 0) then
@@ -3313,7 +3363,17 @@ function M.after_room(night, sc)
                 adventure.remove_mark(c, "drone")
                 night:say("Upstairs, the drone through the floor stops. Euryale notices the quiet.", "interlude")
             end
-            mark("pages")
+            -- (The pages go to whoever's best with a page of the heroes there, and the table sees it.)
+            local reader, rm
+            for _, p in ipairs(night:at_hand()) do
+                local _, m = night:best_skill(p, { "investigation", "history" })
+                if m and (not rm or m > rm) then
+                    reader, rm = p, m
+                end
+            end
+            if mark("pages", reader and reader.key) then
+                picked_up("pages", reader)
+            end
         else
             mark("drone")
         end
@@ -3325,7 +3385,19 @@ function M.after_room(night, sc)
         if not items_mod.owned(c, "notebook") then
             events.set_cause(c, events.last(c, { kind = { moment = true, setback = true }, flag = "door_open", session = c.week })
                 or events.last(c, { kind = { moment = true, setback = true }, flag2 = "door_open", session = c.week }))
-            items_mod.give(c, "notebook", nil, "found")
+            -- (Whoever took the second study in takes it off the desk: round three, "Thessaly came away
+            -- with the notebook" when Oswin read it.)
+            local inside = events.last(c, { kind = "moment", card = "mus_office_inside", session = c.week })
+            local taker
+            for _, p in ipairs(night:at_hand()) do
+                if inside and p.key == inside.who then
+                    taker = p
+                end
+            end
+            if items_mod.give(c, "notebook", taker and taker.key or nil, "found") then
+                local it, key = items_mod.holding(c, "notebook")
+                picked_up("notebook", key and present(night, key))
+            end
         end
     end
     -- (What else the room's end brings, the DM's ties and her thoughts, follows from none of this.)
