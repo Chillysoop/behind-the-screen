@@ -461,3 +461,7 @@ tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's wo
    line that presumes what's coming without naming it). Conner reviews the fidelity sheet against his PDF; the
    twin daggers are his call (the book gives them no powers, the game made them +1).
 4. Then a fresh-eyes review of whole runs, and AGENTS.md gets the importer's contract as ground rules.
+5. The knowledge playtest (November 5, after the three checks): nine prologues read line by line against the book
+   by three reviewers who hadn't seen the code. Its findings and the fixes it suggests, in order, are in
+   `docs/design/2026-11-05-knowledge-playtest.md`. The first decision is Conner's: whether the Gorgon is the premise
+   or a secret.
