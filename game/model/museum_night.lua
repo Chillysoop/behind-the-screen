@@ -1441,7 +1441,8 @@ local function poke_roll(night, p)
     mod = (mod or 0) + night:take_learned(p)
     local d = night.rng:d20()
     local total = d + mod
-    night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "investigation") })
+    -- (`what`: a roll a card is about, not one of table life's small moments, which wait out 4x.)
+    night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "investigation"), what = "find" })
     return total, d
 end
 
@@ -2553,7 +2554,7 @@ M.VOTE_NAMED = {
 M.VOTE_PUSH_LINES = { "Come on, {name}. {Want}.", "{Name}, trust me on this one. {Want}.", "Please, {name}? {Want}. It'll be fine." }
 M.VOTE_CAVE = {
     dev = { "Fine, {name}. {Want}. But I'm hitting something later.", "Ugh. Okay, {name}. {Want}.", "Fine. {Want}. You owe me one, {name}." },
-    jess = { "Okay, okay, {name}. {Want}. Spoilsport.", "Fine, {name}. {Want}. Pip will sulk about it.", "Hmph. {Want}, then. You win, {name}." },
+    jess = { "Okay, okay, {name}. {Want}. Spoilsport.", "Fine, {name}. {Want}. {char} will sulk about it.", "Hmph. {Want}, then. You win, {name}." },
     mara = { "That's fair, {name}. {Want}.", "Hm. All right, {name}, you've talked me round. {Want}.", "Okay. {Want}. Good point, {name}." },
     sam = { "Yeah, okay, {name}. {Want}.", "Fair enough, {name}. {Want}.", "Sure, {name}. {Want}. Why not." },
     any = { "Okay, {name}. {Want}.", "Fine, {name}. {Want}.", "All right, {name}. {Want}." },
@@ -2562,7 +2563,7 @@ M.VOTE_CAVE = {
 -- {want}). The third playtest, alive 5 and F3: "(Dev and Jess's idea)" when Dev never spoke.
 M.VOTE_SIDE = {
     dev = { "Let's {want}. Whatever {name} said.", "Let's {want}. I'm with {name}.", "Let's {want}. Can we go now?" },
-    jess = { "Let's {want}. I'm with {name}.", "Let's {want}! Obviously.", "Let's {want}. Pip votes with {name}." },
+    jess = { "Let's {want}. I'm with {name}.", "Let's {want}! Obviously.", "Let's {want}. {char} votes with {name}." },
     mara = { "Let's {want}. {Name}'s right, actually.", "Let's {want}. Put me down with {name}.", "Let's {want}. I'm with {name} on this one." },
     sam = { "Let's {want}. I'll go with {name}.", "Let's {want}. That's fine by me.", "Let's {want}. Same as {name}." },
     any = { "Let's {want}. I'm with {name}.", "Let's {want}. Same as {name}.", "Let's {want}, then." },
@@ -2894,10 +2895,17 @@ local function short_want(o)
 end
 
 -- A friend's own line for the talk (VOTE_CAVE, VOTE_SIDE: by friend, else "any"), three ways, fresh.
+-- ({char}: their hero now, never a name written in: "Pip votes with Sam" after Pip died and Lark took the
+-- seat. The gate after Conner's second pass, 3 careful.)
 local function own_line(night, tbl, p, key, vars)
     local list = tbl[p.key] or tbl.any
     local l = night:fresh(list, key .. "_" .. p.key) or list[1]
-    return util.fill(l, vars)
+    local v = {}
+    for k, x in pairs(vars or {}) do
+        v[k] = x
+    end
+    v.char = v.char or p.char
+    return util.fill(l, v)
 end
 
 -- copy: the card as it'll be played (its options already filtered). Returns the option's index in

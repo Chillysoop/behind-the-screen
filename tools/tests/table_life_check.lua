@@ -77,7 +77,8 @@ local function play(seed, mode)
             local answer
             if ev.kind == "battle" then
                 in_fight = ev.phase == "start"
-            elseif ev.kind == "tiny_roll" then
+            elseif ev.kind == "tiny_roll" and not ev.what then
+                -- (`what`: a roll a card or a split is about, poking around for a find, not a small moment.)
                 tiny = tiny + 1
                 check(not in_fight, string.format("seed %d %s week %d: a small moment in a fight", seed, mode, w))
                 check(mode ~= "fast", string.format("seed %d week %d: a small moment at 4x", seed, w))

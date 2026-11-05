@@ -4379,7 +4379,7 @@ function M:split_off(sc)
             mod = (mod or 0) + self:take_learned(p)
             local d = self.rng:d20()
             local total = d + mod
-            self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception") })
+            self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception"), what = "split" })
             if total >= 13 then
                 local c = self.campaign
                 c.learned = c.learned or {}
