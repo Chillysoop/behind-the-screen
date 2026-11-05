@@ -570,6 +570,13 @@ function M.heard(night, text)
     if text and string.find(text, "Witness", 1, true) then
         st.flags.witness_named = true
     end
+    -- (And the sunken city, which only the notebook read out says: with the Witness, witness_city.)
+    if text and (string.find(text, "city under the sea", 1, true) or string.find(text, "sunken city", 1, true)) then
+        st.flags.sunken_city = true
+    end
+    if st.flags.witness_named and st.flags.sunken_city then
+        st.flags.witness_city = true
+    end
 end
 
 -- Does the party hold a room's prize now? (Its `has`: a flag, a mark, or bought tonight.)
@@ -961,8 +968,14 @@ function M.play_moment(night, card, sc)
         return nil
     end
     -- (Whose painting the hall showed: the chat and the notes can say so.)
+    -- (The painting they were shown: whose it is, the DM's pick or the hero's own, not who leaned in.
+    -- Round three: "the lady by the mountains" when the hall showed the elf in the snow.)
     if card.id == "mus_reach" and night.actor then
-        st.flags["portrait_" .. night.actor.key] = true
+        local pick = knobs_of(night).portrait
+        local whose = (type(pick) == "string" and MODULE.portraits[pick] and pick) or (MODULE.portraits[night.actor.key] and night.actor.key)
+        if whose then
+            st.flags["portrait_" .. whose] = true
+        end
     end
     -- What the DM chose, by the option's place on the card as written: lines later on (a goal's
     -- ending, the group chat, what an NPC remembers) say only what follows from it.
@@ -4379,6 +4392,10 @@ end
 function M.thanks_word(night, sc)
     local c = night.campaign
     local st = st_of(night)
+    local ending = st.ending and MODULE.endings[st.ending]
+    if ending and ending.flit then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(ending.flit, "^\"(.*)\"$", "%1")) })
+    end
     local rooms = {}
     for id in pairs(MODULE.rooms) do
         rooms[id] = true
@@ -4543,7 +4560,8 @@ function M.after_showdown(night, sc)
     night:goal_event(sc)
     if e then
         night:say((sc.boss_dead == "turned to stone" and e.stone_line) or e.line, "good")
-        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = (string.gsub(e.flit, "^\"(.*)\"$", "%1")) })
+        -- (Flitwidget's word on how it ended is said downstairs, in his thanks: thanks_word. Round
+        -- three heard him in her lair, before the gift shop scene began.)
         st.done.lair = "win"
         table.insert(st.path, { room = "lair", week = c.week, outcome = "win" })
         st.at, st.choices = nil, nil

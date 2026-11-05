@@ -1024,9 +1024,11 @@ M.moments = {
           { label = "Rein them in, kindly, out of character.",
             log = "\"{actor_char} can scout next week, with the group.\" {actor} pouts, then laughs.",
             effects = { { "actor", fun = -4 }, { "others", fun = 3, trust = 1 } } },
+          -- (Not a risk they knew of: you decided she was waiting. Unless someone warned them, it's out
+          -- of nowhere, and "They'd been warned" isn't said. Round three.)
           { label = "Let it cost them: Euryale is waiting.",
             log = "At the top of the stairs, bronze eyes. {actor_char} comes back down very pale, and very quiet.",
-            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { risk = true, harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
+            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
       } },
 
     -- Euryale's lair ---------------------------------------------------------------------------
@@ -1807,7 +1809,7 @@ M.epilogue = {
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {
-    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_named" } },
+    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_city" } },
              "That was a prologue? I've already got a notebook for the campaign." },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
     jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
@@ -1864,15 +1866,18 @@ M.chat_ask = {
 M.chat = {
     -- (A line about something only if it happened: { text, when = condition }, as on moments.)
     street = { jess = { "flitwidget is lying and i love him", when = { not_flag = "truth" } }, sam = "do we get a discount at the gift shop since we're the help" },
-    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque" } } },
+    -- (What a friend says about something has to be something the party saw or learned, round three:
+    -- the sign only when they didn't use the water, the jugs only when the ritual worked, the lady only
+    -- when her painting was the one in the hall, the sunken city only once the notebook was read out.)
+    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque", not_flag = "water" } } },
     entrance = { jess = { "i would like it on record that i only LOOKED at the box", when = { seen = "mus_box", not_mark = "robbed" } },
                  sam = { "the statue said thank you. it was very loud", when = { flag = "boon" } } },
-    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { seen = "mus_tablet" } }, dev = "three skulls is too many skulls" },
+    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { mark = "calmed" } }, dev = "three skulls is too many skulls" },
     paintings = { jess = { "WHO PAINTED US INTO THE PAINTING", when = { seen = "mus_dice_painting" } },
                   mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
     gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
     hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
-    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_named" } },
+    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_city" } },
                 sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
     tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
     lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },

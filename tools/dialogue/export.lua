@@ -42,6 +42,9 @@ local CODE_TABLES = {
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",
                "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT" } },
     { file = "game/model/items.lua", mod = "game.model.items", group = "Game night", keys = { "GOT" } },
+    { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night", keys = { "WORLD_LINES" } },
+    { file = "game/model/fight.lua", mod = "game.model.fight", group = "Game night", keys = { "SWITCH_LINES" } },
+    { file = "game/model/intros.lua", mod = "game.model.intros", group = "Introductions", keys = { "ASKS_OPEN", "ANSWER" } },
 }
 -- Parts of a file listed under another file: the module pulls in its small moments, which are listed under
 -- game/data/museum/table_life.lua (where an edit to them goes).

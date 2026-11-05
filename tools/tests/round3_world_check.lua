@@ -752,6 +752,106 @@ local function breakages_true(T)
     end
 end
 
+-- B4. Memory and knowledge are true -------------------------------------------------------------
+
+-- What the friends say they know, they heard: the Witness and the sunken city (the notebook read out),
+-- the jugs (the ritual worked), the lady by the mountains (her painting was the one shown), the sign
+-- (only "thinking about it" when they didn't use the water).
+local FRIENDS = { mara = true, dev = true, jess = true, sam = true, Mara = true, Dev = true, Jess = true, Sam = true }
+local function knowledge_true(T)
+    local heard = ""
+    local doused = false
+    for _, e in ipairs(T) do
+        local friend = (e.kind == "line" and FRIENDS[e.who]) or e.kind == "chat"
+        local text = e.text or ""
+        if e.kind == "line" and not FRIENDS[e.who] then
+            heard = heard .. "\n" .. text
+            doused = doused or string.find(text, "Helmets full of pond water", 1, true) ~= nil
+        elseif friend then
+            local low = string.lower(text)
+            local function need(word, what, said)
+                if string.find(low, word, 1, true) then
+                    add("B4", "callbacks_checked")
+                    if not string.find(heard, said, 1, true) then
+                        fail("B4", tag(T, e.w) .. ": '" .. text .. "', and the table never heard " .. what)
+                    end
+                end
+            end
+            need("witness", "of the Witness", "Witness")
+            need("sunken city", "of a sunken city", "city under the sea")
+            need("city under the sea", "of a city under the sea", "city under the sea")
+            need("gallons", "the ritual's measures", "Five gallons")
+            need("lady by the mountains", "the lady's painting", "a lady by an icy mountain road")
+            if string.find(low, "the sign said use water", 1, true) and doused then
+                fail("B4", tag(T, e.w) .. ": '" .. text .. "', and they did use the water")
+            end
+        end
+    end
+end
+
+-- What the museum's people remember is what happened: Flitwidget's draught gone only when it went (and
+-- said when it did), robbed and not "tried", "his job" not as if stolen, "They'd been warned" only when
+-- they were, Flitwidget not heard in her lair, and Session Zero's agreements heard before they're quoted.
+local function memory_true(T)
+    local events = require "game.model.events"
+    local c = T.c
+    local got = events.any(c, { kind = "steal", whom = "mus_flitwidget", outcome = "got" })
+    local robbed = c.adv.marks.robbed or events.any(c, { kind = "mark", thing = "robbed" })
+    local draught_said, thanks = false, false
+    local s0_heard, alone_cost = false, false
+    for _, e in ipairs(T) do
+        local text = e.text or ""
+        if e.kind == "line" or e.kind == "card" then
+            if string.find(text, "My draught isn't", 1, true) or string.find(text, "I know where it went", 1, true)
+                or string.find(text, "whoever has my draught", 1, true) or string.find(text, "draught's gone missing", 1, true)
+                or string.find(text, "It's gone missing", 1, true) or string.find(text, "lost my healing draught", 1, true)
+                or string.find(text, "my healing draught? It was in this pocket", 1, true) then
+                draught_said = true
+                add("B4", "draught_remembered")
+                if not got then
+                    fail("B4", tag(T, e.w) .. ": '" .. text .. "', and his draught never went (he caught them, or nobody tried)")
+                end
+            end
+            if robbed and (string.find(text, "tried to rob", 1, true) or string.find(text, "tried the gnome's", 1, true)) then
+                fail("B4", tag(T, e.w) .. ": they emptied the donation box, and '" .. text .. "'")
+            end
+            if string.find(text, "took his job", 1, true) then
+                fail("B4", tag(T, e.w) .. ": '" .. text .. "' reads as if they stole it")
+            end
+            if e.kind == "line" and e.room == "lair" and string.find(e.who or "", "Flitwidget", 1, true) then
+                fail("B4", tag(T, e.w) .. ": Flitwidget is heard in her lair: '" .. text .. "'")
+            end
+            if e.kind == "line" and string.find(text, "You nod: \"", 1, true) and e.w == 1 then
+                s0_heard = true
+            end
+            if string.find(text, "at Session Zero.", 1, true) and (string.find(text, "as you agreed with", 1, true)
+                or string.find(text, "as you promised", 1, true)) then
+                add("B4", "session_zero_reminders")
+                if not s0_heard then
+                    fail("B4", tag(T, e.w) .. ": '" .. text .. "', and nobody said it at Session Zero")
+                end
+            end
+            if string.find(text, "At the top of the stairs, bronze eyes", 1, true) then
+                alone_cost = true
+            elseif alone_cost and e.kind == "line" then
+                alone_cost = false
+                if string.find(text, "They'd been warned", 1, true) and not (c.adv.warned or {}).mus_alone then
+                    fail("B4", tag(T, e.w) .. ": 'They'd been warned', and nobody warned them about the stairs")
+                end
+            end
+        end
+        if e.kind == "scene" and e.room == "thanks" then
+            thanks = true
+        end
+    end
+    if got and thanks and not draught_said then
+        local ev = events.last(c, { kind = "steal", whom = "mus_flitwidget", outcome = "got" })
+        if ev then
+            fail("B4", tag(T) .. ": Pip lifted Flitwidget's draught, and at his thanks he never misses it")
+        end
+    end
+end
+
 -- Targeted cases ---------------------------------------------------------------------------------
 
 local function fresh_campaign(seed)
@@ -825,7 +925,7 @@ end)
 local SCANS = { { "lock", lock_owner }, { "voice", voice_owner }, { "praise", praise_owner }, { "paint", paint_owner },
                 { "notes", notes_owner }, { "asker", asker_owner },
                 { "stock", stock_owned }, { "bracelet", bracelet_given }, { "promises", promises_kept }, { "pool", money_heard }, { "reward", reward_number },
-                { "breakages", breakages_true } }
+                { "breakages", breakages_true }, { "knowledge", knowledge_true }, { "memory", memory_true } }
 local t0 = os.clock()
 local runs = 0
 for _, style in ipairs(STYLES) do

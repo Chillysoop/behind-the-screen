@@ -1123,9 +1123,13 @@ function M.apply(campaign, mus, room, holder)
     if mus.flag then
         st.flags[mus.flag] = true
     end
-    -- (The Witness, named out loud: it whispered their name, or a line about it in the notebook.)
-    if mus.flag == "whispered" or mus.flag == "studied" then
+    -- (The Witness, named out loud: a line about it in the notebook. A whisper says a hero's name,
+    -- not its own: round three heard "the WITNESS" from a table that never heard the word.)
+    if mus.flag == "studied" then
         st.flags.witness_named = true
+        if st.flags.sunken_city then
+            st.flags.witness_city = true
+        end
     end
     if mus.francs then
         st.francs = st.francs + mus.francs

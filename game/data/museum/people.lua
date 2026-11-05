@@ -130,8 +130,8 @@ return {
       -- no number ever said), when he hasn't docked it (docked says the number itself).
       reward = {
         { when = { ending = "escape" },
-          text = { "She's out, but she isn't beaten. Half the reward, then: {gold_word} gold each, and a pick from the shop.",
-                   "Half a job, half the gold: {gold_word} each. And a pick from the shop. And a biscuit.",
+          text = { "{Gold_word} gold each, then, and a pick from the shop.",
+                   "So: {gold_word} gold each. And a pick from the shop. And a biscuit.",
                    "{Gold_word} gold each, for a Gorgon who's gone, not beaten. And anything from the shop you like." } },
         { text = { "Now. Your reward: {gold_word} gold each, as promised, and a pick from the shop.",
                    "{Gold_word} gold each, as I said, and anything from the gift shop you like. Within reason.",

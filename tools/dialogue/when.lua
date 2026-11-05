@@ -684,9 +684,24 @@ A.items = function(p)
     if p[3] == "name" then
         return R("In the session report under " .. Q("Picked up") .. ", and its hover there, once they have it", "Always")
     end
+    if p[3] == "handover" then
+        -- (museum_night.between_gifts: what a favor handed over, shown being handed over.)
+        return R("As the next night starts, when " .. lowfirst(it.title or it.name or "it") .. " was given between sessions, to whoever has it",
+            one_of(#it.handover))
+    end
     local where = (it.rooms and it.rooms[1] == "lair") and "As the fight in the Gorgon's lair starts" or "As a fight starts"
     local extra = it.ally == "steam_mech" and " with the Mech fighting beside them" or ""
     return R(where .. extra .. if_(it.when) .. (it.once and " (just the first time)" or ""), "Always")
+end
+
+-- (Fill words inside other lines: what Flitwidget calls a thing they broke; what a friend pockets.)
+A.broke_words = function(p)
+    return R("Inside Flitwidget's lines at his thanks (his thanks and the reward he docks): his word for " .. p[2]
+        .. ", when he knows they broke it", "Sometimes")
+end
+A.pocketables = function(p)
+    return R("Inside the line when a friend pockets something " .. lowfirst(in_room(p[2])) .. " (once a prologue), and when "
+        .. "it's given back, by Flitwidget's thanks at the latest", "Sometimes")
 end
 
 A.keepsakes = function(p)
@@ -1796,6 +1811,8 @@ local function shared_card_line(p)
         return R(where .. ": the card's title", "Always")
     elseif p[2] == "text" then
         return R(where .. ": the card " .. title, "Always")
+    elseif p[2] == "text_given" then
+        return R(where .. ": the card " .. title .. ", when the potion went down someone else's throat", "Sometimes")
     elseif p[2] == "options" then
         local o = c.options[p[3]] or {}
         local lab = Q(o.label, 5)
@@ -1938,6 +1955,8 @@ local PEOPLE_WHEN = {
     caught = "when a friend is caught trying to lift something off them",
     helped = "when a friend helps them out, on their own idea",
     thanks = "at the thanks, at the end, by what he knows and how he feels about them",
+    reward = "at the thanks, saying what the reward is before anyone haggles, when he hasn't docked it",
+    spots = "when he sees his own stock in a hero's hands, lifted when he wasn't looking (at his counter, or along for a fight)",
     docked = "at the thanks, when he docks the reward for what they broke or did",
     heard = "on boss night, first thing, when the Lecturer has told her what the party did",
     pass_on = "at the end of a night while he's still lecturing, when he passes on what he heard",
@@ -2124,6 +2143,26 @@ local function code_line(p)
         return R("In the session report's \"How it went\" and the journey recap's route, telling " .. (W[k] or "a fight"), "Always")
     elseif top == "ALONE_TEXT" then
         return R("In the session report's \"How it went\", when " .. (k == 1 and "a hero goes off alone" or "two heroes go off on their own"), "Always")
+    elseif top == "WORLD_LINES" then
+        local W = { pages = "When the Lecturer is silenced: whoever's best with a page picks up his notes",
+                    notebook = "At the offices' end: whoever took the second study in takes the archivist's notebook",
+                    franc = "When a moment pays a Franc its own words didn't hand over: to the hero whose moment it was",
+                    francs = "When a moment pays more than one Franc its own words didn't hand over",
+                    franc_party = "When a moment everyone did pays a Franc its own words didn't hand over",
+                    francs_party = "When a moment everyone did pays more than one Franc",
+                    between_francs = "As a night starts, when a favor between sessions put Francs in the pool",
+                    first_pick = "When the party finds something and a friend was promised first pick (or the gift shop's pick at the thanks)",
+                    pocket_back = "At Flitwidget's thanks: what a friend pocketed along the way, given back if it hasn't been already" }
+        return R(W[k] or "Game night", one_of(#(require("game.model.museum_night").WORLD_LINES[k] or {})))
+    elseif top == "SWITCH_LINES" then
+        return R("In Euryale's lair, once the fight is on, when they saved the Mech's red switch for her: its commander flips it",
+            one_of(#require("game.model.fight").SWITCH_LINES))
+    elseif top == "ASKS_OPEN" then
+        return R("The first night, after the introductions: before the friends say what they'd rather not see",
+            one_of(#require("game.model.intros").ASKS_OPEN))
+    elseif top == "ANSWER" then
+        return R("The first night, after a friend says what they'd rather not see: your answer, as you gave it at Session Zero",
+            k == "agree" and "If chosen" or "If chosen")
     elseif top == "GOT" then
         return R("In the session report's \"How it went\", when a hero " .. ({ found = "finds", bought = "buys", given = "is given",
             stolen = "steals", drop = "takes off someone beaten" })[k] .. " something", "Always")
@@ -2138,7 +2177,8 @@ function W.describe(e, cells)
         ok, r = pcall(table_talk, e, cells or {})
     elseif e.file == "game/data/museum/module.lua" then
         ok, r = pcall(adventure_line, e.path)
-    elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" or e.file == "game/model/items.lua" then
+    elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" or e.file == "game/model/items.lua"
+        or e.file == "game/model/fight.lua" or e.file == "game/model/intros.lua" then
         ok, r = pcall(code_line, e.path)
     elseif FILE[e.file] then
         ok, r = pcall(FILE[e.file], e.path)
