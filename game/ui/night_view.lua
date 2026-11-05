@@ -1290,7 +1290,9 @@ function M.roll_banner(app, key, r)
     local w = math.max(250, 28 + sw + 10 + tw + (ww > 0 and (18 + ww) or 0))
     local h = 76
     local x = chip.x + (panels.W - w) / 2
-    local y = chip.y - h - 8
+    -- (Above the IN/OUT OF CHARACTER tag on the tile's top edge, not over it: the engine run after Conner's
+    -- second pass, Jess's tag half under "twin daggers vs AC 16".)
+    local y = chip.y - h - TAG_CLEAR
     local t = { age = 0, life = (app.in_battle and 1.6 or 2.6) / math.sqrt(speed(app)), nodes = {}, colors = {} }
     local function add(n, c)
         table.insert(t.nodes, n)
