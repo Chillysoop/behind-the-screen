@@ -314,7 +314,8 @@ end
 
 -- After a turn: what it owes the table (A2 friendly fire, A4 the big moments), checked when the next
 -- turn comes or the fight ends.
-local MOMENT_TOLD = {}
+local MOMENT_TOLD = { veil = { "veil" }, petrify = { "petrify", "petrify_missed" }, mirror = { "mirror" },
+                      hyper = { "hyper" }, overheat = { "overheat" }, power_down = { "power_down" } }
 local function settle_turn(R, w)
     local n = R.n
     local t = n.pending
@@ -362,9 +363,11 @@ local function on_turn(R, night, ev, w)
             R.n.ff[who.name] = true
         elseif st.kind == "feature" and st.museum and c then
             local k = st.museum
-            if MOMENT_TOLD[k] or (k == "petrified" and c.pc) then
+            if MOMENT_TOLD[k] or (k == "petrified") or (k == "freed" and c.pc) or (k == "charmed" and c.pc) then
                 t.need[k], t.what[k] = true, c.name .. " " .. tostring(st.name)
             end
+        elseif st.kind == "death_save" and st.roll == 20 and c and c.pc then
+            t.need.nat20, t.what.nat20 = true, c.name
         end
     end
     t.who = ev.who
@@ -379,6 +382,21 @@ local function on_turn(R, night, ev, w)
     end
     if next(t.need) then
         R.n.pending = t
+    end
+end
+
+-- (Telpur's knockout, in more than one way: the same three lines word for word every time, the third
+-- playtest. Counted over all the runs.)
+local TELPUR = { said = {}, n = 0 }
+local function telpur_watch(ev)
+    local tl = adventure.data.companions.telpur.lines
+    if ev.kind == "narrate" and ev.text then
+        local down = type(tl.down) == "table" and tl.down or { tl.down }
+        local up = type(tl.up) == "table" and tl.up or { tl.up }
+        if from(down, ev.text) or from(up, ev.text) then
+            TELPUR.n = TELPUR.n + 1
+            TELPUR.said[ev.text] = true
+        end
     end
 end
 
@@ -611,6 +629,7 @@ local function run(seed, style, fragile)
             gate(R, night, ev, w)
             after_death(R, night, ev, w)
             lair_watch(R, night, ev, w)
+            telpur_watch(ev)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
@@ -634,6 +653,16 @@ for _, style in ipairs({ "careful", "random", "careless" }) do
 end
 for s = 31, 38 do
     run(s, "careful", true)
+end
+do
+    local distinct = 0
+    for _ in pairs(TELPUR.said) do
+        distinct = distinct + 1
+    end
+    if TELPUR.n >= 4 and distinct <= 2 then
+        fail("A4", "Telpur goes down and comes round " .. TELPUR.n .. " times, in only " .. distinct .. " ways")
+    end
+    add("A4", "telpur_knockout_ways", distinct)
 end
 if not (E.A1 and (E.A1.deaths or 0) >= 2) then
     fail("A1", "fewer than two deaths in all the runs: nothing to check the dead against")

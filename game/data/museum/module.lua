@@ -1139,9 +1139,14 @@ M.companions = {
                    fight = { "Telpur: \"Point me at it!\"", "Telpur hops into the fight, laces flying." },
                    win = { "Telpur: \"Another victory for the Lord of Laces.\"", "Telpur takes most of the credit." },
                    -- (When he drops in a fight, and after it: companions.fell and after_fight.)
-                   down = "Telpur takes the hit and goes flying, laces everywhere. He lands in a heap and doesn't move.",
-                   react = "Telpur! Somebody get the boot!",
-                   up = "Telpur comes round in a tangle of laces. \"I meant to do that. Tactical nap.\"",
+                   -- (Three ways each: the same knockout word for word every time was the third playtest's.)
+                   down = { "Telpur takes the hit and goes flying, laces everywhere. He lands in a heap and doesn't move.",
+                            "Telpur gets punted clean across the room. He skids to a stop under an exhibit, very still.",
+                            "A blow catches Telpur square on the toecap. He spins twice and flops over, laces limp." },
+                   react = { "Telpur! Somebody get the boot!", "No! Not the boot!", "Telpur's down! Is he breathing? Do boots breathe?" },
+                   up = { "Telpur comes round in a tangle of laces. \"I meant to do that. Tactical nap.\"",
+                          "Telpur sits up, dazed. \"Did we win? I was resting my eyes. Both eyelets.\"",
+                          "Telpur groans and wriggles upright. \"Nobody tell Flitwidget I was napping on the job.\"" },
                } },
 }
 

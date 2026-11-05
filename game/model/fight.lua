@@ -756,10 +756,72 @@ end
 
 function M.tell_moments(night, f, steps)
     local said = {}
-    for _, s in ipairs(steps) do
+    local st = night.campaign and night.campaign.adv
+    local mech = st and st.mech_name or "The Mech"
+    local function is_pc(c)
+        return c and c.pc
+    end
+    for i, s in ipairs(steps) do
         local c = s.id and f.by_ref[s.id]
-        if s.museum == "petrified" and c and c.pc then
-            said.stone = told(night, "stone", { char = c.name, stays = "stays" })
+        local kind = s.museum
+        if kind == "veil" and c and not said.veil then
+            said.veil = told(night, "veil")
+        elseif kind == "petrify" and c then
+            -- (Who her stare caught this turn: everyone whose feet started to go grey, but her own.)
+            local caught = {}
+            for j = i + 1, #steps do
+                local t = steps[j]
+                local tc = t.id and f.by_ref[t.id]
+                if t.museum == "petrifying" and tc and tc ~= c then
+                    table.insert(caught, tc.name)
+                elseif t.museum == "petrify" then
+                    break
+                end
+            end
+            if #caught > 0 then
+                said.petrify = told(night, "petrify", { caught = names_list(caught), start = #caught == 1 and "starts" or "start" })
+            else
+                said.petrify = told(night, "petrify_missed")
+            end
+        elseif kind == "mirror" and c then
+            local it, key = require("game.model.items").holding(night.campaign, "mirror")
+            local hp = key and night.campaign:player(key)
+            local holder = (hp and hp.char) or "Someone"
+            told(night, "mirror", { holder = holder })
+            -- (Did it take? Her own save, a step or two on.)
+            local caught = false
+            for j = i + 1, #steps do
+                local t = steps[j]
+                if t.museum == "petrifying" and t.id == s.id then
+                    caught = true
+                end
+            end
+            said.mirror = told(night, caught and "mirror_caught" or "mirror_missed")
+        elseif kind == "petrified" and c then
+            if is_pc(c) then
+                said.stone = told(night, "stone", { char = c.name, stays = "stays" })
+            elseif c.boss then
+                said.self_stone = told(night, "self_stone")
+            else
+                said.stone = told(night, "stone_other", { char = barks.foe_label(c) and util.capitalize(barks.foe_label(c)) or c.name })
+            end
+        elseif kind == "freed" and is_pc(c) then
+            said.freed = told(night, "freed", { char = c.name })
+        elseif kind == "charmed" and is_pc(c) then
+            local by = s.by and f.by_ref[s.by]
+            local who = (by and barks.foe_label(by)) or "Euryale"
+            said.charmed = told(night, "charmed", { char = c.name, charmer = who, Charmer = util.capitalize(who) })
+        elseif kind == "hyper" and c then
+            said.hyper = told(night, "hyper", { mech = c.name or mech })
+        elseif kind == "overheat" and c then
+            said.overheat = told(night, "overheat", { mech = c.name or mech })
+        elseif kind == "power_down" and c then
+            local t = type(s.target) == "string" and f.by_ref[s.target] or nil
+            said.power_down = told(night, "power_down", { mech = c.name or mech, target = t and t.name or "its commander" })
+        elseif s.kind == "death_save" and s.roll == 20 and is_pc(c) then
+            said.nat20 = told(night, "nat20_save", { char = c.name })
+            f.nat20_up = f.nat20_up or {}
+            f.nat20_up[s.id] = true
         end
     end
     return said
