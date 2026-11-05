@@ -196,7 +196,9 @@ local function scan(R)
                     known[key] = true
                 end
             end
-        elseif tag and tag ~= "aside" and tag ~= "between sessions" and voice.heard(tag) then
+        elseif tag and tag ~= "aside" and tag ~= "between sessions" and voice.heard(tag)
+            and not (tag == "dm" and voice.of(text) == "you") then
+            -- (Not the DM's own unspoken doing: "You let your eyes linger on the tablet.")
             for key in pairs(names_in(text)) do
                 known[key] = true
             end
