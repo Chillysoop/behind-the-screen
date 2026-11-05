@@ -172,6 +172,18 @@ function M.give(campaign, id, holder, from, whom)
     if not t.stack and M.owned(campaign, id) then
         return (M.holding(campaign, id))
     end
+    -- (Someone's gift goes to the hero they're fondest of, from the log: Flitwidget's bracelet.)
+    if not holder and t.from_fondest and campaign.players then
+        local people = require "game.model.people"
+        local best, bs
+        for _, p in ipairs(campaign.players) do
+            local sc = people.opinion(campaign, t.from_fondest, p.key)
+            if p.present ~= false and (not bs or (sc or 0) > bs) then
+                best, bs = p, sc or 0
+            end
+        end
+        holder = best and best.key
+    end
     if not holder then
         local pick = t.to and campaign.player and campaign:player(t.to)
         if not (pick and pick.present ~= false) then

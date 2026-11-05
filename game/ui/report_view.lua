@@ -639,7 +639,14 @@ function M.gift_row(app, rep, x, y)
     local loot = require "game.model.loot"
     local dd = require "game.data.dice"
     local bag = loot.bag(camp)
-    kit.text(x, y, "NEW DICE", "ui14", theme.dim)
+    -- (This week's box first, each week: loot.newest_index. "NEW DICE" only over the set that's new.)
+    if app.gift_pick_week ~= camp.week then
+        app.gift_pick_week = camp.week
+        app.gift_pick = loot.newest_index(camp)
+    end
+    local o = loot.opened(camp)
+    kit.text(x, y, (#bag == 0 or (o and bag[util.clamp(app.gift_pick or 1, 1, math.max(1, #bag))] == o.set)) and "NEW DICE" or "DICE BAG",
+        "ui14", theme.dim)
     if #bag == 0 then
         kit.text(x + 84, y, "Your dice bag is empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
             { w = 288, lines = 2 })

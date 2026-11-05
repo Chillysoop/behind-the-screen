@@ -746,7 +746,15 @@ function M.record(night, f, bb, steps, who)
     end
     local round = bb.round or 0
     f.happened = f.happened or {}
+    -- (A swing that missed and still did a little, a greatsword's Graze, isn't a hit two heroes made
+    -- together: round three heard "pulled off a move together" from a hero who missed both swings.)
+    local missed = {}
     for _, s in ipairs(steps) do
+        if s.kind == "attack" and s.id then
+            missed[s.id] = not s.hit or nil
+        elseif s.kind == "spell" and s.id then
+            missed[s.id] = nil
+        end
         local t = s.id and f.by_ref[s.id]
         -- What a rules question can be about (F14: "that's not how grappling works" when nobody
         -- grappled): a Bless cast, a grapple, a fighter toe to toe with something, a condition worth
@@ -773,7 +781,7 @@ function M.record(night, f, bb, steps, who)
                 rec.close[s.id] = true
             end
             local by = s.src and f.by_ref[s.src]
-            if t.side == "foes" and by and by.pc then
+            if t.side == "foes" and by and by.pc and not missed[s.src] then
                 rec.hits[s.id] = rec.hits[s.id] or {}
                 rec.hits[s.id][s.src] = round
             end
@@ -1212,6 +1220,7 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         for k, v in pairs(card) do
             copy[k] = v
         end
+        copy.text = adjust.text or copy.text
         copy.options = {}
         for _, o in ipairs(card.options or {}) do
             if not (adjust.drop and o.battle and adjust.drop[o.battle]) then
@@ -1273,6 +1282,35 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         night.other = night:pick_actor(card.other, night.actor)
     end
     return night:decision(card, vars)
+end
+
+M.SWITCH_LINES = { "{char} reaches into {mech}'s chest panel and flips the red switch, saved for her all week.",
+                   "\"For the Gorgon,\" says {char}, and flips {mech}'s red switch.",
+                   "{char} has been waiting all week for this. The red switch goes over, and {mech} starts to shake." }
+function M.saved_switch(night, f, bb, r)
+    local st = night.mus and night.campaign.adv
+    if not (st and st.flags and st.flags.hyper_saved) or f.switch_flipped or r < 1 or bb.no_hyper then
+        return
+    end
+    if not (night.scene and night.scene.room == "lair") then
+        return
+    end
+    for _, c in ipairs(bb.creatures) do
+        if c.ally and c.data and c.data.hyper and not c.hyper_spent and not c.dead and not c.removed
+            and not c.powered_down and not c.shut_down then
+            local cmd = type(c.commander) == "table" and c.commander or (c.commander and f.by_ref[c.commander]) or nil
+            local p = cmd and cmd.pc and not cmd.dead and not cmd.down and player_of(night, cmd)
+            if p then
+                f.switch_flipped = true
+                st.flags.hyper_saved = nil           -- (spent: it's been flipped, as they planned)
+                night:flush_turn()
+                night:say(util.fill(night:fresh(M.SWITCH_LINES, "saved_switch"), { char = p.char, mech = st.mech_name or "the Mech" }), "good")
+                museum.go_hyper(bb, c)
+                night:flush_turn()
+            end
+            return
+        end
+    end
 end
 
 -- Who comes as "more of them" in this room, when anyone fits (an adventure's `reinforcements`: the
@@ -1623,6 +1661,7 @@ function M.run(night, sc, plan)
         -- Someone drinks a potion: the potion question can come up now (A7), never before.
         if ev.kind == "feature" and ev.name == "Potion of Healing" and ev.who and ev.who.pc and not f.potion_by then
             f.potion_by = ev.who
+            f.potion_to = ev.target ~= ev.who and ev.target or nil     -- (fed to someone else: who drank it)
         end
         if ev.kind == "attack" and ev.att.side ~= "party" and ev.roll then
             if night.dm_rolls == "hidden" then
@@ -1804,6 +1843,10 @@ function M.run(night, sc, plan)
         if r >= 4 then
             require("game.model.thoughts").brew(night, true)
         end
+        -- The red switch they saved for her all week (the Mech's "Save it for the Gorgon"): its
+        -- commander flips it in her lair, once the fight is on (round three: "saved for the Gorgon",
+        -- and in two runs never flipped). The Mech's own rules then run the mode.
+        M.saved_switch(night, f, bb, r)
         -- Table chatter and the villain's taunts between rounds.
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
             -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.
@@ -1824,7 +1867,9 @@ function M.run(night, sc, plan)
         local camp = night.campaign
         if f.potion_by and not f.used.potion and not (camp.house_rules and camp.house_rules.potion_action)
             and not night.used_cards.potion_action and night:decision_count() < 14 then
-            moment(night, f, "potion", {}, f.potion_by)
+            local card = content.triggered.potion
+            local to = f.potion_to and f.potion_to.pc and player_of(night, f.potion_to)
+            moment(night, f, "potion", {}, f.potion_by, to and f.potion_to or nil, to and card and card.text_given and { text = card.text_given } or nil)
         end
         -- A rules question comes up mid-fight, once what it's about has happened in this fight (F14:
         -- a card's `fight_needs`: a Bless, a grapple, a fighter in melee), asked by whoever it

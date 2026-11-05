@@ -128,7 +128,45 @@ function M.run(night, who)
             done[p.key] = true
         end
     end
+    if not who then
+        M.asks(night, pick)
+    end
     night.introduced = true
+end
+
+-- Lines and veils, out loud, after the introductions on the first night (round three: "You keep the
+-- creepy-crawlies off screen, as you agreed with Sam at Session Zero", and nobody at the table had
+-- heard a word of it). Each friend whose ask was about what they'd rather not see says it, and the
+-- table hears your answer: what you agreed is what the night's reminders then say. Light: a line to
+-- open, then the ask and your answer each.
+M.ASKS_OPEN = { "One more thing before we start: anything you'd rather not see in here?",
+                "Before the gnome: is there anything anyone doesn't want in the game?",
+                "Quick check before we go in: anything off the table for anyone?" }
+M.ANSWER = { agree = "You nod: \"{label}\"", push = "You hedge: \"{label}\"" }
+function M.asks(night, pick)
+    local t = night.campaign.table
+    local s0 = require("game.model.content").session_zero
+    local asks = s0 and s0.asks
+    if not (t and t.asks and asks) then
+        return
+    end
+    local said = false
+    for _, key in ipairs(asks.order or {}) do
+        local ask, answer = asks[key], t.asks[key]
+        local p = night.campaign:player(key)
+        local o = ask and answer and ask[answer]
+        if ask and ask.content and o and o.label and p and p.present ~= false then
+            if not said then
+                night:say(pick(M.ASKS_OPEN), "dm")
+                said = true
+            end
+            night:emit({ kind = "say", who = key, text = ask.text, ic = false })
+            night:say(util.fill(M.ANSWER[answer] or M.ANSWER.agree, { label = o.label }), "dm")
+            if o.reply then
+                night:emit({ kind = "say", who = key, text = o.reply, ic = false })
+            end
+        end
+    end
 end
 
 return M

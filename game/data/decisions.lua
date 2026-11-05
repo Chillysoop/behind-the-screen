@@ -252,6 +252,9 @@ return {
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
         text = "{actor} drank a healing potion last turn, and wants to know: was that {actor_their} whole turn?",
+        -- (When the potion went down someone else's throat: the one who gave it asks. Round three heard
+        -- "Jess drank a healing potion" when Pip had fed it to Brannoc.)
+        text_given = "{actor} gave {other_char} a healing potion last turn, and wants to know: was that {actor_their} whole turn?",
         options = {
             { label = "A Bonus Action, like the current rules say.", leans = "book",
               log = "Glug, then they still get to swing. Everyone approves.",

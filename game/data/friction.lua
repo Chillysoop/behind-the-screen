@@ -72,7 +72,10 @@ return {
           line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'" },
         { id = "stand_up_for", when = "social", needs = "cast", rapport = 4,
           line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}." },
-        { id = "plan_and_timing", when = "explore", rapport = 3,
+        -- (needs_plan: a choice the table settled on in this room, that the doer wanted and someone
+        -- else carried off without a roll going wrong: round three heard "Brannoc's plan" for a
+        -- ritual Dev argued against.)
+        { id = "plan_and_timing", when = "explore", rapport = 3, needs_plan = true,
           line = "{actor_char}'s plan, {target_char}'s timing: it works perfectly, and they both know it." },
         { id = "make_amends", when = "any", rapport = 6, amends = true,
           line = "{actor_char} quietly gives back what {actor_they} took, polished, with a bad drawing as an apology." },

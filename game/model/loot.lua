@@ -111,6 +111,19 @@ function M.open(campaign, quality)
     return d.opened
 end
 
+-- Which set in the bag the report shows first: this week's, from the box just opened (round three:
+-- "NEW DICE: Rose quartz" every week while the bag grew to four sets), else the newest in the bag.
+function M.newest_index(campaign)
+    local bag = M.bag(campaign)
+    local o = M.opened(campaign)
+    for i = #bag, 1, -1 do
+        if o and bag[i] == o.set then
+            return i, true
+        end
+    end
+    return #bag, false
+end
+
 -- Give a set from the bag to a friend: theirs now, out of the bag; the rarer, the more it means to
 -- them. Once a session. Returns true when it went.
 function M.give(campaign, key, sid)

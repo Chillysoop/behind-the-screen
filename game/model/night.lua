@@ -423,6 +423,12 @@ function M:vars(extra)
         v.Boss = util.capitalize(v.boss)
     end
     v.question = self.rules_question     -- (what someone wants to look up: fight.lua QUESTIONS)
+    -- (The reward as it stands, in words: "thirty gold each". One number, adventure.reward_vars.)
+    if self.mus and self.campaign.adv then
+        for k, val in pairs(util.lazy("game.model.adventure").reward_vars(self.campaign)) do
+            v[k] = val
+        end
+    end
     for k, val in pairs(self.mus_vars or {}) do
         v[k] = val          -- v2: the museum's own fill-ins (the painting, the Mech's name)
     end
@@ -1959,7 +1965,32 @@ end
 
 -- A table habit's line that has a condition: late = a reason, true only for the friend the group chat
 -- said would be late this week, for that reason (or any reason: "any").
+-- A rules card's lead-in is its own asker's, about this question or none in particular (round three:
+-- "[sam] Wait, doesn't concentration break when you take damage?" and then the card said "Dev asks if
+-- Oswin's Bless stacks"). A line that names a rule is said only before a card about that rule.
+M.RULE_TERMS = { "concentrat", "opportunity attack", "cover", "saving throw", "two attacks", "bonus action", "advantage",
+                 "stack", "flank", "grappl", "modifier" }
+function M.rule_line_ok(text, card)
+    if not card or type(text) ~= "string" then
+        return true
+    end
+    local about = string.lower((card.title or "") .. " " .. (card.text or ""))
+    for _, o in ipairs(card.options or {}) do
+        about = about .. " " .. string.lower(o.label or "") .. " " .. string.lower(o.log or "")
+    end
+    local low = string.lower(text)
+    for _, t in ipairs(M.RULE_TERMS) do
+        if string.find(low, t, 1, true) and not string.find(about, t, 1, true) then
+            return false
+        end
+    end
+    return true
+end
+
 function M.behavior_line_ok(night, line, p)
+    if night.tb_card and not M.rule_line_ok(type(line) == "table" and line.text or line, night.tb_card) then
+        return false
+    end
     if type(line) ~= "table" then
         return true
     end
@@ -2017,7 +2048,9 @@ function M:table_behavior(when, roller, sure)
                         end
                     end
                     local w = arch_weight(b.archetype, p)
-                    if not class_ok(b, p) then
+                    if self.tb_only and p ~= self.tb_only then
+                        w = 0       -- (a rules card's lead-in: its asker's)
+                    elseif not class_ok(b, p) then
                         w = 0
                     elseif b.by == "roller" and p ~= roller then
                         w = 0
@@ -2854,6 +2887,9 @@ function M:big_roll(spec, record)
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
         end
         ruled = util.fill(self:fresh(M.FRANC_LINES, "franc_line"), { char = p and p.char or "someone" })
+        -- (In the log too, to whoever rolled it: the pool is what the log says went in. Round three.)
+        events.add(self.campaign, { kind = "find", who = p and p.key or "party", thing = "francs", n = 1, roll = true,
+                                    where = self.scene and self.scene.room, from = events.cause(self.campaign) })
     end
     if ro.tone == "good" and not success then
         -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves
@@ -3133,8 +3169,19 @@ function M:decision(card, extra)
     end
     view.who = card.who
     view.intermission = card.intermission       -- (the break: night_view draws the table getting up)
-    if card.type == "rules" and not self:table_behavior("rules") and self.rng:chance(0.7) then
-        self:bark(self:pick_actor({ "tactician", "power_gamer" }), "rules_lawyer")
+    if card.type == "rules" then
+        local asker = self.actor
+        self.tb_only, self.tb_card = asker, card
+        local said = self:table_behavior("rules")
+        self.tb_only, self.tb_card = nil, nil
+        if not said and self.rng:chance(0.7) and asker then
+            local text, line = self.talk:line("rules_lawyer", asker, self:vars(), function(l)
+                return M.rule_line_ok(l.text, card)
+            end)
+            if text then
+                self:emit({ kind = "say", who = asker.key, text = text, ic = talk_mod.in_character("rules_lawyer"), line = line and line.id })
+            end
+        end
     end
     -- A choice that's the players' to make (museum_night.table_pick: they talk it over, and the DM
     -- only nudges when asked) arrives already made: no card for the DM.
@@ -4159,6 +4206,15 @@ function M:party_moment(sc)
 end
 
 function M:friction_act(sc, def, doer)
+    -- (Something pocketed is named, from this room, and in the log: it comes back before the end.)
+    local pocketed
+    if def.pocket then
+        local adv = util.lazy("game.model.adventure")
+        pocketed = sc and adv.data and (adv.data.pocketables or {})[sc.room]
+        if not pocketed then
+            return
+        end
+    end
     self.friction_done[def.id] = true
     if self.campaign.adv then
         self.campaign.adv.acts_done = self.campaign.adv.acts_done or {}
@@ -4166,8 +4222,11 @@ function M:friction_act(sc, def, doer)
     end
     local target = def.target and self:pick_actor(nil, doer) or nil
     local v = { actor_char = doer.char, actor = doer.name, target_char = target and target.char or "",
-                target = target and target.name or "" }
+                target = target and target.name or "", pocketed = pocketed }
     self:say(util.capitalize(util.fill(def.line, self:vars(v))), "twist")
+    if pocketed then
+        events.add(self.campaign, { kind = "pocket", who = doer.key, thing = pocketed, where = sc and sc.room })
+    end
     -- How you answer it: a quick card when there's room for one, otherwise you let it ride.
     local fr = content.friction
     local resp
@@ -4294,6 +4353,18 @@ function M:bond_act(sc, def, doer)
             return
         end
         target = found
+    elseif def.needs_plan then
+        -- (From the log: the last choice the table settled in this room, the friends who wanted it,
+        -- and who acted on it.)
+        local found
+        local ev = events.last(self.campaign, { kind = "moment", party = true, session = self.campaign.week, where = sc and sc.room })
+        if ev and ev.backers and ev.rolled ~= "fail" and util.contains(ev.backers, doer.key) and ev.who ~= doer.key then
+            found = find_present(here, ev.who)
+        end
+        if not found then
+            return
+        end
+        target = found
     elseif def.needs_close then
         local found
         for key in util.sorted_pairs(rec and rec.close or {}) do
@@ -4329,8 +4400,30 @@ function M:bond_act(sc, def, doer)
     if not target then
         return
     end
+    -- A promise (first pick of the next find): only one at a time, never once it's all over, and kept
+    -- by museum_night.first_pick. Giving back what was pocketed names it, from the log.
+    local st = self.campaign.adv
+    local back
+    if def.promise and (not st or st.first_pick or st.ending or (sc and sc.room == "thanks")) then
+        return
+    end
+    if def.pocket_back then
+        for _, ev in ipairs(events.find(self.campaign, { kind = "pocket", who = doer.key })) do
+            back = back or (not ev.returned and ev) or nil
+        end
+        if not back then
+            return
+        end
+    end
     self.friction_done[def.id] = true
-    local v = { actor_char = doer.char, actor = doer.name, target_char = target.char, target = target.name }
+    local v = { actor_char = doer.char, actor = doer.name, target_char = target.char, target = target.name,
+                pocketed = back and back.thing or nil }
+    if def.promise and st then
+        st.first_pick = { by = doer.key, to = target.key, week = self.campaign.week }
+    end
+    if back then
+        back.returned = self.campaign.week
+    end
     self:say(util.capitalize(util.fill(def.line, self:vars(v))), "good")
     rapport.bond(self.campaign, doer.key, target.key, def.rapport or 3, def.amends)
     self:react({ [doer.key] = "cheer", [target.key] = "laugh" })

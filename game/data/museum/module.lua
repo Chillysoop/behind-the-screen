@@ -268,6 +268,9 @@ M.rooms = {
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
         callbacks = {
             { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
+            -- (The DM said yes, Telpur stocks one: there it is, on his shelf, at its price. Round three: the
+            -- yes never showed.)
+            { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as you promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
         },
     },
@@ -337,7 +340,8 @@ M.rooms = {
             { when = { flag = "telpur_along", not_flag = "telpur_fell" }, text = "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day." },
             { when = { flag = "told" }, text = "\"Telpur told me everything, you know,\" says Flitwidget, pouring the tea. \"Everything.\" He doesn't say which bits he minded." },
             { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it." },
-            { when = { flag = "vorpal_lair" }, text = "And behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
+            -- (Said downstairs: it's where they found it, on the way out of her lair.)
+            { when = { flag = "vorpal_lair" }, text = "On the way out of her lair, {given} looked behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
               give = { magic = "vorpal_sword", who = "dev" } },
         },
     },
@@ -442,9 +446,10 @@ M.beats = {
         price_down = "Telpur took a Franc off his prices for them",
         lecturer = "the Lecturer told Euryale about {what}", euryale = "Euryale knew what the Lecturer had told her",
         notice = "Flitwidget saw what was left of {thing}", told = "Telpur had a word with Flitwidget about {char}",
-        docked = "Flitwidget took the breakages out of their reward",
+        docked = "Flitwidget took ten gold each off their reward",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
+        spotted = "{who} spotted his own {thing} on {char}",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
         -- (The night's losses, told first: round three, A7. events.losses.)
         death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
@@ -472,8 +477,9 @@ M.beats = {
                     fail = "the painting bit {char}" }, false },
     mus_dice_painting = { false, false },
     mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
-    mus_return_paint = { "they put the painted weapons back", "they kept the painted weapons until they dripped away" },
-    mus_telpur_bit = { "{char} did Telpur's voice, all of it", false },
+    mus_return_paint = { "{char} slid {gift} back into its painting", "they kept {gift} until it dripped away" },
+    -- (The voice is the DM's, not a hero's: round three heard "Pip did Telpur's voice" after "[dm] The voice is terrible.")
+    mus_telpur_bit = { "Telpur got his full voice, and the table cried laughing", false },
     mus_tracks = { "they followed the scratch marks, weapons out", "they went round and made the hunters come to them" },
     mus_mirror = { "{char} took one of the mirror-bright cupboard doors", "they left the exhibits alone" },
     mus_office_door = { "they tried the brass key from the pond on the office door",
@@ -716,7 +722,7 @@ M.moments = {
             effects = { { "arch:casual", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:tactician", fun = 2 }, { "arch:power_gamer", fun = 1.5 },
                         { "all", reward = 2 } },
             mus = { francs = 1, flag = "boon", inspire = "The museum thanks {char} for the donation.", careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
+          { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock", best = { "sleight_of_hand" },
             log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",
             effects = { { "actor", spotlight = 6 }, { "arch:instigator", fun = 5 }, { "arch:method_actor", fun = 2 }, { "arch:power_gamer", fun = 3 } } },
       } },
@@ -829,15 +835,17 @@ M.moments = {
                         { "arch:butt_kicker", fun = -3 } },
             mus = { no_fight = true, mark = "knight" } },
       } },
+    -- (owner: the one who pulled it out of the painting has it, and it's theirs to put back.)
     { id = "mus_return_paint", room = "paintings", at = "end", when = { flag = "paint" }, type = "story", actor = { "method_actor", "casual", "tactician" }, party = true,
+      owner = "mus_reach",
       title = "Put the paint back?",
-      text = "The painted weapons are starting to drip. {actor_char} could slide each one back into its own painting before it melts.",
+      text = "The paint is running. {actor_char} is still holding {gift_the} from the painting, and it's starting to drip. {Actor_they} could slide it back into its frame before it melts.",
       options = {
-          { label = "Put them back. It feels polite.", want = "put the painted weapons back",
-            log = "Each one slides home. A Franc appears, and the duellist in the frame tips his hat.",
+          { label = "Put it back. It feels polite.", want = "put it back",
+            log = "It slides home without a sound. A Franc appears in {actor_char}'s pocket, and the painted figure in the frame nods.",
             effects = { { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 3 } }, mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "Keep them till they drip away.", want = "keep them till they drip away",
-            log = "They keep them. The painted blades drip on the floor already: they won't last the night.",
+          { label = "Keep it till it drips away.", want = "keep it till it drips away",
+            log = "It stays in hand, dripping, until it's nothing but a puddle and a damp sleeve.",
             effects = { { "arch:power_gamer", fun = 4 }, { "arch:instigator", fun = 4 }, { "arch:method_actor", fun = 2 } } },
       } },
 
@@ -868,7 +876,9 @@ M.moments = {
             log = "A thick manual with a lot of diagrams. Chapter nine: what the red switch does, and how to survive it.",
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "manual", spend = PRICE.manual, favor = { who = "telpur", n = 1 } } },
+          -- (Not while the quiver Pip lifted off this shelf is still in a pack: he doesn't sell it twice.)
           { label = priced("Fire arrows and a bucket of slime", PRICE.arrows), price = PRICE.arrows, want = "buy the fire arrows and the slime",
+            unless = { holds = "arrows_lifted" },
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
             effects = { { "arch:butt_kicker", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "arrows", spend = PRICE.arrows, favor = { who = "telpur", n = 1 } } },
@@ -1031,9 +1041,11 @@ M.moments = {
           { label = "Rein them in, kindly, out of character.",
             log = "\"{actor_char} can scout next week, with the group.\" {actor} pouts, then laughs.",
             effects = { { "actor", fun = -4 }, { "others", fun = 3, trust = 1 } } },
+          -- (Not a risk they knew of: you decided she was waiting. Unless someone warned them, it's out
+          -- of nowhere, and "They'd been warned" isn't said. Round three.)
           { label = "Let it cost them: Euryale is waiting.",
             log = "At the top of the stairs, bronze eyes. {actor_char} comes back down very pale, and very quiet.",
-            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { risk = true, harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
+            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
       } },
 
     -- Euryale's lair ---------------------------------------------------------------------------
@@ -1158,10 +1170,10 @@ M.companions = {
 M.explore = {
     garden = { "shears", "hammer",
                finds = { shears = { francs = 1, what = "a Flitwidget Franc in the grass",
-                                    line = "Under the shears, pressed into the grass: a Flitwidget Franc." } } },
+                                    line = "Under the shears, pressed into the grass, {actor_char} finds a Flitwidget Franc." } } },
     entrance = { "light", "front",
                  finds = { light = { francs = 1, what = "a Franc someone dropped",
-                                     line = "Something glints on the marble under the chandelier: a Flitwidget Franc." } } },
+                                     line = "Something glints on the marble under the chandelier. {actor_char} picks it up: a Flitwidget Franc." } } },
     chamber = { "3C", "3H", "3G",
                 finds = { ["3C"] = { francs = 1, what = "a Franc at the bottom of the jackal jug",
                                      line = "{actor_char} tips the jackal jug. A Flitwidget Franc rolls out into the sand." } },
@@ -1172,11 +1184,11 @@ M.explore = {
                                      spotted = "{actor_char} notices the hinge is far too strong for a tap, and wedges it open with a stick." } } },
     paintings = { "4D", "4I", "4J",
                   finds = { ["4J"] = { francs = 1, what = "a real Franc tucked in the frame",
-                                       line = "Wedged behind the duellist's frame: a real Flitwidget Franc, not a painted one." } } },
+                                       line = "Wedged behind the duellist's frame, {actor_char} finds a real Flitwidget Franc, not a painted one." } } },
     gift_shop = { "shelves", "souvenirs", looks = 1 },
     hunting = { "6B", "6H", "6F",
                 finds = { ["6H"] = { francs = 1, what = "a strip of razorbark worth a Franc to the right buyer",
-                                     line = "{actor_char} peels off a strip of razorbark without losing a finger. Somebody will pay a Franc for that." } },
+                                     line = "{actor_char} peels off a strip of razorbark without losing a finger, and a Flitwidget Franc drops out from under it." } },
                 traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
                                      spot_dc = 13, hurt = { 1, 6 },
                                      hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks {actor_them} off {actor_their} feet. Something in the jungle chitters.",
@@ -1185,10 +1197,10 @@ M.explore = {
     offices = { "drawings", "7A", looks = 1 },        -- (the eye on every wall is behind the locked door)
     tomorrow = { "cases", "console",
                  finds = { cases = { francs = 1, what = "a Franc stuck in a machine from tomorrow",
-                                     line = "One of tomorrow's machines has a coin slot, and a Flitwidget Franc stuck halfway in it." } } },
+                                     line = "One of tomorrow's machines has a coin slot, and {actor_char} works the Flitwidget Franc stuck halfway in it free." } } },
     lecture = { "books", "board", looks = 1,
                 finds = { books = { francs = 1, what = "a Franc used as a bookmark",
-                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago." } } },
+                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago. {actor_char} pockets it." } } },
 }
 
 M.marks = {
@@ -1198,8 +1210,8 @@ M.marks = {
     garden_burned = { chain = "Euryale smelled the smoke upstairs", breaks = "his garden", party = true, name = "She smelled the smoke", why = "They set her garden on fire",
                       showdown = "She skips the drink and the small talk", talk = -2,
                       thought = "Fire. How crude. I liked that garden." },
-    robbed = { chain = "word reached Euryale that they were thieves, like her", party = true, name = "Thieves, like her", why = "They tried to rob the donation box",
-               showdown = "They can offer her a cut of the box to leave", thought = "They tried the gnome's little money box. Oh, I like them already." },
+    robbed = { chain = "word reached Euryale that they were thieves, like her", party = true, name = "Thieves, like her", why = "They emptied the donation box",
+               showdown = "They can offer her a cut of the box to leave", thought = "They emptied the gnome's little money box. Oh, I like them already." },
     scarabs = { chain = "its scarabs crawled up through the walls to her", breaks = "the Bone Construct", name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
                 thought = "They smashed the old guardian. Its beetles are mine now." },
@@ -1328,6 +1340,8 @@ M.outs = {
     no_surprise = "Made the huntlings come to them",
     hyper_saved = "Saved Hyper Destroyer Mode for the Gorgon",
 }
+-- What Flitwidget calls each thing they broke (a mark's `breaks`, a deed's `thing`), in his own voice.
+M.broke_words = { ["his garden"] = "my garden", ["the Bone Construct"] = "my tomb guardian", ["the Steam Mech"] = "my Steam Mech" }
 M.mark_order = { "topiary", "garden_burned", "robbed", "scarabs", "calmed", "knight", "pack", "mirror", "know", "bracelet", "mech", "drone", "pages", "careful" }
 
 -- What the party carries, and what it does in the fights after they get it: anything picked up,
@@ -1369,12 +1383,19 @@ M.items = {
       title = "a polished cupboard door",
       text = "A cupboard door from the kitchen diorama, polished like a mirror. Held up in the lair, her own stare can turn back on her.",
       line = "{holder} has the polished cupboard door ready: if she lifts her hood, she meets her own eyes." },
+    -- (from_fondest: Flitwidget gives it to the hero he likes best, from the log. handover: how the
+    -- table sees it given, at the next night's start; the lair's lines say whose wrist. Round three:
+    -- "Flitwidget's bracelet is on a wrist and ready", and nobody ever saw him give it.)
     { id = "bracelet", when = { mark = "bracelet" }, rooms = { "lair" }, boss = true, name = "Flitwidget's bracelet", carry = true,
+      from_fondest = "mus_flitwidget",
       title = "Flitwidget's bracelet of protection", text = "A thin silver bracelet Flitwidget slipped them. In the lair: Advantage on saves against her stare.",
-      line = "Flitwidget's bracelet of protection is on: Advantage on saves against her stare.",
-      lines = { "Flitwidget's bracelet of protection is on: Advantage on saves against her stare.",
-                "The silver bracelet Flitwidget slipped them glints: Advantage on saves against her stare.",
-                "Flitwidget's bracelet is on a wrist and ready: Advantage on saves against her stare." } },
+      handover = { "Between sessions, Flitwidget caught {holder} by the sleeve and slipped a thin silver bracelet onto {holder_their} wrist. \"For her stare,\" he whispered. \"Don't tell Telpur.\"",
+                   "Before anyone else arrived, Flitwidget pressed a thin silver bracelet into {holder}'s hand. \"Against her eyes. Wear it upstairs.\"",
+                   "Flitwidget found {holder} between sessions and fastened a thin silver bracelet round {holder_their} wrist. \"For the stare. You'll know when.\"" },
+      line = "Flitwidget's bracelet of protection is on {holder}'s wrist: Advantage on saves against her stare.",
+      lines = { "Flitwidget's bracelet of protection is on {holder}'s wrist: Advantage on saves against her stare.",
+                "The silver bracelet Flitwidget gave {holder} glints: Advantage on saves against her stare.",
+                "{holder} turns Flitwidget's bracelet on {holder_their} wrist and keeps {holder_their} eyes low: Advantage on saves against her stare." } },
     { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
       line = "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
       lines = { "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
@@ -1400,9 +1421,19 @@ M.items = {
     { id = "pages", when = { mark = "pages" }, name = "the Lecturer's notes", carry = true, count = 3,
       text = "Three ghostly pages of lecture notes. Whoever reads one is asleep before the end of the line. One page a reader." },
     -- (Lifted off Telpur's shelf, not bought: R13. It works like the ones he sells, for as long as they hold it.)
-    { id = "arrows_lifted", when = { holds = "arrows_lifted" }, opt = "fire_arrows", once = true, name = "a quiver of fire arrows, lifted", carry = true,
-      text = "A quiver of Telpur's fire arrows, off his bottom shelf and never paid for: every hero's first weapon hit each turn burns. Enough for one fight.",
-      line = "{holder} hands round the fire arrows nobody paid for: every hero's first weapon hit each turn burns, this fight only." },
+    -- (opt_value "arrows": the arrows without the slime, so only a shot burns. Round three: the stolen
+    -- quiver put "Telpur's slime" on everyone's swords.)
+    { id = "arrows_lifted", when = { holds = "arrows_lifted" }, opt = "fire_arrows", opt_value = "arrows", once = true, name = "a quiver of fire arrows, lifted", carry = true,
+      text = "A quiver of Telpur's fire arrows, off his bottom shelf and never paid for: every hero's first shot each turn burns. No slime: that's still on his shelf. Enough for one fight.",
+      line = "{holder} hands round the fire arrows nobody paid for: every hero's first shot each turn burns, this fight only." },
+    -- (Bought off Telpur's counter in a haggle, table_life: out of the pool, into the haggler's pack.
+    -- Said at the night's first fight, three ways: they've got them, for throwing.)
+    { id = "marbles", when = { holds = "marbles" }, name = "a bag of Telpur's marbles", carry = true,
+      text = "A bag of glass marbles off Telpur's counter, bought for throwing. Telpur says upstairs, not at his shelves.",
+      line = "{holder} rattles the bag of Telpur's marbles. Whatever comes at them had better watch its feet.",
+      lines = { "{holder} rattles the bag of Telpur's marbles. Whatever comes at them had better watch its feet.",
+                "{holder} has a handful of Telpur's marbles ready, for throwing. Upstairs, as promised.",
+                "{holder} tips a few of Telpur's marbles into {holder_their} palm, just in case." } },
     { id = "shoelace", when = { flag = "shoelace" }, name = "Telpur's talking shoelace", carry = true, to = "jess",
       text = "One of Telpur's own laces, a present from the gift shop. It talks. It has opinions about everything." },
 }
@@ -1415,9 +1446,21 @@ M.recap_beats = {
 
 -- What the friends do to each other at the table (game/data/friction.lua acts and bonds), in the
 -- museum: every line says what was done, here. false: that one doesn't happen in this adventure.
+-- What a hero pockets from the nearest exhibit (the friends' `my_guy`), room by room: named, in the
+-- log (kind "pocket"), and given back before the end (round three: "Pip pockets something small"
+-- sixteen times, never said what, and it never came back).
+M.pocketables = {
+    street = "a Flitwidget Museum leaflet", garden = "a brass label off a rose bush", entrance = "a foreign coin off the floor",
+    chamber = "a tiny clay scarab", paintings = "a dried-up tube of paint", gift_shop = "a snow globe with the caravan in it",
+    hunting = "a glass eye off a stuffed boar", offices = "a pencil stub with teeth marks in it", tomorrow = "a little brass cog",
+    lecture = "a stick of chalk", stairs = "a dead candle from the stair",
+}
 M.friction = {
     acts = {
-        my_guy = "{actor_char} pockets something small from the nearest exhibit. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+        -- (No loot to count in the museum: a room pays Francs into the pool, out loud.)
+        skim_the_hoard = false,
+        my_guy = { line = "{actor_char} pockets {pocketed}. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+                   pocket = true },
         lone_wolf = "{actor_char} slips off alone to poke at the exhibits, and everyone else waits by the door for ten minutes.",
         shove_a_friend = "{actor_char} shoves {target_char} into a display case to win an argument.",
         barge_the_bargain = "{actor_char} talks right over {target_char} while {target_char} is still asking questions.",
@@ -1428,7 +1471,11 @@ M.friction = {
                    log = "You make a note, and you keep it: the next big moment is {actor_char}'s.", screen = true },
     },
     bonds = {
-        share_the_loot = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
+        -- (A promise: the next thing the party finds goes to them, and the table hears it kept:
+        -- museum_night.first_pick. Never once the adventure's over.)
+        share_the_loot = { line = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
+                           promise = true },
+        make_amends = { line = "{actor_char} quietly gives back {pocketed}, polished, with a bad drawing as an apology.", pocket_back = true },
         stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
     },
 }
@@ -1672,8 +1719,9 @@ M.showdown = {
                                    mus = { ending = "escape", aspect = "Paid a Gorgon to leave" } },
                        fail = { log = "\"You would rob your host twice?\" She laughs, and reaches for her bow.",
                                 effects = { { "all", challenge = 6 } }, mus = { fight = true } } } },
+            -- (by_holder: whoever carries the pages hands one over.)
             { label = "Hand her a page of the Lecturer's notes.", want = "put her to sleep with the Lecturer's notes",
-              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" },
+              needs = { mark = "pages", holds_here = "pages" }, mus = { use = "pages" }, by_holder = "pages",
               roll = { dc = 13, skill = { "deception", "sleight_of_hand" }, convenient = "success",
                        success = { log = "She reads the first line, frowns, and is asleep before the second.",
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "arch:instigator", fun = 6 }, { "arch:casual", fun = 3 }, { "arch:butt_kicker", fun = -2 } },
@@ -1719,7 +1767,9 @@ M.showdown = {
     -- her go, and paid out in Flitwidget's thanks (adventure.reward_gold).
     escape = { share = 0.5,
                sub = "It costs: she's out, not beaten, and Flitwidget pays half the reward.",
-               board = "If she gets away, Flitwidget pays half the reward: {half} gold each, not {full}. Letting her run from a long fight, letting her go when she yields and paying her off all count." },
+               -- (The reward is real gold, not his Francs, which only spend in the gift shop: the board
+               -- says so, and the report gives the same number with why it moved. Round three.)
+               board = "If she gets away, Flitwidget pays half the reward: {half} gold each, not {full}. That's real gold, not his Francs. Letting her run from a long fight, letting her go when she yields and paying her off all count." },
     -- She died, but her collection still won the fight: she's fallen all the same.
     dead_but_lost = "Euryale is dead, but her collection drives them back down the stairs. By morning, without her, the exhibits go still.",
     yield = {
@@ -1785,7 +1835,7 @@ M.epilogue = {
 }
 -- What each friend says when the prologue ends: they want the full campaign.
 M.want_more = {
-    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_named" } },
+    mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_city" } },
              "That was a prologue? I've already got a notebook for the campaign." },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
     jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
@@ -1842,15 +1892,18 @@ M.chat_ask = {
 M.chat = {
     -- (A line about something only if it happened: { text, when = condition }, as on moments.)
     street = { jess = { "flitwidget is lying and i love him", when = { not_flag = "truth" } }, sam = "do we get a discount at the gift shop since we're the help" },
-    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque" } } },
+    -- (What a friend says about something has to be something the party saw or learned, round three:
+    -- the sign only when they didn't use the water, the jugs only when the ritual worked, the lady only
+    -- when her painting was the one in the hall, the sunken city only once the notebook was read out.)
+    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque", not_flag = "water" } } },
     entrance = { jess = { "i would like it on record that i only LOOKED at the box", when = { seen = "mus_box", not_mark = "robbed" } },
                  sam = { "the statue said thank you. it was very loud", when = { flag = "boon" } } },
-    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { seen = "mus_tablet" } }, dev = "three skulls is too many skulls" },
+    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { mark = "calmed" } }, dev = "three skulls is too many skulls" },
     paintings = { jess = { "WHO PAINTED US INTO THE PAINTING", when = { seen = "mus_dice_painting" } },
                   mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
     gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
     hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
-    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_named" } },
+    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_city" } },
                 sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
     tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
     lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },
@@ -1861,13 +1914,13 @@ M.chat = {
 -- the first ones that hold, as phrases for the talk card and their lines. when: as on moments.
 M.memory = {
     mus_flitwidget = {
-        { when = { mark = "robbed" }, text = "they tried to rob his donation box" },
+        { when = { mark = "robbed" }, text = "they robbed his donation box" },
         { when = { flag = "boon" }, text = "they dropped a coin in his donation box" },
         { when = { chose = { "mus_tidy", 1 } }, text = "they put his exhibits back" },
         { when = { chose = { "mus_return_paint", 1 } }, text = "they slid the paint back into his paintings" },
         { when = { mark = "mech" }, text = "they woke his Steam Mech" },
         { when = { flag = "truth" }, text = "they know what's really upstairs" },
-        { when = { done = "street" }, text = "they took his job" },
+        { when = { done = "street" }, text = "they said yes to his job" },
     },
     mus_telpur = {
         { when = { flag = "manual" }, text = "they bought the Mech manual" },
@@ -1897,9 +1950,9 @@ M.talk = {
         done = { warm = { "You did it. My museum! Quiet as a library. Have a biscuit. Have two." },
                  guarded = { "It's over. I'll be counting the exhibits for a week, mind." },
                  lie = { "I never doubted you for a moment. Well. One moment. Possibly two." } },
-        done_ask = { warm = { "Your reward! Gold, a pick from the shop, and my undying thanks. Let's talk numbers over tea." },
+        done_ask = { warm = { "Your reward! {Gold_word} gold each, a pick from the shop, and my undying thanks." },
                      guarded = { "The reward. Yes. Once I've counted every exhibit. And the spoons." },
-                     lie = { "Reward? I'm sure I said biscuits. Biscuits were always the reward." } },
+                     lie = { "Reward? Oh, the gold. Yes. And biscuits. Mostly biscuits." } },
     },
     mus_telpur = {
         open = { warm = { "Oh, bloody 'ell, customers. Lovely. Browse away." },

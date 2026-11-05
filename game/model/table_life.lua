@@ -168,7 +168,11 @@ local function candidates(night, sc, room, phase, last)
     -- About one table bit a night (the second playtest review: one in about 27 moments): rare until
     -- the night has had a beat or two without one, likely then, and rare again once there's been one.
     local bit_w = ((tl.bits or 0) > 0 and 0.4) or (((tl.n or 0) >= 1) and 12) or 1
-    for _, t in ipairs(room.table_bits or {}) do
+    -- (Two at most: a third is one too many for "about one a night".)
+    if (tl.bits or 0) >= 2 then
+        bit_w = 0
+    end
+    for _, t in ipairs(bit_w > 0 and room.table_bits or {}) do
         -- (A bit that's one friend's waits if that friend just had a beat. Not one that names a hero
         -- who's died and been replaced, or can't act right now: round three, A1.)
         local names_gone = #night:without_fallen(t.lines or {}) < #(t.lines or {})
@@ -180,7 +184,9 @@ local function candidates(night, sc, room, phase, last)
                 end
             end
         end
-        if not (t.who and t.who == last) and not names_gone then
+        -- (The marbles, once bought, are bought: no haggling for them again.)
+        local bought = t.kind == "haggle" and t.buys and require("game.model.items").owned(night.campaign, t.buys)
+        if not (t.who and t.who == last) and not names_gone and not bought then
             add(t, "bit", bit_w)
         end
     end
@@ -284,6 +290,9 @@ local function crit_card(night, sc, p, b, nat)
         if night.mus then
             night.mus.francs_earned = (night.mus.francs_earned or 0) + 1
         end
+        -- (The pool is what the log says went in, to whoever found it.)
+        require("game.model.events").add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1,
+                                                           where = sc and sc.room })
         dm(night, "Tucked away there: " .. o.find .. ". A Flitwidget Franc, in fact.", vars)
     elseif o.clue then
         dm(night, o.clue, vars)
@@ -486,15 +495,25 @@ local function bit(night, sc, t, last)
         night:say(util.fill(line, { char = p.char }), "table")
     end
     if t.kind == "haggle" then
-        -- Double or nothing (Telpur's shop): a Franc back, or one more on the price.
+        -- A real purchase (round three: "Lace tax" was paid on marbles nobody bought, and the Francs
+        -- never left the pool): the price he said, a Franc off on a good roll or one on for the cheek,
+        -- paid out of the pool if it covers it, and the thing in the haggler's pack (items.lua, the log).
         local _, total = tiny_roll(night, p, "persuasion")
         local adv = night.campaign.adv
-        if total >= 14 then
-            adv.francs = (adv.francs or 0) + 1
-            dm(night, "Telpur sighs. \"Fine. One Franc off, for the face.\"")
-        elseif (adv.francs or 0) > 0 then
-            adv.francs = adv.francs - 1
-            dm(night, "Telpur adds a Franc to the bill. \"Lace tax.\" {char} pays it, grumbling.", { char = p.char })
+        local price = (t.price or 3) + ((total >= 14 and -1) or (total < 8 and 1) or 0)
+        local said = (total >= 14 and t.cheaper) or (total < 8 and t.dearer) or t.even
+        if (adv.francs or 0) >= price and t.buys then
+            adv.francs = adv.francs - price
+            local ev = require("game.model.events").add(night.campaign, { kind = "spend", who = p.key, whom = "mus_telpur", n = price,
+                                                                          thing = t.buys, where = sc and sc.room })
+            local prev = require("game.model.events").cause(night.campaign)
+            require("game.model.events").set_cause(night.campaign, ev)
+            require("game.model.items").give(night.campaign, t.buys, p.key, "bought", { id = "mus_telpur", name = "Telpur" })
+            require("game.model.events").set_cause(night.campaign, prev)
+            dm(night, util.fill(said or "{n} Francs, and they're {char}'s.", { n = util.int(price) }), { char = p.char })
+        elseif t.buys then
+            dm(night, util.fill(t.short or "{char} counts the pool. Not enough. \"Next time,\" says Telpur.", { n = util.int(price) }),
+                { char = p.char })
         end
     end
     if t.keepsake then
