@@ -45,8 +45,10 @@ local function tab_museum(app, x, y, w, h)
                 end
             end
             local line = #marks > 0 and ("Left on Euryale's card: " .. table.concat(marks, ", ") .. ".") or r.sum
-            kit.text(rx, ry + 22, line, "ui14", #marks > 0 and theme.gold or theme.faint, { w = w - 460, lines = 1 })
-            ry = ry + 46
+            -- (Two lines when it needs them: "...somewhere to spend Flitwidget Francs. Th..." in the third playtest.)
+            local nl = math.min(2, #kit.wrap(line, "ui14", w - 460))
+            kit.text(rx, ry + 22, line, "ui14", #marks > 0 and theme.gold or theme.faint, { w = w - 460, lines = 2 })
+            ry = ry + 27 + nl * kit.line_height("ui14")
         end
     end
     local hy = y + 350
@@ -98,24 +100,33 @@ local function tab_museum_people(app, x, y, w, h)
     local adventure = require "game.model.adventure"
     local c = app.campaign
     local met = c.story and c.story.met or {}
+    -- The people they've met, each with what they know; the rest as one line at the foot (the third
+    -- playtest: "Someone they haven't met", twice, read as a mistake).
+    local unmet = 0
     for _, pp in ipairs(adventure.data.people) do
         local seen = pp.known or met[pp.id] or adventure.met(c, pp.id) or (pp.id == "mus_telpur" and c.adv.done.gift_shop)
             or (pp.id == "mus_mech" and c.adv.done.tomorrow)
-        -- (Nobody's role before they've met: the notebook isn't the DM's book. The Mech by its name.)
-        local name = pp.name
-        if pp.id == "mus_mech" and c.adv.marks.mech and c.adv.mech_name then
-            name = pp.name .. ", " .. c.adv.mech_name
-        end
-        local nn = kit.text(x, y, seen and name or "Someone they haven't met", "ui22b", seen and theme.text or theme.faint, { gloss = false })
-        if seen then
+        if not seen then
+            unmet = unmet + 1
+        else
+            -- (Nobody's role before they've met: the notebook isn't the DM's book. The Mech by its name.)
+            local name = pp.name
+            if pp.id == "mus_mech" and c.adv.marks.mech and c.adv.mech_name then
+                name = pp.name .. ", " .. c.adv.mech_name
+            end
+            local nn = kit.text(x, y, name, "ui22b", theme.text, { gloss = false })
             kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
             -- Their sheet, from their name (the playtest, November 3).
             require("game.ui.gloss").npc_spot(x - 2, y - 2, math.min(kit.width(name, "ui22b"), 310) + 4, 30, pp.id, nn)
+            local mem = adventure.memory(c, pp.id)
+            local about = pp.about .. (#mem > 0 and (" Knows " .. util.join_names(mem) .. ".") or "")
+            kit.text(x, y + 30, about, "ui18", theme.dim, { w = w, lines = 2 })
+            y = y + 86
         end
-        local mem = seen and adventure.memory(c, pp.id) or {}
-        local about = seen and (pp.about .. (#mem > 0 and (" Knows " .. util.join_names(mem) .. ".") or "")) or "Not met yet."
-        kit.text(x, y + 30, about, "ui18", seen and theme.dim or theme.faint, { w = w, lines = 2 })
-        y = y + 86
+    end
+    if unmet > 0 then
+        kit.text(x, y, unmet == 1 and "One more person in the museum they haven't met yet." or
+            (util.int(unmet) .. " more people in the museum they haven't met yet."), "ui18", theme.faint, { w = w })
     end
 end
 
@@ -162,7 +173,9 @@ local function tab_session(app, x, y, w)
     local ly = y
     kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF THE MUSEUM", "ui14", theme.dim)
     ly = ly + 20
-    kit.text(x, ly, adventure.where(c), "title30", theme.text, { w = col_w, lines = 1 })
+    -- (A long "At a fork: ..." in a smaller hand rather than cut.)
+    local where = adventure.where(c)
+    kit.text(x, ly, where, kit.width(where, "title30") > col_w and "ui22b" or "title30", theme.text, { w = col_w, lines = 1 })
     ly = ly + 44
     ly = head(x, ly, "Tonight's rooms")
     local pm = c.prep and c.prep.museum
@@ -208,7 +221,11 @@ local function tab_log(app, x, y, w, h)
         para(x, y, w, "No sessions yet. Every session report is kept here once the night is over.", "ui18", theme.faint)
         return
     end
-    -- The weeks, newest first, down the left.
+    -- The weeks, newest first, down the left; a new week opens on the newest (the third playtest: at
+    -- week 3 it still opened on session 1, picked a fortnight before).
+    if app.log_week_at ~= app.campaign.week then
+        app.log_week, app.log_week_at = nil, app.campaign.week
+    end
     local pick = app.log_week
     local found
     for _, e in ipairs(log) do
@@ -315,6 +332,22 @@ local function tab_party(app, x, y, w, h)
             local paid = (c.adv.hook_paid or {})[p.key]
             py = para(px + 14, py, cw - 28, hk.name .. ": " .. hk.text .. " It pays off in " .. util.lower_first(room.name)
                 .. (paid and " (found)." or "."), "ui18", theme.text)
+        end
+        -- What they carry (items.lua, as on their sheet), each with what it does on hover (the third
+        -- playtest: "Picked up: the Mech manual (Oswin has it)", and the party page didn't list it).
+        local sheet_view = util.lazy("game.ui.sheet_view")
+        local carried = sheet_view.carrying(c, require("game.model.sheet").build(c, p.key))
+        py = head(px + 14, py + 6, "Carrying")
+        if #carried == 0 then
+            py = para(px + 14, py, cw - 28, "Nothing yet.", "ui14", theme.faint)
+        end
+        local gl = require "game.ui.gloss"
+        for _, it in ipairs(carried) do
+            local tn = kit.text(px + 14, py, it.name, "ui14", theme.text, { w = cw - 28, lines = 1, gloss = false })
+            if it.text and it.text ~= "" then
+                gl.card_spot(px + 12, py - 1, cw - 24, 20, it.name, it.text, nil, tn)
+            end
+            py = py + 20
         end
         py = head(px + 14, py + 6, "At the table")
         py = para(px + 14, py, cw - 28, p.notes or "", "ui14", theme.dim)

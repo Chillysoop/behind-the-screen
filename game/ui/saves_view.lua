@@ -25,7 +25,7 @@ end
 -- Where a save picks up: "Session 2, prep".
 function M.when_label(head)
     if head.done then
-        return "The prologue is over: your table's journey"
+        return "Finished: your table's journey"     -- (fits its slot: "The prologue is over: your table's..." was cut)
     elseif head.at_night then
         return "Session " .. util.int(head.week) .. ", game night (from its start)"
     elseif head.at_prep then
