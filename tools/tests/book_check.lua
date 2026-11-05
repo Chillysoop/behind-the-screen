@@ -11,6 +11,9 @@
 --   TRAPS  every trap the game springs is in the sheet, the book's or marked as ours; the book's at its DC
 --   WORDS  nothing the room says as it opens (its read, its cast's line, a hero's hook paid off there) gives a
 --          secret away; and in whole prologues nothing the table hears in the room does before its reveal
+--   NAMES  the DM's names stay the DM's (MODULE.told): no line said to the table has a label the book keeps
+--          for the DM (the Knight of Shades, the kruthik huntlings), and a secret name (Euryale, the Gorgon)
+--          first comes with the line that tells it (the confession, the hood coming off)
 --   ITEMS  each hero's painting gives what the book's painting gives, paint or not; every magic item the
 --          module hands out is the book's or marked as ours
 -- Each fails on 1ea3901.
@@ -19,7 +22,7 @@ package.path = "./?.lua;./tools/tests/?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local SEEDS = tonumber(arg[1]) or 2
-local ITEMS = { "SHEET", "START", "PLACE", "DOORS", "TRAPS", "WORDS", "ITEMS" }
+local ITEMS = { "SHEET", "START", "PLACE", "DOORS", "TRAPS", "WORDS", "NAMES", "ITEMS" }
 local fails, E = {}, {}
 local function fail(item, msg)
     fails[item] = fails[item] or { n = 0 }
@@ -353,6 +356,44 @@ for _, R in ipairs(RUNS) do
 end
 E.WORDS = E.WORDS or {}
 E.WORDS.prologues = #RUNS
+
+-- NAMES ---------------------------------------------------------------------------------------------------
+do
+    local FRIEND = { dev = true, mara = true, jess = true, sam = true }
+    local N = F.names or {}
+    local function has_word(text, w)
+        return string.find(string.lower(text), "%f[%w]" .. string.lower(w) .. "s?%f[%W]") ~= nil
+    end
+    for _, R in ipairs(RUNS) do
+        local first = {}
+        for _, l in ipairs(R.L) do
+            local who, text = string.match(l, "^  %[([^%]]+)%] (.*)$")
+            if who and not FRIEND[who] and who ~= "aside" and who ~= "chat" and voice.heard(who) then
+                for _, lb in ipairs(N.labels or {}) do
+                    if has_word(text, lb.word) then
+                        add("NAMES", "labels_said")
+                        fail("NAMES", string.format("%s: the DM's name '%s' (p%d) said to the table: '%s'", R.tag, lb.word, lb.page,
+                            string.sub(text, 1, 120)))
+                    end
+                end
+                for _, sn in ipairs(N.secret or {}) do
+                    if not first[sn.word] and has_word(text, sn.word) then
+                        first[sn.word] = true
+                        add("NAMES", "secrets_named")
+                        local ok = false
+                        for _, p in ipairs(sn.told_by or {}) do
+                            ok = ok or string.find(string.lower(text), string.lower(p), 1, true) ~= nil
+                        end
+                        if not ok then
+                            fail("NAMES", string.format("%s: '%s' (p%d) first said without the line that tells it: '%s'", R.tag, sn.word, sn.page,
+                                string.sub(text, 1, 120)))
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
 
 -- ITEMS --------------------------------------------------------------------------------------------------
 do

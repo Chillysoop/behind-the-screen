@@ -1846,12 +1846,12 @@ M.names_heard = { bird_named = { "mythril singer", "when there's magic close by"
 -- or the hood coming off (p26); the foes' names are the DM's (p15, p20, p33 to p38).
 M.told = {
     gorgon = { words = { "Gorgon", "Gorgons" },
-               intro = { "a Gorgon called", "a Gorgon in a jar", "a Gorgon, sealed", "the snakes in her hair",
-                         "snakes for hair" },
+               intro = { "a Gorgon called", "a Gorgon in a jar", "a Gorgon, sealed", "Euryale, a Gorgon", "the snakes in her hair",
+                         "snakes for hair", "she's a Gorgon", "A Gorgon.", "A Gorgon. Euryale" },
                mask = { { "a Gorgon", "a monster" }, { "the Gorgon", "the monster" }, { "Gorgons", "monsters" },
                         { "Gorgon", "monster" } } },
     euryale = { words = { "Euryale" },
-                intro = { "called Euryale", "Her name is Euryale", "Euryale, a Gorgon" },
+                intro = { "called Euryale", "Her name is Euryale", "Euryale, a Gorgon", "A Gorgon. Euryale" },
                 mask = { { "Euryale's door", "the door at the top of the stairs" },
                          { "Euryale", "the hooded woman", told = "gorgon", then_to = "the Gorgon" } } },
     ritual = { words = { "ritual" } },

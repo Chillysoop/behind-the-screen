@@ -190,4 +190,17 @@ M.facts = {
     { id = "the painting of five", page = 14, words = { "painting of us" }, told_by = { "five people", "rolling dice" } },
 }
 
+-- Names the book keeps (tools/tests/book_check.lua, NAMES): `labels`, what the DM calls things that the table
+-- never hears (the book's read-alouds say a black knight, strange armoured creatures, a guardian, a statue,
+-- bushes); `secret`, a name the table hears first in the line that tells it, with what that line says.
+M.names = {
+    labels = { { word = "Knight of Shades", page = 15 }, { word = "kruthik", page = 20 }, { word = "huntling", page = 20 },
+               { word = "briar", page = 10 }, { word = "Bone Construct", page = 12 }, { word = "Sentinel", page = 11 } },
+    secret = {
+        { word = "Euryale", page = 6, told_by = { "called Euryale", "her name is euryale", "euryale, a gorgon", "a gorgon. euryale" } },
+        { word = "Gorgon", page = 6, told_by = { "a gorgon called", "euryale, a gorgon", "a gorgon in a jar", "she's a gorgon", "a gorgon.",
+                                                 "snakes" } },
+    },
+}
+
 return M
