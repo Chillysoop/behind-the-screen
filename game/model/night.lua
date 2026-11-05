@@ -47,6 +47,7 @@ local dice_sets = require "game.model.dice_sets"
 local board_mod = require "game.model.board"
 local thoughts = require "game.model.thoughts"
 local events = require "game.model.events"
+local able = require "game.model.able"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
@@ -611,6 +612,21 @@ function M:bark(p, trigger, extra)
     if not p then
         return
     end
+    -- (While the table grieves, nobody whoops; a hero back up after a death is said quietly. Round
+    -- three, A1: game/model/able.lua.)
+    if able.hush(self, trigger) then
+        return
+    end
+    if trigger == "up_again" and able.somber(self) == "death" then
+        local lost = {}
+        for _, pc in ipairs(self.pc_list or {}) do
+            if pc.dead then
+                table.insert(lost, pc.name)
+            end
+        end
+        self:say(self:fresh(able.UP_QUIET, "up_quiet"), "narration", { char = p.char, lost = util.join_names(lost) })
+        return
+    end
     local v = self:vars(extra)
     local text, id
     if extra and extra.moment then
@@ -822,18 +838,24 @@ end
 -- The friends whose heroes are in this scene: a hero who split off (split_party) is elsewhere until
 -- it's over, and doesn't act in it (F11, the second playtest review: "Brannoc heads off the other
 -- way", then Dev: "Get behind me! I'll hold the line!"). Everyone, when nobody's away.
-function M:at_hand()
+-- And only the ones who can act (round three, A1, game/model/able.lua): a hero who's dead, down or
+-- stone (or out of it in a fight) is in nobody's pick; their player still talks, as themselves.
+-- Empty when nobody can.
+function M:at_hand(fight_move)
     local split = self.scene and self.scene.split
-    if not (split and split.away) then
-        return self.players
-    end
-    local out = {}
-    for _, p in ipairs(self.players) do
-        if not split.away[p.key] then
-            table.insert(out, p)
+    local here = self.players
+    if split and split.away then
+        here = {}
+        for _, p in ipairs(self.players) do
+            if not split.away[p.key] then
+                table.insert(here, p)
+            end
+        end
+        if #here == 0 then
+            here = self.players
         end
     end
-    return #out > 0 and out or self.players
+    return able.only(self, here, fight_move)
 end
 
 -- Pick a present player, preferring these archetypes (primary first).
@@ -1940,6 +1962,10 @@ function M:table_behavior(when, roller, sure)
     local sc = self.scene
     local hook = when .. ":" .. (sc and sc.index or 0)
     if tb.n >= TB_MAX or tb.hooks[hook] or #self.players == 0 then
+        return nil
+    end
+    -- (No fist bumps while the table grieves: round three, A1.)
+    if able.somber(self) and when ~= "rules" and when ~= "start" then
         return nil
     end
     if not sure and not self.rng:chance(TB_CHANCE[when] or 0.3) then
@@ -3515,7 +3541,8 @@ function M:flush_turn()
     end
     -- Now and then a player says something about their turn: what they're about to
     -- do, or how it went (a hit, a whiff, a big number, a spell).
-    if who and who.pc and self.rng:chance(ev.brisk and 0.12 or 0.22) then
+    -- (Not on a turn where their hero can't do anything: down, stone, out of it. Round three, A1.)
+    if who and who.pc and able.can_fight(self, who.player_key) and self.rng:chance(ev.brisk and 0.12 or 0.22) then
         local p
         for _, q in ipairs(self.players) do
             if q.key == who.player_key then
@@ -3531,7 +3558,7 @@ function M:flush_turn()
         if walking then
             trigger, at = "walk", "start"
         end
-        if p and trigger then
+        if p and trigger and not able.hush(self, trigger) then
             local mo = barks.from_steps(self, steps, who, p)
             local text, id = barks.pick(self, trigger, p, mo, self:vars({ target = target }))
             if text then
@@ -3652,6 +3679,15 @@ function M:combat_scene(sc)
     sc.outcome = result.winner == "party" and "win" or "lose"
     -- Who's beaten and who got away, for every line after the fight (a boss that ran isn't beaten).
     sc.foes_ran, sc.foes_beaten = {}, {}
+    -- (And who on their side is gone for good: a machine smashed or burnt out, not a friend knocked
+    -- flat who comes round. What's destroyed stays destroyed: round three, B3. museum_night.after_showdown.)
+    sc.allies_lost = {}
+    local persons = {}
+    for _, e in ipairs(require("game.model.companions").active(self.campaign, self.players)) do
+        if e.monster and e.kind == "person" then
+            persons[e.monster] = true
+        end
+    end
     for _, c in util.sorted_pairs(f and f.by_ref or {}) do
         if c.side == "foes" and c.monster_id then
             if c.dead then
@@ -3659,6 +3695,8 @@ function M:combat_scene(sc)
             elseif c.removed and c.removed_why ~= "yield" then
                 table.insert(sc.foes_ran, c.monster_id)
             end
+        elseif c.side == "party" and not c.pc and c.monster_id and c.dead and not persons[c.monster_id] then
+            table.insert(sc.allies_lost, { id = c.monster_id, name = c.name, burnt = c.shut_down or nil })
         end
     end
     -- The boss's own fate, so what's said after can't contradict it: dead (and how), ran, or yielded.
@@ -3827,6 +3865,16 @@ function M:log_fight(sc, f, result)
                                from = from, how = from and how or nil, beat = true,
                                text = util.fill(FIGHT_TEXT[(not from or how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
     sc.fight_ev, sc.last_beat = ev.id, ev.id
+    -- (Friendly fire is the recap's too: who it caught, whose spell. Round three, B2.)
+    for _, ff in ipairs(f and f.friendly or {}) do
+        local by = ff.by and self.campaign:player(ff.by)
+        local down = #(ff.downed or {}) > 0
+        events.add(c, { kind = "friendly", who = by and by.key or "party", where = sc.room, beat = true, lead = down or nil,
+                        from = ev.id, how = "but",
+                        text = events.word(down and "friendly_down" or "friendly",
+                            { char = ff.char, spell = ff.spell or "swing", hit = util.join_names(ff.hit), downed = util.join_names(ff.downed or {}) },
+                            down and "{char}'s {spell} dropped {downed}" or "{char}'s {spell} caught {hit} too") })
+    end
     return ev
 end
 
@@ -4524,7 +4572,7 @@ function M:conversation(sc)
         return
     end
     local talkers = {}
-    for _, p in ipairs(self.players) do
+    for _, p in ipairs(self:at_hand()) do
         local w = score.arch(p, "method_actor") * 2 + score.arch(p, "storyteller") + score.arch(p, "casual") * 0.5
             + self.rng:next()
         table.insert(talkers, { p, w })

@@ -94,6 +94,11 @@ return {
           text = { "The best help I've ever had, and I've had a great deal of help.", "My heroes! I'll tell every town on the road about you.",
                    "I knew you had the look. I always know." } },
       },
+      -- (A hero died tonight: he says so, at the wake, before anything about rewards. Round three, B1.)
+      grief = { { when = { event = { kind = "death" } },
+                  text = { "{char}. I'm so sorry. I asked you all in here, and I'm so sorry.",
+                           "{char} was the bravest of you. Don't argue. Not tonight.",
+                           "Sit down, all of you. The tea can wait. This one's for {char}." } } },
       -- His reward, when he's counting what they broke.
       docked = { { text = { "I've taken the breakages out of it. Only fair. Only the big ones.", "Minus a garden. And a guardian. Roughly.",
                             "Ten gold less each, for the damage. I've been very reasonable." } } },

@@ -16,6 +16,7 @@ local ties = require "game.model.ties"
 local fight = require "game.model.fight"
 
 local events = require "game.model.events"
+local able = require "game.model.able"
 local people = require "game.model.people"
 local _ideas = require "game.model.ideas"      -- (reached lazily from table_life.lua: required here so it's built in)
 
@@ -1588,6 +1589,10 @@ function M.read(night, sc)
         end
     end
     night:say(text, "narration")
+    -- (A hero who died tonight: the wake, back in the gift shop, once the danger's over. Round three, B1.)
+    if sc.room == "thanks" or sc.room == "gift_shop" then
+        require("game.model.death").hold_wake(night)
+    end
     if sc.backup then
         night:say("You hadn't prepped this one, but your backup page covers it: the map, the minis, a voice or two.", "screen")
     elseif sc.improv then
@@ -2254,16 +2259,22 @@ function M.table_pick(night, copy, vars)
         return live[1] or 1
     end
     local vals, first, why = {}, {}, {}
+    -- (Who has a say: the friends whose heroes can act. A dead or stoned hero's player watches this
+    -- one: round three, A1, "dead Oswin's player then votes on the yield". game/model/able.lua)
+    local voters = able.only(night, night.players)
+    if #voters == 0 then
+        voters = night.players
+    end
     -- (What carries over from the votes before, R10: kept with the adventure, so it lasts the weeks.)
     local adv = night.campaign.adv
     local votes = adv and adv.votes or {}
     local avg_spot = 0
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         avg_spot = avg_spot + (p.m.spotlight or 0)
     end
-    avg_spot = avg_spot / math.max(1, #night.players)
+    avg_spot = avg_spot / math.max(1, #voters)
     local edges, edge_words = M.edges(night.campaign)
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         vals[p.key] = {}
         local best, bv, plain, pv
         for _, i in ipairs(live) do
@@ -2287,11 +2298,11 @@ function M.table_pick(night, copy, vars)
     -- A friend who lost the last vote holds out for theirs this time (twice running: harder), and says so.
     -- (Said only when the table doesn't already agree: nobody needs to hold out for what everyone wants.)
     local agreed = true
-    for _, p in ipairs(night.players) do
-        agreed = agreed and first[p.key] == first[night.players[1].key]
+    for _, p in ipairs(voters) do
+        agreed = agreed and first[p.key] == first[voters[1].key]
     end
     local pushers = {}
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         local n = (votes.lost or {})[p.key]
         if n and n > 0 then
             local b = vals[p.key][first[p.key]]
@@ -2323,7 +2334,7 @@ function M.table_pick(night, copy, vars)
         -- (Two against two: the side of whoever went along last time, then the side of whoever found
         -- it, then the keener side. R10.)
         local care = {}
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             local i = first[p.key]
             n[i] = (n[i] or 0) + 1
             care[i] = (care[i] or 0) + math.min(4, vals[p.key][i].v) + (pushers[p.key] and 100 or 0)
@@ -2344,7 +2355,7 @@ function M.table_pick(night, copy, vars)
     end
     -- What each says first: the ones with a real reason speak up (two at most), in their own words.
     local spoke = 0
-    local order = util.copy(night.players)
+    local order = util.copy(voters)
     table.sort(order, function(a, b)
         local va, vb = vals[a.key][first[a.key]].v, vals[b.key][first[b.key]].v
         if va ~= vb then
@@ -2382,9 +2393,9 @@ function M.table_pick(night, copy, vars)
     end
     -- The talk: a friend who barely minds comes round to where most of the table is.
     local top, top_n, tied = tally()
-    local half = #night.players / 2
+    local half = #voters / 2
     if top_n <= half then
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             local mine = vals[p.key][first[p.key]].v
             -- (Not the one holding out after last time; a friend with half an eye on their phone, sooner.)
             local easy = p.mood == "distracted" and 2 or 1.2
@@ -2402,7 +2413,7 @@ function M.table_pick(night, copy, vars)
     local asked = false
     if (tied > 1 or top_n <= half) and night.rng:chance(0.75) and not night.gentle then      -- (night 1: they settle it, R6)
         asked = true
-        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
+        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or voters[1]
         local card = { id = "table_asks_" .. (copy.id or "x"), type = "table", trigger = "museum_fixed", fixed_actor = true,
                        title = "They ask you",
                        text = "The table can't agree. " .. util.fill(night:fresh(M.WEEKLY.ask_look, "weekly_ask_look"), { name = asker.name })
@@ -2410,7 +2421,7 @@ function M.table_pick(night, copy, vars)
                        options = {} }
         for _, i in ipairs(live) do
             local names = {}
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(voters) do
                 if first[p.key] == i then
                     table.insert(names, p.name)
                 end
@@ -2440,7 +2451,7 @@ function M.table_pick(night, copy, vars)
             night.mus.nudged = (night.mus.nudged or 0) + 1
             -- They asked: most take the hint. Only someone who really wants the other way holds out.
             local held = {}
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(voters) do
                 if first[p.key] ~= o.nudge then
                     local gap = vals[p.key][first[p.key]].v - vals[p.key][o.nudge].v
                     if gap < 4 then
@@ -2472,13 +2483,13 @@ function M.table_pick(night, copy, vars)
             table.insert(night.party_backers, p)
         end
     end
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         if first[p.key] == top then
             table.insert(names, p.name)
         end
     end
     night:say("The table decides: " .. short_want(opts[top]) .. ((nudged_to == top and " (on your nudge)")
-        or ((#names > 0 and #names < #night.players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
+        or ((#names > 0 and #names < #voters) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
     -- What the next vote remembers (R10): who went along with what they didn't want (they push next
     -- time), and what kind of pick this was (the table notices a habit).
     if adv then
@@ -2486,7 +2497,7 @@ function M.table_pick(night, copy, vars)
         local vt = adv.votes
         -- (The one who minded most: they push next time, harder if it's twice running.)
         local loser, gap = nil, 1.5       -- (minded it: not a shrug)
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             local mine = wanted[p.key]
             local g = mine ~= top and (vals[p.key][mine].v - vals[p.key][top].v) or 0
             if g >= gap then
@@ -2708,6 +2719,11 @@ function M.fork(night, options, backs, sides)
     local fresh = pos and adventure.reachable(c, pos) or {}
     local floor_left = left_on_floor(c, options)
     local early = 1 - (night.table_min or 0) / math.max(1, night.table_planned or 210)
+    -- (Who has a say: the friends whose heroes can act, as at a vote: round three, A1.)
+    local voters = able.only(night, night.players)
+    if #voters == 0 then
+        voters = night.players
+    end
     local choices = {}
     for _, id in ipairs(options) do
         table.insert(choices, { id = id, steps = fresh[id] or 1 })
@@ -2721,7 +2737,7 @@ function M.fork(night, options, backs, sides)
     -- Each friend's first choice: what they like, what tonight has done to them, and a little
     -- noise (people are people). Each says why, when it's more than taste.
     local first, by, vals, said = {}, {}, {}, {}
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         local best, bv
         vals[p.key] = {}
         for i, ch in ipairs(choices) do
@@ -2739,9 +2755,9 @@ function M.fork(night, options, backs, sides)
     end
     -- A friend who's close to someone (rapport built up tonight or before), and nearly as happy
     -- either way, goes where they go. One a fork.
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         local mine = vals[p.key][first[p.key]].v
-        for _, q in ipairs(night.players) do
+        for _, q in ipairs(voters) do
             local r = q ~= p and rapport.rel(c, p.key, q.key)
             local theirs = first[q.key]
             if r and r.rapport >= 64 and r.heat < 10 and theirs ~= first[p.key]
@@ -2754,7 +2770,7 @@ function M.fork(night, options, backs, sides)
         end
     end
     night.mus.followed = nil
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(voters) do
         local best = first[p.key]
         by[best] = by[best] or {}
         table.insert(by[best], p)
@@ -2870,7 +2886,7 @@ function M.fork(night, options, backs, sides)
     end
     local function tally()
         local n, t, tn = {}, nil, 0
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             n[first[p.key]] = (n[first[p.key]] or 0) + 1
         end
         for i in ipairs(choices) do
@@ -2886,9 +2902,9 @@ function M.fork(night, options, backs, sides)
         end
         return t, tn, tied
     end
-    local half = #night.players / 2
+    local half = #voters / 2
     if top_n <= half then
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             local mine = vals[p.key][first[p.key]].v
             if first[p.key] ~= top and mine - vals[p.key][top].v < 1.0 then
                 first[p.key] = top
@@ -2916,14 +2932,14 @@ function M.fork(night, options, backs, sides)
     local o
     local split = tied > 1 or top_n <= half
     if ((split and night.rng:chance(0.8)) or (hint_id and night.rng:chance(0.35))) and not night.gentle then   -- (night 1: theirs, R6)
-        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
+        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or voters[1]
         local card = { id = "mus_fork_" .. key, type = "story", trigger = "museum_fixed", fixed_actor = true, title = fk.title,
                        text = (split and "They can't agree. " or "They've more or less decided, but ")
                            .. util.fill(night:fresh(M.WEEKLY.ask_look, "weekly_ask_look"), { name = asker.name })
                            .. ": \"Where would you go?\"", options = {} }
         for i in ipairs(choices) do
             local names = {}
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(voters) do
                 if first[p.key] == i then
                     table.insert(names, p.name)
                 end
@@ -2977,7 +2993,7 @@ function M.fork(night, options, backs, sides)
             local follow = true
             if not split then
                 local grumbler
-                for _, p in ipairs(night.players) do
+                for _, p in ipairs(voters) do
                     if first[p.key] == top and (not grumbler or vals[p.key][top].v > vals[grumbler.key][top].v) then
                         grumbler = p
                     end
@@ -2987,12 +3003,12 @@ function M.fork(night, options, backs, sides)
                     night:react({ [grumbler.key] = "arms" })
                 end
                 local curious = 0
-                for _, p in ipairs(night.players) do
+                for _, p in ipairs(voters) do
                     if p.primary == "explorer" or p.primary == "storyteller" or p.secondary == "explorer" then
                         curious = curious + 1
                     end
                 end
-                follow = curious > #night.players / 2 or (curious * 2 == #night.players and night.rng:chance(0.5))
+                follow = curious > #voters / 2 or (curious * 2 == #voters and night.rng:chance(0.5))
                 if not follow then
                     night:say(util.fill(night:fresh(M.WEEKLY.go_on, "weekly_go_on"), { way = label_of(top) }), "aside")
                 end
@@ -3011,7 +3027,7 @@ function M.fork(night, options, backs, sides)
             night.mus.nudged_to = split and o.choice or nil
             -- Asked, most take the hint; someone who really wanted the other way minds a little.
             local against = o.choice ~= top or tied > 1
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(voters) do
                 if first[p.key] ~= o.choice then
                     if vals[p.key][first[p.key]].v - vals[p.key][o.choice].v < 3.5 then
                         first[p.key] = o.choice
@@ -3038,7 +3054,7 @@ function M.fork(night, options, backs, sides)
     -- Still tied: whoever's keenest settles it.
     if tied > 1 then
         local keen, kv
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             local v = vals[p.key][first[p.key]].v
             if not kv or v > kv then
                 keen, kv = p, v
@@ -3049,7 +3065,7 @@ function M.fork(night, options, backs, sides)
     end
     do
         local names = {}
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(voters) do
             if first[p.key] == top then
                 table.insert(names, p.name)
             end
@@ -3057,7 +3073,7 @@ function M.fork(night, options, backs, sides)
         -- (Your nudge settled it: say so, not that they all thought of it themselves.)
         local nudged = night.mus.nudged_to == top
         night.mus.nudged_to = nil
-        night:say("The table decides: " .. label_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #night.players)
+        night:say("The table decides: " .. label_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #voters)
             and (" (" .. util.join_names(names) .. "'s pick)")) or "") .. ".", "aside")
     end
     local ch = choices[top] or choices[1]
@@ -3809,6 +3825,8 @@ function M.run(night)
     -- before the room's end): she gets it now, before everyone goes home.
     M.interlude(night)
     M.lecturer_report(night)
+    -- (Nobody went back to the gift shop tonight: the wake, before everyone goes home. Round three, B1.)
+    require("game.model.death").hold_wake(night)
     night:run_tail()
 end
 
@@ -4080,7 +4098,9 @@ function M.showdown_start(night, sc)
                             text = events.word("euryale") }, sc)
     end
     if boss.opener == "ambush" then
-        night:say("No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
+        -- (A second time up her stairs, she remembers the first: round three, B3.)
+        night:say(st.flags.rematch and night:fresh(MODULE.showdown.ambush_again, "ambush_again")
+            or "No drink, no questions. An arrow is already on the string when they reach the top step.", "bad")
         -- An ambush is a surprise (SRD 5.2.1: Disadvantage on Initiative), unless someone was ready.
         local rb, rm
         for _, p in ipairs(night.players) do
@@ -4206,7 +4226,7 @@ end
 -- Heroes still stone when her fight stops (she yielded, ran, or let them go): her hold on them
 -- breaks with it, and the table hears who's back (the playtest, Nov 2: a stone Oswin chatted in
 -- the gift shop afterwards as if nothing had happened).
-local function free_stone(night)
+local function free_stone(night, sc)
     local freed = {}
     for _, pc in ipairs(night.pc_list or {}) do
         local was = false
@@ -4222,7 +4242,59 @@ local function free_stone(night)
         end
     end
     if #freed > 0 then
-        night:say(util.join_names(freed) .. (#freed == 1 and " cracks" or " crack") .. " out of the stone, gasping, as her hold on the lair breaks.", "good")
+        -- (Why it broke, from how her fight ended: the stone line promised "until her hold breaks".)
+        local why = (sc and sc.boss_dead and "as she falls and her hold on the lair breaks")
+            or (sc and sc.boss_yielded and "as she gives up the fight and her hold on the lair breaks")
+            or (sc and sc.boss_ran and "as she flees and her hold on the lair breaks")
+            or "as her hold on the lair breaks"
+        night:say(util.join_names(freed) .. (#freed == 1 and " cracks" or " crack") .. " out of the stone, gasping, " .. why .. ".", "good")
+    end
+end
+
+-- What's destroyed stays destroyed (round three, B3, the third playtest: Owen the Steam Mech destroyed on
+-- screen, then back the next week "untouched", with last week's dead foes behind Euryale again). An ally
+-- smashed or burnt out in her fight is off her card for good, and the night's recap leads with it; a
+-- lost fight's fallen foes stay fallen: their marks come off her card (the huntlings by how many fell).
+function M.lair_losses(night, sc, lost)
+    local c = night.campaign
+    local st = st_of(night)
+    for _, a in ipairs(sc.allies_lost or {}) do
+        for _, id in ipairs(MODULE.mark_order) do
+            local m = MODULE.marks[id]
+            if m.ally == a.id and st.marks[id] then
+                local name = (id == "mech" and st.mech_name) or a.name
+                local ev = events.add(c, { kind = "lost", who = "party", thing = a.id, where = sc.room, beat = true, lead = true,
+                                           from = sc.fight_ev, how = "but", text = events.word("ally_lost", { name = name }) })
+                events.set_cause(c, ev)
+                adventure.remove_mark(c, id, true)
+                events.set_cause(c, nil)
+                st.flags[a.id .. "_lost"] = true
+            end
+        end
+    end
+    if not lost then
+        return
+    end
+    local beaten = {}
+    for _, mid in ipairs(sc.foes_beaten or {}) do
+        beaten[mid] = (beaten[mid] or 0) + 1
+    end
+    for _, id in ipairs(MODULE.mark_order) do
+        local m = MODULE.marks[id]
+        if m.foe and st.marks[id] and beaten[m.foe] then
+            if id == "pack" then
+                st.pack = math.max(0, math.max(1, math.min(3, st.pack or 1)) - beaten[m.foe])
+                if st.pack == 0 then
+                    events.set_cause(c, sc.fight_ev)
+                    adventure.remove_mark(c, id, true)
+                    events.set_cause(c, nil)
+                end
+            else
+                events.set_cause(c, sc.fight_ev)
+                adventure.remove_mark(c, id, true)
+                events.set_cause(c, nil)
+            end
+        end
     end
 end
 
@@ -4235,7 +4307,8 @@ function M.after_showdown(night, sc)
     local c = night.campaign
     local st = st_of(night)
     local boss = st.boss or {}
-    free_stone(night)
+    free_stone(night, sc)
+    M.lair_losses(night, sc, sc.fought and sc.outcome ~= "win" and not st.ending and not (sc.boss_yielded or sc.boss_ran or sc.boss_dead))
     if sc.extras_only and sc.fought and sc.outcome ~= "win" then
         -- She's gone already (paid, or carried out asleep): losing to her collection ends it anyway.
         night:say(MODULE.extras_lost, "bad")

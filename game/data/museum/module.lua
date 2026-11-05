@@ -385,6 +385,15 @@ M.asides = {
 M.ally_join = {
     steam_mech = "{mech} clanks up the stairs behind them, steam hissing, and takes its place in the line.",
 }
+-- An ally that isn't a person, destroyed in a fight (companions.fell): gone for good, so said that way,
+-- and its friend at the table reacts. {name}: what they called it. (Burning itself out has its own
+-- words, the overheat moment: game/data/barks.lua told.)
+M.ally_lines = {
+    steam_mech = { down = { "{name} crashes down in a heap of brass and steam. The green light behind its helmet goes out.",
+                            "{name} takes one hit too many and topples over, gears grinding to a stop.",
+                            "Something inside {name} snaps. It sags, sparks, and goes still for good." },
+                   react = { "{name}! No!", "Not {name}. Not like this.", "Get up, {name}. Please get up." } },
+}
 -- "Last time, they ..." at the start of a night: what each room came to, as a clause. fought: the
 -- clause when the room's fight happened (its fight is optional: the second playtest review, F20, heard
 -- "crossed the Hall of Paintings" after a fight with the Knight of Shades). alone: who went where,
@@ -394,15 +403,18 @@ M.recap = {
     garden = { win = "got through the living garden", lose = "got through the garden, scratched and bleeding" },
     entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard",
                  fought = { win = "fought their way past the Sentinel at the donation box", lose = "fled the Sentinel in the entrance hall" } },
-    chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct" },
+    chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct",
+                fought = { win = "smashed the Bone Construct", lose = "barely got away from the Bone Construct" } },
     paintings = { win = "crossed the Hall of Paintings", lose = "backed out of the Hall of Paintings",
                   fought = { win = "fought the Knight of Shades out of his frame in the Hall of Paintings",
                              lose = "backed out of the Hall of Paintings, the Knight of Shades after them" } },
     gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
     hunting = { win = "beat the huntlings on the second floor", lose = "held off the huntlings, just" },
     offices = { win = "found the archivist's notebook", lose = "left the offices with more questions than answers" },
-    tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech" },
-    lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class" },
+    tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech",
+                 since = { { when = { flag = "mech_burnt" }, win = "woke the Steam Mech, then burnt it out with its own red switch" } } },
+    lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class",
+                ran = "drove the Lecturer out of his own class" },
     stairs = { win = "climbed the stairs to Euryale's door", lose = "climbed the stairs to Euryale's door",
                alone = { moment = "mus_alone", options = { 1, 3 }, who = "jess",
                          text = "waited at the foot of the stairs while {char} crept up alone for a look" } },
@@ -434,6 +446,11 @@ M.beats = {
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
+        -- (The night's losses, told first: round three, A7. events.losses.)
+        death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n} times",
+        ally_lost = "they lost {name}", wipe = "the whole party went down in {room}",
+        came_back = "{char} nearly died, and came back",
+        friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
     },
     rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",
               street = "they met Flitwidget in the street" },
@@ -1687,6 +1704,10 @@ M.showdown = {
     -- Said in the fight, the moment she yields (fight.lua: a boss prepped to yield, below a third
     -- of her hit points); then the yield card plays, once the fight has stopped.
     yield_line = "Euryale stops fighting, and her whole collection goes still around her.",
+    -- (An ambush the second time up her stairs: she remembers the first. Round three, B3.)
+    ambush_again = { "No drink this time. \"You came back. I hoped you would.\" The bow is already up.",
+                     "\"Again? I moved the statues to make room for you.\" An arrow is on the string before they reach the top step.",
+                     "She's waiting at the top of the stairs this time, bow drawn. \"Last time was a rehearsal.\"" },
     -- What letting her get away costs (R5, D2: Conner, "make the escape card cost something visible on
     -- the boss board"): the book's reward is for a Gorgon beaten, so one who walks out, runs from a long
     -- fight or is paid to leave earns half of it. Shown on the showdown board, on every card that lets

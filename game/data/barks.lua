@@ -215,4 +215,35 @@ M.charmed_captions = {
     "{char} hesitates. Whatever {charmer} did, {char} won't fight back.",
 }
 
+-- What the table hears when a fight turns in a way nobody can miss (round three, A2 and A4: Shatter hit
+-- allies twelve times and nobody said so; the mirror, Hyper Destroyer Mode and a natural-20 death save
+-- happened only on the mat). Said by game/model/fight.lua (tell_moments, friendly_fire), each three ways.
+-- {char}: the hero it's about (or who did it); {Name}/{name}: the friend at the table; {spell}; {hit}:
+-- the heroes caught; {is}: "is" or "are" for them; {downed}; {mech}; {holder}: who holds the mirror;
+-- {charmer}; {caught}: the heroes her stare caught; {start}: "starts" or "start" for them.
+M.told = {
+    -- Friendly fire: a hero's own spell catches the party.
+    friendly_fire = {
+        "{Spell} catches {hit} too.",
+        "{char}'s {spell} doesn't pick sides: {hit} {is} caught in it.",
+        "{hit} {is} right in the middle of {char}'s {spell}.",
+    },
+    friendly_down = {
+        "{char}'s {spell} catches {hit}, and drops {downed}.",
+        "{Spell} goes off, and {downed} {is} on the floor. That was {char}'s.",
+        "{char}'s {spell} hits the party too. {downed} {goes} down.",
+    },
+    -- The friend whose hero was hit, to the one who cast it (out of character).
+    friendly_hit = { "{Caster}! That was me!", "Ow. Friendly fire, {caster}. Very friendly.", "Did you just hit me with that, {caster}?" },
+    -- And the one who cast it.
+    friendly_sorry = { "Sorry! Sorry. I'll aim better.", "Okay. That one's on me.", "In my defence, it was a very good spell." },
+    friendly_sorry_down = { "Oh no. That was me. That was me, wasn't it?", "I did that. I'm so sorry.", "Nobody say anything. I know." },
+    stone = { "{char} is stone now, mid-step. Until her hold breaks, {char_they} {stays} that way.",
+              "{char} turns to stone. Only Euryale's hold breaking will bring {char_them} back.",
+              "The grey reaches {char}'s eyes. {char} is a statue now, until her hold on the lair breaks." },
+    -- A hero back on their feet while the table grieves ({lost}: who they lost).
+    up_quiet = { "{char} is up. Nobody cheers.", "{char} gets back up and looks at {lost}. Nobody says anything.",
+                 "{char} is on {char_their} feet again. It doesn't feel like winning." },
+}
+
 return M

@@ -969,9 +969,19 @@ function M.recap_clause(campaign, step)
         return util.fill(a.text, { char = p and p.char or "one of them" })
     end
     local lose = step.outcome == "lose"
-    -- (Whether its fight happened is the log's to say, R7: a fight there that session.)
-    local fought = require("game.model.events").any(campaign, { kind = "fight", where = step.room, session = step.week })
-    if fought and rc.fought then
+    -- (What's happened since, or in it, first: the Mech they woke and then burnt out, round three, B13.)
+    for _, alt in ipairs(rc.since or {}) do
+        if M.test(campaign, alt.when) then
+            return lose and (alt.lose or rc.lose) or alt.win
+        end
+    end
+    -- (Whether its fight happened is the log's to say, R7: a fight there that session. And how it ended:
+    -- the Lecturer who got away wasn't "silenced", round three, A7.)
+    local fight = require("game.model.events").last(campaign, { kind = "fight", where = step.room, session = step.week })
+    if fight and fight.fate == "ran" and rc.ran then
+        return rc.ran
+    end
+    if fight and rc.fought then
         return lose and rc.fought.lose or rc.fought.win
     end
     return lose and rc.lose or rc.win
@@ -1034,7 +1044,8 @@ function M.add_mark(campaign, id, room, holder)
     return true
 end
 
-function M.remove_mark(campaign, id)
+-- quiet: in the log, but not a beat of its own (the beat that took it off says so: "they lost Owen").
+function M.remove_mark(campaign, id, quiet)
     local st = campaign.adv
     if not st.marks[id] then
         return
@@ -1042,7 +1053,7 @@ function M.remove_mark(campaign, id)
     local events = require "game.model.events"
     local m = MODULE.marks[id]
     events.add(campaign, { kind = "unmark", who = "party", thing = id, from = events.cause(campaign) or st.marks[id].ev,
-                           how = "but", beat = campaign.night ~= nil or nil,
+                           how = "but", beat = (campaign.night ~= nil and not quiet) or nil,
                            text = m and m.unchain or ("it came off Euryale's card: " .. util.lower_first(m and m.name or id)) })
     st.marks[id] = nil
     for i, m in ipairs(st.mark_list) do

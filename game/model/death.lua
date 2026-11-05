@@ -127,6 +127,14 @@ function M.on_death(night, p, c, sc)
     table.insert(campaign.deaths, rec)
     local dev = { who = p.key, text = p.char .. " died. " .. util.capitalize(rec.how) .. ".", weight = 10 }
     night:event("death", dev)
+    -- (In the event log, the one record: a beat that turns the fight that took them, told first in the
+    -- recap, and what the people there remember. Round three, B1 and A7.)
+    local events = require "game.model.events"
+    local loc = sc and sc.comps and sc.comps.location
+    local room = loc and (loc.short or util.lower_first(loc.name)) or "the museum"
+    rec.ev = events.add(campaign, { kind = "death", who = p.key, where = sc and sc.room, beat = true, lead = true,
+                                    from = sc and sc.fight_ev, how = "but", outcome = nil,
+                                    text = events.word("death", { char = p.char, room = room }, "{char} died") }).id
     -- What came of it, for the recap (October 15: "We lost Brannoc", when he came back), and the
     -- canon line the death save wrote ("Brannoc died at ...") says how it ended.
     dev.outcome = outcome
@@ -137,6 +145,14 @@ function M.on_death(night, p, c, sc)
                 night.canon[i] = night.canon[i] .. after
                 break
             end
+        end
+    end
+    if outcome == "scar" and rec.ev then
+        -- (Brought back: the log says so, and it's no longer a death.)
+        local ev = events.get(campaign, rec.ev)
+        if ev then
+            ev.kind, ev.lead, ev.back = "back", nil, true
+            ev.text = events.word("came_back", { char = p.char }, "{char} nearly died, and came back")
         end
     end
     if outcome == "goodbye" or outcome == "quick" then
@@ -157,8 +173,11 @@ function M.fall(night, p, rec, goodbye)
     local campaign = night.campaign
     if goodbye then
         local lines = data.LAST_WORDS[p.class] or data.LAST_WORDS.fighter
-        night:emit({ kind = "say", who = p.key, text = lines[night.rng:int(1, #lines)], ic = true })
-        night:say(util.fill(data.WAKE, { char = p.char }), "narration")
+        night:emit({ kind = "say", who = p.key, text = lines[night.rng:int(1, #lines)], ic = true, farewell = true })
+        -- (The wake comes once the danger's over, back where they rest: M.hold_wake. Round three, B1: it
+        -- was held while Euryale still knelt in her lair.)
+        night.wake_due = night.wake_due or {}
+        table.insert(night.wake_due, p.char)
         score.add(p, "spotlight", data.GOODBYE.spotlight)
         score.add(p, "story", data.GOODBYE.story)
         for _, q in ipairs(night.players) do
@@ -180,6 +199,25 @@ function M.fall(night, p, rec, goodbye)
     campaign.new_char[p.key] = { week = campaign.week, was = p.char }
     table.insert(night.canon, p.char .. " " .. rec.how)
     M.after_fall(night, p)
+end
+
+-- The wake (round three, B1): held where they rest, once the fight that took them is over and
+-- whatever came after it is settled (the gift shop, or the night's end), never mid-lair. The
+-- adventure's words (data.WAKE); whoever runs the place says something (people_lines `grief`).
+function M.hold_wake(night)
+    local due = night.wake_due
+    if not due or #due == 0 then
+        return false
+    end
+    night.wake_due = nil
+    local names = util.join_names(due)
+    night:say(util.fill(data.WAKE, { char = names }), "narration")
+    local ok, people = pcall(require, "game.model.people")
+    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil, { char = names }) or nil
+    if line then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
+    end
+    return true
 end
 
 -- The table, after (the playtest, November 3: "does the player immediately leave the table? How

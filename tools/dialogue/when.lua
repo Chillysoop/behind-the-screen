@@ -547,13 +547,23 @@ A.companions = function(p)
         elseif kind == "win" then
             return R("Not said yet: nothing in the game plays " .. name .. "'s lines for a won fight", "Never")
         elseif kind == "down" then
-            return R("In a fight, when " .. name .. " drops to 0 hit points (companions.fell)", "Always")
+            return R("In a fight, when " .. name .. " drops to 0 hit points (companions.fell)", type(list) == "table" and one_of(#list) or "Always")
         elseif kind == "react" then
-            return R("In a fight, right after " .. name .. " drops: whoever's playing " .. name .. ", else " .. owner, "Always")
+            return R("In a fight, right after " .. name .. " drops: whoever's playing " .. name .. ", else " .. owner,
+                type(list) == "table" and one_of(#list) or "Always")
         elseif kind == "up" then
-            return R("After a fight " .. name .. " went down in: " .. name .. " comes round", "Always")
+            return R("After a fight " .. name .. " went down in: " .. name .. " comes round", type(list) == "table" and one_of(#list) or "Always")
         end
     end
+end
+
+A.ally_lines = function(p)
+    local what = p[2] == "steam_mech" and "the Steam Mech" or "an ally"
+    local list = MODULE.ally_lines[p[2]][p[3]]
+    if p[3] == "down" then
+        return R("In a fight, when " .. what .. " fighting beside them is smashed for good (not burnt out: that's its own line)", one_of(#list))
+    end
+    return R("In a fight, right after " .. what .. " is destroyed: whoever's playing it, else the first friend at the table", one_of(#list))
 end
 
 A.ally_join = function(p)
@@ -775,6 +785,10 @@ A.beats = function(p)
         lifted = "when a friend lifts something off a shelf", lifted_off = "when a friend lifts something off someone",
         caught = "when a friend is caught lifting something", helped = "when a friend helps one of the museum's people",
         refused = "when someone won't answer a friend they've gone off",
+        death = "first, when a hero died that night", down = "first, when a hero went down that night",
+        down_n = "first, when a hero went down more than once that night", ally_lost = "first, when they lost an ally for good that night",
+        wipe = "first, when the whole party went down in a fight that night", came_back = "when a hero who died was brought back",
+        friendly = "when a hero's own spell or swing caught the party too", friendly_down = "first, when a hero's own spell or swing dropped someone on their side",
     }
     if top == "words" then
         return R(CHAIN_AT .. ", " .. (W[k] or "for that beat"), "Always")
@@ -939,6 +953,17 @@ A.recap = function(p)
     if p[2] == "lair" and p[3] == "win" then
         return R("Not said: the museum is over once they win in her lair, so no next night recaps it", "Never")
     end
+    if p[3] == "since" then
+        return R("At the start of the next night, " .. Q("Last time, they …") .. ", if " .. rname(p[2]) .. " went well"
+            .. if_(MODULE.recap[p[2]].since[p[4]].when) .. " (in place of the usual)", "Always")
+    elseif p[3] == "ran" then
+        return R("At the start of the next night, " .. Q("Last time, they …") .. ", if " .. rname(p[2]) .. "'s fight ended with "
+            .. "the one leading it getting away", "Always")
+    elseif p[3] == "fought" then
+        local well = p[4] == "win" and "went well" or "went badly"
+        return R("At the start of the next night, " .. Q("Last time, they …") .. ", if " .. rname(p[2]) .. " came to a fight and "
+            .. well, "Always")
+    end
     local well = p[3] == "win" and "went well" or "went badly"
     return R("At the start of the next night, " .. Q("Last time, they …") .. ", if " .. rname(p[2]) .. " " .. well, "Always")
 end
@@ -1044,6 +1069,8 @@ A.showdown = function(p)
         return R("In the Gorgon's lair, if she dies but her collection still wins the fight", "Always")
     elseif f == "yield_line" then
         return R("In the fight in her lair, the moment Euryale yields (if you prepped her to)", "Always")
+    elseif f == "ambush_again" then
+        return R("On boss night, if you prepped her to strike first and they've been up her stairs before", one_of(#MODULE.showdown.ambush_again))
     end
 end
 
@@ -1437,6 +1464,29 @@ local function bark_line(p)
                       boss_is_a_thing = "the one leading the fight is a creature, not a person" }
         local rule = B.context[p[2]]
         return R("Not said: a table line with " .. Q(rule[1], 4) .. " in it only plays when " .. (CTX[rule[2]] or "it fits"), "Never")
+    elseif p[1] == "told" then
+        local TW = {
+            friendly_fire = "In a fight, when a hero's own spell or swing catches the party too",
+            friendly_down = "In a fight, when a hero's own spell or swing drops someone on their side",
+            friendly_hit = "In a fight, right after friendly fire: the friend whose hero it hit, to the one who did it",
+            friendly_sorry = "In a fight, right after friendly fire: the friend whose hero did it",
+            friendly_sorry_down = "In a fight, right after friendly fire drops someone: the friend whose hero did it",
+            veil = "In Euryale's fight, when she pulls back her hood", petrify = "In Euryale's fight, when her stare catches someone",
+            petrify_missed = "In Euryale's fight, when her stare catches nobody", mirror = "In Euryale's fight, when she uses her stare "
+                .. "and the party holds up the mirror-bright cupboard door",
+            mirror_caught = "In Euryale's fight, right after the mirror, when her own reflection starts turning her to stone",
+            mirror_missed = "In Euryale's fight, right after the mirror, when she looks away in time",
+            self_stone = "In Euryale's fight, when she turns to stone in her own reflection",
+            stone = "In Euryale's fight, when a hero turns all the way to stone",
+            stone_other = "In Euryale's fight, when someone who isn't a hero turns all the way to stone",
+            freed = "In Euryale's fight, when a hero cracks out of the stone", charmed = "In a fight, when a hero is charmed",
+            hyper = "In a fight, when the Steam Mech goes into Hyper Destroyer Mode",
+            overheat = "In a fight, when the Steam Mech burns itself out in Hyper Destroyer Mode",
+            power_down = "In a fight, when the Steam Mech stops because the hero it answers to went down",
+            nat20_save = "In a fight, when a hero on the floor rolls a natural 20 on a death save",
+            up_quiet = "In a fight, when a hero gets back up on a night a hero has died (in place of the cheer)",
+        }
+        return R(TW[p[2]] or "In a fight", one_of(#B.told[p[2]]))
     elseif p[1] == "made" then
         local tr, who = p[2], p[3]
         local l = B.made[tr][who][p[4]]
@@ -1940,6 +1990,7 @@ local PEOPLE_WHEN = {
     thanks = "at the thanks, at the end, by what he knows and how he feels about them",
     docked = "at the thanks, when he docks the reward for what they broke or did",
     heard = "on boss night, first thing, when the Lecturer has told her what the party did",
+    grief = "at the wake, back in the gift shop, on a night a hero died",
     pass_on = "at the end of a night while he's still lecturing, when he passes on what he heard",
 }
 local function people_line(p)

@@ -294,6 +294,20 @@ function M.chain(c, session, max, room, skip)
         beats = keep
     end
     beats = M.told_order(beats)
+    -- (The night's losses lead, a death first: round three, B1 and A7. "Euryale came at them, until she
+    -- asked them to stop" told a night Oswin died in. Told on their own, with no link word.)
+    if not room then
+        local lead, rest = {}, {}
+        for _, ev in ipairs(beats) do
+            table.insert(ev.lead and lead or rest, ev)
+        end
+        if #lead > 0 then
+            beats = lead
+            for _, ev in ipairs(rest) do
+                table.insert(beats, ev)
+            end
+        end
+    end
     local out, cur, joined, prev, last_word = {}, nil, 0, nil, nil
     local used, words = {}, {}
     local function flush()
@@ -310,7 +324,9 @@ function M.chain(c, session, max, room, skip)
         -- from something unseen, a hero's reason for coming, says why in its own words.)
         local word = M.linked(ev) and prev and ev.from == prev.id and M.LINK_WORD[ev.how] or nil
         local clause = ev.text
-        if word and cur and joined < M.MAX_JOIN and word ~= last_word then
+        -- (Nor "but" onto a clause that already turns on one: "they won, but some got away, but ...".)
+        local twice = word and cur and string.find(cur, ", " .. word .. " ", 1, true)
+        if word and cur and joined < M.MAX_JOIN and word ~= last_word and not twice then
             cur = cur .. ", " .. word .. " " .. clause
             joined = joined + 1
             last_word = word

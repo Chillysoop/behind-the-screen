@@ -18,6 +18,7 @@ local maps = require "game.model.maps"
 local museum = require "game.rules.museum"
 local barks = require "game.model.barks"
 local BARKS = require "game.data.barks"
+local able = require "game.model.able"
 
 local M = {}
 
@@ -734,10 +735,114 @@ function M.charmed_turn(night, f, who, steps)
     night:say(util.fill(night:fresh(again and M.CHARMED_AGAIN or BARKS.charmed_captions, again and "charmed_again" or "charmed_caption"), v), "dm")
 end
 
+-- What the table hears of a fight's big moments (round three, A4, the third playtest: "the mirror,
+-- Hyper Destroyer Mode and a natural-20 death save happen only on the mat"). One owner: every moment
+-- the rules emit (game/rules/museum.lua's features) that the table can't miss is said here, once, in
+-- the order it happened, from BARKS.told (three ways each). Returns what it said, by kind.
+local TOLD = BARKS.told
+local function told(night, key, vars)
+    local line = night:fresh(TOLD[key], "told_" .. key)
+    if line then
+        night:say(util.fill(line, vars or {}), (key == "petrify" or key == "stone" or key == "veil" or key == "charmed"
+            or key == "overheat" or key == "power_down" or key == "friendly_down" or key == "friendly_fire") and "bad" or "good")
+    end
+    return line
+end
+M.told_line = told
+
+local function names_list(list)
+    return util.join_names(list)
+end
+
+function M.tell_moments(night, f, steps)
+    local said = {}
+    for _, s in ipairs(steps) do
+        local c = s.id and f.by_ref[s.id]
+        if s.museum == "petrified" and c and c.pc then
+            said.stone = told(night, "stone", { char = c.name, stays = "stays" })
+        end
+    end
+    return said
+end
+
+-- Friendly fire (round three, A2, the third playtest: "Thessaly's own Shatter downs Oswin, the hit that
+-- starts his death, and nobody at the table hears it"): a hero's spell or attack that catches their own
+-- side is said aloud, the friend it hit says something to the one who did it, and they own it. In the
+-- fight's record for the recap (night.fight_record.friendly).
+function M.friendly_fire(night, f, steps, who)
+    if not (who and who.pc) then
+        return nil
+    end
+    local hit, downed, seen, spell = {}, {}, {}, nil
+    local victims = {}
+    for _, s in ipairs(steps) do
+        if s.kind == "spell" and s.id == who.mini then
+            spell = spell or s.name
+        elseif s.kind == "damage" and s.src == who.mini and s.id ~= who.mini then
+            local t = f.by_ref[s.id]
+            if t and t.side == who.side and not seen[t] then
+                seen[t] = true
+                table.insert(hit, t.name)
+                table.insert(victims, t)
+                if (s.hp or 1) <= 0 then
+                    table.insert(downed, t.name)
+                end
+            end
+        end
+    end
+    if #hit == 0 then
+        return nil
+    end
+    local caster = player_of(night, who)
+    local v = { char = who.name, spell = spell or "attack", Spell = spell or "The attack", hit = names_list(hit),
+                is = #hit == 1 and "is" or "are", downed = names_list(downed), goes = #downed == 1 and "goes" or "go" }
+    if spell == nil then
+        v.Spell = who.name .. "'s swing"
+    end
+    if #downed > 0 then
+        v.is = #downed == 1 and "is" or "are"
+        told(night, "friendly_down", v)
+    else
+        told(night, "friendly_fire", v)
+    end
+    -- The friend it hit (the one it dropped, first), to the one who did it; then them.
+    local hurt
+    for _, t in ipairs(victims) do
+        local q = t.pc and player_of(night, t)
+        if q and q ~= caster and (not hurt or (t.hp or 1) <= 0) then
+            hurt = q
+        end
+    end
+    if hurt and caster then
+        night:emit({ kind = "say", who = hurt.key, ic = false, line = "told.friendly_hit",
+                     text = util.fill(night:fresh(TOLD.friendly_hit, "told_friendly_hit"), { caster = caster.name, Caster = caster.name }) })
+    end
+    if caster then
+        night:emit({ kind = "say", who = caster.key, ic = false, line = "told.friendly_sorry",
+                     text = night:fresh(#downed > 0 and TOLD.friendly_sorry_down or TOLD.friendly_sorry,
+                                        #downed > 0 and "told_friendly_sorry_down" or "told_friendly_sorry") })
+        local poses = { [caster.key] = "gasp" }
+        if hurt then
+            poses[hurt.key] = "arms"
+        end
+        night:react(poses)
+    end
+    local rec = night.fight_record
+    if rec then
+        rec.friendly = rec.friendly or {}
+        table.insert(rec.friendly, { by = who.mini, char = who.name, spell = spell, hit = hit, downed = downed })
+    end
+    f.friendly = f.friendly or {}
+    table.insert(f.friendly, { by = who.mini, char = who.name, spell = spell, hit = hit, downed = downed })
+    return #downed > 0 and "down" or "hit"
+end
+
 -- Barks and poses after a turn, from what happened in it.
 local function react(night, f, steps, who)
     local P = player_of(night, who)
     local poses, line = M.museum_moments(night, f, steps), nil
+    local said = M.tell_moments(night, f, steps)
+    local ff = M.friendly_fire(night, f, steps, who)
     local crit, kill, downed, hurt, healed_up, boss_dead = false, false, nil, nil, nil, false
     local kill_name
     for _, s in ipairs(steps) do
@@ -772,11 +877,6 @@ local function react(night, f, steps, who)
             if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
                 night:say(util.fill("{char} shakes it off: the grey drains out of {char_their} legs, and {char_they} can move again.", { char = c.name }), "good")
             end
-        elseif s.kind == "feature" and s.museum == "petrified" then
-            local c = f.by_ref[s.id]
-            if c and c.pc then
-                night:say(util.fill("{char} is stone now, mid-step. Only Euryale falling will bring {char_them} back.", { char = c.name }), "bad")
-            end
         end
     end
     if downed and downed.pc then
@@ -797,8 +897,8 @@ local function react(night, f, steps, who)
         end
         local medic
         for _, p in ipairs(night.players) do
-            if p.class == "cleric" and p ~= victim then
-                medic = p
+            if p.class == "cleric" and p ~= victim and able.can_fight(night, p) then
+                medic = p          -- (a healer who's down or stone isn't coming: round three, A1)
             end
         end
         if medic and night.rng:chance(0.6) then
@@ -845,7 +945,9 @@ local function react(night, f, steps, who)
         local back = player_of(night, healed_up)
         if back then
             poses[back.key] = "cheer"
-            line = { back, night.rng:chance(0.5) and "up_again" or "thanks" }
+            -- (Up on their own natural 20: nobody to thank.)
+            local own = f.nat20_up and f.nat20_up[healed_up.mini]
+            line = { back, (own or night.rng:chance(0.5)) and "up_again" or "thanks" }
         end
     elseif hurt then
         local owch = player_of(night, hurt)
@@ -1479,7 +1581,11 @@ function M.run(night, sc, plan)
 
     local opts = {}
     opts.before_round = function(bb, r)
-        night:flush_turn()
+        -- (What happened between turns, a charm from her wine among it, is told too: round three, A4.)
+        local between = night:flush_turn()
+        if between and #between > 0 then
+            M.tell_moments(night, f, between)
+        end
         night:emit({ kind = "round", round = r })
         -- The ones who split off: a cut to them, then they come running (round 3).
         if #(f.away or {}) > 0 then
@@ -1533,8 +1639,13 @@ function M.run(night, sc, plan)
         if r >= 2 and night.rng:chance(night:idle() > 60 and 0.12 or 0.3) then
             -- Sometimes it's a habit of theirs (A12): backseat tactics, HP fishing, the spell lookup.
             if not (night.rng:chance(0.5) and night:table_behavior("combat", nil, true)) then
-                local q = night.rng:pick(night.players)
-                night:bark(q, "fight_chat", { moment = barks.from_fight(night, q) })
+                -- (Only a friend whose hero is in the fight: round three, A1, "I'm moving my mini"
+                -- while Brannoc was on the floor.)
+                local here = night:at_hand(true)
+                local q = #here > 0 and night.rng:pick(here) or nil
+                if q then
+                    night:bark(q, "fight_chat", { moment = barks.from_fight(night, q) })
+                end
             end
         end
         if r >= 2 and r % 2 == 0 and f.boss and not f.boss.dead and plan.cast then
@@ -1552,9 +1663,13 @@ function M.run(night, sc, plan)
         local rc = sc.rules_card
         local need = rc and rc.fight_needs
         local did = need and (f.happened or {})[need]
-        if r >= 2 and rc and (not need or did) and night:decision_count() < 14 and alive_foes(bb) > 0 then
-            local by = did and did.who and f.by_ref[did.who]
-            local byp = by and by.pc and player_of(night, by)
+        local by = did and did.who and f.by_ref[did.who]
+        local byp = by and by.pc and player_of(night, by)
+        -- (Who it happened to asks, once they're back in the fight: a charmed Brannoc didn't ask
+        -- about flanking the Lecturer he wouldn't fight. Round three, A1.)
+        local stuck = (byp and not able.can_fight(night, byp))
+            or (rc and rc.actor_class and night:by_class(rc.actor_class) and not able.can_fight(night, night:by_class(rc.actor_class)))
+        if r >= 2 and rc and (not need or did) and not stuck and night:decision_count() < 14 and alive_foes(bb) > 0 then
             if need == "bless" then
                 -- (Someone it blessed asks, not the one who cast it.)
                 night.actor = night:pick_actor(rc.actor, byp)
@@ -1845,7 +1960,10 @@ function M.run(night, sc, plan)
         c.heroic = p and p.heroic or nil
     end
     local result = b:run(opts)
-    night:flush_turn()
+    local last = night:flush_turn()
+    if last and #last > 0 then
+        M.tell_moments(night, f, last)
+    end
     -- (What they used up in it leaves their packs now: a potion drunk is gone. items.lua)
     for _, c in ipairs(night.pc_list or {}) do
         require("game.model.items").settle(c, night.campaign)
