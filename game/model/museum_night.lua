@@ -2481,6 +2481,11 @@ local function we_did(card_id, o)
     end
     t = string.gsub(t, "^they ", "we ")
     t = string.gsub(t, "%f[%a]them%f[%A]", "us")
+    -- (A beat that names what came of it, "{gift}", needs the night's own facts: the plain reason says it instead.
+    -- The confirming playtest: "I said yes when we kept {gift} until it dripped away.")
+    if string.find(t, "{", 1, true) then
+        return nil
+    end
     return t
 end
 M.we_did = we_did
