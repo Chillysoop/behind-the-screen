@@ -92,7 +92,7 @@ return {
                    "My museum's back! Now, has anyone seen my healing draught? It was in this pocket. It isn't now.",
                    "Splendid, splendid. Though I seem to have lost my healing draught somewhere in all the excitement." } },
         { when = { knows = { who = "mus_flitwidget", kind = "steal", to = true, outcome = "caught" } },
-          text = { "Thank you, all of you. Even the one with the quick hands. My draught and I have forgiven you.",
+          text = { "Thank you, all of you. Even the one with the quick hands. I've forgiven you. Mostly.",
                    "My heroes! Every one of them. Yes, even you, {char}. Hands where I can see them, mind.",
                    "Thank you. And I've quite forgotten the pocket business. Almost." } },
         { when = { knows = { who = "mus_flitwidget", kind = "steal", whom = "mus_telpur" } },

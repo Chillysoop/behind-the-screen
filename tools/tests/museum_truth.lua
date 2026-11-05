@@ -314,6 +314,7 @@ local function play(seed, style)
             end
         end
         local night_mod = require "game.model.night"
+        local museum_night = require "game.model.museum_night"
         local francs_before = c.adv.francs or 0
         local stopped_in = c.adv.pos or c.adv.last_room
         local learned = {}
@@ -366,6 +367,15 @@ local function play(seed, style)
                         fail(tag .. " week " .. w .. ": '" .. text .. "' with the ending " .. tostring(c.adv.ending) .. " (the reward is " .. want .. ")")
                     end
                 end
+                -- (Round three, B3: every Franc in the pool was heard going in; one said is one paid.)
+                for _, key in ipairs({ "franc", "franc_party" }) do
+                    for _, l in ipairs((museum_night.WORLD_LINES or {})[key] or {}) do
+                        local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char[_%a]*}", ".-") .. "$"
+                        if string.find(text, pat) and (c.adv.francs or 0) <= francs_before then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "', and no Franc went in the pool")
+                        end
+                    end
+                end
                 local back_to = string.match(text, "a walk back up to (.-), where they stopped")
                 if back_to then
                     local want = stopped_in == "stairs" and "the top of the stairs"
@@ -387,6 +397,13 @@ local function play(seed, style)
                 learned[ev.actor] = nil
             end
             francs_before = c.adv.francs or 0
+            -- (Round three, B3: what Flitwidget says the reward is, is the reward now: one number.)
+            if text and ev.kind == "npc" and string.find(text, "gold each", 1, true) and not string.find(text, "seems low", 1, true) then
+                local want = adventure.gold_word(adventure.reward_gold(c))
+                if not string.find(string.lower(text), string.lower(want) .. " gold each", 1, true) then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "', and the reward is " .. want .. " gold each")
+                end
+            end
             if text and ev.kind == "npc" then
                 for line, k in pairs(KNOWS) do
                     local pat = "^" .. string.gsub(string.gsub(line, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char}", ".-") .. "$"

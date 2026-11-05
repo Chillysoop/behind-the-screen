@@ -39,11 +39,20 @@ local function add(item, key, n)
     E[item] = E[item] or {}
     E[item][key] = (E[item][key] or 0) + (n or 1)
 end
+-- (Targeted cases run after the whole prologues: they touch shared state, and the prologues have to
+-- play exactly as the sim plays them.)
+local CASES = {}
 local function case(item, fn)
-    local ok, err = pcall(fn)
-    if not ok then
-        fail(item, "error: " .. tostring(err))
+    table.insert(CASES, { item, fn })
+end
+local function run_cases()
+    for _, c in ipairs(CASES) do
+        local ok, err = pcall(c[2])
+        if not ok then
+            fail(c[1], "error: " .. tostring(err))
+        end
     end
+    CUR = nil
 end
 
 local HERO = { mara = "Thessaly", dev = "Brannoc", jess = "Pip", sam = "Oswin" }
@@ -862,6 +871,172 @@ local function fresh_campaign(seed)
     return c
 end
 
+-- A live night stopped at its first room (the street), and a driver that collects what it says.
+local function street_night(seed)
+    local c = fresh_campaign(seed)
+    c:start_week()
+    local night = c:start_night()
+    local ev = night:advance()
+    local guard = 0
+    while ev.kind ~= "done" and not (ev.kind == "scene" and night.scene and night.scene.room) and guard < 2000 do
+        guard = guard + 1
+        local answer
+        if ev.kind == "decision" or ev.kind == "ruling" then
+            answer = 1
+        elseif ev.kind == "improv" then
+            answer = { 1 }
+        elseif ev.kind == "roll_where" then
+            answer = "open"
+        elseif ev.kind == "roll" then
+            answer = 10
+        end
+        ev = night:advance(answer)
+    end
+    return c, night
+end
+local function drive(fn)
+    local out = {}
+    local co = coroutine.create(fn)
+    local answer
+    while coroutine.status(co) ~= "dead" do
+        local ok, e = coroutine.resume(co, answer)
+        if not ok then
+            error(e)
+        end
+        answer = nil
+        if e then
+            table.insert(out, e)
+            if e.kind == "decision" or e.kind == "ruling" then
+                answer = 1
+            elseif e.kind == "roll_where" then
+                answer = "open"
+            elseif e.kind == "roll" then
+                answer = 10
+            end
+        end
+    end
+    return out
+end
+local function said(out, pat)
+    for _, e in ipairs(out) do
+        if e.text and string.find(e.text, pat, 1, true) then
+            return e
+        end
+    end
+end
+
+-- B2: Telpur knows his own stock when he sees it in a hero's hands, says so, and knows it from then on;
+-- not in the same room the night it went (the case a run can't be counted on: Telpur along for a fight).
+case("B2", function()
+    CUR = "telpur_case"
+    local events = require "game.model.events"
+    local items = require "game.model.items"
+    local people = require "game.model.people"
+    local museum_night = require "game.model.museum_night"
+    local c, night = street_night(21)
+    local steal = events.add(c, { kind = "steal", who = "jess", whom = "mus_telpur", thing = "arrows_lifted", where = "gift_shop",
+                                  outcome = "got", seen = {}, session = (c.week or 1) - 1 })
+    events.set_cause(c, steal)
+    items.give(c, "arrows_lifted", "jess", "stolen", { id = "mus_telpur", name = "Telpur" })
+    events.set_cause(c, nil)
+    if people.knows_of(c, "mus_telpur", "steal") then
+        fail("B2", "Telpur knows of a theft nobody saw")
+    end
+    local out = drive(function()
+        museum_night.owner_sees(night, "mus_telpur", night.scene)
+    end)
+    local line = nil
+    for _, e in ipairs(out) do
+        if e.kind == "npc" and e.cast == "mus_telpur" then
+            line = e.text
+        end
+    end
+    if not line or not string.find(line, "Pip", 1, true) then
+        fail("B2", "Telpur sees his quiver on Pip and says " .. tostring(line))
+    elseif not people.knows_of(c, "mus_telpur", "steal") then
+        fail("B2", "Telpur saw his quiver, and doesn't know it was stolen")
+    else
+        add("B2", "telpur_spots_case")
+    end
+    local again = drive(function()
+        museum_night.owner_sees(night, "mus_telpur", night.scene)
+    end)
+    if #again > 0 then
+        fail("B2", "Telpur notices the same quiver twice")
+    end
+end)
+
+-- B2: Flitwidget's bracelet goes to the hero he likes best (read from the log), and first pick goes
+-- to the friend it was promised to, out loud.
+case("B2", function()
+    CUR = "gifts_case"
+    local events = require "game.model.events"
+    local items = require "game.model.items"
+    local museum_night = require "game.model.museum_night"
+    local c, night = street_night(22)
+    for _ = 1, 3 do
+        events.add(c, { kind = "help", who = "sam", whom = "mus_flitwidget", seen = { mus_flitwidget = true }, where = "street" })
+    end
+    local it = items.give(c, "bracelet", nil, "given")
+    if not (it and it.holder == "sam") then
+        fail("B2", "Flitwidget likes Oswin best, and the bracelet went to " .. tostring(it and it.holder))
+    else
+        add("B2", "bracelet_to_fondest")
+    end
+    c.adv.first_pick = { by = "dev", to = "jess", week = c.week }
+    local got
+    local out = drive(function()
+        got = museum_night.first_pick(night)
+    end)
+    if not (got and got.key == "jess" and said(out, "Pip") and c.adv.first_pick == nil) then
+        fail("B2", "first pick promised to Pip went to " .. tostring(got and got.key))
+    else
+        add("B2", "first_pick_case")
+    end
+end)
+
+-- B4: Flitwidget's draught: missed when it went (he knows who, or only that it's gone), never when he
+-- caught them at it; and Session Zero's lines and veils are said at the table.
+case("B4", function()
+    CUR = "draught_case"
+    local events = require "game.model.events"
+    local people = require "game.model.people"
+    local intros = require "game.model.intros"
+    local c, night = street_night(23)
+    events.add(c, { kind = "steal", who = "jess", whom = "mus_flitwidget", thing = "potion_healing", outcome = "caught",
+                    seen = { mus_flitwidget = true }, where = "street" })
+    c.adv.ending = "bargain"
+    local line = people.line(night, "mus_flitwidget", "thanks", night.players[3])
+    if line and string.find(line, "draught", 1, true) then
+        fail("B4", "Flitwidget caught Pip and got his draught back, and says '" .. line .. "'")
+    else
+        add("B4", "caught_not_missed")
+    end
+    events.add(c, { kind = "steal", who = "jess", whom = "mus_flitwidget", thing = "potion_healing", outcome = "got", seen = {},
+                    where = "garden" })
+    line = people.line(night, "mus_flitwidget", "thanks")
+    if not (line and string.find(line, "draught", 1, true)) then
+        fail("B4", "his draught really went, and his thanks says '" .. tostring(line) .. "'")
+    else
+        add("B4", "draught_missed")
+    end
+    CUR = "session_zero_case"
+    local out = drive(function()
+        intros.asks(night, function(l) return l[1] end)
+    end)
+    local asked = 0
+    for _, e in ipairs(out) do
+        if e.kind == "say" and (e.who == "mara" or e.who == "sam") then
+            asked = asked + 1
+        end
+    end
+    if asked < 2 or not said(out, "You nod") then
+        fail("B4", "Session Zero's lines and veils weren't said at the table (" .. asked .. " asks)")
+    else
+        add("B4", "session_zero_said")
+    end
+end)
+
 -- B3 (the engine review, item 16): the dice shown are the dice won. A friend who says in the chat
 -- they bought new dice shows off those that week; the report's NEW DICE is this week's box.
 case("B3", function()
@@ -956,6 +1131,8 @@ for _, style in ipairs(STYLES) do
         end
     end
 end
+
+run_cases()
 
 local total = 0
 print(string.format("round three, batch B: %d prologues (seeds %d to %d, three DMs) in %.0fs", runs, FIRST, LAST, os.clock() - t0))
