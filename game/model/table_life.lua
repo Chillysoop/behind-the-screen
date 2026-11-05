@@ -246,7 +246,7 @@ local function crit_card(night, sc, p, b, nat)
         card.title = "A natural 20"
         card.text = "{actor_char} rolled a natural 20 poking at " .. what .. ". Improvise something?"
         table.insert(card.options, { label = "Nope. Still just " .. what .. ".", sub = "The table laughs. Nothing changes.",
-            log = "\"It's " .. what .. ". A really, really ordinary one.\" The table loses it.", laugh = true,
+            log = "\"It's " .. what .. ". Really, truly ordinary.\" The table loses it.", laugh = true,
             effects = { { "all", fun = 1 }, { "arch:casual", fun = 1 } } })
         local c20 = b.crit20 or {}
         if c20.find then
@@ -293,7 +293,8 @@ local function crit_card(night, sc, p, b, nat)
         -- (The pool is what the log says went in, to whoever found it.)
         require("game.model.events").add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1,
                                                            where = sc and sc.room })
-        dm(night, "Tucked away there: " .. o.find .. ". A Flitwidget Franc, in fact.", vars)
+        -- (The thing they found is the thing; a Franc turns up with it: "a gold feather... a Franc, in fact" made the find into a Franc.)
+        dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it.", vars)
     elseif o.clue then
         dm(night, o.clue, vars)
         if o.danger then
@@ -397,7 +398,13 @@ local function curio(night, sc, b, last, forced)
     if b.see then
         night:say(util.fill(b.see, { char = p.char }), "narration")
     end
-    say(night, p, b.ask)
+    -- (What they say they do, one of its ways: the stairs' four looks were the same four sentences in
+    -- every prologue, the third playtest.)
+    local asks = { b.ask }
+    for _, a in ipairs(b.asks or {}) do
+        table.insert(asks, a)
+    end
+    say(night, p, night:fresh(asks, "tl_ask_" .. tostring(b.id)) or b.ask)
     local d, total, pet = tiny_roll(night, p, b.skill)
     local crit = M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14)
     local level = ((d == 20 or total >= M.LORE_AT) and b.lore and "lore") or (total >= M.DETAIL_AT and b.detail and "detail") or "dull"

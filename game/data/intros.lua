@@ -31,13 +31,15 @@ M.BOND = {}
 
 -- The table's reactions: warm for a player who's all in, kind for a short one.
 M.REACT = {
-    all_in = { "Oh, I love her already.", "Okay, that's amazing.", "You made a whole backstory! I love it.",
+    -- ({char_them}: the hero just introduced. "Try harder" only from someone who hasn't gone yet. Each
+    -- reaction once a round: the third playtest heard "Oh, I love her already." twice in one.)
+    all_in = { "Oh, I love {char_them} already.", "Okay, that's amazing.", "You made a whole backstory! I love it.",
                "Chills. Actual chills.", "Okay, now I have to try harder." },
     warm = { "Love it.", "Ooh, I like that.", "That's great.", "Oh, that's a good one.", "Nice!" },
     -- After a sad backstory: nobody says "Nice!".
     grim = { "Oof. That's heavy.", "Oh no. Okay, I'm invested.", "That's a good hook. Sad, but good.",
              "Okay, that hit me.", "Aw. We've got you." },
-    short = { "Short and sweet. Love it.", "Hey, that's perfect.", "Tea guy! Love tea guy.", "We'll find out the rest." },
+    short = { "Short and sweet. Love it.", "Hey, that's perfect.", "Quiet ones are the best ones.", "We'll find out the rest." },
 }
 
 -- How long it takes, in table minutes (the table clock moves while they talk).

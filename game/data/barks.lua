@@ -47,6 +47,17 @@ M.context = {
     { "same time next week", "on_time" }, { "by midnight", "before_midnight" }, { "that was fun", "nobody_died" },
     { "hooray", "nobody_died" }, { "how close that was", "nobody_died" }, { "count off", "nobody_died" },
     { "are we... alive", "nobody_died" }, { "dead-dead", "nobody_died" }, { "everyone alive", "nobody_died" },
+    -- (The third playtest: "Nobody tell my character how close that was" after someone else's hero
+    -- nearly died; "Finally. A real fight." after the night's third.)
+    { "nobody tell my character", "self_close" }, { "needs a very long nap", "self_close" }, { "finally. a real fight", "first_fight" },
+    { "finally. hitting time", "first_fight" },
+    -- (Lines about things the room doesn't have, the third playtest: a lock in the Hall of Paintings, a
+    -- roof, a puzzle in a fight room, "talk to them first" in the reward scene, "can I look around first"
+    -- after looking, "that ending" after a banister, a statue where there's none.)
+    { "lock was rude", "lock_here" }, { "magic that lock", "lock_here" }, { "door's stronger than it looks", "lock_here" },
+    { "off the roof", "never" }, { "a puzzle?", "puzzle_here" }, { "talk to them first", "fight_here" },
+    { "more talking?", "no_fight_here" }, { "look around", "not_looked" }, { "that ending", "big_ending" },
+    { "talking to the statue", "statue_here" },
 }
 
 M.NUMBERS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" }
@@ -88,7 +99,7 @@ M.made = {
             { "{Spell} for {foe}. Exactly as I planned. Roughly." },
         },
         jess = {
-            { "{Foe}, finished. Who wants to check its pockets?", when = "last" },
+            { "{Foe}, finished. Who wants to check {foe_their} pockets?", when = "last" },
             { "That's {foe} done! {Left} more to annoy.", when = "more_left" },
             { "{char} takes a bow over {foe}." },
         },

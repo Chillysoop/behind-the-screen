@@ -5,6 +5,7 @@ local content = require "game.model.content"
 local util = require "game.model.util"
 local score = require "game.model.score"
 local adventure = require "game.model.adventure"
+local events = require "game.model.events"
 local prep_mod = require "game.model.prep"
 local social = require "game.model.social"
 local progression = require "game.model.progression"
@@ -279,38 +280,91 @@ function M.start_week(c)
 end
 
 -- What last night did to each of them, in their own words for the chat (the playtest, Nov 2: the
--- chat was word for word every run). The night's own events first: a hero lost, a hero on the
--- floor, the last hit, being overruled at a fork, a call that made or spoiled their night, the
--- reason their hero came, paid off. One line each, the biggest first. Returns { key = text }.
+-- chat was word for word every run; the third playtest, alive 9: it was still a script, quoting the
+-- DM's card titles nobody at the table ever saw). Written from what happened: a hero lost, a hero on
+-- the floor (as many times as they really were), the last hit, a fight that went against them, being
+-- overruled, the moment that made or spoiled their night in the party's own words ("when we gave the
+-- knight a wide berth"), a hero's reason for coming paid off (one post, however many), Pip caught at
+-- it. One post a moment, the biggest first. Returns { key = text }, and the kind of each.
 local function strip(t)
     return string.lower((string.gsub(t or "", "[\"%[%]]", "")))
 end
+M.CHAT = {
+    lost_hero = { "still not over {was}. rolling up someone new, be nice to {was_them}", "rip {was}. i'm making a new one and they'll be worse at everything",
+                  "{was} deserved better. new character incoming" },
+    lost_hero_reply = { "{was} deserved better tbh", "pouring one out for {was}", "we will remember {was}" },
+    down_once = { "{char} hit the floor and i'm still annoyed about it", "next time {char} is standing at the back", "{char} took a nap on the floor. not by choice" },
+    down_twice = { "{char} went down TWICE. i want a refund", "two times on the floor for {char}. two", "{char} spent half the night on the floor. twice" },
+    down_many = { "{char} went down {n} times. {n}", "{char} was on the floor more than standing up", "i lost count of how often {char} went down. {n}?" },
+    kill = { "for the record, that last hit was {char}'s", "just saying. {char}. last hit. that's all", "who landed the last hit? {char}. thank you" },
+    lost_fight = { "we got absolutely flattened", "that fight went so badly. i loved it. i hated it", "we lost that one. no notes. many notes" },
+    overruled_more = { "the DM kept nudging us places. felt a bit on rails ngl", "felt a bit on rails ngl", "a lot of nudging this week. just saying" },
+    overruled = { "still think we should've gone the other way", "the DM nudged us the other way, noted", "we went the way the DM wanted. fine" },
+    best = { "when {what}. more of that please", "can we talk about when {what}", "still buzzing about when {what}", "best bit: when {what}" },
+    worst = { "when {what}... not my favourite", "not gonna lie, when {what} kind of killed it for me", "not a fan of when {what}, if i'm honest" },
+    hook = { "{chars} finally found what {chars_they} came for. emotional", "ok {chars}'s whole reason for coming paid off and i'm thrilled",
+             "{chars} got {chars_their} answer. i'm not crying", "the bit where {chars} found what {chars_they} came for. chef's kiss" },
+    hooks = { "{chars} got what they came for. emotional", "{n} whole reasons for coming paid off in one night", "{chars} found what they came for. i'm thrilled" },
+    caught = { "in my defence {thing} was RIGHT THERE", "{char} got caught. {char} regrets nothing", "ok so {who} saw. it's fine. it's fine" },
+}
+-- The answers to a post: what it was about, not "that bit was SO good" to anything.
+M.CHAT_REPLY = {
+    lost_hero = { "we will avenge them", "rip", "nooo" },
+    down = { "rip", "{char} was very brave on that floor", "we'll get you a helmet" },
+    kill = { "the stats don't lie", "fine. FINE. it was {char}", "taking that to the grave huh" },
+    lost_fight = { "we'll get them next time", "it was very funny from where i was sitting", "never again lol" },
+    overruled = { "noted", "next time we vote harder", "valid" },
+    best = { "honestly same", "that bit was SO good", "still thinking about it", "it really was" },
+    worst = { "fair", "yeah that one dragged", "we don't talk about that" },
+    hook = { "SAME", "it really was", "i saw the face you made. you were thrilled" },
+    caught = { "pip. PIP.", "we're never going back to that shop", "the boot knows" },
+    room = { "lol", "real", "honestly yeah", "100%", "same", "ha. yes", "this is so true", "can't stop thinking about it either" },
+    news = { "CONGRATS", "oh that's amazing!!", "wait WHAT. congrats!!", "bringing cake thursday then" },
+}
+M.REPLY = M.CHAT_REPLY      -- (for the roadmap words check)
+
+-- The party's own words for a moment, from the log: "we gave the knight a wide berth", "pip fished a
+-- little brass key out of the pond" (lowercase, as the chat writes).
+local function in_our_words(c, card, week)
+    local ev = card and events.last(c, { kind = "moment", card = card, session = week })
+    local t = ev and ev.text
+    if not t then
+        return nil
+    end
+    t = string.gsub(t, "^they ", "we ")
+    t = string.gsub(t, "%f[%a]them%f[%A]", "us")
+    return string.lower(t)
+end
 
 function M.night_lines(c, night)
-    local out = {}
+    local out, kinds, vars_of = {}, {}, {}
     if not night then
-        return out
+        return out, kinds, vars_of
     end
     local week = c.week - 1
     local rng = c.rng
     -- (Fresh across weeks, and never the same words twice running: night.fresh's memory, keyed by the
     -- kind of post. R3, the second playtest review: the same three chat lines most weeks.)
-    local function put(key, lines, kind)
+    local function put(key, kind, vars)
         local p = c:player(key)
         if p and not out[key] then
-            local pick = kind and M.fresh_line(c, lines, "chat_" .. kind) or rng:pick(lines)
-            out[key] = util.fill(pick, { char = string.lower(p.char or ""), name = p.name })
+            vars = vars or {}
+            vars.char = vars.char or string.lower(p.char or "")
+            vars.name = p.name
+            local pick = M.fresh_line(c, M.CHAT[kind], "chat_" .. kind)
+            out[key] = util.fill(pick, vars)
+            kinds[key] = kind
+            vars_of[key] = vars
         end
     end
     -- A hero lost.
     for key, nc in util.sorted_pairs(c.new_char or {}) do
         if nc.week == week and nc.was then
             local was = string.lower(nc.was)
-            put(key, { "still not over " .. was .. ". rolling up someone new, be nice to them",
-                       "rip " .. was .. ". i'm making a new one, they'll be worse at everything" })
+            put(key, "lost_hero", { was = was, was_them = util.pronoun_of(nc.was).them })
             for _, q in ipairs(c.players) do
                 if q.key ~= key and not out[q.key] then
-                    out[q.key] = rng:pick({ was .. " deserved better tbh", "pouring one out for " .. was })
+                    put(q.key, "lost_hero_reply", { was = was })
                     break
                 end
             end
@@ -325,11 +379,24 @@ function M.night_lines(c, night)
         end
     end
     for key, n in util.sorted_pairs(downs) do
-        put(key, n >= 2 and { "{char} spent half of last week on the floor. not ideal", "{char} went down TWICE. i want a refund" }
-            or { "{char} hit the floor last week and i'm still annoyed about it", "next time {char} is standing at the back" })
+        put(key, n >= 3 and "down_many" or (n == 2 and "down_twice") or "down_once", { n = util.int(n) })
     end
     for key in util.sorted_pairs(kb) do
-        put(key, { "for the record, that last hit was {char}'s", "just saying. {char}. last hit. that's all" })
+        put(key, "kill")
+    end
+    -- A fight that went against them (one post, from whoever minded most).
+    local lost = events.last(c, { kind = "fight", session = week, outcome = "lost" })
+    if lost then
+        local worst, wd
+        for _, p in ipairs(c.players) do
+            local d = score.fun(p)
+            if not out[p.key] and (not wd or d < wd) then
+                worst, wd = p, d
+            end
+        end
+        if worst then
+            put(worst.key, "lost_fight")
+        end
     end
     -- (Overruled: the one it happened to most says so. Three people saying it is a pile-on.)
     local most, mn
@@ -339,34 +406,57 @@ function M.night_lines(c, night)
         end
     end
     if most then
-        put(most, mn >= 2 and { "the DM kept nudging us places last week. felt a bit on rails ngl", "felt a bit on rails last week ngl" }
-            or { "still think we should've gone the other way", "the DM nudged us the other way, noted" })
+        put(most, mn >= 2 and "overruled_more" or "overruled")
     end
-    -- The call that moved them most, either way.
+    -- Pip caught with her hand in someone's stock.
+    local caught = events.last(c, { kind = "steal", session = week, outcome = "caught" })
+    if caught and caught.who then
+        local thing, who = string.match(caught.text or "", " went for (.-), and (.-) caught ")
+        if thing and who then
+            put(caught.who, "caught", { thing = string.lower(thing), who = string.lower(who) })
+        end
+    end
+    -- The call that moved them most, either way: in the party's words, never the card's title. (One
+    -- moment, one post: two friends who loved the same call don't both post it.)
+    local said_moment = {}
     for _, p in ipairs(c.players) do
         local best, bd
         for _, cl in ipairs(night.call_log or {}) do
             local d = cl.deltas[p.key]
-            if d and math.abs(d) >= 6 and (not bd or math.abs(d) > math.abs(bd)) then
+            if d and math.abs(d) >= 6 and (not bd or math.abs(d) > math.abs(bd)) and not said_moment[cl.card or cl.title] then
                 best, bd = cl, d
             end
         end
-        if best and not string.find(best.title or "", "^Round") then
-            local what = strip(best.title)
-            put(p.key, bd > 0 and { "that \"{what}\" moment. more of that please", "\"{what}\" was the best part of the night, no notes",
-                                    "can we talk about \"{what}\" though", "still buzzing about \"{what}\"" }
-                or { "the \"{what}\" bit... not my favourite", "not gonna lie, the \"{what}\" bit kind of killed it for me",
-                     "not a fan of \"{what}\", if i'm honest" }, bd > 0 and "best" or "worst")
-            out[p.key] = out[p.key] and util.fill(out[p.key], { what = what })
+        local what = best and in_our_words(c, best.card, week)
+        if what and not out[p.key] then
+            said_moment[best.card or best.title] = true
+            put(p.key, bd > 0 and "best" or "worst", { what = what })
         end
     end
-    local adv = c.adv
-    for key, wk in util.sorted_pairs(adv.hook_paid or {}) do
-        if wk == week then
-            put(key, { "{char} finally found what {char_they} came for. emotional", "ok {char}'s whole reason for coming paid off and i'm thrilled" })
+    -- Their reasons for coming, paid off: one post, from one of them, however many there were.
+    local paid = {}
+    for key, wk in util.sorted_pairs(c.adv.hook_paid or {}) do
+        local p = c:player(key)
+        if wk == week and p then
+            table.insert(paid, p)
         end
     end
-    return out
+    if #paid > 0 then
+        local poster
+        for _, p in ipairs(paid) do
+            poster = poster or (not out[p.key] and p) or nil
+        end
+        if poster then
+            local names = {}
+            for _, p in ipairs(paid) do
+                table.insert(names, string.lower(p.char))
+            end
+            local chars = util.join_names(names)
+            put(poster.key, #paid > 1 and "hooks" or "hook", { chars = chars, n = ({ "two", "two", "three", "four" })[#paid] or util.int(#paid), chars_they = #paid > 1 and "they" or util.pronoun_of(paid[1].char).they,
+                                                              chars_their = #paid > 1 and "their" or util.pronoun_of(paid[1].char).their })
+        end
+    end
+    return out, kinds, vars_of
 end
 
 -- The group chat (the playtest, November 3: "have the group chat feel more naturally like dialogue
@@ -374,43 +464,55 @@ end
 -- the rooms, each answered by someone else; a bit of everyday chat; and now and then a question for
 -- you (MODULE.chat_ask: answer it from the prep board). Requests are private messages now, one-on-one
 -- with you (adventure.prompts), not posts to the group.
-local REPLY = {
-    good = { "honestly same", "that bit was SO good", "best part of the night tbh", "still thinking about it", "SAME", "it really was" },
-    bad = { "rip", "we don't talk about that", "never again lol", "it was very funny from where i was sitting" },
-    plain = { "lol", "real", "honestly yeah", "100%" },
-}
-M.REPLY = REPLY      -- (for the roadmap words check)
 
 -- A line for the group chat that hasn't been posted lately (night.fresh's campaign memory).
 function M.fresh_line(c, lines, key)
     local night_mod = util.lazy("game.model.night")
     return night_mod.fresh({ campaign = c, rng = c.rng }, lines, key)
 end
-local function tone_of(text)
-    local t = string.lower(text or "")
-    for _, w in ipairs({ "annoyed", "rip", "floor", "refund", "not over", "on rails", "killed it for me", "not my favourite",
-                         "nudged", "outvoted", "hated", "never", "not a fan" }) do
-        if string.find(t, w, 1, true) then
-            return "bad"
+
+-- Which question for you this week: one that fits what's going on (the gorgon's strength once she's
+-- close, the healing rule after someone went down), else any still unasked, by the table's own luck.
+-- (The third playtest: the same questions in the same order in 24 runs of 24.)
+local ASK_FITS = {
+    sam_rules = function(c) return events.any(c, { kind = "fight", session = c.week - 1 }) end,
+    gorgon_strength = function(c) return (c.adv.done or {}).stairs ~= nil or (c.adv.flags or {}).truth end,
+    brannoc_gorgons = function(c) return (c.adv.done or {}).hunting ~= nil end,
+    telpur_deal = function(c) return (c.adv.done or {}).gift_shop ~= nil end,
+}
+
+-- A sad week: last night a hero died, the whole party went down, they lost someone fighting beside
+-- them (what game night's able.somber goes quiet for, read here from the log, so a loaded save knows
+-- it too), or the party lost a fight. The chat says what happened and answers it; nobody posts their
+-- favourite bit, the rooms' jokes or the week's small talk.
+function M.somber(c)
+    local week = (c.week or 1) - 1
+    for _, kind in ipairs({ "death", "wipe", "lost" }) do
+        if events.any(c, { kind = kind, session = week }) then
+            return true
         end
     end
-    for _, w in ipairs({ "more of that", "best", "love", "thrilled", "emotional", "ten out of ten", "so good", "finally", "buzzing",
-                         "talk about" }) do
-        if string.find(t, w, 1, true) then
-            return "good"
+    for _, nc in pairs(c.new_char or {}) do
+        if nc.week == week and nc.was then
+            return true      -- (a save from before deaths were in the log)
         end
     end
-    return "plain"
+    if events.any(c, { kind = "fight", session = week, outcome = "lost" }) then
+        return true
+    end
+    return false
 end
 
 function M.write_chat(c)
     local st = c.adv
     local msgs = {}
+    local sad = M.somber(c)
     local said = {}
     local rng = c.rng
-    -- Someone else at the table answers a post (not the one who made it, and not the same friend twice running).
+    -- Someone else at the table answers a post (not the one who made it, and not the same friend twice
+    -- running), about what it said.
     local replied_by = {}
-    local function reply_to(m)
+    local function reply_to(m, kind, vars)
         local cands = {}
         for _, q in ipairs(c.players) do
             if q.key ~= m.key and not replied_by[q.key] then
@@ -422,55 +524,68 @@ function M.write_chat(c)
         end
         local q = cands[rng:int(1, #cands)]
         replied_by[q.key] = true
-        local tone = tone_of(m.text)
-        table.insert(msgs, { who = q.name, key = q.key, text = M.fresh_line(c, REPLY[tone], "chat_reply_" .. tone), reply = true })
+        local list = M.CHAT_REPLY[kind] or M.CHAT_REPLY.room
+        table.insert(msgs, { who = q.name, key = q.key, text = util.fill(M.fresh_line(c, list, "chat_reply_" .. (M.CHAT_REPLY[kind] and kind or "room")), vars or {}),
+                             reply = true })
     end
+    local REPLY_KIND = { lost_hero = "lost_hero", down_once = "down", down_twice = "down", down_many = "down", kill = "kill", lost_fight = "lost_fight",
+                         overruled = "overruled", overruled_more = "overruled", best = "best", worst = "worst", hook = "hook", hooks = "hook", caught = "caught" }
     -- Last night's own events first (three at most), then the rooms.
-    local own = M.night_lines(c, c.night)
+    local own, kinds, vars_of = M.night_lines(c, c.night)
     local posts = 0
     for _, p in ipairs(c.players) do
-        if own[p.key] and posts < 3 then
+        if own[p.key] and posts < 3 and not (sad and (kinds[p.key] == "best" or kinds[p.key] == "kill")) then
             said[p.key] = true
             posts = posts + 1
             local m = { who = p.name, key = p.key, text = own[p.key] }
             table.insert(msgs, m)
-            if posts <= 2 then
-                reply_to(m)
+            if posts <= 2 and kinds[p.key] ~= "lost_hero_reply" then
+                reply_to(m, REPLY_KIND[kinds[p.key]], vars_of[p.key])
             end
         end
     end
+    -- Good news that never came out at the table comes out here.
+    local night = c.night
+    if night and night.th then
+        for _, t in ipairs(night.th.list or {}) do
+            local p = c:player(t.who)
+            if t.need == "celebrating" and p and not (night.news_told or {})[t.who] and not said[t.who] and MODULE.chat_news and MODULE.chat_news[t.who] then
+                said[t.who] = true
+                local m = { who = p.name, key = p.key, text = M.fresh_line(c, MODULE.chat_news[t.who], "chat_news_" .. t.who) }
+                table.insert(msgs, m)
+                reply_to(m, "news")
+            end
+        end
+    end
+    -- The rooms they played: what happened there, each friend at most once, two posts at most.
     local last = {}
     for _, step in ipairs(st.path) do
         if step.week == c.week - 1 then
-            table.insert(last, step.room)
+            table.insert(last, step)
         end
     end
-    for _, room in ipairs(last) do
-        for key, line in util.sorted_pairs(MODULE.chat[room] or {}) do
-            local p = c:player(key)
-            -- (A line about something only if it happened: { text, when }.)
-            local text = type(line) == "table" and line[1] or line
-            local ok = type(line) ~= "table" or adventure.test(c, line.when)
-            if p and ok and not said[key] and posts < 5 then
-                said[key] = true
-                posts = posts + 1
-                local m = { who = p.name, key = key, text = text }
+    local room_posts = 0
+    for _, step in ipairs(last) do
+        local fight = events.last(c, { kind = "fight", where = step.room, session = step.week })
+        for k, e in ipairs(MODULE.chat[step.room] or {}) do
+            local p = c:player(e.who)
+            local ok = not sad and p and not said[e.who] and room_posts < 2 and posts < 5 and adventure.test(c, e.when)
+                and not (e.won and not (fight and fight.outcome == "won")) and not (e.lost and not (fight and fight.outcome == "lost"))
+            if ok then
+                said[e.who] = true
+                posts, room_posts = posts + 1, room_posts + 1
+                local text = util.fill(M.fresh_line(c, e, "chat_room_" .. step.room .. "_" .. k), { mech = st.mech_name or "the robot" })
+                local m = { who = p.name, key = e.who, text = text }
                 table.insert(msgs, m)
-                if posts == 3 then
-                    reply_to(m)
+                if room_posts == 1 and posts <= 3 then
+                    reply_to(m, "room")
                 end
             end
         end
     end
     if c.week == 1 then
-        local intro = {
-            { "jess", "ok there's a MUSEUM in town and the guy running it is a gnome" },
-            { "mara", "a travelling museum of curiosities. i've already started a notebook" },
-            { "dev", "are there monsters in it" },
-            { "jess", "dev it's a museum" },
-            { "dev", "so yes" },
-            { "sam", "i'll bring snacks. museum snacks" },
-        }
+        local intros = MODULE.chat_intro or {}
+        local intro = intros[((c.seed or 0) % math.max(1, #intros)) + 1] or {}
         for _, l in ipairs(intro) do
             local p = c:player(l[1])
             if p then
@@ -485,7 +600,7 @@ function M.write_chat(c)
             table.insert(banter, b)
         end
     end
-    if #banter > 0 and c.week > 1 then
+    if #banter > 0 and c.week > 1 and not sad then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
         -- Who said they'd be late, and why: game night's arrivals say the same (night.behavior_line_ok).
@@ -508,14 +623,29 @@ function M.write_chat(c)
             table.insert(msgs, { who = c:player(b[3]).name, key = b[3], text = b[4], reply = true })
         end
     end
-    -- A question for you (one a week, each once): answer it from the board.
+    -- A question for you (one a week, each once): one that fits what's going on, else any still unasked.
     st.chat_asked = st.chat_asked or {}
+    local open, fits = {}, {}
     for _, q in ipairs(MODULE.chat_ask or {}) do
         if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when)) then
-            st.chat_asked[q.id] = c.week
-            table.insert(msgs, { who = c:player(q.who).name, key = q.who, text = q.text, ask = q.id })
-            break
+            table.insert(open, q)
+            if ASK_FITS[q.id] and ASK_FITS[q.id](c) then
+                table.insert(fits, q)
+            end
         end
+    end
+    -- (The first question of all, and Pip's pet the week it's first open, keep their places: the pet
+    -- joins from a yes.)
+    local q
+    for _, x in ipairs(open) do
+        if x.id == "flit_wizard" or (x.id == "pip_pet" and c.week == (x.from or 1)) then
+            q = q or x
+        end
+    end
+    q = q or (#fits > 0 and fits[rng:int(1, #fits)]) or (#open > 0 and open[rng:int(1, #open)]) or nil
+    if q then
+        st.chat_asked[q.id] = c.week
+        table.insert(msgs, { who = c:player(q.who).name, key = q.who, text = q.text, ask = q.id })
     end
     return msgs
 end

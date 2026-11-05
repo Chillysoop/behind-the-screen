@@ -392,6 +392,18 @@ local function moment_line(card, rest, room)
             return R(where .. ", an option on the card " .. title .. only, "Your pick")
         elseif f == "want" then
             return R(where .. ", at " .. title .. ": how the table says this choice (" .. Q("Let's …") .. ")" .. only, "Sometimes")
+        elseif f == "short" then
+            return R(where .. ", at " .. title .. ": the choice said shorter, by a second voice for it, someone talked round, "
+                .. "or someone quiet whose vote settles it" .. only, "Sometimes")
+        elseif f == "uses_name" then
+            return R(where .. ", at " .. title .. ": what the friend who carries it calls it, wanting to use it" .. only, "Sometimes")
+        elseif f == "points" then
+            return R(where .. ", at " .. title .. ": why the friend who found it wants " .. lab .. ", from the card's own words "
+                .. "(not on a quiet night for them)" .. only, one_of(#(o.points or {})))
+        elseif f == "pulls" then
+            local pl = (o.pulls or {})[rest[4]] or {}
+            local who = type(pl.who) == "string" and NAME[pl.who] or "a friend it suits"
+            return R(where .. ", at " .. title .. ": " .. who .. "'s reason for " .. lab .. if_(pl.when), one_of(#(pl.say or {})))
         elseif f == "sub" then
             return R(where .. ", the note under " .. Q(o.label, 5) .. " on the card " .. title, "Your pick")
         elseif f == "log" then
@@ -481,12 +493,6 @@ A.base = function(p)
         return R("On Euryale's card: her name", "Always")
     end
     return R("On Euryale's card, under her name: how she fights before any marks", "Always")
-end
-
-A.chat = function(p)
-    local line = MODULE.chat[p[2]][p[3]]
-    local c = type(line) == "table" and line.when or nil
-    return R("Group chat after a night " .. at_room(p[2]) .. ": " .. NAME[p[3]] .. "'s post" .. if_(c), "Sometimes")
 end
 
 A.chat_ask = function(p)
@@ -1111,6 +1117,26 @@ A.thoughts = function(p)
     return R("At the start of each night: Euryale, upstairs", one_of(#MODULE.thoughts.open))
 end
 
+-- The group chat, round three: each room's posts by what happened there (`won`, `lost`: its fight).
+A.chat = function(p)
+    local e = MODULE.chat[p[2]][p[3]] or {}
+    local c = e.when
+    local how = (e.won and ", after they won its fight") or (e.lost and ", after they lost its fight") or ""
+    return R("Group chat after a night " .. at_room(p[2]) .. ": " .. (NAME[e.who] or "a friend") .. "'s post" .. how .. if_(c),
+        one_of(#e))
+end
+A.chat_intro = function(p)
+    return R("In the group chat before the very first night: one of three openers, by the table's seed", one_of(#MODULE.chat_intro))
+end
+A.chat_news = function(p)
+    return R("In the group chat, when " .. NAME[p[2]] .. " had good news on game night and nobody made room for it", one_of(#MODULE.chat_news[p[2]]))
+end
+A.explore_say = function(p)
+    local list = MODULE.explore_say[p[2]][p[3]] or {}
+    return R("Looking round " .. string.gsub(at_room(p[2]), "^in ", "") .. ": the first place a friend walks over to, what they say about it",
+        one_of(#list))
+end
+
 A.want_more = function(p)
     local who = p[2]
     local l = MODULE.want_more[who][p[3]]
@@ -1189,8 +1215,9 @@ local function small_moment(p)
     if part == "curios" then
         local what = plain(b.what or "something")
         local fans = fond_of(b.who)
-        if f == "ask" then
-            return R(where .. ": a friend" .. (fans and (" (often " .. fans .. ")") or "") .. " pokes at " .. what, "Sometimes")
+        if f == "ask" or f == "asks" then
+            return R(where .. ": a friend" .. (fans and (" (often " .. fans .. ")") or "") .. " pokes at " .. what .. " (one of "
+                .. util.int(1 + #(b.asks or {})) .. " ways)", "Sometimes")
         elseif f == "dull" then
             return R(where .. ": someone pokes at " .. what .. " and rolls under 10", "On a failure")
         elseif f == "detail" then
@@ -2112,6 +2139,11 @@ local CLASS_WHO = { wizard = "mara", fighter = "dev", rogue = "jess", cleric = "
 local function code_line(p)
     local top, k, i = p[1], p[2], p[3]
     if top == "LOOK_SAY" then
+        -- (Round three: looking round, a friend says something about that very thing, MODULE.explore_say;
+        -- these stock lines by player type are kept for the checks and for an adventure without its own.)
+        if true then
+            return R("Not said in the museum: its places have lines of their own (looking round, the first place in a room)", "Never")
+        end
         local who = PRIMARY_WHO[k]
         if not who then
             return R("Not said: looking round, a friend speaks by their main type, and none of the four is " ..
@@ -2139,12 +2171,40 @@ local function code_line(p)
             mine = "at Euryale's ultimatum, from whoever carries something good against her, for fighting her",
         }
         return R("When the table talks over a choice: a reason " .. (WHY[k] or "for leaning one way"), "Sometimes")
+    elseif top == "VOTE_NAMED" then
+        local WHY = { pushed = "from whoever gave way on the last vote they minded, naming it", safe_last = "after a careful pick, for the bold option, naming the pick",
+                      bold_last = "after a reckless pick, for the careful option, naming the pick" }
+        return R("When the table talks over a choice: a reason " .. (WHY[k] or "naming the vote before"), "Sometimes")
+    elseif top == "VOTE_PUSH_LINES" then
+        return R("When the table is split: someone on the bigger side talks round a friend who barely minds (once a vote)", one_of(#require("game.model.museum_night").VOTE_PUSH_LINES))
+    elseif top == "VOTE_CAVE" then
+        return R("When the table is split and someone talks them round: " .. (NAME[k] or "a friend") .. " gives way (once a vote)",
+            one_of(#(require("game.model.museum_night").VOTE_CAVE[k] or {})))
+    elseif top == "VOTE_SIDE" then
+        return R("When the table talks over a choice: " .. (NAME[k] or "a friend") .. ", who'd said nothing, comes round, or says where they stand when their vote settles it",
+            one_of(#(require("game.model.museum_night").VOTE_SIDE[k] or {})))
+    elseif top == "VOTE_TIE" then
+        local W = { pushed = "to whoever gave way last time", lead = "to whoever found it", keen = "to the keener side" }
+        return R("When a vote is two against two and goes " .. (W[k] or "one way"), one_of(#(require("game.model.museum_night").VOTE_TIE[k] or {})))
+    elseif top == "CHAT" then
+        local W = { lost_hero = "a friend whose hero died", lost_hero_reply = "a friend, for the hero who died", down_once = "a friend whose hero went down once",
+                    down_twice = "a friend whose hero went down twice", down_many = "a friend whose hero went down three times or more",
+                    kill = "whoever landed the last hit", lost_fight = "whoever minded most, after a fight that went against them",
+                    overruled = "whoever you nudged the other way", overruled_more = "whoever you nudged the other way more than once",
+                    best = "a friend about the moment that made their night, in the party's words", worst = "a friend about the moment that spoiled it",
+                    hook = "a friend whose hero found what they came for", hooks = "a friend, when several heroes found what they came for",
+                    caught = "the friend whose hero was caught at someone's stock" }
+        return R("In the group chat after a night: " .. (W[k] or "a post about it"), one_of(#(require("game.model.museum_week").CHAT[k] or {})))
+    elseif top == "CHAT_REPLY" then
+        return R("In the group chat: someone else's answer to a post about " .. string.gsub(k, "_", " "),
+            one_of(#(require("game.model.museum_week").CHAT_REPLY[k] or {})))
     elseif top == "BREAK_START" then
-        return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it", one_of(4))
+        return R("The break, once a night, about a third of the way in (or before the lair): the DM calls it",
+            one_of(#require("game.model.museum_night").BREAK_START))
     elseif top == "GENTLE_STOP" then
         return R("The first night only, when it's late and you've already played one more room: the night ends there", one_of(3))
     elseif top == "BREAK_END" then
-        return R("The break, once a night: everyone comes back to the table", one_of(4))
+        return R("The break, once a night: everyone comes back to the table", one_of(#require("game.model.museum_night").BREAK_END))
     elseif top == "READY" then
         local who = CLASS_WHO[k]
         return R("Just before a fight, about half the time (not when the party's ambushed or given away): " ..
@@ -2252,7 +2312,7 @@ function W.describe(e, cells)
     elseif e.file == "game/data/museum/module.lua" then
         ok, r = pcall(adventure_line, e.path)
     elseif e.file == "game/model/museum_night.lua" or e.file == "game/model/night.lua" or e.file == "game/model/items.lua"
-        or e.file == "game/model/fight.lua" or e.file == "game/model/intros.lua" then
+        or e.file == "game/model/fight.lua" or e.file == "game/model/intros.lua" or e.file == "game/model/museum_week.lua" then
         ok, r = pcall(code_line, e.path)
     elseif FILE[e.file] then
         ok, r = pcall(FILE[e.file], e.path)

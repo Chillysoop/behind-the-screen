@@ -131,7 +131,9 @@ return {
             spotlight = { "I have had a voice ready for twenty minutes.", "{char} could steal that. {char} could absolutely steal that." },
             social = { "Can we please talk to someone? Anyone? A haunted coat rack?", "I want to chat with somebody weird. Bring me somebody weird." },
             social_after = { "I had a whole bit ready for that. Oh well." },
-            plan = { "Outvoted. Fine. {char} goes and looks on her own, then.", "If nobody's watching, {char} goes first. Alone." },
+            -- ({outvoted}: only when she was. The third playtest, M1: "Outvoted" when she'd voted for the stairs.)
+            plan = { "{outvoted}Outvoted. Fine. {char} goes and looks on her own, then.", "If nobody's watching, {char} goes first. Alone.",
+                     "Everyone's going up anyway. {char} just gets there first." },
             fairness = { "Ooh. Did the DM fudge that? Spicy." },
             glow = { "I love this group so much.", "Best. Night. Ever." },
         },

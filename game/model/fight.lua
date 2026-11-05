@@ -1013,7 +1013,11 @@ local function react(night, f, steps, who)
             local c = f.by_ref[s.id]
             if c and c.side == "foes" then
                 kill = true
+                -- (Said at the table: "the briar beast", not "Briar Beast 1", the mat's label. The third playtest.)
                 kill_name = c.name
+                if string.find(c.name or "", "%s%d+$") then
+                    kill_name = "the " .. string.lower((string.gsub(c.name, "%s+%d+$", "")))
+                end
                 if c.boss then
                     boss_dead = true
                 end

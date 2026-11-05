@@ -729,7 +729,7 @@ function M.keepsake_modal(app)
     kit.dot(x + 50, y + 74, 40, panels.COLORS[g.from] or theme.panel3)
     kit.picture(x + 31, y + 55, 38, 38, panels.face(g.from))
     kit.text(x + 82, y + 52, name .. " hangs back and hands you something.", "ui22b", theme.text, { w = w - 112 })
-    kit.text(x + 82, y + 82, "Their Goodwill filled up this week.", "ui14", theme.dim)
+    kit.text(x + 82, y + 82, util.fill("{Name_their} Goodwill filled up this week.", { name = name }), "ui14", theme.dim)
     wrapped(x + 40, y + 136, 96, 76, shown ~= nil)
     kit.text(x + 160, y + 128, util.sentence_case(def.name) .. ".", "story22", theme.gold, { w = w - 190 })
     kit.text(x + 160, y + 128 + kit.text_height(util.sentence_case(def.name) .. ".", "story22", w - 190) + 10,
