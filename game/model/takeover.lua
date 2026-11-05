@@ -458,6 +458,9 @@ function M.boss_turn(night, f, b, c)
         end
     end
     -- The table reacts.
+    -- (Who it goes for holds until it's had a go at them: round three, A5, the knight walked toward
+    -- Thessaly and then swung at Oswin. fight.lua's before_turn.)
+    c.dm_keep = (o.kind == "clever" or o.kind == "cruel") and o.target or nil
     if o.kind == "clever" then
         c.dm_target = o.target
         if threat_p then

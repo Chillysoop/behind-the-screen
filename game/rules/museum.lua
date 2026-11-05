@@ -573,10 +573,21 @@ function M.lecturer_turn(b, c, H)
         return true
     end
     local best, bv
-    -- The DM ran this turn and picked who he lectures (B8): them, if he can reach them.
-    local dt = c.dm_target
-    if dt and not dt.dead and not dt.removed and not dt.down and b:dist(c, dt) <= bored.range + (c.turn.move or 0) then
-        best, bv = dt, 1
+    -- The DM ran this turn and picked who he lectures (B8), or someone stared him down (a taunt): them.
+    -- Out of reach this turn, he drifts toward them, and lectures nobody else (round three, A5: "it's
+    -- Oswin it wants", then Bored to Death at Brannoc and Pip).
+    local tn = b:find_effect(c, "Taunted")
+    local dt = (tn and tn.taunt_by) or c.dm_target
+    if dt and (dt.dead or dt.removed or dt.down) then
+        dt = c.dm_target ~= dt and c.dm_target or nil
+    end
+    if dt and not dt.dead and not dt.removed and not dt.down then
+        if b:dist(c, dt) <= bored.range + (c.turn.move or 0) then
+            best, bv = dt, 1
+        else
+            H.get_in_range(b, c, dt, bored.range)
+            return true
+        end
     end
     for _, e in ipairs(best and {} or foes) do
         if (e.type == "humanoid" or e.type == "beast") and not (e.condition_immune and e.condition_immune.charmed)
@@ -790,7 +801,8 @@ function M.flee(b, c, H)
 end
 
 local function kruthik_turn(b, c, H)
-    if M.loses_nerve(b, c) then
+    -- (Not on a turn the DM is running: "Go for Thessaly", and it ran. Round three, A5.)
+    if not c.dm_target and M.loses_nerve(b, c) then
         M.flee(b, c, H)
         return true
     end

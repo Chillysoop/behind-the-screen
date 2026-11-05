@@ -2237,7 +2237,8 @@ end
 -- The one who landed it may pass the telling to a friend who's waited (their idea, from who they
 -- are: a storyteller or an easy-going player more, someone who came to hit things less); the DM
 -- only says whether that works at the table. Returns who tells it.
-function M:kb_share(actor, other, tgt, boss_name)
+-- lander_name: who landed it, when it's an ally the actor plays (Telpur's toe, not their hero's blow).
+function M:kb_share(actor, other, tgt, boss_name, lander_name)
     if not (actor and other and other ~= actor) then
         return actor
     end
@@ -2260,7 +2261,9 @@ function M:kb_share(actor, other, tgt, boss_name)
         copy[k] = v
     end
     copy.fixed_actor = true
-    local o = self:decision(copy, { boss = boss_name })
+    self.kb_lander = lander_name or actor.char
+    local o = self:decision(copy, { boss = boss_name, actor_char = lander_name })
+    self.kb_lander = nil
     self.actor, self.other = was_a, was_o
     if o and o.share then
         return other
@@ -2270,7 +2273,8 @@ end
 
 -- p: who describes it. by: the player whose hero landed it (the dice log's), when that's someone
 -- else: then p tells the moment, and the blow stays the one who landed it.
-function M:killing_blow(p, tgt, boss_name, by)
+-- by: the friend whose blow it was; by_name: who landed it, when it wasn't their hero (an ally they play).
+function M:killing_blow(p, tgt, boss_name, by, by_name)
     local camp = self.campaign
     camp.killing_blows = camp.killing_blows or {}
     if not p then
@@ -2301,13 +2305,15 @@ function M:killing_blow(p, tgt, boss_name, by)
         pool = lines
     end
     local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = boss_name, char = p.char }))
-    -- Told for someone else's blow: the teller's words about it, never a swing of their own.
-    local told = by and by ~= p
+    -- Told for someone else's blow: the teller's words about it, never a swing of their own. (An ally's
+    -- blow is told that way too, by whoever plays it: Telpur's toe, not Brannoc's sword.)
+    local told = (by and by ~= p) or by_name ~= nil
+    local hero = by_name or (by and by.char)
     if told then
         local tl = (kb.told and (kb.told[p.key] or kb.told.mara)) or {}
         local pick = tl[self.rng:int(1, math.max(1, #tl))]
-        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = by.char }))
-            or (by.char .. "'s blow lands, and " .. boss_name .. " falls.")
+        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = hero }))
+            or (hero .. "'s blow lands, and " .. boss_name .. " falls.")
     end
     -- Handed over: worth less each time it's handed over lately, more on a big one (kb_worth).
     local worth = self:kb_worth(tgt)
@@ -2315,15 +2321,15 @@ function M:killing_blow(p, tgt, boss_name, by)
     table.insert(camp.kb_handed, { week = camp.week, key = p.key })
     score.add(p, "spotlight", kb.SPOTLIGHT * math.max(0.5, worth))
     score.add(p, "fun", kb.FUN * worth)
-    if told and by then
+    if told and by and by ~= p then
         score.add(by, "fun", 2)        -- (it was their idea to share it)
     end
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "say", who = p.key, text = line, ic = true })
     if told then
         -- (The blow is the lander's in the log; the telling is the teller's best moment too.)
-        local text = by.char .. " brings down " .. boss_name .. ", and " .. p.name .. " tells it"
-        self:highlight(8, text, { by }, "killing_blow")
+        local text = hero .. " brings down " .. boss_name .. ", and " .. p.name .. " tells it"
+        self:highlight(8, text, { by or p }, "killing_blow")
         if not p.best or 8 > p.best.score then
             p.best = { score = 8, text = text }
         end

@@ -593,12 +593,107 @@ local function lair_after(R, night)
     end
 end
 
+-- A5: the DM's picks and the taunts the table heard steer the foes. After "Go for Brannoc" (the boss's
+-- turn, yours to run), it goes at Brannoc, or toward him, and swings at nobody else until it has; after
+-- "it's Oswin it wants", the same for the next few rounds; and "how do you want to do this?" and "about
+-- to drop" name whoever really lands the blow.
+local function creature_named(night, name)
+    for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
+        if c.name == name then
+            return c
+        end
+    end
+end
+local function pick_watch(R, night, ev, pick, w)
+    local A = R.a5 or {}
+    R.a5 = A
+    if ev.card.id == "boss_turn" then
+        local label = ev.card.options[pick] and ev.card.options[pick].label or ""
+        local name = string.match(label, "^Go for (.-)[,%.]") or string.match(label, "^Go after (.-)[,%.]")
+            or string.match(label, "^Stand over (.-) and strike")
+        local t = name and creature_named(night, name)
+        if t and ev.card.turn_of then
+            A.want = { by = ev.card.turn_of, t = t.mini, name = name, until_round = nil, why = "the DM's pick" }
+            add("A5", "boss_turn_picks")
+        end
+    elseif ev.card.id == "killing_blow" or ev.card.id == "boss_crit" then
+        local text = ev.card.text or ""
+        local name = string.match(text, "^(.-) is about to drop") or string.match(text, "about to fall to (.-)%.")
+        local label = ev.card.options[pick] and ev.card.options[pick].label or ""
+        if name and not string.find(label, "Second phase", 1, true) then
+            A.kb = { name = name, card = ev.card.id }
+        end
+    end
+end
+local function a5_watch(R, night, ev, w)
+    local A = R.a5 or {}
+    R.a5 = A
+    local where = R.tag .. " W" .. w
+    if ev.kind == "narrate" and ev.text then
+        local foe, name = string.match(ev.text, "^(.-) can't take its eyes off (.-)%. For the next few rounds")
+        local c = foe and creature_named(night, foe)
+        local t = name and creature_named(night, name)
+        if c and t then
+            A.want = { by = c.mini, t = t.mini, name = name, until_round = (night.battle.round or 0) + 3, why = "the taunt" }
+            add("A5", "taunts")
+        end
+    elseif ev.kind == "turn" and night.battle then
+        local want = A.want
+        local function cr(id)
+            for _, c in ipairs(night.battle.creatures) do
+                if c.mini == id then
+                    return c
+                end
+            end
+        end
+        if want and want.until_round and (night.battle.round or 0) > want.until_round then
+            A.want, want = nil, nil
+        end
+        for _, st in ipairs(ev.steps or {}) do
+            if want and st.id == want.by and (st.kind == "attack" or (st.kind == "feature" and st.name == "Bored to Death")) then
+                local t = cr(want.t)
+                local standing = t and not t.dead and not t.down and not t.removed
+                local out = false
+                for _, e in ipairs((t and t.effects) or {}) do
+                    out = out or e.out_of_fight or e.stone
+                end
+                local at = type(st.target) == "string" and st.target or nil
+                if at == want.t then
+                    add("A5", "went_for_the_pick")
+                    if not want.until_round then
+                        A.want, want = nil, nil
+                    end
+                elseif standing and not out and at and cr(at) and cr(at).side ~= (cr(want.by) or {}).side then
+                    fail("A5", where .. ": after " .. want.why .. " (" .. want.name .. "), " .. tostring((cr(want.by) or {}).name)
+                        .. " goes at " .. tostring(cr(at).name))
+                    A.want, want = nil, nil
+                end
+            end
+            if A.kb and st.kind == "damage" and (st.hp or 1) <= 0 then
+                local t = cr(st.id)
+                if t and t.side == "foes" then
+                    local src = st.src and cr(st.src)
+                    if src and src.name ~= A.kb.name then
+                        fail("A5", where .. ": the " .. A.kb.card .. " card named " .. A.kb.name .. ", and " .. src.name .. " landed it")
+                    else
+                        add("A5", "blow_named_right")
+                    end
+                    A.kb = nil
+                end
+            end
+        end
+    elseif ev.kind == "battle" and ev.phase == "end" then
+        A.want, A.kb = nil, nil
+    end
+end
+
 -- Whole prologues ----------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 31 to 38, three DMs), more seeds, and "fragile" ones where Oswin goes
 -- into Euryale's lair on 1 hit point with two failed death saves waiting: deaths are rare, and every
 -- rule about the dead needs some to look at.
 
 local runs = {}
+-- fragile: "lair" (only her fight) or "every" (every fight).
 local function run(seed, style, fragile)
     local key = seed .. style .. (fragile and "f" or "")
     if runs[key] then
@@ -607,7 +702,8 @@ local function run(seed, style, fragile)
     local R = sim_play(seed, style, {
         night = watch_night,
         ev = function(R, night, ev, w)
-            if fragile and ev.kind == "battle" and ev.phase == "start" and night.scene and night.scene.room == "lair" then
+            if fragile and ev.kind == "battle" and ev.phase == "start" and night.scene
+                and (fragile == "every" or night.scene.room == "lair") then
                 local pc = night.pcs and night.pcs.sam
                 if pc then
                     pc.hp = 1
@@ -630,10 +726,19 @@ local function run(seed, style, fragile)
             after_death(R, night, ev, w)
             lair_watch(R, night, ev, w)
             telpur_watch(ev)
+            a5_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
             lair_after(R, night)
+        end,
+        pick = function(R, night, ev, pick)
+            -- (A fragile run lets the dice stand on a hero's life: no fudging, a goodbye.)
+            if fragile and (ev.card.id == "last_save" or ev.card.id == "death_roll" or ev.card.id == "hero_dies") then
+                pick = 1
+            end
+            pick_watch(R, night, ev, pick, R.week)
+            return pick
         end,
     })
     add("run", "prologues")
@@ -652,7 +757,10 @@ for _, style in ipairs({ "careful", "random", "careless" }) do
     end
 end
 for s = 31, 38 do
-    run(s, "careful", true)
+    run(s, "careful", "lair")
+end
+for s = 31, 34 do
+    run(s, "random", "every")
 end
 do
     local distinct = 0

@@ -127,7 +127,8 @@ local function play(seed)
                     for i, o in ipairs(opts) do
                         if string.find(o.label or "", "^Sure") then
                             answer = i
-                            kb_other = { lander = night.actor and night.actor.char, teller = night.other and night.other.key }
+                            -- (Who landed it: their hero, or the ally they play: round three, A5.)
+                            kb_other = { lander = night.kb_lander or (night.actor and night.actor.char), teller = night.other and night.other.key }
                         end
                     end
                     shares = shares + 1

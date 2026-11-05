@@ -562,6 +562,23 @@ local function player_of(night, c)
     end
 end
 
+-- Who plays a creature fighting on the party's side that isn't a hero: the friend flying it (its pilot),
+-- else the companion's owner. nil: it's the DM's to run (the Mech, unless a friend took it over).
+function M.ally_player(night, c)
+    if not c or c.pc then
+        return nil
+    end
+    if c.pilot then
+        return night.campaign:player(c.pilot)
+    end
+    for _, e in ipairs(require("game.model.companions").active(night.campaign, night.players)) do
+        if e.monster and e.monster == c.monster_id and e.owner then
+            return night.campaign:player(e.owner)
+        end
+    end
+    return nil
+end
+
 -- The Museum of Nightmares (v2): the fight's big moments, logged the way a hero going down or a
 -- crit is (a night event, a highlight for the biggest) and played on the players' faces. Each
 -- lands in the night's ledger as ev = "moment" with museum = the kind and tags = { "museum", kind }.
@@ -1556,12 +1573,18 @@ function M.run(night, sc, plan)
         if sc_ and sc_.tgt == tgt and bb.round == sc_.round and bb.active == sc_.turn and not tgt.dead then
             return math.min(total, math.max(0, (tgt.hp or 0) + (tgt.temp or 0) - 1))
         end
+        -- (Who's about to land it: a hero, or an ally fighting with them, Telpur or the Mech, told by its
+        -- own name and played by its friend. Round three, B9: "Brannoc is about to drop the biggest
+        -- huntling", then Telpur's Pointy Toe did.)
+        local ally = src.side == "party" and not src.pc and src or nil
+        local lander = ally and M.ally_player(night, ally) or nil
         -- The boss is about to go down early.
         if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
             local rf = M.reinforcement(night, night.scene)
             local adjust = (rf == nil and { drop = { reinforce = true } })
                 or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
-            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round }, src, nil, adjust)
+            local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round, actor_char = ally and ally.name or nil },
+                ally and (lander and night.pcs and night.pcs[lander.key]) or src, nil, adjust)
             if o and o.battle == "second_phase" then
                 tgt.hp = total + math.floor(tgt.hp_max * 0.5)
                 tgt.phase2 = true
@@ -1572,16 +1595,17 @@ function M.run(night, sc, plan)
             return total
         end
         -- The killing blow (B4): a boss or a villain is about to fall. Who describes it?
+        -- (An ally the DM runs lands it: the DM describes it, no card.)
         if (tgt.boss or tgt.villain) and src.side == "party" and total >= tgt.hp + (tgt.temp or 0) and not tgt.dead
-            and not tgt.phase2_pending and not f.used.killing_blow and night:room(15) then
-            local actor = player_of(night, src)
+            and not tgt.phase2_pending and not f.used.killing_blow and night:room(15) and not (ally and not lander) then
+            local actor = (ally and lander) or player_of(night, src)
             local other = night:killing_blow_other(actor)
-            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt }, src,
-                other and night.pcs and night.pcs[other.key] or nil)
+            local o = moment(night, f, "killing_blow", { boss = f.boss_name or tgt.name, kb_target = tgt, actor_char = ally and ally.name or nil },
+                (ally and night.pcs and night.pcs[actor.key]) or src, other and night.pcs and night.pcs[other.key] or nil)
             if o and o.kb then
                 -- (You hand it to the table; who tells it is theirs to settle: night:kb_share.)
-                local teller = o.kb == "actor" and night:kb_share(actor, other, tgt, f.boss_name or tgt.name) or nil
-                night:killing_blow(teller, tgt, f.boss_name or tgt.name, actor)
+                local teller = o.kb == "actor" and night:kb_share(actor, other, tgt, f.boss_name or tgt.name, ally and ally.name or nil) or nil
+                night:killing_blow(teller, tgt, f.boss_name or tgt.name, actor, ally and ally.name or nil)
             end
             return total
         end
@@ -1613,6 +1637,10 @@ function M.run(night, sc, plan)
         end
         -- The DM's call on who they go after (the tactics card) holds for every foe's turn, unless
         -- the DM ran this one themselves.
+        local k = c.dm_keep
+        if k and not c.dm_target and not k.dead and not k.removed and not k.down then
+            c.dm_target = k
+        end
         local t = f.focus_on
         if t and c.side == "foes" and not c.dm_target and not t.dead and not t.removed and not t.down then
             c.dm_target = t
@@ -1917,6 +1945,16 @@ function M.run(night, sc, plan)
             steps = all
         end
         night.fight_acts[#night.fight_frames] = acts_of(steps)
+        -- (The DM's pick held until it went at them: done now.)
+        if c.dm_keep then
+            for _, st in ipairs(steps or {}) do
+                if (st.kind == "attack" or st.kind == "spell" or st.kind == "feature") and st.id == c.mini
+                    and st.target == c.dm_keep.mini then
+                    c.dm_keep = nil
+                    break
+                end
+            end
+        end
         M.charmed_turn(night, f, c, steps)
         if steps and #steps > 0 then
             M.record(night, f, bb, steps, c)
