@@ -171,6 +171,12 @@ end
 -- They're gone: the goodbye (or not), the shelf, and a new character next week.
 function M.fall(night, p, rec, goodbye)
     local campaign = night.campaign
+    -- (Flitwidget's word for them the next time the party's with him, goodbye or not: M.flit_grieves. A
+    -- quick move-on had him thank the party at the end of the night without a word about Oswin, 32 random.)
+    if campaign and campaign.adv and not goodbye then
+        campaign.adv.grief_owed = campaign.adv.grief_owed or {}
+        table.insert(campaign.adv.grief_owed, p.char)
+    end
     if goodbye then
         local lines = data.LAST_WORDS[p.class] or data.LAST_WORDS.fighter
         night:emit({ kind = "say", who = p.key, text = lines[night.rng:int(1, #lines)], ic = true, farewell = true })
@@ -316,24 +322,49 @@ end
 -- whatever came after it is settled (the gift shop, or the night's end), never mid-lair. The
 -- adventure's words (data.WAKE); whoever runs the place says something (people_lines `grief`).
 -- here: the room they're in, when that isn't the place they rest (data.WAKE_HERE: before they've found it).
+-- Flitwidget's word for the dead, where he is (the gift shop, his thanks): said once per hero, the first
+-- time the party is with him after the death, wherever the wake was held.
+function M.flit_grieves(night)
+    local room = night.scene and night.scene.room
+    local st = night.campaign and night.campaign.adv
+    if not (st and (room == "gift_shop" or room == "thanks")) then
+        return false
+    end
+    local owed = st.grief_owed
+    if not owed or #owed == 0 then
+        return false
+    end
+    st.grief_owed = nil
+    local ok, people = pcall(require, "game.model.people")
+    local line = ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
+        { char = util.join_names(owed), plural = #owed > 1 or nil }) or nil
+    if line then
+        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
+    end
+    return line ~= nil
+end
+
 function M.hold_wake(night, here)
     local due = night.wake_due
+    local st = night.campaign and night.campaign.adv
     if not due or #due == 0 then
+        -- (No wake tonight, but the gift shop or his thanks owes a dead hero his word: said now.)
+        M.flit_grieves(night)
         return false
     end
     night.wake_due = nil
     local names = util.join_names(due)
     night:say(util.fill((here and data.WAKE_HERE) or data.WAKE, { char = names, room = here or "" }), "narration")
-    local ok, people = pcall(require, "game.model.people")
     -- (Flitwidget grieves only where he is: the gift shop, his thanks. A wake at the night's end with the
-    -- party still in her lair, or anywhere else, is the party's own. The final pass's merge, 34 careful.)
-    local room = night.scene and night.scene.room
-    local with_him = room == "gift_shop" or room == "thanks"
-    local line = with_him and ok and people.line and night.mus and people.line(night, "mus_flitwidget", "grief", nil,
-        { char = names, plural = #due > 1 or nil }) or nil
-    if line then
-        night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = line })
+    -- party still in her lair is the party's own, and he says his word the next time they're with him.
+    -- The final pass's merge, 34 careful; Conner's second pass, 32 random.)
+    if st then
+        st.grief_owed = st.grief_owed or {}
+        for _, n in ipairs(due) do
+            table.insert(st.grief_owed, n)
+        end
     end
+    M.flit_grieves(night)
     return true
 end
 
