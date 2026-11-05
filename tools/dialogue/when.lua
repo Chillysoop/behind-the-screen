@@ -2247,9 +2247,9 @@ local function code_line(p)
             pushed = "from whoever gave way on the last vote they minded, holding out for theirs while the table disagrees",
             safe_last = "after a careful pick or two, from Dev, Jess or Mara, for the bold option",
             bold_last = "after a reckless pick or two, from Sam, for the careful option",
-            tired = "from a friend who's had a long week, for the easy option",
-            celebrating = "from a friend with good news this week, for the bold option",
-            stressed = "from a friend who's had a stressful week, for the option they know works",
+            tired = "from a friend who's had a long week, for the easy option (said once a night)",
+            celebrating = "from a friend with good news this week, for the bold option (said once a night)",
+            stressed = "from a friend who's had a stressful week, for the option they know works (said once a night)",
             quiet = "from whoever leads the choice, after a quiet night for them, for the option that's theirs to play",
             edges = "at Euryale's ultimatum, from Sam (who likes a fair, clever fight) or Dev, for fighting her, "
                 .. "with what they brought against her named",
@@ -2271,6 +2271,10 @@ local function code_line(p)
     elseif top == "VOTE_TIE" then
         local W = { pushed = "to whoever gave way last time", lead = "to whoever found it", keen = "to the keener side" }
         return R("When a vote is two against two and goes " .. (W[k] or "one way"), one_of(#(require("game.model.museum_night").VOTE_TIE[k] or {})))
+    elseif top == "VOTE_TIE_SPLIT" then
+        local W = { pushed = "to whoever gave way last time", lead = "to whoever found it", keen = "to the keenest" }
+        return R("When everyone at a vote wants something different (one voice each) and it goes " .. (W[k] or "one way"),
+            one_of(#(require("game.model.museum_night").VOTE_TIE_SPLIT[k] or {})))
     elseif top == "CHAT" then
         local W = { lost_hero = "a friend whose hero died", lost_hero_reply = "a friend, for the hero who died", down_once = "a friend whose hero went down once",
                     down_twice = "a friend whose hero went down twice", down_many = "a friend whose hero went down three times or more",

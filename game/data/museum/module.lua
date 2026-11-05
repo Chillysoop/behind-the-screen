@@ -79,44 +79,67 @@ M.people = {
 
 -- Each hero's reason for coming, from the book's background hooks. The player leans one way
 -- (lean); the DM picks. room: where the hook pays off (the hero sits up when it plays).
+-- votes: what the hero's reason for coming makes their player keen on at a vote (museum_night.carry): the
+-- careful way or the bold one, where one way is a risk to them, said in their own words, three ways
+-- (`here`: in the room the hook is about, the fight). The confirming playtest, alive 1: every friend made the same bid at the same
+-- beat in 24 runs of 24; the hero's own reason for coming is part of the moment, and it varies.
 M.hooks = {
     mara = {
         { id = "sage", name = "Knowledge", text = "Whole worlds under one roof. Thessaly wants to know everything in there.",
           room = "offices", lean = 2, says = "Every book, every exhibit. I'll take notes.",
+          votes = { kind = "safe", say = { "Carefully. I want to learn something here.", "Let's do this properly. I'm taking notes.",
+                                           "Slowly. There's so much to learn in here." } },
           intro = "I've read about every wonder in the world. A museum with whole worlds inside it? I'm not missing that.",
           payoff = "Thessaly runs a finger down the notes pinned round the study. Every drawing and every note in here: this is what she came for." },
         { id = "hermit", name = "Wonder", text = "After years with her books, other worlds behind a caravan curtain are too good to pass up.",
           room = "paintings", lean = 1, says = "Paintings of places that don't exist? Yes, please.",
+          votes = { kind = "bold", say = { "I didn't leave my books to stand at the back.", "I didn't come all this way to play it safe.",
+                                           "Other worlds don't come to you. Let's go." } },
           intro = "I've spent years with my books. Someone said there are other worlds behind that caravan's curtains. I want to see one.",
           payoff = "Thessaly stands in front of a painting of a place that doesn't exist, and forgets to breathe for a moment." },
     },
     dev = {
         { id = "soldier", name = "Duty", text = "If something in that caravan is killing people, it's inside the town walls. That makes it Brannoc's problem.",
           room = "lair", lean = 2, says = "Point me at whatever's doing the killing.",
+          votes = { kind = "safe", say = { "A soldier picks his fights. This isn't one.", "Save it for whatever's doing the killing.",
+                                                         "I've seen good people rush in. Let's not." },
+                    -- (In the room he came for, the soldier wants the fight.)
+                    here = { kind = "bold", say = { "This is what I came for. Point me at her.", "She's the one doing the killing. We end it.",
+                                                    "I came here to stop her. So let's stop her." } } },
           intro = "I was a soldier. If something in that caravan is killing people in this town, it's my job to stop it.",
           payoff = "Brannoc tightens his grip on his sword. Whatever has been killing people in this town is right here." },
         { id = "folk_hero", name = "Rumour", text = "The taverns say the museum is dark magic. Somebody has to go and look, so Brannoc will.",
           room = "garden", lean = 1, says = "Dark magic. Sure. I'll bring an axe.",
+          votes = { kind = "bold", say = { "The taverns want a story. Let's give them one.", "I didn't come here to tiptoe round it.",
+                                           "Dark magic or not, let's get on with it." } },
           intro = "The taverns say the museum's dark magic. Somebody should go in and hit the dark magic. I volunteered.",
           payoff = "Hedges that walk. Brannoc grins: the taverns were right, it is dark magic, and he gets to hit it." },
     },
     jess = {
         { id = "charlatan", name = "A con", text = "The gnome is running a con, and Pip isn't in on it. Unacceptable.",
           room = "street", lean = 2, says = "He's lying, and I want to know how good he is at it.",
+          votes = { kind = "bold", say = { "A good con takes nerve. Let's have some.", "Nerve is my whole job. Come on.",
+                                           "Fortune favours the brave. And the shifty." } },
           intro = "I know a con when I see one, and that gnome is running a good one. I want in.",
           payoff = "Pip watches Flitwidget work the crowd and grins. The gnome is good. Pip is better." },
         { id = "criminal", name = "Lying low", text = "A doorway to another world is a lovely place to lie low for a while.",
           room = "gift_shop", lean = 1, says = "Somewhere nobody's looking for me? Sold.",
+          votes = { kind = "safe", say = { "I'm meant to be lying low. Low means quiet.", "No fuss, please. I'm hiding, remember.",
+                                                         "Let's not get noticed. That's the whole plan." } },
           intro = "I need somewhere to lie low for a bit. A whole other world behind a curtain? Perfect.",
           payoff = "A shop inside a pocket world, behind a curtain nobody outside knows about. Pip puts her feet up: nobody will find her here." },
     },
     sam = {
         { id = "acolyte", name = "Faith", text = "Rumour says some exhibits mock the gods. Oswin has been asked to take a look.",
           room = "chamber", lean = 2, says = "Somebody should check it's not blasphemous. Gently.",
+          votes = { kind = "safe", say = { "My temple would want us to be respectful.", "Gently. Some of this matters to someone.",
+                                           "The respectful way, please." } },
           intro = "My temple asked me to look at the museum. Some of the exhibits might be, um, blasphemous. I'll be polite about it.",
           payoff = "Oswin reads the chamber's old glyphs with care. Not blasphemous, just very, very old. He says a quiet prayer anyway." },
         { id = "urchin", name = "A bad feeling", text = "The museum seems harmless. Oswin can't shake the feeling that it isn't.",
           room = "hunting", lean = 1, says = "Something's off about the whole thing. I'll keep an eye out.",
+          votes = { kind = "bold", say = { "Streets teach you: don't wait for trouble to find you.", "Bad feeling or not, standing here won't help.",
+                                           "Grew up on the streets. Sometimes you just go." } },
           intro = "Everyone says the museum's harmless. I grew up on the streets, and I've got a bad feeling about it.",
           payoff = "Tracks laid as bait, hunters hiding in the dioramas: Oswin's bad feeling was right all along." },
     },
@@ -809,6 +832,7 @@ M.moments = {
       text = "{actor_char} kneels by the cracked tablet with the little notebook of glyphs, while the guardian lifts its staff.",
       options = {
           { label = "Work out the ritual. Someone holds it off.", want = "work out the ritual while someone holds the guardian off", short = "do the ritual", lean = "safe",
+            effort = true,      -- (careful, but not the easy way: museum_night.carry)
             points = { "The notebook's right here. Let's use it.", "Give me a minute with these glyphs. I can do this.", "It's all in the notebook. Somebody hold it off." },
             pulls = { { when = { flag = "water" }, who = { "tactician", "storyteller", "casual" }, n = 0.5,
                         say = { "The water trick worked in the garden. Let's do this one properly too.", "The sign was right about the hedges. The notebook might be right too.",
@@ -887,9 +911,11 @@ M.moments = {
             log = "\"Weird,\" says {actor_char}, and moves on. Nobody can stop glancing back at it.",
             effects = { { "arch:storyteller", fun = 2 } } },
       } },
-    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true, proposes = 1,
+    -- (Not "{actor_char} wants a closer look": whoever found it had to say so, on 3 HP and all. The
+    -- confirming playtest, alive 1: Dev "closer look" 24 runs of 24. Who wants what is the table's.)
+    { id = "mus_knight_frame", room = "paintings", spot = "4K", at = "mid", type = "story", actor = { "explorer", "butt_kicker", "instigator" }, party = true,
       title = "The Knight of Shades",
-      text = "At the end of the hall, the black knight's portrait. {actor_char} wants a closer look. Its oils seem to shift.",
+      text = "At the end of the hall, the black knight's portrait. {actor_char} stops in front of it. Its oils seem to shift.",
       options = {
           { label = "Take a closer look. Whatever happens, happens.", want = "take a closer look at the knight", short = "look closer",
             pulls = { { when = { flag = "paint" }, who = { "butt_kicker", "explorer", "instigator" }, n = 1.5,

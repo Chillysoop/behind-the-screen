@@ -37,7 +37,7 @@ local SHARED_FILES = {
 -- Lines kept in the game's code, beside what uses them (each table is exposed as a field of its module).
 local CODE_TABLES = {
     { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night",
-      keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "VOTE_NAMED", "VOTE_PUSH_LINES", "VOTE_CAVE", "VOTE_SIDE", "VOTE_TIE", "BREAK_START",
+      keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "VOTE_NAMED", "VOTE_PUSH_LINES", "VOTE_CAVE", "VOTE_SIDE", "VOTE_TIE", "VOTE_TIE_SPLIT", "BREAK_START",
                "BREAK_END", "BREAK_LOGS", "BREAK_SAD", "WEEKLY", "GENTLE_STOP" } },
     { file = "game/model/museum_week.lua", mod = "game.model.museum_week", group = "Group chat", keys = { "CHAT", "CHAT_REPLY" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
