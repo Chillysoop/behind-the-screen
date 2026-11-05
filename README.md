@@ -567,6 +567,14 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # screenshots' fixes (about 40s)
     SCREEN_CHECK=1 lua tools/tests/museum_smoke.lua <seed>   # prints CUT_NO_HOVER for text cut short with no hover
                                        # showing the whole of it, plus FACT and HOVER lines for the screen check
+    lua tools/tests/book_check.lua [seeds]   # the museum against the book's structure, room by room, with page
+                                       # numbers (game/data/museum/fidelity.lua): who starts where and how they
+                                       # wake, locked doors, traps, items, and no secret said before its reveal
+    lua tools/tests/knowledge_check.lua [seeds]   # the friends name only what they've been told, and a second
+                                       # campaign in the same process plays exactly as on its own
+    lua tools/tests/overlap_check.lua [seeds]   # nothing on screen covers readable text, measured from the nodes
+                                       # at every dump and every step of game night (about 25s a prologue)
+    OVERLAP_CHECK=1 lua tools/tests/museum_smoke.lua <seed>   # prints OVERLAP for each overlap it measures
     lua tools/tests/rest_check.lua     # Short and Long Rests by SRD 5.2.1, the party's state carried across nights
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua museum_garden prints one)

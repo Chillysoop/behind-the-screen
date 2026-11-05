@@ -182,6 +182,18 @@ its sheet.
 the sheet is reachable and nothing wakes without one; starting positions match; every item's mechanics match. The
 sheet itself is reviewed once against the book (Conner, with his PDF, on the Dialogue Desk or a World Desk).
 
+**Built (November 5, c-fix).** The sheet is `game/data/museum/fidelity.lua`: per room, what the players `sees`,
+the `secrets` with the `words` that give each away and what `reveal`s it (`shows`: the words of the line that is the
+moment), the `foes` (cast card, how they `start`: prop, painting, hidden, still or awake; what `wakes` them; where they
+stand, by the board's place), the `people`, the `doors`, the `traps` and the `items`, each with its page, and
+`ours = true` with what the book has instead wherever the game added something (the twin daggers' +1, the vorpal
+sword, the looking-round traps). `tools/tests/book_check.lua` checks it: SHEET (every room and card there), START
+(a prop or a hidden foe says nothing and stands no mini as the room opens; one woken by a theft or a closer look is
+an optional fight), PLACE (each anchor and each garden beast where the book puts it), DOORS, TRAPS (every trap is
+the book's at its DC or marked ours), WORDS (nothing as a room opens gives a secret away, and in whole prologues
+nothing the table hears does before its reveal) and ITEMS (the paintings, every magic item). Each item fails when
+its fact is broken. Still to do: Conner's review of the sheet against his PDF.
+
 ## 5. Knowledge (including from earlier runs)
 
 **What it looks like.**
@@ -210,6 +222,16 @@ their heroes perceived or were told.
 **The check.** Scan every friend line for adventure nouns (from the module's names, fidelity `secrets` and items): each
 use needs a satisfied `knows` at that moment. And a two-campaign test: play a prologue, start a new campaign in the
 same process, and fail if any line references the first.
+
+**Built (November 5, c-fix).** `tools/tests/knowledge_check.lua`: KNOWN scans every friend line (at the table, in
+character, the group chat, a thought, Session Zero's) for the adventure's names (its people, creatures, rooms,
+items and the fidelity sheet's secrets) and fails on one the table hasn't heard said: what they know going in is
+Session Zero's `told` (the premise, on its screen), the tones you pitch and their own reasons for coming; then
+whatever the DM, the story, the museum's people and your chat answers say. TWICE plays campaigns one after another
+in one process and fails if one differs by a line from playing it alone. It found the Mech manual named before the
+shop said its stock, the World of Tomorrow at three unsigned doors, the Steam Mech in the chat with nobody having
+named it, and Session Zero's lines with no premise told. Not yet covered: a line that presumes the adventure's
+shape without naming anything (a guess that's always right).
 
 ## 6. Space and movement
 
@@ -260,6 +282,16 @@ check measures overlaps, and nothing checks the 3D camera's framing after the in
 **The check (overlap test).** In SCREEN_CHECK mode, after every dump: the bounding boxes of visible readable nodes
 (captions, bubbles, cards, tiles' text) don't intersect beyond a margin. In the engine check: a camera test that
 projects each seat's head (both models) and fails if any is outside the view or under the table plane.
+
+**Built (November 5, c-fix).** `tools/tests/overlap.lua` measures a screen from the nodes themselves (each text as
+wide and tall as its lines come out in its font): two readable texts crossing, or a solid box drawn over one, within
+a layer and between layers that aren't modal or popovers (decision cards, hover cards, the tips and the recap
+drawers cover the screen on purpose). `museum_smoke.lua` with `OVERLAP_CHECK=1` runs it at every dump and every
+step of game night, and `tools/tests/overlap_check.lua` plays eight prologues that way, failing on any overlap and on
+any of game night's moving pieces never measured while up. The fix it led to is the zones registry this section
+asks for, in a first form: `night_view.zones` (the caption and its voice tag, the room's title, the big and small
+rolls, the side card, a toast), which every speech bubble steps round. Still to do: the camera test (each seat's
+head, as the friend and as the hero, inside the view); today the engine run's screenshots show it.
 
 ## 8. Presentation of state
 
@@ -421,8 +453,11 @@ tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's wo
    points, held by tools/tests/conner_nov4_check.lua (classes 1 to 3's reported cases) and
    tools/tests/conner_nov4b_check.lua (movement, faces, layout, structure, and the general scans for classes 1
    to 3 over every line of twelve prologues).
-2. Still to build: class 4's fidelity sheets (each room's triggers, starting positions, locked doors and items as
-   data with page numbers, and the book check against them), the knowledge scan and two-campaign test (class
-   5), a measured overlap test of the real screens (class 7: today's check reads the layout's bands from code),
-   and the line audit (class 10).
-3. Then a fresh-eyes review of whole runs, and AGENTS.md gets the importer's contract as ground rules.
+2. Done (November 5, c-fix): class 4's fidelity sheet and the book check (tools/tests/book_check.lua), class 5's
+   knowledge scan and two-campaign test (tools/tests/knowledge_check.lua), class 7's measured overlap test
+   (tools/tests/overlap_check.lua) and the zones the bubbles step round. Each fails on 1ea3901, and each fix it led
+   to is in its commit.
+3. Still to build: the line audit (class 10), the camera test (class 7), and the knowledge scan's second half (a
+   line that presumes what's coming without naming it). Conner reviews the fidelity sheet against his PDF; the
+   twin daggers are his call (the book gives them no powers, the game made them +1).
+4. Then a fresh-eyes review of whole runs, and AGENTS.md gets the importer's contract as ground rules.

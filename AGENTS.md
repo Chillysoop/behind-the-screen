@@ -72,6 +72,8 @@ Where v2 lives:
 | `game/model/voice.lua`, a cast card's `seen`, `wake`, `dormant` | Who may hear a line (Conner's November 4 notes, the root-cause doc's class 1): a "dm" line is captioned as what it is (`voice.of`: words you say, your own doing, what you hear from the table, the story told), Euryale's thoughts upstairs and other notes are behind your screen (`voice.UNHEARD`). A foe that looks like part of the room says nothing as it opens (`seen = false`) and its `wake` line comes as its fight starts; a `dormant` one (the knight) has no mini on the mat until it climbs out. At a fork the friends say where they'd go and your read of them is a hunch behind the screen (`museum_night.fork_read`), as good as you know them. A miss ruled "they learn from it" waits on `campaign.learned` for that hero's next check (`night:take_learned`). |
 | `night:walk`, `night.toward`, `night:split_off`, `night.worry`, `night_view.stage_opening`, `night_view.LAYOUT` | Conner's November 4 notes, second pass: a walk with no way round goes as near as it can and never through a wall, a check rolled elsewhere is walked to first, and the table lifts a mini that's re-staged more than a step away rather than sliding it; an ally the party brought is picked back up after a fight. A split party cuts to each one alone (a small roll, +1 on their next check) and regroups at the scene's end. A friend's face and tile follow their hero's state (`night.WORRY`); the first night starts happy (`score.FIRST_NIGHT`). A night opens on the board where they stopped. The caption, the friends' speech above their tiles and the IN/OUT OF CHARACTER tag each have their own band; the death-save card sits on the dying hero's tile. Poking around is an Investigation roll shown on the find card (`museum_night.FIND_DC`). The snacks and the coffee go down with the table's clock (`ambience.night_event`, `main/snacks/snacks.script`). |
 | `game/ui/kit.lua` (`cut_hook`) | Text cut short shows the whole of it on hover (round three): `kit.ellipsize` remembers what it cut, `kit.text` calls `kit.cut_hook` (gloss.lua's card); `opts.full = false` turns it off. |
+| `game/data/museum/fidelity.lua` | The book's structure as data, room by room, each fact with its page in the reader's PDF (page numbers only, our words): what the players `sees` walking in, the `secrets` (the `words` that give each away, what `reveal`s it, `shows`: the line that is the moment), the `foes` (how they `start` and what `wakes` them, where they stand by the board's place), `people`, `doors`, `traps`, `items` and the paintings. What the game added is marked `ours = true` with what the book has instead. `tools/tests/book_check.lua` holds the module, cards, boards and whole prologues to it. |
+| `MODULE.session_zero.told`, `night_view.zones` | What the table knows going in (the premise, shown on Session Zero's screen): the knowledge check's start. The night's zones (the caption and its voice tag, the room's title, the big and small rolls, the side card, a toast), each with its `rect`: every speech bubble steps round them (`place_bubbles`), and a new piece that can sit over others adds itself there. |
 
 ## Where things live
 
@@ -140,6 +142,14 @@ Where v2 lives:
   `game/data/fiction_words.lua` the old world's places, people, creatures and callbacks (`adventure.fits`), and the
   museum tests fail on any that slip back in. Shared lines about things the museum doesn't have (a goblin, a mayor)
   wait for an adventure that does. Never copy the book's text; paraphrase it.
+- **The book's structure is data (class 4).** What each room shows, keeps secret, wakes and locks, where everyone
+  stands and what each thing does is in `game/data/museum/fidelity.lua` with its page. A change to a room checks its
+  sheet (`book_check`); something the game adds is marked `ours` there, never passed off as the book's.
+- **The friends know only what they've been told (class 5).** A friend line that names a person, creature, room or
+  item in the adventure waits until the table has heard it said this campaign; nothing carries over from another
+  campaign (`knowledge_check`).
+- **Nothing covers text that's meant to be read (class 7).** A piece that can sit over others on game night has a
+  `rect` in `night_view.zones`; `overlap_check` measures every screen and every step of the night.
 
 ## Checking your work
 
@@ -190,6 +200,12 @@ least:
     lua tools/tests/conner_nov4b_check.lua    # the rest of them: real walks, faces that fit the moment, the Table
                                           # view and the screen's bands, a split party, the find roll, the
                                           # opening board, the snacks, and the general scans for classes 1 to 3
+    lua tools/tests/book_check.lua        # the museum against the book's structure (fidelity.lua): starts, places,
+                                          # doors, traps, secrets before their reveal, the paintings, the items
+    lua tools/tests/knowledge_check.lua 4 # the friends name only what they've been told; a second campaign in
+                                          # the same process plays as if it were the first
+    lua tools/tests/overlap_check.lua 8   # nothing covers readable text, measured on every screen and every step
+                                          # of game night (about 3 minutes)
     python3 tools/tests/require_check.py  # no require cycles
     python3 tools/validate.py             # every Lua file parses, every resource exists
 
