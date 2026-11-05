@@ -366,33 +366,33 @@ tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's wo
 
 | ID | What | Class | Where to start | Status |
 | --- | --- | --- | --- | --- |
-| C1 | Friends start session 1 frowning | 8 | the face/label mapping (game/ui/panels.lua), starting mood | open |
-| C2 | In-character model's head below the table; middle camera should fit every face | 7 | the middle camera view, people model scale (main/people/person.script `become`) | open |
+| C1 | Friends start session 1 frowning | 8 | the face/label mapping (game/ui/panels.lua), starting mood | fixed (c-fix, Nov 5, second pass) |
+| C2 | In-character model's head below the table; middle camera should fit every face | 7 | the middle camera view, people model scale (main/people/person.script `become`) | fixed (c-fix, Nov 5, second pass) |
 | C3 | "You set it yourself" after setting a DC | 10 | game/model/night.lua:2738 | fixed (c-fix) |
 | C4 | Topiary called creatures before waking; "smoke" over hedges not burned | 1, 4 | the garden room and briar cards; cards.lua:107 reads `garden_burned` | fixed (c-fix) |
 | C5 | DM narrates "Pip thinks better of it" after a warning | 2 | game/model/museum_night.lua:1222; module.lua:747 | fixed (c-fix) |
 | C6 | "The metal statue ... hasn't moved. Yet." | 1 | game/data/museum/cards.lua:74 | fixed (c-fix) |
 | C7 | Forks read out what each friend wants; should be DM intuition pop-ups under the story panel, sharper with familiarity | 2 | museum_night.lua fork text (~3450), thoughts.read, familiar.lua | fixed (c-fix) |
-| C8 | Friends talk in character more as they grow comfortable | 2 | the line picker's in-character share | partial: bids in character more each week |
-| C9 | DM caption position clashes with character dialogue; bubbles over the in/out-of-character tags | 7 | game/ui/night_view.lua VOICE (~942), caption and bubble layout | open |
-| C10 | Snacks and drinks eaten in chunks through the night | 9 | the table props and the table clock (main/props, generators) | open |
-| C11 | A session starts on a wood camp while in the museum | 9 | the night's opening before scene 1 is staged (the between-nights campfire) | open |
+| C8 | Friends talk in character more as they grow comfortable | 2 | the line picker's in-character share | fixed (c-fix, Nov 5, second pass) |
+| C9 | DM caption position clashes with character dialogue; bubbles over the in/out-of-character tags | 7 | game/ui/night_view.lua VOICE (~942), caption and bubble layout | fixed (c-fix, Nov 5, second pass) |
+| C10 | Snacks and drinks eaten in chunks through the night | 9 | the table props and the table clock (main/props, generators) | fixed (c-fix, Nov 5, second pass) |
+| C11 | A session starts on a wood camp while in the museum | 9 | the night's opening before scene 1 is staged (the between-nights campfire) | fixed (c-fix, Nov 5, second pass) |
 | C12 | The knight: a knight mini in a frame from the start; should be a painting that wakes | 1, 4 | the paintings room, `wake = { feature, at }`, the minis | fixed (c-fix) |
-| C13 | The find card should show the poking hero's Investigation total | 9 | museum_night.lua look/find cards (~1370, ~1392) | open |
+| C13 | The find card should show the poking hero's Investigation total | 9 | museum_night.lua look/find cards (~1370, ~1392) | fixed (c-fix, Nov 5, second pass) |
 | C14 | The painting's scimitar: mechanical benefit per the book? | 3, 4 | the paintings room's gift, items.lua | fixed (c-fix) |
 | C15 | Friends should use the inspiration they hold, well | 3 | the friends' AI, inspiration spending | fixed (c-fix) |
 | C16 | Euryale's thoughts upstairs said to the table | 1, 4, 5 | museum_night.lua interludes (3963, 4116, 4249, 4472) | fixed (c-fix) |
 | C17 | "Using the daggers" with no daggers in the inventory | 3 | fight.lua:548, items.lua, the hand-off | fixed (c-fix) |
-| C18 | Splitting the party doesn't cut between groups | 9 | decisions.lua:301, night:at_hand | open |
-| C19 | Telpur's mini runs off the table after the Hunting Grounds | 6 | companions on the board, the post-fight placement | open |
-| C20 | The DM says what the players do or want; they should say it | 2 | every dm-style line about the party's choices | partial: forks and warnings; the DM cards still say what a hero wants |
+| C18 | Splitting the party doesn't cut between groups | 9 | decisions.lua:301, night:at_hand | fixed (c-fix, Nov 5, second pass) |
+| C19 | Telpur's mini runs off the table after the Hunting Grounds | 6 | companions on the board, the post-fight placement | fixed (c-fix, Nov 5, second pass) |
+| C20 | The DM says what the players do or want; they should say it | 2 | every dm-style line about the party's choices | fixed (c-fix, Nov 5, second pass) |
 | C21 | "YOU, TO THE TABLE" lines no DM would say; a new "what the DM hears from the table" channel | 1, 2 | night:say styles, night_view VOICE | fixed (c-fix) |
 | C22 | The Lecturer starts behind the lectern | 4, 6 | the lecture theatre's map spec spawn spots | fixed (c-fix) |
 | C23 | Pip started in another room of the offices; locked? | 4, 6 | the offices' map spec, its doors, staging | fixed (c-fix) |
-| C24 | No passing through walls, ever, even in quiet moments | 6 | every mini move; sight.walk | open |
+| C24 | No passing through walls, ever, even in quiet moments | 6 | every mini move; sight.walk | fixed (c-fix, Nov 5, second pass) |
 | C25 | "+1 on their next roll" must land on the next roll | 3 | rulings.lua:58, night.lua:2954 | fixed (c-fix) |
 | C26 | Friends never know they've played before; always the first time | 5 | every friend line that names an adventure fact | fixed (c-fix) |
-| C27 | The death-save card overlaps the DM screen and tiles; Dev "beaming" while Brannoc dies | 7, 8 | night_view `dying`, the tiles' labels | open |
+| C27 | The death-save card overlaps the DM screen and tiles; Dev "beaming" while Brannoc dies | 7, 8 | night_view `dying`, the tiles' labels | fixed (c-fix, Nov 5, second pass) |
 
 ### From the confirming reviews (V-items; the four files in confirming-reviews/)
 
@@ -417,11 +417,12 @@ tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's wo
 
 ### Picking it up
 
-1. Done (November 5, branch c-fix): the final pass's three branches merged and checked, and classes 1 to 3's
-   items fixed, held by tools/tests/conner_nov4_check.lua.
-2. Next, in this order: class 6 (movement: C19, C24), class 7 (layout: C2, C9, C27), class 8 (faces: C1, C27's
-   label), class 9 (structure: C10, C11, C13, C18). Build each class's check first, failing on today's code.
-3. Then the rest of class 2 (the DM's cards still say what a hero wants; C20) and the general checks for
-   classes 1 to 3 (the spoiler, agency and claim scanners described above: today's check covers the
-   reported cases, not the general property).
-4. Then merge, the full gate, a real-engine prologue, a fresh-eyes review, the build, and AGENTS.md gets these rules.
+1. Done (November 5, branch c-fix, merged into v2-museum): the final pass's three branches; all 27 of Conner's
+   points, held by tools/tests/conner_nov4_check.lua (classes 1 to 3's reported cases) and
+   tools/tests/conner_nov4b_check.lua (movement, faces, layout, structure, and the general scans for classes 1
+   to 3 over every line of twelve prologues).
+2. Still to build: class 4's fidelity sheets (each room's triggers, starting positions, locked doors and items as
+   data with page numbers, and the book check against them), the knowledge scan and two-campaign test (class
+   5), a measured overlap test of the real screens (class 7: today's check reads the layout's bands from code),
+   and the line audit (class 10).
+3. Then a fresh-eyes review of whole runs, and AGENTS.md gets the importer's contract as ground rules.
