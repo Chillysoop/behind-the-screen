@@ -205,6 +205,14 @@ function M.draw(app, on_click)
     M.refresh_hp(app)
 end
 
+-- The engagement tells that read as all right (game/data/chat.lua's tells at "listening" and up).
+local LOOKS_FINE = {}
+for _, t in ipairs(require("game.model.content").chat.tells or {}) do
+    if t.at >= 0.32 then
+        LOOKS_FINE[t.text] = true
+    end
+end
+
 -- Tells always update live. The bars update every beat at Attentive Empathy and up;
 -- below that, only when a scene starts or the night ends.
 function M.refresh(app, scene_break)
@@ -234,6 +242,11 @@ function M.refresh(app, scene_break)
             local held = app.chip_pose and app.chip_pose[key]
             if not held or (app.clock_t or 0) > held.until_t then
                 local pose = t.pose
+                -- The face agrees with the words under it: no frown beside "listening", "grinning" or
+                -- "leaning in" (the third playtest's first frame: four frowns, all "listening").
+                if pose == "frown" and LOOKS_FINE[t.text] then
+                    pose = nil
+                end
                 if chip.shown_pose ~= pose then
                     chip.shown_pose = pose
                     if chip.side ~= "char" then

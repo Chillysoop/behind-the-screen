@@ -383,14 +383,14 @@ function M.draw_frame(app)
     if not app.keys_hidden and app.campaign.week <= 1 then
         -- (Under the dice strip and the small-moment crits toggle, not across them: the third playtest's
         -- first frame had all three on one line.)
-        app.n_keys = kit.text(1576, 102, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S Story+Table", "ui14",
+        app.n_keys = kit.text(1576, 102, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S Story/Table", "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
     gloss.card_spot(1270, 4, 172, 44, "The evening at a glance",
         "The time at the table, and when you said you'd stop. Your rolls (H): whether you roll for the monsters behind your screen "
         .. "or in the open. Timer (T): a gentle countdown on each call. Tab opens the whole log, C takes a photo"
-        .. ", S opens your recap: the story's sides and the table, side by side.")
+        .. ", S opens your recap: the Story (where each side stands), then the Table (your friends), then shuts it.")
     -- The player panels: faces, minis, how they're doing, their dice. Click one for the sheet.
     panels.draw(app, function(key)
         if app.open_sheet then
@@ -455,15 +455,22 @@ function M.draw_strip(app)
         local left = STRIP_RIGHT - n * (DIE + 4)
         local label = STRIP_LABEL
         local lnode
-        if app.in_battle and left - 8 - kit.width(label, "ui14") < 1060 then
-            lnode = kit.text(STRIP_RIGHT - 4, STRIP_Y + DIE + 4, label, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+        -- (On a dark backing, and clear of the dice: the third playtest's engine run had the hexes
+        -- over its end, 8_51, and the faint words over Jess's cutout, 8_25.)
+        local lw = kit.width(label, "ui14")
+        if app.in_battle and left - 14 - lw < 1060 then
+            table.insert(app.strip_nodes, kit.box(STRIP_RIGHT - lw - 12, STRIP_Y + DIE + 2, lw + 12, 22, kit.rgba("#000000", 0.5),
+                { radius = 6 }))
+            lnode = kit.text(STRIP_RIGHT - 6, STRIP_Y + DIE + 4, label, "ui14", theme.dim, { pivot = gui.PIVOT_NE })
         else
-            lnode = kit.text(left - 8, STRIP_Y + DIE / 2, label, "ui14", theme.faint, { pivot = gui.PIVOT_E })
+            table.insert(app.strip_nodes, kit.box(left - 20 - lw, STRIP_Y + DIE / 2 - 11, lw + 12, 22, kit.rgba("#000000", 0.5),
+                { radius = 6 }))
+            lnode = kit.text(left - 14, STRIP_Y + DIE / 2, label, "ui14", theme.dim, { pivot = gui.PIVOT_E })
         end
         table.insert(app.strip_nodes, lnode)
         -- One spot, kept across redraws (a roll redraws the strip), over the dice and their label.
-        local lx = app.in_battle and (STRIP_RIGHT - kit.width(STRIP_LABEL, "ui14") - 8)
-            or (left - 8 - kit.width(STRIP_LABEL, "ui14"))
+        local lx = app.in_battle and (STRIP_RIGHT - kit.width(STRIP_LABEL, "ui14") - 12)
+            or (left - 20 - kit.width(STRIP_LABEL, "ui14"))
         local x0 = math.min(lx, left - 4)
         local rect = { x0, STRIP_Y - 4, STRIP_RIGHT + 4 - x0, DIE + 8 + (app.in_battle and 22 or 0) }
         local sp = app.strip_spot
@@ -944,6 +951,7 @@ local VOICE = {
 }
 M.VOICE = VOICE
 
+local caption_cx
 local function place_caption(c, x, y, w, h)
     place(c.box, x, y)
     if c.voice_on then
@@ -966,12 +974,58 @@ local function caption_box_color(c, a)
     return c.read and alpha_of(theme.paper, 0.97 * a) or kit.rgba("#140e0b", 0.82 * a)
 end
 
+-- Where the caption's middle goes: the screen's, the rest of it with the log open, and clear of a
+-- friend's thought card when one is up (the third playtest's engine run, 8_23: the card cut the
+-- narration off at both ends).
+caption_cx = function(app, w, y, h)
+    local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
+    local r = app.thought_card and app.thought_rect
+    if r and y < r.y + r.h and y + h > r.y and cx - w / 2 < r.x + r.w and cx + w / 2 > r.x then
+        local lo = app.log_open and (LOG_X + LOG_W + 16) or 16
+        local left, right = r.x - 16 - lo, kit.W - 16 - (r.x + r.w + 16)
+        if right >= w and right >= left then
+            cx = r.x + r.w + 16 + right / 2
+        elseif left >= w then
+            cx = lo + left / 2
+        end
+    end
+    return cx
+end
+
+-- A thought card just opened or moved: a caption that's up steps aside.
+function M.dodge_caption(app)
+    local c, cr = app.caption, app.caption_rect
+    if not (c and cr and c.box and gui.is_enabled(c.box)) then
+        return
+    end
+    local cx = caption_cx(app, cr.w, cr.y, cr.h)
+    if math.abs(cx - (cr.x + cr.w / 2)) > 1 then
+        cr.x = cx - cr.w / 2
+        place_caption(c, cr.x, cr.y, cr.w, cr.h)
+        -- (Its word underlines stay where they were drawn: they go, not left behind on the board.)
+        if c.gloss_nodes then
+            kit.remove(c.gloss_nodes)
+        end
+        for _, sp in ipairs(c.gloss_spots or {}) do
+            kit.unspot(sp)
+        end
+        c.gloss_nodes, c.gloss_spots = {}, {}
+    end
+end
+
 function M.caption(app, text, style)
     local c = app.caption
     if not c then
         return
     end
     local read = READ_ALOUD[style] and true or false
+    -- A passage read aloud clears the words rising off the minis (the third playtest, 8_51).
+    if read then
+        for _, f in ipairs(app.floaters or {}) do
+            kit.remove(f.nodes)
+        end
+        app.floaters = {}
+    end
     local font = read and "read26" or ((style == "dice" or style == "check" or style == "system" or style == "warn") and "ui22b" or "story22")
     local width = read and 1000 or CAPTION_W
     local max_lines = read and 5 or 5
@@ -995,8 +1049,9 @@ function M.caption(app, text, style)
         w = math.max(w, 360)
     end
     local y = CAPTION_BOTTOM - h
-    -- With the log open, the caption centers on the rest of the screen.
-    local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
+    -- With the log open, the caption centers on the rest of the screen; beside a friend's thought
+    -- card, not under it.
+    local cx = caption_cx(app, w, y, h)
     c.read = read
     gui.set_size(c.box, vmath.vector3(w, h, 0))
     gui.set_font(c.text, font)
@@ -1052,12 +1107,15 @@ function M.caption(app, text, style)
     gui.set_color(c.rule, theme.gold)
 end
 
+local TITLE_Y = 66
 function M.title(app, top, title, sub)
     M.drop_title(app)
     kit.use(app.layers.fx)
     sub = kit.ellipsize(sub or "", "ui18", 1100)
     local w = math.min(1200, math.max(kit.width(title, "title30"), kit.width(sub, "ui18"), kit.width(top, "ui18b")) + 80)
-    local x, y = 800 - w / 2, 250
+    -- (Up under the top bar, over the far wall, not on the board: the third playtest's engine run,
+    -- 8_36, had it on top of the Lecturer the room is about.)
+    local x, y = 800 - w / 2, TITLE_Y
     local t = { age = 0, life = 3.4 / speed(app), nodes = {} }
     t.nodes[1] = kit.box(x, y, w, 118, kit.rgba("#140e0b", 0.8), { radius = 14 })
     t.nodes[2] = kit.text(800, y + 14, top, "ui18b", theme.gold, { pivot = gui.PIVOT_N })
@@ -1067,23 +1125,28 @@ function M.title(app, top, title, sub)
     app.title_card = t
 end
 
--- A note sliding in under the top bar: a clue for the DM's notes.
-function M.toast(app, top, text)
+-- A note sliding in under the top bar: a clue for the DM's notes. quiet: only the DM knows it (her
+-- card's new mark), so it's smaller and in the screen's quieter colours, like a "BEHIND YOUR SCREEN"
+-- caption (the third playtest's engine run, 8_44: it was the loudest thing on the screen).
+function M.toast(app, top, text, quiet)
     M.drop_toast(app)
     kit.use(app.layers.fx)
-    local w = 620
-    local lines = kit.wrap(text, "ui18", w - 40)
-    local h = 40 + #lines * kit.line_height("ui18") + 12
-    -- With the log open, it sits on the rest of the screen (A11).
+    local w = quiet and 520 or 620
+    local font = quiet and "ui14" or "ui18"
+    local lines = kit.wrap(text, font, w - 40)
+    local h = 40 + #lines * kit.line_height(font) + 12
+    -- With the log open, it sits on the rest of the screen (A11). Under a room's title card, not on it.
     local cx = app.log_open and math.max(LOG_X + LOG_W + 16 + w / 2, 800) or 800
-    local x, y = cx - w / 2, 136
+    local x, y = cx - w / 2, app.title_card and (TITLE_Y + 128) or 136
     local t = { age = 0, life = (3.2 + #text / 30) / math.sqrt(speed(app)), nodes = {} }
-    t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, theme.gold, { radius = 12 })
-    t.nodes[2] = kit.box(x, y, w, h, kit.rgba("#201813", 0.96), { radius = 11 })
-    t.nodes[3] = kit.text(x + 20, y + 12, top, "ui14", theme.gold)
-    t.nodes[4] = kit.text(x + 20, y + 34, table.concat(lines, "\n"), "ui18", theme.text)
-    t.nodes[5] = kit.text(x + w - 18, y + 12, "N: open your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
-    t.colors = { theme.gold, kit.rgba("#201813", 0.96), theme.gold, theme.text, theme.faint }
+    local edge = quiet and alpha_of(theme.faint, 0.6) or theme.gold
+    local head = quiet and theme.faint or theme.gold
+    t.nodes[1] = kit.box(x - 2, y - 2, w + 4, h + 4, edge, { radius = 12 })
+    t.nodes[2] = kit.box(x, y, w, h, kit.rgba("#201813", quiet and 0.9 or 0.96), { radius = 11 })
+    t.nodes[3] = kit.text(x + 20, y + 12, quiet and ("BEHIND YOUR SCREEN  " .. top) or top, "ui14", head)
+    t.nodes[4] = kit.text(x + 20, y + 34, table.concat(lines, "\n"), font, quiet and theme.dim or theme.text)
+    t.nodes[5] = kit.text(x + w - 18, y + 12, quiet and "" or "N: open your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    t.colors = { edge, kit.rgba("#201813", quiet and 0.9 or 0.96), head, quiet and theme.dim or theme.text, theme.faint }
     app.toast_card = t
 end
 
@@ -1376,7 +1439,22 @@ function M.fight_rows(sm)
             .. health, (h.dead or (h.hp or 0) <= (h.hp_max or 1) * 0.35) and theme.orange or theme.text })
     end
     if #(sm.beaten or {}) > 0 then
-        table.insert(rows, { "Beaten: " .. util.join_names(mid_names(sm.beaten)) .. ".", theme.green })
+        -- (By kind, counted: "the Knight of Shades and 2 kruthik huntlings", not "Knight of Shades 1 and
+        -- Kruthik Huntling 1", the third playtest's engine run, 8_51.)
+        local kinds, count = {}, {}
+        for _, n in ipairs(sm.beaten) do
+            local base = string.gsub(n, " %d+$", "")
+            if not count[base] then
+                table.insert(kinds, base)
+            end
+            count[base] = (count[base] or 0) + 1
+        end
+        local said = {}
+        for _, base in ipairs(kinds) do
+            table.insert(said, count[base] > 1 and (util.int(count[base]) .. " " .. string.lower(base) .. (string.find(base, "s$") and "" or "s"))
+                or base)
+        end
+        table.insert(rows, { "Beaten: " .. util.join_names(mid_names(said)) .. ".", theme.green })
     end
     if #(sm.ran or {}) > 0 then
         table.insert(rows, { ((sm.how == "yielded" and "Stood down: ") or "Ran: ")
@@ -1529,6 +1607,8 @@ function M.place_bubbles(app)
 end
 
 -- A word or number rising off a mini: damage, misses, spell names.
+local FLOAT_PER_MINI, FLOAT_MAX = 2, 6
+M.FLOAT_PER_MINI, M.FLOAT_MAX = FLOAT_PER_MINI, FLOAT_MAX
 function M.float(app, id, text, color, big)
     if not app.layers.fx or not id then
         return
@@ -1537,7 +1617,27 @@ function M.float(app, id, text, color, big)
     if not ax then
         return
     end
-    -- Stack floaters that land on the same mini at once.
+    -- Stack floaters that land on the same mini at once, the newest few only (the third playtest's
+    -- engine run, 8_51: a burst of saves and hits stacked eighteen labels into a column over the
+    -- board). FLOAT_PER_MINI on one mini, FLOAT_MAX on the board; the oldest goes first.
+    local mine = {}
+    for i, f in ipairs(app.floaters) do
+        if f.id == id then
+            table.insert(mine, i)
+        end
+    end
+    while #mine >= FLOAT_PER_MINI do
+        local i = table.remove(mine, 1)
+        kit.remove(app.floaters[i].nodes)
+        table.remove(app.floaters, i)
+        for k = 1, #mine do
+            mine[k] = mine[k] - 1
+        end
+    end
+    while #app.floaters >= FLOAT_MAX do
+        kit.remove(app.floaters[1].nodes)
+        table.remove(app.floaters, 1)
+    end
     local stack = 0
     for _, f in ipairs(app.floaters) do
         if f.id == id and f.age < 0.5 then
@@ -2588,7 +2688,7 @@ function M.handle(app, ev)
         M.draw_pips(app)
     elseif k == "mark" then
         -- v2: Euryale's card changed (her thought comes as the next caption).
-        M.toast(app, "EURYALE'S CARD: " .. string.upper(ev.name), ev.showdown .. ". (" .. ev.why .. ".)")
+        M.toast(app, "EURYALE'S CARD: " .. string.upper(ev.name), ev.showdown .. ". (" .. ev.why .. ".)", true)
         M.push(app, "Euryale's card: " .. ev.name .. ". " .. ev.showdown .. ".", "clue", true)
     elseif k == "warning" then
         -- v2: fair warning (warnings.lua): what they know now, or a harsh call judged against it.
@@ -3168,7 +3268,11 @@ function M.open_thought(app, key, auto)
         return
     end
     app.thought_card = ev
-    app.thought_left = M.THOUGHT_WAIT
+    -- (Twice as long the first time, when the card also explains your stats: the third playtest's
+    -- engine run, 8_23, had a seven-line tip on a thirty-second clock.)
+    local seen = app.campaign.seen_tips or {}
+    app.thought_left = seen.dm_stats and M.THOUGHT_WAIT or (M.THOUGHT_WAIT * 2)
+    app.thought_full = app.thought_left
     M.draw_thought_card(app)
 end
 
@@ -3179,6 +3283,7 @@ function M.close_thought(app)
     end
     app.thought_card = nil
     app.thought_left = nil
+    app.thought_rect = nil
     kit.reset_hover()
 end
 
@@ -3190,7 +3295,7 @@ function M.tick_thought(app, dt)
     app.thought_left = app.thought_left - dt
     local bar = app.thought_bar
     if bar then
-        local f = math.max(0, app.thought_left / M.THOUGHT_WAIT)
+        local f = math.max(0, app.thought_left / (app.thought_full or M.THOUGHT_WAIT))
         pcall(kit.set_bar, bar.fill, bar.w, f, 1)
         pcall(gui.set_text, bar.text, util.int(math.max(0, math.ceil(app.thought_left))) .. "s")
         pcall(gui.set_color, bar.fill, f > 0.33 and theme.think.ink or theme.orange)
@@ -3270,7 +3375,7 @@ function M.draw_thought_card(app)
             add("You have stats too. Empathy is how well you read a table; each friend also has how well you know them. "
                 .. "A read is an Insight roll: d20 + your Empathy + how well you know them. Both grow as you play. "
                 .. "Your Empathy is at the top of THE TABLE on the prep board, how well you know each friend is the dots "
-                .. "on their card, and tonight the Table button at the top has both (S opens it with the Story).", "ui14",
+                .. "on their card, and tonight the Table button at the top has both (or S, twice).", "ui14",
                 theme.think.ink, 12)
         end
     else
@@ -3321,6 +3426,17 @@ function M.draw_thought_card(app)
     end
     h = h + 8 + #buttons * 48 + 44 + foot_h + 14
     local y = math.max(76, CHIP_Y - 40 - h)
+    app.thought_rect = { x = x - 3, y = y - 3, w = w + 6, h = h + 6 }
+    M.dodge_caption(app)
+    -- A speech or thinking bubble the card would cut in half goes (the third playtest, 8_23: Sam's
+    -- own "Stifles a yaw..." under his card). The card says what the thinking bubble did.
+    for i = #(app.bubbles or {}), 1, -1 do
+        local b = app.bubbles[i]
+        local r = app.thought_rect
+        if b.x and b.w and b.y and b.h and b.x < r.x + r.w and b.x + b.w > r.x and b.y < r.y + r.h and b.y + b.h > r.y then
+            drop_bubble(app, i)
+        end
+    end
     kit.box(x - 3, y - 3, w + 6, h + 6, kit.rgba("#000000", 0.35), { radius = 16 })
     kit.box(x, y, w, h, theme.think.bg, { radius = 14 })
     kit.dot(x + 44, y + 46, 64, alpha_of(panels.COLORS[ev.who] or theme.gold, 0.6))
@@ -3363,7 +3479,7 @@ function M.draw_thought_card(app)
         local fill = kit.box(x + 16, ty + 12, bw, 8, theme.think.ink, { round = false })
         local text = kit.text(x + 22 + bw, ty + 6, "", "ui14", theme.think.dim, { gloss = false })
         app.thought_bar = { fill = fill, w = bw, text = text }
-        kit.set_bar(fill, bw, math.max(0, app.thought_left / M.THOUGHT_WAIT), 1)
+        kit.set_bar(fill, bw, math.max(0, app.thought_left / (app.thought_full or M.THOUGHT_WAIT)), 1)
         gui.set_text(text, util.int(math.ceil(app.thought_left)) .. "s")
     end
     -- Familiarity as dots, then the words.
@@ -3380,7 +3496,7 @@ function M.read_thought(app)
     end
     app.campaign.seen_tips = app.campaign.seen_tips or {}
     app.campaign.seen_tips.dm_stats = true
-    app.thought_left = M.THOUGHT_WAIT
+    app.thought_left, app.thought_full = M.THOUGHT_WAIT, M.THOUGHT_WAIT
     local r = thoughts.read(app.night, ev.id)
     if not r then
         M.close_thought(app)
@@ -3408,7 +3524,7 @@ function M.ask_thought(app)
     if thoughts.ask(app.night, ev.id) then
         M.push(app, ev.name .. ", when you ask: \"" .. ev.text .. "\"", "thought", true)
     end
-    app.thought_left = M.THOUGHT_WAIT
+    app.thought_left, app.thought_full = M.THOUGHT_WAIT, M.THOUGHT_WAIT
     M.draw_thought_card(app)
 end
 

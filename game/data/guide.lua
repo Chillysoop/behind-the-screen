@@ -36,7 +36,9 @@ return {
         {
             id = "night_watch", screen = "night", at = NIGHT_WATCH, timeout = 30, leave = true,
             when = function(app, c) return week(c, 1) and not app.pending end,
-            done = function(app) return app.night_done end,
+            -- (Gone once the second room starts, with the keys it points at: the third playtest's
+            -- engine run had it in the corner from 7:07 pm to 10:08 pm.)
+            done = function(app) return app.night_done or app.keys_hidden end,
             anchor = { 10, 772, 1580, 126 },
             title = "It plays itself",
             text = "Your players along the bottom: their faces, their characters and their dice. Click one for their sheet. The keys for skipping and speed are top right.",
@@ -121,9 +123,11 @@ return {
 
         -- The first report ------------------------------------------------------------------------
         {
-            id = "report_read", screen = "report", at = { 412, 660 },
+            -- (Over the verdict, not WHAT IT EARNED: the third playtest's engine run, 8_17, couldn't see
+            -- what the first night earned until the tip was closed. A minute on screen at most.)
+            id = "report_read", screen = "report", at = { 24, 652 }, timeout = 60, leave = true,
             when = function(app, c) return week(c, 1) end,
-            anchor = { 776, 84, 800, 556 },
+            anchor = { 916, 84, 660, 556 },
             title = "How it landed",
             text = "Each player's night, the least happy first, and the bars that carry over. Weeks of low Commitment and someone takes a break.",
         },
