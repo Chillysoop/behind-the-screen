@@ -1006,7 +1006,7 @@ M.moments = {
             effects = { { "arch:butt_kicker", fun = 3 }, { "arch:storyteller", fun = 1 }, { "all", challenge = 4 } },
             mus = { risk = true, ready = true } },
           { label = "Go round. Make the hunters come to them.", want = "go round and make the hunters come to us", short = "go round", lean = "safe",
-            log = "They put their backs to the bulette's skull and wait. It's the huntlings who have to come out.",
+            log = "They put their backs to the bulette's skull and wait. Whatever's hunting them can come out first.",
             effects = { { "arch:tactician", fun = 5 }, { "arch:casual", fun = 2 }, { "arch:explorer", fun = 3.5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { flag = "no_surprise", ready = true } },
       } },
