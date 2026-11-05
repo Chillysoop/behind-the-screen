@@ -3236,7 +3236,7 @@ function M:decision(card, extra)
             end
         end
         self.call_log = self.call_log or {}
-        table.insert(self.call_log, { title = util.sentence_case(util.fill(card.title or "", self:vars(extra))),
+        table.insert(self.call_log, { card = card.id, title = util.sentence_case(util.fill(card.title or "", self:vars(extra))),
                                       label = util.fill(o.label or "", self:vars(extra)),
                                       scene = self.scene and self.scene.index or 0, deltas = deltas, size = size })
     end
@@ -3770,7 +3770,7 @@ end
 -- the boss's fate, how it came out, and what it followed from: the choice that started it
 -- ("therefore"), or the room turning on them ("but"). Its clause tells it for the chain (R14).
 -- (A hero going off alone, for the log's chain: one of them, or two.)
-M.ALONE_TEXT = { "{names} went off alone", "{names} went off together, just the two of them" }
+M.ALONE_TEXT = { "{names} went off alone", "{names} went off together" }
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",

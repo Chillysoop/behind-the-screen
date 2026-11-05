@@ -748,12 +748,12 @@ M.moments = {
       options = {
           { label = "Work out the ritual. Someone holds it off.", want = "work out the ritual while someone holds the guardian off", short = "do the ritual", lean = "safe",
             points = { "The notebook's right here. Let's use it.", "Give me a minute with these glyphs. I can do this.", "It's all in the notebook. Somebody hold it off." },
-            pulls = { { when = { flag = "water" }, who = { "tactician", "storyteller", "casual" }, n = 0.8,
+            pulls = { { when = { flag = "water" }, who = { "tactician", "storyteller", "casual" }, n = 0.5,
                         say = { "The water trick worked in the garden. Let's do this one properly too.", "The sign was right about the hedges. The notebook might be right too.",
                                 "Doing it by the book worked last time. Let's do it again." } } },
             roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
                      success = { log = "Five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
-                                 effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 4 }, { "arch:butt_kicker", fun = -3 } },
+                                 effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 3.5 }, { "arch:butt_kicker", fun = -3 } },
                                  mus = { no_fight = true, mark = "calmed", francs = 1, careful = 1, aspect = "Calmed a tomb guardian with an old ritual" } },
                      fail = { log = "The glyphs swim. It's going to be blades.",
                               effects = { { "arch:butt_kicker", fun = 3 } }, mus = { fight = true, flag = "ritual_failed" } } } },
@@ -830,11 +830,11 @@ M.moments = {
       text = "At the end of the hall, the black knight's portrait. {actor_char} wants a closer look. Its oils seem to shift.",
       options = {
           { label = "Take a closer look. Whatever happens, happens.", want = "take a closer look at the knight", short = "look closer",
-            pulls = { { when = { flag = "paint" }, who = { "butt_kicker", "explorer", "instigator" }, n = 2,
+            pulls = { { when = { flag = "paint" }, who = { "butt_kicker", "explorer", "instigator" }, n = 1.5,
                         say = { "We've got painted weapons. Let's see what they do to him.", "Wet paint in our hands, a painted knight over there. Come on.",
                                 "That's what the painted weapons are for, surely." } } },
             log = "The knight grips the edge of its frame and climbs out, oil streaming off its armour.",
-            effects = { { "arch:butt_kicker", fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:instigator", fun = 3 }, { "all", challenge = 4 } },
+            effects = { { "arch:butt_kicker", fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:instigator", fun = 2 }, { "all", challenge = 4 } },
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
           { label = "Give it a wide berth.", want = "give the knight a wide berth", short = "leave him be",
             log = "Nobody goes near it. The knight's painted eyes follow them all the way to the door.",
@@ -922,7 +922,7 @@ M.moments = {
             effects = { { "actor", spotlight = 6 }, { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 }, { "arch:power_gamer", fun = 3 } },
             mus = { mark = "mirror", aspect = "Carried a cupboard door upstairs to fight a Gorgon" } },
           { label = "Leave the exhibits alone.", want = "leave the exhibits alone", short = "leave them be",
-            log = "They leave the kitchen as they found it.", effects = { { "arch:casual", fun = 4.5 }, { "arch:storyteller", fun = 3 } }, mus = { careful = 1 } },
+            log = "They leave the kitchen as they found it.", effects = { { "arch:casual", fun = 4.5 }, { "arch:storyteller", fun = 3 }, { "arch:method_actor", fun = 1 } }, mus = { careful = 1 } },
       } },
 
     -- The offices -----------------------------------------------------------------------------
@@ -1065,7 +1065,7 @@ M.moments = {
           { label = "Reach in. It's worth the chill.", want = "reach into the frame for a painted blade", short = "reach in",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
                      success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
-                                 effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 5 }, { "arch:method_actor", fun = 3 } },
+                                 effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 4.5 }, { "arch:method_actor", fun = 3 } },
                                  mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
                      fail = { log = "The frame bites. {actor_char} pulls back numb, empty fingers.",
                               effects = { { "actor", challenge = 5 } }, mus = { risk = true, harsh = true, hurt = { 1, 4 } } } } },
@@ -1820,6 +1820,10 @@ M.chat_banter = {
     { "dev", "i've been practising brannoc's battle cry in the car", "mara", "please don't do it at the table" },
     { "sam", "bought new dice. they're green. they already roll badly", "jess", "a classic", dice = "jade" },   -- (his tray rolls them from now on)
     { "mara", "does anyone know if gnomes have middle names", "jess", "flitwidget absolutely has four" },
+    { "dev", "work was so long today. thursday can't come fast enough", "sam", "same. i need dice in my hands" },
+    { "jess", "i drew pip. it's bad. i'm sending it anyway", "mara", "it's PERFECT" },
+    { "sam", "my cat sat on my character sheet and now oswin has a paw print", "dev", "that's canon now" },
+    { "mara", "i've been reading about gorgons. for no reason", "jess", "for no reason. sure", when = { flag = "truth" } },
 }
 
 -- Questions for the DM in the group chat, one a week (museum_week.write_chat); you answer from the
@@ -1858,22 +1862,84 @@ M.chat_ask = {
                   { label = "Roll History when you get there.", say = "roll history when you get there", back = "rolling a 20 already", effects = { investment = 2 } } } },
 }
 
+-- The group chat about the rooms they just played (museum_week.write_chat): each entry is one friend's
+-- take on something that happened there, said one of its ways (fresh across weeks), and only if it did
+-- happen (`when`, as on moments; `won`/`lost`: the room's fight that session went that way). Never the
+-- DM's card titles: what the friends saw, in their words. (The third playtest, alive 9: the chat was a
+-- script, the same post after every hunting grounds, "good fight though" after they lost.)
+-- What a friend says about something has to be something the party saw or learned (round three, B):
+-- the sign only when they didn't use the water, the jugs only when the ritual worked, the lady only when
+-- her painting was the one in the hall, the sunken city only once the notebook was read out.
 M.chat = {
-    -- (A line about something only if it happened: { text, when = condition }, as on moments.)
-    street = { jess = { "flitwidget is lying and i love him", when = { not_flag = "truth" } }, sam = "do we get a discount at the gift shop since we're the help" },
-    garden = { dev = "the topiary fight. ten out of ten", mara = { "the sign said use water. i'm thinking about that sign", when = { seen = "mus_plaque" } } },
-    entrance = { jess = { "i would like it on record that i only LOOKED at the box", when = { seen = "mus_box", not_mark = "robbed" } },
-                 sam = { "the statue said thank you. it was very loud", when = { flag = "boon" } } },
-    chamber = { mara = { "five gallons, three gallons, four gallons. i dreamt about jugs", when = { seen = "mus_tablet" } }, dev = "three skulls is too many skulls" },
-    paintings = { jess = { "WHO PAINTED US INTO THE PAINTING", when = { seen = "mus_dice_painting" } },
-                  mara = { "the lady by the mountains. who is she", when = { flag = "portrait_mara" } } },
-    gift_shop = { jess = "telpur is my favourite character and they are a shoe", dev = "can i buy the marbles. for throwing" },
-    hunting = { sam = "those huntlings were smart. i hated it. good fight though", dev = { "we should've chased the ones that ran", when = { mark = "pack" } } },
-    offices = { mara = { "a city under the sea. the WITNESS. i have so many questions", when = { flag = "witness_named" } },
-                sam = { "the eyes on his arms. not ok", when = { seen = "mus_office_inside", not_soft = "gore" } } },
-    tomorrow = { dev = { "WE HAVE A ROBOT", when = { mark = "mech" } }, jess = { "i'm calling it el roboto whatever its real name is", when = { mark = "mech" } } },
-    lecture = { sam = "that was my third period chemistry class", jess = "i fell asleep in real life a little" },
-    stairs = { dev = { "boss fight next week. finally", when = { not_flag = "rematch" } }, mara = "she's been watching us this whole time hasn't she" },
+    street = { { who = "jess", when = { not_flag = "truth" }, "flitwidget is lying and i love him", "that gnome is hiding something and i respect it",
+                 "flitwidget said incidents. INCIDENTS" },
+               { who = "sam", "do we get a discount at the gift shop since we're the help", "is the help allowed in the gift shop",
+                 "i want it known i was polite to the gnome" },
+               { who = "mara", when = { flag = "truth" }, "a gorgon. in a jar. that BROKE. i have questions for flitwidget",
+                 "so the jar broke and nobody thought to mention it on the poster" } },
+    garden = { { who = "dev", won = true, "the topiary fight. ten out of ten", "i fought a hedge and won. put it on my headstone",
+                 "brannoc vs the bushes, round one to brannoc" },
+               { who = "mara", when = { seen = "mus_plaque", not_flag = "water" }, "the sign said use water. i'm thinking about that sign",
+                 "still thinking about that sign by the pond" },
+               { who = "jess", when = { mark = "garden_burned" }, "we set fire to a man's garden on our first night. iconic",
+                 "in my defence the hedges started it" },
+               { who = "sam", when = { flag = "water" }, "the water trick worked!! the sign was right", "pond water: underrated" },
+               { who = "jess", when = { flag = "brass_key" }, "pip has a mystery key from a mystery pond and she's keeping it",
+                 "what does the pond key open. i need to know" } },
+    entrance = { { who = "jess", when = { seen = "mus_box", not_mark = "robbed" }, "i would like it on record that i only LOOKED at the box",
+                   "the donation box and i have unfinished business" },
+                 { who = "sam", when = { flag = "boon" }, "the statue said thank you. it was very loud", "best coin i ever spent. the statue was so polite" },
+                 { who = "dev", when = { mark = "robbed" }, "we robbed a museum and a metal man fought us about it. good night",
+                   "still thinking about that sentinel coming off its plinth" },
+                 { who = "mara", when = { mark = "robbed" }, "we are thieves now. i'm writing it down", "so are we the baddies" } },
+    chamber = { { who = "mara", when = { mark = "calmed" }, "five gallons, three gallons, four gallons. i dreamt about jugs",
+                  "we did the ritual properly and i'm so proud of us" },
+                { who = "dev", "three skulls is too many skulls", "that room was mostly sand and skulls and i loved it" },
+                { who = "dev", when = { mark = "scarabs" }, "the guardian went down hard. worth it", "smashed the old guardian. no regrets. some regrets" },
+                { who = "jess", when = { flag = "daggers" }, "the twin daggers are pip's now. legally", "pip has two daggers stuck together and she loves them" } },
+    paintings = { { who = "jess", when = { seen = "mus_dice_painting" }, "WHO PAINTED US INTO THE PAINTING", "the painting of us. i'm not ok" },
+                  { who = "mara", when = { flag = "portrait_mara" }, "the lady by the mountains. who is she", "i keep thinking about the lady by the mountains" },
+                  { who = "dev", when = { mark = "knight" }, "we left the knight in his painting and i will regret that", "that knight is going to be a problem later isn't he" },
+                  { who = "sam", when = { flag = "paint" }, "a sword out of a painting. art is incredible", "the paint actually came off as a weapon. how" } },
+    gift_shop = { { who = "jess", "telpur is my favourite character and he is a shoe", "telpur. the boot. i'd die for him", "a talking boot runs the till and nobody questions it" },
+                  { who = "dev", "can i buy the marbles. for throwing", "telpur better have more stock next time", "telpur wouldn't haggle and i respect him" },
+                  { who = "sam", when = { flag = "manual" }, "the mech manual is 400 pages and i've read 3", "chapter nine of the mech manual is just warnings" } },
+    hunting = { { who = "sam", won = true, "those huntlings were smart. i hated it. good fight though", "the huntlings had a PLAN. rude",
+                  "we beat the bug dogs and i'm still twitchy" },
+                { who = "sam", lost = true, "those huntlings were smart. i hated it", "we got hunted. by bugs. i need a minute",
+                  "the huntlings won that one and they know it" },
+                { who = "dev", when = { mark = "pack" }, "we should've chased the ones that ran", "the ones that ran are going to come back. i can feel it" },
+                { who = "mara", when = { mark = "mirror" }, "we are carrying a cupboard door around now. for reasons", "the mirror door is coming with us. trust the process" } },
+    offices = { { who = "mara", when = { flag = "witness_city" }, "a city under the sea. the WITNESS. i have so many questions",
+                  "the witness. under the sea. i can't stop thinking about it" },
+                { who = "sam", when = { seen = "mus_office_inside", not_soft = "gore" }, "the eyes on his arms. not ok", "that office. i'm sleeping with the light on" },
+                { who = "jess", when = { flag = "brass_key", seen = "mus_office_inside" }, "THE POND KEY OPENED THE DOOR", "told you the pond key was important" } },
+    tomorrow = { { who = "dev", when = { mark = "mech" }, "WE HAVE A ROBOT", "we have a giant robot friend now. normal week" },
+                 { who = "jess", when = { mark = "mech" }, "i'm calling it el roboto whatever its real name is", "the robot is called {mech} and i love {mech}" },
+                 { who = "sam", when = { flag = "mech_burnt" }, "rip to the robot. we pressed the button", "we broke the robot. we broke flitwidget's robot" } },
+    lecture = { { who = "sam", won = true, "that was my third period chemistry class", "a ghost who lectures. my worst nightmare and i beat it" },
+                { who = "jess", "i fell asleep in real life a little", "the lecturer's voice is still in my head. send help" },
+                { who = "mara", when = { mark = "pages" }, "we have pages that put people to sleep. this is the best item", "the sleepy notes are the most powerful thing we own" } },
+    stairs = { { who = "dev", when = { not_flag = "rematch" }, "boss fight next week. finally", "next week we meet her. i'm ready. i'm not ready" },
+               { who = "mara", "she's been watching us this whole time hasn't she", "the curtain at the top of the stairs. i'm scared of a curtain" },
+               { who = "jess", when = { flag = "seen" }, "pip met her eyes and came back. pip is fine. pip is not fine", "pip went up alone and i regret nothing. some things" } },
+}
+-- The group chat's very first night, before they've played: one of these, by the table's seed.
+M.chat_intro = {
+    { { "jess", "ok there's a MUSEUM in town and the guy running it is a gnome" }, { "mara", "a travelling museum of curiosities. i've already started a notebook" },
+      { "dev", "are there monsters in it" }, { "jess", "dev it's a museum" }, { "dev", "so yes" }, { "sam", "i'll bring snacks. museum snacks" } },
+    { { "mara", "has everyone seen the caravan by the market. the museum one" }, { "jess", "the one with the gnome on the roof? yes. obsessed" },
+      { "dev", "is it haunted" }, { "mara", "it's a museum dev" }, { "dev", "that's not a no" }, { "sam", "snacks are on me this week" } },
+    { { "sam", "so thursday. what are we playing" }, { "jess", "a GNOME has a MUSEUM in a CARAVAN" }, { "mara", "i already have questions about the gnome" },
+      { "dev", "do i get to hit anything" }, { "jess", "probably the exhibits" }, { "dev", "sold" } },
+}
+-- A friend whose good news never came out on game night says it in the chat instead (the third
+-- playtest, alive 14: "I'm saving it for the break", and nobody ever heard what it was).
+M.chat_news = {
+    mara = { "ok i never got to say it on thursday. I GOT INTO THE NIGHT COURSE", "forgot to tell everyone: night course. i'm in!!" },
+    dev = { "forgot to say at the table. my sister had the baby!! photos incoming", "uncle dev. that's the news. uncle dev" },
+    jess = { "nobody asked so i'm just saying it. I GOT THE PART", "the news i was saving: i got the part in the play!!" },
+    sam = { "didn't want to interrupt the museum stuff but. i got the job", "the news from thursday: new job. starting monday" },
 }
 
 -- What each of the museum's people knows about the party (the DM runs them, so they remember):

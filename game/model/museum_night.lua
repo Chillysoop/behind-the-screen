@@ -2444,15 +2444,21 @@ function M.table_pick(night, copy, vars)
     if #live <= 1 then
         return live[1] or 1
     end
+    -- (Who has a say: the friends whose heroes are in the scene. One who went off on their own isn't
+    -- there to vote on it, or to act on it. F18, F11.)
+    local players = night:at_hand()
+    if #players == 0 then
+        players = night.players
+    end
     local vals, first, why = {}, {}, {}
     -- (What carries over from the votes before, R10: kept with the adventure, so it lasts the weeks.)
     local adv = night.campaign.adv
     local votes = adv and adv.votes or {}
     local avg_spot = 0
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         avg_spot = avg_spot + (p.m.spotlight or 0)
     end
-    avg_spot = avg_spot / math.max(1, #night.players)
+    avg_spot = avg_spot / math.max(1, #players)
     local edges, edge_words = M.edges(night.campaign)
     -- (A card with a risk on it: what being hurt, or a rough fight, makes them shy of.)
     local risky = false
@@ -2464,19 +2470,19 @@ function M.table_pick(night, copy, vars)
     -- is, so the moment can still turn it. And a friend who's had a big night already lets the others
     -- choose: their taste counts for less, and they speak up last.)
     local avg_fun = 0
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         avg_fun = avg_fun + score.fun(p)
     end
-    avg_fun = avg_fun / math.max(1, #night.players)
+    avg_fun = avg_fun / math.max(1, #players)
     local had_fun = {}
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         had_fun[p.key] = ((p.m.spotlight or 0) > avg_spot + 12 or score.fun(p) > avg_fun + 12) or nil
     end
     local function taste(x, p)
         local e = math.exp(2 * x / M.VOTE_CAP)
         return M.VOTE_TASTE * (had_fun[p.key] and 0.6 or 1) * M.VOTE_CAP * (e - 1) / (e + 1)
     end
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         vals[p.key] = {}
         local best, bv, plain, pv
         for _, i in ipairs(live) do
@@ -2507,11 +2513,11 @@ function M.table_pick(night, copy, vars)
     -- (Said only when the table doesn't already agree, and when it matters to them: nobody needs to
     -- hold out for what everyone wants, or for what they barely mind.)
     local agreed = true
-    for _, p in ipairs(night.players) do
-        agreed = agreed and first[p.key] == first[night.players[1].key]
+    for _, p in ipairs(players) do
+        agreed = agreed and first[p.key] == first[players[1].key]
     end
     local pushers = {}
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         local n = (votes.lost or {})[p.key]
         if n and n > 0 then
             local b = vals[p.key][first[p.key]]
@@ -2552,7 +2558,7 @@ function M.table_pick(night, copy, vars)
         -- (Two against two: the side of whoever went along last time, then the side of whoever found
         -- it, then the keener side. R10.)
         local care = {}
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(players) do
             local i = first[p.key]
             n[i] = (n[i] or 0) + 1
             care[i] = (care[i] or 0) + math.min(4, vals[p.key][i].v) + (pushers[p.key] and 100 or 0)
@@ -2573,9 +2579,9 @@ function M.table_pick(night, copy, vars)
     end
     -- What each says first: the ones with a real reason speak up (two at most), in their own words.
     local spoke = 0
-    local order = util.copy(night.players)
+    local order = util.copy(players)
     local function keen(p)
-        return vals[p.key][first[p.key]].v - (had_fun[p.key] and 3 or 0) + (p == night.actor and 0.8 or 0)
+        return vals[p.key][first[p.key]].v - (had_fun[p.key] and 3 or 0)
     end
     table.sort(order, function(a, b)
         local va, vb = keen(a), keen(b)
@@ -2669,7 +2675,7 @@ function M.table_pick(night, copy, vars)
     -- The talk: someone on the bigger side talks round one friend who barely minds (they answer that
     -- push, in their own voice), and the quiet ones who barely mind come round to where most of them are.
     local top, top_n, tied = tally()
-    local half = #night.players / 2
+    local half = #players / 2
     if top_n <= half then
         local pusher = heard_by[top]
         local caved = false
@@ -2709,7 +2715,7 @@ function M.table_pick(night, copy, vars)
     local asked = false
     if (tied > 1 or top_n <= half) and night.rng:chance(0.75) and not night.gentle then      -- (night 1: they settle it, R6)
         asked = true
-        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or night.players[1]
+        local asker = night:pick_actor({ "casual", "tactician", "storyteller" }) or players[1]
         local card = { id = "table_asks_" .. (copy.id or "x"), type = "table", trigger = "museum_fixed", fixed_actor = true,
                        title = "They ask you",
                        text = "The table can't agree. " .. util.fill(night:fresh(M.WEEKLY.ask_look, "weekly_ask_look"), { name = asker.name })
@@ -2717,7 +2723,7 @@ function M.table_pick(night, copy, vars)
                        options = {} }
         for _, i in ipairs(live) do
             local names = {}
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(players) do
                 if first[p.key] == i then
                     table.insert(names, p.name)
                 end
@@ -2747,7 +2753,7 @@ function M.table_pick(night, copy, vars)
             night.mus.nudged = (night.mus.nudged or 0) + 1
             -- They asked: most take the hint. Only someone who really wants the other way holds out.
             local held = {}
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(players) do
                 if first[p.key] ~= o.nudge then
                     local gap = vals[p.key][first[p.key]].v - vals[p.key][o.nudge].v
                     if gap < 4 then
@@ -2776,7 +2782,7 @@ function M.table_pick(night, copy, vars)
     if nudged_to ~= top then
         local n_heard, n_other = 0, 0
         local counts = {}
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(players) do
             counts[first[p.key]] = (counts[first[p.key]] or 0) + 1
             if first[p.key] == top and said[p.key] == top then
                 n_heard = n_heard + 1
@@ -2802,7 +2808,7 @@ function M.table_pick(night, copy, vars)
         -- Two against two, settled: say how (tally's order: who gave way last time, who found it, who's keener).
         if tied > 1 or (counts[top] or 0) == n_other then
             local by, kind
-            for _, p in ipairs(night.players) do
+            for _, p in ipairs(players) do
                 if first[p.key] == top and pushers[p.key] then
                     by, kind = p, "pushed"
                 end
@@ -2812,7 +2818,7 @@ function M.table_pick(night, copy, vars)
             end
             if not by then
                 local bv
-                for _, p in ipairs(night.players) do
+                for _, p in ipairs(players) do
                     if first[p.key] == top and (not bv or vals[p.key][top].v > bv) then
                         by, bv, kind = p, vals[p.key][top].v, "keen"
                     end
@@ -2820,6 +2826,29 @@ function M.table_pick(night, copy, vars)
             end
             if by then
                 night:say(util.fill(night:fresh(M.VOTE_TIE[kind], "vote_tie_" .. kind) or M.VOTE_TIE[kind][1], { name = by.name }), "aside")
+            end
+        end
+    end
+    -- (Whoever acts on it is one who backed it, from the heroes in the scene: if every voice heard for
+    -- it is off somewhere else, a quiet backer who's here says so. F18, F11.)
+    if nudged_to ~= top then
+        local here, heard_here = {}, false
+        for _, p in ipairs(night:at_hand()) do
+            here[p] = true
+            heard_here = heard_here or (first[p.key] == top and said[p.key] == top)
+        end
+        if not heard_here then
+            for _, p in ipairs(order) do
+                if not heard_here and here[p] and first[p.key] == top then
+                    local friend = heard_by[top]
+                    local sw = (p ~= night.actor and opts[top].short) or short_want(opts[top])
+                    local want_vars = { want = sw, Want = util.capitalize(sw), name = friend and friend.name or "everyone",
+                                        Name = friend and friend.name or "Everyone" }
+                    night:emit({ kind = "say", who = p.key, ic = false,
+                                 text = friend and own_line(night, M.VOTE_SIDE, p, "vote_side", want_vars) or ("Let's " .. want_vars.want .. ".") })
+                    heard(p, top)
+                    heard_here = true
+                end
             end
         end
     end
@@ -2839,13 +2868,13 @@ function M.table_pick(night, copy, vars)
             end
         end
     end
-    for _, p in ipairs(night.players) do
+    for _, p in ipairs(players) do
         if util.contains(night.party_backers, p) then
             table.insert(names, p.name)
         end
     end
     night:say("The table decides: " .. short_want(opts[top]) .. ((nudged_to == top and " (on your nudge)")
-        or ((#names > 0 and #names < #night.players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
+        or ((#names > 0 and #names < #players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
     -- What the next vote remembers (R10): who went along with what they didn't want (they push next
     -- time), and what kind of pick this was (the table notices a habit), in words that name it.
     if adv then
@@ -2853,7 +2882,7 @@ function M.table_pick(night, copy, vars)
         local vt = adv.votes
         -- (The one who minded most: they push next time, harder if it's twice running.)
         local loser, gap = nil, 1.5       -- (minded it: not a shrug)
-        for _, p in ipairs(night.players) do
+        for _, p in ipairs(players) do
             local mine = wanted[p.key]
             if said[p.key] and said[p.key] ~= mine then
                 mine = said[p.key]       -- (what they were heard for: talked round, it's that)

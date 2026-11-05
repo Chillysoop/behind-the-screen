@@ -628,6 +628,8 @@ M.EFFECTS = {
         return true
     end,
     news = function(night, p)
+        night.news_told = night.news_told or {}
+        night.news_told[p.key] = true          -- (told at the table: the chat needn't, museum_week.write_chat)
         for _, o in ipairs(night.players) do
             score.add(o, "social", 4)
         end
