@@ -110,10 +110,20 @@ function M.run(night, who)
             end
             rng:shuffle(reacts)
             local poses = { [p.key] = "cheer" }
+            night.intro_said = night.intro_said or {}
             for k = 1, math.min(keen and 2 or 1, #others) do
                 local q = others[k]
-                night:emit({ kind = "say", who = q.key, text = reacts[k] or reacts[1], ic = false })
-                poses[q.key] = REACT_POSE[tone]
+                local line
+                for _, l in ipairs(reacts) do
+                    if not line and not night.intro_said[l] and not (done[q.key] and string.find(l, "try harder", 1, true)) then
+                        line = l
+                    end
+                end
+                if line then
+                    night.intro_said[line] = true
+                    night:emit({ kind = "say", who = q.key, text = util.fill(line, { char = p.char }), ic = false })
+                    poses[q.key] = REACT_POSE[tone]
+                end
             end
             night:react(poses)
             -- What it does: a moment in the light for them, and everyone warms to the table.

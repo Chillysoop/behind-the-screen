@@ -1514,12 +1514,17 @@ function M.explore(night, sc)
             night:say(found.helps.find_line, "good")
             M.handle(night, { francs = 1, find_text = events.word("pet_find", { pet = found.name or "Their pet" }) }, sc)
         end
-        local arch = LOOK_SAY[p.primary] and p.primary or "casual"
-        -- ("Where are the monsters?" only where there are none: no fight in the room, before or after.)
-        local room = MODULE.rooms[sc.room] or {}
-        local lines = M.look_lines(arch, pl, { calm = not room.encounter and not sc.fought })
-        local line = night:fresh(lines, "look_" .. arch)
-        night:emit({ kind = "say", who = p.key, text = line, ic = LOOK_IC[arch] or false })
+        -- What they make of it: about that thing (MODULE.explore_say), the first look in a room only, and
+        -- nothing at all about a place with nothing to say. (The third playtest, alive 6: a stock line,
+        -- "There's a story behind the X", at every place, 11 a prologue.)
+        local says = MODULE.explore_say and MODULE.explore_say[sc.room] and MODULE.explore_say[sc.room][pid]
+        if says and not sc.look_said then
+            sc.look_said = true
+            local line = night:fresh(says, "look_" .. sc.room .. "_" .. pid)
+            if line then
+                night:emit({ kind = "say", who = p.key, text = line, ic = false })
+            end
+        end
         score.nudge_engagement(p, 4)
         night:apply({ { "actor", spotlight = 2 }, { "arch:explorer", fun = 1 } })
         night.table_min = (night.table_min or 0) + 2

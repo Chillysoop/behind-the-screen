@@ -225,6 +225,7 @@ M.rooms = {
         next = { "garden" }, knobs = { "pry" },
     },
     garden = {
+        statues = true,      -- (what the room has, for lines about it: barks context)
         name = "The garden", part = 1, type = "combat", cost = 2, at = { 50, 86 }, map = "Garden",
         comps = { location = "mus_garden", cast = "mus_briar", goal = "mus_cross_garden", complication = "mus_tentacles", reward = "mus_francs" },
         encounter = { "briar_triceratops", "briar_boar", "briar_beast" }, boss_name = "the briar triceratops",
@@ -237,6 +238,7 @@ M.rooms = {
         next = { "entrance" }, knobs = { "elements", "curtain" },
     },
     entrance = {
+        statues = true, locks = true,
         name = "The entrance hall", part = 1, type = "social", quick = true, cost = 1, at = { 50, 74 }, map = "Entrance",
         comps = { location = "mus_entrance", cast = "mus_sentinel", goal = "mus_donation", complication = "mus_statue", reward = "mus_boon" },
         encounter = { "sentinel" }, boss_name = "the Sentinel", optional_fight = true,
@@ -282,6 +284,7 @@ M.rooms = {
         next = { "offices", "tomorrow", "lecture", "stairs" }, knobs = { "marks" },
     },
     offices = {
+        locks = true,
         name = "The offices", part = 2, type = "mystery", cost = 2, at = { 20, 24 }, map = "Offices",
         comps = { location = "mus_offices", goal = "mus_archivist", complication = "mus_whispers", reward = "mus_notebook" },
         read = "Two quiet studies off the hunting floor. One door is locked from the inside.",
@@ -313,6 +316,7 @@ M.rooms = {
         next = { "lair" },
     },
     lair = {
+        statues = true,
         name = "The Gorgon's lair", part = 3, type = "set_piece", cost = 2, at = { 50, 1 }, map = "Gorgon's lair", boss = true,
         comps = { location = "mus_lair", cast = "mus_euryale", goal = "mus_face_her", complication = "mus_stare", reward = "mus_quiet" },
         encounter = { "euryale" }, boss_name = "Euryale",
@@ -917,7 +921,7 @@ M.moments = {
             points = { "A mirror you can carry. That has to come in handy.", "Look at the shine on that. We're taking one.", "Mirrors are always useful in stories. Always." },
             pulls = { { when = { mark = "know" }, who = { "tactician", "explorer", "storyteller" }, n = 1.2,
                         say = { "The book says a gorgon can't stand her own reflection. We're taking a mirror.", "Gorgons and mirrors. We read about this.",
-                                "Remember the book? A mirror. Take a mirror." } } },
+                                "The gorgon book was very clear. A mirror. Take a mirror." } } },
             log = "{actor_char} unscrews a cupboard door and straps it to {actor_their} pack. Nobody asks why. Someone should.",
             effects = { { "actor", spotlight = 6 }, { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 }, { "arch:power_gamer", fun = 3 } },
             mus = { mark = "mirror", aspect = "Carried a cupboard door upstairs to fight a Gorgon" } },
@@ -1206,6 +1210,49 @@ M.explore = {
     lecture = { "books", "board", looks = 1,
                 finds = { books = { francs = 1, what = "a Franc used as a bookmark",
                                     line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago." } } },
+}
+-- What a friend says on walking over to one of those places (museum_night.explore): about that thing,
+-- one of its ways, and only the first look in a room gets a word; a place with nothing here gets none.
+-- (The third playtest, alive 6: "Wait. Could the front doors be a clue?" and "Stay close" at anything.)
+M.explore_say = {
+    garden = { shears = { "Shears. Pointy end away from me, please.", "Someone left in a hurry. You don't just drop good shears.",
+                          "Gardening shears in a haunted garden. Comforting." },
+               hammer = { "That's a lot of hammer for one garden.", "A sledgehammer. For the stakes. Or for the hedges, if they start something.",
+                          "Leave it there. If something needs knocking down, we know where it is." } },
+    entrance = { light = { "The light's moving, like water. I love it.", "Blue light on marble. This place is showing off.",
+                           "Is the chandelier magic, or just very good candles?" },
+                 front = { "The doors are still open behind us. Good to know.", "Those doors creak like they're complaining.",
+                           "Mental note: that's the way out." } },
+    chamber = { ["3C"] = { "A jackal on a jug. Somebody liked jackals.", "It's small. Like it holds an exact amount of something.",
+                           "There are water marks inside. Somebody's used it." },
+                ["3G"] = { "Bigger than the jackal jug. Much bigger.", "Somebody carved every single feather on that falcon.",
+                           "Heavy. Whatever goes in this, a lot of it does." },
+                ["3H"] = { "A crocodile tap. Of course there's a crocodile tap.", "Don't put your fingers in its mouth. I'm serious.",
+                           "Water out of a crocodile. This museum, honestly." } },
+    paintings = { ["4D"] = { "Look at that engine. It's on fire. On purpose?", "I'd ride that airship. I'd regret it, but I'd ride it.",
+                             "The land under it is all broken. What happened down there?" },
+                  ["4I"] = { "That squid is winning.", "Poor sailors. Nobody signs up for squid.", "Is the paint wet on this one too? I'm not touching it to find out." },
+                  ["4J"] = { "He looks very pleased with himself.", "Smoking pistol, open shirt. He's trouble.", "I don't trust him. I like him. I don't trust him." } },
+    gift_shop = { shelves = { "A jar of beans. For sale. In a museum.", "The rubber snake. I need the rubber snake.", "No refunds. It says so three times." },
+                  souvenirs = { "Everything's priced in Francs. Of course it is.", "I want all of it. I can afford none of it.",
+                                "Who buys a souvenir in a haunted museum? Me. I do." } },
+    hunting = { ["6B"] = { "There's a tiny train! It goes all the way round!", "Twenty feet of city. Somebody built every single window.",
+                           "If we're the giants here, I'm watching where I step." },
+                ["6F"] = { "Birdsong, indoors. That's not right.", "I can't see a thing in there. I don't like that.",
+                           "Something could be watching us from that jungle right now." },
+                ["6H"] = { "That bark looks sharp enough to shave with.", "A tree right up to the ceiling. Indoors. Sure.",
+                           "Worth money, you say? Very carefully, then." } },
+    lecture = { board = { "Chalk dust everywhere. Somebody wrote a lot.", "I can't read the notes. I can tell they're boring, though.",
+                          "The handwriting gets angrier near the bottom." },
+                books = { "These are the dullest books I've ever seen.", "Every single one is about rules. Old rules.",
+                          "I opened one and nearly fell asleep standing up." } },
+    offices = { ["7A"] = { "That bird under the glass has too many wings.", "Gold on the desk. Somebody important worked here.",
+                           "Six wings, and every one looks like an eye. I don't like it." },
+                drawings = { "These drawings are very careful. And very weird.", "A bird's insides, in detail. Lovely.",
+                             "Somebody studied that bird for years. Look at all the notes." } },
+    tomorrow = { cases = { "Machines from tomorrow. Some of them are still ticking.", "I don't know what any of these do, and I want all of them.",
+                           "That one's got a button. Nobody press the button." },
+                 console = { "The voice is so cheerful. Too cheerful.", "Hello to you too, speaker.", "It says welcome every single time. Every time." } },
 }
 
 M.marks = {

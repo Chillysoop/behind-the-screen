@@ -378,7 +378,13 @@ local function curio(night, sc, b, last, forced)
     if b.see then
         night:say(util.fill(b.see, { char = p.char }), "narration")
     end
-    say(night, p, b.ask)
+    -- (What they say they do, one of its ways: the stairs' four looks were the same four sentences in
+    -- every prologue, the third playtest.)
+    local asks = { b.ask }
+    for _, a in ipairs(b.asks or {}) do
+        table.insert(asks, a)
+    end
+    say(night, p, night:fresh(asks, "tl_ask_" .. tostring(b.id)) or b.ask)
     local d, total, pet = tiny_roll(night, p, b.skill)
     local crit = M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14)
     local level = ((d == 20 or total >= M.LORE_AT) and b.lore and "lore") or (total >= M.DETAIL_AT and b.detail and "detail") or "dull"

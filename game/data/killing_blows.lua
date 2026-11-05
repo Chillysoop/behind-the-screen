@@ -20,7 +20,7 @@ return {
         { "One swing. I put everything into it. {boss} doesn't get up." },
         { "I drop my shield, two hands on the sword, and bring it down like a felled tree.", arch = "butt_kicker" },
         { "I wait for the opening I've been setting up for three rounds. There it is.", arch = "tactician" },
-        { "Shield bash, spin, and the pommel to the jaw. Done.", arch = "butt_kicker" },
+        { "Feint, spin, and the pommel to the jaw. Done.", arch = "butt_kicker" },
         { "I don't say anything. I just nod, once, and step in.", arch = "storyteller" },
         { "Low feint, high cut. Textbook. I've practised that one in the yard.", arch = "tactician" },
         { "I catch the blade on my gauntlet, step inside, and that's the end of {boss}.", arch = "power_gamer" },

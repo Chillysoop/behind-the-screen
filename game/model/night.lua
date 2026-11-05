@@ -120,7 +120,7 @@ function M.new(campaign, prep, opts)
     self.talk = talk_mod.new(self.rng)
     self.talk.openers = {}      -- lines that open alike, once a night (dialogue.opener)
     self.talk:set_present(self.players)
-    self.talk:remember_weeks(campaign, 3)   -- a speaker doesn't repeat a line for three weeks (A5)
+    self.talk:remember_weeks(campaign, 5)   -- a speaker doesn't repeat a line for five weeks, a whole prologue (A5; round three)
     self.clock = 0
     self.counts = { decision = 0, ruling = 0 }
     self.fights = 0
@@ -661,6 +661,21 @@ function M:bark_context(more)
         end
     end
     ctx.clue = self.heard_lore or nil
+    -- (No fight yet tonight: "Finally" means something.)
+    local ev_mod = util.lazy("game.model.events")
+    ctx.first_fight = not ev_mod.any(self.campaign, { kind = "fight", session = self.campaign.week }) or nil
+    -- (What the room has: a lock, a statue, a puzzle; whether they've looked round it already; whether
+    -- the night's last beat was a big one. The adventure's rooms say: `locks`, `statues`.)
+    if sc then
+        local r = self.mus and util.lazy("game.model.adventure").data.rooms[sc.room or ""] or {}
+        ctx.lock = r.locks or nil
+        ctx.statue = r.statues or nil
+        ctx.puzzle = sc.type == "puzzle" or nil
+        ctx.looked = sc.explored or nil
+    end
+    local beats = ev_mod.beats(self.campaign, self.campaign.week)
+    local lastb = beats[#beats]
+    ctx.big_ending = (lastb and (lastb.kind == "fight" or lastb.kind == "ending" or lastb.kind == "setback" or (lastb.kind == "moment" and not lastb.look))) or nil
     for k, val in pairs(more or {}) do
         ctx[k] = val
     end
@@ -1395,6 +1410,11 @@ function M:banter()
         if x.key == l.to then
             q = x
         end
+    end
+    -- (About what's here: "Stop talking to the statue" with no statue in the room, the third playtest.)
+    local ctx = self:bark_context()
+    if not (barks.context_fits(l.text, ctx) and barks.context_fits(l.reply, ctx)) then
+        return
     end
     local v = self:vars({ char = p.char, name = p.name })
     self:emit({ kind = "say", who = p.key, text = util.fill(l.text, v), ic = true, line = l.id })
@@ -3729,8 +3749,16 @@ function M:combat_scene(sc)
         for _, c in ipairs(self.pc_list or {}) do
             close = close or (not c.dead and c.hp_max and c.hp <= c.hp_max * 0.35)
         end
-        self:bark(self:pick_actor({ "butt_kicker", "casual", "tactician" }), close and "victory_close" or "victory",
-            (sc.boss_ran or sc.boss_yielded) and { boss = false } or nil)
+        -- (Nor after a long fight, one where a hero came close at any point, or one the boss walked away
+        -- from: the third playtest heard "Too easy." after Brannoc fought on at 1 HP, and after six rounds
+        -- with a Gorgon who got away.)
+        local rec = self.fight_record
+        close = close or (result.rounds or 0) >= 5 or (rec and rec.fight == f and next(rec.close or {}) ~= nil) or sc.boss_ran or sc.boss_yielded or false
+        -- ("Nobody tell my character how close that was" only from someone whose hero it was.)
+        local who = self:pick_actor({ "butt_kicker", "casual", "tactician" })
+        local bx = (sc.boss_ran or sc.boss_yielded) and { boss = false } or {}
+        bx.ctx = { self_close = who and rec and rec.fight == f and rec.close and rec.close[who.key] or nil }
+        self:bark(who, close and "victory_close" or "victory", bx)
         for _, p in ipairs(self.players) do
             score.add(p, "challenge", 6)
             score.add(p, "fun", 2)

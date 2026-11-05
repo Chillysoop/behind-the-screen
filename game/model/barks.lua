@@ -96,6 +96,14 @@ local CONTEXT = {
     big_foe = function(c) return c.big == true end,
     several_foes = function(c) return (c.foes or 0) > 1 end,
     boss_is_a_thing = function(c) return c.thing == true end,
+    self_close = function(c) return c.self_close == true end,
+    lock_here = function(c) return c.lock == true end,
+    puzzle_here = function(c) return c.puzzle == true end,
+    never = function() return false end,
+    not_looked = function(c) return not c.looked end,
+    big_ending = function(c) return c.big_ending == true end,
+    statue_here = function(c) return c.statue == true end,
+    first_fight = function(c) return c.first_fight == true end,
 }
 M.CONTEXT = CONTEXT
 
