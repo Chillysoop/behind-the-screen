@@ -27,7 +27,7 @@ return {
         { "I yell. Really loud. And then I hit {boss} really hard.", arch = "casual" },
         { "Is it okay if I kick them off the edge? I'm kicking them off the edge.", arch = "instigator" },
         { "Brannoc leans on his sword afterwards and lets himself breathe for the first time all night." },
-        { "I offer {boss} a hand up. They swing at me. I don't offer twice." },
+        { "I offer {boss} a hand up, and get a swing at my head for it. I don't offer twice." },
     },
     rogue = {
         { "I'm not there. Then I'm behind {boss}. Then it's over." },

@@ -4100,6 +4100,15 @@ function M:party_moment(sc)
 end
 
 function M:friction_act(sc, def, doer)
+    -- (Something pocketed is named, from this room, and in the log: it comes back before the end.)
+    local pocketed
+    if def.pocket then
+        local adv = util.lazy("game.model.adventure")
+        pocketed = sc and adv.data and (adv.data.pocketables or {})[sc.room]
+        if not pocketed then
+            return
+        end
+    end
     self.friction_done[def.id] = true
     if self.campaign.adv then
         self.campaign.adv.acts_done = self.campaign.adv.acts_done or {}
@@ -4107,8 +4116,11 @@ function M:friction_act(sc, def, doer)
     end
     local target = def.target and self:pick_actor(nil, doer) or nil
     local v = { actor_char = doer.char, actor = doer.name, target_char = target and target.char or "",
-                target = target and target.name or "" }
+                target = target and target.name or "", pocketed = pocketed }
     self:say(util.capitalize(util.fill(def.line, self:vars(v))), "twist")
+    if pocketed then
+        events.add(self.campaign, { kind = "pocket", who = doer.key, thing = pocketed, where = sc and sc.room })
+    end
     -- How you answer it: a quick card when there's room for one, otherwise you let it ride.
     local fr = content.friction
     local resp
@@ -4282,8 +4294,30 @@ function M:bond_act(sc, def, doer)
     if not target then
         return
     end
+    -- A promise (first pick of the next find): only one at a time, never once it's all over, and kept
+    -- by museum_night.first_pick. Giving back what was pocketed names it, from the log.
+    local st = self.campaign.adv
+    local back
+    if def.promise and (not st or st.first_pick or st.ending or (sc and sc.room == "thanks")) then
+        return
+    end
+    if def.pocket_back then
+        for _, ev in ipairs(events.find(self.campaign, { kind = "pocket", who = doer.key })) do
+            back = back or (not ev.returned and ev) or nil
+        end
+        if not back then
+            return
+        end
+    end
     self.friction_done[def.id] = true
-    local v = { actor_char = doer.char, actor = doer.name, target_char = target.char, target = target.name }
+    local v = { actor_char = doer.char, actor = doer.name, target_char = target.char, target = target.name,
+                pocketed = back and back.thing or nil }
+    if def.promise and st then
+        st.first_pick = { by = doer.key, to = target.key, week = self.campaign.week }
+    end
+    if back then
+        back.returned = self.campaign.week
+    end
     self:say(util.capitalize(util.fill(def.line, self:vars(v))), "good")
     rapport.bond(self.campaign, doer.key, target.key, def.rapport or 3, def.amends)
     self:react({ [doer.key] = "cheer", [target.key] = "laugh" })

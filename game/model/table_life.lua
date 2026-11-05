@@ -168,7 +168,11 @@ local function candidates(night, sc, room, phase, last)
     -- About one table bit a night (the second playtest review: one in about 27 moments): rare until
     -- the night has had a beat or two without one, likely then, and rare again once there's been one.
     local bit_w = ((tl.bits or 0) > 0 and 0.4) or (((tl.n or 0) >= 1) and 12) or 1
-    for _, t in ipairs(room.table_bits or {}) do
+    -- (Two at most: a third is one too many for "about one a night".)
+    if (tl.bits or 0) >= 2 then
+        bit_w = 0
+    end
+    for _, t in ipairs(bit_w > 0 and room.table_bits or {}) do
         -- (A bit that's one friend's waits if that friend just had a beat.)
         -- (The marbles, once bought, are bought: no haggling for them again.)
         local bought = t.kind == "haggle" and t.buys and require("game.model.items").owned(night.campaign, t.buys)

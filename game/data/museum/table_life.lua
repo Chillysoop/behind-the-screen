@@ -497,7 +497,7 @@ return {
         { kind = "haggle", who = "dev", buys = "marbles", price = 3, lines = {
             "Brannoc leans on the counter. \"How much for the marbles? For throwing.\"",
             "Telpur: \"Three Francs. And you throw them upstairs, not at my shelves.\"" },
-          cheaper = "Telpur sighs. \"Fine. Two Francs, for the face.\" {char} counts them out of the pool, and the marbles are {char}'s.",
+          cheaper = "Telpur sighs. \"Fine. Two Francs, for the face.\" Two Francs out of the pool, and the marbles are {char}'s.",
           even = "Three Francs out of the pool, and the bag of marbles is {char}'s.",
           dearer = "\"Four. Lace tax.\" {char} pays it out of the pool, grumbling, and pockets the marbles.",
           short = "{char} counts the pool. Not enough for marbles, even at {n}. \"Next time,\" says Telpur." },

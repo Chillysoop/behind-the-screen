@@ -99,6 +99,9 @@ local function play(seed, style)
         for _, pr in ipairs(c.adv.prompts) do
             if pr.kind == "request" then
                 adventure.answer_request(c, pr.id, adventure.data.ANSWERS[style == "careful" and 2 or rng:int(1, 4)])
+                if pr.id == "vorpal" then
+                    T.vorpal_week = w
+                end
             elseif pr.kind == "loose" then
                 adventure.answer_loose(c, pr.id, 1)
             elseif pr.kind == "ruling" then
@@ -326,7 +329,7 @@ local function notes_owner(T)
         if e.kind == "line" then
             heard[e.w] = (heard[e.w] or "") .. "\n" .. e.text
             local h = hero_in(e.text)
-            if h and (string.find(e.text, "pages", 1, true)) and (string.find(e.text, "gathers", 1, true)
+            if h and (string.find(e.text, "page", 1, true)) and (string.find(e.text, "gathers", 1, true)
                 or string.find(e.text, "scoops", 1, true) or string.find(e.text, "picks the pages", 1, true)) then
                 pages_by = h
                 add("B1", "pages_picked_up")
@@ -344,7 +347,7 @@ local function notes_owner(T)
             for h, what in string.gmatch(e.text, "(%a+) came away with the (%a+'s %a+)") do
                 if KEY[h] and (what == "Lecturer's notes" or what == "archivist's notebook") then
                     add("B1", "chain_came_away")
-                    local word = what == "Lecturer's notes" and "pages" or "notebook"
+                    local word = what == "Lecturer's notes" and "page" or "notebook"
                     local ok = false
                     for line in string.gmatch(heard[e.w] or "", "[^\n]+") do
                         ok = ok or (string.find(line, h, 1, true) and string.find(line, word, 1, true) and true)
@@ -486,9 +489,93 @@ local function bracelet_given(T)
             local sentence = string.match(e.text, "([^.]*bracelet[^.]*)") or e.text
             if not given_to then
                 fail("B2", tag(T, e.w) .. ": '" .. sentence .. "', and nobody saw Flitwidget hand it over")
-            elseif hero_in(sentence) ~= given_to then
+            elseif hero_in(sentence) and hero_in(sentence) ~= given_to then     -- (a new hero in a fallen one's seat: not the four)
                 fail("B2", tag(T, e.w) .. ": " .. given_to .. " was given the bracelet, and '" .. sentence .. "'")
             end
+        end
+    end
+end
+
+-- Promises kept: the vorpal sword the DM said Telpur stocks is on his shelf; the red switch they saved
+-- for her is flipped in her lair; first pick goes to the friend it was promised to; what was pocketed
+-- is named and comes back by the end; nobody counts loot there isn't.
+local function promises_kept(T)
+    local yes, shown, saved, switch, mech_in_lair, lair_fight = false, false, false, false, false, false
+    local promised, kept, pockets, returned, thanks = 0, 0, {}, {}, false
+    for _, e in ipairs(T) do
+        if e.kind == "line" then
+            local t = e.text
+            if string.find(t, "the vorpal sword. The tag says forty Francs", 1, true) then
+                shown = true
+            end
+            if string.find(t, "They saved the red switch", 1, true) or string.find(t, "snaps the panel shut. For the Gorgon", 1, true) then
+                saved = true
+            end
+            if string.find(t, "red switch, saved for her", 1, true) or string.find(t, "flips", 1, true) and string.find(t, "red switch", 1, true)
+                or string.find(t, "The red switch goes over", 1, true) then
+                switch = true
+                add("B2", "switch_flipped")
+            end
+            if e.room == "lair" and string.find(t, "clanks up the stairs behind them", 1, true) then
+                mech_in_lair = true
+            end
+            if string.find(t, "have first pick of whatever the party finds next", 1, true) then
+                promised = promised + 1
+                add("B2", "first_pick_promised")
+            elseif string.find(t, "first pick", 1, true) or string.find(t, "First pick", 1, true) then
+                if not HERO[e.who] then
+                    kept = kept + 1
+                    add("B2", "first_pick_kept")
+                end
+            end
+            local what = string.match(t, "^%a+ pockets (.-)%. 'Sorry, it's just what")
+            if what then
+                table.insert(pockets, what)
+                add("B2", "pocketed_named")
+            elseif string.find(t, "pockets something small", 1, true) then
+                fail("B2", tag(T, e.w) .. ": '" .. t .. "' never says what")
+            end
+            for _, p in ipairs(pockets) do
+                if not returned[p] and string.find(t, p, 1, true) and (string.find(t, "back", 1, true) or string.find(t, "across the counter", 1, true)) then
+                    returned[p] = true
+                    add("B2", "pocketed_back")
+                end
+            end
+            if string.find(t, "counts the loot alone", 1, true) then
+                fail("B2", tag(T, e.w) .. ": '" .. t .. "', with no loot to count")
+            end
+        elseif e.kind == "chat" and string.find(e.text or "", "", 1, true) then
+            -- (nothing)
+        elseif e.kind == "scene" and string.find(e.text or "", "gift shop", 1, true) and T.c.adv.ending and e.w == #T.reps then
+            thanks = true
+        elseif e.kind == "battle" and e.phase == "start" and e.room == "lair" then
+            lair_fight = true
+        end
+    end
+    local answered = T.c.adv.answered or {}
+    if answered.vorpal == "yes" then
+        add("B2", "vorpal_yes")
+        if T.c.adv.done and T.c.adv.done.gift_shop and not shown and (T.c.adv.flags or {}).vorpal_price then
+            -- (The yes came before a visit to the shop: it's on the shelf when they're there.)
+            local after = false
+            for _, e in ipairs(T) do
+                -- (A visit to the shop itself, a week after the yes could have come: the room, not the thanks.)
+                after = after or (e.kind == "scene" and e.room == "gift_shop" and e.w >= (T.vorpal_week or 99) and true)
+            end
+            if after then
+                fail("B2", tag(T) .. ": the DM said Telpur stocks a vorpal sword, and it was never on his shelf")
+            end
+        end
+    end
+    if saved and mech_in_lair and lair_fight and not switch then
+        fail("B2", tag(T) .. ": they saved the Mech's red switch for her, and it was never flipped in her lair")
+    end
+    if thanks and kept < promised then
+        fail("B2", tag(T) .. ": first pick promised " .. promised .. " times, kept " .. kept)
+    end
+    for _, p in ipairs(pockets) do
+        if thanks and not returned[p] then
+            fail("B2", tag(T) .. ": " .. p .. " was pocketed, and never came back")
         end
     end
 end
@@ -592,6 +679,25 @@ local function gold_in(text)
     return nil
 end
 local function reward_number(T)
+    -- (The report's "Picked up" is the same number the table heard, in real gold, with why it moved.)
+    for w, night in pairs(T.nights) do
+        for _, g in ipairs(night.mus and night.mus.got or {}) do
+            local n = tonumber(string.match(g, "^(%d+) gold each"))
+            if n then
+                add("B3", "report_rewards")
+                local paid = adventure.reward_gold(T.c)
+                if n ~= paid then
+                    fail("B3", tag(T, w) .. ": the report says '" .. g .. "', and Flitwidget pays " .. paid)
+                end
+                if not string.find(g, "not Francs", 1, true) then
+                    fail("B3", tag(T, w) .. ": the report says '" .. g .. "', and never says it's gold, not Francs")
+                end
+                if T.c.adv.ending == "escape" and not string.find(g, "half", 1, true) then
+                    fail("B3", tag(T, w) .. ": she got away, and the report says '" .. g .. "' without the half")
+                end
+            end
+        end
+    end
     local cur
     for _, e in ipairs(T) do
         local n = e.kind == "line" and gold_in(e.text)
@@ -648,12 +754,77 @@ end
 
 -- Targeted cases ---------------------------------------------------------------------------------
 
+local function fresh_campaign(seed)
+    adventure.enter()
+    local c = campaign_mod.new(seed or 5)
+    adventure.enter(c)
+    c:session_zero(social.default_choices())
+    return c
+end
+
+-- B3 (the engine review, item 16): the dice shown are the dice won. A friend who says in the chat
+-- they bought new dice shows off those that week; the report's NEW DICE is this week's box.
+case("B3", function()
+    CUR = "dice"
+    local dice_sets = require "game.model.dice_sets"
+    local loot = require "game.model.loot"
+    local c = fresh_campaign(11)
+    c.week = 3
+    local d = dice_sets.get(c)
+    d.players.sam = "jade"
+    d.bought = { key = "sam", set = "jade", week = 3 }
+    local night = { campaign = c, players = c.players }
+    for _, p in ipairs(c.players) do
+        p.present = true
+        p.commitment, p.last_tier = 99, "loved"
+    end
+    local q, sid = dice_sets.show_off(night)
+    if not (q and q.key == "sam" and sid == "jade") then
+        fail("B3", "Sam bought jade dice in the chat, and the night shows off " .. tostring(q and q.key) .. "'s " .. tostring(sid))
+    else
+        add("B3", "dice_bought_shown")
+    end
+    local bag = loot.bag(c)
+    bag[1], bag[2], bag[3] = "rose_quartz", "ruby", "jade"
+    d.opened = { set = "ruby", week = 3 }
+    local i, new = loot.newest_index(c)
+    if not (i == 2 and new) then
+        fail("B3", "this week's box was the second set in the bag, and the report shows set " .. tostring(i))
+    else
+        add("B3", "dice_newest_shown")
+    end
+end)
+
+-- B3: the reward in words and the report's reasons (the board's number, moved only for a reason said).
+case("B3", function()
+    CUR = "reward_words"
+    local c = fresh_campaign(12)
+    local st = c.adv
+    st.gold, st.gold_docked, st.ending = 20, 10, nil
+    local v = adventure.reward_vars(c)
+    if v.gold_word ~= "twenty" or v.gold_up_word ~= "thirty" then
+        fail("B3", "docked to twenty: the words are " .. tostring(v.gold_word) .. " and " .. tostring(v.gold_up_word))
+    end
+    adventure.apply(c, { gold_up = 10 })
+    if st.gold ~= 30 then
+        fail("B3", "talked up ten from twenty, and the reward is " .. tostring(st.gold))
+    end
+    st.ending = "escape"
+    local paid = adventure.reward_gold(c)
+    local why = adventure.reward_why(c)
+    if paid ~= 15 or not string.find(why, "half of thirty", 1, true) or not string.find(why, "not Francs", 1, true) then
+        fail("B3", "an escape after a dock and a haggle pays " .. tostring(paid) .. " (" .. tostring(why) .. ")")
+    else
+        add("B3", "reward_reasons")
+    end
+end)
+
 -- Run everything ---------------------------------------------------------------------------------
 
 -- (name, scan): a fail is counted under its scan's name, so the line per finding says which part failed.
 local SCANS = { { "lock", lock_owner }, { "voice", voice_owner }, { "praise", praise_owner }, { "paint", paint_owner },
                 { "notes", notes_owner }, { "asker", asker_owner },
-                { "stock", stock_owned }, { "bracelet", bracelet_given }, { "pool", money_heard }, { "reward", reward_number },
+                { "stock", stock_owned }, { "bracelet", bracelet_given }, { "promises", promises_kept }, { "pool", money_heard }, { "reward", reward_number },
                 { "breakages", breakages_true } }
 local t0 = os.clock()
 local runs = 0

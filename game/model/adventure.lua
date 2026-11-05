@@ -583,20 +583,24 @@ function M.reward_vars(campaign)
     return { gold = util.int(now), gold_word = M.gold_word(now), Gold_word = util.capitalize(M.gold_word(now)),
              gold_up_word = M.gold_word(up_now), Gold_up_word = util.capitalize(M.gold_word(up_now)) }
 end
--- Why the reward is what it is, for the report: talked up, or docked, from the book's thirty.
+-- Why the reward is what it is, for the report: in real gold, not Francs, and how it got from the
+-- book's thirty to what's paid (docked, talked up, halved for an escape), so the board's number and
+-- the report's are the same number with its reasons (the engine review: "15 gold each, not 30" on the
+-- board, and "20 gold each" on the report).
 function M.reward_why(campaign)
     local st = campaign.adv or {}
-    local bits = {}
-    if (st.gold_up or 0) > 0 then
-        table.insert(bits, "talked up " .. M.gold_word(st.gold_up))
-    end
+    local bits = { "real gold, not Francs" }
     if (st.gold_docked or 0) > 0 then
         table.insert(bits, M.gold_word(st.gold_docked) .. " off for what they did")
     end
-    if st.ending == "escape" then
-        table.insert(bits, "half, for letting her go")
+    if (st.gold_up or 0) > 0 then
+        table.insert(bits, "talked up " .. M.gold_word(st.gold_up))
     end
-    return #bits > 0 and table.concat(bits, ", ") or nil
+    if st.ending == "escape" then
+        local _, full = M.reward_gold(campaign)
+        table.insert(bits, "half of " .. M.gold_word(full) .. ", for letting her go")
+    end
+    return table.concat(bits, "; ")
 end
 
 -- The escape's cost in words, for the boss board and the cards that let her go.

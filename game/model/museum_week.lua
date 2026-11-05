@@ -501,6 +501,7 @@ function M.write_chat(c)
             local ds = require "game.model.dice_sets"
             if ds.data.SETS[b.dice] then
                 ds.get(c).players[b[1]] = b.dice
+                ds.get(c).bought = { key = b[1], set = b.dice, week = c.week }   -- (and they show off these: dice_sets.show_off)
             end
         end
         if b[3] and b[4] and c:player(b[3]) then

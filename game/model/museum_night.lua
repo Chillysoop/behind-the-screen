@@ -66,7 +66,7 @@ end
 -- across weeks; on the Dialogue Desk (tools/dialogue/export.lua CODE_TABLES, when.lua).
 M.WORLD_LINES = {
     -- The Lecturer's notes, picked up by whoever's best with a page (the room's end, the Lecturer silenced).
-    pages = { "{char} gathers the pages up off the floor before they can drift any further.",
+    pages = { "{char} gathers every page up off the floor.",
               "{char} scoops up the three pages, careful not to read a single word.",
               "{char} picks the pages up by one corner and folds them away, unread." },
     -- A Franc paid for what they did, when the moment's own words didn't hand it over (to the hero
@@ -87,6 +87,14 @@ M.WORLD_LINES = {
     between_francs = { "Between sessions, {who} pressed {n} Flitwidget Francs on them, \"for the trouble\". That's {pool} in the pool.",
                        "{who} slipped them {n} Francs between sessions, with a wink. The pool's at {pool}.",
                        "Since last time, {who} has found {n} Francs for them, from somewhere. {pool} in the pool now." },
+    -- A promise kept: first pick of the next find, to the friend it was promised to.
+    first_pick = { "{by} hangs back: \"First pick's {to_char}'s. I promised.\"",
+                   "{to_char} gets first pick, as {by_char} promised.",
+                   "\"Yours,\" says {by}, nodding at {to_char}. \"First pick. A promise is a promise.\"" },
+    -- What a hero pocketed, given back at Flitwidget's thanks if it hasn't come back already.
+    pocket_back = { "{char} quietly puts {thing} back on Flitwidget's counter. Flitwidget pretends not to see.",
+                    "Before the biscuits, {char} slides {thing} across the counter to Flitwidget. \"Found it.\"",
+                    "{char} gives {thing} back to Flitwidget, a little sheepishly. He pockets it and says nothing." },
     -- The archivist's notebook, taken by whoever took the second study in (the room's end).
     notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
                  "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",
@@ -880,7 +888,9 @@ function M.play_moment(night, card, sc)
         for _, p in ipairs(backers) do
             backs = backs or p == night.actor
         end
-        if #backers > 0 and night.actor and not backs and not owned then
+        -- (A card about what one hero holds still names them; if they were against what the table
+        -- settled, someone who wanted it does it: F18.)
+        if #backers > 0 and night.actor and not backs then
             copy.text = util.fill(copy.text or "", vars)
             night.actor = backers[1]
         end
@@ -1410,6 +1420,13 @@ function M.hand_off(night, id, finder)
     end
     -- (Only to a hero in this scene: one who's wandered off isn't there to take it. Wave 1's leftover, F11.)
     local here = night:at_hand()
+    -- (A friend promised first pick: theirs, if they can use it.)
+    local promised = M.first_pick(night, function(p)
+        return items_mod.can_use(c, p, id)
+    end)
+    if promised then
+        return promised
+    end
     local best = items_mod.pick_holder(c, id, #here > 0 and here or night.players)
     finder = finder or night.actor
     if not best or not finder or best == finder then
@@ -3406,8 +3423,8 @@ function M.after_room(night, sc)
                 night:say("Upstairs, the drone through the floor stops. Euryale notices the quiet.", "interlude")
             end
             -- (The pages go to whoever's best with a page of the heroes there, and the table sees it.)
-            local reader, rm
-            for _, p in ipairs(night:at_hand()) do
+            local reader, rm = M.first_pick(night), nil
+            for _, p in ipairs(reader and {} or night:at_hand()) do
                 local _, m = night:best_skill(p, { "investigation", "history" })
                 if m and (not rm or m > rm) then
                     reader, rm = p, m
@@ -3430,8 +3447,8 @@ function M.after_room(night, sc)
             -- (Whoever took the second study in takes it off the desk: round three, "Thessaly came away
             -- with the notebook" when Oswin read it.)
             local inside = events.last(c, { kind = "moment", card = "mus_office_inside", session = c.week })
-            local taker
-            for _, p in ipairs(night:at_hand()) do
+            local taker = M.first_pick(night)
+            for _, p in ipairs(taker and {} or night:at_hand()) do
                 if inside and p.key == inside.who then
                     taker = p
                 end
@@ -3491,6 +3508,32 @@ function M.owner_sees(night, person, sc)
     M.log_beat(night, { kind = "notice", who = person, whom = it.holder, thing = it.thing, from = ev.id,
                         text = events.word("spotted", { who = SPOT_NAME[person] or person, thing = what, char = p.char }) }, sc)
     return ev
+end
+
+-- First pick of the next find (the friends' promise, night.lua bond_act: st.first_pick): when the party
+-- finds something, it's theirs, if they're here and can use it (can: a test, for a magic item), and
+-- the table hears the promise kept. Returns the player, or nil.
+function M.first_pick(night, can)
+    local st = st_of(night)
+    local fp = st.first_pick
+    if not fp then
+        return nil
+    end
+    local to, by
+    for _, p in ipairs(night:at_hand()) do
+        if p.key == fp.to then
+            to = p
+        end
+    end
+    by = present(night, fp.by)
+    if not to or (can and not can(to)) then
+        return nil
+    end
+    st.first_pick = nil
+    events.add(night.campaign, { kind = "promise", who = fp.by, whom = fp.to, kept = true, where = night.scene and night.scene.room })
+    night:say(util.fill(night:fresh(M.WORLD_LINES.first_pick, "first_pick"),
+        { by = by and by.name or "Everyone", by_char = by and by.char or "everyone", to_char = to.char }), "good")
+    return to
 end
 
 -- What the week between handed over, said as the night starts: a thing someone gave a hero (its
@@ -4365,6 +4408,16 @@ function M.thanks_word(night, sc)
         end
     end
     local vars = { broke = #broke_words > 0 and util.join_names(broke_words) or "my exhibits" }
+    -- (Anything pocketed along the way that hasn't come back comes back now, from the log.)
+    for _, ev in ipairs(events.find(c, { kind = "pocket" })) do
+        local p = not ev.returned and present(night, ev.who)
+        if p then
+            ev.returned = c.week
+            night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back, "pocket_back"), { char = p.char, thing = ev.thing }), "table")
+        end
+    end
+    -- (First pick of the gift shop's shelf, promised to a friend and not yet kept: theirs.)
+    M.first_pick(night)
     -- (The one he caught with a hand in his pocket, for the line that forgives them by name.)
     local caught = people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "caught")
     local thief = caught and present(night, caught.who)

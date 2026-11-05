@@ -268,6 +268,9 @@ M.rooms = {
         next = { "hunting" }, knobs = { "comedy" }, level = 3,
         callbacks = {
             { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
+            -- (The DM said yes, Telpur stocks one: there it is, on his shelf, at its price. Round three: the
+            -- yes never showed.)
+            { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as you promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
         },
     },
@@ -337,7 +340,8 @@ M.rooms = {
             { when = { flag = "telpur_along", not_flag = "telpur_fell" }, text = "Telpur hops back onto his counter, laces still dusty from upstairs, and starts telling everyone how he saved the day." },
             { when = { flag = "told" }, text = "\"Telpur told me everything, you know,\" says Flitwidget, pouring the tea. \"Everything.\" He doesn't say which bits he minded." },
             { when = { flag = "guards" }, text = "Flitwidget has already told the next town they're his caravan guards. Nobody remembers agreeing to it." },
-            { when = { flag = "vorpal_lair" }, text = "And behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
+            -- (Said downstairs: it's where they found it, on the way out of her lair.)
+            { when = { flag = "vorpal_lair" }, text = "On the way out of her lair, {given} looked behind Euryale's couch, right where you said it would be: a vorpal sword. It's {given}'s now.",
               give = { magic = "vorpal_sword", who = "dev" } },
         },
     },
@@ -456,7 +460,7 @@ M.beats = {
                     fail = "the painting bit {char}" }, false },
     mus_dice_painting = { false, false },
     mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
-    mus_return_paint = { "{char} slid {gift} back into its painting", "{char} kept {gift} until it dripped away" },
+    mus_return_paint = { "{char} slid {gift} back into its painting", "they kept {gift} until it dripped away" },
     -- (The voice is the DM's, not a hero's: round three heard "Pip did Telpur's voice" after "[dm] The voice is terrible.")
     mus_telpur_bit = { "Telpur got his full voice, and the table cried laughing", false },
     mus_tracks = { "they followed the scratch marks, weapons out", "they went round and made the hunters come to them" },
@@ -824,7 +828,7 @@ M.moments = {
             log = "It slides home without a sound. A Franc appears in {actor_char}'s pocket, and the painted figure in the frame nods.",
             effects = { { "arch:casual", fun = 3 }, { "arch:storyteller", fun = 3 } }, mus = { francs = 1, careful = 1, favor = { who = "flitwidget", n = 1 } } },
           { label = "Keep it till it drips away.", want = "keep it till it drips away",
-            log = "{actor_char} keeps hold of it, dripping, until it's nothing but a puddle and a damp sleeve.",
+            log = "It stays in hand, dripping, until it's nothing but a puddle and a damp sleeve.",
             effects = { { "arch:power_gamer", fun = 4 }, { "arch:instigator", fun = 4 }, { "arch:method_actor", fun = 2 } } },
       } },
 
@@ -1418,9 +1422,21 @@ M.recap_beats = {
 
 -- What the friends do to each other at the table (game/data/friction.lua acts and bonds), in the
 -- museum: every line says what was done, here. false: that one doesn't happen in this adventure.
+-- What a hero pockets from the nearest exhibit (the friends' `my_guy`), room by room: named, in the
+-- log (kind "pocket"), and given back before the end (round three: "Pip pockets something small"
+-- sixteen times, never said what, and it never came back).
+M.pocketables = {
+    street = "a Flitwidget Museum leaflet", garden = "a brass label off a rose bush", entrance = "a foreign coin off the floor",
+    chamber = "a tiny clay scarab", paintings = "a dried-up tube of paint", gift_shop = "a snow globe with the caravan in it",
+    hunting = "a glass eye off a stuffed boar", offices = "a pencil stub with teeth marks in it", tomorrow = "a little brass cog",
+    lecture = "a stick of chalk", stairs = "a dead candle from the stair",
+}
 M.friction = {
     acts = {
-        my_guy = "{actor_char} pockets something small from the nearest exhibit. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+        -- (No loot to count in the museum: a room pays Francs into the pool, out loud.)
+        skim_the_hoard = false,
+        my_guy = { line = "{actor_char} pockets {pocketed}. 'Sorry, it's just what {actor_char} would do,' {actor} shrugs.",
+                   pocket = true },
         lone_wolf = "{actor_char} slips off alone to poke at the exhibits, and everyone else waits by the door for ten minutes.",
         shove_a_friend = "{actor_char} shoves {target_char} into a display case to win an argument.",
         barge_the_bargain = "{actor_char} talks right over {target_char} while {target_char} is still asking questions.",
@@ -1431,7 +1447,11 @@ M.friction = {
                    log = "You make a note, and you keep it: the next big moment is {actor_char}'s.", screen = true },
     },
     bonds = {
-        share_the_loot = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
+        -- (A promise: the next thing the party finds goes to them, and the table hears it kept:
+        -- museum_night.first_pick. Never once the adventure's over.)
+        share_the_loot = { line = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
+                           promise = true },
+        make_amends = { line = "{actor_char} quietly gives back {pocketed}, polished, with a bad drawing as an apology.", pocket_back = true },
         stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
     },
 }
@@ -1719,7 +1739,9 @@ M.showdown = {
     -- her go, and paid out in Flitwidget's thanks (adventure.reward_gold).
     escape = { share = 0.5,
                sub = "It costs: she's out, not beaten, and Flitwidget pays half the reward.",
-               board = "If she gets away, Flitwidget pays half the reward: {half} gold each, not {full}. Letting her run from a long fight, letting her go when she yields and paying her off all count." },
+               -- (The reward is real gold, not his Francs, which only spend in the gift shop: the board
+               -- says so, and the report gives the same number with why it moved. Round three.)
+               board = "If she gets away, Flitwidget pays half the reward: {half} gold each, not {full}. That's real gold, not his Francs. Letting her run from a long fight, letting her go when she yields and paying her off all count." },
     -- She died, but her collection still won the fight: she's fallen all the same.
     dead_but_lost = "Euryale is dead, but her collection drives them back down the stairs. By morning, without her, the exhibits go still.",
     yield = {
