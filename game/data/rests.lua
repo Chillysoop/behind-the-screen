@@ -19,7 +19,7 @@ M.beats = {
       effects = { { "all", social = 6 }, { "arch:butt_kicker", fun = 2 }, { "arch:instigator", fun = 2 } } },
     -- (More of them, the third playtest: 28 of 44 rests showed one of the two above.)
     { id = "glyphs_and_prayers", where = { "any" }, pair = { "pc:mara", "pc:sam" }, tags = { "bond" },
-      line = "Thessaly shows Oswin how she copies glyphs; Oswin shows her the prayer that goes with them. Neither admits the other's was better.",
+      line = "Thessaly shows Oswin how she copies glyphs; Oswin shows her the prayer that goes with each one. Neither admits the other's was better.",
       effects = { { "all", social = 5 }, { "arch:storyteller", fun = 3 } } },
     { id = "bootlace_strap", where = { "any" }, pair = { "pc:dev", "pc:sam" }, tags = { "bond", "mend" }, mend = true,
       line = "Oswin mends a snapped strap on Brannoc's armour with a bootlace and a quiet prayer. It holds. Brannoc is suspicious of how well it holds.",

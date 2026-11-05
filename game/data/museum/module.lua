@@ -977,11 +977,11 @@ M.moments = {
             roll = { dc = 13, skill = { "insight", "religion" }, secret = true, convenient = "success",
                      success = { log = "{actor_char} shakes it off. Just the wind. Probably.", effects = { { "actor", fun = 2 } } },
                      fail = { log = "Something old learns {actor_char}'s name. You write it down for later.",
-                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Heard the Witness whisper {char_their} name" } } } },
+                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Named in a whisper by the Witness" } } } },
           { label = "Pass them a note: they hear it, and only they know.",
             log = "You slide a folded note across the table. It says: \"A voice in the dark says your name, once, the way an old friend would.\" {actor_char}'s player reads it, goes pale, and says nothing.",
             effects = { { "actor", story = 10, fun = 6 }, { "arch:storyteller", investment = 3 }, { "arch:casual", fun = -1 } },
-            mus = { flag = "whispered", aspect = "Heard the Witness whisper {char_their} name" } },
+            mus = { flag = "whispered", aspect = "Named in a whisper by the Witness" } },
       } },
 
     -- The World of Tomorrow -------------------------------------------------------------------

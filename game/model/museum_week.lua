@@ -481,9 +481,26 @@ local ASK_FITS = {
     telpur_deal = function(c) return (c.adv.done or {}).gift_shop ~= nil end,
 }
 
+-- A sad week: last night a hero died, or the party lost a fight. The chat says what happened and
+-- answers it; nobody posts their favourite bit, the rooms' jokes or the week's small talk. (Batch A's
+-- able.somber, a death, a wipe, an ally lost, says the same for game night; at the merge it can stand in.)
+function M.somber(c)
+    local week = (c.week or 1) - 1
+    for _, nc in pairs(c.new_char or {}) do
+        if nc.week == week and nc.was then
+            return true
+        end
+    end
+    if events.any(c, { kind = "fight", session = week, outcome = "lost" }) then
+        return true
+    end
+    return false
+end
+
 function M.write_chat(c)
     local st = c.adv
     local msgs = {}
+    local sad = M.somber(c)
     local said = {}
     local rng = c.rng
     -- Someone else at the table answers a post (not the one who made it, and not the same friend twice
@@ -511,7 +528,7 @@ function M.write_chat(c)
     local own, kinds, vars_of = M.night_lines(c, c.night)
     local posts = 0
     for _, p in ipairs(c.players) do
-        if own[p.key] and posts < 3 then
+        if own[p.key] and posts < 3 and not (sad and (kinds[p.key] == "best" or kinds[p.key] == "kill")) then
             said[p.key] = true
             posts = posts + 1
             local m = { who = p.name, key = p.key, text = own[p.key] }
@@ -546,7 +563,7 @@ function M.write_chat(c)
         local fight = events.last(c, { kind = "fight", where = step.room, session = step.week })
         for k, e in ipairs(MODULE.chat[step.room] or {}) do
             local p = c:player(e.who)
-            local ok = p and not said[e.who] and room_posts < 2 and posts < 5 and adventure.test(c, e.when)
+            local ok = not sad and p and not said[e.who] and room_posts < 2 and posts < 5 and adventure.test(c, e.when)
                 and not (e.won and not (fight and fight.outcome == "won")) and not (e.lost and not (fight and fight.outcome == "lost"))
             if ok then
                 said[e.who] = true
@@ -577,7 +594,7 @@ function M.write_chat(c)
             table.insert(banter, b)
         end
     end
-    if #banter > 0 and c.week > 1 then
+    if #banter > 0 and c.week > 1 and not sad then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
         -- Who said they'd be late, and why: game night's arrivals say the same (night.behavior_line_ok).
