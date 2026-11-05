@@ -428,6 +428,27 @@ if SCREEN then
         end
     end
 end
+-- The most words rising off the minis at once on game night, and on one mini (the engine run, 8_51).
+if SCREEN then
+    local nv = require "game.ui.night_view"
+    local raw_float = nv.float
+    SCREEN.floats, SCREEN.floats_one = 0, 0
+    nv.float = function(a, id, ...)
+        -- (The mock has no 3D table to say where each mini is on screen: every mini at the middle.)
+        if id then
+            a.anchors = a.anchors or { heads = {}, minis = {} }
+            a.anchors.minis = a.anchors.minis or {}
+            a.anchors.minis[id] = a.anchors.minis[id] or { 0.5, 0.45 }
+        end
+        raw_float(a, id, ...)
+        local n, one = #(a.floaters or {}), 0
+        for _, f in ipairs(a.floaters or {}) do
+            if f.id == id then one = one + 1 end
+        end
+        SCREEN.floats = math.max(SCREEN.floats, n)
+        SCREEN.floats_one = math.max(SCREEN.floats_one, one)
+    end
+end
 local function screen_norm(s)
     s = string.lower(string.gsub(s or "", "%s+", " "))
     return (string.gsub(string.gsub(s, "^ ", ""), " $", ""))
@@ -599,6 +620,11 @@ local adventure = require "game.model.adventure"
 screen_facts = function(name)
     local c = self.app and self.app.campaign
     if not c then return end
+    if string.find(name, "^6_report") then
+        local o = require("game.model.loot").opened(c)
+        local set = o and require("game.data.dice").SETS[o.set]
+        fact(name, "new_dice", set and set.name or "-")
+    end
     if string.find(name, "^6_report") and c.report and c.report.museum then
         for _, line in ipairs(c.report.museum.chain or {}) do
             fact(name, "chain", line)
@@ -644,6 +670,10 @@ screen_facts = function(name)
         if t and t.read and t.read.dc then
             fact(name, "read", t.read.result .. "\t" .. string.format("%d", t.read.dc) .. "\t" .. string.format("%d", t.read.total))
         end
+    end
+    if string.find(name, "^6b_levelup") then
+        fact(name, "level", string.format("%d", c.level or 0))
+        fact(name, "last", (c.adv and c.adv.ending) and "yes" or "no")
     end
     if string.find(name, "^4n_notes_log") then
         local log = c.session_log or {}
@@ -1059,11 +1089,16 @@ for week = 1, WEEKS do
         if g == 60 and not app.pending and not app.thought_card then
             if not click_key("night_story") then problem("no Story button on game night" .. where) end
             if not app.recap_left then problem("the Story sidebar didn't open" .. where) end
+            dump_once("5r_story_w" .. week)
+            scan("the Story sidebar" .. where)
+            if not has_text("THE STORY") then problem("the Story sidebar is empty" .. where) end
+            -- (One at a time, the third playtest's engine run: the Table button swaps them.)
             if not click_key("night_table") then problem("no Table button on game night" .. where) end
             if not app.recap_right then problem("the Table sidebar didn't open" .. where) end
+            if app.recap_left then problem("the Story sidebar stayed open beside the Table" .. where) end
             dump_once("5r_recap_w" .. week)
             scan("the recap sidebars" .. where)
-            if not has_text("THE STORY") or not has_text("THE TABLE") then problem("the recap sidebars are empty" .. where) end
+            if not has_text("THE TABLE") then problem("the Table sidebar is empty" .. where) end
             local t0 = app.night.clock
             call(update, self, 2)
             if app.night.clock ~= t0 then problem("the night didn't wait while the recap was open" .. where) end
@@ -1241,6 +1276,9 @@ do
     end
 end
 if tr_file then tr_file:close(); tr_file = nil end
+if SCREEN then
+    print("FACT\tnight\tfloaters\t" .. SCREEN.floats .. "\t" .. SCREEN.floats_one)
+end
 if kit.audit then
     local seen, n = {}, 0
     for _, e in ipairs(kit.audit) do

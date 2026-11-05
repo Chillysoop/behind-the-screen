@@ -7,6 +7,10 @@
 --
 -- CUT    no text cut short ("...") without a hover over it that shows the whole of it
 -- GLOSS  every game word on screen has its hover (tools/tests/gloss_words.lua), LOOSE END included
+-- E11    the level-up cards: the ability raised, no "next session" after the last, nothing overlapping
+-- E16    the report's NEW DICE is tonight's box (engine_screens 16)
+-- E9     the wrap screen's quotes clear of their fun bars (engine_screens 9)
+-- E3     game night's floating labels: the newest few, never a column of them (engine_screens 3)
 -- S1     the prep board: the friends' forecasts, Euryale's marks, the rooms' summaries and Session Zero
 --        asks, the boss night's choices and the spare hours, all in full
 -- S2     the report's chain: every sentence of the night on the report, or on its "whole night" page
@@ -14,6 +18,7 @@
 -- S6     a CARRYING list on the hero's sheet and the party page, with what they carry
 -- S7     the table stats explained: what each is, which way it went, whether that's good; Goodwill and
 --        the mood say what they are; no "Mood this week: ?"
+-- S8     on game night a friend's face agrees with the words under it
 -- S9     the thought card names the key and the button that are really there
 -- S10    a read that falls short says why it still gets the gist
 -- S12    the wrap screen's headline is the report's, and what it says of each friend is true
@@ -101,11 +106,18 @@ local function run(seed)
         local base = string.match(name, "^(.+)%.txt$")
         if base and base ~= "board_minis" then
             local fd = io.open(dir .. "/" .. name)
-            local texts = {}
+            local texts, images, boxes = {}, {}, {}
             for line in fd:lines() do
                 local f = {}
                 for part in string.gmatch(line .. "\t", "(.-)\t") do
                     table.insert(f, part)
+                end
+                if f[1] == "box" and (f[12] or "-") ~= "-" and (tonumber(f[10]) or 1) > 0.01 then
+                    table.insert(images, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), image = f[12], w = tonumber(f[4]),
+                                           h = tonumber(f[5]), pivot = f[6] })
+                end
+                if f[1] == "box" and (tonumber(f[10]) or 1) > 0.01 and f[6] == "nw" then
+                    table.insert(boxes, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), w = tonumber(f[4]), h = tonumber(f[5]) })
                 end
                 if f[1] == "text" and (f[15] or "") ~= "" and (tonumber(f[10]) or 1) > 0.01 then
                     table.insert(texts, { x = tonumber(f[2]), y = 900 - tonumber(f[3]), font = f[11], pivot = f[6],
@@ -117,7 +129,7 @@ local function run(seed)
             for _, t in ipairs(texts) do
                 table.insert(joined, t.text)
             end
-            r.dumps[base] = { texts = texts, joined = norm(table.concat(joined, " ")) }
+            r.dumps[base] = { texts = texts, images = images, boxes = boxes, joined = norm(table.concat(joined, " ")) }
             table.insert(r.names, base)
         end
     end
@@ -301,6 +313,26 @@ for _, r in ipairs(runs) do
                 fail("S1", S .. name .. ": a boss-night choice is cut: \"" .. b[1] .. "\"")
             end
         end
+        -- The map's marks (stairs, their arrows, the party's dots) never on a room's name (the engine run).
+        if name:find("^4_prep") or name:find("^4b_") then
+            for _, im in ipairs(d.images) do
+                local mark = string.find(im.image, "^icon_stairs") or string.find(im.image, "^icon_up") or string.find(im.image, "^icon_down")
+                    or (im.image == "dot" and im.w == 8)
+                if mark and im.y < 420 then
+                    local il = im.x - (PX[im.pivot] or 0) * im.w
+                    local it = im.y - (PY[im.pivot] or 0) * im.h
+                    for _, t in ipairs(d.texts) do
+                        if t.font == "ui14" and t.pivot == "n" and t.y < 420 and t.x > 420 then
+                            local l, tp, rr, b = rect_of(t)
+                            if il < rr - 1 and il + im.w > l + 1 and it < b - 2 and it + im.h > tp + 2 then
+                                fail("P", S .. name .. ": " .. im.image .. " on the map lands on \"" .. t.text .. "\"")
+                            end
+                        end
+                    end
+                    add("P", "map_marks")
+                end
+            end
+        end
         -- The map's labels on the prep board.
         if name:find("^4_prep") then
             for _, t in ipairs(d.texts) do
@@ -333,6 +365,22 @@ for _, r in ipairs(runs) do
         end
         if page then
             add("S2", "whole_night_pages")
+        end
+        -- E16: "NEW DICE" is tonight's box, by name, or it isn't said (the engine run: Rose quartz every week).
+        local nd = facts(r, name, "new_dice")[1]
+        if nd then
+            for i, t in ipairs(d.texts) do
+                if t.text == "NEW DICE" then
+                    local next_t = d.texts[i + 1]
+                    if nd[1] == "-" then
+                        fail("E16", S .. name .. ": \"NEW DICE\" with no box opened tonight")
+                    elseif not (next_t and string.find(next_t.text, nd[1], 1, true)) then
+                        fail("E16", S .. name .. ": \"NEW DICE\" shows \"" .. tostring(next_t and next_t.text) .. "\", tonight's box was " .. nd[1])
+                    else
+                        add("E16", "new_dice_right")
+                    end
+                end
+            end
         end
         -- The wrap-up's "+N" says where the rest is, truly.
         if plain_find(d.joined, "in your notes") then
@@ -565,6 +613,89 @@ for _, r in ipairs(runs) do
         end
     end
 
+    -- E3: the words rising off the minis never pile up (the engine run, 8_51: eighteen in a column).
+    for _, fl in ipairs(facts(r, "night", "floaters")) do
+        local all, one = tonumber(fl[1]), tonumber(fl[2])
+        add("E3", "most_at_once", all)
+        if all > 6 or one > 2 then
+            fail("E3", S .. "game night had " .. all .. " floating labels at once, " .. one .. " on one mini")
+        end
+    end
+
+    -- E11: the level-up cards name what went up; no "next session" once the prologue's over (8_56, 8_28).
+    each_dump(r, "^6b_levelup", function(name, d)
+        local lv, last = facts(r, name, "level")[1], facts(r, name, "last")[1]
+        if lv and lv[1] == "4" then
+            add("E11", "level_4_screens")
+            for _, t in ipairs(d.texts) do
+                if t.text == "+2 to their best ability" then
+                    fail("E11", S .. name .. ": a level-4 card says only \"+2 to their best ability\"")
+                end
+            end
+            local named = 0
+            for _, ab in ipairs({ "STRENGTH", "DEXTERITY", "CONSTITUTION", "INTELLIGENCE", "WISDOM", "CHARISMA" }) do
+                for _, t in ipairs(d.texts) do
+                    if t.text == "+2 " .. ab then
+                        named = named + 1
+                    end
+                end
+            end
+            add("E11", "abilities_named", named)
+        end
+        if last and last[1] == "yes" and plain_find(d.joined, "for next session") then
+            fail("E11", S .. name .. ": the last level-up says \"for next session\"")
+        end
+        -- The headline clear of the line under it (on top of the report, so only these two).
+        local head, sub
+        for _, t in ipairs(d.texts) do
+            if string.find(t.text, "^LEVEL %d!$") then
+                head = t
+            elseif string.find(t.text, "^Everyone picks a subclass") or string.find(t.text, "^Everyone takes an Ability") then
+                sub = t
+            end
+        end
+        if head and sub then
+            local _, _, _, hb = rect_of(head)
+            local _, st = rect_of(sub)
+            if st < hb - 2 then
+                fail("E11", S .. name .. ": \"" .. head.text .. "\" sits on \"" .. sub.text .. "\"")
+            else
+                add("E11", "headlines_clear")
+            end
+        end
+    end)
+
+    -- E9: on the wrap screen a friend's quote never runs into their fun bar (the engine run, 8_15).
+    each_dump(r, "^6r_rewards_w%d+$", function(name, d)
+        for _, t in ipairs(d.texts) do
+            if string.sub(t.text, 1, 1) == "\"" and t.x > 300 and t.x < 340 then
+                local l, tp, rr, b = rect_of(t)
+                add("E9", "quotes")
+                for _, bx in ipairs(d.boxes) do
+                    if bx.h == 10 and bx.w > 100 and bx.x < rr and bx.x + bx.w > l and bx.y < b and bx.y + bx.h > tp then
+                        fail("E9", S .. name .. ": a quote runs into its fun bar: " .. string.sub(t.text, 1, 60))
+                    end
+                end
+            end
+        end
+    end)
+
+    -- S8: on game night a friend's face agrees with the words under it (no frown beside "listening").
+    each_dump(r, "^5", function(name, d)
+        for _, im in ipairs(d.images) do
+            if string.find(im.image, "^face_%a+_frown$") then
+                for _, t in ipairs(d.texts) do
+                    if (t.text == "listening" or t.text == "grinning" or t.text == "leaning in") and t.x > im.x and t.x - im.x < 330
+                        and math.abs(t.y - im.y) < 80 then
+                        fail("S8", S .. name .. ": " .. im.image .. " beside \"" .. t.text .. "\"")
+                    end
+                end
+            elseif string.find(im.image, "^face_%a+") then
+                add("S8", "faces")
+            end
+        end
+    end)
+
     -- P: the polish list. ---------------------------------------------------------------------------------------
     for _, name in ipairs(r.names) do
         local d = r.dumps[name]
@@ -640,7 +771,7 @@ for _, r in ipairs(runs) do
 end
 
 -- What each finding saw, and the failures. -------------------------------------------------------------------
-local IDS = { "RUN", "CUT", "GLOSS", "S1", "S2", "S6", "S7", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P" }
+local IDS = { "RUN", "CUT", "GLOSS", "E3", "E9", "E11", "E16", "S1", "S2", "S6", "S7", "S8", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P" }
 for _, id in ipairs(IDS) do
     note(id)
 end
