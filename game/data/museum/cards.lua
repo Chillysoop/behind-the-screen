@@ -122,7 +122,7 @@ M.cards = {
     { id = "mus_donation", kind = "goal", ask = "about the donation box", name = "Get past the donation box",
       fits = { "social", "puzzle" }, tags = { "funny", "loot" },
       line = "Goal: get through the entrance hall. A sign on the case says the museum runs on donations.",
-      win = "They leave the case alone and head for the far doors. The metal guard watches them all the way.",
+      win = "They leave the case alone and head for the far doors. The metal statue doesn't move. Probably.",
       win_if = { { when = { flag = "boon" }, text = "They head for the far doors, the statue's thanks still ringing off the marble." },
                  { when = { mark = "robbed" }, fled = true, text = "The Sentinel stomps off down a side passage, and the far doors stand open." },
                  { when = { mark = "robbed" }, text = "The Sentinel lies still among the scattered coins, and the far doors stand open." },

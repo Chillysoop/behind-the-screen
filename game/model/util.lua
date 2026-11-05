@@ -156,6 +156,24 @@ function M.pronoun_of(name)
                 put(r.boss_name, by_id[first])
             end
         end
+        -- (And as the table calls them before it's told who they are: "the armoured hunter", "the hooded
+        -- woman", "the Gorgon". game/model/told.lua.)
+        local okt, told = pcall(M.lazy, "game.model.told")
+        if okt and told and told.mask then
+            local names = {}
+            for n, pr in M.sorted_pairs(pronoun_names) do
+                names[#names + 1] = { n, pr }
+            end
+            for _, knows in ipairs({ {}, { gorgon = 0 } }) do
+                local blank = { adv = { told = knows } }
+                for _, np in ipairs(names) do
+                    local ok, said = pcall(told.mask, blank, np[1])
+                    if ok and said ~= np[1] then
+                        put(said, np[2])
+                    end
+                end
+            end
+        end
     end
     local key = name or ""
     if not pronoun_names[key] then

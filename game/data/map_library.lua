@@ -145,8 +145,8 @@ L.boards = {
               line = "A small notebook full of notes on an old picture-writing, dropped by the wall." },
             { id = "3G", x = 14, y = 11, name = "the falcon jar", near = { "falcon" }, kind = "thing",
               line = "A big clay jar with a falcon carved on it." },
-            { id = "3H", x = 12, y = 11, name = "the crocodile tap", near = {}, kind = "fixture",
-              line = "A crocodile set into the wall. Pull its jaw back and water runs out." },
+            { id = "3H", x = 12, y = 11, name = "the carved crocodile", near = {}, kind = "fixture",
+              line = "A crocodile carved into the wall, its jaw set on a lever." },
         },
     },
     museum_paintings = {

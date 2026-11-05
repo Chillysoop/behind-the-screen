@@ -1205,7 +1205,7 @@ function UNITS.F9()
             end
         end
     end
-    local tenets, manual, pair = price["buy the book on gorgon-worshippers"], price["buy the Mech manual"],
+    local tenets, manual, pair = price["buy the scholar's book"], price["buy the Mech manual"],
         price["buy the fire arrows and the slime"]
     if not (tenets and manual and pair) then
         fail("F9", "the shop's three goods aren't all there")

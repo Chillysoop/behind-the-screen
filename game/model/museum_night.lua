@@ -100,7 +100,7 @@ M.WORLD_LINES = {
     -- back, said, before "She lets them go" (the confirming playtest, seed 54: Oswin stone, then whole the
     -- next week with no word).
     -- Her garden burned, and she's beaten them once already: back up her stairs, she knows them.
-    burned_again = { "\"You came back. You still smell of my garden.\" No drink this time either.",
+    burned_again = { "\"You came back. You still smell of my garden.\" She doesn't offer them a seat.",
                      "\"Again? You still smell of smoke.\" She doesn't pour anything.",
                      "Euryale doesn't get up. \"Back from the floor, and still smelling of my garden.\" No drink." },
     stone_let_go = { "Euryale waves a hand, and {names} {crack} out of the stone, gasping.",
@@ -5343,7 +5343,7 @@ function M.showdown_start(night, sc)
         -- (She beat them once already: not her first-meeting words. The confirming playtest, 56 careful.)
         night:say(night:fresh(M.WORLD_LINES.burned_again, "burned_again"), "bad")
     else
-        night:say("\"You burned my garden.\" No drink. No small talk.", "bad")
+        night:say("\"You burned my garden.\" No welcome. No small talk.", "bad")
     end
     M.play_moment(night, sh.talk, sc)
     if not st.ending then

@@ -232,7 +232,7 @@ return {
           lore = "Four curators, the dates going back centuries. The newest is Flitwidget. Someone has scratched a snake into his plaque.",
           react = { dull = { "Don't do its voice. If you do its voice, it'll answer." },
                     detail = { "Two moustaches. Overachiever." },
-                    lore = { "A snake. Who'd scratch a... oh. Oh, right." } },
+                    lore = { "A snake. On the curator's own plaque. That can't be good." } },
           crit20 = { find = "a bright hat feather caught on a bust's moustache", clue = nil },
           crit1 = "Your bust voice is so good a friend jumps and drops a torch, which rolls a long, long way across the marble." },
         { id = "entrance_window", what = "the tall windows", spot = nil,
@@ -648,7 +648,7 @@ return {
             "Oswin holds the candle steady for her, and very carefully doesn't look at anything else." } },
         { kind = "name", who = "jess", lines = {
             "Pip names the six-winged bird Flappy Six. There's no stopping her.",
-            "Thessaly: \"It's a mythril singer.\" Pip: \"Flappy Six, the mythril singer.\"" } },
+            "Pip names the six-winged bird Flappy Six. Thessaly writes it down, under protest." } },
       },
     },
 
@@ -769,7 +769,7 @@ return {
           dull = "They rustle, and settle. Papers.",
           detail = "They're cold and a little see-through, and they make no sound at all when they slide.",
           lore = "Every page is the same lecture, written out again and again, a little duller each time. He's been polishing it.",
-          react = { dull = { "Don't read one. I've got a feeling about reading one." },
+          react = { dull = { "Nobody touch those until we know what they are." },
                     detail = { "Paper that makes no sound. That's worse, somehow." },
                     lore = { "I bet the first draft was quite good." } },
           crit20 = { find = nil, clue = "One page has landed face up. Just its first line makes your eyelids sag. Don't read a whole one." },

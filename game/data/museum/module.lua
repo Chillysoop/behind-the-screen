@@ -301,7 +301,7 @@ M.rooms = {
             { when = { flag = "spork" }, text = "On the counter, between the marbles: the vorpal spork, as promised. Telpur won't sell it. \"Display only.\"" },
             -- (The DM said yes, Telpur stocks one: there it is, on his shelf, at its price. Round three: the
             -- yes never showed.)
-            { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as you promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
+            { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
             -- (The wake was held before they found the shop: word of it got here first. The confirming
             -- playtest, 53 careful, held it here with a boot they hadn't met.)
@@ -414,7 +414,7 @@ M.reinforcements = {
                 soft = "{boss} falls, and something swarms up out of the cracks in the floor. You keep it in the shadows." },
     hunting = { id = "kruthik_huntling", n = 2, tag = "bugs", label = "It falls, but two more huntlings drop in.",
                 line = "{boss} falls, and two more huntlings drop out of the dioramas.",
-                soft = "{boss} falls, and two more of the hunters come out of the dioramas. You keep them in the shadows." },
+                soft = "{boss} falls, and two more of the hunters come out of the dioramas, kept to the edges of the board." },
 }
 -- Once a night, as the first fight starts (museum_night.arm), when they hold: what the week
 -- between left them with. no_sneak: nobody gets the drop on anyone this time.
@@ -805,7 +805,7 @@ M.moments = {
     -- The entrance hall -------------------------------------------------------------------------
     { id = "mus_box", room = "entrance", spot = "2B", at = "start", type = "story", actor = { "casual", "instigator", "method_actor" }, party = true,
       title = "The donation box",
-      text = "A glass case of coins from every world, and a little card: \"Every coin keeps the lamps lit.\" {actor_char} looks at the case, then the lock, then the metal guard standing right there.",
+      text = "A glass case of coins from every world, and a little card: \"Every coin keeps the lamps lit.\" {actor_char} looks at the case, then the lock, then the metal statue standing right there.",
       options = {
           { label = "Somebody drops a coin in.", want = "drop a coin in", short = "pay a coin",
             pulls = { { when = { mark = "garden_burned" }, who = { "tactician", "casual", "storyteller" }, n = 1.5,
@@ -1361,8 +1361,8 @@ M.explore_say = {
                            "There are water marks inside. Somebody's used it." },
                 ["3G"] = { "Bigger than the jackal jug. Much bigger.", "Somebody carved every single feather on that falcon.",
                            "Heavy. Whatever goes in this, a lot of it does." },
-                ["3H"] = { "A crocodile tap. Of course there's a crocodile tap.", "Don't put your fingers in its mouth. I'm serious.",
-                           "Water out of a crocodile. This museum, honestly." } },
+                ["3H"] = { "A crocodile. Of course there's a crocodile.", "Don't put your fingers in its mouth. I'm serious.",
+                           "A lever for a jaw. I'm not pulling it. You pull it." } },
     paintings = { ["4D"] = { "Look at that engine. It's on fire. On purpose?", "I'd ride that airship. I'd regret it, but I'd ride it.",
                              "The land under it is all broken. What happened down there?" },
                   ["4I"] = { "That squid is winning.", "Poor sailors. Nobody signs up for squid.", "Is the paint wet on this one too? I'm not touching it to find out." },
@@ -2030,7 +2030,7 @@ M.showdown = {
     -- of her hit points); then the yield card plays, once the fight has stopped.
     yield_line = "Euryale stops fighting, and her whole collection goes still around her.",
     -- (An ambush the second time up her stairs: she remembers the first. Round three, B3.)
-    ambush_again = { "No drink this time. \"You came back. I hoped you would.\" The bow is already up.",
+    ambush_again = { "No welcome this time. \"You came back. I hoped you would.\" The bow is already up.",
                      "\"Again? I moved the statues to make room for you.\" An arrow is on the string before they reach the top step.",
                      "She's waiting at the top of the stairs this time, bow drawn. \"Last time was a rehearsal.\"" },
     -- What letting her get away costs (R5, D2: Conner, "make the escape card cost something visible on
