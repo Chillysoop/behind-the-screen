@@ -88,8 +88,9 @@ so the editor doesn't need to be open.
    book's moments need, read your friends' thoughts, and decide how big rolls land. A big roll can go in the open or
    behind the screen, where you can cook it. Cook too often and someone will ask to see the dice.
 4. **The report.** The dice box first, then a recap you can edit, how each player felt, their meters for the night,
-   how Commitment, Investment, Trust and Suspicion moved, the best moments, conflicts, and a gift if someone's heart
-   is full. Once the party has played two nights at a level you can level them up from here.
+   how Commitment, Investment, Trust and Suspicion moved (each row says what it is and whether the move is good), the
+   best moments, conflicts, and a gift if someone's heart is full. The night's chain shows under the beats in full,
+   or as much as fits plus "The whole night (N more)", which opens a page with all of it. Once the party has played two nights at a level you can level them up from here.
 5. **Boss night.** A showdown board (how Euryale opens, how far she goes), a talk, the fight and an ending. Then the
    journey recap and a short survey.
 
@@ -227,6 +228,61 @@ where she goes (`main/table/table.script`), and Pip's tile shows his picture.
 **The same seed, the same night.** Every loop whose order changes what happens or what's said walks its keys in
 sorted order (`util.sorted_pairs`), so a seed plays the same way every run and gives the same event log.
 
+## The third playtest (round three)
+
+Five fresh-eyes reviews of 24 prologues, two full UI runs and a real-engine run found what still rang false. What
+changed:
+
+**Who can't act doesn't.** One module owns a hero's state at the table (`game/model/able.lua`): dead, down, stone,
+and in a fight charmed or out of it. `night:at_hand()` asks it, so every picker does: no line, roll, card, vote,
+small moment, idea or epilogue scene for a hero who can't act, and a dead hero's player speaks only as themselves.
+After a death, a wipe or an ally lost the table goes quiet (`able.somber`): no whoops, no fist bumps, a hero back on
+their feet said quietly, and a rules card asked plainly. The wake waits until the danger is past and is held in the
+gift shop (or at the night's end), Flitwidget says something first, and the dead hero's pack is shared out loud
+(`death.hold_wake`, `death.settle_pack`).
+
+**The fight's big moments are told.** Her hood, her stare and who it caught, the mirror and whether it took, turning
+to stone and cracking free, being charmed, Hyper Destroyer Mode, the Mech burning out or powering down, a natural 20
+on a death save: each is said once, as it happens, three ways (`fight.tell_moments`, `BARKS.told`). A hero's own
+spell that catches the party is said too, the friend it hit answers and the caster owns it (`fight.friendly_fire`).
+If they saved the red switch for her, the Mech's commander flips it in her lair, and then the mode is told
+(`fight.saved_switch`).
+
+**Picks steer the foes.** A foe told who to go for keeps after them out of reach and swings at nobody else, until
+it has gone at them. The DM running a foe's turn beats a stare-down from before, and a stare-down beats the tactics
+card's standing call, the same for every foe, the Lecturer and Euryale. "How do you want to do this?" goes to
+whoever really lands the blow, an ally's player too.
+
+**What's destroyed stays destroyed.** An ally smashed or burnt out in her fight comes off her card for good, a lost
+fight's fallen foes stay fallen, and her second ambush remembers the first (`museum_night.lair_losses`).
+
+**Losses lead.** A lost room plays none of its end moments or small moments; a wipe is said once. The report's chain
+and the next night's "Last time, ..." lead with the losses (`events.lead_beats`): a death, a wipe, an ally lost,
+friendly fire that dropped someone, then who went down ("Brannoc went down three times").
+
+**The break and the clock.** A boss night that starts at her door takes its break once her part is settled. A night
+more than a quarter of an hour past the end agreed at Session Zero is said at the table (`night.LATE_LINES`), isn't
+applauded, and the report says how far past it ran and who trusts you less for it. The table, the goodbyes and the
+report read one clock: the minutes the night was judged at (`night:ran_late`).
+
+**One owner for each action.** The hero the setup names is the one who rolls, gets the loot and the credit: the lock
+card, the painted weapon (one, the puller's), the Lecturer's notes and the archivist's notebook (said picked up),
+the rules question's asker, the potion's drinker. Only what's owned fires, and what's given is shown being given:
+the lifted quiver is arrows without the slime, Telpur knows his own stock, Flitwidget's bracelet goes to the hero he
+likes best, the marbles are bought, first pick is kept, and what Pip pockets is named and comes back (through a friend
+when Pip can't). The reward is real gold and one number everywhere: Flitwidget says it first, docks it for what he
+really holds against them, the haggle talks it up ten, an escape halves it, and the report says why
+(`adventure.reward_vars`, `adventure.reward_why`). Every Franc in or out of the pool is in the log and said.
+
+**What they know is true.** The friends know only what the party heard (the Witness, the jugs, the lady by the
+mountains). Session Zero's lines and veils are said at the table after the first night's introductions
+(`intros.asks`), so the night's reminders quote something everyone heard.
+
+**The screens in full.** Text cut short shows the whole of it on hover (`kit.cut_hook`). The prep board's forecasts,
+Euryale's marks, room notes, boss choices and spare hours fit; the report's chain shows in full or as much as fits
+plus "The whole night (N more)", a page with all of it; the stats say what they are and which way is better. Every
+mini shows (`fight.squares_shown`), and a dropped mini stays out of sight until it lands.
+
 ## Session Zero, the table and leveling up (M6)
 
 **Session Zero.** Before week 1 the table talks it through, and people say what they think, so every option shows
@@ -306,12 +362,14 @@ liar) are secret: you roll those behind the screen. A roll's total shows big ove
 
 **Your notes** (N, or the Notes button): the museum, upstairs (Euryale), this session, people, the session log and
 the party with their character sheets. Game night waits while they're open. **The Story and Table sidebars** (S on
-game night) recap where each side of the story stands and each friend's reasons and leanings. Click a person's name
+game night) recap where each side of the story stands and each friend's reasons and leanings. They open one at a
+time: the buttons swap them, and S goes Story, Table, neither. Click a person's name
 in any line for their sheet: who they are, their line now, their stat block and what's in their pockets.
 
 **Character sheets** from a player's tile, their card on the prep board or the notes: Armor Class, hit points,
 abilities and saves, all 18 skills with proficiency and Expertise marked, attacks, spells and slots, every feature
-in full, gear, and what they're carrying (each thing in their pack, with what it does on hover). The numbers are the rules engine's, the same ones the table rolls with.
+in full, the gear they set out with, and CARRYING: what's in their pack now, healing potions first ("Nothing yet"
+when empty), with what each does on hover. The party page lists it too. The numbers are the rules engine's, the same ones the table rolls with.
 
 **Fights you can read.** Hit point bars and conditions over every mini (a coloured ring at the base for the effect
 that matters most), everyone rolling initiative and the turn order along the top, attack numbers in the log ("18 vs
@@ -393,7 +451,7 @@ short and everyone's keen, so the whole table comes every week.
 | Esc | Close the level-up moment, your notes, a sheet, a menu (it asks before throwing away changes), an "are you sure?" or a finished talk | |
 | C | Take a snapshot of the table on game night (three a night) | |
 | N | Your notes (the Notes button on prep and game night) | |
-| S | The Story and Table sidebars on game night | |
+| S | The Story and Table sidebars on game night, one at a time: Story, Table, neither | |
 | M | Music off or on (rain and sounds stay) | |
 | Space | Skip to the next beat of game night | Roll the d20 |
 | F / G | Game night speed: faster (up to 4x) / slower (down to half speed) | |
@@ -484,6 +542,19 @@ with any Lua 5.1+ or LuaJIT interpreter:
     lua tools/tests/roadmap_world_check.lua [runs]   # wave 2's world, played: the log against the packs, her card
                                        # and the fights, people who remember, the friends' ideas, the pickpocket
                                        # slice, the chain with no false causes, and the therefore-or-but baseline
+    lua tools/tests/round3_state_check.lua [extra seeds]   # round three, batch A, played across the 24 reviewed
+                                       # prologues, more seeds, fragile runs and targeted cases: who can't act doesn't,
+                                       # friendly fire said, destroyed stays destroyed, the big moments told, picks
+                                       # steer the foes, losses lead, the break and the clock (about 15s)
+    lua tools/tests/round3_world_check.lua [first last]   # round three, batch B, on the reviews' own seeds (31 to 38,
+                                       # three DMs) exactly as the sim plays them: one owner per action, only what's
+                                       # owned fires and what's given is shown, the money adds up, memory and knowledge
+                                       # are true; plus targeted cases (ALL=1 lists every failure)
+    lua tools/tests/round3_screens_check.lua [seeds]   # round three, batch D: nothing cut without a hover, the prep
+                                       # board and report in full, CARRYING, the stats explained, the engine
+                                       # screenshots' fixes (about 40s)
+    SCREEN_CHECK=1 lua tools/tests/museum_smoke.lua <seed>   # prints CUT_NO_HOVER for text cut short with no hover
+                                       # showing the whole of it, plus FACT and HOVER lines for the screen check
     lua tools/tests/rest_check.lua     # Short and Long Rests by SRD 5.2.1, the party's state carried across nights
     lua tools/tests/dialogue_check.lua # every line well formed, every cell playable, the picker behaves (M5)
     lua tools/tests/board_check.lua    # every board laid out right (lua tools/tests/board_check.lua museum_garden prints one)

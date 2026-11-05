@@ -71,6 +71,10 @@ The story is a pre-written adventure, cut into pieces that remember. The game do
 
 **People who remember.** Flitwidget, Telpur, the Lecturer, Euryale and the companions each think something of each hero and of the party, read from the log through what they saw or were told. It changes what they say, what they charge and what they do: Telpur's prices go up after a theft at his shelf, broken exhibits sour Flitwidget's thanks and his reward, and the Lecturer passes what he hears up to Euryale.
 
+**One owner for each action.** The hero a moment names is the one who rolls, carries what it gave and gets the credit, and what's handed over is shown being handed over. Only what someone owns can fire. The reward is one number everywhere, real gold, said by Flitwidget before anyone haggles; every Franc in or out of the pool is in the log.
+
+**Who can't act doesn't.** A hero who's dead, down, stone or charmed doesn't talk in character, roll, vote, pick things up or get an idea; their player still talks as themselves (`game/model/able.lua`). After a death or a wipe the table goes quiet, and the recap leads with the loss.
+
 **The friends' own ideas.** The room's cards aren't the only things that can happen. In a quiet stretch a friend reaches for something on their own: a question, a curio, a helping hand, someone to follow, somewhere to hide, or something to lift off someone who never planted it. Most just happen on a small die; one that could turn someone against the party comes to you as a card.
 
 ## How the DM learns where the story is
@@ -87,7 +91,7 @@ The player is the DM, so the game has to keep a lot of moving story in their hea
 
 - The opening cards and "Last time, they..." set the scene.
 - Each room's read-aloud is the DM's text; the party's reactions play out in speech bubbles, and a player speaking in character turns into their hero.
-- **The Story and Table sidebars (S):** where each side of the story stands and its key people, and each friend's reason for coming, what they love, who they're drawn to, how they seem tonight and the last thought you read.
+- **The Story and Table sidebars (S):** where each side of the story stands and its key people, and each friend's reason for coming, what they love, who they're drawn to, how they seem tonight and the last thought you read. One at a time: S goes Story, Table, neither.
 - **People's sheets:** click a name in any line for who they are, their line now, their stat block and what's in their pockets.
 - **The log (Tab)** and the dice strip keep every line and roll.
 
@@ -135,9 +139,9 @@ The dice and the fights run on a real D&D rules engine, so the table plays by th
 - **Failing is fun when it's handled well:** natural 1s go to dice jail.
 - **Some checks are secret** (noticing an ambush, reading a liar): you roll those behind the screen.
 
-**Fights come from the rooms.** Every room brings its own encounter, on its own board drawn from the book's maps. Minis walk square by square, use cover and line of sight, take hits and drop. Pieces of the room can come alive. Fights bring their own calls: a hidden roll that would drop a hero, their last death save, a fight that drags on, the killing blow (the players describe it). Once a night you can speak as a key person (warm, guarded or lying), and once a night you can run the boss's turn.
+**Fights come from the rooms.** Every room brings its own encounter, on its own board drawn from the book's maps. Minis walk square by square, use cover and line of sight, take hits and drop. Pieces of the room can come alive. Fights bring their own calls: a hidden roll that would drop a hero, their last death save, a fight that drags on, the killing blow (the player whose hero or ally lands it describes it). The big moments are said aloud as they happen (her stare, the mirror, turning to stone, Hyper Destroyer Mode, a natural 20 on a death save), and so is a spell that catches the party. Who you tell a foe to go for, it goes for, until it has. Once a night you can speak as a key person (warm, guarded or lying), and once a night you can run the boss's turn.
 
-**Rests, the break and death.** Every night takes a break about a third of the way in, and you pick what the heroes do meanwhile: nothing, a short rest, a long rest where the room allows it, or research. Death follows what Session Zero agreed: the last death save plays as a call; the fallen get a goodbye or come back with a scar; a hero who dies stays at the table, and their player picks how to play on (a companion, the monsters, or watching), with a new character from the next session.
+**Rests, the break and death.** Every night takes a break about a third of the way in (on boss night, once her part is settled), and you pick what the heroes do meanwhile: nothing, a short rest, a long rest where the room allows it, or research. A night that runs well past the end agreed at Session Zero is said at the table and costs Trust. Death follows what Session Zero agreed: the last death save plays as a call; the fallen get a goodbye or come back with a scar; a hero who dies stays at the table, and their player picks how to play on (a companion, the monsters, or watching), with a new character from the next session. The wake comes once the danger is past, in the gift shop, and what the dead hero carried is shared out loud.
 
 ## Progression
 
