@@ -13,6 +13,9 @@
 --   S   structure: a split party cuts to each one alone and regroups; the find card shows the poking hero's
 --       Investigation total; a night opens on the board where they stopped; the snacks follow the clock
 --       (C10, C11, C13, C18)
+--   X   the general scans for the root-cause doc's classes 1 to 3, over every line: nothing the table hears
+--       names a foe that hasn't shown itself yet; no line the DM says or a card shows says what a hero or
+--       friend wants, thinks or decides; every "+N on their next check" said has it waiting for that hero (C20)
 
 package.path = "./?.lua;./tools/tests/?.lua;" .. package.path
 unpack = unpack or table.unpack
@@ -20,8 +23,9 @@ unpack = unpack or table.unpack
 local SEEDS = tonumber(arg[1]) or 4
 local FIRST = 71
 local STYLES = { "careful", "random", "careless" }
-local ITEMS = { "run", "M", "F", "L", "S" }
-local NAMES = { run = "whole prologues", M = "movement", F = "faces and moods", L = "layout", S = "structure" }
+local ITEMS = { "run", "M", "F", "L", "S", "X" }
+local NAMES = { run = "whole prologues", M = "movement", F = "faces and moods", L = "layout", S = "structure",
+                X = "the general scans" }
 
 local fails = {}
 local function fail(item, msg)
@@ -61,6 +65,7 @@ local function bad_move(self, what)
     end
     MV.n_bad = (MV.n_bad or 0) + 1
 end
+local XC = { claims = 0, bad = 0, msgs = {} }
 local FX = { first_nights = 0, bad_first = 0, trouble = 0, cheerful = 0, msgs = {} }
 local CHEERFUL = { beaming = true, grinning = true, ["leaning in"] = true, ["chatting away"] = true, ["in great spirits"] = true }
 for _, m in pairs(require("game.data.moods")) do
@@ -100,6 +105,23 @@ night_mod.emit = function(self, ev)
                 MV.ally_fights = MV.ally_fights + 1
                 MV.rides = MV.rides + (a.rides_with and 1 or 0)
             end
+        end
+    end
+    -- Claims (X): a "+N on <hero's> next check" said is waiting for that hero right now.
+    if ev.kind == "narrate" and ev.text and self.campaign then
+        local n = string.match(ev.text, "%+(%d+) on %a+ next check")
+        if n then
+            XC.claims = XC.claims + 1
+            local waiting = false
+            for _, p in ipairs(self.players or {}) do
+                if string.find(ev.text, p.char, 1, true) and ((self.campaign.learned or {})[p.key] or 0) >= tonumber(n) then
+                    waiting = true
+                end
+            end
+            if not waiting and #XC.msgs < 6 then
+                table.insert(XC.msgs, "week " .. tostring(self.campaign.week) .. ": said, with nothing waiting for the hero: '" .. ev.text .. "'")
+            end
+            XC.bad = XC.bad + (waiting and 0 or 1)
         end
     end
     -- Faces (F): the first beat of the first night, and every beat where a friend's hero is in trouble.
@@ -386,6 +408,76 @@ case("S", function()
         fail("S", "the drinks never go down")
     end
 end)
+
+-- X: the general scans -----------------------------------------------------------------------------------
+do
+    local adventure_data = adventure.data
+    -- (Class 1: the foes that look like part of the room until they move, by name and kind, against the
+    -- line that wakes them, the fight's start, in the same run and week.)
+    local HIDDEN = { { "Briar", "garden" }, { "briar", "garden" }, { "hedge-beast", "garden" }, { "Knight of Shades", "paintings" },
+                     { "Sentinel", "entrance" }, { "huntling", "hunting" }, { "Huntling", "hunting" } }
+    local WAKES = { garden = { "shake themselves loose", "hedge-beast", "fight starts", "Roll for initiative" },
+                    paintings = { "climbs out", "grips the edge of its frame", "fight starts" },
+                    entrance = { "steps down off its plinth", "Sentinel", "fight starts" },
+                    hunting = { "fight starts", "huntling" } }
+    local heard_n, spoil_n, agency_n = 0, 0, 0
+    local MIND = { "wants? ", "decides? ", "thinks? ", "would rather ", "is sure ", "changes? %a+ mind", "is keen", "can't wait",
+                   "is dying to", "is itching", "hopes? ", "wonders? " }
+    local WHO = { "Thessaly", "Brannoc", "Pip", "Oswin", "Bryn", "Hesk", "Tam", "Lark", "Aldith", "Corwin", "Rufus", "Ysolde",
+                  "Mara", "Dev", "Jess", "Sam", "The table", "the table", "Everyone", "everyone" }
+    for _, R in ipairs(RUNS) do
+        local room, woke = nil, {}
+        for _, l in ipairs(R.L) do
+            local title = string.match(l, "^== Scene %d+[^:]*: (.-) %(")
+            if title then
+                room = nil
+                for id, r in pairs(adventure_data.rooms) do
+                    if r.name == title then
+                        room = id
+                    end
+                end
+            end
+            if string.find(l, "fight starts") and room then
+                woke[room] = true
+            end
+            local who, text = string.match(l, "^  %[([^%]]+)%] (.*)$")
+            local card = string.match(l, "^  >> [^:]+: (.*)$")
+            if who and voice.heard(who) and who ~= "aside" and not FRIENDS[who] then
+                heard_n = heard_n + 1
+                for _, w in ipairs(WAKES[room or ""] or {}) do
+                    if string.find(text, w, 1, true) then
+                        woke[room] = true
+                    end
+                end
+                for _, h in ipairs(HIDDEN) do
+                    if h[2] == room and not woke[room] and string.find(text, h[1], 1, true) then
+                        spoil_n = spoil_n + 1
+                        fail("X", R.tag .. " (" .. room .. "): a foe named before it shows itself: '" .. string.sub(text, 1, 150) .. "'")
+                    end
+                end
+            end
+            -- (Class 2: what the DM says to the table, and what a card shows the DM, never says what a hero or
+            -- friend wants, thinks or decides. A charmed hero is the magic's doing, said as such.)
+            local said = (who and voice.heard(who) and who ~= "aside" and not FRIENDS[who] and text) or card
+            if said and not string.find(said, "charm", 1, true) then
+                -- (Quoted words are someone's own: only what's outside the quotes counts.)
+                local bare = string.gsub(said, '"[^"]*"', '""')
+                for _, w in ipairs(WHO) do
+                    for _, m in ipairs(MIND) do
+                        if string.find(bare, w .. " " .. m) then
+                            agency_n = agency_n + 1
+                            fail("X", R.tag .. ": the DM says what " .. w .. " " .. string.gsub(m, "[%%%?]", "") .. ": '" .. string.sub(said, 1, 150) .. "'")
+                        end
+                    end
+                end
+            end
+        end
+    end
+    E.X = { lines_heard = heard_n, plus_one_claims = XC.claims }
+    for _, m in ipairs(XC.msgs) do
+        fail("X", m)
+    end
+end
 
 -- Report ------------------------------------------------------------------------------------------------
 local total = 0

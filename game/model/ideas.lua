@@ -264,7 +264,8 @@ local function take_card(night, p, t, ok_line, fail_line)
     local who = t.owner.short or t.owner.name
     return { id = "idea_take_" .. t.owner.id, type = "story", trigger = "museum_fixed", fixed_actor = true, keep_actor = true,
              actor = { "instigator" }, title = "Light fingers",
-             text = "{actor_char} wants to lift " .. t.short .. ". " .. (t.planted and "(You put it there.) " or "") .. "Can they?",
+             -- (The player asks; you rule. Conner's playtest, C20: never the DM saying what a hero wants.)
+             text = "{actor} leans over: \"Can {actor_char} lift " .. t.short .. "?\" " .. (t.planted and "(You put it there.) " or "") .. "Your call.",
              options = {
                  { label = "Let it work.", sub = who .. " never feels a thing.", allow = true, log = ok_line,
                    effects = { { "actor", spotlight = 8, fun = 6 }, { "arch:instigator", fun = 2 } } },

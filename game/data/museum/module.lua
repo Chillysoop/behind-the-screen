@@ -776,7 +776,8 @@ M.moments = {
       } },
     { id = "mus_pond", room = "garden", danger = "the pond: something with tentacles lives in it", spot = "pond", at = "end", type = "story", actor = { "instigator", "explorer" },
       title = "The dark pond",
-      text = "{actor_char} wants a closer look at the pond. As {actor_they} leans over the water, a grey tentacle slides up through the lilies, tastes the air, and sinks back down. Everyone saw it.",
+      -- (The player says what their hero does; the DM says what happens. Conner's playtest, C20.)
+      text = "{actor}: \"{actor_char} leans right over the pond for a closer look.\" A grey tentacle slides up through the lilies, tastes the air, and sinks back down. Everyone saw it.",
       options = {
           { label = "Let them. They know what's in there.",
             roll = { dc = 10, skill = { "acrobatics", "athletics" }, convenient = "success",
@@ -1127,7 +1128,7 @@ M.moments = {
     -- The lecture theatre ---------------------------------------------------------------------
     { id = "mus_earplugs", room = "lecture", at = "start", type = "rules", actor = { "tactician", "casual", "storyteller" },
       title = "Can I block my ears?",
-      text = "{actor_char} wants to stuff candle wax in {actor_their} ears before going in. \"If I can't hear him, he can't bore me, right?\"",
+      text = "{actor} asks: \"Can {actor_char} stuff candle wax in {actor_their} ears before going in? If I can't hear him, he can't bore me, right?\"",
       options = {
           { label = "Yes. It's a good idea, and it works.",
             log = "Wax in, cloth over. It works. Nobody else thought of it.",

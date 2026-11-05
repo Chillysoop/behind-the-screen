@@ -500,7 +500,7 @@ M.goal_play = {
               win = "{char} pieces it together: two more sisters, somewhere out there in the world.",
               lose = "{char} can't remember a single story about Gorgon sisters. Not one.",
               lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the gorgon book: three sisters. Where the other two went, it doesn't say." },
-                          { when = { flag = "tapestry" }, text = "{char} thinks of the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },
+                          { when = { flag = "tapestry" }, text = "{char} brings up the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },
         },
         moment = { text = "{actor_char} picks one thing from the gift shop shelf to keep.", skill = { "insight", "persuasion" } },
         talk = { "Can we keep the museum? Like, as a base?", "I want a museum guard badge. Is there a badge?" },

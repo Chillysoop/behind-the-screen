@@ -1668,7 +1668,7 @@ function M.drops_social(night, sc)
                     card = { id = "mus_drop_pocket_" .. n.id .. "_" .. w.drop.item, type = "story", trigger = "museum_fixed",
                              fixed_actor = true, keep_actor = true, actor = { "instigator" },
                              title = "Light fingers",
-                             text = "{actor_char} has spotted " .. item .. " on " .. who .. ", and wants to lift it. (You put it there.) Can they?",
+                             text = "{actor} has spotted " .. item .. " on " .. who .. ": \"Can {actor_char} lift it?\" (You put it there.) Your call.",
                              options = {
                                  { label = "Let them try. Sleight of Hand.", sub = "Miss, and " .. who .. " notices.",
                                    roll = { dc = n.monster and 15 or 13, skill = { "sleight_of_hand" }, convenient = "success",

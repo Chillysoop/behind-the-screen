@@ -251,7 +251,7 @@ return {
         id = "potion_action", type = "rules", trigger = "potion",
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
-        text = "{actor} drank a healing potion last turn, and wants to know: was that {actor_their} whole turn?",
+        text = "{actor} drank a healing potion last turn, and asks: was that {actor_their} whole turn?",
         -- (When the potion went down someone else's throat: the one who gave it asks. Round three heard
         -- "Jess drank a healing potion" when Pip had fed it to Brannoc.)
         text_given = "{actor} gave {other_char} a healing potion last turn, and wants to know: was that {actor_their} whole turn?",
@@ -294,7 +294,7 @@ return {
         actor = { "explorer", "instigator", "storyteller" },
         other = { "butt_kicker", "tactician", "casual" },
         title = "Splitting the party",
-        text = "{actor_char} wants to look around on {actor_their} own. {other_char} heads off the other way. Both are already walking.",
+        text = "{actor}: \"{actor_char}'s going to look around on {actor_their} own.\" {other}: \"Then {other_char} goes the other way.\" Both are already walking.",
         options = {
             { label = "Let them split and cut between them.", split = true,
               sub = "Until this scene's done they're apart: a fight here starts without them, and they come running.",
