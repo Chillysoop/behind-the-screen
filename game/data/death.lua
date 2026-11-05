@@ -44,7 +44,9 @@ M.STAKES = { "tactician", "butt_kicker", "power_gamer" }
 -- The goodbye: last words, then the table's wake. A Spotlight and Story moment for the player.
 M.GOODBYE = { spotlight = 18, story = 12, social = 8, skip_fun = -4 }
 M.LAST_WORDS = {
-    fighter = { "Tell them I held the line.", "Not a bad fight. Not a bad fight at all.", "Someone take my sword. It's a good sword." },
+    -- (Real last words, not a line the table says after any fight: the confirming playtest heard "Not a bad
+    -- fight. Not a bad fight at all." on the card that promised last words, twice.)
+    fighter = { "Tell them I held the line.", "Tell my sister she can have the good boots now.", "Someone take my sword. It's a good sword." },
     rogue = { "Check my left boot. There's money in it. For the wake.", "Don't let them say I tripped." },
     cleric = { "It's all right. I know where I'm going.", "Look after each other. That's the whole job.",
                "Light a candle for me. A big one." },
@@ -107,6 +109,14 @@ M.PACK_LEFT = {
     "What {char} carried stays with {char_them}.",
     "Nobody touches {char}'s pack. It stays where {char_they} fell.",
     "{char}'s things stay with {char_them}.",
+}
+-- Back where they fell, a pack nobody could take that night is picked up ({who}: whoever picks it up,
+-- {gets}: what's in it). The confirming playtest, 56 careful: "It stays where he fell", then the next week
+-- Bryn walked in carrying it.
+M.PACK_FOUND = {
+    "{char}'s pack is still where {char_they} fell. {who} picks it up: {gets}.",
+    "{who} kneels by the spot where {char} fell and shoulders {char}'s pack: {gets}.",
+    "Nobody has moved {char}'s pack. {who} takes it now: {gets}.",
 }
 
 return M

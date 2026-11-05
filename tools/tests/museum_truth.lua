@@ -29,6 +29,48 @@ unpack = unpack or table.unpack
 
 local adventure = require "game.model.adventure"
 local MODULE = require "game.data.museum.module"
+
+-- Lines that remember a hero who died, by name, and don't have them doing anything (the confirming
+-- playtest's fixes: the end names the dead, the new hero has heard, the pack and the pet are handed on, the
+-- gift shop has heard of the wake): their templates, with any fill matching anything.
+local REMEMBER_LISTS = nil
+local function REMEMBERED(text)
+    if not REMEMBER_LISTS then
+        local adv = require("game.model.adventure").data
+        local d = require "game.data.death"
+        REMEMBER_LISTS = {}
+        for _, by in pairs(adv.want_more_sad or {}) do
+            for _, list in pairs(by) do
+                for _, l in ipairs(list) do
+                    table.insert(REMEMBER_LISTS, l)
+                end
+            end
+        end
+        for _, l in pairs(d.INTRO or {}) do
+            table.insert(REMEMBER_LISTS, l)
+        end
+        for _, l in ipairs(d.PACK_FOUND or {}) do
+            table.insert(REMEMBER_LISTS, l)
+        end
+        for _, e in pairs(adv.companions or {}) do
+            for _, l in ipairs((type(e) == "table" and e.lines and e.lines.handed_on) or {}) do
+                table.insert(REMEMBER_LISTS, l)
+            end
+        end
+        for _, cb in ipairs((adv.rooms.gift_shop or {}).callbacks or {}) do
+            if cb.when and cb.when.flag == "wake_away" then
+                table.insert(REMEMBER_LISTS, cb.text)
+            end
+        end
+    end
+    for _, t in ipairs(REMEMBER_LISTS) do
+        local pat = "^" .. string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w_]+}", ".-") .. "$"
+        if string.find(text, pat) then
+            return true
+        end
+    end
+    return false
+end
 local util_lower_first = require("game.model.util").lower_first
 local cards = require "game.data.museum.cards"
 
@@ -425,7 +467,7 @@ local function play(seed, style)
                     fail(tag .. ": 'the last one falls' after a foe ran")
                 end
                 for name in pairs(old_names) do
-                    if string.find(text, "%f[%a]" .. name .. "%f[%A]") and not string.find(low, "died")
+                    if string.find(text, "%f[%a]" .. name .. "%f[%A]") and not REMEMBERED(text) and not string.find(low, "died")
                         and not string.find(low, "fell") and not string.find(low, "place") and not string.find(low, "pack")
                         and not string.find(low, "wake") and not string.find(low, "last time") then
                         fail(tag .. ": " .. name .. " was replaced, but a line still has them doing things: '" .. text .. "'")

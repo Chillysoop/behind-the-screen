@@ -92,6 +92,10 @@ M.WORLD_LINES = {
     -- Heroes still stone when she's beaten them and lets them go (a lost fight in her lair): how they came
     -- back, said, before "She lets them go" (the confirming playtest, seed 54: Oswin stone, then whole the
     -- next week with no word).
+    -- Her garden burned, and she's beaten them once already: back up her stairs, she knows them.
+    burned_again = { "\"You came back. You still smell of my garden.\" No drink this time either.",
+                     "\"Again? You still smell of smoke.\" She doesn't pour anything.",
+                     "Euryale doesn't get up. \"Back from the floor, and still smelling of my garden.\" No drink." },
     stone_let_go = { "Euryale waves a hand, and {names} {crack} out of the stone, gasping.",
                      "The grey drains out of {names} as Euryale turns away.",
                      "Euryale snaps her fingers. {names} {crack} out of the stone, gasping." },
@@ -1825,7 +1829,14 @@ function M.callbacks(night, sc)
                 text = night:fresh(text, "callback_" .. key)
             end
             if text then
-                night:say(util.fill(text, { given = given and given.char or "the party" }), "narration")
+                -- ({dead}: the heroes they've lost, by name.)
+                local dead = {}
+                for _, rec in ipairs(c.fallen or {}) do
+                    if not util.contains(dead, rec.char) then
+                        table.insert(dead, rec.char)
+                    end
+                end
+                night:say(util.fill(text, { given = given and given.char or "the party", dead = util.join_names(dead) }), "narration")
             end
         end
     end
@@ -1887,6 +1898,8 @@ function M.room_start(night, sc)
         end
     end
     M.callbacks(night, sc)
+    -- (Back where a hero fell with nobody to take their pack: it's picked up now. death.pick_up_pack.)
+    require("game.model.death").pick_up_pack(night, sc.room)
     -- (A room with a fight in it gets looked around once it's safe: after the fight.)
     if not M.has_fight(sc) then
         M.explore(night, sc)
@@ -4616,8 +4629,15 @@ function M.run(night)
     -- before the room's end): she gets it now, before everyone goes home.
     M.interlude(night)
     M.lecturer_report(night)
-    -- (Nobody went back to the gift shop tonight: the wake, before everyone goes home. Round three, B1.)
-    require("game.model.death").hold_wake(night)
+    -- (Nobody went back to the gift shop tonight: the wake, before everyone goes home. Round three, B1.
+    -- Where they rest, once they've found it; else right where they stopped, and the gift shop hears of it
+    -- when they get there: the confirming playtest, 53 careful.)
+    local st_end = st_of(night)
+    local here = st_end.pos or st_end.last_room
+    local away = not (st_end.done.gift_shop or here == "gift_shop") and here and MODULE.rooms[here]
+    if require("game.model.death").hold_wake(night, away and util.lower_first(MODULE.rooms[here].name) or nil) and away then
+        st_end.flags.wake_away = true
+    end
     night:run_tail()
 end
 
@@ -4941,6 +4961,9 @@ function M.showdown_start(night, sc)
     end
     if not st.marks.garden_burned then
         M.play_moment(night, sh.drink, sc)
+    elseif st.flags.rematch then
+        -- (She beat them once already: not her first-meeting words. The confirming playtest, 56 careful.)
+        night:say(night:fresh(M.WORLD_LINES.burned_again, "burned_again"), "bad")
     else
         night:say("\"You burned my garden.\" No drink. No small talk.", "bad")
     end
@@ -5280,10 +5303,21 @@ function M.after_showdown(night, sc)
         -- (After a death tonight, the friends want the campaign the quiet way: not "Same heroes, bigger
         -- fights?" nor "Oswin says a prayer for the road" with Oswin dead. Round three's merge.
         -- MODULE.want_more_sad: `own` lines for the friend whose hero died, else theirs for a friend's.)
+        -- (And whoever died on an earlier night: the prologue's dead are named when it ends, not "Same heroes,
+        -- bigger fights?" from Dev, whose Brannoc died in week one. The confirming playtest, 53 careful.)
         local lost = {}
         for _, pc in ipairs(night.pc_list or {}) do
             if pc.dead then
-                table.insert(lost, pc)
+                table.insert(lost, { name = pc.name, player_key = pc.player_key })
+            end
+        end
+        for _, rec in ipairs(c.fallen or {}) do
+            local dup = false
+            for _, l in ipairs(lost) do
+                dup = dup or l.name == rec.char
+            end
+            if not dup then
+                table.insert(lost, { name = rec.char, player_key = rec.key })
             end
         end
         local sad = #lost > 0 and MODULE.want_more_sad
@@ -5294,12 +5328,14 @@ function M.after_showdown(night, sc)
             local own = false
             for _, pc in ipairs(lost) do
                 if pc.player_key == p.key then
-                    own = true
+                    own = pc.name
                 else
                     table.insert(others, pc.name)
                 end
             end
-            local pool = sad and (sad[p.key] or {})[(own or #others == 0) and "own" or "other"] or MODULE.want_more[p.key]
+            -- (`was`: their hero died on an earlier night, and they play someone new now, {now}.)
+            local which = (own and own ~= p.char and "was") or ((own or #others == 0) and "own") or "other"
+            local pool = sad and ((sad[p.key] or {})[which] or (sad[p.key] or {}).own) or MODULE.want_more[p.key]
             for _, l in ipairs(pool or {}) do
                 if type(l) == "string" then
                     table.insert(lines, l)
@@ -5308,7 +5344,8 @@ function M.after_showdown(night, sc)
                 end
             end
             if #lines > 0 then
-                local line = util.fill(night.rng:pick(lines), { char = p.char, lost = util.join_names(others) })
+                -- (An own line's {char} is the hero who died, who may not be the one they play now.)
+                local line = util.fill(night.rng:pick(lines), { char = (sad and own) or p.char, now = p.char, lost = util.join_names(others) })
                 st.want_said = st.want_said or {}
                 st.want_said[p.key] = line           -- (the journey quotes what they really said)
                 night:emit({ kind = "say", who = p.key, text = line, ic = false })

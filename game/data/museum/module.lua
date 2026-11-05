@@ -274,6 +274,9 @@ M.rooms = {
             -- yes never showed.)
             { when = { flag = "vorpal_price", not_flag = "vorpal_sword" }, text = "On the shelf behind the counter, wrapped in brown paper, just as you promised in the chat: the vorpal sword. The tag says forty Francs. Telpur taps it." },
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
+            -- (The wake was held before they found the shop: word of it got here first. The confirming
+            -- playtest, 53 careful, held it here with a boot they hadn't met.)
+            { when = { flag = "wake_away" }, text = "Word of {dead} has reached the gift shop before them. A candle is already burning on the counter." },
         },
     },
     hunting = {
@@ -1197,6 +1200,10 @@ M.companions = {
                       hint = { "Exhibit B's whiskers are going. Something's here.", "Exhibit B won't leave it alone. There's something there." },
                       fight = { "Exhibit B, pocket! NOW!", "Nobody step on Exhibit B.", "Exhibit B is in the pocket. We're fine. Mostly." },
                       win = { "Exhibit B was very brave in the pocket.", "Exhibit B gets the first crumb of the victory snack." },
+                      -- (When the hero he rode with has died and a new one takes the seat: handed on, once.)
+                      handed_on = { "Exhibit B climbs out of {old}'s old hood and into {new}'s pocket. He sniffs {new} twice, and stays.",
+                                    "Jess sets a crumb of cheese on {new}'s shoulder. \"He's yours now. {old} would want that.\" Exhibit B takes the cheese.",
+                                    "Exhibit B rides on {new}'s shoulder now. Every so often he looks round for {old}." },
                   } },
     telpur = { name = "Telpur", pronoun = "he", kind = "person", what = "the talking boot from the gift shop", owner = "jess", joins = { flag = "telpur_along" },
                monster = "telpur", cast = "mus_telpur",
@@ -1848,7 +1855,8 @@ M.showdown = {
         id = "mus_ultimatum", type = "story", actor = { "storyteller", "method_actor", "instigator" }, party = true,   -- (their answer, not yours)
         title = "Join the collection",
         text = "Euryale sets down her cup. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer.",
-        text_if = { { when = { mark = "garden_burned" }, text = "Euryale doesn't sit. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
+        text_if = { { when = { mark = "garden_burned", flag = "rematch" }, text = "Euryale doesn't sit. \"I'll ask once more. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
+                    { when = { mark = "garden_burned" }, text = "Euryale doesn't sit. \"Here is your choice. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." },
                     { when = { flag = "rematch" }, text = "Euryale sets down her cup. \"I'll ask once more. Stay, as part of my collection. Or die.\" {actor_char} has one chance to answer." } },
         options = {
             { label = "Weapons out.", want = "fight her", edges = true, log = "Steel answers for them. Euryale stands, smiling. \"As you like.\"",
@@ -2009,21 +2017,27 @@ M.want_more = {
     sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise.",
             "{char} says a prayer for the road. And one for the snacks. Campaign?" },
 }
--- The same, on a night a hero died (museum_night.after_showdown, able.somber): own, when it was their
--- hero ({char}: the hero who died); other, when it was a friend's ({lost}: the heroes they lost).
+-- The same, once a hero has died in the prologue (museum_night.after_showdown): own, when it was their
+-- hero, tonight ({char}: the hero who died); was, their hero, on an earlier night, and they play someone new
+-- now ({now}); other, when it was a friend's ({lost}: the heroes they lost).
 M.want_more_sad = {
-    mara = { own = { "I'll miss {char}. I'm already thinking about who comes next. Campaign? Yes.",
+    mara = { was = { "{now} is ready for the campaign. And I haven't forgotten {char}.",
+                     "I still have {char}'s character sheet. {now} gets the next page. Campaign." },
+             own = { "I'll miss {char}. I'm already thinking about who comes next. Campaign? Yes.",
                      "{char} would have wanted to see the mountains. Somebody has to go for {char_them}. Campaign." },
              other = { "For {lost}. Yes. Campaign. I want to see where this goes.",
                        "I'm writing {lost} into my notes for the campaign. First page." } },
-    dev = { own = { "{char} went down swinging. I'll roll someone new. I'm in.",
+    dev = { was = { "{now} is in. But {char} gets the first toast.", "Same dice as {char}, new hero. Campaign. For {char}." },
+            own = { "{char} went down swinging. I'll roll someone new. I'm in.",
                     "New character, same dice. Campaign. For {char}." },
             other = { "We do it for {lost}. Every Thursday. I'm in.",
                       "Campaign. And nobody goes down like {lost} did. Not on my watch." } },
-    jess = { own = { "{char} would want me to keep playing. So. New character. Campaign.",
+    jess = { was = { "{now} wants the campaign. {char} would have wanted it more.", "I'm keeping {char}'s dice for {now}. Campaign." },
+             own = { "{char} would want me to keep playing. So. New character. Campaign.",
                      "I'm keeping {char}'s dice for the next one. Campaign." },
              other = { "I'm in. We owe {lost} a proper story.", "Campaign. And {lost} gets a statue in it. A nice one." } },
-    sam = { own = { "I'll bring snacks and a new character. {char} would've liked that.",
+    sam = { was = { "{now} brings the snacks now. {char} would've liked that.", "{char} first, then the campaign. {now} is ready." },
+            own = { "I'll bring snacks and a new character. {char} would've liked that.",
                     "I'm not done. Somebody new, for {char}. Campaign." },
             other = { "I'll be there. For {lost}.", "Campaign. I'll bring the snacks. {lost} would've wanted snacks." } },
 }

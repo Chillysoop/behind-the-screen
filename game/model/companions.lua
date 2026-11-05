@@ -133,10 +133,15 @@ function M.night_start(night)
     local adv = night.campaign.adv or {}
     adv.introduced = adv.introduced or {}
     for _, e in ipairs(M.active(night.campaign, night.players)) do
+        -- (A pet whose hero died, with a new hero in that seat tonight: handed on as the new one arrives,
+        -- death.intro, not "Exhibit B is in my hood" first. The confirming playtest, 56 careful.)
+        local nc = e.owner and (night.campaign.new_char or {})[e.owner]
+        local handing = e.kind == "pet" and e.lines and e.lines.handed_on and nc and nc.joins
+            and nc.joins <= (night.campaign.week or 0) and not nc.introduced
         if not adv.introduced[e.id] and e.lines and e.lines.join then
             adv.introduced[e.id] = night.campaign.week or 0
             night:say(e.lines.join, "good")
-        else
+        elseif not handing then
             M.say(night, e, "start")
         end
     end

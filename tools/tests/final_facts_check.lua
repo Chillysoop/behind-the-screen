@@ -16,11 +16,12 @@ local util = require "game.model.util"
 local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 0
-local ITEMS = { "run", "N1", "S" }
+local ITEMS = { "run", "N1", "S", "D" }
 local NAMES = {
     run = "whole prologues",
     N1 = "the Mech and the notebook: only what happened",
     S = "stone after a lost boss fight: how each came back",
+    D = "deaths: the wake, last words, the chat, the end, her memory, the pack, the pet",
 }
 
 local fails = {}
@@ -64,6 +65,11 @@ local function sim_play(seed, style, on)
                 museum_week.answer_chat(c, m, (style == "careful") and 1 or rng:int(1, 3))
             end
         end
+        R.chats = R.chats or {}
+        R.chats[w] = {}
+        for _, m in ipairs(c.chat or {}) do
+            table.insert(R.chats[w], { who = m.key, text = m.text or "", ask = m.ask })
+        end
         if on.chat then
             on.chat(R, c, w)
         end
@@ -104,7 +110,9 @@ local function sim_play(seed, style, on)
         while ev.kind ~= "done" and guard < 4000 do
             guard = guard + 1
             if (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") and ev.text then
-                table.insert(R.weeks[w].said, { ev = ev, text = ev.text, who = ev.who, style = ev.style, kind = ev.kind })
+                table.insert(R.weeks[w].said, { ev = ev, text = ev.text, who = ev.who, style = ev.style, kind = ev.kind, farewell = ev.farewell })
+            elseif ev.kind == "decision" and ev.card then
+                table.insert(R.weeks[w].said, { text = "", card = ev.card.id, title = ev.card.title, kind = "card" })
             elseif ev.kind == "mark" then
                 R.weeks[w].marks = R.weeks[w].marks or {}
                 table.insert(R.weeks[w].marks, ev)
@@ -385,6 +393,135 @@ local function s_watch(R)
     end
 end
 
+-- D: deaths everywhere (truth B1, B3, N2 to N4 and the special-attention list; alive 13). The wake where the
+-- party is (53 careful: in a gift shop they hadn't reached, with a boot they hadn't met); real last words,
+-- not "Not a bad fight. Not a bad fight at all." (53 and 56 careful); no chat question about a dead hero
+-- (53 careful: "would brannoc know anything about gorgons", Brannoc dead since week one); the end names the
+-- dead (53 careful: Dev's "Same heroes, bigger fights?"); Euryale knows a party she beat (56 careful: her
+-- first-meeting words after the wipe); the pack picked up where it fell, not carried in by the new hero
+-- through a curtain that's gone (56 careful); Exhibit B handed on, not carried on as if Pip had never been,
+-- and nobody "hiding in a diorama" at the top of the stairs (56 careful); no quip from the floor as the
+-- whole party goes down (56 careful: "Down. Note for later...").
+local QUIPS = { "Note for later:", "is taking a little nap, courtesy of", "That was my good side!" }
+local function d_watch(R)
+    local c = R.c
+    local found_shop = false
+    local dead_names, died_week = {}, {}
+    for _, rec in ipairs(c.fallen or {}) do
+        dead_names[rec.char] = rec.key
+        died_week[rec.char] = rec.week
+    end
+    local beaten_here = false        -- (she sent them back down her stairs: next time she knows them)
+    for w, wk in util.sorted_pairs(R.weeks) do
+        local dead_tonight, death_card = false, false
+        local said = wk.said
+        local rematch_night = beaten_here
+        local pet_seen, handed = false, false
+        for i, s in ipairs(said) do
+            local t = s.text
+            if string.find(t, "A quiet little shop at the foot of the stairs", 1, true) or string.find(t, "Wha? Oh! Customers", 1, true) then
+                found_shop = true
+            end
+            if string.find(t, "They hold the wake in the gift shop", 1, true) then
+                add("D", "wakes")
+                if not found_shop then
+                    fail("D", R.tag .. " week " .. w .. ": the wake is held in a gift shop they haven't reached: " .. t)
+                end
+            elseif string.find(t, "hold the wake", 1, true) then
+                add("D", "wakes")
+            end
+            if s.kind == "card" and s.card == "hero_dies" then
+                death_card = true
+            end
+            if s.farewell then
+                add("D", "last_words")
+                if t == "Not a bad fight. Not a bad fight at all." then
+                    fail("D", R.tag .. " week " .. w .. ": the card promised last words, and they're \"" .. t .. "\"")
+                end
+            end
+            if string.find(t, "doesn't get up. Death saves.", 1, true) then
+                for j = i + 1, math.min(#said, i + 3) do
+                    for _, q in ipairs(QUIPS) do
+                        if death_card and string.find(said[j].text, q, 1, true) then
+                            fail("D", R.tag .. " week " .. w .. ": a hero's dead tonight, and from the floor: \"" .. said[j].text .. "\"")
+                        end
+                    end
+                end
+            end
+            for _, q in ipairs(QUIPS) do
+                if string.find(t, q, 1, true) then
+                    -- (the whole party went down within the next few lines: no quip on the way)
+                    for j = i + 1, math.min(#said, i + 30) do
+                        if string.find(said[j].text, "come round on the floor with 1 hit point each, groggy, alive, and beaten", 1, true)
+                            or string.find(said[j].text, "comes round on the floor with 1 hit point, groggy, alive, and beaten", 1, true) then
+                            fail("D", R.tag .. " week " .. w .. ": as the whole party goes down: \"" .. t .. "\"")
+                        end
+                    end
+                end
+            end
+            if string.find(t, "She lets them go. She wants them to come back.", 1, true) then
+                beaten_here = true
+            end
+            if rematch_night and (string.find(t, "\"You burned my garden.\"", 1, true) or string.find(t, "\"Here is your choice.", 1, true)) then
+                fail("D", R.tag .. " week " .. w .. ": she beat them last time, and greets them as strangers: " .. t)
+            end
+            if string.find(t, "hiding in a diorama", 1, true) then
+                fail("D", R.tag .. " week " .. w .. ": \"" .. t .. "\" (there's no diorama where they are)")
+            end
+            for name in pairs(dead_names) do
+                if string.find(t, "carrying " .. name .. "'s pack", 1, true) then
+                    fail("D", R.tag .. " week " .. w .. ": the new hero walks in carrying " .. name .. "'s pack: " .. t)
+                end
+                if (died_week[name] or 99) < w and string.find(t, name .. "'s pack", 1, true)
+                    and (string.find(t, "picks it up", 1, true) or string.find(t, "shoulders", 1, true) or string.find(t, "takes it now", 1, true)) then
+                    add("D", "pack_picked_up")
+                end
+            end
+            if string.find(t, "Exhibit B", 1, true) and (died_week["Pip"] or 99) < w then
+                if not pet_seen and not (string.find(t, "Pip", 1, true) or string.find(t, "yours now", 1, true)) then
+                    fail("D", R.tag .. " week " .. w .. ": Exhibit B carries on after Pip's death with no word of it: " .. t)
+                end
+                handed = handed or string.find(t, "Pip", 1, true) ~= nil
+                pet_seen = true
+            end
+        end
+        if handed then
+            add("D", "pet_handed_on")
+        end
+        -- The chat after a death: no question for a hero who's gone.
+        for _, m in ipairs(R.chats[w + 1] or {}) do
+            for name, _ in pairs(dead_names) do
+                if m.ask and (died_week[name] or 99) <= w and string.find(string.lower(m.text), "%f[%a]" .. string.lower(name) .. "%f[%A]") then
+                    fail("D", R.tag .. " week " .. (w + 1) .. ": the chat asks about " .. name .. ", who died in week " .. died_week[name] .. ": " .. m.text)
+                end
+            end
+        end
+    end
+    -- The end names the dead.
+    if next(dead_names) and R.ending then
+        local last = R.weeks[#R.weeks]
+        local after, named, any = false, false, false
+        for _, s in ipairs(last.said) do
+            if string.find(s.text, "^And an invitation") then
+                after = true
+            elseif after and s.kind == "say" then
+                any = true
+                for name, key in pairs(dead_names) do
+                    named = named or string.find(s.text, name, 1, true) ~= nil
+                    if s.who == key and string.find(s.text, "Same heroes", 1, true) then
+                        fail("D", R.tag .. ": " .. name .. " died, and " .. key .. " ends on \"" .. s.text .. "\"")
+                    end
+                end
+            end
+        end
+        if any and not named then
+            fail("D", R.tag .. ": the prologue ends and nobody names the dead")
+        elseif named then
+            add("D", "the_end_names_them")
+        end
+    end
+end
+
 -- The UI's own run of seed 54, its screens dumped (DUMP_DIR, tools/tests/museum_smoke.lua), as the
 -- screens review read them: week 4 a lost boss fight with Pip and Oswin stone, week 5 Hans for a party
 -- that never went to the World of Tomorrow.
@@ -451,7 +588,7 @@ local function ui_54()
             fail("S", "seed 54 (UI): the journey's histories never say Oswin was turned to stone")
         end
         local chat = dump_texts(dir, "3_between_w5.txt") or ""
-        if not string.find(chat, "stone", 1, true) then
+        if not (string.find(chat, "stone", 1, true) or string.find(chat, "statue", 1, true)) then
             fail("S", "seed 54 (UI) week 5: the chat never mentions being stone")
         end
     end
@@ -482,6 +619,9 @@ for _, run in ipairs(RUNS) do
         end)
         case("S", function()
             s_watch(R)
+        end)
+        case("D", function()
+            d_watch(R)
         end)
     end)
 end
@@ -573,6 +713,26 @@ case("N1", function()
         end
     end
     add("N1", "case_old_save")
+end)
+
+-- D: the group chat's question for you never names a hero who died (Brannoc, dead in week one).
+case("D", function()
+    local c = skipped_campaign(9)
+    c.week = 4
+    c.fallen = { { key = "dev", char = "Brannoc", week = 1 } }
+    c.adv.done.hunting = 3
+    c.adv.chat_asked = {}
+    for _, q in ipairs(adventure.data.chat_ask) do
+        if q.id ~= "brannoc_gorgons" and q.id ~= "gorgon_strength" then
+            c.adv.chat_asked[q.id] = 1
+        end
+    end
+    for _, m in ipairs(museum_week.write_chat(c)) do
+        if m.ask and string.find(string.lower(m.text or ""), "brannoc", 1, true) then
+            fail("D", "case: Brannoc died in week one, and the chat asks: " .. m.text)
+        end
+    end
+    add("D", "case_chat_ask")
 end)
 
 -- Report -------------------------------------------------------------------------------------------

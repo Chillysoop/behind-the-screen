@@ -322,10 +322,15 @@ function M.museum_death()
         end
     end
     d.WAKE = "They hold the wake in the gift shop. Telpur leaves a candle burning on the counter for {char} all night."
+    -- (Before they've reached the gift shop, it's held where they are, and Flitwidget comes to them: the
+    -- confirming playtest, 53 careful, held it in a gift shop they hadn't found, with a boot they hadn't met.)
+    d.WAKE_HERE = "They hold the wake right where they stopped, in {room}, round a single candle. Flitwidget comes in with a pot of tea and sits with them."
+    -- (Nothing about a pack: what the one before carried was shared out, or waits where they fell. Nor a
+    -- curtain or a diorama that may not be there: the confirming playtest heard both at the top of the stairs.)
     d.INTRO = {
-        sibling = "{new} steps through the black curtain carrying {old}'s pack. 'I heard. I'm coming with you. Don't argue.'",
+        sibling = "{new} catches up with them, out of breath. 'I heard about {old}. I'm coming with you. Don't argue.'",
         hired = "{new} has been waiting by the caravan steps all evening. 'The gnome paid me in advance,' {new} says. 'I'd like to earn it.'",
-        rescued = "The party finds {new} hiding in a diorama. {new} asks which way is out, then decides to come along instead.",
+        rescued = "{new} has been hiding in the museum for days, and comes out when the party passes. {new} asks which way is out, then decides to come along instead.",
     }
     local hooks = {
         bryn = "A guard Flitwidget hired for the caravan, who was waiting outside the curtain the whole time.",

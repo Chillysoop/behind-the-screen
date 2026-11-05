@@ -391,7 +391,13 @@ function M.night_lines(c, night)
         put(key, "stone")
         break
     end
-    for key, n in util.sorted_pairs(downs) do
+    -- (Not "oswin hit the floor and i'm still annoyed about it" the week Brannoc died: the confirming playtest,
+    -- 53 careful. A death puts a down in its place.)
+    local died = false
+    for _, nc in pairs(c.new_char or {}) do
+        died = died or (nc.week == week and nc.was ~= nil)
+    end
+    for key, n in util.sorted_pairs(died and {} or downs) do
         put(key, n >= 3 and "down_many" or (n == 2 and "down_twice") or "down_once", { n = util.int(n) })
     end
     for key in util.sorted_pairs(kb) do
@@ -638,9 +644,21 @@ function M.write_chat(c)
     end
     -- A question for you (one a week, each once): one that fits what's going on, else any still unasked.
     st.chat_asked = st.chat_asked or {}
+    -- (Not about a hero who died: "would brannoc know anything about gorgons", three weeks after he did.
+    -- The confirming playtest, 53 careful.)
+    local function names_the_dead(q)
+        local t = string.lower(q.text or "")
+        for _, rec in ipairs(c.fallen or {}) do
+            if string.find(t, "%f[%a]" .. string.lower(rec.char or "?") .. "%f[%A]") then
+                return true
+            end
+        end
+        return false
+    end
     local open, fits = {}, {}
     for _, q in ipairs(MODULE.chat_ask or {}) do
-        if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when)) then
+        if not st.chat_asked[q.id] and c:player(q.who) and c.week >= (q.from or 1) and (not q.when or adventure.test(c, q.when))
+            and not names_the_dead(q) then
             table.insert(open, q)
             if ASK_FITS[q.id] and ASK_FITS[q.id](c) then
                 table.insert(fits, q)
