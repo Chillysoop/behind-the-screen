@@ -95,7 +95,7 @@ M.made = {
             { "{Spell} for {foe}. Exactly as I planned. Roughly." },
         },
         jess = {
-            { "{Foe}, finished. Who wants to check its pockets?", when = "last" },
+            { "{Foe}, finished. Who wants to check {foe_their} pockets?", when = "last" },
             { "That's {foe} done! {Left} more to annoy.", when = "more_left" },
             { "{char} takes a bow over {foe}." },
         },

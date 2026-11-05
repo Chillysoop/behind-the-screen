@@ -37,7 +37,9 @@ local SHARED_FILES = {
 -- Lines kept in the game's code, beside what uses them (each table is exposed as a field of its module).
 local CODE_TABLES = {
     { file = "game/model/museum_night.lua", mod = "game.model.museum_night", group = "Game night",
-      keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "BREAK_START", "BREAK_END", "BREAK_LOGS", "WEEKLY", "GENTLE_STOP" } },
+      keys = { "LOOK_SAY", "LEAN_WHY", "VOTE_WHY", "VOTE_NAMED", "VOTE_PUSH_LINES", "VOTE_CAVE", "VOTE_SIDE", "VOTE_TIE", "BREAK_START",
+               "BREAK_END", "BREAK_LOGS", "WEEKLY", "GENTLE_STOP" } },
+    { file = "game/model/museum_week.lua", mod = "game.model.museum_week", group = "Group chat", keys = { "CHAT", "CHAT_REPLY" } },
     { file = "game/model/night.lua", mod = "game.model.night", group = "Game night",
       keys = { "READY", "REACTED", "WRAP_LINES", "FRANC_LINES", "FIGHT_CAPTIONS", "INSPIRE_LINES", "FOE_LINES", "FOE_HIDDEN",
                "FOE_ALONE", "FIGHT_TEXT", "ALONE_TEXT" } },
@@ -244,7 +246,8 @@ for _, src in ipairs(CODE_TABLES) do
         for i = first, #lines do
             local e = lines[i]
             -- (Looking round goes by each friend's main type only: museum_night look_card.)
-            local sp = (k == "LEAN_WHY" and TYPE_WHO[e.path[2]]) or (k == "LOOK_SAY" and MAIN_WHO[e.path[2]]) or nil
+            local sp = (k == "LEAN_WHY" and TYPE_WHO[e.path[2]]) or (k == "LOOK_SAY" and MAIN_WHO[e.path[2]])
+                or ((k == "VOTE_CAVE" or k == "VOTE_SIDE") and PLAYERS[e.path[2]] and e.path[2]) or nil
             e.speaker, e.hero = sp, sp and HEROES[sp] or nil
             e.role = sp and "Player" or "Narration"
         end

@@ -332,7 +332,11 @@ local function attack_words(c)
     end
     -- (Its own weapon, as a sentence of its own: "Go for Brannoc, who's been hurting it most, with
     -- its great sword" read as Brannoc's sword, the review found.)
-    return " It attacks with its " .. string.lower(a.name) .. (n > 1 and (", " .. util.int(n) .. " times") or "") .. "."
+    -- (Euryale is "she", never "it": the third playtest. Her own pronoun, by her name.)
+    local pr = util.pronoun_of(c.name)
+    local they = pr.they == "they" and "it" or pr.they
+    local their = pr.their == "their" and "its" or pr.their
+    return " " .. util.capitalize(they) .. " attacks with " .. their .. " " .. string.lower(a.name) .. (n > 1 and (", " .. util.int(n) .. " times") or "") .. "."
 end
 
 -- Will this fight's boss turn be the DM's? Decided as the fight starts, so it can stand in for
@@ -417,7 +421,7 @@ function M.boss_turn(night, f, b, c)
     local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id, turn_of = c.mini,
                    text = util.capitalize(boss) .. "'s turn, and you're running it. " .. util.int(c.hp) .. " of "
                        .. util.int(c.hp_max) .. " hit points left." .. (downed and (" " .. downed.name .. " is down.") or "")
-                       .. " Who does it go for?",
+                       .. util.fill(" Who does {boss_they} go for?", { boss = boss }),
                    options = opts }
     -- How bad its turn could be (the newcomer playtest, October 16): one turn of its attacks
     -- when they hit, and who that could drop.

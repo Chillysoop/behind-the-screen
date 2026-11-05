@@ -3274,6 +3274,19 @@ function M.fork(night, options, backs, sides)
         end
         return low((string.gsub(pull_of(ch.id).label, ",", "")))
     end
+    -- (The same, as the table says it: no card's note in brackets. "Okay, back to the gift shop (to
+    -- spend Francs). Lead on." said aloud, the third playtest.)
+    local SAID_WHY = { missed = "for a second look", hint = "to see what we missed", passed = "to see what we walked past",
+                       shop = "to spend some Francs", rest = "for a breather" }
+    local function said_of(i)
+        local ch = choices[i]
+        if ch.side then
+            return "into " .. util.lower_first(ch.side.name)
+        elseif ch.back then
+            return "back to " .. util.lower_first(MODULE.rooms[ch.back.id].name) .. (SAID_WHY[ch.back.why] and (" " .. SAID_WHY[ch.back.why]) or "")
+        end
+        return label_of(i)
+    end
     local function tally()
         local n, t, tn = {}, nil, 0
         for _, p in ipairs(night.players) do
@@ -3298,7 +3311,7 @@ function M.fork(night, options, backs, sides)
             local mine = vals[p.key][first[p.key]].v
             if first[p.key] ~= top and mine - vals[p.key][top].v < 1.0 then
                 first[p.key] = top
-                local way = label_of(top)
+                local way = said_of(top)
                 night:emit({ kind = "say", who = p.key, ic = false,
                              text = util.fill(night:fresh(M.WEEKLY.easy, "weekly_easy"), { way = way, Way = util.capitalize(way) }) })
             end
@@ -3347,7 +3360,7 @@ function M.fork(night, options, backs, sides)
             table.insert(card.options, { label = "Nudge them: " .. label_of(i), choice = i,
                 sub = (#names > 0 and (util.join_names(names) .. (#names == 1 and " wants this." or " want this.")) or "Nobody's for this yet.") .. note,
                 effects = { { "all", trust = (against and (night.mus.steered or 0) >= 1) and -1 or 0 } },
-                log = "\"If it were me? " .. util.capitalize(label_of(i)) .. ".\"" })
+                log = "\"If it were me? " .. util.capitalize(said_of(i)) .. ".\"" })
         end
         if hint_id then
             local what = {}
@@ -3389,7 +3402,7 @@ function M.fork(night, options, backs, sides)
                     end
                 end
                 if grumbler then
-                    night:emit({ kind = "say", who = grumbler.key, text = util.fill(night:fresh(M.WEEKLY.grumble, "weekly_grumble"), { way = label_of(top) }), ic = false })
+                    night:emit({ kind = "say", who = grumbler.key, text = util.fill(night:fresh(M.WEEKLY.grumble, "weekly_grumble"), { way = said_of(top), Way = util.capitalize(said_of(top)) }), ic = false })
                     night:react({ [grumbler.key] = "arms" })
                 end
                 local curious = 0
@@ -3400,7 +3413,7 @@ function M.fork(night, options, backs, sides)
                 end
                 follow = curious > #night.players / 2 or (curious * 2 == #night.players and night.rng:chance(0.5))
                 if not follow then
-                    night:say(util.fill(night:fresh(M.WEEKLY.go_on, "weekly_go_on"), { way = label_of(top) }), "aside")
+                    night:say(util.fill(night:fresh(M.WEEKLY.go_on, "weekly_go_on"), { way = said_of(top) }), "aside")
                 end
             end
             if follow then
@@ -3451,7 +3464,7 @@ function M.fork(night, options, backs, sides)
             end
         end
         top = first[keen.key]
-        night:emit({ kind = "say", who = keen.key, text = "Okay, I'm calling it: " .. label_of(top) .. ".", ic = false })
+        night:emit({ kind = "say", who = keen.key, text = "Okay, I'm calling it: " .. said_of(top) .. ".", ic = false })
     end
     do
         local names = {}
@@ -3463,7 +3476,7 @@ function M.fork(night, options, backs, sides)
         -- (Your nudge settled it: say so, not that they all thought of it themselves.)
         local nudged = night.mus.nudged_to == top
         night.mus.nudged_to = nil
-        night:say("The table decides: " .. label_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #night.players)
+        night:say("The table decides: " .. said_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #night.players)
             and (" (" .. util.join_names(names) .. "'s pick)")) or "") .. ".", "aside")
         -- (Whoever just got their way can't say "I gave way last time" at the next vote. The engine run,
         -- 8_14: Sam "gave way" right under his own pick.)
@@ -4281,12 +4294,18 @@ local BREAK_START = {
     "\"Five minutes, everyone. Well, twenty.\" The snack bowl is empty, and Sam goes to refill it.",
     "\"Break time.\" Dev stretches until something pops. Jess is already in the kitchen.",
     "\"Let's stop there for a bit.\" Phones come out. Mara keeps writing in her notebook anyway.",
+    "\"Breather, everyone.\" Jess opens a window. Mara stretches until her chair creaks.",
+    "\"Let's pause it there.\" Jess does a lap of the kitchen. Dev follows the smell of toast.",
+    "\"Twenty minutes.\" Somebody puts music on. Mara argues with it.",
 }
 local BREAK_END = {
     "Everyone settles back in. \"Right. Where were we?\"",
     "Pizza boxes stacked, dice back out. \"Okay. So. The museum.\"",
     "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
+    "Mugs refilled, crumbs swept off the map. \"Okay. Back in.\"",
+    "Dev drums the table. \"Right. Museum. Go.\"",
+    "Everyone finds their dice again. One of Sam's has rolled under the sofa.",
 }
 M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END   -- (for the Dialogue Desk)
 -- The rest of what the table hears every week, three or more ways each (R3, the second playtest
@@ -4323,7 +4342,7 @@ M.WEEKLY = {
     -- (a friend who doesn't much mind comes round at a fork)
     easy = { "Fine, {way}. I'm easy.", "{Way} works for me.", "Okay, {way}. Lead on.", "Sure. {Way} it is." },
     -- (your hint, against a table that had already agreed where to go: the one keenest on it grumbles)
-    grumble = { "We'd all just agreed on {way}, though.", "Hang on, we'd just agreed on {way}.", "We'd literally just agreed on {way}." },
+    grumble = { "We'd all just agreed on it: {way}.", "Hang on. We'd just agreed on it. {Way}.", "We'd literally just agreed on it: {way}." },
     -- (and the table hears you out, and sticks with it)
     go_on = { "They hear you out, and go on anyway: {way}.", "They listen, nod, and go on anyway: {way}.",
               "A fair point, they say, and go on anyway: {way}." },

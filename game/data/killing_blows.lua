@@ -79,7 +79,7 @@ return {
         },
         dev = {
             { "{hero} hits it SO hard. Like, the whole room shakes. {boss} is done. I'm shaking the table." },
-            { "Okay, okay. {hero} winds up, and BAM. {boss} goes flying. {char} catches the hat." },
+            { "Okay, okay. {hero} winds up, and BAM: {boss} goes flying. {char} catches the hat." },
             { "{hero} lands it. {char} just yells. That's my whole description. I yell." },
         },
         jess = {

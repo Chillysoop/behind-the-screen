@@ -230,7 +230,7 @@ local function crit_card(night, sc, p, b, nat)
         card.title = "A natural 20"
         card.text = "{actor_char} rolled a natural 20 poking at " .. what .. ". Improvise something?"
         table.insert(card.options, { label = "Nope. Still just " .. what .. ".", sub = "The table laughs. Nothing changes.",
-            log = "\"It's " .. what .. ". A really, really ordinary one.\" The table loses it.", laugh = true,
+            log = "\"It's " .. what .. ". Really, truly ordinary.\" The table loses it.", laugh = true,
             effects = { { "all", fun = 1 }, { "arch:casual", fun = 1 } } })
         local c20 = b.crit20 or {}
         if c20.find then
@@ -274,7 +274,8 @@ local function crit_card(night, sc, p, b, nat)
         if night.mus then
             night.mus.francs_earned = (night.mus.francs_earned or 0) + 1
         end
-        dm(night, "Tucked away there: " .. o.find .. ". A Flitwidget Franc, in fact.", vars)
+        -- (The thing they found is the thing; a Franc turns up with it: "a gold feather... a Franc, in fact" made the find into a Franc.)
+        dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it.", vars)
     elseif o.clue then
         dm(night, o.clue, vars)
         if o.danger then
