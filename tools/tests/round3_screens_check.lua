@@ -562,7 +562,10 @@ for _, r in ipairs(runs) do
         local wrap = string.match(d.joined, "(%d+h ?%d*m?) at the table") or string.match(d.joined, "(%d+m) at the table")
         local said = rep and (string.match(rep.joined, "time %((%d+h[^,%)]*)") or string.match(rep.joined, "long %((%d+h[^,%)]*)")
             or string.match(rep.joined, "early %((%d+h[^,%)]*)") or string.match(rep.joined, "time %((%d+m)%)")
-            or string.match(rep.joined, "early %((%d+m)%)"))
+            or string.match(rep.joined, "early %((%d+m)%)")
+            -- (Run long past the end agreed at Session Zero, batch A's words: "Ran 30m past the 10:00 pm
+            -- you agreed at Session Zero (3h 30m at the table).")
+            or string.match(rep.joined, "%((%d+h ?%d*m?) at the table%)") or string.match(rep.joined, "%((%d+m) at the table%)"))
         if wrap and rep and not said then
             fail("S14", S .. name .. ": the report doesn't say how long the night ran (" .. wrap .. ") where you can see it")
         end
