@@ -192,12 +192,16 @@ function M.build(campaign, night, rng)
         local names = {}
         for _, r in ipairs(night.mus.rooms or {}) do
             local room = MODULE.rooms[r.room]
-            if room and not room.virtual and not r.back and not r.side and not room.epilogue and #names < 2
+            if room and not room.virtual and not r.back and not r.side and not room.epilogue
                 and not util.contains(names, room.name) then
                 table.insert(names, room.name)
             end
         end
-        if #names > 0 then
+        -- Two rooms by name; more, from the first to the last, so the title spans the whole night (the
+        -- third playtest: "The Street and the Garden" for a night that went on to two rooms more).
+        if #names > 2 then
+            planned = util.title_case("From " .. names[1] .. " to " .. names[#names])
+        elseif #names > 0 then
             planned = util.title_case(table.concat(names, " and "))
         end
     end

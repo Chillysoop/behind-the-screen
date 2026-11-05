@@ -337,7 +337,8 @@ local function floor_room(app, c, id, x, y, w, h, here, backdrop, inner, pond)
         return s
     end
     if pond then
-        kit.box(pond[1], pond[2], pond[3], pond[4], kit.rgba("#3a6f86", 0.55), { radius = 12 })
+        -- (Deep blue, not teal: teal on this map is where the party is, the third playtest's engine run.)
+        kit.box(pond[1], pond[2], pond[3], pond[4], kit.rgba("#24405f", 0.75), { radius = 12 })
     end
     -- (A pixel each side, not three: "Street", "Offices" and "Tomorrow" fit their boxes on the
     -- prep board; a box too small still names its room in full on hover.)
@@ -580,7 +581,9 @@ local function draw_floor(app, c, fl, x, y, w, h)
             end
         end
         faces(c, id, rx, ry)
-        if here == id then
+        -- The party's dots only where they clear the room's name (the third playtest's engine run:
+        -- dots over "Ancients", "Gift shop", "Lecture"); the teal outline says where they are anyway.
+        if here == id and (backdrop or rh > 56) then
             party_dots(c, rx + rw - 34, ry + rh - 8)
         end
     end
@@ -610,8 +613,8 @@ function M.draw_stairs(app, plan)
             local f = plan.floors[hi.floor]
             -- (Up: just left of the room's name, clear of the faces and the done tick.)
             local lw = math.min(kit.width(room_label(lo_id), "ui14"), lo.w - 6)
-            local ux, uy = lo.x + lo.w / 2 - lw / 2 - 20, lo.y + math.max(1, (lo.h - 18) / 2)
-            if lo.w - lw < 48 then
+            local ux, uy = lo.x + lo.w / 2 - lw / 2 - 28, lo.y + math.max(1, (lo.h - 18) / 2)     -- (its arrow clear of the name)
+            if lo.w - lw < 60 then
                 ux, uy = lo.x + lo.w - 19, lo.y + 2       -- (a narrow room: its top corner, off the name)
             end
             local ends = {
@@ -619,7 +622,7 @@ function M.draw_stairs(app, plan)
                   text = "From " .. room_label(lo_id) .. " up to " .. room_label(hi_id) .. ", on the floor above." },
             }
             if hi.backdrop and f.down then
-                table.insert(ends, { x = f.down[1] - 8, y = f.down[2] - 18, title = "Stairs down", dir = "down",
+                table.insert(ends, { x = f.down[1] - 8, y = f.down[2] - 24, title = "Stairs down", dir = "down",
                     text = "From " .. room_label(hi_id) .. " down to " .. room_label(lo_id) .. ", on the floor below." })
             else
                 table.insert(ends, { x = hi.x + 3, y = hi.y + hi.h - 19, title = "Stairs down", dir = "down",

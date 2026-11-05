@@ -37,8 +37,10 @@ local function wrapup_items(app, rep)
             local room = MODULE.rooms[r.room]
             if room and not room.virtual then
                 -- (A side room by its own name, off its room; a trip back as a trip back.)
+                -- (Lower-case "the" after the first, as in a sentence: "The street, The garden" was uneven.)
+                local rn = #names > 0 and util.lower_first(room.name) or room.name
                 local name = (r.side and (r.side .. ", off " .. util.lower_first(room.name)))
-                    or (r.back and (room.name .. " (back again)")) or room.name
+                    or (r.back and (rn .. " (back again)")) or rn
                 if not util.contains(names, name) then
                     table.insert(names, name)
                 end
@@ -104,9 +106,12 @@ local function wrapup_items(app, rep)
                 table.insert(items, { "Euryale's card: " .. m.name .. ". " .. m.showdown .. ".", theme.gold })
             end
         end
+        -- (Where it was: "A harsh call felt arbitrary" didn't say which, the third playtest's engine run.)
         for _, h in ipairs(mu.harsh or {}) do
-            table.insert(items, h.earned and { "A harsh call landed as fair: they knew the risk.", theme.green }
-                or { "A harsh call felt arbitrary. Nobody had been warned.", theme.orange })
+            local room = h.room and MODULE.rooms[h.room]
+            local at = room and (" in " .. util.lower_first(room.name)) or ""
+            table.insert(items, h.earned and { "A harsh call" .. at .. " landed as fair: they knew the risk.", theme.green }
+                or { "A harsh call" .. at .. " felt arbitrary. Nobody had been warned.", theme.orange })
         end
         if mu.stopped then
             table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
@@ -746,19 +751,36 @@ function M.gift_row(app, rep, x, y)
     local loot = require "game.model.loot"
     local dd = require "game.data.dice"
     local bag = loot.bag(camp)
-    kit.text(x, y, "NEW DICE", "ui14", theme.dim)
     if #bag == 0 then
-        kit.text(x + 84, y, "Your dice bag is empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
-            { w = 288, lines = 2 })
+        kit.text(x, y, "YOUR DICE BAG", "ui14", theme.dim)
+        kit.text(x + 110, y, "Empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
+            { w = 262, lines = 2 })
         return
     end
-    app.gift_pick = util.clamp(app.gift_pick or 1, 1, #bag)
+    -- Tonight's box first, and "NEW DICE" only for it (the third playtest's engine run: "NEW DICE:
+    -- Rose quartz" every week, the first set in the bag, while the bag filled up). Older sets are
+    -- "IN YOUR BAG", one of how many.
+    local opened = loot.opened(camp)
+    if app.gift_pick_week ~= camp.week then
+        app.gift_pick_week, app.gift_pick = camp.week, nil
+        for i, b in ipairs(bag) do
+            if opened and b == opened.set then
+                app.gift_pick = i
+            end
+        end
+        app.gift_pick = app.gift_pick or #bag
+    end
+    app.gift_pick = util.clamp(app.gift_pick or #bag, 1, #bag)
     local sid = bag[app.gift_pick]
+    local new = opened and opened.set == sid
+    kit.text(x, y, new and "NEW DICE" or (#bag > 1 and ("IN YOUR BAG " .. util.int(app.gift_pick) .. "/" .. util.int(#bag))
+        or "IN YOUR BAG"), "ui14", new and theme.gold or theme.dim)
     local set = dd.SETS[sid]
     local r = loot.rarity(set and set.rarity)
-    kit.picture(x + 84, y - 4, 26, 26, "dice_" .. sid)
-    kit.text(x + 116, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
-        r and kit.rgba(r.color) or theme.text, { w = 200, lines = 1 })
+    local lx = x + math.max(84, kit.width("IN YOUR BAG 9/9", "ui14") + 10)
+    kit.picture(lx, y - 4, 26, 26, "dice_" .. sid)
+    kit.text(lx + 32, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
+        r and kit.rgba(r.color) or theme.text, { w = x + 316 - lx - 32, lines = 1 })
     if #bag > 1 then
         kit.button(x + 322, y - 4, 24, 22, "<", function()
             app.gift_pick = (app.gift_pick - 2) % #bag + 1

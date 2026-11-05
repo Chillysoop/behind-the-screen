@@ -90,12 +90,18 @@ function M.build(app)
             kit.text(x + 110, ry + 8, p.name, "ui22b", theme.text)
             local verdict = row.tier and content.chat.verdicts[row.tier] or (row.verdict or "Couldn't make it")
             kit.text(x + 110, ry + 38, verdict, "ui18b", theme[TIER_COLOR[row.tier or ""] or "dim"] or theme.dim)
-            if row.fun then
-                kit.icon(x + 300, ry + 40, 16, "fun", theme.gold)
-                kit.bar(x + 322, ry + 44, 330, 10, row.fun, 100, theme[TIER_COLOR[row.tier] or "teal"] or theme.teal)
-            end
+            -- The quote, then its bar under it: under both its lines when it wraps (the third playtest's
+            -- engine run: a quote's second line ran into the bar).
+            local qy = ry + 8
             if row.quote then
-                kit.text(x + 300, ry + 8, "\"" .. row.quote .. "\"", "ui14", theme.dim, { w = w - 320, lines = 2, gloss = false })
+                local q = "\"" .. row.quote .. "\""
+                kit.text(x + 300, qy, q, "ui14", theme.dim, { w = w - 320, lines = 2, gloss = false })
+                qy = qy + math.min(2, #kit.wrap(q, "ui14", w - 320)) * kit.line_height("ui14")
+            end
+            if row.fun then
+                local by = math.max(ry + 44, qy + 8)
+                kit.icon(x + 300, by - 4, 16, "fun", theme.gold)
+                kit.bar(x + 322, by, 330, 10, row.fun, 100, theme[TIER_COLOR[row.tier] or "teal"] or theme.teal)
             end
             ry = ry + 112
         end

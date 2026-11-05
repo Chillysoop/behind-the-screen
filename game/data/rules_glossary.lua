@@ -247,7 +247,8 @@ return {
       dnd = "Veils (and lines)" },
     { id = "xcard", match = { "X%-card" }, plain = "The X-card",
       text = "A card on the table anyone can tap, no questions asked, to skip whatever's happening." },
-    { id = "screen", match = { "behind the screen", "Behind the screen", "behind your screen", "BEHIND THE SCREEN" },
+    { id = "screen", match = { "behind the screen", "Behind the screen", "behind your screen", "BEHIND THE SCREEN",
+                               "BEHIND YOUR SCREEN" },
       plain = "Behind the screen", text = "The DM's cardboard screen hides the notes and the dice. A roll behind it is "
           .. "one only you see, so you could quietly change it.", dnd = "The DM screen" },
     { id = "open", match = { "in the open", "In the open" }, plain = "In the open",
@@ -267,7 +268,7 @@ return {
     { id = "honour", match = { "Honour it" }, plain = "Go with what they want",
       text = "Use this player's wish for their hero's death instead of the rule the table agreed at Session Zero.",
       tags = { "sheet" } },
-    { id = "dice_jail", match = { "dice jail" }, plain = "Dice jail",
+    { id = "dice_jail", match = { "[Dd]ice jail" }, plain = "Dice jail",
       text = "A die that rolled a 1 gets put in time out, to the table's delight. A real habit at real tables." },
     { id = "spotlight", match = { "%f[%w]spotlight%f[%W]", "%f[%w]Spotlight%f[%W]" }, plain = "Spotlight",
       text = "Time when the story is about their hero. Everyone needs some; too little and they drift." },

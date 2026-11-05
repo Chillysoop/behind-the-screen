@@ -313,7 +313,7 @@ function M.text(x, y, str, font, color, opts)
             while #last > 1 and M.width(last .. "...", font) > opts.w do
                 last = string.sub(last, 1, #last - 1)
             end
-            keep[opts.lines] = last .. "..."
+            keep[opts.lines] = string.gsub(last, "[%s%.,;:]+$", "") .. "..."
             lines = keep
         end
         str = table.concat(lines, "\n")
@@ -406,6 +406,8 @@ function M.ellipsize(str, font, w)
     while #out > 1 and M.width(out .. "...", font) > w do
         out = string.sub(out, 1, #out - 1)
     end
+    -- (No "anyway...." or "sale, ...": the cut drops the stop or the comma it lands after.)
+    out = string.gsub(out, "[%s%.,;:]+$", "")
     out = out .. "..."
     remember_cut(out, str)
     return out
