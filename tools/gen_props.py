@@ -1775,6 +1775,9 @@ KINDS = {
 }
 # A piece you can walk on even where another blocks the square (a pier over the water).
 CLEAR = {"pier", "rope_bridge"}
+# Pieces too thin to hide a mini standing behind them (a pole, a stand of candles, a sign): the camera
+# sees round them (the confirming playtest: heroes hidden behind the offices' partitions; see `tall`).
+THIN = {"lamp_post", "candelabra", "torch_post", "signpost", "weapon_rack", "web"}
 # Pieces that lie flat on the mat: they're laid down rather than dropped.
 FLAT = {"floor_boards", "floor_flags", "floor_cobbles", "floor_grass", "floor_dirt", "floor_sand", "road_ew", "path_patch", "puddle",
         "stream_ns", "water_strip", "rug", "tall_grass", "ice",
@@ -1859,11 +1862,24 @@ def main():
             rules += f', door = "{DOORS[name]}", ac = 15, hp = 18'
         if name in SLIPPERY:
             rules += ", slippery = true"
+        # How tall it stands (mat units; a square is SQ), and where its tall part sits across a one-square
+        # piece unturned (z, north to south, from the square's middle): what it hides from the camera,
+        # which looks from the south (game/model/sight.lua `shows`). A wall's slab stands at one edge.
+        verts = [p for part in (P.stone, P.paint, P.wood) for p in part.p]
+        if verts and name not in FLAT:
+            top = max(float(p[1]) for p in verts)
+            rules += f", tall = {top:.1f}"
+            hi = [float(p[2]) for p in verts if float(p[1]) > 3.0]
+            if hi and k["fw"] == 1 and k["fh"] == 1:
+                z0, z1 = max(-SQ / 2, min(hi)), min(SQ / 2, max(hi))
+                rules += f", tall_z = {{ {z0:.1f}, {z1:.1f} }}"
+            if name in THIN:
+                rules += ", thin = true"
         one += rules
         lua.append(f"        words = {{ {words} }}, say = {lua_str(k['say'])}{one} }},")
     lua.append("}")
     missing = [n for n, k in KINDS.items() if k["cover"] and n not in ONE]
-    unknown = (THREE_QUARTERS | OPAQUE | set(LIGHT_FT) | set(DOORS) | SLIPPERY) - set(KINDS)
+    unknown = (THREE_QUARTERS | OPAQUE | set(LIGHT_FT) | set(DOORS) | SLIPPERY | THIN) - set(KINDS)
     assert not unknown, "rules for kinds that don't exist: " + ", ".join(sorted(unknown))
     assert not missing, "cover pieces with no ONE name: " + ", ".join(missing)
     w("main/board/board.go", go_file(board_comps))

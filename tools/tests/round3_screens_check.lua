@@ -26,6 +26,8 @@
 -- S14    the night's length is the same minute on the wrap card and the report
 -- S16    the between-sessions screen promises only what it has, and the promise names its rule
 -- S17    the journey's route never stops a room's story halfway
+-- V      the camera sees the minis: every hero as a room opens and as they roll, the room's person, Euryale and
+--        everyone through her talk, a fight's start (measured over many runs; walls and plinths by their height)
 -- P      the polish list: one-of-a-kind minis by name, one colon to a voice, "has them", captions that
 --        start with a capital, the People page, the session log on the newest, the map's labels, the
 --        save slot, the death rule's note, the sheet's wish line, the last caption, no debug line
@@ -780,8 +782,98 @@ for _, r in ipairs(runs) do
     end)
 end
 
+-- V: what the camera sees of the minis (the confirming playtest's real-engine run: Euryale and Pip missing
+-- from the boss night's frame, three of four heroes hidden behind the offices' partitions, Thessaly behind a
+-- cabinet). Measured in the model over many runs (tools/sim/museum.lua with VIEW=1, tools/tests/view_watch.lua:
+-- its own geometry from main/scene_data.lua's Table camera and every piece's height in game/data/props.lua):
+-- each hero as a room opens, the hero rolling a check, the room's person when they speak, Euryale and every
+-- hero through her talk, and everyone as a fight starts. On bfa5157 (these six seeds, three DMs each): the hero
+-- rolling 56% seen, boss night's talk 80% (Mara behind the landing's wall), a room opening 96%, a fight's start 97%.
+local VIEW_RUNS = os.getenv("VIEW_SEEDS") or "51 52 53 54 1 5"
+do
+    local n, ok, misses, measured = {}, {}, {}, 0
+    for seed in string.gmatch(VIEW_RUNS, "%d+") do
+        for _, style in ipairs({ "careful", "random", "careless" }) do
+            local fh = io.popen("VIEW=1 lua tools/sim/museum.lua " .. seed .. " " .. style .. " 2>&1")
+            for line in fh:lines() do
+                local kind, good, all = string.match(line, "^VIEW\t(%a+)\t(%d+)\t(%d+)$")
+                if kind then
+                    measured = measured + 1
+                    n[kind] = (n[kind] or 0) + tonumber(all)
+                    ok[kind] = (ok[kind] or 0) + tonumber(good)
+                end
+                local miss = string.match(line, "^VIEW_MISS\t(.+)$")
+                if miss and #misses < 12 then
+                    table.insert(misses, "seed " .. seed .. " " .. style .. ": " .. string.gsub(miss, "\t", " "))
+                end
+            end
+            fh:close()
+        end
+    end
+    if measured == 0 then
+        fail("V", "the sim measured nothing (VIEW=1 tools/sim/museum.lua prints no VIEW lines)")
+    end
+    -- Every kind of moment, each nearly always seen (and the boss's talk always).
+    local NEED = { stage = 0.98, acting = 0.98, speaks = 0.98, boss = 1.0, fight = 0.98 }
+    for _, kind in ipairs({ "stage", "acting", "speaks", "boss", "fight" }) do
+        local share = (n[kind] or 0) > 0 and ok[kind] / n[kind] or 0
+        add("V", kind .. "_seen_pct", math.floor(share * 1000 + 0.5) / 10)
+        if (n[kind] or 0) == 0 then
+            fail("V", "no " .. kind .. " moments measured")
+        elseif share < NEED[kind] then
+            fail("V", kind .. ": " .. ok[kind] .. " of " .. n[kind] .. " minis seen by the camera (" .. string.format("%.1f%%", share * 100)
+                .. "), and " .. math.floor(NEED[kind] * 100) .. "% are wanted")
+        end
+    end
+    if fails.V then
+        for _, m in ipairs(misses) do
+            fail("V", "missed: " .. m)
+        end
+    end
+    -- The model's camera (game/model/sight.lua) is the game's: main/scene_data.lua's Table preset and grid.
+    local sight = require "game.model.sight"
+    local W = dofile("tools/tests/view_watch.lua").scene
+    if not sight.EYE_H then
+        fail("V", "game/model/sight.lua has no camera (EYE_H, EYE_Z, EYE_X): placing a mini doesn't ask what the camera sees")
+    else
+        local eh = W.eye[2] - W.y
+        local ez = W.eye[3] - (W.z0 - W.size / 2)
+        local ex = (W.eye[1] - W.x0) / W.size + 0.5
+        if math.abs(sight.EYE_H - eh) > 0.05 or math.abs(sight.EYE_Z - ez) > 0.05 or math.abs(sight.EYE_X - ex) > 0.05
+            or math.abs(sight.MINI_H - W.mini_h) > 0.01 then
+            fail("V", string.format("sight.lua's camera (%.2f, %.2f, %.2f) isn't main/scene_data.lua's (%.2f, %.2f, %.2f)",
+                sight.EYE_H, sight.EYE_Z, sight.EYE_X, eh, ez, ex))
+        else
+            add("V", "camera_matches_scene_data")
+        end
+        -- Cases: the offices' partitions hide the next two rows (8_36), the lair's landing wall the next two
+        -- (8_53), and a square three rows back shows.
+        local board = require "game.model.board"
+        local off = board.compile("museum_offices").occ
+        local lair = board.compile("museum_lair").occ
+        local cases = {
+            { off, 4, 8, false, "the offices' hall, straight behind the south partition" },
+            { off, 4, 7, false, "the offices' hall, two rows behind the partition" },
+            { off, 8, 6, true, "the offices' hall, three rows back from the partition" },
+            { off, 10, 3, false, "the archivist's desk, behind the north partition" },
+            { lair, 4, 9, false, "the lair's landing, behind its south wall" },
+            { lair, 14, 9, true, "in front of Euryale's couch" },
+        }
+        for _, cs in ipairs(cases) do
+            local seen = sight.shows(cs[1], cs[2], cs[3])
+            local truth = W and dofile("tools/tests/view_watch.lua").shows(cs[1] == off and "museum_offices" or "museum_lair", cs[2], cs[3])
+            if seen ~= cs[4] or truth ~= cs[4] then
+                fail("V", cs[5] .. " (" .. cs[2] .. "," .. cs[3] .. "): the game says " .. (seen and "seen" or "hidden") .. ", the measure "
+                    .. (truth and "seen" or "hidden") .. ", and it should be " .. (cs[4] and "seen" or "hidden"))
+            else
+                add("V", "cases")
+            end
+        end
+    end
+end
+
 -- What each finding saw, and the failures. -------------------------------------------------------------------
-local IDS = { "RUN", "CUT", "GLOSS", "E3", "E9", "E11", "E16", "S1", "S2", "S6", "S7", "S8", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P" }
+local IDS = { "RUN", "CUT", "GLOSS", "E3", "E9", "E11", "E16", "S1", "S2", "S6", "S7", "S8", "S9", "S10", "S12", "S13", "S14", "S16", "S17", "P", "V" }
 for _, id in ipairs(IDS) do
     note(id)
 end
@@ -809,7 +901,7 @@ for _, id in ipairs(IDS) do
 end
 -- Evidence that each finding was really looked at, not just never seen.
 local need = { CUT = "screens", S2 = "on_the_report", S6 = "things_listed", S7 = "stat_hovers", S12 = "headlines_as_the_report",
-               S16 = "screens", S17 = "route_rows", S1 = "marks_whole" }
+               S16 = "screens", S17 = "route_rows", S1 = "marks_whole", V = "cases" }
 for id, k in pairs(need) do
     if not (seen[id] and seen[id][k]) then
         print("  FAIL " .. id .. ": never saw " .. k)

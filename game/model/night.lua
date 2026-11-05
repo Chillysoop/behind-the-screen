@@ -1332,11 +1332,16 @@ function M:walk(p, to, path, sc)
     if not sq then
         return nil
     end
+    local sight = require "game.model.sight"
+    local st = sight.stage(self, sc)
+    -- Where the camera sees them (the confirming playtest: heroes looking round the offices' north
+    -- study stood behind the partition): the square, or one a step or two away in the same room.
+    if not path then
+        sq = self:stand_near(sq, p.key, sc, st)
+    end
     -- Round the walls and through the doors, not through them (game/model/sight.lua): the squares
     -- of the way there, a door opening as they reach it.
     local pts
-    local sight = require "game.model.sight"
-    local st = sight.stage(self, sc)
     local from = self.mini_pos and self.mini_pos[p.key]
     if st and from then
         local route = sight.path(st, from, sq)
@@ -1350,6 +1355,70 @@ function M:walk(p, to, path, sc)
         table.insert(pts, { s[1], s[2] })
     end
     self:emit({ kind = "walk", actor = p.key, path = pts })
+    return sq
+end
+
+-- The other minis standing on this scene's board (the heroes but `who`, and the person once they're on
+-- the mat), as squares.
+function M:minis_but(who)
+    local out = {}
+    for _, q in ipairs(self.players or {}) do
+        local at = q.key ~= who and self.mini_pos and self.mini_pos[q.key]
+        if at then
+            table.insert(out, at)
+        end
+    end
+    if who ~= "npc" and self.scene and self.scene.npc_at and not self.npc_pending then
+        table.insert(out, self.scene.npc_at)
+    end
+    return out
+end
+
+-- Does a hero's mini at (x, y) show from the camera here (sight.shows: no wall or plinth in the way, no
+-- other mini straight in front of it, nor one it would stand straight in front of)?
+function M:shows_at(x, y, who, sc)
+    local ok, c = pcall(board_mod.compile, self:board_for(sc or self.scene) or "")
+    local occ = ok and c and c.occ or nil
+    local others = self:minis_but(who)
+    local sight = require "game.model.sight"
+    if not sight.shows(occ, x, y, others) then
+        return false
+    end
+    for _, o in ipairs(others) do
+        if o[1] == x and (o[2] == y or o[2] == y - 1) then
+            return false        -- (on another's square, or straight in front of them)
+        end
+    end
+    return true
+end
+
+-- Where a hero stands to be at `sq`: the square itself when the camera sees them there, else the
+-- nearest open square a step or two from it, in the same room (a short walk round), that it does.
+function M:stand_near(sq, who, sc, st)
+    local sight = require "game.model.sight"
+    if not st or (sight.walkable(st, sq[1], sq[2]) and self:shows_at(sq[1], sq[2], who, sc)) then
+        return sq
+    end
+    for r = 1, 2 do
+        local best, bd
+        for dy = -r, r do
+            for dx = -r, r do
+                local x, y = sq[1] + dx, sq[2] + dy
+                if math.max(math.abs(dx), math.abs(dy)) == r and sight.walkable(st, x, y) and not st.doors[x .. "," .. y]
+                    and self:shows_at(x, y, who, sc) then
+                    -- (From a square nobody can stand on, a counter or a desk, any open one beside it.)
+                    local route = sight.walkable(st, sq[1], sq[2]) and sight.path(st, sq, { x, y }) or { { x, y } }
+                    local d = dx * dx + dy * dy
+                    if route and #route <= r + 1 and (not bd or d < bd) then
+                        best, bd = { x, y }, d
+                    end
+                end
+            end
+        end
+        if best then
+            return best
+        end
+    end
     return sq
 end
 
@@ -1408,9 +1477,16 @@ function M:come_into_view(sc)
     for _, p in ipairs(self.players) do
         local from = self.mini_pos[p.key]
         if from then
+            -- (Somewhere the camera sees them too, when there's such a square on the way.)
             local route = sight.path(st, from, nil, function(x, y)
                 return sight.walkable(st, x, y) and not taken[x .. "," .. y] and sight.los(st, { x, y }, at)
+                    and self:shows_at(x, y, p.key)
             end)
+            if not (route and #route <= 40) then
+                route = sight.path(st, from, nil, function(x, y)
+                    return sight.walkable(st, x, y) and not taken[x .. "," .. y] and sight.los(st, { x, y }, at)
+                end)
+            end
             if route and #route > 0 and #route <= 40 then
                 local last = route[#route]
                 taken[last[1] .. "," .. last[2]] = true
@@ -1437,7 +1513,7 @@ function M:staging(sc)
     local party = {}
     -- (Spread so every mini shows, none behind another or behind a wall: fight.squares_shown.)
     local spots = fight.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
-        content.terrain_layout.W, content.terrain_layout.H)
+        content.terrain_layout.W, content.terrain_layout.H, nil, layout.occ)
     for i, p in ipairs(self.players) do
         local sq = spots[i] or { 2, i + 3 }
         table.insert(party, { id = p.key, class = p.class, x = sq[1], y = sq[2] })
@@ -1449,8 +1525,16 @@ function M:staging(sc)
     if cast and (not (sc.type == "combat" or sc.type == "set_piece") or cast.visible) then
         -- Where this person would be: the board can say (the stranger in the corner, Gus behind the bar).
         local at = (layout.npc_at and layout.npc_at[cast.id]) or layout.npc
-        local sq = fight.squares_near(blocked, taken, at[1], at[2], 1, 1,
-            content.terrain_layout.W, content.terrain_layout.H)[1]
+        -- (Where the camera sees them, a step or two from the board's spot if a wall or a plinth is in
+        -- the way: the confirming playtest couldn't find Euryale on her own board.)
+        local stood = {}
+        for i = 1, #self.players do
+            if spots[i] then
+                table.insert(stood, spots[i])
+            end
+        end
+        local sq = fight.squares_shown(blocked, taken, at[1], at[2], 1,
+            content.terrain_layout.W, content.terrain_layout.H, stood, layout.occ, 2)[1]
         if sq then
             npc = { id = "npc", cast = cast.id, name = cast.name, x = sq[1], y = sq[2] }
         end
@@ -1799,6 +1883,11 @@ function M:hero_action(sc, dc, spots)
         if x >= 1 and y >= 1 and x <= (board_mod.W or 12) and y <= (board_mod.H or 8) and not blocked[x .. "," .. y] then
             spot = { x, y }
         end
+    end
+    -- (Where the camera sees them roll it: the confirming playtest, three heroes rolling Insight,
+    -- Investigation and Religion behind the offices' partitions.)
+    if spot then
+        spot = self:stand_near(spot, p.key, sc, require("game.model.sight").stage(self, sc))
     end
     self:emit({ kind = "check", text = text, roll = roll, bonus = mod, total = total, dc = dc, success = success,
                 actor = p.key, char = p.char, skill = a.skill, skill_name = name, crit = roll == 20,

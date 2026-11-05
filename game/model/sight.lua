@@ -181,6 +181,53 @@ function M.doors_on(st, path)
     return out
 end
 
+-- What the camera sees (the confirming playtest: Euryale and Pip missing from the boss night's frame,
+-- three of four heroes hidden behind the offices' partitions). The table's camera looks down on the mat
+-- from the south (main/scene_data.lua, the Table preset: its eye EYE_H above the mat, EYE_Z mat units south
+-- of square row 0's middle, over column EYE_X), so whatever stands between a mini and the south can hide
+-- it: a wall eleven units tall hides the next two rows behind it, a plinth the next one. A mini shows
+-- when its middle (half its height) clears every piece on the way to the camera (the board's `occ`:
+-- each piece's height and where its tall part starts in its square), and no other mini stands just
+-- in front of it. round3_screens_check's V reads these numbers back from main/scene_data.lua.
+M.EYE_H = 84.85         -- 160 - 75.15: the eye over the mat
+M.EYE_Z = 147           -- 110 - (-37): from the eye back to row 0's middle (row y's middle is 5y nearer)
+M.EYE_X = 10.9          -- (-4 + 58.5) / 5: the column the eye looks down
+M.SQ = 5
+M.MINI_H = 9.92         -- a mini's height (main/scene_data.lua `mini.height`)
+
+-- Does a mini of this size (1, or a Large one's 1.3) at (x, y) show from the camera? `occ` is the board's
+-- (board.compile's `occ`, keyed "x,y"); `others` the squares of the minis already standing ({ x, y }).
+-- Returns true, or false and what's in the way ("wall" or "mini").
+function M.shows(occ, x, y, others, size)
+    local hm = M.MINI_H * (size or 1) * 0.5
+    local dz = M.EYE_Z - M.SQ * y
+    if occ then
+        for k = 1, 3 do
+            local d0 = M.SQ * k - M.SQ / 2
+            -- (The line to the eye leans toward the middle column as it goes: the square it crosses.)
+            local lean = math.floor((M.EYE_X - x) * d0 / dz + 0.5)
+            local cols = lean ~= 0 and { x, x + (lean > 0 and 1 or -1) } or { x }
+            for _, cx in ipairs(cols) do
+                local o = occ[cx .. "," .. (y + k)]
+                if o then
+                    local d = d0 + (o.front or 0)
+                    if o.h > hm + (M.EYE_H - hm) * d / dz then
+                        return false, "wall"
+                    end
+                end
+            end
+        end
+    end
+    -- (A standee straight in front of it, a row nearer the camera. Placing minis asks more of the
+    -- others: fight.squares_shown keeps a column either side and two rows clear.)
+    for _, s in ipairs(others or {}) do
+        if s[2] - y == 1 and s[1] == x then
+            return false, "mini"
+        end
+    end
+    return true
+end
+
 -- Can any of these squares see that one?
 function M.seen(st, from_list, target)
     for _, a in ipairs(from_list) do

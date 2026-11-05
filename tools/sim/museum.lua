@@ -54,11 +54,17 @@ local fights = { n = 0, lost = 0, downs = 0, moments = {}, boss = "none" }
 -- The friends' thoughts tonight: how many showed, of what, and what the DM did about them.
 local thoughts_seen = { n = 0, answered = 0, backfired = 0, needs = {}, reads = {} }
 
+-- VIEW=1: what the camera sees of the minis (tools/tests/view_watch.lua, round3_screens_check's V).
+local view = os.getenv("VIEW") and require("tools.tests.view_watch").new()
+
 local function play_night(night)
     local ev = night:advance()
     local guard = 0
     while ev.kind ~= "done" and guard < 4000 do
         guard = guard + 1
+        if view then
+            view:see(night, ev)
+        end
         local answer
         if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" then
             text_ok(ev.text, ev.kind)
@@ -381,4 +387,7 @@ end
 print(string.format("  thoughts %d (%.1f a night), answered %d, backfired %d; %s; reads %s; know %s", thoughts_seen.n,
     thoughts_seen.n / math.max(1, weeks), thoughts_seen.answered, thoughts_seen.backfired, table.concat(tn, " "),
     table.concat(rd, " "), table.concat(fam, ", ")))
+if view then
+    print(view:report())
+end
 os.exit(failures == 0 and 0 or 1)

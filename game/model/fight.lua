@@ -63,9 +63,15 @@ end
 -- Squares near (ax, ay) where every mini shows (round three, A1 and engine_screens 4: "Thessaly is behind
 -- an interior wall, only her hat shows"; "Oswin is mostly behind Pip"). The camera looks from the south
 -- (a higher y is nearer it), so a mini hides one standing in the same or the next column a row or two
--- behind it, and a wall in front hides whoever's behind it. First pass: none of that, against the
--- squares already chosen and `others` (minis standing there already); then as squares_near would.
-function M.squares_shown(blocked, taken, ax, ay, n, W, H, others)
+-- behind it, and a wall in front hides whoever's behind it: with the board's `occ` (board.compile), every
+-- piece by its height, so an office partition hides the next two rows and a plinth the next one
+-- (sight.shows: the confirming playtest, three of four heroes behind the offices' partitions); without
+-- it, a blocked square straight in front. First pass: none of that, against the squares already chosen
+-- and `others` (minis standing there already), within `reach` (6) of the anchor; then clear of the walls
+-- a little further out, where another mini may stand two rows ahead; then as squares_near would.
+function M.squares_shown(blocked, taken, ax, ay, n, W, H, others, occ, reach)
+    local sight = require "game.model.sight"
+    reach = reach or 6
     local out = {}
     -- (Only squares in the same room as the anchor: the corners outside an octagon's walls are open
     -- squares too, and nobody can stand there.)
@@ -92,33 +98,48 @@ function M.squares_shown(blocked, taken, ax, ay, n, W, H, others)
         local k = x * 1000 + y
         return x >= 1 and y >= 1 and x <= W and y <= H and not blocked[k] and not taken[k] and (not inside or inside[k])
     end
-    local function shows(x, y)
-        if blocked[x * 1000 + y + 1] then
-            return false               -- (a wall right in front of it)
+    local function clear_of_walls(x, y)
+        if occ then
+            return (sight.shows(occ, x, y))
+        end
+        return not blocked[x * 1000 + y + 1]        -- (a wall right in front of it)
+    end
+    local function shows(x, y, strict)
+        if not clear_of_walls(x, y) then
+            return false
         end
         for _, list in ipairs({ out, others or {} }) do
             for _, s in ipairs(list) do
-                if math.abs(s[1] - x) <= 1 and math.abs(s[2] - y) <= 2 then
+                local dx, dy = math.abs(s[1] - x), math.abs(s[2] - y)
+                if strict and dx <= 1 and dy <= 2 then
+                    return false
+                elseif not strict and dx == 0 and dy == 1 then
                     return false
                 end
             end
         end
         return true
     end
-    for r = 0, math.max(W, H) do
-        for dy = -r, r do
-            for dx = -r, r do
-                if math.max(math.abs(dx), math.abs(dy)) == r and #out < n then
-                    local x, y = ax + dx, ay + dy
-                    if free(x, y) and shows(x, y) then
-                        table.insert(out, { x, y })
-                        taken[x * 1000 + y] = true
+    for pass = 1, 2 do
+        local far = pass == 1 and reach or (reach + 4)
+        for r = 0, math.max(W, H) do
+            for dy = -r, r do
+                for dx = -r, r do
+                    if math.max(math.abs(dx), math.abs(dy)) == r and #out < n then
+                        local x, y = ax + dx, ay + dy
+                        if free(x, y) and shows(x, y, pass == 1) then
+                            table.insert(out, { x, y })
+                            taken[x * 1000 + y] = true
+                        end
                     end
                 end
             end
+            if #out >= n or r >= far then
+                break                       -- (too far from where they should be: crowd in, as before)
+            end
         end
-        if #out >= n or r > 6 then
-            break                       -- (too far from where they should be: crowd in, as before)
+        if #out >= n then
+            break
         end
     end
     if #out < n then
@@ -1457,10 +1478,18 @@ function M.run(night, sc, plan)
     -- (The nearest one where every mini shows: squares_shown.)
     local party_spots = {}
     local placed = {}
+    -- (Not straight behind a piece that's about to wake into a foe: the garden's hedges.)
+    if sc.wake and sc.wake.feature then
+        local ok, bc = pcall(require("game.model.board").compile, (extras and extras.board) or set_name)
+        local feat = ok and bc and bc.by_id and bc.by_id[sc.wake.feature]
+        for _, pi in ipairs(feat and feat.pieces or {}) do
+            table.insert(placed, { bc.pieces[pi].x, bc.pieces[pi].y })
+        end
+    end
     for i, c in ipairs(night.pc_list) do
         local at = night.mini_pos and night.mini_pos[c.mini]
-        local sq = at and M.squares_shown(blocked, taken, at[1], at[2], 1, b.W, b.H, placed)[1]
-        party_spots[i] = sq or M.squares_shown(blocked, taken, layout.party[1], layout.party[2], 1, b.W, b.H, placed)[1]
+        local sq = at and M.squares_shown(blocked, taken, at[1], at[2], 1, b.W, b.H, placed, layout.occ)[1]
+        party_spots[i] = sq or M.squares_shown(blocked, taken, layout.party[1], layout.party[2], 1, b.W, b.H, placed, layout.occ)[1]
         if party_spots[i] then
             table.insert(placed, party_spots[i])
         end
@@ -1492,7 +1521,8 @@ function M.run(night, sc, plan)
             table.insert(party_out, { id = c.mini, x = sq[1], y = sq[2], class = c.class, hp = c.hp, hp_max = c.hp_max })
         end
     end
-    local foe_spots = M.squares_near(blocked, taken, layout.foes[1], layout.foes[2], #plan.ids, 2, b.W, b.H)
+    -- (Where the camera sees them too: not behind a wall or a hero. The confirming playtest.)
+    local foe_spots = M.squares_shown(blocked, taken, layout.foes[1], layout.foes[2], #plan.ids, b.W, b.H, party_spots, layout.occ)
     -- The room's own figure who starts the fight (the Sentinel on its plinth, the knight out of his
     -- frame) steps off its spot, not in from the edge: the playtest, November 3, saw a second one.
     if sc.npc_at and plan.ids[1] then
@@ -1619,7 +1649,13 @@ function M.run(night, sc, plan)
         local a = ally_list[i]
         m.pilot = type(a) == "table" and a.pilot or nil
     end
-    local ally_spots = M.squares_near(blocked, taken, layout.party[1], layout.party[2], #allies, 1, b.W, b.H)
+    local stood = {}
+    for _, list in ipairs({ party_spots, foe_spots }) do
+        for _, sq in ipairs(list) do
+            table.insert(stood, sq)
+        end
+    end
+    local ally_spots = M.squares_shown(blocked, taken, layout.party[1], layout.party[2], #allies, b.W, b.H, stood, layout.occ)
     for i, m in ipairs(allies) do
         m.mini = "a" .. i
         local sq = ally_spots[i] or { 2, b.H - i }
