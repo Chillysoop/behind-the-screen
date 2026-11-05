@@ -391,15 +391,180 @@ if os.getenv("AUDIT") then
         for lvl = 3, 12 do
             local info = debug.getinfo(lvl, "Sl")
             if not info then break end
-            if info.short_src and not info.short_src:find("kit.lua") then
+            if info.short_src and not info.short_src:find("kit.lua") and not info.short_src:find("museum_smoke") then
                 return (info.short_src:match("([%w_]+)%.lua") or info.short_src) .. ":" .. tostring(info.currentline)
             end
         end
     end
 end
+-- SCREEN_CHECK=1 (tools/tests/round3_screens_check.lua, the third playtest): at every dump, each
+-- piece of text cut short ("...") must show the whole of it when you point at it, by a hover over it
+-- that draws the full text; CUT_NO_HOVER lines name the ones that don't. FACT lines say what the
+-- state holds that a screen should show (the night's chain on the report, what each hero carries).
+local SCREEN = os.getenv("SCREEN_CHECK") and { cut_of = setmetatable({}, { __mode = "k" }), short_of = {}, seen = {} }
+if SCREEN then
+    local raw_ell, raw_text, raw_set = kit.ellipsize, kit.text, gui.set_text
+    kit.ellipsize = function(str, font, w)
+        local out = raw_ell(str, font, w)
+        if out ~= str then SCREEN.short_of[out] = str end
+        return out
+    end
+    kit.text = function(x, y, str, font, color, opts)
+        local n = raw_text(x, y, str, font, color, opts)
+        local full = SCREEN.short_of[str or ""]
+        if opts and opts.w and opts.lines and str and #kit.wrap(str, font, opts.w) > opts.lines then
+            full = full or str
+        end
+        if full and n then
+            SCREEN.cut_of[n] = { shown = n.text, full = full, hover_card = kit.current and kit.current.name == "gloss_card" }
+        end
+        return n
+    end
+    gui.set_text = function(n, t)
+        raw_set(n, t)
+        local full = SCREEN.short_of[t]
+        if full then
+            SCREEN.cut_of[n] = { shown = t, full = full }
+        end
+    end
+end
+-- The most words rising off the minis at once on game night, and on one mini (the engine run, 8_51).
+if SCREEN then
+    local nv = require "game.ui.night_view"
+    local raw_float = nv.float
+    SCREEN.floats, SCREEN.floats_one = 0, 0
+    nv.float = function(a, id, ...)
+        -- (The mock has no 3D table to say where each mini is on screen: every mini at the middle.)
+        if id then
+            a.anchors = a.anchors or { heads = {}, minis = {} }
+            a.anchors.minis = a.anchors.minis or {}
+            a.anchors.minis[id] = a.anchors.minis[id] or { 0.5, 0.45 }
+        end
+        raw_float(a, id, ...)
+        local n, one = #(a.floaters or {}), 0
+        for _, f in ipairs(a.floaters or {}) do
+            if f.id == id then one = one + 1 end
+        end
+        SCREEN.floats = math.max(SCREEN.floats, n)
+        SCREEN.floats_one = math.max(SCREEN.floats_one, one)
+    end
+end
+local function screen_norm(s)
+    s = string.lower(string.gsub(s or "", "%s+", " "))
+    return (string.gsub(string.gsub(s, "^ ", ""), " $", ""))
+end
+-- The rectangle a node covers on screen, top-left coordinates: left, top, w, h.
+local PIV_X = { nw = 0, w = 0, sw = 0, n = 0.5, c = 0.5, s = 0.5, ne = 1, e = 1, se = 1 }
+local PIV_Y = { nw = 0, n = 0, ne = 0, w = 0.5, c = 0.5, e = 0.5, sw = 1, s = 1, se = 1 }
+local function node_rect(n)
+    local w, h = 0, 0
+    if n.kind == "text" then
+        for line in string.gmatch((n.text or "") .. "\n", "(.-)\n") do
+            w = math.max(w, kit.width(line, n.font))
+            h = h + kit.line_height(n.font)
+        end
+    else
+        w, h = n.size.x, n.size.y
+    end
+    local top = kit.H - n.pos.y - (PIV_Y[n.pivot] or 0) * h
+    local left = n.pos.x - (PIV_X[n.pivot] or 0) * w
+    return left, top, w, h
+end
+local function overlaps(r, left, top, w, h)
+    return r[1] < left + w and left < r[1] + r[3] and r[2] < top + h and top < r[2] + r[4]
+end
+-- Pointing at what covers this rectangle: what each hover there draws, one string per hover.
+local function hover_texts(left, top, w, h)
+    local tries = {}
+    for _, l in ipairs(kit.layers) do
+        for _, s in ipairs(l.spots or {}) do
+            if s.on_hover and s.rect and overlaps(s.rect, left, top, w, h) and not (s.node and (not s.node.alive or s.node.enabled == false)) then
+                table.insert(tries, s)
+            end
+        end
+        for _, b in ipairs(l.buttons or {}) do
+            if b.on_hover and b.rect and overlaps(b.rect, left, top, w, h) then
+                table.insert(tries, b)
+            end
+        end
+    end
+    local out = {}
+    for _, t in ipairs(tries) do
+        local n0 = #order
+        pcall(t.on_hover, t, true)
+        local said = {}
+        for i = n0 + 1, #order do
+            if order[i].kind == "text" and order[i].text then
+                table.insert(said, order[i].text)
+            end
+        end
+        pcall(t.on_hover, t, false)
+        if #said > 0 then
+            table.insert(out, (string.gsub(table.concat(said, " "), "\n", " ")))
+        end
+    end
+    return out
+end
+-- Does any hover over it draw the whole text?
+local function shows_whole(left, top, w, h, full)
+    local want = screen_norm(full)
+    for _, said in ipairs(hover_texts(left, top, w, h)) do
+        if string.find(screen_norm(said), want, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+-- Labels whose hover the check reads (HOVER lines): the table stats, Goodwill, the mood, the marks
+-- beside the stats on the report.
+local PROBES = { "^Commitment$", "^Investment$", "^Trust$", "^Suspicion$", "^Goodwill$", "^Mood: ", "^[%+%-=][%+%-]?$" }
+local function screen_probes(name)
+    for _, n in ipairs(order) do
+        if n.alive and n.enabled ~= false and n.kind == "text" and n.text and (not n.color or n.color.w > 0.01) then
+            for _, pat in ipairs(PROBES) do
+                if string.find(n.text, pat) then
+                    local left, top, w, h = node_rect(n)
+                    local said = hover_texts(left, top, w, h)
+                    print("HOVER\t" .. name .. "\t" .. n.text .. "\t" .. math.floor(left) .. "," .. math.floor(top) .. "\t"
+                        .. (#said > 0 and table.concat(said, " | ") or "-"))
+                    break
+                end
+            end
+        end
+    end
+end
+local function screen_cuts(name)
+    if not SCREEN then return end
+    for _, n in ipairs(order) do
+        local cut = SCREEN.cut_of[n]
+        if cut and not cut.hover_card and n.alive and n.enabled ~= false and n.text == cut.shown and (not n.color or n.color.w > 0.01) then
+            local left, top, w, h = node_rect(n)
+            local parked = top > kit.H or top + h < 0 or left > kit.W or left + w < 0
+            if not parked and not shows_whole(left, top, w, h, cut.full) then
+                local k = name .. "|" .. cut.shown
+                if not SCREEN.seen[k] then
+                    SCREEN.seen[k] = true
+                    print("CUT_NO_HOVER\t" .. name .. "\t" .. string.gsub(cut.shown, "\n", " ") .. "\t" .. string.gsub(cut.full, "\n", " "))
+                end
+            end
+        end
+    end
+end
+local function fact(name, key, value)
+    if SCREEN then
+        print("FACT\t" .. name .. "\t" .. key .. "\t" .. string.gsub(tostring(value), "\n", " "))
+    end
+end
+local screen_facts     -- (set below, once the app is up: what the state says a dump should show)
+
 local dumped_decision, dumped_improv, dumped_battle, dumped_talk, dumped_docked, dumped_read
 local dumped_takeover_talk, dumped_takeover_boss
 local function dump(name)
+    if SCREEN then
+        screen_cuts(name)
+        screen_probes(name)
+        if screen_facts then screen_facts(name) end
+    end
     if not DUMP then return end
     local f = io.open(DUMP .. "/" .. name .. ".txt", "w")
     for _, n in ipairs(order) do
@@ -451,6 +616,84 @@ local function has_text(fragment)
 end
 
 local adventure = require "game.model.adventure"
+-- What the state says a dump should show (SCREEN_CHECK): the report's chain, what each hero carries.
+screen_facts = function(name)
+    local c = self.app and self.app.campaign
+    if not c then return end
+    if string.find(name, "^6_report") then
+        local o = require("game.model.loot").opened(c)
+        local set = o and require("game.data.dice").SETS[o.set]
+        fact(name, "new_dice", set and set.name or "-")
+    end
+    if string.find(name, "^6_report") and c.report and c.report.museum then
+        for _, line in ipairs(c.report.museum.chain or {}) do
+            fact(name, "chain", line)
+        end
+    end
+    -- The prep board: her marks, tonight's rooms (their summaries and Session Zero asks), the spare hours.
+    if string.find(name, "^4") and c.prep and c.prep.museum then
+        local mw = require "game.model.museum_week"
+        for _, m in ipairs(adventure.boss_card(c).marks) do
+            fact(name, "mark", m.showdown .. ".")
+        end
+        for _, id in ipairs(c.prep.museum.ahead or {}) do
+            local r = adventure.data.rooms[id]
+            if r and not r.virtual then
+                fact(name, "room", r.name .. "\t" .. r.sum)
+                for _, n in ipairs(mw.room_prep(c, id)) do
+                    if n.kind == "ask" then
+                        fact(name, "ask", r.name .. "\t" .. n.text .. ".")
+                    end
+                end
+            end
+        end
+        for _, d in ipairs(mw.SPARE) do
+            fact(name, "spare", d.what)
+        end
+        if c.prep.museum.boss then
+            local sd = adventure.data.showdown
+            for _, k in ipairs({ "talk", "ambush" }) do fact(name, "blurb", sd.openers[k].blurb) end
+            for _, k in ipairs({ "yields", "last" }) do fact(name, "blurb", sd.styles[k].blurb) end
+            fact(name, "opener", c.adv.boss and c.adv.boss.opener or "talk")
+            fact(name, "garden_burned", c.adv.marks.garden_burned and "yes" or "no")
+        end
+    end
+    if string.find(name, "^6r_rewards_w") and c.report then
+        fact(name, "headline", c.report.headline or "")
+        fact(name, "last", (c.report.museum and c.report.museum.ending) and "yes" or "no")
+        for _, row in ipairs(c.report.players or {}) do
+            fact(name, "tier", row.name .. "\t" .. tostring(row.tier))
+        end
+    end
+    if string.find(name, "^5t_thought_read") and self.app.night and self.app.night.th and self.app.thought_card then
+        local t = self.app.night.th.list[self.app.thought_card.id]
+        if t and t.read and t.read.dc then
+            fact(name, "read", t.read.result .. "\t" .. string.format("%d", t.read.dc) .. "\t" .. string.format("%d", t.read.total))
+        end
+    end
+    if string.find(name, "^6b_levelup") then
+        fact(name, "level", string.format("%d", c.level or 0))
+        fact(name, "last", (c.adv and c.adv.ending) and "yes" or "no")
+    end
+    if string.find(name, "^4n_notes_log") then
+        local log = c.session_log or {}
+        fact(name, "newest", log[#log] and string.format("%d", log[#log].week) or "-")
+    end
+    if string.find(name, "^4h_hero_sheet") or string.find(name, "^4n_notes_party") then
+        local items = require "game.model.items"
+        local sheet = require "game.model.sheet"
+        for _, p in ipairs(c.players) do
+            if not string.find(name, "^4h") or p.key == self.app.sheet_key then
+                local s = sheet.build(c, p.key)
+                local n = items.count(c, p.key, items.POTION)
+                fact(name, "carry_" .. p.key, n > 0 and (string.format("%d", n) .. " healing potion" .. (n > 1 and "s" or "")) or "-")
+                for _, it in ipairs(s.carried or {}) do
+                    fact(name, "carry_" .. p.key, it.name)
+                end
+            end
+        end
+    end
+end
 local where = ""
 local foreign_seen = {}
 on_text = function(t)
@@ -649,6 +892,19 @@ for week = 1, WEEKS do
             scan("the notebook's " .. t[1] .. " tab" .. where)
         end
         call(app.close_overlay)
+        -- The sheet of whoever carries the most by now: its CARRYING list (the third playtest).
+        if app.open_sheet and week == 3 then
+            local items = require "game.model.items"
+            local best, most = c.players[1].key, -1
+            for _, p in ipairs(c.players) do
+                local n = #items.held_by(c, p.key)
+                if n > most then best, most = p.key, n end
+            end
+            call(app.open_sheet, best)
+            dump_once("4h_hero_sheet_w3")
+            scan("a hero's sheet, week 3" .. where)
+            call(app.close_overlay)
+        end
     end
     -- The map repository (v2): browse, set a room's map, open a side room, make a map and paint on it.
     if week == 1 then
@@ -833,11 +1089,16 @@ for week = 1, WEEKS do
         if g == 60 and not app.pending and not app.thought_card then
             if not click_key("night_story") then problem("no Story button on game night" .. where) end
             if not app.recap_left then problem("the Story sidebar didn't open" .. where) end
+            dump_once("5r_story_w" .. week)
+            scan("the Story sidebar" .. where)
+            if not has_text("THE STORY") then problem("the Story sidebar is empty" .. where) end
+            -- (One at a time, the third playtest's engine run: the Table button swaps them.)
             if not click_key("night_table") then problem("no Table button on game night" .. where) end
             if not app.recap_right then problem("the Table sidebar didn't open" .. where) end
+            if app.recap_left then problem("the Story sidebar stayed open beside the Table" .. where) end
             dump_once("5r_recap_w" .. week)
             scan("the recap sidebars" .. where)
-            if not has_text("THE STORY") or not has_text("THE TABLE") then problem("the recap sidebars are empty" .. where) end
+            if not has_text("THE TABLE") then problem("the Table sidebar is empty" .. where) end
             local t0 = app.night.clock
             call(update, self, 2)
             if app.night.clock ~= t0 then problem("the night didn't wait while the recap was open" .. where) end
@@ -931,6 +1192,12 @@ for week = 1, WEEKS do
     if not click_key("rewards_next") then problem("couldn't leave the rewards" .. where) end
     dump("6_report_w" .. week)
     scan("the report" .. where)
+    -- The whole night, when it didn't all fit under the beats (the third playtest), and back.
+    if click_key("report_chain") then
+        dump("6c_chain_w" .. week)
+        scan("the report's whole night" .. where)
+        if not click_key("report_chain_back") then problem("no way back from the report's whole night" .. where) end
+    end
     -- A set from the bag for someone (November 3).
     do
         local loot = require "game.model.loot"
@@ -1009,6 +1276,9 @@ do
     end
 end
 if tr_file then tr_file:close(); tr_file = nil end
+if SCREEN then
+    print("FACT\tnight\tfloaters\t" .. SCREEN.floats .. "\t" .. SCREEN.floats_one)
+end
 if kit.audit then
     local seen, n = {}, 0
     for _, e in ipairs(kit.audit) do

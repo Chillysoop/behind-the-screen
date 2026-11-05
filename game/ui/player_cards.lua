@@ -17,6 +17,10 @@ local util = require "game.model.util"
 
 local M = {}
 
+-- What a one-on-one costs in prep hours (the same number everywhere it's said: the third playtest
+-- saw "Talk 2h" on the cards and "talk to a friend (1h)" under the spare hours).
+local TALK_H = require("game.model.prep").TALK_COST
+
 -- The first prep board keeps to the essentials (playtest, October 13: week 1 was a wall of
 -- controls): one-on-ones and the long-term bars arrive in week 2.
 local function staged(app)
@@ -74,8 +78,10 @@ end
 
 local function goodwill_hover(app, p, gw, x0, y0)
     local keepsakes = require "game.model.keepsakes"
-    local lines = { "Every good night fills it, and their own story moving fills it more. A moment that's all "
-        .. "theirs, or dice from you, fills it a lot." }
+    -- (What it is first: the third playtest saw a word and a heart, and no meaning.)
+    local pr = util.pronoun_of(p.name)
+    local lines = { "Goodwill is how fond " .. p.name .. " is of you as " .. pr.their .. " DM. Every good night fills it, and "
+        .. pr.their .. " own story moving fills it more. A moment that's all " .. pr.theirs .. ", or dice from you, fills it a lot." }
     local got = keepsakes.from(app.campaign, p.key)
     if #got > 0 then
         local def = keepsakes.def(got[#got].id)
@@ -198,7 +204,7 @@ function M.card(app, prep, p, i, forecast)
     kit.text(x + 52 + kit.width(p.name, "ui22b") + 10, y + 14, kit.ellipsize(who, "ui18", room), "ui18", theme.dim)
     if p.on_break then
         local talked = prep.talked[p.key]
-        kit.button(x + w - 128, y + 10, 114, 30, talked and "Checked in" or "Check in  2h", function()
+        kit.button(x + w - 128, y + 10, 114, 30, talked and "Checked in" or ("Check in  " .. util.int(TALK_H) .. "h"), function()
             if prep:talk(p.key) then
                 app.refresh()
             end
@@ -220,7 +226,7 @@ function M.card(app, prep, p, i, forecast)
     else
         local talked = prep.talked[p.key]
         if not staged(app) then
-            kit.button(x + w - 108, y + 10, 94, 30, talked and "Talked" or "Talk  2h", function()
+            kit.button(x + w - 108, y + 10, 94, 30, talked and "Talked" or ("Talk  " .. util.int(TALK_H) .. "h"), function()
                 talk_view.open(app, p.key)
             end, { font = "ui14", enabled = (not talked) and prep:can_talk(p.key), key = "talk_" .. p.key })
         end
@@ -242,11 +248,15 @@ function M.card(app, prep, p, i, forecast)
         end
         local mood = score.mood(p)
         kit.icon(x + 14, y + 87, 14, "mood", p.mood_known and theme.gold or theme.faint)
-        local mood_text = p.mood_known and ("Mood this week: " .. mood.name) or "Mood this week: ?"
-        kit.text(x + 34, y + 86, mood_text, "ui14", p.mood_known and theme.text or theme.faint)
-        gloss.card_spot(x + 10, y + 82, kit.width(mood_text, "ui14") + 28, 22, "Mood this week",
-            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game. It changes how " .. util.pronoun_of(p.name)["they'll"] .. " take game night.")
-            or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. A one-on-one (Talk) finds out."))
+        -- (Not "?": the third playtest read it as broken. Unknown says how you'd find out.)
+        local mood_text = p.mood_known and ("Mood: " .. mood.name) or (staged(app) and "Mood: not known" or "Mood: Talk to see")
+        kit.text(x + 34, y + 86, kit.ellipsize(mood_text, "ui14", 134), "ui14", p.mood_known and theme.text or theme.faint)
+        gloss.card_spot(x + 10, y + 82, math.min(kit.width(mood_text, "ui14"), 134) + 28, 22, "Mood this week",
+            p.mood_known and ("How " .. p.name .. "'s week has gone, outside the game: " .. string.lower(mood.name) .. ". It changes how "
+                .. util.pronoun_of(p.name)["they'll"] .. " take game night.")
+            or ("How " .. p.name .. "'s week has gone, outside the game: you don't know yet. "
+                .. (staged(app) and "From next week, a one-on-one (Talk, on this card) finds out. A friend's tell on game night can give it away too."
+                    or "A one-on-one (Talk, on this card) finds out.")))
         -- How well you know them (v2, game/model/familiar.lua): dots, and the words on hover.
         local fam = require "game.model.familiar"
         local fl, fmax = fam.dots(app.campaign, p.key)
@@ -272,9 +282,12 @@ function M.card(app, prep, p, i, forecast)
                         forecast_hover(app, prep, p, f, x, y + 102)
                     end
                 end })
+            -- (The words in full, the bar shorter: the third playtest's "Should enj...", "May che...".)
             local gx = x + 14 + kit.width("Game night", "ui14") + 10     -- (clear of its label: "Game nigh" under the bar)
-            kit.bar(gx, y + 111, x + 276 - gx, 10, f, 100, tier_color(f))
-            kit.text(x + 286, y + 106, kit.ellipsize(content.chat.forecasts[score.tier(f)], "ui14", w - 296), "ui14", tier_color(f))
+            local words = content.chat.forecasts[score.tier(f)]
+            local tx = math.floor(math.min(x + 286, x + w - 14 - kit.width(words, "ui14")))
+            kit.bar(gx, y + 111, tx - 10 - gx, 10, f, 100, tier_color(f))
+            kit.text(tx, y + 106, kit.ellipsize(words, "ui14", x + w - 13 - tx), "ui14", tier_color(f))
         else
             kit.text(x + 86, y + 108, "Pick every stop's type to see a forecast", "ui14", theme.faint)
         end

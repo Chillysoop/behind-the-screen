@@ -1,7 +1,9 @@
 -- The DM's recap on game night (v2, November 1): two fold-out sidebars, the Story top left and the
 -- Table top right, so a call can be made with the story and the people at the table both in view.
--- The night waits while one is open. S opens and closes both; the Story and Table buttons in the
--- top bar open one. What's in them comes from game/model/standing.lua.
+-- The night waits while one is open. One at a time (the third playtest's engine run, 8_12: both
+-- open filled both sides of the board and cut the caption between them): the Story and Table
+-- buttons in the top bar open theirs and close the other; S goes Story, Table, neither. What's in
+-- them comes from game/model/standing.lua.
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -43,15 +45,23 @@ function M.close(app)
     kit.reset_hover()
 end
 
--- side: "left", "right" or "both" (S): open it if it's shut, shut it if it's open.
+-- side: "left" or "right": open it (and shut the other) if it's shut, shut it if it's open.
+-- "both" (S): the Story, then the Table, then neither.
 function M.toggle(app, side)
     if side == "both" then
-        local open = not (app.recap_left and app.recap_right)
-        app.recap_left, app.recap_right = open or nil, open or nil
+        if app.recap_left then
+            app.recap_left, app.recap_right = nil, true
+        elseif app.recap_right then
+            app.recap_left, app.recap_right = nil, nil
+        else
+            app.recap_left, app.recap_right = true, nil
+        end
     elseif side == "left" then
-        app.recap_left = (not app.recap_left) or nil
+        local open = not app.recap_left
+        app.recap_left, app.recap_right = open or nil, nil
     else
-        app.recap_right = (not app.recap_right) or nil
+        local open = not app.recap_right
+        app.recap_left, app.recap_right = nil, open or nil
     end
     M.draw(app)
 end

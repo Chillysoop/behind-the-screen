@@ -37,8 +37,10 @@ local function wrapup_items(app, rep)
             local room = MODULE.rooms[r.room]
             if room and not room.virtual then
                 -- (A side room by its own name, off its room; a trip back as a trip back.)
+                -- (Lower-case "the" after the first, as in a sentence: "The street, The garden" was uneven.)
+                local rn = #names > 0 and util.lower_first(room.name) or room.name
                 local name = (r.side and (r.side .. ", off " .. util.lower_first(room.name)))
-                    or (r.back and (room.name .. " (back again)")) or room.name
+                    or (r.back and (rn .. " (back again)")) or rn
                 if not util.contains(names, name) then
                     table.insert(names, name)
                 end
@@ -47,19 +49,8 @@ local function wrapup_items(app, rep)
         if #names > 0 then
             table.insert(items, { "Tonight: " .. util.join_names(names) .. ".", theme.text })
         end
-        for _, id in ipairs(mu.marks or {}) do
-            local m = MODULE.marks[id]
-            if m then
-                table.insert(items, { "Euryale's card: " .. m.name .. ". " .. m.showdown .. ".", theme.gold })
-            end
-        end
-        for _, h in ipairs(mu.harsh or {}) do
-            table.insert(items, h.earned and { "A harsh call landed as fair: they knew the risk.", theme.green }
-                or { "A harsh call felt arbitrary. Nobody had been warned.", theme.orange })
-        end
-        if mu.stopped then
-            table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
-        end
+        -- Where it stands now, second: the line next week starts from (the third playtest: it was last,
+        -- and the first to fall off a full column).
         if mu.ending then
             table.insert(items, { "The museum is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
             -- (Out of sessions, nothing at the table said so: the report does, with Flitwidget's word.)
@@ -70,6 +61,11 @@ local function wrapup_items(app, rep)
         else
             table.insert(items, { mu.where, theme.dim })
         end
+    end
+    -- How long the night ran against the time you all agreed, next (the third playtest: a night that ran
+    -- two hours over said so only under "+7 more").
+    if rep.table_text then
+        table.insert(items, { rep.table_text, theme.dim })
     end
     -- At the table first: what needs the DM's attention before next week.
     for _, st in ipairs(rep.table or {}) do
@@ -101,8 +97,25 @@ local function wrapup_items(app, rep)
             end
         end
     end
-    if rep.table_text then
-        table.insert(items, { rep.table_text, theme.dim })
+    -- What the museum kept from tonight: her card, the harsh calls, where you stopped.
+    if mu then
+        local MODULE = require("game.model.adventure").data
+        for _, id in ipairs(mu.marks or {}) do
+            local m = MODULE.marks[id]
+            if m then
+                table.insert(items, { "Euryale's card: " .. m.name .. ". " .. m.showdown .. ".", theme.gold })
+            end
+        end
+        -- (Where it was: "A harsh call felt arbitrary" didn't say which, the third playtest's engine run.)
+        for _, h in ipairs(mu.harsh or {}) do
+            local room = h.room and MODULE.rooms[h.room]
+            local at = room and (" in " .. util.lower_first(room.name)) or ""
+            table.insert(items, h.earned and { "A harsh call" .. at .. " landed as fair: they knew the risk.", theme.green }
+                or { "A harsh call" .. at .. " felt arbitrary. Nobody had been warned.", theme.orange })
+        end
+        if mu.stopped then
+            table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
+        end
     end
     for _, t in ipairs(rep.threads or {}) do
         table.insert(items, { "- " .. t, theme.text })
@@ -133,6 +146,75 @@ local function head(x, y, n, text)
     return y + 24
 end
 
+-- The night's chain from x, y down to max_y: a sentence to a line when they all fit that way, else
+-- the sentences run on as one paragraph. partial: whole sentences only, as many as fit (the rest
+-- is the caller's to offer); otherwise all of it, the last line cut with its hover if it must be.
+-- Returns how many sentences it drew.
+function M.draw_chain(chain, x, y, w, max_y, partial)
+    local lh = kit.line_height("ui14")
+    local room = math.max(0, math.floor((max_y - y) / lh))
+    local each = 0
+    for _, line in ipairs(chain) do
+        each = each + #kit.wrap(line, "ui14", w)
+    end
+    if each + math.max(0, #chain - 1) * 0.15 <= room then
+        local ty = y
+        for _, line in ipairs(chain) do
+            kit.text(x, ty, line, "ui14", theme.text, { w = w })
+            ty = ty + kit.text_height(line, "ui14", w) + 3
+        end
+        return #chain
+    end
+    -- Paragraphs: a new one at each sentence about the party ("They went into the offices."), so a
+    -- "They" never reads as the one hero just named before it, and the night falls into its rooms.
+    local paras = {}
+    for i, line in ipairs(chain) do
+        if i == 1 or string.find(line, "^They[%s']") or string.find(line, "^Their ") then
+            table.insert(paras, { first = i, last = i })
+        else
+            paras[#paras].last = i
+        end
+    end
+    local function lines_of(pa, upto)
+        return #kit.wrap(table.concat(chain, " ", pa.first, math.min(pa.last, upto)), "ui14", w)
+    end
+    -- How many sentences fit, whole.
+    local n, used = 0, 0
+    for _, pa in ipairs(paras) do
+        local whole = lines_of(pa, pa.last)
+        if used + whole <= room then
+            n, used = pa.last, used + whole
+        else
+            for k = pa.last - 1, pa.first, -1 do
+                if used + lines_of(pa, k) <= room then
+                    n = k
+                    break
+                end
+            end
+            break
+        end
+    end
+    if not partial and n < #chain then
+        n = #chain      -- (all of it: the last paragraph cut, with its hover)
+    end
+    local ty = y
+    for _, pa in ipairs(paras) do
+        if pa.first > n or ty + lh > max_y + 1 then
+            break
+        end
+        local text = table.concat(chain, " ", pa.first, math.min(pa.last, n))
+        local left = math.max(1, math.floor((max_y - ty) / lh))
+        if #kit.wrap(text, "ui14", w) > left then
+            -- (Out of room: the rest of the night in this last paragraph, cut, the whole of it on hover.)
+            kit.text(x, ty, table.concat(chain, " ", pa.first, n), "ui14", theme.text, { w = w, lines = left })
+            break
+        end
+        kit.text(x, ty, text, "ui14", theme.text, { w = w })
+        ty = ty + #kit.wrap(text, "ui14", w) * lh
+    end
+    return n
+end
+
 -- 1. The recap.
 local function recap_panel(app, rep, x, y, w, h)
     local r = rep.recap
@@ -149,47 +231,81 @@ local function recap_panel(app, rep, x, y, w, h)
     gl.card_spot(x + w - 16 - kit.width(how, "ui14"), y + 10, kit.width(how, "ui14"), 20, "Pin and Cut",
         "Next session opens with a short recap of this one (\"Last time...\"). A pinned beat is always in it, first. "
         .. "A cut one is left out; it stays in your notes. Beats you leave alone may or may not come up.")
-    if not r or #r.beats == 0 then
-        kit.text(x + 16, ty + 4, "A quiet night. Nothing anyone will bring up later.", "ui18", theme.faint)
-        return
-    end
-    local bw = w - 32 - 120
-    for k, b in ipairs(r.beats) do
-        local th = kit.text_height(b.text, "ui18", bw)
-        if ty + th > y + h - 166 then
-            break
-        end
-        kit.text(x + 16, ty, b.text, "ui18", b.cut and theme.faint or (b.pinned and theme.gold or theme.text), { w = bw })
-        kit.button(x + w - 128, ty - 2, 54, 26, b.pinned and "Pinned" or "Pin", function()
-            b.pinned = not b.pinned
-            b.cut = nil
-            app.refresh()
-        end, { font = "ui14", color = b.pinned and theme.go or theme.panel2, hover = theme.button_hover, key = "recap_pin_" .. k })
-        gl.card_spot(x + w - 128, ty - 2, 54, 26, b.pinned and "Pinned" or "Pin", PIN_TIP)
-        kit.button(x + w - 68, ty - 2, 52, 26, b.cut and "Undo" or "Cut", function()
-            b.cut = not b.cut
-            b.pinned = nil
-            app.refresh()
-        end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "recap_cut_" .. k })
-        gl.card_spot(x + w - 68, ty - 2, 52, 26, b.cut and "Cut (Undo to keep it)" or "Cut", CUT_TIP)
-        ty = ty + math.max(th, 24) + 8
-    end
-    -- How the night went, one thing to the next (R14): the event log's chain, "so" and "but", as much
-    -- of it as fits above the note.
     local chain = rep.museum and rep.museum.chain or {}
-    if #chain > 0 and ty + 44 <= y + h - 166 then
-        ty = ty + 4
+    local bottom = y + h - 166
+    local cw = w - 32
+    -- The whole night on a page of its own (the third playtest: the chain stopped partway through
+    -- the night with nothing to say there was more). Back goes to the beats.
+    if app.report_chain == rep.week and #chain > 0 then
         kit.text(x + 16, ty, "HOW IT WENT, ONE THING TO THE NEXT", "ui14", theme.dim)
-        ty = ty + 20
-        local cw = w - 32
-        for _, line in ipairs(chain) do
-            local th = kit.text_height(line, "ui14", cw)
-            if ty + th > y + h - 166 then
-                break
+        kit.button(x + w - 16 - 150, ty - 4, 150, 24, "<  Back to the recap", function()
+            app.report_chain = nil
+            app.refresh()
+        end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "report_chain_back" })
+        M.draw_chain(chain, x + 16, ty + 26, cw, bottom + 4)
+    else
+        if not r or #r.beats == 0 then
+            kit.text(x + 16, ty + 4, "A quiet night. Nothing anyone will bring up later.", "ui18", theme.faint)
+            ty = ty + 34
+        else
+            -- The beats in the reading hand when the whole night still fits under them; smaller when
+            -- that's what lets the chain be read in full (the third playtest).
+            local bw = w - 32 - 120
+            local function beats_h(font, step)
+                local t = 0
+                for _, b in ipairs(r.beats) do
+                    t = t + math.max(kit.text_height(b.text, font, bw), step) + (font == "ui18" and 8 or 4)
+                end
+                return t
             end
-            kit.text(x + 16, ty, line, "ui14", theme.text, { w = cw })
-            ty = ty + th + 2
+            local chain_h = #chain > 0 and (28 + #kit.wrap(table.concat(chain, " "), "ui14", cw) * kit.line_height("ui14")) or 0
+            local small = ty + beats_h("ui18", 24) + chain_h > bottom and ty + beats_h("ui14", 22) + chain_h <= bottom + 40
+            local bf, bh = small and "ui14" or "ui18", small and 22 or 26
+            for k, b in ipairs(r.beats) do
+                local th = kit.text_height(b.text, bf, bw)
+                if ty + th > bottom then
+                    break
+                end
+                kit.text(x + 16, ty, b.text, bf, b.cut and theme.faint or (b.pinned and theme.gold or theme.text), { w = bw })
+                kit.button(x + w - 128, ty - 2, 54, bh, b.pinned and "Pinned" or "Pin", function()
+                    b.pinned = not b.pinned
+                    b.cut = nil
+                    app.refresh()
+                end, { font = "ui14", color = b.pinned and theme.go or theme.panel2, hover = theme.button_hover, key = "recap_pin_" .. k })
+                gl.card_spot(x + w - 128, ty - 2, 54, bh, b.pinned and "Pinned" or "Pin", PIN_TIP)
+                kit.button(x + w - 68, ty - 2, 52, bh, b.cut and "Undo" or "Cut", function()
+                    b.cut = not b.cut
+                    b.pinned = nil
+                    app.refresh()
+                end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "recap_cut_" .. k })
+                gl.card_spot(x + w - 68, ty - 2, 52, bh, b.cut and "Cut (Undo to keep it)" or "Cut", CUT_TIP)
+                ty = ty + math.max(th, bh - 2) + (small and 4 or 8)
+            end
         end
+        -- How the night went, one thing to the next (R14): the event log's chain, "so" and "but". All of
+        -- it when it fits under the beats; else as much as fits, whole sentences, and a button for the rest.
+        if #chain > 0 and ty + 44 <= bottom then
+            ty = ty + 4
+            kit.text(x + 16, ty, "HOW IT WENT, ONE THING TO THE NEXT", "ui14", theme.dim)
+            local shown = M.draw_chain(chain, x + 16, ty + 20, cw, bottom - 30, true)
+            if shown < #chain then
+                local more = #chain - shown
+                local label = "The whole night  (" .. util.int(more) .. " more)  >"
+                kit.button(x + w - 16 - 210, bottom - 26, 210, 24, label, function()
+                    app.report_chain = rep.week
+                    app.refresh()
+                end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "report_chain" })
+                kit.text(x + 16, bottom - 22, "...and the night goes on.", "ui14", theme.faint)
+            end
+        elseif #chain > 0 then
+            kit.button(x + w - 16 - 210, bottom - 26, 210, 24, "How it went, the whole night  >", function()
+                app.report_chain = rep.week
+                app.refresh()
+            end, { font = "ui14", color = theme.panel2, hover = theme.button_hover, key = "report_chain" })
+        end
+    end
+    if not r then
+        return
     end
     -- The DM's note: one line, typed.
     local ny = y + h - 156
@@ -225,7 +341,7 @@ local function recap_panel(app, rep, x, y, w, h)
         local two = kit.width(tt, "ui14") > sw - 84
         kit.text(sx + 12, two and sy + 8 or sy + 14, tt, "ui14", kit.rgba("#e8e0c8"), { w = sw - 84, lines = 2 })
         -- A caption too long for two lines keeps its first sentence (October 15: they were cut).
-        local cap = sn.caption or ""
+        local cap = util.capitalize(sn.caption or "")      -- ("the Lecturer falls." starts a caption: the third playtest)
         if kit.text_height(cap, "ui14", sw - 16) > 3 * kit.line_height("ui14") + 1 then
             cap = string.match(cap, "^(.-[%.!?])%s") or cap
         end
@@ -241,6 +357,29 @@ local function recap_panel(app, rep, x, y, w, h)
             and "Set the moment out on the table: the fight plays back, turn by turn, up to it."
             or "Set the moment out on the table, minis and all.")
     end
+end
+
+-- A long-term stat's row: its hover says what it is, how it moved tonight, and if that's good.
+local STAT_GOOD_UP = { commitment = true, investment = true, trust = true, suspicion = false }
+function M.stat_spot(name, key, mark, blurred, x, y, w, h)
+    local gl = require "game.ui.gloss"
+    local t = gl.by_id[key]
+    local stat = score.LONG_NAMES[key] or key
+    local up = mark and string.find(mark, "+", 1, true) ~= nil
+    local down = mark and string.find(mark, "-", 1, true) ~= nil
+    local moved
+    if not mark then
+        moved = "You can't tell how it moved tonight: your Empathy is too low to read it yet."
+    elseif up or down then
+        local good = (up and STAT_GOOD_UP[key]) or (down and not STAT_GOOD_UP[key])
+        moved = (up and "Up" or "Down") .. ((#mark > 1) and " a lot" or "") .. " tonight (" .. mark .. "), which is "
+            .. (good and "good." or "a worry.")
+    else
+        moved = "About the same as before tonight (=)."
+    end
+    local how = " The bar: where it stands now" .. (blurred and ", as a blur: your Empathy only lets you guess." or
+        "; the bright stretch is what it gained tonight, the hollow red one what it lost.")
+    gl.card_spot(x, y, w, h, name .. ": " .. stat, moved .. " " .. ((t and t.text) or "") .. how)
 end
 
 -- 2. How the table felt: a card per player, the least happy first.
@@ -302,10 +441,6 @@ local function felt_panel(app, rep, x, y, w, h)
         -- Their long-term bars and which way they moved, named as on the prep board (the newcomer
         -- playtest, October 16: four unlabelled icons).
         local bx = x + w - 220
-        require("game.ui.gloss").card_spot(bx + 186, ry + 2, 20, 82, "Which way it moved",
-            "+ went up tonight, - went down, = about the same. Inside the bar, the bright stretch is what it gained "
-            .. "tonight and the hollow red one what it lost; the thin line is where it started. Your Empathy decides "
-            .. "how sure you can be.")
         for k, key in ipairs(score.LONG) do
             local by = ry + 10 + (k - 1) * 20
             local read = empathy.long(level, p, key, app.campaign.week, i)
@@ -345,6 +480,9 @@ local function felt_panel(app, rep, x, y, w, h)
                 end
                 kit.text(bx + 200, by - 6, mark, "ui14", mc, { pivot = gui.PIVOT_NE })
             end
+            -- What it is, which way it went tonight and whether that's good, on the row (the third
+            -- playtest: "nothing says what they are, or whether '-' on Suspicion is good").
+            M.stat_spot(p and p.name or row.name, key, mark, read.lo ~= nil, bx - 2, by - 7, 210, 20)
         end
     end
 end
@@ -382,9 +520,11 @@ function M.build(app)
     kit.button(1456, 14, 120, 32, "Save game", function()
         require("game.ui.saves_view").open(app, "save")
     end, { font = "ui14", key = "save_game" })
-    recap_panel(app, rep, 24, 84, 736, 556)
+    -- (The recap wider and the table's cards narrower than before: the night's chain reads in full more
+    -- often, the third playtest.)
+    recap_panel(app, rep, 24, 84, 876, 556)
     kit.gloss_scope({ report = true }, function()
-        felt_panel(app, rep, 776, 84, 800, 556)
+        felt_panel(app, rep, 916, 84, 660, 556)
     end)
     kit.gloss_tags = { report = true, table = true }     -- the boxes along the bottom too
     -- 3. The verdict.
@@ -456,8 +596,10 @@ function M.build(app)
         for _, g in ipairs(mu.got or {}) do
             local info = mn.item_info(app.campaign, g)
             local who = info and info.holder
-            table.insert(earned, { "Picked up: " .. g .. (who and (" (" .. who.char .. " has it)") or "") .. ".", theme.gold,
-                                   tip = info and { info.title, info.text .. (who and (" " .. who.char .. " (" .. who.name .. ") has it.") or "") } or nil })
+            -- (Whose pack it's in, which reads right for one thing or several: "fire arrows and slime
+            -- (Brannoc has it)" in the third playtest.)
+            table.insert(earned, { "Picked up: " .. g .. (who and (", in " .. who.char .. "'s pack") or "") .. ".", theme.gold,
+                                   tip = info and { info.title, info.text .. (who and (" In " .. who.char .. "'s pack.") or "") } or nil })
         end
     end
     if #earned == 0 then
@@ -481,18 +623,22 @@ function M.build(app)
     kit.box(788, y, 400, 234, theme.panel, { radius = 10 })
     head(804, y + 12, 5, "WRAP-UP")
     local wy = y + 40
-    local more = 0
+    local rest = {}
     for _, it in ipairs(wrapup_items(app, rep)) do
         local hh = kit.text_height(it[1], "ui14", 368)
-        if wy + hh <= y + 226 then
+        if #rest == 0 and wy + hh <= y + 226 then
             kit.text(804, wy, it[1], "ui14", it[2], { w = 368 })
             wy = wy + hh + 3
         else
-            more = more + 1
+            table.insert(rest, it[1])
         end
     end
-    if more > 0 then
-        kit.text(1172, y + 12, "+" .. util.int(more) .. " in your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+    -- What didn't fit, on hover (the third playtest: "+3 in your notes", and they weren't in the notes).
+    if #rest > 0 then
+        local label = "+" .. util.int(#rest) .. " more (point here)"
+        kit.text(1172, y + 12, label, "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+        require("game.ui.gloss").card_spot(1172 - kit.width(label, "ui14") - 4, y + 8, kit.width(label, "ui14") + 8, 24,
+            "The rest of the wrap-up", table.concat(rest, "\n"))
     end
     -- Empathy, and on to next week.
     local e = rep.empathy
@@ -528,7 +674,8 @@ function M.build(app)
             app.report_note = nil
             M.next(app)
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "next_week" })
-    kit.text(1390, 852, closing and "The whole prologue, room by room." or "Playtest notes are saved after every week.",
+    -- (Not "Playtest notes are saved after every week": what the button leads to.)
+    kit.text(1390, 852, closing and "The whole prologue, room by room." or "Next: the group chat, then your prep board.",
         "ui14", theme.faint, { pivot = gui.PIVOT_N })
     if app.quick then
         M.quick_modal(app)
@@ -639,26 +786,32 @@ function M.gift_row(app, rep, x, y)
     local loot = require "game.model.loot"
     local dd = require "game.data.dice"
     local bag = loot.bag(camp)
-    -- (This week's box first, each week: loot.newest_index. "NEW DICE" only over the set that's new.)
+    if #bag == 0 then
+        kit.text(x, y, "YOUR DICE BAG", "ui14", theme.dim)
+        kit.text(x + 110, y, "Empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
+            { w = 262, lines = 2 })
+        return
+    end
+    -- Tonight's box first, and "NEW DICE" only for it (the third playtest's engine run: "NEW DICE:
+    -- Rose quartz" every week, the first set in the bag, while the bag filled up). Older sets are
+    -- "IN YOUR BAG", one of how many.
+    -- (Which one is tonight's: loot.newest_index, one owner.)
+    local opened = loot.opened(camp)
     if app.gift_pick_week ~= camp.week then
         app.gift_pick_week = camp.week
         app.gift_pick = loot.newest_index(camp)
     end
-    local o = loot.opened(camp)
-    kit.text(x, y, (#bag == 0 or (o and bag[util.clamp(app.gift_pick or 1, 1, math.max(1, #bag))] == o.set)) and "NEW DICE" or "DICE BAG",
-        "ui14", theme.dim)
-    if #bag == 0 then
-        kit.text(x + 84, y, "Your dice bag is empty. Happy sessions earn boxes of dice to give.", "ui14", theme.faint,
-            { w = 288, lines = 2 })
-        return
-    end
-    app.gift_pick = util.clamp(app.gift_pick or 1, 1, #bag)
+    app.gift_pick = util.clamp(app.gift_pick or #bag, 1, #bag)
     local sid = bag[app.gift_pick]
+    local new = opened and opened.set == sid
+    kit.text(x, y, new and "NEW DICE" or (#bag > 1 and ("IN YOUR BAG " .. util.int(app.gift_pick) .. "/" .. util.int(#bag))
+        or "IN YOUR BAG"), "ui14", new and theme.gold or theme.dim)
     local set = dd.SETS[sid]
     local r = loot.rarity(set and set.rarity)
-    kit.picture(x + 84, y - 4, 26, 26, "dice_" .. sid)
-    kit.text(x + 116, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
-        r and kit.rgba(r.color) or theme.text, { w = 200, lines = 1 })
+    local lx = x + math.max(84, kit.width("IN YOUR BAG 9/9", "ui14") + 10)
+    kit.picture(lx, y - 4, 26, 26, "dice_" .. sid)
+    kit.text(lx + 32, y, (set and set.name or sid) .. (r and (" (" .. r.name .. ")") or ""), "ui14",
+        r and kit.rgba(r.color) or theme.text, { w = x + 316 - lx - 32, lines = 1 })
     if #bag > 1 then
         kit.button(x + 322, y - 4, 24, 22, "<", function()
             app.gift_pick = (app.gift_pick - 2) % #bag + 1

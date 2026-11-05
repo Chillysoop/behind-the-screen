@@ -1226,7 +1226,7 @@ M.marks = {
     pack = { chain = "the huntlings that ran went to her", name = "Her pack", why = "Kruthik Huntlings ran from the fight", from = { "hunting" },
              showdown = "The survivors hunt beside her", foe = "kruthik_huntling",
              thought = "The little hunters came running to me. Good dogs." },
-    mirror = { chain = "they had a mirror she would have to face", party = true, name = "A mirror in their packs", why = "They took a polished cupboard door",
+    mirror = { chain = "the party had a mirror she would have to face", party = true, name = "A mirror in their packs", why = "They took a polished cupboard door",
                showdown = "Her stare can be turned back on her", opt = "mirror",
                thought = "One of them took a cupboard door. Why would anyone take a door?" },
     know = { chain = "they knew what she was", party = true, name = "They know what she is", why = "They read up on gorgons",

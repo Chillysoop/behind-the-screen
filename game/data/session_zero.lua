@@ -169,7 +169,7 @@ local S0 = {
 -- When a hero dies (M8, B3): the table's default, from game/data/death.lua.
 do
     local death = require "game.data.death"
-    local r = { name = death.RULE.name, about = "Each player can still ask for their own.",
+    local r = { name = death.RULE.name, about = "The table's rule. A player can still ask you for another way, for their own hero.",
                 order = death.MODES, compact = true }
     for _, m in ipairs(death.MODES) do
         r[m] = { name = death.MODE[m].button or death.MODE[m].short, about = death.MODE[m].about, like = death.RULE[m].like,

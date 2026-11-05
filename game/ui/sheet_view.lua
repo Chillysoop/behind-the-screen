@@ -42,6 +42,30 @@ local function stat_box(x, y, w, label, value, note)
     end
 end
 
+-- What a hero carries, for the sheet and the party page: { name, text, gear = its GEAR wording }.
+-- The healing potions first (sheet.lua lists them under its gear as "2 healing potions").
+function M.carrying(c, s)
+    local items = require "game.model.items"
+    local out = {}
+    local n = items.count(c, s.key, items.POTION)
+    if n > 0 then
+        local name = util.int(n) .. " healing potion" .. (n > 1 and "s" or "")
+        local t = items.thing(items.POTION)
+        table.insert(out, { name = name, gear = name, text = t and t.text or "" })
+    end
+    for _, it in ipairs(s.carried or {}) do
+        local d = items.def(it.id)
+        local charges
+        for _, raw in ipairs(items.held_by(c, s.key)) do
+            if raw.id == it.id and raw.charges then
+                charges = raw.charges
+            end
+        end
+        table.insert(out, { name = it.name, text = it.text, gear = d and (d.name .. (charges and (" (" .. util.int(charges) .. " charges)") or "")) or it.name })
+    end
+    return out
+end
+
 local function page_sheet(app, s, x, y)
     -- Left: the core numbers, abilities and saves.
     local hp_now
@@ -127,25 +151,39 @@ local function page_sheet(app, s, x, y)
         end
         ry = ry + 10
     end
+    -- What they carry (their inventory, items.lua), apart from what they set out with: always a
+    -- CARRYING list (the third playtest couldn't find one), the healing potions first, one line each,
+    -- and what each does on hover. GEAR is what they set out with.
+    local carried = M.carrying(app.campaign, s)
+    local in_pack = {}
+    for _, it in ipairs(carried) do
+        in_pack[it.gear or it.name] = true
+    end
+    local gear = {}
+    for _, g in ipairs(s.gear or {}) do
+        if not in_pack[g] then
+            table.insert(gear, g)
+        end
+    end
     kit.text(rx, ry, "GEAR", "ui14", theme.gold)
     ry = ry + 22
-    local g = table.concat(s.gear, ", ")
+    local g = table.concat(gear, ", ")
     kit.text(rx, ry, g, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(g, "ui18", rw) + 14
-    -- What they picked up, bought or were given (their inventory, items.lua): one line each, and
-    -- what it does on hover.
-    if s.carried and #s.carried > 0 then
-        kit.text(rx, ry, "CARRYING", "ui14", theme.gold)
+    kit.text(rx, ry, "CARRYING", "ui14", theme.gold)
+    ry = ry + 22
+    if #carried == 0 then
+        kit.text(rx, ry, "Nothing yet. What they find, buy or are given goes here.", "ui14", theme.faint, { w = rw })
         ry = ry + 22
-        for _, it in ipairs(s.carried) do
-            local tn = kit.text(rx, ry, it.name, "ui18", theme.text, { w = rw, lines = 1, gloss = false })
-            if it.text and it.text ~= "" then
-                require("game.ui.gloss").card_spot(rx, ry, rw, 22, it.name, it.text, nil, tn)
-            end
-            ry = ry + 24
-        end
-        ry = ry + 8
     end
+    for _, it in ipairs(carried) do
+        local tn = kit.text(rx, ry, it.name, "ui18", theme.text, { w = rw, lines = 1, gloss = false })
+        if it.text and it.text ~= "" then
+            require("game.ui.gloss").card_spot(rx, ry, rw, 22, it.name, it.text, nil, tn)
+        end
+        ry = ry + 24
+    end
+    ry = ry + 8
     -- The reason their hero came to the museum (Session Zero's hooks page).
     local c = app.campaign
     local hk = require("game.model.adventure").hook(c, s.key)
@@ -238,10 +276,14 @@ function M.draw(app)
     local mode, pref = death.mode_for(camp, s.key), death.pref(s.key)
     local first = string.match(s.name, "^(%S+)") or s.name
     local dline = "If " .. first .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
-    local wants = pref and pref ~= mode and (s.player .. " would rather: " .. string.lower(death.data.MODE[pref].short) .. ".")
+    -- (Short enough to fit beside the rule, and "their choice" said as whose: "Jess would rather: their
+    -- choice." read as a slip and was cut, the third playtest.)
+    local wants = pref and pref ~= mode and ((pref == "choice")
+        and (s.player .. " wants it to be " .. util.pronoun_of(s.player).their .. " call.")
+        or (s.player .. " wants: " .. string.lower(death.data.MODE[pref].short) .. "."))
     local honour = pref and pref ~= mode
     local undo = camp.death_overrides and camp.death_overrides[s.key]
-    local bw = (honour or undo) and 120 or 0
+    local bw = (honour or undo) and 100 or 0
     local droom = room - (bw > 0 and (bw + 12) or 0)
     local dw = math.min(kit.width(dline, "ui14"), wants and math.floor(droom * 0.55) or droom)
     kit.text(tx, Y + 84, kit.ellipsize(dline, "ui14", dw), "ui14", theme.dim)

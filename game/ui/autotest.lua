@@ -564,10 +564,10 @@ function M.update(app, dt)
             end
         elseif a.mode == 8 and not a.recap_done and not app.pending and not app.thought_card and app.night
             and (app.night.clock or 0) > 40 then
-            -- The DM's recap, once: both sidebars open, a shot, shut.
+            -- The DM's recap, once: the Table sidebar open (one at a time), a shot, shut.
             local rv = require "game.ui.recap_view"
-            if not (app.recap_left and app.recap_right) then
-                rv.toggle(app, "both")
+            if not app.recap_right then
+                rv.toggle(app, "right")
                 return
             end
             if shot(a, "recap") then

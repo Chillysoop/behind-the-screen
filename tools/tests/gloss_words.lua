@@ -25,4 +25,10 @@ return {
     { "%f[%a]subclass", "subclass" }, { "house rule", "house_rule" }, { "railroad", "railroad" },
     { "Euryale's card", "boss_card" }, { "EURYALE'S CARD", "boss_card" },
     { "Ties and locks", "ties" }, { "LOOSE END", "loose_end" }, { "A REQUEST", "request" },
+    -- The third playtest's newcomer and lapsed DM (screens_newcomer 15).
+    { "[Vv]orpal sword", "vorpal" }, { "Mage Armor", "mage_armor" }, { "%f[%a]Aid%f[%A]", "aid" },
+    { "%f[%a]Mastery%f[%A]", "mastery" }, { "%f[%a]Minis%f[%A]", "minis" }, { "%f[%a]Inspire%f[%A]", "inspire" },
+    { "[Ff]inal roll", "final_roll" }, { "%f[%a]EMPATHY%f[%A]", "empathy" }, { "[Rr]ule of cool", "cool" },
+    { "[Dd]ice jail", "dice_jail" }, { "Honour it", "honour" }, { "%f[%a]Goodwill%f[%A]", "goodwill" },
+    { "%f[%a]Trust%f[%A]", "trust" },
 }

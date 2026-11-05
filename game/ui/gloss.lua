@@ -156,11 +156,12 @@ function M.hide()
 end
 
 -- Show a card near a rectangle (top-left coordinates): below it when there's room, else above.
-function M.show(title, text, dnd, rx, ry, rw, rh)
+function M.show(title, text, dnd, rx, ry, rw, rh, opts)
     M.hide()
-    local w = M.W
+    local w = (opts and opts.w) or M.W
     local th = kit.text_height(text, "ui18", w - 28)
-    local h = 14 + 26 + th + (dnd and 26 or 0) + 12
+    local head = (title and title ~= "") and 26 or 0       -- (no title: the whole of a text cut short)
+    local h = 14 + head + th + (dnd and 26 or 0) + 12
     local x = math.max(8, math.min(kit.W - w - 8, rx + rw / 2 - w / 2))
     local y = ry + rh + 8
     if y + h > kit.H - 8 then
@@ -172,10 +173,13 @@ function M.show(title, text, dnd, rx, ry, rw, rh)
     kit.into(l, function()
         kit.box(x - 2, y - 2, w + 4, h + 4, kit.rgba("#7fb7a8", 0.85), { radius = 11 })
         kit.box(x, y, w, h, kit.rgba("#1d1612", 0.98), { radius = 10 })
-        kit.text(x + 14, y + 12, title, "ui18b", theme.gold, { w = w - 28, lines = 1, gloss = false })
-        kit.text(x + 14, y + 40, text, "ui18", theme.text, { w = w - 28, gloss = false })
+        if head > 0 then
+            kit.text(x + 14, y + 12, title, "ui18b", theme.gold, { w = w - 28, lines = 1, gloss = false, full = false })
+        end
+        kit.text(x + 14, y + 14 + head, text, "ui18", theme.text, { w = w - 28, gloss = false })
         if dnd then
-            kit.text(x + 14, y + 40 + th + 6, "In D&D: " .. dnd, "ui14", theme.dim, { w = w - 28, lines = 1, gloss = false })
+            kit.text(x + 14, y + 14 + head + th + 6, "In D&D: " .. dnd, "ui14", theme.dim, { w = w - 28, lines = 1, gloss = false,
+                full = false })
         end
     end)
 end
@@ -315,6 +319,18 @@ function M.npc_spot(x, y, w, h, id, node)
 end
 
 kit.gloss_hook = M.hook
+-- A text cut short: the whole of it on hover, in a card a little wider than a word's.
+kit.cut_hook = function(x, y, w, h, full)
+    local sp = kit.spot(x, y, w, h, function(_, on)
+        if on then
+            M.show(nil, full, nil, x, y, w, h, { w = 420 })
+        else
+            M.hide()
+        end
+    end)
+    sp.full = full
+    return sp
+end
 -- Every screen that doesn't choose its own: the terms for fights, the table, the report and the sheet.
 kit.gloss_default = { fight = true, table = true, report = true, sheet = true }
 

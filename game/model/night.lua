@@ -4620,7 +4620,7 @@ function M:length_text()
     end
     local function hm(m)
         local h = math.floor(m / 60)
-        local mm = math.floor(m % 60 + 0.5)
+        local mm = math.floor(m % 60)     -- (whole minutes, as the wrap card and the clock count them)
         if mm == 60 then
             h, mm = h + 1, 0
         end

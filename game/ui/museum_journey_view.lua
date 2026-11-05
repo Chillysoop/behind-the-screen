@@ -27,45 +27,51 @@ function M.build(app, on_next)
     require("game.ui.museum_prep_view").draw_map(app, 24, 112, 380, 300)
     -- The rooms, in the order they played.
     local x, y, w = 424, 112, 560
-    kit.text(x, y, "THE ROUTE", "ui14", theme.dim)
+    kit.text(x, y, "THE ROUTE  (S1: in session 1)", "ui14", theme.dim)
     y = y + 22
     -- (A long prologue: the marks lines go, Euryale's card beside it lists them, so the ending
     -- still fits above the friends. The November 4 engine run had it running under them.)
+    local LH = kit.line_height("ui14")
     local rows = #j.rooms
     for _, r in ipairs(j.rooms) do
         rows = rows + ((#r.marks > 0) and 1 or 0)
     end
     local room_for = 425 - y - (j.ending and 62 or 0) - (#j.skipped > 0 and 26 or 0)
-    local show_marks = rows * 18 <= room_for
-    -- (Each room's story gets two lines when the route has the room for it: R14.)
-    local two = (#j.rooms * 2 + (show_marks and (rows - #j.rooms) or 0)) * 18 <= room_for
+    local show_marks = rows * LH <= room_for
+    -- Each room's story in as many lines as the route has room for, whole: all of it, its first
+    -- sentence, or that sentence's first clause, so a line never stops halfway (the third playtest:
+    -- "made the hunters come t...", "fought the..."). The whole of it on hover.
+    local per = math.max(1, math.floor((room_for - (show_marks and (rows - #j.rooms) * LH or 0)) / (#j.rooms * LH)))
+    local gl = require "game.ui.gloss"
     for i, r in ipairs(j.rooms) do
         -- (What happened there, one thing to the next, from the event log: R14. A room the log has no
         -- story for, an old save's, says how it went. A fight that happened is part of the route. F20.)
-        local head = util.int(i) .. ".  " .. r.name .. "  (session " .. util.int(r.week or 0) .. "): "
-        local told
-        if r.chain then
-            -- (As much of the room's story as fits: all of it, its first sentence, or that sentence's
-            -- first clause, so a line never stops halfway through a "so".)
-            local room = w * (two and 2 or 1) - kit.width(head, "ui14") - 12
-            local all = string.gsub(table.concat(r.chain, " "), "%.$", "")
+        local head = util.int(i) .. ".  " .. r.name .. " (S" .. util.int(r.week or 0) .. "): "
+        local plain = (OUTCOME[r.outcome] or "done") .. (r.fought and (", and a fight with " .. r.fought) or "")
+        local told, whole
+        if r.chain and #r.chain > 0 then
+            whole = table.concat(r.chain, " ")
+            local all = string.gsub(whole, "%.$", "")
             local first = string.gsub(r.chain[1], "%.$", "")
             local clause = string.match(first, "^(.-), [sb][ou]t? ") or first
             local part = string.match(clause, "^(.-), ") or clause
             for _, t in ipairs({ all, first, clause, part }) do
-                if not told and kit.width(t, "ui14") <= room then
+                if not told and #kit.wrap(head .. t, "ui14", w) <= per then
                     told = t
                 end
             end
-            told = told or part
         end
-        local line = head .. (told or ((OUTCOME[r.outcome] or "done") .. (r.fought and (", and a fight with " .. r.fought) or "")))
-        local nl = (two and kit.text_height(line, "ui14", w) > 18) and 2 or 1
-        kit.text(x, y, line, "ui14", r.outcome == "win" and theme.text or theme.orange, { w = w, lines = nl })
-        y = y + 18 * nl
+        local line = head .. (told or plain)
+        local nl = math.min(per, #kit.wrap(line, "ui14", w))
+        local col = r.outcome == "win" and theme.text or theme.orange
+        if whole then
+            gl.card_spot(x - 2, y - 1, w + 4, nl * LH, r.name, whole)
+        end
+        kit.text(x, y, line, "ui14", col, { w = w, lines = nl })
+        y = y + LH * nl
         if #r.marks > 0 and show_marks then
             kit.text(x + 22, y, "Left on her card: " .. table.concat(r.marks, ", "), "ui14", theme.gold, { w = w - 22, lines = 1 })
-            y = y + 18
+            y = y + LH
         end
     end
     if #j.skipped > 0 then
