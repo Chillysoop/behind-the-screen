@@ -16,12 +16,13 @@ local util = require "game.model.util"
 local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 0
-local ITEMS = { "run", "N1", "S", "D" }
+local ITEMS = { "run", "N1", "S", "D", "M" }
 local NAMES = {
     run = "whole prologues",
     N1 = "the Mech and the notebook: only what happened",
     S = "stone after a lost boss fight: how each came back",
     D = "deaths: the wake, last words, the chat, the end, her memory, the pack, the pet",
+    M = "money and memory in the recaps",
 }
 
 local fails = {}
@@ -522,6 +523,168 @@ local function d_watch(R)
     end
 end
 
+-- M: money and memory in the recaps (truth B10, B11, B12, N6, T5; alive N4, N6, 19). Flitwidget docks
+-- the reward for one reason he names, the recap gives that reason and the figure he said (52 random: "the
+-- business with my donation box" to a party that dropped a coin in it; 53 random: another reason in the
+-- recap; 51 careful and 56 random: "ten gold off" when the table heard five, and one breakage of three);
+-- no "saw what was left of X" with nothing behind it; "her sisters back" only once they've heard it; the
+-- daggers credited to who carried them, and the lock to whoever really went for it; one roll's two Francs
+-- said as two; the "Along the way" tally is the night's Francs.
+local REASON_WORDS = {
+    break_ = { "garden", "tomb guardian", "Steam Mech", "breakages", "exhibits" },
+    draught = { "draught", "waistcoat" }, caught = { "waistcoat", "pockets" }, told = { "Telpur" }, box = { "donation box" },
+}
+local MY_TO_HIS = { ["my garden"] = "his garden", ["my tomb guardian"] = "the Bone Construct", ["my Steam Mech"] = "the Steam Mech" }
+local NUMW = { one = 1, two = 2, three = 3, four = 4, five = 5, six = 6, seven = 7, eight = 8, nine = 9, ten = 10 }
+local function m_watch(R)
+    local c = R.c
+    local st = c.adv
+    for w, wk in util.sorted_pairs(R.weeks) do
+        local chain = table.concat(wk.chain or {}, " ")
+        -- What Flitwidget said, docking.
+        local said_dock
+        for _, s in ipairs(wk.said) do
+            if s.kind == "npc" and s.ev and s.ev.name == "Flitwidget" and string.find(s.text, " each", 1, true)
+                and (string.find(s.text, "less", 1, true) or string.find(s.text, "taken", 1, true) or string.find(s.text, "Minus", 1, true)
+                     or string.find(s.text, " off each", 1, true) or string.find(s.text, "After what Telpur", 1, true)
+                     or string.find(s.text, "haven't forgotten", 1, true)) then
+                said_dock = s.text
+            end
+        end
+        local took = string.match(chain, "Flitwidget took (%a+) gold each off their reward")
+        if said_dock then
+            add("M", "docked")
+            if not took then
+                fail("M", R.tag .. " week " .. w .. ": Flitwidget docked the reward (\"" .. said_dock .. "\"), and the recap never says so")
+            end
+            -- (Not the donation box, from a party that gave to it and never touched its lock.)
+            if string.find(said_dock, "donation box", 1, true) and not st.marks.robbed and string.find(chain .. table.concat((R.weeks[1] or {}).chain or {}, " "), "dropped a coin", 1, true) then
+                fail("M", R.tag .. " week " .. w .. ": they gave to his donation box, and \"" .. said_dock .. "\"")
+            end
+            -- (The figure he said is the recap's figure.)
+            local fig = string.match(said_dock, "^(%a+) gold less") or string.match(said_dock, "(%a+) less") or string.match(said_dock, "^(%a+) off")
+                or string.match(said_dock, "less (%a+) for")
+            fig = fig and NUMW[string.lower(fig)]
+            if fig and took and NUMW[took] ~= fig then
+                fail("M", R.tag .. " week " .. w .. ": Flitwidget said \"" .. said_dock .. "\", and the recap says he took " .. took .. " gold each")
+            end
+            -- (Every breakage he named is in the recap.)
+            for my, his in pairs(MY_TO_HIS) do
+                if string.find(said_dock, my, 1, true) and not string.find(chain, his, 1, true) then
+                    fail("M", R.tag .. " week " .. w .. ": Flitwidget named " .. my .. ", and the recap leaves it out: " .. chain)
+                end
+            end
+            -- (The reason he gave is the recap's: Telpur's word, or what the recap says he saw or took it for.)
+            if took then
+                local said_reason, recap_reason
+                for k, words in pairs(REASON_WORDS) do
+                    for _, wd in ipairs(words) do
+                        if string.find(said_dock, wd, 1, true) then
+                            said_reason = said_reason or k
+                        end
+                    end
+                end
+                -- (The sentence that says it: its cause is the clause before "so Flitwidget took", or its own "for".)
+                local sentence
+                for _, line in ipairs(wk.chain or {}) do
+                    sentence = sentence or (string.find(line, "Flitwidget took", 1, true) and line) or nil
+                end
+                sentence = sentence or ""
+                local cause = string.match(sentence, "([^%.]*), so Flitwidget took") or ""
+                if said_reason == "box" and not string.find(sentence, "donation box", 1, true) then
+                    fail("M", R.tag .. " week " .. w .. ": Flitwidget docked them for the donation box, and the recap says: " .. sentence)
+                elseif said_reason and said_reason ~= "told" and string.find(cause, "Telpur told Flitwidget", 1, true) then
+                    fail("M", R.tag .. " week " .. w .. ": Flitwidget said \"" .. said_dock .. "\", and the recap gives Telpur's word as the reason: " .. sentence)
+                elseif said_reason == "told" and not string.find(cause, "Telpur", 1, true) then
+                    fail("M", R.tag .. " week " .. w .. ": Flitwidget said \"" .. said_dock .. "\", and the recap says: " .. sentence)
+                elseif said_reason == "break_" and not string.find(cause, "saw what was left", 1, true) then
+                    fail("M", R.tag .. " week " .. w .. ": Flitwidget docked them for the breakages, and the recap says: " .. sentence)
+                end
+            end
+        elseif took then
+            fail("M", R.tag .. " week " .. w .. ": the recap says Flitwidget took " .. took .. " gold each, and he never said it")
+        end
+        -- (No "saw what was left" with nothing behind it.)
+        for _, line in ipairs(wk.chain or {}) do
+            if string.find(line, "Flitwidget saw what was left of", 1, true) and not string.find(line, "Flitwidget took", 1, true) then
+                fail("M", R.tag .. " week " .. w .. ": \"" .. line .. "\" with nothing behind it")
+            end
+            -- (The daggers to who carries them; the lock to who went for it.)
+            local giver = string.match(line, "(%a+) kept the twin daggers")
+            if giver and not string.find(line, "kept the twin daggers, and gave them to", 1, true) then
+                for _, it in ipairs(require("game.model.items").list(c)) do
+                    local holder = it.id == "twin_daggers" and it.holder and c:player(it.holder)
+                    if holder and holder.char ~= giver and not it.gone then
+                        fail("M", R.tag .. " week " .. w .. ": \"" .. line .. "\", and " .. holder.char .. " carries them")
+                    end
+                end
+            end
+            if string.find(line, "went for the donation box's lock", 1, true) then
+                for _, s in ipairs(wk.said) do
+                    if string.find(s.text, "puts the picks away", 1, true) then
+                        fail("M", R.tag .. " week " .. w .. ": the picks went away before the lock, and the recap says \"" .. line .. "\"")
+                    end
+                end
+            end
+        end
+        -- (One roll, two Francs to one hero: said as two, not "a Franc" twice.)
+        for i, s in ipairs(wk.said) do
+            local who = string.match(s.text, "^Better than they hoped: a Flitwidget Franc pops into (%a+)'s pocket")
+                or string.match(s.text, "^Better than hoped: (%a+) finds a Flitwidget Franc")
+                or string.match(s.text, "^Better than they hoped: there's a crisp Flitwidget Franc in (%a+)'s hand")
+                or string.match(s.text, "^Better than they hoped: a Flitwidget Franc flutters down out of nowhere into (%a+)'s palm")
+            if who then
+                for j = i + 1, math.min(#wk.said, i + 3) do
+                    local t = wk.said[j].text
+                    if string.find(t, "^A Flitwidget Franc turns up in " .. who .. "'s") or string.find(t, "^There's a Flitwidget Franc in " .. who)
+                        or string.find(t, "^" .. who .. " finds a crisp Flitwidget Franc") then
+                        fail("M", R.tag .. " week " .. w .. ": one roll, two Francs for " .. who .. ", said as one twice: \"" .. s.text .. "\" / \"" .. t .. "\"")
+                    end
+                end
+            end
+        end
+        -- (The tally: the night's Francs found, as the log has them.)
+        local found = 0
+        for _, ev in ipairs(events_mod.find(c, { kind = "find", session = w, thing = "francs" })) do
+            if not ev.between and not ev.pay and ev.who and ev.who ~= "party" then
+                found = found + (tonumber(ev.n) or 1)
+            end
+        end
+        local tally = 0
+        for _, line in ipairs(wk.chain or {}) do
+            local one = string.match(line, "^Along the way, %a+ found (%a+) Flitwidget Franc")
+            if one then
+                tally = tally + (one == "a" and 1 or (NUMW[one] or 0))
+            elseif string.find(line, "^Along the way, Flitwidget Francs turned up: ") then
+                for n in string.gmatch(line, "(%a+) for ") do
+                    tally = tally + (NUMW[n] or 0)
+                end
+            end
+        end
+        if found > 0 then
+            add("M", "tallies")
+            if tally ~= found then
+                local bits = {}
+                for _, ev in ipairs(events_mod.find(c, { kind = "find", session = w, thing = "francs" })) do
+                    if not ev.between and not ev.pay and ev.who and ev.who ~= "party" then
+                        table.insert(bits, tostring(ev.who) .. "/" .. tostring(ev.text) .. (ev.beat and "" or " (no beat)"))
+                    end
+                end
+                fail("M", R.tag .. " week " .. w .. ": " .. found .. " Francs found tonight, and \"Along the way\" counts " .. tally
+                    .. " [" .. table.concat(bits, "; ") .. "]")
+            end
+        end
+    end
+    -- (Her sisters, only once heard.)
+    for w, wk in util.sorted_pairs(R.weeks) do
+        for _, s in ipairs(wk.said) do
+            if string.find(s.text, "only wanted her sisters back", 1, true) and R.ending ~= "bargain" then
+                fail("M", R.tag .. " week " .. w .. ": \"" .. s.text .. "\", and nobody heard her talk about her sisters")
+            end
+        end
+    end
+end
+
 -- The UI's own run of seed 54, its screens dumped (DUMP_DIR, tools/tests/museum_smoke.lua), as the
 -- screens review read them: week 4 a lost boss fight with Pip and Oswin stone, week 5 Hans for a party
 -- that never went to the World of Tomorrow.
@@ -622,6 +785,9 @@ for _, run in ipairs(RUNS) do
         end)
         case("D", function()
             d_watch(R)
+        end)
+        case("M", function()
+            m_watch(R)
         end)
     end)
 end

@@ -473,7 +473,11 @@ M.beats = {
         -- (What Telpur told him, when it was a theft: "had a word about Pip" said nothing. Round three's merge.)
         told_got = "Telpur told Flitwidget that {char} had lifted {thing}",
         told_caught = "Telpur told Flitwidget that {char} had tried to lift {thing}",
-        docked = "Flitwidget took ten gold each off their reward",
+        -- (By the reason he gave, with the figure he said: museum_night.thanks_word.)
+        docked = "Flitwidget took {n} gold each off their reward", docked_break = "Flitwidget took {n} gold each off their reward",
+        docked_draught = "Flitwidget took {n} gold each off their reward, for his healing draught",
+        docked_caught = "Flitwidget took {n} gold each off their reward, for the hand in his waistcoat",
+        docked_told = "Flitwidget took {n} gold each off their reward", docked_box = "Flitwidget took {n} gold each off their reward, for his donation box",
         lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
         spotted = "{who} spotted his own {thing} on {char}",
@@ -498,7 +502,9 @@ M.beats = {
     mus_plaque = { "they doused the hedges with pond water", "they set the bushes on fire", "they went at the hedges with steel" },
     mus_pond = { { did = "{char} leaned over the dark pond", ok = "{char} fished a little brass key out of the pond",
                    fail = "a tentacle dragged {char} into the pond" }, false },
-    mus_box = { "they dropped a coin in the donation box", "{char} went for the donation box's lock" },
+    -- (The lock: kneeling by it with the picks out, which is all they did when you reined them in. The
+    -- confirming playtest: "Pip went for the donation box's lock" after she put the picks away.)
+    mus_box = { "they dropped a coin in the donation box", "{char} knelt by the donation box with {char_their} picks out" },
     mus_box_lock = { { did = "{char} picked the lock with the guard right there", ok = "{char} emptied the donation box",
                        fail = "the pick snapped, and the Sentinel turned round" }, false },
     mus_tablet = { { did = "they tried the old ritual", ok = "they stilled the guardian with the old ritual",
@@ -2009,7 +2015,9 @@ M.want_more = {
     mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_city" } },
              "That was a prologue? I've already got a notebook for the campaign.",
              "{char} has so many questions now. So many. Campaign, please.",
-             { "A Gorgon who only wanted her sisters back. I need the rest of that story.", when = { mark = "know" } } },
+             -- (Only once they've heard it from her: the bargain over her sisters. The confirming playtest heard
+             -- it after a gorgon book that only says there are three.)
+             { "A Gorgon who only wanted her sisters back. I need the rest of that story.", when = { ending = "bargain" } } },
     dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go.",
             "{char} wants a rematch with something. Anything. Campaign?" },
     jess = { "{char} is keeping the gnome. {char} is keeping everything. Campaign. Now.", "I want to see where the caravan goes next.",

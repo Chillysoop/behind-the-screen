@@ -2943,11 +2943,15 @@ function M:big_roll(spec, record)
         self.campaign.adv.francs = (self.campaign.adv.francs or 0) + 1
         if self.mus then
             self.mus.francs_earned = (self.mus.francs_earned or 0) + 1      -- (the report counts it)
+            self.mus.roll_franc = p and p.key or nil      -- (the moment's own Franc after it is one more: museum_night.handle)
         end
         ruled = util.fill(self:fresh(M.FRANC_LINES, "franc_line"), { char = p and p.char or "someone" })
         -- (In the log too, to whoever rolled it: the pool is what the log says went in. Round three.)
+        -- (A beat with its words, so the night's "Along the way" counts it: the confirming playtest heard
+        -- Francs handed out that the recap's tally left out, two nights in three.)
         events.add(self.campaign, { kind = "find", who = p and p.key or "party", thing = "francs", n = 1, roll = true,
-                                    where = self.scene and self.scene.room, from = events.cause(self.campaign) })
+                                    where = self.scene and self.scene.room, from = events.cause(self.campaign),
+                                    beat = (p ~= nil) or nil, text = p and events.word("find", { char = p.char }, "{char} found a Flitwidget Franc") or nil })
     end
     if ro.tone == "good" and not success then
         -- Failing forward: still a miss, so no cheering (the second playtest review: "Yes! Pip loves
@@ -3372,6 +3376,9 @@ function M:decision(card, extra)
         end
     end
     self.last_roll = nil
+    if self.mus then
+        self.mus.roll_franc = nil       -- (a triumph's Franc on this call's roll: its own Franc after it is one more)
+    end
     if o.roll then
         self.last_roll = self:big_roll(o.roll)
     end

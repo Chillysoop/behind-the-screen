@@ -292,8 +292,11 @@ local function crit_card(night, sc, p, b, nat)
             night.mus.francs_earned = (night.mus.francs_earned or 0) + 1
         end
         -- (The pool is what the log says went in, to whoever found it.)
-        require("game.model.events").add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1,
-                                                           where = sc and sc.room })
+        -- (A beat with its words, so the night's "Along the way" counts it: the confirming playtest.)
+        local events = require "game.model.events"
+        events.add(night.campaign, { kind = "find", who = p.key, thing = "francs", n = 1, where = sc and sc.room,
+                                     beat = true, from = events.cause(night.campaign),
+                                     text = events.word("find", { char = p.char }, "{char} found a Flitwidget Franc") })
         -- (The thing they found is the thing; a Franc turns up with it: "a gold feather... a Franc, in fact" made the find into a Franc.)
         dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it.", vars)
     elseif o.clue then

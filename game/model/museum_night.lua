@@ -79,6 +79,13 @@ M.WORLD_LINES = {
     francs = { "{n} Flitwidget Francs turn up in {char}'s pocket. The gnome pays for clever.",
                "{char} finds {n} crisp Flitwidget Francs tucked in {char_their} sleeve. Clever pays, in this museum.",
                "There are {n} Flitwidget Francs in {char}'s hand that weren't there a moment ago." },
+    -- (Right after the same roll's triumph Franc: one more, to the same hero.)
+    franc_more = { "And a second Franc for {char}: the gnome pays for clever, too.",
+                   "That's two Flitwidget Francs for {char} off one roll. The gnome pays for clever.",
+                   "Another Flitwidget Franc turns up for {char}, for the clever bit. Two off one roll." },
+    francs_more = { "And {n} more Flitwidget Francs for {char}: the gnome pays for clever, too.",
+                    "{n} more Flitwidget Francs turn up for {char}, for the clever bit.",
+                    "On top of that, {n} more Flitwidget Francs for {char}. The gnome pays for clever." },
     franc_party = { "A Flitwidget Franc flutters down out of nowhere. The gnome pays for clever.",
                     "A crisp Flitwidget Franc turns up on the floor at their feet.",
                     "Somebody finds a Flitwidget Franc in the party's things that wasn't there before." },
@@ -384,6 +391,13 @@ function M.handle(night, mus, sc)
         -- three: "They doused the hedges, so Oswin found a Franc" when nobody heard one.)
         if not (mus.told or mus.find_text or night.mus.franc_told) then
             local key = mus.francs == 1 and "franc" or "francs"
+            -- (The same roll's triumph just gave this hero a Franc: this one is another, said as one more,
+            -- not a second "a Franc turns up". The confirming playtest, 51 careful week 1.)
+            local rf = night.mus.roll_franc
+            if who and rf and rf == who.key then
+                key = key .. "_more"
+            end
+            night.mus.roll_franc = nil
             night:say(util.fill(night:fresh(M.WORLD_LINES[who and key or (key .. "_party")], "world_" .. key .. (who and "" or "_party")),
                 night:vars({ char = who and who.char or "they", n = util.int(mus.francs) })), "good")
         end
@@ -429,8 +443,13 @@ function M.handle(night, mus, sc)
                 have = have or e.id == it.magic
             end
             if not have then
-                -- (Whoever picked it up offers it to whoever'll use it best: M.hand_off.)
+                -- (Whoever picked it up offers it to whoever'll use it best: M.hand_off. Who ends up with it is
+                -- what the moment's beat and history say: the confirming playtest's "Brannoc kept the twin
+                -- daggers" for daggers Pip carried all prologue.)
                 local to = M.hand_off(night, it.magic, night.actor)
+                if to and night.actor and to ~= night.actor then
+                    night.mus.handed = { from = night.actor, to = to, name = it.name }
+                end
                 local holder = to and { to } or night.players
                 local e = items_mod.earn(c, it.magic, holder)
                 -- (Tonight's sheets are already built: the item goes on theirs now, for tonight's fights.)
@@ -455,9 +474,11 @@ function M.handle(night, mus, sc)
         st.mech_commander = night.actor and night.actor.key
     end
     if mus.aspect and night.actor then
+        -- (The history is the one who has it now: handed on, theirs.)
+        local whose = (night.mus.handed and night.mus.handed.to) or night.actor
         st.aspects = st.aspects or {}
-        st.aspects[night.actor.key] = st.aspects[night.actor.key] or {}
-        table.insert(st.aspects[night.actor.key], util.fill(mus.aspect, { char = night.actor.char }))
+        st.aspects[whose.key] = st.aspects[whose.key] or {}
+        table.insert(st.aspects[whose.key], util.fill(mus.aspect, { char = whose.char }))
     end
     -- (A history that's since changed says so: the Mech they woke, burnt out.)
     if mus.flag == "mech_burnt" then
@@ -1059,7 +1080,16 @@ function M.play_moment(night, card, sc)
     mev.handing = true                  -- (what it hands over is told by the moment itself: items.lua)
     -- (A Franc the option's own words already handed over isn't said twice; one they didn't is said.)
     night.mus.franc_told = type(o.log) == "string" and string.find(o.log, "Franc", 1, true) and true or nil
+    night.mus.handed = nil
     M.handle(night, o.mus, sc)
+    -- (Handed on to whoever'll use it best: the beat says who carries it.)
+    local ho = night.mus.handed
+    if ho and mev.text then
+        local them = string.find(ho.name or "", "s$") and "them" or "it"
+        mev.text = mev.text .. ", and gave " .. them .. " to " .. ho.to.char
+        mev.holder = ho.to.key
+    end
+    night.mus.handed = nil
     local got = gained(o.mus)
     local out
     if o.roll then
@@ -5025,11 +5055,10 @@ function M.thanks_word(night, sc)
     for id in pairs(MODULE.rooms) do
         rooms[id] = true
     end
+    -- (He sees what's left of his exhibits now. It's a beat of the night only when he says so, docking the
+    -- reward for it, below: the confirming playtest heard "Flitwidget saw what was left of the Bone
+    -- Construct" in recaps where he never said a word about it.)
     local broke = people.notice(c, "mus_flitwidget", rooms, { ["break"] = true })
-    if #broke > 0 then
-        M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1], how = "therefore",
-                            text = events.word("notice", { thing = broke[1].thing or "his exhibits" }) }, sc)
-    end
     local told = people.pass_on(c, "mus_telpur", "mus_flitwidget", { where = "thanks", kinds = { steal = true, harm = true } })
     for i, t in ipairs(told) do
         local about = events.get(c, t.about)
@@ -5062,6 +5091,13 @@ function M.thanks_word(night, sc)
         end
     end
     local vars = { broke = #broke_words > 0 and util.join_names(broke_words) or "my exhibits" }
+    -- (And in his words to the table, for the recap: what he saw broken, all of it.)
+    local broke_things = {}
+    for _, ev in ipairs(events.find(c, { kind = "break", whom = "mus_flitwidget" })) do
+        if ev.thing and events.knows(c, "mus_flitwidget", ev) and not util.contains(broke_things, ev.thing) then
+            table.insert(broke_things, ev.thing)
+        end
+    end
     -- (Anything pocketed along the way that hasn't come back comes back now, from the log.)
     -- (By the one who pocketed it while they're still that seat's hero and can act; else a friend gives
     -- it back for them, out loud: round three, A1 with B2.)
@@ -5090,13 +5126,43 @@ function M.thanks_word(night, sc)
     end
     -- (Wary of them: ten gold each comes off the reward, for what he really holds against them. He says
     -- so, and what it comes to: one number, adventure.reward_vars.)
+    -- (One reason, the one he can name from the log, said by him and told the same way in the recap, with
+    -- the figure he said: what comes off what he pays, halved for an escape too. The confirming playtest:
+    -- docked "for the business with my donation box" from a party that dropped a coin in it; the recap
+    -- giving another reason than the table heard; "ten gold off" when the table heard five.)
+    local reason, why, whom
     if people.RANK[people.level(c, "mus_flitwidget")] < 0 and not st.gold_docked then
+        if #broke_things > 0 then
+            reason = "break"
+        elseif people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "got") then
+            reason, why = "draught", people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "got")
+        elseif people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "caught") then
+            reason, why = "caught", people.knows_of(c, "mus_flitwidget", "steal", nil, true, nil, "caught")
+        elseif told[1] then
+            reason, why = "told", told[1]
+        elseif st.marks.robbed then
+            reason, why = "box", (st.marks.robbed.ev and events.get(c, st.marks.robbed.ev)) or nil
+        end
+    end
+    if reason then
+        if reason == "break" then
+            why = M.log_beat(night, { kind = "notice", who = "mus_flitwidget", from = broke[1] or events.last(c, { kind = "break", whom = "mus_flitwidget" }),
+                                      how = "therefore", text = events.word("notice", { thing = util.join_names(broke_things) }) }, sc)
+        end
+        local before = adventure.reward_gold(c)
         st.gold_docked = 10
         st.gold = math.max(10, (st.gold or 30) - 10)
-        local why = (#broke > 0 and events.last(c, { kind = "notice", who = "mus_flitwidget" })) or told[1]
-            or people.knows_of(c, "mus_flitwidget", "harm") or people.knows_of(c, "mus_flitwidget", "steal")
-        M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = 10, from = why,
-                            text = events.word("docked") }, sc)
+        local off = before - adventure.reward_gold(c)
+        local p = why and why.who and c:player(why.who)
+        if reason == "told" then
+            local about = events.get(c, why.about)
+            p = about and about.who and c:player(about.who) or p
+        end
+        M.log_beat(night, { kind = "docked", who = "mus_flitwidget", n = off, reason = reason, from = why,
+                            text = events.word("docked_" .. reason, { n = adventure.gold_word(off), char = p and p.char or "them" },
+                                               events.word("docked", { n = adventure.gold_word(off) })) }, sc)
+        vars.off_word = adventure.gold_word(off)
+        vars.Off_word = util.capitalize(vars.off_word)
         local dl = people.line(night, "mus_flitwidget", "docked", nil, night:vars(vars))
         if dl then
             night:emit({ kind = "npc", name = "Flitwidget", cast = "mus_flitwidget", text = dl })
