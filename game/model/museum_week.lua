@@ -583,14 +583,20 @@ function M.room_prep(c, id)
         local bits = {}
         for _, mid in ipairs(order) do
             local m = monsters[mid]
-            local name = string.lower(m and m.name or mid)
-            table.insert(bits, util.int(count[mid]) .. " " .. name .. ((count[mid] > 1 and not string.find(name, "s$")) and "s" or ""))
+            local raw = m and m.name or mid
+            if count[mid] == 1 and string.find(raw, "^The %u") then
+                -- (One of a kind by name: "the Lecturer", not "1 the lecturer", the third playtest.)
+                table.insert(bits, "the " .. string.sub(raw, 5))
+            else
+                local name = string.lower(raw)
+                table.insert(bits, util.int(count[mid]) .. " " .. name .. ((count[mid] > 1 and not string.find(name, "s$")) and "s" or ""))
+            end
         end
         table.insert(out, { kind = "minis", text = (r.optional_fight and "If it comes to a fight: " or "Minis: ") .. table.concat(bits, ", ") })
     end
     local pn = MODULE.prep_notes and MODULE.prep_notes[id] or {}
     for _, v in ipairs(pn.voices or {}) do
-        table.insert(out, { kind = "voice", text = "Voice: " .. v })
+        table.insert(out, { kind = "voice", text = "Voice for " .. v })     -- (not "Voice: Flitwidget: quick...")
     end
     if pn.handouts and #pn.handouts > 0 then
         table.insert(out, { kind = "handout", text = "Have ready: " .. util.join_names(pn.handouts) })

@@ -101,7 +101,8 @@ local function between(app)
     local pr = list[1]
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION " .. util.int(c.week), "title30", theme.gold)
-    kit.text(300, 24, "Between sessions: the group chat, and what's changed since last time.", "ui18", theme.dim)
+    -- (What's on this screen, no more: the third playtest looked for "what's changed" and found no such part.)
+    kit.text(300, 24, "Between sessions: the group chat, and the questions waiting for you before the prep board.", "ui18", theme.dim)
     -- The chat down the left: the newest at the bottom, as much as fits (a question for you is last).
     kit.text(COL_L, 84, "THE GROUP CHAT", "ui14", theme.dim)
     local chat = c.chat or {}
@@ -144,8 +145,20 @@ local function between(app)
     local def = pr.def
     if pr.kind == "ruling" then
         kit.text(x + 24, box_y + 18, "A PROMISE", "ui14", theme.gold)
-        kit.text(x + 24, box_y + 50, "Last session you made a quick call on " .. def.topic .. ", and told the table you'd look it up after.",
-            "story22", theme.text, { w = w - 48 })
+        -- Which rule (the third playtest: "a quick call on that rule" didn't say): the question as it
+        -- came up and what you said, from last night's rules calls, when it has no topic of its own.
+        local what = def.topic
+        if what == "that rule" then
+            for _, rc in ipairs(c.last_rules_calls or {}) do
+                local hr = c.house_rules and c.house_rules[rc.card]
+                if hr and not rc.looked and hr.title then
+                    what = "\"" .. hr.title .. "\"" .. ((hr.ruling or "") ~= "" and (" (you said: \"" .. hr.ruling .. "\")") or "")
+                    break
+                end
+            end
+        end
+        kit.text(x + 24, box_y + 50, "Last session you made a quick call on " .. what .. ", and told the table you'd look it up after.",
+            "story22", theme.text, { w = w - 48, lines = 3 })
         kit.text(x + 24, box_y + 150, "That was the deal at Session Zero: quick call now, look it up after. Sam will remember either way.",
             "ui18", theme.dim, { w = w - 48 })
         local by = box_y + 210
@@ -200,8 +213,10 @@ local function between(app)
         -- What they mean, when it's from a few sessions back (the playtest, November 3: "I don't remember
         -- that"): the request's own reminder, then the line every DM knows.
         local hint = (def.about and (def.about .. " ") or "") .. "Every DM gets these. Fair, absurd, or both: how do you answer?"
-        kit.text(x + 24, box_y + 136, hint, "ui18", theme.dim, { w = w - 48, lines = 2 })
-        local by = box_y + 176 + (def.about and 24 or 0)
+        -- (Three lines when it needs them: the reminder and the line every DM knows, in full.)
+        local hn = math.min(3, #kit.wrap(hint, "ui18", w - 48))
+        kit.text(x + 24, box_y + 136, hint, "ui18", theme.dim, { w = w - 48, lines = 3 })
+        local by = box_y + 136 + hn * kit.line_height("ui18") + 17
         for _, ans in ipairs(MODULE.ANSWERS) do
             local a = def.answers[ans]
             kit.button(x + 24, by, w - 48, 92, "", function()
@@ -287,7 +302,7 @@ end
 -- Each floor: its title, and every room as a box in the floor's own 0..1 frame.
 local FLOORS = {
     { title = "GROUND FLOOR", rooms = {
-        { "garden", 0.17, 0.0, 1.0, 0.40 }, { "street", 0.0, 0.08, 0.15, 0.32 },
+        { "garden", 0.17, 0.0, 1.0, 0.40 }, { "street", 0.0, 0.08, 0.16, 0.32 },
         { "entrance", 0.30, 0.44, 0.70, 0.57 }, { "chamber", 0.04, 0.59, 0.48, 0.84 },
         { "paintings", 0.52, 0.59, 0.96, 0.84 }, { "gift_shop", 0.26, 0.86, 0.74, 1.0 } },
       pond = { 0.44, 0.07, 0.74, 0.22 } },
@@ -324,14 +339,16 @@ local function floor_room(app, c, id, x, y, w, h, here, backdrop, inner, pond)
     if pond then
         kit.box(pond[1], pond[2], pond[3], pond[4], kit.rgba("#3a6f86", 0.55), { radius = 12 })
     end
+    -- (A pixel each side, not three: "Street", "Offices" and "Tomorrow" fit their boxes on the
+    -- prep board; a box too small still names its room in full on hover.)
     local label = r.map or (string.gsub(r.name, "^The ", ""))
     local font = "ui14"
-    if kit.width(label, font) > w - 6 then
-        label = kit.ellipsize(label, font, w - 6)
+    if kit.width(label, font) > w - 2 then
+        label = kit.ellipsize(label, font, w - 2)
     end
     local ty = pond and (pond[2] + pond[4] + 2) or (y + math.max(1, (h - 18) / 2))
     kit.text(x + w / 2, ty, label, font, (s == "skipped") and theme.faint or theme.text, { pivot = gui.PIVOT_N })
-    if s == "done" and w > 34 then
+    if s == "done" and w > 34 and kit.width(label, font) <= w - 26 then     -- (never over the name)
         kit.text(x + w - 4, y + 1, "v", "ui14", theme.green, { pivot = gui.PIVOT_NE })
     end
     return s
@@ -652,9 +669,33 @@ end
 
 -- Euryale's card -------------------------------------------------------------------------------
 
-function M.boss_card(app, x, y, w, h, big)
+-- opts.fit: no taller than its marks need (the showdown: room for the rows under it). Returns the
+-- height it took.
+function M.boss_card(app, x, y, w, h, big, opts)
     local c = app.campaign
     local card = adventure.boss_card(c)
+    if opts and opts.fit and #card.marks > 0 then
+        local head = (big and 70 or 58) + kit.text_height(card.line, "ui14", w - 32) + 10 + 22
+        local tw = w - 46
+        local least = math.huge
+        for _, try in ipairs({ "full", "medium" }) do
+            local total = 0
+            for _, m in ipairs(card.marks) do
+                if try == "full" then
+                    total = total + 24 + kit.text_height(m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", tw) + 6
+                elseif kit.width(m.name, "ui18b") + 10 + kit.width(m.showdown .. ".", "ui14") <= tw then
+                    total = total + 22
+                else
+                    total = total + 22 + math.min(2, #kit.wrap(m.showdown .. ".", "ui14", tw)) * kit.line_height("ui14") + 3
+                end
+            end
+            if head + total + 12 <= h then
+                least = head + total + 12
+                break
+            end
+        end
+        h = math.min(h, least)
+    end
     kit.box(x, y, w, h, kit.rgba("#3a1f1a"), { radius = 12 })
     kit.box(x + 4, y + 4, w - 8, h - 8, kit.rgba("#2a1714"), { radius = 10 })
     kit.text(x + 16, y + 10, "UPSTAIRS", "ui14", theme.red)
@@ -665,35 +706,74 @@ function M.boss_card(app, x, y, w, h, big)
     if #card.marks == 0 then
         kit.text(x + 16, ty, "No marks yet. Everything the party does on the way up can change this card.", "ui14", theme.faint,
             { w = w - 32 })
-        return
+        return h
     end
     kit.text(x + 16, ty, "MARKS FROM THE BUILD-UP  (" .. util.int(#card.marks) .. ")", "ui14", theme.dim)
     ty = ty + 22
     -- Every mark, always inside the card (the engine run, October 30: the sixth spilled out over the
-    -- showdown's rows): each with what it changes and why, or one line each when that won't fit.
-    local full = 0
-    for _, m in ipairs(card.marks) do
-        full = full + 24 + kit.text_height(m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", w - 46) + 6
+    -- showdown's rows): each with what it changes and why; when that won't fit, what it changes in full
+    -- (beside its name, or under it), never cut (the third playtest: "She skips the drink...", "They
+    -- come up..."). Pointing at a mark always gives all of it, with its cause.
+    local tw = w - 46
+    local function said(m)
+        return m.showdown .. ". (" .. (m.why or "") .. ".)"
     end
-    local compact = ty + full > y + h - 10
-    for i, m in ipairs(card.marks) do
-        local rowh = compact and 22 or (24 + kit.text_height(m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", w - 46) + 6)
-        if ty + (compact and 18 or rowh - 6) > y + h - 8 then
-            kit.text(x + w - 16, y + 10, "+" .. util.int(#card.marks - i + 1) .. " more in your notes", "ui14", theme.faint,
-                { pivot = gui.PIVOT_NE })
+    local function beside(m)
+        return kit.width(m.name, "ui18b") + 10 + kit.width(m.showdown .. ".", "ui14") <= tw
+    end
+    local function row_h(m, mode)
+        if mode == "full" then
+            return 24 + kit.text_height(said(m), "ui14", tw) + 6
+        elseif mode == "medium" then
+            return beside(m) and 22 or (22 + math.min(2, #kit.wrap(m.showdown .. ".", "ui14", tw)) * kit.line_height("ui14") + 3)
+        end
+        return 22
+    end
+    local mode = "compact"
+    for _, try in ipairs({ "full", "medium" }) do
+        local total = 0
+        for _, m in ipairs(card.marks) do
+            total = total + row_h(m, try)
+        end
+        if ty + total <= y + h - 10 then
+            mode = try
             break
         end
-        kit.box(x + 16, ty + (compact and 7 or 4), 6, 6, theme.gold, { radius = 3 })
-        if compact then
-            local nw = kit.width(m.name, "ui18b")
-            kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
-            kit.text(x + 30 + nw + 10, ty + 3, m.showdown .. ".", "ui14", theme.dim, { w = math.max(40, w - 56 - nw), lines = 1 })
+    end
+    local gl = util.lazy("game.ui.gloss")
+    for i, m in ipairs(card.marks) do
+        local rowh = row_h(m, mode)
+        if ty + (mode == "compact" and 18 or rowh - 6) > y + h - 8 then
+            local rest = #card.marks - i + 1
+            kit.text(x + w - 16, y + 10, "+" .. util.int(rest) .. " more: Notes, Upstairs", "ui14", theme.faint,
+                { pivot = gui.PIVOT_NE })
+            if gl.card_spot then
+                gl.card_spot(x + w - 16 - kit.width("+" .. util.int(rest) .. " more: Notes, Upstairs", "ui14"), y + 8,
+                    kit.width("+" .. util.int(rest) .. " more: Notes, Upstairs", "ui14"), 20, "More marks",
+                    "Her card has " .. util.int(rest) .. " more marks than fit here. Your notes (N), on the Upstairs page, "
+                    .. "show every one: what it changes on boss night, and why it's there.")
+            end
+            break
+        end
+        -- (Under its words: a rules word in it keeps its own hover.)
+        if gl.card_spot then
+            gl.card_spot(x + 12, ty - 2, w - 28, rowh - 2, m.name, said(m))
+        end
+        kit.box(x + 16, ty + 7, 6, 6, theme.gold, { radius = 3 })
+        kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = tw, lines = 1 })
+        if mode == "full" then
+            kit.text(x + 30, ty + 22, said(m), "ui14", theme.dim, { w = tw, lines = 2 })
+        elseif beside(m) then
+            kit.text(x + 30 + kit.width(m.name, "ui18b") + 10, ty + 3, m.showdown .. ".", "ui14", theme.dim)
+        elseif mode == "medium" then
+            kit.text(x + 30, ty + 21, m.showdown .. ".", "ui14", theme.dim, { w = tw, lines = 2 })
         else
-            kit.text(x + 30, ty, m.name, "ui18b", theme.text, { w = w - 46, lines = 1 })
-            kit.text(x + 30, ty + 22, m.showdown .. ". (" .. (m.why or "") .. ".)", "ui14", theme.dim, { w = w - 46, lines = 2 })
+            local nw = kit.width(m.name, "ui18b")
+            kit.text(x + 30 + nw + 10, ty + 3, m.showdown .. ".", "ui14", theme.dim, { w = math.max(40, tw - 10 - nw), lines = 1 })
         end
         ty = ty + rowh
     end
+    return h
 end
 
 -- Tonight's rooms ------------------------------------------------------------------------------
@@ -705,17 +785,45 @@ local PREP_WHAT = "You read the room ahead, set out its map and minis, and pract
     .. "(everyone gets a little bored), and its moments land weaker."
 
 
+-- A room's row, laid out once for drawing and for the list's paging (the third playtest: the rows
+-- cut off what mattered most, "Sam's veil: kruthik huntlings, armoured a...", "...the first hint of
+-- something called the..."). The room's summary gets two lines; what prepping it means gets a line;
+-- each Session Zero ask it touches (a line, a veil) gets a line of its own, so what to avoid is
+-- always there to read; anything still too long shows in full on hover.
+local SUM_W = 230       -- (the summary keeps clear of the Prep button and the "Unprepped" note)
+local function row_parts(c, id, w)
+    local r = MODULE.rooms[id]
+    local out = { plain = {}, asks = {}, h = 50 }
+    if r.virtual then
+        return out
+    end
+    for _, n in ipairs(museum_week.room_prep(c, id)) do
+        table.insert(n.kind == "ask" and out.asks or out.plain, n)
+    end
+    local sides = map_repo.side_rooms_off(c, id)
+    local sum = r.sum
+    if #sides > 0 then
+        local names = {}
+        for _, sid in ipairs(sides) do
+            table.insert(names, c.adv.side_rooms[sid].name)
+        end
+        sum = "Side room off here: " .. util.join_names(names) .. ". " .. sum
+    end
+    out.sum, out.sides = sum, #sides > 0
+    out.sum_lines = math.min(2, #kit.wrap(sum, "ui14", w - SUM_W))
+    out.h = 54 + (out.sum_lines - 1) * kit.line_height("ui14") + (#out.plain > 0 and 22 or 0) + #out.asks * 22
+        + #(r.knobs or {}) * 30
+    return out
+end
+
 local function room_row(app, prep, id, x, y, w)
     local c = app.campaign
     local r = MODULE.rooms[id]
     local pm = prep.museum
     local knobs = r.knobs or {}
     -- What prepping it really means: minis, voices, handouts, a Session Zero ask it touches.
-    local notes = (not r.virtual) and museum_week.room_prep(c, id) or {}
-    local h = 54 + #knobs * 30 + (#notes > 0 and 22 or 0)
-    if r.virtual then
-        h = 50
-    end
+    local parts = row_parts(c, id, w)
+    local h = parts.h
     kit.box(x, y, w, h, theme.panel, { radius = 10 })
     kit.box(x, y, 6, h, theme.scene[r.type] or theme.panel3, { radius = 3 })
     kit.text(x + 18, y + 8, r.name, "ui18b", theme.text)
@@ -740,16 +848,10 @@ local function room_row(app, prep, id, x, y, w)
             end, { font = "ui14", color = e and theme.go or theme.panel2, hover = theme.button_hover, key = "room_map_" .. id })
         end
     end
-    local sides = map_repo.side_rooms_off(c, id)
-    local sum = r.sum
-    if #sides > 0 then
-        local names = {}
-        for _, sid in ipairs(sides) do
-            table.insert(names, c.adv.side_rooms[sid].name)
-        end
-        sum = "Side room off here: " .. util.join_names(names) .. ". " .. sum
+    local lh = kit.line_height("ui14")
+    if parts.sum then
+        kit.text(x + 18, y + 30, parts.sum, "ui14", parts.sides and theme.gold or theme.dim, { w = w - SUM_W, lines = 2 })
     end
-    kit.text(x + 18, y + 30, sum, "ui14", #sides > 0 and theme.gold or theme.dim, { w = w - 220, lines = 1 })
     if not r.virtual and (r.cost or 0) > 0 then
         local on = pm.prepped[id]
         local label = on and ("Prepped  (" .. util.int(r.cost) .. "h)") or ("Prep it  (" .. util.int(r.cost) .. "h)")
@@ -768,22 +870,26 @@ local function room_row(app, prep, id, x, y, w)
             kit.text(x + w - 14, y + 42, "Unprepped: it plays thinner.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
         end
     end
-    local ky = y + 52
-    if #notes > 0 then
-        local bits, full, ask = {}, {}, false
-        for _, n in ipairs(notes) do
+    local ny = y + 50 + ((parts.sum_lines or 1) - 1) * lh
+    local ky = y + 52 + ((parts.sum_lines or 1) - 1) * lh
+    if #parts.plain > 0 then
+        local bits, full = {}, {}
+        for _, n in ipairs(parts.plain) do
             table.insert(bits, n.text)
             table.insert(full, n.text .. ".")
-            ask = ask or n.kind == "ask"
         end
-        local line = table.concat(bits, ".  ")
-        kit.text(x + 18, y + 50, kit.ellipsize(line, "ui14", w - 36), "ui14", ask and theme.teal or theme.faint)
         -- (All of it on hover: a long room's notes don't fit one line.)
         local gloss = util.lazy("game.ui.gloss")
         if gloss.card_spot then
-            gloss.card_spot(x + 14, y + 48, w - 28, 20, "Prepping " .. util.lower_first(r.name), table.concat(full, " "))
+            gloss.card_spot(x + 14, ny - 2, w - 28, 20, "Prepping " .. util.lower_first(r.name), table.concat(full, " "))
         end
-        ky = ky + 22
+        kit.text(x + 18, ny, table.concat(bits, ".  "), "ui14", theme.faint, { w = w - 36, lines = 1 })
+        ny, ky = ny + 22, ky + 22
+    end
+    -- What a friend asked for at Session Zero, where this room touches it: a line each, in their colour.
+    for _, n in ipairs(parts.asks) do
+        kit.text(x + 18, ny, n.text .. ".", "ui14", theme.teal, { w = w - 36, lines = 1 })
+        ny, ky = ny + 22, ky + 22
     end
     for _, kid in ipairs(knobs) do
         local k = MODULE.knobs[kid]
@@ -816,17 +922,23 @@ local function room_row(app, prep, id, x, y, w)
     return h
 end
 
-local function room_height(c, id)
-    local r = MODULE.rooms[id]
-    if r.virtual then
-        return 50
-    end
-    local notes = museum_week.room_prep(c, id)
-    return 54 + #(r.knobs or {}) * 30 + (#notes > 0 and 22 or 0)
+local function room_height(c, id, w)
+    return row_parts(c, id, w or COL_MW).h
 end
 
--- What to do with hours left over (museum_week.SPARE), at the foot of the list.
-local SPARE_H = 22 + #museum_week.SPARE * 30 + 24
+-- What to do with hours left over (museum_week.SPARE), at the foot of the list: each in full, on
+-- two lines when it needs them (the third playtest: "Write a backup page (1h): The first room tonight
+-- you didn't prep (a side room, a detour, one past tonight's)...").
+local function spare_line(d)
+    return d.name .. " (" .. util.int(d.cost) .. "h): " .. d.what
+end
+local function spare_h(w)
+    local h = 22 + 24
+    for _, d in ipairs(museum_week.SPARE) do
+        h = h + 30 + (#kit.wrap(spare_line(d), "ui14", w - 40) > 1 and kit.line_height("ui14") or 0)
+    end
+    return h
+end
 
 local function spare_block(app, prep, x, y, w)
     local pm = prep.museum
@@ -842,12 +954,13 @@ local function spare_block(app, prep, x, y, w)
             app.refresh()
         end, { font = "ui14", color = on and theme.go or theme.button, hover = theme.button_hover,
                enabled = on or left >= d.cost, key = "spare_" .. d.id })
-        kit.text(x + 38, ky + 4, d.name .. " (" .. util.int(d.cost) .. "h): " .. d.what, "ui14", on and theme.text or theme.dim,
-            { w = w - 40, lines = 1 })
-        ky = ky + 30
+        local line = spare_line(d)
+        kit.text(x + 38, ky + 4, line, "ui14", on and theme.text or theme.dim, { w = w - 40, lines = 2 })
+        ky = ky + 30 + (#kit.wrap(line, "ui14", w - 40) > 1 and kit.line_height("ui14") or 0)
     end
-    kit.text(x, ky, "Or talk to a friend (1h) from their card on the right. Hours you don't use carry to next week, up to "
-        .. util.int(museum_week.CARRY_MAX) .. ".", "ui14", theme.faint, { w = w, lines = 1 })
+    local talk = require("game.model.prep").TALK_COST
+    kit.text(x, ky, "Or talk to a friend (" .. util.int(talk) .. "h) from their card on the right. Hours you don't use carry to "
+        .. "next week, up to " .. util.int(museum_week.CARRY_MAX) .. ".", "ui14", theme.faint, { w = w, lines = 1 })
 end
 
 -- The rooms, a page at a time when they don't all fit (the playtest, November 3: the list ran off the
@@ -884,10 +997,10 @@ local function rooms(app, prep, x, y, w, max_y)
     local items, hs = {}, {}
     for _, id in ipairs(pm.ahead) do
         table.insert(items, id)
-        table.insert(hs, room_height(c, id) + 6)
+        table.insert(hs, room_height(c, id, w) + 6)
     end
     table.insert(items, "spare")
-    table.insert(hs, SPARE_H)
+    table.insert(hs, spare_h(w))
     local avail = max_y - y
     local total = 0
     for _, h in ipairs(hs) do
@@ -962,12 +1075,13 @@ end
 local ONE_OF_A_KIND = { knight_of_shades = "the Knight of Shades", the_lecturer = "the Lecturer", sentinel = "the Sentinel",
     bone_construct = "the Bone Construct" }
 
+local CHOICE_H = 94
+
 local function showdown(app, prep, x, y, w)
     local c = app.campaign
     local st = c.adv
     st.boss = st.boss or { opener = "talk", style = "yields" }
-    M.boss_card(app, x, y, w, 360, true)
-    y = y + 376
+    y = y + M.boss_card(app, x, y, w, 360, true, { fit = true }) + 16
     local enc = adventure.boss_encounter(c)
     local brings = {}
     if st.marks.mech then
@@ -996,10 +1110,12 @@ local function showdown(app, prep, x, y, w)
             table.insert(with, one or (count[id] > 1 and (util.int(count[id]) .. " " .. name .. "s") or ("a " .. name)))
         end
     end
+    -- (All of it: the third playtest's "WHAT THE PARTY BRINGS: ... the...".)
+    local bring = #brings > 0 and util.join_names(brings) or "Themselves, and whatever's left in their packs."
+    local bf = #kit.wrap(bring, "ui18", w - 220) > 3 and "ui14" or "ui18"       -- (a long list, smaller)
     kit.text(x, y, "WHAT THE PARTY BRINGS", "ui14", theme.dim)
-    kit.text(x + 220, y, #brings > 0 and util.join_names(brings) or "Themselves, and whatever's left in their packs.", "ui18", theme.text,
-        { w = w - 220, lines = 2 })
-    y = y + 50
+    kit.text(x + 220, y, bring, bf, theme.text, { w = w - 220, lines = 4 })
+    y = y + math.max(50, math.min(4, #kit.wrap(bring, bf, w - 220)) * kit.line_height(bf) + 6)
     kit.text(x, y, "WHO'S WITH HER", "ui14", theme.dim)
     kit.text(x + 220, y, #with > 0 and util.join_names(with) or "Nobody. She's alone with her statues.", "ui18", theme.text,
         { w = w - 220, lines = 2 })
@@ -1013,20 +1129,31 @@ local function showdown(app, prep, x, y, w)
             local d = defs[id]
             local on = st.boss[field] == id
             if on then
-                kit.box(bx - 3, by - 3, bw + 6, 82, theme.select, { radius = 9 })
+                kit.box(bx - 3, by - 3, bw + 6, CHOICE_H + 6, theme.select, { radius = 9 })
             end
-            kit.button(bx, by, bw, 76, "", function()
+            -- (The blurb in full, on two lines: the third playtest's "As in the book: a drink, some
+            -- questions, then an...".)
+            kit.button(bx, by, bw, CHOICE_H, "", function()
                 st.boss[field] = id
                 app.refresh()
             end, { color = on and theme.panel3 or theme.panel2, hover = theme.button_hover, key = "boss_" .. field .. "_" .. id })
             kit.text(bx + 12, by + 6, d.name, "ui18b", theme.text)
-            kit.text(bx + 12, by + 30, d.blurb, "ui14", theme.dim, { w = bw - 24, lines = 1 })
-            chips(bx + 12, by + 50, d.like, bw - 24)
+            kit.text(bx + 12, by + 30, d.blurb, "ui14", theme.dim, { w = bw - 24, lines = 2 })
+            chips(bx + 12, by + CHOICE_H - 26, d.like, bw - 24)
             bx = bx + bw + 12
         end
-        y = by + 90
+        y = by + CHOICE_H + 14
     end
     choice("HOW SHE OPENS", "opener", MODULE.showdown.openers, { "talk", "ambush" })
+    -- Her card beats the book's opening where they disagree, and the board says so (the third
+    -- playtest: "She skips the drink and the small talk" beside "a drink, some questions...").
+    if st.boss.opener == "talk" and st.marks.garden_burned then
+        local said = "Her card wins here: " .. string.lower(string.sub(MODULE.marks.garden_burned.name, 1, 1))
+            .. string.sub(MODULE.marks.garden_burned.name, 2) .. ", so there's no drink and no small talk. She goes "
+            .. "straight to her ultimatum."
+        kit.text(x, y - 6, said, "ui14", theme.orange, { w = w, lines = 2 })
+        y = y + math.min(2, #kit.wrap(said, "ui14", w)) * kit.line_height("ui14") + 8
+    end
     -- What an ambush throws away: everything on her card that only works in the talk.
     if st.boss.opener == "ambush" then
         local lost = {}
