@@ -84,7 +84,7 @@ return {
         text = "{boss} is beaten, bleeding, and edging toward the way out they came in by. They planned for this.",
         options = {
             { label = "Let them go. They'll be back, and they'll remember.", battle = "escape",
-              log = "{boss} is gone before anyone can stop them. A last look back: this isn't over.",
+              log = "{boss} is gone before anyone can stop {boss_them}. A last look back: this isn't over.",
               effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:method_actor", fun = 4 }, { "arch:butt_kicker", fun = -3 },
                           { "arch:tactician", fun = 1 } } },
             { label = "No way out. Finish it.", battle = "let",

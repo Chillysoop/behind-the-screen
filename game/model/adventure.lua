@@ -256,8 +256,8 @@ function M.enter(campaign)
             ee.text = "{boss} is beaten, bleeding, and edging toward a way out."
             for _, o in ipairs(ee.options or {}) do
                 if o.battle == "escape" then
-                    o.label = "Let them go. They'll be waiting upstairs."
-                    o.log = "{boss} is gone before anyone can stop them, up toward Euryale."
+                    o.label = "Let {boss_them} go. {Boss_they'll} be waiting upstairs."
+                    o.log = "{boss} is gone before anyone can stop {boss_them}, up toward Euryale."
                 elseif o.battle == "let" then
                     o.log = "Somebody gets in the way first. {boss} isn't leaving."
                 end

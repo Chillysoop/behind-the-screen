@@ -466,11 +466,11 @@ function M.doubt(night, p, extra)
 end
 
 -- Outvoted at a fork, Pip's player decides to go it alone (the BBQ story): a beat before she does.
-function M.plan(night, p)
+function M.plan(night, p, outvoted)
     if not p then
         return nil
     end
-    return M.think(night, p, "plan", { keep = true, any_scene = true })
+    return M.think(night, p, "plan", { keep = true, any_scene = true, vars = outvoted and { outvoted = "" } or nil })
 end
 
 -- What each answer does. Returns true when it landed well (Empathy), false when it backfired.

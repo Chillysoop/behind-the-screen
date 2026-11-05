@@ -3770,7 +3770,7 @@ end
 -- the boss's fate, how it came out, and what it followed from: the choice that started it
 -- ("therefore"), or the room turning on them ("but"). Its clause tells it for the chain (R14).
 -- (A hero going off alone, for the log's chain: one of them, or two.)
-M.ALONE_TEXT = { "{names} went off alone", "{names} went off on their own" }
+M.ALONE_TEXT = { "{names} went off alone", "{names} went off together, just the two of them" }
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",
@@ -3845,9 +3845,9 @@ end
 -- (Said at every fight: three or more ways each, R3. The ones for foes already in view, then the
 -- ones only for foes nobody's seen yet.)
 M.FOE_LINES = {
-    "{Boss}, with {rest} behind them.",
-    "It's {boss}, with {rest} at their back.",
-    "{Boss}, and {rest} with them.",
+    "{Boss}, with {rest} close behind.",
+    "It's {boss}, and {rest} besides.",
+    "{Boss}, and {rest} along for the fight.",
 }
 -- (Only for foes nobody's seen yet: "out of hiding" over a knight already climbing out of its frame,
 -- or Euryale mid-conversation, the second playtest review. F13.)
@@ -4836,6 +4836,26 @@ function M:play_scene(sc)
     local poses = {}
     for _, p in ipairs(fans) do
         poses[p.key] = "lean"
+    end
+    -- (Not about a fight that's no longer coming, the room settled by its own first call: "Finally.
+    -- Hitting time." after the bargain worked. And nobody grumbles about what they just voted for
+    -- here. The third playtest, F2.)
+    local settled = sc.resolved or (sc.type == "combat" and not mus.has_fight(sc))
+    local backed = {}
+    if self.party_backers_room == sc.room then
+        for _, p in ipairs(self.party_backers or {}) do
+            backed[p] = true
+        end
+    end
+    local g2 = {}
+    for _, p in ipairs(grumps) do
+        if not backed[p] then
+            table.insert(g2, p)
+        end
+    end
+    grumps = g2
+    if settled then
+        fans, grumps = {}, {}
     end
     self:react(poses)
     if #fans > 0 then

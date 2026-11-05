@@ -2098,6 +2098,12 @@ M.lean = lean       -- (for the checks: tools/tests/roadmap_table_check.lua)
 -- in three runs of four): the week a friend's had, the spotlight so far tonight, a vote they lost last
 -- time, and the table's habit ("we played it safe last time"). Each is a reason they say out loud, in
 -- their own words, three ways each (fresh across weeks).
+-- And the moment itself (the third playtest, alive 1: every friend made the same bid at the same beat
+-- in 24 runs of 24, their seat and nothing else): their hero hurt or someone else's, the last fight
+-- (a rough one, an easy one), being bored, what the card's own words point at (the sign says try the
+-- water), and something they carry that's for this (the key from the pond). Every reason fits the
+-- option's lean (an option's `lean`, else vote_kind): a tired friend never says "easy does it" for
+-- setting the bushes on fire.
 M.VOTE_WHY = {
     pushed = { "I went along last time. This one's mine.", "I gave way last time. Not on this one.",
                "Last time I came round. This time you can." },
@@ -2115,11 +2121,68 @@ M.VOTE_WHY = {
               "Let's do this properly. We've got {edge}." },
     mine = { "What did I bring {mine} up here for, then?", "I've been saving {mine} for her.",
              "I've got {mine}. I want to use it on her." },
+    -- (The moment, R3 C1: {char} their own hero, {hurt} the hero who's hurt.)
+    hurt = { "{char}'s hurt. Let's not.", "Not with {char} like this. The careful way.", "{char} needs a breather. Let's not risk it." },
+    hurt_other = { "{hurt} is in no state for this. Easy does it.", "Look at {hurt}. Let's not.", "{hurt} needs a minute. The careful way, please." },
+    rough = { "After that last fight? Let's be careful.", "We only just got through the last one. Gently, please.",
+              "I'm still shaking from that last fight." },
+    easy = { "That last lot went down easy. Let's keep going.", "We've got this. Look how the last fight went.",
+             "The last fight was a warm-up. Come on." },
+    bored = { "I'm bored. Let's make something happen.", "I need something to do. Let's go.", "Something should happen. Let's make it happen." },
+    holds = { "I've got {thing}. Let's use it.", "That's what {thing} is for, surely.", "I didn't carry {thing} all this way for nothing." },
 }
-M.VOTE_PUSH = 1.4          -- what losing the last vote adds to a friend's own pick (twice running: twice that)
-M.VOTE_HABIT = 1.1         -- what the last pick's kind adds to the other kind, for the friends who like it
+-- The same, naming what happened ({won}: what the table picked over them last time, {lost}: what they
+-- wanted, {did}: what the table did, "we set the bushes on fire"). Said in turn with VOTE_WHY's own,
+-- only when the vote before is known. (The third playtest, alive 4: "I lost last time" in three
+-- phrasings, 159 times; name what was lost.)
+M.VOTE_NAMED = {
+    pushed = { "Last time I let you {won}. This one's mine.", "I wanted to {lost} last time, and we didn't. Not again.",
+               "I said yes when {did}. My turn now." },
+    safe_last = { "Last time {did}. Let's do something braver.", "{Did} last time. Let's not play it safe twice.",
+                  "We were good last time: {did}. My turn for some fun." },
+    bold_last = { "Last time {did}. Let's be smart for once.", "{Did} last time. Maybe not again.",
+                  "We pushed our luck last time: {did}. Let's not." },
+}
+-- Someone on the winning side talks round one friend who barely minds ({name}: them; {want}, {Want}:
+-- the winning side's), and they come round in their own voice ({name}: whoever talked them round). At
+-- most one a vote, and only in answer to a push (the third playtest, alive 2: a friend overturned their
+-- own bid on the very next line, "Okay, okay.", 47 times).
+M.VOTE_PUSH_LINES = { "Come on, {name}. {Want}.", "{Name}, trust me on this one. {Want}.", "Please, {name}? {Want}. It'll be fine." }
+M.VOTE_CAVE = {
+    dev = { "Fine, {name}. {Want}. But I'm hitting something later.", "Ugh. Okay, {name}. {Want}.", "Fine. {Want}. You owe me one, {name}." },
+    jess = { "Okay, okay, {name}. {Want}. Spoilsport.", "Fine, {name}. {Want}. Pip will sulk about it.", "Hmph. {Want}, then. You win, {name}." },
+    mara = { "That's fair, {name}. {Want}.", "Hm. All right, {name}, you've talked me round. {Want}.", "Okay. {Want}. Good point, {name}." },
+    sam = { "Yeah, okay, {name}. {Want}.", "Fair enough, {name}. {Want}.", "Sure, {name}. {Want}. Why not." },
+    any = { "Okay, {name}. {Want}.", "Fine, {name}. {Want}.", "All right, {name}. {Want}." },
+}
+-- A friend who said nothing, and whose vote settles it, says so ({name}: the friend they side with;
+-- {want}). The third playtest, alive 5 and F3: "(Dev and Jess's idea)" when Dev never spoke.
+M.VOTE_SIDE = {
+    dev = { "Let's {want}. Whatever {name} said.", "Let's {want}. I'm with {name}.", "Let's {want}. Can we go now?" },
+    jess = { "Let's {want}. I'm with {name}.", "Let's {want}! Obviously.", "Let's {want}. Pip votes with {name}." },
+    mara = { "Let's {want}. {Name}'s right, actually.", "Let's {want}. Put me down with {name}.", "Let's {want}. I'm with {name} on this one." },
+    sam = { "Let's {want}. I'll go with {name}.", "Let's {want}. That's fine by me.", "Let's {want}. Same as {name}." },
+    any = { "Let's {want}. I'm with {name}.", "Let's {want}. Same as {name}.", "Let's {want}, then." },
+}
+-- Two against two, settled (tally's order): say how. {name}: whose side it went to; {Their}: theirs.
+M.VOTE_TIE = {
+    pushed = { "Two against two. {name} gave way last time, so this one's {name_theirs}.",
+               "It's two each, and {name} went along last time. Nobody argues.",
+               "Two all. Last time {name} gave in, so this time {name} gets the say." },
+    lead = { "Two against two. {name} found it, so it's {name_their} call.",
+             "It's two each, and {name} is the one standing there. {Name_their} call.",
+             "Two all. {name} found it, so {name} gets the say." },
+    keen = { "Two against two. {name} wants it more, and it shows.", "It's two each, but {name} is keener. That settles it.",
+             "Two all, until {name} says please. That settles it." },
+}
+M.VOTE_PUSH = 1.2          -- what losing the last vote adds to a friend's own pick (twice running: twice that)
+M.VOTE_HABIT = 0.8         -- what the last pick's kind adds to the other kind, for the friends who like it
 M.VOTE_EDGE = 2.4          -- what each thing they brought against her adds to fighting her (up to three), for a planner
 M.VOTE_MINE = 2.5          -- and what each one a friend carries adds, for them (up to two)
+M.VOTE_NOISE = 2.4         -- people are people: what a friend's mood on the night adds, at most
+M.VOTE_TASTE = 0.9         -- how much who they are weighs against the moment (lean's share)
+M.VOTE_CAP = 6             -- and how far it goes: a taste this strong or more counts about the same
+M.VOTE_MOMENT = 0.7        -- what the moment's pulls (their week, their hero, the last fight, the habit...) weigh
 
 -- What the party brought that's good against Euryale in a fight (MODULE.showdown.edges, the ones
 -- whose `when` holds): a list of { text, mine, holder } (holder: the hero key whose it is, at the
@@ -2143,9 +2206,14 @@ function M.edges(c)
     return out, util.join_names({ words[1], words[2] })
 end
 
--- An option's kind, for the table's habit: "bold" (a roll, a fight, a risk) or "safe" (a warning
--- heeded, a fight avoided, careful hands), or nil (neither: a purchase, a way through).
+-- An option's kind, for the table's habit and for which reasons fit it: "bold" (a roll, a fight, a
+-- risk) or "safe" (a warning heeded, a fight avoided, careful hands), or nil (neither: a purchase, a
+-- way through). The module can say it outright (`lean`: "bold", "safe" or "none"), where the shape of
+-- the option misleads (the ritual is a roll, and the careful way).
 function M.vote_kind(o)
+    if o.lean then
+        return o.lean ~= "none" and o.lean or nil
+    end
     local m = o.mus or {}
     if o.roll or m.fight or m.risk or m.harsh or o.then_moment then
         return "bold"
@@ -2157,6 +2225,9 @@ end
 -- (Who likes which kind: the ones who came for a fight or for chaos go bold after a careful pick; the
 -- ones who came for a plan or an easy night go careful after a reckless one.)
 local KIND_FANS = { bold = { "butt_kicker", "instigator", "explorer" }, safe = { "tactician", "casual" } }
+-- (Which of a friend's own reasons fit which kind: "It's the smart play" isn't said for the reckless
+-- option, nor "What's the worst that could happen?" for the careful one.)
+local LEAN_FITS = { tactician = "safe", casual = "safe", butt_kicker = "bold", instigator = "bold" }
 
 local function fan_of(p, kind)
     local n = 0
@@ -2166,33 +2237,117 @@ local function fan_of(p, kind)
     return n
 end
 
+-- The vote before, as the table would say it: "we set the bushes on fire" (its beat, MODULE.beats,
+-- by the option's place on the card as written: the card played may have fewer).
+local function we_did(card_id, o)
+    local b = MODULE.beats and MODULE.beats[card_id]
+    local card
+    for _, m in ipairs(MODULE.moments) do
+        if m.id == card_id then
+            card = m
+        end
+    end
+    for _, k in ipairs({ "drink", "talk", "yield" }) do
+        local sd = MODULE.showdown and MODULE.showdown[k]
+        if sd and sd.id == card_id then
+            card = sd
+        end
+    end
+    local i
+    for j, oo in ipairs(card and card.options or {}) do
+        if oo == o or oo == o.of or (o.want and oo.want == o.want) then
+            i = j
+        end
+    end
+    local ob = b and i and b[i]
+    local t = type(ob) == "table" and ob.did or ob
+    if type(t) ~= "string" or not string.find(t, "^they ") then
+        return nil
+    end
+    t = string.gsub(t, "^they ", "we ")
+    t = string.gsub(t, "%f[%a]them%f[%A]", "us")
+    return t
+end
+M.we_did = we_did
+
 -- What carries over for friend p on option o, beside who they are: bonus, reason (a VOTE_WHY key),
--- and the words that reason needs ({mine}). The night so far (their mood this week, the spotlight
--- tonight), the votes before (the habit), and against Euryale, what they brought (edges: M.edges).
-local function carry(night, p, o, votes, avg_spot, edges)
+-- and the words that reason needs ({mine}, {hurt}, {thing}). The night so far (their mood this week,
+-- the spotlight tonight, their hero, the last fight), the votes before (the habit), what the card points
+-- at, what they carry, and against Euryale, what they brought (edges: M.edges).
+local function carry(night, p, o, votes, avg_spot, edges, risky)
     local bonus, why, whyv = 0, nil, 0
+    local words = {}
     local function add(n, key)
+        if key ~= "edges" and key ~= "mine" then
+            n = n * M.VOTE_MOMENT
+        end
         bonus = bonus + n
-        if n > whyv then
+        if key and n > whyv then
             why, whyv = key, n
         end
     end
     local kind = M.vote_kind(o)
     local m = o.mus or {}
-    local easy = kind ~= "bold"
+    local safe, bold = kind == "safe", kind == "bold"
     local mood = p.mood
     if mood == "tired" then
-        if easy then
+        if safe then
             add(1.3, "tired")
         elseif m.fight then
             bonus = bonus - 0.6
         end
-    elseif mood == "celebrating" and kind == "bold" then
+    elseif mood == "celebrating" and bold then
         add(1.2, "celebrating")
-    elseif mood == "stressed" and kind ~= "bold" then
+    elseif mood == "stressed" and safe then
         add(1.2, "stressed")
     end
+    -- Their hero hurt, or someone else's badly: the careful way, where the other way is a risk. (Lean
+    -- takes the risky ones down.) Only the one who minds most says it for someone else.
+    local hh = hero_hurt(night, p)
+    if hh >= 0.4 and safe and risky then
+        add(2.5 * hh, "hurt")
+    end
+    local worst, wh = nil, 0
+    for _, q in ipairs(night.players) do
+        local h = q ~= p and hero_hurt(night, q) or 0
+        if h > wh then
+            worst, wh = q, h
+        end
+    end
+    if worst and wh >= 0.5 and safe and risky then
+        local f = math.max(score.arch(p, "tactician"), score.arch(p, "casual"))
+        if f > 0 then
+            add(1.8 * f * wh, "hurt_other")
+            words.hurt = worst.char
+        end
+    end
+    -- The last fight: a rough one makes them careful, an easy one makes the keen keener.
+    local last = night.mus and night.mus.last
+    if last and last.fought then
+        local downs = 0
+        for _ in pairs(last.downs or {}) do
+            downs = downs + 1
+        end
+        local d = (last.deltas or {})[p.key] or 0
+        if downs > 0 or d <= -3 then
+            if safe and risky then
+                add(1.6 - 0.8 * score.arch(p, "butt_kicker"), "rough")
+            elseif bold then
+                bonus = bonus - 0.8
+            end
+        elseif d >= 3 and bold and m.fight then
+            local f = math.max(score.arch(p, "butt_kicker"), score.arch(p, "instigator"))
+            if f > 0 then
+                add(1.2 * f, "easy")
+            end
+        end
+    end
+    -- Bored: anything, as long as something happens.
+    if (p.boredom or 0) >= 22 and bold then
+        add(math.min(1.5, 0.05 * p.boredom), "bored")
+    end
     -- Leading this one, and quiet all night: the option that's theirs to play.
+    local quiet = false
     if night.actor == p and (p.m.spotlight or 0) < avg_spot - 8 then
         local theirs = false
         for _, list in ipairs({ o.effects or {}, (o.roll and o.roll.success and o.roll.success.effects) or {} }) do
@@ -2202,12 +2357,41 @@ local function carry(night, p, o, votes, avg_spot, edges)
         end
         if theirs then
             add(1.4, "quiet")
+            quiet = true
+        end
+    end
+    -- What the card's own words point at (the sign says to try the water): whoever found it reads it out.
+    -- (Not on top of a quiet night: that's already why the one who found it wants it.)
+    if o.points and night.actor == p and not quiet then
+        add(0.7, "points")
+    end
+    -- What happened earlier that bears on this one (an option's `pulls`: { when, who = a friend's key or
+    -- the kinds of player it moves, n, say }): "We've already burnt his garden. Let's not rob him as well."
+    for _, pl in ipairs(o.pulls or {}) do
+        local f = (type(pl.who) == "string" and (pl.who == p.key and 1 or 0)) or 0
+        if type(pl.who) == "table" then
+            for _, a in ipairs(pl.who) do
+                f = math.max(f, score.arch(p, a))
+            end
+        end
+        if f > 0 and adventure.test(night.campaign, pl.when) then
+            add((pl.n or 1.5) * f, "pull")
+            if why == "pull" then
+                words.pull = pl
+            end
+        end
+    end
+    -- Something they carry that's for this (the brass key from the pond, `uses`: the flag it came with).
+    if o.uses then
+        local got = events.last(night.campaign, { kind = "moment", flag = o.uses })
+        if got and got.who == p.key then
+            add(2.2, "holds")
+            words.thing = o.uses_name or "it"
         end
     end
     -- They came ready for her (R10, after the world merge: with the fight and the Lecturer's page the
     -- only answers left, the table read her the page every time, as only Dev wanted the fight): a
     -- friend who likes a fair, clever fight counts what they brought against her, and says what it is.
-    local words
     if o.edges and edges and #edges > 0 then
         local f = math.max(score.arch(p, "tactician"), 0.5 * score.arch(p, "power_gamer"))
         if f > 0 then
@@ -2221,15 +2405,15 @@ local function carry(night, p, o, votes, avg_spot, edges)
         end
         if #mine > 0 then
             add(M.VOTE_MINE * math.min(2, #mine), "mine")
-            words = { mine = mine[1] }
+            words.mine = mine[1]
         end
     end
     -- The table's habit: the last pick's kind, and the friends who like the other kind.
-    local last = votes and votes.last
-    if last and last.kind and kind and kind ~= last.kind then
+    local lastv = votes and votes.last
+    if lastv and lastv.kind and kind and kind ~= lastv.kind then
         local f = fan_of(p, kind)
         if f > 0 then
-            add(M.VOTE_HABIT * f * math.min(2, last.streak or 1), last.kind == "safe" and "safe_last" or "bold_last")
+            add(M.VOTE_HABIT * f * math.min(2, lastv.streak or 1), lastv.kind == "safe" and "safe_last" or "bold_last")
         end
     end
     return bonus, why, words
@@ -2237,6 +2421,13 @@ end
 
 local function short_want(o)
     return o.want or util.lower_first((string.gsub(o.label or "", "[%.!]+$", "")))
+end
+
+-- A friend's own line for the talk (VOTE_CAVE, VOTE_SIDE: by friend, else "any"), three ways, fresh.
+local function own_line(night, tbl, p, key, vars)
+    local list = tbl[p.key] or tbl.any
+    local l = night:fresh(list, key .. "_" .. p.key) or list[1]
+    return util.fill(l, vars)
 end
 
 -- copy: the card as it'll be played (its options already filtered). Returns the option's index in
@@ -2263,15 +2454,43 @@ function M.table_pick(night, copy, vars)
     end
     avg_spot = avg_spot / math.max(1, #night.players)
     local edges, edge_words = M.edges(night.campaign)
+    -- (A card with a risk on it: what being hurt, or a rough fight, makes them shy of.)
+    local risky = false
+    for _, i in ipairs(live) do
+        local o = opts[i]
+        risky = risky or (o.roll ~= nil) or ((o.mus or {}).fight == true) or ((o.mus or {}).risk == true) or o.then_moment ~= nil
+    end
+    -- (Who they are is a lean, not a verdict: a strong taste counts, but less and less the stronger it
+    -- is, so the moment can still turn it. And a friend who's had a big night already lets the others
+    -- choose: their taste counts for less, and they speak up last.)
+    local avg_fun = 0
+    for _, p in ipairs(night.players) do
+        avg_fun = avg_fun + score.fun(p)
+    end
+    avg_fun = avg_fun / math.max(1, #night.players)
+    local had_fun = {}
+    for _, p in ipairs(night.players) do
+        had_fun[p.key] = ((p.m.spotlight or 0) > avg_spot + 12 or score.fun(p) > avg_fun + 12) or nil
+    end
+    local function taste(x, p)
+        local e = math.exp(2 * x / M.VOTE_CAP)
+        return M.VOTE_TASTE * (had_fun[p.key] and 0.6 or 1) * M.VOTE_CAP * (e - 1) / (e + 1)
+    end
     for _, p in ipairs(night.players) do
         vals[p.key] = {}
         local best, bv, plain, pv
         for _, i in ipairs(live) do
             local v, w = lean(night, p, opts[i])
-            local cb, cw, cwords = carry(night, p, opts[i], votes, avg_spot, edges)
-            v = v + night.rng:next() * 1.6
+            v = taste(v, p)
+            local cb, cw, cwords = carry(night, p, opts[i], votes, avg_spot, edges, risky)
+            v = v + night.rng:next() * M.VOTE_NOISE
             if not pv or v > pv then
                 plain, pv = i, v
+            end
+            -- (Their own reason only where it fits the option's lean.)
+            local kind = M.vote_kind(opts[i])
+            if w and LEAN_FITS[w] and kind and LEAN_FITS[w] ~= kind then
+                w = nil
             end
             vals[p.key][i] = { v = v + cb, why = w, cwhy = cw, cb = cb, words = cwords }
             if not bv or v + cb > bv then
@@ -2282,10 +2501,11 @@ function M.table_pick(night, copy, vars)
         -- (The reason they give is what swung it: the night so far or the last vote, when that turned
         -- their pick or weighed as much as who they are.)
         local b = vals[p.key][best]
-        why[p.key] = (b.cwhy and (plain ~= best or b.cb >= 1)) and b.cwhy or b.why
+        why[p.key] = (b.cwhy and (plain ~= best or b.cb >= 0.5)) and b.cwhy or b.why or b.cwhy
     end
     -- A friend who lost the last vote holds out for theirs this time (twice running: harder), and says so.
-    -- (Said only when the table doesn't already agree: nobody needs to hold out for what everyone wants.)
+    -- (Said only when the table doesn't already agree, and when it matters to them: nobody needs to
+    -- hold out for what everyone wants, or for what they barely mind.)
     local agreed = true
     for _, p in ipairs(night.players) do
         agreed = agreed and first[p.key] == first[night.players[1].key]
@@ -2296,13 +2516,21 @@ function M.table_pick(night, copy, vars)
         if n and n > 0 then
             local b = vals[p.key][first[p.key]]
             b.v = b.v + M.VOTE_PUSH * math.min(2, n)
-            if not agreed then
+            local next_best = nil
+            for _, i in ipairs(live) do
+                if i ~= first[p.key] and (not next_best or vals[p.key][i].v > next_best) then
+                    next_best = vals[p.key][i].v
+                end
+            end
+            -- (Once a night each: "I lost last time" every other vote is a habit, not a reason.)
+            night.mus.pushed_said = night.mus.pushed_said or {}
+            if not agreed and (not next_best or b.v - next_best >= 1.5) and not night.mus.pushed_said[p.key] then
                 why[p.key] = "pushed"
+                night.mus.pushed_said[p.key] = true
             end
             pushers[p.key] = true
         end
     end
-    local wanted = util.copy(first)         -- (what each wanted before the talk: who lost, for next time)
     -- (A card that says what its lead wants, "{actor_char} wants a closer look", has them vote for
     -- it: the second playtest review heard Oswin want a closer look, then Sam vote to give the knight
     -- a wide berth. F18.)
@@ -2318,6 +2546,7 @@ function M.table_pick(night, copy, vars)
         why[lead.key] = nil
         vals[lead.key][prop].v = vals[lead.key][prop].v + 1      -- (they said it: they hold to it)
     end
+    local wanted = util.copy(first)         -- (what each wanted going in: who lost, for next time)
     local function tally()
         local n, top, top_n = {}, nil, 0
         -- (Two against two: the side of whoever went along last time, then the side of whoever found
@@ -2345,55 +2574,133 @@ function M.table_pick(night, copy, vars)
     -- What each says first: the ones with a real reason speak up (two at most), in their own words.
     local spoke = 0
     local order = util.copy(night.players)
+    local function keen(p)
+        return vals[p.key][first[p.key]].v - (had_fun[p.key] and 3 or 0) + (p == night.actor and 0.8 or 0)
+    end
     table.sort(order, function(a, b)
-        local va, vb = vals[a.key][first[a.key]].v, vals[b.key][first[b.key]].v
+        local va, vb = keen(a), keen(b)
         if va ~= vb then
             return va > vb
         end
         return a.key < b.key
     end)
-    local said = {}
+    local said = {}         -- key -> the option they've been heard for
+    local heard_by = {}     -- option -> the first friend heard for it
+    local function heard(p, i)
+        said[p.key] = i
+        heard_by[i] = heard_by[i] or p
+    end
+    -- (The vote before, for the reasons that name it: what won, what they wanted, what the table did.)
+    local lastv = votes.last
+    local lost_to = votes.lost_to
     -- (A friend's reason is a catchphrase: each one once a session, and never from the same friend two
     -- talks running. R2, the second playtest review: "Less talking, more hitting" after nearly every
     -- one of Dev's suggestions.)
     night.lean_talks = (night.lean_talks or 0) + 1
     night.lean_last = night.lean_last or {}
+    local sided = false
     for _, p in ipairs(order) do
         if spoke < 3 and (spoke < 2 or first[p.key] ~= first[order[1].key]) then
-            local w = why[p.key]
+            local i = first[p.key]
+            -- A friend close to the one who spoke first, and nearly as happy either way, backs them
+            -- (the moment decides who they side with, not their seat). Once a vote.
+            local leader = order[1]
+            local siding
+            if spoke == 1 and not sided and i ~= first[leader.key] and not pushers[p.key] and p ~= night.actor then
+                local r = rapport.rel(night.campaign, p.key, leader.key)
+                if r and r.rapport >= 64 and r.heat < 10 and vals[p.key][i].v - vals[p.key][first[leader.key]].v < 1.0 then
+                    i = first[leader.key]
+                    first[p.key] = i
+                    siding = leader
+                    sided = true
+                end
+            end
+            local w = siding and nil or why[p.key]
             night.lean_why_n = night.lean_why_n or {}
             local said_n = night.lean_why_n[p.key] or 0
             local rested = night.lean_last[p.key] == night.lean_talks - 1
-            local reason = (w == "hurt" and (p.char .. "'s hurt. Let's not."))
-                or (w and M.VOTE_WHY[w] and night:fresh(M.VOTE_WHY[w], "vote_" .. w, true))
-                or (w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and not rested
-                    and night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key, true)) or nil
-            if reason and w ~= "hurt" and not M.VOTE_WHY[w] then
+            local fill = { char = p.char, edge = edge_words, mine = (vals[p.key][i].words or {}).mine,
+                           hurt = (vals[p.key][i].words or {}).hurt, thing = (vals[p.key][i].words or {}).thing }
+            local reason
+            if siding then
+                reason = util.fill(night:fresh({ "I'm with {name}.", "{Name}'s right.", "What {name} said." }, "vote_siding") or "I'm with {name}.",
+                    { name = siding.name, Name = siding.name })
+            elseif w == "pull" then
+                local pl = (vals[p.key][i].words or {}).pull
+                reason = pl and night:fresh(pl.say, "vote_pull_" .. tostring(copy.id) .. "_" .. i) or nil
+            elseif w == "points" then
+                local says = opts[i].points
+                reason = type(says) == "table" and night:fresh(says, "vote_points_" .. tostring(copy.id)) or (type(says) == "string" and says) or nil
+            elseif w and M.VOTE_WHY[w] then
+                local list = {}
+                for _, l in ipairs(M.VOTE_WHY[w]) do
+                    table.insert(list, l)
+                end
+                local named = M.VOTE_NAMED[w]
+                local nv = { did = lastv and lastv.did, Did = lastv and lastv.did and util.capitalize(lastv.did),
+                             won = w == "pushed" and lost_to and lost_to.won or nil, lost = w == "pushed" and lost_to and lost_to.wanted or nil }
+                if w == "pushed" then
+                    nv.did = lost_to and lost_to.did or nil
+                end
+                for _, l in ipairs(named or {}) do
+                    local need = string.match(l, "{(%a+)}")
+                    if need and nv[need] then
+                        table.insert(list, util.fill(l, nv))
+                    end
+                end
+                reason = night:fresh(list, "vote_" .. w, true)
+            elseif w and LEAN_WHY[w] and said_n < M.LEAN_WHY_MAX and not rested then
+                reason = night:fresh(LEAN_WHY[w], "lean_" .. w .. "_" .. p.key, true)
+            end
+            if reason and not siding and not M.VOTE_WHY[w] and w ~= "points" and w ~= "pull" then
                 night.lean_why_n[p.key] = said_n + 1
                 night.lean_last[p.key] = night.lean_talks
             end
-            local mine = (vals[p.key][first[p.key]].words or {}).mine
-            local line = "Let's " .. short_want(opts[first[p.key]]) .. "."
-                .. (reason and (" " .. util.fill(reason, { char = p.char, edge = edge_words, mine = mine })) or "")
+            -- (The second voice for the same thing says it shorter: three bubbles of "work out the ritual
+            -- while someone holds the guardian off" at once, the engine run's 8_14.)
+            local said_it = heard_by[i] ~= nil and p ~= night.actor
+            local line = "Let's " .. ((said_it and not reason and opts[i].short) or short_want(opts[i])) .. "."
+                .. (reason and (" " .. util.fill(reason, fill)) or "")
             night:emit({ kind = "say", who = p.key, text = util.sentence_case(line), ic = false })
-            said[p.key] = true
+            heard(p, i)
             spoke = spoke + 1
         end
     end
-    -- The talk: a friend who barely minds comes round to where most of the table is.
+    -- The talk: someone on the bigger side talks round one friend who barely minds (they answer that
+    -- push, in their own voice), and the quiet ones who barely mind come round to where most of them are.
     local top, top_n, tied = tally()
     local half = #night.players / 2
     if top_n <= half then
-        for _, p in ipairs(night.players) do
+        local pusher = heard_by[top]
+        local caved = false
+        for _, p in ipairs(order) do
             local mine = vals[p.key][first[p.key]].v
             -- (Not the one holding out after last time; a friend with half an eye on their phone, sooner.)
             local easy = p.mood == "distracted" and 2 or 1.2
             if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < easy and not pushers[p.key] then
-                first[p.key] = top
-                -- (Whoever comes round says so: nobody's counted for what they argued against.)
-                night:emit({ kind = "say", who = p.key, text = (said[p.key] and "Okay, okay. " or "Fine by me. ")
-                    .. util.capitalize(short_want(opts[top])) .. ".", ic = false })
-                said[p.key] = true
+                local sw = (p ~= night.actor and opts[top].short) or short_want(opts[top])
+                local want_vars = { want = sw, Want = util.capitalize(sw) }
+                if said[p.key] then
+                    -- (A friend who spoke only gives way to a push, once a vote, from someone who spoke for it.)
+                    if pusher and pusher ~= p and not caved then
+                        caved = true
+                        want_vars.name, want_vars.Name = p.name, p.name
+                        night:emit({ kind = "say", who = pusher.key, ic = false,
+                                     text = util.fill(night:fresh(M.VOTE_PUSH_LINES, "vote_push") or M.VOTE_PUSH_LINES[1], want_vars) })
+                        want_vars.name, want_vars.Name = pusher.name, pusher.name
+                        night:emit({ kind = "say", who = p.key, ic = false, text = own_line(night, M.VOTE_CAVE, p, "vote_cave", want_vars) })
+                        first[p.key] = top
+                        heard(p, top)
+                    end
+                else
+                    first[p.key] = top
+                    -- (Whoever comes round says so: nobody's counted for what they argued against.)
+                    want_vars.name, want_vars.Name = pusher and pusher.name or "", pusher and pusher.name or ""
+                    night:emit({ kind = "say", who = p.key, ic = false,
+                                 text = pusher and own_line(night, M.VOTE_SIDE, p, "vote_side", want_vars)
+                                     or ("Fine by me. " .. want_vars.Want .. ".") })
+                    heard(p, top)
+                end
             end
         end
         top, top_n, tied = tally()
@@ -2463,24 +2770,84 @@ function M.table_pick(night, copy, vars)
             end
         end
     end
-    -- A tie goes to the side of whoever went along last time, then of whoever found it, then to the
-    -- keener side (tally's order).
+    -- Nobody heard for the side that won, or a side that wins only on its quiet votes: the quiet ones
+    -- say where they stand, so the table can follow it (the third playtest, F3: two friends voiced one
+    -- option, one the other, and the other won on the silent fourth).
+    if nudged_to ~= top then
+        local n_heard, n_other = 0, 0
+        local counts = {}
+        for _, p in ipairs(night.players) do
+            counts[first[p.key]] = (counts[first[p.key]] or 0) + 1
+            if first[p.key] == top and said[p.key] == top then
+                n_heard = n_heard + 1
+            end
+        end
+        for _, i in ipairs(live) do
+            if i ~= top then
+                n_other = math.max(n_other, counts[i] or 0)
+            end
+        end
+        for _, p in ipairs(order) do
+            if first[p.key] == top and said[p.key] ~= top and n_heard <= n_other then
+                local friend = heard_by[top]
+                local sw = (p ~= night.actor and opts[top].short) or short_want(opts[top])
+                local want_vars = { want = sw, Want = util.capitalize(sw),
+                                    name = friend and friend.name or "everyone", Name = friend and friend.name or "Everyone" }
+                night:emit({ kind = "say", who = p.key, ic = false,
+                             text = friend and own_line(night, M.VOTE_SIDE, p, "vote_side", want_vars) or ("Let's " .. want_vars.want .. ".") })
+                heard(p, top)
+                n_heard = n_heard + 1
+            end
+        end
+        -- Two against two, settled: say how (tally's order: who gave way last time, who found it, who's keener).
+        if tied > 1 or (counts[top] or 0) == n_other then
+            local by, kind
+            for _, p in ipairs(night.players) do
+                if first[p.key] == top and pushers[p.key] then
+                    by, kind = p, "pushed"
+                end
+            end
+            if not by and night.actor and first[night.actor.key] == top then
+                by, kind = night.actor, "lead"
+            end
+            if not by then
+                local bv
+                for _, p in ipairs(night.players) do
+                    if first[p.key] == top and (not bv or vals[p.key][top].v > bv) then
+                        by, bv, kind = p, vals[p.key][top].v, "keen"
+                    end
+                end
+            end
+            if by then
+                night:say(util.fill(night:fresh(M.VOTE_TIE[kind], "vote_tie_" .. kind) or M.VOTE_TIE[kind][1], { name = by.name }), "aside")
+            end
+        end
+    end
+    -- Who backed it is who the table heard back it (and the one who acts on it is one of them).
     local names = {}
     night.party_backers = {}
+    night.party_backers_room = night.scene and night.scene.room or nil
     for _, p in ipairs(order) do
-        if first[p.key] == top then
+        if first[p.key] == top and (said[p.key] == top or nudged_to == top) then
             table.insert(night.party_backers, p)
         end
     end
+    if #night.party_backers == 0 then
+        for _, p in ipairs(order) do
+            if first[p.key] == top then
+                table.insert(night.party_backers, p)
+            end
+        end
+    end
     for _, p in ipairs(night.players) do
-        if first[p.key] == top then
+        if util.contains(night.party_backers, p) then
             table.insert(names, p.name)
         end
     end
     night:say("The table decides: " .. short_want(opts[top]) .. ((nudged_to == top and " (on your nudge)")
         or ((#names > 0 and #names < #night.players) and (" (" .. util.join_names(names) .. "'s idea)")) or "") .. ".", "aside")
     -- What the next vote remembers (R10): who went along with what they didn't want (they push next
-    -- time), and what kind of pick this was (the table notices a habit).
+    -- time), and what kind of pick this was (the table notices a habit), in words that name it.
     if adv then
         adv.votes = adv.votes or {}
         local vt = adv.votes
@@ -2488,6 +2855,9 @@ function M.table_pick(night, copy, vars)
         local loser, gap = nil, 1.5       -- (minded it: not a shrug)
         for _, p in ipairs(night.players) do
             local mine = wanted[p.key]
+            if said[p.key] and said[p.key] ~= mine then
+                mine = said[p.key]       -- (what they were heard for: talked round, it's that)
+            end
             local g = mine ~= top and (vals[p.key][mine].v - vals[p.key][top].v) or 0
             if g >= gap then
                 loser, gap = p.key, g
@@ -2495,10 +2865,12 @@ function M.table_pick(night, copy, vars)
         end
         local again = loser and vt.lost and vt.lost[loser] or 0
         vt.lost = loser and { [loser] = again + 1 } or {}
+        vt.lost_to = loser and { won = short_want(opts[top]), wanted = short_want(opts[wanted[loser]]), did = we_did(copy.id, opts[top]),
+                                 card = copy.id } or nil
+        -- ("Last time" is the vote just gone: one that was neither bold nor careful breaks the habit.)
         local kind = M.vote_kind(opts[top])
-        if kind then
-            vt.last = { kind = kind, streak = (vt.last and vt.last.kind == kind) and ((vt.last.streak or 1) + 1) or 1, card = copy.id }
-        end
+        vt.last = { kind = kind, streak = kind and ((vt.last and vt.last.kind == kind) and ((vt.last.streak or 1) + 1) or 1) or 0,
+                    card = copy.id, did = we_did(copy.id, opts[top]) }
     end
     return top
 end
@@ -3059,13 +3431,24 @@ function M.fork(night, options, backs, sides)
         night.mus.nudged_to = nil
         night:say("The table decides: " .. label_of(top) .. (nudged and " (on your nudge)" or ((#names > 0 and #names < #night.players)
             and (" (" .. util.join_names(names) .. "'s pick)")) or "") .. ".", "aside")
+        -- (Whoever just got their way can't say "I gave way last time" at the next vote. The engine run,
+        -- 8_14: Sam "gave way" right under his own pick.)
+        local adv = c.adv
+        if adv and adv.votes and adv.votes.lost then
+            for _, p in ipairs(night.players) do
+                if first[p.key] == top and adv.votes.lost[p.key] then
+                    adv.votes.lost[p.key] = nil
+                    adv.votes.lost_to = nil
+                end
+            end
+        end
     end
     local ch = choices[top] or choices[1]
     -- The friend who runs off (the BBQ story): the instigator, outvoted, heads for the stairs alone.
     local jess = present(night, "jess")
     if not ch.back and not ch.side and ch.id == "stairs" and jess and not st.flags.seen and night.rng:chance(0.6) then
         st.flags.pip_alone = true
-        thoughts.plan(night, jess)         -- a beat before she goes: what she's thinking, if you catch it
+        thoughts.plan(night, jess, first[jess.key] ~= top)      -- a beat before she goes: what she's thinking, if you catch it
     end
     if ch.side then
         return { side = ch.side }
