@@ -366,6 +366,11 @@ function M.describe(x, c)
     if x.effect then
         return M.rule(x, c)
     end
+    -- (One colon: "Cut: "Five people and some dice" in the Hall of Paintings. It never plays.", not "...: Cut:
+    -- it never plays.", the confirming playtest.)
+    if x.kind == "moment" and x.cond and x.cond.kind == "never" then
+        return "Cut: " .. M.target_name(x) .. ". It never plays."
+    end
     return util.capitalize(M.target_name(x)) .. ": " .. util.lower_first(M.rule(x, c))
 end
 

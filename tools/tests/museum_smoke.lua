@@ -671,6 +671,14 @@ screen_facts = function(name)
             fact(name, "read", t.read.result .. "\t" .. string.format("%d", t.read.dc) .. "\t" .. string.format("%d", t.read.total))
         end
     end
+    -- The Story sidebar: everyone it has to show (on screen, or named in its "more" line).
+    if string.find(name, "^5r_story") then
+        for _, sd in ipairs(require("game.model.standing").story(c)) do
+            for _, r in ipairs(sd.people) do
+                fact(name, "story_person", r.name)
+            end
+        end
+    end
     if string.find(name, "^6b_levelup") then
         fact(name, "level", string.format("%d", c.level or 0))
         fact(name, "last", (c.adv and c.adv.ending) and "yes" or "no")

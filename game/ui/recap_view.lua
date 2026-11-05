@@ -91,55 +91,81 @@ local function draw_story(app)
         M.toggle(app, "left")
     end)
     local w = M.W - 32
-    local bottom = M.BOTTOM - 10
+    -- (The legend's line and a "more" line kept free at the bottom: once the list grew, the last sections
+    -- and the legend went with no word, the confirming playtest's Witness thread.)
+    local bottom = M.BOTTOM - 10 - 48
+    local skipped = {}
     for _, s in ipairs(standing.story(app.campaign)) do
-        if y + 40 > bottom then
-            break
+        local shown_head = false
+        if y + 40 <= bottom then
+            kit.text(x + 16, y, string.upper(s.name), "ui14", theme.gold)
+            y = y + 22
+            shown_head = true
         end
-        kit.text(x + 16, y, string.upper(s.name), "ui14", theme.gold)
-        y = y + 22
         for _, r in ipairs(s.people) do
             local line = r.line .. (r.with and (" " .. r.with) or "")
             local lh = kit.text_height(line, "ui14", w - 96)
-            if y + 22 + lh > bottom then
-                break
+            if not shown_head or y + 22 + lh > bottom then
+                table.insert(skipped, { side = s.name, name = r.name, line = line })
+            else
+                local nn = kit.text(x + 16, y, r.name, "ui18b", r.boss and theme.text or theme.text, { w = w - 96, lines = 1, gloss = false })
+                -- (Their name opens their sheet: the playtest, November 3.)
+                if r.id then
+                    require("game.ui.gloss").npc_spot(x + 14, y - 2, math.min(kit.width(r.name, "ui18b"), w - 96) + 4, 24, r.id, nn)
+                end
+                kit.text(x + 16, y + 22, line, "ui14", TONE[r.tone] or theme.dim, { w = w - 96 })
+                -- Who's drawn to them (a full ring: keen), and who's put off (dimmed, with a red dot).
+                local fx = x + M.W - 16
+                for i = #r.keen, 1, -1 do
+                    local e = r.keen[i]
+                    fx = fx - 22
+                    face(e.key, fx, y + 2, 18, not e.strong)
+                end
+                for i = #r.cold, 1, -1 do
+                    fx = fx - 22
+                    face(r.cold[i], fx, y + 2, 18, true)
+                    kit.dot(fx + 16, y + 18, 8, theme.red)
+                end
+                y = y + 22 + lh + 8
             end
-            local nn = kit.text(x + 16, y, r.name, "ui18b", r.boss and theme.text or theme.text, { w = w - 96, lines = 1, gloss = false })
-            -- (Their name opens their sheet: the playtest, November 3.)
-            if r.id then
-                require("game.ui.gloss").npc_spot(x + 14, y - 2, math.min(kit.width(r.name, "ui18b"), w - 96) + 4, 24, r.id, nn)
-            end
-            kit.text(x + 16, y + 22, line, "ui14", TONE[r.tone] or theme.dim, { w = w - 96 })
-            -- Who's drawn to them (a full ring: keen), and who's put off (dimmed, with a red dot).
-            local fx = x + M.W - 16
-            for i = #r.keen, 1, -1 do
-                local e = r.keen[i]
-                fx = fx - 22
-                face(e.key, fx, y + 2, 18, not e.strong)
-            end
-            for i = #r.cold, 1, -1 do
-                fx = fx - 22
-                face(r.cold[i], fx, y + 2, 18, true)
-                kit.dot(fx + 16, y + 18, 8, theme.red)
-            end
-            y = y + 22 + lh + 8
         end
-        if #s.ahead > 0 and y + 20 <= bottom then
+        if #s.ahead > 0 then
             local names = {}
             for _, r in ipairs(s.ahead) do
                 table.insert(names, mid(r.name))
             end
             local text = "Still ahead: " .. util.join_names(names) .. "."
             local th = kit.text_height(text, "ui14", w)
-            kit.text(x + 16, y, text, "ui14", theme.faint, { w = w })
-            y = y + th + 4
+            if shown_head and y + th <= bottom then
+                kit.text(x + 16, y, text, "ui14", theme.faint, { w = w })
+                y = y + th + 4
+            else
+                table.insert(skipped, { side = s.name, line = text })
+            end
         end
         y = y + 12
     end
-    if y + 34 <= bottom then
-        kit.text(x + 16, bottom - 20, "A full ring: keen. A faint one: interested. A red dot: put off.", "ui14", theme.faint,
-            { w = w, lines = 1 })
+    -- What didn't fit: named, with all of it on hover.
+    if #skipped > 0 then
+        local names, seen, body = {}, {}, {}
+        for _, k in ipairs(skipped) do
+            local nm = k.name or k.side
+            if not seen[nm] then
+                seen[nm] = true
+                table.insert(names, mid(nm))
+            end
+            table.insert(body, (k.name and (k.name .. ": ") or "") .. k.line)
+        end
+        local more = "More: " .. util.join_names(names) .. " (point here)."
+        if kit.width(more, "ui14") > w then
+            more = "+" .. util.int(#names) .. " more of the story (point here)."
+        end
+        kit.text(x + 16, M.BOTTOM - 10 - 44, more, "ui14", theme.gold, { w = w, lines = 1 })
+        require("game.ui.gloss").card_spot(x + 14, M.BOTTOM - 10 - 46, w + 4, 22, "More of the story",
+            table.concat(body, " "))
     end
+    kit.text(x + 16, M.BOTTOM - 10 - 20, "A full ring: keen. A faint one: interested. A red dot: put off.", "ui14", theme.faint,
+        { w = w, lines = 1 })
 end
 
 -- Top right: the table. Each friend: why they came, what they love, who they're drawn to, how they
@@ -151,6 +177,15 @@ local function draw_table(app)
             M.toggle(app, "right")
         end)
     local w = M.W - 32
+    -- Your own stat, where the thought card says it is (the confirming playtest: "the Table button at the
+    -- top has both", and it showed only how well you know each friend).
+    local emp = require "game.model.empathy"
+    local lv = app.campaign:empathy()
+    -- (Its bonus on a read is one less than its level, as thoughts.odds has it.)
+    local etext = "Your Empathy: " .. string.lower(emp.NAMES[lv] or "?") .. " (+" .. util.int(lv - 1)
+        .. " when you read a thought). How well you know each friend: the dots."
+    kit.text(x + 16, y - 6, etext, "ui14", theme.purple, { w = w })
+    y = y + kit.text_height(etext, "ui14", w) + 2
     local rows = standing.table(app.campaign, app.night)
     local each = math.floor((M.BOTTOM - 10 - y) / math.max(1, #rows))
     for _, r in ipairs(rows) do
@@ -162,7 +197,9 @@ local function draw_table(app)
         for k = 1, r.of do
             kit.dot(x + M.W - 74 + (k - 1) * 11, y + 10, 7, k <= r.level and theme.teal or theme.panel3)
         end
-        kit.text(x + 58, y + 20, "You know them: " .. string.lower(r.known), "ui14", theme.faint, { w = w - 50, lines = 1 })
+        local known = string.lower(r.known)
+        kit.text(x + 58, y + 20, "How well you know them: " .. (known == "new to you" and "not yet" or known), "ui14", theme.faint,
+            { w = w - 50, lines = 1 })
         y = y + 42
         local lines = {}
         if not r.present then
@@ -219,7 +256,15 @@ function M.draw(app)
     end
     if not (app.recap_left or app.recap_right) or not standing.has(app.campaign) then
         app.recap_left, app.recap_right = nil, nil
+        for _, n in ipairs({ app.n_keys, app.n_keys_back }) do
+            pcall(gui.set_enabled, n, not app.keys_hidden)
+        end
         return
+    end
+    -- (The first night's key strip sits where the Table sidebar opens: hidden while one is open, so it
+    -- doesn't ghost through its glass, the confirming playtest's 8_12.)
+    for _, n in ipairs({ app.n_keys, app.n_keys_back }) do
+        pcall(gui.set_enabled, n, not app.keys_hidden and not (app.recap_left or app.recap_right))
     end
     local before = kit.current
     app.layers.recap = kit.layer("night_recap", false)

@@ -212,6 +212,12 @@ for _, t in ipairs(require("game.model.content").chat.tells or {}) do
         LOOKS_FINE[t.text] = true
     end
 end
+-- (And a good mood's own words: "beaming", "chatting away". The confirming playtest's frown over "beaming".)
+for _, m in pairs(require("game.data.moods")) do
+    if type(m) == "table" and m.tell and (m.fun or 0) >= 0 then
+        LOOKS_FINE[m.tell] = true
+    end
+end
 
 -- Tells always update live. The bars update every beat at Attentive Empathy and up;
 -- below that, only when a scene starts or the night ends.
@@ -240,6 +246,10 @@ function M.refresh(app, scene_break)
             end
             -- The face follows how they're sitting, unless something just made them react.
             local held = app.chip_pose and app.chip_pose[key]
+            -- (A frown they're holding at something just now: the words say so too, not "beaming" under it.)
+            if held and (app.clock_t or 0) <= held.until_t and held.pose == "frown" and LOOKS_FINE[t.text] then
+                gui.set_text(chip.tell, "frowning")
+            end
             if not held or (app.clock_t or 0) > held.until_t then
                 local pose = t.pose
                 -- The face agrees with the words under it: no frown beside "listening", "grinning" or

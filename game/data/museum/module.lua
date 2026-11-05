@@ -1676,6 +1676,8 @@ M.glossary = {
     { id = "boss_card", match = { "Euryale's card", "EURYALE'S CARD", "[Hh]er card" }, plain = "Euryale's card",
       text = "Everything the party does can put a mark on it: who fights beside her, what the party brings, how easily "
           .. "she talks. Boss night plays what's on it." },
+    { id = "hyper", match = { "Hyper Destroyer Mode", "Hyper mode" }, plain = "Hyper Destroyer Mode",
+      text = "The Steam Mech's red switch: for a few rounds it hits far harder, then it overheats and shuts down." },
 }
 
 M.requests = {

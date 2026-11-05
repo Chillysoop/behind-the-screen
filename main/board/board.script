@@ -89,7 +89,7 @@ local function make(self, fid, pc, delay, animate)
         end
         if animate then
             go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, pos.y, flat and go.EASING_OUTQUAD or go.EASING_OUTBOUNCE,
-                flat and 0.35 or 0.6)
+                flat and 0.35 or board.DROP_TIME)
         end
         self.gos[fid] = self.gos[fid] or {}
         table.insert(self.gos[fid], id)
@@ -113,8 +113,11 @@ local function reveal(self, fid, delay, animate)
         return
     end
     self.shown[fid] = true
+    -- (A long wall's pieces come quicker, so the whole board is down by board.landing: the room's title
+    -- waits for it.)
+    local step = board.piece_stagger(#feat.pieces)
     for i, idx in ipairs(feat.pieces) do
-        make(self, fid, c.pieces[idx], (delay or 0) + (i - 1) * 0.07, animate)
+        make(self, fid, c.pieces[idx], (delay or 0) + (i - 1) * step, animate)
     end
     update_fire(self)
 end
@@ -134,7 +137,7 @@ local function show(self, which, animate, stagger)
         end
         if on and not self.shown[feat.id] then
             reveal(self, feat.id, t, animate)
-            t = t + (stagger or 0.12)
+            t = t + (stagger or board.FEATURE_STAGGER)
         end
     end
 end
@@ -164,7 +167,7 @@ function on_message(self, message_id, message)
             -- The new place drops in once the old one has lifted away.
             local which = message.show or "base"
             if animate then
-                table.insert(self.timers, timer.delay(0.35, false, function()
+                table.insert(self.timers, timer.delay(board.LIFT_WAIT, false, function()
                     show(self, which, true)
                 end))
             else

@@ -2979,9 +2979,19 @@ function M:big_roll(spec, record)
     local function sum(die)
         return util.int(die) .. (mod < 0 and " - " or " + ") .. util.int(math.abs(mod)) .. " = " .. util.int(die + mod)
     end
-    if by == "player" then
+    if by == "player" and cooked then
+        -- Cooked, it says so on the spot: what the DC really was, and what you let them think (the confirming
+        -- playtest: "Pip rolls 2 + 2 = 4. Behind the screen, the DC was 2." read as a bug, and "cooked" was
+        -- never explained).
+        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". The DC was " .. util.int(dc) .. ", and you "
+            .. (success and "let it pass" or "call it a miss") .. ((where == "open") and (" by saying DC " .. util.int(shown_dc)) or "")
+            .. ": you cooked it, changed it behind your screen."
+    elseif by == "player" then
         line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". " .. (where == "open" and ("You said DC " .. util.int(shown_dc) .. ".")
             or ("Behind the screen, the DC was " .. util.int(shown_dc) .. "."))
+    elseif cooked then
+        line = "Behind the screen, the die says " .. sum(value) .. ", against DC " .. util.int(dc) .. ", and you say " .. sum(reported)
+            .. ": you cooked it, changed it behind your screen."
     else
         line = (where == "open" and "Everyone watches the die: " or "Behind the screen, the die says ")
             .. sum(reported) .. ", against DC " .. util.int(dc) .. "."

@@ -339,17 +339,31 @@ local function floor_room(app, c, id, x, y, w, h, here, backdrop, inner, pond)
     if pond then
         -- (Deep blue, not teal: teal on this map is where the party is, the third playtest's engine run.)
         kit.box(pond[1], pond[2], pond[3], pond[4], kit.rgba("#24405f", 0.75), { radius = 12 })
+        -- (And named: an unlabelled blue shape read as a button, the confirming playtest.)
+        if pond[4] >= 16 and kit.width("pond", "ui14") <= pond[3] - 4 then
+            kit.text(pond[1] + pond[3] / 2, pond[2] + (pond[4] - 18) / 2, "pond", "ui14", kit.rgba("#9fb8d0", 0.8),
+                { pivot = gui.PIVOT_N, gloss = false })
+        end
     end
     -- (A pixel each side, not three: "Street", "Offices" and "Tomorrow" fit their boxes on the
     -- prep board; a box too small still names its room in full on hover.)
+    -- On a smaller map (the boss board, the journey, the notes) the name is drawn smaller to fit its box, down
+    -- to seven tenths, before it's ever cut (the confirming playtest: "S...", "Offi...", "Tomorr...").
     local label = r.map or (string.gsub(r.name, "^The ", ""))
     local font = "ui14"
-    if kit.width(label, font) > w - 2 then
-        label = kit.ellipsize(label, font, w - 2)
+    local scale
+    local lw = kit.width(label, font)
+    if lw > w - 2 then
+        -- (At the smallest, it may reach a little onto the box's border: "Street" on the journey's map.)
+        scale = math.max(0.7, (w - 2) / lw)
+        if lw * scale > w + 4 + 0.01 then
+            label = kit.ellipsize(label, font, (w + 4) / scale)
+        end
+        lw = kit.width(label, font) * scale
     end
-    local ty = pond and (pond[2] + pond[4] + 2) or (y + math.max(1, (h - 18) / 2))
-    kit.text(x + w / 2, ty, label, font, (s == "skipped") and theme.faint or theme.text, { pivot = gui.PIVOT_N })
-    if s == "done" and w > 34 and kit.width(label, font) <= w - 26 then     -- (never over the name)
+    local ty = pond and (pond[2] + pond[4] + 2) or (y + math.max(1, (h - 18 * (scale or 1)) / 2))
+    kit.text(x + w / 2, ty, label, font, (s == "skipped") and theme.faint or theme.text, { pivot = gui.PIVOT_N, scale = scale })
+    if s == "done" and w > 34 and lw <= w - 26 then     -- (never over the name)
         kit.text(x + w - 4, y + 1, "v", "ui14", theme.green, { pivot = gui.PIVOT_NE })
     end
     return s
@@ -590,7 +604,9 @@ local function draw_floor(app, c, fl, x, y, w, h)
     if fl.down then
         local dx, dy, dw, dh = rect(fl.down)
         kit.box(dx, dy, dw, dh, kit.rgba("#000000", 0.25), { radius = 4 })
-        kit.text(dx + dw / 2, dy + dh / 2 + 2, "down", "ui14", theme.faint, { pivot = gui.PIVOT_N, gloss = false })
+        -- (Under its box, clear of the stair mark in it: the confirming playtest's engine run had the mark on
+        -- the word on every map.)
+        kit.text(dx + dw / 2, dy + dh + 1, "down", "ui14", theme.faint, { pivot = gui.PIVOT_N, gloss = false })
     end
 end
 
@@ -616,6 +632,12 @@ function M.draw_stairs(app, plan)
             local ux, uy = lo.x + lo.w / 2 - lw / 2 - 28, lo.y + math.max(1, (lo.h - 18) / 2)     -- (its arrow clear of the name)
             if lo.w - lw < 60 then
                 ux, uy = lo.x + lo.w - 19, lo.y + 2       -- (a narrow room: its top corner, off the name)
+                -- (On a small map even the corner is on the name, "Gift shop" on the boss board and the journey: just
+                -- outside the room's right edge then.)
+                local ny = lo.y + math.max(1, (lo.h - 18) / 2)
+                if lo.x + lo.w / 2 + lw / 2 > ux - 1 and uy + 16 > ny then
+                    ux = lo.x + lo.w + 2
+                end
             end
             local ends = {
                 { x = ux, y = uy, title = "Stairs up", dir = "up",
@@ -732,7 +754,9 @@ function M.boss_card(app, x, y, w, h, big, opts)
         end
         return 22
     end
-    local mode = "compact"
+    -- (When even that won't fit, the marks that do fit, each in full, and "+N more" for the rest: never a
+    -- mark's effect cut short, the confirming playtest's seven marks beside the story list.)
+    local mode = "medium"
     for _, try in ipairs({ "full", "medium" }) do
         local total = 0
         for _, m in ipairs(card.marks) do
@@ -1080,6 +1104,50 @@ local ONE_OF_A_KIND = { knight_of_shades = "the Knight of Shades", the_lecturer 
 
 local CHOICE_H = 94
 
+-- Where this week's hours went, on the board (the confirming playtest: the boss board went from 10 hours
+-- left to 8 with nothing on it saying why). Her lair's hours are spent for you on boss night.
+function M.week_hours(app, prep, x, y, w)
+    local c = app.campaign
+    local pm = prep.museum
+    local bits = {}
+    local function hours(n)
+        return util.int(n) .. (n == 1 and " hour" or " hours")
+    end
+    if pm.boss then
+        table.insert(bits, "her lair, " .. hours(museum_week.room_cost("lair")) .. " (boss night always takes them)")
+    end
+    for _, id in ipairs(pm.ahead or {}) do
+        if pm.prepped[id] and MODULE.rooms[id] then
+            table.insert(bits, util.lower_first(MODULE.rooms[id].name) .. ", " .. hours(museum_week.room_cost(id)))
+        end
+    end
+    for id, v in util.sorted_pairs(pm.knobs or {}) do
+        local cost = museum_week.knob_cost(id, v)
+        if cost > 0 and MODULE.knobs[id] then
+            table.insert(bits, "\"" .. MODULE.knobs[id].name .. "\", " .. hours(cost))
+        end
+    end
+    for _, key in ipairs(content.players.order) do
+        local p = prep.talked and prep.talked[key] and c:player(key)
+        if p then
+            table.insert(bits, "a talk with " .. p.name .. ", " .. hours(prep.TALK_COST or 2))
+        end
+    end
+    for _, d in ipairs(museum_week.SPARE) do
+        if pm.spare and pm.spare[d.id] then
+            table.insert(bits, string.lower(string.sub(d.name, 1, 1)) .. string.sub(d.name, 2) .. ", " .. hours(d.cost))
+        end
+    end
+    if (prep.extra or 0) > 0 then
+        table.insert(bits, "other prep, " .. hours(prep.extra))
+    end
+    kit.text(x, y, "YOUR WEEK", "ui14", theme.dim)
+    local line = (#bits > 0 and ("Your hours went on " .. util.join_names(bits) .. ". ") or "No hours spent yet. ")
+        .. util.int(prep:left()) .. " of " .. util.int(prep.budget) .. " left."
+    kit.text(x, y + 22, line, "ui14", theme.text, { w = w, lines = 4 })
+    return y + 22 + math.min(4, #kit.wrap(line, "ui14", w)) * kit.line_height("ui14")
+end
+
 local function showdown(app, prep, x, y, w)
     local c = app.campaign
     local st = c.adv
@@ -1191,8 +1259,11 @@ local function top_bar(app, prep)
         util.lazy("game.ui.saves_view").open(app, "save")
     end, { font = "ui14", key = "save_game" })
     kit.text(300, 12, string.upper(MODULE.title), "ui14", theme.gold)
-    kit.text(300, 32, prep.museum.boss and "Boss night: Euryale is waiting at the top of the stairs." or adventure.where(c),
-        "ui18", theme.dim, { w = 520, lines = 1 })
+    -- (A four-way fork in a smaller hand rather than cut: the confirming playtest's "At a fork: The offices,
+    -- The World of Tomorrow, The lecture..." on nine screens.)
+    local where = prep.museum.boss and "Boss night: Euryale is waiting at the top of the stairs." or adventure.where(c)
+    local wfont = kit.width(where, "ui18") <= 590 and "ui18" or "ui14"
+    kit.text(300, wfont == "ui18" and 32 or 35, where, wfont, theme.dim, { w = 590, lines = 1 })
     local left = prep:left()
     kit.text(900, 14, "PREP HOURS", "ui14", theme.dim)
     kit.text(900, 32, util.int(left) .. " of " .. util.int(prep.budget) .. " left", "ui18b", left > 0 and theme.text or theme.orange)
@@ -1295,6 +1366,7 @@ function M.build(app)
         kit.text(COL_L, 106, "Tonight isn't a run of rooms. It's one long scene with Euryale, and everything the party did "
             .. "on the way up is on her card.", "ui18", theme.text, { w = COL_LW })
         M.draw_map(app, COL_L, 230, COL_LW, 300)
+        M.week_hours(app, prep, COL_L, 552, COL_LW)
         showdown(app, prep, COL_M, 84, COL_MW)
     else
         left_column(app, prep)

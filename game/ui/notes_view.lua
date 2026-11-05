@@ -41,10 +41,12 @@ local function tab_museum(app, x, y, w, h)
             local marks = {}
             for _, mid in ipairs(st.mark_list) do
                 if st.marks[mid].room == id then
-                    table.insert(marks, MODULE.marks[mid].name)
+                    -- (Mid-sentence: "she smelled the smoke and a drone through the floor", not "She smelled the
+                    -- smoke, A drone through the floor": the confirming playtest.)
+                    table.insert(marks, util.mid_sentence(MODULE.marks[mid].name, { Euryale = true }))
                 end
             end
-            local line = #marks > 0 and ("Left on Euryale's card: " .. table.concat(marks, ", ") .. ".") or r.sum
+            local line = #marks > 0 and ("Left on Euryale's card: " .. util.join_names(marks) .. ".") or r.sum
             -- (Two lines when it needs them: "...somewhere to spend Flitwidget Francs. Th..." in the third playtest.)
             local nl = math.min(2, #kit.wrap(line, "ui14", w - 460))
             kit.text(rx, ry + 22, line, "ui14", #marks > 0 and theme.gold or theme.faint, { w = w - 460, lines = 2 })
@@ -175,8 +177,10 @@ local function tab_session(app, x, y, w)
     ly = ly + 20
     -- (A long "At a fork: ..." in a smaller hand rather than cut.)
     local where = adventure.where(c)
-    kit.text(x, ly, where, kit.width(where, "title30") > col_w and "ui22b" or "title30", theme.text, { w = col_w, lines = 1 })
-    ly = ly + 44
+    local wfont = kit.width(where, "title30") > col_w and "ui22b" or "title30"
+    local wh = kit.text_height(where, wfont, col_w)
+    kit.text(x, ly, where, wfont, theme.text, { w = col_w, lines = 2 })
+    ly = ly + math.max(44, math.min(wh, 2 * kit.line_height(wfont)) + 16)
     ly = head(x, ly, "Tonight's rooms")
     local pm = c.prep and c.prep.museum
     for _, id in ipairs(pm and pm.ahead or {}) do
@@ -241,12 +245,21 @@ local function tab_log(app, x, y, w, h)
         end
         local on = e == found
         local t = e.recap and e.recap.titles and e.recap.titles[e.recap.title or 1] or ("Session " .. util.int(e.week))
-        kit.button(lx, ly, 300, 36, util.int(e.week) .. ".  " .. kit.ellipsize(t, "ui14", 250), function()
+        -- (The night's title in two lines rather than cut: the confirming playtest's "1. From the Street to the
+        -- Chamber of...".)
+        local label = util.int(e.week) .. ".  " .. t
+        local two = kit.width(label, "ui14") > 276
+        local bh = two and 46 or 36
+        if ly + bh > y + h then
+            break
+        end
+        kit.button(lx, ly, 300, bh, "", function()
             app.log_week = e.week
             app.refresh_notes()
         end, { font = "ui14", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left",
                key = "log_week_" .. util.int(e.week) })
-        ly = ly + 42
+        kit.text(lx + 12, ly + (two and 4 or 9), label, "ui14", theme.text, { w = 276, lines = 2 })
+        ly = ly + bh + 6
     end
     -- The chosen session.
     local px, pw = x + 324, w - 324

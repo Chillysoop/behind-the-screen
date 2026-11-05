@@ -263,6 +263,7 @@ function M.draw(app)
             local ctext = table.concat(cond, ", ")
             if kit.width(ctext, "ui14") > 130 then
                 ctext = string.gsub(ctext, "Incapacitated", "Incap.")      -- the long one, shortened first
+                ctext = string.gsub(ctext, "Hyper Destroyer Mode", "Hyper mode")
             end
             ctext = kit.ellipsize(ctext, "ui14", 130)
             m.cond_w = ctext ~= "" and kit.width(ctext, "ui14") or 0

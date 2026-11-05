@@ -307,6 +307,30 @@ function M.compile(id)
     return out
 end
 
+-- How a new board drops onto the mat (main/board/board.script): the old one lifts away for LIFT_WAIT, then
+-- each base feature follows the last by FEATURE_STAGGER, its pieces one after another (a feature's whole run
+-- in at most FEATURE_RUN), each falling for DROP_TIME. `landing` is how long until the last piece is down, so
+-- the room's title and read-aloud can wait for it (the confirming playtest's 8_45: benches in the air under
+-- the lecture theatre's title).
+M.LIFT_WAIT, M.FEATURE_STAGGER, M.FEATURE_RUN, M.DROP_TIME = 0.35, 0.12, 0.6, 0.6
+function M.piece_stagger(n)
+    return math.min(0.07, M.FEATURE_RUN / math.max(1, n))
+end
+function M.landing(id)
+    local ok, c = pcall(M.compile, id)
+    if not ok or not c then
+        return 0
+    end
+    local t, last = 0, 0
+    for _, feat in ipairs(c.features) do
+        if feat.base then
+            last = math.max(last, t + (#feat.pieces - 1) * M.piece_stagger(#feat.pieces))
+            t = t + M.FEATURE_STAGGER
+        end
+    end
+    return M.LIFT_WAIT + last + M.DROP_TIME
+end
+
 -- The layout the rules read (the old terrain sets' shape): blocked squares, spots, starts.
 function M.layout(id)
     local c = M.compile(id)
