@@ -308,7 +308,7 @@ local function gate(R, night, ev, w)
                 end
             end
         end
-    elseif ev.kind == "narrate" and (ev.style == "twist" or ev.style == "good" or ev.style == "narration") then
+    elseif ev.kind == "narrate" and (ev.style == "twist" or ev.style == "good" or ev.style == "narration" or ev.style == "table") then
         for _, p in ipairs(night.players) do
             local s = state(p.key)
             if s and s ~= "charmed" and p.char and string.sub(ev.text, 1, #p.char + 1) == p.char .. " "
@@ -464,6 +464,10 @@ local function after_death(R, night, ev, w)
     if not next(n.deaths) then
         return
     end
+    -- (Last words: the DM said goodbye, so a wake is owed. "Move on quickly" owes none.)
+    if ev.kind == "say" and ev.farewell then
+        n.goodbye = true
+    end
     if ev.kind == "say" then
         local tr = trigger_of(ev.line)
         if (tr and able.CHEER[tr]) or (type(ev.line) == "string" and string.find(ev.line, "^tb_")) then
@@ -516,7 +520,7 @@ local function night_done(R, night, rep, w)
         return
     end
     local where = R.tag .. " W" .. w
-    if not n.wake_at and not night.end_early then
+    if n.goodbye and not n.wake_at and not night.end_early then
         fail("A1", where .. ": a hero died with a goodbye, and there was no wake")
     end
     -- (What the dead carried is settled out loud, never left in their seat for whoever sits there next.)
@@ -896,7 +900,7 @@ local function a8_watch(R, night, ev, w)
             add("A8", "breaks_at_a_lull")
         end
     end
-    local late = (night.table_min or 0) > (night.table_planned or 210) + 15
+    local late = ((night.table_report and night.table_report.minutes) or night.table_min or 0) > (night.table_planned or 210) + 15
     if ev.kind == "narrate" and ev.text then
         if from(require("game.model.night").LATE_LINES or {}, ev.text) then
             A.late_said = w
@@ -912,7 +916,7 @@ end
 local function a8_after(R, night, rep, w)
     local A = R.a8 or {}
     local where = R.tag .. " W" .. w
-    local over = (night.table_min or 0) - (night.table_planned or 210)
+    local over = ((night.table_report and night.table_report.minutes) or night.table_min or 0) - (night.table_planned or 210)
     if over > 15 then
         add("A8", "late_nights")
         if A.late_said ~= w and not night.end_early then
@@ -924,6 +928,9 @@ local function a8_after(R, night, rep, w)
         else
             add("A8", "late_reported")
         end
+    elseif A.late_said == w then
+        -- (One clock: the table told it's late, and the report says the night kept to time.)
+        fail("A8", where .. ": the table hears it's past the agreed end, and the report says: " .. tostring(rep and rep.table_text))
     end
 end
 

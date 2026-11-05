@@ -96,6 +96,11 @@ M.WORLD_LINES = {
     pocket_back = { "{char} quietly puts {thing} back on Flitwidget's counter. Flitwidget pretends not to see.",
                     "Before the biscuits, {char} slides {thing} across the counter to Flitwidget. \"Found it.\"",
                     "{char} gives {thing} back to Flitwidget, a little sheepishly. He pockets it and says nothing." },
+    -- The same, when the one who pocketed it can't (dead, or stone): a friend gives it back for them
+    -- ({who}: the hero who pocketed it). Round three: "Pip quietly puts a glass eye back" with Pip dead.
+    pocket_back_for = { "{char} puts {thing} back on Flitwidget's counter: {who} pocketed it. Flitwidget nods.",
+                        "{char} finds {thing} that {who} pocketed, and quietly gives it back to Flitwidget.",
+                        "{char} sets {thing} on the counter. \"{who} had this.\" Flitwidget takes it gently." },
     -- The archivist's notebook, taken by whoever took the second study in (the room's end).
     notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
                  "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",
@@ -4502,11 +4507,20 @@ function M.thanks_word(night, sc)
     end
     local vars = { broke = #broke_words > 0 and util.join_names(broke_words) or "my exhibits" }
     -- (Anything pocketed along the way that hasn't come back comes back now, from the log.)
+    -- (By the one who pocketed it while they're still that seat's hero and can act; else a friend gives
+    -- it back for them, out loud: round three, A1 with B2.)
     for _, ev in ipairs(events.find(c, { kind = "pocket" })) do
         local p = not ev.returned and present(night, ev.who)
-        if p then
+        local own = p and (not ev.char or p.char == ev.char) and able.can_act(night, p) and p or nil
+        local by = own or (not ev.returned and night:at_hand()[1]) or nil
+        if by then
             ev.returned = c.week
-            night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back, "pocket_back"), { char = p.char, thing = ev.thing }), "table")
+            if by == own then
+                night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back, "pocket_back"), { char = by.char, thing = ev.thing }), "table")
+            else
+                night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back_for, "pocket_back_for"),
+                    { char = by.char, thing = ev.thing, who = ev.char or (p and p.char) or "someone" }), "table")
+            end
         end
     end
     -- (First pick of the gift shop's shelf, promised to a friend and not yet kept: theirs.)

@@ -2225,7 +2225,8 @@ local function code_line(p)
                     francs_party = "When a moment everyone did pays more than one Franc",
                     between_francs = "As a night starts, when a favor between sessions put Francs in the pool",
                     first_pick = "When the party finds something and a friend was promised first pick (or the gift shop's pick at the thanks)",
-                    pocket_back = "At Flitwidget's thanks: what a friend pocketed along the way, given back if it hasn't been already" }
+                    pocket_back = "At Flitwidget's thanks: what a friend pocketed along the way, given back if it hasn't been already",
+                    pocket_back_for = "At Flitwidget's thanks: what a hero pocketed, given back for them by a friend when they can't (dead, or stone)" }
         return R(W[k] or "Game night", one_of(#(require("game.model.museum_night").WORLD_LINES[k] or {})))
     elseif top == "SWITCH_LINES" then
         return R("In Euryale's lair, once the fight is on, when they saved the Mech's red switch for her: its commander flips it",

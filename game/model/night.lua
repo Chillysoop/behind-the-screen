@@ -692,7 +692,7 @@ function M:bark_context(more)
     end
     ctx.clue = self.heard_lore or nil
     -- (The clock: a night run past the time agreed at Session Zero, and past midnight. Round three, A8.)
-    ctx.late = (self.table_min or 0) > (self.table_planned or 210) + 15 or nil
+    ctx.late = self:ran_late() or nil
     ctx.midnight = ((self.table_start or 19 * 60) + (self.table_min or 0)) >= 23 * 60 + 30 or nil
     ctx.died = able.somber(self) == "death" or nil
     for k, val in pairs(more or {}) do
@@ -2010,8 +2010,9 @@ function M:table_behavior(when, roller, sure)
     if tb.n >= TB_MAX or tb.hooks[hook] or #self.players == 0 then
         return nil
     end
-    -- (No fist bumps while the table grieves: round three, A1.)
-    if able.somber(self) and when ~= "rules" and when ~= "start" then
+    -- (No fist bumps while the table grieves: round three, A1. Nor the rules lawyer's banter: a rules
+    -- card that night is asked plainly, by its asker, the rules_lawyer line after this.)
+    if able.somber(self) and when ~= "start" then
         return nil
     end
     if not sure and not self.rng:chance(TB_CHANCE[when] or 0.3) then
@@ -4225,7 +4226,7 @@ function M:friction_act(sc, def, doer)
                 target = target and target.name or "", pocketed = pocketed }
     self:say(util.capitalize(util.fill(def.line, self:vars(v))), "twist")
     if pocketed then
-        events.add(self.campaign, { kind = "pocket", who = doer.key, thing = pocketed, where = sc and sc.room })
+        events.add(self.campaign, { kind = "pocket", who = doer.key, char = doer.char, thing = pocketed, where = sc and sc.room })
     end
     -- How you answer it: a quick card when there's room for one, otherwise you let it ride.
     local fr = content.friction
@@ -4409,7 +4410,8 @@ function M:bond_act(sc, def, doer)
     end
     if def.pocket_back then
         for _, ev in ipairs(events.find(self.campaign, { kind = "pocket", who = doer.key })) do
-            back = back or (not ev.returned and ev) or nil
+            -- (Theirs: not something the hero who sat in this seat before them pocketed.)
+            back = back or (not ev.returned and (not ev.char or ev.char == doer.char) and ev) or nil
         end
         if not back then
             return
@@ -4598,6 +4600,15 @@ function M:table_verdicts()
         end
     end
     self.table_report = out
+end
+
+-- Has the night run more than a quarter of an hour past the end agreed at Session Zero? Once the night's
+-- been judged (table_verdicts), by the minutes it was judged at, so the table, the goodbyes and the
+-- report agree (the lines after it tick the clock on a little: 224 minutes judged "right on time", then
+-- "It's 10:45 pm. You all agreed to stop at 10:30 pm").
+function M:ran_late()
+    local mins = (self.table_report and self.table_report.minutes) or self.table_min or 0
+    return mins > (self.table_planned or 210) + 15
 end
 
 -- The report's line about the night's length: "Ran 40 minutes long. Sam was fading by 10:15;
@@ -5217,7 +5228,7 @@ function M:run_tail()
     -- A night run past the time agreed at Session Zero is said, and it costs (table_verdicts: Trust and
     -- fun for whoever wanted to be home; the report says so). Round three, A8: "12:24 am (till 10:00 pm)",
     -- then "It ends on a high" and "Same time next week?".
-    local late = (self.table_min or 0) > (self.table_planned or 210) + 15
+    local late = self:ran_late()
     if late then
         self:say(self:fresh(M.LATE_LINES, "late_night"), "warn", { time = self:clock_text(), agreed = self:clock_text(self.table_planned) })
     end

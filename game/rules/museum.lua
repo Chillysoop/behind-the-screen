@@ -438,8 +438,14 @@ function M.euryale_turn(b, c, H)
     -- The DM ran this turn and picked who she goes for (B8): every attack goes at them, and she
     -- doesn't charm someone else instead or turn to whoever's closest (the combat audit, Nov 2).
     -- (A taunt holds her the same way: round three, A5.)
+    -- (The same order as everyone's focus_target: the DM running this turn, then a stare-down, then a
+    -- standing call. Round three, A5.)
     local tn = b:find_effect(c, "Taunted")
-    local told = c.dm_target or (tn and tn.taunt_by) or nil
+    local tb = tn and tn.taunt_by
+    if tb and (tb.dead or tb.down or tb.removed) then
+        tb = nil
+    end
+    local told = (c.dm_ran and c.dm_target) or tb or c.dm_target or nil
     local dm_t = told ~= nil and t == told and not t.dead and not t.removed
     -- One attack can be a spell: Charm Person on a fighter or rogue while the hood is on, else
     -- Poison Spray at someone close who doesn't shrug off poison.
@@ -582,8 +588,9 @@ function M.lecturer_turn(b, c, H)
     -- The DM ran this turn and picked who he lectures (B8), or someone stared him down (a taunt): them.
     -- Out of reach this turn, he drifts toward them, and lectures nobody else (round three, A5: "it's
     -- Oswin it wants", then Bored to Death at Brannoc and Pip).
+    -- (The DM running this turn beats a stare-down from before; a stare-down beats a standing call.)
     local tn = b:find_effect(c, "Taunted")
-    local dt = (tn and tn.taunt_by) or c.dm_target
+    local dt = (c.dm_ran and c.dm_target) or (tn and tn.taunt_by) or c.dm_target
     if dt and (dt.dead or dt.removed or dt.down) then
         dt = c.dm_target ~= dt and c.dm_target or nil
     end

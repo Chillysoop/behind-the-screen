@@ -418,14 +418,20 @@ end
 local function focus_target(b, c, foes, reach)
     -- Taunted (an Intimidation stare-down before the fight, game/model/fight.lua): it goes for
     -- whoever stared it down, while that lasts and they're standing.
+    -- (The DM running this very turn and picking someone beats a stare-down from before: their call
+    -- is the latest. A standing call, the tactics card's, doesn't. c.dm_ran: fight.lua's before_turn.)
+    local t = c.dm_target
+    local t_ok = t and not t.dead and not t.removed and (not t.down or c.dm_finish)
+    if c.dm_ran and t_ok then
+        return t
+    end
     local tn = b:find_effect(c, "Taunted")
     local tb = tn and tn.taunt_by
     if tb and not tb.dead and not tb.down and not tb.removed then
         return tb
     end
     -- The DM ran this turn (B8): it goes for the one they picked.
-    local t = c.dm_target
-    if t and not t.dead and not t.removed and (not t.down or c.dm_finish) then
+    if t_ok then
         return t
     end
     local f = b.focus

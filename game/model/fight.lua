@@ -1300,13 +1300,18 @@ function M.saved_switch(night, f, bb, r)
             and not c.powered_down and not c.shut_down then
             local cmd = type(c.commander) == "table" and c.commander or (c.commander and f.by_ref[c.commander]) or nil
             local p = cmd and cmd.pc and not cmd.dead and not cmd.down and player_of(night, cmd)
-            if p then
+            -- (A commander who's stone or charmed can't reach the panel: round three, A1.)
+            if p and able.can_fight(night, p) then
                 f.switch_flipped = true
                 st.flags.hyper_saved = nil           -- (spent: it's been flipped, as they planned)
                 night:flush_turn()
                 night:say(util.fill(night:fresh(M.SWITCH_LINES, "saved_switch"), { char = p.char, mech = st.mech_name or "the Mech" }), "good")
                 museum.go_hyper(bb, c)
-                night:flush_turn()
+                -- (The switch is this line's; the mode it sets off is tell_moments', after it.)
+                local steps = night:flush_turn()
+                if steps and #steps > 0 then
+                    M.tell_moments(night, f, steps)
+                end
             end
             return
         end
@@ -1753,6 +1758,8 @@ function M.run(night, sc, plan)
         if c == f.boss and not c.dead and not c.removed and not c.down then
             takeover.boss_turn(night, f, bb, c)
         end
+        -- (Picked on this very turn, by the DM running it: that beats a stare-down from before.)
+        c.dm_ran = c.dm_target ~= nil or nil
         -- The DM's call on who they go after (the tactics card) holds for every foe's turn, unless
         -- the DM ran this one themselves.
         local k = c.dm_keep

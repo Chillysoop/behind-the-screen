@@ -1616,6 +1616,31 @@ case("museum-lecture-taunt", "A taunted Lecturer lectures whoever stared him dow
         t:eq("he lectures the cleric who stared him down", said == cl, true)
     end)
 
+case("museum-pick-over-taunt", "The DM running the turn beats a stare-down; a standing call doesn't", "Game night (the DM runs its turn)",
+    "Taunted, the Lecturer lectures whoever the DM picked on the turn they run; with only the tactics card's standing call, the taunter.",
+    function(t)
+        local function who_he_bores(ran)
+            local b = fresh()
+            local f = at(b, pc("fighter", 2), 6, 5)
+            local cl = at(b, pc("cleric", 2), 7, 6)              -- (the cleric stared him down)
+            local l = at(b, mon("the_lecturer"), 9, 5)
+            b:add_effect(l, { name = "Taunted", taunt_by = cl, conds = { taunted = true } })
+            l.dm_target, l.dm_ran = f, ran
+            b.active = l
+            local said
+            local old = museum.lecture
+            museum.lecture = function(bb, c, tt)
+                said = tt
+                return old(bb, c, tt)
+            end
+            ai.take_turn(b, l)
+            museum.lecture = old
+            return said == f and "picked" or said == cl and "taunter" or "someone else"
+        end
+        t:eq("the DM ran his turn and picked the fighter", who_he_bores(true), "picked")
+        t:eq("the tactics card's standing call: the taunter still", who_he_bores(nil), "taunter")
+    end)
+
 case("museum-meter", "The meter counts the scarabs, and the mech on the party's side", "game/rules/encounter.lua",
     "A monster that bursts into more counts with them; allies add their Hit Points and blunt the monsters'.",
     function(t)
