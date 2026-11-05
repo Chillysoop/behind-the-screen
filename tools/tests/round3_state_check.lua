@@ -225,8 +225,24 @@ able.CHEER = { victory = true, crit = true, kill = true, cheer_other = true, sce
                fight_chat = true, hit = true, boss_appears = true, thanks = true }
 
 -- A line said from one of a table's templates ({fills} match anything).
-local function from(list, text)
+-- (Each line as it's written, and as the table hears it before it's told who's who: "the hooded woman" for
+-- Euryale, "the black knight" for the Knight of Shades. game/model/told.lua.)
+local told_mod = require "game.model.told"
+local function as_heard(list)
+    local out = {}
     for _, t in ipairs(list or {}) do
+        out[#out + 1] = t
+        for _, knows in ipairs({ {}, { gorgon = 0 } }) do
+            local m = told_mod.mask({ adv = { told = knows } }, t)
+            if m ~= t then
+                out[#out + 1] = m
+            end
+        end
+    end
+    return out
+end
+local function from(list, text)
+    for _, t in ipairs(as_heard(list)) do
         -- ({one|many} too: "{char} {was|were} the bravest of you".)
         local pat = "^" .. string.gsub(string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w' ]*|[%w' ]*}", ".-"),
             "{[%w_']+}", ".-") .. "$"

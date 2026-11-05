@@ -190,7 +190,7 @@ M.session_zero = {
                           dev = "Scary fights? I'm listening.",
                           jess = "Can Pip still be funny while everyone screams?",
                           sam = "I come here to unwind, not to have nightmares." } },
-        silly = { name = "A cartoon caper", blurb = "A gnome with a moustache, a museum of oddities, and nobody taking it too seriously.",
+        silly = { name = "A cartoon caper", blurb = "A gnome, a museum of oddities, and nobody too serious.",
                   says = { mara = "Then nobody cares what's really behind the curtain.",
                            dev = "Do cartoon monsters still count as fights?",
                            jess = "CARTOON MONSTERS.",
@@ -1014,7 +1014,7 @@ M.moments = {
     -- The Hunting Grounds ---------------------------------------------------------------------
     { id = "mus_tracks", room = "hunting", spot = "6I", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" }, party = true,
       title = "Scratch marks",
-      text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points them out: the trail is very easy to follow.",
+      text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points at the marks: the trail is very easy to follow.",
       options = {
           { label = "Follow them anyway. They know it's bait.", want = "follow the marks anyway, weapons out", short = "follow the trail",
             log = "They follow the trail with weapons out. The huntlings spring the trap, and the party was ready for it.",
@@ -1956,7 +1956,12 @@ M.showdown = {
               -- (A table that knows what she is thinks twice about her wine: R10, the friends drank 70% of the time.)
               pulls = { { when = { flag = "truth" }, who = { "tactician", "storyteller", "casual" }, n = 1.2,
                           say = { "She turned people to stone. I'm not drinking anything she pours.", "Flitwidget told us what she is. No wine, thanks.",
-                                  "A Gorgon's wine? Hard pass." } } },
+                                  "A Gorgon's wine? Hard pass." } },
+                        -- (What they can see: a room of screaming statues. The knowledge playtest took the table's
+                        -- "they know what she is" away from tables Flitwidget never told.)
+                        { who = { "tactician", "casual" }, n = 0.7,
+                          say = { "Not with those statues watching. No wine, thanks.", "Everyone in here is made of stone and screaming. I'll pass.",
+                                  "I'm not drinking anything up here. Look at this place." } } },
               effects = { { "arch:tactician", fun = 3 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },
                           { "arch:method_actor", fun = -2 } } },
         },
@@ -2058,6 +2063,10 @@ M.showdown = {
               log = "A long silence. Then a nod. \"For my sisters.\"",
               effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:butt_kicker", fun = -2 } }, mus = { ending = "bargain" } },
             { label = "Finish it.", want = "finish it", lean = "none", log = "{actor_char} doesn't hesitate. It's over.",
+              -- (Once they've seen what she does with her hood off.)
+              pulls = { { when = { told = "hood_off" }, who = { "butt_kicker", "tactician" }, n = 0.9,
+                          say = { "Not after what we saw her do. Finish it.", "She'd do it again to the next ones up those stairs.",
+                                  "She doesn't get a second chance at us." } } },
               effects = { { "arch:butt_kicker", fun = 8 }, { "arch:storyteller", fun = -3 } }, mus = { ending = "fallen", aspect = "Ended Euryale" } },
         },
     },

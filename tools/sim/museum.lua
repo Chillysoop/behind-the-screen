@@ -207,6 +207,10 @@ local function play_night(night)
                     end
                 end
             end
+            -- (Which way out the DM took, for R5's count: one with the party in trouble, or one taken freely.)
+            if opts[pick] and opts[pick].cost then
+                night.dm_way_out = (style == "careful") and "trouble" or "free"
+            end
             if opts[pick].disabled then
                 pick = 1
             end

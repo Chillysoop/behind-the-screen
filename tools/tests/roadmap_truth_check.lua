@@ -1283,8 +1283,10 @@ table.insert(watchers, function(R, N, ev)
             local r = adventure.data.rooms[room]
             if r and r.optional_fight and r.boss_name then
                 local name = string.gsub(r.boss_name, "^the ", "")
+                -- (Or as the table knows it: "the bone guardian" for the Bone Construct. game/model/told.lua.)
+                local heard_as = string.gsub(require("game.model.told").mask({ adv = { told = {} } }, r.boss_name), "^[Tt]he ", "")
                 add("F20", "optional_fights_recapped")
-                if not string.find(ev.text, name, 1, true) then
+                if not string.find(ev.text, name, 1, true) and not string.find(ev.text, heard_as, 1, true) then
                     fail("F20", N.tag .. ": last session had a fight with " .. r.boss_name .. ", and the recap says '" .. ev.text .. "'")
                 end
             end

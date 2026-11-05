@@ -185,6 +185,10 @@ mn.after_showdown = function(night, sc)
     if st.ending and cur and not cur.ended then
         cur.ended = true
         local how = (sc.boss_yielded and "yield") or (sc.boss_ran and "ran") or (sc.fought and "fight") or "talk"
+        -- (The DM's own way out, taken with the party in trouble, against one taken freely.)
+        if how == "ran" and night.dm_way_out then
+            how = "ran_" .. night.dm_way_out
+        end
         W.endings[cur.style] = W.endings[cur.style] or { n = 0 }
         local e = W.endings[cur.style]
         e.n = e.n + 1
@@ -531,6 +535,13 @@ do
     local esc = e.escape or 0
     set("R5", "careful_endings", e.n)
     set("R5", "careful_escapes", esc)
+    local by = {}
+    for _, k in ipairs({ "yield", "ran", "ran_trouble", "ran_free", "fight", "talk" }) do
+        if e.escape_by and e.escape_by[k] then
+            table.insert(by, k .. " " .. e.escape_by[k])
+        end
+    end
+    set("R5", "careful_escapes_by", table.concat(by, "/"))
     for _, st in ipairs(STYLES) do
         local x = W.endings[st] or {}
         local parts = {}
@@ -541,9 +552,17 @@ do
         end
         set("R5", "endings_" .. st, table.concat(parts, "/"))
     end
-    -- (Before: a careful DM let her go in 29 endings of 40, by taking the first option.)
-    if e.n == 0 or esc / e.n > 0.4 then
-        fail("R5", string.format("a careful DM still lets her get away in %d of %d endings", esc, e.n))
+    -- (Before: a careful DM let her go in 29 endings of 40, by taking the first option. What's counted is what
+    -- the DM chose: the friends' own vote to let her go when she yields is theirs (November 3: the players'
+    -- choices are the players'), and a careful DM takes the paid way out only with the party in real trouble.
+    -- So a careful DM who lets her go freely fails, and so does her getting away in more than half the endings.)
+    local by = e.escape_by or {}
+    local free = (by.ran_free or 0) + (by.talk or 0)
+    if e.n == 0 or free / e.n > 0.1 then
+        fail("R5", string.format("a careful DM lets her get away freely in %d of %d endings", free, e.n))
+    end
+    if e.n == 0 or esc / e.n > 0.5 then
+        fail("R5", string.format("she still gets away in %d of %d careful endings", esc, e.n))
     end
 end
 case("R5", function()
