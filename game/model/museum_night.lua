@@ -579,7 +579,11 @@ local function alt_holds(night, sc, alt)
     if alt.when and not adventure.test(night.campaign, alt.when, knobs_of(night)) then
         return false
     end
-    if alt.fled ~= nil and alt.fled ~= (sc.foes_ran ~= nil and #sc.foes_ran > 0) then
+    -- (fled = n: exactly that many ran.)
+    local ran = sc.foes_ran and #sc.foes_ran or 0
+    if type(alt.fled) == "number" and alt.fled ~= ran then
+        return false
+    elseif type(alt.fled) == "boolean" and alt.fled ~= (ran > 0) then
         return false
     end
     -- (Whether the room's fight happened: a Sentinel smashed to scrap doesn't watch them leave.)
@@ -627,6 +631,14 @@ function M.heard(night, text)
     end
     if st.flags.witness_named and st.flags.sunken_city then
         st.flags.witness_city = true
+    end
+    -- (And whatever else the adventure names out loud: MODULE.names_heard, the bird.)
+    for flag, words in util.sorted_pairs(MODULE.names_heard or {}) do
+        for _, w in ipairs(words) do
+            if text and not st.flags[flag] and string.find(text, w, 1, true) then
+                st.flags[flag] = true
+            end
+        end
     end
 end
 

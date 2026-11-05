@@ -293,7 +293,9 @@ M.rooms = {
         locks = true,
         name = "The offices", part = 2, type = "mystery", cost = 2, at = { 20, 24 }, map = "Offices",
         comps = { location = "mus_offices", goal = "mus_archivist", complication = "mus_whispers", reward = "mus_notebook" },
-        read = "Two quiet studies off the hunting floor. One door is locked from the inside.",
+        -- (The bird sings first, so the twist's "stops singing" is a change: the confirming playtest heard it
+        -- stop in every visit, never start.)
+        read = "Two quiet studies off the hunting floor. In one, a little bird is singing under a glass dome. The other door is locked from the inside.",
         sum = "A six-winged bird, a dead archivist, and the first hint of something called the Witness. No fight.",
         next = { "tomorrow", "lecture", "stairs" }, knobs = { "witness" },
     },
@@ -538,7 +540,8 @@ M.beats = {
     mus_hyper = { { did = "they flipped the Mech's red switch", ok = "the Mech's red switch worked, once",
                     fail = "the Mech overheated and burnt out" }, "they saved the red switch for the Gorgon" },
     mus_earplugs = { "{char} blocked out the drone with candle wax", "the wax didn't keep the drone out of {char}'s head" },
-    mus_alone = { "{char} crept up the stairs alone", false, "{char} crept up alone and met Euryale's eyes" },
+    -- (Glimpsed, not met: no save was made and nobody turned to stone. The confirming playtest, 57 and 58 random.)
+    mus_alone = { "{char} crept up the stairs alone", false, "{char} crept up alone and glimpsed Euryale from the top step" },
     mus_lair_frame = { { did = "{char} reached into the frame behind her couch", ok = "{char} pulled a painted blade out of the frame",
                          fail = "the frame bit {char}" }, "they forgot the frame and drew steel" },
     mus_drink = { { did = "{char} drank Euryale's wine", ok = "{char} drank Euryale's wine and kept a clear head",
@@ -1119,8 +1122,8 @@ M.moments = {
           -- (Not a risk they knew of: you decided she was waiting. Unless someone warned them, it's out
           -- of nowhere, and "They'd been warned" isn't said. Round three.)
           { label = "Let it cost them: Euryale is waiting.",
-            log = "At the top of the stairs, bronze eyes. {actor_char} comes back down very pale, and very quiet.",
-            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Met a Gorgon's eyes alone, and came back" } },
+            log = "From the top step, {actor_char} glimpses bronze eyes past the curtain and looks away just in time, then comes back down very pale, and very quiet.",
+            effects = { { "actor", fun = 2, challenge = 8 }, { "arch:storyteller", fun = 3 } }, mus = { harsh = true, flag = "seen", aspect = "Glimpsed a Gorgon from her top step, alone, and came back" } },
       } },
 
     -- Euryale's lair ---------------------------------------------------------------------------
@@ -1767,6 +1770,10 @@ M.requests = {
           danger = { reply = "{char} studies it, and the whispering starts again at night.", asker = 2, mus = { flag = "whispered", warn = true } },
       } },
 }
+
+-- What the table has heard named, by the words that name it (museum_night.heard sets the flag once a line
+-- says one): the six-winged bird, once someone's said what it is, isn't "can't place it" any more.
+M.names_heard = { bird_named = { "mythril singer", "when there's magic close by", "when there's magic about" } }
 
 -- Loose ends: a card that lost its place. when: what the game noticed. Each option re-homes it.
 M.loose_ends = {

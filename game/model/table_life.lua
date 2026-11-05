@@ -195,16 +195,28 @@ local function candidates(night, sc, room, phase, last)
 end
 
 -- Someone at the table says something (out of character unless it says so).
+-- (What's said here can name something for the table: museum_night.heard. The bird named a "mythril
+-- singer" isn't "can't place it" after.)
+local function heard(night, text)
+    if night.mus and text then
+        util.lazy("game.model.museum_night").heard(night, text)
+    end
+end
+
 local function say(night, p, text, ic)
     if p and text then
-        night:emit({ kind = "say", who = p.key, text = util.sentence_case(util.fill(text, { char = p.char })), ic = ic or false })
+        local t = util.sentence_case(util.fill(text, { char = p.char }))
+        night:emit({ kind = "say", who = p.key, text = t, ic = ic or false })
+        heard(night, t)
     end
 end
 
 -- The DM's answer, to the table.
 local function dm(night, text, vars)
     if text then
-        night:say(util.sentence_case(util.fill(text, vars or {})), "dm")
+        local t = util.sentence_case(util.fill(text, vars or {}))
+        night:say(t, "dm")
+        heard(night, t)
     end
 end
 
@@ -504,6 +516,7 @@ local function bit(night, sc, t, last)
     -- each. Not out of one friend's mouth: "Telpur: 'No eating in the shop'" isn't Sam's to say.)
     for _, line in ipairs(t.lines or {}) do
         night:say(util.fill(line, { char = p.char }), "table")
+        heard(night, line)
     end
     if t.kind == "haggle" then
         -- A real purchase (round three: "Lace tax" was paid on marbles nobody bought, and the Francs
