@@ -833,14 +833,28 @@ end)
 
 -- EB: Exhibit B on the table, and R5's board: one smoke run with DUMP_DIR -------------------------------
 case("EB", function()
-    local dir = os.tmpname()
-    os.remove(dir)
-    os.execute("mkdir -p " .. dir)
-    local fh = io.popen("DUMP_DIR=" .. dir .. " lua tools/tests/museum_smoke.lua 1 2>&1")
-    local said = fh:read("*a")
-    fh:close()
-    if not string.find(said, "museum smoke 1:", 1, true) then
-        fail("EB", "the smoke run didn't finish: " .. string.sub(said, -300))
+    -- (The first smoke seed whose prologue has a night after Exhibit B joins, up to four: a run that
+    -- climbs to her lair the week he joins never puts him on a room's board. Round three: seed 1 did.)
+    local dir
+    for seed = 1, 4 do
+        dir = os.tmpname()
+        os.remove(dir)
+        os.execute("mkdir -p " .. dir)
+        local fh = io.popen("DUMP_DIR=" .. dir .. " lua tools/tests/museum_smoke.lua " .. seed .. " 2>&1")
+        local said = fh:read("*a")
+        fh:close()
+        if not string.find(said, "museum smoke " .. seed .. ":", 1, true) then
+            fail("EB", "the smoke run didn't finish: " .. string.sub(said, -300))
+        end
+        local f = io.open(dir .. "/board_minis.txt")
+        local minis = f and f:read("*a") or ""
+        if f then
+            f:close()
+        end
+        if string.find(minis, "exhibit_b", 1, true) or seed == 4 then
+            break
+        end
+        os.execute("rm -r " .. dir)
     end
     local function read(name)
         local f = io.open(dir .. "/" .. name)

@@ -387,7 +387,7 @@ function M.handle(night, mus, sc)
     if mus.aspect and night.actor then
         st.aspects = st.aspects or {}
         st.aspects[night.actor.key] = st.aspects[night.actor.key] or {}
-        table.insert(st.aspects[night.actor.key], mus.aspect)
+        table.insert(st.aspects[night.actor.key], util.fill(mus.aspect, { char = night.actor.char }))
     end
     -- (A history that's since changed says so: the Mech they woke, burnt out.)
     if mus.flag == "mech_burnt" then
@@ -2138,10 +2138,10 @@ M.VOTE_WHY = {
 M.VOTE_NAMED = {
     pushed = { "Last time I let you {won}. This one's mine.", "I wanted to {lost} last time, and we didn't. Not again.",
                "I said yes when {did}. My turn now." },
-    safe_last = { "Last time {did}. Let's do something braver.", "{Did} last time. Let's not play it safe twice.",
-                  "We were good last time: {did}. My turn for some fun." },
-    bold_last = { "Last time {did}. Let's be smart for once.", "{Did} last time. Maybe not again.",
-                  "We pushed our luck last time: {did}. Let's not." },
+    safe_last = { "{Did} last time. Let's do something braver.", "{Did} last time. Let's not play it safe twice.",
+                  "We were good before: {did}. My turn for some fun." },
+    bold_last = { "{Did} last time. Let's be smart for once.", "{Did} last time. Maybe not again.",
+                  "We pushed our luck before: {did}. Let's not." },
 }
 -- Someone on the winning side talks round one friend who barely minds ({name}: them; {want}, {Want}:
 -- the winning side's), and they come round in their own voice ({name}: whoever talked them round). At
@@ -4687,7 +4687,7 @@ function M.after_showdown(night, sc)
                 end
             end
             if #lines > 0 then
-                local line = night.rng:pick(lines)
+                local line = util.fill(night.rng:pick(lines), { char = p.char })
                 st.want_said = st.want_said or {}
                 st.want_said[p.key] = line           -- (the journey quotes what they really said)
                 night:emit({ kind = "say", who = p.key, text = line, ic = false })

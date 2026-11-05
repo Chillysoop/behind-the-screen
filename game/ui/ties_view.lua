@@ -541,8 +541,9 @@ local function room_cards(app, id)
                 mode = "lock", target = { kind = "person", person = cast }, title = "KEEP " .. string.upper(p.name) .. " OUT OF SIGHT",
                 prompt = "Until... (their moments are skipped and the room plays without them)" })
         end
-        table.insert(cards, { title = p.name, tag = "PERSON", ins = { plock and "you to let them out" or "nothing: they're here" },
-                              outs = { util.int(n) .. (n == 1 and " moment" or " moments") .. " of theirs, and their part in "
+        local pv = { name = p.name }
+        table.insert(cards, { title = p.name, tag = "PERSON", ins = { util.fill(plock and "you to let {name_them} out" or "nothing: {name_they're} here", pv) },
+                              outs = { util.int(n) .. (n == 1 and " moment" or " moments") .. util.fill(" of {name_theirs}, and {name_their} part in ", pv)
                                   .. ties.the(id) .. "." },
                               lock = plock, note = pnote or ((p.role or "") .. ". " .. (p.about or "")), buttons = pb,
                               stripe = theme.teal })

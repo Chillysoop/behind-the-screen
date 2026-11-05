@@ -399,7 +399,7 @@ M.recap = {
                   fought = { win = "fought the Knight of Shades out of his frame in the Hall of Paintings",
                              lose = "backed out of the Hall of Paintings, the Knight of Shades after them" } },
     gift_shop = { win = "rested in the gift shop with Telpur", lose = "dozed through Telpur's rules in the gift shop" },
-    hunting = { win = "beat the huntlings on the second floor", lose = "held off the huntlings, just" },
+    hunting = { win = "beat the huntlings on the second floor", lose = "came off worst against the huntlings" },
     offices = { win = "found the archivist's notebook", lose = "left the offices with more questions than answers" },
     tomorrow = { win = "woke the Steam Mech", lose = "couldn't wake the Steam Mech" },
     lecture = { win = "silenced the Lecturer", lose = "staggered out of the Lecturer's class" },
@@ -435,6 +435,11 @@ M.beats = {
         caught = "{char} went for {thing}, and {who} caught {char_them} at it",
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
     },
+    -- (A beat that would only repeat the one it follows from, events.chain: the words in the clause before
+    -- that mean it's been said, and what's new in it, if anything.)
+    same = { ["Euryale slipped away"] = { words = { "got away", "let her go", "slipped" } },
+             ["they struck a bargain with Euryale, and she left the museum"] = { words = { "deal", "bargain" }, rest = "she left the museum" },
+             ["Euryale slept, and they carried her out"] = { words = { "asleep", "fell asleep" }, rest = "they carried her out" } },
     rooms = { stairs = "they started up the narrow stairs", lair = "they climbed up to Euryale's lair",
               street = "they met Flitwidget in the street" },
     mus_truth = { { did = "{char} pressed Flitwidget for the truth", ok = "{char} got the truth out of Flitwidget",
@@ -479,14 +484,14 @@ M.beats = {
                          fail = "the frame bit {char}" }, "they forgot the frame and drew steel" },
     mus_drink = { { did = "{char} drank Euryale's wine", ok = "{char} drank Euryale's wine and kept a clear head",
                     fail = "the wine charmed {char}" }, "nobody drank Euryale's wine" },
-    mus_ultimatum = { "they chose to fight her",
-                      { did = "they offered to find her sisters", ok = "they talked of her sisters, and she listened",
-                        fail = "she wouldn't hear about her sisters" },
-                      { did = "they offered her a cut of the donation box", ok = "she took a cut of the donation box",
-                        fail = "she laughed at the offer of the donation box" },
-                      { did = "they handed her a page of the Lecturer's notes", ok = "she read the Lecturer's notes and fell asleep",
-                        fail = "she'd read the Lecturer's notes before" },
-                      { did = "they asked what she really wanted", ok = "they talked her round", fail = "she wouldn't be talked round" } },
+    mus_ultimatum = { "they chose to fight Euryale",
+                      { did = "they offered to find Euryale's sisters", ok = "they talked of Euryale's sisters, and she listened",
+                        fail = "Euryale wouldn't hear about her sisters" },
+                      { did = "they offered Euryale a cut of the donation box", ok = "Euryale took a cut of the donation box",
+                        fail = "Euryale laughed at the offer of the donation box" },
+                      { did = "they handed Euryale a page of the Lecturer's notes", ok = "Euryale read the Lecturer's notes and fell asleep",
+                        fail = "Euryale had read the Lecturer's notes before" },
+                      { did = "they asked Euryale what she really wanted", ok = "they talked Euryale round", fail = "Euryale wouldn't be talked round" } },
     mus_yield = { "they let her go", "they made her a deal: her sisters, for her help", "{char} finished it" },
 }
 
@@ -968,11 +973,11 @@ M.moments = {
             roll = { dc = 13, skill = { "insight", "religion" }, secret = true, convenient = "success",
                      success = { log = "{actor_char} shakes it off. Just the wind. Probably.", effects = { { "actor", fun = 2 } } },
                      fail = { log = "Something old learns {actor_char}'s name. You write it down for later.",
-                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Heard the Witness whisper their name" } } } },
+                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Heard the Witness whisper {char_their} name" } } } },
           { label = "Pass them a note: they hear it, and only they know.",
             log = "You slide a folded note across the table. It says: \"A voice in the dark says your name, once, the way an old friend would.\" {actor_char}'s player reads it, goes pale, and says nothing.",
             effects = { { "actor", story = 10, fun = 6 }, { "arch:storyteller", investment = 3 }, { "arch:casual", fun = -1 } },
-            mus = { flag = "whispered", aspect = "Heard the Witness whisper their name" } },
+            mus = { flag = "whispered", aspect = "Heard the Witness whisper {char_their} name" } },
       } },
 
     -- The World of Tomorrow -------------------------------------------------------------------
@@ -1792,12 +1797,18 @@ M.epilogue = {
     "And an invitation: Flitwidget needs guards for the road, and he's heard strange news from the mountains. A murder, and a conspiracy.",
 }
 -- What each friend says when the prologue ends: they want the full campaign.
+-- ({char}: their hero now, who may not be the one they started with.)
 M.want_more = {
     mara = { { "Okay, the Witness. A sunken city. I need to know. When's the campaign?", when = { flag = "witness_named" } },
-             "That was a prologue? I've already got a notebook for the campaign." },
-    dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go." },
-    jess = { "Pip is keeping the gnome. Pip is keeping everything. Campaign. Now.", "I want to see where the caravan goes next." },
-    sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise." },
+             "That was a prologue? I've already got a notebook for the campaign.",
+             "{char} has so many questions now. So many. Campaign, please.",
+             { "A Gorgon who only wanted her sisters back. I need the rest of that story.", when = { mark = "know" } } },
+    dev = { "Same heroes, bigger fights? I'm in. Every Thursday.", "Level 4 and a gnome with a caravan. Let's go.",
+            "{char} wants a rematch with something. Anything. Campaign?" },
+    jess = { "{char} is keeping the gnome. {char} is keeping everything. Campaign. Now.", "I want to see where the caravan goes next.",
+             "Somewhere out there is a museum with a bigger gift shop. Take me there." },
+    sam = { "That was so much fun. Same time next week? For the real thing?", "I'll bring snacks for the whole campaign. That's a promise.",
+            "{char} says a prayer for the road. And one for the snacks. Campaign?" },
 }
 
 -- The group chat between sessions: what the friends say about the room they just played.

@@ -150,7 +150,7 @@ function M.enter(campaign)
         for key, h in pairs(MODULE.heroes) do
             local pd = content.players[key]
             if pd then
-                pd.thread = "why they came to the museum"
+                pd.thread = "why {char_they} came to the museum"
                 pd.gist = h.gist
                 pd.premise = h.gist .. "."
                 pd.intro = h.gist .. "."
@@ -1041,8 +1041,11 @@ function M.remove_mark(campaign, id)
     end
     local events = require "game.model.events"
     local m = MODULE.marks[id]
-    events.add(campaign, { kind = "unmark", who = "party", thing = id, from = events.cause(campaign) or st.marks[id].ev,
-                           how = "but", beat = campaign.night ~= nil or nil,
+    -- (What's going on right now took it off her card, "so": the Lecturer beaten, so the drone stopped.
+    -- Undone with nothing to say why, it turns the mark that was there, "but".)
+    local cause = events.cause(campaign)
+    events.add(campaign, { kind = "unmark", who = "party", thing = id, from = cause or st.marks[id].ev,
+                           how = cause and "therefore" or "but", beat = campaign.night ~= nil or nil,
                            text = m and m.unchain or ("it came off Euryale's card: " .. util.lower_first(m and m.name or id)) })
     st.marks[id] = nil
     for i, m in ipairs(st.mark_list) do

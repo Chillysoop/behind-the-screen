@@ -120,7 +120,7 @@ function M.build(app, on_next)
             local first = lines and lines[#lines]
             local said_text = (st.want_said or {})[key] or (type(first) == "table" and first[1] or first)
             if said_text then
-                local said = "\"" .. said_text .. "\""
+                local said = "\"" .. util.fill(said_text, { char = p.char }) .. "\""
                 kit.text(px + 14, py + 300, said, "story22", theme.text, { w = cw - 28, lines = 3 })
             end
         end

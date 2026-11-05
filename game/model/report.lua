@@ -144,7 +144,8 @@ function M.build(campaign, night)
             if p.thread_hits > 0 then
                 p.thread_progress = p.thread_progress + p.thread_hits
                 -- (No bare count: "(2)" meant nothing to anyone, October 15.)
-                table.insert(rep.threads, p.char .. "'s story moved tonight: " .. p.thread .. ".")
+                -- (Their own pronouns: "why he came to the museum", the engine run's 8_54.)
+                table.insert(rep.threads, util.fill(p.char .. "'s story moved tonight: " .. p.thread .. ".", { char = p.char }))
             end
             local moment = p.best and p.best.text or nil
             row.moment = moment

@@ -857,8 +857,9 @@ case("R14", function()
     local f = events.add(c, { kind = "moment", beat = true, text = "they dropped a coin in", where = "entrance" })
     local lines = events.chain(c, 3)
     -- (The fight moves the story, so it's told right after its cause; her card follows on its own.)
+    -- (A plain step into a room says where the next thing happened: round three, alive 18.)
     local want = { "They set the bushes on fire, but the hedges came at them.", "Euryale smelled the smoke.",
-                   "They went into the entrance hall.", "They dropped a coin in." }
+                   "In the entrance hall, they dropped a coin in." }
     for i, l in ipairs(want) do
         if lines[i] ~= l then
             fail("R14", "case: chain line " .. i .. " is '" .. tostring(lines[i]) .. "', not '" .. l .. "'")

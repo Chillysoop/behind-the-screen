@@ -280,6 +280,74 @@ function M.told_order(beats)
     return out
 end
 
+-- How the chain reads as a story, not a list (the third playtest, alive 18 and the engine run's 8_29):
+-- a plain step into a room isn't a line of its own ("They went into the entrance hall."), it says where
+-- the next thing happened ("In the entrance hall, they dropped a coin in"); a fight told right after the
+-- choice that started it doesn't say the fight twice ("skipped the tablet and fought the guardian, so they
+-- fought the Bone Construct": its `tail`, how it ended, is enough); a beat that only repeats the one it
+-- follows from is left out, or says only what's new (MODULE.beats.same: "Euryale got away. So Euryale
+-- slipped away."); and the Francs found along the way are one sentence at the end, not a "so ... found a
+-- Flitwidget Franc" after every look.
+M.FIGHT_WORDS = { "fought", "fight", "blades", "steel", "weapons out", "came at them", "swinging" }
+local function names_a_fight(text)
+    local t = string.lower(text or "")
+    for _, w in ipairs(M.FIGHT_WORDS) do
+        if string.find(t, w, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+-- What a beat that would repeat its cause says instead: nil to leave it out, or its new part.
+local function same_as(prev_text, ev)
+    local ok, adv = pcall(require, "game.model.adventure")
+    local same = ok and adv.data and adv.data.beats and adv.data.beats.same or {}
+    local s = same[ev.text or ""]
+    if not (s and prev_text) then
+        return false
+    end
+    local t = string.lower(prev_text)
+    for _, w in ipairs(s.words or {}) do
+        if string.find(t, w, 1, true) then
+            return true, s.rest
+        end
+    end
+    return false
+end
+-- The Francs found along the way, as one sentence: "Along the way, Thessaly found two Flitwidget
+-- Francs." / "Along the way, Flitwidget Francs turned up: two for Thessaly, one for Pip."
+local NUM = { "one", "two", "three", "four", "five", "six" }
+local function francs_line(finds)
+    local by, order = {}, {}
+    for _, ev in ipairs(finds) do
+        local who = string.match(ev.text or "", "^(.-) found ")
+        local n = tonumber(ev.n) or 1
+        if who then
+            if not by[who] then
+                table.insert(order, who)
+                by[who] = 0
+            end
+            by[who] = by[who] + n
+        end
+    end
+    if #order == 0 then
+        return nil
+    end
+    local function count(n)
+        return (n == 1 and "a" or (NUM[n] or tostring(n)))
+    end
+    if #order == 1 then
+        local n = by[order[1]]
+        return "Along the way, " .. order[1] .. " found " .. count(n) .. " Flitwidget Franc" .. (n == 1 and "" or "s") .. "."
+    end
+    local parts = {}
+    for _, who in ipairs(order) do
+        table.insert(parts, (NUM[by[who]] or tostring(by[who])) .. " for " .. who)
+    end
+    return "Along the way, Flitwidget Francs turned up: " .. util.join_names(parts) .. "."
+end
+M.francs_line = francs_line
+
 -- room: only the beats in that room (the journey recap tells each room's own chain); skip: kinds of
 -- beat to leave out (the journey keeps the big ones: no Francs found or looks round).
 function M.chain(c, session, max, room, skip)
@@ -293,16 +361,31 @@ function M.chain(c, session, max, room, skip)
         end
         beats = keep
     end
+    -- (The Francs found, folded into one line at the end: the whole night's chain only.)
+    local finds = {}
+    if not room then
+        local keep = {}
+        for _, ev in ipairs(beats) do
+            if ev.kind == "find" and not ev.pay and ev.thing == "francs" then
+                table.insert(finds, ev)
+            else
+                table.insert(keep, ev)
+            end
+        end
+        beats = keep
+    end
     beats = M.told_order(beats)
     local out, cur, joined, prev, last_word = {}, nil, 0, nil, nil
     local used, words = {}, {}
+    local told = {}
+    local where_next        -- ("in the entrance hall": said with the next beat, not on its own)
     local function flush()
         if cur then
             table.insert(out, util.sentence_case(cur) .. ".")
         end
         cur, joined, last_word = nil, 0, nil
     end
-    for _, ev in ipairs(beats) do
+    for k, ev in ipairs(beats) do
         if max and #used >= max then
             break
         end
@@ -310,23 +393,72 @@ function M.chain(c, session, max, room, skip)
         -- from something unseen, a hero's reason for coming, says why in its own words.)
         local word = M.linked(ev) and prev and ev.from == prev.id and M.LINK_WORD[ev.how] or nil
         local clause = ev.text
-        if word and cur and joined < M.MAX_JOIN and word ~= last_word then
-            cur = cur .. ", " .. word .. " " .. clause
-            joined = joined + 1
-            last_word = word
-        elseif word then
-            flush()
-            cur = util.capitalize(word) .. " " .. clause
-            last_word = word
+        local nxt = beats[k + 1]
+        local into = ev.kind == "enter" and not ev.back and string.match(clause or "", "^they went into (.+)$")
+        if into and not (M.linked(ev) and told[ev.from]) and nxt and nxt.where == ev.where and nxt.from ~= ev.id then
+            -- A step into a room: where the next thing happened.
+            where_next = "in " .. into
+            table.insert(used, ev)
+            table.insert(words, false)
+            told[ev.id] = true
         else
-            flush()
-            cur = clause
+            local skip_it = false
+            if word == "so" and ev.kind == "fight" and ev.tail and prev and names_a_fight(prev.text) then
+                -- (The fight they chose, told by how it ended.)
+                clause = string.gsub(ev.tail, "^, ", "")
+                word = nil
+                if cur and joined < M.MAX_JOIN then
+                    cur = cur .. ", " .. clause
+                    joined = joined + 1
+                    skip_it = true
+                end
+            elseif word and prev then
+                local same, rest = same_as(prev.text, ev)
+                if same then
+                    word = nil
+                    skip_it = true
+                    if rest and cur then
+                        cur = cur .. ", and " .. rest
+                    elseif rest then
+                        cur = rest
+                    end
+                end
+            end
+            if skip_it then
+                -- (said, folded into the clause before)
+            elseif word and cur and joined < M.MAX_JOIN and word ~= last_word then
+                cur = cur .. ", " .. word .. " " .. clause
+                joined = joined + 1
+                last_word = word
+            elseif word then
+                flush()
+                if where_next and string.find(where_next, ",", 1, true) then
+                    clause = string.gsub(clause, "^they ", "the party ")
+                end
+                cur = util.capitalize(word) .. (where_next and (" " .. where_next .. ",") or "") .. " " .. clause
+                last_word = word
+                where_next = nil
+            else
+                flush()
+                -- ("In the garden, the place Brannoc came for, the party set...": not "they" right after a hero.)
+                if where_next and string.find(where_next, ",", 1, true) then
+                    clause = string.gsub(clause, "^they ", "the party ")
+                end
+                cur = (where_next and (where_next .. ", ") or "") .. clause
+                where_next = nil
+            end
+            prev = ev
+            told[ev.id] = true
+            table.insert(used, ev)
+            table.insert(words, (not skip_it) and word or false)
+            where_next = nil
         end
-        prev = ev
-        table.insert(used, ev)
-        table.insert(words, word or false)
     end
     flush()
+    local fl = #finds > 0 and francs_line(finds)
+    if fl then
+        table.insert(out, fl)
+    end
     return out, used, words
 end
 

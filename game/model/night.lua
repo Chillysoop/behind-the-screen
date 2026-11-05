@@ -3776,7 +3776,7 @@ local FIGHT_TEXT = {
     chose = "they fought {boss}", sprang = "{boss} came at them",
     -- How it ended.
     won = ", and they won", won_ran_one = ", and it got away", won_ran = ", and they won, but some got away",
-    yielded = ", until {boss} asked them to stop", dead = ", and {boss} fell", ran = ", and {boss} got away",
+    yielded = ", until {boss_they} asked them to stop", dead = ", and they brought {boss_them} down", ran = ", and {boss_they} got away",
     lost = ", and it was too much for them",
 }
 M.FIGHT_TEXT = FIGHT_TEXT
@@ -3825,7 +3825,9 @@ function M:log_fight(sc, f, result)
     local ev = events.add(c, { kind = "fight", who = "party", whom = boss_id, where = sc.room, outcome = outcome, foes = foes,
                                ran = #ran, ran_ids = ran, beaten = beaten, boss = boss, fate = fate, rounds = result.rounds,
                                from = from, how = from and how or nil, beat = true,
-                               text = util.fill(FIGHT_TEXT[(not from or how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
+                               text = util.fill(FIGHT_TEXT[(not from or how == "but") and "sprang" or "chose"] .. FIGHT_TEXT[key], { boss = util.lower_first(boss) }),
+                               -- (How it ended, alone: what the chain tells after the choice that started it.)
+                               tail = util.fill(FIGHT_TEXT[key], { boss = util.lower_first(boss) }) })
     sc.fight_ev, sc.last_beat = ev.id, ev.id
     return ev
 end
