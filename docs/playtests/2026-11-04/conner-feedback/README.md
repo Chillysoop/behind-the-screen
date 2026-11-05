@@ -33,3 +33,27 @@ each player wants), shot_3 (Mara's bubble over the read-aloud panel), shot_4 (Sa
     around is an Investigation check in real D&D; it doesn't need to be a moment of its own, but it should feed these
     prompts: "Oswin (Sam) is poking around with a 16 Investigation check", to help the DM decide how to reward or
     penalize them.
+
+## Part 2 (shot_6: the offices, Pip in a different room)
+
+14. The scimitar from the paintings: does the book give it a mechanical benefit, and is that in the game?
+15. The friends should use the DM inspiration they hold, and use it well.
+16. Do the players really hear the boss's thoughts upstairs, from the narrator? Check the book: the players maybe
+    shouldn't know about the final boss, or how their rooms affect her.
+17. The line says they're using the daggers, but the daggers aren't in the inventory, so it's unclear whether they
+    change the fight mechanically (more damage, abilities).
+18. Splitting the party doesn't seem to work: no cutting back and forth between a hero alone in one room and the rest
+    of the party in another.
+19. After the Hunting Grounds fight, Telpur's mini runs off the table. Keep minis with the party (like the earlier bug
+    of minis running off the table).
+20. The DM talks a lot about what the players are doing, should be doing or want to do. The DM should react to the
+    players; the players should say what they're doing and want themselves. Uncontroversial or random things (taking a
+    random item from the scene) are fine without the DM; the DM steps in only for a special circumstance.
+21. The "YOU, TO THE TABLE" lines don't make sense: they read like saying out loud what's happening. Only say to the
+    table what a real DM would say to the table, not commentary on what's going on. That belongs in a different field
+    for the person playing, e.g. a new category: "what the DM hears from the table chatter".
+22. The Lecturer should start behind the lectern in the middle of the theatre.
+23. Pip started in a different room of the museum offices (shot_6). Should that room be locked? Check the book.
+24. Nobody passes through walls unless a spell, ability or feature allows it. Even in quiet moments on the maps,
+    pathing has to be real.
+25. When you choose "they get +1 on their next roll", they must actually get it on their next roll.
