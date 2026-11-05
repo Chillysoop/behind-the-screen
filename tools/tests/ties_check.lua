@@ -397,7 +397,14 @@ local function prologue(seed, style)
         .. tostring(s.ending) .. ", " .. nights .. " nights)")
     check(empty == 0, "prologue " .. seed .. " " .. style .. ": no empty nights (" .. empty .. ")")
     check(s.done.lecture, "prologue " .. seed .. " " .. style .. ": the lecture theatre came before the stairs")
-    check(s.marks.scarabs, "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
+    -- (The tie put it on her card; it stays there unless her fight took it off: a lost fight's fallen
+    -- foes take their marks with them, round three, A3.)
+    local tied, taken = false, false
+    for _, ev in ipairs(cc.events or {}) do
+        tied = tied or (ev.kind == "mark" and ev.thing == "scarabs")
+        taken = taken or (ev.kind == "unmark" and ev.thing == "scarabs" and ev.where == "lair")
+    end
+    check(tied and (s.marks.scarabs or taken), "prologue " .. seed .. " " .. style .. ": the tied mark is on her card")
     check(not s.seen.mus_dice_painting, "prologue " .. seed .. " " .. style .. ": the cut moment never played")
     check(opened_line, "prologue " .. seed .. " " .. style .. ": a lock opened with a line")
     check(shut_said, "prologue " .. seed .. " " .. style .. ": the table heard which way won't open yet")
