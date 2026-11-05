@@ -381,7 +381,9 @@ function M.draw_frame(app)
     -- options show their own numbers.)
     app.n_keys = nil
     if not app.keys_hidden and app.campaign.week <= 1 then
-        app.n_keys = kit.text(1576, 62, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S recap", "ui14",
+        -- (Under the dice strip and the small-moment crits toggle, not across them: the third playtest's
+        -- first frame had all three on one line.)
+        app.n_keys = kit.text(1576, 102, "Space skip  P pause  F/G speed  Tab log  H your rolls  T timer  C photo  S Story+Table", "ui14",
             theme.faint, { pivot = gui.PIVOT_NE })
     end
     -- What the counters are (the newcomer playtest, October 16: "Your rolls: hidden").
@@ -1813,11 +1815,11 @@ function M.draw_crits(app)
     end
     local tl = require "game.model.table_life"
     local on = tl.crits_on(app.campaign)
-    app.n_crits = kit.button(1452, 66, 124, 30, on and "Crits: on" or "Crits: off", function()
+    app.n_crits = kit.button(1452, 66, 124, 30, on and "Small crits: on" or "Small crits: off", function()
         local now = not tl.crits_on(app.campaign)
         tl.set_crits(app.campaign, now)
         if app.n_crits and app.n_crits.label then
-            pcall(gui.set_text, app.n_crits.label, now and "Crits: on" or "Crits: off")
+            pcall(gui.set_text, app.n_crits.label, now and "Small crits: on" or "Small crits: off")
             pcall(gui.set_color, app.n_crits.node, now and theme.panel3 or app.n_crits.color)
         end
         M.toast(app, now and "SMALL-MOMENT CRITS ON" or "SMALL-MOMENT CRITS OFF",
@@ -3254,10 +3256,13 @@ function M.draw_thought_card(app)
         title = "Something's on " .. ev.name .. "'s mind"
         sub = "You catch it across the table."
         add(util.capitalize(ev.name .. " " .. ev.tell .. "."), "ui22b", theme.think.ink)
+        -- (The totals, and what a near miss still gets: the third playtest's failed roll that still
+        -- answered read as a bug. thoughts.read: the words at the target, the gist within 4 of it.)
         add("Read " .. pr.them .. ": an Insight roll, d20 + " .. util.int(o.bonus) .. " (your Empathy +" .. util.int(o.empathy)
             .. ", you know " .. ev.name .. " +" .. util.int(o.familiar) .. ((o.rested or 0) > 0 and ", a good night's sleep +1" or "")
-            .. "). You need " .. util.int(o.need)
-            .. " or more: about " .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%.", "ui18", theme.think.dim)
+            .. "). A total of " .. util.int(o.dc) .. " hears what's on " .. pr.their .. " mind: about "
+            .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%. " .. util.int(o.dc - 4) .. " or more still gets the gist.",
+            "ui18", theme.think.dim)
         table.insert(buttons, { label = "Read " .. pr.them .. " (roll Insight)", key = "thought_read", go = true })
         -- The first time: you have stats too, and where to find them (the playtest, November 3).
         local seen = app.campaign.seen_tips or {}
@@ -3265,14 +3270,24 @@ function M.draw_thought_card(app)
             add("You have stats too. Empathy is how well you read a table; each friend also has how well you know them. "
                 .. "A read is an Insight roll: d20 + your Empathy + how well you know them. Both grow as you play. "
                 .. "Your Empathy is at the top of THE TABLE on the prep board, how well you know each friend is the dots "
-                .. "on their card, and the Table sidebar tonight (S) has both.", "ui14", theme.think.ink, 12)
+                .. "on their card, and tonight the Table button at the top has both (S opens it with the Story).", "ui14",
+                theme.think.ink, 12)
         end
     else
         title = ev.name .. (r.result == "miss" and " is hard to read" or " is thinking")
         local reads = thoughts.DATA.reads
         local line = (r.result == "asked" and reads.asked) or (r.roll == 20 and reads.book) or reads[r.result] or ""
-        sub = "You rolled " .. util.int(r.roll) .. " + " .. util.int(r.bonus) .. " = " .. util.int(r.total) .. ", needing "
-            .. util.int(r.need or r.dc) .. "."
+        -- The total against the target, and what the roll got: the words, the gist (a near miss), or
+        -- nothing. (A natural 20 always reads; a natural 1 always misreads, and looks like a read.)
+        local dc = r.dc or ((r.need or 0) + (r.bonus or 0))
+        local got = ((r.result == "clear" or r.result == "book") and ((r.roll == 20 and r.total < dc) and "a natural 20 always reads"
+                or "a clear read"))
+            or (r.result == "gist" and ("short, but " .. util.int(dc - 4) .. " or more gets the gist"))
+            or (r.result == "miss" and "too far off to read")
+            or (r.result == "misread" and ("needing " .. util.int(dc)))
+            or nil
+        sub = "You rolled " .. util.int(r.roll) .. " + " .. util.int(r.bonus) .. " = " .. util.int(r.total)
+            .. (r.result == "asked" and "." or (", needing " .. util.int(dc) .. (got and r.result ~= "misread" and (": " .. got) or "") .. "."))
         add(util.fill(line, { name = ev.name }), "ui18b", theme.think.dim)
         local sn = thoughts.seen(night, ev.id)
         if sn and sn.words then
@@ -3311,7 +3326,7 @@ function M.draw_thought_card(app)
     kit.dot(x + 44, y + 46, 64, alpha_of(panels.COLORS[ev.who] or theme.gold, 0.6))
     kit.picture(x + 12, y + 14, 64, 64, panels.face(ev.who, "think"), kit.rgba("#ffffff"))
     kit.text(x + 90, y + 18, title, "ui22b", theme.think.ink, { w = w - 106, lines = 1 })
-    kit.text(x + 90, y + 48, sub, "ui14", theme.think.dim, { w = w - 106, lines = 1 })
+    kit.text(x + 90, y + 48, sub, "ui14", theme.think.dim, { w = w - 156, lines = 2 })     -- (clear of the die)
     -- The die you rolled, top right.
     if r then
         local col = (r.result == "clear" or r.result == "asked" or r.roll == 20) and theme.green
@@ -3853,12 +3868,22 @@ function M.show_done(app)
     app.layers.modal = kit.layer("night_done", false)
     local n = app.night
     local x, y, w, h = 800 - 230, 560, 460, 132
+    -- Above the night's last caption, not over it (the third playtest: "That's a wrap. Chairs
+    -- scrape..." was drawn under this card).
+    local cr = app.caption_rect
+    if cr and app.caption and app.caption.box and gui.is_enabled(app.caption.box) and cr.y < y + h + 8 and cr.y + cr.h > y - 8
+        and cr.x < x + w and cr.x + cr.w > x then
+        y = math.max(70, cr.y - h - 16)
+    end
     kit.box(x, y, w, h, theme.paper, { radius = 12 })
     kit.text(x + w / 2, y + 18, "That's a wrap for tonight.", "ui18b", theme.ink, { pivot = gui.PIVOT_N })
     -- The evening as the table lived it (playtest, October 13: "16:48 at the table" read as a clock).
-    local mins = math.floor((n and n.table_min) or 0)
-    local spent = util.int(math.floor(mins / 60)) .. "h " .. string.format("%02d", mins % 60) .. "m"
-    local ends = (n and n.clock_text) and (", wrapping up at " .. n:clock_text()) or ""
+    -- (The night's length as the report gives it, to the minute: the third playtest saw "1h 53m" here
+    -- and "(1h 52m)" on the report. night.table_report is the length the table judged.)
+    local mins = math.floor((n and n.table_report and n.table_report.minutes) or (n and n.table_min) or 0)
+    local spent = (mins < 60 and (util.int(mins) .. "m")) or (util.int(math.floor(mins / 60)) .. "h"
+        .. ((mins % 60 > 0) and (" " .. util.int(mins % 60) .. "m") or ""))      -- (as the report writes it)
+    local ends = (n and n.clock_text) and (", wrapping up at " .. n:clock_text(mins)) or ""
     kit.text(x + w / 2, y + 44, spent .. " at the table" .. ends .. ". " .. util.int(n and (n.answered or 0) or 0)
         .. " calls made.", "ui14", theme.ink_dim, { pivot = gui.PIVOT_N, w = w - 24 })
     kit.button(x + 50, y + 76, w - 100, 40, "See how everyone felt  >", function()

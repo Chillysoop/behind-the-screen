@@ -31,28 +31,28 @@ function M.done(app)
     app.refresh()
 end
 
--- How the night felt, in a line.
+-- How the night felt, in a line: who had what night, by name (the third playtest: "A mixed night:
+-- some loved it" when nobody had, "can't wait for next week" after the last night, and a headline
+-- that disagreed with the report's). The headline above it is the report's own (rep.headline).
+local TIER_WORDS = { { "loved", "loved it", "loved it" }, { "fun", "had fun", "had fun" },
+                     { "fine", "thought it was fine", "thought it was fine" }, { "bored", "was bored", "were bored" },
+                     { "out", "checked out", "checked out" } }
 local function summary(rep)
-    local n, good, bad = 0, 0, 0
-    for _, row in ipairs(rep.players or {}) do
-        if row.tier then
-            n = n + 1
-            if row.tier == "loved" or row.tier == "fun" then
-                good = good + 1
-            elseif row.tier == "bored" or row.tier == "out" then
-                bad = bad + 1
+    local bits = {}
+    for _, t in ipairs(TIER_WORDS) do
+        local names = {}
+        for _, row in ipairs(rep.players or {}) do
+            if row.tier == t[1] then
+                table.insert(names, row.name)
             end
         end
+        if #names > 0 then
+            table.insert(bits, util.join_names(names) .. " " .. (#names > 1 and t[3] or t[2]) .. ".")
+        end
     end
-    if n > 0 and good == n then
-        return "Everyone had a great night."
-    elseif bad == 0 and good >= n / 2 then
-        return "A good night. Most of them can't wait for next week."
-    elseif bad > good then
-        return "A tough one. Not everyone enjoyed it."
-    end
-    return "A mixed night: some loved it, some less so."
+    return table.concat(bits, " ")
 end
+M.summary = summary
 
 local function box_art(x, y, w, h, open, glow)
     if glow then
@@ -75,7 +75,8 @@ function M.build(app)
     local rep = c.report
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 12, "SESSION " .. util.int(rep.week) .. "  -  THAT'S A WRAP", "ui14", theme.gold)
-    kit.text(24, 32, summary(rep), "title30", theme.text)
+    kit.text(24, 32, rep.headline or "", "title30", theme.text, { w = 1200, lines = 1 })
+    kit.text(24, 74, summary(rep), "ui18", theme.dim, { w = 1500, lines = 1 })
     -- How the table felt.
     local x, y, w = 24, 100, 700
     kit.box(x, y, w, 520, theme.panel, { radius = 12 })
