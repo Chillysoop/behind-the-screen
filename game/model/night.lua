@@ -3753,6 +3753,19 @@ function M:combat_scene(sc)
         self:say(util.join_names(floor) .. (#floor == 1 and " comes" or " come") .. " round on the floor with 1 hit point"
             .. (#floor == 1 and "" or " each") .. ", groggy but alive.", "aside")
     end
+    -- (Every hero who went down in it, for the recap's lead: "Brannoc went down twice". Not the dead,
+    -- whose death leads; not after a wipe, which says it for everyone. Round three, A7.)
+    if not wiped then
+        for _, c in ipairs(self.pc_list or {}) do
+            local n = c.stats and c.stats.downs or 0
+            if n > 0 and not c.dead and c.player_key then
+                events.add(self.campaign, { kind = "down", who = c.player_key, char = c.name, n = n, where = sc.room, beat = true,
+                                            lead = true, from = sc.fight_ev, how = "but",
+                                            text = events.word(n > 1 and "down_n" or "down", { char = c.name, n = events.times(n) },
+                                                               n > 1 and "{char} went down {n}" or "{char} went down") })
+            end
+        end
+    end
     -- (Someone on their side who fell comes round now: companions.lua.)
     require("game.model.companions").after_fight(self)
     if result.winner == "party" then

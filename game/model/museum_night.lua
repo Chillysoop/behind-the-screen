@@ -492,6 +492,10 @@ local function alt_holds(night, sc, alt)
     if alt.fled ~= nil and alt.fled ~= (sc.foes_ran ~= nil and #sc.foes_ran > 0) then
         return false
     end
+    -- (Whether the room's fight happened: a Sentinel smashed to scrap doesn't watch them leave.)
+    if alt.fought ~= nil and alt.fought ~= (sc.fought == true) then
+        return false
+    end
     if alt.ending and alt.ending ~= st.ending then
         return false
     end
@@ -3414,7 +3418,14 @@ function M.intro(night)
                 table.insert(bits, 1, clause)
             end
         end
-        if #bits > 0 then
+        -- (What it cost them first: a death, a wipe, an ally lost, who went down. Round three, A7.)
+        local lost = last_week and events.losses(c, last_week) or {}
+        if #lost > 0 then
+            night:say("Last time, " .. util.join_names(lost) .. ".", "recap")
+            if #bits > 0 then
+                night:say("They " .. util.join_names(bits) .. ".", "recap")
+            end
+        elseif #bits > 0 then
             night:say("Last time, they " .. util.join_names(bits) .. ".", "recap")
         end
         if night.campaign.last_cliff then
@@ -3855,7 +3866,9 @@ function M.lecturer_report(night)
     if night.end_early and not night.cliff_stop then
         -- (A night that ended early still ends: the Lecturer reports all the same.)
     end
-    if st.done.lecture == "win" or st.ending then
+    -- (Silenced, he says nothing more; one who got away still has plenty to say upstairs. Round three, B16.)
+    local escaped = events.any(c, { kind = "fight", where = "lecture", fate = "ran" })
+    if (st.done.lecture == "win" and not escaped) or st.ending then
         return
     end
     local d = people.def("mus_lecturer")

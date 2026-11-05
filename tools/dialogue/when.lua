@@ -1261,6 +1261,11 @@ local function alt_words(alt)
         end
         nots = neg
     end
+    if alt.fought == true then
+        table.insert(bits, "it came to a fight")
+    elseif alt.fought == false then
+        table.insert(bits, "it didn't come to a fight")
+    end
     if alt.fled == true then
         table.insert(bits, "some foes ran")
     elseif alt.fled == false then

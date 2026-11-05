@@ -15,6 +15,7 @@ local campaign_mod = require "game.model.campaign"
 local social = require "game.model.social"
 local museum_week = require "game.model.museum_week"
 local util = require "game.model.util"
+local events_mod = require "game.model.events"
 
 local EXTRA = tonumber(arg[1]) or 2
 local ITEMS = { "run", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8" }
@@ -744,6 +745,96 @@ local function a6_watch(R, night, ev, w)
     end
 end
 
+-- A7: the recaps lead with the losses (a death, a wipe, an ally lost, who went down), in the report and
+-- in the next night's "Last time"; a fight in the Chamber "smashed" its guardian; a Sentinel smashed to
+-- scrap doesn't "watch them leave"; a Lecturer who got away isn't "silenced", nor "fades".
+local function a7_watch(R, night, ev, w)
+    local A = R.a7 or {}
+    R.a7 = A
+    local where = R.tag .. " W" .. w
+    A.week = A.week or {}
+    local wk = A.week[w] or { downs = {} }
+    A.week[w] = wk
+    if ev.kind == "turn" and night.battle then
+        for _, st in ipairs(ev.steps or {}) do
+            if st.kind == "down" then
+                for _, c in ipairs(night.battle.creatures) do
+                    if c.mini == st.id and c.pc then
+                        wk.downs[c.name] = (wk.downs[c.name] or 0) + 1
+                    end
+                end
+            end
+        end
+    elseif ev.kind == "narrate" and ev.text then
+        local text = ev.text
+        if string.find(text, "watches them all the way", 1, true) then
+            local fought = events_mod.any(night.campaign, { kind = "fight", where = "entrance", session = night.campaign.week })
+            if fought then
+                fail("A7", where .. ": the Sentinel was fought, and: " .. text)
+            end
+        end
+        if string.find(text, "The Lecturer fades", 1, true) and events_mod.any(night.campaign, { kind = "fight", where = "lecture", fate = "ran" }) then
+            fail("A7", where .. ": the Lecturer got away, and: " .. text)
+        end
+        if ev.style == "recap" then
+            local prev = A.week[w - 1]
+            if not wk.recap_seen and prev and prev.lost and #prev.lost > 0 then
+                if not string.find(text, "^Last time, " .. prev.lost[1]:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")) then
+                    fail("A7", where .. ": last time cost them (" .. prev.lost[1] .. "), and the opening says: " .. text)
+                else
+                    add("A7", "openings_lead_with_losses")
+                end
+            end
+            wk.recap_seen = true
+            if string.find(text, "stilled the Bone Construct", 1, true)
+                and events_mod.any(night.campaign, { kind = "fight", where = "chamber", session = w - 1 }) then
+                fail("A7", where .. ": the Bone Construct was smashed, and the opening says: " .. text)
+            end
+            if string.find(text, "silenced the Lecturer", 1, true)
+                and events_mod.any(night.campaign, { kind = "fight", where = "lecture", fate = "ran" }) then
+                fail("A7", where .. ": the Lecturer got away, and the opening says: " .. text)
+            end
+        end
+    end
+end
+local function a7_after(R, night, rep, w)
+    local A = R.a7 or {}
+    local wk = A.week and A.week[w] or { downs = {} }
+    local where = R.tag .. " W" .. w
+    local chain = rep and rep.museum and rep.museum.chain or {}
+    -- (What the night cost, from the mat: who went down, who died, a wipe, an ally lost.)
+    local lead = events_mod.losses and events_mod.losses(night.campaign, night.campaign.week) or {}
+    wk.lost = lead
+    local dead = {}
+    for _, pc in ipairs(night.pc_list or {}) do
+        if pc.dead then
+            dead[pc.name] = true
+        end
+    end
+    local wiped = R.a6 and R.a6.wiped == w
+    for name, n in util.sorted_pairs(wk.downs) do
+        if not dead[name] and not wiped then
+            local said = false
+            for _, l in ipairs(lead) do
+                said = said or (string.find(l, name, 1, true) and string.find(l, "went down", 1, true))
+            end
+            if not said then
+                fail("A7", where .. ": " .. name .. " went down " .. n .. " time(s), and the recap doesn't say so")
+            else
+                add("A7", "downs_recapped")
+            end
+        end
+    end
+    if #lead > 0 then
+        local first = chain[1] or ""
+        if not string.find(first, lead[1]:gsub("^%l", string.upper), 1, true) then
+            fail("A7", where .. ": the report doesn't lead with what it cost (" .. lead[1] .. "): " .. first)
+        else
+            add("A7", "reports_lead_with_losses")
+        end
+    end
+end
+
 -- Whole prologues ----------------------------------------------------------------------------------
 -- The 24 the reviews read (seeds 31 to 38, three DMs), more seeds, and "fragile" ones where Oswin goes
 -- into Euryale's lair on 1 hit point with two failed death saves waiting: deaths are rare, and every
@@ -785,10 +876,12 @@ local function run(seed, style, fragile)
             telpur_watch(ev)
             a5_watch(R, night, ev, w)
             a6_watch(R, night, ev, w)
+            a7_watch(R, night, ev, w)
         end,
         after = function(R, night, rep, w)
             night_done(R, night, rep, w)
             lair_after(R, night)
+            a7_after(R, night, rep, w)
         end,
         pick = function(R, night, ev, pick)
             -- (A fragile run lets the dice stand on a hero's life: no fudging, a goodbye.)

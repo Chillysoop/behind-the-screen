@@ -176,6 +176,12 @@ function M.tell(c, teller, listener, about, opts)
     return ev
 end
 
+-- "twice", "three times": how many times, for a line about it ({n} in "went down {n}").
+local TIMES = { [2] = "twice", [3] = "three times", [4] = "four times", [5] = "five times", [6] = "six times" }
+function M.times(n)
+    return TIMES[n] or (tostring(n) .. " times")
+end
+
 -- The words a beat is told with, from the adventure (MODULE.beats.words): key, and what fills it in.
 -- An adventure without them falls back to the key's own neutral words, given here as `plain`.
 function M.word(key, vars, plain)
@@ -297,10 +303,7 @@ function M.chain(c, session, max, room, skip)
     -- (The night's losses lead, a death first: round three, B1 and A7. "Euryale came at them, until she
     -- asked them to stop" told a night Oswin died in. Told on their own, with no link word.)
     if not room then
-        local lead, rest = {}, {}
-        for _, ev in ipairs(beats) do
-            table.insert(ev.lead and lead or rest, ev)
-        end
+        local lead, rest = M.lead_beats(beats)
         if #lead > 0 then
             beats = lead
             for _, ev in ipairs(rest) do
@@ -308,6 +311,61 @@ function M.chain(c, session, max, room, skip)
             end
         end
     end
+    return M.tell_beats(beats, max)
+end
+
+-- The night's losses, first (round three, B1, A7): its lead beats, a hero who went down in two fights
+-- as one, a death before a wipe before an ally lost before friendly fire before who went down. Returns
+-- them, and the rest of the beats as they were.
+function M.lead_beats(beats)
+    local lead, rest = {}, {}
+    do
+        -- (A hero who went down in two fights is one line: "Brannoc went down three times".)
+        local downs = {}
+        for _, ev in ipairs(beats) do
+            if ev.lead and ev.kind == "down" and ev.who then
+                local d = downs[ev.who]
+                if d then
+                    d.n = d.n + (ev.n or 1)
+                    d.text = M.word("down_n", { char = d.char, n = M.times(d.n) }, "{char} went down {n}")
+                else
+                    d = { kind = "down", who = ev.who, char = ev.char, n = ev.n or 1, text = ev.text, lead = true, beat = true, id = ev.id }
+                    downs[ev.who] = d
+                    table.insert(lead, d)
+                end
+            else
+                table.insert(ev.lead and lead or rest, ev)
+            end
+        end
+        -- (A death first, then a wipe, the ones they lost, friendly fire, and who went down.)
+        local ORDER = { death = 1, wipe = 2, lost = 3, friendly = 4, down = 5 }
+        local at = {}
+        for i, ev in ipairs(lead) do
+            at[ev] = i
+        end
+        table.sort(lead, function(a, b)
+            local oa, ob = ORDER[a.kind] or 9, ORDER[b.kind] or 9
+            if oa ~= ob then
+                return oa < ob
+            end
+            return at[a] < at[b]
+        end)
+    end
+    return lead, rest
+end
+
+-- What last session cost them, as clauses (the night's opening recap leads with it).
+function M.losses(c, session)
+    local lead = M.lead_beats(M.beats(c, session))
+    local out = {}
+    for _, ev in ipairs(lead) do
+        table.insert(out, ev.text)
+    end
+    return out
+end
+
+-- Told as sentences: each clause joined to the one before with "so" or "but" when it follows from it.
+function M.tell_beats(beats, max)
     local out, cur, joined, prev, last_word = {}, nil, 0, nil, nil
     local used, words = {}, {}
     local function flush()
