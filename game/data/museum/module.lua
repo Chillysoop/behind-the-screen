@@ -456,7 +456,8 @@ M.beats = {
     mus_dice_painting = { false, false },
     mus_knight_frame = { "they took a closer look at the knight", "they gave the knight a wide berth" },
     mus_return_paint = { "they put the painted weapons back", "they kept the painted weapons until they dripped away" },
-    mus_telpur_bit = { "{char} did Telpur's voice, all of it", false },
+    -- (The voice is the DM's, not a hero's: round three heard "Pip did Telpur's voice" after "[dm] The voice is terrible.")
+    mus_telpur_bit = { "Telpur got his full voice, and the table cried laughing", false },
     mus_tracks = { "they followed the scratch marks, weapons out", "they went round and made the hunters come to them" },
     mus_mirror = { "{char} took one of the mirror-bright cupboard doors", "they left the exhibits alone" },
     mus_office_door = { "they tried the brass key from the pond on the office door",
@@ -699,7 +700,7 @@ M.moments = {
             effects = { { "arch:casual", fun = 4 }, { "arch:storyteller", fun = 3 }, { "arch:tactician", fun = 2 }, { "arch:power_gamer", fun = 1.5 },
                         { "all", reward = 2 } },
             mus = { francs = 1, flag = "boon", inspire = "The museum thanks {char} for the donation.", careful = 1, favor = { who = "flitwidget", n = 1 } } },
-          { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock",
+          { label = "{actor_char} tries the lock.", want = "have a go at the lock", then_moment = "mus_box_lock", best = { "sleight_of_hand" },
             log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",
             effects = { { "actor", spotlight = 6 }, { "arch:instigator", fun = 5 }, { "arch:method_actor", fun = 2 }, { "arch:power_gamer", fun = 3 } } },
       } },
@@ -1176,8 +1177,8 @@ M.marks = {
     garden_burned = { chain = "Euryale smelled the smoke upstairs", breaks = "his garden", party = true, name = "She smelled the smoke", why = "They set her garden on fire",
                       showdown = "She skips the drink and the small talk", talk = -2,
                       thought = "Fire. How crude. I liked that garden." },
-    robbed = { chain = "word reached Euryale that they were thieves, like her", party = true, name = "Thieves, like her", why = "They tried to rob the donation box",
-               showdown = "They can offer her a cut of the box to leave", thought = "They tried the gnome's little money box. Oh, I like them already." },
+    robbed = { chain = "word reached Euryale that they were thieves, like her", party = true, name = "Thieves, like her", why = "They emptied the donation box",
+               showdown = "They can offer her a cut of the box to leave", thought = "They emptied the gnome's little money box. Oh, I like them already." },
     scarabs = { chain = "its scarabs crawled up through the walls to her", breaks = "the Bone Construct", name = "Scarabs in the walls", why = "They smashed the Bone Construct", from = { "chamber" },
                 showdown = "A scarab swarm joins her", foe = "giant_scarab_swarm",
                 thought = "They smashed the old guardian. Its beetles are mine now." },
@@ -1835,13 +1836,13 @@ M.chat = {
 -- the first ones that hold, as phrases for the talk card and their lines. when: as on moments.
 M.memory = {
     mus_flitwidget = {
-        { when = { mark = "robbed" }, text = "they tried to rob his donation box" },
+        { when = { mark = "robbed" }, text = "they robbed his donation box" },
         { when = { flag = "boon" }, text = "they dropped a coin in his donation box" },
         { when = { chose = { "mus_tidy", 1 } }, text = "they put his exhibits back" },
         { when = { chose = { "mus_return_paint", 1 } }, text = "they slid the paint back into his paintings" },
         { when = { mark = "mech" }, text = "they woke his Steam Mech" },
         { when = { flag = "truth" }, text = "they know what's really upstairs" },
-        { when = { done = "street" }, text = "they took his job" },
+        { when = { done = "street" }, text = "they said yes to his job" },
     },
     mus_telpur = {
         { when = { flag = "manual" }, text = "they bought the Mech manual" },

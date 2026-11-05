@@ -169,7 +169,7 @@ local FLAG = {
     tapestry = "someone noticed the tapestry", deaf = "they blocked their ears with wax",
 }
 local MARK = {
-    topiary = "a hedge-beast got away", garden_burned = "they burned the garden", robbed = "they tried to rob the donation box",
+    topiary = "a hedge-beast got away", garden_burned = "they burned the garden", robbed = "they emptied the donation box",
     scarabs = "they smashed the Bone Construct", calmed = "they calmed the Bone Construct", knight = "the Knight of Shades is still about",
     pack = "huntlings ran from the fight", mirror = "they took the polished door", know = "they read up on gorgons",
     bracelet = "Flitwidget gave them a bracelet", mech = "the Steam Mech is on their side", drone = "the Lecturer still drones on",

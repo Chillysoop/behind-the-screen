@@ -4188,6 +4188,18 @@ function M:bond_act(sc, def, doer)
             return
         end
         target = found
+    elseif def.needs_plan then
+        -- (From the log: the last choice the table settled in this room, the friends who wanted it,
+        -- and who acted on it.)
+        local found
+        local ev = events.last(self.campaign, { kind = "moment", party = true, session = self.campaign.week, where = sc and sc.room })
+        if ev and ev.backers and ev.rolled ~= "fail" and util.contains(ev.backers, doer.key) and ev.who ~= doer.key then
+            found = find_present(here, ev.who)
+        end
+        if not found then
+            return
+        end
+        target = found
     elseif def.needs_close then
         local found
         for key in util.sorted_pairs(rec and rec.close or {}) do

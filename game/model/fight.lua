@@ -659,7 +659,15 @@ function M.record(night, f, bb, steps, who)
     end
     local round = bb.round or 0
     f.happened = f.happened or {}
+    -- (A swing that missed and still did a little, a greatsword's Graze, isn't a hit two heroes made
+    -- together: round three heard "pulled off a move together" from a hero who missed both swings.)
+    local missed = {}
     for _, s in ipairs(steps) do
+        if s.kind == "attack" and s.id then
+            missed[s.id] = not s.hit or nil
+        elseif s.kind == "spell" and s.id then
+            missed[s.id] = nil
+        end
         local t = s.id and f.by_ref[s.id]
         -- What a rules question can be about (F14: "that's not how grappling works" when nobody
         -- grappled): a Bless cast, a grapple, a fighter toe to toe with something, a condition worth
@@ -686,7 +694,7 @@ function M.record(night, f, bb, steps, who)
                 rec.close[s.id] = true
             end
             local by = s.src and f.by_ref[s.src]
-            if t.side == "foes" and by and by.pc then
+            if t.side == "foes" and by and by.pc and not missed[s.src] then
                 rec.hits[s.id] = rec.hits[s.id] or {}
                 rec.hits[s.id][s.src] = round
             end

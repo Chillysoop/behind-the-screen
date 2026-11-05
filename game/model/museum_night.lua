@@ -832,10 +832,15 @@ function M.play_moment(night, card, sc)
         -- A lock is picked by whoever's best with one (the playtest, November 3: "lock picking needs a
         -- roll from the lockpicker").
         local chosen = copy.options[copy.party_pick]
-        if chosen and chosen.roll and chosen.roll.best then
+        -- (An option whose roll comes on a follow-up card, the donation box's lock, names its skill
+        -- itself: `best`. Whoever kneels by the case is the one best with picks of those who wanted it,
+        -- and the follow-up keeps them: round three, "Pip cracks her knuckles" then Brannoc had the picks.)
+        local best_skill = chosen and ((chosen.roll and chosen.roll.best and chosen.roll.skill) or (type(chosen.best) == "table" and chosen.best))
+        if best_skill then
             local best, bm
-            for _, p in ipairs(night:at_hand()) do
-                local _, m = night:best_skill(p, chosen.roll.skill)
+            local pool = chosen.roll and night:at_hand() or (#backers > 0 and backers) or night:at_hand()
+            for _, p in ipairs(pool) do
+                local _, m = night:best_skill(p, best_skill)
                 if m and (not bm or m > bm) then
                     best, bm = p, m
                 end
@@ -906,6 +911,14 @@ function M.play_moment(night, card, sc)
                                     flag2 = rolled_ok and out_pre and out_pre.mus and out_pre.mus.flag or nil,
                                     rolled = o.roll and (rolled_ok and "ok" or "fail") or nil,
                                     text = M.beat_clause(night, card, o, chosen_i or 0, rolled_ok), from = gate })
+    -- (Whose plan it was: the friends who wanted what the table settled, for a line that gives one
+    -- of them the credit. Round three: "Brannoc's plan" for a ritual Dev argued against.)
+    if card.party and night.party_backers then
+        mev.backers = {}
+        for _, p in ipairs(night.party_backers) do
+            table.insert(mev.backers, p.key)
+        end
+    end
     events.set_cause(c, mev)
     if sc and mev.beat and not card.look then
         sc.last_moment = mev.id
@@ -958,6 +971,10 @@ function M.play_moment(night, card, sc)
                     fm[k] = v
                 end
                 fm.keep_actor = true
+                -- (The same hero, whatever the spotlight share or a promise would hand on: the card
+                -- that said they knelt by the case is the one whose roll it is.)
+                fm.fixed_actor = true
+                fm.trigger = "museum_fixed"
                 fm.follows_ev = mev.id          -- (it follows on from this one: "therefore")
                 M.play_moment(night, fm, sc)
             end
