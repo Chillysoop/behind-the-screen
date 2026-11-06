@@ -40,6 +40,8 @@ sides: **the game says things it has no record of, or has a record of something 
 | 8 | Presentation of state | Faces and labels that don't follow the moment | C1, C27 |
 | 9 | Promised structure | A card or line promises something the engine doesn't do | C10, C11, C13, C18 |
 | 10 | Templates without facts | Generic lines that imply facts they never check | C3, and most V-items |
+| 11 | Data shape | A table nested in the wrong place, or a field misspelt, and nothing notices | (Nov 6) |
+| 12 | Checks out of step | A check keeps its own idea of a rule, and fails the game for being right (or passes it for being wrong) | (Nov 6) |
 
 Two process causes sit under all ten:
 - **Tests checked what we'd thought of; players found what we hadn't.** Each batch's check proved its own fix. None
@@ -369,6 +371,55 @@ needs held at that moment; and a linter that flags templates containing claim wo
 time, kept, all, everyone, two) with no matching condition.
 
 ---
+
+## 11. Data shape (November 6)
+
+**What went wrong.** The locked door's places (`MODULE.behind_doors`) were written in the middle of the look-around
+table (`MODULE.explore`), so two rooms lost their look-arounds and nothing failed: Lua took the stray lines as more
+fields of the wrong table. A misspelt field or a list one level too deep behaves the same way.
+
+**The rule.** Every table in a module has a declared shape (its fields, their types, which are required), and a module
+that doesn't match fails before any play. Unknown fields are errors, not ignored.
+
+**The check (owed).** A schema validator over the whole module, from the adventure standard
+(`2026-11-06-adventure-import.md`, step 1): every table, every record, every field. It runs first in every gate.
+
+## 12. Checks out of step with the game (November 6)
+
+**What went wrong.** Four times in one round a check failed the game for doing the right thing, because the check kept
+its own copy of a rule: an opportunity attack on the foe's neighbour counted as ignoring the DM's pick; a boss told to
+go after someone, and keeping on at them, counted as ignoring a later tactics call; a missed tablet read that wakes the
+guardian counted as a fight from nowhere; Flitwidget's word for the dead counted as the dead "doing things". And once a
+smoke run couldn't press a button because a gift sat over the report, so a check failed on a screen the player would
+have cleared. The same split exists inside the game: whether an option is "risky" and whether it's "bold" were worked
+out by two functions that disagreed, and a fix to one (the pond's roll) tipped the votes at the next card.
+
+**The rule.** A check reads the game's own judgment where one exists (the same function, not a copy), and when a
+check and the game disagree, the first question is which one is wrong. Inside the game, one question has one function.
+
+**The check.** Each fix to a check names the game function it now reads, and gets a case that the game does right.
+
+## Since November 4 (the knowledge playtest, the secrets build, rounds two to four)
+
+Each finding with its class and the check that holds it. "Owed" means the check isn't built yet.
+
+| Finding | Class | Held by |
+| --- | --- | --- |
+| Names said before the table heard them (Telpur, the archivist, the Witness, the hunters' kind) | 5 | `secrets_check` LINT, `knowledge_check` |
+| "She" and a Gorgon's voice on the stairs before anyone knew who was up there | 5 | `knowledge_check` (pronouns: owed) |
+| A hero in character naming the boss their hero never heard of | 5 | `knowledge_check` MASKED |
+| A friend's idea tested against what the table knows, not what their own hero knows | 5 | `knowledge_check` (per hero) |
+| "Book" (the rulebook) taken for the lecture theatre's books, so a place was described mid-fight | 1 | `shown.NOT_ONE`; `roadmap_words_check` F26 |
+| Places behind a locked door described, walked to and dug into before the door was open | 1, 6 | `secrets_check` EARLY; `MODULE.behind_doors` |
+| The kitchen's doors showing the pack before anyone had seen the kitchen | 1, 4 | `secrets_check` (path places: owed) |
+| The book's own reveals missing (the tablet read, the kitchen doors, the pond's tentacles on the way to the water) | 4 | `secrets_check` REACH, `book_check` |
+| One friend finding nearly every secret | 4 | `secrets_check` REACH (heroes) |
+| A door locked with the key inside, then opened from outside with another key | 10 | `museum_truth` (owed: a line that contradicts the one before) |
+| The bird singing the opposite way to the book | 4 | `book_check` against `fidelity.lua` |
+| The look-arounds lost to a table nested in the wrong place | 11 | owed: the schema validator |
+| A fix that tipped the next vote (the pond's roll made the box a coin 75% of the time) | 12, and R10 | `roadmap_table_check` R10; one function for risky and bold |
+| Checks failing the game for doing the right thing (four cases above) | 12 | each check now reads the game's rule |
+| A gift over the report hiding a button from the smoke run | 12 | `museum_smoke` takes the gift first |
 
 ## The importer's contract (the longer campaign)
 
