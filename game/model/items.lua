@@ -28,7 +28,7 @@ local M = {}
 -- followed from. The inventory owns what each hero carries; the log owns how it got there.
 local starting = false
 local GOT = { found = "came away with", bought = "bought", given = "was given", stolen = "lifted", drop = "came away with" }
-M.GOT = GOT                 -- (for the Dialogue Desk: the log's words for a thing changing hands)
+M.GOT = GOT                 -- (the log's words for a thing changing hands)
 local function log_get(campaign, it, whom, how_got)
     if starting or how_got == "start" or not campaign then
         return

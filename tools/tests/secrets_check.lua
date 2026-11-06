@@ -52,7 +52,20 @@ local npc_ids = {}
 for _, id in ipairs((MODULE.npc_sheet or {}).order or {}) do
     npc_ids[id] = true
 end
+-- (The standard's people and places, for an adventure written in it: M.people, M.places and their spots.)
+for _, p in ipairs(MODULE.people or {}) do
+    if p.tier then npc_ids[p.id] = true end
+end
+local rooms = {}
+for id in pairs(MODULE.rooms or {}) do rooms[id] = true end
+for _, pl in ipairs(MODULE.places or {}) do rooms[pl.id] = true end
 local board_places = {}
+for _, pl in ipairs(MODULE.places or {}) do
+    if pl.spots then
+        board_places[pl.id] = {}
+        for _, sp in ipairs(pl.spots) do board_places[pl.id][sp] = true end
+    end
+end
 for _, b in pairs(lib.boards or {}) do
     if b.room then
         board_places[b.room] = board_places[b.room] or {}
@@ -70,6 +83,10 @@ end
 local fired = {}
 for room in pairs(MODULE.rooms or {}) do
     fired["fight_" .. room] = true
+end
+-- (And the standard's story events: each fires its own id.)
+for _, ev in ipairs(MODULE.events or {}) do
+    fired[ev.id] = true
 end
 local function scan_code(path)
     local f = io.open(path)
@@ -115,7 +132,7 @@ for _, key in ipairs(secrets.list()) do
         end
         if not KINDS[p.kind] then fail("DATA", key .. ": a way out of no known kind: " .. tostring(p.kind)) end
         if type(p.on) == "string" and not npc_ids[p.on] then fail("DATA", key .. ": a way out on someone with no sheet: " .. p.on) end
-        if p.room and not MODULE.rooms[p.room] then fail("DATA", key .. ": a way out in no room: " .. p.room) end
+        if p.room and not rooms[p.room] then fail("DATA", key .. ": a way out in no room: " .. p.room) end
         if p.spot and not (board_places[p.room or ""] or {})[p.spot] then
             fail("DATA", key .. ": a way out at no place on " .. tostring(p.room) .. "'s board: " .. p.spot)
         end
@@ -342,7 +359,8 @@ for _, key in ipairs(secrets.list()) do
     end
     add("REACH", "secrets")
 end
-if digs == 0 then
+-- (RUNS = 0 is the data alone: an adventure the sims don't play yet, the Sheep Chase until step 5.)
+if digs == 0 and RUNS > 0 then
     fail("REACH", "nobody ever dug for anything")
 end
 

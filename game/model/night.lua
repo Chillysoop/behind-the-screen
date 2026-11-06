@@ -4771,7 +4771,7 @@ local REACTED = {
     fail = { "Too slow: it's on them before anyone moves.", "It's faster than it looks. Nobody's ready.",
              "It moves first, and they're still reaching for their weapons." },
 }
-M.READY, M.REACTED = READY, REACTED   -- (for the Dialogue Desk: tools/dialogue/export.lua)
+M.READY, M.REACTED = READY, REACTED
 
 -- Heroic Inspiration, flicked across the table (most nights): three ways.
 M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It lands in front of {name}: one reroll, to spend whenever {char} needs it.",

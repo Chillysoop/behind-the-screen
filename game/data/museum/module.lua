@@ -1960,6 +1960,14 @@ M.told = {
 -- keys as M.told's names.
 M.secrets = require "game.data.museum.secrets"
 
+-- Threads still open when the museum is over, for a later adventure to pick up by its tags (adventure.handoff).
+M.why_here = "why {char_they} came to the museum"
+M.threads = {
+    { id = "mountain_road", name = "A murder up the mountain road", open_at_end = true, tags = { "mountain_road", "murder", "mountains" },
+      who = "mus_flitwidget", text = "Flitwidget has had strange news from the mountains: a death among the clans up the "
+          .. "mountain road, and nobody asking the right questions. He could use guards." },
+}
+
 -- Loose ends: a card that lost its place. when: what the game noticed. Each option re-homes it.
 M.loose_ends = {
     { id = "knight_left", when = { skipped = "paintings" },

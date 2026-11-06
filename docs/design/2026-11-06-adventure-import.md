@@ -19,6 +19,12 @@ It builds on what's already decided and written, and changes none of it:
   secret is a record with its ways out, things are described before they're named, never copy the book);
 - Conner's decision that later adventures use the museum's module format.
 
+**What the museum is** (Conner, November 6): a prototype, built to grow a game system for any adventure he uploads or
+we write together. It may be deleted if the author doesn't give permission, so nothing shared may need it: the Sheep
+Chase plays on its own (a fresh party) or after any adventure, and the hand-off is any adventure to any other. The
+end goal is an adventure creation tool in the game, so DMs can make their own (lore, people, maps and all): the
+standard is the format that tool will write.
+
 **Permission:** as with the museum, a DMs Guild book is for private playtesting. The PDF stays out of the repo; our
 data paraphrases it and points to pages.
 
@@ -274,9 +280,8 @@ the longer-adventure notes, AGENTS.md, the secrets note and Conner's saved notes
    seeded (which rumours are true, where someone hides), and the sims report how often each thread is followed and
    each ending reached. For the Sheep Chase: whether Teddy's rumours about Noke are fair or not, and whether Guz finds
    the party at the inn or on the road.
-8. **The review desks.** The design doc's import ends on the Dialogue Desk (lines beside the book's pages, already
-   built) and a World Desk (people, places, threads and maps beside the pages, not built). For a six-page book the
-   Dialogue Desk is enough; the World Desk waits for the big book.
+8. **The review desks.** Retired (Conner, November 6: "I don't need the dialogue desk anymore"). Lines are read in
+   play and in the fresh-eyes playtest instead; the Dialogue Desk's tools are gone from `tools/dialogue/`.
 9. **Still Conner's, from the design doc's open questions, and not needed for the Sheep Chase:** the hex size, fog of
    war by default or not, whether time moves per session or per day, exact coins or a lighter "how well off", whether
    the four friends stay the core, and theatre-of-mind for small fights. (For the Sheep Chase: exact coins at the inn,
@@ -395,7 +400,7 @@ outside rules. Each of these goes in the calls list for Conner, never fixed sile
 3. The hand-off from the museum.
 4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up.
 5. Its monsters, mechanics and maps, a thin region (the inn's hex, the road, the woods), then its lines and table life,
-   reviewed on the Dialogue Desk.
+   read in play.
 6. Sims (with the variety report), a fresh-eyes playtest against the PDF, fixes, the gate, the engine run, a build.
 
 After it ships, step 4's procedure is written up as a skill, so the next book follows the same steps.

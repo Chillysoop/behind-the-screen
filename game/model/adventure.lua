@@ -21,6 +21,16 @@ M.data = MODULE
 function M.current()
     return CURRENT
 end
+-- Make another adventure the current one (the hand-off, a test, a tool). Whatever was worked out from the last
+-- one is dropped; adventure.enter sets the new one up.
+function M.use(id)
+    assert(adventures.list[id], "no adventure called " .. tostring(id))
+    CURRENT = id
+    MODULE = adventures.part(id, "module")
+    M.data = MODULE
+    M.entered = false
+    vocab = nil
+end
 function M.part(name)
     return adventures.part(CURRENT, name)
 end
@@ -161,7 +171,7 @@ function M.enter(campaign)
         for key, h in pairs(MODULE.heroes) do
             local pd = content.players[key]
             if pd then
-                pd.thread = "why {char_they} came to the museum"
+                pd.thread = MODULE.why_here or "why {char_they} came"
                 pd.gist = h.gist
                 pd.premise = h.gist .. "."
                 pd.intro = h.gist .. "."
@@ -288,8 +298,9 @@ function M.enter(campaign)
             M.add_npc_lines(lib)
         end
         -- The adventure's own goals play their own approaches.
-        local cards = M.part("cards")
-        for id, gp in pairs(cards.goal_play) do
+        -- (Parts an adventure may not have, any of them: the Sheep Chase has no cards yet.)
+        local cards = M.part("cards") or {}
+        for id, gp in pairs(cards.goal_play or {}) do
             content.goal_play[id] = gp
         end
         -- The book's DCs are real DCs (the old cards' were on a d20-only scale).
@@ -300,20 +311,20 @@ function M.enter(campaign)
                 end
             end
         end
-        for _, m in ipairs(MODULE.moments) do
+        for _, m in ipairs(MODULE.moments or {}) do
             true_dc(m)
         end
         for _, k in ipairs({ "drink", "talk", "yield" }) do
-            true_dc(MODULE.showdown[k])
+            if MODULE.showdown and MODULE.showdown[k] then true_dc(MODULE.showdown[k]) end
         end
         -- The first session's introductions: each hero's story is the book's hook for them.
         local intros = require "game.data.intros"
         for key, p in pairs(intros.PLAYERS or {}) do
-            local h = MODULE.hooks[key]
-            if h then
-                p.story = { h[1].intro, h[2].intro }
+            local h = (MODULE.hooks or {})[key]
+            if h and h[1] and h[1].intro then
+                p.story = { h[1].intro, h[2] and h[2].intro }
                 p.grim = { false, false }
-                p.all_in = MODULE.all_in[key] or p.all_in
+                p.all_in = (MODULE.all_in or {})[key] or p.all_in
             end
         end
     end
@@ -342,21 +353,91 @@ function M.watch_flags(campaign)
     local events = require "game.model.events"
     local logged = {}
     for _, ev in ipairs(campaign.events or {}) do
-        if ev.kind == "flag" then
+        -- (An adventure's own flags: one set in an earlier adventure isn't this one's.)
+        if ev.kind == "flag" and (ev.adventure or CURRENT) == CURRENT then
             logged[ev.thing] = true
         end
     end
     for k, v in util.sorted_pairs(flags) do
         if v and not logged[k] then
-            events.add(campaign, { kind = "flag", thing = k, from_save = true, where = false })
+            events.add(campaign, { kind = "flag", thing = k, from_save = true, where = false, adventure = CURRENT })
         end
     end
     setmetatable(flags, { __flags_view = true, __newindex = function(t, k, v)
         rawset(t, k, v)
         if v ~= nil and v ~= false then
-            events.add(campaign, { kind = "flag", thing = k, value = (v ~= true) and v or nil })
+            events.add(campaign, { kind = "flag", thing = k, value = (v ~= true) and v or nil, adventure = CURRENT })
         end
     end })
+end
+
+-- The hand-off (Conner, November 6): any adventure can follow any other, and what happened goes with the party.
+-- The heroes, their levels, what they carry and their scars are the campaign's and stay as they are; the event log
+-- goes on, so every person they met remembers them (people.lua reads it) and a later adventure that brings someone
+-- back uses that person's id. What the table learned is kept as lore ("<adventure>:<secret>"), the finished
+-- adventure's own state as the past, and its threads still open at the end (open_at_end, whose `when` holds) go on
+-- for a later adventure to pick up by id or tag (rumours' and hooks' `thread` condition). If the next adventure
+-- starts higher, the levels it needs are due (campaign.level_due), played at its start.
+function M.open_thread(campaign, id)
+    for _, t in ipairs(campaign.threads or {}) do
+        if t.id == id or util.index_of(t.tags or {}, id) then
+            return t
+        end
+    end
+end
+
+function M.handoff(campaign, to, opts)
+    opts = opts or {}
+    assert(adventures.list[to], "no adventure called " .. tostring(to))
+    local events = require "game.model.events"
+    local from, old = campaign.module or CURRENT, MODULE
+    local adv = campaign.adv or {}
+    -- How it ended: the ending it recorded, or the first whose condition holds.
+    local ending = adv.ending
+    if not ending then
+        for id, e in util.sorted_pairs(old.endings or {}) do
+            if e.when and M.test(campaign, e.when) then
+                ending = id
+                break
+            end
+        end
+    end
+    local open = {}
+    for _, t in ipairs(campaign.threads or {}) do
+        table.insert(open, t)
+    end
+    for _, t in ipairs(old.threads or {}) do
+        if t.open_at_end and M.test(campaign, t.when) and not M.open_thread(campaign, t.id) then
+            table.insert(open, { id = t.id, from = from, name = t.name, tags = t.tags, text = t.text, who = t.who })
+        end
+    end
+    local flags = {}
+    for k, v in pairs(adv.flags or {}) do
+        flags[k] = v
+    end
+    setmetatable(adv.flags or {}, nil)
+    adv.flags = flags
+    campaign.past = campaign.past or {}
+    campaign.past[from] = { title = old.title, ended = ending, week = campaign.week, adv = adv,
+                            last_event = #(campaign.events or {}) }
+    campaign.lore = campaign.lore or {}
+    for key, k in pairs(adv.known or {}) do
+        campaign.lore[from .. ":" .. key] = type(k) == "table" and (k.level or "known") or k
+    end
+    events.add(campaign, { kind = "adventure_end", thing = from, value = ending, where = false })
+    M.use(to)
+    campaign.module = to
+    campaign.threads = open
+    campaign.adv = M.new_state()
+    M.watch_flags(campaign)
+    local first = MODULE.levels and MODULE.levels[1]
+    if first and (campaign.level or 1) < first then
+        campaign.level_due = first
+    end
+    local h = MODULE.handoff or {}
+    events.add(campaign, { kind = "adventure_start", thing = to, from_adventure = from, value = h.time_skip, where = false })
+    M.enter(campaign)
+    return campaign.past[from]
 end
 
 -- Death in the museum: the wake, the way back and the new heroes belong to this story.
@@ -573,6 +654,17 @@ function M.test(campaign, cond, knobs, hero)
         return false
     end
     if cond.knob and not (knobs and knobs[cond.knob]) then
+        return false
+    end
+    -- What came before (adventure.handoff): past = an adventure this party played; thread = a thread still open from
+    -- one (its id or a tag); knew = "<adventure>:<secret>", something the table learned there.
+    if cond.past and not (campaign.past and campaign.past[cond.past]) then
+        return false
+    end
+    if cond.thread and not M.open_thread(campaign, cond.thread) then
+        return false
+    end
+    if cond.knew and not (campaign.lore and campaign.lore[cond.knew]) then
         return false
     end
     if cond.flag and not st.flags[cond.flag] then

@@ -182,7 +182,7 @@ its sheet.
 
 **The check (book check).** For every room: the opening read mentions nothing outside `enter_known`; every trigger in
 the sheet is reachable and nothing wakes without one; starting positions match; every item's mechanics match. The
-sheet itself is reviewed once against the book (Conner, with his PDF, on the Dialogue Desk or a World Desk).
+sheet itself is reviewed once against the book (Conner, with his PDF).
 
 **Built (November 5, c-fix).** The sheet is `game/data/museum/fidelity.lua`: per room, what the players `sees`,
 the `secrets` with the `words` that give each away and what `reveal`s it (`shows`: the words of the line that is the

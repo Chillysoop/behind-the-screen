@@ -7,12 +7,12 @@
 --   fidelity    the book's facts with pages, for book_check and the knowledge scan
 --   people      people who remember, their lines, the friends' ideas
 --   table_life  the small moments at the table
---   follows     the adventures it can follow (the hand-off between them)
+--   follows     the adventures it can follow (`any = true`: any, or none; adventure.handoff carries the party over)
 -- Pure Lua.
 
 local M = {}
 
-M.order = { "museum" }
+M.order = { "museum", "sheep" }
 M.default = "museum"
 
 M.list = {
@@ -25,6 +25,13 @@ M.list = {
         people = function() return require "game.data.museum.people" end,
         table_life = function() return require "game.data.museum.table_life" end,
         follows = {},
+    },
+    sheep = {
+        id = "sheep",
+        title = "The Wild Sheep Chase",
+        module = function() return require "game.data.sheep.module" end,
+        fidelity = function() return require "game.data.sheep.fidelity" end,
+        follows = { any = true },
     },
 }
 

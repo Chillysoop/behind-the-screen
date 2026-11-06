@@ -65,7 +65,7 @@ end
 
 -- What's said when something changes hands at the table (round three, batch B: "Thessaly came away with
 -- the Lecturer's notes" in every report, and no line ever gave them to her). Each three ways, fresh
--- across weeks; on the Dialogue Desk (tools/dialogue/export.lua CODE_TABLES, when.lua).
+-- across weeks.
 M.WORLD_LINES = {
     -- The Lecturer's notes, picked up by whoever's best with a page (the room's end, the Lecturer silenced).
     pages = { "{char} gathers every page up off the floor.",
@@ -2606,7 +2606,7 @@ local LEAN_WHY = {
     power_gamer = { "That's the best payoff.", "Best reward, easy.", "More loot that way." },
     method_actor = { "It's what {char} would do.", "{char} wouldn't have it any other way.", "{char} is already halfway there." },
 }
-M.LEAN_WHY = LEAN_WHY      -- (for the Dialogue Desk: tools/dialogue/export.lua)
+M.LEAN_WHY = LEAN_WHY
 M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 
 -- An option that's a risk to them: a roll, a fight, a risk, or a moment that follows.
@@ -5263,7 +5263,7 @@ local BREAK_END = {
     "Dev drums the table. \"Right. Museum. Go.\"",
     "Everyone finds their dice again. One of Sam's has rolled under the sofa.",
 }
-M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END   -- (for the Dialogue Desk)
+M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END
 -- The break on a night a hero died (able.somber): no pizza-place phone call, nobody "comes back warm".
 -- start: the call; nothing: what the heroes did, when it's just a break; back: back at the table.
 M.BREAK_SAD = {

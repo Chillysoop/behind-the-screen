@@ -8,6 +8,10 @@ museum (M), *The Wild Sheep Chase* at the Bogden Road inn (S), *Banners of Honou
 
 ## The principles it keeps
 
+- **Any adventure, and one a DM writes.** The museum was the prototype (Conner, November 6) and may be deleted; the
+  Sheep Chase is the first book after it, and the end goal is an adventure creation tool in the game. So every record
+  here is plain data a DM could fill in by hand, shared code never names one adventure's rooms or people, and what
+  only one adventure needs is its rule module. Nothing shared may need the museum.
 - **A world, not a script.** People, places, threads, items and rumours, and scenes are what happens when the friends
   meet them. Rooms in order are just one shape a world can take.
 - **One record of what happened.** Every action writes to the event log (`game/model/events.lua`), and every line,
@@ -174,7 +178,7 @@ From the importer's contract (`2026-11-05-root-causes.md`), for any adventure in
 ## What step 1 builds from this
 
 1. The module slot: `game/data/adventures.lua`, the museum registered in it, and everything that reads the adventure
-   asking the current one. **Built** (the Dialogue Desk's export still names the museum's files: owed).
+   asking the current one. **Built.**
 2. The schema validator (root-causes class 11): every table above with its fields and types, unknown fields an error,
    run first in every gate, on the museum first. **Built** (`schema_check`, `game/data/adventure_schema.lua`).
 3. One shape for conditional text (`adventure.say`, `adventure.text`), with the museum's nine older shapes read

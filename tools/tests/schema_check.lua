@@ -37,6 +37,21 @@ local function check(MODULE, schema)
             fail("M." .. k .. ": not in the schema (a new table goes in game/data/adventure_schema.lua with the standard)")
         elseif s.kind == "value" then
             if type(v) ~= s.type then fail("M." .. k .. ": a " .. type(v) .. ", the schema says " .. s.type) end
+        elseif s.kind == "record" then
+            -- (One record, not a table of them: the hand-off, the money, the levels.)
+            if type(v) ~= "table" then
+                fail("M." .. k .. ": not a table")
+            else
+                for fk, fv in pairs(v) do
+                    local name = type(fk) == "number" and "[]" or fk
+                    local spec = s.fields and s.fields[name]
+                    if not spec then
+                        fail("M." .. k .. "." .. tostring(fk) .. ": a field the schema doesn't have")
+                    elseif not allowed(spec, fv) then
+                        fail("M." .. k .. "." .. tostring(fk) .. ": a " .. type(fv) .. ", not what the schema allows")
+                    end
+                end
+            end
         elseif s.kind ~= "open" then
             if type(v) ~= "table" then
                 fail("M." .. k .. ": not a table")
@@ -49,7 +64,9 @@ local function check(MODULE, schema)
                     else
                         for fk, fv in pairs(r) do
                             local name = type(fk) == "number" and "[]" or fk
-                            local spec = s.fields and s.fields[name]
+                            -- (values: a record keyed by the adventure's own ids, a place's or a room's, each a value
+                            -- of that type: content tags by place.)
+                            local spec = s.values or (s.fields and s.fields[name])
                             if not spec then
                                 fail("M." .. k .. "[" .. tostring(rk) .. "]." .. tostring(fk) .. ": a field the schema doesn't have")
                             elseif not allowed(spec, fv) then
@@ -71,7 +88,8 @@ local fails = check(MODULE, SCHEMA)
 -- Self-test: the November 6 slip (look-around entries written inside the locked doors' table) has to fail.
 local copy = {}
 for k, v in pairs(MODULE) do copy[k] = v end
-copy.behind_doors = { offices = MODULE.behind_doors.offices, tomorrow = { "cases", "console", finds = {} } }
+-- (Written for any adventure: a locked-doors entry holding a look-around's spots and finds.)
+copy.behind_doors = { somewhere = { "cases", "console", finds = {} } }
 local caught = #check(copy, SCHEMA) > 0
 if not caught then
     table.insert(fails, "self-test: a look-around written inside the locked doors' table wasn't caught")

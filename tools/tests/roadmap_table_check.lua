@@ -842,17 +842,6 @@ case("D6", function()
             end
         end
     end
-    -- The Dialogue Desk still exports.
-    local out = os.tmpname()
-    local fh = io.popen("lua tools/dialogue/export.lua " .. out .. " 2>&1")
-    local said = fh:read("*a")
-    fh:close()
-    os.remove(out)
-    if not string.find(said, "dialogue export:", 1, true) then
-        fail("D6", "the Dialogue Desk export didn't run: " .. string.sub(said, 1, 200))
-    else
-        add("D6", "dialogue_desk_exports")
-    end
 end)
 
 -- EB: Exhibit B on the table, and R5's board: one smoke run with DUMP_DIR -------------------------------

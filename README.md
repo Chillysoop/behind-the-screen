@@ -166,8 +166,7 @@ Used up is gone (a potion drunk, the fire arrows loosed); a thing works only whe
 table, and their sheet lists it under CARRYING. The gift shop's prices are at the top of the module (`PRICE`).
 
 **Said three ways.** Anything the table hears every week or every fight comes three or more ways, fresh across
-weeks and never twice running (`night:fresh`); the lines kept in the code are listed for the Dialogue Desk with the
-rest (`CODE_TABLES` in `tools/dialogue/export.lua`).
+weeks and never twice running (`night:fresh`).
 
 ## Secrets, and what the table knows (November 6)
 
@@ -243,7 +242,7 @@ miss means someone saw it, and they remember. What's taken goes in Pip's pack.
 over is said out loud: the friend who gave way last time holds out for theirs ("I went along last time. This one's
 mine."), the table notices its habit ("We played it safe last time"), the week each friend has had weighs in, and
 at Euryale's ultimatum what they brought against her counts for the fight ("What did I bring a cupboard door up
-here for, then?"). The memory is `campaign.adv.votes`; the words are `museum_night.VOTE_WHY`, on the Dialogue Desk.
+here for, then?"). The memory is `campaign.adv.votes`; the words are `museum_night.VOTE_WHY`.
 
 **A gentle first night.** On the adventure's first night (`night.gentle`) you get the story's own calls, the break
 and the wrap, one big roll to rule on, one thought and at most one rules question; the fight's calls, finds behind
@@ -465,9 +464,7 @@ things to avoid, checks what comes back and adds it as drafts. It needs an `ANTH
 `--dry-run DIR` writes the requests to files and `--import FILE` adds answers you got elsewhere.
 
 **Coverage.** `lua tools/dialogue/coverage.lua` prints the gate and writes `tools/dialogue/coverage.html`, a grid of
-every cell: green when it has 3 approved lines, amber while it waits on review, red when it needs more lines. The
-adventure's own lines go to the dialogue review page with `lua tools/dialogue/export.lua out.json`
-(`tools/dialogue/README.md`).
+every cell: green when it has 3 approved lines, amber while it waits on review, red when it needs more lines.
 
 ## Reading the table (M2)
 
