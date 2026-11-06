@@ -417,7 +417,7 @@ Each finding with its class and the check that holds it. "Owed" means the check 
 | A door locked with the key inside, then opened from outside with another key | 10 | `museum_truth` (owed: a line that contradicts the one before) |
 | The bird singing the opposite way to the book | 4 | `book_check` against `fidelity.lua` |
 | The look-arounds lost to a table nested in the wrong place | 11 | owed: the schema validator |
-| A fix that tipped the next vote (the pond's roll made the box a coin 75% of the time) | 12, and R10 | `roadmap_table_check` R10; one function for risky and bold |
+| A fix that tipped the next vote (the pond's roll made the box a coin 75% of the time) | 12, and R10 | `roadmap_table_check` R10; `risky_option` now defers to an option's `lean` (one function for both: owed) |
 | Checks failing the game for doing the right thing (four cases above) | 12 | each check now reads the game's rule |
 | A gift over the report hiding a button from the smoke run | 12 | `museum_smoke` takes the gift first |
 
