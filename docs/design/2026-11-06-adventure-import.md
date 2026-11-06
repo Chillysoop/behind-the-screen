@@ -216,6 +216,12 @@ unless a new hero brings it.
 
 ## Conner's calls
 
+**Answered November 6:** a time skip (a week or two later, an afternoon off at the inn); Flitwidget's mountain-road
+hint kept as an open thread for later, with rumours of Noke at the inn; the travellers as colour only; the pipeline
+first, then the Sheep Chase through it.
+
+The calls as they were asked:
+
 1. **The stitch.** Straight after Flitwidget's thanks (they step out of the caravan onto the Bogden road at dusk, and
    the next afternoon is the inn), or a time skip (a week or two later, an afternoon off at the inn)?
 2. **The museum's last hook.** Keep Flitwidget's mountain-road hint as a thread for later, or swap it for a rumour
