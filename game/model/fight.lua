@@ -2042,6 +2042,13 @@ function M.run(night, sc, plan)
                     -- however far, not whoever's nearest. F12: "Everyone on Brannoc", and the boss
                     -- went elsewhere.)
                     f.focus_on = marked
+                    -- (The latest call wins: a pick from an earlier boss turn the boss was keeping to gives way.
+                    -- Seed 531, round four's gate: "Everyone on Brannoc", and Euryale kept on at Pip.)
+                    for _, x in ipairs(bb.creatures) do
+                        if x.side == "foes" then
+                            x.dm_keep = nil
+                        end
+                    end
                     if marked then
                         bb:add_effect(marked, { name = "Targeted", conds = {}, tag = true })
                     elseif o.battle == "spread" then

@@ -1991,7 +1991,9 @@ function M:hero_action(sc, dc, spots)
         -- it's been told.)
         local adv = util.lazy("game.model.adventure")
         for i, a in ipairs(gp.approaches) do
-            if not sc.goal_used[i] and self:action_suits(sc, a) and (not a.when or adv.test(self.campaign, a.when))
+            -- (What the one trying it knows, their hero's: "Gorgons come in threes" from a hero who's never
+            -- heard the word. The knowledge check, round four.)
+            if not sc.goal_used[i] and self:action_suits(sc, a) and (not a.when or adv.test(self.campaign, a.when, nil, p.key))
                 and #self:without_fallen({ a.say .. " " .. a.win .. " " .. a.lose }) > 0 then
                 table.insert(gopts, { i = i, a = a, goal = true })
             end
