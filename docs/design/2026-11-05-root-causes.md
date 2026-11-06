@@ -422,6 +422,8 @@ Each finding with its class and the check that holds it. "Owed" means the check 
 | The kitchen's doors showing the pack before anyone had seen the kitchen | 1, 4 | `secrets_check` (path places: owed) |
 | The book's own reveals missing (the tablet read, the kitchen doors, the pond's tentacles on the way to the water) | 4 | `secrets_check` REACH, `book_check` |
 | One friend finding nearly every secret | 4 | `secrets_check` REACH (heroes) |
+| The DM narrating a hero's moves and saying what heroes and friends feel or want (Conner's playtest, November 6) | 2 | `agency.lua` in `night:emit`; `agency_check` CASES and PLAY |
+| Speech coming from the tiles, and the tiles out of seat order (Conner's playtest, November 6) | 7 | `agency_check` SEATS; `conner_nov4b_check` L; `overlap_check` |
 | A door locked with the key inside, then opened from outside with another key | 10 | `museum_truth` (owed: a line that contradicts the one before) |
 | The bird singing the opposite way to the book | 4 | `book_check` against `fidelity.lua` |
 | The look-arounds lost to a table nested in the wrong place | 11 | owed: the schema validator |

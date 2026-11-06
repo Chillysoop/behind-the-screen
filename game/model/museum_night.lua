@@ -5602,10 +5602,14 @@ function M.lair_questions(night, sc)
                     local own = mod or -99
                     for _, o in ipairs(night:at_hand()) do
                         local on, om = night:best_skill(o, { q.read.skill or "insight" })
-                        -- (The one who asked watches her face unless someone's clearly better at it: two or more.)
-                        if (om or -99) > (mod or -99) and (om or -99) >= own + 2 then
+                        if (om or -99) > (mod or -99) then
                             watcher, name, mod = o, on, om
                         end
+                    end
+                    -- (The one who asked watches her face themselves when they're nearly as good: one behind, half the
+                    -- time. The secrets check: her sisters came out to one hero only, whichever way it was settled.)
+                    if watcher ~= p and (mod or -99) - own <= 1 and night.rng:chance(0.5) then
+                        watcher, name, mod = p, night:best_skill(p, { q.read.skill or "insight" })
                     end
                     if watcher ~= p then
                         night:say(util.fill(M.LAIR_WATCH[night.rng:int(1, #M.LAIR_WATCH)], { char = watcher.char }), "narration")
