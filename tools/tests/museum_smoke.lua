@@ -272,6 +272,23 @@ local function buttons()
     end
     return out
 end
+-- What a click by key can reach: as the game's own kit, a card or a thought that lets the top bar through (`pass`)
+-- keeps Pause, the speeds, Story and the rest working under it (game/ui/kit.lua's topmost_buttons).
+local function keyed_buttons()
+    local out = buttons()
+    for i = #kit.layers, 1, -1 do
+        local l = kit.layers[i]
+        if l.modal then
+            for k = i - 1, 1, -1 do
+                for _, b in ipairs(l.pass and kit.layers[k].buttons or {}) do
+                    if b.enabled and b.key and l.pass[b.key] then table.insert(out, b) end
+                end
+            end
+            break
+        end
+    end
+    return out
+end
 
 -- A tip panel swallows clicks: a point on the panel (not on its buttons) must hit nothing.
 local function check_tip_absorbs(where)
@@ -343,7 +360,7 @@ local function click_key(k)
     if self.app.talk and finish_talk and string.sub(k, 1, 5) ~= "talk_" then
         finish_talk()
     end
-    for _, b in ipairs(buttons()) do
+    for _, b in ipairs(keyed_buttons()) do
         if b.key == k then
             -- The Story log panel sits over the table column: close it if it's in the way.
             local x, y = center(b)
