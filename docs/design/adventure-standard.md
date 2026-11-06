@@ -83,13 +83,15 @@ a scene's way on is its exits to a later scene, else the next one listed. The ad
 | `snag`, `prize` | A complication and a reward card | plays |
 | `board` | Its board's id (default `<adventure>_<place>`: `game/data/maps/sheep_*.map`) | plays |
 | `digs` | How many times the friends can dig for a secret there (default one) | plays |
+| `clears` | What wears off once the party leaves: `flags` cleared, and the `line` the DM says (the Sheep Chase's scroll, after the woods path) | plays |
 
 Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in that order: `title`, `text`, `actor`
 (the kinds of player who lead it), `party` (the table settles it), `options` (game night's choice record: `label`,
 `want`, `short`, `lean`, `roll`, `log`, `mus`, `tells`, `effects`), `only_if`, `tells` (what it tells, whichever way it
 goes), `risks` (whose risk it is, when not theirs). An event that fires on a fight is said as that place's fight
 starts (`on_fight`); its `sets` are set then. An event with no options is said and played on. A creature's
-`flees_below` (a share of its Hit Points) and `flee_line` make it run (the rules engine, any adventure). The
+`flees_below` (a share of its Hit Points) and `flee_line` make it run (the rules engine, any adventure); with
+`escapes` it gets away instead of dropping when a blow would finish it. The
 adventure's own `slide` (the night's first slide), `story_start` (the prep board before anything's happened),
 `currency` (money of its own, like the museum's Francs) and `read_up` (what the break's research covers) are its words
 on shared screens; without them the screens say something neutral.
@@ -133,7 +135,7 @@ on shared screens; without them the screens say something neutral.
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `clocks` | Counts in rounds, hours, days, months or real table minutes; a chance per interval; a DM cue; what fires | N, W, T, B | data |
+| `clocks` | Counts in rounds, hours, days, months or real table minutes; a chance per interval; a DM cue; what fires; `sets` (a flag, then the endings are checked) and `when` (only while it holds) | N, W, T, B | plays (days and sessions: `adventure.run_clocks`, the prep board lists them); data (the rest) |
 
 ### What the table knows
 
@@ -145,6 +147,7 @@ on shared screens; without them the screens say something neutral.
 | `rumours` | A claim, `truth` (true, false, half), who knows it, where; `only_if` (a thread carried in) | S, B | data |
 | `handouts` | An in-world document, by when it's handed over | N, B | owed |
 | `glossary` | The adventure's own words, explained on hover | all | plays |
+| `lore_tips` | Something true the DM can tell when a friend pokes about: `room`, `hints` (a secret: a tip given counts as its hint), `when`, `moot` (no use once it holds), `text`, `page` (`game/model/lore_tips.lua`) | all | plays |
 
 ### Things
 
@@ -163,7 +166,9 @@ on shared screens; without them the screens say something neutral.
 
 Minigames and campaign systems as named modules beside the core rules: the museum's monster rules, a contest (the
 joust), a drinking game, a base to build and run month by month. A module declares what state it keeps and what it
-writes to the log. (M plays; B, N, T owed.)
+writes to the log. (M plays; B, N, T owed.) A creature names its own turn with `rules_turn`; the compile gives its
+stat block `rules = <adventure>`, and `game/rules/ai.lua` hands the turn to that adventure's module first
+(`game/rules/sheep.lua`: the bed dragon's Splinter Breath, Noke's Thunderwave).
 
 ### The table's own words
 
@@ -171,6 +176,16 @@ The friends' and the table's lines for this adventure, all with conditions: `tab
 `chat_banter`, `chat_intro`, `chat_news`, `talk`, `npc_lines`, `memory`, `recap`, `recap_beats`, `beats`, `openings`,
 `want_more`, `keepsakes`, `friction`, `pocketables`, `ruling_costs`, `asides`, `thoughts`, `answer_like`. All play
 today.
+
+### The DM's bag and lore tips (every adventure)
+
+Conner, November 6. When a friend pokes at something in a small moment (`table_life`'s curios), the DM can make it
+worth a look: as it lands, something real, one of the adventure's `lore_tips` for that place, or a thing tucked there
+from the DM's bag. The bag (`game/data/dm_bag.lua`, `game/model/dm_bag.lua`) is the campaign's, not the adventure's:
+thirty things from bits and bobs to legendary armour, each given once. Some are in it from the start; the rest are in
+four books read in order, an hour of prep each, between sessions. Prep can also put a thing from the bag in someone's
+pockets on their sheet, and it comes back to the bag if it's taken off them. At most two rewards a night, and the
+card doesn't count as one of the night's decisions. The notes have a "Your bag" tab and a "Lore tips" tab.
 
 ## The museum, mapped onto it
 
@@ -240,6 +255,9 @@ campaign, to)` does it for any two:
   mountains picks up the museum's `mountain_road`). The DM tying any open thread to any hook by hand is owed with the
   creation tool.
 - Conditions on what came before: `past = <adventure>`, `thread = <id or tag>`, `knew = "<adventure>:<secret>"`.
+- **At the table:** when an adventure ends and the registry has a next one (`adventure.next_up`), the journey screen
+  has "Carry on into ...": the hand-off, levels caught up (`progression.catch_up`), then the next adventure's hooks
+  page and its first session.
 
 Owed: a person's memory record (`people_memory`) is the adventure's, so a returning person needs it in the new one
 too; money that's only good in one adventure (the museum's Francs) turning into something at the seam.

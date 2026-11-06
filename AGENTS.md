@@ -251,6 +251,9 @@ least:
     ADVENTURE=sheep lua tools/tests/agency_check.lua 1   # players announce, the DM answers, in the Sheep Chase too
     lua tools/tests/agency_check.lua 2    # players announce, the DM answers: no hero's move or feeling said for them, seats in order
     lua tools/tests/handoff_check.lua     # adventures tied together: the party, the log, lore, the past and open threads carry over; a fresh start has none
+    CARRY=1 lua tools/tests/museum_smoke.lua 1   # the museum, then "Carry on" into the Sheep Chase through the real UI
+    lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
+                                          # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,
                                           # each found in whole prologues, nothing known early (about 4 minutes)
     lua tools/tests/overlap_check.lua 8   # nothing covers readable text, measured on every screen and every step
@@ -284,3 +287,5 @@ plays on its own board drawn from the book's maps (`tools/maps/`). The museum's 
 minis (`tools/gen_sprites_museum.py`). What's open: the "just the adventure" mode, and the full campaign that
 follows the prologue.
 The tie-and-lock editor is in (`game/model/ties.lua`); the museum sim (`tools/sim/museum.lua`) plays without locks.
+The Wild Sheep Chase plays too (`game/data/sheep/`, its own rules in `game/rules/sheep.lua`), on its own or carried on
+into from the museum's journey screen. Both have the DM's bag, its books and lore tips (`docs/design/adventure-standard.md`).
