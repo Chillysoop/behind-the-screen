@@ -65,6 +65,35 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 | `curios`, `explore` | What's there to poke at and what a friend says about it | M | plays |
 | `pages` | The book's pages for it | all | plays |
 
+### Scenes: how a place plays at the table
+
+A place the party plays through on game night has a `scene` (step 5, November 6). `game/model/standard.lua` compiles
+the adventure as written into game night's form on load (`standard.compile`): each place with a scene becomes a room
+with its cards (`<adventure>_<place>_place`, `_cast`, `_goal`, `_snag`, `_prize`), in the order the places are listed;
+a scene's way on is its exits to a later scene, else the next one listed. The adventure as written is never changed.
+
+| Field | Holds | Status |
+| --- | --- | --- |
+| `type`, `sum`, `setting` | `social`, `combat`, `exploration`, `puzzle` or `downtime`; one line for the prep board; indoor, outdoor, wild | plays |
+| `goal` | `name`, `line`, `win`, `lose`, `got`, and `win_if` / `lose_if` in the one conditional shape | plays |
+| `cast` | The person met there (an id in `people`), or none | plays |
+| `foes`, `boss_name`, `foes_name`, `foes_short`, `foes_line` | Creature ids from `creatures` (the first is the boss), and what the table calls them | plays |
+| `optional_fight`, `quick`, `stop`, `rest` | A fight only if it comes to it; a short scene; a place the night can end; a place to sleep | plays |
+| `seen`, `wake`, `wakes` | A foe that looks like part of the room (`seen = false`), its line as it gets up, and the board piece it was (`wakes = { feature, at = { creature = { x, y } } }`) | plays |
+| `snag`, `prize` | A complication and a reward card | plays |
+| `board` | Its board's id (default `<adventure>_<place>`: `game/data/maps/sheep_*.map`) | plays |
+| `digs` | How many times the friends can dig for a secret there (default one) | plays |
+
+Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in that order: `title`, `text`, `actor`
+(the kinds of player who lead it), `party` (the table settles it), `options` (game night's choice record: `label`,
+`want`, `short`, `lean`, `roll`, `log`, `mus`, `tells`, `effects`), `only_if`, `tells` (what it tells, whichever way it
+goes), `risks` (whose risk it is, when not theirs). An event that fires on a fight is said as that place's fight
+starts (`on_fight`); its `sets` are set then. An event with no options is said and played on. A creature's
+`flees_below` (a share of its Hit Points) and `flee_line` make it run (the rules engine, any adventure). The
+adventure's own `slide` (the night's first slide), `story_start` (the prep board before anything's happened),
+`currency` (money of its own, like the museum's Francs) and `read_up` (what the break's research covers) are its words
+on shared screens; without them the screens say something neutral.
+
 ### People
 
 | Field | Holds | Books | Status |
@@ -214,6 +243,17 @@ campaign, to)` does it for any two:
 
 Owed: a person's memory record (`people_memory`) is the adventure's, so a returning person needs it in the new one
 too; money that's only good in one adventure (the museum's Francs) turning into something at the seam.
+
+## Step 5: the Sheep Chase plays
+
+Done November 6: the standard compiles to game night's form (above), and game night, the week and the ties editor
+read the current adventure (`MODULE` is a live view of `adventure.data`), so anything the museum alone needed is
+guarded or is the museum's data now (its currency, its villain's card, its Francs). The title screen picks which
+adventure a new game plays, and a save records its adventure (`A=` in the header) and switches to it before it loads.
+The Sheep Chase's six scenes play on their own boards, drawn after the inn sheet's first floor and Noke's Tower map
+(the book's two pages side by side). Its checks: `ADVENTURE=sheep` with the sims, the UI smoke (the museum's own
+rooms and people skipped), the agency check and the schema; the secrets check with whole nights still finds the lure
+too rarely.
 
 ## Before the museum can go
 

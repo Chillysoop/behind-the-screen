@@ -86,6 +86,7 @@ return {
     reinforcements = { kind = "map", fields = { id = "string", label = "string", line = "string", n = "number", soft = "string", tag = "string" } },
     requests = { kind = "list", fields = { about = "string", after = "string", answers = "table", ask = "string", ask_if = "table", id = "string", needs_flag = "string", only_if = "boolean", who = "string" } },
     revisit_why = { kind = "open" },
+    level_when = { kind = "open" },
     read_up = { kind = "open" },
     rooms = { kind = "map", fields = { at = "table", boss = "boolean", boss_name = "string", callbacks = "table", comps = "table", cost = "number", encounter = "table", epilogue = "boolean", knobs = "table", level = "number", locks = "boolean", map = "string", name = "string", next = "table", optional_fight = "boolean", part = "number", quick = "boolean", read = "string", read_if = "table", rest = "boolean", statues = "boolean", stop = "boolean", sum = "string", type = "string", virtual = "boolean", wake = "table" } },
     ruling_costs = { kind = "map", fields = { ["[]"] = "string" } },

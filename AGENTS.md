@@ -29,6 +29,7 @@ Where v2 lives:
 | Path | What it holds |
 | --- | --- |
 | `game/data/adventures.lua` | The adventures the game can run, and where each one's parts live (module, cards, fidelity, people, table life). `game/model/adventure.lua` runs the current one (`adventure.current()`, `adventure.part(name)`); a check runs against another with `ADVENTURE=<id>`. The standard every adventure follows is `docs/design/adventure-standard.md`, and the shape of its data is `game/data/adventure_schema.lua` (first written from the museum by `tools/import/schema_from.lua`; a new field goes in on purpose, with the standard). |
+| `game/model/standard.lua`, `game/data/sheep/` | The standard compiled to game night's form (step 5, November 6): an adventure written in the standard (places with a `scene`, events with `when_in` and options, creatures) becomes rooms, cards (`<adventure>_<place>_place` and the rest, added to the content by `content.add_cards` when the adventure is used), moments, stat blocks in the rules' roster and its people's pronouns. `MODULE` in game night, the week, the ties and their screens is a live view of the current adventure. The Sheep Chase is the first: its scenes play on `game/data/maps/sheep_*.map`, after the inn sheet and Noke's Tower map. The title screen's "New game plays:" picks the adventure; a save's `A=` header says whose it is and `save.load` switches to it first. |
 | `adventure.handoff`, `adventure.use` (`game/model/adventure.lua`) | Any adventure follows any other (Conner, November 6): the heroes, what they carry and the log go on; the finished one is `campaign.past[id]`, what the table learned `campaign.lore`, its open threads `campaign.threads` (picked up by `thread = id or tag`). See the standard's "Adventures tied together". |
 | `game/data/museum/module.lua` | The adventure: rooms, the doors between them (`links`), what a second look can still find, knobs, room moments, Euryale's marks, requests, loose ends, favors, the showdown, endings. Also the gift shop's prices (`PRICE`, at the top: each option's label, price and what it takes come from there), the paintings the hall can hang for each hero and what reaching into each one risks, as the book has it (`portraits`, `portrait_default` for anyone else), who comes as more of them in each room when you call reinforcements (`reinforcements`: none listed, none offered), and what the week between left them with, said at the night's first fight (`asides`). Every line in our own words. |
 | `game/data/museum/cards.lua` | Its places, people, goals, snags and prizes as ordinary cards, plus how the heroes play each goal. |
@@ -242,7 +243,12 @@ least:
                                           # the same process plays as if it were the first
     lua tools/tests/schema_check.lua      # the adventure's data has the shape the schema says: no table in the wrong place, no unknown field (first)
     python3 tools/import/copy_check.py museum --book OUT   # our words, not the book's: no run of 8 words from the reader's own PDF (read first with tools/import/ingest.py BOOK.pdf OUT, outside the repo)
-    ADVENTURE=sheep lua tools/tests/schema_check.lua; ADVENTURE=sheep lua tools/tests/secrets_check.lua 0   # the Sheep Chase's data (0 runs: the data alone, until the sims play it)
+    ADVENTURE=sheep lua tools/tests/schema_check.lua; ADVENTURE=sheep lua tools/tests/secrets_check.lua 0   # the Sheep Chase's data
+    for st in careful random careless; do for s in 1 2 3 4; do ADVENTURE=sheep lua tools/sim/museum.lua $s $st || break; done; done
+                                          # the Sheep Chase headless, to one of its endings
+    for s in 1 2 3; do ADVENTURE=sheep lua tools/tests/museum_smoke.lua $s || break; done
+                                          # the Sheep Chase through the real UI (the museum's own rooms and people skipped)
+    ADVENTURE=sheep lua tools/tests/agency_check.lua 1   # players announce, the DM answers, in the Sheep Chase too
     lua tools/tests/agency_check.lua 2    # players announce, the DM answers: no hero's move or feeling said for them, seats in order
     lua tools/tests/handoff_check.lua     # adventures tied together: the party, the log, lore, the past and open threads carry over; a fresh start has none
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

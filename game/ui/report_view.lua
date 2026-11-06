@@ -603,10 +603,10 @@ function M.build(app)
             and "Everyone picks a subclass." or "Everyone gets stronger."), "ui14", lv.overdue and theme.orange or theme.dim,
             { pivot = gui.PIVOT_N })
         ey = ey + 70
-    elseif app.campaign.level < 4 then
-        -- (The book's milestones, not a count of nights.)
-        kit.text(412, ey, "Level " .. util.int(lv.level) .. ". The book's next level comes "
-            .. (lv.level < 3 and "after the gift shop." or "when the museum is done."), "ui14", theme.faint, { w = 348 })
+    elseif (require("game.model.adventure").data.level_when or {})[lv.level] then
+        -- (The book's milestones, not a count of nights: the adventure's own words for when the next level comes.)
+        local when = require("game.model.adventure").data.level_when[lv.level]
+        kit.text(412, ey, "Level " .. util.int(lv.level) .. ". The book's next level comes " .. when, "ui14", theme.faint, { w = 348 })
         ey = ey + 40
     end
     local earned = {}

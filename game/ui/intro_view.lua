@@ -123,7 +123,9 @@ function M.build(app)
     elseif any and app.confirm_new then
         foot = "Click again to start over. Your saves stay in Load; the autosave is replaced once the new Session Zero is done."
     elseif any then
-        foot = "Continue picks up your newest save. Load has the autosave and your own three slots."
+        local sm = saved and saved.adventure and adventures.part(saved.adventure, "module")
+        foot = "Continue picks up your newest save" .. (sm and sm.title and (", in " .. sm.title) or "")
+            .. ". Load has the autosave and your own three slots."
     else
         -- (The developer keys aren't the player's business: October 20.)
         foot = "The game saves on its own as you play, and you can save to one of three slots from prep or the report."

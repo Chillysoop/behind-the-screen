@@ -93,6 +93,11 @@ function M.draw(app)
         elseif f then
             kit.text(tx, ry + 12, M.when_label(f.head), "ui18", theme.text, { w = tw, lines = 1 })
             local bits = {}
+            -- (Whose adventure it is: the save's A= header, the museum's before there was one.)
+            local am = require("game.data.adventures").part(f.head.adventure or "museum", "module")
+            if am and am.title then
+                table.insert(bits, am.title .. ".")
+            end
             if f.head.where and f.head.where ~= "" then
                 table.insert(bits, f.head.where)
             end
