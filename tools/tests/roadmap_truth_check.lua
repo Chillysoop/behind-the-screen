@@ -988,8 +988,14 @@ table.insert(after_pick, function(R, N, ev, o)
         elseif ev.card.id == "boss_turn" then
             local b = night.battle and night.battle.active
             N.dm_ran = { round = night.battle and night.battle.round, who = b and b.mini }
+            -- (A boss told to go for someone keeps on at them after, fight.lua's dm_keep: the latest call
+            -- for that boss, until the next tactics call.)
+            local named = string.match(o.label or "", "^Go for ") or string.match(o.label or "", "^Go after ")
+                or string.match(o.label or "", "^Stand over ")
+            N.boss_kept = named and b and b.mini or N.boss_kept
         elseif ev.card.id == "tactics" then
             local who = string.match(o.label or "", "^Everyone on (%a+)%.") or string.match(o.label or "", "^Go for (%a+) in the back")
+            N.boss_kept = nil
             N.focus = who and char_key(c, who)
             if N.focus then
                 add("F12", "focus_calls")
@@ -1018,7 +1024,7 @@ table.insert(watchers, function(R, N, ev)
         local fb = focus and night.pcs and night.pcs[focus]
         -- (A turn the DM ran themselves, the boss's turn card, goes where they said on it: fight.lua.)
         local ran = N.dm_ran and night.battle and N.dm_ran.round == night.battle.round and N.dm_ran.who == ev.who
-        if focus and fb and not fb.down and not fb.dead and ev.side == "foes" and not ran then
+        if focus and fb and not fb.down and not fb.dead and ev.side == "foes" and not ran and ev.who ~= N.boss_kept then
             for _, st in ipairs(ev.steps or {}) do
                 if st.kind == "attack" and st.id == ev.who and N.minis and N.minis[st.target] then
                     -- (Blocked, a melee foe hits the one in its way: it can't shove past everyone.
