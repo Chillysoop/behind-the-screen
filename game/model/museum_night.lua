@@ -5599,9 +5599,11 @@ function M.lair_questions(night, sc)
                     -- (Whoever reads people best is the one watching her face, not always whoever asked: the
                     -- secrets check, her sisters only ever came out to the one friend who asks.)
                     local watcher, name, mod = p, night:best_skill(p, { q.read.skill or "insight" })
+                    local own = mod or -99
                     for _, o in ipairs(night:at_hand()) do
                         local on, om = night:best_skill(o, { q.read.skill or "insight" })
-                        if (om or -99) > (mod or -99) then
+                        -- (The one who asked watches her face unless someone's clearly better at it: two or more.)
+                        if (om or -99) > (mod or -99) and (om or -99) >= own + 2 then
                             watcher, name, mod = o, on, om
                         end
                     end

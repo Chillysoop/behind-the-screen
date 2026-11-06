@@ -1135,7 +1135,7 @@ M.moments = {
             log = "\"Grab the notebook. Touch nothing else.\" Fair.",
             effects = { { "arch:butt_kicker", fun = 2 }, { "arch:storyteller", fun = -2 } } },
       } },
-    { id = "mus_whispers", room = "offices", spot = "7B", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "storyteller", "explorer", "casual" },
+    { id = "mus_whispers", room = "offices", spot = "7B", at = "mid", when = { knob = "witness" }, type = "screen", actor = { "casual", "explorer", "storyteller" },
       title = "Whispers",
       text = "{actor_char} bends over the archivist's body. A faint voice starts whispering, to {actor_them} alone.",
       options = {
