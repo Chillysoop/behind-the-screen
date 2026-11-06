@@ -98,7 +98,8 @@ return {
     slide = { kind = "value", type = "string" },
     start = { kind = "value", type = "string" },
     story_start = { kind = "value", type = "string" },
-    table_life = { kind = "map", fields = { chamber = "table", entrance = "table", flitwidget = "table", garden = "table", gift_shop = "table", hunting = "table", lair = "table", lecture = "table", offices = "table", paintings = "table", stairs = "table", street = "table", telpur = "table", tomorrow = "table" } },
+    timeout_ending = { kind = "value", type = "string" },
+    table_life = { kind = "open" },      -- (keyed by the adventure's own rooms and people: game/model/table_life.lua)
     talk = { kind = "map", fields = { again = "table", ask = "table", done = "table", done_ask = "table", done_ask_sad = "table", done_sad = "table", open = "table" } },
     thoughts = { kind = "open" },
     title = { kind = "value", type = "string" },

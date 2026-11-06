@@ -934,6 +934,8 @@ if app.screen ~= "prep" then problem("the hooks didn't go on to prep (" .. tostr
 
 local nights, boss_seen, marks_seen = 0, false, 0
 local thoughts_seen, thoughts_opened, thoughts_answered, reads_seen = 0, 0, 0, {}
+local PASS = 1
+local function play_weeks()
 for week = 1, WEEKS do
     if app.screen ~= "prep" then break end
     local c = app.campaign
@@ -967,7 +969,7 @@ for week = 1, WEEKS do
     dump("4_prep_w" .. week)
     scan("the prep board" .. where)
     -- A save of your own, from the prep board (November 3).
-    if week == 1 then
+    if week == 1 and PASS == 1 then
         if not click_key("save_game") then problem("no Save button on the prep board" .. where) end
         if not app.saves_ui then problem("the Save window didn't open" .. where) end
         dump_once("4s_save_w1")
@@ -1001,7 +1003,7 @@ for week = 1, WEEKS do
         end
     end
     -- The map repository (v2): browse, set a room's map, open a side room, make a map and paint on it.
-    if week == 1 then
+    if week == 1 and PASS == 1 then
         -- Its X (November 3): nothing changed closes straight away; a change asks first, and
         -- "Delete my changes" puts the room's map back.
         do
@@ -1310,7 +1312,7 @@ for week = 1, WEEKS do
         end
     end
     -- A save from the report, and overwriting one asks first.
-    if week == 1 then
+    if week == 1 and PASS == 1 then
         if not click_key("save_game") then problem("no Save button on the report" .. where) end
         if not click_key("save_slot2") then problem("no save slot on the report" .. where) end
         click_key("save_slot1")
@@ -1330,9 +1332,37 @@ for week = 1, WEEKS do
     if not leave_report(where) then break end
     if app.screen == "slice_end" then break end
 end
+end
+play_weeks()
 
 if app.screen ~= "slice_end" then
     problem("the prologue never reached the journey recap (" .. tostring(app.screen) .. ", " .. nights .. " nights)")
+elseif os.getenv("CARRY") then
+    -- (CARRY=1: the party carries on into the next adventure from the journey's button, and plays it to its end.)
+    dump("7_journey")
+    local first = adventure.current()
+    if not click_key("carry_on") then problem("no Carry on button on the journey recap") end
+    if adventure.current() == first then problem("carrying on didn't switch the adventure") end
+    if not (app.s0 and app.s0.page == "hooks" and app.s0.carry) then problem("carrying on didn't open the hooks page") end
+    dump("7c_carry_hooks")
+    scan("the carried-on hooks page")
+    for _, k in ipairs(content.players.order) do
+        local hooks = adventure.data.hooks[k]
+        if not click_key("hook_" .. k .. "_" .. hooks[1].id) then problem("no hook buttons for " .. k .. " after carrying on") end
+    end
+    if not click_key("hooks_start") then problem("no start button on the carried-on hooks page") end
+    if app.screen ~= "prep" then problem("carrying on didn't go on to prep (" .. tostring(app.screen) .. ")") end
+    local c = app.campaign
+    if not (c.past and c.past[first]) then problem("the first adventure isn't kept as the past") end
+    if (c.level or 1) < ((adventure.data.levels or {})[1] or 1) then problem("the party isn't at the new adventure's level") end
+    PASS = 2
+    play_weeks()
+    if app.screen ~= "slice_end" then
+        problem("the carried-on adventure never reached its journey recap (" .. tostring(app.screen) .. ")")
+    end
+    print("CARRY\t" .. first .. " -> " .. adventure.current() .. "\tending " .. tostring(app.campaign.adv.ending)
+        .. "\tlevel " .. tostring(app.campaign.level) .. "\tsessions " .. tostring(app.campaign.week))
+    if not click_key("to_survey") then problem("no way on from the second journey recap") end
 else
     dump("7_journey")
     scan("the journey recap")

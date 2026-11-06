@@ -69,7 +69,7 @@ M.hooks = {
     dev = { { id = "rest", name = "An afternoon off", text = "Brannoc came for a drink and a sit-down.", page = 2,
               intro = "I've walked all day. I want a drink and a chair, in that order.",
               payoff = "A drink, a chair, and a fire. For about ten minutes." } },
-    jess = { { id = "rumour", name = "Gossip", text = "The innkeeper has stories about the wizard in the woods, and Pip wants every one.", ours = true,
+    jess = { { id = "rumour", name = "Gossip", text = "The innkeeper has stories about the wizard in the woods, and Pip collects stories.", ours = true,
                intro = "Every innkeeper has stories. I want all of this one's.",
                payoff = "The innkeeper leans on the bar with a story about the wizard in the woods, and he's only getting started." } },
     sam = { { id = "kind", name = "Kindness", text = "Oswin looks after whoever needs it, people or animals.", ours = true,
@@ -203,6 +203,10 @@ M.places = {
                          got = "the wand" } } },
 }
 M.start = "inn_common"
+-- The small moments at the table (game/model/table_life.lua): what to poke at in each scene, who to ask.
+M.table_life = require "game.data.sheep.table_life"
+-- Out of sessions with the job not done: Noke's other guards come for the sheep (Conner's three-day clock).
+M.timeout_ending = "taken"
 -- The prep board's story column before anything's happened.
 M.story_start = "An afternoon off at the Bogden Road Country Inn, where the Bogden road meets the lord's road."
 

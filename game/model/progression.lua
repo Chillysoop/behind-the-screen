@@ -147,10 +147,10 @@ end
 
 -- Level the party up. Returns the moment for the screen:
 -- { level, picks = { pick records }, asi = true at level 4 }.
-function M.level_up(campaign)
+function M.level_up(campaign, force)
     local d = data()
     local s = M.status(campaign)
-    if not s.ready then
+    if not (s.ready or force) then
         return nil
     end
     campaign.level = campaign.level + 1
@@ -200,6 +200,18 @@ function M.level_up(campaign)
     end
     moment.refill = line
     campaign.leveled_now = moment -- the moment the level-up screen shows
+    return moment
+end
+
+-- The levels a new adventure needs, at its start (adventure.handoff's campaign.level_due): one level-up after another,
+-- each the players' own picks. The last one is what the level-up screen shows.
+function M.catch_up(campaign)
+    local to = campaign.level_due
+    campaign.level_due = nil
+    local moment
+    while to and (campaign.level or 1) < to do
+        moment = M.level_up(campaign, true)
+    end
     return moment
 end
 

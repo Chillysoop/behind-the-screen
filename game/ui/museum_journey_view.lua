@@ -21,7 +21,7 @@ function M.build(app, on_next)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, string.upper(MODULE.title), "title30", theme.gold)
     local ending = j.ending and j.ending.name or "Unfinished"
-    kit.text(24, 58, "The prologue, as your table played it: " .. util.int(c.week) .. " sessions. Ending: " .. ending .. ".",
+    kit.text(24, 58, "The adventure, as your table played it: " .. util.int(adventure.week(c)) .. " sessions. Ending: " .. ending .. ".",
         "ui18", theme.text)
     kit.text(24, 82, MODULE.credit, "ui14", theme.faint)
     -- The map, with the route.
@@ -149,7 +149,20 @@ function M.build(app, on_next)
             on_next()
         end
     end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "to_survey" })
-    kit.text(1340, 850, "Then you're done. In the full game, the campaign would come next.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+    -- Carry on (Conner, November 6: two adventures tied together keep the party, what they carry and know, and the
+    -- threads left open). The next adventure that can follow this one, with this party.
+    local nxt = on_next and app.carry_on and adventure.next_up(c)
+    if nxt then
+        local m = require("game.data.adventures").part(nxt, "module") or {}
+        local label = "Carry on into " .. (m.title or nxt) .. "  >"
+        local bw = math.max(300, kit.width(label, "ui22b") + 40)
+        kit.button(1356 - 16 - bw, 836, bw, 48, label, function()
+            app.carry_on(nxt)
+        end, { font = "ui22b", key = "carry_on" })
+        kit.text(1340 - 16 - bw, 850, "Same heroes, what they carry and know.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+    else
+        kit.text(1340, 850, "Then you're done. In the full game, the campaign would come next.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+    end
 end
 
 return M

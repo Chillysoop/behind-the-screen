@@ -473,7 +473,7 @@ local function ask(night, sc, q, last, forced)
     -- Someone who's gone off this hero won't answer them (R11: what they did is in the log, and they
     -- remember it: people.lua). A refusal, in their own words, and in the log.
     local people = require "game.model.people"
-    local pid = "mus_" .. tostring(q.who)
+    local pid = string.find(tostring(q.who), "_", 1, true) and q.who or ("mus_" .. tostring(q.who))
     if name and people.RANK[people.level(night.campaign, pid, p.key)] < 0 then
         local line = people.line(night, pid, "refuse", p)
         if line then
@@ -591,8 +591,18 @@ function M.set_people(night, sc, room)
     night.tl_people = {}
     local cast = sc.comps and sc.comps.cast
     if cast and cast.name and not sc.fight_now then
-        local key = string.gsub(string.gsub(cast.id or "", "^mus_", ""), "_.*$", "")
+        -- (A person card names its person, any adventure: "sh_noke". The museum's cards are keyed by their own ids.)
+        local key = cast.person or string.gsub(string.gsub(cast.id or "", "^mus_", ""), "_.*$", "")
         night.tl_people[key] = cast.name
+    end
+    -- (Whoever else is along in this scene, by the adventure's people: the sheep follows them up the tower.)
+    local adv = require("game.model.adventure").data
+    for _, pid in ipairs(room.present or {}) do
+        for _, p in ipairs(adv.people or {}) do
+            if p.id == pid and not night.tl_people[pid] then
+                night.tl_people[pid] = p.short or p.name
+            end
+        end
     end
     for _, q in ipairs(room.npc_questions or {}) do
         if q.who == "flitwidget" and (sc.room == "street" or sc.room == "gift_shop") then

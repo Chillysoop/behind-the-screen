@@ -433,6 +433,7 @@ function M.handoff(campaign, to, opts)
     campaign.module = to
     campaign.threads = open
     campaign.adv = M.new_state()
+    campaign.adv.week0 = campaign.week or 0      -- (its sessions count from here: M.week)
     M.watch_flags(campaign)
     local first = MODULE.levels and MODULE.levels[1]
     if first and (campaign.level or 1) < first then
@@ -442,6 +443,29 @@ function M.handoff(campaign, to, opts)
     events.add(campaign, { kind = "adventure_start", thing = to, from_adventure = from, value = h.time_skip, where = false })
     M.enter(campaign)
     return campaign.past[from]
+end
+
+-- Which session of this adventure it is: the campaign's sessions since it began (a party carried on from another
+-- adventure counts from the hand-off).
+function M.week(campaign)
+    return (campaign.week or 0) - ((campaign.adv and campaign.adv.week0) or 0)
+end
+
+-- The adventure that can come next for this party: the first in the game's order after this one that follows it
+-- (`follows = { any = true }` or its id), not played already. Nil when there's none.
+function M.next_up(campaign)
+    local order, seen = adventures.order or {}, false
+    for _, id in ipairs(order) do
+        if seen and not (campaign.past and campaign.past[id]) then
+            local f = adventures.list[id] and adventures.list[id].follows
+            if f and (f.any or f[CURRENT]) then
+                return id
+            end
+        end
+        if id == CURRENT then
+            seen = true
+        end
+    end
 end
 
 -- Death in the museum: the wake, the way back and the new heroes belong to this story.

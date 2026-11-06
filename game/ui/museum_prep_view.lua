@@ -391,11 +391,13 @@ end
 
 -- The floors as this adventure has them: the book's plans above when they fit its rooms (the museum),
 -- else MODULE.floors, else one floor per part with each room where its `at` puts it (0..100).
-local floors_cache
+local floors_cache, floors_for
 local function floors()
-    if floors_cache then
+    -- (Worked out once for each adventure: a party carried on into the next one gets its map.)
+    if floors_cache and floors_for == adventure.current() then
         return floors_cache
     end
+    floors_for = adventure.current()
     local fits = true
     for _, fl in ipairs(FLOORS) do
         for _, rm in ipairs(fl.rooms) do

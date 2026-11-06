@@ -43,7 +43,10 @@ function M.start(app)
             score.add(p, "investment", h.lean >= 2 and 3 or 1)
         end
     end
-    c:session_zero(app.s0)
+    -- (A party carried on from another adventure had its Session Zero already: only the reasons are new.)
+    if not app.s0.carry then
+        c:session_zero(app.s0)
+    end
     app.s0 = nil
     app.go("prep")
     return true
@@ -53,9 +56,13 @@ function M.build(app)
     local c = app.campaign
     local h = picks(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
-    kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, "Why did each hero come? Each player leans one way. You pick.", "ui18", theme.dim)
-    kit.text(24, 70, MODULE.title .. ", by " .. MODULE.author .. ". " .. MODULE.pitch, "ui14", theme.faint, { w = 1500 })
+    local carry = app.s0 and app.s0.carry
+    kit.text(24, 14, carry and "WHAT COMES NEXT" or "SESSION ZERO", "title30", theme.gold)
+    kit.text(carry and 330 or 280, 24, carry and "The same heroes, a new adventure. Why does each one go on? Each player leans one way. You pick."
+        or "Why did each hero come? Each player leans one way. You pick.", "ui18", theme.dim)
+    -- (Carried on: what the table already knows of how they got here, the hand-off's words.)
+    local after = carry and MODULE.handoff and MODULE.handoff.say and adventure.say(c, MODULE.handoff.say)
+    kit.text(24, 70, MODULE.title .. ", by " .. MODULE.author .. ". " .. (after or MODULE.pitch), "ui14", theme.faint, { w = 1500 })
     local x0, y0 = 24, 100
     local cw, ch = 770, 352
     for i, key in ipairs(content.players.order) do
@@ -92,12 +99,14 @@ function M.build(app)
             end
         end
     end
-    kit.button(24, 836, 180, 44, "<  The table", function()
-        app.s0.page = nil
-        app.refresh()
-    end, { font = "ui18b", key = "hooks_back" })
+    if not carry then
+        kit.button(24, 836, 180, 44, "<  The table", function()
+            app.s0.page = nil
+            app.refresh()
+        end, { font = "ui18b", key = "hooks_back" })
+    end
     local ready = M.ready(app)
-    kit.button(1356, 830, 220, 50, "Session 1  >", function()
+    kit.button(1356, 830, 220, 50, "Session " .. util.int((c.week or 0) + 1) .. "  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "hooks_start" })
     kit.text(1340, 846, ready and "Next: the first session's prep." or "Pick a reason for every hero.", "ui14", theme.dim,

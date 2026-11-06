@@ -32,6 +32,7 @@ M.list = {
         module = function() return require "game.data.sheep.module" end,
         -- (Its rooms' cards, made from its places by the standard: game/model/standard.lua.)
         cards = function() return { cards = require("game.model.standard").cards(require "game.data.sheep.module") } end,
+        table_life = function() return require "game.data.sheep.table_life" end,
         fidelity = function() return require "game.data.sheep.fidelity" end,
         follows = { any = true },
     },

@@ -603,7 +603,7 @@ function M.write_chat(c)
             end
         end
     end
-    if c.week == 1 then
+    if adventure.week(c) == 1 then
         local intros = MODULE.chat_intro or {}
         local intro = intros[((c.seed or 0) % math.max(1, #intros)) + 1] or {}
         for _, l in ipairs(intro) do
@@ -620,7 +620,7 @@ function M.write_chat(c)
             table.insert(banter, b)
         end
     end
-    if #banter > 0 and c.week > 1 and not sad then
+    if #banter > 0 and adventure.week(c) > 1 and not sad then
         local b = banter[((c.week * 7 + (c.seed or 0)) % #banter) + 1]
         table.insert(msgs, { who = c:player(b[1]).name, key = b[1], text = b[2] })
         -- Who said they'd be late, and why: game night's arrivals say the same (night.behavior_line_ok).
@@ -794,8 +794,13 @@ function M.after_night(c, night, rep)
     local st = c.adv
     local mus = night.mus or {}
     -- Out of sessions with Euryale still upstairs: the book's quiet ending (Flitwidget moves on).
-    if not st.ending and c.week >= MODULE.MAX_WEEKS then
-        st.ending = "timeout"
+    -- (Any adventure: its own ending for running out of sessions, `timeout_ending`; the museum's is "timeout".)
+    local timeout = (MODULE.endings or {}).timeout and "timeout" or MODULE.timeout_ending
+    if not st.ending and timeout and adventure.week(c) >= MODULE.MAX_WEEKS then
+        st.ending = timeout
+        if MODULE.endings[timeout] and MODULE.endings[timeout].when and MODULE.endings[timeout].when.flag then
+            st.flags[MODULE.endings[timeout].when.flag] = true
+        end
     end
     rep.museum = {
         rooms = mus.rooms or {},
@@ -841,7 +846,7 @@ end
 -- Is the prologue over (the scrapbook comes next)?
 function M.done(c)
     local st = c.adv
-    return st and (st.ending ~= nil or c.week >= MODULE.MAX_WEEKS)
+    return st and (st.ending ~= nil or adventure.week(c) >= MODULE.MAX_WEEKS)
 end
 
 return M
