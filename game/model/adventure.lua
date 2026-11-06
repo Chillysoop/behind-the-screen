@@ -450,6 +450,17 @@ function M.test(campaign, cond, knobs, hero)
     if cond.not_told and require("game.model.told").knows(campaign, cond.not_told) then
         return false
     end
+    -- (A hint at least, or nothing yet: game/model/secrets.lua.)
+    if cond.hinted then
+        for _, k in ipairs(type(cond.hinted) == "table" and cond.hinted or { cond.hinted }) do
+            if not require("game.model.secrets").hinted(campaign, k) then
+                return false
+            end
+        end
+    end
+    if cond.not_hinted and require("game.model.secrets").hinted(campaign, cond.not_hinted) then
+        return false
+    end
     if cond.knob and not (knobs and knobs[cond.knob]) then
         return false
     end

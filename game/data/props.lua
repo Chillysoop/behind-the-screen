@@ -167,7 +167,7 @@ return {
     wall_portrait = { fw = 1, fh = 1, blocks = true, cover = false, rough = false, light = 0.0,
         words = { "portrait", "knight", "dark armour", "dark armor" }, say = "a portrait of a knight in dark armour", opaque = true, tall = 11.0, tall_z = { -2.3, -0.1 } },
     tapestry = { fw = 1, fh = 1, blocks = true, cover = false, rough = false, light = 0.0,
-        words = { "tapestry", "tapestries", "hanging", "sisters" }, say = "a tapestry of three snake-haired sisters", opaque = true, tall = 11.0, tall_z = { -2.3, -0.0 } },
+        words = { "tapestry", "tapestries", "hanging", "sisters" }, say = "a tapestry of three sisters with snake-slit eyes", opaque = true, tall = 11.0, tall_z = { -2.3, -0.0 } },
     display_case = { fw = 1, fh = 1, blocks = true, cover = true, rough = false, light = 0.0,
         words = { "case", "cases", "glass", "display", "exhibit", "exhibits" }, say = "glass display cases", one = "glass case", deg = "half", tall = 7.3, tall_z = { -2.0, 2.0 } },
     plinth = { fw = 1, fh = 1, blocks = true, cover = true, rough = false, light = 0.0,

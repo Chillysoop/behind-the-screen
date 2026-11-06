@@ -94,6 +94,7 @@ function M.new(campaign, prep, opts)
     told.use(campaign)
     opts = opts or {}
     local self = setmetatable({}, M)
+    require("game.model.secrets").use(self)
     self.campaign = campaign
     self.rng = campaign.rng
     self.prep = prep
@@ -244,33 +245,6 @@ function M:emit(ev)
     if self.board_id then
         self:board_hear(ev)
     end
-    -- What the table has been told (game/model/told.lua; the knowledge playtest): a line said to the table
-    -- tells what it says, and says each name it hasn't been told yet as the table knows it ("the hooded
-    -- woman" until someone has said Euryale). The friends' own words tell nobody anything.
-    if ev.tells then
-        told.tell(self.campaign, ev.tells)
-    end
-    if self.campaign and ev.text and (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") then
-        local heard = ev.kind ~= "narrate" or (voice_of.heard(ev.style) and ev.style ~= "aside"
-            and not (ev.style == "dm" and voice_of.of(ev.text) == "you"))
-        if heard then
-            if ev.kind ~= "say" then
-                told.hear(self.campaign, ev.text)
-            end
-            local was = ev.text
-            local untold = ev.kind == "say" and told.untold(self.campaign, was) or {}
-            ev.text = told.mask(self.campaign, ev.text)
-            if ev.kind == "say" and #untold > 0 then
-                -- (A friend's line that named what they don't know yet: said as they'd know it, and noted for
-                -- the knowledge check, so the line gets fixed where it's written.)
-                self.masked = self.masked or {}
-                table.insert(self.masked, was .. "  [" .. table.concat(untold, ", ") .. "]")
-            end
-            if ev.kind ~= "say" then
-                told.hear(self.campaign, ev.text)
-            end
-        end
-    end
     -- In character more as they settle in (Conner's playtest, C8): a plain bid for what the party does
     -- ("Let's douse the hedges with pond water.") is said by the hero, more often each night played
     -- and the better the four know each other. Only a line with nothing of the real table in it.
@@ -282,6 +256,47 @@ function M:emit(ev)
         -- plays the same way, and the votes' variety holds: roadmap_table_check's R10.)
         if p and M.side_roll(self, ev.who .. (ev.text or "")) < share then
             ev.ic = true
+        end
+    end
+    -- What the table has been told (game/model/told.lua, game/model/secrets.lua; the knowledge playtest): a
+    -- line said to the table tells what it says to the heroes in the scene, and says each name it hasn't
+    -- been told yet as the table knows it ("the hooded woman" until someone has said Euryale). The friends'
+    -- own words tell nobody anything; a friend speaking in character names only what their hero knows, and
+    -- out of character only what their player has heard.
+    if ev.tells then
+        told.tell(self.campaign, ev.tells)
+    end
+    if self.campaign and ev.text and (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") then
+        local heard = ev.kind ~= "narrate" or (voice_of.heard(ev.style) and ev.style ~= "aside"
+            and not (ev.style == "dm" and voice_of.of(ev.text) == "you"))
+        if heard then
+            if ev.kind ~= "say" then
+                told.hear(self.campaign, ev.text)
+            end
+            local hero = ev.kind == "say" and ev.ic and ev.who or nil
+            local player = ev.kind == "say" and not ev.ic and ev.who or nil
+            local was = ev.text
+            local untold = ev.kind == "say" and told.untold(self.campaign, was, hero, player) or {}
+            ev.text = told.mask(self.campaign, ev.text, hero, player)
+            if ev.kind == "say" and #untold > 0 then
+                -- (A friend's line that named what they don't know yet: said as they'd know it, and noted for
+                -- the knowledge check, so the line gets fixed where it's written.)
+                self.masked = self.masked or {}
+                table.insert(self.masked, was .. "  [" .. table.concat(untold, ", ") .. "]" .. (hero and (" (" .. hero .. ", in character)") or ""))
+            end
+            if ev.kind ~= "say" then
+                told.hear(self.campaign, ev.text)
+            end
+            -- (A speaker's name tag is heard with the line: "Euryale, the Gorgon" is the hooded woman until
+            -- the table's been told. The DM's own view keeps the real name in ev.real_name.)
+            if ev.kind == "npc" and ev.name then
+                local tag = told.mask(self.campaign, ev.name)
+                if tag ~= ev.name then
+                    ev.real_name = ev.real_name or ev.name
+                    local bare = string.match(ev.name, "^(.-),") or ev.name
+                    ev.name = util.capitalize(told.mask(self.campaign, bare))
+                end
+            end
         end
     end
     ev.t = pacing.duration(ev)
@@ -4424,6 +4439,8 @@ function M:split_off(sc)
                 self:walk(p, { pl.x, pl.y }, nil, sc)
             end
             split.at[p.key] = vars.place
+            split.place_id = split.place_id or {}
+            split.place_id[p.key] = pl and pl.id or nil
         end
     end
     -- The cut to each of them, alone: a small roll in the open.
@@ -4437,7 +4454,13 @@ function M:split_off(sc)
             local d = self:side_dice():d20()
             local total = d + mod
             self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception"), what = "split" })
-            if total >= 13 then
+            -- (A secret at that place, found alone: that hero knows it, the others don't until they're told.
+            -- game/model/secrets.lua.)
+            local found = total >= 13 and self:split_find(p, sc, split.place_id and split.place_id[p.key], total)
+            if found then
+                split.found = split.found or {}
+                split.found[p.key] = true
+            elseif total >= 13 then
                 local c = self.campaign
                 c.learned = c.learned or {}
                 c.learned[p.key] = (c.learned[p.key] or 0) + 1
@@ -4480,6 +4503,53 @@ function M:split_regroup(sc)
             self:walk(p, { near[1], near[2] }, nil, sc)
         end
     end
+    -- What they found alone, told to the others now (each hero's knowledge: game/model/secrets.lua).
+    local secrets = require "game.model.secrets"
+    local others = {}
+    for _, q in ipairs(self:at_hand()) do
+        table.insert(others, q.key)
+    end
+    for _, p in ipairs(who) do
+        local keys = secrets.unshared(self.campaign, p.key, others)
+        if #keys > 0 then
+            self:emit({ kind = "say", who = p.key, ic = true, text = util.fill(self:fresh(M.SPLIT_SHARE, "split_share"), { char = p.char }) })
+            secrets.share(self.campaign, p.key, others)
+        end
+    end
+end
+
+-- Sharing what one hero found alone, in their own words.
+M.SPLIT_SHARE = { "Wait till you hear what I found over there.", "Okay, so. Over there. You need to hear this.",
+                  "I found something while you lot were busy. Listen." }
+
+-- Alone by a place on the board, a good roll finds a secret kept there (a `see` or a check that place gives):
+-- told to the table as the cut plays, but only that hero knows it in character until they share it.
+function M:split_find(p, sc, place_id, total)
+    if not place_id then
+        return false
+    end
+    local secrets = require "game.model.secrets"
+    local c = self.campaign
+    for _, key in ipairs(secrets.list()) do
+        if not secrets.knows(c, key, p.key) and not secrets.held(c, key) then
+            for _, path in ipairs(secrets.paths(key, c)) do
+                local here = path.room == sc.room and path.spot == place_id
+                if here and (path.kind == "see" or ((path.kind == "check" or path.kind == "read") and total >= (path.dc or 13)))
+                    and not (path.needs == "hint" and not secrets.hinted(c, key, p.key)) then
+                    local level = path.gives == "part" and "hint" or path.gives or "known"
+                    if (secrets.RANK[level] or 0) > (secrets.RANK[secrets.level(c, key, p.key)] or 0) then
+                        local line = secrets.line(self, key, level, path, { char = p.char })
+                        if line then
+                            self:say(line, "good")
+                        end
+                        secrets.learn(c, key, level, { how = "alone", by = p.key, heroes = { p.key }, path = path })
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
 end
 local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.

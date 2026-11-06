@@ -691,7 +691,7 @@ table.insert(watchers, function(R, N, ev)
     if want and ev.kind == "narrate" then
         want = string.gsub(want, "%s+$", "")
         add("F10", "purchases")
-        if want == "book on gorgon-worshippers" then
+        if want == "scholar's book" or want == "book on gorgon-worshippers" then
             for _, p in ipairs(c.players) do
                 if holds(c, p.key, "gorgon_book") then
                     fail("F10", N.tag .. ": the gorgon book is sold again, and " .. p.char .. " already has it")

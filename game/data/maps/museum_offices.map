@@ -68,7 +68,7 @@ spots:
 -- key   | x,y   | name                     | line | form
 7A       | 10,10 | the oak desk             | A wide polished desk with gold inlay, and under a glass dome a little bird with six wings patterned like eyes. | one fixture
 drawings | 6,10  | the anatomy drawings     | Pictures of a strange bird's insides cover the walls, with notes in a careful hand. | many pictures
-7B       | 10,3  | the archivist            | A withered body at an ancient desk, quill in hand, eyes carved into its skin. A thick notebook lies open. | one person
+7B       | 10,3  | the body at the desk     | A withered body slumped at an ancient desk, a quill still in its hand. A thick notebook lies open in front of it. | one person
 eyes     | 5,3   | the eye on every wall    | Diagrams, strange letters and scraps of paper everywhere, and one glowing eye drawn on almost every surface. | one picture
 door     | 10,6  | the locked door          | Locked from the inside. A hard shove might break it. | one fixture
 stairs   | 6,7   | the stairs up            | Stairs climb between the studies toward the floor above. A smell of incense drifts down them. | many areas

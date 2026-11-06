@@ -501,4 +501,446 @@ function M.room(night, sc, phase)
     return n
 end
 
+-- Finding things out (Conner's calls of November 5: the friends dig by their kind of player, their hero and
+-- the clues they've gathered, and they're curious by default) -------------------------------------------
+-- Each friend in the scene looks at the secrets that could come out here (game/model/secrets.lua: a person
+-- here who holds one, a place in this room, a thing someone carries) and the ways their hero could dig
+-- (game/data/find_out.lua): talk them round, lean on them, sing for them, read the tablet, cast a spell. A
+-- way that's one of the secret's paths uses its DC and gives what it gives; one that isn't is improvised,
+-- and the DM makes up the reveal on the card. What matters comes to the DM as a card while the night has
+-- a call to spare; the rest is a small die in the open, and the DM's answer.
+
+M.FIND_PER_ROOM = 1
+M.FIND_PER_NIGHT = { lots = 4, some = 3, quiet = 2 }
+M.FIND_AT = 3.0           -- how strong the want to dig has to be
+M.CURIOUS = 1.7           -- everyone's a little curious (Conner: "by default friends should generally be curious")
+
+local function ways()
+    return require "game.data.find_out"
+end
+
+-- The person, place or thing a path is on, if it's here: { kind = "person" | "place" | "item", name, npc }.
+local function holder_here(night, sc, path, d, people_list)
+    local c = night.campaign
+    if type(path.on) == "string" then
+        for _, n in ipairs(people_list) do
+            if n.id == path.on then
+                return { kind = "person", name = n.short or n.name, npc = n }
+            end
+        end
+        return nil
+    end
+    if path.item then
+        local items_mod = require "game.model.items"
+        local it, hk = items_mod.holding(c, path.item, true)
+        if it then
+            for _, q in ipairs(here(night)) do
+                if q.key == hk then
+                    local def = items_mod.thing(path.item) or items_mod.def(path.item)
+                    return { kind = "item", name = util.lower_first((def and def.name) or "it"), holder = hk }
+                end
+            end
+        end
+        return nil
+    end
+    local room = path.room or d.room
+    if room and room == sc.room then
+        local name
+        if path.spot then
+            for _, pl in ipairs((night.board_places and night:board_places(sc)) or {}) do
+                if pl.id == path.spot then
+                    name = pl.name
+                end
+            end
+        end
+        return { kind = "place", name = name and util.lower_first(name) or "the room", spot = path.spot }
+    end
+    return nil
+end
+
+-- What kind of way fits: a person's ways for a person, a document's for reading, the secret's own kind else.
+local function way_kind(holder, path, d)
+    if holder.kind == "person" then
+        return "person"
+    end
+    if path.kind == "read" then
+        return "document"
+    end
+    if d.type == "creature" then
+        return "creature"
+    end
+    if holder.kind == "item" then
+        return "item"
+    end
+    return d.type or "place"
+end
+
+local function has_spell(night, p, spell)
+    local pc = night.pcs and night.pcs[p.key]
+    if not pc then
+        return false
+    end
+    for _, list in ipairs({ pc.prepared or {}, pc.cantrips or {}, pc.rituals or {} }) do
+        for _, sp in ipairs(list) do
+            if sp == spell then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function overlap(a, b)
+    local out = {}
+    for _, x in ipairs(a or {}) do
+        for _, y in ipairs(b or {}) do
+            if x == y then
+                table.insert(out, x)
+            end
+        end
+    end
+    return out
+end
+
+-- Can this hero dig this way at this path? Returns the skills to roll (or {}), or nil if not.
+local function can_dig(night, p, way, path, holder)
+    local c = night.campaign
+    if way.kind ~= path.kind then
+        return nil
+    end
+    if way.spell and not has_spell(night, p, way.spell) then
+        return nil
+    end
+    if path.kind == "spell" then
+        local ok = false
+        for _, sp in ipairs(path.spell or {}) do
+            if sp == way.spell then
+                ok = true
+            end
+        end
+        if not ok then
+            return nil
+        end
+        return {}
+    end
+    if path.kind == "trade" and (c.adv.francs or 0) < (path.francs or way.francs or 1) then
+        return nil
+    end
+    if (path.kind == "ask" or path.opinion) and holder.npc then
+        local lv = people.level(c, holder.npc.id, p.key)
+        if (people.RANK[lv] or 0) < (people.RANK[path.opinion or "warm"] or 0) then
+            return nil
+        end
+    end
+    if path.skill then
+        local sk = overlap(way.skill, path.skill)
+        if #sk == 0 then
+            return nil
+        end
+        return sk
+    end
+    -- (Reading a thing that just says it, the Mech's manual: no roll.)
+    if path.kind == "read" then
+        return {}
+    end
+    return way.skill or {}
+end
+
+-- Every way a friend could dig here: { verb = "find", key, path, way, holder, skills, p, w }.
+function M.find_ideas(night, sc)
+    local secrets = require "game.model.secrets"
+    local c = night.campaign
+    local d_ideas = data()
+    local out = {}
+    local list = M.people_here(night, sc)
+    local hints = {}
+    for _, p in ipairs(here(night)) do
+        local n = 0
+        for _, key in ipairs(secrets.list()) do
+            if secrets.hinted(c, key, p.key) and not secrets.knows(c, key, p.key) then
+                n = n + 1
+            end
+        end
+        hints[p.key] = n
+    end
+    local done = (night.ideas and night.ideas.found) or {}
+    for _, key in ipairs(secrets.list()) do
+        local d = secrets.def(key)
+        if not secrets.held(c, key) then
+            for _, path in ipairs(secrets.paths(key, c)) do
+                local holder = path.kind ~= "dm" and path.kind ~= "event" and path.kind ~= "see" and holder_here(night, sc, path, d, list)
+                if holder then
+                    local kind = way_kind(holder, path, d)
+                    for _, way in ipairs(ways().ways[kind] or {}) do
+                        for _, p in ipairs(here(night)) do
+                            local mine = secrets.level(c, key, p.key)
+                            local gives = path.gives == "part" and "hint" or path.gives or "known"
+                            local better = path.gives == "part" and mine ~= "known" or (secrets.RANK[gives] or 0) > (secrets.RANK[mine] or 0)
+                            local needs_ok = path.needs ~= "hint" or secrets.hinted(c, key, p.key, p.key)
+                            local dkey = key .. ":" .. p.key .. ":" .. way.id
+                            local sk = better and needs_ok and not done[dkey] and not (night.watching and night.watching[p.key])
+                                and can_dig(night, p, way, path, holder)
+                            if sk then
+                                local likes = way.likes or {}
+                                local w = M.CURIOUS + (likes[p.primary] or 0) + 0.5 * (likes[p.secondary] or 0)
+                                w = w + ((way.class or {})[p.class] or 0)
+                                if #sk > 0 then
+                                    local _, mod = night:best_skill(p, sk)
+                                    w = w + 0.12 * (mod or 0)
+                                end
+                                -- (A clue in hand pulls them in: a hint of their own, one the table has, a theory
+                                -- building from several.)
+                                if mine == "hint" then
+                                    w = w + 1.4
+                                elseif secrets.hinted(c, key, nil, p.key) then
+                                    w = w + 0.7
+                                end
+                                w = w + 0.25 * math.min(3, hints[p.key] or 0)
+                                -- (Their reason for coming is in this room.)
+                                local h = util.lazy("game.model.adventure").hook(c, p.key)
+                                if h and h.room == sc.room then
+                                    w = w + 0.6
+                                end
+                                w = w + (d.weight or 0)
+                                -- (What they've done tonight appeals less than something new.)
+                                local did = night.ideas and night.ideas.by and night.ideas.by[p.key .. ":find"]
+                                if did then
+                                    w = w - 0.8 * did
+                                end
+                                w = w + night.rng:next() * 0.8
+                                table.insert(out, { verb = "find", key = key, path = path, way = way, holder = holder, skills = sk,
+                                                    p = p, w = w, dkey = dkey, gives = path.gives or "known" })
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.w ~= b.w then
+            return a.w > b.w
+        end
+        return a.dkey < b.dkey
+    end)
+    return out
+end
+
+-- The card the DM rules on: roll the path's check, give it, give a hint, or hold it back tonight.
+local function find_card(night, idea, vars, lines)
+    local secrets = require "game.model.secrets"
+    local skills_mod = require "game.rules.skills"
+    local p, path, way = idea.p, idea.path, idea.way
+    local d = secrets.def(idea.key) or {}
+    local gives = idea.gives == "part" and "hint" or idea.gives
+    local where = idea.holder.name
+    local notes = {}
+    for _, q in ipairs(secrets.paths(idea.key, night.campaign)) do
+        if q.book and q.skill and q.dc then
+            table.insert(notes, skills_mod.name(q.skill[1]) .. " " .. q.dc)
+        end
+    end
+    local improvised = path.improvised or path.default
+    local text = "{actor} wants {actor_char} to " .. util.fill(way.want or "dig", vars) .. ". "
+        .. util.capitalize(where) .. " holds a secret: " .. util.lower_first(d.name or idea.key) .. (d.page and (" (page " .. d.page .. ")") or "") .. ". "
+        .. (improvised and ways().improvised or (#notes > 0 and ("The book's way in: " .. table.concat(notes, ", ") .. ".") or "Your call."))
+    -- (What the whole of it tells, told as the line's said, so the line names what they've just learned.)
+    local tells
+    if gives == "known" then
+        tells = { idea.key }
+        for _, k in ipairs(path.tells or {}) do
+            table.insert(tells, k)
+        end
+    end
+    local options = {}
+    if #(idea.skills or {}) > 0 then
+        local dc = path.dc or way.dc or 13
+        table.insert(options, { label = "Roll for it: " .. skills_mod.name(idea.skills[1]) .. ", DC " .. dc .. (path.book and " (the book's)" or "") .. ".",
+                                sub = gives == "known" and "Make it, and they have it." or "Make it, and they get a hint.",
+                                roll = { dc = dc, true_dc = true, skill = idea.skills, convenient = "success", adv = way.adv,
+                                         success = { log = lines.win, tells = tells }, fail = { log = lines.miss } },
+                                find = gives })
+    end
+    table.insert(options, { label = gives == "known" and "It works. Tell them." or "It works: a hint.", sub = "No roll.",
+                            log = lines.win, find = gives, tells = tells })
+    if gives == "known" and not secrets.hinted(night.campaign, idea.key) and lines.hint then
+        table.insert(options, { label = "A hint, for now.", sub = "Keep the rest for later.", log = lines.hint, find = "hint" })
+    end
+    table.insert(options, { label = "Not tonight.", sub = "It stays hidden this session. No harm done.", log = lines.miss, hold = true })
+    return { id = "idea_find_" .. idea.key, type = "story", trigger = "museum_fixed", fixed_actor = true, keep_actor = true,
+             actor = { "storyteller" }, title = "Digging", text = text, options = options }
+end
+
+-- One friend digs. Returns the friend, or nil.
+function M.find(night, sc, idea)
+    local secrets = require "game.model.secrets"
+    local c = night.campaign
+    local p, path, way, key = idea.p, idea.path, idea.way, idea.key
+    local d = secrets.def(key) or {}
+    night.actor = p
+    local who = idea.holder.name
+    local v = { char = p.char, who = who, thing = who }
+    -- (A hunch they've been building, said first: the clue that set them digging.)
+    if secrets.hinted(c, key, p.key, p.key) and d.theory then
+        night:emit({ kind = "say", who = p.key, ic = false, text = fill(night:fresh(d.theory, "find_theory_" .. key), v) })
+    end
+    -- Their player says it out loud, or their hero does.
+    local use_ic = way.ic and idea.holder.kind == "person" and night.rng:chance(0.5)
+    local bid = use_ic and way.ic or way.say
+    night:emit({ kind = "say", who = p.key, ic = use_ic or false, text = fill(night:fresh(bid, "find_say_" .. way.id), v) })
+    -- What comes out if it works: the path's words, the secret's, or one more piece of it.
+    local gives = idea.gives
+    local part
+    if gives == "part" then
+        local left = secrets.parts_left(c, key)
+        part = #left > 0 and left[night.rng:int(1, #left)] or nil
+        if not part then
+            return nil
+        end
+    end
+    local function line_for(level)
+        if part then
+            return "One line comes clear: \"" .. d.parts[part] .. "\""
+        end
+        return secrets.line(night, key, level, path, v)
+    end
+    local lines = { win = line_for(gives == "part" and "hint" or gives), hint = not part and line_for("hint") or nil,
+                    miss = fill(night:fresh(way.miss, "find_miss_" .. way.id), v) }
+    -- (A Franc for a trade, paid as it's offered.)
+    if path.kind == "trade" then
+        local n = path.francs or way.francs or 1
+        c.adv.francs = (c.adv.francs or 0) - n
+        events.add(c, { kind = "spend", who = p.key, whom = idea.holder.npc and idea.holder.npc.id or nil, n = n, where = sc.room })
+    end
+    night:say(fill(night:fresh(way.go, "find_go_" .. way.id), v), "narration")
+    -- The DM's call while the night has one to spare; otherwise the dice, in the open.
+    local level, ok, carded
+    local matters = d.weight or (gives == "known") or path.improvised or path.default
+    if matters and night:room((c.week or 1) <= 1 and M.FIRST_NIGHT_CAP or M.CALL_CAP) then
+        carded = true
+        local o = night:decision(find_card(night, idea, v, lines))
+        if o and o.hold then
+            secrets.hold(c, key)
+            return p
+        end
+        ok = o and ((o.roll and night.last_roll) or (not o.roll and o.find)) or false
+        level = o and o.find
+    else
+        local dc = path.dc or way.dc or 13
+        local sk = idea.skills or {}
+        if #sk > 0 then
+            local _, total = tiny(night, p, sk[1])
+            ok = total >= dc
+        else
+            ok = true
+        end
+        level = gives
+        if not ok then
+            night:say(lines.miss, "narration")
+        end
+    end
+    if not ok then
+        return p
+    end
+    local opts = { how = path.kind, by = p.key, path = path, private = path.private }
+    if part then
+        secrets.learn_part(c, key, part, opts)
+    else
+        secrets.learn(c, key, level == "part" and "hint" or level, opts)
+    end
+    if secrets.knows(c, key) then
+        for _, k in ipairs(path.tells or {}) do
+            secrets.learn(c, k, "known", opts)
+        end
+        if path.flag then
+            c.adv.flags = c.adv.flags or {}
+            c.adv.flags[path.flag] = true
+        end
+    end
+    -- (By the dice, the DM says it now it's learned, so the line names what they know. The card said its own.)
+    if not carded then
+        night:say(level == "hint" and lines.hint or lines.win, "dm")
+    end
+    local f = ways()
+    night:emit({ kind = "say", who = p.key, ic = false,
+                 text = night:fresh(secrets.knows(c, key, p.key) and f.cheer or f.half, "find_react") })
+    night:react({ [p.key] = "cheer" })
+    score.nudge_engagement(p, 3)
+    return p
+end
+
+-- A room's digging: the strongest want to find something out, if it's strong enough. At the room's start
+-- (phase "enter": before its business, when knowing helps) or in its quiet stretch ("after"). Never in a
+-- fight, at 4x, in the lair or late. Returns how many played.
+function M.find_room(night, sc, phase)
+    if not sc or night.end_early or sc.boss or sc.showdown or sc.epilogue or night.fast then
+        return 0
+    end
+    if (sc.finds or 0) >= M.FIND_PER_ROOM then
+        return 0
+    end
+    if (night.table_min or 0) > (night.table_planned or 210) - 30 then
+        return 0
+    end
+    if require("game.model.able").somber(night) then
+        return 0
+    end
+    local tl = require "game.model.table_life"
+    local lvl = tl.level(night.campaign)
+    night.ideas = night.ideas or { n = 0, done = {} }
+    local ni = night.ideas
+    ni.finds = ni.finds or 0
+    if ni.finds >= (M.FIND_PER_NIGHT[lvl] or 3) then
+        return 0
+    end
+    local list = M.find_ideas(night, sc)
+    local close, weights = {}, {}
+    local best
+    for _, idea in ipairs(list) do
+        if idea.w >= M.FIND_AT then
+            best = best or idea.w
+            if idea.w >= best - M.CLOSE then
+                table.insert(close, idea)
+                table.insert(weights, idea.w - M.FIND_AT + 0.5)
+            end
+        end
+    end
+    local top = #close > 0 and night.rng:weighted(close, weights) or nil
+    if not top then
+        return 0
+    end
+    sc.finds = (sc.finds or 0) + 1
+    ni.finds = ni.finds + 1
+    ni.by = ni.by or {}
+    ni.by[top.p.key .. ":find"] = (ni.by[top.p.key .. ":find"] or 0) + 1
+    ni.found = ni.found or {}
+    ni.found[top.dkey] = true
+    events.add(night.campaign, { kind = "idea", verb = "find", who = top.p.key, where = sc.room, what = top.key,
+                                 whom = top.holder.npc and top.holder.npc.id or nil })
+    local who = M.find(night, sc, top)
+    if who then
+        night.table_min = (night.table_min or 0) + 2
+    end
+    return who and 1 or 0
+end
+
+-- The DM's "Reveal now" and "Drop a hint" from a person's sheet or the prep board (secrets.ask): said at the
+-- night's next beat, in the DM's words, to the heroes in the scene.
+function M.dm_asks(night)
+    local secrets = require "game.model.secrets"
+    local c = night.campaign
+    local n = 0
+    for _, a in ipairs(secrets.take_asks(c)) do
+        if (secrets.RANK[a.level] or 0) > (secrets.RANK[secrets.level(c, a.key)] or 0) then
+            local line = secrets.line(night, a.key, a.level, nil, {})
+            if line then
+                night:say(line, "dm")
+            end
+            secrets.learn(c, a.key, a.level, { how = "dm" })
+            n = n + 1
+        end
+    end
+    return n
+end
+
 return M

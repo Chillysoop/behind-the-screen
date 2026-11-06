@@ -725,7 +725,7 @@ M.portrait_default = { painting = "a white-haired elf in a snowfield, two curved
 -- is how they say it, and the DM only nudges when they ask. roll.best: the best at the skill rolls.
 M.moments = {
     -- The street ---------------------------------------------------------------------------------
-    { id = "mus_truth", room = "street", at = "start", when = { knob = "pry" }, type = "story",
+    { id = "mus_truth", room = "street", at = "start", when = { knob = "pry", not_told = "gorgon" }, type = "story",
       actor = { "instigator", "method_actor", "storyteller" },
       title = "\"Incidents with the exhibits\"",
       -- (Said to the table as the card opens, before you decide: what the heroes heard him say, p6.)
@@ -1634,7 +1634,7 @@ M.items = {
     -- (Things they carry that don't change a fight: what they're for is elsewhere. The book helps its
     -- reader with what they know about gorgons, the pages put a reader to sleep, the notebook is the
     -- Witness's thread, the shoelace talks. F10: one inventory, and the shop's shelf is real.)
-    { id = "gorgon_book", when = { mark = "know" }, name = "the book on gorgon-worshippers", carry = true,
+    { id = "gorgon_book", when = { mark = "know" }, name = "the Tenets of the Rotting Temple", carry = true,
       title = "The Tenets of the Rotting Temple", adv = { "history" }, topic = "gorgons",
       text = "A scholar's book on the people who worship gorgons. Whoever has it has Advantage on History about gorgons, and knows there are three sisters." },
     { id = "notebook", when = { flag = "notebook" }, name = "the archivist's notebook", carry = true, to = "mara",
@@ -1854,11 +1854,11 @@ M.told = {
                 intro = { "called Euryale", "Her name is Euryale", "Euryale, a Gorgon", "A Gorgon. Euryale" },
                 mask = { { "Euryale's door", "the door at the top of the stairs" },
                          { "Euryale", "the hooded woman", told = "gorgon", then_to = "the Gorgon" } } },
-    ritual = { words = { "ritual" } },
+    ritual = { words = { "ritual" } },       -- (a secret too: game/data/museum/secrets.lua, learned a tablet line at a time)
     hood_off = {},          -- (her hood has come off in a fight: the snakes are out. Told by the fight, fight.tell_moments.)
     sisters = { words = { "her sisters" } },
     knight = { always = true, words = { "Knight of Shades" }, mask = { { "Knight of Shades", "black knight" } } },
-    huntlings = { always = true, words = { "huntling", "huntlings", "kruthik" },
+    huntlings = { always = true, words = { "huntling", "huntlings", "kruthik" },      -- (told by the guide: secrets.kruthik)
                   mask = { { "kruthik huntlings", "armoured hunters" }, { "kruthik huntling", "armoured hunter" },
                            { "huntlings", "hunters" }, { "huntling", "hunter" }, { "kruthik", "armoured" } } },
     briars = { always = true, words = { "briar" },
@@ -1867,6 +1867,10 @@ M.told = {
     construct = { always = true, words = { "Bone Construct" }, mask = { { "Bone Construct", "bone guardian" } } },
     sentinel = { always = true, words = { "Sentinel" }, mask = { { "Sentinel", "metal statue" } } },
 }
+
+-- What the DM knows and the table doesn't, and the ways each can come out (game/model/secrets.lua): the same
+-- keys as M.told's names.
+M.secrets = require "game.data.museum.secrets"
 
 -- Loose ends: a card that lost its place. when: what the game noticed. Each option re-homes it.
 M.loose_ends = {

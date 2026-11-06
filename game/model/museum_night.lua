@@ -1584,6 +1584,8 @@ function M.quiet_stretch(night, sc)
         return
     end
     require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
+    require("game.model.ideas").dm_asks(night)
+    require("game.model.ideas").find_room(night, sc, "after")
 end
 
 -- Who takes a magic item the party just got is the players' call (the playtest, November 3:
@@ -2033,6 +2035,10 @@ function M.room_start(night, sc)
         M.thanks_word(night, sc)
     end
     M.drops_social(night, sc)
+    -- (What the DM asked to reveal from a sheet, then a friend digging while knowing still helps: before the
+    -- room's business. game/model/ideas.lua's find, game/model/secrets.lua.)
+    require("game.model.ideas").dm_asks(night)
+    require("game.model.ideas").find_room(night, sc, "enter")
     M.moments(night, sc, "start")
     if sc.showdown then
         M.showdown_start(night, sc)
@@ -5306,6 +5312,8 @@ function M.showdown_start(night, sc)
     if best and night.rng:int(1, 20) + bm >= 13 then
         st.flags.tapestry = true
         night:say(best.char .. " notices a tapestry on the wall: three sisters, all with snake-slit eyes.", "good")
+        -- (The book's clue in plain view, p27: a hint about her sisters, not the whole of it.)
+        require("game.model.secrets").hint(c, "sisters", { how = "see", by = best.key })
     end
     -- What the Lecturer told her on the way up (R11: people.pass_on), in her own words, first thing.
     local heard, entry = people.line(night, "mus_euryale", "heard")

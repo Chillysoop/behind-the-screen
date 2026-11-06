@@ -820,7 +820,7 @@ local PREP_WHAT = "You read the room ahead, set out its map and minis, and pract
 local SUM_W = 230       -- (the summary keeps clear of the Prep button and the "Unprepped" note)
 local function row_parts(c, id, w)
     local r = MODULE.rooms[id]
-    local out = { plain = {}, asks = {}, h = 50 }
+    local out = { plain = {}, asks = {}, secrets = {}, h = 50 }
     if r.virtual then
         return out
     end
@@ -838,8 +838,11 @@ local function row_parts(c, id, w)
     end
     out.sum, out.sides = sum, #sides > 0
     out.sum_lines = math.min(2, #kit.wrap(sum, "ui14", w - SUM_W))
+    -- (The secrets that could come out here, and how: game/model/secrets.lua. Conner's call: the prep board
+    -- shows how each could come out, so you can prep for it.)
+    out.secrets = require("game.model.secrets").in_room(id, c)
     out.h = 54 + (out.sum_lines - 1) * kit.line_height("ui14") + (#out.plain > 0 and 22 or 0) + #out.asks * 22
-        + #(r.knobs or {}) * 30
+        + #(r.knobs or {}) * 30 + (#out.secrets > 0 and 22 or 0)
     return out
 end
 
@@ -911,6 +914,26 @@ local function room_row(app, prep, id, x, y, w)
             gloss.card_spot(x + 14, ny - 2, w - 28, 20, "Prepping " .. util.lower_first(r.name), table.concat(full, " "))
         end
         kit.text(x + 18, ny, table.concat(bits, ".  "), "ui14", theme.faint, { w = w - 36, lines = 1 })
+        ny, ky = ny + 22, ky + 22
+    end
+    -- The secrets here: their names, and on hover where the table stands and every way each could come out.
+    if #parts.secrets > 0 then
+        local secrets = require "game.model.secrets"
+        local names, full = {}, {}
+        for _, key in ipairs(parts.secrets) do
+            local d = secrets.def(key)
+            local stand = secrets.standing(c, key)
+            table.insert(names, util.lower_first(d.name or key))
+            table.insert(full, util.capitalize(d.name or key) .. (d.page and (" (page " .. d.page .. ")") or "") .. ": " .. d.what .. " "
+                .. stand .. " Could come out by: " .. secrets.ways_text(key, c, 4) .. ".")
+        end
+        local line = "Secrets: " .. table.concat(names, ", ") .. "."
+        local gloss = util.lazy("game.ui.gloss")
+        if gloss.card_spot then
+            gloss.card_spot(x + 14, ny - 2, w - 28, 20, "Secrets in " .. util.lower_first(r.name),
+                table.concat(full, "\n\n") .. "\n\nThe friends may find their own way in, too. Their sheets let you reveal, hint or hold back.")
+        end
+        kit.text(x + 18, ny, line, "ui14", theme.gold, { w = w - 36, lines = 1 })
         ny, ky = ny + 22, ky + 22
     end
     -- What a friend asked for at Session Zero, where this room touches it: a line each, in their colour.
