@@ -95,39 +95,60 @@ function M.creature_id(mod, id)
     return (mod.id or "adv") .. "_" .. id
 end
 
+-- A scene card's id: the adventure's, the place's and the kind ("sheep_inn_common_place"), so two adventures' cards
+-- never share one.
+function M.card_id(mod, place_id, kind)
+    return (mod.id or "adv") .. "_" .. place_id .. "_" .. kind
+end
+local card_id = M.card_id
+
+-- (A line said at the table never carries the book's page: "(p2)" is the DM's note.)
+local function aloud(text)
+    if type(text) ~= "string" then
+        return text
+    end
+    return (string.gsub(string.gsub(text, "%s*%(pp?%.? ?%d[%d, %-]*%)", ""), "%s+$", ""))
+end
+
+local cards_made = setmetatable({}, { __mode = "k" })
 function M.cards(mod)
     if mod.rooms and not mod.places then
         return {}
     end
+    if cards_made[mod] then
+        return cards_made[mod]
+    end
     local out = {}
+    cards_made[mod] = out
     for _, pl in ipairs(scenes(mod)) do
         local sc = pl.scene
         local fits = { sc.type or "exploration" }
-        table.insert(out, { id = pl.id .. "_place", kind = "location", short = util.lower_first(pl.name), name = pl.name,
+        table.insert(out, { id = card_id(mod, pl.id, "place"), kind = "location", short = util.lower_first(pl.name), name = pl.name,
                             setting = sc.setting or { "indoor" }, fits = fits, tags = sc.tags or { "explore" },
-                            line = pl.read, again = sc.again })
+                            line = aloud(pl.read), again = aloud(sc.again) })
         if sc.cast then
             local p = person(mod, sc.cast) or {}
-            table.insert(out, { id = pl.id .. "_cast", kind = "cast", short = p.short or p.name or sc.cast, pronoun = p.pronoun,
+            table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = p.short or p.name or sc.cast, pronoun = p.pronoun,
                                 name = p.name or sc.cast, fits = fits, tags = { "talk" }, difficulty = 1,
-                                line = p.look or p.about, person = sc.cast })
+                                line = aloud(p.seen or p.look or p.about), person = sc.cast })
         elseif sc.foes and #sc.foes > 0 then
-            table.insert(out, { id = pl.id .. "_cast", kind = "cast", short = sc.foes_short or "the foes", group = #sc.foes > 1,
+            table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = sc.foes_short or "the foes", group = #sc.foes > 1,
                                 foe = true, talks = sc.talks or false, name = sc.foes_name or "The foes", fits = fits,
                                 tags = { "action", "danger" }, difficulty = 1, seen = sc.seen, wake = sc.wake,
                                 line = sc.foes_line or pl.read })
         end
         local g = sc.goal or {}
-        table.insert(out, { id = pl.id .. "_goal", kind = "goal", name = g.name or ("Get through " .. util.lower_first(pl.name)),
+        local gname = g.name or ("Get through " .. util.lower_first(pl.name))
+        table.insert(out, { id = card_id(mod, pl.id, "goal"), kind = "goal", name = gname, short = g.short or util.lower_first(gname),
                             fits = fits, tags = g.tags or { "action" }, line = g.line or ("Goal: " .. (sc.sum or pl.name) .. "."),
                             win = g.win or "They're through.", win_if = g.win_if, lose = g.lose or "They're through, battered.",
                             lose_if = g.lose_if, got = g.got or "the way on", ask = g.ask })
         if sc.snag then
-            table.insert(out, { id = pl.id .. "_snag", kind = "complication", name = sc.snag.name, skill = sc.snag.skill,
+            table.insert(out, { id = card_id(mod, pl.id, "snag"), kind = "complication", name = sc.snag.name, skill = sc.snag.skill,
                                 fits = fits, tags = { "danger" }, difficulty = 1, line = sc.snag.line, moment = sc.snag.moment })
         end
         if sc.prize then
-            table.insert(out, { id = pl.id .. "_prize", kind = "reward", name = sc.prize.name, fits = fits, tags = { "loot" },
+            table.insert(out, { id = card_id(mod, pl.id, "prize"), kind = "reward", name = sc.prize.name, fits = fits, tags = { "loot" },
                                 meters = { reward = 6 }, line = sc.prize.line, got = sc.prize.got })
         end
     end
@@ -163,6 +184,7 @@ function M.creatures(mod, roster)
             block.source = mod.id
             block.page = cr.page or block.page
             block.flees_below = cr.flees_below or block.flees_below
+            block.flee_line = cr.flee_line or block.flee_line
             block.tactics, block.note, block.mind, block.look = nil, nil, nil, block.look
             block.spellcasting, block.breath = nil, block.breath
             -- (The book's spellcasting isn't played as spells yet: a caster fights with its listed attacks, and the
@@ -175,9 +197,20 @@ function M.creatures(mod, roster)
 end
 
 -- A moment from a story event with options (or a plain event: a line said where it happens).
+-- (An event that fires on a fight, a choice, a count of rounds or a clock isn't a moment: a fight's is said as the
+-- room's fight starts, `on_fight`; the rest are the systems' that own them.)
+local NOT_MOMENTS = { fight = true, choice = true, round = true, clock = true }
 local function moment_of(mod, ev, rooms)
     local at = ev.at or (ev.trigger and ev.trigger.at)
     if not (at and rooms[at]) then
+        return nil
+    end
+    if not ev.when_in and ev.trigger and NOT_MOMENTS[ev.trigger.on] then
+        if ev.trigger.on == "fight" and not ev.trigger.turn then
+            local r = rooms[at]
+            r.on_fight = r.on_fight or {}
+            table.insert(r.on_fight, { id = ev.id, text = ev.text, sets = ev.sets })
+        end
         return nil
     end
     local when = ev.when_in or ((ev.trigger and ev.trigger.on == "arrive") and "start") or "mid"
@@ -197,7 +230,7 @@ local function moment_of(mod, ev, rooms)
         id = ev.id, room = at, at = when, type = ev.type or (#(ev.options or {}) > 0 and "choice" or "story"),
         actor = ev.actor or { "storyteller", "explorer", "casual" }, party = ev.party, title = ev.title or ev.id,
         text = ev.text, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells,
-        mus = ev.sets and { flags = ev.sets } or nil, book = true,
+        mus = ev.sets and { flag = ev.sets[1] } or nil, book = true,
     }
 end
 
@@ -250,10 +283,10 @@ function M.compile(src)
         for _, f in ipairs(sc.foes or {}) do
             table.insert(foes, M.creature_id(mod, f))
         end
-        local comps = { location = pl.id .. "_place", goal = pl.id .. "_goal" }
-        if sc.cast or (sc.foes and #sc.foes > 0) then comps.cast = pl.id .. "_cast" end
-        if sc.snag then comps.complication = pl.id .. "_snag" end
-        if sc.prize then comps.reward = pl.id .. "_prize" end
+        local comps = { location = card_id(mod, pl.id, "place"), goal = card_id(mod, pl.id, "goal") }
+        if sc.cast or (sc.foes and #sc.foes > 0) then comps.cast = card_id(mod, pl.id, "cast") end
+        if sc.snag then comps.complication = card_id(mod, pl.id, "snag") end
+        if sc.prize then comps.reward = card_id(mod, pl.id, "prize") end
         mod.rooms[pl.id] = {
             name = pl.name, part = 1, type = sc.type or "exploration", cost = sc.cost or (sc.quick and 1 or 2),
             quick = sc.quick, at = sc.at_map or { 50, 98 - (i - 1) * 14 }, map = sc.map or pl.name, comps = comps,
@@ -272,6 +305,21 @@ function M.compile(src)
     for id, block in pairs(M.creatures(src, roster)) do
         if not roster[id] then
             roster[id] = block
+        end
+    end
+    -- (Each creature's pronoun, for the lines that name it: its own, or the person whose stats it is. util.pronoun_of.)
+    if not src.foe_pronouns then
+        mod.foe_pronouns = {}
+        for _, p in ipairs(src.people or {}) do
+            local blk = type(p.stats) == "table" and p.stats.block
+            if blk and p.pronoun then
+                mod.foe_pronouns[M.creature_id(mod, blk)] = p.pronoun
+            end
+        end
+        for id, cr in util.sorted_pairs(src.creatures or {}) do
+            if cr.pronoun then
+                mod.foe_pronouns[M.creature_id(mod, id)] = cr.pronoun
+            end
         end
     end
     -- (The night's opening line: the adventure's own, or what the hand-off says, or its pitch.)

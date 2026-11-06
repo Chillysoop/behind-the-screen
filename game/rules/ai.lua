@@ -549,6 +549,16 @@ local function monster_turn(b, c, plain)
         end
         return
     end
+    -- A creature that runs once it's lost enough (any adventure's stat block, `flees_below`: a share of its Hit
+    -- Points). Not on a turn the DM is running. It leaves the fight; `flee_line` is how it goes.
+    local fb = c.data and c.data.flees_below
+    if not plain and fb and not c.dm_target and c.hp > 0 and c.hp <= c.hp_max * fb and #enemies(b, c) > 0 then
+        c.turn.disengaged = true
+        back_off(b, c, 200)
+        b:log(c.data.flee_line or "%s breaks and runs.", c.name)
+        b:remove(c, "morale")
+        return
+    end
     -- The Museum of Nightmares: Euryale, the Lecturer, the Steam Mech and the rest fight their way.
     if not plain and c.data and c.data.museum and museum.turn(b, c, H) then
         return

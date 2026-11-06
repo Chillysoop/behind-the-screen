@@ -73,6 +73,10 @@ M.PRONOUNS = {
            ["they've"] = "it's", ["they'll"] = "it'll", ["they'd"] = "it'd" },
 }
 local pronoun_names
+-- (Built once from the adventure's cards and people; adventure.use starts it again for the next adventure.)
+function M.reset_pronouns()
+    pronoun_names = nil
+end
 function M.pronoun_of(name)
     if not pronoun_names then
         pronoun_names = {}

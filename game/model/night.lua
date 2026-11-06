@@ -3369,8 +3369,10 @@ function M:big_roll(spec, record)
     self:apply(ro.effects)
     -- What the DM's call added: the extra, the cost or the new problem, by name.
     local ruled = ro.lines and self.rng:pick(ro.lines) or ro.log
-    if ro.tone == "good" and self.campaign.adv and not inspired and success then
-        -- The extra that falls their way on a great roll is a Flitwidget Franc (the book's own reward).
+    if ro.tone == "good" and self.campaign.adv and not inspired and success
+            and util.lazy("game.model.adventure").data.currency then
+        -- The extra that falls their way on a great roll is a Flitwidget Franc (the book's own reward), in an
+        -- adventure with a currency of its own (MODULE.currency).
         -- Not on a miss: a Franc is for a beaten exhibit, a solved puzzle or a clever trick, as
         -- Flitwidget says (the playtest review, November 4: one on nearly every miss).
         self.campaign.adv.francs = (self.campaign.adv.francs or 0) + 1
@@ -4238,6 +4240,20 @@ function M:combat_scene(sc)
     if cast and cast.wake and not sc.optional_fight and not sc.revisit and not sc.woke then
         self:say(cast.wake, "narration")
     end
+    -- What the adventure says as this room's fight starts (its fight-triggered events: the hood coming off, the
+    -- outhouse door banging open), and the flags they set.
+    if not sc.revisit then
+        for _, ev in ipairs(sc.on_fight or {}) do
+            self:say(ev.text, "narration")
+            local st = self.campaign and self.campaign.adv
+            for _, fl in ipairs(ev.sets or {}) do
+                if st and st.flags then st.flags[fl] = true end
+            end
+            if sc.room then
+                require("game.model.secrets").event(self.campaign, ev.id)
+            end
+        end
+    end
     -- Who they're up against, out loud, before anyone tries anything (the story playtest: "Roll
     -- initiative!" with no name left the table guessing who the enemy was).
     self:say(self:foe_line(plan, sc), "narration")
@@ -4650,7 +4666,7 @@ local FIGHT_TEXT = {
     -- How it started: their choice, or the room coming at them.
     chose = "they fought {boss}", sprang = "{boss} came at them",
     -- How it ended.
-    won = ", and they won", won_ran_one = ", and it got away", won_ran = ", and they won, but some got away",
+    won = ", and they won", won_ran_one = ", and {boss_they} got away", won_ran = ", and they won, but some got away",
     yielded = ", until {boss_they} asked them to stop", dead = ", and they brought {boss_them} down", ran = ", and {boss_they} got away",
     lost = ", and it was too much for them",
 }

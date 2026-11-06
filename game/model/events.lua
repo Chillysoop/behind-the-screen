@@ -184,10 +184,25 @@ end
 
 -- The words a beat is told with, from the adventure (MODULE.beats.words): key, and what fills it in.
 -- An adventure without them falls back to the key's own neutral words, given here as `plain`.
+-- (The words any adventure's beats are told with, when it doesn't write its own: MODULE.beats.words.)
+M.WORDS = {
+    enter = "they went into {room}", hooked = "{enter}, the place {char} came for",
+    back = "they went back to {room}", flee = "they fell back to {room}", rest = "they went back to {room} to rest",
+    look = "{char} had a look at {what}", tried = "{who} tried to {want}", didnt = "it didn't work",
+    trap = "a trap went off: {what}",
+    lifted = "{char} lifted {thing}", lifted_off = "{char} lifted {thing} off {who}",
+    caught = "{char} went for {thing}, and {who} caught {char_them} at it",
+    spotted = "{who} spotted their own {thing} on {char}",
+    helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
+    death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
+    ally_lost = "they lost {name}", wipe = "the whole party went down in {room}",
+    came_back = "{char} nearly died, and came back",
+    friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
+}
 function M.word(key, vars, plain)
     local ok, adv = pcall(require, "game.model.adventure")
     local w = ok and adv.data and adv.data.beats and adv.data.beats.words or {}
-    return util.fill(w[key] or plain or key, vars or {})
+    return util.fill(w[key] or M.WORDS[key] or plain or key, vars or {})
 end
 
 -- The night's chain (R14) ---------------------------------------------------------------------

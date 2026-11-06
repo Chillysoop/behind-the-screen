@@ -288,6 +288,7 @@ function M.build_scene(night, id)
         sc.encounter = { ids = util.copy(r.encounter), boss_name = r.boss_name, built = true }
     end
     sc.wake = r.wake           -- the room's pieces that come alive when the fight starts (fight.lua)
+    sc.on_fight = r.on_fight   -- what the DM says as the room's fight starts (an adventure's fight-triggered events)
     -- The DM's choice of map from the repository: for this room (prep), or the next scene (tonight).
     local ref = night.map_next or map_repo.room_map(night.campaign, id)
     if ref then
@@ -4760,7 +4761,7 @@ function M.intro(night)
                 night:say("They pick up right where they stopped: " .. util.lower_first(MODULE.rooms[first].name) .. ".", "opening")
             end
         else
-            night:say("They pick up right where they stopped, at a fork in the museum.", "opening")
+            night:say("They pick up right where they stopped, at a fork.", "opening")
         end
         -- A new hero at the table, in a fallen one's place: who they are, before the first room.
         require("game.model.death").intro(night)
@@ -5395,8 +5396,8 @@ function M.maybe_break(night, before_boss)
                          break_log = "long",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:butt_kicker", challenge = -2 } } },
                        -- (What they read up on is what they know of: the Gorgon only once they've heard of her.)
-                       { label = require("game.model.told").knows(night.campaign, "gorgon") and "They read up: the museum, the Gorgon, their notes."
-                             or "They read up: the museum, and their notes so far.", sub = "The next two rolls tonight get +2: they did their homework.",
+                       { label = MODULE.read_up and adventure.say(night.campaign, MODULE.read_up) or "They read up on their notes so far.",
+                         sub = "The next two rolls tonight get +2: they did their homework.",
                          break_log = "research", research = 2,
                          effects = { { "arch:storyteller", fun = 3, story = 3 }, { "arch:tactician", fun = 3 }, { "arch:butt_kicker", fun = -1 } } },
                    } }

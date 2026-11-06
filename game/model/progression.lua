@@ -18,7 +18,9 @@ local function data()
 end
 
 function M.init(campaign)
-    campaign.level = data().START_LEVEL
+    -- (The adventure's own starting level when it has one: the Sheep Chase is for level 4.)
+    local adv = util.lazy("game.model.adventure")
+    campaign.level = (adv.data and adv.data.START_LEVEL) or data().START_LEVEL
     campaign.level_nights = 0
     campaign.subclasses = nil      -- class -> subclass id, from level 3
     campaign.picks = {}            -- player key -> the pick record

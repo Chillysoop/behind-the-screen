@@ -16,6 +16,7 @@ local adventures = require "game.data.adventures"
 local CURRENT = adventures.from_env()      -- (the default, or ADVENTURE=<id> for a test or tool)
 local standard = require "game.model.standard"
 local MODULE = standard.compile(adventures.part(CURRENT, "module"))
+content.add_cards((adventures.part(CURRENT, "cards") or {}).cards)      -- (its scene cards: content has the default's)
 M.data = MODULE
 
 -- The current adventure's id, and one of its parts (game/data/adventures.lua).
@@ -28,9 +29,11 @@ function M.use(id)
     assert(adventures.list[id], "no adventure called " .. tostring(id))
     CURRENT = id
     MODULE = standard.compile(adventures.part(id, "module"))
+    content.add_cards((adventures.part(id, "cards") or {}).cards)
     M.data = MODULE
     M.entered = false
     vocab = nil
+    util.reset_pronouns()      -- (the names the table calls people by are this adventure's now)
 end
 function M.part(name)
     return adventures.part(CURRENT, name)
@@ -1912,7 +1915,7 @@ function M.where(campaign)
     if r and r.boss then
         return "At the top of the stairs. Euryale is waiting."
     end
-    return r and ("Next: " .. r.name .. ".") or "Somewhere in the museum."
+    return r and ("Next: " .. r.name .. ".") or ("Somewhere in " .. (MODULE.title or "the adventure") .. ".")
 end
 
 -- The journey recap at the end: the route, what each room left behind, Euryale's final card.

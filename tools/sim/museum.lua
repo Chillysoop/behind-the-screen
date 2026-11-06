@@ -356,7 +356,11 @@ end
 
 local st = c.adv
 check(st.ending ~= nil, "the prologue ended (" .. weeks .. " weeks; at " .. tostring(st.at) .. ")")
-check(st.done.garden and st.done.entrance, "played the ground floor")
+-- (Any adventure: its first scene was played. The museum's: its whole ground floor.)
+check(st.done[adventure.data.start or ""], "played the first scene (" .. tostring(adventure.data.start) .. ")")
+if adventure.current() == "museum" then
+    check(st.done.garden and st.done.entrance, "played the ground floor")
+end
 print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %d%s",
     seed, style, weeks, tostring(st.ending), table.concat(st.mark_list, ","), st.francs, st.harsh.paid, st.harsh.unpaid,
     c.level, failures > 0 and ("  FAILURES " .. failures) or ""))

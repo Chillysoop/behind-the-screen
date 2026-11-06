@@ -48,7 +48,7 @@ M.keeps = {
     { id = "transmuter", text = "A wizard in their debt who'll do transmutations up to 5th level for the cost of "
           .. "the components", when = { flag = "restored" }, page = 6 },
     { id = "debt", text = "Shinebright owes them, and says so, even while he's still a sheep", when = { flag = "refused" }, page = 6 },
-    { id = "oak_house", text = "The house in the oaks, if they take it, and the nobles who'll come asking for Noke",
+    { id = "oak_house", text = "Noke's Tower, if they take it, and the nobles who'll come asking for Noke",
       when = { flag = "took_house" }, page = 6 },
     { id = "lab_gear", text = "Lab gear and arcane odds and ends worth about 1,000 gp", when = { flag = "looted" }, page = 6 },
 }
@@ -115,7 +115,7 @@ M.places = {
                       { name = "A seat on a wagon going far", price = { gp = 5 }, note = "about that, a passenger; the roads are busy" } } },
       },
       work = { { name = "Guide or guard on a long wagon trip", pay = { sp = 2 }, per = "day", note = "and meals on the road" } } },
-    { id = "inn_common", name = "The ground floor", layer = "area", ["in"] = "inn", source = "inn", pages = { 2 },
+    { id = "inn_common", name = "The common room", layer = "area", ["in"] = "inn", source = "inn", pages = { 2 },
       read = "Tables of every size round a big central hearth, a pair of bars, the kitchen, a cloakroom, and a crowd in no hurry.",
       spots = { "hearth", "bar", "back_bar", "kitchen", "cloakroom", "tables", "door", "stairs" },
       exits = { { to = "inn_upstairs", by = "either of two stairs" }, { to = "inn_cellar", by = "a trapdoor behind one bar" },
@@ -148,18 +148,19 @@ M.places = {
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" }, exits = { { to = "compound", by = "the path" } },
       scene = { type = "exploration", quick = true, setting = { "outdoor", "wild" }, sum = "A walk into the oaks.",
-                goal = { name = "Find the house in the woods", line = "Goal: follow the road and the path to Noke's house.",
-                         win = "Through the last of the oaks, the house comes into sight.",
-                         lose = "They find it in the end, after a long way round.", got = "the way to Noke's house" } } },
-    { id = "noke_house", name = "The house in the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
+                goal = { name = "Find Noke's Tower", line = "Goal: follow the road and the path to Noke's Tower.",
+                         win = "Through the last of the oaks, the tower comes into sight.",
+                         lose = "They find it in the end, after a long way round.", got = "the way to Noke's Tower" } } },
+    { id = "noke_house", name = "Noke's Tower", layer = "site", ["in"] = "bogden_road", pages = { 4 },
       read = "Four living oaks, their branches woven into three platforms, one above another.",
       note = "The platforms stand 10, 20 and 30 feet up; our boards are flat, so the heights are notes (p4)." },
-    { id = "compound", name = "Under the platforms", layer = "area", ["in"] = "noke_house", pages = { 4, 5 },
-      read = "A lawn under the platforms, two small wooden huts, and a big outhouse.",
+    { id = "compound", name = "The tower's yard", layer = "area", ["in"] = "noke_house", pages = { 4, 5 },
+      read = "Through the treetops: platforms grown from four oaks, one above another. Below them, a lawn, two small "
+          .. "wooden huts and a big outhouse, and three apes dicing in the grass, greatswords stuck in the turf beside them.",
       spots = { "lawn", "huts", "outhouse", "slope" },
       exits = { { to = "garden", by = "a ramp of roots" } },
       scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn.",
-                foes = { "ape_guard", "ape_guard", "ape_guard", "bear_guard" }, foes_name = "Noke's guards",
+                foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard" }, foes_name = "Noke's guards",
                 foes_short = "the guards", boss_name = "the bear",
                 foes_line = "Three apes squat on the lawn over a game of dice, greatswords stuck in the turf beside them.",
                 goal = { name = "Get past the guards", line = "Goal: get past the guards to the platforms.",
@@ -209,11 +210,10 @@ M.people = {
       wants = "A full house and no trouble", knows = { "rumours" }, where = { "inn_common" } },
     { id = "sh_shinebright", name = "Finethir Shinebright", tier = "named", role = "The sheep", pages = { 2, 3, 6 },
       pronoun = "he", companion = true,
-      look = "A sheep like any other: white fleece, black face, curled horns. As an elf: thin as a reed, hair like "
-          .. "straw, a very long nose (p2).",
+      look = "A sheep like any other: white fleece, black face, curled horns.",
       voice = "Educated, fussy, an elven accent, and a little bleat at the end of words.",
       about = "A transmuter who was famous once. Vain, fussy and full of lectures, but kind when it doesn't cost "
-          .. "him much.",
+          .. "him much. As an elf: thin as a reed, hair like straw, a very long nose (p2).",
       wants = "His wand back, and his own shape", knows = { "sheep_wizard", "guards_are_people", "wand_on_noke", "second_scroll" },
       stats = { core = "pony", int = 18, wis = 14, page = 2 },
       understood = { item = "speak_scroll", spell = "speak_with_animals" } },
@@ -266,7 +266,11 @@ M.creatures = {
                               known = { { "expeditious_retreat", "jump", "thunderwave" }, { "enlarge_reduce", "levitate" },
                                         { "haste", "slow" }, { "polymorph" } } },
              attacks = { { id = "dagger", name = "Dagger", kind = "melee", to_hit = 5, reach = 5, range = { 20, 60 },
-                           damage = { { 1, 4, 2, "piercing" } } } },
+                           damage = { { 1, 4, 2, "piercing" } } },
+                         -- (Ray of Frost from his cantrips, as an attack: a 7th-level caster's 2d8.)
+                         { id = "ray_of_frost", name = "Ray of Frost", kind = "ranged", to_hit = 6, range = { 60, 60 },
+                           damage = { { 2, 8, 0, "cold" } } } },
+             flees_below = 0.5, flee_line = "%s casts, blurs away up the slope, and slams the bedroom door behind him.",
              tactics = "Weak in a fight himself. Enlarges the bear once it's out, adds Ray of Frost, guards his "
                  .. "concentration, and runs for the bedroom when it's lost or someone gets close." },
     bed_dragon = { name = "Bed Dragon Wyrmling", page = 5, size = "large", type = "dragon", ac = 16, hp = 75,
@@ -320,11 +324,11 @@ M.threads = {
 -- (a count of rounds after something), clock. required: it always happens. only_if: a condition on the log.
 M.events = {
     { id = "sheep_arrives", at = "inn_common", when_in = "start", required = true, page = 2, type = "story",
-      title = "A sheep at a gallop",
+      title = "A sheep at a gallop", actor = { "storyteller" },
       text = "Hooves on the boards, yelps, frantic bleating: a sheep comes through the crowd at a run, a fancy scroll in "
-          .. "its teeth, and makes straight for {actor_char}." },
+          .. "its teeth, and makes straight for their table." },
     { id = "scroll_read", at = "inn_common", when_in = "start", page = 2, party = true, title = "The scroll",
-      actor = { "storyteller", "explorer", "method_actor" },
+      actor = { "storyteller" },
       text = "The sheep drops the scroll in {actor_char}'s lap and stares up, waiting. The wax seal says Speak with "
           .. "Animals, modified.",
       options = {
@@ -355,7 +359,7 @@ M.events = {
             mus = { flag = "taken", no_fight = true } },
       } },
     { id = "hood_falls", at = "inn_common", trigger = { on = "fight", event = "guz_arrives" }, page = 2,
-      text = "The cloaked figure throws back its hood with a roar: a bear.", sets = { "hood_fell" } },
+      text = "The cloaked figure throws back its hood with a roar: a bear.", sets = { "bear_seen" } },
     { id = "the_story", at = "inn_common", when_in = "end", only_if = { flag = "understood", not_flag = "taken" }, pages = { 3 },
       type = "story", title = "Shinebright's story", actor = { "storyteller", "casual", "explorer" },
       text = "Shinebright tells it all, at length: the tower in the oaks, the wand, the apprentice who turned it on him. He "
@@ -364,22 +368,18 @@ M.events = {
       text = "Guz's lot make for the woods with the sheep. A chase, if anyone follows." },
     { id = "tracks", at = "woods_path", when_in = "start", page = 4, party = true, title = "The path",
       actor = { "explorer", "tactician", "casual" },
-      text = "A mile along the lord's road, a gap in the bushes and a path into the oaks, churned with feet and paws.",
+      text = "A mile along the lord's road, there's a gap in the bushes, and the path goes off into the oaks.",
       options = {
           { label = "Read the tracks as they go.", want = "read the tracks and see who's been this way", short = "read the tracks",
             lean = "look", roll = { dc = 12, skill = { "survival", "nature" },
-                                    success = { log = "The freshest tracks are a big man's boots and four sets of paws, heading home. Noke's house isn't far.",
+                                    success = { log = "The freshest tracks are a big man's boots and four sets of paws, heading home. Noke's Tower isn't far.",
                                                 mus = { flag = "tracked" } },
                                     fail = { log = "Too many feet, too many paws. They follow the path and hope." } } },
           { label = "Just walk. Shinebright knows the way.", want = "keep moving and let the sheep lead", short = "walk on", lean = "safe",
             log = "The sheep trots ahead, stopping every so often to make sure they're still following." },
       } },
-    { id = "house_seen", at = "compound", when_in = "start", required = true, page = 4, type = "story",
-      title = "The house in the oaks",
-      text = "Through the treetops: platforms grown from four oaks, one above another, and three apes dicing on the lawn "
-          .. "below, greatswords stuck in the turf beside them." },
     { id = "bear_comes_out", at = "compound", trigger = { on = "fight", at = "compound" }, page = 5,
-      text = "The outhouse door bangs open, and a bear comes out to see what the noise is." },
+      text = "The outhouse door bangs open, and a bear comes out to see what the noise is.", sets = { "bear_seen" } },
     { id = "the_door", at = "garden", when_in = "start", page = 4, party = true, title = "The hall door",
       actor = { "instigator", "butt_kicker", "tactician" },
       text = "The door into the hall is heavy oak, and locked.",
@@ -395,8 +395,7 @@ M.events = {
       } },
     { id = "noke_demand", at = "hall", when_in = "start", page = 5, party = true, title = "Noke",
       actor = { "method_actor", "storyteller", "butt_kicker" },
-      text = "A wiry young man with inky fingers stands among the shelves. \"Give me back the sheep,\" he says, \"and I "
-          .. "won't destroy you.\"",
+      text = "\"Give me back the sheep,\" he says from among the shelves, \"and I won't destroy you.\"",
       options = {
           { label = "Refuse. They're taking the wand.", want = "refuse him and go for the wand", short = "refuse", lean = "bold",
             log = "Noke's hand goes to his sleeve, and the air starts to fizz.", mus = { fight = true } },
@@ -420,7 +419,7 @@ M.events = {
       text = "The wand sparks in {actor_char}'s hand, not the way magic should. Shinebright looks up at them. \"If this "
           .. "kills me,\" he says, \"tell my college.\"",
       options = {
-          { label = "Do it. Try the wand on him.", want = "try the wand and give him his shape back", short = "use the wand",
+          { label = "Do it. Try the wand on him.", want = "give him his shape back with the wand", short = "use the wand",
             lean = "bold", roll = { dc = 17, skill = { "arcana" },
                                     success = { log = "Light, a sound like a bell, and an elf stands where the sheep was, naked as the day and delighted.",
                                                 mus = { flag = "restored" } },
@@ -484,7 +483,7 @@ M.told = {
     shinebright = { words = { "Shinebright", "Finethir" },
                     intro = { "Finethir Shinebright", "My name is Finethir", "I am Shinebright" },
                     mask = { { "Finethir Shinebright", "the sheep" }, { "Shinebright", "the sheep" }, { "Finethir", "the sheep" } } },
-    bear = { words = { "bear" }, covered_by = { { flag = "hood_fell" } },
+    bear = { words = { "bear" }, intro = { "a bear" }, covered_by = { { flag = "bear_seen" } },
              mask = { { "a brown bear", "a hulking cloaked figure" }, { "the bear", "the cloaked figure" } } },
     bed_dragon = { words = { "bed dragon", "Bed Dragon" } },
     mouther = { words = { "gibbering mouther", "Gibbering Mouther" } },

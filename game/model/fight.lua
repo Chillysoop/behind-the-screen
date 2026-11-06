@@ -2401,7 +2401,9 @@ end
 function M.stare_line(night, lead, pc, is_boss)
     local sc = night and night.scene
     local foe = util.capitalize((is_boss and sc and sc.boss_name) or barks.foe_label(lead) or "It")
-    return util.fill("{Foe} can't take {foe_their} eyes off {char}. For the next few rounds, it's {char} {foe_they} wants.",
+    -- (A foe with no pronoun of its own is "they", and they want.)
+    local wants = util.pronoun_of(foe).they == "they" and "want" or "wants"
+    return util.fill("{Foe} can't take {foe_their} eyes off {char}. For the next few rounds, it's {char} {foe_they} " .. wants .. ".",
         { foe = foe, Foe = foe, char = pc.name })
 end
 

@@ -1963,6 +1963,11 @@ M.secrets = require "game.data.museum.secrets"
 -- Threads still open when the museum is over, for a later adventure to pick up by its tags (adventure.handoff).
 M.why_here = "why {char_they} came to the museum"
 M.slide = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over."
+-- The adventure's own currency: a great roll can turn one up (night.lua), and the chain counts them (events.lua).
+M.currency = { id = "francs", one = "Flitwidget Franc", many = "Flitwidget Francs" }
+-- What the break's reading up covers (museum_night.maybe_break): the Gorgon only once they've heard of her.
+M.read_up = { { when = { told = "gorgon" }, text = "They read up: the museum, the Gorgon, their notes." },
+              "They read up: the museum, and their notes so far." }
 M.threads = {
     { id = "mountain_road", name = "A murder up the mountain road", open_at_end = true, tags = { "mountain_road", "murder", "mountains" },
       who = "mus_flitwidget", text = "Flitwidget has had strange news from the mountains: a death among the clans up the "

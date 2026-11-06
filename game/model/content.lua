@@ -58,16 +58,23 @@ local KIND = {}
 for _, kind in ipairs(M.kinds) do
     KIND[kind] = true
 end
-for _, c in ipairs(require("game.data.adventures").part(nil, "cards").cards) do
-    assert(not M.components[c.id], "duplicate component id " .. c.id)
-    assert(KIND[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)
-    c.cost = c.cost or 1
-    c.tags = c.tags or {}
-    c.fits = c.fits or {}
-    c.meters = c.meters or {}
-    c.difficulty = c.difficulty or 0
-    M.components[c.id] = c
+-- An adventure's scene cards join the content (the default adventure's here; adventure.use adds the one it switches
+-- to). A card already in is left as it is.
+function M.add_cards(list)
+    for _, c in ipairs(list or {}) do
+        assert(not M.components[c.id] or M.components[c.id] == c, "duplicate component id " .. c.id)
+        assert(KIND[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)
+        if not M.components[c.id] then
+            c.cost = c.cost or 1
+            c.tags = c.tags or {}
+            c.fits = c.fits or {}
+            c.meters = c.meters or {}
+            c.difficulty = c.difficulty or 0
+            M.components[c.id] = c
+        end
+    end
 end
+M.add_cards(require("game.data.adventures").part(nil, "cards").cards)
 
 -- Settings (real-session pass) ----------------------------------------------------------
 -- A location has settings (town, wild, indoor, ruin...); a card with "where" only happens
