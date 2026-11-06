@@ -45,6 +45,50 @@ function M.setup(b, opts)
         -- (paint may name whose weapon it is, a player key: the one who pulled it out of a painting.)
         b[k] = v and ((k == "fire_arrows" and v == "arrows") and "arrows" or ((k == "paint" and type(v) == "string") and v) or true) or nil
     end
+    -- The pond's water on the briars before the fight: { [monster id] = { d6 rolls } }, rolled when they
+    -- doused them (museum_night), each roll a mutation.
+    if opts and type(opts.pond) == "table" then
+        for _, c in ipairs(b.creatures) do
+            for _, roll in ipairs(opts.pond[c.monster_id] or {}) do
+                M.mutate(b, c, roll)
+            end
+        end
+    end
+end
+
+-- The topiary mutation table (the book's garden, p9): what the enchanted pond water does to a Briar
+-- Guardian it hits, a d6. Every hit takes 5 feet off its speed, and they add up; at no speed at all it's
+-- rooted to the floor for good. 1 it grows (and its hits add 1d4 piercing), 2 wild vines (one more
+-- attack a turn), 3 razor bark (+2 AC), 4 blossom (nothing else), 5 seeded (pinned and Prone until it
+-- spends its action pulling free), 6 stretched (Vulnerable to slashing). (The book's growth also makes it
+-- a size larger: on our board it keeps its square.)
+M.MUTATIONS = { "growth", "vines", "razor_bark", "blossom", "seeded", "stretched" }
+function M.mutate(b, c, roll)
+    local kind = M.MUTATIONS[roll]
+    if not kind or c.dead then
+        return nil
+    end
+    c.mutations = c.mutations or {}
+    table.insert(c.mutations, kind)
+    b:add_effect(c, { name = "Pond water", speed_minus = 5, permanent = true })
+    if kind == "growth" then
+        c.thorn_growth = (c.thorn_growth or 0) + 1
+    elseif kind == "vines" then
+        c.vines = (c.vines or 0) + 1
+    elseif kind == "razor_bark" then
+        b:add_effect(c, { name = "Razor bark", ac = 2, permanent = true })
+    elseif kind == "seeded" then
+        c.seeded = b:add_effect(c, { name = "Seeded", conds = { prone = true }, speed_zero = true, tag = true })
+    elseif kind == "stretched" then
+        c.vulnerable = c.vulnerable or {}
+        c.vulnerable.slashing = true
+    end
+    if c.speed - b:sum_effect(c, "speed_minus") <= 0 and not b:any_effect(c, "rooted") then
+        b:add_effect(c, { name = "Rooted", speed_zero = true, rooted = true, permanent = true, tag = true })
+        b:log("%s roots itself to the floor for good.", c.name)
+    end
+    b:log("The pond water hits %s: %s.", c.name, kind)
+    return kind
 end
 
 local function feature(b, who, name, kind, extra)
@@ -109,6 +153,15 @@ function M.start_turn(b, c)
     local s = c.data and c.data.sands
     if s and c.sands_spent and b.dice:d(6) >= (s.recharge or 5) then
         c.sands_spent = nil
+    end
+    -- Seeded by the pond water (the mutation table, 5): its action goes on tearing itself loose.
+    if c.seeded then
+        b:remove_effect(c, c.seeded, "freed")
+        c.seeded = nil
+        c.turn.action = false
+        c.turn.tore_loose = true
+        b:log("%s tears its seeded branch out of the floor.", c.name)
+        feature(b, c, "Tears itself loose", "seeded")
     end
 end
 

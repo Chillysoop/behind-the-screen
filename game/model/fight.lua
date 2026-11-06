@@ -399,7 +399,7 @@ end
 --   paint, mirror, averted, drowsy, earplugs, fire_arrows, manual, no_hyper = true
 --                                      the battle's options (or in encounter.opts)
 M.ENCOUNTER_OPTIONS = { "allies", "commander", "paint", "mirror", "averted", "drowsy", "earplugs", "fire_arrows", "manual",
-                        "no_hyper", "charmed" }
+                        "no_hyper", "charmed", "pond" }
 
 function M.museum_options(sc)
     local e = sc and sc.encounter

@@ -980,6 +980,11 @@ function B:attack(att, tgt, prof, opts)
         self:emit({ kind = "feature", who = att, name = (prof.kind == "ranged" and "Telpur's fire arrow, +" or "Telpur's slime, +")
                         .. tostring(fp[1]) .. " " .. fp[2] })
     end
+    -- (The Museum of Nightmares: a briar the pond water made grow, the mutation table's 1: its hits add 1d4
+    -- piercing, for each time.)
+    if att.thorn_growth and att.thorn_growth > 0 then
+        table.insert(parts, self:roll_parts({ { att.thorn_growth, 4, 0, "piercing" } }, crit)[1])
+    end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
     -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
@@ -2030,7 +2035,7 @@ function B:start_turn(c)
     if self.hazard then
         require("game.rules.hazards").start_turn(self, c)   -- Burning (p. 178)
     end
-    if c.sands_spent then
+    if c.sands_spent or c.seeded then
         museum.start_turn(self, c)
     end
     if c.web_spent and self.dice:d(6) >= ((c.data and c.data.web and c.data.web.recharge) or 5) then

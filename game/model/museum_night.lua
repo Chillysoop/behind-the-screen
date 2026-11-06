@@ -365,6 +365,39 @@ function M.harsh(night, sc)
     return earned
 end
 
+-- The pond's water on the hedges (the book's garden, p9): each one it hits rolls on the topiary mutation
+-- table, said as it happens, and the fight has them that way (game/rules/museum.lua's mutate). Ours: one
+-- helmetful each, before they close in.
+M.POND_NAMES = { briar_triceratops = "the horned hedge-beast", briar_boar = "the hedge-boar", briar_beast = "the hedge-cat" }
+M.POND_LINES = {
+    "{Name} drinks the water in and swells half again as big, new thorns pushing through. Slower, and it'll hit harder.",
+    "Wild vines whip out of {name}, a spare limb to lash with. It's slower for it.",
+    "{Name}'s bark hardens into razor-edged plates. Slower, and harder to hurt.",
+    "{Name} bursts into flowers. Lovely. Slower, and that's all.",
+    "A branch shoots out of {name} into the ground and pins it flat. It'll have to tear itself loose.",
+    "{Name} stretches thin and stringy. Slower, and a blade would go right through it.",
+}
+function M.pond_water(night, sc)
+    local e = sc and sc.encounter
+    if not e then
+        return
+    end
+    e.opts = e.opts or {}
+    e.opts.pond = e.opts.pond or {}
+    local seen = {}
+    for _, id in ipairs(e.ids or {}) do
+        local name = M.POND_NAMES[id]
+        if name and not seen[id] then
+            seen[id] = true
+            local roll = night.rng:int(1, 6)
+            e.opts.pond[id] = e.opts.pond[id] or {}
+            table.insert(e.opts.pond[id], roll)
+            night:say(util.fill(M.POND_LINES[roll], { name = name, Name = util.capitalize(name) }), "dm")
+        end
+    end
+    sc.woke = true      -- (the water's woken them: no wake line after)
+end
+
 -- What an option's `mus` does tonight (adventure.apply does the bookkeeping).
 local FLAG_OPT = { paint = "paint", deaf = "earplugs" }
 
@@ -643,6 +676,9 @@ function M.handle(night, mus, sc)
         if mus.drop then
             drop_from(sc, mus.drop)
             sc.woke = true      -- (a moment that already set the room's pieces moving: no wake line after)
+        end
+        if mus.pond_water then
+            M.pond_water(night, sc)
         end
         if mus.resolve then
             sc.resolved = true

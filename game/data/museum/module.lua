@@ -774,9 +774,15 @@ M.moments = {
             pulls = { { when = { flag = "truth" }, who = { "tactician", "storyteller" }, n = 1.5,
                         say = { "Save our strength for the Gorgon.", "There's something worse than hedges in here. Let's not waste ourselves on them.",
                                 "If Flitwidget's right about his Gorgon, we'll want our strength." } } },
-            log = "Helmets full of pond water hit the topiary. The smallest hedge-beast twists, sprouts and roots itself to the spot. The big ones keep coming.",
-            effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 4 }, { "arch:tactician", fun = 4 }, { "all", challenge = -4 } },
-            mus = { francs = 1, drop = { "briar_beast" }, flag = "water" } },
+            -- (The book, p9: anyone within 5 feet of the water draws the tentacles, a DC 10 Dexterity save or
+            -- 1d4 slashing; each hedge the water hits rolls on the mutation table, museum_night's pond_water.)
+            roll = { dc = 10, skill = { "dex" },
+                     success = { log = "{actor_char} dips a helmet at the water's edge and jumps back as a tentacle slaps the surface. Then helmets full of pond water hit the topiary.",
+                                 effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 4 }, { "arch:tactician", fun = 4 }, { "all", challenge = -2 } },
+                                 mus = { francs = 1, flag = "water", pond_water = true, secret_event = "tentacles" } },
+                     fail = { log = "A slimy tentacle lashes {actor_char}'s arm at the water's edge, but the helmet comes up full. Then helmets full of pond water hit the topiary.",
+                              effects = { { "actor", spotlight = 8, challenge = 3 }, { "arch:explorer", fun = 3 }, { "arch:tactician", fun = 3 } },
+                              mus = { francs = 1, flag = "water", pond_water = true, hurt = { 1, 4 }, risk = true, secret_event = "tentacles" } } } },
           { label = "They're bushes. Set them on fire.", want = "set the bushes on fire", short = "burn them", lean = "bold",
             -- (Once they know the hedges are alive: secrets.living_hedges. Living or not, hedges burn.)
             pulls = { { when = { hinted = "living_hedges" }, who = { "instigator", "butt_kicker", "power_gamer" }, n = 1.0,

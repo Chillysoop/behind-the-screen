@@ -539,6 +539,16 @@ local function monster_turn(b, c, plain)
         end
         return
     end
+    -- (A briar the pond water seeded spent its action tearing loose, museum.start_turn: it gets up and
+    -- closes in, no attack.)
+    if c.turn.tore_loose then
+        stand_if_prone(b, c)
+        local near = by_distance(b, c, enemies(b, c))[1]
+        if near then
+            approach(b, c, near, 5)
+        end
+        return
+    end
     -- The Museum of Nightmares: Euryale, the Lecturer, the Steam Mech and the rest fight their way.
     if not plain and c.data and c.data.museum and museum.turn(b, c, H) then
         return
@@ -570,7 +580,8 @@ local function monster_turn(b, c, plain)
     local melee = find_attack(c, "melee")
     local ranged = find_attack(c, "ranged")
     local nearest = foes[1]
-    local count = c.multiattack and c.multiattack.count or 1
+    -- (Wild vines from the pond water, the museum's mutation table: one more attack a turn.)
+    local count = (c.multiattack and c.multiattack.count or 1) + (c.vines or 0)
     local engaged = adjacent_enemies(b, c) > 0
     -- Skirmishers (goblins): Nimble Escape to disengage and shoot.
     if c.bonus_actions and c.bonus_actions.nimble_escape and ranged then
