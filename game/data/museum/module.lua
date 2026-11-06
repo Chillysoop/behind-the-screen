@@ -2358,7 +2358,7 @@ M.chat = {
                  { who = "mara", when = { mark = "robbed" }, "we are thieves now. i'm writing it down", "so are we the baddies" } },
     -- (The measures only once the table's had them; a guardian calmed some other way is still a win.)
     chamber = { { who = "mara", when = { mark = "calmed", told = "ritual" }, "five gallons, three gallons, four gallons. i dreamt about jugs",
-                  "we did the tablet's ritual properly and i'm so proud of us" },
+                  "we did the tablet's jug sums properly and i'm so proud of us" },
                 { who = "mara", when = { mark = "calmed", not_told = "ritual" }, "the falcon jug was happy and the skeleton just stopped. we did that",
                   "still can't believe the jug thing worked" },
                 { who = "dev", "three skulls is too many skulls", "that room was mostly sand and skulls and i loved it" },
