@@ -170,7 +170,10 @@ M.places = {
                 foes_line = "Three big apes in iron collars squat over a game of dice, greatswords stuck in the turf beside them.",
                 goal = { name = "Get past the guards", line = "Goal: get past the guards to the platforms.",
                          win = "The guards are dealt with, and the ramp up is clear.",
-                         lose = "They get past the guards in the end, bloodied, with something still crashing about below.",
+                         -- (Ours: the guards win, and Noke has his sheep. The playtest, November 6: "they get past the guards"
+                         -- after the whole party went down.)
+                         lose = "The guards hold the yard. By the time anyone comes round, the sheep is gone, dragged up the "
+                             .. "ramp bleating, and the gate is barred.", lose_sets = "taken",
                          got = "the way up into the house" } } },
     { id = "garden", name = "The garden platform", layer = "area", ["in"] = "noke_house", pages = { 4 },
       read = "The lowest platform, about forty feet across, ringed with curling branches, flowers and small trees.",
@@ -187,7 +190,9 @@ M.places = {
       exits = { { to = "garden" }, { to = "bedroom", by = "a small slope" } },
       scene = { type = "combat", setting = { "indoor" }, sum = "Ahmed Noke, at home.", cast = "sh_noke", foes = { "noke" }, digs = 3,
                 boss_name = "Noke", optional_fight = true,
-                goal = { name = "Face Noke", line = "Goal: get the wand from Noke.",
+                -- (The wand is the goal once Shinebright's told them about it: a sealed scroll keeps it from them.)
+                goal = { name = "Face Noke", line = "Goal: find out who lives up here, and what he wants with a sheep.",
+                         line_if = { { when = { flag = "understood" }, text = "Goal: get the wand from Noke." } },
                          win = "Noke breaks and runs for the top platform.", lose = "Noke drives them back down the slope, laughing.",
                          got = "Noke on the run" } } },
     { id = "bedroom", name = "The bedroom", layer = "area", ["in"] = "noke_house", pages = { 5, 6 },
@@ -230,7 +235,7 @@ M.people = {
           .. "him much. As an elf: thin as a reed, hair like straw, a very long nose (p2).",
       wants = "His wand back, and his own shape", knows = { "sheep_wizard", "guards_are_people", "wand_on_noke", "second_scroll" },
       stats = { core = "pony", int = 18, wis = 14, page = 2 },
-      understood = { item = "speak_scroll", spell = "speak_with_animals" } },
+      understood = { item = "speak_scroll", spell = "speak_with_animals", flag = "talking" } },
     { id = "sh_guz", name = "Guz", tier = "named", role = "Noke's man", pages = { 2, 3 }, pronoun = "he",
       look = "A huge half-orc with small eyes, a hand never far from his greatsword.",
       voice = "Slow and blunt, with long words of Noke's he hasn't quite got right.",
@@ -339,36 +344,46 @@ M.threads = {
 
 -- trigger: on = arrive (a place), after (another event), choice (the table's), fight (it starts or turns), round
 -- (a count of rounds after something), clock. required: it always happens. only_if: a condition on the log.
+-- The wand on Shinebright (p6): a spellcaster's DC 17 Intelligence (Arcana) check; short by five or less, he becomes a
+-- gibbering mouther; by more, the wand also blows apart (1d12 force a charge on everyone within 10 feet).
+local WAND_ROLL = { dc = 17, skill = { "arcana" }, best = true, casters = true,
+    success = { log = "Light, a sound like a bell, and an elf stands where the sheep was, naked as the day: Finethir Shinebright, "
+                    .. "who thanks them at great length and only gets to the money at the very end. There isn't any.",
+                mus = { flag = "restored" }, tells = { "sheep_wizard", "cant_pay" }, tells_how = "moment" },
+    fail = { log = "The wand bangs. Where the sheep was, a heap of mouths and eyes starts to gibber.", mus = { flag = "dead" } } }
+
 M.events = {
     { id = "sheep_arrives", at = "inn_common", when_in = "start", required = true, page = 2, type = "story",
       title = "A sheep at a gallop", actor = { "storyteller" },
       text = "Hooves on the boards, yelps, frantic bleating: a sheep comes through the crowd at a run, a fancy scroll in "
           .. "its teeth, and makes straight for their table." },
+    -- (p2: the sheep picks out whoever looks the most magical: Thessaly, when she's there.)
     { id = "scroll_read", at = "inn_common", when_in = "start", page = 2, party = true, title = "The scroll",
-      actor = { "storyteller", "explorer", "method_actor", "casual" },
+      actor = { "storyteller" },
       text = "The sheep drops the scroll in {actor_char}'s lap and stares up, waiting. The wax seal says Speak with "
           .. "Animals, modified.",
       options = {
           { label = "Break the seal and read it aloud.", want = "read the scroll and see what happens", short = "read it",
-            lean = "look", log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
+            lean = "look", log = "The words come out strange and old. The bleating turns into Common, with an elven accent. \"Finethir Shinebright,\" it says, \"transmuter, of some renown. Please. I need your help, and I can explain everything.\"",
             mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "read" },
           { label = "Check it over before anyone reads it.", want = "check the scroll over before anyone reads it",
             short = "check it first", lean = "safe",
-            roll = { dc = 8, skill = { "arcana", "investigation" },
-                     success = { log = "A real scroll, a little odd, and nothing nasty in it. They break the seal. The bleating turns into Common, with an elven accent.",
+            roll = { dc = 8, skill = { "arcana", "investigation" }, best = true,
+                     success = { log = "A real scroll, a little odd, and nothing nasty in it. They break the seal. The bleating turns into Common, with an elven accent. \"Finethir Shinebright,\" it says, \"transmuter, of some renown. Please. I need your help, and I can explain everything.\"",
                                  mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "check" },
                      fail = { log = "Nobody can make head or tail of the seal, so it stays shut. The sheep butts it at their hands again, bleating, desperate." } } },
       } },
     { id = "guz_arrives", at = "inn_common", when_in = "mid", required = true, page = 2, party = true, title = "Noke's man",
       actor = { "tactician", "butt_kicker", "method_actor" },
       text = "Howling outside, and shouting. A huge half-orc shoulders in behind three collared wolves, a big figure in a "
-          .. "dirty cloak at his back. \"Master Noke's sheep,\" he says, and holds out his hand.",
+          .. "dirty cloak at his back. \"Master Noke's sheep,\" he says, and holds out his hand. \"Give it here, and "
+          .. "there won't be no unpleasantries.\"",
       options = {
           { label = "No. The sheep stays with us.", want = "tell him no, and see what he does", short = "refuse",
             lean = "bold", log = "Guz looks at them for a long moment. Then the wolves go for the sheep.",
             mus = { fight = true } },
           { label = "Talk him out of it.", want = "talk him round before anyone gets hurt", short = "talk him down", lean = "talk",
-            roll = { dc = 15, skill = { "persuasion", "intimidation" },
+            roll = { dc = 15, skill = { "persuasion", "intimidation" }, best = true,
                      success = { log = "Guz works it through slowly, and doesn't like where it ends. He calls the wolves off and goes.",
                                  mus = { flag = "guz_left", no_fight = true } },
                      fail = { log = "Guz has heard enough. He draws the greatsword without a word.", mus = { fight = true } } } },
@@ -386,7 +401,7 @@ M.events = {
       text = "Once it's quiet, the sheep noses the scroll back into {actor_char}'s hands and holds it there with one hoof.",
       options = {
           { label = "All right. Break the seal and read it.", want = "read the scroll this time", short = "read it", lean = "look",
-            log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
+            log = "The words come out strange and old. The bleating turns into Common, with an elven accent. \"Finethir Shinebright,\" it says, \"transmuter, of some renown. Please. I need your help, and I can explain everything.\"",
             mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "read" },
           { label = "Still no. Let it follow if it wants.", want = "leave the scroll sealed and let the sheep tag along",
             short = "leave it", lean = "safe",
@@ -396,7 +411,7 @@ M.events = {
       type = "story", title = "Shinebright's story", actor = { "storyteller", "casual", "explorer" },
       text = "Shinebright tells it all, at length: the tower in the oaks, and the wand his apprentice Noke turned on him "
           .. "and keeps on him day and night. Guz's beasts, the bear and the wolves, were people once: Noke's guards, changed. "
-          .. "He promises them riches if they'll get his wand back.", tells = { "guards_are_people", "wand_on_noke" } },
+          .. "Noke has more of them, and they'll come looking. He promises them riches if they'll get his wand back.", tells = { "guards_are_people", "wand_on_noke" } },
     { id = "sheep_taken", trigger = { on = "choice", choice = "the wolves carry the sheep off" }, page = 2,
       text = "Guz's lot make for the woods with the sheep. A chase, if anyone follows." },
     { id = "tracks", at = "woods_path", when_in = "start", page = 4, party = true, title = "The path",
@@ -404,7 +419,7 @@ M.events = {
       text = "A mile along the lord's road, there's a gap in the bushes, and the path goes off into the oaks.",
       options = {
           { label = "Read the tracks as they go.", want = "read the tracks and see who's been this way", short = "read the tracks",
-            lean = "look", roll = { dc = 12, skill = { "survival", "nature" },
+            lean = "look", roll = { dc = 12, skill = { "survival", "nature" }, best = true,
                                     success = { log = "The freshest tracks are a big man's boots and four sets of paws, heading home. Noke's Tower isn't far.",
                                                 mus = { flag = "tracked" } },
                                     fail = { log = "Too many feet, too many paws. They follow the path and see where it goes." } } },
@@ -418,17 +433,18 @@ M.events = {
       text = "The door into the hall is heavy oak, and locked.",
       options = {
           { label = "Shoulder it open.", want = "put a shoulder to that door", short = "force it", lean = "bold",
-            roll = { dc = 14, skill = { "athletics" },
+            roll = { dc = 14, skill = { "athletics" }, best = true,
                      success = { log = "The lock gives with a crack, and the door swings in." },
                      fail = { log = "It takes three goes and a lot of noise. Anyone inside knows they're coming.", mus = { flag = "noisy" } } } },
           { label = "Pick the lock.", want = "pick the lock quietly", short = "pick it", lean = "safe",
-            roll = { dc = 12, skill = { "sleight_of_hand" },
+            roll = { dc = 12, skill = { "sleight_of_hand" }, best = true,
                      success = { log = "A click, and the door eases open without a sound." },
                      fail = { log = "The pick snaps. In the end they force it, loudly.", mus = { flag = "noisy" } } } },
       } },
     { id = "noke_demand", at = "hall", when_in = "start", page = 5, party = true, title = "Noke",
       actor = { "method_actor", "storyteller", "butt_kicker" },
-      text = "\"Give me back the sheep,\" he says from among the shelves, \"and I won't destroy you.\"",
+      text = "\"Where's Guz?\" he says from among the shelves, and then, when nobody answers: \"Never mind. Give me back "
+          .. "the sheep, and I won't destroy you.\"",
       options = {
           { label = "Refuse. They're taking the wand.", want = "refuse him and go for the wand", short = "refuse", lean = "bold",
             log = "Noke's hand goes to his sleeve, and the air starts to fizz.", mus = { fight = true } },
@@ -447,11 +463,11 @@ M.events = {
       options = {
           { label = "Search the place, quickly.", want = "search the hall before going after him", short = "search it", lean = "look",
             log = "Lab gear worth a small fortune, and on the library shelves, a second scroll with the same seal as the "
-                .. "first. They read it out, and the sheep can talk again.",
+                .. "first. {actor_char} reads it out, and the sheep's bleating turns into words.",
             mus = { flag = "looted", flags = { "talking", "understood" } }, tells = { "second_scroll", "sheep_wizard" },
             tells_how = "check" },
           { label = "Leave it. Noke first.", want = "go straight after Noke", short = "after him", lean = "bold",
-            log = "No time for the shelves. Up the slope, after him." },
+            log = "No time for the shelves. Up the slope, after him.", mus = { rush = true } },
       } },
     { id = "bed_dragon", at = "bedroom", when_in = "start", required = true, page = 5, type = "story", title = "The bed",
       text = "Up the slope to the top platform. Noke backs into the bedroom, the wand sparking in his fist, and points it at "
@@ -468,37 +484,70 @@ M.events = {
       text_if = { { when = { flag = "talking" },
                     text = "The wand lies on the boards, sparking, not the way magic should. Shinebright looks up at them. "
                         .. "\"If this kills me,\" he says, \"tell my college.\"" } },
+      -- (p6: only a spellcaster who's spent an hour attuning to it can use it, a DC 17 Intelligence (Arcana) check; a DC 15
+      -- Arcana check on it shows how unreliable it is. Whoever's best at it of the casters at the table does it.)
       options = {
           { label = "Do it. Try the wand on him.", want = "give him his shape back with the wand", short = "use the wand",
-            lean = "bold", roll = { dc = 17, skill = { "arcana" },
-                                    success = { log = "Light, a sound like a bell, and an elf stands where the sheep was, naked as the day: "
-                                                    .. "Finethir Shinebright, who thanks them at great length and only gets to the money at the very "
-                                                    .. "end. There isn't any.",
-                                                mus = { flag = "restored" }, tells = { "sheep_wizard", "cant_pay" }, tells_how = "moment" },
-                                    fail = { log = "The wand bangs. Where the sheep was, a heap of mouths and eyes starts to gibber.",
-                                             mus = { flag = "dead" } } } },
+            lean = "bold", roll = WAND_ROLL },
           { label = "Look at the wand properly first.", want = "work out what's wrong with that wand before anyone uses it",
-            short = "study it", lean = "look", roll = { dc = 15, skill = { "arcana" },
-                     success = { log = "Someone's forced this wand to hold more than it should. Used, it makes monsters as often as wizards. They put it away.",
-                                 tells = { "wand_unreliable" }, tells_how = "check", mus = { flag = "refused" } },
-                     fail = { log = "Nothing obvious, and nobody's sure enough to try it. The wand goes in a pack, unused.",
-                              mus = { flag = "refused" } } } },
+            short = "study it", lean = "look", roll = { dc = 15, skill = { "arcana" }, best = true,
+                     success = { log = "Someone's forced this wand to hold more than it should. Used, it makes monsters as often as wizards.",
+                                 tells = { "wand_unreliable" }, tells_how = "check", mus = { flag = "studied" } },
+                     fail = { log = "Nothing obvious, except that it sparks when it shouldn't.", mus = { flag = "studied" } } } },
           { label = "Don't risk it.", want = "leave the wand alone", short = "leave it", lean = "safe",
             log = "The wand goes in a pack, unused. The sheep finds an old robe in the wardrobe and pulls it on over its fleece.",
             mus = { flag = "refused" } },
       } },
+    -- (p6: told how dangerous it is, Shinebright still wants to risk it; a good argument and a DC 15 Charisma
+    -- (Persuasion) check talks him out of it.)
+    { id = "the_spell_again", at = "bedroom", when_in = "end", page = 6, party = true, title = "He still wants it",
+      only_if = { flag = "studied", not_flag = { "restored", "dead", "refused" } },
+      risks = "shinebright", actor = { "storyteller", "method_actor", "tactician" },
+      text = "The sheep plants its hooves by the wand and won't move. Whatever it costs, it wants to be an elf again.",
+      text_if = { { when = { flag = "talking" },
+                    text = "\"I don't care what's wrong with it,\" Shinebright says. \"I want my hands back. Do it.\"" } },
+      options = {
+          { label = "Do it anyway.", want = "try the wand on him anyway", short = "use the wand", lean = "bold", roll = WAND_ROLL },
+          { label = "Talk him out of it.", want = "talk him out of the wand", short = "talk him out of it", lean = "talk",
+            roll = { dc = 15, skill = { "persuasion" }, best = true,
+                     success = { log = "It takes a while, and a good argument. In the end he lets the wand go in a pack, and thanks them for it.",
+                                 mus = { flag = "refused" } },
+                     fail = { log = "He won't hear it. The wand goes in a pack anyway, and the sheep doesn't speak to them all the way back.",
+                              mus = { flag = "refused" } } } },
+      } },
 }
 
 -- Each ending as a condition on the log (adventure.test).
+-- The story so far, in the table's words (the chain and "last time": museum_night.beat_clause): each choice as what
+-- they did, `ok` when its roll came off. The playtest, November 6: "the party read the scroll and see what happens".
+M.beats = {
+    scroll_read = { "they read the sheep's scroll aloud, and the sheep began to talk",
+                    { ok = "they checked the sheep's scroll and read it, and the sheep began to talk",
+                      did = "they tried to make sense of the sheep's scroll" } },
+    guz_arrives = { "they told Guz the sheep was staying", { ok = "they talked Guz round", did = "they tried to talk Guz round" },
+                    "they handed the sheep over to Guz" },
+    scroll_again = { "they read the sheep's scroll at last, and the sheep began to talk", "they kept the sheep's scroll sealed" },
+    tracks = { { ok = "they read the tracks on the path", did = "they tried to read the tracks" }, "they let the sheep lead the way" },
+    the_door = { { ok = "they shouldered the hall door open", did = "they put a shoulder to the hall door" },
+                 { ok = "they picked the hall door's lock", did = "they tried to pick the hall door's lock" } },
+    noke_demand = { "they refused Noke", "they heard Noke out" },
+    hall_search = { "they searched the hall and found a second scroll", "they went straight after Noke" },
+    the_spell = { { ok = "they turned the sheep back into Shinebright with the wand", did = "they tried the wand on Shinebright" },
+                  { ok = "they found out what was wrong with the wand", did = "they looked the wand over" },
+                  "they left the wand alone" },
+    the_spell_again = { { ok = "they used the wand anyway, and it worked", did = "they used the wand anyway" },
+                        { ok = "they talked Shinebright out of the wand", did = "they tried to talk Shinebright out of the wand" } },
+}
+
 M.endings = {
-    restored = { name = "Restored", when = { flag = "restored" }, page = 6,
+    restored = { name = "Restored", when = { flag = "restored" }, page = 6, tone = "good",
                  line = "Shinebright is an elf again, delighted, and has to be reminded of everything he promised." },
-    dead = { name = "The spell failed", when = { flag = "dead" }, page = 6,
+    dead = { name = "The spell failed", when = { flag = "dead" }, page = 6, tone = "bad",
              line = "The wand failed him. What's left of Shinebright's house is theirs to leave alone or strip bare." },
-    refused = { name = "Still a sheep", when = { flag = "refused" }, page = 6,
+    refused = { name = "Still a sheep", when = { flag = "refused" }, page = 6, tone = "mixed",
                 line = "They wouldn't risk the wand. Shinebright puts on an old robe over his fleece and keeps hoping." },
     -- (Ours, as the failure: Conner, November 6.)
-    taken = { name = "Noke has his sheep", when = { flag = "taken" }, ours = true,
+    taken = { name = "Noke has his sheep", when = { flag = "taken" }, ours = true, tone = "bad",
               line = "Noke's men brought the sheep home, and nobody came after it." },
 }
 M.xp = { each = 500, page = 6 }
@@ -508,6 +557,7 @@ M.clocks = {
     -- (Three days: Conner, November 6.)
     { id = "guards_search", name = "Noke's men are looking", unit = "days", count = 3, ours = true, page = 3,
       text = "Noke has more guards. Left alone, they find the sheep again.", fires = "sheep_taken", sets = "taken",
+      said = "A day later. Somewhere out in the oaks, Noke's other guards are still looking for that sheep.",
       when = { not_flag = "restored" } },
     { id = "bed_dragon", name = "Three rounds", unit = "rounds", count = 3, page = 5, after = "noke_flees", fires = "bed_dragon" },
 }

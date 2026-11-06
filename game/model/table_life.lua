@@ -421,8 +421,16 @@ M.REWARD_PER_NIGHT = 2      -- (things given or told, a night)
 M.REWARD_OFFERS = 3         -- (cards offered, a night: answering "as it lands" is a card too)
 local function can_reward(night, sc)
     local tl = night.tl or {}
-    if night.fast or sc.tl_rewarded or (tl.rewards or 0) >= M.REWARD_PER_NIGHT or (tl.offers or 0) >= M.REWARD_OFFERS
-            or not night:room(14) then
+    if night.fast or sc.tl_rewarded or (tl.rewards or 0) >= M.REWARD_PER_NIGHT or (tl.offers or 0) >= M.REWARD_OFFERS then
+        return false
+    end
+    -- (The gentle first night keeps its optional calls for later, R6, but one of these: an adventure whose first night
+    -- covers most of its places would otherwise never offer their tips. The playtest, November 6: none in 51 pokes.)
+    if night.gentle then
+        if (tl.offers or 0) >= 1 then
+            return false
+        end
+    elseif not night:room(14) then
         return false
     end
     return #require("game.model.dm_bag").stock(night.campaign) > 0
@@ -858,11 +866,15 @@ function M.room(night, sc, phase)
         return 0
     end
     sc.tl_played = true
-    if night.end_early or not sc or sc.boss or sc.showdown or sc.epilogue or night.fast then
+    if night.end_early or not sc or sc.boss or sc.showdown or sc.epilogue or night.fast or sc.rushed then
         return 0
     end
     -- (Nobody pokes at curios or haggles for a laugh while the table grieves: round three, able.somber.)
     if able.somber(night) then
+        return 0
+    end
+    -- (Nor once the adventure's ended: its last scene is the ending, then goodbyes. The playtest, November 6.)
+    if require("game.model.adventure").check_ending(night.campaign) then
         return 0
     end
     local lvl = M.level(night.campaign)

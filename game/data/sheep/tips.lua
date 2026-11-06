@@ -6,7 +6,7 @@ return {
     { id = "tip_scroll", name = "Read the scroll", room = "inn_common", hints = "sheep_wizard", page = 2,
       moot = { flag = "understood" },
       text = "A sealed scroll from a frantic animal is usually a message, and messages want reading." },
-    { id = "tip_guz", name = "Guz would rather go home", room = "inn_common", page = 3, moot = { flag = "guz_left" },
+    { id = "tip_guz", name = "Guz would rather go home", room = "inn_common", page = 3, moot = { { flag = "guz_left" }, { flag = "bear_seen" } },
       text = "Guz is loyal, not clever. Give him a reason to walk away, and he'd rather go home with a story than lose a fight in front of a crowd." },
     { id = "tip_beasts", name = "Odd beasts", room = "inn_common", hints = "guards_are_people", page = 3,
       text = "Those wolves keep looking to the big man before they move, like soldiers waiting on an order." },
@@ -25,7 +25,7 @@ return {
     { id = "tip_scroll_two", name = "A second scroll", room = "hall", hints = "second_scroll", page = 6,
       text = "Whoever wrote the first scroll wouldn't have made just one. The library's the place to look." },
     { id = "tip_furniture", name = "A plan upstairs", room = "hall", hints = "bed_escape", page = 5,
-      text = "A transmuter who's been practising on furniture has a plan for when things go wrong. It's upstairs." },
+      text = "An apprentice who's been practising on the furniture may have one more trick up his sleeve for when things go wrong." },
     { id = "tip_cracked", name = "A cracked wand", room = "bedroom", hints = "wand_unreliable", page = 6,
       text = "A cracked wand is a gamble every time. Let someone who knows magic look it over before anyone trusts it." },
 }

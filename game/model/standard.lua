@@ -157,8 +157,9 @@ function M.cards(mod)
         table.insert(out, { id = card_id(mod, pl.id, "goal"), kind = "goal", name = gname, short = g.short or mid(mod, gname),
                             aim = g.aim or mid(mod, gname),
                             fits = fits, tags = g.tags or { "action" }, line = g.line or ("Goal: " .. (sc.sum or pl.name) .. "."),
+                            line_if = g.line_if,
                             win = g.win or "They're through.", win_if = g.win_if, lose = g.lose or "They're through, battered.",
-                            lose_if = g.lose_if, got = g.got or "the way on", ask = g.ask })
+                            lose_if = g.lose_if, lose_sets = g.lose_sets, got = g.got or "the way on", ask = g.ask })
         if sc.snag then
             table.insert(out, { id = card_id(mod, pl.id, "snag"), kind = "complication", name = sc.snag.name, skill = sc.snag.skill,
                                 fits = fits, tags = { "danger" }, difficulty = 1, line = sc.snag.line, moment = sc.snag.moment })
@@ -242,9 +243,12 @@ local function moment_of(mod, ev, rooms)
         end
         table.insert(opts, c)
     end
-    -- (A story event with no choice in it: one way on, so it plays as said, with no vote.)
+    -- (A story event with no choice in it: one way on, so it plays as said, with no vote. Said: its words are what the
+    -- table sees happen, the sheep at a gallop, the bed rising. The playtest, November 6: "Go on." cards nobody heard.)
+    local see
     if #opts == 0 then
         opts = { { label = "Go on.", short = "go on", lean = "safe", effects = {} } }
+        see = ev.see == nil and true or ev.see
     end
     -- (What the event itself tells the table, whichever way it goes: Shinebright's story.)
     if ev.tells then
@@ -258,7 +262,7 @@ local function moment_of(mod, ev, rooms)
         id = ev.id, room = at, at = when, type = ev.type or (#(ev.options or {}) > 0 and "choice" or "story"),
         actor = ev.actor or { "storyteller", "explorer", "casual" }, party = ev.party, title = ev.title or ev.id,
         text = ev.text, text_if = ev.text_if, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells, risks = ev.risks,
-        mus = ev.sets and { flag = ev.sets[1] } or nil, book = true,
+        mus = ev.sets and { flag = ev.sets[1] } or nil, book = true, see = see,
     }
 end
 

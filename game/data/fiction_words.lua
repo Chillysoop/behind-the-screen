@@ -17,7 +17,7 @@ return {
         "bell", "bells", "camp", "campfire", "cellar", "sewer", "sewers", "dock", "docks", "harbour", "harbor", "port", "ship",
         "boat", "river", "rapids", "bridge", "ford", "forest", "woods", "hills", "ridge", "valley", "vale", "cave mouth",
         "wilderness", "coast", "island", "castle", "manor", "guildhall", "library", "temple steps",
-        "chimney", "tunnel", "quarry", "toll", "waymark",
+        "chimney", "tunnel", "quarry", "toll", "waymark", "pond", "duck pond",
         -- people
         "farmer", "farmhand", "miller", "baker", "blacksmith", "smith", "mayor", "captain", "lieutenant", "sergeant",
         "guildmaster", "inspector", "lawyer", "surveyor", "merchant prince", "abbot", "priest", "saint", "bard", "minstrel",

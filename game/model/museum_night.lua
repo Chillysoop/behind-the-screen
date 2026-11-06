@@ -496,6 +496,11 @@ function M.handle(night, mus, sc)
     if not mus then
         return
     end
+    -- (They're in a hurry, after someone: no poking about here. The playtest, November 6: "Up the slope, after
+    -- him", then the lab bench and the couch.)
+    if mus.rush and sc then
+        sc.rushed = true
+    end
     local c = night.campaign
     local st = st_of(night)
     -- (The tablet read a line at a time, as the book has it: what comes of it is the success or the miss.)
@@ -745,6 +750,10 @@ end
 
 function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
+    -- (What losing here does to the story, `lose_sets`: the Sheep Chase's guards win the yard and take the sheep.)
+    if not win and goal.lose_sets and night.campaign.adv then
+        night.campaign.adv.flags[goal.lose_sets] = true
+    end
     local text = win and goal.win or (goal.lose or goal.win)
     local alt_said = false
     local said = adventure.say(night.campaign, (win and goal.win_if or goal.lose_if),
@@ -1153,9 +1162,11 @@ function M.play_moment(night, card, sc)
         if best_skill then
             local best, bm
             local pool = chosen.roll and night:at_hand() or (#backers > 0 and backers) or night:at_hand()
+            -- (`casters`: only someone who casts spells can do it at all, the Sheep Chase's wand, p6.)
+            local CASTER = { wizard = true, cleric = true }
             for _, p in ipairs(pool) do
                 local _, m = night:best_skill(p, best_skill)
-                if m and (not bm or m > bm) then
+                if m and (not bm or m > bm) and not (chosen.roll and chosen.roll.casters and not CASTER[p.class]) then
                     best, bm = p, m
                 end
             end
@@ -2188,6 +2199,7 @@ function M.room_start(night, sc)
             night:highlight(6, util.fill("{char} finds what {char_they} came for: ", { char = p.char }) .. util.lower_first(h.name), { p }, "thread")
         end
     end
+    M.rumours(night, sc)
     M.callbacks(night, sc)
     -- (Back where a hero fell with nobody to take their pack: it's picked up now. death.pick_up_pack.)
     require("game.model.death").pick_up_pack(night, sc.room)
@@ -3099,10 +3111,14 @@ local function carry(night, p, o, votes, avg_spot, edges, risky, no_mood)
     end
     -- The table's habit: the last pick's kind, and the friends who like the other kind.
     local lastv = votes and votes.last
-    if lastv and lastv.kind and kind and kind ~= lastv.kind then
+    -- (Only the habit it answers: a careful pick last time argues for a bold one now, a reckless one for anything but.
+    -- The playtest, November 6: "We charged in earlier tonight. Maybe not again." for using the wand, after a look.)
+    local habit = lastv and ((lastv.kind == "safe" and kind == "bold" and "safe_last")
+        or (lastv.kind == "bold" and kind and kind ~= "bold" and "bold_last")) or nil
+    if habit then
         local f = fan_of(p, kind)
         if f > 0 then
-            add(M.VOTE_HABIT * f * math.min(2, lastv.streak or 1), lastv.kind == "safe" and "safe_last" or "bold_last")
+            add(M.VOTE_HABIT * f * math.min(2, lastv.streak or 1), habit)
         end
     end
     words.alt = alt
@@ -4489,7 +4505,13 @@ function M.flee(night, sc)
     if not best then
         return
     end
-    night:say("Nobody wants to stay. They fall back to " .. util.lower_first(MODULE.rooms[best].name) .. ", fast.", "bad")
+    -- (A friend calls it from their seat; the DM says where they end up. Not "nobody wants to": the playtest,
+    -- November 6.)
+    local caller = night:pick_lead({ "tactician", "casual", "storyteller" })
+    if caller then
+        night:emit({ kind = "say", who = caller.key, ic = false, text = "We're done here. Back to " .. util.lower_first(MODULE.rooms[best].name) .. "!" })
+    end
+    night:say("They fall back to " .. util.lower_first(MODULE.rooms[best].name) .. ", fast.", "bad")
     M.go_back(night, { id = best, why = "flee", steps = cleared[best] })
 end
 
@@ -4615,6 +4637,122 @@ function M.after_room(night, sc)
     M.ties_beat(night, sc)
     M.interlude(night, sc)
     events.set_cause(c, prev_cause)
+    -- (An adventure that's just ended, without a last scene of its own like the museum's lair: its ending, played.)
+    if st.ending and not MODULE.showdown then
+        M.play_ending(night, st.ending)
+    end
+end
+
+-- The adventure's rumours (MODULE.rumours), where they're told: the first time the party's in a place they belong to (the
+-- place itself, or the building it's `in`), whoever tells them says two, and one that picks up a thread the party
+-- carried in comes first (the Sheep Chase's travellers from the mountains, after the museum). True, false or half: the
+-- table hears them as said; the truth is the DM's note (`dm`). The playtest, November 6: Teddy was "only getting
+-- started", and never said a word of them.
+M.RUMOURS_A_PLACE = 2
+function M.rumours(night, sc)
+    local list = MODULE.rumours
+    local c = night.campaign
+    local place
+    for _, pl in ipairs(MODULE.places or {}) do
+        if pl.id == sc.room then
+            place = pl
+        end
+    end
+    local room = MODULE.rooms[sc.room] or {}
+    if not list or not c.adv then
+        return
+    end
+    c.adv.rumours_told = c.adv.rumours_told or {}
+    local where = { [sc.room] = true }
+    if place and place["in"] then
+        where[place["in"]] = true
+    end
+    if room["in"] then
+        where[room["in"]] = true
+    end
+    local first, rest = {}, {}
+    for _, r in ipairs(list) do
+        if where[r.where] and not c.adv.rumours_told[r.id] and (not r.only_if or adventure.test(c, r.only_if)) then
+            table.insert(r.picks_up and first or rest, r)
+        end
+    end
+    local said = 0
+    local function tell(r)
+        if said >= M.RUMOURS_A_PLACE then
+            return
+        end
+        c.adv.rumours_told[r.id] = c.week
+        said = said + 1
+        local name = "Someone at the bar"
+        for _, pp in ipairs(MODULE.people or {}) do
+            if pp.id == r.who then
+                name = pp.short or pp.name
+            end
+        end
+        night:emit({ kind = "npc", name = name, cast = r.who, text = (string.gsub(r.text, '^"(.*)"$', "%1")) })
+        events.add(c, { kind = "rumour", thing = r.id, who = r.who, where = sc.room, truth = r.truth })
+    end
+    for _, r in ipairs(first) do
+        tell(r)
+    end
+    while said < M.RUMOURS_A_PLACE and #rest > 0 do
+        tell(table.remove(rest, night.rng:int(1, #rest)))
+    end
+end
+
+-- Any adventure's ending, at the table (the playtest, November 6: the Sheep Chase ended on one log line, then "how
+-- are we splitting the gold?"): the ending's own words, what the party comes away with (MODULE.keeps that hold), the
+-- experience, and a word from each friend, by how it went (the ending's `tone`). Nothing after it but the goodbyes:
+-- table life and the break wait for an ending (adventure.check_ending).
+M.ENDING_SAY = {
+    good = { mara = { "We did it. We actually did it. I'm writing all of that down.", "That's the best ending. I'm calling it." },
+             dev = { "Yes! That's how you finish something.", "Okay, that was a great one. I'm still buzzing." },
+             jess = { "Pip would like a statue. A small one is fine.", "Best. Ending. Pip is taking a bow." },
+             sam = { "Everyone made it. That's the bit I care about.", "That was lovely. Good game, everyone." } },
+    bad = { mara = { "Oh no. Oh, that's awful. I'm going to think about that one.", "I really thought that was going to work." },
+            dev = { "Well. That went wrong.", "I didn't see that coming. Wow." },
+            jess = { "Okay. Okay. That's going to stay with me.", "Pip is not okay. Jess is also not okay." },
+            sam = { "That's rough. I'm glad we were there for it, though.", "Oof. Can we have a minute?" } },
+    mixed = { mara = { "Not the ending I wanted, but it's an honest one.", "I keep wondering what would have happened." },
+              dev = { "Huh. Not a win, not a loss.", "I'll take it. I think." },
+              jess = { "Pip's going to tell this one differently.", "That's a weird place to stop. I like it." },
+              sam = { "Everyone's safe. That counts.", "Sometimes leaving it alone is the brave bit." } },
+}
+function M.play_ending(night, id)
+    if night.ending_played then
+        return
+    end
+    local e = MODULE.endings and MODULE.endings[id]
+    if type(e) ~= "table" then
+        return
+    end
+    night.ending_played = id
+    local c = night.campaign
+    local tone = e.tone or "mixed"
+    if e.line then
+        night:say(e.line, tone == "bad" and "bad" or (tone == "good" and "good" or "narration"))
+    end
+    local kept = {}
+    for _, k in ipairs(MODULE.keeps or {}) do
+        if k.text and (not k.when or adventure.test(c, k.when)) then
+            table.insert(kept, k.text)
+        end
+    end
+    for _, t in ipairs(kept) do
+        night:say("They come away with this: " .. util.lower_first(t) .. ".", "good")
+    end
+    if MODULE.xp and MODULE.xp.each then
+        night:say("Everyone marks down " .. util.int(MODULE.xp.each) .. " XP.", "system")
+    end
+    local said = 0
+    local pool = M.ENDING_SAY[tone] or M.ENDING_SAY.mixed
+    for _, p in ipairs(night:at_hand()) do
+        local lines = pool[p.key]
+        if lines and said < 3 then
+            night:emit({ kind = "say", who = p.key, ic = false, text = night:fresh(lines, "ending_" .. tone .. "_" .. p.key) })
+            said = said + 1
+        end
+    end
 end
 
 -- One of the museum's people sees their own stock in a hero's hands (round three: Telpur sold the quiver
@@ -4737,10 +4875,24 @@ function M.intro(night)
     if (st.weeks or 0) <= 1 then
         night:emit({ kind = "cinematic", id = "opening", slides = {
             { title = MODULE.title, text = MODULE.slide or MODULE.pitch or MODULE.title },
-            { title = "Tonight", text = MODULE.openings[1] },
+            { title = "Tonight", text = adventure.opening_line(c) },
         } })
-        night:say(MODULE.openings[1], "opening")
-        require("game.model.intros").run(night)
+        -- (A party carried on from another adventure: the same table and the same heroes, who've met. No
+        -- introductions or lines and veils again; the hand-off's own words for where they've come from. The
+        -- playtest, November 6: "who are you? Introduce yourselves" at the inn, after a whole museum together.)
+        local from, past = adventure.carried_from(c)
+        night:say(adventure.opening_line(c), "opening")
+        if from then
+            local names = {}
+            for _, p in ipairs(night.players) do
+                table.insert(names, p.char)
+            end
+            night:say("Same table, same heroes: " .. util.join_names(names) .. ", on from " .. tostring(past.title or from)
+                .. ". Level " .. util.int(c.level or 1) .. " now, with everything they carried out.", "system")
+            night.introduced = true
+        else
+            require("game.model.intros").run(night)
+        end
     else
         -- What last session came to, in a sentence: its rooms, in order, as clauses.
         local bits, last_week = {}, nil
@@ -4786,6 +4938,14 @@ function M.intro(night)
             end
         else
             night:say("They pick up right where they stopped, at a fork.", "opening")
+        end
+        -- (An adventure that counts its days, the Sheep Chase's three: a session is a day, and the table hears it. Said as
+        -- the world: a clock's own words when it means someone's coming. The playtest, November 6: the clock nobody heard.)
+        for _, k in ipairs(adventure.clocks_now(c)) do
+            if k.clock.unit == "days" and k.clock.said then
+                night:say(util.fill(k.left > 0 and k.clock.said or (k.clock.said_out or k.clock.said), { left = util.int(math.max(0, k.left)),
+                    days = k.left == 1 and "day" or "days" }), "narration")
+            end
         end
         -- A new hero at the table, in a fallen one's place: who they are, before the first room.
         require("game.model.death").intro(night)
@@ -5291,7 +5451,7 @@ local BREAK_END = {
     "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
     "Mugs refilled, crumbs swept off the map. \"Okay. Back in.\"",
-    "Dev drums the table. \"Right. Museum. Go.\"",
+    "Dev drums the table. \"Right. Back in. Go.\"",
     "Everyone finds their dice again. One of Sam's has rolled under the sofa.",
 }
 M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END
@@ -5378,13 +5538,17 @@ M.BREAK_LOGS = {
              "Eight hours of sleep in the museum, in the time it takes to finish the pizza." },
     research = { "Somebody gets the notes out. By the time the pizza's done, there's a plan, sort of.",
                  "Notebooks open between the pizza boxes. By the end of the break, there's a plan. Mostly.",
-                 "The break turns into a study session: the museum, its exhibits, and a lot of arrows on paper." },
+                 "The break turns into a study session: the notes, the map, and a lot of arrows on paper." },
 }
 M.BREAK_AT = 0.35          -- share of the planned evening before the break comes up
 M.BREAK_MIN = 20           -- table minutes it takes
 
 function M.maybe_break(night, before_boss)
     if night.had_break or night.end_early or (#night.scenes == 0 and not before_boss) then
+        return false
+    end
+    -- (Not once the adventure's over: the playtest, November 6, "Let's take a break" after the last roll.)
+    if adventure.check_ending(night.campaign) then
         return false
     end
     local planned = night.table_planned or 210

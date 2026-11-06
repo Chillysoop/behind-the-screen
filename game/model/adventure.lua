@@ -81,6 +81,11 @@ function M.vocab()
     if not vocab then
         vocab = {}
         local seen = {}
+        -- (Not the hand-off's words for where a party came from: "a week or two after the museum" doesn't put a
+        -- museum in the Sheep Chase.)
+        if MODULE.handoff then
+            seen[MODULE.handoff] = true
+        end
         words_in(MODULE, vocab, seen)
         words_in(M.part("cards"), vocab, seen)
         -- (And its own boards: the places on its maps are its words too, November 3.)
@@ -169,9 +174,73 @@ M.deep_foreign = deep_foreign
 -- runs the module): the heroes are who the book needs, and the shared systems speak in its words.
 -- (The shared data holds nothing from the old story since the November 4 purge; the museum's
 -- tests check that nothing slips back in, with M.foreign and M.fits.)
+-- The shared content as it was before any adventure spoke in it: M.enter puts it back before the next adventure's
+-- words go on, so a party carried on from the museum doesn't take its Francs and its stairs into the inn (the
+-- playtest, November 6: "They'll be waiting upstairs" for the bear in the yard). Put back in place, so whatever
+-- holds one of these tables still holds it.
+local SHARED
+local function shared_tables()
+    return { players = content.players, session_zero = content.session_zero, friction = content.friction,
+             rulings = content.rulings, triggered = content.triggered, conflicts = content.conflicts,
+             dialogue = content.dialogue, goal_play = content.goal_play,
+             recap = require("game.model.recap").TEMPLATES, gifts = require("game.data.keepsakes").GIFTS,
+             intros = require("game.data.intros").PLAYERS, death = require("game.data.death") }
+end
+local function snap(v, seen)
+    if type(v) ~= "table" then
+        return v
+    end
+    seen = seen or {}
+    if seen[v] then
+        return seen[v]
+    end
+    local out = {}
+    seen[v] = out
+    for k, x in pairs(v) do
+        out[k] = snap(x, seen)
+    end
+    return out
+end
+local function put_back(dst, src, seen)
+    seen = seen or {}
+    if seen[src] then
+        return
+    end
+    seen[src] = true
+    for k in pairs(dst) do
+        if src[k] == nil then
+            dst[k] = nil
+        end
+    end
+    for k, v in pairs(src) do
+        if type(v) == "table" then
+            if type(dst[k]) ~= "table" then
+                dst[k] = {}
+            end
+            put_back(dst[k], v, seen)
+        else
+            dst[k] = v
+        end
+    end
+end
+function M.shared_reset()
+    local now = shared_tables()
+    if not SHARED then
+        SHARED = {}
+        for k, t in pairs(now) do
+            SHARED[k] = snap(t)
+        end
+        return
+    end
+    for k, t in pairs(now) do
+        put_back(t, SHARED[k])
+    end
+end
+
 function M.enter(campaign)
     if not M.entered then
         M.entered = true
+        M.shared_reset()
         for key, h in pairs(MODULE.heroes) do
             local pd = content.players[key]
             if pd then
@@ -213,7 +282,9 @@ function M.enter(campaign)
                 end
             end
         end
-        M.museum_death()
+        if CURRENT == "museum" then
+            M.museum_death()
+        end
         -- What the friends do to each other, in this adventure's words.
         local fr = content.friction
         for part, over in pairs(MODULE.friction or {}) do
@@ -266,7 +337,7 @@ function M.enter(campaign)
                 mi[id] = def
             end
         end
-        local bc = content.triggered and content.triggered.boss_crit
+        local bc = CURRENT == "museum" and content.triggered and content.triggered.boss_crit
         if bc then
             bc.text = "{actor_char} is about to drop {boss} in round {round}. The whole table can see it coming."
             for _, o in ipairs(bc.options or {}) do
@@ -277,7 +348,7 @@ function M.enter(campaign)
         end
         -- A way out in the museum: nobody "came in by" a back door, and a foe who runs does come
         -- back (museum_night.after_room puts them on Euryale's card).
-        local ee = content.triggered and content.triggered.escape_earned
+        local ee = CURRENT == "museum" and content.triggered and content.triggered.escape_earned
         if ee then
             ee.text = "{boss} is beaten, bleeding, and edging toward a way out."
             for _, o in ipairs(ee.options or {}) do
@@ -289,7 +360,7 @@ function M.enter(campaign)
                 end
             end
         end
-        if content.conflicts and content.conflicts.tone then
+        if CURRENT == "museum" and content.conflicts and content.conflicts.tone then
             content.conflicts.tone.about = "Mara wants the museum's mysteries taken seriously. Jess can't resist a joke."
         end
         -- The friends' lines about things this adventure's world doesn't have (a goblin, a mayor)
@@ -328,7 +399,9 @@ function M.enter(campaign)
             if h and h[1] and h[1].intro then
                 p.story = { h[1].intro, h[2] and h[2].intro }
                 p.grim = { false, false }
-                p.all_in = (MODULE.all_in or {})[key] or p.all_in
+                -- (Its own all-in lines, else the shared ones: never the last adventure's.)
+                p.all_in_base = p.all_in_base or p.all_in
+                p.all_in = (MODULE.all_in or {})[key] or p.all_in_base
             end
         end
     end
@@ -390,6 +463,35 @@ function M.open_thread(campaign, id)
     end
 end
 
+-- The adventure this party carried on from (campaign.past: the most recent), or nil for a fresh start.
+function M.carried_from(campaign)
+    local best, bw
+    for id, p in pairs(campaign and campaign.past or {}) do
+        if not bw or (p.week or 0) > bw then
+            best, bw = id, p.week or 0
+        end
+    end
+    return best, best and campaign.past[best]
+end
+
+-- The first night's opening line: what the hand-off says for where this party came from (the Sheep Chase's "A week
+-- or two after the museum..."), else the adventure's own.
+function M.opening_line(campaign)
+    local h = MODULE.handoff
+    if h and type(h.say) == "table" then
+        for _, e in ipairs(h.say) do
+            if type(e) == "string" then
+                return e
+            elseif type(e) == "table" and e.text and (not e.when or M.test(campaign, e.when)) then
+                return e.text
+            end
+        end
+    elseif h and type(h.say) == "string" then
+        return h.say
+    end
+    return (MODULE.openings or {})[1] or MODULE.title
+end
+
 function M.handoff(campaign, to, opts)
     opts = opts or {}
     assert(adventures.list[to], "no adventure called " .. tostring(to))
@@ -429,6 +531,7 @@ function M.handoff(campaign, to, opts)
         campaign.lore[from .. ":" .. key] = type(k) == "table" and (k.level or "known") or k
     end
     events.add(campaign, { kind = "adventure_end", thing = from, value = ending, where = false })
+    require("game.model.companions").carry(campaign)      -- (a pet comes along: before the old adventure's data goes)
     M.use(to)
     campaign.module = to
     campaign.threads = open

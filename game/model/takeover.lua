@@ -232,6 +232,17 @@ function M.talk(night, sc)
         return false
     end
     local campaign = night.campaign
+    -- (Someone the table can't understand yet, the sheep before the scroll is read, says nothing you can voice: their
+    -- `understood` names the flag that lets them. The playtest, November 6: "Talk as Shinebright" with the seal unbroken.)
+    local adventure = require "game.model.adventure"
+    if cast.person and adventure.data.people then
+        for _, pp in ipairs(adventure.data.people) do
+            local u = pp.id == cast.person and pp.understood
+            if u and u.flag and not (campaign.adv and campaign.adv.flags and campaign.adv.flags[u.flag]) then
+                return false
+            end
+        end
+    end
     local p = talker(night, sc, cast)
     if not p then
         return false

@@ -11,14 +11,61 @@ local util = require "game.model.util"
 
 local M = {}
 
-local function data()
+-- The adventure's own, and any who came along from the last one (campaign.companions_carried, M.carry).
+local function data(campaign)
     local ok, adv = pcall(require, "game.model.adventure")
-    return ok and adv.data and adv.data.companions or nil
+    local d = ok and adv.data and adv.data.companions or nil
+    local carried = campaign and campaign.companions_carried
+    if not (carried and next(carried)) then
+        return d
+    end
+    local out = { order = {} }
+    for _, id in ipairs(d and d.order or {}) do
+        out[id] = d[id]
+        table.insert(out.order, id)
+    end
+    for id, cc in util.sorted_pairs(carried) do
+        if not out[id] then
+            out[id] = cc.def
+            table.insert(out.order, id)
+        end
+    end
+    return out
 end
 
-function M.def(id)
-    local d = data()
+function M.def(id, campaign)
+    local d = data(campaign)
     return d and d[id] or nil
+end
+
+-- At the hand-off (adventure.handoff): a companion who travels (`travels`: Exhibit B, in Pip's hood) comes along
+-- into the next adventure, in words that fit anywhere. A person who belongs to the place (Telpur, the gift shop's
+-- boot) stays behind.
+function M.carry(campaign)
+    local out = {}
+    for _, e in ipairs(M.active(campaign, campaign.players)) do
+        if e.travels then
+            local def = {}
+            for k, v in pairs(e) do
+                def[k] = v
+            end
+            def.travels = nil
+            local lines = {}
+            for k, v in pairs(e.lines or {}) do
+                lines[k] = v
+            end
+            lines.join = e.travels.join or lines.join
+            lines.start = e.travels.start or lines.start
+            def.lines = lines
+            def.helps = e.travels.helps
+            def.joins = nil
+            out[e.id] = { def = def, week = campaign.week or 0 }
+        end
+    end
+    for id, c in pairs(campaign.companions_carried or {}) do
+        out[id] = out[id] or c
+    end
+    campaign.companions_carried = out
 end
 
 -- Join the party (a chat answer, a flag, a find).
@@ -41,7 +88,7 @@ end
 -- Who's with them now: joined, or a flag the story set (Telpur coming along), and whose friend is
 -- at the table. Each: the def with its id.
 function M.active(campaign, players)
-    local d = data()
+    local d = data(campaign)
     if not d then
         return {}
     end
@@ -49,7 +96,7 @@ function M.active(campaign, players)
     local out = {}
     for _, id in ipairs(d.order or {}) do
         local def = d[id]
-        local joined = adv.companions and adv.companions[id]
+        local joined = (adv.companions and adv.companions[id]) or (campaign.companions_carried and campaign.companions_carried[id])
         if not joined and def.joins and def.joins.flag and adv.flags and adv.flags[def.joins.flag] then
             joined = true
         end

@@ -122,6 +122,12 @@ function M.think(night, p, need, opts)
     if M.CHEERY[need] and require("game.model.able").somber(night) then
         return nil
     end
+    -- (A friend's good news is news once a campaign: told at the table or in the chat, it isn't news next week, or in
+    -- the next adventure. The playtest, November 6: Mara's night course twice.)
+    local told_news = night.campaign and night.campaign.news_told
+    if need == "celebrating" and told_news and told_news[p.key] then
+        return nil
+    end
     local th = state(night)
     local glow = need == "glow"
     -- (The first night has one thought, happy or not: R6. night.gentle, game/model/night.lua.)
@@ -643,6 +649,8 @@ M.EFFECTS = {
     news = function(night, p)
         night.news_told = night.news_told or {}
         night.news_told[p.key] = true          -- (told at the table: the chat needn't, museum_week.write_chat)
+        night.campaign.news_told = night.campaign.news_told or {}
+        night.campaign.news_told[p.key] = night.campaign.week or 0
         for _, o in ipairs(night.players) do
             score.add(o, "social", 4)
         end

@@ -29,7 +29,17 @@ function M.useful(campaign, t)
     if t.when and not adv.test(campaign, t.when) then
         return false
     end
-    if t.moot and adv.test(campaign, t.moot) then
+    -- (`moot`: one condition, or a list of them, any of which makes it no use.)
+    local moot = t.moot
+    if moot and moot[1] then
+        for _, m in ipairs(moot) do
+            if adv.test(campaign, m) then
+                return false
+            end
+        end
+        moot = nil
+    end
+    if moot and adv.test(campaign, moot) then
         return false
     end
     if t.hints then

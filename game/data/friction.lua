@@ -60,25 +60,31 @@ return {
     },
 
     bonds = {
+        -- `say`: a bond that's a hero's own act is said by their player, as an announcement (Conner, November 6: players
+-- announce, the DM answers); `line` is the DM's, for a bond that's what the table saw happen.
         -- (needs_fight / needs_close: what has to have happened in the fight, game/model/fight.lua
         -- record. The second playtest review heard these lines when nothing like them had.)
         { id = "shield_over", when = "fight", class = "fighter", rapport = 4, needs_close = true,
-          line = "{actor_char} plants {actor_themselves} in front of {target_char} and won't let anything near {target_them}." },
+          line = "{actor_char} plants {actor_themselves} in front of {target_char} and won't let anything near {target_them}.",
+          say = "I'm putting {actor_char} right in front of {target_char}. Nothing gets near {target_them}." },
         { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5, needs_fight = "saves",
-          line = "{actor_char}'s prayer catches {target_char} a heartbeat before {target_they} drops." },
+          line = "{actor_char}'s prayer got to {target_char} when it counted most." },
         { id = "combo", when = "fight", rapport = 4, needs_fight = "combos",
           line = "{actor_char} and {target_char} pulled off a move together in that fight that neither could have alone. The table's still talking about it." },
         { id = "share_the_loot", when = "loot", rapport = 4,
-          line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'" },
+          line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'",
+          say = "{actor_char} hands the new trinket to {target_char}. \"You'll get more use out of it than me.\"" },
         { id = "stand_up_for", when = "social", needs = "cast", rapport = 4,
-          line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}." },
+          line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}.",
+          say = "I step in front of {target_char}. \"They're with us.\"" },
         -- (needs_plan: a choice the table settled on in this room, that the doer wanted and someone
         -- else carried off without a roll going wrong: round three heard "Brannoc's plan" for a
         -- ritual Dev argued against.)
         { id = "plan_and_timing", when = "explore", rapport = 3, needs_plan = true,
           line = "{actor_char}'s plan, {target_char}'s timing: it works perfectly, and they both know it." },
         { id = "make_amends", when = "any", rapport = 6, amends = true,
-          line = "{actor_char} quietly gives back what {actor_they} took, polished, with a bad drawing as an apology." },
+          line = "{actor_char} quietly gives back what {actor_they} took, polished, with a bad drawing as an apology.",
+          say = "I give back what I took. Polished. With a drawing. It's an apology." },
     },
 
     responses = {
@@ -99,9 +105,11 @@ return {
           effects = { doer = { investment = 2 }, objectors = { trust = 1 } } },
     },
 
+    -- (Said by the friend who minds, from their seat: the DM never says what a hero does or feels about it. The
+    -- playtest, November 6: "Thessaly's mini moves a square further away" said for her.)
     jabs = {
-        "{char} gives {doer_char} a long, flat look.",
-        "{char} gives {doer_char} a pointed cough.",
-        "{char}'s mini moves a square further away from {doer_char}'s.",
+        "{doer_char}. Really?",
+        "Ahem. {doer_char}.",
+        "I'm moving my mini a square further away from {doer_char}'s.",
     },
 }

@@ -1808,7 +1808,7 @@ function M.run(night, sc, plan)
         local ally = src.side == "party" and not src.pc and src or nil
         local lander = ally and M.ally_player(night, ally) or nil
         -- The boss is about to go down early.
-        if tgt.boss and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
+        if tgt.boss and not (tgt.data and tgt.data.escapes) and src.side == "party" and bb.round <= 2 and total >= tgt.hp and not tgt.dead and not f.used.boss_crit then
             local rf = M.reinforcement(night, night.scene)
             local adjust = (rf == nil and { drop = { reinforce = true } })
                 or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
@@ -2065,6 +2065,11 @@ function M.run(night, sc, plan)
         -- the DM prepped to yield or to fight to the last doesn't take a way out instead: that's
         -- the boss card's call, M.yield_check.)
         local stays = (sc.comps and sc.comps.cast and sc.comps.cast.stays) or sc.boss_style ~= nil
+        -- (Only where a foe who runs comes back, `escapes_return`: the museum's are on Euryale's card. Anywhere else the
+        -- card's "they'll be back" is a promise nothing keeps: the playtest, November 6, the bed dragon "got away" and then
+        -- fell apart. A foe the story has run, like Noke, runs on its own: escapes in its stat block.)
+        local adv_data = require("game.model.adventure").data
+        stays = stays or not (adv_data and adv_data.escapes_return)
         if vb and vb.villain and not stays and not vb.dead and not vb.removed and r >= 2 and vb.hp <= vb.hp_max * 0.45
             and not f.escape_asked and not bb.force_end and night:room(15) and night.rng:chance(0.8) then
             f.escape_asked = true      -- (asked once a fight, whether or not the card could come up)
@@ -2078,7 +2083,7 @@ function M.run(night, sc, plan)
                 end
                 bb.force_end = "party"
                 f.fled = true
-                night:event("escape", { who = "party", text = util.capitalize(f.boss_name or vb.name) .. " got away, deeper into the museum." })
+                night:event("escape", { who = "party", text = util.capitalize(f.boss_name or vb.name) .. " got away." })
             end
         end
         -- Round six and counting (or a long stretch with nothing for the DM to do).

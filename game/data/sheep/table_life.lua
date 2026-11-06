@@ -143,7 +143,8 @@ return {
       table_bits = {
         { kind = "plan", who = "mara", lines = {
             "\"I'm marking the trees as we go, so we can find our way back,\" Mara says.",
-            "Dev: \"With what?\" Mara: \"Chalk. I always carry chalk.\"" } },
+            "\"With what?\" Dev says.",
+            "\"Chalk. I always carry chalk,\" Mara says." } },
       },
     },
 
@@ -178,7 +179,8 @@ return {
       table_bits = {
         { kind = "banter", who = "sam", lines = {
             "\"I'd like to say a quick word for whoever lives in those huts,\" Sam says.",
-            "Jess: \"You don't even know who lives in those huts.\" Sam: \"That's why it's quick.\"" } },
+            "\"You don't even know who lives in those huts,\" Jess says.",
+            "\"That's why it's quick,\" Sam says." } },
       },
     },
 
@@ -218,7 +220,8 @@ return {
       table_bits = {
         { kind = "pocket", who = "jess", lines = {
             "\"One flower. Just one. For my hat,\" Jess says.",
-            "Mara: \"Pip doesn't have a hat.\" Jess: \"Pip does now.\"" },
+            "\"Pip doesn't have a hat,\" Mara says.",
+            "\"Pip does now,\" Jess says." },
           keepsake = "a flower from Noke's garden that never wilts" },
       },
     },
@@ -297,7 +300,8 @@ return {
       table_bits = {
         { kind = "banter", who = "mara", lines = {
             "\"I'm not saying I want a dragon bed. I'm saying I'd consider a dragon bed,\" Mara says.",
-            "Dev: \"It tried to eat us.\" Mara: \"I'd train it.\"" } },
+            "\"It tried to eat us,\" Dev says.",
+            "\"I'd train it,\" Mara says." } },
       },
     },
   },

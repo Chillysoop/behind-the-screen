@@ -1321,6 +1321,12 @@ M.companions = {
     order = { "exhibit_b", "telpur" },
     exhibit_b = { name = "Exhibit B", pronoun = "he", kind = "pet", what = "Pip's museum rat", owner = "jess", joins = { chat = "pip_pet" }, pocket = true,
                   sprite = "exhibit_b",
+                  -- (A pet goes where Pip goes: into the next adventure too, with words that aren't the museum's.
+                  -- companions.carry, at the hand-off.)
+                  travels = { join = "Exhibit B came along too, still riding in Pip's hood.",
+                              start = { "Exhibit B is in my hood. Say hi, Exhibit B.", "Exhibit B came. He insisted.",
+                                        "Exhibit B has opinions about this place already." },
+                              helps = { bonus = 2 } },
                   helps = { bonus = 2, find = 0.25, find_line = "Exhibit B scurries off under an exhibit and comes back with a Flitwidget Franc in his teeth." },
                   lines = {
                       join = "Pip has a new friend tonight: a museum rat called Exhibit B, riding in her hood. He seems to approve of the museum.",
@@ -1782,9 +1788,12 @@ M.friction = {
         -- (A promise: the next thing the party finds goes to them, and the table hears it kept:
         -- museum_night.first_pick. Never once the adventure's over.)
         share_the_loot = { line = "{actor_char} lets {target_char} have first pick of whatever the party finds next: 'You'll get more use out of it than me.'",
+                           say = "Whatever we find next, {target_char} gets first pick. You'll get more use out of it than me.",
                            promise = true },
-        make_amends = { line = "{actor_char} quietly gives back {pocketed}, polished, with a bad drawing as an apology.", pocket_back = true },
-        stand_up_for = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
+        make_amends = { line = "{actor_char} quietly gives back {pocketed}, polished, with a bad drawing as an apology.",
+                        say = "I give back {pocketed}. Polished. With a drawing. It's an apology.", pocket_back = true },
+        stand_up_for = { line = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
+                         say = "I step in front of {target_char}. \"They're with us.\"" },
     },
 }
 
@@ -1967,6 +1976,8 @@ M.why_here = "why {char_they} came to the museum"
 M.slide = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over."
 -- The adventure's own currency: a great roll can turn one up (night.lua), and the chain counts them (events.lua).
 M.currency = { id = "francs", one = "Flitwidget Franc", many = "Flitwidget Francs", short = "Francs" }
+-- A foe who gets away comes back: up the stairs, on Euryale's card (museum_night.after_room). The way-out card offers it.
+M.escapes_return = true
 -- When the book's next level comes, by the level they're at (the report).
 M.level_when = { [1] = "after the gift shop.", [2] = "after the gift shop.", [3] = "when the museum is done." }
 -- The prep board's story column before anything's happened.

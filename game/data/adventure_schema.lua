@@ -28,12 +28,12 @@ return {
     chat_banter = { kind = "list", fields = { ["[]"] = "string", dice = "string", late = "table", when = "table" } },
     chat_intro = { kind = "list", fields = { ["[]"] = "table" } },
     chat_news = { kind = "map", fields = { ["[]"] = "string" } },
-    companions = { kind = "map", fields = { ["[]"] = "string", cast = "string", helps = "table", joins = "table", kind = "string", lines = "table", monster = "string", name = "string", owner = "string", pocket = "boolean", pronoun = "string", sprite = "string", what = "string" } },
+    companions = { kind = "map", fields = { ["[]"] = "string", cast = "string", helps = "table", travels = "table", joins = "table", kind = "string", lines = "table", monster = "string", name = "string", owner = "string", pocket = "boolean", pronoun = "string", sprite = "string", what = "string" } },
     content = { kind = "map", values = "string" },
     content_names = { kind = "open" },
     credit = { kind = "value", type = "string" },
     currency = { kind = "open" },
-    endings = { kind = "map", fields = { chain = "string", flit = "string", flit_sad = "string", line = "string", name = "string", stone_line = "string", call = "number", ours = "boolean", page = "number", when = "table" } },
+    endings = { kind = "map", fields = { tone = "string", chain = "string", flit = "string", flit_sad = "string", line = "string", name = "string", stone_line = "string", call = "number", ours = "boolean", page = "number", when = "table" } },
     epilogue = { kind = "open" },
     explore = { kind = "map", fields = { ["[]"] = "string", finds = "table", looks = "number", traps = "table" } },
     explore_say = { kind = "map", fields = { ["3C"] = "table", ["3G"] = "table", ["3H"] = "table", ["4D"] = "table", ["4I"] = "table", ["4J"] = "table", ["6B"] = "table", ["6F"] = "table", ["6H"] = "table", ["7A"] = "table", board = "table", books = "table", cases = "table", console = "table", drawings = "table", front = "table", hammer = "table", light = "table", shears = "table", shelves = "table", souvenirs = "table" } },
@@ -43,7 +43,7 @@ return {
     foe_pronouns = { kind = "open" },
     fork_at = { kind = "map", fields = { after = "table", text = "string" } },
     forks = { kind = "map", fields = { text = "string", title = "string" } },
-    friction = { kind = "map", fields = { barge_the_bargain = "string", lone_wolf = "string", make_amends = "table", my_guy = "table", outlet = "table", share_the_loot = "table", shove_a_friend = "string", skim_the_hoard = "boolean", stand_up_for = "string" } },
+    friction = { kind = "map", fields = { barge_the_bargain = "string", lone_wolf = "string", make_amends = "table", my_guy = "table", outlet = "table", share_the_loot = "table", shove_a_friend = "string", skim_the_hoard = "boolean", stand_up_for = { "string", "table" } } },
     glossary = { kind = "list", fields = { id = "string", match = "table", plain = "string", text = "string" } },
     heroes = { kind = "map", fields = { gist = "string", short = "string" } },
     hooks = { kind = "map", fields = { ["[]"] = "table",  } },
@@ -98,6 +98,7 @@ return {
     slide = { kind = "value", type = "string" },
     start = { kind = "value", type = "string" },
     story_start = { kind = "value", type = "string" },
+    escapes_return = { kind = "value", type = "boolean" },
     timeout_ending = { kind = "value", type = "string" },
     table_life = { kind = "open" },      -- (keyed by the adventure's own rooms and people: game/model/table_life.lua)
     talk = { kind = "map", fields = { again = "table", ask = "table", done = "table", done_ask = "table", done_ask_sad = "table", done_sad = "table", open = "table" } },
@@ -109,7 +110,7 @@ return {
     -- The standard's records (docs/design/adventure-standard.md), added on purpose with the Sheep Chase, November 6.
     -- Places by layer, with their routes and shops; threads, story events, clocks and rumours; the adventure's own
     -- creatures; what it can follow, what the hand-off says, and what the party keeps.
-    clocks = { kind = "list", fields = { after = "string", call = "number", count = "number", fires = "string", id = "string", name = "string", ours = "boolean", page = "number", sets = "string", text = "string", unit = "string", when = "table" } },
+    clocks = { kind = "list", fields = { after = "string", call = "number", count = "number", fires = "string", id = "string", name = "string", ours = "boolean", said = "string", said_out = "string", page = "number", sets = "string", text = "string", unit = "string", when = "table" } },
     lore_tips = { kind = "list", fields = { hints = "string", id = "string", name = "string", ours = "boolean", page = "number", room = "string", moot = "table", text = "string", when = "table" } },
     creatures = { kind = "map", fields = { abilities = "table", ac = "number", attacks = "table", breath = "table", call = "number", climb = "number", core = "string", cr = "string", escapes = "boolean", flee_line = "string", flees_below = "number", fly = "number", hit_dice = "string", hp = "number", rules_turn = "string", thunderwave = "table", int = "number", look = "string", mind = "string", name = "string", note = "string", page = "number", saves = "table", size = "string", skills = "table", speed = "number", spellcasting = "table", tactics = "string", traits = "table", tweaks = "table", type = "string", vulnerable = "table", wis = "number", xp = "number" } },
     events = { kind = "list", fields = { actor = "table", at = "string", id = "string", only_if = "table", options = "table", ours = "boolean", page = "number", pages = "table", party = "boolean", required = "boolean", risks = "string", sets = "table", tells = "table", text = "string", text_if = "table", title = "string", trigger = "table", type = "string", when_in = "string" } },

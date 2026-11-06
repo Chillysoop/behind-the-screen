@@ -20,6 +20,12 @@ return {
               -- (In an adventure the extra is real, and the button says what it is: the playtest,
               -- November 3, "is that mechanically something that happens?")
               adventure_label = "Yes, and... a Flitwidget Franc turns up in {char}'s pocket (+1 Franc).",
+              -- (In an adventure with no money of its own: the extra is +1 on their next roll, and the words say so.
+              -- The playtest, November 6: "they overhear a name that matters later", and nothing ever came of it.)
+              plain_label = "Yes, and... {char} has the measure of it: +1 on {char_their} next roll.",
+              plain_lines = { "Better than they hoped: {char} gets the measure of it. +1 on {char_their} next roll.",
+                              "Better than they hoped: smooth enough to build on. +1 on {char}'s next roll.",
+                              "Better than they hoped. {char} will remember how that went: +1 on the next roll." },
               log = "Better than they hoped. Something extra falls into their lap.",
               lines = { "Better than they hoped: a few silver coins, tucked where nobody looked.",
                         "Better than they hoped: they spot a shortcut, and save themselves an hour.",

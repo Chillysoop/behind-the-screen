@@ -3229,8 +3229,11 @@ function M:big_roll(spec, record)
     local opts = {}
     for i, o in ipairs(rule.options) do
         local label = o.label
-        if o.adventure_label and p then
+        local cur = util.lazy("game.model.adventure").data.currency
+        if o.adventure_label and p and cur then
             label = util.fill(o.adventure_label, { char = p.char })
+        elseif o.plain_label and p and self.campaign.adv then
+            label = util.fill(o.plain_label, self:vars({ char = p.char }))
         end
         opts[i] = { label = label, tone = o.tone }
     end
@@ -3369,6 +3372,15 @@ function M:big_roll(spec, record)
     self:apply(ro.effects)
     -- What the DM's call added: the extra, the cost or the new problem, by name.
     local ruled = ro.lines and self.rng:pick(ro.lines) or ro.log
+    -- (No money of its own: the extra is real all the same, +1 on that hero's next roll: c.learned, as failing
+    -- forward has it.)
+    if ro.plain_lines and ro.tone == "good" and success and p and self.campaign.adv
+            and not util.lazy("game.model.adventure").data.currency then
+        ruled = util.fill(self:fresh(ro.plain_lines, "plain_extra"), self:vars({ char = p.char }))
+        local c = self.campaign
+        c.learned = c.learned or {}
+        c.learned[p.key] = (c.learned[p.key] or 0) + 1
+    end
     if ro.tone == "good" and self.campaign.adv and not inspired and success
             and util.lazy("game.model.adventure").data.currency then
         -- The extra that falls their way on a great roll is a Flitwidget Franc (the book's own reward), in an
@@ -4919,8 +4931,10 @@ function M:party_moment(sc)
         for _, def in ipairs(list) do
             -- (In an adventure, each act happens once in the whole of it, not once a night.)
             local once = self.campaign.adv and (self.campaign.adv.acts_done or {})[def.id]
+            -- (And only in words this adventure has: no duck pond at the Sheep Chase's inn.)
             if moments[def.when or "any"] and (def.needs ~= "cast" or (sc.comps.cast and not self:muted(sc.comps.cast)))
-                and not (self.friction_done and self.friction_done[def.id]) and not once then
+                and not (self.friction_done and self.friction_done[def.id]) and not once
+                and util.lazy("game.model.adventure").fits(def.line) then
                 for _, p in ipairs(here) do
                     local dw = doer_weight(def, p, self.campaign)
                     if dw > 0 then
@@ -5059,7 +5073,8 @@ function M:friction_act(sc, def, doer)
         end
     end
     if who and self:idle() < 80 then
-        self:say(self:fresh(fr.jabs, "jab"), "narration", { char = who.char, doer_char = doer.char })
+        self:emit({ kind = "say", who = who.key, ic = false,
+                    text = util.fill(self:fresh(fr.jabs, "jab"), self:vars({ char = who.char, doer_char = doer.char })) })
     end
     if def.feeds then
         require("game.model.social").push(self.campaign, def.feeds, 4 * (def.severity or 1))
@@ -5179,7 +5194,12 @@ function M:bond_act(sc, def, doer)
     if back then
         back.returned = self.campaign.week
     end
-    self:say(util.capitalize(util.fill(def.line, self:vars(v))), "good")
+    if def.say then
+        -- (A hero's own act: their player says it, from their seat.)
+        self:emit({ kind = "say", who = doer.key, text = util.capitalize(util.fill(def.say, self:vars(v))), ic = true, announce = true })
+    else
+        self:say(util.capitalize(util.fill(def.line, self:vars(v))), "good")
+    end
     rapport.bond(self.campaign, doer.key, target.key, def.rapport or 3, def.amends)
     self:react({ [doer.key] = "cheer", [target.key] = "laugh" })
     self.bonds = self.bonds or {}
@@ -5858,7 +5878,10 @@ function M:play_scene(sc)
     if sc.resolved then
         -- A room settled by its own moment (the ritual, a bargain): no checks, no big finish.
     elseif fight_here then
-        if talk_now and not sc.showdown then
+        -- (A word with whoever the fight is with: not with someone else who happens to be there, the sheep while Guz's
+        -- wolves go for it. The playtest, November 6.)
+        local bystander = sc.comps.cast and sc.comps.cast.person and not sc.comps.cast.foe
+        if talk_now and not sc.showdown and not bystander then
             takeover.talk(self, sc)        -- a word before the fight (B8), in place of the fight's card
         end
         self:combat_scene(sc)

@@ -571,6 +571,8 @@ function M.write_chat(c)
             local p = c:player(t.who)
             if t.need == "celebrating" and p and not (night.news_told or {})[t.who] and not said[t.who] and MODULE.chat_news and MODULE.chat_news[t.who] then
                 said[t.who] = true
+                c.news_told = c.news_told or {}
+                c.news_told[t.who] = c.week or 0
                 local m = { who = p.name, key = p.key, text = M.fresh_line(c, MODULE.chat_news[t.who], "chat_news_" .. t.who) }
                 table.insert(msgs, m)
                 reply_to(m, "news")
