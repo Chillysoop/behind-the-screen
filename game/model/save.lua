@@ -180,6 +180,11 @@ function M.dump(campaign, meta)
         local t = order[i]
         local mt = getmetatable(t)
         local fields = {}
+        -- (The flags' watcher, adventure.watch_flags: a plain table to save; it's watched again when the
+        -- adventure is entered after a load.)
+        if mt and mt.__flags_view then
+            mt = nil
+        end
         if mt then
             local name = class_name[mt]
             if not name then

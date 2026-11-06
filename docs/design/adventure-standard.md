@@ -151,14 +151,36 @@ today.
 | The table's words | `recap`, `recap_beats`, `chat`, `chat_ask`, `chat_banter`, `chat_intro`, `chat_news`, `asides`, `thoughts`, `answer_like`, `keepsakes`, `friction`, `pocketables`, `ruling_costs`, `broke_words`, `outs` |
 | Museum only | Francs, the Mech's names, Euryale's card (`npc_sheet`, `marks`), the boss night (`showdown`), the Lecturer's report: they stay the museum's and move to its rule module as the slot is built |
 
+## The gates, there and owed
+
+From the importer's contract (`2026-11-05-root-causes.md`), for any adventure in `game/data/adventures.lua`
+(`ADVENTURE=<id>`):
+
+| Gate | Check | Status |
+| --- | --- | --- |
+| Shape of the data (class 11) | `schema_check` | there |
+| Spoilers, agency, claims (classes 1 to 3) | `conner_nov4b_check`'s general scans | museum only |
+| Book fidelity (class 4) | `book_check` against the adventure's fidelity sheet | any adventure |
+| Knowledge and the two-campaign test (class 5) | `knowledge_check` | any adventure |
+| Secrets: real ways out, lines that wait, every secret found, nothing early | `secrets_check` | any adventure |
+| Truth, and flags held to the event log | `museum_truth` | any adventure |
+| Movement, faces, structure (classes 6, 8, 9) | `conner_nov4b_check` | museum only |
+| Overlap (class 7) | `overlap_check` | there |
+| Camera (class 7) | | owed |
+| Line audit (class 10) | | owed |
+| Copy and originality | | owed (step 2) |
+| Fresh-eyes review of whole runs | a reviewer who hasn't read the code | every round |
+
 ## What step 1 builds from this
 
 1. The module slot: `game/data/adventures.lua`, the museum registered in it, and everything that reads the adventure
-   asking the current one.
+   asking the current one. **Built** (the Dialogue Desk's export still names the museum's files: owed).
 2. The schema validator (root-causes class 11): every table above with its fields and types, unknown fields an error,
-   run first in every gate, on the museum first.
-3. One shape for conditional text, with the museum's six old shapes read through it until they're rewritten.
-4. Flags and marks read from the event log.
+   run first in every gate, on the museum first. **Built** (`schema_check`, `game/data/adventure_schema.lua`).
+3. One shape for conditional text (`adventure.say`, `adventure.text`), with the museum's nine older shapes read
+   through it until they're rewritten. **Built.**
+4. Flags and marks in the event log: marks were already events; every flag set is now an event too
+   (`adventure.watch_flags`), and the truth test fails a flag with no event. **Built.**
 5. The truth, secrets, knowledge and book checks for any registered adventure.
 
 The fields marked **owed** come in as the first book that needs them does: the Sheep Chase brings `layer`, `in`,

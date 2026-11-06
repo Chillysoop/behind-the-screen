@@ -13,7 +13,7 @@ local score = require "game.model.score"
 local M = {}
 
 local adventures = require "game.data.adventures"
-local CURRENT = adventures.default
+local CURRENT = adventures.from_env()      -- (the default, or ADVENTURE=<id> for a test or tool)
 local MODULE = adventures.part(CURRENT, "module")
 M.data = MODULE
 
@@ -320,7 +320,43 @@ function M.enter(campaign)
     if campaign then
         campaign.module = MODULE.id
         campaign.adv = campaign.adv or M.new_state()
+        M.watch_flags(campaign)
     end
+end
+
+-- Flags as a view of the event log (the longer-adventure notes, item 1; adventure-standard.md): every flag set
+-- writes a `flag` event (what was set, in which session and room), so the log holds every one; `adv.flags` is the
+-- view the code reads, kept in step by a metatable on it. Clearing a flag isn't an event (nothing reads one).
+-- The truth test fails a flag that's set with no event for it (a flags table made fresh somewhere, unwatched).
+-- Flags carried in an older save are logged once, as `from_save`, the first time it's entered.
+function M.watch_flags(campaign)
+    local adv = campaign and campaign.adv
+    if not adv then
+        return
+    end
+    adv.flags = adv.flags or {}
+    local flags = adv.flags
+    if getmetatable(flags) then
+        return
+    end
+    local events = require "game.model.events"
+    local logged = {}
+    for _, ev in ipairs(campaign.events or {}) do
+        if ev.kind == "flag" then
+            logged[ev.thing] = true
+        end
+    end
+    for k, v in util.sorted_pairs(flags) do
+        if v and not logged[k] then
+            events.add(campaign, { kind = "flag", thing = k, from_save = true, where = false })
+        end
+    end
+    setmetatable(flags, { __flags_view = true, __newindex = function(t, k, v)
+        rawset(t, k, v)
+        if v ~= nil and v ~= false then
+            events.add(campaign, { kind = "flag", thing = k, value = (v ~= true) and v or nil })
+        end
+    end })
 end
 
 -- Death in the museum: the wake, the way back and the new heroes belong to this story.

@@ -786,6 +786,18 @@ local function play(seed, style)
             end
         end
     end
+    -- Flags are a view of the event log (adventure.watch_flags): every flag still set has its event.
+    local logged = {}
+    for _, ev in ipairs(c.events or {}) do
+        if ev.kind == "flag" then
+            logged[ev.thing] = true
+        end
+    end
+    for k, v in pairs(c.adv.flags or {}) do
+        if v and not logged[k] then
+            fail(tag .. ": the flag " .. tostring(k) .. " is set, and the event log has no record of it")
+        end
+    end
     local e = c.adv.ending or "none"
     endings[e] = (endings[e] or 0) + 1
 end

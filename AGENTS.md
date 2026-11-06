@@ -120,6 +120,12 @@ Where v2 lives:
   Every flag set is read by something, every mark changes boss night, a log that hurts someone hurts them
   (`mus.hurt`), and anything picked up works later (`MODULE.items`). One system owns each beat (a prize,
   an ending, a death); the rest record. The truth test fails otherwise.
+- **One shape for conditional text (November 6, `docs/design/adventure-standard.md`).** A text field is a plain line
+  or a list of `{ when = {...}, text = "..." }` entries, most specific first, ending on a plain line; read it with
+  `adventure.say(campaign, value, opts)` or `adventure.text(campaign, record, field)`. New data uses only this shape.
+  The museum's older `*_if` fields (text_if, read_if, line_if, win_if, lose_if, got_if, why_if, thought_if, ask_if)
+  are read through it until they're rewritten. Every flag set is an event in the log (`adventure.watch_flags`);
+  `adv.flags` is the view the code reads.
 - **Three or more ways for anything said every week.** Anything said every week or every fight comes three or more
   ways through `night:fresh(list, key)` (never twice running; `once` means once a session); lines kept in code go in
   the Dialogue Desk's `CODE_TABLES` (`tools/dialogue/export.lua`), so they can be read and edited with the rest.
