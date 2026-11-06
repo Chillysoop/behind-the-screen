@@ -52,6 +52,15 @@ local function REMEMBERED(text)
         for _, l in ipairs(d.PACK_FOUND or {}) do
             table.insert(REMEMBER_LISTS, l)
         end
+        -- (Flitwidget's word for the dead, at the wake: death.lua's grief_owed. Seed 3 careless.)
+        local ppl = require "game.data.museum.people"
+        for _, who in pairs((ppl and ppl.lines) or {}) do
+            for _, g in ipairs((type(who) == "table" and who.grief) or {}) do
+                for _, l in ipairs(type(g.text) == "table" and g.text or { g.text }) do
+                    table.insert(REMEMBER_LISTS, (string.gsub(l, "{was|were}", "{was}")))
+                end
+            end
+        end
         for _, e in pairs(adv.companions or {}) do
             for _, l in ipairs((type(e) == "table" and e.lines and e.lines.handed_on) or {}) do
                 table.insert(REMEMBER_LISTS, l)
