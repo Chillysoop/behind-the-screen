@@ -874,7 +874,8 @@ function M.room(night, sc, phase)
         return 0
     end
     -- (Nor once the adventure's ended: its last scene is the ending, then goodbyes. The playtest, November 6.)
-    if require("game.model.adventure").check_ending(night.campaign) then
+    local adv = require "game.model.adventure"
+    if not (adv.data and adv.data.showdown) and adv.check_ending(night.campaign) then
         return 0
     end
     local lvl = M.level(night.campaign)

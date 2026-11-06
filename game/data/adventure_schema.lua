@@ -119,7 +119,7 @@ return {
     keeps = { kind = "list", fields = { id = "string", page = "number", text = "string", when = "table" } },
     levels = { kind = "record", fields = { ["[]"] = "number" } },
     money = { kind = "record", fields = { coins = "table", note = "string" } },
-    places = { kind = "list", fields = { lore = "string", work = "table", call = "number", exits = "table", id = "string", ["in"] = "string", layer = "string", name = "string", note = "string", ours = "boolean", pages = "table", read = "string", scene = "table", shops = "table", source = "string", spots = "table", travel = "table" } },
+    places = { kind = "list", fields = { on = "boolean", lore = "string", work = "table", call = "number", exits = "table", id = "string", ["in"] = "string", layer = "string", name = "string", note = "string", ours = "boolean", pages = "table", read = "string", scene = "table", shops = "table", source = "string", spots = "table", travel = "table" } },
     rumours = { kind = "list", fields = { dm = "string", id = "string", only_if = "table", ours = "boolean", page = "number", picks_up = "table", text = "string", truth = "string", where = "string", who = "string" } },
     threads = { kind = "list", fields = { source = "string", ours = "boolean", clock = "string", clues = "table", ends = "table", id = "string", name = "string", open_at_end = "boolean", pages = "table", tags = "table", text = "string", when = "table", who = "string" } },
     xp = { kind = "record", fields = { each = "number", page = "number" } },

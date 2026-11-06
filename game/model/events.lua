@@ -484,9 +484,11 @@ function M.tell_beats(beats, max, finds)
         local clause = ev.text
         local nxt = beats[k + 1]
         local into = ev.kind == "enter" and not ev.back and string.match(clause or "", "^they went into (.+)$")
+        local onto = ev.kind == "enter" and not ev.back and not into and string.match(clause or "", "^they went onto (.+)$")
+        into = into or onto
         if into and not (M.linked(ev) and told[ev.from]) and nxt and nxt.where == ev.where and nxt.from ~= ev.id then
-            -- A step into a room: where the next thing happened.
-            where_next = "in " .. into
+            -- A step into a room: where the next thing happened (on a path or a platform: "on").
+            where_next = (onto and "on " or "in ") .. into
             table.insert(used, ev)
             table.insert(words, false)
             told[ev.id] = true

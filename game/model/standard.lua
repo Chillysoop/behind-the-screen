@@ -323,7 +323,8 @@ function M.compile(src)
             name = pl.name, part = 1, type = sc.type or "exploration", cost = sc.cost or (sc.quick and 1 or 2),
             quick = sc.quick, at = sc.at_map or { 50, 98 - (i - 1) * 14 }, map = sc.map or pl.name, comps = comps,
             encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
-            read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest,
+            read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest, on = pl.on,
+            hurry_on = sc.hurry_on,
             level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,
         }
         -- (A piece of the board that gets up as the fight starts: the bed. fight.lua's wake.)

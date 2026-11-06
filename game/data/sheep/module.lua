@@ -148,7 +148,7 @@ M.places = {
       read = "Room outside for wagons to unload and horses to be tied up. On a fine day it's a stage.",
       note = "In the open, frightened onlookers make difficult ground (p2).", spots = { "stage", "hitching_rail", "gate" },
       exits = { { to = "inn_common" }, { to = "inn_cellar", by = "the storm doors" } } },
-    { id = "woods_path", name = "The path through the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
+    { id = "woods_path", on = true, name = "The path through the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" }, exits = { { to = "compound", by = "the path" } },
       scene = { clears = { flags = { "talking" }, line = "Somewhere along the path the scroll wears off. The sheep's next word comes out as a bleat." },
@@ -175,7 +175,7 @@ M.places = {
                          lose = "The guards hold the yard. By the time anyone comes round, the sheep is gone, dragged up the "
                              .. "ramp bleating, and the gate is barred.", lose_sets = "taken",
                          got = "the way up into the house" } } },
-    { id = "garden", name = "The garden platform", layer = "area", ["in"] = "noke_house", pages = { 4 },
+    { id = "garden", on = true, name = "The garden platform", layer = "area", ["in"] = "noke_house", pages = { 4 },
       read = "The lowest platform, about forty feet across, ringed with curling branches, flowers and small trees.",
       exits = { { to = "compound" }, { to = "hall", gates = { { check = "athletics", dc = 14, page = 4 },
                                                                { check = "thieves_tools", dc = 12, page = 4 } } } },
@@ -188,7 +188,9 @@ M.places = {
           .. "a dining room with a kitchen.",
       spots = { "library", "lab", "sitting_room", "kitchen", "door" },
       exits = { { to = "garden" }, { to = "bedroom", by = "a small slope" } },
+      -- (p5: Noke runs for the bedroom and has three rounds to wake his bed: the bedroom comes straight after.)
       scene = { type = "combat", setting = { "indoor" }, sum = "Ahmed Noke, at home.", cast = "sh_noke", foes = { "noke" }, digs = 3,
+                hurry_on = true,
                 boss_name = "Noke", optional_fight = true,
                 -- (The wand is the goal once Shinebright's told them about it: a sealed scroll keeps it from them.)
                 goal = { name = "Face Noke", line = "Goal: find out who lives up here, and what he wants with a sheep.",

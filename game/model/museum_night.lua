@@ -4526,6 +4526,7 @@ end
 function M.after_room(night, sc)
     -- (An ending that's a condition on the log, met in this room: the adventure's over. adventure.check_ending.)
     adventure.check_ending(night.campaign)
+    night.hurry = (MODULE.rooms[sc.room] or {}).hurry_on or nil
     -- (What stops being true once this scene's done, the adventure's `clears`: the scroll's speech wears off after
     -- the walk. Its line, when it was true.)
     local cl = MODULE.rooms[sc.room] and MODULE.rooms[sc.room].clears
@@ -5193,7 +5194,8 @@ function M.log_enter(night, id, sc)
     end
     local name = util.lower_first(r.name)
     local own = MODULE.beats and MODULE.beats.rooms and MODULE.beats.rooms[id]
-    local text = own or events.word("enter", { room = name })
+    -- (A place you're on, not in: a path, a platform. "They went onto the path through the oaks.")
+    local text = own or (r.on and ("they went onto " .. name)) or events.word("enter", { room = name })
     local from
     for _, p in ipairs(adventure.hooked(c, id)) do
         if not from and present(night, p.key) then
@@ -5306,7 +5308,11 @@ function M.run(night)
             end
             -- Getting late: your call, never the clock's (the playtest, November 3). Asked before
             -- each room from here on.
-            if #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
+            -- (Hot on someone's heels, `hurry_on`: Noke up the slope, three rounds to wake his bed. The next room comes
+            -- straight after, late or not: no wrap-up card, no break in between. The playtest, November 6.)
+            if night.hurry and #options > 0 then
+                -- (skip the late call)
+            elseif #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
                 -- (Late, and the only way on is the stairs to her door: that's not one more room, it's the
                 -- end of the night either way, so the night ends here. 569 random: "one more room" was the
                 -- stairs and goodbyes.)
@@ -5331,7 +5337,9 @@ function M.run(night)
                 options = keep
             end
             local pick = { id = options[1] }
-            if #options + #backs + #sides > 1 or #options == 0 then
+            if night.hurry and #options > 0 then
+                -- (straight on after them: no fork back to rest, no side trip)
+            elseif #options + #backs + #sides > 1 or #options == 0 then
                 pick = M.fork(night, options, backs, sides)
             elseif st.pos or st.last_room then
                 say_shut(night, st.pos or st.last_room)
@@ -5368,7 +5376,9 @@ function M.run(night)
             if #night.scenes > 0 then
                 night:clock_tells()
             end
-            M.maybe_break(night)
+            if not night.hurry then
+                M.maybe_break(night)
+            end
         end
     end
     -- Anything that went on her card tonight and hasn't had her line yet (the night stopped
@@ -5547,8 +5557,9 @@ function M.maybe_break(night, before_boss)
     if night.had_break or night.end_early or (#night.scenes == 0 and not before_boss) then
         return false
     end
-    -- (Not once the adventure's over: the playtest, November 6, "Let's take a break" after the last roll.)
-    if adventure.check_ending(night.campaign) then
+    -- (Not once the adventure's over: the playtest, November 6, "Let's take a break" after the last roll. An adventure
+    -- with a last scene of its own after the ending, the museum's thanks downstairs, still takes its break: F1.)
+    if not MODULE.showdown and adventure.check_ending(night.campaign) then
         return false
     end
     local planned = night.table_planned or 210
