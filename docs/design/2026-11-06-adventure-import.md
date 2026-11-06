@@ -282,6 +282,93 @@ the longer-adventure notes, AGENTS.md, the secrets note and Conner's saved notes
    the four friends stay the core, and theatre-of-mind for small fights. (For the Sheep Chase: exact coins at the inn,
    time in days on the road, and its two fights on table maps.)
 
+## Part 3: what five books need from the standard (November 6)
+
+Conner sent four more books to shape the standard (read for structure only, nothing imported): *Banners of Honour*
+(Kefa Studios, 372 pages, levels 1 to 10, the model for the long campaign), *A Night of Masks and Monsters* (Ashley
+Warren, 25 pages, a masquerade in a strange city), *Watchers in the Dark* (Kelsey Dionne, 18 pages, a one-session
+cave crawl) and *The Mage Tower* (Jeremy Fair, 29 pages, ten floors of puzzles for any level). With the museum and the
+Sheep Chase that's six shapes: a building, a short road trip, a city party, a hub-and-spoke dungeon, a tower of puzzles
+and a kingdom.
+
+### Two ways a book comes in
+
+1. **Faithfully** (the museum, the Sheep Chase): the book's own adventure, in our words, with page references, for
+   private playtesting.
+2. **As a shape** (the long campaign): *Banners of Honour* is the model, but the campaign is ours. What we take is its
+   skeleton: its structure, pacing, kinds of beats and kinds of systems. Its world, names, people, factions, gods, items,
+   places and signature set pieces stay its own. The pipeline's second mode reads a book and writes a **shape**: the
+   arc and its acts, a chapter template, an abstract beat map, the kinds of systems it runs on, and its scale. We then
+   write an original campaign against the shape. An **originality check** fails any of the source's names or set pieces
+   that turn up in our data. The list it checks against is built at ingest and kept with the book, outside the repo.
+   Its systems are reinvented, not copied: an honour score and two loyalty tracks become our own kind of reputation
+   and allegiance, a joust becomes our own contest, and building up a castle becomes our own base.
+
+### The shape of Banners of Honour (as a model, abstracted)
+
+- **An arc in three acts.** A fixed opening at a neutral place in crisis; an open middle where the party works three
+  tracks at once (climbing one side's ladder of trust, hunting the pieces of a relic, and uncovering who is secretly
+  steering each side); and an end with several branches, settled by what the party built up. The middle's order is free:
+  places are suggested by level, and the book says the openness should never feel forced.
+- **A chapter template**, nearly every time: a banner with the place's tension; its ruler and their private problem;
+  its knights or defenders; its people and their rumours; the travel there (a hazard, a regional encounter table); the
+  arrival; keyed areas (read-aloud, DM text, sub-rooms, shops, treasure, a roleplaying guide); then story events.
+- **Story events with triggers**: one required event; about 45 optional ones ("use this only if"); a few timed ones;
+  about ten that fire when a hero's standing crosses a threshold; some that follow an important person's path; a couple
+  that run the whole campaign; and three endings.
+- **Each chapter feeds the arc**: a relic piece, a step up one side's ladder, a secret about a powerful person, or a
+  recurring character coming back changed by the party's earlier choice.
+- **A typical chapter's rhythm**: approach through the terrain, a first look that shows the tension, a tour of the
+  places that matter, the ruler's problem becoming a crisis with three or more ways through, a side intrigue with false
+  leads, a reveal that ties the place to the bigger conflict, a choice with loyalty consequences, a payoff, and an
+  optional knighting.
+- **Scale**: about 17 major places and 30 minor ones, about 215 keyed areas, about 63 story events, about 200 named
+  people (a handful major), 23 maps, 28 dice tables, 22 custom stat blocks, 8 handouts. (Conner's notes had the target
+  at about 1,200 pages; this one is 372, so the first long campaign is a third of that size.)
+- **No hexes and no battle maps.** One pictorial region map, settlement and building maps. The game's region and table
+  layers have to be made, not imported.
+
+### What the standard must hold (all six books together)
+
+Beyond what the museum's files already hold:
+- **The adventure:** level range, party size, how it scales, what it depends on (other files, a rules reference),
+  milestones (what levels the party up), and what the party keeps afterwards (a title, renown, a base).
+- **Places by layer**, each with what the table sees and what the DM keeps, exits and **gates** (what lets the party
+  through: an item, a status, a solved puzzle, a found secret, a check, a standing). Shops with prices and services.
+- **People in three tiers**, and for the named ones: their look, a disguise and their true self, wants, secrets, what
+  they know (and when they'll say it), lies with the Insight DC to catch them, a stat block or a core one with tweaks,
+  an attitude that changes, where they are and when, and **paths**: a person whose later self depends on one early
+  choice (an ally or a villain).
+- **Factions**, with members, allegiances and votes, and a **standing** per hero per faction with its thresholds and
+  what each threshold does.
+- **Threads and story events**, each with its trigger (arrival, time, a standing threshold, a choice, a person's path,
+  required or "only if"), and **endings** as conditions on the event log.
+- **Clocks**: game time, rounds, hours, days, months; a chance per interval; a DM cue; a real-time clock (the masquerade
+  ties its reveals to half an hour at the table).
+- **Clues** (where, what they point to, the DC), **rumours** (true or false, who knows them, where they spread) and
+  **handouts**. These sit with the secrets system as it is.
+- **Puzzles** with their pieces, state, clues, solution, reset and what failing does; **items that hold state** (a
+  flame's colour, a gem).
+- **Hidden gear** per hero with a delayed reveal (the masks, unknown until worn), and **staged transformations**.
+- **Conditions with saves every interval**, and an attitude change for every creature at once (the boss dies, its
+  thralls stop).
+- **Variants by level band or difficulty** that change other records (The Mage Tower's six bands), and **random tables**.
+- **Minigames and campaign systems** as named rule modules beside the core rules, the way `game/rules/museum.lua` holds
+  the museum's: a contest, a drinking game, a base to build and run month by month.
+- **A failure branch** that moves the party (captured, gear taken) instead of ending the run.
+- **Maps** with their keys linked to places, and a DM layer separate from the player layer, even where the book bakes
+  DM marks into its only map.
+
+### What ingest has to handle (found in these books)
+
+Printed page numbers that differ from the PDF's (by one, by two, in every cross-reference); pages with no text layer
+(Banners' appendices need OCR, and its handouts are in a script font only vision can read); text duplicated from the
+facing page outside the crop; headings in small capitals that come out jumbled (found by font and size instead);
+ligatures, hyphens and a font fault that turns "f" into "1"; columns and sidebars interleaved; tables flattened; map
+keys, puzzle clues and even a stat block only inside images; names spelled two ways; a contents entry that's really an
+advert; text and map that disagree; files the book promises but doesn't include; monsters given only as links to
+outside rules. Each of these goes in the calls list for Conner, never fixed silently.
+
 ## The plan, once the calls are in
 
 0. **The review** (Conner's plan): the problems found since November 4 go into the root-causes doc's classes, each with
@@ -293,9 +380,12 @@ the longer-adventure notes, AGENTS.md, the secrets note and Conner's saved notes
    - one shape for conditional text; flags and marks read from the event log; the truth test for any adventure; the
      museum's names in `fiction_words.lua`;
    - the module slot: the museum moves in, museum-only rules stay the museum's, shared code asks the module;
-   - the checks made module-agnostic, and the gates listed as there or owed.
+   - the checks made module-agnostic, and the gates listed as there or owed;
+   - the standard checked against all six books (Part 3): every record kind they need is in it, even where the engine
+     doesn't play it yet, so nothing has to be reshaped when the long campaign comes.
    Done when every museum test passes unchanged and the truth test is clean on 20 seeds and three kinds of DM.
-2. Ingest, the copy check and the calls list, run on the museum's PDF first.
+2. Ingest, the copy check, the originality check and the calls list, run on the museum's PDF first and then on the
+   other five, so every pitfall in Part 3 is caught.
 3. The hand-off from the museum.
 4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up.
 5. Its monsters, mechanics and maps, a thin region (the inn's hex, the road, the woods), then its lines and table life,
