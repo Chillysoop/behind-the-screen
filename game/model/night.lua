@@ -593,7 +593,7 @@ function M:vars(extra)
         local reward = shown(sc.comps.reward)
         v.found = reward and soft_lower(reward.got or reward.name) or ("a fresh trail, and a name: " .. v.lead)
         v.location = shown(sc.comps.location) and soft_lower(sc.comps.location.name) or "this place"
-        v.goal = shown(sc.comps.goal) and soft_lower(sc.comps.goal.name) or "what they came for"
+        v.goal = shown(sc.comps.goal) and (sc.comps.goal.aim or soft_lower(sc.comps.goal.name)) or "what they came for"
         v.boss = sc.boss_name or "the villain"
         v.Boss = util.capitalize(v.boss)
     end
@@ -1490,7 +1490,7 @@ function M:describe(c, style)
     end
     -- (A foe that looks like part of the room until it moves, `seen = false`: the room's read has it,
     -- and nothing more is said. Conner's playtest: "aren't hedges" before anything had woken.)
-    if not (c.kind == "cast" and c.seen == false) then
+    if text and not (c.kind == "cast" and c.seen == false) then
         self:say(text, style or "narration")
     end
     if c.kind == "cast" then
@@ -1881,7 +1881,7 @@ function M:goal_play(sc)
         return nil
     end
     local gp = content.goal_play
-    local name = soft_lower(goal.name)
+    local name = goal.aim or soft_lower(goal.name)
     return gp[goal.id] or gp.default, { goal = name, Goal = util.capitalize(name) }
 end
 
@@ -4810,15 +4810,16 @@ end
 -- The museum's fights are in plain sight by the time anyone could scout (the playtest, November 4:
 -- "the knight climbs out of its frame", then "Pip creeps ahead to scout"): who reacts first, instead.
 -- (Three or more ways each: anything said every week is where players first notice the machine, R3.)
+-- (Said by the player, in character: what their hero does is theirs to say. Conner, November 6.)
 local READY = {
-    rogue = { "{actor_char} is already moving, low and quick.", "{actor_char} drops into a crouch and watches for an opening.",
-              "{actor_char} slips sideways, out of the light." },
-    fighter = { "{actor_char} steps in front of everyone, weapon up.", "{actor_char} plants {actor_their} feet between it and the others.",
-                "{actor_char} rolls a shoulder and moves to the front." },
-    wizard = { "{actor_char} has a spell on {actor_their} lips before anyone else moves.", "{actor_char} reads the room, fast.",
-               "{actor_char} counts the exits, then the enemies." },
-    cleric = { "{actor_char} murmurs a prayer and squares up.", "{actor_char} counts the danger and calls it out.",
-               "{actor_char} grips {actor_their} holy symbol and stands {actor_their} ground." },
+    rogue = { "I'm already moving. Low and quick.", "I'll drop into a crouch and watch for an opening.",
+              "I'll slip sideways, out of the light." },
+    fighter = { "I'll step in front of everyone, weapon up.", "I'll plant my feet between it and the rest of you.",
+                "Front. I've got the front." },
+    wizard = { "I've got a spell ready before anyone moves.", "Give me a second. I'm reading the room.",
+               "I'll count the exits, then the enemies." },
+    cleric = { "I'll say a quick prayer and square up.", "Careful, everyone. I'll call out what I see.",
+               "I'll grip my holy symbol and hold my ground." },
 }
 local REACTED = {
     success = { "They're quicker. Weapons out before it reaches them.", "They react first: everyone's ready when it comes.",
@@ -5467,7 +5468,8 @@ function M:scout(sc)
     local best = self:scout_roller(sc)
     self.actor = best
     self.other = nil
-    self:say(self:fresh(READY[best.class] or READY.rogue, "ready_" .. best.class), "goal")
+    self:emit({ kind = "say", who = best.key, ic = true, announce = true,
+                text = util.fill(self:fresh(READY[best.class] or READY.rogue, "ready_" .. best.class), self:vars()) })
     self:react({ [best.key] = "lean" })
     local spec = { dc = 12 + (sc.difficulty - 2), convenient = "success", skill = { "perception", "insight" },
                    quiet = true,     -- (spotting them first isn't a recap beat)

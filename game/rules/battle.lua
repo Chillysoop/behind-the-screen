@@ -1361,6 +1361,12 @@ function B:deal(src, tgt, parts, info)
             else
                 self:drop(tgt, src)
             end
+        elseif tgt.data and tgt.data.escapes and tgt.data.flees_below then
+            -- (A foe the story needs later gets away instead of dying here, any adventure's `escapes`: Noke runs for his
+            -- bedroom with a sliver of his Hit Points.)
+            tgt.hp = 1
+            self:log(tgt.data.flee_line or "%s breaks and runs.", tgt.name)
+            self:remove(tgt, "morale")
         else
             -- Undead Fortitude (Zombie, p. 343).
             if tgt.traits.undead_fortitude and not radiant and not info.crit

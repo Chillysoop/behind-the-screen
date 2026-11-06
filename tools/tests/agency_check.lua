@@ -65,7 +65,7 @@ end
 
 -- PLAY ----------------------------------------------------------------------------------------------------------
 local DM = { narration = true, dm = true, good = true, bad = true, table = true, twist = true, thread = true, record = true,
-             reward = true, opening = true, recap = true }
+             reward = true, opening = true, recap = true, goal = true }
 local NAMES = {}
 for _, p in ipairs(P) do
     table.insert(NAMES, p.hero)

@@ -1964,7 +1964,7 @@ M.secrets = require "game.data.museum.secrets"
 M.why_here = "why {char_they} came to the museum"
 M.slide = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over."
 -- The adventure's own currency: a great roll can turn one up (night.lua), and the chain counts them (events.lua).
-M.currency = { id = "francs", one = "Flitwidget Franc", many = "Flitwidget Francs" }
+M.currency = { id = "francs", one = "Flitwidget Franc", many = "Flitwidget Francs", short = "Francs" }
 -- When the book's next level comes, by the level they're at (the report).
 M.level_when = { [1] = "after the gift shop.", [2] = "after the gift shop.", [3] = "when the museum is done." }
 -- The prep board's story column before anything's happened.

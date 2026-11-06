@@ -150,7 +150,7 @@ end
 -- table hears your answer: what you agreed is what the night's reminders then say. Light: a line to
 -- open, then the ask and your answer each.
 M.ASKS_OPEN = { "One more thing before we start: anything you'd rather not see in here?",
-                "Before the gnome: is there anything anyone doesn't want in the game?",
+                "Before we start: is there anything anyone doesn't want in the game?",
                 "Quick check before we go in: anything off the table for anyone?" }
 M.ANSWER = { agree = "You nod: \"{label}\"", push = "You hedge: \"{label}\"" }
 function M.asks(night, pick)

@@ -1299,7 +1299,7 @@ local function top_bar(app, prep)
     kit.text(900, 32, util.int(left) .. " of " .. util.int(prep.budget) .. " left", "ui18b", left > 0 and theme.text or theme.orange)
     -- (The adventure's own currency, when it has one: the museum's Francs.)
     if adventure.data.currency then
-        kit.text(1060, 14, string.upper(adventure.data.currency.many or "Coins"), "ui14", theme.dim)
+        kit.text(1060, 14, string.upper(adventure.data.currency.short or adventure.data.currency.many or "Coins"), "ui14", theme.dim)
         kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
     end
     local warnings = require "game.model.warnings"

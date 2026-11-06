@@ -128,7 +128,7 @@ M.bed_escape = {
     what = "When the fight turns, Noke runs for his bedroom and turns the biggest thing there, his bed, into a dragon. "
         .. "Three rounds later he rides it out through the roof.",
     held_by = { "sh_noke" },
-    hint = { "Noke keeps glancing up at the top platform.", "In the lab, sketches of a wooden wyrm, its wings drawn as sheets." },
+    hint = { "In the lab, a page of notes on making furniture walk.", "In the lab, sketches of a wooden wyrm, its wings drawn as sheets." },
     tell = { "He's going for his bed. He's going to make it into something.", "The top platform: that's where he runs, and what he makes there flies." },
     theory = { "He's got a way out. Watch where he looks.", "Nobody that scared lives without a bolt-hole." },
     paths = {

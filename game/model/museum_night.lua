@@ -5267,7 +5267,7 @@ local BREAK_START = {
 }
 local BREAK_END = {
     "Everyone settles back in. \"Right. Where were we?\"",
-    "Pizza boxes stacked, dice back out. \"Okay. So. The museum.\"",
+    "Pizza boxes stacked, dice back out. \"Okay. So. Where were we?\"",
     "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
     "Mugs refilled, crumbs swept off the map. \"Okay. Back in.\"",
@@ -5298,8 +5298,8 @@ M.WEEKLY = {
     ask_look = { "{name} looks up from the map", "{name} turns to you", "{name} glances over the screen at you",
                  "{name} taps the table and looks at you" },
     -- (a hero's reason for coming, right here)
-    thread = { "{name} sits up. This is the thing {char} came here for.", "{name} leans in. This is why {char} is here.",
-               "{name} goes very still. This is what {char} came for." },
+    thread = { "This is the bit {char} came here for.", "And here it is: why {char} is here.",
+               "This is what {char} came for." },
     -- (a room you never read: the first tonight, then any after it)
     skim = { "You never read this room properly. You skim the page while they wait.",
              "You didn't get to this room in your prep. You skim the page while they wait.",
@@ -5349,10 +5349,10 @@ M.BREAK_LOGS = {
     nothing = { "Twenty minutes of pizza and gossip. Everyone comes back a bit happier and a bit sleepier.",
                 "Twenty minutes of snacks and somebody's holiday photos. Everyone's back, crumbs and all.",
                 "A proper break: pizza, a stretch, and a long argument about the best kind of dice.",
-                "Twenty minutes off. Somebody tells the story of their week. Everyone comes back warm." },
+                "Twenty minutes off. Somebody tells the story of their week, and the rest of the table laughs at the right bits." },
     short = { "While the pizza goes round, the party sits with their backs to a wall for an hour.",
               "While the table eats, the heroes catch their breath: an hour with their boots off.",
-              "An hour in the museum while the pizza goes round: bandages, water, a quiet sit." },
+              "An hour's rest while the pizza goes round: bandages, water, a quiet sit." },
     long = { "The party beds down for the night. By the time the pizza's gone, they've slept eight hours.",
              "The heroes sleep the night through while the table eats. They wake up stiff, and whole.",
              "Eight hours of sleep in the museum, in the time it takes to finish the pizza." },

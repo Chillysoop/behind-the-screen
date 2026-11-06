@@ -443,7 +443,7 @@ function M.boss_turn(night, f, b, c)
     local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id, turn_of = c.mini,
                    text = util.capitalize(boss) .. "'s turn, and you're running it. " .. util.int(c.hp) .. " of "
                        .. util.int(c.hp_max) .. " hit points left." .. (downed and (" " .. downed.name .. " is down.") or "")
-                       .. util.fill(" Who does {boss_they} go for?", { boss = boss }),
+                       .. util.fill(" Who's {boss} going for?", { boss = boss }),
                    options = opts }
     -- How bad its turn could be (the newcomer playtest, October 16): one turn of its attacks
     -- when they hit, and who that could drop.

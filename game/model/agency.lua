@@ -23,7 +23,7 @@ end
 
 -- The DM's styles the table hears (game/model/voice.lua's UNHEARD are behind the screen: the DM's own read).
 M.SAID = { narration = true, dm = true, good = true, bad = true, table = true, twist = true, thread = true,
-           record = true, reward = true, opening = true, recap = true }
+           record = true, reward = true, opening = true, recap = true, goal = true }
 
 -- What only a person can say of themselves: feelings, wants, thoughts, decisions.
 M.MIND = { "feels?", "felt", "wants?", "wanted", "thinks?", "thought", "decides?", "decided", "would rather", "is sure",

@@ -110,6 +110,20 @@ local function aloud(text)
     return (string.gsub(string.gsub(text, "%s*%(pp?%.? ?%d[%d, %-]*%)", ""), "%s+$", ""))
 end
 
+-- (A goal's name inside a sentence, "we're here to get past the guards": its first letter lower case, unless it starts
+-- with someone's name.)
+local function mid(mod, text)
+    local first = string.match(text, "^([%a]+)") or ""
+    for _, p in ipairs(mod.people or {}) do
+        for w in string.gmatch(p.name or "", "%a+") do
+            if w == first then
+                return text
+            end
+        end
+    end
+    return string.lower(string.sub(text, 1, 1)) .. string.sub(text, 2)
+end
+
 local cards_made = setmetatable({}, { __mode = "k" })
 function M.cards(mod)
     if mod.rooms and not mod.places then
@@ -131,7 +145,7 @@ function M.cards(mod)
             local p = person(mod, sc.cast) or {}
             table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = p.short or p.name or sc.cast, pronoun = p.pronoun,
                                 name = p.name or sc.cast, fits = fits, tags = { "talk" }, difficulty = 1,
-                                line = aloud(p.seen or p.look or p.about), person = sc.cast })
+                                line = aloud(sc.cast_line == nil and (p.look or p.about) or sc.cast_line or nil), person = sc.cast })
         elseif sc.foes and #sc.foes > 0 then
             table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = sc.foes_short or "the foes", group = #sc.foes > 1,
                                 foe = true, talks = sc.talks or false, name = sc.foes_name or "The foes", fits = fits,
@@ -140,7 +154,8 @@ function M.cards(mod)
         end
         local g = sc.goal or {}
         local gname = g.name or ("Get through " .. util.lower_first(pl.name))
-        table.insert(out, { id = card_id(mod, pl.id, "goal"), kind = "goal", name = gname, short = g.short or util.lower_first(gname),
+        table.insert(out, { id = card_id(mod, pl.id, "goal"), kind = "goal", name = gname, short = g.short or mid(mod, gname),
+                            aim = g.aim or mid(mod, gname),
                             fits = fits, tags = g.tags or { "action" }, line = g.line or ("Goal: " .. (sc.sum or pl.name) .. "."),
                             win = g.win or "They're through.", win_if = g.win_if, lose = g.lose or "They're through, battered.",
                             lose_if = g.lose_if, got = g.got or "the way on", ask = g.ask })
@@ -186,6 +201,7 @@ function M.creatures(mod, roster)
             block.page = cr.page or block.page
             block.flees_below = cr.flees_below or block.flees_below
             block.flee_line = cr.flee_line or block.flee_line
+            block.escapes = cr.escapes or block.escapes
             block.tactics, block.note, block.mind, block.look = nil, nil, nil, block.look
             block.spellcasting, block.breath = nil, block.breath
             -- (The book's spellcasting isn't played as spells yet: a caster fights with its listed attacks, and the
@@ -238,7 +254,7 @@ local function moment_of(mod, ev, rooms)
     return {
         id = ev.id, room = at, at = when, type = ev.type or (#(ev.options or {}) > 0 and "choice" or "story"),
         actor = ev.actor or { "storyteller", "explorer", "casual" }, party = ev.party, title = ev.title or ev.id,
-        text = ev.text, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells, risks = ev.risks,
+        text = ev.text, text_if = ev.text_if, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells, risks = ev.risks,
         mus = ev.sets and { flag = ev.sets[1] } or nil, book = true,
     }
 end

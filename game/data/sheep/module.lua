@@ -63,14 +63,18 @@ M.heroes = {
 -- (The book's only hook is an afternoon off in a town big enough to keep a wizard, p2. The sheep picks the hero with
 -- the most magic.)
 M.hooks = {
-    mara = { { id = "magic", name = "The most magic", text = "The sheep makes straight for Thessaly: she's the one it can feel.", page = 2,
-               intro = "A quiet inn, a hot meal, and a shelf of books by the fire. That's the whole plan for today." } },
-    dev = { { id = "rest", name = "An afternoon off", text = "Brannoc came for a drink and a sit-down, and that's not what he gets.", page = 2,
-              intro = "I've walked all day. I want a drink and a chair, in that order." } },
-    jess = { { id = "rumour", name = "Gossip", text = "Pip has Teddy's ear and every story he's got about the wizard in the woods.", ours = true,
-               intro = "Every innkeeper has stories. I want all of this one's." } },
-    sam = { { id = "kind", name = "Kindness", text = "Oswin can't watch a frightened animal be dragged off.", ours = true,
-              intro = "A warm hearth, good food, and nobody needing healing. Bliss." } },
+    mara = { { id = "magic", name = "Real magic", text = "Thessaly has heard there's a famous wizard's house somewhere near this road.", page = 2,
+               room = "hall", intro = "A quiet inn, a hot meal, and a shelf of books by the fire. That's the whole plan for today.",
+               payoff = "Shelves of transmutation, a lab full of half-finished work: more real magic in one room than most wizards see in a lifetime." } },
+    dev = { { id = "rest", name = "An afternoon off", text = "Brannoc came for a drink and a sit-down.", page = 2,
+              intro = "I've walked all day. I want a drink and a chair, in that order.",
+              payoff = "A drink, a chair, and a fire. For about ten minutes." } },
+    jess = { { id = "rumour", name = "Gossip", text = "The innkeeper has stories about the wizard in the woods, and Pip wants every one.", ours = true,
+               intro = "Every innkeeper has stories. I want all of this one's.",
+               payoff = "The innkeeper leans on the bar with a story about the wizard in the woods, and he's only getting started." } },
+    sam = { { id = "kind", name = "Kindness", text = "Oswin looks after whoever needs it, people or animals.", ours = true,
+              room = "woods_path", intro = "A warm hearth, good food, and nobody needing healing. Bliss.",
+              payoff = "All the way along the path, the sheep keeps close to Oswin's heels." } },
 }
 M.content = {
     animals = { inn_common = "wolves in iron collars, and people trapped in beasts' bodies" },
@@ -122,12 +126,12 @@ M.places = {
                 { to = "inn_yard" }, { to = "woods_path", by = "the lord's road" } },
       note = "If a fight starts here, tables and chairs go over (p2).",
       scene = { type = "social", setting = { "indoor" }, sum = "A sheep with a scroll, and the men who come for it.",
-                cast = "sh_shinebright", foes = { "guz", "wolf_guard", "wolf_guard", "wolf_guard", "bear_guard" },
+                cast = "sh_shinebright", cast_line = false, foes = { "guz", "wolf_guard", "wolf_guard", "wolf_guard", "bear_guard" },
                 foes_name = "Guz and his beasts", foes_short = "Guz's crew", boss_name = "Guz", optional_fight = true,
-                goal = { name = "Keep the sheep from Noke's men",
-                         line = "Goal: find out what the sheep wants, and keep it out of the wrong hands.",
+                goal = { name = "An afternoon at the inn", aim = "have a quiet afternoon at the inn",
+                         line = "Goal: an afternoon off, and whatever comes through the door.",
                          win = "Guz's crew is beaten or gone, and the sheep is still with them.",
-                         win_if = { { when = { flag = "guz_left" }, text = "Guz stomps off into the evening, and the sheep stays put." } },
+                         win_if = { { when = { flag = "guz_left" }, text = "The sheep stays put, and the common room goes back to its drinks." } },
                          lose = "Guz's lot go out through the door with the sheep under the half-orc's arm.",
                          got = "a sheep with a wizard inside" } } },
     { id = "inn_upstairs", name = "Upstairs", layer = "area", ["in"] = "inn", source = "inn",
@@ -148,7 +152,7 @@ M.places = {
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" }, exits = { { to = "compound", by = "the path" } },
       scene = { type = "exploration", quick = true, setting = { "outdoor", "wild" }, sum = "A walk into the oaks.",
-                goal = { name = "Find Noke's Tower", line = "Goal: follow the road and the path to Noke's Tower.",
+                goal = { name = "Follow the sheep", line = "Goal: follow the path into the oaks, and see where the sheep leads.",
                          win = "Through the last of the oaks, the tower comes into sight.",
                          lose = "They find it in the end, after a long way round.", got = "the way to Noke's Tower" } } },
     { id = "noke_house", name = "Noke's Tower", layer = "site", ["in"] = "bogden_road", pages = { 4 },
@@ -156,15 +160,15 @@ M.places = {
       note = "The platforms stand 10, 20 and 30 feet up; our boards are flat, so the heights are notes (p4)." },
     { id = "compound", name = "The tower's yard", layer = "area", ["in"] = "noke_house", pages = { 4, 5 },
       read = "Through the treetops: platforms grown from four oaks, one above another. Below them, a lawn, two small "
-          .. "wooden huts and a big outhouse, and three apes dicing in the grass, greatswords stuck in the turf beside them.",
+          .. "wooden huts and a big outhouse.",
       spots = { "lawn", "huts", "outhouse", "slope" },
       exits = { { to = "garden", by = "a ramp of roots" } },
       scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn.",
                 foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard" }, foes_name = "Noke's guards",
                 foes_short = "the guards", boss_name = "the bear",
-                foes_line = "Three apes squat on the lawn over a game of dice, greatswords stuck in the turf beside them.",
+                foes_line = "Three big apes in iron collars squat over a game of dice, greatswords stuck in the turf beside them.",
                 goal = { name = "Get past the guards", line = "Goal: get past the guards to the platforms.",
-                         win = "The last guard drops its sword and flees into the trees. The ramp up is clear.",
+                         win = "The guards are dealt with, and the ramp up is clear.",
                          lose = "They get past the guards in the end, bloodied, with something still crashing about below.",
                          got = "the way up into the house" } } },
     { id = "garden", name = "The garden platform", layer = "area", ["in"] = "noke_house", pages = { 4 },
@@ -173,7 +177,7 @@ M.places = {
                                                                { check = "thieves_tools", dc = 12, page = 4 } } } },
       scene = { type = "puzzle", quick = true, setting = { "outdoor" }, sum = "A locked door into the hall.",
                 goal = { name = "Get into the hall", line = "Goal: get through the locked door into the hall.",
-                         win = "The door gives, and the hall is open.", lose = "The door gives in the end, with a lot of noise.",
+                         win = "They're through into the hall.", lose = "They get through in the end, with a lot of noise.",
                          got = "a way into the hall" } } },
     { id = "hall", name = "The hall", layer = "area", ["in"] = "noke_house", pages = { 4, 6 },
       read = "The biggest platform, walled in woven branches with window gaps: a library and lab, a sitting room, and "
@@ -194,7 +198,7 @@ M.places = {
                 wakes = { feature = "bed", at = { bed_dragon = { 10, 3 } } },
                 wake = "The bed rears up on its legs: carved wood for scales, sheets for wings, a pillow on its tail.",
                 goal = { name = "Stop Noke", line = "Goal: get the wand, and decide what to do with it.",
-                         win = "The dragon falls apart into a broken bed, and the wand rolls loose across the floor.",
+                         win = "The dragon falls apart into a broken bed.",
                          lose = "They drag themselves out of the wreckage with the wand, and not much else.",
                          got = "the wand" } } },
 }
@@ -273,7 +277,7 @@ M.creatures = {
                          -- (Ray of Frost from his cantrips, as an attack: a 7th-level caster's 2d8.)
                          { id = "ray_of_frost", name = "Ray of Frost", kind = "ranged", to_hit = 6, range = { 60, 60 },
                            damage = { { 2, 8, 0, "cold" } } } },
-             flees_below = 0.5, flee_line = "%s casts, blurs away up the slope, and slams the bedroom door behind him.",
+             flees_below = 0.5, escapes = true, flee_line = "%s casts, blurs away up the slope, and slams the bedroom door behind him.",
              tactics = "Weak in a fight himself. Enlarges the bear once it's out, adds Ray of Frost, guards his "
                  .. "concentration, and runs for the bedroom when it's lost or someone gets close." },
     bed_dragon = { name = "Bed Dragon Wyrmling", page = 5, size = "large", type = "dragon", ac = 16, hp = 75,
@@ -380,8 +384,9 @@ M.events = {
       } },
     { id = "the_story", at = "inn_common", when_in = "end", only_if = { flag = "understood", not_flag = "taken" }, pages = { 3 },
       type = "story", title = "Shinebright's story", actor = { "storyteller", "casual", "explorer" },
-      text = "Shinebright tells it all, at length: the tower in the oaks, the wand, the apprentice who turned it on him. He "
-          .. "promises them riches if they'll get his wand back.", tells = { "guards_are_people", "wand_on_noke" } },
+      text = "Shinebright tells it all, at length: the tower in the oaks, and the wand his apprentice Noke turned on him "
+          .. "and keeps on him day and night. Guz's beasts, the bear and the wolves, were people once: Noke's guards, changed. "
+          .. "He promises them riches if they'll get his wand back.", tells = { "guards_are_people", "wand_on_noke" } },
     { id = "sheep_taken", trigger = { on = "choice", choice = "the wolves carry the sheep off" }, page = 2,
       text = "Guz's lot make for the woods with the sheep. A chase, if anyone follows." },
     { id = "tracks", at = "woods_path", when_in = "start", page = 4, party = true, title = "The path",
@@ -392,7 +397,7 @@ M.events = {
             lean = "look", roll = { dc = 12, skill = { "survival", "nature" },
                                     success = { log = "The freshest tracks are a big man's boots and four sets of paws, heading home. Noke's Tower isn't far.",
                                                 mus = { flag = "tracked" } },
-                                    fail = { log = "Too many feet, too many paws. They follow the path and hope." } } },
+                                    fail = { log = "Too many feet, too many paws. They follow the path and see where it goes." } } },
           { label = "Just walk. Shinebright knows the way.", want = "keep moving and let the sheep lead", short = "walk on", lean = "safe",
             log = "The sheep trots ahead, stopping every so often to make sure they're still following." },
       } },
@@ -437,8 +442,8 @@ M.events = {
             log = "No time for the shelves. Up the slope, after him." },
       } },
     { id = "bed_dragon", at = "bedroom", when_in = "start", required = true, page = 5, type = "story", title = "The bed",
-      text = "Up the slope to the top platform. The bedroom roof bursts open as they get there: Noke rides out on his bed, "
-          .. "and the bed is a dragon now." },
+      text = "Up the slope to the top platform. Noke backs into the bedroom, the wand sparking in his fist, and points it at "
+          .. "the big bed." },
     { id = "mouther", at = "bedroom", when_in = "end", page = 5, type = "story", title = "The wand misfires",
       text = "Babbling, Noke turns the wand on himself. It fizzes, bangs, and leaves a heap of mouths and eyes that drags "
           .. "itself into the trees. The wand rolls loose." },
@@ -447,23 +452,27 @@ M.events = {
     { id = "the_spell", at = "bedroom", when_in = "end", page = 6, party = true, title = "The wand",
       risks = "shinebright",      -- (the risk is his, not theirs: a hurt hero doesn't make anyone shy of it)
       actor = { "storyteller", "tactician", "method_actor" },
-      text = "The wand sparks in {actor_char}'s hand, not the way magic should. Shinebright looks up at them. \"If this "
-          .. "kills me,\" he says, \"tell my college.\"",
+      text = "The wand lies on the boards, sparking, not the way magic should. The sheep noses it towards them and bleats, once.",
+      text_if = { { when = { flag = "understood" },
+                    text = "The wand lies on the boards, sparking, not the way magic should. Shinebright looks up at them. "
+                        .. "\"If this kills me,\" he says, \"tell my college.\"" } },
       options = {
           { label = "Do it. Try the wand on him.", want = "give him his shape back with the wand", short = "use the wand",
             lean = "bold", roll = { dc = 17, skill = { "arcana" },
-                                    success = { log = "Light, a sound like a bell, and an elf stands where the sheep was, naked as the day and delighted.",
-                                                mus = { flag = "restored" } },
+                                    success = { log = "Light, a sound like a bell, and an elf stands where the sheep was, naked as the day: "
+                                                    .. "Finethir Shinebright, who thanks them at great length and only gets to the money at the very "
+                                                    .. "end. There isn't any.",
+                                                mus = { flag = "restored" }, tells = { "sheep_wizard", "cant_pay" }, tells_how = "moment" },
                                     fail = { log = "The wand bangs. Where the sheep was, a heap of mouths and eyes starts to gibber.",
                                              mus = { flag = "dead" } } } },
           { label = "Look at the wand properly first.", want = "work out what's wrong with that wand before anyone uses it",
             short = "study it", lean = "look", roll = { dc = 15, skill = { "arcana" },
                      success = { log = "Someone's forced this wand to hold more than it should. Used, it makes monsters as often as wizards. They put it away.",
                                  tells = { "wand_unreliable" }, tells_how = "check", mus = { flag = "refused" } },
-                     fail = { log = "Nothing obvious. They try it anyway. The wand bangs, and where the sheep was, a heap of mouths and eyes starts to gibber.",
-                              mus = { flag = "dead" } } } },
+                     fail = { log = "Nothing obvious, and nobody's sure enough to try it. The wand goes in a pack, unused.",
+                              mus = { flag = "refused" } } } },
           { label = "Don't risk it.", want = "leave the wand alone", short = "leave it", lean = "safe",
-            log = "They won't risk it. Shinebright puts on an old robe over his fleece and says he'll keep hoping.",
+            log = "The wand goes in a pack, unused. The sheep finds an old robe in the wardrobe and pulls it on over its fleece.",
             mus = { flag = "refused" } },
       } },
 }
