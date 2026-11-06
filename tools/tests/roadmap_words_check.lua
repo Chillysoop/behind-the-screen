@@ -265,7 +265,7 @@ do
     local lib = require "game.data.map_library"
     for _, b in pairs(lib.boards) do
         for _, pl in ipairs(b.places or {}) do
-            if b.room then
+            if b.room and (b.adventure == nil or b.adventure == adventure.current()) then
                 PLACE_LINE[b.room .. "|" .. pl.line] = pl.id
             end
         end
@@ -494,7 +494,7 @@ function CHECKS.F9(run)
     local door_open = {}
     local eye_line
     for _, b in pairs(require("game.data.map_library").boards) do
-        if b.room == "offices" then
+        if b.room == "offices" and b.adventure == "museum" then
             for _, pl in ipairs(b.places) do
                 if pl.id == "eyes" then
                     eye_line = pl.line
@@ -1016,7 +1016,7 @@ function UNITS.F22()
     for room, list in pairs(adventure.data.explore or {}) do
         local board
         for _, b in pairs(lib.boards) do
-            if b.room == room then
+            if b.room == room and (b.adventure == nil or b.adventure == adventure.current()) then
                 board = b
             end
         end

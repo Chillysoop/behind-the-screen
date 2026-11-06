@@ -67,7 +67,7 @@ for _, pl in ipairs(MODULE.places or {}) do
     end
 end
 for _, b in pairs(lib.boards or {}) do
-    if b.room then
+    if b.room and (b.adventure == nil or b.adventure == adventure.current()) then
         board_places[b.room] = board_places[b.room] or {}
         for _, pl in ipairs(b.places or {}) do
             board_places[b.room][pl.id] = true
@@ -248,7 +248,7 @@ walk(MODULE, {}, "MODULE", false)
 -- (A place's or a thing's name is said as it's walked to or handed over: no hidden name in it.)
 for room, places in pairs(board_places) do
     for _, b in pairs(lib.boards) do
-        if b.room == room then
+        if b.room == room and (b.adventure == nil or b.adventure == adventure.current()) then
             for _, pl in ipairs(b.places or {}) do
                 add("LINT", "place_names")
                 for key in pairs(names_of(pl.name or "")) do

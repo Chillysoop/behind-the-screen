@@ -41,7 +41,7 @@ return {
           line = "{actor_char} shoves {target_char} into the duck pond to win an argument." },
         { id = "my_guy", when = "any", severity = 2, tags = { "chaotic", "selfish" },
           doers = { method_actor = 2, instigator = 2 }, objects = { tactician = 2, storyteller = 1, casual = 1 },
-          line = "'Sorry, it's just what {actor_char} would do,' {actor} says." },
+          line = "\"Anything that isn't nailed down is coming with me. Sorry, it's just what {actor_char} would do,\" {actor} says." },
         { id = "lone_wolf", when = "explore", severity = 1, tags = { "reckless" },
           doers = { explorer = 2, storyteller = 1 }, objects = { butt_kicker = 1, tactician = 1, casual = 1 },
           line = "{actor_char} slips off alone to look around, and everyone else waits by the road for an hour." },

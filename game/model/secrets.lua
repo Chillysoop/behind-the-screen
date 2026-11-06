@@ -630,8 +630,9 @@ end
 -- The DM's words for a path's holder: a person's name, a place's on its board, a thing's name.
 local function place_name(room, spot)
     local ok, lib = pcall(require, "game.data.map_library")
+    local cur = util.lazy("game.model.adventure").current()
     for _, b in util.sorted_pairs(ok and lib.boards or {}) do
-        if b.room == room then
+        if b.room == room and (b.adventure == nil or b.adventure == cur) then
             for _, pl in ipairs(b.places or {}) do
                 if pl.id == spot then
                     return pl.name

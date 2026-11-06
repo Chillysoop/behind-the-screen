@@ -25,13 +25,16 @@ M.STOP = { down = true, floor = true, roof = true, door = true, doors = true, wa
 
 local cache = {}
 function M.things(room)
-    if cache[room] then
-        return cache[room]
+    local key = util.lazy("game.model.adventure").current() .. ":" .. tostring(room)
+    if cache[key] then
+        return cache[key]
     end
     local ok, lib = pcall(require, "game.data.map_library")
     local out = {}
+    -- (A room id names a board only in its own adventure: the museum's garden isn't the Sheep Chase's.)
+    local cur = util.lazy("game.model.adventure").current()
     for _, b in util.sorted_pairs(ok and lib.boards or {}) do
-        if b.room == room then
+        if b.room == room and (b.adventure == nil or b.adventure == cur) then
             local feat = {}
             for _, f in ipairs(b.features or {}) do
                 feat[f.id] = f
@@ -82,7 +85,7 @@ function M.things(room)
             end
         end
     end
-    cache[room] = out
+    cache[key] = out
     return out
 end
 
