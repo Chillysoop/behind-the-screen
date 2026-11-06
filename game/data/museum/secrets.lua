@@ -157,14 +157,17 @@ M.pack_hides = {
     name = "Where the pack hides", page = 20, type = "place", room = "hunting",
     on = { room = "hunting", spot = "stairs" },
     what = "Two hunters hide in the jungle, two in the cave model, and one stands still as a statue behind the big bird. All five are rarely seen at once.",
-    hint = { "Something in the dioramas is holding very still. Not stuffed, either.",
-             "The polished cupboard doors in the kitchen show a shape behind the big bird that isn't on the floor plan." },
-    -- (The book keeps the cave pair back as a surprise, p20: what the doors show is the rest.)
-    tell = { "In the polished doors they can see them now: two in the jungle, and one pretending to be a statue behind the big bird. Maybe more." },
+    -- (The doors only once someone's at the kitchen: round four's review, "in the polished doors" before
+    -- anyone had seen the kitchen.)
+    hint = { "Something in the dioramas is holding very still. Not stuffed, either." },
+    -- (The book keeps the cave pair back as a surprise, p20: what they can see is the rest.)
+    tell = { "Two of the shapes in the jungle aren't plants, and the 'statue' behind the big bird just blinked. Maybe more." },
     paths = {
         { kind = "check", skill = { "perception" }, dc = 15, gives = "hint", page = 20 },
-        { kind = "see", on = { room = "hunting", spot = "6J" }, gives = "hint", page = 20 },
-        { kind = "check", on = { room = "hunting", spot = "6J" }, skill = { "perception", "investigation" }, dc = 15, gives = "known", page = 20 },
+        { kind = "see", on = { room = "hunting", spot = "6J" }, gives = "hint", page = 20,
+          says = { "The kitchen's cupboard doors are polished like mirrors. In one, a shape stands behind the big bird that wasn't there a moment ago." } },
+        { kind = "check", on = { room = "hunting", spot = "6J" }, about = "the kitchen's polished cupboard doors", skill = { "perception", "investigation" }, dc = 15, gives = "known", page = 20,
+          says = { "In the polished doors they can see them now: two in the jungle, and one pretending to be a statue behind the big bird. Maybe more." } },
     },
     defaults = false,
 }

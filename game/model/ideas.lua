@@ -552,6 +552,11 @@ local function holder_here(night, sc, path, d, people_list)
     local room = path.room or d.room
     if room and room == sc.room then
         local name
+        -- (Not behind a door still locked: round four's review, the archivist's notebook read in the other study.)
+        local spot = path.spot or (type(d.on) == "table" and d.on.room == room and d.on.spot) or nil
+        if spot and require("game.model.shown").behind(c, room, spot) then
+            return nil
+        end
         if path.spot then
             for _, pl in ipairs((night.board_places and night:board_places(sc)) or {}) do
                 if pl.id == path.spot then
@@ -560,7 +565,8 @@ local function holder_here(night, sc, path, d, people_list)
             end
         end
         -- (What the friends call it: the secret's `about` ("the hedges"), else the place's name on the board.)
-        name = d.about or (name and util.lower_first(name)) or "the room"
+        -- (A path can name its own place: the kitchen's polished doors, not "the dioramas". Round four.)
+        name = path.about or d.about or (name and util.lower_first(name)) or "the room"
         return { kind = "place", name = name, spot = path.spot }
     end
     return nil

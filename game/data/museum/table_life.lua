@@ -861,8 +861,8 @@ return {
           detail = "Fresh from the garden: the same bright blooms as the fruit bushes, cut very neatly.",
           lore = "A little card tucked in the vase, in lovely handwriting: 'For my guests.' The ink's still wet.",
           react = { dull = { "Nice flowers. Suspiciously nice." },
-                    detail = { "She cut them from the garden. The gnome's garden." },
-                    lore = { "She's expecting us. That's worse. That's so much worse.", "Lovely handwriting. For a monster." } },
+                    detail = { "Whoever's up there cut them from the garden. The gnome's garden." },
+                    lore = { "She's expecting us. That's worse. That's so much worse.", "Lovely handwriting, for whatever's up there." } },
           crit20 = { find = nil, clue = "Two of the flowers have gone grey and hard, petals and all. Stone. Whatever's up there does that." },
           crit1 = "You lean in to sniff and knock the vase. You catch it. Most of the water doesn't stay in it." },
         { id = "stairs_sketches", what = "the little sketches along the stair wall", spot = nil,
@@ -872,8 +872,8 @@ return {
           dull = "Rooms of the museum, drawn small and neat. The garden, the hall, the paintings.",
           detail = "The newest ones aren't of the museum at all: a pond, a couch, rows of stone figures. Someone's been drawing upstairs.",
           lore = "In the last sketch, near the top: four small figures climbing a stair. One of them is carrying a door.",
-          react = { dull = { "She's got a little gallery going. Of course she has." },
-                    detail = { "She's drawing her own rooms now. Making it hers." },
+          react = { dull = { "Somebody up there has a little gallery going. Of course they do." },
+                    detail = { "Whoever's up there is drawing their own rooms now. Making the place theirs." },
                     lore = { "That's us. That's us on these stairs.", "Who told her about the door?" } },
           crit20 = { find = "a tiny sketch of the garden, in a frame no bigger than a playing card", clue = nil },
           crit1 = "You lean in too close and knock one of the frames crooked. Everyone freezes until it stops swinging." },
@@ -904,7 +904,8 @@ return {
         { kind = "plan", who = "mara", lines = {
             "Thessaly, quietly: \"If it goes badly up there, we fall back down these stairs. Everyone knows the way down?\"",
             "Brannoc: \"I know the way up.\"" } },
-        { kind = "banter", who = "jess", lines = {
+        -- (Only once they know who's up there: round four's review, "Mind the statues" from a table nobody had told.)
+        { kind = "banter", who = "jess", when = { told = "gorgon" }, lines = {
             "Pip, in a whisper, does what she thinks a Gorgon sounds like: \"Come in, darlings. Mind the statues.\"",
             "Oswin: \"Please don't do her voice. Not on her own stairs.\"" } },
         { kind = "snack", who = "sam", lines = {

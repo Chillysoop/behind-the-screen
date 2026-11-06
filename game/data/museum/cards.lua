@@ -263,10 +263,10 @@ M.cards = {
                  fail = "Wrong cave. They hear it behind them." } },
     { id = "mus_whispers", kind = "complication", skill = { "insight", "religion" }, name = "The whispers",
       fits = { "mystery" }, tags = { "mystery", "lore" }, difficulty = 1,
-      line = "Next door, the little bird under the dome stops singing, all at once. The room feels watched.",
-      moment = { text = "In the other study, the six-winged bird has gone quiet. {actor_char} has to find out why.",
-                 success = "{actor_char} sees it: the bird is facing the open door and the notebook beyond it, and it sings again the moment the notebook is shut.",
-                 fail = "{actor_char} taps the dome. The bird doesn't move. Nobody likes that." } },
+      line = "Next door, the little bird under the dome starts singing, loud and shrill, all at once. The room feels watched.",
+      moment = { text = "In the other study, the six-winged bird is singing its heart out. {actor_char} has to find out why.",
+                 success = "{actor_char} sees it: the bird is facing the open door and the notebook beyond it, and it sings loudest while the notebook's open.",
+                 fail = "{actor_char} taps the dome. The bird keeps singing at nothing anyone can see. Nobody likes that." } },
     { id = "mus_panel", kind = "complication", skill = { "investigation", "arcana" }, name = "The panel shuts",
       fits = { "puzzle" }, tags = { "puzzle" }, difficulty = 1,
       line = "The chest panel will only stay open for half a minute.",
@@ -310,7 +310,7 @@ M.cards = {
       owner = "moment", has = { mark = "mirror" } },
     { id = "mus_notebook", kind = "reward", name = "The archivist's notebook", fits = { "mystery" },
       tags = { "lore", "mystery" }, meters = { reward = 8, story = 6 },
-      line = "the archivist's notebook, its margins full of notes about a sunken city.", got = "the archivist's notebook",
+      line = "the dead man's notebook, every page of it covered in tiny, cramped notes.", got = "the archivist's notebook",
       lost = "The notebook stays where it lies, on the archivist's desk." },
     { id = "mus_mech_ally", kind = "reward", name = "A Steam Mech at their command", fits = { "puzzle" },
       tags = { "loot", "action" }, meters = { reward = 14 },
@@ -500,8 +500,9 @@ M.goal_play = {
             -- (Not after a bargain over her sisters: they've just heard all about them.)
             -- (What they know counts: the gorgon book (its reader has Advantage), and the tapestry in
             -- her lair. A miss with either can't be "not one story", the second playtest review. F10.)
-            { skill = "history", say = "Gorgons come in threes, don't they? Where are the other two?", when = { not_ending = "bargain", told = "gorgon" }, topic = "gorgons",
-              win = "{char} pieces it together: two more sisters, somewhere out there in the world.",
+            { skill = "history", say = "What do the old stories say about gorgons? Was she the only one?", when = { not_ending = "bargain", told = "gorgon" }, topic = "gorgons",
+              -- (A question, not the answer: round four's review, "Gorgons come in threes" from a table that never saw her tapestry.)
+              win = "{char} remembers: gorgons come in threes, sisters. Two more of them, somewhere out there in the world.",
               lose = "{char} can't remember a single story about Gorgon sisters. Not one.",
               lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the scholar's book: gorgons, three sisters to a line. Where the other two went, it doesn't say." },
                           { when = { flag = "tapestry" }, text = "{char} brings up the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },
@@ -511,7 +512,7 @@ M.goal_play = {
         talk_sad = { "Can someone pass the tea? Thanks.", "I'm glad we got this far. Together, I mean.", "Are you okay? Honestly?" },
     },
     mus_face_her = {
-        intent = { "So that's her. Whoever she is.", "Nobody touch anything up here. I mean it." },
+        intent = { "So that's who's been up here.", "Nobody touch anything up here. I mean it." },
         approaches = {
             { skill = "insight", cast = true, say = "Why stay in here? You could go anywhere.",
               win = "{Cast} {pauses|pause}. Out there was noise and chaos. In here, even the dust settles where she says.",

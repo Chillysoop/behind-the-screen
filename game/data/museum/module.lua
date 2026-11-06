@@ -325,9 +325,9 @@ M.rooms = {
         locks = true,
         name = "The offices", part = 2, type = "mystery", cost = 2, at = { 20, 24 }, map = "Offices",
         comps = { location = "mus_offices", goal = "mus_archivist", complication = "mus_whispers", reward = "mus_notebook" },
-        -- (The bird sings first, so the twist's "stops singing" is a change: the confirming playtest heard it
-        -- stop in every visit, never start.)
-        read = "Two quiet studies off the hunting floor. In one, a little gold-and-white bird with six wings, each patterned like an eye, is singing under a glass dome. The other door is locked from the inside.",
+        -- (The bird is quiet first, so the twist's singing is a change: Celestia sing when there's magic about,
+        -- the book p21, and the notebook next door is that. Round four's review: it stopped singing for it.)
+        read = "Two quiet studies off the hunting floor. In one, a little gold-and-white bird with six wings, each patterned like an eye, sits silent under a glass dome. The other door is locked from the inside.",
         sum = "A six-winged bird, a dead archivist, and the first hint of something called the Witness. No fight.",
         next = { "tomorrow", "lecture", "stairs" }, knobs = { "witness" },
     },
@@ -779,10 +779,10 @@ M.moments = {
             roll = { dc = 10, skill = { "dex" },
                      success = { log = "{actor_char} dips a helmet at the water's edge and jumps back as a tentacle slaps the surface. Then helmets full of pond water hit the topiary.",
                                  effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 4 }, { "arch:tactician", fun = 4 }, { "all", challenge = -2 } },
-                                 mus = { francs = 1, flag = "water", pond_water = true, secret_event = "tentacles" } },
+                                 mus = { flag = "water", pond_water = true, secret_event = "tentacles" } },
                      fail = { log = "A slimy tentacle lashes {actor_char}'s arm at the water's edge, but the helmet comes up full. Then helmets full of pond water hit the topiary.",
                               effects = { { "actor", spotlight = 8, challenge = 3 }, { "arch:explorer", fun = 3 }, { "arch:tactician", fun = 3 } },
-                              mus = { francs = 1, flag = "water", pond_water = true, hurt = { 1, 4 }, risk = true, secret_event = "tentacles" } } } },
+                              mus = { flag = "water", pond_water = true, hurt = { 1, 4 }, risk = true, secret_event = "tentacles" } } } },
           { label = "They're bushes. Set them on fire.", want = "set the bushes on fire", short = "burn them", lean = "bold",
             -- (Once they know the hedges are alive: secrets.living_hedges. Living or not, hedges burn.)
             pulls = { { when = { hinted = "living_hedges" }, who = { "instigator", "butt_kicker", "power_gamer" }, n = 1.0,
@@ -1064,6 +1064,7 @@ M.moments = {
           -- (The book's own way to see the pack, p20: the kitchen's cupboard doors are polished to a shine,
           -- and the characters can use them to spot the hunters. A fresh-eyes playtest: nobody ever did.)
           { label = "Check the kitchen's polished doors first.", want = "use the shiny cupboard doors in the kitchen to see what's watching us", short = "check the doors", lean = "safe",
+            when = { not_told = "pack_hides" },
             roll = { dc = 13, skill = { "perception", "investigation" },
                      success = { log = "Angled just right, the polished doors show the whole floor. Two shapes keep very still in the jungle, and one is pretending to be a statue behind the big bird.",
                                  tells = { "pack_hides" }, tells_how = "check",
@@ -1095,11 +1096,11 @@ M.moments = {
     -- The locked door comes first: nobody reacts to what's inside before they're in.
     { id = "mus_office_door", room = "offices", spot = "door", at = "start", type = "story", actor = { "butt_kicker", "instigator", "tactician" }, party = true,
       title = "Locked from the inside",
-      text = "The second study's door is locked, and the key is on the inside. {actor_char} looks at the lock, then at the door.",
+      text = "The second study's door is locked from the inside. {actor_char} looks at the lock, then at the door.",
       options = {
           { label = "The little brass key from the pond.", needs = { flag = "brass_key" }, want = "try the brass key from the pond", short = "try the key", lean = "safe",
             uses = "brass_key", uses_name = "the key from the pond",
-            log = "It turns first time. Whoever locked it wanted out of the museum, not into the pond.",
+            log = "It turns first time: somebody's spare, thrown in the pond. Whoever locked this door didn't want anyone else coming in.",
             effects = { { "actor", spotlight = 8, fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:storyteller", story = 3 } },
             mus = { flag = "door_open" } },
           { label = "Shoulder it open.", want = "shoulder it open", short = "shoulder it",
