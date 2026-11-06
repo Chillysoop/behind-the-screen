@@ -1,7 +1,10 @@
 -- Table life (game/model/table_life.lua): small moments that play themselves. Whole prologues with
 -- small-moment crits on and off, and at 4x. Checks: the beats happen; never in a fight, never at 4x;
 -- inside the caps; only a natural 20 or 1 makes a card, and only with crits on; every answer said is
--- the adventure's own words (adventure.fits); the shop's haggling never takes Francs below zero.
+-- the adventure's own words (adventure.fits); the shop's haggling never takes Francs below zero. The DM's bag
+-- (Conner, November 6): a poke can be rewarded (tl_reward: as it lands, something real, or something from the bag,
+-- the whole bag a page at a time): twice a night at most, never at 4x; what's given is in that hero's pack and gone
+-- from the bag.
 -- Run from the project root:  lua tools/tests/table_life_check.lua [runs]
 
 package.path = "./?.lua;" .. package.path
@@ -25,7 +28,10 @@ local function check(ok, msg)
     end
 end
 
-local T = { beats = 0, crit_cards = 0, nights = 0, curios = 0, asks = 0, fast_beats = 0, kinds = {} }
+local T = { beats = 0, crit_cards = 0, nights = 0, curios = 0, asks = 0, fast_beats = 0, kinds = {}, rewards = 0, given = 0,
+            browsed = 0, lore = 0 }
+local dm_bag = require "game.model.dm_bag"
+local items = require "game.model.items"
 
 local function play(seed, mode)
     adventure.enter()
@@ -69,7 +75,7 @@ local function play(seed, mode)
             night.speed_hint = 4
         end
         T.nights = T.nights + 1
-        local in_fight, tiny, cards = false, 0, 0
+        local in_fight, tiny, cards, rewards, gifts = false, 0, 0, 0, {}
         local ev = night:advance()
         local guard = 0
         while ev.kind ~= "done" and guard < 6000 do
@@ -84,7 +90,50 @@ local function play(seed, mode)
                 check(mode ~= "fast", string.format("seed %d week %d: a small moment at 4x", seed, w))
                 check(ev.total == ev.roll + ev.mod, "the small die adds up")
             elseif ev.kind == "decision" then
-                if ev.card.id == "tl_crit" then
+                if ev.card.id == "tl_reward" or ev.card.id == "tl_bag" then
+                    check(mode ~= "fast", string.format("seed %d week %d: a reward card at 4x", seed, w))
+                    if ev.card.id == "tl_reward" then
+                        rewards = rewards + 1
+                    else
+                        T.browsed = T.browsed + 1
+                    end
+                    -- (Every way, in turn: the bag's suggestions, browsing it, telling them something real. The card
+                    -- the DM sees has the labels: what each answer is, by its words.)
+                    local opts = ev.card.options
+                    local function how(o)
+                        local l = o.label or ""
+                        if string.find(l, "^Tuck something there: ") then return "bag" end
+                        if string.find(l, "^Something else from your bag") then return "browse" end
+                        if string.find(l, "^Tell them something real") then return "lore" end
+                        if l == "Next page" or string.find(l, "^Never mind") or l == "As it lands." then return "other" end
+                        return ev.card.id == "tl_bag" and "bag" or "other"
+                    end
+                    local want = ({ "bag", "browse", "lore", "bag" })[(T.rewards + rewards) % 4 + 1]
+                    if ev.card.id == "tl_bag" then
+                        want = "bag"
+                    end
+                    answer = 1
+                    for i, o in ipairs(opts) do
+                        if how(o) == want then
+                            answer = i
+                            break
+                        end
+                    end
+                    local o = opts[answer]
+                    if how(o) == "bag" then
+                        local name = string.lower((string.gsub(string.gsub(o.label, "^Tuck something there: ", ""), "%.$", "")))
+                        local entry
+                        for _, e in ipairs(require("game.data.dm_bag").list) do
+                            if string.lower(e.name) == name then entry = e end
+                        end
+                        check(entry ~= nil, "a thing offered from the bag that isn't in it: " .. o.label)
+                        if entry then
+                            table.insert(gifts, { entry = entry, before = dm_bag.left(c, entry) })
+                        end
+                    elseif how(o) == "lore" then
+                        T.lore = T.lore + 1
+                    end
+                elseif ev.card.id == "tl_crit" then
                     cards = cards + 1
                     check(mode == "on", string.format("seed %d %s week %d: a crit card with crits off", seed, mode, w))
                     answer = rng:int(1, #ev.card.options)
@@ -110,7 +159,24 @@ local function play(seed, mode)
             end
             ev = night:advance(answer)
         end
+        -- (What was given tonight: gone from the bag, and in someone's pack.)
+        for _, g in ipairs(gifts) do
+            T.given = T.given + 1
+            check(dm_bag.left(c, g.entry) <= g.before - 1, "a thing given from the bag is gone from it: " .. g.entry.id)
+            local held = false
+            for _, it in ipairs(items.list(c)) do
+                if (it.thing == (g.entry.thing or g.entry.id) or it.id == (g.entry.magic or g.entry.thing or g.entry.id)) and it.holder then
+                    held = true
+                end
+            end
+            check(held, "a thing given from the bag is in someone's pack: " .. g.entry.id)
+        end
         check(guard < 6000, "the night ended")
+        check(rewards <= table_life.REWARD_OFFERS, string.format("seed %d week %d: %d reward cards (cap %d)", seed, w, rewards,
+            table_life.REWARD_OFFERS))
+        check(((night.tl or {}).rewards or 0) <= table_life.REWARD_PER_NIGHT, string.format("seed %d week %d: %d rewards given (cap %d)",
+            seed, w, (night.tl or {}).rewards or 0, table_life.REWARD_PER_NIGHT))
+        T.rewards = T.rewards + rewards
         local tl = night.tl or { n = 0 }
         T.beats = T.beats + (tl.n or 0)
         T.crit_cards = T.crit_cards + cards
@@ -144,6 +210,19 @@ end
 check(T.beats > T.nights, "small moments happen (" .. T.beats .. " over " .. T.nights .. " nights)")
 check(T.fast_beats == 0, "none at 4x")
 check(T.crit_cards > 0, "a natural 20 or 1 gives the DM a card when crits are on (" .. T.crit_cards .. ")")
-print(string.format("table life: %d checks, %d failed (%d small moments over %d nights, %d crit cards, %d things poked at)",
-    checks, fails, T.beats, T.nights, T.crit_cards, T.curios))
+check(T.rewards > 0 and T.given > 0 and T.browsed > 0 and T.lore > 0,
+      string.format("the DM's bag gets used: %d reward cards, %d things given, %d pages browsed, %d told something real",
+                    T.rewards, T.given, T.browsed, T.lore))
+-- (The bag's data: thirty things, every magic one the rules', every bit a thing a hero can carry.)
+local bagd = require "game.data.dm_bag"
+check(#bagd.list == 30, "the DM's bag has thirty things (" .. #bagd.list .. ")")
+for _, e in ipairs(bagd.list) do
+    if e.kind == "magic" then
+        check(items.def(e.magic) ~= nil, "a magic thing in the bag the rules don't have: " .. e.id)
+    else
+        check(items.thing(e.thing or e.id) ~= nil, "a thing in the bag nobody can carry: " .. e.id)
+    end
+end
+print(string.format("table life: %d checks, %d failed (%d small moments over %d nights, %d crit cards, %d things poked at, "
+    .. "%d reward cards, %d given from the bag)", checks, fails, T.beats, T.nights, T.crit_cards, T.curios, T.rewards, T.given))
 os.exit(fails == 0 and 0 or 1)

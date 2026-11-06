@@ -272,7 +272,9 @@ local function crit_card(night, sc, p, b, nat)
             effects = { { "all", fun = 1 }, { "arch:casual", fun = 1 } } })
         local c20 = b.crit20 or {}
         if c20.find then
-            table.insert(card.options, { label = "Hide something small there: " .. c20.find .. ".", sub = "A Flitwidget Franc for them.",
+            local cur = require("game.model.adventure").data.currency
+            table.insert(card.options, { label = "Hide something small there: " .. c20.find .. ".",
+                sub = cur and ("A " .. (cur.one or "coin") .. " for them.") or "A keepsake for their pack.",
                 find = c20.find, effects = { { "actor", fun = 3, spotlight = 4 }, { "arch:power_gamer", fun = 2 } } })
         end
         local danger = room_danger(sc)
@@ -307,7 +309,11 @@ local function crit_card(night, sc, p, b, nat)
         return
     end
     local vars = { char = p.char, actor_char = p.char }
-    if o.find then
+    if o.find and not require("game.model.adventure").data.currency then
+        -- (No currency of its own: the find is the thing, kept in their pack.)
+        require("game.model.items").keep(night.campaign, p.key, o.find)
+        dm(night, "Tucked away there: " .. o.find .. ". {char} keeps it.", vars)
+    elseif o.find then
         night.campaign.adv.francs = (night.campaign.adv.francs or 0) + 1
         if night.mus then
             night.mus.francs_earned = (night.mus.francs_earned or 0) + 1
@@ -406,6 +412,149 @@ M.crit_card, M.ask_crit = crit_card, ask_crit      -- (for the roadmap words che
 
 -- A friend pokes at something: what's there, their line, the little die, your answer, someone's
 -- reaction to what you said.
+-- The DM's call on a poke (Conner, November 6: "give the ability for the DM to improvise and reward small moment pokes
+-- with items or lore"): answer it as the die says, tell them something real (the deeper answer, or a hint about a
+-- secret held here), or tuck something from your bag there (game/model/dm_bag.lua). Twice a night at most, once a
+-- room, never at 4x, and not one of the night's counted calls.
+M.REWARD_PER_NIGHT = 2      -- (things given or told, a night)
+M.REWARD_OFFERS = 3         -- (cards offered, a night: answering "as it lands" is a card too)
+local function can_reward(night, sc)
+    local tl = night.tl or {}
+    if night.fast or sc.tl_rewarded or (tl.rewards or 0) >= M.REWARD_PER_NIGHT or (tl.offers or 0) >= M.REWARD_OFFERS
+            or not night:room(14) then
+        return false
+    end
+    return #require("game.model.dm_bag").stock(night.campaign) > 0
+end
+
+-- A secret held in this room that the table hasn't had a hint of, and the DM's hint for it.
+local function room_hint(night, sc)
+    local secrets = require "game.model.secrets"
+    for _, key in ipairs(secrets.in_room(sc.room, night.campaign)) do
+        if not secrets.hinted(night.campaign, key) and not secrets.knows(night.campaign, key) then
+            local line = secrets.line(nil, key, "hint")
+            if line then
+                return key, line
+            end
+        end
+    end
+end
+
+local function bag_effects(e)
+    local rank = require("game.data.dm_bag").RANK
+    local r = rank[e.rarity] or 0
+    if e.kind == "bit" then
+        return { { "actor", fun = 2 }, { "arch:casual", fun = 1 } }
+    elseif r >= rank.Rare then
+        return { { "actor", fun = 4, spotlight = 4 }, { "arch:power_gamer", fun = 3 }, { "all", challenge = -2 } }
+    end
+    return { { "actor", fun = 3, spotlight = 2 }, { "arch:power_gamer", fun = 2 } }
+end
+
+local function bag_option(night, p, e)
+    local bag = require "game.model.dm_bag"
+    local sub = bag.sub(e)
+    if not bag.fits(night.campaign, p, e) then
+        sub = sub .. " " .. p.char .. " can't use it, so it goes to whoever in the party can."
+    end
+    return { label = "Tuck something there: " .. e.name .. ".", sub = sub, how = "bag", entry = e, effects = bag_effects(e) }
+end
+
+-- Everything left in the bag, six to a page, least to most powerful. Returns the option picked.
+local function browse(night, p)
+    local bag = require "game.model.dm_bag"
+    local list = bag.stock(night.campaign)
+    local per, page = 6, 1
+    local pages = math.max(1, math.ceil(#list / per))
+    for _ = 1, pages * 2 do
+        local card = { id = "tl_bag", type = "table", trigger = "museum_fixed", fixed_actor = true, options = {},
+                       title = "Your bag",
+                       text = util.int(#list) .. " things left, least to most powerful. Page " .. util.int(page) .. " of "
+                           .. util.int(pages) .. "." }
+        for i = (page - 1) * per + 1, math.min(#list, page * per) do
+            local o = bag_option(night, p, list[i])
+            o.label = util.capitalize(list[i].name)
+            table.insert(card.options, o)
+        end
+        if pages > 1 then
+            table.insert(card.options, { label = "Next page", how = "next", sub = page < pages and "Stronger things." or "Back to the start." })
+        end
+        table.insert(card.options, { label = "Never mind: as it lands.", how = "roll" })
+        local o = night:decision(card)
+        night.counts.decision = night.counts.decision - 1
+        if not o or o.how ~= "next" then
+            return o
+        end
+        page = page % pages + 1
+    end
+    return nil
+end
+
+-- Returns what was said instead of the rolled answer: "lore", "bag", or nil (as it lands).
+local function reward(night, sc, p, b, level, total)
+    if not can_reward(night, sc) then
+        return nil
+    end
+    local bag = require "game.model.dm_bag"
+    local what = b.what or "it"
+    local vars = { char = p.char, actor_char = p.char }
+    local prev = night.actor
+    night.actor = p
+    local card = { id = "tl_reward", type = "table", trigger = "museum_fixed", fixed_actor = true, options = {},
+                   title = "Make it worth a look?",
+                   text = "{actor_char} pokes at " .. what .. ". The small roll came to " .. util.int(total) .. "." }
+    table.insert(card.options, { label = "As it lands.", how = "roll",
+                                 sub = b[level] and util.sentence_case(util.fill(b[level], vars)) or nil })
+    local key, hint = room_hint(night, sc)
+    if (b.lore and level ~= "lore") or hint then
+        table.insert(card.options, { label = "Tell them something real.", how = "lore", key = key, hint = hint,
+            sub = hint and ("A hint about something here: " .. util.lower_first(hint)) or util.sentence_case(util.fill(b.lore, vars)),
+            effects = { { "actor", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:explorer", fun = 1 } } })
+    end
+    for _, e in ipairs(bag.suggest(night.campaign, p, night.rng)) do
+        table.insert(card.options, bag_option(night, p, e))
+    end
+    table.insert(card.options, { label = "Something else from your bag...", how = "browse",
+                                 sub = "Pick from everything left in it (" .. util.int(#bag.stock(night.campaign)) .. " things)." })
+    night.tl = night.tl or { n = 0 }
+    night.tl.offers = (night.tl.offers or 0) + 1
+    local o = night:decision(card)
+    night.counts.decision = night.counts.decision - 1
+    if o and o.how == "browse" then
+        o = browse(night, p)
+    end
+    night.actor = prev or night.actor
+    if not o or o.how == "roll" then
+        return nil
+    end
+    sc.tl_rewarded = true
+    night.tl = night.tl or { n = 0 }
+    night.tl.rewards = (night.tl.rewards or 0) + 1
+    if o.how == "lore" then
+        night.heard_lore = true
+        if o.key then
+            dm(night, o.hint, vars)
+            require("game.model.secrets").hint(night.campaign, o.key, { how = "dm", by = p.key })
+            return "hint"
+        end
+        dm(night, b.lore, vars)
+        return "lore"
+    end
+    -- From the bag: the rolled answer, then what's tucked in there, into a pack.
+    dm(night, b[level], vars)
+    local it, who = bag.give(night.campaign, p, o.entry)
+    if it then
+        local holder = who or p
+        local name = o.entry.name
+        if holder.key == p.key then
+            dm(night, "And tucked in there: " .. name .. ". {char} keeps it.", vars)
+        else
+            dm(night, "And tucked in there: " .. name .. ". It's no use to {char}, so it goes to " .. holder.char .. ".", vars)
+        end
+    end
+    return "bag"
+end
+
 local function curio(night, sc, b, last, forced)
     local p = forced or pick_friend(night, b.who, last)
     if not p then
@@ -441,7 +590,14 @@ local function curio(night, sc, b, last, forced)
         crit_card(night, sc, p, b, d)
         level = nil         -- (whatever the card made of it, none of the three answers was said)
     else
-        dm(night, b[level], { char = p.char })
+        local how = reward(night, sc, p, b, level, total)
+        if how == "lore" then
+            level = "lore"
+        elseif how == "hint" then
+            level = "any"           -- (a hint about the room isn't the thing's own answer: only a reaction to the poking)
+        elseif not how then
+            dm(night, b[level], { char = p.char })
+        end
         night.heard_lore = night.heard_lore or (level == "lore") or nil     -- ("the clue from earlier": barks' context)
     end
     local reacts = {}

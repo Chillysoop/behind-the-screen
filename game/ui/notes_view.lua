@@ -18,7 +18,7 @@ local M = {}
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge.
 local TABS = { { "museum", "The adventure" }, { "upstairs", "Upstairs" }, { "session", "This session" },
-               { "people", "People" }, { "log", "Session log" }, { "party", "The party" } }
+               { "people", "People" }, { "log", "Session log" }, { "party", "The party" }, { "bag", "Your bag" } }
 M.TABS = TABS
 -- (The tabs this adventure has: "Upstairs" is the villain's card, and an adventure without one has no such tab.)
 local function tabs_now(app)
@@ -312,6 +312,61 @@ local function tab_log(app, x, y, w, h)
     end
 end
 
+-- Your bag (Conner, November 6): what you can tuck where a friend pokes about on game night, and what you've given.
+
+local function tab_bag(app, x, y, w, h)
+    local c = app.campaign
+    local bag = require "game.model.dm_bag"
+    local items = require "game.model.items"
+    local list = bag.stock(c)
+    kit.text(x, y, "When a friend pokes at something on game night, you can answer as the dice say, tell them something "
+        .. "real, or tuck one of these there. What you give goes in that hero's pack and works from then on.", "ui18",
+        theme.dim, { w = w })
+    local cy = y + 54
+    local col_w = math.floor((w - 20) / 2)
+    local rows = math.ceil(#list / 2)
+    local rh = math.min(38, math.floor((h - 150) / math.max(1, rows)))
+    kit.text(x, cy, "IN YOUR BAG  (" .. util.int(#list) .. ")", "ui14", theme.gold)
+    cy = cy + 22
+    for i, e in ipairs(list) do
+        local col = (i <= rows) and 0 or 1
+        local row = (i <= rows) and (i - 1) or (i - 1 - rows)
+        local ex, ey = x + col * (col_w + 20), cy + row * rh
+        local left = bag.left(c, e)
+        local label = util.capitalize(e.name) .. (left > 1 and ("  x" .. util.int(left)) or "")
+        kit.text(ex, ey, e.rarity, "ui14", (require("game.data.dm_bag").RANK[e.rarity] or 0) >= 4 and theme.gold or theme.faint)
+        kit.text(ex + 92, ey, kit.ellipsize(label, "ui18", col_w - 96), "ui18", theme.text)
+        if rh >= 34 then
+            kit.text(ex + 92, ey + 19, kit.ellipsize(e.text or "", "ui14", col_w - 96), "ui14", theme.dim)
+        end
+    end
+    -- What's been given, and to whom (the inventory owns it now).
+    local given = {}
+    for id, n in util.sorted_pairs((c.dm_bag and c.dm_bag.used) or {}) do
+        local e = require("game.data.dm_bag").by_id[id]
+        if e and n > 0 then
+            local who = {}
+            for _, it in ipairs(items.list(c)) do
+                if (it.thing == (e.thing or e.id) or it.id == (e.magic or e.thing or e.id)) and it.holder and it.from == "found" then
+                    local pl = c:player(it.holder)
+                    if pl and not util.contains(who, pl.char) then
+                        table.insert(who, pl.char)
+                    end
+                end
+            end
+            table.insert(given, util.capitalize(e.name) .. (#who > 0 and (": " .. table.concat(who, ", ")) or ""))
+        end
+    end
+    local gy = y + h - 20 - 20 * math.min(3, math.max(1, #given))
+    kit.text(x, gy - 22, "GIVEN SO FAR", "ui14", theme.gold)
+    if #given == 0 then
+        kit.text(x, gy, "Nothing yet.", "ui18", theme.faint)
+    end
+    for i = 1, math.min(3, #given) do
+        kit.text(x, gy + (i - 1) * 20, kit.ellipsize(given[#given - i + 1], "ui18", w), "ui18", theme.text)
+    end
+end
+
 -- The party -------------------------------------------------------------------------------------------------
 
 local function tab_party(app, x, y, w, h)
@@ -482,6 +537,8 @@ function M.draw(app)
         tab_session(app, cx, cy, cw)
     elseif tab == "log" then
         tab_log(app, cx, cy, cw, ch)
+    elseif tab == "bag" then
+        tab_bag(app, cx, cy, cw, ch)
     else
         tab_party(app, cx, cy, cw, ch)
     end

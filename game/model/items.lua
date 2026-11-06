@@ -76,6 +76,11 @@ function M.thing(id)
     if SHARED[id] then
         return SHARED[id]
     end
+    -- (The DM's bag's bits and bobs: game/data/dm_bag.lua.)
+    local bag = require("game.data.dm_bag").by_id[id]
+    if bag and bag.carry then
+        return bag
+    end
     for _, it in ipairs(module_items()) do
         if it.id == id and it.carry then
             return it
@@ -117,6 +122,9 @@ function M.about(it)
     local t = M.thing(it.thing or it.id)
     if t then
         return { name = util.capitalize(t.title or t.name or it.id), text = t.text or "" }
+    end
+    if it.name then
+        return { name = util.capitalize(it.name), text = it.text or "A keepsake." }
     end
     return { name = util.capitalize(it.id or "something"), text = "" }
 end
@@ -203,6 +211,14 @@ function M.give(campaign, id, holder, from, whom)
     end
     table.insert(M.list(campaign), it)
     log_get(campaign, it, whom, it.from)
+    return it
+end
+
+-- A keepsake with no entry of its own (a natural 20's small find, in its own words): into the hero's pack.
+function M.keep(campaign, holder, name, from)
+    local it = { id = "keepsake", name = name, holder = holder, week = campaign.week, from = from or "found" }
+    table.insert(M.list(campaign), it)
+    log_get(campaign, it, nil, it.from)
     return it
 end
 
