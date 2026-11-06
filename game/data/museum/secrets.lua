@@ -21,6 +21,8 @@
 --              make it known
 --   say_at     "hint": lines that name it can be said once the table has a hint (default: once it's known)
 --   with       keys told along with it
+--   about      what the friends call the thing it's about, when it's on a place ("the hedges", "the little bird")
+--   after_fight  (a path's) only once the room's fight has shown them: nobody asks about hunters nobody's seen
 
 local M = {}
 
@@ -28,6 +30,8 @@ M.gorgon = {
     name = "What's really upstairs", page = 6, type = "person", room = "street",
     what = "A Gorgon called Euryale has taken the museum over. Flitwidget bought her sealed in a clay jar; she broke free, twisted his exhibits and killed visitors. Telpur is still inside.",
     held_by = { "mus_flitwidget", "mus_telpur" },
+    -- (Said to the table, these give the hint: Telpur's "some lady took over".)
+    hint_words = { "Some lady took over", "Horrible lady", "Threw the boss out", "Kicked the boss out" },
     hint = { "Flitwidget's bluster has a crack in it. Whatever's wrong in there is a lot worse than \"incidents\".",
              "He smiles too wide, and his eyes keep going to the curtains. He's scared of something inside.",
              "Every time someone says \"upstairs\", the gnome's moustache twitches." },
@@ -54,9 +58,11 @@ M.gorgon = {
 }
 
 M.sisters = {
+    about = "the tapestry",
     name = "Her sisters", page = 27, type = "person", room = "lair", say_at = "known",
     what = "An ancient hero sealed Euryale and her two sisters in three clay pots. She smashed the lair's pottery looking for them, and deep down she wants them found and freed: the way to bargain with her.",
     held_by = { "mus_euryale" },
+    hint_words = { "three sisters", "she's one of them" },
     hint = { "Three sisters on the tapestry, and every pot in the room smashed. She's been looking for something.",
              "She keeps glancing at the broken pottery, as if she's still hoping one of the pots was the right one." },
     tell = { "She doesn't hide it now. \"My sisters. Sealed in clay, like I was. Two jars, somewhere out there.\"",
@@ -75,6 +81,7 @@ M.sisters = {
 }
 
 M.ritual = {
+    about = "the cracked tablet",
     name = "The water ritual", page = 12, type = "document", room = "chamber", say_at = "hint",
     on = { room = "chamber", spot = "3E" },
     what = "The tablet's seven lines tell how to still the bone guardian: fill the falcon jar with exactly four gallons, using only the jackal jug and the crocodile's water, and set it on the pedestal. A discontented falcon on the pedestal is deadly.",
@@ -102,6 +109,7 @@ M.ritual = {
 }
 
 M.knight_weak = {
+    about = "the black knight",
     name = "What hurts the knight", page = 15, type = "creature", room = "paintings",
     on = { room = "paintings", spot = "4K" },
     what = "The Knight of Shades shrugs off most weapons. Fire, water and anything made of the paintings' paint hurt it properly.",
@@ -117,20 +125,22 @@ M.knight_weak = {
 }
 
 M.kruthik = {
+    about = "the armoured hunters",
     name = "What the hunters are", page = 20, type = "creature", room = "hunting", with = { "huntlings" },
     what = "The armoured hunters are Kruthik Huntlings: pack creatures that hide, dodge and slip away, strike in pairs, and run if they expect to lose.",
     hint = { "Whatever they are, they hunt in a pack, and they want you to chase one." },
     tell = { "They're kruthik huntlings: pack hunters that hide, dodge and strike in pairs, and run when they're losing.",
              "Kruthik huntlings. They never fight fair: one draws you in, the rest come out of hiding." },
     paths = {
-        { kind = "read", item = "guide", skill = { "survival", "nature" }, dc = 14, gives = "known", book = true, page = 20 },
-        { kind = "check", skill = { "nature", "survival" }, dc = 15, gives = "hint", page = 20 },
+        { kind = "read", item = "guide", skill = { "survival", "nature" }, dc = 14, gives = "known", book = true, page = 20, after_fight = true },
+        { kind = "check", skill = { "nature", "survival" }, dc = 15, gives = "hint", page = 20, after_fight = true },
         { kind = "event", event = "fight_hunting", gives = "hint", page = 20 },
     },
     defaults = false,
 }
 
 M.pack_hides = {
+    about = "the dioramas",
     name = "Where the pack hides", page = 20, type = "place", room = "hunting",
     on = { room = "hunting", spot = "stairs" },
     what = "Two hunters hide in the jungle, two in the cave model, and one stands still as a statue behind the big bird. All five are rarely seen at once.",
@@ -146,9 +156,11 @@ M.pack_hides = {
 }
 
 M.tracks = {
+    about = "the scratch marks",
     name = "The scratch marks", page = 20, type = "place", room = "hunting",
     on = { room = "hunting", spot = "stairs" },
     what = "The scratch marks are a lure: the hunters left an easy trail to draw prey to the pack.",
+    hint_words = { "very easy to follow" },
     hint = { "The marks are very easy to follow. Almost too easy." },
     tell = { "Too clean, too obvious: those marks were left to be followed. It's bait." },
     paths = {
@@ -159,6 +171,7 @@ M.tracks = {
 }
 
 M.witness = {
+    about = "the notebook on the desk", with = { "archivist_named" },
     name = "The Witness", page = 21, type = "document", room = "offices",
     on = { room = "offices", spot = "7B" },
     what = "The archivist was researching something old called the Witness. It reached him through his notes; it whispers to anyone close to his body. He thought a vast city once sank under the sea.",
@@ -169,7 +182,7 @@ M.witness = {
         { kind = "read", skill = { "investigation" }, dc = 14, gives = "known", book = true, page = 22 },
         { kind = "read", skill = { "arcana" }, dc = 14, gives = "hint", book = true, page = 22 },
         { kind = "check", on = { room = "offices", spot = "7B" }, skill = { "medicine" }, dc = 12, gives = "hint", page = 21,
-          hint_says = { "No wounds that would kill him. He carved every one of those eyes himself, with his own quill." } },
+          hint_says = { "No wounds that would kill him. Whatever was done to him, he did it himself, with his own quill." } },
         { kind = "spell", on = { room = "offices", spot = "7B" }, spell = { "speak_with_dead" }, gives = "known", page = 21 },
         { kind = "event", event = "whisper", gives = "hint", private = true, book = true, page = 21 },
     },
@@ -177,6 +190,7 @@ M.witness = {
 }
 
 M.archivist = {
+    about = "the body at the desk", with = { "archivist_named" },
     name = "Why the archivist locked himself in", page = 21, type = "body", room = "offices",
     on = { room = "offices", spot = "7B" },
     what = "The archivist went mad studying the Witness and locked himself in, from the inside, to keep it from spreading through the museum.",
@@ -189,6 +203,7 @@ M.archivist = {
 }
 
 M.bird = {
+    about = "the little bird",
     name = "The little bird", page = 21, type = "creature", room = "offices", with = { "bird_named" },
     on = { room = "offices", spot = "7A" },
     what = "The bird under the dome is a Celestia canary, a \"mythril singer\": miners keep them because they sing when magic is near.",
@@ -204,6 +219,7 @@ M.bird = {
 }
 
 M.mythril = {
+    about = "the notes on the walls",
     name = "Mythril poisoning", page = 21, type = "document", room = "offices",
     on = { room = "offices", spot = "drawings" },
     what = "The mythril from the Curna Mountains turns to a poisonous gas near magic: breathe it and you see things, rage, and die.",
@@ -217,6 +233,7 @@ M.mythril = {
 }
 
 M.living_hedges = {
+    about = "the hedges",
     name = "The hedges are alive", page = 10, type = "creature", room = "garden",
     on = { room = "garden", spot = "1B" },
     what = "Three of the clipped beasts are Briar Guardians: they wake and attack when someone comes close. The cat on the right terrace is only ever a hedge.",
@@ -232,6 +249,7 @@ M.living_hedges = {
 }
 
 M.pond = {
+    about = "the pond",
     name = "What's in the pond", page = 10, type = "place", room = "garden",
     on = { room = "garden", spot = "pond" },
     what = "Something with tentacles lives in the pond and lashes at anyone within five feet of the water.",
@@ -246,6 +264,7 @@ M.pond = {
 }
 
 M.sentinel_wakes = {
+    about = "the metal statue",
     name = "What the statue does", page = 11, type = "creature", room = "entrance",
     on = { room = "entrance", spot = "2A" },
     what = "The metal statue is the Sentinel. It wakes only for a serious break-in at the donation case, punches to subdue, doesn't chase anyone who backs off, and calms down at a donation.",
@@ -260,6 +279,7 @@ M.sentinel_wakes = {
 }
 
 M.scarabs = {
+    about = "the bone guardian",
     name = "The guardian's scarabs", page = 12, type = "creature", room = "chamber",
     on = { room = "chamber", spot = "3B" },
     what = "Once the bone guardian is down to half its strength, it belches out a swarm of scarabs that joins the fight.",
@@ -274,6 +294,7 @@ M.scarabs = {
 }
 
 M.lecturer_ears = {
+    about = "the grey man at the lectern",
     name = "How to beat the drone", page = 24, type = "creature", room = "lecture",
     on = { room = "lecture", spot = "9A" },
     what = "The Lecturer's drone works through the ears: anyone who can't hear him has advantage against it. He was a guest lecturer who died mid-talk and kept going, and Euryale made him stronger.",
@@ -288,6 +309,7 @@ M.lecturer_ears = {
 }
 
 M.hyper = {
+    about = "the brass machine",
     name = "The red switch", page = 38, type = "item", room = "tomorrow",
     on = { room = "tomorrow", spot = "8A" },
     what = "Hyper Destroyer Mode makes the Mech terrifying, but every turn it can overheat: then it shuts down for good and burns whoever's next to it.",
@@ -310,6 +332,7 @@ M.gorgon_lore = {
         "Gorgons poison their weapons, and their claws drip with it.",
     },
     needs = { 1 },
+    part_word = "page",
     hint = { "One page of the scholar's book comes clear." },
     tell = { "The scholar's book is clear enough: gorgons pass for people, and their gaze lives in the snakes on their heads." },
     paths = {

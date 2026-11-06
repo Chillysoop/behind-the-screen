@@ -205,8 +205,8 @@ return {
           text = { "{Gold_word} gold each, then, and a pick from the shop.",
                    "So: {gold_word} gold each. And a pick from the shop. And a biscuit.",
                    "{Gold_word} gold each, for a Gorgon who's gone, not beaten. And anything from the shop you like." } },
-        { text = { "Now. Your reward: {gold_word} gold each, as promised, and a pick from the shop.",
-                   "{Gold_word} gold each, as I said, and anything from the gift shop you like. Within reason.",
+        { text = { "Now. Your reward. Shall we say {gold_word} gold each? And a pick from the shop.",
+                   "Let's say {gold_word} gold each, and anything from the gift shop you like. Within reason.",
                    "The reward! {Gold_word} gold each and a pick from the gift shop. I always pay my heroes." } },
       },
       -- (The same, after a death: no "The reward! ... I always pay my heroes". Round three's merge.)

@@ -39,7 +39,7 @@ local M = {}
 -- seeded prologues with the three sim DMs, the party brings 6 or 7 Francs to the counter the first
 -- time (2 to 13): at these prices about two in three can buy one thing, one in four could buy two,
 -- almost none all three, and one in twelve can't buy anything yet. Change a price here and nowhere else.
-local PRICE = { tenets = 4, manual = 4, arrows = 5 }
+local PRICE = { tenets = 4, manual = 4, arrows = 5, guide = 4 }
 M.PRICE = PRICE           -- (Telpur's price on the day reads these: what he thinks of them moves it, people.price)
 local function priced(label, n)
     return label .. " (" .. n .. " Francs)"
@@ -249,7 +249,9 @@ M.rooms = {
     street = {
         name = "The street", part = 1, type = "social", quick = true, cost = 1, at = { 50, 98 }, map = "Street",
         comps = { location = "mus_street", cast = "mus_flitwidget", goal = "mus_take_job", complication = "mus_crowd" },
-        read = "Everyone in town is talking about the new museum. The talk leads to a crowded back street, and a gnome on the roof of a caravan.",
+        -- (What he says to everyone, no roll needed (p6): closed, "incidents", and a request. The second round's
+        -- review: four runs in nine shook on a job nobody had offered.)
+        read = "Everyone in town is talking about the new museum. The talk leads to a crowded back street, and a gnome on the roof of a caravan, shooing the crowd away: the museum is closed, he's afraid, on account of some incidents with the exhibits. Then he spots the party. He has a request, for anyone brave: sort out his troublesome exhibits, and he'll make it worth their while.",
         sum = "Meet Flitwidget, hear about the Gorgon, take the job.",
         next = { "garden" }, knobs = { "pry" },
     },
@@ -366,7 +368,7 @@ M.rooms = {
             -- (The notebook went to her between sessions, a loose end: from the offices they never searched,
             -- so it's new to them, and so is the Witness. The confirming playtest, seed 57 careful: "Your
             -- Witness writes beautifully", to a party that never saw the notebook or heard the name.)
-            { when = { flag = "she_read" }, text = "A notebook lies open on her couch, every page full of drawn eyes: the dead archivist's, from the offices they never searched. \"I have read every page,\" Euryale says. \"Something was talking to him.\"" },
+            { when = { flag = "she_read" }, text = "A notebook lies open on her couch, every page full of drawn eyes. \"I have read every page,\" Euryale says. \"Something was talking to whoever wrote it.\"" },
         },
     },
     -- Not on the map: boss night's last scene, back downstairs, once she's dealt with (the book's
@@ -461,7 +463,7 @@ M.ally_lines = {
 M.recap = {
     street = { win = "took Flitwidget's job", lose = "took Flitwidget's job without the whole story" },
     garden = { win = "got through the living garden", lose = "got through the garden, scratched and bleeding" },
-    entrance = { win = "got past the donation box and its guard", lose = "fled the entrance hall's guard",
+    entrance = { win = "got past the donation box and the metal statue", lose = "backed out of the entrance hall",
                  fought = { win = "fought their way past the Sentinel at the donation box", lose = "fled the Sentinel in the entrance hall" } },
     chamber = { win = "stilled the Bone Construct", lose = "barely got away from the Bone Construct",
                 fought = { win = "smashed the Bone Construct", lose = "barely got away from the Bone Construct" } },
@@ -584,7 +586,8 @@ M.beats = {
                       { did = "they handed Euryale a page of the Lecturer's notes", ok = "Euryale read the Lecturer's notes and fell asleep",
                         fail = "Euryale had read the Lecturer's notes before" },
                       { did = "they asked Euryale what she really wanted", ok = "they talked Euryale round", fail = "Euryale wouldn't be talked round" } },
-    mus_yield = { "they let her go", "they made her a deal: her sisters, for her help", "{char} finished it" },
+    mus_yield = { "they let her go", "they made her a deal: her sisters, for her help",
+                  "they asked what she wanted, and made a deal for her sisters", "{char} finished it" },
 }
 
 -- How the rooms join, door to door, as on the book's maps (each way). The party walks through
@@ -729,7 +732,7 @@ M.moments = {
       actor = { "instigator", "method_actor", "storyteller" },
       title = "\"Incidents with the exhibits\"",
       -- (Said to the table as the card opens, before you decide: what the heroes heard him say, p6.)
-      see = "Flitwidget waves his hat at the crowd: the museum is closed, he's afraid, on account of some incidents with the exhibits.",
+      see = "Flitwidget keeps smiling, but every time someone says \"incidents\", his moustache twitches.",
       text = "{actor_char} doesn't buy the gnome's story for a second. 'Incidents' is doing a lot of work.",
       options = {
           { label = "Let them pry. Roll against his bluster.",
@@ -755,7 +758,7 @@ M.moments = {
             log = "One Franc per beaten exhibit, solved puzzle, or clever use of the museum's own things.",
             effects = { { "arch:power_gamer", fun = 5, reward = 4 }, { "arch:tactician", fun = 3 }, { "arch:storyteller", boredom = 3 } },
             table_min = 3 },
-          { label = "Keep it a surprise. They'll find out.",
+          { label = "Keep how they're earned a surprise. They'll find out.",
             log = "\"You'll see!\" says Flitwidget, and shoos them up the steps. \"There's a lot more of it than there looks, trust me!\"",
             effects = { { "arch:explorer", fun = 3 }, { "arch:storyteller", fun = 2 } } },
       } },
@@ -805,7 +808,7 @@ M.moments = {
     -- The entrance hall -------------------------------------------------------------------------
     { id = "mus_box", room = "entrance", spot = "2B", at = "start", type = "story", actor = { "casual", "instigator", "method_actor" }, party = true,
       title = "The donation box",
-      text = "A glass case of coins from every world, and a little card: \"Every coin keeps the lamps lit.\" {actor_char} looks at the case, then the lock, then the metal statue standing right there.",
+      text = "A glass case of coins from every world, and a little card: \"Every coin keeps the lamps lit.\" {actor_char} looks at the case, and then at its lock.",
       options = {
           { label = "Somebody drops a coin in.", want = "drop a coin in", short = "pay a coin",
             pulls = { { when = { mark = "garden_burned" }, who = { "tactician", "casual", "storyteller" }, n = 1.5,
@@ -858,12 +861,13 @@ M.moments = {
                       { when = { flag = "truth" }, who = { "tactician", "storyteller", "casual" }, n = 0.9,
                         say = { "Save the swords for the Gorgon.", "There's a Gorgon in here somewhere. Let's not bleed for this one.",
                                 "If we can talk to it in glyphs, that's a fight we don't have to have." } } },
-            roll = { dc = 12, skill = { "history", "investigation", "religion" }, convenient = "success",
-                     success = { log = "The tablet gives up its ritual: five gallons in the falcon, three in the jackal, and the goddess wants exactly four. Pour, tip, pour, tip, and onto the pedestal.",
-                                 effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 3.5 }, { "arch:butt_kicker", fun = -3 } },
-                                 mus = { no_fight = true, mark = "calmed", francs = 1, careful = 1, aspect = "Calmed a tomb guardian with an old ritual" } },
-                     fail = { log = "The glyphs swim. It's going to be blades.",
-                              effects = { { "arch:butt_kicker", fun = 3 } }, mus = { fight = true, flag = "ritual_failed" } } } },
+            -- (A line at a time, as the book has it, p12: museum_night.ritual_read. The second round's review: one
+            -- roll gave up the whole ritual, and the DM's own solution with it.)
+            log = "{actor_char} opens the notebook beside the tablet and starts on the first line.",
+            mus = { ritual_read = {
+                success = { effects = { { "actor", spotlight = 14 }, { "arch:storyteller", fun = 3.5, story = 6 }, { "arch:tactician", fun = 3.5 }, { "arch:butt_kicker", fun = -3 } },
+                            mus = { no_fight = true, mark = "calmed", francs = 1, careful = 1, aspect = "Calmed a tomb guardian with an old ritual" } },
+                fail = { effects = { { "arch:butt_kicker", fun = 3 } }, mus = { fight = true, flag = "ritual_failed" } } } } },
           { label = "Skip the homework. Fight it.", want = "skip the homework and fight it", short = "just fight it", lean = "bold",
             pulls = { { when = { chose = { "mus_plaque", 3 } }, who = { "butt_kicker", "instigator" }, n = 1,
                         say = { "Steel worked on the hedges. It'll work on this.", "We hit the hedges and the hedges stopped. Same again.",
@@ -876,6 +880,8 @@ M.moments = {
       title = "A discontented falcon",
       see = "As the guardian closes in, {actor_char} grabs the half-full falcon jar and makes for the pedestal.",
       text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway. Nobody managed to read the tablet's last lines. You know what they say.",
+      -- (The tablet's warning, if it came clear: then they were told.)
+      text_if = { { when = { part = { "ritual", 7 } }, text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway, though the tablet warned them what a discontented falcon costs." } },
       options = {
           { label = "Let them. They never read the warning.", sub = "Harsh, and out of nowhere for them.",
             log = "The pedestal flares. {actor_char} is flung across the room and lands hard, winded.",
@@ -941,14 +947,15 @@ M.moments = {
       text = "At the end of the hall, the black knight's portrait, grim and perfect. {actor_char} stops in front of it.",
       options = {
           { label = "Take a closer look. Whatever happens, happens.", want = "take a closer look at the knight", short = "look closer",
-            pulls = { { when = { flag = "paint" }, who = { "butt_kicker", "explorer", "instigator" }, n = 1.5,
+            -- (Only once they've a hint what hurts it: secrets.knight_weak. The second round's review.)
+            pulls = { { when = { flag = "paint", hinted = "knight_weak" }, who = { "butt_kicker", "explorer", "instigator" }, n = 1.5,
                         say = { "We've got painted weapons. Let's see what they do to it.", "Wet paint in our hands, a painted knight over there. Come on.",
                                 "That's what the painted weapons are for, surely." } } },
             log = "The knight grips the edge of its frame and climbs out, oil streaming off its armour.",
             effects = { { "arch:butt_kicker", fun = 4 }, { "arch:explorer", fun = 4 }, { "arch:instigator", fun = 2 }, { "all", challenge = 4 } },
             mus = { fight = true, aspect = "Woke the Knight of Shades" } },
           { label = "Give it a wide berth.", want = "give the knight a wide berth", short = "leave it be",
-            log = "Nobody goes near it. It stays a painting, and they leave it on the wall.",
+            log = "Nobody goes near it. They leave the black knight on the wall, and walk on.",
             effects = { { "arch:casual", fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:storyteller", fun = 5 }, { "arch:method_actor", fun = 2.5 },
                         { "arch:butt_kicker", fun = -3 } },
             mus = { no_fight = true, mark = "knight" } },
@@ -997,6 +1004,11 @@ M.moments = {
             effects = { { "arch:tactician", fun = 6 }, { "arch:power_gamer", fun = 4 } },
             mus = { flag = "manual", spend = PRICE.manual, favor = { who = "telpur", n = 1 } } },
           -- (Not while the quiver Pip lifted off this shelf is still in a pack: he doesn't sell it twice.)
+          -- (The book's way to name the hunters upstairs, p17, p20: secrets.kruthik's read path.)
+          { label = priced("A guide to primeval creatures", PRICE.guide), price = PRICE.guide, want = "buy the guide to primeval creatures", short = "get the guide",
+            log = "The Neverwinter University Press Guide to Primeval Creatures. A lot of pictures of things with too many legs.",
+            effects = { { "arch:explorer", fun = 5 }, { "arch:tactician", fun = 3 }, { "arch:butt_kicker", fun = -1 } },
+            mus = { flag = "guide", spend = PRICE.guide, favor = { who = "telpur", n = 1 } } },
           { label = priced("Fire arrows and a bucket of slime", PRICE.arrows), price = PRICE.arrows, want = "buy the fire arrows and the slime", short = "get the arrows",
             unless = { holds = "arrows_lifted" },
             log = "Arrows that burn and slime that bites, enough for one good fight. {actor_char} is very happy.",
@@ -1015,12 +1027,13 @@ M.moments = {
     { id = "mus_tracks", room = "hunting", spot = "6I", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" }, party = true,
       title = "Scratch marks",
       text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points at the marks: the trail is very easy to follow.",
+      see = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points at the marks: the trail is very easy to follow.",
       options = {
-          { label = "Follow them anyway. They know it's bait.", want = "follow the marks anyway, weapons out", short = "follow the trail",
+          { label = "Follow them anyway, weapons out.", want = "follow the marks anyway, weapons out", short = "follow the trail",
             log = "They follow the trail with weapons out. The huntlings spring the trap, and the party was ready for it.",
             effects = { { "arch:butt_kicker", fun = 3 }, { "arch:storyteller", fun = 1 }, { "all", challenge = 4 } },
             mus = { risk = true, ready = true } },
-          { label = "Go round. Make the hunters come to them.", want = "go round and make the hunters come to us", short = "go round", lean = "safe",
+          { label = "Go round. Make the hunters come to them.", want = "go round and make whatever left them come to us", short = "go round", lean = "safe",
             log = "They put their backs to the bulette's skull and wait. Whatever's hunting them can come out first.",
             effects = { { "arch:tactician", fun = 5 }, { "arch:casual", fun = 2 }, { "arch:explorer", fun = 3.5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { flag = "no_surprise", ready = true } },
@@ -1031,10 +1044,12 @@ M.moments = {
       options = {
           { label = "Take one. You never know.", want = "take one of the mirror-bright doors", short = "take a door", lean = "none",
             points = { "A mirror you can carry. That has to come in handy.", "Look at the shine on that. We're taking one.", "Mirrors are always useful in stories. Always." },
-            pulls = { { when = { mark = "know", told = "gorgon" }, who = { "tactician", "explorer", "storyteller" }, n = 1.2,
-                        say = { "The book says a gorgon can't stand her own reflection. We're taking a mirror.", "Gorgons and mirrors. We read about this.",
-                                "The scholar's book was very clear. A mirror. Take a mirror." } } },
-            log = "{actor_char} unscrews a cupboard door and straps it to {actor_their} pack. Nobody asks why. Someone should.",
+            -- (Once they know there's a gorgon: every story about one has a mirror in it. The scholar's book doesn't
+            -- say so, p17; her reflection is the DM's, p35. The second round's review.)
+            pulls = { { when = { told = "gorgon" }, who = { "tactician", "explorer", "storyteller" }, n = 1.2,
+                        say = { "Gorgons and mirrors. That's the oldest story there is. We're taking one.", "If she's a gorgon, a mirror's the first thing I'd want.",
+                                "Every story about gorgons has a mirror in it. Take the door." } } },
+            log = "{actor_char} unscrews a cupboard door and straps it to {actor_their} pack.",
             effects = { { "actor", spotlight = 6 }, { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 }, { "arch:power_gamer", fun = 3 } },
             mus = { mark = "mirror", aspect = "Carried a cupboard door upstairs to fight a Gorgon" } },
           { label = "Leave the exhibits alone.", want = "leave the exhibits alone", short = "leave them be",
@@ -1069,11 +1084,13 @@ M.moments = {
       title = "The second study",
       see = true,       -- (the book's read-aloud, p21: said to the table, the gentle way if gore is a line)
       -- (The bird is in the other study, 7A, as in the book: this room is the dark one, papered in eyes.)
-      text = "Inside, it's darker than it should be. The archivist sits dead at an old desk, eyes carved all over his arms, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye.",
+      -- (A withered body, as the book's read-aloud has it: who he was, and the eyes he carved, are for a closer
+      -- look, p21. The second round's review: "the archivist" named on walking in.)
+      text = "Inside, it's darker than it should be. A withered body sits at an ancient desk, a notebook open by its hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye.",
       -- (A table that veiled gore at Session Zero hears it gently.)
       -- (A line under gore: nothing gruesome, not even hinted. A veil: it's there, off screen.)
-      text_if = { { when = { line = "gore" }, text = "Inside, it's darker than it should be. The archivist is slumped at an old desk as if he fell asleep there and never woke, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." },
-                  { when = { soft = "gore" }, text = "Inside, it's darker than it should be. The archivist sits dead at an old desk, his sleeves pulled down over his arms, a notebook open by his hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." } },
+      text_if = { { when = { line = "gore" }, text = "Inside, it's darker than it should be. Someone is slumped at an ancient desk as if they fell asleep there and never woke, a notebook open by their hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." },
+                  { when = { soft = "gore" }, text = "Inside, it's darker than it should be. A body sits at an ancient desk, its sleeves pulled down over its arms, a notebook open by its hand. Every wall is papered with diagrams and scraps, and on almost every one, a glowing eye." } },
       options = {
           { label = "Let them take it all in, slowly.",
             log = "Nobody speaks for a moment. {actor_char} takes out a pencil.",
@@ -1151,14 +1168,17 @@ M.moments = {
       } },
 
     -- The lecture theatre ---------------------------------------------------------------------
-    { id = "mus_earplugs", room = "lecture", at = "start", type = "rules", actor = { "tactician", "casual", "storyteller" },
+    -- (Asked once a friend has a hint that it's his voice that does it: secrets.lecturer_ears. The second round's
+    -- review: the same instant idea in every run read as scripted.)
+    { id = "mus_earplugs", room = "lecture", at = "start", when = { hinted = "lecturer_ears" }, type = "rules", actor = { "tactician", "casual", "storyteller" },
       title = "Can I block my ears?",
       text = "{actor} asks: \"Can {actor_char} stuff candle wax in {actor_their} ears before going in? If I can't hear him, he can't bore me, right?\"",
       options = {
           { label = "Yes. It's a good idea, and it works.",
             log = "Wax in, cloth over. It works. Nobody else thought of it.",
-            effects = { { "actor", fun = 6 }, { "arch:tactician", fun = 4, trust = 1 } }, leans = "cool", mus = { flag = "deaf", aspect = "Beat a ghost's lecture with candle wax" } },
-          { label = "He's in their heads. Wax won't help.",
+            effects = { { "actor", fun = 6 }, { "arch:tactician", fun = 4, trust = 1 } }, leans = "cool", mus = { flag = "deaf", aspect = "Beat a ghost's lecture with candle wax" },
+            tells = { "lecturer_ears" } },
+          { label = "He's in their heads. Wax won't help.", sub = "The book has it working: whoever can't hear him has Advantage (page 24).",
             log = "The drone goes straight past the wax. {actor_char} sighs.",
             effects = { { "actor", fun = -3 }, { "arch:power_gamer", fun = -1 } }, leans = "strict" },
       } },
@@ -1186,11 +1206,11 @@ M.moments = {
     -- and the book's answer to it is paint (weapons out of a painting cut it like paper).
     { id = "mus_lair_frame", room = "lair", danger = "the knight's frame: the paint is wet, and it's watching", at = "mid", when = { mark = "knight" }, fight_only = true, type = "story", actor = { "explorer", "butt_kicker", "tactician" }, party = true,
       title = "The frame behind the couch",
-      text = "The black knight steps out of a frame behind her couch, and the paint it left behind is still wet. {actor_char} could reach in for something to fight it with.",
+      text = "The black knight steps out of a frame behind her couch, and the paint it left behind is still wet. {actor_char} could reach into the frame.",
       options = {
           { label = "Reach in. It's worth the chill.", want = "reach into the frame for a painted blade", short = "reach in",
             roll = { dc = 12, skill = { "athletics", "acrobatics", "arcana" }, convenient = "success",
-                     success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.",
+                     success = { log = "{actor_char} pulls out a painted blade, dripping. Paint cuts paint.", tells = { "knight_weak" },
                                  effects = { { "actor", spotlight = 8, fun = 3 }, { "arch:explorer", fun = 4.5 }, { "arch:method_actor", fun = 3 } },
                                  mus = { risk = true, flag = "paint", aspect = "Armed the party out of a Gorgon's own painting" } },
                      fail = { log = "The frame bites. {actor_char} pulls back numb, empty fingers.",
@@ -1583,8 +1603,11 @@ M.items = {
       line = "Out come Telpur's fire arrows and the bucket of slime: every hero's first weapon hit each turn burns or bites, this fight only." },
     -- (The painting's gift, said as the hall's fight starts: whose it is and what it does, as the book has
     -- it. Conner's playtest, C14: was the scimitar anything?)
-    { id = "painted", when = { flag = "paint" }, rooms = { "paintings" },
+    -- (What it does to the knight is the knight's secret until it's found: secrets.knight_weak.)
+    { id = "painted", when = { flag = "paint", told = "knight_weak" }, rooms = { "paintings" },
       line = "{gift_the} is still wet in {paint_holder}'s hand: it counts as paint, and paint is what the painted things here can't shrug off." },
+    { id = "painted_plain", when = { flag = "paint", not_told = "knight_weak" }, rooms = { "paintings" },
+      line = "{gift_the} is still wet in {paint_holder}'s hand, dripping colour on the floor." },
     { id = "paint_dagger", when = { flag = "paint_dagger" }, rooms = { "lair" }, opt = "paint", name = "a paint-touched dagger", carry = true,
       to = "jess", text = "A dagger Telpur dipped in the hall's wet paint. In the lair, its blows count as magic, and painted things fear it.",
       -- (A loose end's, between sessions: shown handed over at the next night's start, like the bracelet.)
@@ -1619,12 +1642,15 @@ M.items = {
       lines = { "Flitwidget's bracelet of protection is on {holder}'s wrist.",
                 "The silver bracelet Flitwidget gave {holder} glints.",
                 "{holder} turns Flitwidget's bracelet on {holder_their} wrist." } },
-    { id = "know", when = { mark = "know" }, rooms = { "lair" }, boss = true,
-      -- (Only once the table knows she's a Gorgon does what they read say what to do: told.lua holds the rest back.)
-      line = "Everyone's read the scholar's book. Whatever she is, they've an idea what to watch for.",
-      lines = { "Everyone's read up on gorgons: eyes down, Advantage on saves against her stare.",
-                "The scholar's book did its job: around a Gorgon, everyone keeps their eyes low. Advantage on saves against her stare.",
-                "Everyone's read the scholar's book. Whatever she is, they've an idea what to watch for." } },
+    -- (What the scholar's book told them, p27: the page about the gaze living in the snakes, if it came clear
+    -- (secrets.gorgon_lore), and that she's a gorgon at all. Otherwise only that they've read it.)
+    { id = "know", when = { mark = "know", told = "gorgon", part = { "gorgon_lore", 2 } }, rooms = { "lair" }, boss = true,
+      line = "Everyone's read the scholar's book: a gorgon's gaze lives in its snakes. Eyes down once the hood comes off, and Advantage on saves against her stare.",
+      lines = { "Everyone's read the scholar's book: a gorgon's gaze lives in its snakes. Eyes down once the hood comes off, and Advantage on saves against her stare.",
+                "The scholar's book did its job: the gaze is in the snakes, so they'll watch her hands, not her face. Advantage on saves against her stare.",
+                "They know from the scholar's book where a gorgon's gaze comes from. Eyes low: Advantage on saves against her stare." } },
+    { id = "know_plain", when = { mark = "know" }, unless = { told = "gorgon", part = { "gorgon_lore", 2 } }, rooms = { "lair" }, boss = true,
+      line = "Everyone's had a look through the scholar's book. Whatever she is, they've an idea what to watch for." },
     { id = "charmed", when = { flag = "charmed" }, rooms = { "lair" }, boss = true, once = true, charm = true,
       line = "{holder} is still smiling at Euryale over the wine: {holder_they} starts the fight charmed by her." },
     { id = "vorpal_sword", when = { flag = "vorpal_sword" }, magic = "vorpal_sword", name = "the vorpal sword", carry = true,
@@ -1640,6 +1666,8 @@ M.items = {
     { id = "gorgon_book", when = { mark = "know" }, name = "the Tenets of the Rotting Temple", carry = true,
       title = "The Tenets of the Rotting Temple", adv = { "history" }, topic = "gorgons",
       text = "A scholar's book on the people who worship gorgons. Whoever has it has Advantage on History about gorgons, and knows there are three sisters." },
+    { id = "guide", when = { flag = "guide" }, name = "the Guide to Primeval Creatures", carry = true,
+      text = "A guidebook to primeval creatures, full of pictures. Read with Survival or Nature (DC 14), it can tell you what's hunting upstairs." },
     { id = "notebook", when = { flag = "notebook" }, name = "the archivist's notebook", carry = true, to = "mara",
       text = "The dead archivist's notebook: a city under the sea, stone pillars covered in writing, and eyes drawn on every page.",
       handover = { "Between sessions, Telpur let {holder} have \"a strange book\" for nothing: a dead man's notebook from the offices upstairs, eyes drawn on every page.",
@@ -1868,6 +1896,11 @@ M.told = {
                mask = { { "Briar Guardians", "living hedges" }, { "briar triceratops", "horned hedge-beast" },
                         { "briar boar", "hedge-boar" }, { "briar beast", "hedge-cat" }, { "briar", "hedge" } } },
     construct = { always = true, words = { "Bone Construct" }, mask = { { "Bone Construct", "bone guardian" } } },
+    -- (Who the body was is for a closer look, p21: told with secrets.archivist or secrets.witness.)
+    archivist_named = { always = true, words = { "archivist" },
+                        mask = { { "the archivist's", "the dead man's" }, { "the archivist", "the dead man" }, { "archivist", "dead man" } } },
+    -- (The stat block's name, from a fight's label: "That's a crit on the Giant Scarab Swarm".)
+    swarm = { always = true, words = { "Giant Scarab Swarm" }, mask = { { "Giant Scarab Swarm", "scarab swarm" } } },
     sentinel = { always = true, words = { "Sentinel" }, mask = { { "Sentinel", "metal statue" } } },
 }
 
@@ -1983,9 +2016,11 @@ M.showdown = {
         options = {
             { label = "Weapons out.", want = "fight her", edges = true, log = "Steel answers for them. Euryale stands, smiling. \"As you like.\"",
               effects = { { "arch:butt_kicker", fun = 6 }, { "arch:storyteller", fun = -1 } }, mus = { fight = true } },
-            { label = "Bargain: ask about the sisters on her tapestry.", want = "ask her where the other two sisters are, and bargain", short = "bargain with her", lean = "none", needs = { mark = "know" }, alt_needs = { flag = "tapestry" },
+            -- (The tapestry is the book's clue in plain view, p27; that she wants them found is hers to tell. The
+            -- second round's review: "where the other two sisters are" before anyone had said she has any.)
+            { label = "Bargain: ask about the sisters on her tapestry.", want = "ask her about the three sisters on the tapestry", short = "bargain with her", lean = "none", needs = { mark = "know" }, alt_needs = { flag = "tapestry" },
               roll = { dc = 14, skill = { "persuasion", "insight" }, convenient = "success",
-                       success = { log = "Her hood dips. \"Two clay jars, somewhere out there.\" She'd leave for that. She would.",
+                       success = { log = "Her hood dips. \"My sisters. Sealed in clay, as I was. Two jars, somewhere out there.\" She'd leave for that. She would.", tells = { "sisters" },
                                    effects = { { "actor", spotlight = 14, fun = 8 }, { "arch:storyteller", fun = 8, story = 8 }, { "arch:casual", fun = 3 }, { "arch:butt_kicker", fun = -3 } },
                                    mus = { ending = "bargain", aspect = "Talked a Gorgon into a bargain" } },
                        fail = { log = "\"You know nothing about my sisters.\" The hood comes down, a little.",
@@ -2021,13 +2056,11 @@ M.showdown = {
     -- bring a cupboard door up here for, then?"). item: whose it is (its holder, at the table);
     -- commander: the Mech's (the one who woke it). text: in anyone's words; mine: in the holder's.
     edges = {
-        -- (Her stare and what a gorgon is, once the table knows she's one: told.lua. Before, just what they carry.)
+        -- (Her stare and what a gorgon is, once the table knows she's one: told.lua. Before, a cupboard door and a
+        -- book on cults are nothing to count on against her: the second round's review.)
         { when = { holds_here = "mirror", told = "gorgon" }, item = "mirror", text = "a mirror for her stare", mine = "a cupboard door" },
-        { when = { holds_here = "mirror", not_told = "gorgon" }, item = "mirror", text = "a cupboard door polished like a mirror", mine = "a cupboard door" },
         { when = { mark = "know", holds_here = "gorgon_book", told = "gorgon" }, item = "gorgon_book", text = "everything the book says about gorgons",
           mine = "a whole book on gorgons" },
-        { when = { mark = "know", holds_here = "gorgon_book", not_told = "gorgon" }, item = "gorgon_book", text = "a whole scholar's book on old cults",
-          mine = "a book on old cults" },
         { when = { holds_here = "bracelet" }, item = "bracelet", text = "Flitwidget's bracelet", mine = "Flitwidget's bracelet" },
         { when = { mark = "mech", flag = "hyper_saved" }, commander = true, text = "the Mech's red switch, saved for her",
           mine = "my Mech's red switch" },
@@ -2066,8 +2099,14 @@ M.showdown = {
             { label = "Let her go.", want = "let her go", lean = "none", log = "Nobody lifts a weapon as she gathers up her bow and stands.", escape = true,
               effects = { { "arch:storyteller", fun = 6 }, { "arch:casual", fun = 4 }, { "arch:butt_kicker", fun = -3 }, { "arch:power_gamer", fun = -3 } },
               mus = { ending = "escape", aspect = "Let a Gorgon walk free" } },
-            { label = "Make her a deal: her sisters, for her help.", want = "make her a deal", short = "deal with her", lean = "none",
+            -- (Only once they know there are sisters to find: game/data/museum/secrets.lua's sisters.)
+            { label = "Make her a deal: her sisters, for her help.", want = "make her a deal", short = "deal with her", lean = "none", needs = { told = "sisters" },
               log = "A long silence. Then a nod. \"For my sisters.\"",
+              effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:butt_kicker", fun = -2 } }, mus = { ending = "bargain" } },
+            -- (Not knowing yet, they can still ask what she wants: the book's way to the bargain, p27.)
+            { label = "Ask her what she wants, if they let her live.", want = "ask her what she wants", short = "ask her", lean = "none", needs = { not_told = "sisters" },
+              log = "She looks up at the tapestry. \"My sisters. Sealed in clay jars, as I was. Find them, and I'll owe you more than you know.\" A long silence, and then a nod.",
+              tells = { "sisters" },
               effects = { { "arch:storyteller", fun = 8, story = 6 }, { "arch:butt_kicker", fun = -2 } }, mus = { ending = "bargain" } },
             { label = "Finish it.", want = "finish it", lean = "none", log = "{actor_char} doesn't hesitate. It's over.",
               -- (Once they've seen what she does with her hood off.)
@@ -2285,8 +2324,8 @@ M.chat = {
     lecture = { { who = "sam", won = true, "that was my third period chemistry class", "a ghost who lectures. my worst nightmare and i beat it" },
                 { who = "jess", "i fell asleep in real life a little", "the lecturer's voice is still in my head. send help" },
                 { who = "mara", when = { mark = "pages" }, "we have pages that put people to sleep. this is the best item", "the sleepy notes are the most powerful thing we own" } },
-    stairs = { { who = "dev", when = { not_flag = "rematch" }, "boss fight next week. finally", "next week we meet her. i'm ready. i'm not ready" },
-               { who = "mara", "she's been watching us this whole time hasn't she", "the curtain at the top of the stairs. i'm scared of a curtain" },
+    stairs = { { who = "dev", when = { not_flag = "rematch" }, "boss fight next week. finally", "next week we meet whoever's up there. i'm ready. i'm not ready" },
+               { who = "mara", "something's been watching us this whole time hasn't it", "the curtain at the top of the stairs. i'm scared of a curtain" },
                { who = "jess", when = { flag = "seen" }, "pip met her eyes and came back. pip is fine. pip is not fine", "pip went up alone and i regret nothing. some things" } },
 }
 -- The group chat's very first night, before they've played: one of these, by the table's seed.

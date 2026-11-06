@@ -450,6 +450,13 @@ function M.test(campaign, cond, knobs, hero)
     if cond.not_told and require("game.model.told").knows(campaign, cond.not_told) then
         return false
     end
+    -- (One piece of a secret told a piece at a time: the tablet's warning line. part = { key, i }.)
+    if cond.part and not util.index_of(require("game.model.secrets").parts_known(campaign, cond.part[1]), cond.part[2]) then
+        return false
+    end
+    if cond.not_part and util.index_of(require("game.model.secrets").parts_known(campaign, cond.not_part[1]), cond.not_part[2]) then
+        return false
+    end
     -- (A hint at least, or nothing yet: game/model/secrets.lua.)
     if cond.hinted then
         for _, k in ipairs(type(cond.hinted) == "table" and cond.hinted or { cond.hinted }) do

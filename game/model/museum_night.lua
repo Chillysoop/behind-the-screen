@@ -368,12 +368,100 @@ end
 -- What an option's `mus` does tonight (adventure.apply does the bookkeeping).
 local FLAG_OPT = { paint = "paint", deaf = "earplugs" }
 
+-- The tablet read as the book has it (p12): whoever holds the notebook works at it, a History check a line,
+-- one random line of seven each time it goes, while someone holds the bone guardian off. Once the lines that
+-- matter are in (game/data/museum/secrets.lua's ritual: the falcon's five, the jackal's three, the goddess's
+-- four, only the crocodile's water, the pedestal), they work the pouring out between them and it's stilled.
+-- Three goes; a miss is the guardian's staff on whoever's holding it off. Returns true if it worked.
+M.RITUAL_TRIES = 7         -- (a round of the guardian's patience each: about half the time, enough lines come clear)
+function M.ritual_read(night, sc)
+    local secrets = require "game.model.secrets"
+    local skills = require "game.rules.skills"
+    local c = night.campaign
+    local d = secrets.def("ritual")
+    local reader = night.actor
+    if not (d and reader) then
+        return false
+    end
+    -- (Who holds it off: the toughest of the others here.)
+    local holder, hw
+    for _, q in ipairs(night:at_hand()) do
+        local pc = night.pcs and night.pcs[q.key]
+        if q ~= reader and pc and not pc.dead then
+            local w = (pc.hp or 0) + 3 * (pc.ac or 10)
+            if not hw or w > hw then
+                holder, hw = q, w
+            end
+        end
+    end
+    if holder then
+        night:say(util.fill("{char} plants {char_them}self between the guardian and the tablet.", { char = holder.char }), "narration")
+    end
+    for try = 1, M.RITUAL_TRIES do
+        if secrets.knows(c, "ritual") then
+            break
+        end
+        local name, mod = night:best_skill(reader, { "history" })
+        local dd = night.rng:d20()
+        local total = dd + (mod or 0)
+        night:emit({ kind = "tiny_roll", who = reader.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "history"), what = "ritual" })
+        if total >= 12 then
+            -- (One random line a success, as the book has it; a great one, two.)
+            for _ = 1, (total >= 17 and 2 or 1) do
+                local left = secrets.parts_left(c, "ritual")
+                if #left > 0 and not secrets.knows(c, "ritual") then
+                    local part = left[night.rng:int(1, #left)]
+                    night:say("A line comes clear: \"" .. d.parts[part] .. "\"", "dm")
+                    secrets.learn_part(c, "ritual", part, { how = "read", by = reader.key })
+                end
+            end
+        else
+            night:say(night:fresh(M.RITUAL_MISS, "ritual_miss"), "narration")
+            if holder and try < M.RITUAL_TRIES then
+                local was = night.actor
+                night.actor = holder
+                night:say(util.fill(night:fresh(M.RITUAL_SWING, "ritual_swing"), { char = holder.char }), "bad")
+                M.handle(night, { hurt = { 1, 6 } }, sc)
+                night.actor = was
+                -- (Holding it off has a limit: badly hurt, they can't keep it up.)
+                local pc = night.pcs and night.pcs[holder.key]
+                if pc and pc.hp <= pc.hp_max * 0.3 then
+                    break
+                end
+            end
+        end
+    end
+    if secrets.knows(c, "ritual") then
+        night:say(night:fresh(M.RITUAL_WORKED, "ritual_worked"), "good")
+        return true
+    end
+    night:say(night:fresh(M.RITUAL_SHORT, "ritual_short"), "bad")
+    return false
+end
+M.RITUAL_MISS = { "The glyphs swim, and that line won't come.", "That line's too cracked to read.", "Nothing. The signs blur together." }
+M.RITUAL_SWING = { "The guardian's staff cracks down on {char}.", "{char} takes the staff on the shoulder, and holds.",
+                   "A swing of the staff catches {char}." }
+M.RITUAL_WORKED = { "Enough of it makes sense now. They work it out between them, scratching sums in the sand: fill the falcon, tip it into the jackal, empty the jackal, pour again, fill, top up. Four gallons, all from the crocodile. Onto the pedestal, and someone presses the button. The guardian kneels, and the fire in its skulls goes out.",
+                    "They have the lines that matter. Water from the crocodile only, five and three to make four, and the falcon onto the pedestal. The guardian sinks to its knees, and its skulls go dark." }
+M.RITUAL_SHORT = { "Not enough of the tablet comes clear in time. It's going to be blades.", "They have bits of it, not enough. The guardian isn't waiting. Weapons out." }
+
 function M.handle(night, mus, sc)
     if not mus then
         return
     end
     local c = night.campaign
     local st = st_of(night)
+    -- (The tablet read a line at a time, as the book has it: what comes of it is the success or the miss.)
+    if mus.ritual_read then
+        local ok = M.ritual_read(night, sc)
+        local spec = ok and mus.ritual_read.success or mus.ritual_read.fail
+        if spec then
+            night:apply(spec.effects)
+            M.handle(night, spec.mus, sc)
+        end
+        night.last_roll = ok
+        return
+    end
     -- (Who it was: the one whose choice it was carries what it hands over, items.lua. A purchase
     -- the table settled is the buyer's: table_pick's backer, the one who wanted it.)
     local added = adventure.apply(c, mus, sc and sc.room, night.actor and night.actor.key)
@@ -1133,6 +1221,11 @@ function M.play_moment(night, card, sc)
     night.mus.franc_told = type(o.log) == "string" and string.find(o.log, "Franc", 1, true) and true or nil
     night.mus.handed = nil
     M.handle(night, o.mus, sc)
+    -- (The tablet's read is its own roll, a line at a time: the beat says how it went.)
+    if o.mus and o.mus.ritual_read then
+        mev.rolled = night.last_roll and "ok" or "fail"
+        mev.text = M.beat_clause(night, card, o, chosen_i or 0, night.last_roll and true or false) or mev.text
+    end
     -- (Handed on to whoever'll use it best: the beat says who carries it.)
     local ho = night.mus.handed
     if ho and mev.text then
@@ -1604,9 +1697,11 @@ function M.quiet_stretch(night, sc)
     if night.end_early or (sc.fought and sc.outcome ~= "win") or sc.outcome == "lose" then
         return
     end
-    require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
+    -- (Digging first, then the small stuff: a friend's question after a small answer would read as their
+    -- reaction to it.)
     require("game.model.ideas").dm_asks(night)
     require("game.model.ideas").find_room(night, sc, "after")
+    require("game.model.table_life").room(night, sc, sc.fought and "after" or "enter")
 end
 
 -- Who takes a magic item the party just got is the players' call (the playtest, November 3:
@@ -1733,18 +1828,22 @@ function M.drops_social(night, sc)
                                    effects = { { "actor", fun = -2 }, { "arch:tactician", fun = 1 } } },
                              } }
                 else
+                    -- (They ask for help, not for a thing nobody's seen: what you put on them is a secret until it's
+                    -- handed over. Conner, November 5: planted items stay secret until revealed.)
+                    local them = util.pronoun_of(who)
                     card = { id = "mus_drop_ask_" .. n.id .. "_" .. w.drop.item, type = "story", trigger = "museum_fixed",
                              fixed_actor = true, keep_actor = true, actor = { "storyteller" },
-                             title = "Can we have that?",
-                             text = "{actor_char} asks " .. who .. " for " .. item .. ". (You put it on them.) What do they say?",
+                             title = "Can you help us?",
+                             text = "{actor_char} asks " .. who .. " for any help " .. ((them and them.they) or "they") .. " can give. (You put " .. item .. " on "
+                                 .. ((them and them.them) or "them") .. ". Nobody else knows it's there.) Does " .. who .. " hand it over?",
                              options = {
-                                 { label = "They hand it over.", log = who .. " hands it over. \"Look after it.\"",
+                                 { label = "They hand it over.", log = who .. " digs in a pocket and holds out " .. item .. ". \"Look after it.\"",
                                    effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:storyteller", fun = 2 } }, drop = true },
                                  { label = "Only if they're talked round. Persuasion.",
                                    roll = { dc = 13, skill = { "persuasion", "deception" }, convenient = "success",
-                                            success = { log = who .. " sighs, and hands it over.", effects = { { "actor", spotlight = 8, fun = 5 } }, drop = true },
-                                            fail = { log = who .. " shakes their head. Not today.", effects = { { "actor", fun = -1 } } } } },
-                                 { label = "No.", log = who .. " says no, and means it.", effects = { { "actor", fun = -2 }, { "arch:power_gamer", fun = -1 } } },
+                                            success = { log = who .. " sighs, digs in a pocket, and holds out " .. item .. ".", effects = { { "actor", spotlight = 8, fun = 5 } }, drop = true },
+                                            fail = { log = who .. " pats {actor_char} on the arm. \"Good luck in there.\" That's all.", effects = { { "actor", fun = -1 } } } } },
+                                 { label = "Not yet. It stays where it is.", log = who .. " wishes them luck, and that's all.", effects = { { "actor", fun = -1 } } },
                              } }
                 end
                 local o = M.play_moment(night, card, sc)
@@ -2046,22 +2145,26 @@ function M.room_start(night, sc)
     -- (Back where a hero fell with nobody to take their pack: it's picked up now. death.pick_up_pack.)
     require("game.model.death").pick_up_pack(night, sc.room)
     -- (A room with a fight in it gets looked around once it's safe: after the fight.)
+    -- (What the DM asked to reveal from a sheet, then a friend digging while knowing still helps: after a
+    -- look round, before the small stuff and the room's business. game/model/ideas.lua's find.)
+    local ideas = require "game.model.ideas"
     if not M.has_fight(sc) then
         M.explore(night, sc)
         sc.explored = true
+        ideas.dm_asks(night)
+        ideas.find_room(night, sc, "enter")
         -- (A quiet room's small stuff comes now; a room with danger in it waits: quiet_stretch.)
         if not require("game.model.table_life").danger_ahead(night, sc) then
             require("game.model.table_life").room(night, sc, "enter")
         end
+    else
+        ideas.dm_asks(night)
+        ideas.find_room(night, sc, "enter")
     end
     if sc.room == "thanks" then
         M.thanks_word(night, sc)
     end
     M.drops_social(night, sc)
-    -- (What the DM asked to reveal from a sheet, then a friend digging while knowing still helps: before the
-    -- room's business. game/model/ideas.lua's find, game/model/secrets.lua.)
-    require("game.model.ideas").dm_asks(night)
-    require("game.model.ideas").find_room(night, sc, "enter")
     M.moments(night, sc, "start")
     if sc.showdown then
         M.showdown_start(night, sc)
@@ -2106,7 +2209,8 @@ function M.arm(night, sc)
     end
     local items_mod = require "game.model.items"
     for _, it in ipairs(MODULE.items or {}) do
-        local ok = adventure.test(c, it.when, knobs) and not (it.once and not it.carry and st.items_used[it.id])
+        local ok = adventure.test(c, it.when, knobs) and not (it.unless and adventure.test(c, it.unless, knobs))
+            and not (it.once and not it.carry and st.items_used[it.id])
             and (not it.rooms or util.contains(it.rooms, sc.room)) and (not it.ally or allies[it.ally])
             and not (sc.extras_only and it.boss)      -- (what's for her, when she's already gone)
         -- (Something they carry is in one hero's pack, items.lua: it works only if they're here
@@ -5240,7 +5344,9 @@ function M.maybe_break(night, before_boss)
                          disabled = not safe, rest = "long",
                          break_log = "long",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:butt_kicker", challenge = -2 } } },
-                       { label = "They read up: the museum, the Gorgon, their notes.", sub = "The next two rolls tonight get +2: they did their homework.",
+                       -- (What they read up on is what they know of: the Gorgon only once they've heard of her.)
+                       { label = require("game.model.told").knows(night.campaign, "gorgon") and "They read up: the museum, the Gorgon, their notes."
+                             or "They read up: the museum, and their notes so far.", sub = "The next two rolls tonight get +2: they did their homework.",
                          break_log = "research", research = 2,
                          effects = { { "arch:storyteller", fun = 3, story = 3 }, { "arch:tactician", fun = 3 }, { "arch:butt_kicker", fun = -1 } } },
                    } }

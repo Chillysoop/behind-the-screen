@@ -273,6 +273,25 @@ function M:emit(ev)
             if ev.kind ~= "say" then
                 told.hear(self.campaign, ev.text)
             end
+            -- (What's been shown in this room: a friend names only what's been described. One who turns to
+            -- something nobody has gets it described first, as the DM would. game/model/shown.lua.)
+            local room = self.scene and self.scene.room
+            if room and self.campaign.adv then
+                local shown = require "game.model.shown"
+                if ev.kind == "say" then
+                    for i, t in ipairs(shown.unshown(self.campaign, room, ev.text)) do
+                        shown.show(self.campaign, room, t.id)
+                        if i == 1 and t.line and not self.describing then
+                            self.describing = true
+                            self:say(t.line, "narration")
+                            self.describing = false
+                            self.things_described = (self.things_described or 0) + 1
+                        end
+                    end
+                else
+                    shown.hear(self.campaign, room, ev.text)
+                end
+            end
             local hero = ev.kind == "say" and ev.ic and ev.who or nil
             local player = ev.kind == "say" and not ev.ic and ev.who or nil
             local was = ev.text
@@ -4528,15 +4547,15 @@ function M:split_regroup(sc)
     for _, p in ipairs(who) do
         local keys = secrets.unshared(self.campaign, p.key, others)
         if #keys > 0 then
-            self:emit({ kind = "say", who = p.key, ic = true, text = util.fill(self:fresh(M.SPLIT_SHARE, "split_share"), { char = p.char }) })
+            self:say(util.fill(self:fresh(M.SPLIT_SHARE, "split_share"), { char = p.char, char_they = util.pronoun_of(p.char).they }), "narration")
             secrets.share(self.campaign, p.key, others)
         end
     end
 end
 
 -- Sharing what one hero found alone, in their own words.
-M.SPLIT_SHARE = { "Wait till you hear what I found over there.", "Okay, so. Over there. You need to hear this.",
-                  "I found something while you lot were busy. Listen." }
+M.SPLIT_SHARE = { "{char} fills the others in on what {char_they} found over there.", "{char} tells the others what {char_they} found on {char_their} own.",
+                  "Back with the group, {char} shares what {char_they} found." }
 
 -- Alone by a place on the board, a good roll finds a secret kept there (a `see` or a check that place gives):
 -- told to the table as the cut plays, but only that hero knows it in character until they share it.

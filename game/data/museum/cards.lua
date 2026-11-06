@@ -130,7 +130,7 @@ M.cards = {
                  { fought = true, fled = true, text = "The Sentinel clanks off down a side passage, and the far doors stand open." },
                  { fought = true, text = "The Sentinel lies in pieces on the marble, the case untouched. The far doors stand open." } },
       lose = "They back away from the Sentinel and slip through the far doors, empty-handed and bruised.",
-      got = "past the donation box and its guard",
+      got = "past the donation box",
       got_if = { { when = { flag = "boon" }, text = "a boon from the donation box" },
                  { when = { mark = "robbed" }, text = "a run-in with the box's guard" } } },
     { id = "mus_ritual", kind = "goal", name = "Still the Bone Construct",
@@ -445,15 +445,16 @@ M.goal_play = {
             { skill = "nature", say = "That bird under the dome next door. Six wings, all eyes. What is it?", when = { not_flag = "bird_named" },
               win = "{char} recognises it: miners carry them, because they sing when there's magic about.",
               lose = "{char} can't place it. A songbird with too many wings, and that's all anyone gets." },
-            { skill = "arcana", say = "This writing makes my head hurt when I look straight at it.",
-              win = "{char} gets one thing from it: whatever wrote this wasn't thinking like a person.",
+            -- (What it does to a reader is the roll's to say, p22, not the friend's before it.)
+            { skill = "arcana", say = "I want a proper look at this writing. What language is it even in?",
+              win = "{char} gets one thing from it: whatever wrote this wasn't thinking like a person. Look at one line too long and your head spins.",
               lose = "{char} reads one line too many and has to sit down." },
         },
         moment = { text = "{actor_char} opens the archivist's notebook and starts to read.", skill = { "investigation", "arcana", "religion" } },
         talk = { "I'm going to need a minute after that body.", "A whole study of notes. I could live in here. Not with him, but in here." },
     },
     mus_wake_mech = {
-        intent = { "A war machine. In a museum. That we can maybe turn on.", "There's a manual for this, right? There's always a manual." },
+        intent = { "A giant brass robot. In a museum. That we can maybe turn on.", "There's a manual for this, right? There's always a manual." },
         approaches = {
             { skill = "investigation", say = "These are grid references. First number across, second down.",
               win = "{char} cracks half the code before the panel even flickers.",
@@ -510,17 +511,17 @@ M.goal_play = {
         talk_sad = { "Can someone pass the tea? Thanks.", "I'm glad we got this far. Together, I mean.", "Are you okay? Honestly?" },
     },
     mus_face_her = {
-        intent = { "So that's who's in charge. She's smaller than I thought.", "Nobody touch anything up here. I mean it." },
+        intent = { "So that's her. Whoever she is.", "Nobody touch anything up here. I mean it." },
         approaches = {
             { skill = "insight", cast = true, say = "Why stay in here? You could go anywhere.",
               win = "{Cast} {pauses|pause}. Out there was noise and chaos. In here, even the dust settles where she says.",
               lose = "{Cast} {smiles|smile} and doesn't answer." },
             { skill = "perception", say = "That tapestry. Three sisters, with snake eyes.",
-              win = "{char} gets it: she isn't the only one. There are two more of her somewhere.",
+              win = "{char} looks from the tapestry to her eyes and back. The same eyes. Whoever those three sisters are, she's one of them.",
               lose = "Just a tapestry. Probably." },
         },
         moment = { text = "{actor_char} steps up to Euryale with everything the party has learned.", skill = { "persuasion", "insight", "intimidation" } },
-        talk = { "She has a couch. The boss has a couch.", "Everybody remember: the hood stays on." },
+        talk = { "She has a couch. The boss has a couch.", "Everybody stay close. Nobody does anything stupid." },
     },
 }
 

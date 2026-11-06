@@ -429,8 +429,15 @@ function M.boss_turn(night, f, b, c)
                              effects = downed and data.BOSS.finish or data.BOSS.cruel, target = cruel, kind = "cruel", who = cruel_p })
     end
     table.insert(opts, { label = "Whoever's closest. No plan, just fury.", effects = data.BOSS.closest, kind = "closest" })
-    table.insert(opts, { label = "Stop and gloat. " .. util.capitalize(boss) .. " has a speech ready.", effects = data.BOSS.gloat,
-                         kind = "gloat" })
+    -- (Only something that talks has a speech: not a hedge, a beetle swarm, a bone construct with the wits of a
+    -- brick, or a pack of huntlings. Their cast card's `talks = false`, or almost no Intelligence. The second
+    -- round's review: "[Kruthik Huntlings] Every step you took to get here, I knew about.")
+    local cast = night.scene and night.scene.comps and night.scene.comps.cast
+    local mute = (cast and cast.talks == false) or ((c.abilities and c.abilities.int or 10) <= 3)
+    if not mute then
+        table.insert(opts, { label = "Stop and gloat. " .. util.capitalize(boss) .. " has a speech ready.", effects = data.BOSS.gloat,
+                             kind = "gloat" })
+    end
     -- turn_of: the turn order lights the boss while you decide (the newcomer playtest, October 16:
     -- it still lit whoever went before).
     local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id, turn_of = c.mini,

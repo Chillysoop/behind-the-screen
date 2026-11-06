@@ -224,13 +224,14 @@ function M.ideas(night, sc, phase)
 end
 
 -- The small die, on its own (table_life's): theirs, with the sum.
-local function tiny(night, p, skill)
+local function tiny(night, p, skill, what)
     local name, mod = night:best_skill(p, { skill or "perception" })
     mod = (mod or 0) + night:take_learned(p)      -- (a miss they learned from: C25)
     local dd = night.rng:d20()
     local total = dd + (mod or 0)
     night.tl_roller = p.key
-    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or skill or "perception") })
+    -- (what: a roll with a purpose, digging for a secret, not a small moment.)
+    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or skill or "perception"), what = what })
     return dd, total
 end
 
@@ -553,7 +554,9 @@ local function holder_here(night, sc, path, d, people_list)
                 end
             end
         end
-        return { kind = "place", name = name and util.lower_first(name) or "the room", spot = path.spot }
+        -- (What the friends call it: the secret's `about` ("the hedges"), else the place's name on the board.)
+        name = d.about or (name and util.lower_first(name)) or "the room"
+        return { kind = "place", name = name, spot = path.spot }
     end
     return nil
 end
@@ -668,7 +671,8 @@ function M.find_ideas(night, sc)
         local d = secrets.def(key)
         if not secrets.held(c, key) then
             for _, path in ipairs(secrets.paths(key, c)) do
-                local holder = path.kind ~= "dm" and path.kind ~= "event" and path.kind ~= "see" and holder_here(night, sc, path, d, list)
+                local holder = path.kind ~= "dm" and path.kind ~= "event" and path.kind ~= "see"
+                    and not (path.after_fight and not sc.fought) and holder_here(night, sc, path, d, list)
                 if holder then
                     local kind = way_kind(holder, path, d)
                     for _, way in ipairs(ways().ways[kind] or {}) do
@@ -741,7 +745,7 @@ local function find_card(night, idea, vars, lines)
         end
     end
     local improvised = path.improvised or path.default
-    local text = "{actor} wants {actor_char} to " .. util.fill(way.want or "dig", vars) .. ". "
+    local text = "{actor} asks: \"" .. (idea.bid or util.fill(way.say[1], vars)) .. "\" "
         .. util.capitalize(where) .. " holds a secret: " .. util.lower_first(d.name or idea.key) .. (d.page and (" (page " .. d.page .. ")") or "") .. ". "
         .. (improvised and ways().improvised or (#notes > 0 and ("The book's way in: " .. table.concat(notes, ", ") .. ".") or "Your call."))
     -- (What the whole of it tells, told as the line's said, so the line names what they've just learned.)
@@ -787,7 +791,10 @@ function M.find(night, sc, idea)
     -- Their player says it out loud, or their hero does.
     local use_ic = way.ic and idea.holder.kind == "person" and night.rng:chance(0.5)
     local bid = use_ic and way.ic or way.say
-    night:emit({ kind = "say", who = p.key, ic = use_ic or false, text = fill(night:fresh(bid, "find_say_" .. way.id), v) })
+    local said = fill(night:fresh(bid, "find_say_" .. way.id), v)
+    night:emit({ kind = "say", who = p.key, ic = use_ic or false, text = said })
+    -- (The card quotes what the player asked, out of character: never the DM saying what they want.)
+    idea.bid = use_ic and fill(way.say[1], v) or said
     -- What comes out if it works: the path's words, the secret's, or one more piece of it.
     local gives = idea.gives
     local part
@@ -800,7 +807,7 @@ function M.find(night, sc, idea)
     end
     local function line_for(level)
         if part then
-            return "One line comes clear: \"" .. d.parts[part] .. "\""
+            return "One " .. (d.part_word or "line") .. " comes clear: \"" .. d.parts[part] .. "\""
         end
         return secrets.line(night, key, level, path, v)
     end
@@ -829,7 +836,7 @@ function M.find(night, sc, idea)
         local dc = path.dc or way.dc or 13
         local sk = idea.skills or {}
         if #sk > 0 then
-            local _, total = tiny(night, p, sk[1])
+            local _, total = tiny(night, p, sk[1], "find")
             ok = total >= dc
         else
             ok = true

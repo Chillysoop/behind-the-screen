@@ -53,7 +53,7 @@ return {
           line = "{actor_char} charges in halfway through {target_char}'s careful bargain." },
         { id = "metagame", when = "explore", severity = 1, tags = { "meta" },
           doers = { power_gamer = 2, tactician = 1 }, objects = { storyteller = 2, method_actor = 1 },
-          line = "{actor_char} 'just happens' to check exactly where the secret is hidden." },
+          line = "{actor_char} insists on checking every corner twice, \"because there's always something hidden\"." },
         { id = "answer_for_them", when = "social", needs = "cast", severity = 1, tags = { "selfish" }, target = true, feeds = "spotlight",
           doers = { method_actor = 2, instigator = 1 }, objects = { casual = 1, tactician = 1 },
           line = "{actor_char} answers for {target_char} when {cast} asks {target_them} a question." },
