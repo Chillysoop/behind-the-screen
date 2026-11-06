@@ -779,10 +779,10 @@ M.moments = {
             roll = { dc = 10, skill = { "dex" },
                      success = { log = "{actor_char} dips a helmet at the water's edge and jumps back as a tentacle slaps the surface. Then helmets full of pond water hit the topiary.",
                                  effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 4 }, { "arch:tactician", fun = 4 }, { "all", challenge = -2 } },
-                                 mus = { flag = "water", pond_water = true, secret_event = "tentacles" } },
+                                 mus = { francs = 1, flag = "water", pond_water = true, secret_event = "tentacles" } },
                      fail = { log = "A slimy tentacle lashes {actor_char}'s arm at the water's edge, but the helmet comes up full. Then helmets full of pond water hit the topiary.",
                               effects = { { "actor", spotlight = 8, challenge = 3 }, { "arch:explorer", fun = 3 }, { "arch:tactician", fun = 3 } },
-                              mus = { flag = "water", pond_water = true, hurt = { 1, 4 }, risk = true, secret_event = "tentacles" } } } },
+                              mus = { francs = 1, flag = "water", pond_water = true, hurt = { 1, 4 }, risk = true, secret_event = "tentacles" } } } },
           { label = "They're bushes. Set them on fire.", want = "set the bushes on fire", short = "burn them", lean = "bold",
             -- (Once they know the hedges are alive: secrets.living_hedges. Living or not, hedges burn.)
             pulls = { { when = { hinted = "living_hedges" }, who = { "instigator", "butt_kicker", "power_gamer" }, n = 1.0,
@@ -839,7 +839,7 @@ M.moments = {
                         say = { "We've already burnt his garden. In for a penny.", "He's going to be cross about the garden anyway.",
                                 "After the garden, what's a little lock?" } },
                       -- (Nobody's found out what the statue does: it's just a statue, to them.)
-                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer" }, n = 0.9,
+                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer", "explorer" }, n = 1.2,
                         say = { "It's a statue. Statues don't do anything.", "Nobody's guarding it but a lump of metal.",
                                 "One little lock. The statue won't mind." } } },
             log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",

@@ -71,7 +71,7 @@ local MODULE = adventure.data
 -- The options the reviewers judged careful or bold (alive.md's votes.py): the "last time" and the
 -- mood reasons are checked against these, whatever the code calls them.
 local CAREFUL = { "douse the hedges", "drop a coin", "give the knight a wide berth", "put the painted weapons back", "put it back", "work out the ritual",
-    "tidy up for flitwidget", "leave the exhibits alone", "pick the lock, quietly", "save it for the gorgon", "save it for the last fight", "leave the wine alone",
+    "tidy up for flitwidget", "leave the exhibits alone", "pick the lock, quietly", "save it for the gorgon", "save it for the last fight", "use the shiny cupboard doors", "leave the wine alone",
     "forget the frame", "try the brass key", "leave the mess", "save the francs", "talk her round", "go round and make" }
 -- (Not the mirror-bright door: the module says it's neither, `lean = "none"`, a precaution as much as a
 -- grab, so "It's the smart play" fits it as well as "You never know".)

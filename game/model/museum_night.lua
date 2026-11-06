@@ -2625,6 +2625,11 @@ M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 -- An option that's a risk to them: a roll, a fight, a risk, or a moment that follows.
 function M.risky_option(o)
     local m = o.mus or {}
+    -- (Marked safe is safe, a small roll and all: the pond water's Dexterity 10 against a tentacle didn't make
+    -- dousing the hedges the reckless choice. Round four's gate: the box vote swung after it.)
+    if o.lean == "safe" then
+        return false
+    end
     return (m.risk or m.fight or o.roll ~= nil or o.then_moment ~= nil or m.ritual_read ~= nil) and true or false
 end
 

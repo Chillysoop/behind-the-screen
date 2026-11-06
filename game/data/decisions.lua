@@ -344,7 +344,7 @@ return {
         needs = { archetype = { "power_gamer", "tactician" }, question = true },
         actor = { "power_gamer", "tactician" },
         title = "Looking it up",
-        text = "{actor} is sure there's a rule for {question}, after the last fight. The book is out. Pages are turning. Everyone else is watching the pages turn.",
+        text = "{actor} has the rulebook out: \"There's a rule for {question}, after the last fight. I know there is.\" Pages are turning. Everyone else is watching the pages turn.",
         options = {
             { label = "Let them find it.", table_min = 6, looked = true,
               log = "Six minutes later: they were right. Mostly.",
