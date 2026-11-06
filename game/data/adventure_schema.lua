@@ -99,6 +99,7 @@ return {
     start = { kind = "value", type = "string" },
     story_start = { kind = "value", type = "string" },
     escapes_return = { kind = "value", type = "boolean" },
+    first_night_rewards = { kind = "value", type = "boolean" },
     timeout_ending = { kind = "value", type = "string" },
     table_life = { kind = "open" },      -- (keyed by the adventure's own rooms and people: game/model/table_life.lua)
     talk = { kind = "map", fields = { again = "table", ask = "table", done = "table", done_ask = "table", done_ask_sad = "table", done_sad = "table", open = "table" } },

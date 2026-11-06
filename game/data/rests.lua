@@ -25,7 +25,7 @@ M.beats = {
       line = "Oswin mends a snapped strap on Brannoc's armour with a bootlace and a quiet prayer. It holds, better than Brannoc's own stitching ever did.",
       effects = { { "all", social = 5 }, { "arch:butt_kicker", fun = 2 }, { "arch:casual", fun = 2 } } },
     { id = "map_from_memory", where = { "any" }, pair = { "pc:dev", "pc:mara" }, tags = { "bond" },
-      line = "Thessaly draws the way they came from memory. Brannoc insists the first turn was on the left. It wasn't.",
+      line = "Thessaly draws the road so far from memory. Brannoc insists the first turn was on the left. It wasn't.",
       effects = { { "all", social = 5 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 2 } } },
     { id = "franc_trick", where = { "any" }, pair = { "pc:jess", "pc:sam" }, tags = { "bond", "mend" }, mend = true,
       line = "Pip makes a coin vanish and finds it behind Oswin's ear. \"How did you do that?\" Sam says.",

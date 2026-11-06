@@ -518,7 +518,7 @@ M.beats = {
         helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
         -- (The night's losses, told first: round three, A7. events.losses.)
         death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
-        ally_lost = "they lost {name}", freed = "Euryale let {names} out of the stone", wipe = "the whole party went down in {room}",
+        ally_lost = "the party lost {name}", freed = "Euryale let {names} out of the stone", wipe = "the whole party went down in {room}",
         came_back = "{char} nearly died, and came back",
         friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
     },
@@ -1793,7 +1793,7 @@ M.friction = {
         make_amends = { line = "{actor_char} quietly gives back {pocketed}, polished, with a bad drawing as an apology.",
                         say = "I give back {pocketed}. Polished. With a drawing. It's an apology.", pocket_back = true },
         stand_up_for = { line = "'They're with us,' {actor_char} says, stepping in front of {target_char}.",
-                         say = "I step in front of {target_char}. \"They're with us.\"" },
+                         say = "I step in front of {target_char}. \"Leave {target_them} alone. We're all together.\"" },
     },
 }
 

@@ -76,7 +76,7 @@ return {
           say = "{actor_char} hands the new trinket to {target_char}. \"You'll get more use out of it than me.\"" },
         { id = "stand_up_for", when = "social", needs = "cast", rapport = 4,
           line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}.",
-          say = "I step in front of {target_char}. \"They're with us.\"" },
+          say = "I step in front of {target_char}. \"Leave {target_them} alone. We're all together.\"" },
         -- (needs_plan: a choice the table settled on in this room, that the doer wanted and someone
         -- else carried off without a roll going wrong: round three heard "Brannoc's plan" for a
         -- ritual Dev argued against.)

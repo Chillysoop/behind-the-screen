@@ -218,6 +218,8 @@ M.table_life = require "game.data.sheep.table_life"
 M.lore_tips = require "game.data.sheep.tips"
 -- Out of sessions with the job not done: Noke's other guards come for the sheep (Conner's three-day clock).
 M.timeout_ending = "taken"
+-- (A one-shot: its first night covers most of its places, so a small moment's reward can come up even then.)
+M.first_night_rewards = true
 -- The prep board's story column before anything's happened.
 M.story_start = "An afternoon off at the Bogden Road Country Inn, where the Bogden road meets the lord's road."
 

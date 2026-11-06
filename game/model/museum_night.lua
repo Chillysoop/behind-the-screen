@@ -3113,9 +3113,9 @@ local function carry(night, p, o, votes, avg_spot, edges, risky, no_mood)
     local lastv = votes and votes.last
     -- (Only the habit it answers: a careful pick last time argues for a bold one now, a reckless one for anything but.
     -- The playtest, November 6: "We charged in earlier tonight. Maybe not again." for using the wand, after a look.)
-    local habit = lastv and ((lastv.kind == "safe" and kind == "bold" and "safe_last")
-        or (lastv.kind == "bold" and kind and kind ~= "bold" and "bold_last")) or nil
-    if habit then
+    if lastv and lastv.kind and kind and kind ~= lastv.kind then
+        local habit = (lastv.kind == "safe" and kind == "bold" and "safe_last")
+            or (lastv.kind == "bold" and "bold_last") or nil     -- (the pull stays; the words only where they fit)
         local f = fan_of(p, kind)
         if f > 0 then
             add(M.VOTE_HABIT * f * math.min(2, lastv.streak or 1), habit)
@@ -3450,7 +3450,11 @@ function M.table_pick(night, copy, vars)
             local mine = vals[p.key][first[p.key]].v
             -- (Not the one holding out after last time; a friend with half an eye on their phone, sooner.)
             local easy = (p.mood == "distracted" and 2 or 1.2) * M.VOTE_GAP
-            if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < easy and not pushers[p.key] then
+            -- (Not the one whose idea the card says it is: they hold to it. F18, 593 random: "Thessaly is grinning" at the
+            -- red switch, then "Let's save it for the last fight. Put me down with Sam.")
+            local proposer = prop and p == lead
+            if first[p.key] ~= top and vals[p.key][top] and mine - vals[p.key][top].v < easy and not pushers[p.key]
+                    and not proposer then
                 local sw = (p ~= night.actor and opts[top].short) or short_want(opts[top])
                 local want_vars = { want = sw, Want = util.capitalize(sw) }
                 if said[p.key] then
@@ -4766,9 +4770,10 @@ function M.owner_sees(night, person, sc)
     for _, p in ipairs(night:at_hand()) do
         here[p.key] = true
     end
-    -- (Not in the same room the same night it went: "nobody the wiser" has to hold for a while.)
+    -- (Not the same night it went: "nobody the wiser" has to hold for a while. A theft that worked that night had no
+    -- witness, roadmap_world_check R13, even with Telpur along in another room.)
     local ev, it = people.spots(c, person, here, function(e)
-        return (e.session or 0) < (c.week or 0) or e.where ~= (sc and sc.room)
+        return (e.session or 0) < (c.week or 0)
     end)
     if not ev then
         return nil

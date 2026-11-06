@@ -424,10 +424,12 @@ local function can_reward(night, sc)
     if night.fast or sc.tl_rewarded or (tl.rewards or 0) >= M.REWARD_PER_NIGHT or (tl.offers or 0) >= M.REWARD_OFFERS then
         return false
     end
-    -- (The gentle first night keeps its optional calls for later, R6, but one of these: an adventure whose first night
-    -- covers most of its places would otherwise never offer their tips. The playtest, November 6: none in 51 pokes.)
+    -- (The gentle first night keeps its optional calls for later, R6, but one of these in an adventure that says so,
+    -- `first_night_rewards`: one whose first night covers most of its places would otherwise never offer their tips.
+    -- The playtest, November 6: none in 51 pokes in the Sheep Chase.)
     if night.gentle then
-        if (tl.offers or 0) >= 1 then
+        local adv = require "game.model.adventure"
+        if (tl.offers or 0) >= 1 or not (adv.data and adv.data.first_night_rewards) then
             return false
         end
     elseif not night:room(14) then

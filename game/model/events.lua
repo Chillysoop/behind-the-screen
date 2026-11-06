@@ -195,7 +195,7 @@ M.WORDS = {
     spotted = "{who} spotted their own {thing} on {char}",
     helped = "{char} helped {who}", refused = "{who} wouldn't answer {char}",
     death = "{char} died in {room}", down = "{char} went down", down_n = "{char} went down {n}",
-    ally_lost = "they lost {name}", wipe = "the whole party went down in {room}",
+    ally_lost = "the party lost {name}", wipe = "the whole party went down in {room}",
     came_back = "{char} nearly died, and came back",
     friendly = "{char}'s {spell} caught {hit} too", friendly_down = "{char}'s own {spell} dropped {downed}",
 }
