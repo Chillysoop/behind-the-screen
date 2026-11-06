@@ -202,6 +202,9 @@ function M.creatures(mod, roster)
             block.flees_below = cr.flees_below or block.flees_below
             block.flee_line = cr.flee_line or block.flee_line
             block.escapes = cr.escapes or block.escapes
+            -- (A turn of its own from the adventure's rule module, game/rules/<id>.lua: the bed dragon's breath.)
+            block.rules = cr.rules_turn and mod.id or nil
+            block.rules_turn = cr.rules_turn
             block.tactics, block.note, block.mind, block.look = nil, nil, nil, block.look
             block.spellcasting, block.breath = nil, block.breath
             -- (The book's spellcasting isn't played as spells yet: a caster fights with its listed attacks, and the

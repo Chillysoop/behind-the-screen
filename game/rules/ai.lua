@@ -7,6 +7,8 @@ local creature = require "game.rules.creature"
 local spells = require "game.rules.spells"
 local equipment = require "game.rules.data.equipment"
 local museum = require "game.rules.museum"
+-- (Each adventure's rule module, by its id: a stat block's `rules`. Required by name so the builder packs it.)
+local RULES = { sheep = require "game.rules.sheep" }
 
 local AI = {}
 
@@ -557,6 +559,10 @@ local function monster_turn(b, c, plain)
         back_off(b, c, 200)
         b:log(c.data.flee_line or "%s breaks and runs.", c.name)
         b:remove(c, "morale")
+        return
+    end
+    -- An adventure's own creatures (its rule module, `rules`): the Sheep Chase's bed dragon breathes, Noke casts.
+    if not plain and c.data and c.data.rules and RULES[c.data.rules] and RULES[c.data.rules].turn(b, c, H) then
         return
     end
     -- The Museum of Nightmares: Euryale, the Lecturer, the Steam Mech and the rest fight their way.

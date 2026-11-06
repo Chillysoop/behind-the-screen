@@ -284,10 +284,13 @@ M.creatures = {
                          -- (Ray of Frost from his cantrips, as an attack: a 7th-level caster's 2d8.)
                          { id = "ray_of_frost", name = "Ray of Frost", kind = "ranged", to_hit = 6, range = { 60, 60 },
                            damage = { { 2, 8, 0, "cold" } } } },
+             -- (Thunderwave, from his first-level slots: game/rules/sheep.lua.)
+             rules_turn = "noke", thunderwave = { id = "thunderwave", save = "con", dc = 14, damage = { { 2, 8, 0, "thunder" } },
+                                                  half = true, slots = 4 },
              flees_below = 0.5, escapes = true, flee_line = "%s casts, blurs away up the slope, and slams the bedroom door behind him.",
              tactics = "Weak in a fight himself. Enlarges the bear once it's out, adds Ray of Frost, guards his "
                  .. "concentration, and runs for the bedroom when it's lost or someone gets close." },
-    bed_dragon = { name = "Bed Dragon Wyrmling", page = 5, size = "large", type = "dragon", ac = 16, hp = 75,
+    bed_dragon = { name = "Bed Dragon Wyrmling", page = 5, size = "large", type = "dragon", ac = 16, hp = 75, rules_turn = "bed_dragon",
                    hit_dice = "10d8+30", speed = 30, climb = 30, fly = 30,
                    abilities = { str = 19, dex = 14, con = 17, int = 8, wis = 8, cha = 4 },
                    skills = { perception = 2, stealth = 5 }, vulnerable = { "fire" }, cr = "4", xp = 1100,
