@@ -374,6 +374,30 @@ keys, puzzle clues and even a stat block only inside images; names spelled two w
 advert; text and map that disagree; files the book promises but doesn't include; monsters given only as links to
 outside rules. Each of these goes in the calls list for Conner, never fixed silently.
 
+## Calls from the draft (November 6)
+
+Marked `call = N` in `game/data/sheep/module.lua`. Each has a proposal that stands unless Conner says otherwise.
+
+1. **Where things are.** Bogden is the town (an hour's walk from the inn), and the path to the house leaves the lord's
+   road a few miles from the inn. The book only says "south-east of town" and "a few miles out" (p3, p4).
+2. **The inn sheet's rooms and menus.** The rooms are in at 3, 5 and 8 sp, with our own names for them. The sheet's
+   own names and its menus need the sheet again (the images weren't kept between sessions). **Done:** Conner
+   re-attached it, and the inn is in from it: rooms, menu, services and wagon work, the three floors, Teddy, the
+   staff, the two nobles, and Sir Luenn's hook for another book carried as an open thread.
+8. **The inn sheet's suggested encounters** (*The Blue Ocean*, *Traveling Apothecary*) belong to other products.
+   Proposal: leave them out of the Sheep Chase; the creation tool could take one in later as its own short thread.
+3. **Guz's Charisma.** The block gives 8 with a +1 modifier (p2); 8 is −1. Proposal: 8 (−1).
+4. **A fourth ending** of our own: Guz takes the sheep home and nobody follows. **Conner: keep it, as the failure**
+   (and Noke, free with the wand, is a thread left open).
+5. **Noke's other guards** (p3: they'll find him eventually) as a clock. **Conner: three days.**
+6. **How long the scroll lasts.** Speak with Animals is ten minutes; the book has a second scroll for talking to him
+   later (p6), so it wears off. **Conner: the inn scene and the walk to the woods, then a sheep again.**
+7. **Noke's buffs.** Enlarge/Reduce (his main move), Haste and Slow aren't in our spells yet. Proposal: add
+   Enlarge/Reduce and Haste in step 5, Slow later.
+
+The reader's issues for this book were three run-together words read as two spellings (no calls), and "Speak to
+Animals" on p3 against "Speak with" everywhere else (ours says "with").
+
 ## The plan, once the calls are in
 
 0. **The review** (Conner's plan): the problems found since November 4 go into the root-causes doc's classes, each with
@@ -397,10 +421,15 @@ outside rules. Each of these goes in the calls list for Conner, never fixed sile
    calls list's first draft. `tools/import/copy_check.py` is the copy check (the museum's data, read against its own
    PDF, had five lines that followed the book too closely; rewritten) and the originality check (the game's own
    words and the other books' count as ordinary words; `--allow` for an English word the book also uses as a name).
-3. The hand-off from the museum.
-4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up.
+3. The hand-off from the museum. **Built** (November 6), for any adventure to any other, not just the museum:
+   `adventure.handoff` and `adventure.use`; the standard's "Adventures tied together"; `tools/tests/handoff_check.lua`.
+4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up. **Drafted**
+   (November 6): `game/data/sheep/` (the module in the standard's records, ten secrets, the fidelity sheet), clean on
+   the shape, secrets (data alone) and copy checks. It plays on its own with a fresh party, or after any adventure.
+   The calls are below.
 5. Its monsters, mechanics and maps, a thin region (the inn's hex, the road, the woods), then its lines and table life,
-   read in play.
+   read in play. The game night's flow generalized from the museum's to any adventure's ("Before the museum can go"
+   in the standard).
 6. Sims (with the variety report), a fresh-eyes playtest against the PDF, fixes, the gate, the engine run, a build.
 
 After it ships, step 4's procedure is written up as a skill, so the next book follows the same steps.

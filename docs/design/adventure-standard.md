@@ -43,9 +43,9 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 | `id`, `title`, `author`, `credit` | Who made it, how it's credited | all | plays |
 | `pitch`, `premise` | What the table is told at Session Zero; what the DM knows that they don't | all | plays |
 | `levels`, `party` | Level range and party size it's written for | all | data |
-| `follows` | Which adventures it can follow, and what carries over (`handoff`) | S, B | owed |
+| `follows`, `handoff` | Which adventures it can follow (`any = true`: any, or none), the time skip and the opening line | S, B | plays (`adventure.handoff`) |
 | `milestones` | What levels the party up (an item found, a title, a foe beaten) | B | data |
-| `keeps` | What the party keeps afterwards: a title, renown, a base, a debt owed | S, N, T, B | data |
+| `keeps` | What the party keeps afterwards: a title, renown, a base, a debt owed, each with its `when` | S, N, T, B | data |
 | `depends` | Other files the book relies on (mask cards, a lore supplement), and outside rules | N, W | data |
 | `heroes`, `hooks`, `all_in` | The heroes' reasons for coming, and what each player adds | all | plays |
 | `session_zero`, `content`, `prep_notes` | Its Session Zero, content tags by place, real prep for each place | all | plays |
@@ -54,13 +54,14 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `id`, `name`, `layer` | `region`, `site` (a settlement or a lone building), `area` (a room or keyed area) | all | owed (layer) |
-| `in` | The place it sits in: an area in a site, a site in a region | all | owed |
+| `id`, `name`, `layer` | `region`, `site` (a settlement or a lone building), `area` (a room or keyed area), in `M.places` | all | data |
+| `in` | The place it sits in: an area in a site, a site in a region | all | data |
 | `read` | What the table sees on arrival: place, terrain, who's there, their quirks and tells | all | plays |
 | `board`, `spots` | Its battle map and the places on it, named as the heroes see them | M, S, N, W, T | plays |
 | `exits`, `gates` | Where it leads, and what lets them through: an item, a status, a solved puzzle, a found secret, a check, a standing | all | plays (as `links`, locks) |
-| `travel` | For a region: routes between sites, days, the road's hazards and its encounter table | S, B, W | owed |
-| `shops` | Prices, services, rooms for the night | S, B | data |
+| `travel` | For a region: routes between sites (`from`, `to`, `by`, `time`), the road's hazards and its encounter table | S, B, W | data |
+| `shops`, `work` | Prices, services, rooms for the night; paid work to be had there | S, B | data |
+| `lore` | Its history, for whoever asks | all | data |
 | `curios`, `explore` | What's there to poke at and what a friend says about it | M | plays |
 | `pages` | The book's pages for it | all | plays |
 
@@ -68,17 +69,18 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `tier` | `named`, `local` (from a type template: name, job, hours, want, quirk, voice), `crowd` | all | owed (tiers) |
+| `tier` | `named`, `local` (from a `template`: jobs, want, quirk), `crowd` | all | data |
 | `look`, `pronoun`, `voice` | What the table sees and hears | all | plays |
 | `disguise`, `true` | Who they seem to be and who they are (a secret with its ways out) | N, B, S | plays (as a secret) |
 | `wants`, `secrets`, `knows` | What they want, keep and know, and when they'll say it | all | plays |
 | `lies` | What they'll lie about, and the Insight DC to catch it | N, B | owed |
 | `stats` | A core stat block by name with tweaks, or the book's own | all | plays |
 | `attitude`, `memory` | What they think of each hero and the party, read from the log | all | plays |
-| `where` | Where they are, and when (a schedule for those who move) | B, N | owed |
+| `where` | Where they are, and when (a schedule for those who move) | B, N | data (places only) |
 | `paths` | A later self that depends on an early choice (an ally or a villain), each with its stats and lines | B | owed |
 | `lines` | Their lines by situation, with conditions, most specific first | all | plays |
 | `companion` | Comes along with the party (Telpur, the sheep) | M, S | plays |
+| `understood` | What it takes to understand them (the sheep: the scroll, or Speak with Animals); their ways out wait `when = { flag = "understood" }` | S | data |
 
 ### Factions and standing
 
@@ -92,17 +94,17 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `threads` | A hook: who's behind it, the clues in, a clock if ignored, the ways it ends | S, B, N, W | owed |
-| `events` | A story event with its trigger: on arrival, in time, at a standing, on a choice, on someone's path; `required` or `only_if` | all | plays (as moments) |
+| `threads` | A hook: who's behind it, the clues in, a clock if ignored, the ways it ends; `open_at_end` and `tags` for one a later adventure picks up | S, B, N, W | data (open ones carried by the hand-off) |
+| `events` | A story event with its trigger (`on` = arrive, after, choice, fight, round, clock), `required` or `only_if`, the flags it `sets` | all | data (the museum's play as moments) |
 | `moments` | A call to the DM in a place, with options the friends propose in their own words | all | plays |
-| `endings` | Each ending as a condition on the event log | all | plays (museum's) |
+| `endings` | Each ending as a condition on the event log (`when`) | all | plays (museum's); data (`when`) |
 | `failure` | What a loss does instead of ending the run (captured, gear taken) | W, M | plays (museum's) |
 
 ### Clocks
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `clocks` | Counts in rounds, hours, days, months or real table minutes; a chance per interval; a DM cue; what fires | N, W, T, B | owed |
+| `clocks` | Counts in rounds, hours, days, months or real table minutes; a chance per interval; a DM cue; what fires | N, W, T, B | data |
 
 ### What the table knows
 
@@ -111,7 +113,7 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 | `secrets` | Every DM-only fact: holder, page, hint and tell, the book's reveal and two ways out or more | all | plays |
 | `told` | What the table calls a secret name before it's told | all | plays |
 | `clues` | Where a clue is, what it points to, the DC | all | plays (as secret paths) |
-| `rumours` | A claim, true or false, who knows it, where it spreads | S, B | owed |
+| `rumours` | A claim, `truth` (true, false, half), who knows it, where; `only_if` (a thread carried in) | S, B | data |
 | `handouts` | An in-world document, by when it's handed over | N, B | owed |
 | `glossary` | The adventure's own words, explained on hover | all | plays |
 
@@ -120,12 +122,12 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
 | `items` | What it is, who holds it, what it does in rules terms, what it opens or proves | all | plays |
-| `items[].state` | What it holds that can change (a flame's colour, charges, cracked or whole) | T, S | owed |
-| `items[].hidden` | A power unknown until worn or attuned | N | owed |
+| `items[].state` | What it holds that can change (a flame's colour, charges, cracked or whole) | T, S | data |
+| `items[].hidden` | What's unknown until found out: the secrets about it | N, S | data |
 | `magic_items` | The adventure's own magic items | all | plays |
 | `puzzles` | Pieces, state, clues, the solution, reset, what failing does | T, B | owed |
 | `conditions` | A save every interval, stages, a cure (an infection, a slow transformation) | W, N | owed |
-| `creatures` | Monsters: core by name, the book's own blocks as numbers, tactics, their special rules | all | plays |
+| `creatures` | Monsters: core by name with tweaks, the book's own blocks as numbers, tactics, their special rules, in the adventure's `M.creatures` | all | plays (shared roster); data (`M.creatures`) |
 | `tables` | Random tables (encounters, guests, fortunes) | B, N | owed |
 
 ### Rule modules
@@ -166,13 +168,14 @@ From the importer's contract (`2026-11-05-root-causes.md`), for any adventure in
 | Spoilers, agency, claims (classes 1 to 3) | `conner_nov4b_check`'s general scans | museum only |
 | Book fidelity (class 4) | `book_check` against the adventure's fidelity sheet | any adventure |
 | Knowledge and the two-campaign test (class 5) | `knowledge_check` | any adventure |
-| Secrets: real ways out, lines that wait, every secret found, nothing early | `secrets_check` | any adventure |
+| Secrets: real ways out, lines that wait, every secret found, nothing early | `secrets_check` (`0` runs: the data alone) | any adventure |
 | Truth, and flags held to the event log | `museum_truth` | any adventure |
 | Movement, faces, structure (classes 6, 8, 9) | `conner_nov4b_check` | museum only |
 | Overlap (class 7) | `overlap_check` | there |
 | Camera (class 7) | | owed |
 | Line audit (class 10) | | owed |
-| Copy and originality | | owed (step 2) |
+| Copy and originality | `copy_check.py` | there |
+| The hand-off: the past, lore, open threads, a fresh start | `handoff_check` | there |
 | Fresh-eyes review of whole runs | a reviewer who hasn't read the code | every round |
 
 ## What step 1 builds from this
@@ -187,5 +190,40 @@ From the importer's contract (`2026-11-05-root-causes.md`), for any adventure in
    (`adventure.watch_flags`), and the truth test fails a flag with no event. **Built.**
 5. The truth, secrets, knowledge and book checks for any registered adventure.
 
-The fields marked **owed** come in as the first book that needs them does: the Sheep Chase brings `layer`, `in`,
-`travel`, `shops`, `tier`, `follows`, `rumours`, `items[].state` and `clocks`; the long campaign brings the rest.
+The fields marked **owed** come in as the first book that needs them does. The Sheep Chase brought `layer`, `in`,
+`travel`, `shops`, `tier`, `follows`, `rumours`, `items[].state` and `clocks` (November 6, `game/data/sheep/`); the
+long campaign brings the rest.
+
+## Adventures tied together
+
+Conner, November 6: "if i upload a 1-3 level adventure, and a separate 4-5 level adventure, those can be connected
+together, preserving items, lore, NPCs, history, so future plot hooks can connect together." `adventure.handoff(
+campaign, to)` does it for any two:
+
+- **The party:** heroes, levels, what they carry and their scars are the campaign's and don't change. If the next
+  adventure starts higher, `campaign.level_due` holds the level it needs, played at its start.
+- **History:** the event log goes on. Each flag event says whose adventure it was.
+- **The past:** the finished adventure's state (`campaign.past[id]`: its flags, money, what was shown, how it ended).
+- **Lore:** what the table learned, as `campaign.lore["<adventure>:<secret>"]`.
+- **People:** they remember the party from the log. A later adventure that brings someone back uses their id.
+- **Threads:** an adventure's `threads` with `open_at_end` (and a `when` that holds) go on in `campaign.threads`. A
+  later adventure picks one up by id or tag with the condition `thread = ...` (the Sheep Chase's rumour of the
+  mountains picks up the museum's `mountain_road`). The DM tying any open thread to any hook by hand is owed with the
+  creation tool.
+- Conditions on what came before: `past = <adventure>`, `thread = <id or tag>`, `knew = "<adventure>:<secret>"`.
+
+Owed: a person's memory record (`people_memory`) is the adventure's, so a returning person needs it in the new one
+too; money that's only good in one adventure (the museum's Francs) turning into something at the seam.
+
+## Before the museum can go
+
+The museum was the prototype and may be deleted (Conner, November 6). What still needs it, for step 5:
+
+- The game night's flow is the museum's: `museum_night.lua`, `museum_week.lua` and `ties.lua` read the module once
+  when they load, and the prep board, the journey and parts of the night view, fight and report name it. They become
+  the adventure's night, reading the standard's places, events and moments.
+- The museum's own monsters sit in the shared roster (`game/rules/data/monsters.lua`, `source = M.MUSEUM`). An
+  adventure's creatures belong in its `M.creatures`.
+- The default adventure (`game/data/adventures.lua`) and the tests that play prologues (`tools/sim/museum.lua`, the
+  smoke runs, the gate) are the museum's.
+- What's left after that is data: deleting `game/data/museum/`, its maps and its registry entry.

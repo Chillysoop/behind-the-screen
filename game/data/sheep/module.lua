@@ -88,25 +88,47 @@ M.places = {
       read = "The town the road is named for. Its people speak of the wizard in the woods with fear and a bit of awe.",
       pages = { 2 } },
     { id = "inn", name = "The Bogden Road Country Inn", layer = "site", ["in"] = "bogden_road", source = "inn",
-      read = "A big, busy coaching inn at the crossroads: a common room, two bars, a great hearth, a stage out back.",
+      read = "A big stone inn where the Bogden road meets the lord's road: hot food, company, and a bed on a long "
+          .. "journey. Sooner or later every sort of traveller stops here, plenty of them shady.",
+      lore = "A barracks in a great war more than a hundred years ago, then a barn, until the first Bolandeere started "
+          .. "feeding travellers in it. The locals named it, and the name stuck.",
+      note = "The windows are small and the ways out are few: easy for anyone, party or foe, to get trapped inside.",
       shops = {
-          { id = "rooms", name = "Rooms for the night", source = "inn", call = 2,
-            sells = { { name = "A bed in the shared room", price = { sp = 3 } }, { name = "A room of your own", price = { sp = 5 } },
-                      { name = "The best room in the house", price = { sp = 8 } } } },
-          { id = "food", name = "Meals and drink", source = "inn", call = 2, note = "Priced in copper (the inn sheet's menus)." },
-      } },
-    { id = "inn_common", name = "The common room", layer = "area", ["in"] = "inn", source = "inn", pages = { 2 },
-      read = "Long tables, a crackling hearth, the bar along one wall, and a crowd in no hurry.",
-      spots = { "hearth", "bar", "door", "tables" },
-      exits = { { to = "inn_upstairs" }, { to = "inn_cellar" }, { to = "inn_yard" } },
+          { id = "rooms", name = "Rooms for the night", source = "inn",
+            sells = { { name = "The common room upstairs", price = { sp = 3 }, note = "a bed among strangers" },
+                      { name = "A private room", price = { sp = 5 } }, { name = "The Sargent's Room", price = { sp = 8 },
+                      note = "the best in the house; the sheet spells it so, after the old barracks" } } },
+          { id = "food", name = "The kitchen (a forest menu)", source = "inn",
+            sells = { { name = "Horsebread", price = { cp = 1 } }, { name = "River salmon", price = { sp = 1 } },
+                      { name = "Venison with carrots and potatoes", price = { sp = 2 } }, { name = "Fried pork, country style", price = { sp = 3 } },
+                      { name = "Baked apples", price = { cp = 2 } }, { name = "Wheat ale", price = { cp = 4 } },
+                      { name = "Table wine", price = { cp = 6 } } },
+            note = "Wild caught or grown nearby, and a cut above what farm folk eat at home." },
+          { id = "services", name = "Other services", source = "inn",
+            sells = { { name = "Mending", price = { cp = 1 }, note = "a garment" }, { name = "Laundry", price = { cp = 2 }, note = "a basket" },
+                      { name = "A seat on a wagon going far", price = { gp = 5 }, note = "about that, a passenger; the roads are busy" } } },
+      },
+      work = { { name = "Guide or guard on a long wagon trip", pay = { sp = 2 }, per = "day", note = "and meals on the road" } } },
+    { id = "inn_common", name = "The ground floor", layer = "area", ["in"] = "inn", source = "inn", pages = { 2 },
+      read = "Tables of every size round a big central hearth, a pair of bars, the kitchen, a cloakroom, and a crowd in no hurry.",
+      spots = { "hearth", "bar", "back_bar", "kitchen", "cloakroom", "tables", "door", "stairs" },
+      exits = { { to = "inn_upstairs", by = "either of two stairs" }, { to = "inn_cellar", by = "a trapdoor behind one bar" },
+                { to = "inn_yard" } },
       note = "If a fight starts here, tables and chairs go over (p2)." },
     { id = "inn_upstairs", name = "Upstairs", layer = "area", ["in"] = "inn", source = "inn",
-      read = "A landing, a row of guest rooms, and the travellers' doors.", exits = { { to = "inn_common" } } },
+      read = "Five bedrooms, two of them shared, and a big sitting room round a great hearth where people tell "
+          .. "stories into the night.",
+      spots = { "sitting_room", "hearth", "shared_rooms", "private_rooms", "stairs" }, exits = { { to = "inn_common" } } },
     { id = "inn_cellar", name = "The cellar", layer = "area", ["in"] = "inn", source = "inn",
-      read = "Barrels, cold stone, and the smell of beer.", exits = { { to = "inn_common" } } },
-    { id = "inn_yard", name = "The yard and the stage", layer = "area", ["in"] = "inn", source = "inn",
-      read = "A courtyard with a little stage for travelling players, and the road beyond the gate.",
-      note = "In the open, frightened onlookers make difficult ground (p2).", exits = { { to = "inn_common" } } },
+      read = "Barrels of beer, spirits, sacks of dry goods and a good many spiders. The old mud floor has turned to "
+          .. "clay, and the place reeks of mildew.",
+      note = "Dark but for what comes in when the storm doors are open.",
+      spots = { "barrels", "trapdoor", "storm_doors" },
+      exits = { { to = "inn_common", by = "the trapdoor" }, { to = "inn_yard", by = "the storm doors" } } },
+    { id = "inn_yard", name = "The loading yard", layer = "area", ["in"] = "inn", source = "inn",
+      read = "Room outside for wagons to unload and horses to be tied up. On a fine day it's a stage.",
+      note = "In the open, frightened onlookers make difficult ground (p2).", spots = { "stage", "hitching_rail", "gate" },
+      exits = { { to = "inn_common" }, { to = "inn_cellar", by = "the storm doors" } } },
     { id = "woods_path", name = "The path through the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" } },
@@ -136,8 +158,10 @@ M.start = "inn_common"
 -- tier: named (the book's own), local (from a type template), crowd. stats: a core block by name with tweaks, or
 -- the adventure's own (M.creatures). understood: what it takes for the table to understand them.
 M.people = {
-    { id = "sh_teddy", name = "Teddy Bolandeere", tier = "named", role = "Innkeeper", known = true, source = "inn",
-      pronoun = "he", about = "Runs the inn and its bar. Warm, fatherly, and hears every story on the road.",
+    { id = "sh_teddy", name = "Teddy Bolandeere", tier = "named", role = "Innkeeper and barman", known = true, source = "inn",
+      pronoun = "he", look = "Short, round and brown, with a fatherly hand on every shoulder.",
+      about = "Theodoro Bolandeere has run the inn for over twenty years. Warm and well loved, and behind the bar he "
+          .. "hears every story on the road.",
       wants = "A full house and no trouble", knows = { "rumours" }, where = { "inn_common" } },
     { id = "sh_shinebright", name = "Finethir Shinebright", tier = "named", role = "The sheep", pages = { 2, 3, 6 },
       pronoun = "he", companion = true,
@@ -161,14 +185,22 @@ M.people = {
           .. "for fear someone does the same to him.",
       wants = "Fame, a great contract, and nobody coming for the wand", knows = { "noke_why", "wand_on_noke", "bed_escape", "wand_unreliable" },
       stats = { block = "noke" }, where = { "hall" } },
-    { id = "sh_turleon", name = "Count Behpoh Turleon", tier = "named", role = "A traveller", source = "inn",
-      pronoun = "he", colour = true, about = "A nobleman staying at the inn, with business of his own.", where = { "inn_upstairs" } },
-    { id = "sh_luenn", name = "Sir Luenn of Nordenin", tier = "named", role = "A traveller", source = "inn",
-      pronoun = "he", colour = true, about = "A knight on the road, taking his ease by the hearth.", where = { "inn_common" } },
+    { id = "sh_turleon", name = "Count Behpoh Turleon", tier = "named", role = "A noble with an appetite", source = "inn",
+      pronoun = "he", colour = true, look = "Stout and richly dressed, always near the food.",
+      about = "A greedy, pleasure-loving count who'll slum it anywhere the common folk might put on a show. Pays "
+          .. "anyone to \"perform\" for him, and what that means changes daily. With nothing to watch, he makes a show of his own.",
+      wants = "A good meal and a spectacle", where = { "inn_common" } },
+    { id = "sh_luenn", name = "Sir Luenn of Nordenin", tier = "named", role = "A noble's second son", source = "inn",
+      pronoun = "he", colour = true, look = "Pale, fair-haired and handsome, dressed far too well for the road.",
+      about = "Lives on his father's money and his looks, and expects to be treated accordingly; when he isn't, he's "
+          .. "unbearable. Would hire adventurers as bodyguards if a fight broke out, and carries the gold and jewels to do it.",
+      wants = "Courtesy, and somebody else between him and trouble", where = { "inn_upstairs" } },
     { id = "inn_staff", name = "The inn's people", tier = "local", role = "Staff", source = "inn",
-      about = "Two dozen of them, cooks, potboys, grooms, and every one loyal to Teddy.",
-      template = { jobs = { "cook", "barmaid", "potboy", "groom", "stable hand" }, want = "an easy shift", quirk = "gossip" } },
-    { id = "inn_crowd", name = "Drinkers and travellers", tier = "crowd", source = "inn", where = { "inn_common", "inn_yard" } },
+      about = "Two dozen of them, and half are family to the Bolandeeres, born or married in; the rest are farmers' children lucky "
+          .. "to get the work. Teddy pays well, and they're loyal to him.",
+      template = { jobs = { "bartender", "cook", "cleaner", "washer" }, want = "to keep Teddy happy", quirk = "gossip" } },
+    { id = "inn_crowd", name = "Drinkers and travellers", tier = "crowd", source = "inn", where = { "inn_common", "inn_yard" },
+      about = "Mostly travellers and farmers, with adventurers, merchants, highwaymen and drifters among them." },
 }
 
 -- The adventure's own creatures: the book's stat blocks as numbers (p2, p5), and core ones by name with the book's
@@ -228,6 +260,13 @@ M.threads = {
     { id = "the_nobles", name = "The nobles call on Noke", pages = { 6 }, tags = { "nobles", "oak_house" },
       open_at_end = true, when = { flag = "took_house" },
       text = "The local nobles will come calling on Noke, and find someone else living in his house." },
+    -- (Hooks for other books, from the inn sheet: not played here, carried for a later adventure to pick up.)
+    { id = "the_suitor", name = "Sir Luenn's courting", who = "sh_luenn", source = "inn", tags = { "suitor", "proposal", "luenn" },
+      open_at_end = true, text = "Sir Luenn is on the road as a suitor. The inn sheet makes him the proposer in another "
+          .. "book, An Enchanting Proposal." },
+    { id = "noke_free", name = "Noke and the wand", tags = { "noke", "polymorph", "wand" }, open_at_end = true,
+      when = { flag = "taken" }, ours = true,
+      text = "Noke has his master back in the garden, the wand still in his sleeve, and he knows the party's faces." },
     { id = "the_guards", name = "The changed guards", pages = { 6 }, tags = { "polymorph", "shinebright" },
       open_at_end = true, when = { flag = "restored" },
       text = "Shinebright takes in the changed guards who ran, and means to give them their shapes back." },
@@ -277,14 +316,16 @@ M.endings = {
              line = "The wand failed him. What's left of Shinebright's house is theirs to leave alone or strip bare." },
     refused = { name = "Still a sheep", when = { flag = "refused" }, page = 6,
                 line = "They wouldn't risk the wand. Shinebright puts on an old robe over his fleece and keeps hoping." },
-    taken = { name = "Noke has his sheep", when = { flag = "taken" }, ours = true, call = 4,
+    -- (Ours, as the failure: Conner, November 6.)
+    taken = { name = "Noke has his sheep", when = { flag = "taken" }, ours = true,
               line = "Guz brought the sheep home, and nobody came after it." },
 }
 M.xp = { each = 500, page = 6 }
 
 -- Clocks: counts that fire something.
 M.clocks = {
-    { id = "guards_search", name = "Noke's men are looking", unit = "days", count = 3, ours = true, call = 5, page = 3,
+    -- (Three days: Conner, November 6.)
+    { id = "guards_search", name = "Noke's men are looking", unit = "days", count = 3, ours = true, page = 3,
       text = "Noke has more guards. Left alone, they find the sheep again.", fires = "sheep_taken" },
     { id = "bed_dragon", name = "Three rounds", unit = "rounds", count = 3, page = 5, after = "noke_flees", fires = "bed_dragon" },
 }
@@ -326,8 +367,8 @@ M.secrets = require "game.data.sheep.secrets"
 M.items = {
     { id = "speak_scroll", name = "A sealed scroll", holder = "sh_shinebright", page = 2,
       text = "A fancy scroll. Its wax seal says Speak with Animals, modified.",
-      rules = "Read aloud, it works: everyone who hears it understands the sheep. (How long for: the spell's ten "
-          .. "minutes, unless Conner says otherwise.)", call = 6, once = true },
+      rules = "Read aloud, it works: everyone who hears it understands the sheep, through the inn and the walk to the "
+          .. "woods. Then he's a sheep again until the second scroll (Conner, November 6).", once = true },
     { id = "speak_scroll_2", name = "Another sealed scroll", holder = "hall", page = 6, once = true,
       text = "The same seal as the first: Speak with Animals, modified.", rules = "As the first." },
     { id = "wand", name = "A cracked oak wand", holder = "sh_noke", page = 6, magic = "wand_true_polymorph",
