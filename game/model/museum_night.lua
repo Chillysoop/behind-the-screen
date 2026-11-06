@@ -5546,6 +5546,8 @@ end
 -- MODULE.showdown.questions) and she answers, calm and sure of herself. A question that touches what she hides
 -- can tell a hint, or more with a good read on her (secrets.lua's `hint` / `tells`). Two at most, then she tires.
 M.LAIR_QUESTIONS = 2
+M.LAIR_WATCH = { "{char} watches her face as she answers.", "{char} keeps an eye on her while she talks.",
+                 "While she answers, {char} watches where her eyes go." }
 function M.lair_questions(night, sc)
     local qs = MODULE.showdown.questions
     if not qs or night.end_early or night.fast then
@@ -5568,20 +5570,31 @@ function M.lair_questions(night, sc)
                 night:emit({ kind = "npc", name = "Euryale", cast = "mus_euryale", text = q.answer })
                 -- (Watching her as she answers: a hint of what's under it, or more.)
                 if q.read then
-                    local name, mod = night:best_skill(p, { q.read.skill or "insight" })
+                    -- (Whoever reads people best is the one watching her face, not always whoever asked: the
+                    -- secrets check, her sisters only ever came out to the one friend who asks.)
+                    local watcher, name, mod = p, night:best_skill(p, { q.read.skill or "insight" })
+                    for _, o in ipairs(night:at_hand()) do
+                        local on, om = night:best_skill(o, { q.read.skill or "insight" })
+                        if (om or -99) > (mod or -99) then
+                            watcher, name, mod = o, on, om
+                        end
+                    end
+                    if watcher ~= p then
+                        night:say(util.fill(M.LAIR_WATCH[night.rng:int(1, #M.LAIR_WATCH)], { char = watcher.char }), "narration")
+                    end
                     local dd = night.rng:d20()
                     local total = dd + (mod or 0)
-                    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "insight"), what = "read" })
+                    night:emit({ kind = "tiny_roll", who = watcher.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "insight"), what = "read" })
                     local level = (total >= (q.read.known or 99) and "known") or (total >= (q.read.hint or 13) and "hint") or nil
                     if level and (secrets.RANK[level] or 0) > (secrets.RANK[secrets.level(c, q.read.key)] or 0) then
                         local line = level == "known" and q.read.tell or q.read.hint_says
-                        secrets.learn(c, q.read.key, level, { how = "ask", by = p.key })
+                        secrets.learn(c, q.read.key, level, { how = watcher == p and "ask" or "check", by = watcher.key })
                         -- (Her glance shows them the tapestry: the bargain over it opens.)
                         if q.read.key == "sisters" then
                             st_of(night).flags.tapestry = true
                         end
                         if line then
-                            night:say(util.fill(line, { char = p.char }), "dm")
+                            night:say(util.fill(line, { char = watcher.char }), "dm")
                         end
                     end
                 end

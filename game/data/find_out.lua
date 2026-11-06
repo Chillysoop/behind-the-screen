@@ -152,6 +152,7 @@ M.ways = {
 -- What a friend says when a hunch pays off, or turns out to be only part of it (out of character).
 M.cheer = { "I knew it. I knew it!", "Called it.", "That's what I thought. Okay.", "There it is." }
 M.half = { "Okay, that's something.", "Not all of it, but it's a start.", "There's more to this. I can feel it." }
+M.found = { "Huh. Good to know.", "Okay. Somebody write that down.", "Well. That's useful." }
 -- A friend at the table going in a direction that isn't in the DM's notes: the card says so.
 M.improvised = "It isn't in your notes. Make it up: what happens?"
 

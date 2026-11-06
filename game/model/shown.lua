@@ -136,13 +136,24 @@ function M.hear(c, room, text)
     end
 end
 
+-- (Behind a door still locked: not there to be seen yet. MODULE.behind_doors.)
+function M.behind(c, room, id)
+    local mod = util.lazy("game.model.adventure").data or {}
+    local b = mod.behind_doors and mod.behind_doors[room]
+    if not b then
+        return false
+    end
+    local flags = c and c.adv and c.adv.flags or {}
+    return util.contains(b.places or {}, id) and not (b.open and flags[b.open])
+end
+
 function M.unshown(c, room, text)
     local out = {}
     if not (room and text) then
         return out
     end
     for _, t in ipairs(M.things(room)) do
-        if not M.is_shown(c, room, t.id) and names(text, t) then
+        if not M.is_shown(c, room, t.id) and not M.behind(c, room, t.id) and names(text, t) then
             table.insert(out, t)
         end
     end

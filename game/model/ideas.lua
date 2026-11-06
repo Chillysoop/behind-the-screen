@@ -793,6 +793,7 @@ function M.find(night, sc, idea)
     local who = idea.holder.name
     local v = { char = p.char, who = who, thing = who }
     -- (A hunch they've been building, said first: the clue that set them digging.)
+    idea.had_hunch = secrets.hinted(c, key, p.key, p.key)
     if secrets.hinted(c, key, p.key, p.key) and d.theory then
         night:emit({ kind = "say", who = p.key, ic = false, text = fill(night:fresh(d.theory, "find_theory_" .. key), v) })
     end
@@ -876,9 +877,10 @@ function M.find(night, sc, idea)
     if not carded then
         night:say(level == "hint" and lines.hint or lines.win, "dm")
     end
+    -- (Called it, only if they had a hunch first; otherwise just glad to know.)
     local f = ways()
-    night:emit({ kind = "say", who = p.key, ic = false,
-                 text = night:fresh(secrets.knows(c, key, p.key) and f.cheer or f.half, "find_react") })
+    local list = (not secrets.knows(c, key, p.key) and f.half) or (idea.had_hunch and f.cheer) or f.found
+    night:emit({ kind = "say", who = p.key, ic = false, text = night:fresh(list, "find_react") })
     night:react({ [p.key] = "cheer" })
     score.nudge_engagement(p, 3)
     return p

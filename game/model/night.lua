@@ -4462,10 +4462,11 @@ function M:split_off(sc)
     end
     -- (The places furthest from the ones staying: one each.)
     local taken = {}
+    local shown = require "game.model.shown"
     local function far_place()
         local best, bd
         for _, pl in ipairs(places or {}) do
-            if not taken[pl.id] and pl.x then
+            if not taken[pl.id] and pl.x and not shown.behind(self.campaign, sc.room, pl.id) then
                 local d = 0
                 for _, at in ipairs(here) do
                     d = d + math.max(math.abs(pl.x - at[1]), math.abs(pl.y - at[2]))
@@ -4584,8 +4585,10 @@ function M:split_find(p, sc, place_id, total)
     for _, key in ipairs(secrets.list()) do
         if not secrets.knows(c, key, p.key) and not secrets.held(c, key) then
             for _, path in ipairs(secrets.paths(key, c)) do
+                -- (Their roll was a look round, Perception or Investigation: only a way out that takes one of those.)
+                local looked = util.contains(path.skill or {}, "perception") or util.contains(path.skill or {}, "investigation")
                 local here = path.room == sc.room and path.spot == place_id
-                if here and (path.kind == "see" or ((path.kind == "check" or path.kind == "read") and total >= (path.dc or 13)))
+                if here and (path.kind == "see" or ((path.kind == "check" or path.kind == "read") and looked and total >= (path.dc or 13)))
                     and not (path.needs == "hint" and not secrets.hinted(c, key, p.key)) then
                     local level = path.gives == "part" and "hint" or path.gives or "known"
                     if (secrets.RANK[level] or 0) > (secrets.RANK[secrets.level(c, key, p.key)] or 0) then

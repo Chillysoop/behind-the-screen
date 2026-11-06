@@ -438,7 +438,7 @@ M.goal_play = {
     mus_archivist = {
         intent = { "Locked from the inside. Nobody does that unless they're scared of something.", "A study. Notes. Finally, something to read." },
         approaches = {
-            { skill = "investigation", say = "His desk. Letters, notes, a list of names. Let me look.",
+            { skill = "investigation", say = "That desk. Papers everywhere. Let me look.",
               win = "{char} finds the last page he wrote: \"It sees through every eye I draw. I have to stop drawing.\"",
               lose = "{char} sorts papers for ten minutes and finds mostly receipts." },
             -- (Not once it's been named: "Thessaly can't place it" right after "It's a mythril singer".)

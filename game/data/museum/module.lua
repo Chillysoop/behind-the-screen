@@ -1055,6 +1055,17 @@ M.moments = {
             log = "They put their backs to the bulette's skull and wait. Whatever's hunting them can come out first.",
             effects = { { "arch:tactician", fun = 5 }, { "arch:casual", fun = 2 }, { "arch:explorer", fun = 3.5 }, { "arch:butt_kicker", fun = -1 } },
             mus = { flag = "no_surprise", ready = true } },
+          -- (The book's own way to see the pack, p20: the kitchen's cupboard doors are polished to a shine,
+          -- and the characters can use them to spot the hunters. A fresh-eyes playtest: nobody ever did.)
+          { label = "Check the kitchen's polished doors first.", want = "use the shiny cupboard doors in the kitchen to see what's watching us", short = "check the doors", lean = "safe",
+            roll = { dc = 13, skill = { "perception", "investigation" },
+                     success = { log = "Angled just right, the polished doors show the whole floor. Two shapes keep very still in the jungle, and one is pretending to be a statue behind the big bird.",
+                                 tells = { "pack_hides" }, tells_how = "check",
+                                 effects = { { "actor", spotlight = 6, fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:explorer", fun = 3 } },
+                                 mus = { flag = "no_surprise", ready = true } },
+                     fail = { log = "The doors show a blur of leaves and feathers. Something in the blur moves, and then the hunters move first.",
+                              effects = { { "actor", challenge = 4 }, { "arch:butt_kicker", fun = 2 } }, mus = { risk = true } } },
+            effects = { { "arch:tactician", fun = 3 }, { "arch:explorer", fun = 3 } } },
       } },
     { id = "mus_mirror", room = "hunting", spot = "6J", at = "end", type = "story", actor = { "tactician", "explorer", "storyteller" }, party = true,
       title = "Polished doors",
@@ -1126,7 +1137,7 @@ M.moments = {
                      success = { log = "{actor_char} shakes it off. Just the wind. Probably.", effects = { { "actor", fun = 2 } } },
                      -- (Behind your screen: only that hero heard it, p21. The table hears nothing. The second round's
                      -- review: "You write it down for later" was said out loud.)
-                     fail = { log = "Behind your screen, you note it down: something old has learned {actor_char}'s name, and {actor_char} heard it.",
+                     fail = { log = "You slide a folded note to {actor}: a voice in the dark says {actor_char}'s name, once. Behind your screen, you write it down.",
                               effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } },
                               mus = { flag = "whispered", aspect = "Named in a whisper by the Witness", secret_event = "whisper" } } } },
           { label = "Pass them a note: they hear it, and only they know.",
@@ -1200,6 +1211,10 @@ M.moments = {
             log = "Wax in, cloth over. It works. Nobody else thought of it.",
             effects = { { "actor", fun = 6 }, { "arch:tactician", fun = 4, trust = 1 } }, leans = "cool", mus = { flag = "deaf", aspect = "Beat a ghost's lecture with candle wax" },
             tells = { "lecturer_ears" } },
+          -- (Once they know it's his voice that does it, the call is who goes deaf: everyone, or just them.)
+          { label = "Yes, and everyone does it, not just them.", when = { told = "lecturer_ears" },
+            log = "Wax all round. The whole party goes in deaf as posts, grinning at each other.",
+            effects = { { "all", fun = 3 }, { "arch:tactician", fun = 3 } }, mus = { flag = "deaf", aspect = "Beat a ghost's lecture with candle wax" } },
           -- (Not once they've found out it's his voice that does it.)
           { label = "He's in their heads. Wax won't help.", when = { not_told = "lecturer_ears" }, sub = "The book has it working: whoever can't hear him has Advantage (page 24).",
             log = "The drone goes straight past the wax. {actor_char} sighs.",
@@ -1390,6 +1405,12 @@ M.explore = {
     lecture = { "books", "board", looks = 1,
                 finds = { books = { francs = 1, what = "a Franc used as a bookmark",
                                     line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago. {actor_char} pockets it." } } },
+}
+-- Places on a board behind a door that starts locked: nobody walks to them, and nothing there is described,
+-- until it's open (`open`: the flag that opens it). The third round's review: the body at the desk described
+-- in the first study, before anyone had opened the second.
+M.behind_doors = {
+    offices = { places = { "7B", "eyes", "door" }, open = "door_open" },
 }
 -- What a friend says on walking over to one of those places (museum_night.explore): about that thing,
 -- one of its ways, and only the first look in a room gets a word; a place with nothing here gets none.
@@ -1921,7 +1942,8 @@ M.told = {
     construct = { always = true, words = { "Bone Construct" }, mask = { { "Bone Construct", "bone guardian" } } },
     -- (Who the body was is for a closer look, p21: told with secrets.archivist or secrets.witness.)
     archivist_named = { always = true, words = { "archivist" },
-                        mask = { { "the archivist's", "the dead man's" }, { "the archivist", "the dead man" }, { "archivist", "dead man" } } },
+                        mask = { { "dead archivist's", "dead man's" }, { "dead archivist", "dead man" }, { "the archivist's", "the dead man's" },
+                                 { "the archivist", "the dead man" }, { "archivist", "dead man" } } },
     -- (The stat block's name, from a fight's label: "That's a crit on the Giant Scarab Swarm".)
     swarm = { always = true, words = { "Giant Scarab Swarm" }, mask = { { "Giant Scarab Swarm", "scarab swarm" } } },
     sentinel = { always = true, words = { "Sentinel" }, mask = { { "Sentinel", "metal statue" } } },

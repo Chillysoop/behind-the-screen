@@ -35,7 +35,12 @@ M.gorgon = {
     covered_by = { { flag = "truth" } },
     name = "What's really upstairs", page = 6, type = "person", room = "street",
     what = "A Gorgon called Euryale has taken the museum over. Flitwidget bought her sealed in a clay jar; she broke free, twisted his exhibits and killed visitors. Telpur is still inside.",
-    held_by = { "mus_flitwidget", "mus_telpur" },
+    -- (Telpur knows only that a horrible lady threw the boss out, and he's never been upstairs, p16: a hint, in his
+    -- words. The third round's review: Flitwidget's confession came out of Telpur.)
+    held_by = { "mus_flitwidget",
+                { on = "mus_telpur", gives = "hint",
+                  hint_says = { "Telpur lowers his voice. \"Horrible lady upstairs. Threw the boss out. Don't tell him I said.\"",
+                                "\"Her,\" says Telpur, rolling his eyes at the ceiling. \"Took over. Kicked the boss out. Never been up there myself. I'm a boot.\"" } } },
     -- (Said to the table, these give the hint: Telpur's "some lady took over".)
     hint_words = { "Some lady took over", "Horrible lady", "Threw the boss out", "Kicked the boss out" },
     hint = { "Flitwidget's bluster has a crack in it. Whatever's wrong in there is a lot worse than \"incidents\".",
@@ -57,8 +62,6 @@ M.gorgon = {
         { kind = "ask", on = "mus_telpur", opinion = "neutral", gives = "hint", page = 16,
           hint_says = { "Telpur lowers his voice. \"Horrible lady upstairs. Threw the boss out. Don't tell him I said.\"",
                         "\"Her,\" says Telpur, rolling his eyes at the ceiling. \"Took over. Kicked the boss out. Horrible.\"" } },
-        { kind = "ask", on = "mus_telpur", opinion = "warm", needs = "hint", gives = "known", page = 16,
-          says = { "Telpur sighs. \"A Gorgon. Came out of a jar the boss bought. She runs the place now, and the visitors who went up are statues.\"" } },
         { kind = "event", event = "hood_off", gives = "known", book = true, page = 26 },
     },
 }
@@ -127,8 +130,8 @@ M.knight_weak = {
     tell = { "Paint cuts paint: whatever came out of a picture bites into the knight. Fire and water too." },
     theory = { "It's a painting. What hurts a painting?", "Paint, water, fire. Something in here has to work on it." },
     paths = {
-        { kind = "check", skill = { "arcana" }, dc = 13, gives = "known", page = 15 },
-        { kind = "check", skill = { "investigation", "perception" }, dc = 12, gives = "hint", page = 15 },
+        -- (A look gives a hint; the whole of it comes out in play, p15: a painted weapon biting into it.)
+        { kind = "check", skill = { "arcana", "investigation", "perception" }, dc = 13, gives = "hint", page = 15 },
         { kind = "event", event = "paint_hit", gives = "known", page = 15 },
     },
     defaults = false,
@@ -156,11 +159,12 @@ M.pack_hides = {
     what = "Two hunters hide in the jungle, two in the cave model, and one stands still as a statue behind the big bird. All five are rarely seen at once.",
     hint = { "Something in the dioramas is holding very still. Not stuffed, either.",
              "The polished cupboard doors in the kitchen show a shape behind the big bird that isn't on the floor plan." },
-    tell = { "Now they can see them: two in the jungle, two in the cave model, and one pretending to be a statue behind the big bird." },
+    -- (The book keeps the cave pair back as a surprise, p20: what the doors show is the rest.)
+    tell = { "In the polished doors they can see them now: two in the jungle, and one pretending to be a statue behind the big bird. Maybe more." },
     paths = {
-        { kind = "check", skill = { "perception" }, dc = 14, gives = "hint", page = 20 },
+        { kind = "check", skill = { "perception" }, dc = 15, gives = "hint", page = 20 },
         { kind = "see", on = { room = "hunting", spot = "6J" }, gives = "hint", page = 20 },
-        { kind = "check", on = { room = "hunting", spot = "6J" }, skill = { "perception", "investigation" }, dc = 12, gives = "known", page = 20 },
+        { kind = "check", on = { room = "hunting", spot = "6J" }, skill = { "perception", "investigation" }, dc = 15, gives = "known", page = 20 },
     },
     defaults = false,
 }
@@ -190,7 +194,9 @@ M.witness = {
     hint = { "Every page has the same eye on it. Whatever he was studying, it was studying him back.",
              "There's a word in the margins, underlined until the nib went through: Witness." },
     tell = { "The notes come together: the archivist was studying something he called the Witness, and a great city that sank under the sea. And it noticed him." },
+    hint_words = { "the Witness" },
     paths = {
+        { kind = "read", skill = { "religion" }, dc = 10, gives = "hint", book = true, page = 22 },
         { kind = "read", skill = { "investigation" }, dc = 14, gives = "known", book = true, page = 22 },
         { kind = "read", skill = { "arcana" }, dc = 14, gives = "hint", book = true, page = 22 },
         { kind = "check", on = { room = "offices", spot = "7B" }, skill = { "medicine" }, dc = 12, gives = "hint", page = 21,
@@ -219,6 +225,7 @@ M.bird = {
     name = "The little bird", page = 21, type = "creature", room = "offices", with = { "bird_named" },
     on = { room = "offices", spot = "7A" },
     what = "The bird under the dome is a Celestia canary, a \"mythril singer\": miners keep them because they sing when magic is near.",
+    words = { "Celestia", "mythril singer" },
     tell = { "It's a Celestia canary. Miners call them mythril singers: they sing when there's magic about." },
     hint = { "The drawings on the wall are all of this bird's insides, with notes about mines." },
     paths = {
@@ -352,7 +359,7 @@ M.gorgon_lore = {
     tell = { "The scholar's book is clear enough: gorgons pass for people, and their gaze lives in the snakes on their heads." },
     paths = {
         { kind = "read", item = "gorgon_book", skill = { "history", "religion" }, dc = 13, gives = "part", book = true, page = 27 },
-        { kind = "ask", on = "mus_telpur", opinion = "warm", gives = "part", page = 16 },
+        { kind = "check", item = "gorgon_book", skill = { "religion", "investigation" }, dc = 15, gives = "part", page = 17 },
     },
     defaults = false,
 }

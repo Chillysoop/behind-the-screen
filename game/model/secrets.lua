@@ -406,7 +406,8 @@ local function holder_of(d, p)
     end
     out.on, out.item, out.room, out.spot = h.on, h.item, h.room, h.spot
     if not out.on and type(d.held_by) == "table" then
-        out.on = d.held_by[1]
+        local h = d.held_by[1]
+        out.on = type(h) == "table" and h.on or h
     end
     return out
 end
@@ -442,8 +443,9 @@ function M.paths(key, c)
         if d.on then
             table.insert(holders, d.on)
         end
-        for _, id in ipairs(type(d.held_by) == "table" and d.held_by or {}) do
-            table.insert(holders, { on = id })
+        -- (A holder can know only part of it, in their own words: Telpur's "horrible lady" is a hint.)
+        for _, h in ipairs(type(d.held_by) == "table" and d.held_by or {}) do
+            table.insert(holders, type(h) == "table" and h or { on = h })
         end
         for _, id in ipairs(c and M.planted(c, key) or {}) do
             table.insert(holders, { on = id, planted = true })
@@ -456,10 +458,12 @@ function M.paths(key, c)
                 end
                 p.on, p.item, p.room, p.spot, p.planted = h.on, h.item, h.room, h.spot, h.planted
                 p.default = true
-                -- (A person who only knows part of it gives what they know: a hint-holder never the whole.)
+                -- (A person who only knows part of it gives what they know: a hint-holder never the whole, and
+                -- in their own words.)
                 if h.gives == "hint" then
                     p.gives = "hint"
                 end
+                p.says, p.hint_says = h.says or p.says, h.hint_says or p.hint_says
                 local dup = false
                 for _, q in ipairs(out) do
                     if same_way(q, p) then
@@ -532,7 +536,7 @@ end
 function M.holds(c, key, id)
     local d = M.def(key) or {}
     for _, x in ipairs(type(d.held_by) == "table" and d.held_by or {}) do
-        if x == id then
+        if x == id or (type(x) == "table" and x.on == id) then
             return true
         end
     end
