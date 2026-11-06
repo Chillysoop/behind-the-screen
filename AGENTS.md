@@ -245,7 +245,7 @@ least:
     ADVENTURE=sheep lua tools/tests/schema_check.lua; ADVENTURE=sheep lua tools/tests/secrets_check.lua 0   # the Sheep Chase's data (0 runs: the data alone, until the sims play it)
     lua tools/tests/agency_check.lua 2    # players announce, the DM answers: no hero's move or feeling said for them, seats in order
     lua tools/tests/handoff_check.lua     # adventures tied together: the party, the log, lore, the past and open threads carry over; a fresh start has none
-    lua tools/tests/secrets_check.lua 3   # every secret from the data: real ways out, friend lines that wait,
+    lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,
                                           # each found in whole prologues, nothing known early (about 4 minutes)
     lua tools/tests/overlap_check.lua 8   # nothing covers readable text, measured on every screen and every step
                                           # of game night (about 3 minutes)

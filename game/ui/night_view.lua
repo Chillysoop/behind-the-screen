@@ -603,6 +603,7 @@ function M.draw_log_now(app)
     l.nodes, l.buttons, l.spots, l.gloss_seen = {}, {}, {}, nil
     kit.use(l)
     if app.log_open then
+        app.log_rect = nil      -- (the open log: speech keeps to the right of it, place_bubbles)
         kit.box(LOG_X, LOG_Y, LOG_W, LOG_H, theme.bg_glass, { radius = 10 })
         kit.text(LOG_X + LOG_W - 12, LOG_Y + LOG_H - 22, "Tab: hide the log", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
         local w = LOG_W - 32
@@ -666,8 +667,10 @@ function M.draw_log_now(app)
             end
         end
         local y = LOG_Y + 8
+        app.log_rect = nil
         if #lines > 0 then
             kit.box(LOG_X, LOG_Y, 470, 8 + #lines * 20 + 8, kit.rgba("#140e0b", 0.55), { radius = 8 })
+            app.log_rect = { x = LOG_X, y = LOG_Y, w = 470, h = 8 + #lines * 20 + 8 }
         end
         for _, ln in ipairs(lines) do
             local color = alpha_of(theme.log[ln.style] or theme.text, math.max(0.5, 1 - 0.15 * ln.age))
@@ -1686,7 +1689,9 @@ function M.zones(app)
             add(t.rect, t.nodes)
         end
     end
-    -- (A fight's turn order and the boss's health along the top: speech from a seat steps round them.)
+    -- (The night's log, top left, and a fight's turn order and the boss's health along the top: speech from a seat
+    -- steps round them.)
+    add(app.log_rect)
     for _, r in ipairs(battle_hud.zone_rects(app)) do
         add(r)
     end
@@ -1707,7 +1712,7 @@ function M.place_bubbles(app)
             gui.set_enabled(n, show)
         end
         if show then
-            local x = util.clamp(ax - b.w / 2, 8, kit.W - 8 - b.w)
+            local x = util.clamp(ax - b.w / 2, app.log_open and (LOG_X + LOG_W + 16) or 8, kit.W - 8 - b.w)
             -- (Never down on the tiles, their speaking tags or a thought cloud over one: above them all.)
             local floor = CHIP_Y - TAG_CLEAR - 38
             local y = ay - b.h - 16
