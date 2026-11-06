@@ -220,6 +220,10 @@ function M.dump(campaign, meta)
     if meta and meta.where and meta.where ~= "" then
         head = head .. "L=" .. header_words(meta.where) .. "\n"
     end
+    -- (Which adventure it is, so the title can say so and a load switches to it first.)
+    if type(campaign.module) == "string" and string.match(campaign.module, "^[%w_]+$") then
+        head = head .. "A=" .. campaign.module .. "\n"
+    end
     return head .. table.concat(out, "\n") .. "\n"
 end
 
@@ -306,7 +310,7 @@ function M.peek(src)
     return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil,
              at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil,
              time = tonumber(string.match(head, "\nD=(%d+)")), where = string.match(head, "\nL=([^\n]*)"),
-             done = string.match(head, "\nX=1") ~= nil }
+             done = string.match(head, "\nX=1") ~= nil, adventure = string.match(head, "\nA=([%w_]+)") }
 end
 
 -- string -> campaign, or nil and why.
@@ -317,6 +321,14 @@ function M.load(src)
     end
     if head.format ~= M.FORMAT then
         return nil, "saved by a different version"
+    end
+    -- (A save from another adventure: that adventure first, so what loads reads its data. An old save has no A=,
+    -- and is the museum's.)
+    local adv = require("game.model.util").lazy("game.model.adventure")
+    local want = head.adventure or "museum"
+    if require("game.data.adventures").list[want] and adv.current() ~= want then
+        adv.use(want)
+        adv.enter()
     end
     local env, err = compile(src)
     if not env then

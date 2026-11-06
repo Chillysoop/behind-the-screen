@@ -54,7 +54,7 @@ function M.build(app)
     local h = picks(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     kit.text(24, 14, "SESSION ZERO", "title30", theme.gold)
-    kit.text(280, 24, "Why did each hero come to the museum? Each player leans one way. You pick.", "ui18", theme.dim)
+    kit.text(280, 24, "Why did each hero come? Each player leans one way. You pick.", "ui18", theme.dim)
     kit.text(24, 70, MODULE.title .. ", by " .. MODULE.author .. ". " .. MODULE.pitch, "ui14", theme.faint, { w = 1500 })
     local x0, y0 = 24, 100
     local cw, ch = 770, 352

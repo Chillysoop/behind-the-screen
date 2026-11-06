@@ -112,7 +112,7 @@ local function survey(app)
         y = y + 64
     end
     kit.box(24, y, 1552, 56, theme.panel, { radius = 8 })
-    kit.text(44, y + 16, "Would you play the full campaign after the museum?", "ui18b", theme.text)
+    kit.text(44, y + 16, "Would you play a full campaign after this adventure?", "ui18b", theme.text)
     for k, label in ipairs(M.NEXT) do
         local bx = 896 + (k - 1) * 152
         local on = a.next == label

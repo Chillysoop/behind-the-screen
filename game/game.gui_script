@@ -306,7 +306,12 @@ function init(self)
         app.slot_paths[id] = sys.get_save_file("behind_the_screen", "museum_" .. id .. ".txt")
     end
     app.broken_saves = {}
+    -- (Which adventure New game starts: the title's choice, when the game has more than one.)
+    app.adventure_pick = adventure.current()
     app.new_campaign = function()
+        if app.adventure_pick and app.adventure_pick ~= adventure.current() then
+            adventure.use(app.adventure_pick)
+        end
         app.campaign = campaign_mod.new(os.time())
         adventure.enter(app.campaign)
         app.saves_ui = nil

@@ -1965,6 +1965,8 @@ M.why_here = "why {char_they} came to the museum"
 M.slide = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over."
 -- The adventure's own currency: a great roll can turn one up (night.lua), and the chain counts them (events.lua).
 M.currency = { id = "francs", one = "Flitwidget Franc", many = "Flitwidget Francs" }
+-- The prep board's story column before anything's happened.
+M.story_start = "A gnome's museum has just rolled into town, and everyone's talking about it."
 -- What the break's reading up covers (museum_night.maybe_break): the Gorgon only once they've heard of her.
 M.read_up = { { when = { told = "gorgon" }, text = "They read up: the museum, the Gorgon, their notes." },
               "They read up: the museum, and their notes so far." }

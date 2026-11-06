@@ -329,6 +329,7 @@ for r = 1, RUNS do
         local _, announced = string.gsub(out, "\n  %[(%a+)%] [^\n]*\n  %[(%a+)%] I'll [^\n]*\n  %(small roll%)", "")
         find_rolls = find_rolls + announced
         add("REACH", "digs_by_the_dice", find_rolls)
+        digs = digs + find_rolls      -- (a dig is a dig, a card or the dice: an adventure whose ways out all have DCs)
     end
 end
 -- Coverage: how each came out.

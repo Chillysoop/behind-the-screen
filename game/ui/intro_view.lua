@@ -7,17 +7,27 @@ local M = {}
 
 -- The prototype notice (October 29, for outside playtesters): on every launch, before the
 -- welcome card. One click to agree, then the welcome card as before.
-local NOTICE = {
-    "This is a prototype of an engine for running all kinds of tabletop RPG campaigns.",
-    "This prologue runs a real published adventure, The Museum of Nightmares by Luke Russell, adapted for private testing.",
-    "It tests the play loop and mechanics. Art and polish come later.",
-}
+local function notice_lines()
+    local adventures = require "game.data.adventures"
+    local names = {}
+    for _, id in ipairs(adventures.order or {}) do
+        local m = adventures.part(id, "module")
+        if m and m.title then
+            table.insert(names, m.title .. (m.author and (" by " .. m.author) or ""))
+        end
+    end
+    return {
+        "This is a prototype of an engine for running all kinds of tabletop RPG campaigns.",
+        "It runs real published adventures (" .. table.concat(names, "; ") .. "), adapted for private testing.",
+        "It tests the play loop and mechanics. Art and polish come later.",
+    }
+end
 
 local function notice(app)
     local x, y, w = 500, 0, 600
     local tw = w - 100
     local body = 0
-    for _, line in ipairs(NOTICE) do
+    for _, line in ipairs(notice_lines()) do
         body = body + kit.text_height(line, "ui18", tw) + 18
     end
     local h = 100 + body + 100
@@ -25,7 +35,7 @@ local function notice(app)
     kit.box(x, y, w, h, kit.rgba("#1b1411", 0.94), { radius = 14 })
     kit.text(x + w / 2, y + 30, "BEFORE YOU PLAY", "title30", theme.gold, { pivot = gui.PIVOT_N })
     local ly = y + 96
-    for _, line in ipairs(NOTICE) do
+    for _, line in ipairs(notice_lines()) do
         kit.text(x + 50, ly, line, "ui18", theme.text, { w = tw })
         ly = ly + kit.text_height(line, "ui18", tw) + 18
     end
@@ -44,11 +54,11 @@ function M.build(app)
     kit.text(x + w / 2, y + 30, "BEHIND THE SCREEN", "title30", theme.gold, { pivot = gui.PIVOT_N })
     kit.text(x + w / 2, y + 74, "A cozy game about running the table for your friends", "ui18", theme.dim, { pivot = gui.PIVOT_N })
     local lines = {
-        { "Prep", "Tonight's rooms are on the museum map. Prep the ones you think they'll reach, and choose how you'll run each one. Prep time is limited." },
+        { "Prep", "Tonight's scenes are on the adventure's map. Prep the ones you think they'll reach, and choose how you'll run each one. Prep time is limited." },
         { "Game night", "It plays itself, room by room. When a card slides across your screen, you make the call. The party picks the way at forks." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
-        { "Between", "Answer their requests, decide where loose ends go, and watch the Gorgon's card change with everything they do." },
-        { "This build", "Session Zero, then The Museum of Nightmares, played over as many sessions as your table needs." },
+        { "Between", "Answer their requests, decide where loose ends go, and see what everything they do changes." },
+        { "This build", "Session Zero, then the adventure you pick below, played over as many sessions as your table needs." },
     }
     local ly = y + 120
     for _, l in ipairs(lines) do
@@ -63,6 +73,21 @@ function M.build(app)
         any = any or sv.found ~= nil
     end
     local bw, by = 420, y + h - 176
+    -- Which adventure a new game is (November 6: any adventure, not the museum). One button cycles them.
+    local adventures = require "game.data.adventures"
+    local order = adventures.order or {}
+    if #order > 1 then
+        local pick = app.adventure_pick or order[1]
+        local m = adventures.part(pick, "module") or {}
+        kit.button(x + (w - bw) / 2, by - 58, bw, 44, "New game plays: " .. (m.title or pick) .. "   (change)", function()
+            local i = 1
+            for k, id in ipairs(order) do
+                if id == pick then i = k end
+            end
+            app.adventure_pick = order[i % #order + 1]
+            app.refresh()
+        end, { font = "ui18b", key = "pick_adventure" })
+    end
     if saved then
         local label = (saved.done and "Continue: your table's journey  >")
             or saved.at_night and ("Continue: Session " .. saved.week .. " night  >")

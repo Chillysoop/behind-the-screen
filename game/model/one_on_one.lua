@@ -42,7 +42,7 @@ local function want_of(campaign, p)
     local h = adv.hook(campaign, p.key)
     local room = h and adv.data.rooms[h.room]
     if room and not (campaign.adv.hook_paid or {})[p.key] and not campaign.adv.done[h.room] then
-        return "Any chance we get to " .. util.lower_first(room.name) .. " soon? That's what " .. p.char .. " came to the museum for.",
+        return "Any chance we get to " .. util.lower_first(room.name) .. " soon? That's what " .. p.char .. " came for.",
             p.char .. "'s reason for coming", room.type, true
     end
     local best, bv

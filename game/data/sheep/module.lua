@@ -180,7 +180,7 @@ M.places = {
           .. "a dining room with a kitchen.",
       spots = { "library", "lab", "sitting_room", "kitchen", "door" },
       exits = { { to = "garden" }, { to = "bedroom", by = "a small slope" } },
-      scene = { type = "combat", setting = { "indoor" }, sum = "Ahmed Noke, at home.", cast = "sh_noke", foes = { "noke" },
+      scene = { type = "combat", setting = { "indoor" }, sum = "Ahmed Noke, at home.", cast = "sh_noke", foes = { "noke" }, digs = 3,
                 boss_name = "Noke", optional_fight = true,
                 goal = { name = "Face Noke", line = "Goal: get the wand from Noke.",
                          win = "Noke breaks and runs for the top platform.", lose = "Noke drives them back down the slope, laughing.",
@@ -190,7 +190,8 @@ M.places = {
       spots = { "bed", "wardrobe" }, exits = { { to = "hall" } },
       scene = { type = "combat", setting = { "indoor" }, sum = "Noke's last trick.", foes = { "bed_dragon" },
                 foes_name = "The bed dragon", foes_short = "the bed dragon", boss_name = "the bed dragon",
-                foes_line = "The big bed in the corner creaks, all by itself.", seen = false,
+                foes_line = "The big bed against the far wall creaks, all by itself.", seen = false,
+                wakes = { feature = "bed", at = { bed_dragon = { 10, 3 } } },
                 wake = "The bed rears up on its legs: carved wood for scales, sheets for wings, a pillow on its tail.",
                 goal = { name = "Stop Noke", line = "Goal: get the wand, and decide what to do with it.",
                          win = "The dragon falls apart into a broken bed, and the wand rolls loose across the floor.",
@@ -198,6 +199,8 @@ M.places = {
                          got = "the wand" } } },
 }
 M.start = "inn_common"
+-- The prep board's story column before anything's happened.
+M.story_start = "An afternoon off at the Bogden Road Country Inn, where the Bogden road meets the lord's road."
 
 -- People ----------------------------------------------------------------------------------------------------------
 -- tier: named (the book's own), local (from a type template), crowd. stats: a core block by name with tweaks, or
@@ -328,16 +331,19 @@ M.events = {
       text = "Hooves on the boards, yelps, frantic bleating: a sheep comes through the crowd at a run, a fancy scroll in "
           .. "its teeth, and makes straight for their table." },
     { id = "scroll_read", at = "inn_common", when_in = "start", page = 2, party = true, title = "The scroll",
-      actor = { "storyteller" },
+      actor = { "storyteller", "explorer", "method_actor", "casual" },
       text = "The sheep drops the scroll in {actor_char}'s lap and stares up, waiting. The wax seal says Speak with "
           .. "Animals, modified.",
       options = {
           { label = "Break the seal and read it aloud.", want = "read the scroll and see what happens", short = "read it",
             lean = "look", log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
             mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "read" },
-          { label = "Leave it sealed. Magic scrolls from strange sheep are trouble.", want = "leave the scroll alone",
-            short = "leave it", lean = "safe",
-            log = "The scroll stays sealed. The sheep butts it at their hands again, bleating, desperate." },
+          { label = "Check it over before anyone reads it.", want = "check the scroll over before anyone reads it",
+            short = "check it first", lean = "safe",
+            roll = { dc = 8, skill = { "arcana", "investigation" },
+                     success = { log = "A real scroll, a little odd, and nothing nasty in it. They break the seal. The bleating turns into Common, with an elven accent.",
+                                 mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "check" },
+                     fail = { log = "Nobody can make head or tail of the seal, so it stays shut. The sheep butts it at their hands again, bleating, desperate." } } },
       } },
     { id = "guz_arrives", at = "inn_common", when_in = "mid", required = true, page = 2, party = true, title = "Noke's man",
       actor = { "tactician", "butt_kicker", "method_actor" },
@@ -360,6 +366,18 @@ M.events = {
       } },
     { id = "hood_falls", at = "inn_common", trigger = { on = "fight", event = "guz_arrives" }, page = 2,
       text = "The cloaked figure throws back its hood with a roar: a bear.", sets = { "bear_seen" } },
+    -- (Ours: a sheep that won't give up. A table that left the scroll sealed gets it back once the fuss is over.)
+    { id = "scroll_again", at = "inn_common", when_in = "end", only_if = { not_flag = { "understood", "taken" } }, ours = true,
+      party = true, title = "The scroll, again", actor = { "storyteller" },
+      text = "Once it's quiet, the sheep noses the scroll back into {actor_char}'s hands and holds it there with one hoof.",
+      options = {
+          { label = "All right. Break the seal and read it.", want = "read the scroll this time", short = "read it", lean = "look",
+            log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
+            mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "read" },
+          { label = "Still no. Let it follow if it wants.", want = "leave the scroll sealed and let the sheep tag along",
+            short = "leave it", lean = "safe",
+            log = "The scroll goes in a pack, still sealed. The sheep follows them out onto the road, bleating at every step." },
+      } },
     { id = "the_story", at = "inn_common", when_in = "end", only_if = { flag = "understood", not_flag = "taken" }, pages = { 3 },
       type = "story", title = "Shinebright's story", actor = { "storyteller", "casual", "explorer" },
       text = "Shinebright tells it all, at length: the tower in the oaks, the wand, the apprentice who turned it on him. He "
@@ -400,12 +418,24 @@ M.events = {
           { label = "Refuse. They're taking the wand.", want = "refuse him and go for the wand", short = "refuse", lean = "bold",
             log = "Noke's hand goes to his sleeve, and the air starts to fizz.", mus = { fight = true } },
           { label = "Hear him out first.", want = "hear his side before anyone casts anything", short = "hear him out", lean = "talk",
-            log = "It comes out of him in a rush: years of chores, a master who never once called him a wizard. Then he "
-                .. "remembers who they've brought with them, and the air starts to fizz.",
-            tells = { "noke_why" }, tells_how = "ask", mus = { fight = true, flag = "heard_noke" } },
+            log = "It comes out of him in a rush: years of chores, a master who never once called him a wizard. \"Take the "
+                .. "wand if you like,\" he says. \"See what it makes of you. It's not the wand it was.\" Then he remembers "
+                .. "who they've brought with them, and the air starts to fizz.",
+            tells = { "noke_why", "wand_unreliable" }, tells_how = "ask", mus = { fight = true, flag = "heard_noke" } },
       } },
     { id = "noke_flees", at = "hall", trigger = { on = "fight", turn = "lost or someone close" }, page = 5,
       text = "Noke casts, blurs away into the hall, and locks the door behind him." },
+    { id = "hall_search", at = "hall", when_in = "end", page = 6, party = true, title = "Noke's things",
+      actor = { "explorer", "power_gamer", "instigator" },
+      text = "With Noke gone up the slope, the hall is theirs: the library, the lab, and everything he bought with his "
+          .. "master's money.",
+      options = {
+          { label = "Search the place, quickly.", want = "search the hall before going after him", short = "search it", lean = "look",
+            log = "Lab gear worth a small fortune, and on the library shelves, a second scroll with the same seal as the first.",
+            mus = { flag = "looted" }, tells = { "second_scroll" }, tells_how = "check" },
+          { label = "Leave it. Noke first.", want = "go straight after Noke", short = "after him", lean = "bold",
+            log = "No time for the shelves. Up the slope, after him." },
+      } },
     { id = "bed_dragon", at = "bedroom", when_in = "start", required = true, page = 5, type = "story", title = "The bed",
       text = "Up the slope to the top platform. The bedroom roof bursts open as they get there: Noke rides out on his bed, "
           .. "and the bed is a dragon now." },
@@ -415,6 +445,7 @@ M.events = {
     { id = "wand_touched", trigger = { on = "choice", choice = "pick up or handle the wand" }, page = 6,
       text = "The wand sparks under their fingers, not the way magic should." },
     { id = "the_spell", at = "bedroom", when_in = "end", page = 6, party = true, title = "The wand",
+      risks = "shinebright",      -- (the risk is his, not theirs: a hurt hero doesn't make anyone shy of it)
       actor = { "storyteller", "tactician", "method_actor" },
       text = "The wand sparks in {actor_char}'s hand, not the way magic should. Shinebright looks up at them. \"If this "
           .. "kills me,\" he says, \"tell my college.\"",

@@ -899,7 +899,9 @@ function M.find_room(night, sc, phase)
     if not sc or night.end_early or sc.boss or sc.showdown or sc.epilogue or night.fast then
         return 0
     end
-    if (sc.finds or 0) >= M.FIND_PER_ROOM then
+    -- (A room can hold more to dig for than one try: an adventure's scene says how many, `digs`.)
+    local room = sc.room and util.lazy("game.model.adventure").data.rooms[sc.room]
+    if (sc.finds or 0) >= ((room and room.digs) or M.FIND_PER_ROOM) then
         return 0
     end
     if (night.table_min or 0) > (night.table_planned or 210) - 30 then

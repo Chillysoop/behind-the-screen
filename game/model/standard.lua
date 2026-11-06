@@ -125,7 +125,8 @@ function M.cards(mod)
         local fits = { sc.type or "exploration" }
         table.insert(out, { id = card_id(mod, pl.id, "place"), kind = "location", short = util.lower_first(pl.name), name = pl.name,
                             setting = sc.setting or { "indoor" }, fits = fits, tags = sc.tags or { "explore" },
-                            line = aloud(pl.read), again = aloud(sc.again) })
+                            line = aloud(pl.read), again = aloud(sc.again),
+                            board = sc.board or ((mod.id or "adv") .. "_" .. pl.id) })
         if sc.cast then
             local p = person(mod, sc.cast) or {}
             table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = p.short or p.name or sc.cast, pronoun = p.pronoun,
@@ -226,10 +227,18 @@ local function moment_of(mod, ev, rooms)
     if #opts == 0 then
         opts = { { label = "Go on.", short = "go on", lean = "safe", effects = {} } }
     end
+    -- (What the event itself tells the table, whichever way it goes: Shinebright's story.)
+    if ev.tells then
+        for _, o in ipairs(opts) do
+            if not o.tells then
+                o.tells, o.tells_how = ev.tells, o.tells_how or "moment"
+            end
+        end
+    end
     return {
         id = ev.id, room = at, at = when, type = ev.type or (#(ev.options or {}) > 0 and "choice" or "story"),
         actor = ev.actor or { "storyteller", "explorer", "casual" }, party = ev.party, title = ev.title or ev.id,
-        text = ev.text, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells,
+        text = ev.text, when = ev.only_if, options = opts, page = ev.page, tells = ev.tells, risks = ev.risks,
         mus = ev.sets and { flag = ev.sets[1] } or nil, book = true,
     }
 end
@@ -292,8 +301,16 @@ function M.compile(src)
             quick = sc.quick, at = sc.at_map or { 50, 98 - (i - 1) * 14 }, map = sc.map or pl.name, comps = comps,
             encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest,
-            level = sc.level, statues = nil, pages = pl.pages,
+            level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs,
         }
+        -- (A piece of the board that gets up as the fight starts: the bed. fight.lua's wake.)
+        if sc.wakes then
+            local at = {}
+            for cid, xy in pairs(sc.wakes.at or {}) do
+                at[M.creature_id(mod, cid)] = xy
+            end
+            mod.rooms[pl.id].wake = { feature = sc.wakes.feature, at = at }
+        end
         table.insert(mod.order, pl.id)
         for _, n in ipairs(nxt) do
             table.insert(mod.links, { pl.id, n })
@@ -305,6 +322,20 @@ function M.compile(src)
     for id, block in pairs(M.creatures(src, roster)) do
         if not roster[id] then
             roster[id] = block
+        end
+    end
+    -- (Each hero's reasons for coming, as game night reads them: where it pays off (the first scene unless it says),
+    -- how strongly the player leans to it, and what they say about it.)
+    mod.hooks = {}
+    for key, list in pairs(src.hooks or {}) do
+        mod.hooks[key] = {}
+        for _, hk in ipairs(list) do
+            local h = util.copy(hk)
+            h.room = (h.room and mod.rooms[h.room]) and h.room or mod.start
+            h.lean = h.lean or (#list == 1 and 2 or 1)
+            h.says = h.says or h.intro or h.text
+            h.payoff = h.payoff or h.text
+            table.insert(mod.hooks[key], h)
         end
     end
     -- (Each creature's pronoun, for the lines that name it: its own, or the person whose stats it is. util.pronoun_of.)

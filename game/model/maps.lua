@@ -142,6 +142,10 @@ function M.auto_template(campaign, loc, scene_type)
         if t.by_location[loc.id] then
             return t.by_location[loc.id]
         end
+        -- (A place that names its own board: an adventure in the standard's form, game/model/standard.lua.)
+        if loc.board and require("game.data.boards")[loc.board] then
+            return loc.board
+        end
         for _, pair in ipairs(M.BY_SETTING) do
             if util.contains(loc.setting or {}, pair[1]) then
                 return pair[2]

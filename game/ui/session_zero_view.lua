@@ -317,7 +317,7 @@ function M.build_all(app)
     -- and what their Session Zero lines can name. The knowledge check, class 5.)
     local told = content.session_zero and content.session_zero.told
     kit.text(280, told and 14 or 24, (told and (told .. " Now") or "Before the first night,")
-        .. " everyone talks it through: how the museum should feel, what's off the table, how you'll run it.",
+        .. " everyone talks it through: how the game should feel, what's off the table, how you'll run it.",
         "ui18", theme.dim, { w = 1300, lines = 2 })
     pitch(app, c)
     asks(app, c)

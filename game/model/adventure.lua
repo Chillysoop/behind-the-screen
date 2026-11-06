@@ -671,8 +671,13 @@ function M.test(campaign, cond, knobs, hero)
     if cond.knew and not (campaign.lore and campaign.lore[cond.knew]) then
         return false
     end
-    if cond.flag and not st.flags[cond.flag] then
-        return false
+    -- (A flag, or a list of them: every one set.)
+    if cond.flag then
+        for _, f in ipairs(type(cond.flag) == "table" and cond.flag or { cond.flag }) do
+            if not st.flags[f] then
+                return false
+            end
+        end
     end
     if cond.mark and not st.marks[cond.mark] then
         return false
@@ -681,8 +686,13 @@ function M.test(campaign, cond, knobs, hero)
         return false
     end
     -- (And the other way round, and what the DM chose on a card: { card id, option number }.)
-    if cond.not_flag and st.flags[cond.not_flag] then
-        return false
+    -- (A flag, or a list of them: none set.)
+    if cond.not_flag then
+        for _, f in ipairs(type(cond.not_flag) == "table" and cond.not_flag or { cond.not_flag }) do
+            if st.flags[f] then
+                return false
+            end
+        end
     end
     if cond.not_mark and st.marks[cond.not_mark] then
         return false
@@ -1542,6 +1552,10 @@ end
 -- Euryale's card: her base, and every mark with why it's there and what it does on boss night.
 function M.boss_card(campaign)
     local st = campaign.adv
+    -- (An adventure without a villain's card: none. The museum's is Euryale's.)
+    if not (MODULE.base and MODULE.marks) then
+        return nil
+    end
     local marks = {}
     for _, id in ipairs(st.mark_list) do
         local m = MODULE.marks[id]

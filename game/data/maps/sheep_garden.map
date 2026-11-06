@@ -1,0 +1,62 @@
+-- The garden platform (the book's map of Noke's Tower, the round platform with the trees), redrawn in our
+-- pieces, about ten feet up. The ramp from the lawn comes up in the south; the hall's locked door is at
+-- the north-west, where the bridge to the hall starts. Everything past the branches is a drop.
+
+id: sheep_garden
+tight: yes
+title: The garden platform
+light: day
+adventure: sheep
+room: garden
+source: adventure
+credit: The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild): Noke's Tower map, the garden platform
+about: The lowest platform: flowers and small trees, a big oak in the middle, the hall's door.
+tags: outdoors, tower, garden, puzzle
+order: 4
+party: 11,12
+foes: 9,5
+npc: 10,7
+
+grid:
+|     HHHHHHHHHH     |
+|   HHD........HHH   |
+|  HH....**......HH  |
+| HH...t..........HH |
+| H............t...H |
+|HH.........G......HH|
+|H..**..........*...H|
+|HH.............*..HH|
+| H...t............H |
+| HH..........t...HH |
+|  HH....**......HH  |
+|   HHH........HHH   |
+|     H........H     |
+
+legend:
+-- char | kind | feature | turn
+H       | hedge           | edge       | 
+D       | wall_door       | door       | auto
+G       | oak             | big_oak    | 
+t       | oak             | trees      | 
+*       | bush            | flowers    | 
+
+pieces:
+-- feature | kind | x,y | turn
+ground     | floor_grass  | 1,1 | 
+
+features:
+-- id | flags | words | say
+ground     | base      | platform, garden, grass | a garden grown on a platform of woven branches
+edge       | base      | branches, edge, rail | curling branches round the edge
+door       | base      | door, hall door, oak door | a heavy oak door into the hall
+big_oak    |           | oak, tree, big tree | a big oak growing up through the middle
+trees      |           | trees, small trees | small trees
+flowers    | own_words | flowers, flower beds, beds | flower beds
+
+spots:
+-- key | x,y | name | line | form
+door | 6,3 | the hall door | Heavy oak, iron bands, and a lock. The bridge to the hall starts here. | one fixture
+big_oak | 12,7 | the big oak | One of the tower's four oaks, growing straight up through the platform. | one fixture
+flowers | 10,4 | the flower beds | Somebody looks after these. Every bloom is perfect. | many fixtures
+edge | 17,8 | the edge | Curling branches, and a long drop to the lawn below. | one area
+ramp | 10,12 | the top of the ramp | Where the ramp of roots comes up from the lawn. | one area

@@ -948,6 +948,10 @@ function M.play_moment(night, card, sc)
     M.soft_check(night, card.text_if)
     copy.text = adventure.text(night.campaign, { text = copy.text, text_if = card.text_if }, "text", { knobs = knobs_of(night) }, copy.text)
     copy.trigger = copy.trigger or "museum"
+    -- (An adventure's event, played: the secrets that come out when it happens. A secret's `event` way out names it.)
+    if card.book and not (sc and sc.revisit and st.seen[card.id]) then
+        require("game.model.secrets").event(night.campaign, card.id)
+    end
     -- What fair warning is judged against (warnings.lua): this moment, its danger.
     night.moment_key, night.moment_what = card.id, card.danger
     night.party_choice = card.party and true or nil
@@ -5294,7 +5298,7 @@ M.WEEKLY = {
     ask_look = { "{name} looks up from the map", "{name} turns to you", "{name} glances over the screen at you",
                  "{name} taps the table and looks at you" },
     -- (a hero's reason for coming, right here)
-    thread = { "{name} sits up. This is what {char} came to the museum for.", "{name} leans in. This is why {char} is here.",
+    thread = { "{name} sits up. This is the thing {char} came here for.", "{name} leans in. This is why {char} is here.",
                "{name} goes very still. This is what {char} came for." },
     -- (a room you never read: the first tonight, then any after it)
     skim = { "You never read this room properly. You skim the page while they wait.",

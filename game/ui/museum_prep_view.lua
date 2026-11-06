@@ -700,6 +700,9 @@ end
 function M.boss_card(app, x, y, w, h, big, opts)
     local c = app.campaign
     local card = adventure.boss_card(c)
+    if not card then
+        return 0
+    end
     if opts and opts.fit and #card.marks > 0 then
         local head = (big and 70 or 58) + kit.text_height(card.line, "ui14", w - 32) + 10 + 22
         local tw = w - 46
@@ -1294,8 +1297,11 @@ local function top_bar(app, prep)
     local left = prep:left()
     kit.text(900, 14, "PREP HOURS", "ui14", theme.dim)
     kit.text(900, 32, util.int(left) .. " of " .. util.int(prep.budget) .. " left", "ui18b", left > 0 and theme.text or theme.orange)
-    kit.text(1060, 14, "FRANCS", "ui14", theme.dim)
-    kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
+    -- (The adventure's own currency, when it has one: the museum's Francs.)
+    if adventure.data.currency then
+        kit.text(1060, 14, string.upper(adventure.data.currency.many or "Coins"), "ui14", theme.dim)
+        kit.text(1060, 32, util.int(c.adv.francs or 0), "ui18b", theme.gold)
+    end
     local warnings = require "game.model.warnings"
     local nw = warnings.count(c)
     kit.text(1130, 14, "WARNINGS", "ui14", theme.dim)
@@ -1339,9 +1345,9 @@ local function left_column(app, prep)
     y = y + 22
     local lines = adventure.story_so_far(c)
     if #lines == 0 then
-        kit.text(x, y, "Nothing yet. A gnome's museum has just rolled into town, and everyone's talking about it.", "ui18", theme.text,
-            { w = w })
-        y = y + kit.text_height("Nothing yet. A gnome's museum has just rolled into town, and everyone's talking about it.", "ui18", w) + 12
+        local first = "Nothing yet. " .. (adventure.data.story_start or "The story starts tonight.")
+        kit.text(x, y, first, "ui18", theme.text, { w = w })
+        y = y + kit.text_height(first, "ui18", w) + 12
     else
         for i = math.max(1, #lines - 4), #lines do
             local l = lines[i]
@@ -1352,8 +1358,8 @@ local function left_column(app, prep)
         y = y + 6
     end
     local card = adventure.boss_card(c)
-    local h = math.min(870 - y - 150, 150 + #card.marks * 62)
-    if not prep.museum.boss then
+    local h = math.min(870 - y - 150, 150 + #(card and card.marks or {}) * 62)
+    if card and not prep.museum.boss then
         M.boss_card(app, x, y, w, math.max(170, h), false)
         y = y + math.max(170, h) + 16
     end

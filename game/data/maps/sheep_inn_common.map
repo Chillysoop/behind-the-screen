@@ -1,0 +1,80 @@
+-- The Bogden Road Country Inn's common room (the inn sheet's first floor plan), redrawn in our pieces. North
+-- is up, as the sheet has it: the kitchen and the back bar along the west wall, the square bar in the
+-- north, long tables to the east, the hearth in the middle, round tables round it, and the door to the road
+-- in the south-east. The south wall is left off: the DM's side. The cellar trapdoor and the loading yard
+-- aren't on this board.
+
+id: sheep_inn_common
+title: The common room
+light: hearth
+adventure: sheep
+room: inn_common
+source: adventure
+credit: The Bogden Road Country Inn sheet for The Wild Sheep Chase (DMs Guild): the first floor
+about: Tables round a big hearth, a square bar, the back bar and the kitchen, and the door to the road.
+tags: indoor, inn, start, social
+order: 1
+party: 10,9
+foes: 18,11
+npc: 9,3
+
+grid:
+|####W####W####W#####|
+|#.....BBBBB..LL.LLw#|
+|#h.C..B...B........#|
+|#h.C..BB.BB..LL.LL.#|
+|#h.C...............#|
+|#h.C.....HH.....LL.#|
+|#h.C..o......o.....#|
+|#h.C...............#|
+|#..............o...#|
+|#SS....o...o.......#|
+|#SS................D|
+|#SS.............nn.#|
+|#..................#|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+W       | wall_window     | windows    | auto
+D       | wall_door       | door       | auto
+h       | wall_shelf      | kitchen    | auto
+C       | counter         | back_bar   | 
+B       | bar             | bar        | 
+L       | table_long      | tables     | 
+H       | hearth          | hearth     | 
+o       | table_round     | round_tables | 
+w       | wardrobe        | cloaks     | 
+S       | stairs_straight | stairs     | 0
+n       | bench           | benches    | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_boards | 1,1 | 
+
+features:
+-- id | flags | words | say
+floor      | base      | floor, floorboards, common room | a floor of old boards
+walls      | base      | walls, inn | thick old walls
+windows    | base      | window, windows | small windows onto the road
+door       | base      | door, front door | the door to the road
+hearth     |           | hearth, fire, fireplace | a big hearth in the middle of the room
+bar        | own_words | bar, taps, mugs, ale | a square bar with the taps on every side
+back_bar   | own_words | back bar, bar, counter | a second bar along the kitchen wall
+kitchen    | own_words | kitchen, pots, shelves | the kitchen's shelves of pots and jars
+tables     |           | long tables, tables, benches | long tables of travellers
+round_tables |           | tables, stools | round tables and stools
+cloaks     | own_words | cloakroom, cloaks, pegs | a cloakroom of wet cloaks
+stairs     |           | stairs, upstairs | stairs up to the rooms
+benches    |           | bench, benches | benches by the door
+
+spots:
+-- key | x,y | name | line | form
+hearth | 10,7 | the hearth | A big fire in the middle of the room, chairs pulled up close round it. | one fixture
+bar | 9,5 | the square bar | Taps on all four sides, and Teddy in the middle of it, polishing a mug. | one fixture
+back_bar | 5,5 | the back bar | A long bar along the kitchen wall, for whoever wants a quieter drink. | one fixture
+kitchen | 3,6 | the kitchen | Pots on every hook and a smell of roasting venison. | one area
+tables | 16,5 | the long tables | Travellers in no hurry to leave, and a noble or two among them. | many fixtures
+cloakroom | 18,3 | the cloakroom | Pegs of wet cloaks and a heap of muddy boots. | one area
+door | 19,11 | the front door | The way in from the road, propped open on the evening. | one fixture
+stairs | 4,11 | the stairs | Stairs up to the bedrooms and the sitting room. | many fixtures

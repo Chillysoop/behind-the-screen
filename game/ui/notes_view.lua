@@ -11,18 +11,29 @@ local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
 local panels = require "game.ui.panels"
+local adventure = require "game.model.adventure"
 
 local M = {}
 
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge.
-local TABS = { { "museum", "The museum" }, { "upstairs", "Upstairs" }, { "session", "This session" },
+local TABS = { { "museum", "The adventure" }, { "upstairs", "Upstairs" }, { "session", "This session" },
                { "people", "People" }, { "log", "Session log" }, { "party", "The party" } }
 M.TABS = TABS
+-- (The tabs this adventure has: "Upstairs" is the villain's card, and an adventure without one has no such tab.)
+local function tabs_now(app)
+    local out = {}
+    local card = app and app.campaign and adventure.boss_card(app.campaign)
+    for _, t in ipairs(TABS) do
+        if t[1] ~= "upstairs" or card then
+            table.insert(out, t)
+        end
+    end
+    return out
+end
 
--- The museum, room by room: the map, what each room left behind, and why the heroes came.
+-- The adventure, room by room: the map, what each room left behind, and why the heroes came.
 local function tab_museum(app, x, y, w, h)
-    local adventure = require "game.model.adventure"
     local MODULE = adventure.data
     local c = app.campaign
     local st = c.adv
@@ -127,8 +138,8 @@ local function tab_museum_people(app, x, y, w, h)
         end
     end
     if unmet > 0 then
-        kit.text(x, y, unmet == 1 and "One more person in the museum they haven't met yet." or
-            (util.int(unmet) .. " more people in the museum they haven't met yet."), "ui18", theme.faint, { w = w })
+        kit.text(x, y, unmet == 1 and "One more person here they haven't met yet." or
+            (util.int(unmet) .. " more people here they haven't met yet."), "ui18", theme.faint, { w = w })
     end
 end
 
@@ -173,7 +184,7 @@ local function tab_session(app, x, y, w)
     local MODULE = adventure.data
     local col_w = 640
     local ly = y
-    kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF THE MUSEUM", "ui14", theme.dim)
+    kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF " .. string.upper(adventure.data.title or "the adventure"), "ui14", theme.dim)
     ly = ly + 20
     -- (A long "At a fork: ..." in a smaller hand rather than cut.)
     local where = adventure.where(c)
@@ -427,7 +438,7 @@ function M.draw(app)
     kit.text(X + 24, Y + 14, "YOUR NOTES", "title30", theme.gold)
     local tab = app.notes_tab or "session"
     local known = false
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         known = known or t[1] == tab
     end
     if not known then
@@ -436,7 +447,7 @@ function M.draw(app)
     end
     -- The tabs down the left, like a binder's dividers.
     local ty = Y + 76
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         local on = tab == t[1]
         kit.button(X + 14, ty, 168, 38, t[2], function()
             app.notes_tab = t[1]
@@ -446,7 +457,7 @@ function M.draw(app)
         ty = ty + 44
     end
     local title = ""
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         if t[1] == tab then
             title = t[2]
         end

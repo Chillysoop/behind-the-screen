@@ -58,7 +58,7 @@ local function wrapup_items(app, rep)
             rep.table_said = true
         end
         if mu.ending then
-            table.insert(items, { "The museum is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
+            table.insert(items, { (MODULE.title or "The adventure") .. " is done. Ending: " .. MODULE.endings[mu.ending].name .. ".", theme.gold })
             -- (Out of sessions, nothing at the table said so: the report does, with Flitwidget's word.)
             if mu.ending == "timeout" then
                 local e = MODULE.endings.timeout
@@ -121,7 +121,7 @@ local function wrapup_items(app, rep)
                 or { "A harsh call" .. at .. " felt arbitrary. Nobody had been warned.", theme.orange })
         end
         if mu.stopped then
-            table.insert(items, { "You stopped mid-museum: " .. mu.stopped .. " is still ahead.", theme.dim })
+            table.insert(items, { "You stopped partway: " .. mu.stopped .. " is still ahead.", theme.dim })
         end
     end
     -- (A sentence like the rest, without a stray dash before it: the confirming playtest.)

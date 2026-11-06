@@ -34,7 +34,20 @@ for img in string.gmatch(io.open("assets/ui/ui.atlas"):read("*a"), '/assets/ui/(
 for img in string.gmatch(io.open("assets/portraits/portraits.atlas"):read("*a"), '/assets/portraits/([%w_]+)%.png') do ATLAS[img] = true end
 
 local problems = {}
+-- (Run against another adventure, ADVENTURE=<id>: the steps that work the museum's own rooms, people and
+-- villain's card (the Hall of Paintings' door, Flitwidget's sheet, Euryale's marks, boss night) don't apply; a crash,
+-- a stuck screen or a night that never ends still does.)
+local MUSEUM_ONLY = { "Hall of Paintings", "Euryale", "Flitwidget", "boss night", "side room", "lock", "tie",
+                      "room to set a map", "setting a room's map", "cut a card", "garden's map" }
 local function problem(msg)
+    local adv_now = package.loaded["game.model.adventure"]
+    if adv_now and adv_now.current() ~= "museum" then
+        for _, w in ipairs(MUSEUM_ONLY) do
+            if string.find(msg, w, 1, true) then
+                return
+            end
+        end
+    end
     if #problems < 30 then table.insert(problems, msg .. "\n" .. debug.traceback("", 2)) end
 end
 
@@ -891,7 +904,7 @@ end
 -- The notice, then Session Zero.
 if not click_key("agree") then problem("no prototype notice") end
 dump("0_title")
-if not has_text("Museum of Nightmares") then problem("the notice doesn't name the adventure") end
+if not has_text(require("game.model.adventure").data.title) then problem("the title doesn't name the adventure") end
 -- The main menu (November 3): with no saves, only New game; Load and Continue wait for a save.
 if has_key("load_game") or has_key("continue") then problem("the title offers to load or continue with no saves") end
 if not click_key("session_zero") then problem("no Session Zero button on the title") end
