@@ -52,7 +52,8 @@ M.VERB = {}
 for _, list in ipairs({ M.DOES, M.SHOWS, { "listens", "folds", "has", "sits", "starts", "stares", "waits", "leaves", "comes",
                                            "makes", "gets", "lets", "puts", "kneels", "wipes", "sets", "tries", "finds",
                                            "closes", "shuts", "drops", "nudges", "lays", "slides", "brings", "carries",
-                                           "breathes", "blows", "catches", "keeps", "takes", "starts" } }) do
+                                           "breathes", "blows", "catches", "keeps", "takes", "starts", "scrambles", "hears", "creeps",
+                                           "backs", "ducks", "jumps", "leaps", "climbs" } }) do
     for _, v in ipairs(list) do
         if not string.find(v, " ") and not string.find(v, "%%") then M.VERB[v] = true end
     end
@@ -121,7 +122,7 @@ end
 
 -- Said by the hero's own player: "Thessaly unscrews a cupboard door and straps it to her pack." becomes "I'll
 -- unscrew a cupboard door and strap it to my pack." (their own pronouns only: another hero's "her" stays).
-function M.first_person(sentence, hero, pronoun)
+function M.first_person(sentence, hero, pronoun, others)
     local rest = string.sub(sentence, #hero + 2)
     local verb, after = string.match(rest, "^(%a+)(.*)$")
     if not verb then
@@ -144,10 +145,34 @@ function M.first_person(sentence, hero, pronoun)
     local own = (pronoun == "she" and { her = "my", herself = "myself", she = "I" })
         or (pronoun == "he" and { his = "my", himself = "myself", he = "I", him = "me" })
         or { their = "my", themselves = "myself", themself = "myself" }
-    out = string.gsub(out, "%f[%a](%a+)%f[%A]", function(w)
+    -- (Their pronouns until someone else is named: "a flower into Thessaly's notebook, marking the page she was
+    -- stuck on" keeps Thessaly's "she".)
+    local cut = #out + 1
+    for _, n in ipairs(others or {}) do
+        if n ~= hero then
+            local i = string.find(out, "%f[%a]" .. esc(n) .. "%f[%A]")
+            if i and i < cut then cut = i end
+        end
+    end
+    local head = string.sub(out, 1, cut - 1)
+    -- (Their contractions first: "before he's left" is "before I've left", "she's ready" "I'm ready".)
+    local subj = (pronoun == "she" and "she") or (pronoun == "he" and "he") or "they"
+    for _, pair in ipairs({ { "'s (%a+ed)%f[%A]", "'ve %1" }, { "'s (left)%f[%A]", "'ve %1" }, { "'s (gone)%f[%A]", "'ve %1" },
+                            { "'s (been)%f[%A]", "'ve %1" }, { "'s (got)%f[%A]", "'ve %1" }, { "'s (seen)%f[%A]", "'ve %1" },
+                            { "'s (done)%f[%A]", "'ve %1" }, { "'s%f[%A]", "'m" }, { "'d%f[%A]", "'d" }, { "'ll%f[%A]", "'ll" } }) do
+        head = string.gsub(head, "%f[%a]" .. subj .. pair[1], "I" .. pair[2])
+    end
+    head = string.gsub(head, "%f[%a]" .. subj .. "'re%f[%A]", "I'm")
+    head = string.gsub(head, "%f[%a](%a+)%f[%A]", function(w)
         return own[w] or w
     end)
+    out = head .. string.sub(out, cut)
+    out = string.gsub(out, "%f[%a]" .. esc(hero) .. "'s%f[%A]", "my")
     out = string.gsub(out, "%f[%a]" .. esc(hero) .. "%f[%A]", "me")
+    -- (A list of their moves: "creeps up to the curtain, listens, and scrambles back down".)
+    out = string.gsub(out, ", (%a+s)%f[%A]", function(v)
+        return M.VERB[v] and (", " .. M.base(v)) or nil
+    end)
     for a, b in pairs({ ["doesn't"] = "not", ["hasn't"] = "haven't", ["isn't"] = "I'm not", ["wasn't"] = "wasn't" }) do
         out = string.gsub(out, "%f[%a]" .. a .. "%f[%A]", b)
     end
@@ -246,7 +271,7 @@ function M.split(text, people, last)
                         handled = true
                         local echo = last and last.who == p.key and M.overlap(last.text, s)
                         if not echo then
-                            local fp = M.first_person(s, p.hero, p.pronoun)
+                            local fp = M.first_person(s, p.hero, p.pronoun, names)
                             if fp then
                                 flush()
                                 table.insert(out, { kind = "say", who = p.key, ic = true, text = fp, announce = true })

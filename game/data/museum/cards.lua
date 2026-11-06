@@ -448,7 +448,7 @@ M.goal_play = {
             -- (What it does to a reader is the roll's to say, p22, not the friend's before it.)
             { skill = "arcana", say = "I want a proper look at this writing. What language is it even in?",
               win = "{char} gets one thing from it: whatever wrote this wasn't thinking like a person. Look at one line too long and your head spins.",
-              lose = "{char} reads one line too many and has to sit down." },
+              lose = "One line too many, and {char} has to sit down." },
         },
         moment = { text = "{actor_char} opens the archivist's notebook and starts to read.", skill = { "investigation", "arcana", "religion" } },
         talk = { "I'm going to need a minute after that body.", "A whole study of notes. I could live in here. Not with him, but in here." },

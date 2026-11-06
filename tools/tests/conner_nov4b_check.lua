@@ -293,18 +293,22 @@ case("L", function()
     RX, RW = tonumber(RX), tonumber(RW)
     local tag_off = tonumber(string.match(psrc, "chip%.ic_x, chip%.ic_y = x %+ w, y %- (%d+)"))
     local cap = tonumber(string.match(src, "local CAPTION_BOTTOM, CAPTION_W = (%d+)"))
-    local floor_s = string.match(src, "local floor = col_x and %(CHIP_Y %- ([%w_]+)%)")
-    local floor_off = tonumber(floor_s) or tonumber(string.match(src, "local " .. tostring(floor_s) .. " = (%d+)"))
+    -- (Since November 6 a friend's words come from their seat, never their tile: the bubbles' floor sits above the
+    -- tiles' speaking tags, and nothing anchors a friend's words to their tile any more.)
+    local extra = tonumber(string.match(src, "local floor = CHIP_Y %- TAG_CLEAR %- (%d+)"))
+    local clear = tonumber(string.match(src, "local TAG_CLEAR = (%d+)"))
+    local floor_off = extra and clear and (extra + clear)
     add("L", "bands_measured")
     if not (PY and tag_off and cap and floor_off) then
         fail("L", "the screen's bands couldn't be read")
     else
         local tag_top, bubble_floor = PY - tag_off, PY - floor_off
         if bubble_floor > tag_top - 4 then
-            fail("L", "a friend's speech above their tile reaches down over the IN/OUT OF CHARACTER tag")
+            fail("L", "a friend's speech reaches down over the IN/OUT OF CHARACTER tag")
         end
-        if cap > bubble_floor - 66 then
-            fail("L", "the DM's caption sits in the band the friends' speech above their tiles uses")
+        local ax = string.match(src, "local function anchor_xy%(app, a%)(.-)\nend")
+        if not ax or string.find(ax, "panels.anchor", 1, true) then
+            fail("L", "a friend's words can still come from their tile, not their seat")
         end
     end
     local dy = string.match(src, "function M%.dying%(app, id%)(.-)\nend")

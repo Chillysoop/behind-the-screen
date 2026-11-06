@@ -606,14 +606,24 @@ table.insert(watchers, function(R, N, ev)
             end
         end
         N.party_card, N.proposal = nil, nil
-    elseif N.backers and night.actor and (ev.kind == "narrate" or ev.kind == "roll_where" or ev.kind == "roll") then
+    elseif N.backers and night.actor and ((ev.kind == "say" and ev.announce)
+            or ((ev.kind == "narrate") and ev.text and string.find(ev.text, night.actor.char, 1, true))
+            or ev.kind == "roll_where" or ev.kind == "roll") then
+        -- (Whoever does it: the player who announces it (game/model/agency.lua: players announce, the DM answers),
+        -- the hero a DM line has doing it, or whoever rolls for it.)
+        local doer = night.actor
+        if ev.kind == "say" then
+            for _, p in ipairs(night.players) do
+                if p.key == ev.who then doer = p end
+            end
+        end
         local ok = false
         for _, p in ipairs(N.backers) do
-            ok = ok or p == night.actor
+            ok = ok or p == doer
         end
         add("F18", "party_calls_acted_on")
         if not ok then
-            fail("F18", N.tag .. ": " .. tostring(night.actor and night.actor.char) .. " acts on a call their player voted against")
+            fail("F18", N.tag .. ": " .. tostring(doer and doer.char) .. " acts on a call their player voted against")
         end
         N.backers = nil
     end
@@ -845,7 +855,7 @@ table.insert(watchers, function(R, N, ev)
     end
     if N.away then
         local who = (ev.kind == "check" or ev.kind == "roll" or ev.kind == "roll_where") and (ev.actor)
-            or (ev.kind == "say" and ev.ic and ev.who) or nil
+            or (ev.kind == "say" and ev.ic and not ev.alone and ev.who) or nil
         if who and N.away[who] then
             fail("F11", N.tag .. ": " .. who .. "'s hero wandered off, and acts in the scene they left (" .. ev.kind
                 .. (ev.text and (": '" .. ev.text .. "'") or "") .. ")")

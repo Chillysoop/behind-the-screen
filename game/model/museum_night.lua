@@ -3826,7 +3826,7 @@ function M.side_room(night, sd)
         local card = { id = "mus_side_" .. sd.side .. "_" .. util.int(shown), type = "story", trigger = "museum",
                        actor = { "explorer", "storyteller", "instigator" },
                        title = pl.name or "A closer look",
-                       text = (pl.line and (pl.line .. " ") or "") .. "{actor_char} wants a closer look.",
+                       text = (pl.line and (pl.line .. " ") or "") .. "\"Can I take a closer look?\" {actor} asks.",
                        options = {
                            { label = "Let them look.", roll = { dc = 12, skill = { "investigation", "perception" }, convenient = "success",
                                success = { log = "{actor_char} turns up something: a Flitwidget Franc, wedged where nobody looked.",

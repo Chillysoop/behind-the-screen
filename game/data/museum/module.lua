@@ -114,7 +114,7 @@ M.hooks = {
                                            "Dark magic or not, let's get on with it." } },
           intro = "The taverns say the museum's dark magic. Somebody should go in and hit the dark magic. I volunteered.",
           -- (Nothing they haven't seen yet: the hedges are hedges until they move. Conner's playtest, C4.)
-          payoff = "A whole garden inside a caravan, under a sky that twists. Brannoc grins: the taverns were right, this is dark magic." },
+          payoff = "A whole garden inside a caravan, under a sky that twists. The taverns were right: this is dark magic." },
     },
     jess = {
         { id = "charlatan", name = "A con", text = "The gnome is running a con, and Pip isn't in on it. Unacceptable.",
@@ -1234,7 +1234,7 @@ M.moments = {
       text = "While the others are still gathering their things, {actor_char} slips up the stairs alone. \"It's what {actor_char} would do,\" says {actor}, already halfway out of her chair.",
       options = {
           { label = "Let it ride. Run them alone for a bit.",
-            log = "{actor_char} creeps up to the curtain, hears a calm voice say {actor_char}'s name, and scrambles back down. {actor} laughs out loud. Everyone else waited ten minutes.",
+            log = "{actor_char} creeps up to the curtain. A calm voice on the other side says {actor_char}'s name, and that's enough: back down the stairs. \"Nope,\" {actor} says. Everyone else waited ten minutes.",
             effects = { { "actor", fun = 8, spotlight = 14 }, { "others", fun = -4, boredom = 8 } }, table_min = 10, mus = { risk = true, flag = "seen", aspect = "Went up the Gorgon's stairs alone" } },
           { label = "Rein them in, kindly, out of character.",
             log = "\"{actor_char} can scout next week, with the group.\" {actor} pouts, then laughs.",
@@ -1403,7 +1403,7 @@ M.explore = {
                 traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
                                      spot_dc = 13, hurt = { 1, 6 },
                                      hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks {actor_them} off {actor_their} feet. Something in the jungle chitters.",
-                                     dodge = "{actor_char} feels the vine tighten and steps out of the loop just in time.",
+                                     dodge = "The vine tightens, and {actor_char} steps out of the loop just in time.",
                                      spotted = "{actor_char} spots the loop of vine in the leaves and cuts it. Something in the jungle chitters, disappointed." } } },
     offices = { "drawings", "7A", looks = 1 },        -- (the eye on every wall is behind the locked door)
     tomorrow = { "cases", "console",

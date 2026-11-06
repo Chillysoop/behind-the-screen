@@ -254,7 +254,10 @@ function M:emit(ev)
                     e2.text, e2.agency_done = l.text, true
                     answer = self:emit(e2)
                 else
-                    answer = self:emit({ kind = "say", who = l.who, ic = l.ic, text = l.text, announce = l.announce })
+                    -- (A hero who's gone off alone says it in their own cut, not in the scene they left.)
+                    local split = self.scene and self.scene.split
+                    answer = self:emit({ kind = "say", who = l.who, ic = l.ic, text = l.text, announce = l.announce,
+                                         alone = split and split.away and split.away[l.who] or nil })
                 end
             end
             return answer

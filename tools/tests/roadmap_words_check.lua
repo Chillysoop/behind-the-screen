@@ -288,8 +288,8 @@ local function small_moments(run)
                     elseif q.k == "decision" and q.card == "tl_crit" then
                         m.crit = true
                         break
-                    elseif q.k == "say" and m.answer_at and CURIO_BY_ASK[q.text or ""] then
-                        break           -- (the next friend's poke, not a reaction)
+                    elseif q.k == "say" and m.answer_at and (CURIO_BY_ASK[q.text or ""] or (q.ev and q.ev.announce)) then
+                        break           -- (the next friend's poke, or a move of their own announced: not a reaction)
                     elseif q.k == "say" and m.answer_at and q.ev.who ~= m.who then
                         m.react = q.text
                         break
@@ -504,6 +504,8 @@ function CHECKS.F9(run)
     for i, r in ipairs(log) do
         if r.k == "decision" and r.card == "mus_office_door" then
             door_open[r.week] = true
+            -- (Open from then on, every week after too.)
+            for w = r.week + 1, r.week + 12 do door_open[w] = true end
         end
         if r.k == "decision" and r.card == "mus_office_inside" then
             if has(r.ctext, "bird") then

@@ -143,7 +143,15 @@ local function play(seed, style)
             local answer
             if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" then
                 local who = ev.kind == "say" and ev.who or (ev.kind == "npc" and ev.name) or ev.style
-                put({ kind = "line", w = w, who = tostring(who), text = ev.text, room = night.scene and night.scene.room })
+                local text = ev.text
+                -- (A player's announcement, "I'll pick the pages up": their hero's move, kept with the hero's name, as
+                -- the DM's line would have had it. game/model/agency.lua.)
+                if ev.kind == "say" and ev.announce then
+                    for _, p in ipairs(c.players) do
+                        if p.key == ev.who then text = p.char .. ": " .. text end
+                    end
+                end
+                put({ kind = "line", w = w, who = tostring(who), text = text, room = night.scene and night.scene.room })
             elseif ev.kind == "turn" then
                 put({ kind = "turn", w = w, who = ev.who and tostring(ev.who), steps = ev.steps or {} })
             elseif ev.kind == "battle" then

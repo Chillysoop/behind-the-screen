@@ -1002,7 +1002,7 @@ return {
           keepsake = "a loose blue mosaic tile from a Gorgon's floor" },
         { kind = "plan", who = "mara", lines = {
             "Thessaly writes 'EYES DOWN IF THE HOOD COMES OFF' on the back of her hand and shows it round.",
-            "Brannoc nods, looks straight up at Euryale, catches himself, and studies his boots very hard." } },
+            "Brannoc's eyes go straight up to Euryale before he catches himself and studies his boots very hard." } },
       },
     },
   },
