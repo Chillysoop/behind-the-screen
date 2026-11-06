@@ -34,6 +34,7 @@ local util = require "game.model.util"
 local talk_mod = require "game.model.talk"
 local pacing = require "game.model.pacing"
 local told = require "game.model.told"
+local agency = require "game.model.agency"
 local voice_of = require "game.model.voice"
 local fight = require "game.model.fight"
 local social = require "game.model.social"
@@ -232,6 +233,35 @@ function M.hero_voiced(text)
 end
 
 function M:emit(ev)
+    -- Players announce, the DM answers (game/model/agency.lua; Conner, November 6): a line the DM says to the table
+    -- never says what a hero or friend feels or wants, and what a hero does by choice is their player's to say
+    -- first. The line is split into the player's announcement and the DM's answer, in the order they're said.
+    if ev.kind == "narrate" and ev.text and not ev.agency_done and agency.SAID[ev.style or "narration"] and self.players then
+        local parts, unsaid = agency.split(ev.text, agency.people_of(self.players), self.last_said)
+        self.last_said = nil
+        for _, u in ipairs(unsaid) do
+            self.unsaid = self.unsaid or {}
+            table.insert(self.unsaid, u)
+        end
+        if not (#parts == 1 and parts[1].kind == "dm" and parts[1].text == ev.text) then
+            local answer
+            for _, l in ipairs(parts) do
+                if l.kind == "dm" then
+                    local e2 = {}
+                    for k, v in pairs(ev) do
+                        e2[k] = v
+                    end
+                    e2.text, e2.agency_done = l.text, true
+                    answer = self:emit(e2)
+                else
+                    answer = self:emit({ kind = "say", who = l.who, ic = l.ic, text = l.text, announce = l.announce })
+                end
+            end
+            return answer
+        end
+    elseif ev.kind == "say" and ev.who then
+        self.last_said = { who = ev.who, text = ev.text }
+    end
     -- What you did about a friend's thought (game/model/thoughts.lua) lands at the next beat.
     if self.th and not self.th.flushing and #self.th.queue > 0 then
         self.th.flushing = true
@@ -598,7 +628,7 @@ function M:take_learned(p, quiet)
         self.learned_used = self.learned_used or {}
         table.insert(self.learned_used, { who = p.key, n = l, week = c.week })
         if not quiet then
-            self:say(util.fill("{char} remembers the miss: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
+            self:say(util.fill("The last miss taught {char} something: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
         end
     end
     return n, l or 0
@@ -607,7 +637,7 @@ end
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
 -- skill: the roll it helps, said with it (round three, from batch D: "+2." didn't say on what).
 M.RESEARCH_LINES = {
-    "{char} remembers something from the break's reading: +2 on this {skill} roll.",
+    "The break's reading pays off for {char}: +2 on this {skill} roll.",
     "The break's homework pays off: +2 to {char}'s {skill} roll.",
     "{char} read up on this over pizza: +2 on the {skill} roll.",
 }
@@ -4443,7 +4473,7 @@ M.SPLIT_CUT = { "Cut to {char}, alone by {place}.", "Meanwhile, by {place}: {cha
 M.SPLIT_WIN = { "{char} gets a long look at how the room fits together from over there: +1 on {char_their} next check.",
                 "Alone and unhurried, {char} spots what the others walked past: +1 on {char_their} next check.",
                 "{char} takes {char_their} time, and it pays: +1 on {char_their} next check." }
-M.SPLIT_LOSE = { "{char} finds a lot of dust, and nothing else.", "Nothing over there but cobwebs, and {char} knows it.",
+M.SPLIT_LOSE = { "{char} finds a lot of dust, and nothing else.", "Nothing over there but cobwebs.",
                  "{char} pokes about for a while. Nothing." }
 M.SPLIT_BACK = { "Back to the others.", "Cut back to the rest of the party.", "And back to everyone else." }
 M.SPLIT_REGROUP = { "{names} catch up with the others.", "{names} drift back to the group.", "The party's back together: {names} rejoin." }
@@ -4782,7 +4812,7 @@ M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It
 M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
                  "And that's a wrap. Somebody's already clearing the pizza boxes.", "Lights up. Someone stacks the character sheets." }
 M.FRANC_LINES = { "Better than they hoped: a Flitwidget Franc pops into {char}'s pocket.",
-                  "Better than hoped: {char} finds a Flitwidget Franc {char_they're} sure wasn't there a moment ago.",
+                  "Better than hoped: {char} finds a Flitwidget Franc that wasn't there a moment ago.",
                   "Better than they hoped: there's a crisp Flitwidget Franc in {char}'s hand. The gnome's face winks on it.",
                   "Better than they hoped: a Flitwidget Franc flutters down out of nowhere into {char}'s palm." }
 

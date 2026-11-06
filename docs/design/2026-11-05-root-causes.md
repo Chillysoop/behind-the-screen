@@ -116,6 +116,14 @@ where a friend *says* their decision; the DM tells the table what the table deci
 **The rule.** The DM never says what a hero thinks, feels, wants or decides. The players say it; the DM reacts,
 rules and describes.
 
+**Built, November 6** (Conner: "The DM should never say 'pip feels' or 'jess wants' etc. hard rule"; "players
+announce what they're doing, and the DM responds to it, quick and automatic"). `game/model/agency.lua` sits in
+`night:emit`, the one door every line goes through: a DM line's sentence with a hero doing something by choice
+becomes that hero's player's announcement, in character and first person, followed by the rest of the DM's line as
+the answer; an echo of what the player just said is left out; a feeling, a want, a thought or a look (grins,
+mutters) is never said, and is recorded so `tools/tests/agency_check.lua` fails it and it's rewritten at the source.
+A friend's words written into the DM's line become the friend's own line.
+
 **The check.** Every DM line to the table is scanned for a hero or friend as the subject of a mental or decision verb
 (thinks, wants, decides, would rather, is sure, wants to, goes along, changes their mind) and fails; every party
 decision must be preceded by a friend's own line stating it.

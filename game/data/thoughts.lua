@@ -92,7 +92,7 @@ return {
         catch_eye = { label = "Catch {their} eye", log = "You catch {name}'s eye and shake your head, very slightly." },
         let_go = { label = "Let {them} go", log = "You let it ride. This could be fun." },
         check_in = { label = "Check in quietly", log = "A quiet word with {name}, just the two of you, while the others talk.", table_min = 2 },
-        early_break = { label = "Bring the break forward", log = "\"Let's break after this bit, everyone.\" {name} nods, grateful.",
+        early_break = { label = "Bring the break forward", log = "\"Let's break after this bit, everyone.\" \"Yes please,\" {name} says.",
                         table_min = 1 },
         keep_light = { label = "Keep tonight light", log = "You lean into the jokes tonight and go easy on the grim stuff." },
         early_moment = { label = "Give {them} something to do early", log = "You make a note to put {name} on the spot early, to pull {them} in.",

@@ -316,6 +316,11 @@ for w = 1, adventure.data.MAX_WEEKS do
         for _, m in ipairs(night.masked or {}) do
             print("  -- masked friend line: " .. m)
         end
+        -- (A sentence the DM would have said about what a hero or friend feels, wants or looks like: never said,
+        -- game/model/agency.lua. tools/tests/agency_check.lua fails on each, so it's rewritten where it's written.)
+        for _, m in ipairs(night.unsaid or {}) do
+            print("  -- unsaid: " .. m)
+        end
     end
     local rep = c:finish_night()
     if show then

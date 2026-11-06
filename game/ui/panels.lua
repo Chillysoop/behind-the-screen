@@ -43,6 +43,26 @@ function M.x(i)
     return 24 + (i - 1) * M.STEP
 end
 
+-- The friends in seat order (Conner, November 6): left to right as the DM sees the table (game/data/players.lua's
+-- seats), for every adventure, so each tile sits under its friend. Anyone without a seat goes after, as listed.
+function M.seated(list)
+    local seats = require("game.data.players").seats or {}
+    local rank = {}
+    for i, k in ipairs(seats) do
+        rank[k] = i
+    end
+    local out, at = {}, {}
+    for i, p in ipairs(list or {}) do
+        out[i] = p
+        at[p] = i
+    end
+    table.sort(out, function(a, b)
+        local ra, rb = rank[a.key] or (100 + at[a]), rank[b.key] or (100 + at[b])
+        return ra < rb
+    end)
+    return out
+end
+
 -- The hero's paper mini on the screens: their class's, or a new character's own (B3).
 function M.mini(p, class)
     if p and p.mini then
@@ -70,7 +90,7 @@ end
 function M.draw(app, on_click)
     app.chips = {}
     local level = app.campaign.level or 2
-    for i, p in ipairs(app.campaign.players) do
+    for i, p in ipairs(M.seated(app.campaign.players)) do
         local x, y, w, h = M.x(i), M.Y, M.W, M.H
         local chip = { key = p.key, x = x, y = y, i = i }
         -- Lit when they speak in character (A9): a glow round the panel, in their colour.
@@ -601,7 +621,7 @@ end
 
 -- The panel's top edge, for speech bubbles when the camera can't see someone's head.
 function M.anchor(app, key)
-    for i, p in ipairs(app.campaign.players) do
+    for i, p in ipairs(M.seated(app.campaign.players)) do
         if p.key == key then
             return M.x(i) + M.W / 2, M.Y - 4, M.x(i), M.W
         end

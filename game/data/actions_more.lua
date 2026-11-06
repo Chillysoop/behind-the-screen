@@ -56,7 +56,7 @@ return {
         { skill = "athletics", archetype = "butt_kicker", where = { "water", "bridge", "wild" },
           say = "I'll swim across with the rope in my teeth.",
           win = "{char} reaches the far bank and ties the rope off to an oak. Everyone crosses dry.",
-          lose = "Halfway over, {char} remembers {char_they} can't really swim. The rope gets everyone across, very wet." },
+          lose = "Halfway over, it turns out {char} can't really swim. The rope gets everyone across, very wet." },
         { skill = "acrobatics", archetype = "explorer", where = { "wild", "bridge" },
           say = "It's just a log. I've crossed worse logs.",
           win = "{char} dances across the log and ties a line for the others.",

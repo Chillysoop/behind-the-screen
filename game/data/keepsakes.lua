@@ -66,8 +66,8 @@ return {
     -- What you see, by how it landed (the Trust it moved).
     LANDED = {
         { at = 3, text = "{name} lights up. That was exactly the right way to take it." },
-        { at = 1, text = "{name} smiles, glad it landed." },
-        { at = 0, text = "{name} nods, and that's that." },
+        { at = 1, text = "\"Oh, I love that,\" {name} says." },
+        { at = 0, text = "\"Thanks,\" {name} says, and that's that." },
         { at = -99, text = "{name} looks a little flat. {Name_they'd} hoped you'd make more of it." },
     },
     SAID = {

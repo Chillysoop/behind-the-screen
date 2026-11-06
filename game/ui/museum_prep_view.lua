@@ -1403,7 +1403,7 @@ function M.build(app)
     kit.text(1196, 84, "THE TABLE", "ui14", theme.dim)
     player_cards.empathy_meter(app)
     local forecast = prep:forecast()
-    for i, p in ipairs(c.players) do
+    for i, p in ipairs(panels.seated(c.players)) do
         player_cards.card(app, prep, p, i, forecast)
     end
 end

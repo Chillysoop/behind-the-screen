@@ -293,7 +293,7 @@ local near, remembered = 0, 0
 each_line(function(R, i, who, text)
     if who == "good" and string.find(text, "^Not quite, but") then
         near = near + 1
-    elseif who == "record" and has(text, "remembers the miss") then
+    elseif who == "record" and has(text, "The last miss taught") then
         remembered = remembered + 1
     end
 

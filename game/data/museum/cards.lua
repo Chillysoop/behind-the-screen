@@ -401,7 +401,7 @@ M.goal_play = {
               lose = "{char} gets paint on {char_their} sleeve and can't get it off." },
             { skill = "perception", say = "One of these paintings is moving. Is it... rocking?",
               win = "{char} spots a mop and a bottle of turpentine in a cleaning cupboard. Useful, somehow.",
-              lose = "{char} stares at a painting of a stormy sea until {char_they} feels seasick." },
+              lose = "{char} stares at a painting of a stormy sea until {char_their} stomach turns." },
         },
         moment = { text = "{actor_char} leads the way down the hall, past every frame.", skill = { "perception", "insight", "arcana" } },
         talk = { "Is anyone else getting eyed by the duke in the big frame?", "Paint weapons. That's the best thing I've ever heard." },
@@ -460,7 +460,7 @@ M.goal_play = {
               win = "{char} cracks half the code before the panel even flickers.",
               lose = "{char} reads the grid the wrong way round. It spells nothing." },
             { skill = "arcana", say = "The battery's alive. Something wants to wake up in there.",
-              win = "{char} feels for the hum of it, and coaxes the battery bright.",
+              win = "{char} finds the hum of it, and coaxes the battery bright.",
               lose = "The battery sparks and {char}'s hair stands straight up." },
         },
         moment = { text = "{actor_char} reads out the last of the code, and says the word out loud.", skill = { "investigation", "arcana" } },
@@ -502,7 +502,7 @@ M.goal_play = {
             -- her lair. A miss with either can't be "not one story", the second playtest review. F10.)
             { skill = "history", say = "What do the old stories say about gorgons? Was she the only one?", when = { not_ending = "bargain", told = "gorgon" }, topic = "gorgons",
               -- (A question, not the answer: round four's review, "Gorgons come in threes" from a table that never saw her tapestry.)
-              win = "{char} remembers: gorgons come in threes, sisters. Two more of them, somewhere out there in the world.",
+              win = "It comes back from the old stories: gorgons come in threes, sisters. Two more of them, somewhere out there in the world.",
               lose = "{char} can't remember a single story about Gorgon sisters. Not one.",
               lose_if = { { when = { holds_here = "gorgon_book" }, text = "{char} flips to the end of the scholar's book: gorgons, three sisters to a line. Where the other two went, it doesn't say." },
                           { when = { flag = "tapestry" }, text = "{char} brings up the tapestry in her lair: three sisters with snake-slit eyes. Where the other two are, nobody knows." } } },

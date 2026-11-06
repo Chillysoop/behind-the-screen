@@ -3,6 +3,7 @@
 -- an Ability Score Improvement.
 
 local kit = require "game.ui.kit"
+local panels = require "game.ui.panels"
 local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
 local content = require "game.model.content"
@@ -98,7 +99,7 @@ function M.modal(app)
     end
     local cw, gap = 310, 20
     local cx0 = x + (w - (4 * cw + 3 * gap)) / 2
-    for i, p in ipairs(c.players) do
+    for i, p in ipairs(panels.seated(c.players)) do
         local cx = cx0 + (i - 1) * (cw + gap)
         local cy = y + 116
         kit.box(cx, cy, cw, 540, theme.panel, { radius = 10 })

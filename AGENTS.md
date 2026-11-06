@@ -126,6 +126,18 @@ Where v2 lives:
   (`game/data/adventures.lua`) and never need the museum's data; what one adventure alone needs is its rule module
   (`game/rules/<id>.lua`). The end goal is an adventure creation tool in the game (lore, people, maps), and
   `docs/design/adventure-standard.md` is the format it writes, so a record has to be something a DM could fill in by hand.
+- **Players announce, the DM answers (Conner, November 6: a hard rule).** The DM never says what a hero or a friend
+  feels, wants, thinks or decides ("Pip feels", "Jess wants"), nor how a hero looks or sounds (grins, mutters):
+  that's the player's to play. What a hero does by choice is said by their player first, in character ("I'll go
+  over the pond, carefully."), and the DM's line is the answer: what happens. `game/model/agency.lua` does it for
+  every line the DM says (`night:emit`): a hero's move in a DM line becomes their player's announcement (or is left
+  out when they've just said it), and a feeling is never said; `tools/tests/agency_check.lua` fails any line that
+  had to be dropped, so it's rewritten where it's written. Write a hero's choice as the player's line, and the DM's
+  as what happens.
+- **Seat order, and words from the seat (Conner, November 6).** The tiles along the bottom, and every row of the
+  four, are in seat order, left to right as the DM sees the table (`game/data/players.lua`'s `seats`,
+  `panels.seated`). A friend's words come from where they sit at the table, in or out of character, never from
+  their tile (`night_view` `anchor_xy`: their head, or the edge of the screen toward their seat).
 - **One shape for conditional text (November 6, `docs/design/adventure-standard.md`).** A text field is a plain line
   or a list of `{ when = {...}, text = "..." }` entries, most specific first, ending on a plain line; read it with
   `adventure.say(campaign, value, opts)` or `adventure.text(campaign, record, field)`. New data uses only this shape.
@@ -231,6 +243,7 @@ least:
     lua tools/tests/schema_check.lua      # the adventure's data has the shape the schema says: no table in the wrong place, no unknown field (first)
     python3 tools/import/copy_check.py museum --book OUT   # our words, not the book's: no run of 8 words from the reader's own PDF (read first with tools/import/ingest.py BOOK.pdf OUT, outside the repo)
     ADVENTURE=sheep lua tools/tests/schema_check.lua; ADVENTURE=sheep lua tools/tests/secrets_check.lua 0   # the Sheep Chase's data (0 runs: the data alone, until the sims play it)
+    lua tools/tests/agency_check.lua 2    # players announce, the DM answers: no hero's move or feeling said for them, seats in order
     lua tools/tests/handoff_check.lua     # adventures tied together: the party, the log, lore, the past and open threads carry over; a fresh start has none
     lua tools/tests/secrets_check.lua 3   # every secret from the data: real ways out, friend lines that wait,
                                           # each found in whole prologues, nothing known early (about 4 minutes)

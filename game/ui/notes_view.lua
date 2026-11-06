@@ -317,7 +317,7 @@ local function tab_party(app, x, y, w, h)
         end
     end
     local cw = math.floor((w - 3 * gap) / 4)
-    for i, p in ipairs(c.players) do
+    for i, p in ipairs(panels.seated(c.players)) do
         local px = x + (i - 1) * (cw + gap)
         kit.box(px, y, cw, h, theme.panel2, { radius = 10 })
         kit.dot(px + 50, y + 50, 80, panels.COLORS[p.key] or theme.panel3)

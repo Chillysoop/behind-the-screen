@@ -866,7 +866,7 @@ M.moments = {
     -- The Chamber of Ancients ------------------------------------------------------------------
     { id = "mus_tablet", room = "chamber", spot = "3E", at = "start", type = "story", actor = { "storyteller", "tactician", "explorer" }, party = true,
       title = "The cracked tablet",
-      text = "{actor_char} kneels by the cracked tablet with the little notebook of glyphs, while the guardian lifts its staff.",
+      text = "The cracked tablet, the little notebook of glyphs beside it, and the guardian lifting its staff.",
       options = {
           { label = "Read the tablet. Someone holds it off.", want = "read the tablet while someone holds the guardian off", short = "read the tablet", lean = "safe",
             effort = true,      -- (careful, but not the easy way: museum_night.carry)
@@ -1224,7 +1224,7 @@ M.moments = {
             effects = { { "all", fun = 3 }, { "arch:tactician", fun = 3 } }, mus = { flag = "deaf", aspect = "Beat a ghost's lecture with candle wax" } },
           -- (Not once they've found out it's his voice that does it.)
           { label = "He's in their heads. Wax won't help.", when = { not_told = "lecturer_ears" }, sub = "The book has it working: whoever can't hear him has Advantage (page 24).",
-            log = "The drone goes straight past the wax. {actor_char} sighs.",
+            log = "The drone goes straight past the wax.",
             effects = { { "actor", fun = -3 }, { "arch:power_gamer", fun = -1 } }, leans = "strict" },
       } },
 
@@ -1234,7 +1234,7 @@ M.moments = {
       text = "While the others are still gathering their things, {actor_char} slips up the stairs alone. \"It's what {actor_char} would do,\" says {actor}, already halfway out of her chair.",
       options = {
           { label = "Let it ride. Run them alone for a bit.",
-            log = "{actor_char} creeps up to the curtain, hears a calm voice say {actor_char}'s name, and scrambles back down. {actor} is delighted. Everyone else waited ten minutes.",
+            log = "{actor_char} creeps up to the curtain, hears a calm voice say {actor_char}'s name, and scrambles back down. {actor} laughs out loud. Everyone else waited ten minutes.",
             effects = { { "actor", fun = 8, spotlight = 14 }, { "others", fun = -4, boredom = 8 } }, table_min = 10, mus = { risk = true, flag = "seen", aspect = "Went up the Gorgon's stairs alone" } },
           { label = "Rein them in, kindly, out of character.",
             log = "\"{actor_char} can scout next week, with the group.\" {actor} pouts, then laughs.",

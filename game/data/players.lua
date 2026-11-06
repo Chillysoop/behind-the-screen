@@ -9,6 +9,10 @@
 
 return {
     order = { "mara", "dev", "jess", "sam" },
+    -- Where each friend sits, left to right as the DM sees the table (Conner, November 6): the tiles along the bottom
+    -- and every row of the four are in this order, in every adventure (game/ui/panels.lua's seated). It follows
+    -- the scene's seats (main/scene_data.lua's heads; tools/tests/agency_check.lua's SEATS holds them to it).
+    seats = { "dev", "mara", "jess", "sam" },
 
     mara = {
         name = "Mara",

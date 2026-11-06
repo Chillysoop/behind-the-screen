@@ -426,7 +426,7 @@ function M.ritual_read(night, sc)
         return false
     end
     if reader ~= night.actor then
-        night:say(util.fill("{char} takes the little notebook and kneels by the tablet.", { char = reader.char }), "narration")
+        night:say(util.fill("{actor_char} hands the little notebook to {char}, who kneels by the tablet.", { char = reader.char, actor_char = night.actor and night.actor.char or "Someone" }), "narration")
     end
     -- (Who holds it off: the toughest of the others here.)
     local holder, hw
@@ -2783,7 +2783,7 @@ M.VOTE_TIE = {
     lead = { "Two against two. {name} found it, so it's {name_their} call.",
              "It's two each, and {name} is the one standing there. {Name_their} call.",
              "Two all. {name} found it, so {name} gets the say." },
-    keen = { "Two against two. {name} wants it more, and it shows.", "It's two each, but {name} is keener. That settles it.",
+    keen = { "Two against two. {name} pushes harder for it.", "It's two each, but {name} argues it longest. That settles it.",
              "Two all, until {name} says please. That settles it." },
 }
 -- (The reasons that are the week a friend's had, or why their hero came: said once a night each.)
@@ -2798,7 +2798,7 @@ M.VOTE_TIE_SPLIT = {
     lead = { "Everyone wants something different. {name} found it, so it's {name_their} call.",
              "Nobody agrees, and {name} is the one standing there. {Name_their} call.",
              "All different. {name} found it, so {name} gets the say." },
-    keen = { "Everyone wants something different. {name} wants it most, and it shows.",
+    keen = { "Everyone says something different. {name} argues hardest for it.",
              "Nobody agrees, but {name} is keenest. That settles it.",
              "All different, until {name} says please. That settles it." },
 }
@@ -3833,7 +3833,7 @@ function M.side_room(night, sd)
                                            effects = { { "actor", spotlight = 8, fun = 4 }, { "arch:explorer", fun = 3 } },
                                            mus = { francs = 1, aspect = "Found a side room nobody else noticed" } },
                                fail = { log = "Dust, and the feeling of being watched.", effects = { { "actor", challenge = 3 } } } } },
-                           { label = "Nothing in here for us. Move on.", log = "{actor_char} shrugs and follows the others out.",
+                           { label = "Nothing in here for us. Move on.", log = "{actor_char} follows the others out.",
                              effects = { { "arch:explorer", fun = -2 }, { "arch:butt_kicker", fun = 2 } } },
                        } }
         M.play_moment(night, card, sc)

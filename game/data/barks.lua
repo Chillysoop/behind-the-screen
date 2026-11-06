@@ -225,7 +225,7 @@ M.walk_captions = {
 
 -- A charmed hero with no one they're willing to hit (the playtest: one who looks idle).
 M.charmed_captions = {
-    "{char} lowers {char_their} weapon. {Charmer} is a friend now, as far as {char} knows.",
+    "{char} lowers {char_their} weapon. The charm has {char_them}: {Charmer} looks like a friend now.",
     "{char} is charmed: {charmer} seems far too nice to hurt.",
     "{char} hesitates. Whatever {charmer} did, {char} won't fight back.",
 }
@@ -289,8 +289,8 @@ M.told = {
               "{char} cracks out of the stone in a shower of grey dust.",
               "A crack, a gasp, and {char} is flesh again." },
     charmed = { "{char} lowers {char_their} weapon. {Charmer}'s voice is the nicest thing {char} has heard all night.",
-                "{char}'s face goes soft. {Charmer} is a friend now, as far as {char} knows.",
-                "{char} smiles at {charmer}, dreamy. Charmed." },
+                "{char}'s face goes soft. The charm has {char_them}: {Charmer} looks like a friend now.",
+                "The charm takes {char}: {charmer} is an old friend now." },
     -- (The mode itself; flipping the switch has its own line, fight.saved_switch, when it was saved for her.)
     hyper = { "{mech}'s plates slam open and the steam turns red: HYPER DESTROYER MODE. The floor shakes.",
               "{mech} goes rigid, then unfolds into something much bigger and much louder.",

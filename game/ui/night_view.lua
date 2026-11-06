@@ -1563,17 +1563,26 @@ local function on_screen(a)
     return a and a[1] > 0.03 and a[1] < 0.97 and a[2] > 0.08 and a[2] < 0.84
 end
 
--- Where on screen an anchor is right now: a player's head (or their chip when the
--- camera can't see them), or a mini on the mat.
+-- Where on screen an anchor is right now: a friend at the table, or a mini on the mat. A friend's words come from
+-- their seat, never their tile (Conner, November 6, for every adventure): their head when the camera sees it, else
+-- the edge of the screen toward where they sit (the fourth value says so). With no view of the table yet, their
+-- place along the table, left to right, from the seat order.
 local function anchor_xy(app, a)
     local an = app.anchors or {}
     if a.head then
         local h = an.heads and an.heads[a.head]
-        if on_screen(h) then
-            return h[1] * kit.W, h[2] * H
+        if h then
+            return h[1] * kit.W, h[2] * H, nil, not on_screen(h)
         end
-        -- Off camera: over their panel, inside its column.
-        return panels.anchor(app, a.head)
+        local seated = panels.seated(app.campaign and app.campaign.players or {})
+        for i, p in ipairs(seated) do
+            if p.key == a.head then
+                local f = (i - 0.5) / math.max(1, #seated)
+                local edge = (i == 1 or i == #seated) and 0.45 or 0.0
+                return f * kit.W, edge * H, nil, true
+            end
+        end
+        return kit.W / 2, 0, nil, true
     end
     local m = an.minis and an.minis[a.mini]
     if on_screen(m) then
@@ -1683,23 +1692,21 @@ function M.place_bubbles(app)
     local zones = M.zones(app)
     local cap = app.caption_rect
     for _, b in ipairs(app.bubbles) do
-        local ax, ay, col_x, col_w = anchor_xy(app, b.anchor)
+        local ax, ay, _, off = anchor_xy(app, b.anchor)
         local show = ax ~= nil
         for _, n in ipairs(b.nodes) do
             gui.set_enabled(n, show)
         end
         if show then
             local x = util.clamp(ax - b.w / 2, 8, kit.W - 8 - b.w)
-            if col_x then
-                -- Over a player's panel: stay in their column.
-                x = util.clamp(ax - b.w / 2, col_x, col_x + col_w - b.w)
+            -- (Never down on the tiles, their speaking tags or a thought cloud over one: above them all.)
+            local floor = CHIP_Y - TAG_CLEAR - 38
+            local y = ay - b.h - 16
+            if b.anchor.head and not off and y < 64 then
+                -- (A head near the top of the view: the bubble hangs just under it.)
+                y = ay + 40
             end
-            -- (Above a friend's thought cloud, when there's one over their panel.)
-            local floor = col_x and (CHIP_Y - TAG_CLEAR) or CARD_BOTTOM
-            if col_x and b.anchor.head and app.thinking and app.thinking[b.anchor.head] then
-                floor = CHIP_Y - 38 - TAG_CLEAR + 8
-            end
-            local y = util.clamp(ay - b.h - 16, 64, floor - b.h)
+            y = util.clamp(y, 64, floor - b.h)
             -- Never over the DM's caption: go above it.
             if cap and x < cap.x + cap.w + 6 and cap.x < x + b.w + 6 and y < cap.y + cap.h + 6 and cap.y < y + b.h + 6 then
                 y = cap.y - b.h - 8
@@ -1733,7 +1740,15 @@ function M.place_bubbles(app)
             b.x, b.y = x, y
             table.insert(placed, b)
             place(b.nodes[1], x, y)
-            place(b.nodes[2], util.clamp(ax - 9, x + 10, x + b.w - 28), y + b.h - 2)
+            -- (The tail points at them: down to a head or mini below the bubble, up to one above it.)
+            local tx = util.clamp(ax - 9, x + 10, x + b.w - 28)
+            if ay < y then
+                gui.set_rotation(b.nodes[2], vmath.vector3(0, 0, 180))
+                place(b.nodes[2], tx + 18, y + 2)
+            else
+                gui.set_rotation(b.nodes[2], vmath.vector3(0, 0, 0))
+                place(b.nodes[2], tx, y + b.h - 2)
+            end
             place(b.nodes[3], x + 13, y + 6)
             place(b.nodes[4], x + 13, y + 28)
         end
@@ -2924,16 +2939,13 @@ function M.handle(app, ev)
         local anchor = { head = ev.who }
         local secs = 1.2 + pacing.read(ev.text)
         if ev.ic then
-            -- In character, it shows (A9): their panel and their mini on the board light up, and
-            -- the line comes from the mini when it's on the board. Table talk stays at their head.
+            -- In character, it shows (A9): their panel and their mini on the board light up. The words come from
+            -- where they sit, in character or out (Conner, November 6: from the friends, not the tiles).
             panels.light(app, ev.who, secs / speed(app), "ic")
             post("glow", { id = ev.who, time = secs / speed(app) })
             -- ...and at the table they turn into their hero while they say it (two sides of a token).
             if p then
                 post("become", { who = ev.who, sprite = p.mini or CLASS_SPRITE[p.class] or "fighter", time = secs / speed(app) })
-            end
-            if anchor_xy(app, { mini = ev.who }) then
-                anchor = { mini = ev.who }
             end
         elseif p then
             -- Out of character (table talk): their panel lights too, in its own colour.
