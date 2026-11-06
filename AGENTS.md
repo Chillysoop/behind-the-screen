@@ -224,6 +224,7 @@ least:
     lua tools/tests/knowledge_check.lua 4 # the friends name only what they've been told; a second campaign in
                                           # the same process plays as if it were the first
     lua tools/tests/schema_check.lua      # the adventure's data has the shape the schema says: no table in the wrong place, no unknown field (first)
+    python3 tools/import/copy_check.py museum --book OUT   # our words, not the book's: no run of 8 words from the reader's own PDF (read first with tools/import/ingest.py BOOK.pdf OUT, outside the repo)
     lua tools/tests/secrets_check.lua 3   # every secret from the data: real ways out, friend lines that wait,
                                           # each found in whole prologues, nothing known early (about 4 minutes)
     lua tools/tests/overlap_check.lua 8   # nothing covers readable text, measured on every screen and every step

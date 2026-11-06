@@ -101,9 +101,9 @@ M.ritual = {
     parts = {
         "Five gallons fill the falcon's belly.",
         "Three gallons fill the jackal's.",
-        "The falcon will be content when it drinks exactly four.",
-        "Only the crocodile's water may feed the falcon and the jackal.",
-        "The crocodile can feed them both until the end of time.",
+        "Four gallons in the falcon, not a drop more or less, and it is satisfied.",
+        "Falcon and jackal drink from the crocodile, and from nothing else.",
+        "The crocodile never runs dry.",
         "Once the falcon is content, set it on the goddess's pedestal and call her.",
         "Woe to whoever sets a discontented falcon on the pedestal: it costs a life.",
     },
@@ -167,7 +167,7 @@ M.pack_hides = {
         { kind = "see", on = { room = "hunting", spot = "6J" }, gives = "hint", page = 20,
           says = { "The kitchen's cupboard doors are polished like mirrors. In one, a shape stands behind the big bird that wasn't there a moment ago." } },
         { kind = "check", on = { room = "hunting", spot = "6J" }, about = "the kitchen's polished cupboard doors", skill = { "perception", "investigation" }, dc = 15, gives = "known", page = 20,
-          says = { "In the polished doors they can see them now: two in the jungle, and one pretending to be a statue behind the big bird. Maybe more." } },
+          says = { "In the polished doors they can see them now: two in the jungle, and a third frozen behind the big bird, playing statue. Maybe more." } },
     },
     defaults = false,
 }

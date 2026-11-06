@@ -78,7 +78,7 @@ M.cards = {
       fits = { "puzzle", "combat" }, tags = { "funny", "danger" }, difficulty = 2,
       -- (A statue, and nothing more, until someone breaks into the box: the read has it. C6.)
       seen = false,
-      line = "A statue of an armoured metal man stands between the far doors." },
+      line = "A statue in metal armour stands between the far doors." },
     { id = "mus_bone_construct", kind = "cast", stays = true, short = "the Bone Construct", pronoun = "it", foe = true, talks = false,
       name = "The Bone Construct", fits = { "combat", "puzzle" }, tags = { "danger" }, difficulty = 2,
       line = "Three skulls bound in gold and jewels turn toward them, and a staff topped with a fanged skull comes up." },

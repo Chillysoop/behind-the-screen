@@ -270,7 +270,7 @@ L.boards = {
             { id = "sketch", kind = "wall_painting", at = { { 1, 9, 3 } }, words = { "sketch", "drawing", "spikes", "beast" }, own_words = true, say = "a sketch of a huge spiked beast" },
             { id = "skull", kind = "giant_skull", at = { { 15, 11, 0 } }, words = { "bulette", "landshark" }, say = "a huge armoured skull bursting up through the floor" },
             { id = "city", kind = "model_city", at = { { 9, 12, 0 } }, words = { "skyscrapers", "trains", "trams" }, say = "a model city with tiny trams hissing round it" },
-            { id = "bird", kind = "stuffed_bird", at = { { 5, 12, 0 } }, words = { "bird", "flightless bird", "yellow feathers" }, own_words = true, say = "a stuffed bird the size of a horse" },
+            { id = "bird", kind = "stuffed_bird", at = { { 5, 12, 0 } }, words = { "bird", "flightless bird", "yellow feathers" }, own_words = true, say = "a stuffed bird taller than a horse" },
         },
         places = {
             { id = "6A", x = 14, y = 11, name = "the giant skull", near = { "walls", "skull" }, kind = "fixture",
@@ -290,7 +290,7 @@ L.boards = {
             { id = "6H", x = 6, y = 3, name = "the razorbark tree", near = { "tree" }, kind = "fixture",
               line = "A tree reaching right up to the ceiling. Its bark is worth money to the right buyer." },
             { id = "6I", x = 11, y = 4, name = "the cave model", near = { "walls", "cave" }, kind = "fixture",
-              line = "A model cave system with six peep holes. Through one, a skeletal hand wearing a gleaming ring." },
+              line = "A model cave system with six peep holes. Through one, a bony hand with a bright ring on one finger." },
             { id = "6J", x = 15, y = 4, name = "the little kitchen", near = { "walls", "kitchen" }, kind = "fixture",
               line = "A whole working kitchen: knives, pots and polished cupboard doors you can see reflections in." },
             { id = "stairs", x = 5, y = 7, name = "the top of the stairs", near = { "walls", "stairs" }, kind = "area",

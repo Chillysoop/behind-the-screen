@@ -77,7 +77,7 @@ cabinet  | own_words | cabinet, misted, fungus, glass                 | a glass 
 sketch   | own_words | sketch, drawing, spikes, beast                 | a sketch of a huge spiked beast
 skull    |           | bulette, landshark                             | a huge armoured skull bursting up through the floor
 city     |           | skyscrapers, trains, trams                     | a model city with tiny trams hissing round it
-bird     | own_words | bird, flightless bird, yellow feathers         | a stuffed bird the size of a horse
+bird     | own_words | bird, flightless bird, yellow feathers         | a stuffed bird taller than a horse
 
 spots:
 -- key  | x,y   | name                      | line | form
@@ -89,6 +89,6 @@ spots:
 6F      | 6,9   | the jungle                | Ten feet of dense jungle you can't see through. Humid, and full of distant birdsong. | one area
 6G      | 3,5   | the misted cabinet        | A glass case fogged over from inside. Something grows in there. Break it and it spreads. | one fixture
 6H      | 6,3   | the razorbark tree        | A tree reaching right up to the ceiling. Its bark is worth money to the right buyer. | one fixture
-6I      | 11,4  | the cave model            | A model cave system with six peep holes. Through one, a skeletal hand wearing a gleaming ring. | one fixture
+6I      | 11,4  | the cave model            | A model cave system with six peep holes. Through one, a bony hand with a bright ring on one finger. | one fixture
 6J      | 15,4  | the little kitchen        | A whole working kitchen: knives, pots and polished cupboard doors you can see reflections in. | one fixture
 stairs  | 5,7   | the top of the stairs     | Where the stairs from the gift shop come up. The hall ahead is full of exhibits, and it feels like being watched. | one area

@@ -1066,7 +1066,7 @@ M.moments = {
           { label = "Check the kitchen's polished doors first.", want = "use the shiny cupboard doors in the kitchen to see what's watching us", short = "check the doors", lean = "safe",
             when = { not_told = "pack_hides" },
             roll = { dc = 13, skill = { "perception", "investigation" },
-                     success = { log = "Angled just right, the polished doors show the whole floor. Two shapes keep very still in the jungle, and one is pretending to be a statue behind the big bird.",
+                     success = { log = "Angled just right, the polished doors show the whole floor. Two shapes keep very still in the jungle, and a third stands frozen behind the big bird, playing statue.",
                                  tells = { "pack_hides" }, tells_how = "check",
                                  effects = { { "actor", spotlight = 6, fun = 3 }, { "arch:tactician", fun = 4 }, { "arch:explorer", fun = 3 } },
                                  mus = { flag = "no_surprise", ready = true } },
