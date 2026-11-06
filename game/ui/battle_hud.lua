@@ -67,6 +67,12 @@ function M.ring_for(effects)
     return nil, nil
 end
 
+-- The fight's own boxes at the top of the screen (the turn order, the boss's health), while there's a fight.
+function M.zone_rects(app)
+    local st = app and app.hud
+    return (st and app.in_battle and st.zone_rects) or {}
+end
+
 local function state(app)
     app.hud = app.hud or { minis = {}, order = {}, turn = nil }
     return app.hud
@@ -437,6 +443,8 @@ function M.draw_order(app)
         { pivot = gui.PIVOT_N }))
     -- Their hover cards outlive the redraws (a turn redraws the strip every second or two): one spot
     -- each, moved, rather than a new one that would drop the card mid-read (the re-test, October 16).
+    -- (What a friend's speech steps round, now it comes from their seat: night_view.zones.)
+    st.zone_rects = { { x = x0 - 8 - 62, y = INIT_Y, w = step * n + 16 + 62, h = 60 + 22 } }
     st.order_spot = M.keep_spot(app, st.order_spot, x0 - 8 - 62, INIT_Y, step * n + 16 + 62, 60 + 22, "Turn order",
         "Everyone in the fight, in the order they act. When the fight started, each rolled a d20 (the number "
         .. "under them); highest goes first. The lit one is acting now. Once everyone has gone, it's the next round.",
@@ -449,6 +457,7 @@ function M.draw_order(app)
     if boss and not boss.gone then
         local bx = x0 + step * n / 2 - BOSS_W / 2
         local by = INIT_Y + 94
+        table.insert(st.zone_rects, { x = bx - 10, y = by - 4, w = BOSS_W + 20, h = 40 })
         st.boss_spot = M.keep_spot(app, st.boss_spot, bx - 10, by - 4, BOSS_W + 20, 40, "The boss's health",
             "How much the boss can still take before it's beaten: what's left, out of what it started with. "
             .. "Every hit takes some off.", "Hit points (HP)")

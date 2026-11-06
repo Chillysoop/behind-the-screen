@@ -1200,6 +1200,8 @@ function M.toast(app, top, text, quiet)
     t.nodes[5] = kit.text(x + w - 18, y + 12, quiet and "" or "N: open your notes", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     t.colors = { edge, kit.rgba("#201813", quiet and 0.9 or 0.96), head, quiet and theme.dim or theme.text, theme.faint }
     app.toast_card = t
+    -- (Speech already up steps out of its way.)
+    M.place_bubbles(app)
 end
 
 -- Down at 0 Hit Points: a red card over their tile, their death saves as they're rolled (three
@@ -1683,6 +1685,10 @@ function M.zones(app)
         if t then
             add(t.rect, t.nodes)
         end
+    end
+    -- (A fight's turn order and the boss's health along the top: speech from a seat steps round them.)
+    for _, r in ipairs(battle_hud.zone_rects(app)) do
+        add(r)
     end
     return out
 end

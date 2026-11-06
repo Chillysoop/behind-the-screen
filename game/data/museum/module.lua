@@ -839,7 +839,7 @@ M.moments = {
                         say = { "We've already burnt his garden. In for a penny.", "He's going to be cross about the garden anyway.",
                                 "After the garden, what's a little lock?" } },
                       -- (Nobody's found out what the statue does: it's just a statue, to them.)
-                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer", "explorer" }, n = 1.35,
+                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer", "explorer" }, n = 1.7,
                         say = { "It's a statue. Statues don't do anything.", "Nobody's guarding it but a lump of metal.",
                                 "One little lock. The statue won't mind." } } },
             log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",
@@ -2074,7 +2074,7 @@ M.showdown = {
                                   "A Gorgon's wine? Hard pass." } },
                         -- (What they can see: a room of screaming statues. The knowledge playtest took the table's
                         -- "they know what she is" away from tables Flitwidget never told.)
-                        { who = { "tactician", "casual" }, n = 0.6,
+                        { who = { "tactician", "casual" }, n = 0.45,
                           say = { "Not with those statues watching. No wine, thanks.", "Everyone in here is made of stone and screaming. I'll pass.",
                                   "I'm not drinking anything up here. Look at this place." } } },
               effects = { { "arch:tactician", fun = 3 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },

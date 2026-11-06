@@ -91,6 +91,21 @@ function M.move_and_result(s, names)
     end
 end
 
+-- A hero's state, not a move: down, stone, coming round, back up after a death save.
+M.STATE = { " is stone", " cracks out", " comes round", " goes down", " is dead", " dies", " is down", " is still under",
+            " is out", " turns to stone", " starts turning", " is turning", " stays stone", " stops moving", " is a statue",
+            " goes still", " slumps", " drops", " falls", " gasps", " sits bolt upright", " surges up", " is up",
+            " gets back up", " is on ", " is back", " wakes" }
+function M.state_of(s, hero)
+    local rest = string.sub(s, #hero + 1)
+    for _, pat in ipairs(M.STATE) do
+        if string.sub(rest, 1, #pat) == pat then
+            return true
+        end
+    end
+    return false
+end
+
 function M.any_move(s, hero)
     local v = string.match(s, "^" .. esc(hero) .. " (%a+s)%f[%A]")
     if v and not M.HAPPENS[v] and not string.match(v, "ss$") then
@@ -306,8 +321,7 @@ function M.split(text, people, last)
                 end
                 -- (What's happening to a hero who can't act, "Brannoc comes round", "Thessaly turns to stone": theirs to
                 -- live through, the DM's to say. game/model/able.lua's ABOUT.)
-                local able = util.lazy("game.model.able")
-                local about = who_name == p.hero and able.about_them(s, p.hero)
+                local about = who_name == p.hero and M.state_of(s, p.hero)
                 local v = who_name == p.hero and not about and (matches_at(s, p.hero, M.DOES) or M.any_move(s, p.hero))
                 if v then
                     local after = string.match(string.sub(s, #p.hero + 2 + #v), "^%s*(.*)$") or ""
