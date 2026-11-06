@@ -103,6 +103,10 @@ function M.start(app, mode)
 end
 
 local function shot(a, name)
+    -- (Carried on into a second adventure, CARRY: its shots get their own names.)
+    if a.carried then
+        name = name .. "_b"
+    end
     if not a.shots[name] then
         a.shots[name] = true
         say("shot " .. name)
@@ -468,10 +472,16 @@ function M.update(app, dt)
             end
             return
         end
-        -- (The page made its own empty pick list when it drew: fill it, don't replace it.)
+        -- (The page made its own empty pick list when it drew: fill it, don't replace it. The museum's own picks, else
+        -- each friend's first hook in whichever adventure this is.)
         app.s0.hooks = app.s0.hooks or {}
+        local hooks = require("game.model.adventure").data.hooks or {}
         for k, id in pairs({ mara = "sage", dev = "soldier", jess = "charlatan", sam = "acolyte" }) do
-            app.s0.hooks[k] = app.s0.hooks[k] or id
+            local ok = false
+            for _, h in ipairs(hooks[k] or {}) do
+                ok = ok or h.id == id
+            end
+            app.s0.hooks[k] = app.s0.hooks[k] or (ok and id) or (hooks[k] and hooks[k][1] and hooks[k][1].id)
         end
         app.refresh()
         if not shot(a, "hooks") then
@@ -749,6 +759,18 @@ function M.update(app, dt)
             by_key("next_week")
         end
     elseif s == "slice_end" then
+        -- CARRY=1 (in the environment): from the journey recap, "Carry on" into the next adventure, and play it too.
+        local adv = require "game.model.adventure"
+        if a.mode == 8 and not a.carried and os.getenv and os.getenv("CARRY") and app.carry_on and adv.next_up(app.campaign) then
+            if not shot(a, "journey") then
+                say("first adventure done: ending " .. tostring(app.campaign.adv and app.campaign.adv.ending) .. " in "
+                    .. app.campaign.week .. " sessions; carrying on")
+                a.carried = true
+                a.t = 0
+                by_key("carry_on")
+            end
+            return
+        end
         if a.mode == 8 then
             if not shot(a, "journey") then
                 say("museum done: ending " .. tostring(app.campaign.adv and app.campaign.adv.ending) .. " in "

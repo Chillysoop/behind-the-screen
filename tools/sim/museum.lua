@@ -253,6 +253,7 @@ local function play_night(night)
 end
 
 local weeks = 0
+local function run_adventure()
 for w = 1, adventure.data.MAX_WEEKS do
     weeks = w
     local prep = c:start_week()
@@ -364,6 +365,23 @@ end
 print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %d%s",
     seed, style, weeks, tostring(st.ending), table.concat(st.mark_list, ","), st.francs, st.harsh.paid, st.harsh.unpaid,
     c.level, failures > 0 and ("  FAILURES " .. failures) or ""))
+end
+run_adventure()
+-- CARRY=1: when it ends, the party carries on into the next adventure (the journey screen's "Carry on", app.carry_on):
+-- the hand-off, levels caught up, each friend's hook for the new one, and its sessions played the same way.
+if os.getenv("CARRY") and adventure.next_up(c) then
+    local to = adventure.next_up(c)
+    adventure.handoff(c, to)
+    require("game.model.progression").catch_up(c)
+    for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local hooks = adventure.data.hooks[key]
+        adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
+    end
+    if show then
+        print(string.format("\n######## CARRY ON into %s (level %d)", tostring(to), c.level or 0))
+    end
+    run_adventure()
+end
 local mk = {}
 for k, n in pairs(fights.moments) do
     table.insert(mk, k .. "=" .. n)
