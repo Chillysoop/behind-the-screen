@@ -54,6 +54,9 @@ local CAPTION_BOTTOM, CAPTION_W = 622, 900
 local TAG_CLEAR = 36            -- (the speaking tag: 24 tall, 6 above the tile, and a gap)
 M.LAYOUT = { caption_bottom = CAPTION_BOTTOM, bubble_floor = panels.Y - TAG_CLEAR, tag_top = panels.Y - 30 }
 local CARD_BOTTOM = 760
+-- (A friend's speech stays under the top bar's second row: the night's log, the scene's rolls, the keys and the
+-- turn order sit above this line.)
+local BUBBLE_TOP = 156
 -- Longer read-alouds: the recap and the session's opening.
 -- The DM's read-aloud text (A9): the opening, the recap, a place or a person coming in. It gets
 -- the boxed-passage look; the DM's own notes and the table's reactions stay plain captions, and
@@ -1702,11 +1705,11 @@ function M.place_bubbles(app)
             -- (Never down on the tiles, their speaking tags or a thought cloud over one: above them all.)
             local floor = CHIP_Y - TAG_CLEAR - 38
             local y = ay - b.h - 16
-            if b.anchor.head and not off and y < 64 then
+            if b.anchor.head and not off and y < BUBBLE_TOP then
                 -- (A head near the top of the view: the bubble hangs just under it.)
                 y = ay + 40
             end
-            y = util.clamp(y, 64, floor - b.h)
+            y = util.clamp(y, BUBBLE_TOP, floor - b.h)
             -- Never over the DM's caption: go above it.
             if cap and x < cap.x + cap.w + 6 and cap.x < x + b.w + 6 and y < cap.y + cap.h + 6 and cap.y < y + b.h + 6 then
                 y = cap.y - b.h - 8
@@ -1726,7 +1729,7 @@ function M.place_bubbles(app)
                     for _, o in ipairs(list) do
                         if x < o.x + o.w + 6 and o.x < x + b.w + 6 and y < o.y + o.h + 6 and o.y < y + b.h + 6 then
                             y = o.y - b.h - 8
-                            if y < 64 then
+                            if y < BUBBLE_TOP then
                                 y = o.y + o.h + 8
                             end
                             moved = true

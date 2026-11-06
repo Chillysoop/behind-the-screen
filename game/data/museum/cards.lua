@@ -401,7 +401,7 @@ M.goal_play = {
               lose = "{char} gets paint on {char_their} sleeve and can't get it off." },
             { skill = "perception", say = "One of these paintings is moving. Is it... rocking?",
               win = "{char} spots a mop and a bottle of turpentine in a cleaning cupboard. Useful, somehow.",
-              lose = "{char} stares at a painting of a stormy sea until {char_their} stomach turns." },
+              lose = "A painting of a stormy sea holds {char} too long, and {char_their} stomach turns." },
         },
         moment = { text = "{actor_char} leads the way down the hall, past every frame.", skill = { "perception", "insight", "arcana" } },
         talk = { "Is anyone else getting eyed by the duke in the big frame?", "Paint weapons. That's the best thing I've ever heard." },

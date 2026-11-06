@@ -225,7 +225,7 @@ M.walk_captions = {
 
 -- A charmed hero with no one they're willing to hit (the playtest: one who looks idle).
 M.charmed_captions = {
-    "{char} lowers {char_their} weapon. The charm has {char_them}: {Charmer} looks like a friend now.",
+    "{char}'s weapon comes down. The charm has {char_them}: {Charmer} looks like a friend now.",
     "{char} is charmed: {charmer} seems far too nice to hurt.",
     "{char} hesitates. Whatever {charmer} did, {char} won't fight back.",
 }
@@ -268,9 +268,9 @@ M.told = {
     petrify_missed = { "Euryale fixes them with her bronze eyes, and every one of them looks away in time.",
                        "Her eyes flash, but nobody meets them. Not one.",
                        "Euryale glares round the room. Everyone's staring at their boots." },
-    mirror = { "{holder} swings the cupboard door up, and Euryale is looking straight into her own eyes.",
+    mirror = { "The cupboard door swings up in {holder}'s hands, and Euryale is looking straight into her own eyes.",
                "Up comes the mirror-bright door in {holder}'s hands. Euryale catches her own reflection.",
-               "{holder} holds up the polished door. For a heartbeat, Euryale meets her own stare." },
+               "Up goes the polished door in {holder}'s hands. For a heartbeat, Euryale meets her own stare." },
     mirror_caught = { "The grey starts at her feet. Euryale is turning to stone in her own reflection.",
                       "Her own eyes do it: the stone creeps up Euryale's legs.",
                       "She can't look away in time. The grey begins to climb her robe." },
@@ -288,7 +288,7 @@ M.told = {
     freed = { "The stone cracks, and {char} steps out of it, gasping.",
               "{char} cracks out of the stone in a shower of grey dust.",
               "A crack, a gasp, and {char} is flesh again." },
-    charmed = { "{char} lowers {char_their} weapon. {Charmer}'s voice is the nicest thing {char} has heard all night.",
+    charmed = { "{char}'s weapon comes down. {Charmer}'s voice is the nicest thing in the room.",
                 "{char}'s face goes soft. The charm has {char_them}: {Charmer} looks like a friend now.",
                 "The charm takes {char}: {charmer} is an old friend now." },
     -- (The mode itself; flipping the switch has its own line, fight.saved_switch, when it was saved for her.)

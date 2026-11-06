@@ -777,7 +777,7 @@ M.moments = {
             -- (The book, p9: anyone within 5 feet of the water draws the tentacles, a DC 10 Dexterity save or
             -- 1d4 slashing; each hedge the water hits rolls on the mutation table, museum_night's pond_water.)
             roll = { dc = 10, skill = { "dex" },
-                     success = { log = "{actor_char} dips a helmet at the water's edge and jumps back as a tentacle slaps the surface. Then helmets full of pond water hit the topiary.",
+                     success = { log = "A helmet goes in at the water's edge, a tentacle slaps the surface, and {actor_char} jumps back just in time. Then helmets full of pond water hit the topiary.",
                                  effects = { { "actor", spotlight = 8 }, { "arch:explorer", fun = 4 }, { "arch:tactician", fun = 4 }, { "all", challenge = -2 } },
                                  mus = { francs = 1, flag = "water", pond_water = true, secret_event = "tentacles" } },
                      fail = { log = "A slimy tentacle lashes {actor_char}'s arm at the water's edge, but the helmet comes up full. Then helmets full of pond water hit the topiary.",
@@ -839,7 +839,7 @@ M.moments = {
                         say = { "We've already burnt his garden. In for a penny.", "He's going to be cross about the garden anyway.",
                                 "After the garden, what's a little lock?" } },
                       -- (Nobody's found out what the statue does: it's just a statue, to them.)
-                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer", "explorer" }, n = 1.2,
+                      { when = { not_hinted = "sentinel_wakes" }, who = { "instigator", "power_gamer", "explorer" }, n = 1.35,
                         say = { "It's a statue. Statues don't do anything.", "Nobody's guarding it but a lump of metal.",
                                 "One little lock. The statue won't mind." } } },
             log = "{actor_char} cracks {actor_their} knuckles and kneels by the case.",
@@ -1050,7 +1050,7 @@ M.moments = {
     -- The Hunting Grounds ---------------------------------------------------------------------
     { id = "mus_tracks", room = "hunting", spot = "6I", at = "start", when = { knob = "marks" }, type = "story", actor = { "tactician", "explorer", "butt_kicker" }, party = true,
       title = "Scratch marks",
-      text = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points at the marks: the trail is very easy to follow.",
+      text = "Fresh scratch marks lead across the floor to the cave model. The trail is very easy to follow, and {actor_char} points it out.",
       see = "Fresh scratch marks lead across the floor to the cave model. {actor_char} points at the marks: the trail is very easy to follow.",
       options = {
           { label = "Follow them anyway, weapons out.", want = "follow the marks anyway, weapons out", short = "follow the trail",
@@ -2074,7 +2074,7 @@ M.showdown = {
                                   "A Gorgon's wine? Hard pass." } },
                         -- (What they can see: a room of screaming statues. The knowledge playtest took the table's
                         -- "they know what she is" away from tables Flitwidget never told.)
-                        { who = { "tactician", "casual" }, n = 0.7,
+                        { who = { "tactician", "casual" }, n = 0.6,
                           say = { "Not with those statues watching. No wine, thanks.", "Everyone in here is made of stone and screaming. I'll pass.",
                                   "I'm not drinking anything up here. Look at this place." } } },
               effects = { { "arch:tactician", fun = 3 }, { "arch:casual", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:butt_kicker", fun = 1.5 },

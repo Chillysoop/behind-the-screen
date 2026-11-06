@@ -156,8 +156,12 @@ function M.build(campaign, night)
             if row.tier ~= "bored" and row.tier ~= "out" then
                 trig = require("game.model.able").quiet_trigger(night, trig)
             end
+            -- (The adventure's last night: nothing about next week. The confirming gate's seed 54: "That one stung. Next
+            -- week we make it count." on the prologue's last wrap.)
+            local last = campaign.adv and campaign.adv.ending ~= nil
             local quote, line = night.talk:line(trig, p, { split = row.tier,
-                moment = util.mid_sentence(moment, M.names(campaign)) })
+                moment = util.mid_sentence(moment, M.names(campaign)) },
+                last and function(l) return not string.find(string.lower(l.text or ""), "next week", 1, true) end or nil)
             row.quote = quote or content.chat.verdicts[row.tier]
             row.quote_line = line and line.id
             p.last_tier = row.tier

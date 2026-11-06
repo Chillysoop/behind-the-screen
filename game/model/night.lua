@@ -239,6 +239,11 @@ function M:emit(ev)
     if ev.kind == "narrate" and ev.text and not ev.agency_done and agency.SAID[ev.style or "narration"] and self.players then
         local parts, unsaid = agency.split(ev.text, agency.people_of(self.players), self.last_said)
         self.last_said = nil
+        -- (What the DM's line told, it still tells, the moves in it too: they came from the DM's own words.)
+        if self.campaign and voice_of.heard(ev.style) and ev.style ~= "aside" then
+            told.hear(self.campaign, ev.text)
+            require("game.model.shown").hear_names(self.campaign, ev.text)
+        end
         for _, u in ipairs(unsaid) do
             self.unsaid = self.unsaid or {}
             table.insert(self.unsaid, u)
@@ -4475,7 +4480,7 @@ M.SPLIT_CUT = { "Cut to {char}, alone by {place}.", "Meanwhile, by {place}: {cha
                 "Over by {place}, {char} has the place to {char_them}self." }
 M.SPLIT_WIN = { "{char} gets a long look at how the room fits together from over there: +1 on {char_their} next check.",
                 "Alone and unhurried, {char} spots what the others walked past: +1 on {char_their} next check.",
-                "{char} takes {char_their} time, and it pays: +1 on {char_their} next check." }
+                "Time well spent for {char}: +1 on {char_their} next check." }
 M.SPLIT_LOSE = { "{char} finds a lot of dust, and nothing else.", "Nothing over there but cobwebs.",
                  "{char} pokes about for a while. Nothing." }
 M.SPLIT_BACK = { "Back to the others.", "Cut back to the rest of the party.", "And back to everyone else." }

@@ -69,7 +69,8 @@ M.HAPPENS = { is = true, has = true, was = true, finds = true, sees = true, hear
               staggers = true, reels = true, slumps = true, collapses = true, shivers = true, trembles = true,
               sways = true, coughs = true, chokes = true, sneezes = true, yelps = true, flinches = true, jerks = true,
               tumbles = true, sinks = true, floats = true, shrinks = true, grows = true, changes = true, blinks = true,
-              sleeps = true, snores = true, dreams = true, yawns = true }
+              sleeps = true, snores = true, dreams = true, yawns = true, gasps = true, wheezes = true, splutters = true,
+              sputters = true, retches = true, shudders = true, twitches = true, stirs = true }
 function M.move_and_result(s, names)
     local i = 1
     while true do
@@ -100,7 +101,9 @@ end
 local OUTCOME_AFTER = { takes = { "^%d", "^a hit", "^the hit", "^damage", "^the full", "^half" },
                         turns = { "^to stone", "^grey", "^to ", "^pale", "^white", "^up " },
                         goes = { "^down", "^flying", "^still", "^grey", "^stiff", "^limp", "^pale", "^white", "^under", "^sprawling" },
-                        slips = { "^on ", "^and falls", "^off" }, holds = { "^on by", "^up under" } }
+                        slips = { "^on ", "^and falls", "^off" }, holds = { "^on by", "^up under" },
+                        starts = { "^to go ", "^to turn", "^to stiffen", "^turning", "^going", "^to grey" },
+                        start = { "^to go ", "^to turn", "^to stiffen", "^turning", "^going" } }
 
 local function sentences(text)
     local out = {}
@@ -301,7 +304,11 @@ function M.split(text, people, last)
                     table.insert(unsaid, s)
                     break
                 end
-                local v = who_name == p.hero and (matches_at(s, p.hero, M.DOES) or M.any_move(s, p.hero))
+                -- (What's happening to a hero who can't act, "Brannoc comes round", "Thessaly turns to stone": theirs to
+                -- live through, the DM's to say. game/model/able.lua's ABOUT.)
+                local able = util.lazy("game.model.able")
+                local about = who_name == p.hero and able.about_them(s, p.hero)
+                local v = who_name == p.hero and not about and (matches_at(s, p.hero, M.DOES) or M.any_move(s, p.hero))
                 if v then
                     local after = string.match(string.sub(s, #p.hero + 2 + #v), "^%s*(.*)$") or ""
                     local outcome = false
