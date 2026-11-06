@@ -317,7 +317,7 @@ function M.compile(src)
             quick = sc.quick, at = sc.at_map or { 50, 98 - (i - 1) * 14 }, map = sc.map or pl.name, comps = comps,
             encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest,
-            level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs,
+            level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,
         }
         -- (A piece of the board that gets up as the fight starts: the bed. fight.lua's wake.)
         if sc.wakes then
@@ -353,6 +353,33 @@ function M.compile(src)
             h.payoff = h.payoff or h.text
             table.insert(mod.hooks[key], h)
         end
+    end
+    -- (Who has a sheet the DM can open, and put things in their pockets: each named person in a scene, by the place they're
+    -- found, and their stat block when they fight. npcs.lua; the museum writes its own.)
+    if not src.npc_sheet then
+        local sheet = { order = {} }
+        for _, p in ipairs(src.people or {}) do
+            local room
+            for _, w in ipairs(p.where or {}) do
+                if not room and mod.rooms[w] then
+                    room = w
+                end
+            end
+            for _, pl in ipairs(src.places or {}) do
+                if not room and pl.scene and pl.scene.cast == p.id and mod.rooms[pl.id] then
+                    room = pl.id
+                end
+            end
+            if p.tier == "named" and room then
+                local blk = type(p.stats) == "table" and p.stats.block
+                local monster = blk and M.creature_id(mod, blk) or nil
+                table.insert(sheet.order, p.id)
+                sheet[p.id] = { room = room, monster = monster, short = p.short,
+                                hows = monster and { "beaten", "pocket", "ask" } or { "ask", "pocket" },
+                                match = { p.short or p.name } }
+            end
+        end
+        mod.npc_sheet = sheet
     end
     -- (Each creature's pronoun, for the lines that name it: its own, or the person whose stats it is. util.pronoun_of.)
     if not src.foe_pronouns then

@@ -98,9 +98,10 @@ function M.pockets(night, n)
     local items_mod = require "game.model.items"
     for _, d in ipairs(require("game.model.npcs").drops(night.campaign, n.id)) do
         if d.how == "pocket" and not d.got then
-            local def = items_mod.def(d.item)
+            local def = require("game.model.npcs").drop_def(d.item)
             local name = util.lower_first(def and def.name or "something")
-            table.insert(out, { id = "drop_" .. n.id .. "_" .. d.item, magic = d.item, drop = d, what = name .. " on " .. (n.short or n.name),
+            table.insert(out, { id = "drop_" .. n.id .. "_" .. d.item, magic = def and def.magic, bag = def and def.entry, drop = d,
+                                what = name .. " on " .. (n.short or n.name),
                                 short = name, dc = n.monster and 15 or 13, owner = n, planted = true })
         end
     end
@@ -346,7 +347,11 @@ function M.take(night, sc, idea)
         local prev = events.cause(c)
         events.set_cause(c, ev)
         local items_mod = require "game.model.items"
-        if t.magic then
+        if t.bag and t.bag.kind ~= "magic" then
+            -- (A bit from the DM's bag, lifted off whoever it was put on.)
+            local e = items_mod.give(c, t.bag.thing or t.bag.id, p.key, "stolen", t.owner)
+            t.drop.got, t.drop.entry = c.week, e
+        elseif t.magic then
             local e = items_mod.earn(c, t.magic, { p }, "stolen", t.owner)
             t.drop.got, t.drop.entry = c.week, e
             local pc = e and night.pcs and night.pcs[p.key]

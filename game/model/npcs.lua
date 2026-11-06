@@ -101,16 +101,34 @@ function M.drops(campaign, id)
     return list
 end
 
--- What the DM can put in someone's pockets: the rules' magic items, in the book order.
-function M.item_choices()
-    local mi = require "game.rules.data.magic_items"
+-- What the DM can put in someone's pockets: what's in the DM's bag now (game/model/dm_bag.lua: Conner, November 6,
+-- "add items to NPCs during session planning"), least to most powerful. Without a campaign, the rules' magic items.
+function M.item_choices(campaign)
     local out = {}
+    if campaign then
+        for _, e in ipairs(require("game.model.dm_bag").stock(campaign)) do
+            table.insert(out, e.id)
+        end
+        return out
+    end
+    local mi = require "game.rules.data.magic_items"
     for _, id in ipairs(mi.order or {}) do
         if mi[id] then
             table.insert(out, id)
         end
     end
     return out
+end
+
+-- What a pocketed thing is: a thing from the DM's bag, or one of the rules' magic items (an older save's).
+-- { name, text, rarity, magic = rules id or nil, entry = bag entry or nil }
+function M.drop_def(item)
+    local e = require("game.data.dm_bag").by_id[item]
+    if e then
+        return { name = util.capitalize(e.name), text = e.text, rarity = e.rarity, magic = e.magic, entry = e }
+    end
+    local d = require("game.model.items").def(item)
+    return d and { name = d.name, text = d.text, rarity = d.rarity, magic = item } or nil
 end
 
 -- Add one (the NPC's first way of getting it), change how, or take it back off them.
@@ -125,7 +143,12 @@ function M.add_drop(campaign, id, item)
             return d
         end
     end
-    local d = { item = item, how = n.hows[1] }
+    -- (From the bag: it comes out of it, and goes back if you take it off them again.)
+    local e = require("game.data.dm_bag").by_id[item]
+    if e and not require("game.model.dm_bag").take(campaign, e) then
+        return nil
+    end
+    local d = { item = item, how = n.hows[1], bag = e and true or nil }
     table.insert(list, d)
     return d
 end
@@ -148,7 +171,10 @@ end
 function M.remove_drop(campaign, id, i)
     local list = M.drops(campaign, id)
     if list[i] and not list[i].got then
-        table.remove(list, i)
+        local d = table.remove(list, i)
+        if d.bag then
+            require("game.model.dm_bag").put_back(campaign, require("game.data.dm_bag").by_id[d.item])
+        end
     end
 end
 

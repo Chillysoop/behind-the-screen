@@ -29,7 +29,7 @@ local function check(ok, msg)
 end
 
 local T = { beats = 0, crit_cards = 0, nights = 0, curios = 0, asks = 0, fast_beats = 0, kinds = {}, rewards = 0, given = 0,
-            browsed = 0, lore = 0 }
+            browsed = 0, lore = 0, tips = 0 }
 local dm_bag = require "game.model.dm_bag"
 local items = require "game.model.items"
 
@@ -105,10 +105,11 @@ local function play(seed, mode)
                         if string.find(l, "^Tuck something there: ") then return "bag" end
                         if string.find(l, "^Something else from your bag") then return "browse" end
                         if string.find(l, "^Tell them something real") then return "lore" end
+                        if string.find(l, "^Tip: ") then return "tip" end
                         if l == "Next page" or string.find(l, "^Never mind") or l == "As it lands." then return "other" end
                         return ev.card.id == "tl_bag" and "bag" or "other"
                     end
-                    local want = ({ "bag", "browse", "lore", "bag" })[(T.rewards + rewards) % 4 + 1]
+                    local want = ({ "bag", "browse", "lore", "tip" })[(T.rewards + rewards) % 4 + 1]
                     if ev.card.id == "tl_bag" then
                         want = "bag"
                     end
@@ -132,6 +133,8 @@ local function play(seed, mode)
                         end
                     elseif how(o) == "lore" then
                         T.lore = T.lore + 1
+                    elseif how(o) == "tip" then
+                        T.tips = T.tips + 1
                     end
                 elseif ev.card.id == "tl_crit" then
                     cards = cards + 1
@@ -210,9 +213,9 @@ end
 check(T.beats > T.nights, "small moments happen (" .. T.beats .. " over " .. T.nights .. " nights)")
 check(T.fast_beats == 0, "none at 4x")
 check(T.crit_cards > 0, "a natural 20 or 1 gives the DM a card when crits are on (" .. T.crit_cards .. ")")
-check(T.rewards > 0 and T.given > 0 and T.browsed > 0 and T.lore > 0,
-      string.format("the DM's bag gets used: %d reward cards, %d things given, %d pages browsed, %d told something real",
-                    T.rewards, T.given, T.browsed, T.lore))
+check(T.rewards > 0 and T.given > 0 and T.browsed > 0 and T.lore > 0 and T.tips > 0,
+      string.format("the DM's bag gets used: %d reward cards, %d things given, %d pages browsed, %d told something real, %d tips",
+                    T.rewards, T.given, T.browsed, T.lore, T.tips))
 -- (The bag's data: thirty things, every magic one the rules', every bit a thing a hero can carry.)
 local bagd = require "game.data.dm_bag"
 check(#bagd.list == 30, "the DM's bag has thirty things (" .. #bagd.list .. ")")

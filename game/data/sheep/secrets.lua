@@ -2,7 +2,8 @@
 -- (game/model/secrets.lua; the fields are the museum's, documented at the top of game/data/museum/secrets.lua). Pages
 -- are the reader's own PDF of *The Wild Sheep Chase* (Richard Jansen-Parkes, DMs Guild); every word here is ours.
 -- `book = true` on a way out the book gives; the rest are the game's. People: game/data/sheep/module.lua's M.people.
--- (Speaking to the sheep needs the scroll or the spell: a way out "on" Shinebright `when = { flag = "understood" }`.)
+-- (Speaking to the sheep needs the scroll or the spell, and the scroll wears off after the walk (Conner, November 6): a
+-- way out "on" Shinebright `when = { flag = "talking" }`. "understood" is that the table knows what he is.)
 
 local M = {}
 
@@ -38,14 +39,14 @@ M.guards_are_people = {
     name = "The beasts are people", page = 2, type = "creature", room = "inn_common",
     what = "Guz's three wolves and his cloaked bear are men Noke turned into beasts. They still think like people, "
         .. "and fight like it. The apes at the house are the same (p4).",
-    held_by = { "sh_guz", { on = "sh_shinebright", when = { flag = "understood" } } },
+    held_by = { "sh_guz", { on = "sh_shinebright", when = { flag = "talking" } } },
     hint_words = { "clever eyes", "thinking like people" },
     hint = { "The wolves fan out like soldiers, not like a pack.", "One wolf watches the door while the others move. Wolves don't post a guard." },
     tell = { "These aren't animals. They're Noke's guards, people changed into beasts, and they're thinking every step.",
              "Shinebright says it flatly: guards, every one of them. People, polymorphed. Noke likes his help with teeth." },
     theory = { "Those wolves are working together like a squad.", "Since when do wolves wear collars and take orders?" },
     paths = {
-        { kind = "ask", on = "sh_shinebright", when = { flag = "understood" }, gives = "known", book = true, page = 3 },
+        { kind = "ask", on = "sh_shinebright", when = { flag = "talking" }, gives = "known", book = true, page = 3 },
         { kind = "check", skill = { "insight", "animal_handling" }, dc = 13, gives = "hint" },
         { kind = "spell", spell = { "detect_magic" }, gives = "known" },
         { kind = "check", skill = { "nature" }, dc = 14, gives = "known" },
@@ -59,7 +60,7 @@ M.noke_why = {
     what = "Noke served Shinebright for decades and was always treated as a boy: cooking, cleaning, reciting by rote, "
         .. "told it takes a century to learn, when a human hasn't got one. He saw the wand made half his master's name, "
         .. "took it, and set up as a master himself. Guilt and fear have him barely sleeping.",
-    held_by = { "sh_noke", { on = "sh_shinebright", gives = "hint", when = { flag = "understood" },
+    held_by = { "sh_noke", { on = "sh_shinebright", gives = "hint", when = { flag = "talking" },
                              hint_says = { "\"Ungrateful,\" says Shinebright. \"I gave that boy everything. Chores, mostly. "
                                                .. "It's how I was taught.\"" } } },
     hint_words = { "how I was taught", "treated him like a child" },
@@ -73,7 +74,7 @@ M.noke_why = {
                "Shinebright's leaving something out about how he treated that boy." },
     paths = {
         { kind = "ask", on = "sh_noke", gives = "known", book = true, page = 5, flag = "heard_noke" },
-        { kind = "check", on = "sh_shinebright", when = { flag = "understood" }, skill = { "insight" }, dc = 13, gives = "hint" },
+        { kind = "check", on = "sh_shinebright", when = { flag = "talking" }, skill = { "insight" }, dc = 13, gives = "hint" },
         { kind = "read", on = { room = "hall", spot = "lab" }, skill = { "investigation" }, dc = 13, gives = "hint",
           hint_says = { "Among the notes, a page in a cramped hand: lists of chores, dated, years of them, and in the "
                             .. "margin, over and over, 'when?'" } },
@@ -90,7 +91,7 @@ M.cant_pay = {
              "The shelves are bare and the vaults are empty. Whatever he promised, there's nothing to pay it with." },
     theory = { "He's promising a lot for someone who eats grass.", "I'd like to see this reward before I bleed for it." },
     paths = {
-        { kind = "check", on = "sh_shinebright", when = { flag = "understood" }, skill = { "insight" }, dc = 13, gives = "hint", page = 3 },
+        { kind = "check", on = "sh_shinebright", when = { flag = "talking" }, skill = { "insight" }, dc = 13, gives = "hint", page = 3 },
         { kind = "check", on = { room = "hall", spot = "library" }, skill = { "investigation" }, dc = 12, gives = "known" },
         { kind = "event", event = "the_spell", gives = "known", book = true, page = 6 },
     },
@@ -113,12 +114,12 @@ M.bear_outhouse = {
 M.wand_on_noke = {
     name = "The wand never leaves him", page = 3, type = "person", room = "hall",
     what = "Noke carries the wand everywhere, and only leaves the house when he must.",
-    held_by = { { on = "sh_shinebright", when = { flag = "understood" } }, "sh_noke" },
+    held_by = { { on = "sh_shinebright", when = { flag = "talking" } }, "sh_noke" },
     hint = { "Noke's hand keeps going to his sleeve.", "Whatever's up his sleeve, he checks it's there every few breaths." },
     tell = { "The wand is on Noke, always, and he hardly ever goes out.", "Shinebright is certain: the boy keeps it on him, day and night." },
     theory = { "If he's that scared, he's keeping it close.", "Bet you anything the wand's on him." },
     paths = {
-        { kind = "ask", on = "sh_shinebright", when = { flag = "understood" }, gives = "known", book = true, page = 3 },
+        { kind = "ask", on = "sh_shinebright", when = { flag = "talking" }, gives = "known", book = true, page = 3 },
         { kind = "check", on = "sh_noke", skill = { "insight", "perception" }, dc = 12, gives = "known" },
     },
 }
@@ -165,7 +166,7 @@ M.second_scroll = {
     theory = { "Where he got one, there might be more." },
     paths = {
         { kind = "check", on = { room = "hall", spot = "library" }, skill = { "investigation" }, dc = 10, gives = "known", book = true, page = 6 },
-        { kind = "ask", on = "sh_shinebright", when = { flag = "understood" }, gives = "known" },
+        { kind = "ask", on = "sh_shinebright", when = { flag = "talking" }, gives = "known" },
     },
 }
 
@@ -183,7 +184,7 @@ M.lure = {
     paths = {
         { kind = "check", on = "sh_noke", skill = { "insight" }, dc = 14, gives = "known", book = true, page = 5 },
         { kind = "ask", on = "sh_teddy", gives = "hint" },
-        { kind = "ask", on = "sh_shinebright", when = { flag = "understood" }, gives = "hint" },
+        { kind = "ask", on = "sh_shinebright", when = { flag = "talking" }, gives = "hint" },
     },
 }
 

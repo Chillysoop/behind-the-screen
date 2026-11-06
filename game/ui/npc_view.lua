@@ -102,7 +102,7 @@ function M.draw(app)
         if i > 4 then
             break
         end
-        local def = items_mod.def(d.item)
+        local def = npcs.drop_def(d.item)
         local name = def and def.name or d.item
         kit.box(x + 28, ly, cw, 40, theme.panel, { radius = 8 })
         local nt = kit.text(x + 42, ly + 9, name, "ui18b", d.got and theme.dim or theme.text, { w = 170, lines = 1, gloss = false })
@@ -136,17 +136,17 @@ function M.draw(app)
     end
     M.draw_secrets(app, n, x + 560, y + 92, w - 588, h - 92 - 210)
     -- Put something on them.
-    local choices = npcs.item_choices()
+    local choices = npcs.item_choices(c)
     local k = util.clamp(app.npc_pick or 1, 1, math.max(1, #choices))
     app.npc_pick = k
     local by = y + h - 120
     kit.text(x + 28, by, "PUT SOMETHING ON THEM", "ui14", theme.gold)
     by = by + 24
     kit.button(x + 28, by, 40, 40, "<", function()
-        app.npc_pick = (k - 2) % #choices + 1
+        app.npc_pick = (k - 2) % math.max(1, #choices) + 1
         app.refresh()
     end, { key = "npc_prev" })
-    local def = items_mod.def(choices[k])
+    local def = choices[k] and npcs.drop_def(choices[k])
     kit.box(x + 74, by, 250, 40, theme.panel2, { radius = 8 })
     local cn = kit.text(x + 88, by + 10, def and (def.name .. " (" .. (def.rarity or "") .. ")") or "", "ui18", theme.text,
         { w = 226, lines = 1, gloss = false })
@@ -154,13 +154,15 @@ function M.draw(app)
         gloss.card_spot(x + 74, by, 250, 40, def.name, def.text, nil, cn)
     end
     kit.button(x + 330, by, 40, 40, ">", function()
-        app.npc_pick = k % #choices + 1
+        app.npc_pick = k % math.max(1, #choices) + 1
         app.refresh()
     end, { key = "npc_next" })
     kit.button(x + 378, by, 150, 40, "Put it on them", function()
         npcs.add_drop(c, id, choices[k])
         app.refresh()
-    end, { key = "npc_add", color = theme.go, hover = theme.go_hover, enabled = #list < 4 })
+    end, { key = "npc_add", color = theme.go, hover = theme.go_hover, enabled = #list < 4 and #choices > 0 })
+    kit.text(x + 28, by + 46, "From your bag (" .. util.int(#choices) .. " things in it). Read up between sessions for more.", "ui14",
+        theme.faint, { w = 500, lines = 1 })
     M.draw_give(app, n, x + 560, by - 104, w - 588)
     kit.button(x + w - 128, by, 100, 40, "Close", function()
         M.close(app)

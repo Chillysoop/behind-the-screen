@@ -11,17 +11,59 @@ local function data()
     return require "game.data.dm_bag"
 end
 
+local function state(campaign)
+    campaign.dm_bag = campaign.dm_bag or {}
+    campaign.dm_bag.used = campaign.dm_bag.used or {}
+    campaign.dm_bag.books = campaign.dm_bag.books or {}
+    return campaign.dm_bag
+end
+
 -- How many of an entry are left.
 function M.left(campaign, e)
     local used = (campaign.dm_bag and campaign.dm_bag.used or {})[e.id] or 0
     return (e.stock or 1) - used
 end
 
+-- In the bag yet: from the start, or its book has been read.
+function M.unlocked(campaign, e)
+    return not e.book or ((campaign.dm_bag and campaign.dm_bag.books) or {})[e.book] ~= nil
+end
+
+-- The books: read already, and whether one can be read now (its book before it read, and an hour of prep left).
+function M.read_already(campaign, book_id)
+    return ((campaign.dm_bag and campaign.dm_bag.books) or {})[book_id] ~= nil
+end
+function M.can_read(campaign, prep, book_id)
+    local b = data().book_by_id[book_id]
+    if not b or M.read_already(campaign, book_id) then
+        return false
+    end
+    if b.needs and not M.read_already(campaign, b.needs) then
+        return false
+    end
+    return prep ~= nil and prep:left() >= data().READ_COST
+end
+-- Read it: an hour of prep, and what it describes is in the bag from now on. Returns the entries it added.
+function M.read(campaign, prep, book_id)
+    if not M.can_read(campaign, prep, book_id) then
+        return nil
+    end
+    prep.extra = (prep.extra or 0) + data().READ_COST
+    state(campaign).books[book_id] = campaign.week or 0
+    local added = {}
+    for _, e in ipairs(data().list) do
+        if e.book == book_id then
+            table.insert(added, e)
+        end
+    end
+    return added
+end
+
 -- Everything still in the bag, least to most powerful.
 function M.stock(campaign)
     local out = {}
     for _, e in ipairs(data().list) do
-        if M.left(campaign, e) > 0 then
+        if M.unlocked(campaign, e) and M.left(campaign, e) > 0 then
             table.insert(out, e)
         end
     end
@@ -79,24 +121,42 @@ function M.sub(e)
     return e.rarity .. ". " .. (e.text or "") .. (strong and " Strong: fights get easier from here." or "")
 end
 
+-- Out of the bag and into someone's pockets (the person sheet, npcs.lua), or back into the bag.
+function M.take(campaign, e)
+    if not e or M.left(campaign, e) <= 0 or not M.unlocked(campaign, e) then
+        return false
+    end
+    local st = state(campaign)
+    st.used[e.id] = (st.used[e.id] or 0) + 1
+    return true
+end
+function M.put_back(campaign, e)
+    local st = state(campaign)
+    if e and (st.used[e.id] or 0) > 0 then
+        st.used[e.id] = st.used[e.id] - 1
+    end
+end
+
+-- A thing from the bag reaching the party some other way (off someone it was put on): into a pack. The bag already
+-- counted it out.
+function M.hand_over(campaign, p, e)
+    if e.kind == "magic" then
+        local players = (p and items.can_use(campaign, p, e.magic)) and { p } or campaign.players
+        return items.earn(campaign, e.magic, players, "found")
+    end
+    local it = items.give(campaign, e.thing or e.id, p and p.key, "found")
+    return it, it and it.holder and campaign:player(it.holder)
+end
+
 -- Give it: into the hero's pack (or, for a magic item they can't use, whoever in the party can), out of the bag.
 -- Returns the inventory entry and who has it.
 function M.give(campaign, p, e)
     if not e or M.left(campaign, e) <= 0 then
         return nil
     end
-    campaign.dm_bag = campaign.dm_bag or { used = {} }
-    campaign.dm_bag.used = campaign.dm_bag.used or {}
-    campaign.dm_bag.used[e.id] = (campaign.dm_bag.used[e.id] or 0) + 1
-    local it, who
-    if e.kind == "magic" then
-        local players = (p and items.can_use(campaign, p, e.magic)) and { p } or campaign.players
-        it, who = items.earn(campaign, e.magic, players, "found")
-    else
-        it = items.give(campaign, e.thing or e.id, p and p.key, "found")
-        who = it and it.holder and campaign:player(it.holder)
-    end
-    return it, who
+    local st = state(campaign)
+    st.used[e.id] = (st.used[e.id] or 0) + 1
+    return M.hand_over(campaign, p, e)
 end
 
 return M

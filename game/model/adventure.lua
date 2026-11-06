@@ -445,6 +445,31 @@ function M.handoff(campaign, to, opts)
     return campaign.past[from]
 end
 
+-- An adventure's clocks counted in days or sessions (MODULE.clocks: Noke's men are looking, three days): how many are
+-- left, and the line for the prep board. A clock that's run out sets its flag (`sets`), and the ending that reads it
+-- follows (museum_week.after_night).
+function M.clocks_now(campaign)
+    local out = {}
+    for _, k in ipairs(MODULE.clocks or {}) do
+        if (k.unit == "days" or k.unit == "sessions") and k.count and not (k.when and not M.test(campaign, k.when)) then
+            local left = k.count - M.week(campaign)
+            table.insert(out, { clock = k, left = left,
+                                line = (k.name or "A clock") .. ": " .. (left > 1 and (util.int(left) .. " " .. k.unit .. " left")
+                                    or left == 1 and ("1 " .. string.gsub(k.unit, "s$", "") .. " left") or "out of time") .. "." })
+        end
+    end
+    return out
+end
+function M.run_clocks(campaign)
+    local st = campaign.adv
+    for _, k in ipairs(M.clocks_now(campaign)) do
+        if k.left <= 0 and k.clock.sets and st and not st.ending then
+            st.flags[k.clock.sets] = true
+        end
+    end
+    return M.check_ending(campaign)
+end
+
 -- Which session of this adventure it is: the campaign's sessions since it began (a party carried on from another
 -- adventure counts from the hand-off).
 function M.week(campaign)
@@ -1442,6 +1467,10 @@ function M.apply(campaign, mus, room, holder)
     end
     if mus.flag then
         st.flags[mus.flag] = true
+    end
+    -- (More than one: the scroll read is "understood" and "talking" at once.)
+    for _, f in ipairs(mus.flags or {}) do
+        st.flags[f] = true
     end
     -- (The Witness, named out loud: a line about it in the notebook. A whisper says a hero's name,
     -- not its own: round three heard "the WITNESS" from a table that never heard the word.)

@@ -11,6 +11,21 @@ local M = {}
 
 M.RANK = { Bit = 1, Common = 2, Uncommon = 3, Rare = 4, ["Very Rare"] = 5, Legendary = 6 }
 
+-- The books (Conner, November 6: "the DM should have the ability to spend an hour reading books to unlock more items for
+-- the item bag"). Between sessions, an hour of prep reads one, and what it describes joins the bag. Each needs the one
+-- before it read first. A thing with no `book` is in the bag from the start.
+M.READ_COST = 1
+M.books = {
+    { id = "armourer", name = "The Wandering Armourer's Ledger",
+      about = "A travelling smith's notes on shields, gloves and bows that are a little better than they should be." },
+    { id = "wonders", name = "Notes on Lesser Wonders", needs = "armourer",
+      about = "A hedge-wizard's catalogue of small magic: wands, pearls, lucky stones and charms against dying." },
+    { id = "vault", name = "The Vault-Keeper's Catalogue", needs = "wonders",
+      about = "What a careful collector keeps locked away: enchanted armour, rings and robes, and blades that bite deeper." },
+    { id = "legend", name = "Treasures of Legend", needs = "vault",
+      about = "Old stories of arms and armour made by masters, and where such things have turned up since." },
+}
+
 M.list = {
     -- Bits and bobs.
     { id = "bag_lucky_copper", kind = "bit", rarity = "Bit", name = "a lucky copper with a hole through it",
@@ -36,34 +51,38 @@ M.list = {
     { id = "bag_potion", kind = "potion", rarity = "Common", stock = 3, thing = "potion_healing", name = "a Potion of Healing",
       text = "Drink it as a Bonus Action in a fight: 2d4 + 2 Hit Points back. One use." },
 
-    -- Magic: uncommon.
+    -- Magic: uncommon (four from the start; the rest in the first two books).
     { id = "bag_weapon_plus1", kind = "magic", magic = "weapon_plus1" },
     { id = "bag_shield_plus1", kind = "magic", magic = "shield_plus1" },
-    { id = "bag_sentinel_shield", kind = "magic", magic = "sentinel_shield" },
+    { id = "bag_sentinel_shield", book = "armourer", kind = "magic", magic = "sentinel_shield" },
     { id = "bag_cloak_of_protection", kind = "magic", magic = "cloak_of_protection" },
     { id = "bag_boots_of_elvenkind", kind = "magic", magic = "boots_of_elvenkind" },
-    { id = "bag_eyes_of_the_eagle", kind = "magic", magic = "eyes_of_the_eagle" },
-    { id = "bag_gloves", kind = "magic", magic = "gloves_of_swimming_and_climbing" },
-    { id = "bag_bracers_of_archery", kind = "magic", magic = "bracers_of_archery" },
-    { id = "bag_wand_of_magic_missiles", kind = "magic", magic = "wand_of_magic_missiles" },
-    { id = "bag_pearl_of_power", kind = "magic", magic = "pearl_of_power" },
-    { id = "bag_luckstone", kind = "magic", magic = "stone_of_good_luck" },
-    { id = "bag_periapt", kind = "magic", magic = "periapt_of_wound_closure" },
+    { id = "bag_eyes_of_the_eagle", book = "armourer", kind = "magic", magic = "eyes_of_the_eagle" },
+    { id = "bag_gloves", book = "armourer", kind = "magic", magic = "gloves_of_swimming_and_climbing" },
+    { id = "bag_bracers_of_archery", book = "armourer", kind = "magic", magic = "bracers_of_archery" },
+    { id = "bag_wand_of_magic_missiles", book = "wonders", kind = "magic", magic = "wand_of_magic_missiles" },
+    { id = "bag_pearl_of_power", book = "wonders", kind = "magic", magic = "pearl_of_power" },
+    { id = "bag_luckstone", book = "wonders", kind = "magic", magic = "stone_of_good_luck" },
+    { id = "bag_periapt", book = "wonders", kind = "magic", magic = "periapt_of_wound_closure" },
 
-    -- Magic: rare and up. Strong: fights get easier from here.
-    { id = "bag_armor_plus1", kind = "magic", magic = "armor_plus1" },
-    { id = "bag_weapon_plus2", kind = "magic", magic = "weapon_plus2" },
-    { id = "bag_shield_plus2", kind = "magic", magic = "shield_plus2" },
-    { id = "bag_ring_of_protection", kind = "magic", magic = "ring_of_protection" },
-    { id = "bag_robe_of_eyes", kind = "magic", magic = "robe_of_eyes" },
-    { id = "bag_armor_plus2", kind = "magic", magic = "armor_plus2" },
-    { id = "bag_weapon_plus3", kind = "magic", magic = "weapon_plus3" },
-    { id = "bag_armor_plus3", kind = "magic", magic = "armor_plus3" },
+    -- Magic: rare and up, in the last two books. Strong: fights get easier from here.
+    { id = "bag_armor_plus1", book = "vault", kind = "magic", magic = "armor_plus1" },
+    { id = "bag_weapon_plus2", book = "vault", kind = "magic", magic = "weapon_plus2" },
+    { id = "bag_shield_plus2", book = "vault", kind = "magic", magic = "shield_plus2" },
+    { id = "bag_ring_of_protection", book = "vault", kind = "magic", magic = "ring_of_protection" },
+    { id = "bag_robe_of_eyes", book = "vault", kind = "magic", magic = "robe_of_eyes" },
+    { id = "bag_armor_plus2", book = "legend", kind = "magic", magic = "armor_plus2" },
+    { id = "bag_weapon_plus3", book = "legend", kind = "magic", magic = "weapon_plus3" },
+    { id = "bag_armor_plus3", book = "legend", kind = "magic", magic = "armor_plus3" },
 }
 
 -- (A magic entry takes its name, rarity and words from the rules.)
 local mi = require "game.rules.data.magic_items"
 M.by_id = {}
+M.book_by_id = {}
+for _, b in ipairs(M.books) do
+    M.book_by_id[b.id] = b
+end
 for _, e in ipairs(M.list) do
     if e.kind == "magic" then
         local d = assert(mi[e.magic], "no magic item " .. tostring(e.magic))

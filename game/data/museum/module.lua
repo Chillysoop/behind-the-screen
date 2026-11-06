@@ -1308,6 +1308,8 @@ M.npc_sheet = {
 -- sprite: a pet's own mini (a person's comes from their cast card or stat block).
 -- Table life: small moments that play themselves (game/model/table_life.lua), room by room.
 M.table_life = require "game.data.museum.table_life"
+-- Lore tips the DM can hand out to point the way (game/model/lore_tips.lua).
+M.lore_tips = require "game.data.museum.tips"
 -- Who remembers what the party did, what they say about it, and the friends' own ideas (R11, R12,
 -- R13: game/model/people.lua, game/model/ideas.lua).
 do

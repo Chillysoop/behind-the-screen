@@ -979,6 +979,22 @@ for week = 1, WEEKS do
         click_key("saves_close")
         if app.saves_ui then problem("the Save window didn't close" .. where) end
     end
+    -- Your bag and its books (Conner, November 6): an hour of prep reads a book, and its things join the bag.
+    if week == 1 and PASS == 1 then
+        local dm_bag = require "game.model.dm_bag"
+        if not click_key("open_bag") then problem("no Your bag button on the prep board" .. where) end
+        if app.overlay ~= "notes" or app.notes_tab ~= "bag" then problem("Your bag didn't open the bag's page" .. where) end
+        dump_once("4b_bag_w1")
+        scan("the bag's page" .. where)
+        local before, hours = #dm_bag.stock(c), c.prep:left()
+        if not click_key("read_book_armourer") then
+            problem("no way to read the first book" .. where)
+        elseif #dm_bag.stock(c) ~= before + 4 or c.prep:left() ~= hours - 1 then
+            problem("reading a book didn't put its things in the bag for an hour (" .. before .. " -> " .. #dm_bag.stock(c)
+                .. ", hours " .. hours .. " -> " .. c.prep:left() .. ")" .. where)
+        end
+        call(app.close_overlay)
+    end
     -- The notebook, every tab: nothing from the old story in there either.
     if week == 2 or week == 3 then
         local notes_view = require "game.ui.notes_view"

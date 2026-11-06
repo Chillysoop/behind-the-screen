@@ -1,0 +1,31 @@
+-- Lore tips for The Wild Sheep Chase (Conner, November 6: "lore tips that can be given out, separate from the bag,
+-- that can help point the party in the right direction"). The shape is the museum's (game/data/museum/tips.lua):
+-- room, hints (a secret the tip counts as a hint for), when, moot. Our words; the book's pages for what they point at.
+
+return {
+    { id = "tip_scroll", name = "Read the scroll", room = "inn_common", hints = "sheep_wizard", page = 2,
+      moot = { flag = "understood" },
+      text = "A sealed scroll from a frantic animal is usually a message, and messages want reading." },
+    { id = "tip_guz", name = "Guz would rather go home", room = "inn_common", page = 3, moot = { flag = "guz_left" },
+      text = "Guz is loyal, not clever. Give him a reason to walk away, and he'd rather go home with a story than lose a fight in front of a crowd." },
+    { id = "tip_beasts", name = "Odd beasts", room = "inn_common", hints = "guards_are_people", page = 3,
+      text = "Those wolves keep looking to the big man before they move, like soldiers waiting on an order." },
+    { id = "tip_trail", name = "The trail east", room = "woods_path", page = 4,
+      text = "Wolves and a bear leave a trail a farmer could follow, and this one goes east into the oaks." },
+    { id = "tip_outhouse", name = "The outhouse", room = "compound", hints = "bear_outhouse", page = 4, moot = { flag = "bear_seen" },
+      text = "Not every guard is out on the lawn. Something very big uses that outhouse." },
+    { id = "tip_apes", name = "The apes", room = "compound", hints = "guards_are_people", page = 4,
+      text = "The apes dice like old soldiers on a slow watch. Animals don't keep score." },
+    { id = "tip_door", name = "The hall door", room = "garden", page = 5,
+      text = "The lock on the hall door is a good one. The frame round it is not." },
+    { id = "tip_noke_talk", name = "Let Noke talk", room = "hall", hints = "noke_why", page = 5, moot = { seen = "noke_demand" },
+      text = "Noke wants to be heard more than he wants to fight. Let him talk, and he may say more than he means to." },
+    { id = "tip_wand", name = "The wand never leaves him", room = "hall", hints = "wand_on_noke", page = 6,
+      text = "Whatever he does, Noke keeps that wand in his hand. Get the wand, and the rest follows." },
+    { id = "tip_scroll_two", name = "A second scroll", room = "hall", hints = "second_scroll", page = 6,
+      text = "Whoever wrote the first scroll wouldn't have made just one. The library's the place to look." },
+    { id = "tip_furniture", name = "A plan upstairs", room = "hall", hints = "bed_escape", page = 5,
+      text = "A transmuter who's been practising on furniture has a plan for when things go wrong. It's upstairs." },
+    { id = "tip_cracked", name = "A cracked wand", room = "bedroom", hints = "wand_unreliable", page = 6,
+      text = "A cracked wand is a gamble every time. Let someone who knows magic look it over before anyone trusts it." },
+}

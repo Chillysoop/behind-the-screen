@@ -1801,16 +1801,22 @@ end
 local function earn_drop(night, sc, n, w)
     local items_mod = require "game.model.items"
     local c = night.campaign
-    local who = M.hand_off(night, w.drop.item, night.actor)
-    local e = items_mod.earn(c, w.drop.item, who and { who } or night.players)
+    local dd = require("game.model.npcs").drop_def(w.drop.item) or {}
+    local who = dd.magic and M.hand_off(night, dd.magic, night.actor) or night.actor
+    local e
+    if dd.entry then
+        e = require("game.model.dm_bag").hand_over(c, who, dd.entry)     -- (a thing from the DM's bag)
+    else
+        e = items_mod.earn(c, w.drop.item, who and { who } or night.players)
+    end
     local pc = e and e.holder and night.pcs and night.pcs[e.holder]
     if pc then
         items_mod.apply(c, e.holder, pc)
     end
     w.drop.got = c.week
     w.drop.entry = e            -- (who has it now is the inventory's to say: items.lua)
-    local d = items_mod.def(w.drop.item)
-    M.note_got(night, d and util.lower_first(d.name) or nil)
+    local d = dd
+    M.note_got(night, d and d.name and util.lower_first(d.name) or nil)
     local holder = e and e.holder and present(night, e.holder)
     night:say((d and d.name or "Something") .. (holder and (": " .. holder.char .. " carries it now.") or "."), "good")
 end
@@ -1849,7 +1855,7 @@ function M.drops_social(night, sc)
                 return
             end
             local n = w.npc
-            local d = items_mod.def(w.drop.item)
+            local d = npcs.drop_def(w.drop.item)
             local skill = how == "pocket" and "sleight_of_hand" or "persuasion"
             local p, keen = keenest(night, how == "pocket" and POCKET_KEEN or ASK_KEEN, skill)
             -- (Nobody at this table would think of it: it stays on them.)
@@ -4498,6 +4504,20 @@ end
 function M.after_room(night, sc)
     -- (An ending that's a condition on the log, met in this room: the adventure's over. adventure.check_ending.)
     adventure.check_ending(night.campaign)
+    -- (What stops being true once this scene's done, the adventure's `clears`: the scroll's speech wears off after
+    -- the walk. Its line, when it was true.)
+    local cl = MODULE.rooms[sc.room] and MODULE.rooms[sc.room].clears
+    if cl and night.campaign.adv then
+        local fl = night.campaign.adv.flags
+        local was = false
+        for _, f in ipairs(cl.flags or {}) do
+            was = was or fl[f]
+            fl[f] = nil
+        end
+        if was and cl.line then
+            night:say(cl.line, "narration")
+        end
+    end
     local c = night.campaign
     local st = st_of(night)
     local id = sc.room

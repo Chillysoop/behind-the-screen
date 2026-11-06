@@ -18,7 +18,7 @@ local M = {}
 local X, Y, W, H = 110, 44, 1380, 816
 -- The binder's tabs, down its left edge.
 local TABS = { { "museum", "The adventure" }, { "upstairs", "Upstairs" }, { "session", "This session" },
-               { "people", "People" }, { "log", "Session log" }, { "party", "The party" }, { "bag", "Your bag" } }
+               { "people", "People" }, { "log", "Session log" }, { "party", "The party" }, { "bag", "Your bag" }, { "tips", "Lore tips" } }
 M.TABS = TABS
 -- (The tabs this adventure has: "Upstairs" is the villain's card, and an adventure without one has no such tab.)
 local function tabs_now(app)
@@ -319,13 +319,41 @@ local function tab_bag(app, x, y, w, h)
     local bag = require "game.model.dm_bag"
     local items = require "game.model.items"
     local list = bag.stock(c)
+    local bagd = require "game.data.dm_bag"
     kit.text(x, y, "When a friend pokes at something on game night, you can answer as the dice say, tell them something "
-        .. "real, or tuck one of these there. What you give goes in that hero's pack and works from then on.", "ui18",
-        theme.dim, { w = w })
-    local cy = y + 54
+        .. "real, or tuck one of these there. You can also put them in people's pockets from their sheets. What you give "
+        .. "goes in a hero's pack and works from then on.", "ui18", theme.dim, { w = w })
+    -- The books: an hour of prep reads one, and what it describes joins the bag. Only while you prep.
+    local by = y + 76
+    kit.text(x, by, "BOOKS", "ui14", theme.gold)
+    local prep = app.screen == "prep" and c.prep or nil
+    kit.text(x + 70, by, prep and ("An hour of prep each. " .. util.int(prep:left()) .. " hours left.")
+        or "Read between sessions, on the prep board.", "ui14", theme.faint)
+    by = by + 22
+    local bw = math.floor((w - 3 * 12) / 4)
+    for i, b in ipairs(bagd.books) do
+        local bx = x + (i - 1) * (bw + 12)
+        kit.box(bx, by, bw, 92, theme.panel2, { radius = 8 })
+        kit.text(bx + 10, by + 8, kit.ellipsize(b.name, "ui18b", bw - 20), "ui18b", theme.text)
+        kit.text(bx + 10, by + 32, b.about, "ui14", theme.dim, { w = bw - 20, lines = 2 })
+        if bag.read_already(c, b.id) then
+            kit.text(bx + 10, by + 68, "Read. Its things are in your bag.", "ui14", theme.green)
+        elseif b.needs and not bag.read_already(c, b.needs) then
+            kit.text(bx + 10, by + 68, "Read " .. bagd.book_by_id[b.needs].name .. " first.", "ui14", theme.faint,
+                { w = bw - 20, lines = 1 })
+        elseif prep then
+            kit.button(bx + 10, by + 62, bw - 20, 26, "Read it (1 hour)", function()
+                bag.read(c, prep, b.id)
+                app.refresh_notes()
+            end, { font = "ui14", key = "read_book_" .. b.id, enabled = bag.can_read(c, prep, b.id) })
+        else
+            kit.text(bx + 10, by + 68, "Not read yet.", "ui14", theme.faint)
+        end
+    end
+    local cy = by + 104
     local col_w = math.floor((w - 20) / 2)
     local rows = math.ceil(#list / 2)
-    local rh = math.min(38, math.floor((h - 150) / math.max(1, rows)))
+    local rh = math.min(38, math.floor((h - 260) / math.max(1, rows)))
     kit.text(x, cy, "IN YOUR BAG  (" .. util.int(#list) .. ")", "ui14", theme.gold)
     cy = cy + 22
     for i, e in ipairs(list) do
@@ -364,6 +392,33 @@ local function tab_bag(app, x, y, w, h)
     end
     for i = 1, math.min(3, #given) do
         kit.text(x, gy + (i - 1) * 20, kit.ellipsize(given[#given - i + 1], "ui18", w), "ui18", theme.text)
+    end
+end
+
+-- Lore tips (Conner, November 6): pointers you can hand out when a friend pokes about, to send them the right way.
+local function tab_tips(app, x, y, w, h)
+    local c = app.campaign
+    local tips = require "game.model.lore_tips"
+    local adv = require "game.model.adventure"
+    kit.text(x, y, "When a friend pokes at something in the room a tip is for, you can hand it out. A tip points the way "
+        .. "without giving the answer, and counts as a hint about what it points at.", "ui18", theme.dim, { w = w })
+    local ty = y + 54
+    local list = tips.list()
+    local rh = math.min(48, math.floor((h - 60) / math.max(1, #list)))
+    for _, t in ipairs(list) do
+        local room = t.room and adv.data.rooms[t.room]
+        local state = tips.given(c, t.id) and "Given" or (tips.useful(c, t) and "Ready" or "Not now")
+        local tone = state == "Given" and theme.green or (state == "Ready" and theme.gold or theme.faint)
+        kit.text(x, ty, state, "ui14", tone)
+        kit.text(x + 80, ty, kit.ellipsize(t.name .. (room and ("  (" .. room.name .. ")") or "  (anywhere)"), "ui18b", w - 80),
+            "ui18b", theme.text)
+        if rh >= 40 then
+            kit.text(x + 80, ty + 21, kit.ellipsize(t.text, "ui14", w - 80), "ui14", theme.dim)
+        end
+        ty = ty + rh
+    end
+    if #list == 0 then
+        kit.text(x, ty, "This adventure has no tips written yet.", "ui18", theme.faint)
     end
 end
 
@@ -539,6 +594,8 @@ function M.draw(app)
         tab_log(app, cx, cy, cw, ch)
     elseif tab == "bag" then
         tab_bag(app, cx, cy, cw, ch)
+    elseif tab == "tips" then
+        tab_tips(app, cx, cy, cw, ch)
     else
         tab_party(app, cx, cy, cw, ch)
     end

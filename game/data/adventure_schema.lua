@@ -70,7 +70,7 @@ return {
     openings_from = { kind = "map", fields = { ["[]"] = "string" } },
     order = { kind = "open" },
     outs = { kind = "open" },
-    people = { kind = "list", fields = { about = "string", id = "string", known = "boolean", name = "string", role = "string", colour = "boolean", companion = "boolean", knows = "table", look = "string", pages = "table", pronoun = "string", source = "string", stats = "table", template = "table", tier = "string", understood = "table", voice = "string", wants = "string", where = "table" } },
+    people = { kind = "list", fields = { about = "string", id = "string", known = "boolean", name = "string", role = "string", colour = "boolean", companion = "boolean", knows = "table", look = "string", pages = "table", pronoun = "string", short = "string", source = "string", stats = "table", template = "table", tier = "string", understood = "table", voice = "string", wants = "string", where = "table" } },
     people_about = { kind = "open" },
     people_lines = { kind = "map", fields = { again = "table", again_sad = "table", caught = "table", docked = "table", docked_sad = "table", grief = "table", heard = "table", helped = "table", pass_on = "table", price_down = "table", price_up = "table", refuse = "table", reward = "table", reward_sad = "table", spots = "table", thanks = "table", thanks_sad = "table" } },
     people_memory = { kind = "map", fields = { ["[]"] = "string", companion = "boolean", hears = "table", sees = "table", start = "table", weights = "table" } },
@@ -109,7 +109,8 @@ return {
     -- The standard's records (docs/design/adventure-standard.md), added on purpose with the Sheep Chase, November 6.
     -- Places by layer, with their routes and shops; threads, story events, clocks and rumours; the adventure's own
     -- creatures; what it can follow, what the hand-off says, and what the party keeps.
-    clocks = { kind = "list", fields = { after = "string", call = "number", count = "number", fires = "string", id = "string", name = "string", ours = "boolean", page = "number", text = "string", unit = "string" } },
+    clocks = { kind = "list", fields = { after = "string", call = "number", count = "number", fires = "string", id = "string", name = "string", ours = "boolean", page = "number", sets = "string", text = "string", unit = "string", when = "table" } },
+    lore_tips = { kind = "list", fields = { hints = "string", id = "string", name = "string", ours = "boolean", page = "number", room = "string", moot = "table", text = "string", when = "table" } },
     creatures = { kind = "map", fields = { abilities = "table", ac = "number", attacks = "table", breath = "table", call = "number", climb = "number", core = "string", cr = "string", escapes = "boolean", flee_line = "string", flees_below = "number", fly = "number", hit_dice = "string", hp = "number", int = "number", look = "string", mind = "string", name = "string", note = "string", page = "number", saves = "table", size = "string", skills = "table", speed = "number", spellcasting = "table", tactics = "string", traits = "table", tweaks = "table", type = "string", vulnerable = "table", wis = "number", xp = "number" } },
     events = { kind = "list", fields = { actor = "table", at = "string", id = "string", only_if = "table", options = "table", ours = "boolean", page = "number", pages = "table", party = "boolean", required = "boolean", risks = "string", sets = "table", tells = "table", text = "string", text_if = "table", title = "string", trigger = "table", type = "string", when_in = "string" } },
     follows = { kind = "record", fields = { any = "boolean", from = "table" } },

@@ -1294,8 +1294,16 @@ local function top_bar(app, prep)
     -- (A four-way fork in a smaller hand rather than cut: the confirming playtest's "At a fork: The offices,
     -- The World of Tomorrow, The lecture..." on nine screens.)
     local where = prep.museum.boss and "Boss night: Euryale is waiting at the top of the stairs." or adventure.where(c)
-    local wfont = kit.width(where, "ui18") <= 590 and "ui18" or "ui14"
-    kit.text(300, wfont == "ui18" and 32 or 35, where, wfont, theme.dim, { w = 590, lines = 1 })
+    -- (A clock the adventure is running: Noke's men are looking, so many days left.)
+    for _, k in ipairs(adventure.clocks_now(c)) do
+        where = where .. " " .. k.line
+    end
+    local wfont = kit.width(where, "ui18") <= 460 and "ui18" or "ui14"
+    kit.text(300, wfont == "ui18" and 32 or 35, where, wfont, theme.dim, { w = 460, lines = 1 })
+    -- Your bag, and the books that fill it (Conner, November 6): an hour of prep reads one.
+    kit.button(772, 10, 118, 46, "Your bag", function()
+        app.open_notes("bag")
+    end, { font = "ui18b", key = "open_bag" })
     local left = prep:left()
     kit.text(900, 14, "PREP HOURS", "ui14", theme.dim)
     kit.text(900, 32, util.int(left) .. " of " .. util.int(prep.budget) .. " left", "ui18b", left > 0 and theme.text or theme.orange)
@@ -1316,9 +1324,11 @@ local function top_bar(app, prep)
             .. "you didn't prep plays thinner, and the table can tell. Hours left over: sleep well, write a backup page, "
             .. "or talk to a friend. Up to " .. util.int(museum_week.CARRY_MAX) .. " you don't use carry to next week."
             .. ((prep.carried or 0) > 0 and (" (" .. util.int(prep.carried) .. " of this week's came over from last week.)") or ""))
-        gloss.card_spot(1056, 10, 66, 46, "Flitwidget Francs",
-            "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
-            .. "The party spends them in the gift shop.")
+        if adventure.data.currency then
+            gloss.card_spot(1056, 10, 66, 46, "Flitwidget Francs",
+                "The museum's own money: one appears for each beaten exhibit, solved puzzle or clever use of the museum. "
+                .. "The party spends them in the gift shop.")
+        end
         local known = warnings.summary(c, 5)
         gloss.card_spot(1126, 10, 140, 46, "Fair warning",
             "A harsh call lands as fair when they knew about that danger: you described it, asked \"Are you sure?\", or they "

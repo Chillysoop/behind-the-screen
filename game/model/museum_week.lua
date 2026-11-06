@@ -794,6 +794,8 @@ function M.after_night(c, night, rep)
     local st = c.adv
     local mus = night.mus or {}
     -- Out of sessions with Euryale still upstairs: the book's quiet ending (Flitwidget moves on).
+    -- (Any adventure's clocks counted in days or sessions: one that's run out sets its flag, and its ending follows.)
+    adventure.run_clocks(c)
     -- (Any adventure: its own ending for running out of sessions, `timeout_ending`; the museum's is "timeout".)
     local timeout = (MODULE.endings or {}).timeout and "timeout" or MODULE.timeout_ending
     if not st.ending and timeout and adventure.week(c) >= MODULE.MAX_WEEKS then

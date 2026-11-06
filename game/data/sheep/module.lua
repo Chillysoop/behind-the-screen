@@ -151,7 +151,8 @@ M.places = {
     { id = "woods_path", name = "The path through the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" }, exits = { { to = "compound", by = "the path" } },
-      scene = { type = "exploration", quick = true, setting = { "outdoor", "wild" }, sum = "A walk into the oaks.",
+      scene = { clears = { flags = { "talking" }, line = "Somewhere along the path the scroll wears off. The sheep's next word comes out as a bleat." },
+                 type = "exploration", quick = true, setting = { "outdoor", "wild" }, sum = "A walk into the oaks.",
                 goal = { name = "Follow the sheep", line = "Goal: follow the path into the oaks, and see where the sheep leads.",
                          win = "Through the last of the oaks, the tower comes into sight.",
                          lose = "They find it in the end, after a long way round.", got = "the way to Noke's Tower" } } },
@@ -205,6 +206,8 @@ M.places = {
 M.start = "inn_common"
 -- The small moments at the table (game/model/table_life.lua): what to poke at in each scene, who to ask.
 M.table_life = require "game.data.sheep.table_life"
+-- Lore tips the DM can hand out to point the way (game/model/lore_tips.lua).
+M.lore_tips = require "game.data.sheep.tips"
 -- Out of sessions with the job not done: Noke's other guards come for the sheep (Conner's three-day clock).
 M.timeout_ending = "taken"
 -- The prep board's story column before anything's happened.
@@ -214,12 +217,12 @@ M.story_start = "An afternoon off at the Bogden Road Country Inn, where the Bogd
 -- tier: named (the book's own), local (from a type template), crowd. stats: a core block by name with tweaks, or
 -- the adventure's own (M.creatures). understood: what it takes for the table to understand them.
 M.people = {
-    { id = "sh_teddy", name = "Teddy Bolandeere", tier = "named", role = "Innkeeper and barman", known = true, source = "inn",
+    { id = "sh_teddy", name = "Teddy Bolandeere", short = "Teddy", tier = "named", role = "Innkeeper and barman", known = true, source = "inn",
       pronoun = "he", look = "Short, round and brown, with a fatherly hand on every shoulder.",
       about = "Theodoro Bolandeere has run the inn for over twenty years. Warm and well loved, and behind the bar he "
           .. "hears every story on the road.",
       wants = "A full house and no trouble", knows = { "rumours" }, where = { "inn_common" } },
-    { id = "sh_shinebright", name = "Finethir Shinebright", tier = "named", role = "The sheep", pages = { 2, 3, 6 },
+    { id = "sh_shinebright", name = "Finethir Shinebright", short = "Shinebright", tier = "named", role = "The sheep", pages = { 2, 3, 6 },
       pronoun = "he", companion = true,
       look = "A sheep like any other: white fleece, black face, curled horns.",
       voice = "Educated, fussy, an elven accent, and a little bleat at the end of words.",
@@ -233,19 +236,19 @@ M.people = {
       voice = "Slow and blunt, with long words of Noke's he hasn't quite got right.",
       about = "Loyal to Noke, who never cared what he looked like. Thinks violence is how everyone gets things done.",
       wants = "Master Noke's sheep, alive", stats = { block = "guz" }, where = { "inn_common", "compound" } },
-    { id = "sh_noke", name = "Ahmed Noke", tier = "named", role = "The apprentice", pages = { 4, 5, 6 }, pronoun = "he",
+    { id = "sh_noke", name = "Ahmed Noke", short = "Noke", tier = "named", role = "The apprentice", pages = { 4, 5, 6 }, pronoun = "he",
       look = "A frantic young human wizard, ink on his fingers, eyes that don't stop moving.",
       voice = "Fast and disjointed, boasting one moment and bitter the next.",
       about = "Served Shinebright for years and was never treated as more than a boy. Took the wand. Now he can't sleep "
           .. "for fear someone does the same to him.",
       wants = "Fame, a great contract, and nobody coming for the wand", knows = { "noke_why", "wand_on_noke", "bed_escape", "wand_unreliable" },
       stats = { block = "noke" }, where = { "hall" } },
-    { id = "sh_turleon", name = "Count Behpoh Turleon", tier = "named", role = "A noble with an appetite", source = "inn",
+    { id = "sh_turleon", name = "Count Behpoh Turleon", short = "Count Turleon", tier = "named", role = "A noble with an appetite", source = "inn",
       pronoun = "he", colour = true, look = "Stout and richly dressed, always near the food.",
       about = "A greedy, pleasure-loving count who'll slum it anywhere the common folk might put on a show. Pays "
           .. "anyone to \"perform\" for him, and what that means changes daily. With nothing to watch, he makes a show of his own.",
       wants = "A good meal and a spectacle", where = { "inn_common" } },
-    { id = "sh_luenn", name = "Sir Luenn of Nordenin", tier = "named", role = "A noble's second son", source = "inn",
+    { id = "sh_luenn", name = "Sir Luenn of Nordenin", short = "Sir Luenn", tier = "named", role = "A noble's second son", source = "inn",
       pronoun = "he", colour = true, look = "Pale, fair-haired and handsome, dressed far too well for the road.",
       about = "Lives on his father's money and his looks, and expects to be treated accordingly; when he isn't, he's "
           .. "unbearable. Would hire adventurers as bodyguards if a fight broke out, and carries the gold and jewels to do it.",
@@ -345,12 +348,12 @@ M.events = {
       options = {
           { label = "Break the seal and read it aloud.", want = "read the scroll and see what happens", short = "read it",
             lean = "look", log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
-            mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "read" },
+            mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "read" },
           { label = "Check it over before anyone reads it.", want = "check the scroll over before anyone reads it",
             short = "check it first", lean = "safe",
             roll = { dc = 8, skill = { "arcana", "investigation" },
                      success = { log = "A real scroll, a little odd, and nothing nasty in it. They break the seal. The bleating turns into Common, with an elven accent.",
-                                 mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "check" },
+                                 mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "check" },
                      fail = { log = "Nobody can make head or tail of the seal, so it stays shut. The sheep butts it at their hands again, bleating, desperate." } } },
       } },
     { id = "guz_arrives", at = "inn_common", when_in = "mid", required = true, page = 2, party = true, title = "Noke's man",
@@ -381,7 +384,7 @@ M.events = {
       options = {
           { label = "All right. Break the seal and read it.", want = "read the scroll this time", short = "read it", lean = "look",
             log = "The words come out strange and old. The bleating turns into Common, with an elven accent.",
-            mus = { flag = "understood" }, tells = { "sheep_wizard" }, tells_how = "read" },
+            mus = { flag = "understood", flags = { "talking" } }, tells = { "sheep_wizard" }, tells_how = "read" },
           { label = "Still no. Let it follow if it wants.", want = "leave the scroll sealed and let the sheep tag along",
             short = "leave it", lean = "safe",
             log = "The scroll goes in a pack, still sealed. The sheep follows them out onto the road, bleating at every step." },
@@ -440,8 +443,10 @@ M.events = {
           .. "master's money.",
       options = {
           { label = "Search the place, quickly.", want = "search the hall before going after him", short = "search it", lean = "look",
-            log = "Lab gear worth a small fortune, and on the library shelves, a second scroll with the same seal as the first.",
-            mus = { flag = "looted" }, tells = { "second_scroll" }, tells_how = "check" },
+            log = "Lab gear worth a small fortune, and on the library shelves, a second scroll with the same seal as the "
+                .. "first. They read it out, and the sheep can talk again.",
+            mus = { flag = "looted", flags = { "talking", "understood" } }, tells = { "second_scroll", "sheep_wizard" },
+            tells_how = "check" },
           { label = "Leave it. Noke first.", want = "go straight after Noke", short = "after him", lean = "bold",
             log = "No time for the shelves. Up the slope, after him." },
       } },
@@ -457,7 +462,7 @@ M.events = {
       risks = "shinebright",      -- (the risk is his, not theirs: a hurt hero doesn't make anyone shy of it)
       actor = { "storyteller", "tactician", "method_actor" },
       text = "The wand lies on the boards, sparking, not the way magic should. The sheep noses it towards them and bleats, once.",
-      text_if = { { when = { flag = "understood" },
+      text_if = { { when = { flag = "talking" },
                     text = "The wand lies on the boards, sparking, not the way magic should. Shinebright looks up at them. "
                         .. "\"If this kills me,\" he says, \"tell my college.\"" } },
       options = {
@@ -491,7 +496,7 @@ M.endings = {
                 line = "They wouldn't risk the wand. Shinebright puts on an old robe over his fleece and keeps hoping." },
     -- (Ours, as the failure: Conner, November 6.)
     taken = { name = "Noke has his sheep", when = { flag = "taken" }, ours = true,
-              line = "Guz brought the sheep home, and nobody came after it." },
+              line = "Noke's men brought the sheep home, and nobody came after it." },
 }
 M.xp = { each = 500, page = 6 }
 
@@ -499,7 +504,8 @@ M.xp = { each = 500, page = 6 }
 M.clocks = {
     -- (Three days: Conner, November 6.)
     { id = "guards_search", name = "Noke's men are looking", unit = "days", count = 3, ours = true, page = 3,
-      text = "Noke has more guards. Left alone, they find the sheep again.", fires = "sheep_taken" },
+      text = "Noke has more guards. Left alone, they find the sheep again.", fires = "sheep_taken", sets = "taken",
+      when = { not_flag = "restored" } },
     { id = "bed_dragon", name = "Three rounds", unit = "rounds", count = 3, page = 5, after = "noke_flees", fires = "bed_dragon" },
 }
 

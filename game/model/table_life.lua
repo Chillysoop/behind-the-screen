@@ -511,6 +511,12 @@ local function reward(night, sc, p, b, level, total)
             sub = hint and ("A hint about something here: " .. util.lower_first(hint)) or util.sentence_case(util.fill(b.lore, vars)),
             effects = { { "actor", fun = 2 }, { "arch:storyteller", fun = 2 }, { "arch:explorer", fun = 1 } } })
     end
+    -- (A lore tip for this room, apart from the bag: the way on, pointed at. game/model/lore_tips.lua.)
+    local tips = require("game.model.lore_tips").for_room(night.campaign, sc.room)
+    for i = 1, math.min(2, #tips) do
+        table.insert(card.options, { label = "Tip: " .. tips[i].name .. ".", how = "tip", tip = tips[i],
+            sub = tips[i].text, effects = { { "actor", fun = 1 }, { "arch:tactician", fun = 2 }, { "arch:explorer", fun = 1 } } })
+    end
     for _, e in ipairs(bag.suggest(night.campaign, p, night.rng)) do
         table.insert(card.options, bag_option(night, p, e))
     end
@@ -530,6 +536,11 @@ local function reward(night, sc, p, b, level, total)
     sc.tl_rewarded = true
     night.tl = night.tl or { n = 0 }
     night.tl.rewards = (night.tl.rewards or 0) + 1
+    if o.how == "tip" then
+        dm(night, b[level], vars)
+        require("game.model.lore_tips").give(night, o.tip, p)
+        return "hint"
+    end
     if o.how == "lore" then
         night.heard_lore = true
         if o.key then
