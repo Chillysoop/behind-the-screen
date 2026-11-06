@@ -231,13 +231,75 @@ The calls as they were asked:
    checks for any module, then the Sheep Chase on top of them (recommended: it's what the longer campaign needs
    anyway), or the Sheep Chase alone in the quickest way and the pipeline after?
 
+## Checked against what we've already written (November 6)
+
+Before step 1, the plan was read against the Main Campaign Design doc, the roadmap page, the root-causes doc,
+the longer-adventure notes, AGENTS.md, the secrets note and Conner's saved notes. What that changed:
+
+1. **The format is the design doc's world model, not the museum's files as they are.** The design doc says the book
+   becomes a world, not a script: people, places, threads, items, rumours and events, each with a few plain fields.
+   Places carry their layer (hex, settlement, building, room), and threads carry their clues, a clock that ticks if
+   ignored, and the ways they can end (endings are conditions on the event log). The museum's files express part of
+   that: its rooms are places on the table layer, its prep board is the settlement layer in miniature, and its moments
+   are pinned to places. The standard written in step 1 is the world model, with the museum mapped onto it, and every
+   place sits in a region and a settlement even when the region is thin.
+2. **The three map layers, each with a DM layer and a player layer** (the design doc; Conner's saved notes). The
+   player layer is what's been shown (`shown.lua`) and the DM layer is what's still a secret (`secrets.lua`), so the
+   secrets system is that split, already built.
+3. **People come in three tiers** (the design doc's "Lines that fit"): the book's named people with lines of their own;
+   locals made from a type template (the smith, the barmaid: name, job, hours, want, quirk, voice), kept once met; and
+   the crowd's ambient lines. Every line carries conditions and the most specific one wins. The inn's two dozen staff are
+   locals; Teddy and the travellers are named.
+4. **What the roadmap and the longer-adventure notes put before any content.** The roadmap's phase 5 is "the event log
+   and one shape for conditional text, then the content", gated on the truth test clean over 20 or more seeds and three
+   kinds of DM. Of the notes' "build these before the content":
+   - the event log is built (wave 2), but flags and marks still keep their own copies beside it;
+   - the six shapes of conditional text (`text_if`, `read_if`, `line_if`, `win_if`, `lose_if`, `got_if`) are still six;
+   - the museum truth test isn't yet a truth test for any adventure;
+   - the museum's names aren't yet in `fiction_words.lua`, so the next story would inherit them;
+   - provenance on every line is built (`tools/sim/provenance.lua`), and the adventure's own tables are filled for the
+     museum.
+   A new module is written to one shape from its first line, so these land in step 1, not after.
+5. **The importer's contract lists more gates than exist yet.** The spoiler test, agency scan, claim scanner, book check,
+   knowledge scan, secrets check, two-campaign test, movement, overlap and camera tests, state check, structure check
+   and line audit. The line audit and the camera test were still to build on November 5. Step 1 says which gates exist,
+   which run for any module, and which are still owed.
+6. **Conner's plan to review every bug and fix first** (his saved notes): the root-causes doc did that up to the
+   November 4 build. The four rounds since (the knowledge playtest, the secrets build, rounds two to four) found new
+   kinds of problem that need a home in its classes and a check each, for example:
+   - a data table nested inside the wrong table (the locked door's places swallowed two rooms' look-arounds);
+   - a fix that shifts the dice and turns a vote lopsided (the pond's roll made the box a coin 75% of the time);
+   - checks that disagree with the game about what's right (an opportunity attack counted as ignoring the DM's pick).
+7. **Variety is designed in** (the design doc, "What makes each run different"): each book lists how its world can be
+   seeded (which rumours are true, where someone hides), and the sims report how often each thread is followed and
+   each ending reached. For the Sheep Chase: whether Teddy's rumours about Noke are fair or not, and whether Guz finds
+   the party at the inn or on the road.
+8. **The review desks.** The design doc's import ends on the Dialogue Desk (lines beside the book's pages, already
+   built) and a World Desk (people, places, threads and maps beside the pages, not built). For a six-page book the
+   Dialogue Desk is enough; the World Desk waits for the big book.
+9. **Still Conner's, from the design doc's open questions, and not needed for the Sheep Chase:** the hex size, fog of
+   war by default or not, whether time moves per session or per day, exact coins or a lighter "how well off", whether
+   the four friends stay the core, and theatre-of-mind for small fights. (For the Sheep Chase: exact coins at the inn,
+   time in days on the road, and its two fights on table maps.)
+
 ## The plan, once the calls are in
 
-1. The module slot with the museum in it, every museum test passing (no new content).
-2. Ingest, the copy check, and the checks made module-agnostic, run on the museum first.
+0. **The review** (Conner's plan): the problems found since November 4 go into the root-causes doc's classes, each with
+   its check, so the import is written against them.
+1. **The standard, and the museum inside it**, with no new content:
+   - the world model written up as the module standard (people in three tiers, places by layer, threads, items,
+     rumours, events, secrets with their ways out, masks, what's shown, line banks with conditions, the fidelity sheet,
+     maps), and the museum's data mapped onto it;
+   - one shape for conditional text; flags and marks read from the event log; the truth test for any adventure; the
+     museum's names in `fiction_words.lua`;
+   - the module slot: the museum moves in, museum-only rules stay the museum's, shared code asks the module;
+   - the checks made module-agnostic, and the gates listed as there or owed.
+   Done when every museum test passes unchanged and the truth test is clean on 20 seeds and three kinds of DM.
+2. Ingest, the copy check and the calls list, run on the museum's PDF first.
 3. The hand-off from the museum.
 4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up.
-5. Its monsters, mechanics and maps; then its lines and table life.
-6. Sims, a fresh-eyes playtest against the PDF, fixes, the gate, the engine run, a build.
+5. Its monsters, mechanics and maps, a thin region (the inn's hex, the road, the woods), then its lines and table life,
+   reviewed on the Dialogue Desk.
+6. Sims (with the variety report), a fresh-eyes playtest against the PDF, fixes, the gate, the engine run, a build.
 
-After it ships, the procedure in step 4 is written up as a skill, so the next book follows the same steps.
+After it ships, step 4's procedure is written up as a skill, so the next book follows the same steps.
