@@ -211,6 +211,34 @@ The checks would be generated from the secrets, so they work for any campaign:
 
 Each step ships through the knowledge checks, the gate and a fresh-eyes playtest.
 
+## First plays of it (November 6)
+
+Two rounds of fresh-eyes playtests against the book (each reviewer read the book, then whole prologues), and the
+secrets check's coverage report, found these, now fixed:
+
+- **Named before heard.** Telpur, the archivist, the Witness, the hunters' kind and the statue's job turned up in
+  friends' lines and card text before the table had them. People are now named only once heard (`shown.named`),
+  each secret has `hint_words`/`words` the friend lines are masked by, and the LINT check reads every line.
+- **The book's ways first.** Telpur only hints at what's upstairs (the confession is Flitwidget's, p8); the tablet is
+  read one line at a time by whoever reads old writing best, under the guardian's swings (p12); the pack is seen in
+  the kitchen's polished doors (p20, now an option at the scratch marks); the sisters come from watching Euryale
+  answer and from the tapestry (p25, p27); the knight's weakness is a hint until a painted blade bites (p17).
+- **One friend finds everything.** Mara's wizard found most things. Finds are spread by a campaign-long fairness
+  (`adv.dug`), and whoever reads people best is the one watching a face, not always whoever asked.
+- **Places behind a locked door** were described and walked to before the door was open (`MODULE.behind_doors`).
+- **Data mistakes the check now catches or the gate now runs:** a secret with one real way out, a friend line that
+  names a secret, a place name that gives one away, and a secret that never comes out in nine prologues.
+
+Coverage on the last run (nine prologues, three kinds of DM): the Gorgon 9 of 9 by four ways to three friends; her
+sisters 6 of 9 by four ways to two; the Witness 4 of 9 by three ways to two; the pack 3 of 9. Mara still finds the
+most, as a curious wizard would.
+
+Left open, all the book's mechanics rather than what the table knows: the fights are scaled up from the book; the
+Hunting Grounds is a fight in the open, not hide-and-seek; the crocodile tap is a trap of ours; the Mech's code is a
+roll, not the grid; the Sentinel fights to the end; the bird isn't a live singer; the pond can't be scooped without
+the tentacles. Also still to come: retiring the knowledge check's hand lists, and items a hero has but hasn't
+identified.
+
 ## Conner's calls (November 5)
 
 1. **No cost to reveal.** Reveal now, Drop a hint and Hold it back are free.

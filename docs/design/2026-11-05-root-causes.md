@@ -482,3 +482,8 @@ tools/tests/conner_nov4_check.lua), **partial**, **merged** (the final pass's wo
    by three reviewers who hadn't seen the code. Its findings and the fixes it suggests, in order, are in
    `docs/design/2026-11-05-knowledge-playtest.md`. The first decision is Conner's: whether the Gorgon is the premise
    or a secret.
+6. Done (November 6, c-fix): the secrets system to Conner's calls (the Gorgon kept secret like the book; no cost to
+   reveal; the friends dig by who they are; each hero's knowledge tracked; the ways out shown, with improvised ones
+   carded to the DM), and two rounds of fresh-eyes playtests of it against the book. What was found and fixed, and
+   the book's mechanics still left open, are in `docs/design/2026-11-05-secrets-and-knowledge.md` ("First plays of
+   it"). Held by tools/tests/secrets_check.lua, now in the gate.
