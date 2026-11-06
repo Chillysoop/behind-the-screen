@@ -112,7 +112,8 @@ local function play(seed, style, opts)
             local sc = night.scene
             local rec = { k = ev.kind, style = ev.style, text = ev.text, who = ev.who, name = ev.name, week = w,
                           room = sc and sc.room, scene = sc and sc.index, fought = sc and sc.fought or nil,
-                          epilogue = sc and sc.epilogue or nil, boss = sc and sc.boss or nil, ev = ev }
+                          epilogue = sc and sc.epilogue or nil, boss = sc and sc.boss or nil, ev = ev,
+                          door_open = c.adv and c.adv.flags and c.adv.flags.door_open or nil }
             table.insert(run.log, rec)
             local answer
             if ev.kind == "decision" then
@@ -520,7 +521,7 @@ function CHECKS.F9(run)
         if r.room == "offices" and r.k == "narrate" and eye_line and r.text == eye_line and not door_open[r.week] then
             fail("F9", where(run, r) .. ": the eyes on the walls before the locked door opens")
         end
-        if r.k == "say" and r.room == "offices" and has(r.text, "the eye on every wall") and not door_open[r.week] then
+        if r.k == "say" and r.room == "offices" and has(r.text, "the eye on every wall") and not door_open[r.week] and not r.door_open then
             fail("F9", where(run, r) .. ": \"" .. r.text .. "\" before the locked door opens")
         end
         if r.k == "decision" and r.card == "mus_reach" then

@@ -352,6 +352,50 @@ add("brown_bear", {
     role = "brute",
 })
 
+-- (For The Wild Sheep Chase, November 6: Noke's changed guards are apes, Shinebright is a pony with a wizard's
+-- mind, and the wand's misfire makes a gibbering mouther. game/data/sheep/module.lua's M.creatures changes them.)
+add("ape", {
+    name = "Ape", page = 344, size = "medium", type = "beast",
+    ac = 12, hp = 19, hit_dice = "3d8+6", speed = 30, climb = 30,
+    abilities = { str = 16, dex = 14, con = 14, int = 6, wis = 12, cha = 7 },
+    skills = { athletics = 5, perception = 3 },
+    cr = "1/2", xp = 100, pb = 2,
+    multiattack = { count = 2, any_of = { "fist" }, seq = { "fist", "fist" } },
+    attacks = {
+        { id = "fist", name = "Fist", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 4, 3, "bludgeoning" } } },
+    },
+    -- (Its Rock, Recharge 6, ranged +5, 25/50 ft., 2d6+3 bludgeoning, isn't played: no recharge for a plain attack yet.)
+    role = "brute",
+})
+
+add("pony", {
+    name = "Pony", page = 356, size = "medium", type = "beast",
+    ac = 10, hp = 11, hit_dice = "2d8+2", speed = 40,
+    abilities = { str = 15, dex = 10, con = 13, int = 2, wis = 11, cha = 7 },
+    saves = { str = 4 },
+    cr = "1/8", xp = 25, pb = 2,
+    attacks = {
+        { id = "hooves", name = "Hooves", kind = "melee", to_hit = 4, reach = 5, damage = { { 1, 4, 2, "bludgeoning" } } },
+    },
+    role = "pack",
+})
+
+add("gibbering_mouther", {
+    name = "Gibbering Mouther", page = 288, size = "medium", type = "aberration",
+    ac = 9, hp = 52, hit_dice = "7d8+21", speed = 20, swim = 20,
+    darkvision = 60,
+    abilities = { str = 10, dex = 8, con = 16, int = 3, wis = 10, cha = 6 },
+    cr = "2", xp = 450, pb = 2,
+    condition_immune = { "prone" },
+    -- (Aberrant Ground, Gibbering and Blinding Spittle aren't played yet: the Sheep Chase's step 5.)
+    traits = { "aberrant_ground", "gibbering" },
+    attacks = {
+        { id = "bite", name = "Bite", kind = "melee", to_hit = 2, reach = 5, damage = { { 2, 6, 0, "piercing" } },
+          prone_max_size = "medium" },
+    },
+    role = "brute",
+})
+
 add("gnoll_warrior", {
     name = "Gnoll Warrior", page = 289, size = "medium", type = "fiend",
     ac = 15, hp = 27, hit_dice = "6d8", speed = 30,

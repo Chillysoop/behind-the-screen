@@ -2065,7 +2065,7 @@ M.showdown = {
             { label = "{actor_char} drinks.", want = "drink the wine", short = "drink up",
               roll = { dc = 12, skill = { "insight", "religion" }, convenient = "success",
                        success = { log = "It's just very good wine. Euryale looks faintly impressed.", effects = { { "actor", fun = 2, spotlight = 6 }, { "arch:method_actor", fun = 3 } } },
-                       fail = { log = "{actor_char} decides Euryale is lovely, actually, and lowers the weapon. If this comes to a fight, {actor_char} starts it charmed.",
+                       fail = { log = "The charm takes hold: the weapon comes down, and Euryale looks lovely, actually. If this comes to a fight, {actor_char} starts it charmed.",
                                 effects = { { "actor", fun = 2, spotlight = 8 }, { "arch:instigator", fun = 4 }, { "others", challenge = 4 } }, mus = { flag = "charmed", risk = true, aspect = "Was charmed by a Gorgon, briefly" } } } },
             { label = "Nobody drinks.", want = "leave the wine alone", short = "leave the wine", lean = "safe", log = "Untouched cups. Euryale sighs, as if they've hurt her feelings.",
               -- (A table that knows what she is thinks twice about her wine: R10, the friends drank 70% of the time.)

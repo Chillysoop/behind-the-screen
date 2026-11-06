@@ -58,8 +58,29 @@ for _, list in ipairs({ M.DOES, M.SHOWS, { "listens", "folds", "has", "sits", "s
         if not string.find(v, " ") and not string.find(v, "%%") then M.VERB[v] = true end
     end
 end
+-- What happens to a hero, or what they are or have: the DM's to say. Any other present-tense verb straight after a
+-- hero's name is a move of theirs ("Pip cracks her knuckles"), whether or not it's in M.DOES.
+M.HAPPENS = { is = true, has = true, was = true, finds = true, sees = true, hears = true, gets = true, falls = true,
+              lands = true, rolls = true, misses = true, hits = true, wins = true, loses = true, comes = true, wakes = true,
+              drops = true, stumbles = true, flies = true, needs = true, owes = true, carries = true, holds = true,
+              stands = true, survives = true, dies = true, bleeds = true, burns = true, freezes = true, glows = true,
+              learns = true, earns = true, gains = true, spots = true, notices = true, catches = true, saves = true,
+              fails = true, succeeds = true, passes = true, makes = true, does = true, goes = true, can = true,
+              staggers = true, reels = true, slumps = true, collapses = true, shivers = true, trembles = true,
+              sways = true, coughs = true, chokes = true, sneezes = true, yelps = true, flinches = true, jerks = true,
+              tumbles = true, sinks = true, floats = true, shrinks = true, grows = true, changes = true, blinks = true,
+              sleeps = true, snores = true, dreams = true, yawns = true }
+function M.any_move(s, hero)
+    local v = string.match(s, "^" .. esc(hero) .. " (%a+s)%f[%A]")
+    if v and not M.HAPPENS[v] and not string.match(v, "ss$") then
+        return v
+    end
+end
 -- (Outcomes stay the DM's: takes N damage, takes a hit; is flung, is knocked, is hit.)
-local OUTCOME_AFTER = { takes = { "^%d", "^a hit", "^the hit", "^damage" } }
+local OUTCOME_AFTER = { takes = { "^%d", "^a hit", "^the hit", "^damage", "^the full", "^half" },
+                        turns = { "^to stone", "^grey", "^to ", "^pale", "^white" },
+                        goes = { "^down", "^flying", "^still", "^grey", "^stiff", "^limp", "^pale", "^white", "^under", "^sprawling" },
+                        slips = { "^on ", "^and falls", "^off" }, holds = { "^on by", "^up under" } }
 
 local function sentences(text)
     local out = {}
@@ -260,7 +281,7 @@ function M.split(text, people, last)
                     table.insert(unsaid, s)
                     break
                 end
-                local v = who_name == p.hero and matches_at(s, p.hero, M.DOES)
+                local v = who_name == p.hero and (matches_at(s, p.hero, M.DOES) or M.any_move(s, p.hero))
                 if v then
                     local after = string.match(string.sub(s, #p.hero + 2 + #v), "^%s*(.*)$") or ""
                     local outcome = false

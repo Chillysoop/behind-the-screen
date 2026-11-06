@@ -623,7 +623,8 @@ table.insert(watchers, function(R, N, ev)
         end
         add("F18", "party_calls_acted_on")
         if not ok then
-            fail("F18", N.tag .. ": " .. tostring(doer and doer.char) .. " acts on a call their player voted against")
+            fail("F18", N.tag .. ": " .. tostring(doer and doer.char) .. " acts on a call their player voted against ("
+                .. ev.kind .. (ev.text and (": '" .. string.sub(ev.text, 1, 100) .. "'") or "") .. ")")
         end
         N.backers = nil
     end
