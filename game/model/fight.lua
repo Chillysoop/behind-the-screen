@@ -1127,7 +1127,8 @@ local function react(night, f, steps, who)
             b.downed_keys = b.downed_keys or {}
             local again = b.downed_keys[victim.key]
             b.downed_keys[victim.key] = true
-            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or losing or again) then
+            -- (Nor with someone else already down: it's no time for a quip. A wipe began that way.)
+            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or up <= pcs - 2 or losing or again) then
                 line = { victim, "down_self" }
             end
             score.add(victim, "fun", -2)
@@ -2077,7 +2078,10 @@ function M.run(night, sc, plan)
                 end
             end
             local boss_alive = f.boss and not f.boss.dead and not f.boss.removed
-            local adjust = { drop = { minions = minions == 0 or nil }, label = {}, log = {} }
+            -- (Some never run: a guardian bound to its chamber. The third round's review: the bone guardian "ran
+            -- for it", and the rack of bones still crumbled.)
+            local bound = sc.comps and sc.comps.cast and sc.comps.cast.stays and not sc.boss_style
+            local adjust = { drop = { minions = minions == 0 or nil, flee = (bound and boss_alive) or nil }, label = {}, log = {} }
             -- (Who runs is who's still standing: "everyone on her side breaks and runs" was said with
             -- all three of her minions dead, and "the fight turning" with her at 78 of 104. The second
             -- playtest review.)

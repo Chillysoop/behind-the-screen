@@ -804,6 +804,11 @@ function M:bark(p, trigger, extra)
         return
     end
     local v = self:vars(extra)
+    -- (A friend calls the boss what the table knows her as: "the hooded woman" until someone's said Euryale.)
+    if v.boss and self.campaign and self.campaign.adv then
+        v.boss = told.mask(self.campaign, v.boss, nil, p and p.key)
+        v.Boss = util.capitalize(v.boss)
+    end
     local text, id
     if extra and extra.moment then
         text, id = barks.pick(self, trigger, p, extra.moment, v)

@@ -43,7 +43,7 @@ return {
         { id = "hp_fishing", archetype = "tactician", when = "combat", mood = "engaged", lines = { "does it look tired yet?", "how many hit points has it got? ballpark.", "is it at least a little bit worried?" }, effect = "challenge+ group" },
         { id = "fireball_reflex", archetype = "any", class = "wizard", when = "combat", mood = "engaged", lines = { "can i cast fireball yet? no? next level?", "what do you mean it's too small a room?", "okay. smaller fire. a modest fire." }, effect = "fun+ group" },
         { id = "heal_me_please", archetype = "any", not_class = "cleric", when = "combat", mood = "engaged", hurt = true, lines = { "i'm getting low here, just so everyone knows.", "healing word? please? i'll owe you.", "i'm fine. totally fine. please heal me." }, effect = "social+ group" },
-        { id = "metagame_whisper", archetype = "power_gamer", when = "combat", mood = "engaged", lines = { "i read about these. we need fire. everybody knows that.", "my character doesn't know that. but... fire.", "i'm just saying, hypothetically, fire." }, effect = "none" },
+        { id = "metagame_whisper", archetype = "power_gamer", when = "combat", mood = "engaged", lines = { "has anyone tried fire? fire solves most things.", "my character doesn't know anything. but... fire?", "i'm just saying, hypothetically, fire." }, effect = "none" },
         { id = "itchy_trigger", archetype = "butt_kicker", when = "social", mood = "bored", lines = { "can i just hit somebody?", "how long is this conversation going to be?", "i'm rolling initiative in my heart." }, effect = "boredom+ speaker" }, -- bored exists
     
         -- exploration procedures (party SOPs)

@@ -379,9 +379,21 @@ function M.ritual_read(night, sc)
     local skills = require "game.rules.skills"
     local c = night.campaign
     local d = secrets.def("ritual")
-    local reader = night.actor
+    -- (The notebook goes to whoever reads old writing best: the table hands it over, as players would. The third
+    -- round's review: the cleric with History +0 read all seven lines while the wizard stood by.)
+    local reader, rm = nil, nil
+    for _, q in ipairs(night:at_hand()) do
+        local _, m = night:best_skill(q, { "history" })
+        if not rm or (m or 0) > rm then
+            reader, rm = q, m or 0
+        end
+    end
+    reader = reader or night.actor
     if not (d and reader) then
         return false
+    end
+    if reader ~= night.actor then
+        night:say(util.fill("{char} takes the little notebook and kneels by the tablet.", { char = reader.char }), "narration")
     end
     -- (Who holds it off: the toughest of the others here.)
     local holder, hw
@@ -5482,6 +5494,8 @@ function M.showdown_start(night, sc)
     end
     if not st.marks.garden_burned then
         M.play_moment(night, sh.drink, sc)
+        -- (Her answers, as the book has them, p25-26: the friends ask, she answers, until she tires of it.)
+        M.lair_questions(night, sc)
     elseif st.flags.rematch then
         -- (She beat them once already: not her first-meeting words. The confirming playtest, 56 careful.)
         night:say(night:fresh(M.WORLD_LINES.burned_again, "burned_again"), "bad")
@@ -5525,6 +5539,55 @@ function M.showdown_start(night, sc)
             sc.fight_from, sc.fight_how = sc.ending_ev, "but"
         end
         night:say(util.fill(at.line, { lead = lead_name }), at.fight and "bad" or "good")
+    end
+end
+
+-- The talk in her lair (p25-26): before the ultimatum, the friends ask her things (the curious ones first:
+-- MODULE.showdown.questions) and she answers, calm and sure of herself. A question that touches what she hides
+-- can tell a hint, or more with a good read on her (secrets.lua's `hint` / `tells`). Two at most, then she tires.
+M.LAIR_QUESTIONS = 2
+function M.lair_questions(night, sc)
+    local qs = MODULE.showdown.questions
+    if not qs or night.end_early or night.fast then
+        return
+    end
+    local secrets = require "game.model.secrets"
+    local skills = require "game.rules.skills"
+    local c = night.campaign
+    local asked, last = 0, nil
+    for _, q in ipairs(qs) do
+        if asked >= M.LAIR_QUESTIONS then
+            break
+        end
+        if not q.when or adventure.test(c, q.when, knobs_of(night)) then
+            local p = night:pick_lead(q.who or { "storyteller", "method_actor", "explorer", "casual" }, last)
+            if p then
+                last = p
+                night.actor = p
+                night:emit({ kind = "say", who = p.key, ic = true, text = util.fill(q.ask, { char = p.char }) })
+                night:emit({ kind = "npc", name = "Euryale", cast = "mus_euryale", text = q.answer })
+                -- (Watching her as she answers: a hint of what's under it, or more.)
+                if q.read then
+                    local name, mod = night:best_skill(p, { q.read.skill or "insight" })
+                    local dd = night.rng:d20()
+                    local total = dd + (mod or 0)
+                    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "insight"), what = "read" })
+                    local level = (total >= (q.read.known or 99) and "known") or (total >= (q.read.hint or 13) and "hint") or nil
+                    if level and (secrets.RANK[level] or 0) > (secrets.RANK[secrets.level(c, q.read.key)] or 0) then
+                        local line = level == "known" and q.read.tell or q.read.hint_says
+                        secrets.learn(c, q.read.key, level, { how = "ask", by = p.key })
+                        -- (Her glance shows them the tapestry: the bargain over it opens.)
+                        if q.read.key == "sisters" then
+                            st_of(night).flags.tapestry = true
+                        end
+                        if line then
+                            night:say(util.fill(line, { char = p.char }), "dm")
+                        end
+                    end
+                end
+                asked = asked + 1
+            end
+        end
     end
 end
 

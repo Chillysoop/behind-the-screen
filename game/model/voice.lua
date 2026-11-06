@@ -22,7 +22,10 @@ M.TABLE_WORDS = { "chair", "the table", "round the table", "real table", "dice",
                   "laugh", "groan", "everyone", "everybody", "somebody", "holiday photos", "drink" }
 
 -- The DM's table talk, quoted or not.
-M.DM_TALK = { "^Before we start", "Here we go", "Here they come", "^Dice up", "On you go", "^Let's stop", "^Okay," }
+-- (And a line that says you tell them something is you telling them: "You lean in and tell them: the paint is wet".
+-- The third round's review heard the DM's warnings filed as the DM's own unspoken doing.)
+M.DM_TALK = { "^Before we start", "Here we go", "Here they come", "^Dice up", "On you go", "^Let's stop", "^Okay,",
+              "^You lean in and tell them", "^You tell them", "^You tell the table", "^You warn them", "^You remind them" }
 
 -- Styles the table never hears: notes for the DM, the cut upstairs, the goal card.
 M.UNHEARD = { screen = true, interlude = true, goal = true, system = true, warn = true }

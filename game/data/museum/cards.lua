@@ -352,7 +352,7 @@ M.goal_play = {
         talk = { "He's lying. He's adorable, but he's lying.", "Does anyone else want to see the gift shop? Just me?" },
     },
     mus_cross_garden = {
-        intent = { "Those hedges are watching us. I'm sure of it.", "Doors are up the steps. Straight line. Nobody touch the bushes." },
+        intent = { "Is it me, or are those hedges a bit too well kept?", "Doors are up the steps. Straight line. Nobody touch the bushes." },
         approaches = {
             { skill = "perception", say = "That hedge just moved. I'm telling you, it moved.",
               win = "{char} spots the thorn-beast before it pounces, and nobody's caught flat-footed.",

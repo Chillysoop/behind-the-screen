@@ -62,7 +62,8 @@ function M.people_here(night, sc)
     local adv = util.lazy("game.model.adventure")
     local out, seen = {}, {}
     local function add(id)
-        if id and not seen[id] and not adv.person_hidden(night.campaign, id) then
+        -- (Only someone the table's heard named: nobody lifts "Telpur's" quiver before anyone's said who he is.)
+        if id and not seen[id] and not adv.person_hidden(night.campaign, id) and require("game.model.shown").named(night.campaign, id) then
             local n = npcs.get(id)
             if n and not n.monster then
                 seen[id] = true

@@ -192,7 +192,9 @@ local function candidates(night, sc, room, phase, last)
         end
         -- (The marbles, once bought, are bought: no haggling for them again.)
         local bought = t.kind == "haggle" and t.buys and require("game.model.items").owned(night.campaign, t.buys)
-        if not (t.who and t.who == last) and not names_gone and not bought then
+        -- (A bit that leans on something the table has to have found out first: the tablet's sums.)
+        local waits = t.when and not adventure.test(night.campaign, t.when, {})
+        if not (t.who and t.who == last) and not names_gone and not bought and not waits then
             add(t, "bit", bit_w)
         end
     end
@@ -487,6 +489,33 @@ local function ask(night, sc, q, last, forced)
     end
     local d, total = tiny_roll(night, p, q.skill or "persuasion")
     local text = (total >= 15 and q.better) or q.answer
+    -- (A question to someone who keeps a secret, asked the book's way and well enough, opens it: Persuasion 12
+    -- on Flitwidget is the confession whatever the question was. game/model/secrets.lua. The third round's
+    -- review: a Persuasion of 14 got the cover story.)
+    local secrets = require "game.model.secrets"
+    for _, key in ipairs(secrets.held_by(night.campaign, pid)) do
+        if not secrets.knows(night.campaign, key) and not secrets.held(night.campaign, key) then
+            for _, path in ipairs((secrets.def(key) or {}).paths or {}) do
+                if path.kind == "check" and path.on == pid and path.gives == "known" and path.dc and total >= path.dc
+                    and util.contains(path.skill or {}, q.skill or "persuasion") and not secrets.knows(night.campaign, key) then
+                    local tell = secrets.line(night, key, "known", path, { char = p.char })
+                    -- (Learned first, so the line says the names it tells.)
+                    secrets.learn(night.campaign, key, "known", { how = "check", by = p.key, path = path })
+                    for _, k in ipairs(path.tells or {}) do
+                        secrets.learn(night.campaign, k, "known", { how = "check", by = p.key, path = path })
+                    end
+                    if tell then
+                        night:emit({ kind = "narrate", style = "dm", text = tell })
+                    end
+                    if path.flag then
+                        night.campaign.adv.flags[path.flag] = true
+                    end
+                    score.nudge_engagement(p, 3)
+                    return p
+                end
+            end
+        end
+    end
     local slip
     if name and M.crits_on(night.campaign) and (d == 20 or d == 1) and night:room(14) then
         local o = ask_crit(night, sc, p, q, name, d)

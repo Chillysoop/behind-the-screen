@@ -331,7 +331,7 @@ return {
           crit1 = "You lean back to read the top row, lose your footing in the sand, and hug the column all the way down." },
       },
       table_bits = {
-        { kind = "banter", who = "mara", lines = {
+        { kind = "banter", who = "mara", when = { hinted = "ritual" }, lines = {
             "Thessaly does sums on the back of her hand in ink, crosses it all out, and does it again.",
             "Oswin watches over her shoulder and nods along like he's following. He is not following." } },
         { kind = "snack", who = "dev", lines = {
@@ -685,6 +685,7 @@ return {
           crit20 = { find = nil, clue = "Scorch marks round its shoulder plates. Push this thing too hard and it runs very, very hot." },
           crit1 = "You knock on its chest like a front door. Something inside goes clunk, and a puff of steam comes out of one ear." },
         { id = "tomorrow_cases", what = "the cases of machines from tomorrow", spot = "cases",
+          see = "Glass cases line the walls, full of odd machines from a world that hasn't happened yet.",
           skill = "history", who = { "explorer", "power_gamer" },
           ask = "I press my face to the cases of future machines. What's in them?",
           dull = "Machines. Shiny ones. You couldn't say what a single one of them does.",
@@ -708,6 +709,7 @@ return {
           crit20 = { find = "a rolled-up poster of the shining city, only a little torn", clue = nil },
           crit1 = "You lean on the poster to read it and it unpeels from the wall, slowly, all the way down." },
         { id = "tomorrow_hum", what = "the humming floor", spot = nil,
+          see = "Under the static and the neon, the floor itself is humming.",
           skill = "arcana", who = { "tactician", "power_gamer", "instigator" },
           ask = "The floor hums under my boots. I put my ear to it.", asks = { "What's making the floor hum? I kneel and listen.", "I stamp once on the humming floor. Gently." },
           dull = "It hums. A low, steady hum, like a big cat asleep.",
@@ -758,6 +760,7 @@ return {
           crit20 = { find = "a gold star sticker in the chalk tray, never given out", clue = nil },
           crit1 = "You lean on the board and your sleeve wipes out a whole arrow. Somewhere, a teacher feels it." },
         { id = "lecture_books", what = "the piles of old books", spot = "books",
+          see = "Stacks of old books lean against the wall, every spine faded to the same brown.",
           skill = "investigation", who = { "explorer", "casual" },
           ask = "I pick the dullest-looking book off the pile.",
           dull = "'Further Remarks on Gravel, Volume Six.' You put it back.",
@@ -799,7 +802,7 @@ return {
             "Thessaly passes round peppermints from her pocket. \"For staying awake. It's science.\"",
             "Pip takes three, and tucks one in her cheek for later." } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip pockets a stub of chalk, but first she draws a moustache on the blackboard turnip.",
+            "Pip pockets a stub of chalk, but first she draws a moustache in the corner of the blackboard.",
             "Thessaly: \"That's vandalism.\" Pip: \"It's art. Ask the gnome.\"" },
           keepsake = "a stub of very old chalk" },
       },
@@ -845,6 +848,7 @@ return {
           crit20 = { find = "a long thread of white silk snagged on the rail", clue = nil },
           crit1 = "Your sleeve catches on a nail in the rail and tears with a long, loud rip. Everyone hears it." },
         { id = "stairs_vase", what = "the vase of flowers on the landing", spot = nil,
+          see = "On the landing halfway up, someone has left a vase of fresh flowers.",
           skill = "nature", who = { "casual", "storyteller" },
           ask = "There's a vase of flowers on the landing. I give them a sniff.", asks = { "Flowers, on a landing, in a haunted museum. I take a closer look.", "Who puts fresh flowers on a stair? I check the vase." },
           dull = "They smell like flowers. Nice ones.",

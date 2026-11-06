@@ -41,8 +41,8 @@ M.gorgon = {
     hint = { "Flitwidget's bluster has a crack in it. Whatever's wrong in there is a lot worse than \"incidents\".",
              "He smiles too wide, and his eyes keep going to the curtains. He's scared of something inside.",
              "Every time someone says \"upstairs\", the gnome's moustache twitches." },
-    tell = { "He cracks. Her name is Euryale, a Gorgon he bought sealed in a clay jar. The jar broke, she's twisted his exhibits, and visitors who went in never came out.",
-             "It comes out in a rush: a Gorgon called Euryale, a clay jar that broke, exhibits that turned, and visitors who didn't come back." },
+    tell = { "He waits for the crowd to go, then cracks. Her name is Euryale, a Gorgon he bought sealed in a clay jar. The jar broke, she's twisted his exhibits, and visitors who went in never came out. His assistant Telpur is still inside.",
+             "Once the crowd's gone, it comes out in a rush: a Gorgon called Euryale, a clay jar that broke, exhibits that turned, and visitors who didn't come back. Telpur, his assistant, is still in there." },
     theory = { "Something's wrong in this place, and somebody here knows what.",
                "I don't buy \"incidents\". Somebody got hurt in here.",
                "Whatever's really running this place, people are scared of it." },
@@ -53,7 +53,7 @@ M.gorgon = {
           tells = { "euryale" }, flag = "truth" },
         { kind = "check", on = "mus_flitwidget", skill = { "insight" }, dc = 12, gives = "hint", book = true, page = 6 },
         { kind = "perform", on = "mus_flitwidget", skill = { "performance" }, dc = 13, gives = "known", tells = { "euryale" }, flag = "truth",
-          says = { "Flitwidget laughs so hard his hat falls off, and then it all comes out: a Gorgon called Euryale, a clay jar that broke, and visitors who never came out." } },
+          says = { "Flitwidget laughs so hard his hat falls off, and once the crowd's gone, it all comes out: a Gorgon called Euryale, a clay jar that broke, and visitors who never came out. His assistant Telpur is still inside." } },
         { kind = "ask", on = "mus_telpur", opinion = "neutral", gives = "hint", page = 16,
           hint_says = { "Telpur lowers his voice. \"Horrible lady upstairs. Threw the boss out. Don't tell him I said.\"",
                         "\"Her,\" says Telpur, rolling his eyes at the ceiling. \"Took over. Kicked the boss out. Horrible.\"" } },
@@ -98,7 +98,7 @@ M.ritual = {
     parts = {
         "Five gallons fill the falcon's belly.",
         "Three gallons fill the jackal's.",
-        "The goddess will be content when the falcon drinks exactly four.",
+        "The falcon will be content when it drinks exactly four.",
         "Only the crocodile's water may feed the falcon and the jackal.",
         "The crocodile can feed them both until the end of time.",
         "Once the falcon is content, set it on the goddess's pedestal and call her.",
@@ -111,8 +111,8 @@ M.ritual = {
                "The notebook's for the tablet. Give me another go at it.",
                "Every one of those jars is in the instructions. Keep reading." },
     paths = {
+        -- (Only with the little notebook, as the book has it: History, DC 12, a line a time. Or a spell that reads it.)
         { kind = "read", skill = { "history" }, dc = 12, gives = "part", book = true, page = 12, with_item = "the notebook" },
-        { kind = "read", skill = { "investigation", "religion", "arcana" }, dc = 14, gives = "part", page = 12 },
         { kind = "spell", spell = { "comprehend_languages" }, gives = "known", page = 12 },
     },
     defaults = false,
@@ -284,8 +284,9 @@ M.sentinel_wakes = {
     hint = { "There are scuff marks on the floor in front of the case, as if something heavy stepped down off that plinth once." },
     tell = { "That's no statue. It's a guardian for the case, and it'll come down off its plinth for anyone who tries to break in." },
     paths = {
-        { kind = "check", skill = { "arcana" }, dc = 13, gives = "known", page = 11 },
-        { kind = "check", skill = { "investigation", "perception" }, dc = 12, gives = "hint", page = 11 },
+        -- (The book has no check for it: a hint at most, until it moves.)
+        { kind = "check", skill = { "arcana" }, dc = 15, gives = "hint", page = 11 },
+        { kind = "check", skill = { "investigation", "perception" }, dc = 14, gives = "hint", page = 11 },
         { kind = "event", event = "fight_entrance", gives = "known", book = true, page = 12 },
     },
     defaults = false,
@@ -331,6 +332,7 @@ M.hyper = {
     paths = {
         { kind = "read", item = "manual", gives = "known", book = true, page = 38 },
         { kind = "check", skill = { "arcana", "investigation" }, dc = 13, gives = "hint", page = 23 },
+        { kind = "event", event = "mech_burnt", gives = "known", page = 38 },
     },
     defaults = false,
 }
@@ -344,7 +346,7 @@ M.gorgon_lore = {
         "A gorgon's stone gaze lives in the snakes on its head. Keep the snakes hidden, and the gaze may not work.",
         "Gorgons poison their weapons, and their claws drip with it.",
     },
-    needs = { 1 },
+    needs = {},           -- (any page of it is worth knowing)
     part_word = "page",
     hint = { "One page of the scholar's book comes clear." },
     tell = { "The scholar's book is clear enough: gorgons pass for people, and their gaze lives in the snakes on their heads." },
