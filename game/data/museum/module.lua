@@ -307,7 +307,7 @@ M.rooms = {
             { when = { flag = "stairs_statue" }, text = "The statue is still at the foot of the stairs, one stone hand on the first step. Telpur swears it was a step lower this morning." },
             -- (The wake was held before they found the shop: word of it got here first. The confirming
             -- playtest, 53 careful, held it here with a boot they hadn't met.)
-            { when = { flag = "wake_away" }, text = "Word of {dead} has reached the gift shop before them. A candle is already burning on the counter." },
+            { when = { flag = "wake_away" }, text = "Word of {dead} has reached the gift shop before the party. A candle is already burning on the counter." },
         },
     },
     hunting = {
@@ -881,7 +881,7 @@ M.moments = {
       see = "As the guardian closes in, {actor_char} grabs the half-full falcon jar and makes for the pedestal.",
       text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway. Nobody managed to read the tablet's last lines. You know what they say.",
       -- (The tablet's warning, if it came clear: then they were told.)
-      text_if = { { when = { part = { "ritual", 7 } }, text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway, though the tablet warned them what a discontented falcon costs." } },
+      text_if = { { when = { part = { "ritual", 7 } }, text = "As the guardian closes in, {actor_char} grabs the half-full falcon jar for the pedestal anyway, though the tablet's last line warned what a discontented falcon costs." } },
       options = {
           { label = "Let them. They never read the warning.", sub = "Harsh, and out of nowhere for them.",
             log = "The pedestal flares. {actor_char} is flung across the room and lands hard, winded.",

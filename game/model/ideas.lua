@@ -752,8 +752,8 @@ local function find_card(night, idea, vars, lines)
         end
     end
     local improvised = path.improvised or path.default
-    local text = "{actor} asks: \"" .. (idea.bid or util.fill(way.say[1], vars)) .. "\" "
-        .. util.capitalize(where) .. " holds a secret: " .. util.lower_first(d.name or idea.key) .. (d.page and (" (page " .. d.page .. ")") or "") .. ". "
+    local text = "{actor} asks: \"" .. (idea.bid or util.fill(way.say[1], vars)) .. "\" The secret there: "
+        .. util.lower_first(d.name or idea.key) .. (d.page and (" (page " .. d.page .. ")") or "") .. ". "
         .. (improvised and ways().improvised or (#notes > 0 and ("The book's way in: " .. table.concat(notes, ", ") .. ".") or "Your call."))
     -- (What the whole of it tells, told as the line's said, so the line names what they've just learned.)
     local tells

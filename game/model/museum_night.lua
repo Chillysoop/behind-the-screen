@@ -2577,7 +2577,7 @@ M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
 -- An option that's a risk to them: a roll, a fight, a risk, or a moment that follows.
 function M.risky_option(o)
     local m = o.mus or {}
-    return (m.risk or m.fight or o.roll ~= nil or o.then_moment ~= nil) and true or false
+    return (m.risk or m.fight or o.roll ~= nil or o.then_moment ~= nil or m.ritual_read ~= nil) and true or false
 end
 
 -- What one option is worth to one friend, and the reason that weighed most. o: the card's option.
@@ -2613,6 +2613,12 @@ local function lean(night, p, o, not_them)
     if o.roll then
         eff(o.roll.success and o.roll.success.effects, 0.6)
         eff(o.roll.fail and o.roll.fail.effects, 0.4)
+    end
+    -- (The tablet read is its own roll, a line at a time: weighed the same way.)
+    local rr = o.mus and o.mus.ritual_read
+    if rr then
+        eff(rr.success and rr.success.effects, 0.6)
+        eff(rr.fail and rr.fail.effects, 0.4)
     end
     eff(o.effects, 1)
     local m = o.mus or {}

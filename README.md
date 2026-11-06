@@ -169,6 +169,44 @@ table, and their sheet lists it under CARRYING. The gift shop's prices are at th
 weeks and never twice running (`night:fresh`); the lines kept in the code are listed for the Dialogue Desk with the
 rest (`CODE_TABLES` in `tools/dialogue/export.lua`).
 
+## Secrets, and what the table knows (November 6)
+
+Everything the DM knows that the table doesn't is a record: `MODULE.secrets` (the museum's are
+`game/data/museum/secrets.lua`, with the book's pages), read by `game/model/secrets.lua`. Each secret says what it
+is, what kind of thing holds it (a person, a document, a place, a body, an item, a creature), who or what holds it,
+what the DM says when a hint comes out and when the whole of it does, and its ways out: the book's own reveal (a
+Persuasion check on Flitwidget at DC 12, the tablet read a line at a time) and the usual ones for its kind
+(`secrets.DEFAULTS`: read a person, talk them round, lean on them, sing for them, pay them, ask once they like you,
+Detect Thoughts; search a place, study a document, examine a body, Comprehend Languages, Identify, Speak with Dead).
+Something happening in play shows one too: her hood coming off, the hedges waking, the scarabs pouring out.
+
+**What the table knows** is kept per secret, and per hero: a hint or the whole of it, how it came out and who found
+it. A line said out loud teaches the heroes in the scene; a hero off on their own learns alone and tells the others
+when they're back; a whisper behind the screen stays with that hero; every new night, the heroes have caught up on
+whatever was said at the table. A friend in character names only what their hero knows (`told.lua` sits on this:
+names masked until they're told, lines that wait for a secret).
+
+**The friends dig** their own way (`ideas.lua`'s find, `game/data/find_out.lua`): each friend in a room weighs the
+secrets that could come out there and the ways their hero could dig, by their kind of player (storytellers and
+explorers love lore, instigators lean on people, method actors perform, power gamers pay), their class and spells
+(Thessaly's rituals), the clues they already hold (a hint pulls them back, a theory said out loud), and a curious
+default; a friend who's dug a lot lets the others have a go. A book way rolls its DC; one that isn't in your notes
+comes to you as a card to make up ("It isn't in your notes. Make it up: what happens?"). What matters comes as a
+card while the night has a call to spare; the rest is a small die in the open and your answer.
+
+**Your say in when.** A person's sheet (click their name) lists what they know: where the table stands, every way
+it could come out, and Reveal now, Drop a hint, Hold it back (tonight). Give anyone a secret to keep, and it gains
+their ways out. What you plant in a pocket stays secret until it's handed over, lifted or looted: asking someone
+for help is how a friend finds out they had something. The prep board lists each room's secrets and how each could
+come out, on hover.
+
+**Shown before named** (`game/model/shown.lua`): every place and feature on a room's board is public once it's been
+described. A friend who turns to something nobody's described gets it described first, as you would ("Ten feet of
+dense jungle you can't see through", then "Is something in that jungle moving?"); people are named once the table
+has heard who they are.
+
+`tools/tests/secrets_check.lua` holds all of this to the data, so an imported campaign gets the check for free.
+
 ## The world remembers (wave 2)
 
 The museum runs on the pieces the longer sandbox adventure will need, proven at museum scale first.
@@ -572,6 +610,10 @@ with any Lua 5.1+ or LuaJIT interpreter:
                                        # wake, locked doors, traps, items, and no secret said before its reveal
     lua tools/tests/knowledge_check.lua [seeds]   # the friends name only what they've been told, and a second
                                        # campaign in the same process plays exactly as on its own
+    lua tools/tests/secrets_check.lua [runs]   # every secret, from the data: real ways out (two of two kinds),
+                                       # friend lines that wait for what they name, every secret found in whole
+                                       # prologues (the major ones more than one way, by more than one hero),
+                                       # nothing known before it's found; prints how each came out (about 4 min)
     lua tools/tests/overlap_check.lua [seeds]   # nothing on screen covers readable text, measured from the nodes
                                        # at every dump and every step of game night (about 25s a prologue)
     OVERLAP_CHECK=1 lua tools/tests/museum_smoke.lua <seed>   # prints OVERLAP for each overlap it measures

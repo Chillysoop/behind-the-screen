@@ -2,7 +2,16 @@
 
 How secret information and the DM's knowledge against the players' knowledge work today, what's missing for the longer
 campaign, and what to build. Written after the knowledge playtest (`docs/design/2026-11-05-knowledge-playtest.md`)
-and its fixes. Nothing here is built yet.
+and its fixes.
+
+**Built on November 6 (c-fix), to Conner's calls** (the end of this note): `game/model/secrets.lua` (the record, the
+table's and each hero's knowledge, the ways out with the defaults by kind, plants, holds, the DM's asks),
+`game/data/museum/secrets.lua` (the museum's eighteen, with pages), `game/data/find_out.lua` and `ideas.lua`'s find
+(the friends dig), the person sheet's WHAT THEY KNOW and the prep board's secrets, planted items that stay secret
+until handed over, `game/model/shown.lua` (what's been shown in a room, described before it's named), and
+`tools/tests/secrets_check.lua` (DATA, LINT, REACH, EARLY from the data). The museum's old flags (`truth`, the bird's
+name) are now what a secret unlocks. Still to come: retiring the knowledge check's museum-written hand lists in favour
+of the secret data, and items a hero has but hasn't identified.
 
 ## The short answer
 
@@ -202,7 +211,20 @@ The checks would be generated from the secrets, so they work for any campaign:
 
 Each step ships through the knowledge checks, the gate and a fresh-eyes playtest.
 
-## Your calls
+## Conner's calls (November 5)
+
+1. **No cost to reveal.** Reveal now, Drop a hint and Hold it back are free.
+2. **The friends dig by who they are:** their kind of player, their hero, and whether they have clues or a theory
+   building. By default they're curious and want to engage with the plot.
+3. **Each hero's knowledge is tracked,** so the longer campaign is prepared and tested.
+4. **The prep board shows how each could come out,** but the friends can improvise, so the DM improvises the reveal
+   sometimes: a way that isn't in the notes comes to the DM as a card to make up.
+
+And for big uploads: the DM knows everything and reveals what the players see (location, terrain, the characters in
+view, their quirks and tells). So the importer splits everything into what the table can see when they get there and
+what's secret, with each secret's holder and ways out (the root-cause doc's importer contract, items 4a and 4b).
+
+## The calls as they were asked
 
 1. **Should your reveals cost anything?** A hint is free, but "Reveal now" could cost a little suspense or
    challenge, the way an unearned save does. Or it could be free: it's your table.

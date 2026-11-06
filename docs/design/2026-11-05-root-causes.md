@@ -233,6 +233,14 @@ shop said its stock, the World of Tomorrow at three unsigned doors, the Steam Me
 named it, and Session Zero's lines with no premise told. Not yet covered: a line that presumes the adventure's
 shape without naming anything (a guess that's always right).
 
+**Built (November 6, c-fix): secrets as records.** `game/model/secrets.lua` and `MODULE.secrets`: every DM-only fact
+is a record with its page, its holder, the DM's hint and tell lines, and its ways out (the book's, and the usual ones
+for its kind); what's known is kept per hero (a hint or the whole), with how it came out; the friends dig their own
+way (`ideas.lua`'s find), and the DM can reveal, hint or hold back from a person's sheet. `game/model/shown.lua`: a
+board's places are public once described, and described before a friend names them. `tools/tests/secrets_check.lua`
+checks it all from the data (DATA, LINT, REACH, EARLY). Design and Conner's calls:
+`docs/design/2026-11-05-secrets-and-knowledge.md`.
+
 ## 6. Space and movement
 
 **What it looks like.** C19 (Telpur's mini runs off the table after the Hunting Grounds; minis ran off the table
@@ -371,6 +379,14 @@ Every record the importer makes from a book, and every line written for it, carr
 3. **Structure as data:** triggers (what wakes or changes what), what the players know on arrival, secrets, starting
    positions and spawn spots, locked doors, each item's mechanics in rules terms (classes 3, 4, 6).
 4. **Knowledge conditions** on every line that names something in the world (class 5).
+4a. **Every DM-only fact a secret** (November 6, class 5): a `MODULE.secrets` record with its page, what kind of
+   thing holds it and who or where, the DM's hint and tell lines, and the book's own reveal as a path (its skill and
+   DC), with two ways out or more of two kinds; the usual ones for its kind come free (`secrets.DEFAULTS`). A secret
+   the adventure turns on is `major`. Something that happens in play and shows it is an `event` path the code fires.
+4b. **Every room split into what the heroes see and what the DM keeps:** a board's spot names and lines, a room's
+   read and a card's `see` say only what's in view (location, terrain, who's there, their quirks and tells); every
+   proper name is public, or a secret with a mask for what the table calls it until it's told (`MODULE.told`). The
+   importer lists every capitalised term in the book and asks which.
 5. **Declared needs** on every template (class 10), and an owner for every fact it reads (the event log, the inventory,
    able.lua, people.lua), never a private flag (class 3).
 6. **Decisions spoken by the players:** imported choice points come with each option's own fans and the lines the
@@ -378,7 +394,8 @@ Every record the importer makes from a book, and every line written for it, carr
 
 A region ships only when its gates pass:
 - the spoiler test (class 1), the agency scan (2), the claim scanner (3), the book check against its fidelity sheets
-  (4), the knowledge scan and the two-campaign test (5), the movement test (6), the overlap and camera tests (7), the
+  (4), the knowledge scan, the secrets check (real ways out, lines that wait, every secret found, nothing early) and
+  the two-campaign test (5), the movement test (6), the overlap and camera tests (7), the
   state-presentation check (8), the structure check (9), the line audit (10);
 - the existing gates (truth test, the roadmap and round-three checks, saves, rules cases);
 - and one fresh-eyes review of whole runs, by reviewers who haven't read the code, whose findings are each assigned a
