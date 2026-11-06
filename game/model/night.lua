@@ -294,6 +294,13 @@ function M:emit(ev)
                             self:say(t.line, "narration")
                             self.describing = false
                             self.things_described = (self.things_described or 0) + 1
+                            -- (Described is looked at: nobody pokes at it as if fresh right after. Seed 569, the
+                            -- lecture's notes.)
+                            local adv = self.campaign.adv
+                            if adv then
+                                adv.looked = adv.looked or {}
+                                adv.looked[room .. "/" .. t.id] = true
+                            end
                         end
                     end
                 else
