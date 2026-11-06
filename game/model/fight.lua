@@ -1089,7 +1089,8 @@ local function react(night, f, steps, who)
             -- petrified moment; shaking it off had none.)
             local c = f.by_ref[s.id]
             if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
-                night:say(util.fill("{char} shakes it off: the grey drains out of {char_their} legs, and {char_they} can move again.", { char = c.name }), "good")
+                -- (The DM's words for what the save did, not a move of the hero's: game/model/agency.lua.)
+                night:say(util.fill("The grey drains out of {char}'s legs, and the stone lets go: {char_they} can move again.", { char = c.name }), "good")
             end
         end
     end

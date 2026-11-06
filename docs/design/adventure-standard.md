@@ -187,6 +187,14 @@ four books read in order, an hour of prep each, between sessions. Prep can also 
 pockets on their sheet, and it comes back to the bag if it's taken off them. At most two rewards a night, and the
 card doesn't count as one of the night's decisions. The notes have a "Your bag" tab and a "Lore tips" tab.
 
+Everything in the bag works (Conner, November 6: "make sure the items / weapons have mechanical benefits and work
+correctly when used by friends"). A bit gives +1 to one kind of check on game night (`helps`); a potion is drunk in a
+fight; a magic item works on the hero's sheet (`game/model/items.lua`, `apply`). A hero uses one weapon, one armour and
+one shield (`slot`), the best they have: a +N Weapon is their main weapon, armour goes to someone who wears it, a shield
+to someone who carries one (from their sheet, so not Brannoc's greatsword). Anyone can use the Wand of Magic Missiles:
+the friends point it at a foe the darts are sure to finish, or one they can't reach. `tools/tests/dm_bag_check.lua`
+checks all thirty on whoever gets them, and the friends using them in fights.
+
 ## The museum, mapped onto it
 
 | Standard | The museum's tables today |

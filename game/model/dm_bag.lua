@@ -142,7 +142,14 @@ end
 function M.hand_over(campaign, p, e)
     if e.kind == "magic" then
         local players = (p and items.can_use(campaign, p, e.magic)) and { p } or campaign.players
-        return items.earn(campaign, e.magic, players, "found")
+        local it, who = items.earn(campaign, e.magic, players, "found")
+        -- (Nobody at the table can use it: whoever found it carries it anyway, never nobody.)
+        if it and not it.holder then
+            local q = p or (campaign.players or {})[1]
+            it.holder = q and q.key
+            who = q
+        end
+        return it, who
     end
     local it = items.give(campaign, e.thing or e.id, p and p.key, "found")
     return it, it and it.holder and campaign:player(it.holder)

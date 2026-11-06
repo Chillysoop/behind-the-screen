@@ -326,18 +326,56 @@ local function attuned(campaign, key)
     return n
 end
 
--- Can this hero use it? (A shield needs a shield arm, the pearl a spellcaster, bracers a bow.)
+-- Can this hero use it? From their own sheet (game/rules/party.lua): a shield needs the shield they carry (not
+-- Brannoc's greatsword), armour some armour, bracers a bow, the pearl a spellcaster.
+local function sheet_of(campaign, p)
+    local ok, sh = pcall(function()
+        local party = require "game.rules.party"
+        local lvl = campaign.level or 2
+        local sub = lvl >= 3 and campaign.subclasses and campaign.subclasses[p.class] or nil
+        return party.sheet(p.class, lvl, sub)
+    end)
+    return ok and sh or {}
+end
+local BOW = { shortbow = true, longbow = true }
 local USES = {
-    shield = { fighter = true, cleric = true },
-    caster = { wizard = true, cleric = true },
-    bow = { rogue = true, fighter = true },
+    shield = function(sh) return sh.shield == true end,
+    armor = function(sh) return sh.armor ~= nil end,
+    caster = function(_, p) return p.class == "wizard" or p.class == "cleric" end,
+    bow = function(sh)
+        for _, w in pairs(sh.weapons or {}) do
+            if BOW[w] then
+                return true
+            end
+        end
+        return false
+    end,
 }
+M.USES = USES
+
+-- One of each slot in use (a weapon, armour, a shield): how good it is there.
+local function slot_value(d)
+    local e = d.effect or {}
+    return (e.weapon or 0) + (e.ac or 0) + (e.init and 0.5 or 0)
+end
+-- The thing a hero actually uses in each slot: the best they carry.
+function M.in_use(campaign, key)
+    local best = {}
+    for _, it in ipairs(M.held_by(campaign, key)) do
+        local d = M.def(it.id)
+        if d and d.slot and (not best[d.slot] or slot_value(d) > slot_value(M.def(best[d.slot].id))) then
+            best[d.slot] = it
+        end
+    end
+    return best
+end
+
 function M.can_use(campaign, p, id)
     local d = M.def(id)
     if not d then
         return false
     end
-    if d.needs and not (USES[d.needs] or {})[p.class] then
+    if d.needs and not (USES[d.needs] and USES[d.needs](sheet_of(campaign, p), p)) then
         return false
     end
     if d.attune and attuned(campaign, p.key) >= data().MAX_ATTUNED then
@@ -346,6 +384,11 @@ function M.can_use(campaign, p, id)
     for _, it in ipairs(M.held_by(campaign, p.key)) do
         if it.id == id then
             return false                      -- one of each is plenty
+        end
+        -- (A weapon, armour or a shield as good as this one already: it'd sit in their pack.)
+        local h = M.def(it.id)
+        if d.slot and h and h.slot == d.slot and slot_value(h) >= slot_value(d) then
+            return false
         end
     end
     return true
@@ -420,15 +463,25 @@ function M.apply(campaign, key, pc)
         pc.potions_had = pc.res.potions
         pc.inv_key = key
     end
+    local using = M.in_use(campaign, key)
     for _, it in ipairs(M.held_by(campaign, key)) do
         local d = M.def(it.id)
-        if d and not it.destroyed then
+        -- (A second weapon, armour or shield they carry but don't use does nothing: the best one does.)
+        if d and not it.destroyed and not (d.slot and using[d.slot] ~= it) then
             local e = d.effect
             table.insert(pc.items, it)
-            if e.weapon then
+            if e.weapon and e.every then
+                -- (A pair that helps with every weapon they swing, as its words say: the museum's twin daggers.)
                 pc.magic_weapon = math.max(pc.magic_weapon or 0, e.weapon)
+                pc.weapon_item = string.lower(d.name)
+            elseif e.weapon then
+                -- (One weapon: their main one. The rest of their attacks are as they were.)
+                local main = pc.weapons and (pc.weapons.main or pc.weapons.ranged)
+                local ok, eq = pcall(require, "game.rules.data.equipment")
+                local w = main and ok and eq.weapons and eq.weapons[main]
                 pc.item_weapon = e.weapon
-                pc.weapon_item = string.lower(d.name)      -- (what the table calls their weapon now)
+                pc.item_weapon_id = main
+                pc.weapon_item = w and ("+" .. util.int(e.weapon) .. " " .. string.lower(w.name)) or string.lower(d.name)
             end
             if e.ac then
                 pc.item_ac = (pc.item_ac or 0) + e.ac
@@ -482,10 +535,17 @@ end
 local CLIMB_SWIM = { water = true, high = true, bridge = true, ship = true, island = true }
 function M.check_bonus(campaign, key, skill, where)
     local n = 0
+    local helped = {}
     for _, it in ipairs(M.held_by(campaign, key)) do
         local d = M.def(it.id)
         local e = d and d.effect or {}
         n = n + (e.checks or 0)
+        -- (A bit from the DM's bag helps with one kind of check: +1, once however many they carry.)
+        local t = not d and M.thing(it.thing or it.id)
+        if t and t.helps and t.helps.skill == skill and not helped[skill] then
+            helped[skill] = true
+            n = n + (t.helps.n or 1)
+        end
         if e.climb_swim and skill == "athletics" and where then
             for _, s in ipairs(where.setting or {}) do
                 if CLIMB_SWIM[s] then
@@ -500,9 +560,14 @@ end
 
 -- topic: what the check is about ("gorgons"), for a thing that helps with one subject (the book).
 function M.check_edge(campaign, key, skill, topic)
+    local using = M.in_use(campaign, key)
     for _, it in ipairs(M.held_by(campaign, key)) do
         local d = M.def(it.id)
         local e = d and d.effect
+        -- (A shield they carry but don't hold, the Sentinel Shield behind a better one, gives nothing.)
+        if d and d.slot and using[d.slot] ~= it then
+            e = nil
+        end
         if e and e.adv and util.contains(e.adv, skill) then
             return "adv", d.name
         end

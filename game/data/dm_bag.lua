@@ -2,7 +2,8 @@
 -- the DM can tuck somewhere a friend pokes at, in any adventure (game/model/dm_bag.lua, table_life.lua's curios).
 -- One of each unless it says `stock`; what's given is gone from the bag for the rest of the campaign.
 --
--- kind: "bit"    a bit or bob: a keepsake in the hero's pack, no rules effect (game/model/items.lua's things)
+-- kind: "bit"    a bit or bob in the hero's pack: +1 to one kind of check while they carry it (`helps`, read by
+--                game/model/items.lua's check_bonus on game night)
 --       "potion" a Potion of Healing (items.lua's shared potion: it heals in a fight)
 --       "magic"  one of the rules' magic items (game/rules/data/magic_items.lua): it works on the hero's sheet
 -- rarity: for the bag's order and the card's line. Bits are "Bit"; the rest as SRD 5.2.1 has them.
@@ -17,35 +18,35 @@ M.RANK = { Bit = 1, Common = 2, Uncommon = 3, Rare = 4, ["Very Rare"] = 5, Legen
 M.READ_COST = 1
 M.books = {
     { id = "armourer", name = "The Wandering Armourer's Ledger",
-      about = "A travelling smith's notes on shields, gloves and bows that are a little better than they should be." },
+      about = "A travelling smith's notes on shields, gloves and bows." },
     { id = "wonders", name = "Notes on Lesser Wonders", needs = "armourer",
-      about = "A hedge-wizard's catalogue of small magic: wands, pearls, lucky stones and charms against dying." },
+      about = "A hedge-wizard's list of wands, pearls and lucky charms." },
     { id = "vault", name = "The Vault-Keeper's Catalogue", needs = "wonders",
-      about = "What a careful collector keeps locked away: enchanted armour, rings and robes, and blades that bite deeper." },
+      about = "What a collector locks away: armour, rings, robes, blades." },
     { id = "legend", name = "Treasures of Legend", needs = "vault",
-      about = "Old stories of arms and armour made by masters, and where such things have turned up since." },
+      about = "Old stories of arms and armour made by masters." },
 }
 
 M.list = {
     -- Bits and bobs.
-    { id = "bag_lucky_copper", kind = "bit", rarity = "Bit", name = "a lucky copper with a hole through it",
-      text = "A keepsake. Somebody's lucky coin, worn smooth with thumbing." },
-    { id = "bag_chalk", kind = "bit", rarity = "Bit", name = "a stub of good white chalk",
-      text = "A keepsake. Good for marking walls, trees and the way back." },
-    { id = "bag_whistle", kind = "bit", rarity = "Bit", name = "a tin whistle",
-      text = "A keepsake. It plays four notes, one of them badly." },
-    { id = "bag_pressed_flower", kind = "bit", rarity = "Bit", name = "a flower pressed in wax paper",
-      text = "A keepsake. Blue once, and still smells faintly of summer." },
-    { id = "bag_brass_bell", kind = "bit", rarity = "Bit", name = "a little brass bell",
-      text = "A keepsake. It rings when nobody's touching it, now and then." },
-    { id = "bag_map_scrap", kind = "bit", rarity = "Bit", name = "a scrap of map of somewhere else",
-      text = "A keepsake. Half a coastline and a town nobody's heard of." },
-    { id = "bag_silver_ring", kind = "bit", rarity = "Bit", name = "a plain silver ring, too small for anyone here",
-      text = "A keepsake. Worth a few silver to the right buyer." },
-    { id = "bag_cards", kind = "bit", rarity = "Bit", name = "a deck of cards missing one queen",
-      text = "A keepsake. Good for a game on a quiet night, short one queen." },
-    { id = "bag_honey", kind = "bit", rarity = "Bit", name = "a little jar of honey, still sealed",
-      text = "A keepsake. Somebody's going to want this on bread." },
+    { id = "bag_lucky_copper", kind = "bit", rarity = "Bit", name = "a lucky copper with a hole through it", helps = { skill = "sleight_of_hand", n = 1 },
+      text = "A keepsake for coin tricks: +1 to Sleight of Hand checks while they carry it." },
+    { id = "bag_chalk", kind = "bit", rarity = "Bit", name = "a stub of good white chalk", helps = { skill = "survival", n = 1 },
+      text = "Good for marking the way back: +1 to Survival checks while they carry it." },
+    { id = "bag_whistle", kind = "bit", rarity = "Bit", name = "a tin whistle", helps = { skill = "performance", n = 1 },
+      text = "It plays four notes, one of them badly: +1 to Performance checks while they carry it." },
+    { id = "bag_pressed_flower", kind = "bit", rarity = "Bit", name = "a flower pressed in wax paper", helps = { skill = "nature", n = 1 },
+      text = "Blue once, and they know its name now: +1 to Nature checks while they carry it." },
+    { id = "bag_brass_bell", kind = "bit", rarity = "Bit", name = "a little brass bell", helps = { skill = "perception", n = 1 },
+      text = "It rings when nobody's touching it, now and then: +1 to Perception checks while they carry it." },
+    { id = "bag_map_scrap", kind = "bit", rarity = "Bit", name = "a scrap of map of somewhere else", helps = { skill = "history", n = 1 },
+      text = "Half a coastline and a town nobody's heard of: +1 to History checks while they carry it." },
+    { id = "bag_silver_ring", kind = "bit", rarity = "Bit", name = "a plain silver ring, too small for anyone here", helps = { skill = "persuasion", n = 1 },
+      text = "A little gift smooths a talk: +1 to Persuasion checks while they carry it." },
+    { id = "bag_cards", kind = "bit", rarity = "Bit", name = "a deck of cards missing one queen", helps = { skill = "insight", n = 1 },
+      text = "Hours reading faces over cards: +1 to Insight checks while they carry it." },
+    { id = "bag_honey", kind = "bit", rarity = "Bit", name = "a little jar of honey, still sealed", helps = { skill = "animal_handling", n = 1 },
+      text = "Bears and dogs like it a lot: +1 to Animal Handling checks while they carry it." },
 
     -- A potion.
     { id = "bag_potion", kind = "potion", rarity = "Common", stock = 3, thing = "potion_healing", name = "a Potion of Healing",

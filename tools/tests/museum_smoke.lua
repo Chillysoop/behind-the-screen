@@ -984,7 +984,7 @@ for week = 1, WEEKS do
         local dm_bag = require "game.model.dm_bag"
         if not click_key("open_bag") then problem("no Your bag button on the prep board" .. where) end
         if app.overlay ~= "notes" or app.notes_tab ~= "bag" then problem("Your bag didn't open the bag's page" .. where) end
-        dump_once("4b_bag_w1")
+        dump_once("4n_notes_bag_open_w1")      -- (the notebook over the board: not a bare prep screen)
         scan("the bag's page" .. where)
         local before, hours = #dm_bag.stock(c), c.prep:left()
         if not click_key("read_book_armourer") then

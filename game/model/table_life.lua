@@ -325,7 +325,8 @@ local function crit_card(night, sc, p, b, nat)
                                      beat = true, from = events.cause(night.campaign),
                                      text = events.word("find", { char = p.char }, "{char} found a Flitwidget Franc") })
         -- (The thing they found is the thing; a Franc turns up with it: "a gold feather... a Franc, in fact" made the find into a Franc.)
-        dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it.", vars)
+        -- (Whose it is, said: the night's "Along the way" names them, so the table heard it go to them.)
+        dm(night, "Tucked away there: " .. o.find .. ". And a Flitwidget Franc beside it, for {char}.", vars)
     elseif o.clue then
         dm(night, o.clue, vars)
         if o.danger then

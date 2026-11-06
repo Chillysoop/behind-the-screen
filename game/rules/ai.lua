@@ -227,6 +227,10 @@ end
 
 local function can_cast(c, id)
     local s = S[id]
+    -- (The Wand of Magic Missiles casts it for whoever holds it, spell or no spell: SRD 5.2.1 p251.)
+    if s and id == "magic_missile" and (c.res.wand or 0) > 0 then
+        return true
+    end
     if not s or not spells.has_spell(c, id) then
         return false
     end
@@ -320,6 +324,35 @@ local function cast(b, c, id, target, prefer_level)
     end
     s.cast(b, c, slot, target)
 end
+
+-- The Wand of Magic Missiles (SRD 5.2.1 p251): anyone holding it can spend 1 to 3 charges as their action, and the
+-- darts never miss. A friend with it uses it on a foe the darts are sure to finish (2 a dart at the least), or, with
+-- `far`, on the foe they can't reach any other way. Returns true when it went off.
+local function wand_zap(b, c, foes, far)
+    local charges = c.res.wand or 0
+    if charges <= 0 or not c.turn.action then
+        return false
+    end
+    local best, need
+    for _, e in ipairs(foes) do
+        if not e.dead and not e.down and b:dist(c, e) <= 120 and b:can_see(c, e) and b:los_xy(c.x, c.y, e.x, e.y) then
+            local n = math.max(1, math.ceil(e.hp / 2) - 2)
+            if n <= math.min(3, charges) and (not best or e.hp > best.hp) then
+                best, need = e, n
+            end
+        end
+    end
+    if not best and far and not far.dead and b:dist(c, far) <= 120 and b:los_xy(c.x, c.y, far.x, far.y) then
+        best = far
+        need = math.min(3, charges, math.max(1, math.ceil(far.hp / 3.5) - 2))
+    end
+    if not best then
+        return false
+    end
+    cast(b, c, "magic_missile", best, need)
+    return true
+end
+AI.wand_zap = wand_zap
 
 function AI.try_shield(b, tgt, att)
     if not tgt.pc or tgt.reaction_used or b:incapacitated(tgt) or not can_cast(tgt, "shield") then
@@ -811,10 +844,12 @@ local function fighter_turn(b, c)
         if reached then
             attack_action(b, c, prof, t)
         else
-            -- Out of reach: Magic Missile (Spellguard), a thrown weapon, or the bow.
+            -- Out of reach: Magic Missile (Spellguard), the wand, a thrown weapon, or the bow.
             do
                 local r = weapon_profile(c, "thrown") or weapon_profile(c, "ranged")
-                if r and in_shot(b, c.x, c.y, t, r.range[2]) then
+                if wand_zap(b, c, foes, t) then
+                    -- (the wand's darts)
+                elseif r and in_shot(b, c.x, c.y, t, r.range[2]) then
                     if r.id == c.weapons.thrown then c.res.thrown = c.res.thrown - 1 end
                     attack_action(b, c, r, t)
                 else
@@ -970,6 +1005,10 @@ local function rogue_turn(b, c)
             melee_round(best)
             return
         end
+    end
+    -- A foe the wand's darts are sure to finish, before the bow.
+    if wand_zap(b, c, foes) then
+        return
     end
     -- Ranged: Steady Aim (no movement) or Feint, then shoot.
     if ranged then
@@ -1152,6 +1191,10 @@ local function cleric_turn(b, c)
         else
             attack_action(b, c, weapon_profile(c, "melee"), t)
         end
+        return
+    end
+    -- (The wand: a foe its darts are sure to finish, or one too far for Sacred Flame.)
+    if wand_zap(b, c, foes, b:dist(c, t) > 60 and t or nil) then
         return
     end
     local big = pick_target(b, c, foes, 9)
@@ -1369,6 +1412,10 @@ local function wizard_turn(b, c)
     local t = pick_target(b, c, foes, 6)
     if t.hp >= 20 and can_cast(c, "scorching_ray") and b:dist(c, t) <= 120 then
         cast(b, c, "scorching_ray", t)
+        caster_position(b, c, 120)
+        return
+    end
+    if wand_zap(b, c, foes) then
         caster_position(b, c, 120)
         return
     end

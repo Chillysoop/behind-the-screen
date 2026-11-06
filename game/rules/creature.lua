@@ -124,7 +124,11 @@ function M.weapon_attack(c, weapon_id, opts)
     local ability = M.abmod(c, ab_name)
     local thrown = opts.thrown and w.thrown
     local ranged = w.kind == "ranged" or thrown
-    local to_hit = ability + c.pb + (c.magic_weapon or 0)
+    -- (A +1, +2 or +3 Weapon from the party's things is one weapon: the hero's main one, game/model/items.lua. The
+    -- Magic Weapon spell's bonus is on whatever they hold.)
+    local item = (c.item_weapon_id == weapon_id and not opts.offhand) and (c.item_weapon or 0) or 0
+    local magic = (c.magic_weapon or 0) + item
+    local to_hit = ability + c.pb + magic
     if ranged and c.feats.archery then
         to_hit = to_hit + 2               -- Archery (p. 87)
     end
@@ -133,12 +137,12 @@ function M.weapon_attack(c, weapon_id, opts)
     if opts.two_handed and w.versatile then
         die = w.versatile
     end
-    local dmg_bonus = ability + (c.magic_weapon or 0)
+    local dmg_bonus = ability + magic
     if ranged and c.item_bow_damage and (weapon_id == "longbow" or weapon_id == "shortbow") then
         dmg_bonus = dmg_bonus + c.item_bow_damage   -- Bracers of Archery (A13)
     end
     if opts.offhand and not c.feats.two_weapon_fighting and ability > 0 then
-        dmg_bonus = (c.magic_weapon or 0)  -- Light extra attack adds no positive modifier (p. 89)
+        dmg_bonus = magic                 -- Light extra attack adds no positive modifier (p. 89)
     end
     local heavy_penalty = w.heavy and ((not ranged and c.abilities.str < 13) or (ranged and c.abilities.dex < 13))
     return {
@@ -155,6 +159,8 @@ function M.weapon_attack(c, weapon_id, opts)
         heavy_disadvantage = heavy_penalty,
         offhand = opts.offhand,
         crit_range = c.crit_range or 20,
+        magical = item > 0 or nil,         -- (a magic weapon's blow is magic: resistances, battle.lua)
+        item_bonus = item > 0 and item or nil,
     }
 end
 

@@ -314,6 +314,7 @@ end
 
 -- Your bag (Conner, November 6): what you can tuck where a friend pokes about on game night, and what you've given.
 
+local BOOK_H = 92
 local function tab_bag(app, x, y, w, h)
     local c = app.campaign
     local bag = require "game.model.dm_bag"
@@ -325,24 +326,30 @@ local function tab_bag(app, x, y, w, h)
         .. "goes in a hero's pack and works from then on.", "ui18", theme.dim, { w = w })
     -- The books: an hour of prep reads one, and what it describes joins the bag. Only while you prep.
     local by = y + 76
+    local bw = math.floor((w - 3 * 12) / 4)
+    BOOK_H = 0
+    for _, b in ipairs(bagd.books) do
+        BOOK_H = math.max(BOOK_H, 10 + kit.text_height(b.name, "ui18b", bw - 20) + kit.text_height(b.about, "ui14", bw - 20) + 40)
+    end
     kit.text(x, by, "BOOKS", "ui14", theme.gold)
     local prep = app.screen == "prep" and c.prep or nil
     kit.text(x + 70, by, prep and ("An hour of prep each. " .. util.int(prep:left()) .. " hours left.")
         or "Read between sessions, on the prep board.", "ui14", theme.faint)
     by = by + 22
-    local bw = math.floor((w - 3 * 12) / 4)
     for i, b in ipairs(bagd.books) do
         local bx = x + (i - 1) * (bw + 12)
-        kit.box(bx, by, bw, 92, theme.panel2, { radius = 8 })
-        kit.text(bx + 10, by + 8, kit.ellipsize(b.name, "ui18b", bw - 20), "ui18b", theme.text)
-        kit.text(bx + 10, by + 32, b.about, "ui14", theme.dim, { w = bw - 20, lines = 2 })
+        -- (Whole, never cut: the name and its words wrap, and the box is as tall as the tallest needs.)
+        kit.box(bx, by, bw, BOOK_H, theme.panel2, { radius = 8 })
+        kit.text(bx + 10, by + 8, b.name, "ui18b", theme.text, { w = bw - 20 })
+        local ay = by + 10 + kit.text_height(b.name, "ui18b", bw - 20)
+        kit.text(bx + 10, ay, b.about, "ui14", theme.dim, { w = bw - 20 })
+        local sy = by + BOOK_H - 30
         if bag.read_already(c, b.id) then
-            kit.text(bx + 10, by + 68, "Read. Its things are in your bag.", "ui14", theme.green)
+            kit.text(bx + 10, sy + 6, "Read. Its things are in your bag.", "ui14", theme.green, { w = bw - 20 })
         elseif b.needs and not bag.read_already(c, b.needs) then
-            kit.text(bx + 10, by + 68, "Read " .. bagd.book_by_id[b.needs].name .. " first.", "ui14", theme.faint,
-                { w = bw - 20, lines = 1 })
+            kit.text(bx + 10, sy + 6, "Read the one before it first.", "ui14", theme.faint, { w = bw - 20 })
         elseif prep then
-            kit.button(bx + 10, by + 62, bw - 20, 26, "Read it (1 hour)", function()
+            kit.button(bx + 10, sy, bw - 20, 26, "Read it (1 hour)", function()
                 bag.read(c, prep, b.id)
                 app.refresh_notes()
             end, { font = "ui14", key = "read_book_" .. b.id, enabled = bag.can_read(c, prep, b.id) })
@@ -350,10 +357,10 @@ local function tab_bag(app, x, y, w, h)
             kit.text(bx + 10, by + 68, "Not read yet.", "ui14", theme.faint)
         end
     end
-    local cy = by + 104
+    local cy = by + BOOK_H + 12
     local col_w = math.floor((w - 20) / 2)
     local rows = math.ceil(#list / 2)
-    local rh = math.min(38, math.floor((h - 260) / math.max(1, rows)))
+    local rh = math.min(38, math.floor((h - (cy - y) - 150) / math.max(1, rows)))
     kit.text(x, cy, "IN YOUR BAG  (" .. util.int(#list) .. ")", "ui14", theme.gold)
     cy = cy + 22
     for i, e in ipairs(list) do

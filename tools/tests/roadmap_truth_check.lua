@@ -1235,7 +1235,7 @@ table.insert(watchers, function(R, N, ev)
                     N.stone_said = N.stone_said or {}
                     -- (Stone wins: the effect ends as it turns to stone, in the same turn.)
                     if st.kind == "feature" or N.stone_said[st.id] ~= "is stone now" then
-                        N.stone_said[st.id] = st.kind == "feature" and "is stone now" or "shakes it off"
+                        N.stone_said[st.id] = st.kind == "feature" and "is stone now" or "the stone lets go"
                     end
                     N.stoning[st.id] = false
                 end

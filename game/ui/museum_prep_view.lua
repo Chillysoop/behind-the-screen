@@ -1298,8 +1298,14 @@ local function top_bar(app, prep)
     for _, k in ipairs(adventure.clocks_now(c)) do
         where = where .. " " .. k.line
     end
-    local wfont = kit.width(where, "ui18") <= 460 and "ui18" or "ui14"
-    kit.text(300, wfont == "ui18" and 32 or 35, where, wfont, theme.dim, { w = 460, lines = 1 })
+    -- (Room beside it for Your bag: one line if it fits, else two in the smaller hand, never cut.)
+    if kit.width(where, "ui18") <= 460 then
+        kit.text(300, 32, where, "ui18", theme.dim, { w = 460, lines = 1 })
+    elseif kit.width(where, "ui14") <= 460 then
+        kit.text(300, 35, where, "ui14", theme.dim, { w = 460, lines = 1 })
+    else
+        kit.text(300, 29, where, "ui14", theme.dim, { w = 460, lines = 2 })
+    end
     -- Your bag, and the books that fill it (Conner, November 6): an hour of prep reads one.
     kit.button(772, 10, 118, 46, "Your bag", function()
         app.open_notes("bag")

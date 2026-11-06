@@ -1825,7 +1825,7 @@ M.magic_items = {
                      effect = { weapon = 3 }, ["for"] = { "fighter", "rogue", "cleric", "wizard" } },
     twin_daggers = { name = "Twin daggers", rarity = "Uncommon", attune = false,
                      text = "Two curved daggers from the Chamber of Ancients, their rings locked together. +1 to attack and damage rolls with weapons.",
-                     effect = { weapon = 1 }, ["for"] = { "rogue", "fighter", "cleric", "wizard" } },
+                     effect = { weapon = 1, every = true }, ["for"] = { "rogue", "fighter", "cleric", "wizard" } },
 }
 M.CAREFUL_AT = 3         -- gentle acts before she notices
 M.base = { name = "Euryale, the Gorgon", line = "A calm host in a white hood. Bow and charm while the hood is on; her stare and her snakes when it comes off." }

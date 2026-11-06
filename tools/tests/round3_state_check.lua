@@ -1187,7 +1187,9 @@ local function quiet_watch(R, night, ev, w)
     end
     if ev.kind == "decision" and ev.card.id == "table_break" and Q.lair_lost then
         fail("Q", where .. ": Euryale beat them and the night's ending, and the table takes a break first")
-    elseif ev.kind == "tiny_roll" then
+    elseif ev.kind == "tiny_roll" and not ev.what then
+        -- (A roll a card is about, `what`: looking round a room still happens while the table grieves, and its
+        -- find is the DM's call. Table life's small moments are what wait.)
         fail("Q", where .. ": " .. Q.why .. ", and a small moment plays: " .. tostring(ev.who) .. " pokes at " .. tostring(ev.skill))
     elseif ev.kind == "thought" and QTHOUGHT[ev.need] then
         fail("Q", where .. ": " .. Q.why .. ", and " .. tostring(ev.name) .. "'s thought glows: " .. tostring(ev.text))

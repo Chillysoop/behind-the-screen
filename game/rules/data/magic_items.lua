@@ -3,7 +3,7 @@
 -- someone carries it and the rules apply it (game/model/items.lua). Data only.
 --
 -- effect: what the engine does with it
---   weapon      +n to attack and damage rolls with the hero's weapons
+--   weapon      +n to attack and damage rolls with the hero's main weapon (`every`: with all of them)
 --   ac          +n Armor Class          saves   +n to every saving throw
 --   checks      +n to every ability check
 --   adv         { skill... }: Advantage on those checks (and init = true: on Initiative)
@@ -13,7 +13,10 @@
 --   slot        once a day (at dawn), regain one spent spell slot of this level or lower
 --   wound       Periapt of Wound Closure: death saves of 9 or lower count as 10, Hit Point Dice heal double
 -- for:   who'd want it, best first (the party hands it to the first one here who can use it)
--- needs: "shield" (holds one), "caster" (Pearl of Power), "bow" (uses one)
+-- needs: "shield" (carries one), "armor" (wears some), "caster" (Pearl of Power), "bow" (uses one): from the
+--        hero's own sheet (game/rules/party.lua), so a greatsword fighter doesn't get a shield
+-- slot:  "weapon", "armor" or "shield": a hero uses one of each, the best they have (a +1 Weapon is their main
+--        weapon); a second they'd never use goes to someone who would
 
 local M = {}
 
@@ -23,18 +26,21 @@ local function add(id, t)
 end
 
 add("weapon_plus1", {
+    slot = "weapon",
     name = "+1 Weapon", page = 253, rarity = "Uncommon", attune = false,
     text = "A bonus of +1 to attack rolls and damage rolls made with this magic weapon.",
     effect = { weapon = 1 }, ["for"] = { "fighter", "rogue", "cleric" },
 })
 
 add("shield_plus1", {
+    slot = "shield",
     name = "+1 Shield", page = 243, rarity = "Uncommon", attune = false,
     text = "While holding this Shield, +1 to Armor Class on top of the Shield's normal bonus.",
     effect = { ac = 1 }, needs = "shield", ["for"] = { "fighter", "cleric" },
 })
 
 add("sentinel_shield", {
+    slot = "shield",
     name = "Sentinel Shield", page = 243, rarity = "Uncommon", attune = false,
     text = "While holding this Shield, Advantage on Initiative rolls and Wisdom (Perception) checks.",
     effect = { adv = { "perception" }, init = true }, needs = "shield", ["for"] = { "cleric", "fighter" },
@@ -99,31 +105,37 @@ add("periapt_of_wound_closure", {
 -- Rarer things (the DM's bag, game/data/dm_bag.lua: Conner, November 6). Only what the engine already plays: a bonus
 -- to the weapon, to AC, to saves, Advantage on a skill.
 add("weapon_plus2", {
+    slot = "weapon",
     name = "+2 Weapon", rarity = "Rare", attune = false,
     text = "A bonus of +2 to attack rolls and damage rolls made with this magic weapon.",
     effect = { weapon = 2 }, ["for"] = { "fighter", "rogue", "cleric" },
 })
 add("weapon_plus3", {
+    slot = "weapon",
     name = "+3 Weapon", rarity = "Very Rare", attune = false,
     text = "A bonus of +3 to attack rolls and damage rolls made with this magic weapon.",
     effect = { weapon = 3 }, ["for"] = { "fighter", "rogue", "cleric" },
 })
 add("shield_plus2", {
+    slot = "shield",
     name = "+2 Shield", rarity = "Rare", attune = false,
     text = "While holding this Shield, +2 to Armor Class on top of the Shield's normal bonus.",
     effect = { ac = 2 }, needs = "shield", ["for"] = { "fighter", "cleric" },
 })
 add("armor_plus1", {
+    slot = "armor", needs = "armor",
     name = "+1 Armor", rarity = "Rare", attune = false,
     text = "+1 to Armor Class while you wear this armor.",
     effect = { ac = 1 }, ["for"] = { "fighter", "cleric", "rogue" },
 })
 add("armor_plus2", {
+    slot = "armor", needs = "armor",
     name = "+2 Armor", rarity = "Very Rare", attune = false,
     text = "+2 to Armor Class while you wear this armor.",
     effect = { ac = 2 }, ["for"] = { "fighter", "cleric", "rogue" },
 })
 add("armor_plus3", {
+    slot = "armor", needs = "armor",
     name = "+3 Armor", rarity = "Legendary", attune = false,
     text = "+3 to Armor Class while you wear this armor.",
     effect = { ac = 3 }, ["for"] = { "fighter", "cleric", "rogue" },
