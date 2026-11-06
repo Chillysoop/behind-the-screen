@@ -15,6 +15,13 @@ local M = {}
 
 local function picks(app)
     app.s0.hooks = app.s0.hooks or {}
+    -- (A hero with one reason has it already: nothing to pick.)
+    for _, key in ipairs(content.players.order) do
+        local list = MODULE.hooks and MODULE.hooks[key]
+        if list and #list == 1 and not app.s0.hooks[key] then
+            app.s0.hooks[key] = list[1].id
+        end
+    end
     return app.s0.hooks
 end
 
@@ -58,8 +65,14 @@ function M.build(app)
     kit.box(0, 0, kit.W, kit.H, theme.bg, { round = false })
     local carry = app.s0 and app.s0.carry
     kit.text(24, 14, carry and "WHAT COMES NEXT" or "SESSION ZERO", "title30", theme.gold)
-    kit.text(carry and 330 or 280, 24, carry and "The same heroes, a new adventure. Why does each one go on? Each player leans one way. You pick."
-        or "Why did each hero come? Each player leans one way. You pick.", "ui18", theme.dim)
+    -- (Only "you pick" when there's a pick: the Sheep Chase has one reason for each hero. The playtest, November 6.)
+    local choice = false
+    for _, key in ipairs(content.players.order) do
+        choice = choice or #(MODULE.hooks[key] or {}) > 1
+    end
+    local ask = choice and " Each player leans one way. You pick." or " Each one's reason is here: start when you're ready."
+    kit.text(carry and 330 or 280, 24, (carry and "The same heroes, a new adventure. Why does each one go on?"
+        or "Why did each hero come?") .. ask, "ui18", theme.dim, { w = 1580 - (carry and 330 or 280), lines = 1 })
     -- (Carried on: what the table already knows of how they got here, the hand-off's words.)
     local after = carry and MODULE.handoff and MODULE.handoff.say and adventure.say(c, MODULE.handoff.say)
     kit.text(24, 70, MODULE.title .. ", by " .. MODULE.author .. ". " .. (after or MODULE.pitch), "ui14", theme.faint, { w = 1500 })
@@ -109,8 +122,8 @@ function M.build(app)
     kit.button(1356, 830, 220, 50, "Session " .. util.int((c.week or 0) + 1) .. "  >", function()
         M.start(app)
     end, { enabled = ready, color = theme.go, hover = theme.go_hover, font = "ui22b", key = "hooks_start" })
-    kit.text(1340, 846, ready and "Next: the first session's prep." or "Pick a reason for every hero.", "ui14", theme.dim,
-        { pivot = gui.PIVOT_NE })
+    kit.text(1340, 846, ready and ("Next: session " .. util.int((c.week or 0) + 1) .. "'s prep.") or "Pick a reason for every hero.",
+        "ui14", theme.dim, { pivot = gui.PIVOT_NE })
 end
 
 return M

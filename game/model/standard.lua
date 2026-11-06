@@ -266,6 +266,22 @@ local function moment_of(mod, ev, rooms)
     }
 end
 
+-- Where a scene sits on the prep board's map when the adventure doesn't say (`at_map`): two columns, snaking up from the
+-- bottom in the order they're played, so no two boxes overlap (the playtest, November 6: six rooms stacked in one column,
+-- each over the next). Per cent of the map box, centre of the room.
+function M.map_at(i, n)
+    if n <= 1 then
+        return { 50, 50 }
+    end
+    local rows = math.ceil(n / 2)
+    local row, col = math.floor((i - 1) / 2), (i - 1) % 2
+    if row % 2 == 1 then
+        col = 1 - col
+    end
+    local cy = rows > 1 and (86 - row * (72 / (rows - 1))) or 50
+    return { col == 0 and 28 or 72, math.floor(cy + 0.5) }
+end
+
 local compiled = setmetatable({}, { __mode = "k" })
 function M.compile(src)
     if src.rooms or not src.places then
@@ -321,7 +337,7 @@ function M.compile(src)
         if sc.prize then comps.reward = card_id(mod, pl.id, "prize") end
         mod.rooms[pl.id] = {
             name = pl.name, part = 1, type = sc.type or "exploration", cost = sc.cost or (sc.quick and 1 or 2),
-            quick = sc.quick, at = sc.at_map or { 50, 98 - (i - 1) * 14 }, map = sc.map or pl.name, comps = comps,
+            quick = sc.quick, at = sc.at_map or M.map_at(i, #list), map = sc.map or pl.name, comps = comps,
             encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest, on = pl.on,
             hurry_on = sc.hurry_on,

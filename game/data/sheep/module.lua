@@ -204,7 +204,8 @@ M.places = {
                 foes_name = "The bed dragon", foes_short = "the bed dragon", boss_name = "the bed dragon",
                 foes_line = "The big bed against the far wall creaks, all by itself.", seen = false,
                 wakes = { feature = "bed", at = { bed_dragon = { 10, 3 } } },
-                wake = "The bed rears up on its legs: carved wood for scales, sheets for wings, a pillow on its tail.",
+                wake = "The bed rears up on its legs: carved wood for scales, sheets for wings, a pillow on its tail. Noke "
+                    .. "scrambles up onto its back.",
                 goal = { name = "Stop Noke", line = "Goal: get the wand, and decide what to do with it.",
                          win = "The dragon falls apart into a broken bed.",
                          lose = "They drag themselves out of the wreckage with the wand, and not much else.",
@@ -304,6 +305,9 @@ M.creatures = {
                    attacks = { { id = "bite", name = "Bite", kind = "melee", to_hit = 6, reach = 5, damage = { { 2, 10, 4, "piercing" } } } },
                    breath = { id = "splinter_breath", name = "Splinter Breath", recharge = { 5, 6 }, cone = 15, save = "dex",
                               dc = 13, damage = { { 7, 6, 0, "piercing" } }, half = true },
+                   -- (p5: Noke rides it, and his Ray of Frost goes after whoever's backing away. game/rules/sheep.lua.)
+                   rider = { name = "Noke", attack = { id = "ray_of_frost", name = "Noke's Ray of Frost", kind = "ranged", to_hit = 6,
+                                                       range = { 60, 60 }, damage = { { 2, 8, 0, "cold" } } } },
                    look = "A dragon of carved wood, bedsheets for wings, a pillow on the end of its tail.",
                    tactics = "Breathes whenever it can, else bites whoever's closest; goes for anyone using fire on it. "
                        .. "Turns back into a battered bed if it drops or Noke's concentration breaks." },

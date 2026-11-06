@@ -727,7 +727,7 @@ function M.build(app)
             M.next(app)
         end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "next_week" })
     -- (Not "Playtest notes are saved after every week": what the button leads to.)
-    kit.text(1390, 852, closing and "The whole prologue, room by room." or "Next: the group chat, then your prep board.",
+    kit.text(1390, 852, closing and "The whole adventure, room by room." or "Next: the group chat, then your prep board.",
         "ui14", theme.faint, { pivot = gui.PIVOT_N })
     if app.quick then
         M.quick_modal(app)

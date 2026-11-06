@@ -1363,7 +1363,10 @@ local function left_column(app, prep)
     y = y + 22
     local lines = adventure.story_so_far(c)
     if #lines == 0 then
-        local first = "Nothing yet. " .. (adventure.data.story_start or "The story starts tonight.")
+        -- (Carried on: where they've come from, not "Nothing yet" after a whole adventure. The playtest, November 6.)
+        local from, past = adventure.carried_from(c)
+        local first = (from and ("On from " .. tostring(past.title or from) .. ". ") or "Nothing yet. ")
+            .. (adventure.data.story_start or "The story starts tonight.")
         kit.text(x, y, first, "ui18", theme.text, { w = w })
         y = y + kit.text_height(first, "ui18", w) + 12
     else
@@ -1393,9 +1396,20 @@ local function left_column(app, prep)
                 local done = (c.adv.hook_paid or {})[key] ~= nil      -- (the beat played, with them there)
                 kit.dot(x + 10, y + 10, 20, panels.COLORS[key] or theme.panel3)
                 kit.picture(x + 1, y + 1, 18, 18, panels.face(key))
-                kit.text(x + 28, y, p.char .. ": " .. hk.name .. ", in " .. util.lower_first(room.name)
-                    .. (done and " (found)" or ((c.adv.skipped[hk.room] or c.adv.done[hk.room]) and " (missed)" or "")), "ui14",
-                    done and theme.green or ((c.adv.skipped[hk.room] or c.adv.done[hk.room]) and theme.orange or theme.text), { w = w - 28, lines = 1 })
+                -- (How it went, at the right where it can't be cut: the playtest, November 6, lost "(found)" off the end.)
+                local missed = (c.adv.skipped[hk.room] or c.adv.done[hk.room]) and not done
+                local status = done and "found" or (missed and "missed" or nil)
+                local sw = status and (kit.width(status, "ui14") + 10) or 0
+                local col = done and theme.green or (missed and theme.orange or theme.text)
+                local line = p.char .. ": " .. hk.name .. ", in " .. util.lower_first(room.name)
+                kit.text(x + 28, y, kit.ellipsize(line, "ui14", w - 28 - sw), "ui14", col, { w = w - 28 - sw, lines = 1 })
+                local gl = util.lazy("game.ui.gloss")
+                if kit.width(line, "ui14") > w - 28 - sw and gl.card_spot then
+                    gl.card_spot(x + 28, y, w - 28 - sw, 20, "Why " .. p.char .. " came", line .. (status and (" (" .. status .. ")") or ""))
+                end
+                if status then
+                    kit.text(x + w, y, status, "ui14", col, { pivot = gui.PIVOT_NE })
+                end
                 y = y + 24
             end
         end

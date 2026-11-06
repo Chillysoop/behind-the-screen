@@ -756,18 +756,38 @@ function M.room_prep(c, id)
             count[mid] = (count[mid] or 0) + 1
         end
         local bits = {}
+        -- (Someone the adventure names is said by name: "Guz", "Ahmed Noke", not "1 guz". The playtest, November 6.)
+        local named = {}
+        for _, pp in ipairs(MODULE.people or {}) do
+            if pp.name then named[pp.name] = true end
+            if pp.short then named[pp.short] = true end
+        end
+        local WORD = { "a", "two", "three", "four", "five", "six", "seven", "eight" }
+        local PLURAL = { wolf = "wolves", elf = "elves", dwarf = "dwarves", mouse = "mice", ["half-orc"] = "half-orcs" }
         for _, mid in ipairs(order) do
             local m = monsters[mid]
             local raw = m and m.name or mid
             if count[mid] == 1 and string.find(raw, "^The %u") then
                 -- (One of a kind by name: "the Lecturer", not "1 the lecturer", the third playtest.)
                 table.insert(bits, "the " .. string.sub(raw, 5))
+            elseif count[mid] == 1 and named[raw] then
+                table.insert(bits, raw)
             else
                 local name = string.lower(raw)
-                table.insert(bits, util.int(count[mid]) .. " " .. name .. ((count[mid] > 1 and not string.find(name, "s$")) and "s" or ""))
+                local n = count[mid]
+                if n > 1 then
+                    local last = string.match(name, "(%S+)$")
+                    name = PLURAL[last] and (string.sub(name, 1, #name - #last) .. PLURAL[last])
+                        or (string.find(name, "s$") and name or (name .. "s"))
+                end
+                local w = WORD[n] or util.int(n)
+                if n == 1 and string.find(name, "^[aeiou]") then
+                    w = "an"
+                end
+                table.insert(bits, w .. " " .. name)
             end
         end
-        table.insert(out, { kind = "minis", text = (r.optional_fight and "If it comes to a fight: " or "Minis: ") .. table.concat(bits, ", ") })
+        table.insert(out, { kind = "minis", text = (r.optional_fight and "If it comes to a fight: " or "Minis: ") .. util.join_names(bits) .. "." })
     end
     local pn = MODULE.prep_notes and MODULE.prep_notes[id] or {}
     for _, v in ipairs(pn.voices or {}) do

@@ -28,7 +28,9 @@ function M.build(app, on_next)
     require("game.ui.museum_prep_view").draw_map(app, 24, 112, 380, 300)
     -- The rooms, in the order they played.
     local x, y, w = 424, 112, 560
-    kit.text(x, y, "THE ROUTE  (S1: in session 1)", "ui14", theme.dim)
+    -- (The key from this adventure's first session: a party carried on starts at session 6, not 1. The playtest, November 6.)
+    local s1 = (c.adv and c.adv.week0 or 0) + 1
+    kit.text(x, y, "THE ROUTE  (S" .. util.int(s1) .. ": in session " .. util.int(s1) .. ")", "ui14", theme.dim)
     y = y + 22
     -- (A long prologue: the marks lines go, Euryale's card beside it lists them, so the ending
     -- still fits above the friends. The November 4 engine run had it running under them.)
@@ -144,22 +146,25 @@ function M.build(app, on_next)
             end
         end
     end
-    kit.button(1356, 836, 220, 48, "A few questions  >", function()
+    -- Carry on (Conner, November 6: two adventures tied together keep the party, what they carry and know, and the
+    -- threads left open). The next adventure that can follow this one, with this party: the main way on, lit; the
+    -- questions are how you finish here instead, and say so. (The playtest, November 6: "A few questions" was the
+    -- bright one, with nothing saying it ends the run.)
+    local nxt = on_next and app.carry_on and adventure.next_up(c)
+    kit.button(1356, 836, 220, 48, nxt and "Finish here  >" or "A few questions  >", function()
         if on_next then
             on_next()
         end
-    end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "to_survey" })
-    -- Carry on (Conner, November 6: two adventures tied together keep the party, what they carry and know, and the
-    -- threads left open). The next adventure that can follow this one, with this party.
-    local nxt = on_next and app.carry_on and adventure.next_up(c)
+    end, { color = (not nxt) and theme.go or nil, hover = (not nxt) and theme.go_hover or nil, font = "ui22b", key = "to_survey" })
     if nxt then
         local m = require("game.data.adventures").part(nxt, "module") or {}
         local label = "Carry on into " .. (m.title or nxt) .. "  >"
         local bw = math.max(300, kit.width(label, "ui22b") + 40)
         kit.button(1356 - 16 - bw, 836, bw, 48, label, function()
             app.carry_on(nxt)
-        end, { font = "ui22b", key = "carry_on" })
-        kit.text(1340 - 16 - bw, 850, "Same heroes, what they carry and know.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
+        end, { color = theme.go, hover = theme.go_hover, font = "ui22b", key = "carry_on" })
+        kit.text(1340 - 16 - bw, 850, "Same heroes, what they carry and know. Or finish here, with a few questions.", "ui14",
+            theme.dim, { pivot = gui.PIVOT_NE })
     else
         kit.text(1340, 850, "Then you're done. In the full game, the campaign would come next.", "ui14", theme.dim, { pivot = gui.PIVOT_NE })
     end

@@ -941,7 +941,13 @@ if not click_key("s0_next") then problem("no way on from Session Zero") end
 if not (app.s0 and app.s0.page == "hooks") then problem("the hooks page didn't open") end
 dump("2_hooks")
 scan("the hooks page")
-if click_key("hooks_start") and app.screen ~= "session_zero" then problem("week 1 started with no hooks picked") end
+-- (An adventure with one reason for each hero has them picked already: the Sheep Chase. Otherwise none is, and the
+-- start waits for them.)
+local hook_choice = false
+for _, k in ipairs(content.players.order) do
+    hook_choice = hook_choice or #(adventure.data.hooks[k] or {}) > 1
+end
+if hook_choice and click_key("hooks_start") and app.screen ~= "session_zero" then problem("week 1 started with no hooks picked") end
 for _, k in ipairs(content.players.order) do
     local hooks = adventure.data.hooks[k]
     if not click_key("hook_" .. k .. "_" .. hooks[rng:int(1, #hooks)].id) then problem("no hook buttons for " .. k) end
