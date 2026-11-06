@@ -745,12 +745,10 @@ function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
     local text = win and goal.win or (goal.lose or goal.win)
     local alt_said = false
-    for _, alt in ipairs((win and goal.win_if or goal.lose_if) or {}) do
-        if alt_holds(night, sc, alt) then
-            text = alt.text
-            alt_said = true
-            break
-        end
+    local said = adventure.say(night.campaign, (win and goal.win_if or goal.lose_if),
+        { test = function(alt) return alt_holds(night, sc, alt) end })
+    if said then
+        text, alt_said = said, true
     end
     -- (After a death, a goal's quiet win: not "shakes every hand twice". able.somber.)
     if win and not alt_said and goal.win_sad and able.somber(night) then
@@ -946,12 +944,7 @@ function M.play_moment(night, card, sc)
         copy.text = "Second time round: " .. util.lower_first(card.text or "")
     end
     M.soft_check(night, card.text_if)
-    for _, alt in ipairs(card.text_if or {}) do
-        if adventure.test(night.campaign, alt.when, knobs_of(night)) then
-            copy.text = alt.text
-            break
-        end
-    end
+    copy.text = adventure.text(night.campaign, { text = copy.text, text_if = card.text_if }, "text", { knobs = knobs_of(night) }, copy.text)
     copy.trigger = copy.trigger or "museum"
     -- What fair warning is judged against (warnings.lua): this moment, its danger.
     night.moment_key, night.moment_what = card.id, card.danger
@@ -2046,13 +2039,7 @@ end
 function M.read(night, sc)
     local r = MODULE.rooms[sc.room]
     M.soft_check(night, r.read_if)
-    local text = r.read
-    for _, alt in ipairs(r.read_if or {}) do
-        if adventure.test(night.campaign, alt.when, knobs_of(night)) then
-            text = alt.text
-            break
-        end
-    end
+    local text = adventure.text(night.campaign, r, "read", { knobs = knobs_of(night) })
     night:say(text, "narration")
     -- (A hero who died tonight: the wake, back in the gift shop, once the danger's over. Round three, B1.)
     if sc.room == "thanks" or sc.room == "gift_shop" then
@@ -4592,11 +4579,9 @@ function M.after_room(night, sc)
     local goal = sc.comps and sc.comps.goal
     local step = st.path[#st.path]
     if goal and step and step.room == id then
-        for _, alt in ipairs(goal.got_if or {}) do
-            if alt_holds(night, sc, alt) then
-                step.got = alt.text
-                break
-            end
+        local got = adventure.say(night.campaign, goal.got_if, { test = function(alt) return alt_holds(night, sc, alt) end })
+        if got then
+            step.got = got
         end
     end
     M.ties_beat(night, sc)

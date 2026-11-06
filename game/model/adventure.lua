@@ -419,6 +419,62 @@ end
 -- Conditions on moments and options ------------------------------------------------------------
 
 -- hero: the player key a line is about (an `opinion` of "actor" means what they think of this hero).
+-- One shape for conditional text (docs/design/adventure-standard.md; the longer-adventure notes, item 2): a text
+-- field is a plain line, or a list of `{ when = {...}, text = "..." }` entries, most specific first, that may end on a
+-- plain line. M.say gives the first entry whose `when` holds (M.test, or opts.test(entry) for a reader with its own
+-- conditions), else the plain line, else nil. opts: knobs, hero, test.
+function M.say(campaign, value, opts)
+    if type(value) ~= "table" then
+        return value
+    end
+    opts = opts or {}
+    for _, e in ipairs(value) do
+        if type(e) == "string" then
+            return e
+        elseif type(e) == "table" then
+            local ok
+            if opts.test then
+                ok = opts.test(e)
+            else
+                ok = not e.when or M.test(campaign, e.when, opts.knobs, opts.hero)
+            end
+            if ok then
+                return e.text
+            end
+        end
+    end
+    return nil
+end
+
+-- A record's text field through that one shape: `record[field]` in the new shape, or the museum's older pair (a
+-- plain `record[field]` with its alternatives in `record[field .. "_if"]`: text_if, read_if, line_if, win_if, lose_if,
+-- got_if), read the same way until they're rewritten. `default` stands in when the record has no plain line.
+function M.text(campaign, record, field, opts, default)
+    if not record then
+        return default
+    end
+    local v, alts = record[field], record[field .. "_if"]
+    if alts then
+        local list = {}
+        for _, e in ipairs(alts) do
+            table.insert(list, e)
+        end
+        if type(v) == "table" then
+            for _, e in ipairs(v) do
+                table.insert(list, e)
+            end
+        elseif v ~= nil then
+            table.insert(list, v)
+        end
+        v = list
+    end
+    local out = M.say(campaign, v, opts)
+    if out == nil then
+        return default
+    end
+    return out
+end
+
 function M.test(campaign, cond, knobs, hero)
     if not cond then
         return true
@@ -1279,12 +1335,7 @@ function M.mark_why(campaign, id)
     if by and by.why then
         return by.why
     end
-    for _, alt in ipairs(m.why_if or {}) do
-        if M.test(campaign, alt.when) then
-            return alt.text
-        end
-    end
-    return m.why
+    return M.text(campaign, m, "why")
 end
 
 -- Whose doing a mark on her card was, when it wasn't the party's: the log's (its last "mark" event's
@@ -1337,12 +1388,7 @@ function M.mark_thought(campaign, id)
     if by and by.thought then
         return by.thought
     end
-    for _, alt in ipairs(m.thought_if or {}) do
-        if M.test(campaign, alt.when) then
-            return alt.text
-        end
-    end
-    return m.thought
+    return M.text(campaign, m, "thought")
 end
 
 -- Euryale's card: her base, and every mark with why it's there and what it does on boss night.
@@ -1530,10 +1576,11 @@ function M.request_ask(campaign, rq)
             state.last_hit = true
         end
     end
-    for _, alt in ipairs(rq.ask_if or {}) do
-        if (alt.state and state[alt.state]) or (alt.when and M.test(campaign, alt.when)) then
-            return util.fill(alt.text, vars)
-        end
+    local asked = M.say(campaign, rq.ask_if, { test = function(alt)
+        return (alt.state and state[alt.state]) or (alt.when and M.test(campaign, alt.when)) or false
+    end })
+    if asked then
+        return util.fill(asked, vars)
     end
     if rq.only_if then
         return nil

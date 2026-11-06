@@ -1442,12 +1442,7 @@ function M:describe(c, style)
         -- (A card's words for how things stand, line_if: a table that veiled what's in it.)
         if c.line_if then
             util.lazy("game.model.museum_night").soft_check(self, c.line_if)
-            for _, alt in ipairs(c.line_if) do
-                if adv.test(self.campaign, alt.when) then
-                    text = alt.text
-                    break
-                end
-            end
+            text = adv.say(self.campaign, c.line_if) or text
         end
     end
     self.described[c.id] = true
@@ -2174,12 +2169,7 @@ function M:hero_action(sc, dc, spots)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
     -- (A miss that can't unknow what they know: lose_if, the first whose `when` holds.)
     if not success then
-        for _, alt in ipairs(a.lose_if or {}) do
-            if util.lazy("game.model.adventure").test(self.campaign, alt.when) then
-                landed = alt.text
-                break
-            end
-        end
+        landed = util.lazy("game.model.adventure").say(self.campaign, a.lose_if) or landed
     end
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
     -- A natural 20 is a moment the token's made for, if you want to give it (offer_inspiration).
