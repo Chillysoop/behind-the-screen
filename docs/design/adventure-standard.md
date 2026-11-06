@@ -84,6 +84,9 @@ a scene's way on is its exits to a later scene, else the next one listed. The ad
 | `board` | Its board's id (default `<adventure>_<place>`: `game/data/maps/sheep_*.map`) | plays |
 | `digs` | How many times the friends can dig for a secret there (default one) | plays |
 | `clears` | What wears off once the party leaves: `flags` cleared, and the `line` the DM says (the Sheep Chase's scroll, after the woods path) | plays |
+| `hurry_on` | The next scene follows straight on: no break, rest or wrap-up card between (Noke up the slope to his bed) | plays |
+| `goal.lose_sets`, `goal.line_if` | A flag losing here sets (the guards take the sheep), and the goal's words as things stand (no wand before he's explained) | plays |
+| `on` (the place) | A place you're on, not in, for the recap: a path, a platform | plays |
 
 Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in that order: `title`, `text`, `actor`
 (the kinds of player who lead it), `party` (the table settles it), `options` (game night's choice record: `label`,
@@ -91,7 +94,9 @@ Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in
 goes), `risks` (whose risk it is, when not theirs). An event that fires on a fight is said as that place's fight
 starts (`on_fight`); its `sets` are set then. An event with no options is said and played on. A creature's
 `flees_below` (a share of its Hit Points) and `flee_line` make it run (the rules engine, any adventure); with
-`escapes` it gets away instead of dropping when a blow would finish it. The
+`escapes` it gets away instead of dropping when a blow would finish it. A `rider` on a creature acts from its back each
+turn (Noke's Ray of Frost from the bed dragon). An option's roll with `best` goes to whoever at the table is best at it,
+and with `casters` only to a spellcaster (the wand). A story event with no choice is said aloud as it plays. The
 adventure's own `slide` (the night's first slide), `story_start` (the prep board before anything's happened),
 `currency` (money of its own, like the museum's Francs) and `read_up` (what the break's research covers) are its words
 on shared screens; without them the screens say something neutral.
@@ -176,6 +181,17 @@ The friends' and the table's lines for this adventure, all with conditions: `tab
 `chat_banter`, `chat_intro`, `chat_news`, `talk`, `npc_lines`, `memory`, `recap`, `recap_beats`, `beats`, `openings`,
 `want_more`, `keepsakes`, `friction`, `pocketables`, `ruling_costs`, `asides`, `thoughts`, `answer_like`. All play
 today.
+
+### Endings, rumours and the rest of the table's words
+
+Any adventure without a last scene of its own (`showdown`) plays its ending as the night reaches it: the ending's
+`line`, the `keeps` that hold, `xp`, and a word from each friend by the ending's `tone` (good, bad, mixed); nothing small
+comes up after it. `rumours` are told by their `who` the first time the party is where they belong (`where`: the place
+or the building it's `in`), two a place, and one that picks up a carried thread comes first. A person's `understood`
+names the `flag` that lets the table talk with them. `beats` holds a choice's words for the recap, `did` and `ok` per
+option. `escapes_return` (the museum's) lets the way-out card offer a foe's escape, since there they come back;
+`first_night_rewards` lets one small-moment reward come up on the gentle first night. A companion with `travels`
+comes along into the next adventure, with words that fit anywhere.
 
 ### The DM's bag and lore tips (every adventure)
 
@@ -265,7 +281,9 @@ campaign, to)` does it for any two:
 - Conditions on what came before: `past = <adventure>`, `thread = <id or tag>`, `knew = "<adventure>:<secret>"`.
 - **At the table:** when an adventure ends and the registry has a next one (`adventure.next_up`), the journey screen
   has "Carry on into ...": the hand-off, levels caught up (`progression.catch_up`), then the next adventure's hooks
-  page and its first session.
+  page and its first session. That night opens with the hand-off's own words (`adventure.opening_line`) and no
+  introductions. The shared content each adventure speaks in is put back as it was before the next one's words go on
+  (`adventure.shared_reset`), so nothing of the museum's wording follows the party out.
 
 Owed: a person's memory record (`people_memory`) is the adventure's, so a returning person needs it in the new one
 too; money that's only good in one adventure (the museum's Francs) turning into something at the seam.
