@@ -117,6 +117,9 @@ local function thessaly(level, sub)
         weapons = { main = "quarterstaff" },
         cantrips = { "fire_bolt", "ray_of_frost", "light", "shocking_grasp", "chill_touch" },
         prepared = copy(prepared[level]),
+        -- (In her spellbook, cast as rituals without preparing them (Ritual Adept): for finding things out,
+        -- never in a fight. game/model/ideas.lua's find.)
+        rituals = { "detect_magic", "comprehend_languages", "identify" },
         potions = 1,
     }
     if level >= 4 then

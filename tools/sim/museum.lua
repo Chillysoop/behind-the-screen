@@ -401,4 +401,23 @@ print(string.format("  thoughts %d (%.1f a night), answered %d, backfired %d; %s
 if view then
     print(view:report())
 end
+-- What came out, and how (game/model/secrets.lua): each secret's level, the way it came out and who found it.
+do
+    local secrets = require "game.model.secrets"
+    local out = {}
+    for _, key in ipairs(secrets.list()) do
+        local st = secrets.state(c)[key]
+        if st and st.level then
+            local who = {}
+            for _, p in ipairs(c.players) do
+                if st.heroes and st.heroes[p.key] then
+                    table.insert(who, string.sub(p.key, 1, 1))
+                end
+            end
+            table.insert(out, string.format("%s %s(%s, %s, w%s)", key, st.level == "hint" and "~" or "", st.how or "?",
+                st.by or "-", tostring(st.week or "?")))
+        end
+    end
+    print("  secrets: " .. (#out > 0 and table.concat(out, "; ") or "none"))
+end
 os.exit(failures == 0 and 0 or 1)

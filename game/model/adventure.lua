@@ -1157,6 +1157,10 @@ end
 -- holder: the player key of the hero whose choice it was (who bought it, found it, asked for it):
 -- a thing it hands over goes in their pack (items.lua, the one inventory).
 function M.apply(campaign, mus, room, holder)
+    -- (Something that shows a secret: game/model/secrets.lua's event paths. A whisper to one hero is theirs.)
+    if type(mus) == "table" and mus.secret_event then
+        require("game.model.secrets").event(campaign, mus.secret_event, { by = holder })
+    end
     local st = campaign.adv
     local added = {}
     if not mus then

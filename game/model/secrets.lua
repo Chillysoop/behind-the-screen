@@ -629,8 +629,8 @@ end
 local SKILL_NAME = function(s)
     return require("game.rules.skills").name(s)
 end
-M.EVENT_WORDS = { hood_off = "her hood coming off", briars_wake = "the hedges waking", tentacles = "the pond grabbing someone",
-                  sentinel_wakes = "the statue waking", scarabs = "the scarabs pouring out", kruthik_fight = "fighting them",
+M.EVENT_WORDS = { hood_off = "her hood coming off", fight_garden = "the hedges waking", tentacles = "the pond grabbing someone",
+                  fight_entrance = "the statue waking", scarabs = "the scarabs pouring out", fight_hunting = "fighting them",
                   paint_hit = "a painted weapon hitting it", whisper = "the whisper, to one hero alone", deafened = "someone fighting him deafened" }
 function M.way_text(p)
     local on = M.holder_name(p)

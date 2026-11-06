@@ -181,7 +181,7 @@ function M.new_pc(sheet)
         masteries = set_of(sheet.masteries),
         feats = set_of(sheet.feats), traits = set_of(species.traits),
         resist = set_of(species.resist), vulnerable = {}, immune = {}, condition_immune = {},
-        casting = cls.casting, cantrips = sheet.cantrips or {}, prepared = sheet.prepared or {},
+        casting = cls.casting, cantrips = sheet.cantrips or {}, prepared = sheet.prepared or {}, rituals = sheet.rituals,
         tags = {},
     })
     for _, ab in ipairs(ABILITIES) do

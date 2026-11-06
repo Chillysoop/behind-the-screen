@@ -902,11 +902,13 @@ function M.tell_moments(night, f, steps)
         if kind == "veil" and c and not said.veil then
             -- (The hood off: now the table knows what she is, as the book has it, p26. game/model/told.lua.)
             require("game.model.told").tell(night.campaign, { "gorgon", "hood_off" })
+            require("game.model.secrets").event(night.campaign, "hood_off")
             said.veil = told(night, "veil")
         elseif kind == "scarabs" and c and not said.scarabs then
             -- (Said, so the table knows what it's fighting: Sam's veil keeps them off anyone, not out of the
             -- story. The knowledge playtest heard only "You keep the creepy-crawlies off screen".)
             said.scarabs = told(night, "scarabs", { name = barks.foe_label(c) or "the guardian" })
+            require("game.model.secrets").event(night.campaign, "scarabs")
         elseif kind == "petrify" and c then
             -- (Who her stare caught this turn: everyone whose feet started to go grey, but her own.)
             local caught = {}

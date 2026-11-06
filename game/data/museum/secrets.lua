@@ -125,7 +125,7 @@ M.kruthik = {
     paths = {
         { kind = "read", item = "guide", skill = { "survival", "nature" }, dc = 14, gives = "known", book = true, page = 20 },
         { kind = "check", skill = { "nature", "survival" }, dc = 15, gives = "hint", page = 20 },
-        { kind = "event", event = "kruthik_fight", gives = "hint", page = 20 },
+        { kind = "event", event = "fight_hunting", gives = "hint", page = 20 },
     },
     defaults = false,
 }
@@ -226,7 +226,7 @@ M.living_hedges = {
     paths = {
         { kind = "check", skill = { "perception" }, dc = 13, gives = "hint", page = 10 },
         { kind = "check", skill = { "nature" }, dc = 13, gives = "known", page = 10 },
-        { kind = "event", event = "briars_wake", gives = "known", book = true, page = 10 },
+        { kind = "event", event = "fight_garden", gives = "known", book = true, page = 10 },
     },
     defaults = false,
 }
@@ -254,7 +254,7 @@ M.sentinel_wakes = {
     paths = {
         { kind = "check", skill = { "arcana" }, dc = 13, gives = "known", page = 11 },
         { kind = "check", skill = { "investigation", "perception" }, dc = 12, gives = "hint", page = 11 },
-        { kind = "event", event = "sentinel_wakes", gives = "known", book = true, page = 12 },
+        { kind = "event", event = "fight_entrance", gives = "known", book = true, page = 12 },
     },
     defaults = false,
 }

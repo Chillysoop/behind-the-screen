@@ -1575,6 +1575,27 @@ function M.explore_after(night, sc)
     end
 end
 
+-- A place on the board seen up close: a secret whose `see` path is there comes out as far as the path
+-- gives (the tapestry's three sisters, a hint; the door locked from the inside, a hint), for the heroes there.
+function M.see_spot(night, sc, pid, p)
+    local secrets = require "game.model.secrets"
+    local c = night.campaign
+    for _, key in ipairs(secrets.list()) do
+        if not secrets.held(c, key) then
+            for _, path in ipairs(secrets.paths(key, c)) do
+                if path.kind == "see" and path.room == sc.room and path.spot == pid
+                    and (secrets.RANK[path.gives or "known"] or 0) > (secrets.RANK[secrets.level(c, key)] or 0) then
+                    local line = secrets.line(night, key, path.gives or "known", path, { char = p and p.char or "someone" })
+                    secrets.learn(c, key, path.gives or "known", { how = "see", by = p and p.key, path = path })
+                    if line then
+                        night:say(line, "dm")
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- The small stuff, once the room's danger is settled (table_life.lua): poking at things, a question,
 -- a snack. After the room's last moments, so nobody browses while something's still coming.
 function M.quiet_stretch(night, sc)
@@ -1791,6 +1812,8 @@ function M.explore(night, sc)
         if pl.line then
             night:say(pl.line, "narration")
         end
+        -- (What's in plain view there tells a hint, or more: a secret's `see` path. game/model/secrets.lua.)
+        M.see_spot(night, sc, pid, p)
         -- Their companion helps (companions.lua): a sniff round, an old boot's memory. A pet they
         -- were told to find turns up here.
         local companions = require "game.model.companions"

@@ -646,7 +646,8 @@ function M.screen_note(text)
 end
 
 function M:say(text, style, extra)
-    if style == "dm" and M.screen_note(text) then
+    -- (Any line that's a note behind your screen, a roll's result too: the Witness's whisper, written down.)
+    if M.screen_note(text) and style ~= "screen" then
         style = "screen"
     end
     return self:emit({ kind = "narrate", text = util.sentence_case(util.fill(text, self:vars(extra))),
@@ -3285,7 +3286,7 @@ function M:big_roll(spec, record)
     local branch_log = (success and tier == "triumph" and branch.big) or branch.log
         or (branch.fresh and self:fresh(branch.fresh[1], branch.fresh[2]))
     if branch.tells then
-        told.tell(self.campaign, branch.tells)
+        told.tell(self.campaign, branch.tells, { how = branch.tells_how or "moment", by = p and p.key or nil })
     end
     self:say(branch_log, success and "good" or "bad")
     self:apply(branch.effects)
@@ -3626,7 +3627,7 @@ function M:decision(card, extra)
     self.why = auto and ("the table's choice at \"" .. card.title .. "\"") or ("your call on \"" .. card.title .. "\"")
     -- (What the choice tells the table, told before its line is said: the confession names Euryale.)
     if o.tells then
-        told.tell(self.campaign, o.tells)
+        told.tell(self.campaign, o.tells, { how = o.tells_how or "moment", by = self.actor and self.actor.key or nil })
     end
     if o.log then
         self:say(o.log, o.screen and "screen" or "dm", extra)
@@ -4171,9 +4172,24 @@ function M:combat_scene(sc)
     self:say(self:fight_caption("start", self:vars()), "dm")
     local boss_fan = self:pick_actor({ "butt_kicker", "tactician", "storyteller" })
     self:bark(boss_fan, "boss_appears", { ctx = self:boss_context(plan, sc) })
+    -- (A room's foes showing themselves shows what they are: the hedges waking, the statue stepping down.
+    -- game/model/secrets.lua's event paths, "fight_<room>".)
+    local secrets = require "game.model.secrets"
+    if sc.room then
+        secrets.event(self.campaign, "fight_" .. sc.room)
+    end
     local result, f = fight.run(self, sc, plan)
     sc.result = result
     sc.outcome = result.winner == "party" and "win" or "lose"
+    -- (What the fight showed: a painted weapon biting into the painted knight, a deafened hero shrugging off
+    -- the drone.)
+    local opts_used = (plan and plan.museum) or {}
+    if opts_used.paint and sc.room == "paintings" then
+        secrets.event(self.campaign, "paint_hit")
+    end
+    if opts_used.earplugs and sc.room == "lecture" then
+        secrets.event(self.campaign, "deafened")
+    end
     -- Who's beaten and who got away, for every line after the fight (a boss that ran isn't beaten).
     sc.foes_ran, sc.foes_beaten = {}, {}
     -- (And who on their side is gone for good: a machine smashed or burnt out, not a friend knocked

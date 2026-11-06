@@ -794,9 +794,9 @@ M.moments = {
           { label = "Let them. They know what's in there.",
             roll = { dc = 10, skill = { "acrobatics", "athletics" }, convenient = "success",
                      success = { log = "{actor_char} dodges a tentacle and fishes out a little brass key. Nobody knows what it opens. Yet.",
-                                 effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, flag = "brass_key", aspect = "Fished a brass key out of a haunted pond" } },
+                                 effects = { { "actor", spotlight = 8, fun = 5 } }, mus = { risk = true, francs = 1, flag = "brass_key", aspect = "Fished a brass key out of a haunted pond", secret_event = "tentacles" } },
                      fail = { log = "A tentacle wraps {actor_char}'s ankle and drags {actor_them} in up to the waist. {Actor_they} comes out cut and furious.",
-                              effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, drag = { "pond", "pond" }, aspect = "Was dragged into a haunted pond" } } } },
+                              effects = { { "actor", spotlight = 6, challenge = 4 } }, mus = { risk = true, harsh = true, hurt = { 1, 6 }, drag = { "pond", "pond" }, aspect = "Was dragged into a haunted pond", secret_event = "tentacles" } } } },
           { label = "\"Are you sure? It's got tentacles.\"",
             log = "\"Nope,\" says {actor_char}, and backs away from the water. The pond burbles, disappointed.",
             effects = { { "arch:instigator", fun = -2 }, { "arch:casual", fun = 2 } }, mus = { warn = true } },
@@ -1089,12 +1089,15 @@ M.moments = {
           { label = "Roll for it, behind the screen.",
             roll = { dc = 13, skill = { "insight", "religion" }, secret = true, convenient = "success",
                      success = { log = "{actor_char} shakes it off. Just the wind. Probably.", effects = { { "actor", fun = 2 } } },
-                     fail = { log = "Something old learns {actor_char}'s name. You write it down for later.",
-                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } }, mus = { flag = "whispered", aspect = "Named in a whisper by the Witness" } } } },
+                     -- (Behind your screen: only that hero heard it, p21. The table hears nothing. The second round's
+                     -- review: "You write it down for later" was said out loud.)
+                     fail = { log = "Behind your screen, you note it down: something old has learned {actor_char}'s name, and {actor_char} heard it.",
+                              effects = { { "actor", story = 8, fun = 4 }, { "arch:storyteller", investment = 2 } },
+                              mus = { flag = "whispered", aspect = "Named in a whisper by the Witness", secret_event = "whisper" } } } },
           { label = "Pass them a note: they hear it, and only they know.",
             log = "You slide a folded note across the table. It says: \"A voice in the dark says your name, once, the way an old friend would.\" {actor_char}'s player reads it, goes pale, and says nothing.",
             effects = { { "actor", story = 10, fun = 6 }, { "arch:storyteller", investment = 3 }, { "arch:casual", fun = -1 } },
-            mus = { flag = "whispered", aspect = "Named in a whisper by the Witness" } },
+            mus = { flag = "whispered", aspect = "Named in a whisper by the Witness", secret_event = "whisper" } },
       } },
 
     -- The World of Tomorrow -------------------------------------------------------------------

@@ -758,11 +758,11 @@ local function find_card(night, idea, vars, lines)
         table.insert(options, { label = "Roll for it: " .. skills_mod.name(idea.skills[1]) .. ", DC " .. dc .. (path.book and " (the book's)" or "") .. ".",
                                 sub = gives == "known" and "Make it, and they have it." or "Make it, and they get a hint.",
                                 roll = { dc = dc, true_dc = true, skill = idea.skills, convenient = "success", adv = way.adv,
-                                         success = { log = lines.win, tells = tells }, fail = { log = lines.miss } },
+                                         success = { log = lines.win, tells = tells, tells_how = path.kind }, fail = { log = lines.miss } },
                                 find = gives })
     end
     table.insert(options, { label = gives == "known" and "It works. Tell them." or "It works: a hint.", sub = "No roll.",
-                            log = lines.win, find = gives, tells = tells })
+                            log = lines.win, find = gives, tells = tells, tells_how = path.kind })
     if gives == "known" and not secrets.hinted(night.campaign, idea.key) and lines.hint then
         table.insert(options, { label = "A hint, for now.", sub = "Keep the rest for later.", log = lines.hint, find = "hint" })
     end
