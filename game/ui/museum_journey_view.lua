@@ -9,7 +9,8 @@ local content = require "game.model.content"
 local util = require "game.model.util"
 local adventure = require "game.model.adventure"
 
-local MODULE = adventure.data
+-- (The current adventure, read as it is now: another can be made current, adventure.use, the hand-off.)
+local MODULE = setmetatable({}, { __index = function(_, k) return adventure.data[k] end })
 local M = {}
 
 local OUTCOME = { win = "went their way", lose = "a rough one" }

@@ -16,7 +16,8 @@ local museum_week = require "game.model.museum_week"
 local map_repo = require "game.model.map_repo"
 local ties = require "game.model.ties"
 
-local MODULE = adventure.data
+-- (The current adventure, read as it is now: another can be made current, adventure.use, the hand-off.)
+local MODULE = setmetatable({}, { __index = function(_, k) return adventure.data[k] end })
 local M = {}
 
 local COL_L, COL_LW = 24, 380

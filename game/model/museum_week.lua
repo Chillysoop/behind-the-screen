@@ -11,7 +11,8 @@ local social = require "game.model.social"
 local progression = require "game.model.progression"
 local ties = require "game.model.ties"
 
-local MODULE = adventure.data
+-- (The current adventure, read as it is now: another can be made current, adventure.use, the hand-off.)
+local MODULE = setmetatable({}, { __index = function(_, k) return adventure.data[k] end })
 local M = {}
 
 -- Prep -----------------------------------------------------------------------------------------

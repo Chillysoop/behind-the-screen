@@ -1962,6 +1962,7 @@ M.secrets = require "game.data.museum.secrets"
 
 -- Threads still open when the museum is over, for a later adventure to pick up by its tags (adventure.handoff).
 M.why_here = "why {char_they} came to the museum"
+M.slide = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over."
 M.threads = {
     { id = "mountain_road", name = "A murder up the mountain road", open_at_end = true, tags = { "mountain_road", "murder", "mountains" },
       who = "mus_flitwidget", text = "Flitwidget has had strange news from the mountains: a death among the clans up the "

@@ -174,7 +174,8 @@ function M:advance(answer)
     end
     local ok, ev = coroutine.resume(self.co, answer)
     if not ok then
-        error(ev)
+        -- (With the coroutine's own traceback: where in tonight's run it broke, not just here.)
+        error(debug and debug.traceback and debug.traceback(self.co, tostring(ev)) or ev)
     end
     return ev or { kind = "done", t = 0 }
 end

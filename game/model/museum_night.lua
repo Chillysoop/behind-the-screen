@@ -20,7 +20,8 @@ local able = require "game.model.able"
 local people = require "game.model.people"
 local _ideas = require "game.model.ideas"      -- (reached lazily from table_life.lua: required here so it's built in)
 
-local MODULE = adventure.data
+-- (The current adventure, read as it is now: another can be made current, adventure.use, the hand-off.)
+local MODULE = setmetatable({}, { __index = function(_, k) return adventure.data[k] end })
 local M = {}
 
 M.STOP_BEFORE_END = 25     -- table minutes: no new room this close to the agreed end
@@ -4490,6 +4491,8 @@ local function fled_count(sc)
 end
 
 function M.after_room(night, sc)
+    -- (An ending that's a condition on the log, met in this room: the adventure's over. adventure.check_ending.)
+    adventure.check_ending(night.campaign)
     local c = night.campaign
     local st = st_of(night)
     local id = sc.room
@@ -4708,7 +4711,7 @@ function M.intro(night)
     local part = first and MODULE.rooms[first] and MODULE.rooms[first].part or 1
     if (st.weeks or 0) <= 1 then
         night:emit({ kind = "cinematic", id = "opening", slides = {
-            { title = MODULE.title, text = "A one-shot prologue: a gnome's travelling museum, and the Gorgon who took it over." },
+            { title = MODULE.title, text = MODULE.slide or MODULE.pitch or MODULE.title },
             { title = "Tonight", text = MODULE.openings[1] },
         } })
         night:say(MODULE.openings[1], "opening")
@@ -4820,7 +4823,10 @@ function M.intro(night)
             M.interlude(night)
         end
     end
-    night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
+    -- (The museum's Euryale, thinking upstairs: an adventure without a watcher has none.)
+    if MODULE.thoughts and MODULE.thoughts.open then
+        night:say(night:fresh(MODULE.thoughts.open, "euryale_open"), "interlude")
+    end
 end
 
 -- The statue the group chat promised (the rest answered "yes, but it's dangerous"): a stone piece at

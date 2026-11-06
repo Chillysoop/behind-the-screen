@@ -30,6 +30,8 @@ M.list = {
         id = "sheep",
         title = "The Wild Sheep Chase",
         module = function() return require "game.data.sheep.module" end,
+        -- (Its rooms' cards, made from its places by the standard: game/model/standard.lua.)
+        cards = function() return { cards = require("game.model.standard").cards(require "game.data.sheep.module") } end,
         fidelity = function() return require "game.data.sheep.fidelity" end,
         follows = { any = true },
     },

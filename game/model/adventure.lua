@@ -14,7 +14,8 @@ local M = {}
 
 local adventures = require "game.data.adventures"
 local CURRENT = adventures.from_env()      -- (the default, or ADVENTURE=<id> for a test or tool)
-local MODULE = adventures.part(CURRENT, "module")
+local standard = require "game.model.standard"
+local MODULE = standard.compile(adventures.part(CURRENT, "module"))
 M.data = MODULE
 
 -- The current adventure's id, and one of its parts (game/data/adventures.lua).
@@ -26,7 +27,7 @@ end
 function M.use(id)
     assert(adventures.list[id], "no adventure called " .. tostring(id))
     CURRENT = id
-    MODULE = adventures.part(id, "module")
+    MODULE = standard.compile(adventures.part(id, "module"))
     M.data = MODULE
     M.entered = false
     vocab = nil
@@ -1137,6 +1138,22 @@ end
 
 function M.over(campaign)
     return campaign.adv and campaign.adv.ending ~= nil
+end
+
+-- An adventure whose endings are conditions on the log (the standard's `endings[id].when`): the first that holds
+-- ends it, logged. The museum's own come from its showdown (museum_night.after_showdown) and have no `when`.
+function M.check_ending(campaign)
+    local st = campaign.adv
+    if not st or st.ending then
+        return st and st.ending
+    end
+    for id, e in util.sorted_pairs(MODULE.endings or {}) do
+        if type(e) == "table" and e.when and M.test(campaign, e.when) then
+            st.ending = id
+            require("game.model.events").add(campaign, { kind = "ending", thing = id, where = st.pos or st.at })
+            return id
+        end
+    end
 end
 
 -- Moving through the museum ---------------------------------------------------------------------
