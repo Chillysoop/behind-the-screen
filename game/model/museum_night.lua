@@ -442,7 +442,7 @@ M.RITUAL_MISS = { "The glyphs swim, and that line won't come.", "That line's too
 M.RITUAL_SWING = { "The guardian's staff cracks down on {char}.", "{char} takes the staff on the shoulder, and holds.",
                    "A swing of the staff catches {char}." }
 M.RITUAL_WORKED = { "Enough of it makes sense now. They work it out between them, scratching sums in the sand: fill the falcon, tip it into the jackal, empty the jackal, pour again, fill, top up. Four gallons, all from the crocodile. Onto the pedestal, and someone presses the button. The guardian kneels, and the fire in its skulls goes out.",
-                    "They have the lines that matter. Water from the crocodile only, five and three to make four, and the falcon onto the pedestal. The guardian sinks to its knees, and its skulls go dark." }
+                    "They have the lines that matter. Five gallons and three to make four, water from the crocodile only, and the falcon onto the pedestal. The guardian sinks to its knees, and its skulls go dark." }
 M.RITUAL_SHORT = { "Not enough of the tablet comes clear in time. It's going to be blades.", "They have bits of it, not enough. The guardian isn't waiting. Weapons out." }
 
 function M.handle(night, mus, sc)

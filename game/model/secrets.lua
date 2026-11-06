@@ -195,6 +195,13 @@ function M.learn(c, key, level, opts)
     end
     st[key] = e
     if e.level == "known" and was_level ~= "known" then
+        -- (Known as a whole, not piece by piece: then it has every piece.)
+        if d.parts and not opts.from_part then
+            e.parts = e.parts or {}
+            for i = 1, #d.parts do
+                e.parts[i] = e.parts[i] or (c.week or 0)
+            end
+        end
         -- (What it unlocks: the flags other systems read, the names it tells with it.)
         local u = d.unlocks
         if u and u.flag then
@@ -206,7 +213,7 @@ function M.learn(c, key, level, opts)
         end
     end
     if new and d.what and opts.log ~= false then
-        local events = require "game.model.events"
+        local events = util.lazy("game.model.events")
         local night = M.night
         local where = night and night.campaign == c and night.scene and night.scene.room or nil
         local hint_ev = level == "known" and events.last(c, { kind = "learn", what = key, level = "hint" }) or nil
@@ -250,7 +257,12 @@ function M.learn_part(c, key, i, opts)
             end
         end
     end
-    M.learn(c, key, all and "known" or "hint", opts)
+    local o = {}
+    for f, v in pairs(opts or {}) do
+        o[f] = v
+    end
+    o.from_part = true
+    M.learn(c, key, all and "known" or "hint", o)
     return true
 end
 
@@ -301,6 +313,24 @@ function M.unshared(c, hk, others)
         end
     end
     return out
+end
+
+-- A new night: whatever was said out loud at the table, every hero here has caught up on (the friends talk
+-- between sessions, and the recap goes round). What one hero heard alone, a note or a whisper, stays theirs.
+function M.catch_up(c, keys)
+    local st = M.state(c)
+    if not st then
+        return
+    end
+    keys = keys or party_keys(c)
+    for _, e in util.sorted_pairs(st) do
+        if e.heard then
+            e.heroes = e.heroes or {}
+            for _, hk in ipairs(keys) do
+                e.heroes[hk] = raise(e.heroes[hk], e.heard)
+            end
+        end
+    end
 end
 
 -- A hero tells the others what they learned alone. Returns the keys shared.
@@ -610,11 +640,11 @@ end
 
 function M.holder_name(p)
     if type(p.on) == "string" then
-        local n = require("game.model.npcs").get(p.on)
+        local n = util.lazy("game.model.npcs").get(p.on)
         return n and (n.short or n.name) or p.on
     end
     if p.item then
-        local items = require "game.model.items"
+        local items = util.lazy("game.model.items")
         local def = items.thing(p.item) or items.def(p.item)
         return def and util.lower_first(def.name) or p.item
     end
@@ -627,7 +657,7 @@ end
 -- One way out, for the DM: "Persuasion 12 on Flitwidget (the book's)", "Insight 12 on Flitwidget, for a hint",
 -- "asking Telpur once he likes them", "her hood coming off".
 local SKILL_NAME = function(s)
-    return require("game.rules.skills").name(s)
+    return util.lazy("game.rules.skills").name(s)
 end
 M.EVENT_WORDS = { hood_off = "her hood coming off", fight_garden = "the hedges waking", tentacles = "the pond grabbing someone",
                   fight_entrance = "the statue waking", scarabs = "the scarabs pouring out", fight_hunting = "fighting them",

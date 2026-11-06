@@ -440,14 +440,15 @@ function M.test(campaign, cond, knobs, hero)
         return false
     end
     -- What the table has been told (game/model/told.lua): a key, or a list of keys all told.
+    -- (For a line about one hero, what that hero knows: a friend who wasn't there doesn't say it in character.)
     if cond.told then
         for _, k in ipairs(type(cond.told) == "table" and cond.told or { cond.told }) do
-            if not require("game.model.told").knows(campaign, k) then
+            if not require("game.model.told").knows(campaign, k, hero) then
                 return false
             end
         end
     end
-    if cond.not_told and require("game.model.told").knows(campaign, cond.not_told) then
+    if cond.not_told and require("game.model.told").knows(campaign, cond.not_told, hero) then
         return false
     end
     -- (One piece of a secret told a piece at a time: the tablet's warning line. part = { key, i }.)

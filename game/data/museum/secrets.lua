@@ -20,13 +20,19 @@
 --   parts      a secret that comes out a piece at a time (each success, one more); needs: the pieces that
 --              make it known
 --   say_at     "hint": lines that name it can be said once the table has a hint (default: once it's known)
+--   weight     how much more it pulls a curious friend in (and comes to the DM as a card)
+--   major      the adventure turns on it: the checks want it found more than one way, by more than one hero
 --   with       keys told along with it
+--   covered_by conditions that can only hold once it's been told (the confession's flag, a bargain made): a line
+--              that waits on one of them is fine to name it (tools/tests/secrets_check.lua's LINT)
 --   about      what the friends call the thing it's about, when it's on a place ("the hedges", "the little bird")
 --   after_fight  (a path's) only once the room's fight has shown them: nobody asks about hunters nobody's seen
 
 local M = {}
 
 M.gorgon = {
+    major = true,         -- (the adventure turns on it: it has to be findable more than one way, by more than one hero)
+    covered_by = { { flag = "truth" } },
     name = "What's really upstairs", page = 6, type = "person", room = "street",
     what = "A Gorgon called Euryale has taken the museum over. Flitwidget bought her sealed in a clay jar; she broke free, twisted his exhibits and killed visitors. Telpur is still inside.",
     held_by = { "mus_flitwidget", "mus_telpur" },
@@ -58,6 +64,8 @@ M.gorgon = {
 }
 
 M.sisters = {
+    major = true,         -- (the adventure turns on it: it has to be findable more than one way, by more than one hero)
+    covered_by = { { ending = "bargain" } },
     about = "the tapestry",
     name = "Her sisters", page = 27, type = "person", room = "lair", say_at = "known",
     what = "An ancient hero sealed Euryale and her two sisters in three clay pots. She smashed the lair's pottery looking for them, and deep down she wants them found and freed: the way to bargain with her.",
@@ -81,13 +89,15 @@ M.sisters = {
 }
 
 M.ritual = {
+    weight = 0.6,          -- (the room's own puzzle: it pulls the curious in more than a side detail)
+    covered_by = { { mark = "calmed" } },
     about = "the cracked tablet",
     name = "The water ritual", page = 12, type = "document", room = "chamber", say_at = "hint",
     on = { room = "chamber", spot = "3E" },
     what = "The tablet's seven lines tell how to still the bone guardian: fill the falcon jar with exactly four gallons, using only the jackal jug and the crocodile's water, and set it on the pedestal. A discontented falcon on the pedestal is deadly.",
     parts = {
-        "The full belly of the falcon holds five gallons.",
-        "The full belly of the jackal holds three.",
+        "Five gallons fill the falcon's belly.",
+        "Three gallons fill the jackal's.",
         "The goddess will be content when the falcon drinks exactly four.",
         "Only the crocodile's water may feed the falcon and the jackal.",
         "The crocodile can feed them both until the end of time.",
@@ -96,7 +106,7 @@ M.ritual = {
     },
     needs = { 1, 2, 3, 4, 6 },
     hint = { "One line of the tablet comes clear." },
-    tell = { "Enough of the tablet comes clear to work it out: five, three, and four is the number the goddess wants." },
+    tell = { "Enough of the tablet comes clear to work it out: Five gallons in the falcon, three in the jackal, and four is the number the goddess wants." },
     theory = { "It's a set of instructions. There's more on that tablet.",
                "The notebook's for the tablet. Give me another go at it.",
                "Every one of those jars is in the instructions. Keep reading." },
@@ -166,11 +176,13 @@ M.tracks = {
     paths = {
         { kind = "check", skill = { "survival" }, dc = 12, gives = "known", book = true, page = 20 },
         { kind = "check", skill = { "investigation", "nature" }, dc = 14, gives = "hint", page = 20 },
+        { kind = "see", on = { room = "hunting", spot = "6I" }, gives = "hint", page = 20 },
     },
     defaults = false,
 }
 
 M.witness = {
+    major = true,         -- (the adventure turns on it: it has to be findable more than one way, by more than one hero)
     about = "the notebook on the desk", with = { "archivist_named" },
     name = "The Witness", page = 21, type = "document", room = "offices",
     on = { room = "offices", spot = "7B" },
@@ -228,6 +240,7 @@ M.mythril = {
     paths = {
         { kind = "read", skill = { "arcana", "medicine" }, dc = 10, gives = "known", book = true, page = 21 },
         { kind = "read", skill = { "history" }, dc = 14, gives = "hint", book = true, page = 21 },
+        { kind = "check", on = { room = "offices", spot = "7B" }, skill = { "medicine" }, dc = 10, gives = "known", book = true, page = 21 },
     },
     defaults = false,
 }
@@ -337,6 +350,7 @@ M.gorgon_lore = {
     tell = { "The scholar's book is clear enough: gorgons pass for people, and their gaze lives in the snakes on their heads." },
     paths = {
         { kind = "read", item = "gorgon_book", skill = { "history", "religion" }, dc = 13, gives = "part", book = true, page = 27 },
+        { kind = "ask", on = "mus_telpur", opinion = "warm", gives = "part", page = 16 },
     },
     defaults = false,
 }

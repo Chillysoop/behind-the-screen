@@ -74,6 +74,10 @@ function M.build(app, on_next)
                 end
             end
         end
+        -- (The plain words must fit too: just how it went, if a fight's name makes them too long.)
+        if not told and #kit.wrap(head .. plain, "ui14", w) > per then
+            plain = OUTCOME[r.outcome] or "done"
+        end
         local line = head .. (told or plain)
         local nl = math.min(per, #kit.wrap(line, "ui14", w))
         local col = r.outcome == "win" and theme.text or theme.orange

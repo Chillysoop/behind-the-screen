@@ -95,6 +95,14 @@ function M.new(campaign, prep, opts)
     opts = opts or {}
     local self = setmetatable({}, M)
     require("game.model.secrets").use(self)
+    -- (What was said at the table last time, everyone here has caught up on: game/model/secrets.lua.)
+    if campaign and campaign.adv then
+        local keys = {}
+        for _, p in ipairs(campaign:present() or {}) do
+            table.insert(keys, p.key)
+        end
+        require("game.model.secrets").catch_up(campaign, keys)
+    end
     self.campaign = campaign
     self.rng = campaign.rng
     self.prep = prep
@@ -281,7 +289,7 @@ function M:emit(ev)
                 if ev.kind == "say" then
                     for i, t in ipairs(shown.unshown(self.campaign, room, ev.text)) do
                         shown.show(self.campaign, room, t.id)
-                        if i == 1 and t.line and not self.describing then
+                        if i == 1 and t.line and not self.describing and not ev.small then
                             self.describing = true
                             self:say(t.line, "narration")
                             self.describing = false
@@ -291,6 +299,9 @@ function M:emit(ev)
                 else
                     shown.hear(self.campaign, room, ev.text)
                 end
+            end
+            if ev.kind ~= "say" then
+                require("game.model.shown").hear_names(self.campaign, ev.text)
             end
             local hero = ev.kind == "say" and ev.ic and ev.who or nil
             local player = ev.kind == "say" and not ev.ic and ev.who or nil

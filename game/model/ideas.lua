@@ -524,6 +524,10 @@ end
 local function holder_here(night, sc, path, d, people_list)
     local c = night.campaign
     if type(path.on) == "string" then
+        -- (Someone the table's met by name: nobody leans on "Telpur" before anyone's said who he is.)
+        if not require("game.model.shown").named(night.campaign, path.on) then
+            return nil
+        end
         for _, n in ipairs(people_list) do
             if n.id == path.on then
                 return { kind = "person", name = n.short or n.name, npc = n }
@@ -706,11 +710,14 @@ function M.find_ideas(night, sc)
                                     w = w + 0.6
                                 end
                                 w = w + (d.weight or 0)
-                                -- (What they've done tonight appeals less than something new.)
+                                -- (What they've done tonight appeals less than something new, and a friend who's dug up
+                                -- a lot already lets the others have a go: everyone gets to find things.)
                                 local did = night.ideas and night.ideas.by and night.ideas.by[p.key .. ":find"]
                                 if did then
                                     w = w - 0.8 * did
                                 end
+                                local dug = c.adv.dug and c.adv.dug[p.key] or 0
+                                w = w - 0.35 * math.min(4, dug)
                                 w = w + night.rng:next() * 0.8
                                 table.insert(out, { verb = "find", key = key, path = path, way = way, holder = holder, skills = sk,
                                                     p = p, w = w, dkey = dkey, gives = path.gives or "known" })
@@ -922,6 +929,9 @@ function M.find_room(night, sc, phase)
     ni.by[top.p.key .. ":find"] = (ni.by[top.p.key .. ":find"] or 0) + 1
     ni.found = ni.found or {}
     ni.found[top.dkey] = true
+    local adv = night.campaign.adv
+    adv.dug = adv.dug or {}
+    adv.dug[top.p.key] = (adv.dug[top.p.key] or 0) + 1
     events.add(night.campaign, { kind = "idea", verb = "find", who = top.p.key, where = sc.room, what = top.key,
                                  whom = top.holder.npc and top.holder.npc.id or nil })
     local who = M.find(night, sc, top)

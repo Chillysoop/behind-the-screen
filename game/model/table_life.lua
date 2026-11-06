@@ -211,7 +211,8 @@ end
 local function say(night, p, text, ic)
     if p and text then
         local t = util.sentence_case(util.fill(text, { char = p.char }))
-        night:emit({ kind = "say", who = p.key, text = t, ic = ic or false })
+        -- (small: a small moment describes its own curio first, game/model/shown.lua leaves it be.)
+        night:emit({ kind = "say", who = p.key, text = t, ic = ic or false, small = true })
         heard(night, t)
     end
 end

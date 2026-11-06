@@ -149,4 +149,37 @@ function M.unshown(c, room, text)
     return out
 end
 
+-- The adventure's people, by name: a friend names someone only once the table's heard who they are (a line
+-- said to the table with their name in it). MODULE.people's `known` are known from the start.
+-- campaign.adv.names_heard = { [npc id] = week }
+function M.hear_names(c, text)
+    if not (c and c.adv and text) then
+        return
+    end
+    local npcs = util.lazy("game.model.npcs")
+    c.adv.names_heard = c.adv.names_heard or {}
+    for _, n in ipairs(npcs.all()) do
+        if not c.adv.names_heard[n.id] then
+            local nm = n.short or n.name
+            if nm and find_word(string.lower(text), string.lower(nm)) then
+                c.adv.names_heard[n.id] = c.week or 0
+            end
+        end
+    end
+end
+
+function M.named(c, id)
+    local adv = c and c.adv
+    if adv and adv.names_heard and adv.names_heard[id] then
+        return true
+    end
+    local mod = util.lazy("game.model.adventure").data or {}
+    for _, p in ipairs(mod.people or {}) do
+        if p.id == id and p.known then
+            return true
+        end
+    end
+    return false
+end
+
 return M
