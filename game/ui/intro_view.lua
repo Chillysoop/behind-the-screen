@@ -58,7 +58,6 @@ function M.build(app)
         { "Game night", "It plays itself, room by room. When a card slides across your screen, you make the call. The party picks the way at forks." },
         { "The table", "Mara, Dev, Jess and Sam each want something different. Watch their tells, read the group chat, and keep them coming back." },
         { "Between", "Answer their requests, decide where loose ends go, and see what everything they do changes." },
-        { "This build", "Session Zero, then the adventure you pick below, played over as many sessions as your table needs." },
     }
     local ly = y + 120
     for _, l in ipairs(lines) do
