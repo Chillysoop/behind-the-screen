@@ -41,10 +41,13 @@ end
 
 local adventure = require "game.model.adventure"
 adventure.enter()
-local MODULE = require "game.data.museum.module"
-local CARDS = require "game.data.museum.cards"
+-- (Any registered adventure: ADVENTURE=<id>, else the default. game/data/adventures.lua.)
+local ADV = require "game.data.adventures"
+local ADV_ID = ADV.from_env()
+local MODULE = ADV.part(ADV_ID, "module")
+local CARDS = ADV.part(ADV_ID, "cards")
 local LIB = require "game.data.map_library"
-local F = require "game.data.museum.fidelity"
+local F = ADV.part(ADV_ID, "fidelity")
 local util = require "game.model.util"
 
 local card_by = {}

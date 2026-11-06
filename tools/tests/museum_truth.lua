@@ -28,7 +28,10 @@ package.path = "./?.lua;" .. package.path
 unpack = unpack or table.unpack
 
 local adventure = require "game.model.adventure"
-local MODULE = require "game.data.museum.module"
+-- (Any registered adventure: ADVENTURE=<id>, else the default. game/data/adventures.lua.)
+local ADV = require "game.data.adventures"
+local ADV_ID = ADV.from_env()
+local MODULE = ADV.part(ADV_ID, "module")
 
 -- Lines that remember a hero who died, by name, and don't have them doing anything (the confirming
 -- playtest's fixes: the end names the dead, the new hero has heard, the pack and the pet are handed on, the
@@ -53,7 +56,7 @@ local function REMEMBERED(text)
             table.insert(REMEMBER_LISTS, l)
         end
         -- (Flitwidget's word for the dead, at the wake: death.lua's grief_owed. Seed 3 careless.)
-        local ppl = require "game.data.museum.people"
+        local ppl = ADV.part(ADV_ID, "people")
         for _, who in pairs((ppl and ppl.lines) or {}) do
             for _, g in ipairs((type(who) == "table" and who.grief) or {}) do
                 for _, l in ipairs(type(g.text) == "table" and g.text or { g.text }) do
@@ -81,7 +84,7 @@ local function REMEMBERED(text)
     return false
 end
 local util_lower_first = require("game.model.util").lower_first
-local cards = require "game.data.museum.cards"
+local cards = ADV.part(ADV_ID, "cards")
 
 local failures = 0
 local function fail(msg)

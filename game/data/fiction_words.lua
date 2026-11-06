@@ -37,6 +37,9 @@ return {
         "riddle", "cipher", "runes", "riddle door", "pet", "rug", "rafters", "chandelier",
         -- the old campaign's own
         "Sir Nibbles", "Nibbles", "the Kettle", "Millbrook", "Ilsa", "Kessrick",
+        -- the museum's own (November 6, the adventure standard: so the next story doesn't inherit them)
+        "museum", "exhibit", "exhibits", "gift shop", "Flitwidget", "Franc", "Francs", "Telpur", "Euryale", "Gorgon",
+        "gorgon", "Lecturer", "Exhibit B", "Sentinel", "Bone Construct", "Steam Mech", "Celestia",
     },
     phrases = {
         "just like last time", "like last time", "remember the", "remember when", "last time we", "as always",

@@ -58,7 +58,7 @@ local KIND = {}
 for _, kind in ipairs(M.kinds) do
     KIND[kind] = true
 end
-for _, c in ipairs(require("game.data.museum.cards").cards) do
+for _, c in ipairs(require("game.data.adventures").part(nil, "cards").cards) do
     assert(not M.components[c.id], "duplicate component id " .. c.id)
     assert(KIND[c.kind], "unknown kind " .. tostring(c.kind) .. " on " .. c.id)
     c.cost = c.cost or 1

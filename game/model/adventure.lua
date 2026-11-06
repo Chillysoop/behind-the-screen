@@ -3,7 +3,8 @@
 -- marks, the fair-warning bank, and the questions between sessions. Engine-free.
 --
 -- campaign.module = "museum" switches the campaign into module mode; campaign.adv holds this
--- state. The data is game/data/museum/ (module.lua, cards.lua).
+-- state. Which adventure, and where its data lives, is game/data/adventures.lua (the museum's is game/data/museum/:
+-- module.lua, cards.lua and the rest); M.use(id) switches to another.
 
 local content = require "game.model.content"
 local util = require "game.model.util"
@@ -11,8 +12,18 @@ local score = require "game.model.score"
 
 local M = {}
 
-local MODULE = require "game.data.museum.module"
+local adventures = require "game.data.adventures"
+local CURRENT = adventures.default
+local MODULE = adventures.part(CURRENT, "module")
 M.data = MODULE
+
+-- The current adventure's id, and one of its parts (game/data/adventures.lua).
+function M.current()
+    return CURRENT
+end
+function M.part(name)
+    return adventures.part(CURRENT, name)
+end
 
 -- The words that belong to the old Silent Bells story: lines that mention them never play in the
 -- prologue (it's strictly the book).
@@ -57,7 +68,7 @@ function M.vocab()
         vocab = {}
         local seen = {}
         words_in(MODULE, vocab, seen)
-        words_in(require("game.data.museum.cards"), vocab, seen)
+        words_in(M.part("cards"), vocab, seen)
         -- (And its own boards: the places on its maps are its words too, November 3.)
         local okb, lib = pcall(require, "game.data.map_library")
         for _, b in pairs(okb and lib.boards or {}) do
@@ -277,7 +288,7 @@ function M.enter(campaign)
             M.add_npc_lines(lib)
         end
         -- The adventure's own goals play their own approaches.
-        local cards = require "game.data.museum.cards"
+        local cards = M.part("cards")
         for id, gp in pairs(cards.goal_play) do
             content.goal_play[id] = gp
         end
