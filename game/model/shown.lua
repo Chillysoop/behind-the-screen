@@ -91,11 +91,18 @@ local function find_word(low, w)
     return string.find(low, pat) ~= nil
 end
 
+-- (One of these alone is table talk, not the thing: "Hold on, I have the book open" is the rulebook, not the
+-- lecture theatre's stacks of books. Seed 523, round three's words check.)
+M.NOT_ONE = { book = true, page = true, card = true, sheet = true }
+
 local function names(text, t)
     local low = string.lower(text or "")
     for _, w in ipairs(t.words) do
         -- (And one of them: "the pickling jar" names "the pickling jars".)
         local one = string.match(w, "^(.-[^s])s$")
+        if one and M.NOT_ONE[one] then
+            one = nil
+        end
         if find_word(low, w) or (one and find_word(low, one)) then
             return true
         end

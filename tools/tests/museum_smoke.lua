@@ -1274,7 +1274,9 @@ for week = 1, WEEKS do
     if not click_key("rewards_next") then problem("couldn't leave the rewards" .. where) end
     dump("6_report_w" .. week)
     scan("the report" .. where)
-    -- The whole night, when it didn't all fit under the beats (the third playtest), and back.
+    -- The whole night, when it didn't all fit under the beats (the third playtest), and back. (A gift
+    -- from the table sits over the report till it's taken: take it first. Seed 54 week 4.)
+    take_gift(where)
     if click_key("report_chain") then
         dump("6c_chain_w" .. week)
         scan("the report's whole night" .. where)

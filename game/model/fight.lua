@@ -1109,6 +1109,7 @@ local function react(night, f, steps, who)
             -- theirs. 51 careful week 5: Pip's quip with Euryale at 96 of 127 and the rest down soon after.)
             local up, pcs = 0, 0
             local php, pmax, fhp, fmax = 0, 0, 0, 0
+            local boss_fresh = false
             for _, c in ipairs((night.battle and night.battle.creatures) or {}) do
                 if c.pc and not c.dead then
                     pcs = pcs + 1
@@ -1118,6 +1119,11 @@ local function react(night, f, steps, who)
                     end
                 elseif not c.pc and c.side ~= "party" and not c.dead and (c.hp or 0) > 0 then
                     fhp, fmax = fhp + c.hp, fmax + (c.hp_max or c.hp)
+                    -- (Nor going down to a boss who's barely been scratched: seed 52 careful week 4, "Pip is
+                    -- taking a little nap" with Euryale at 86 of 104, and the party down a few minutes on.)
+                    if (c.villain or (night.scene and night.scene.boss and c.boss)) and c.hp > 0.5 * (c.hp_max or c.hp) then
+                        boss_fresh = true
+                    end
                 end
             end
             local losing = pmax > 0 and fmax > 0 and fhp / fmax > php / pmax + 0.25
@@ -1128,7 +1134,7 @@ local function react(night, f, steps, who)
             local again = b.downed_keys[victim.key]
             b.downed_keys[victim.key] = true
             -- (Nor with someone else already down: it's no time for a quip. A wipe began that way.)
-            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or up <= pcs - 2 or losing or again) then
+            if not (able.somber(night) == "death" or up <= 1 or 2 * up <= pcs or up <= pcs - 2 or losing or boss_fresh or again) then
                 line = { victim, "down_self" }
             end
             score.add(victim, "fun", -2)

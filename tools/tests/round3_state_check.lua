@@ -723,7 +723,10 @@ local function a5_watch(R, night, ev, w)
             if want and st.kind == "condition_end" and st.id == want.by and st.name == "Taunted" then
                 A.want, want = nil, nil          -- (the stare-down has worn off)
             end
-            if want and st.id == want.by and (st.kind == "attack" or (st.kind == "feature" and st.name == "Bored to Death")) then
+            -- (Its own turn: a swing as someone walks out of its reach is a reaction, not where it went. Seed 37
+            -- careful week 5, Euryale's opportunity attack on Telpur on his turn.)
+            if want and st.id == want.by and (ev.who == nil or ev.who == want.by)
+                and (st.kind == "attack" or (st.kind == "feature" and st.name == "Bored to Death")) then
                 local t = cr(want.t)
                 local standing = t and not t.dead and not t.down and not t.removed
                 local out = false

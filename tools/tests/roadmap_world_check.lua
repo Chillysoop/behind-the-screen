@@ -90,6 +90,12 @@ local function did(ev, outcome)
         table.insert(lists, (outcome or ev.rolled) == "ok" and o.roll.success and o.roll.success.mus
             or (outcome or ev.rolled) == "fail" and o.roll.fail and o.roll.fail.mus or nil)
     end
+    -- (The tablet read a line at a time: its miss wakes the guardian, museum_night.ritual_read.)
+    local rr = o.mus and o.mus.ritual_read
+    if rr then
+        table.insert(lists, (outcome or ev.rolled) == "ok" and rr.success and rr.success.mus
+            or (outcome or ev.rolled) == "fail" and rr.fail and rr.fail.mus or nil)
+    end
     for _, m in ipairs(lists) do
         for k, v in pairs(m or {}) do
             out[k] = v

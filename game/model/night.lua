@@ -2789,7 +2789,10 @@ function M:killing_blow(p, tgt, boss_name, by, by_name)
     if #pool == 0 or self.rng:chance(0.3) then
         pool = lines
     end
-    local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = boss_name, char = p.char }))
+    -- (The friend calls the boss what their hero knows her as: "the hooded woman" until someone's said Euryale.
+    -- The knowledge check: "I trip Euryale with the rug", in character, from a hero who'd never heard it.)
+    local said = (camp.adv and told.mask(camp, boss_name, nil, p.key)) or boss_name
+    local line = util.fill(pool[self.rng:int(1, #pool)][1], self:vars({ boss = said, Boss = util.capitalize(said), char = p.char }))
     -- Told for someone else's blow: the teller's words about it, never a swing of their own. (An ally's
     -- blow is told that way too, by whoever plays it: Telpur's toe, not Brannoc's sword.)
     local told = (by and by ~= p) or by_name ~= nil
@@ -2797,8 +2800,8 @@ function M:killing_blow(p, tgt, boss_name, by, by_name)
     if told then
         local tl = (kb.told and (kb.told[p.key] or kb.told.mara)) or {}
         local pick = tl[self.rng:int(1, math.max(1, #tl))]
-        line = pick and util.fill(pick[1], self:vars({ boss = boss_name, char = p.char, hero = hero }))
-            or (hero .. "'s blow lands, and " .. boss_name .. " falls.")
+        line = pick and util.fill(pick[1], self:vars({ boss = said, Boss = util.capitalize(said), char = p.char, hero = hero }))
+            or (hero .. "'s blow lands, and " .. said .. " falls.")
     end
     -- Handed over: worth less each time it's handed over lately, more on a big one (kb_worth).
     local worth = self:kb_worth(tgt)

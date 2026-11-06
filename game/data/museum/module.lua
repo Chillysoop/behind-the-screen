@@ -2356,8 +2356,11 @@ M.chat = {
                  { who = "dev", when = { mark = "robbed" }, "we robbed a museum and a metal man fought us about it. good night",
                    "still thinking about that sentinel coming off its plinth" },
                  { who = "mara", when = { mark = "robbed" }, "we are thieves now. i'm writing it down", "so are we the baddies" } },
-    chamber = { { who = "mara", when = { mark = "calmed" }, "five gallons, three gallons, four gallons. i dreamt about jugs",
-                  "we did the ritual properly and i'm so proud of us" },
+    -- (The measures only once the table's had them; a guardian calmed some other way is still a win.)
+    chamber = { { who = "mara", when = { mark = "calmed", told = "ritual" }, "five gallons, three gallons, four gallons. i dreamt about jugs",
+                  "we did the tablet's ritual properly and i'm so proud of us" },
+                { who = "mara", when = { mark = "calmed", not_told = "ritual" }, "the falcon jug was happy and the skeleton just stopped. we did that",
+                  "still can't believe the jug thing worked" },
                 { who = "dev", "three skulls is too many skulls", "that room was mostly sand and skulls and i loved it" },
                 { who = "dev", when = { mark = "scarabs" }, "the guardian went down hard. worth it", "smashed the old guardian. no regrets. some regrets" },
                 { who = "jess", when = { flag = "daggers" }, "the twin daggers are pip's now. legally", "pip has two daggers stuck together and she loves them" } },
