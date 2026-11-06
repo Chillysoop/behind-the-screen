@@ -331,7 +331,7 @@ and a kingdom.
 ### What the standard must hold (all six books together)
 
 Beyond what the museum's files already hold:
-- **The adventure:** level range, party size, how it scales, what it depends on (other files, a rules reference),
+- **The adventure:** level range, party size, what it depends on (other files, a rules reference),
   milestones (what levels the party up), and what the party keeps afterwards (a title, renown, a base).
 - **Places by layer**, each with what the table sees and what the DM keeps, exits and **gates** (what lets the party
   through: an item, a status, a solved puzzle, a found secret, a check, a standing). Shops with prices and services.
@@ -352,12 +352,12 @@ Beyond what the museum's files already hold:
 - **Hidden gear** per hero with a delayed reveal (the masks, unknown until worn), and **staged transformations**.
 - **Conditions with saves every interval**, and an attitude change for every creature at once (the boss dies, its
   thralls stop).
-- **Variants by level band or difficulty** that change other records (The Mage Tower's six bands), and **random tables**.
+- **Random tables.** (No versions by level band or difficulty: Conner, November 6.)
 - **Minigames and campaign systems** as named rule modules beside the core rules, the way `game/rules/museum.lua` holds
   the museum's: a contest, a drinking game, a base to build and run month by month.
 - **A failure branch** that moves the party (captured, gear taken) instead of ending the run.
-- **Maps** with their keys linked to places, and a DM layer separate from the player layer, even where the book bakes
-  DM marks into its only map.
+- **Maps** with their keys linked to places. (No separate DM markings on maps: Conner, November 6. What the table
+  knows stays the secrets system's job.)
 
 ### What ingest has to handle (found in these books)
 
