@@ -87,10 +87,29 @@ def main():
         print("COPY   no run of %d words from the book   files %d%s" % (n, len(files), "  FAIL x%d" % len(found) if found else ""))
     if a.names:
         allow = set(x.strip() for x in a.allow.split(",") if x.strip())
+        # (Only names that are the book's own: a term with a word that's never an ordinary word anywhere in the
+        # game's own text. "Knight", "Keep", "Lady" and "They're" are English; "Kiral" and "Dambridge" are the book's.)
+        common = set()
+        for f in glob.glob(os.path.join(ROOT, "game", "data", "**", "*.lua"), recursive=True) + \
+                 glob.glob(os.path.join(ROOT, "game", "model", "*.lua")):
+            for _, t in lua_strings(f):
+                for w in re.findall(r"[a-z][a-z']+", t):
+                    common.add(w.strip("'"))
+        # (And every other book read beside it: their ordinary words are ordinary words too.)
+        src = os.path.dirname(os.path.abspath(a.names))
+        for d in glob.glob(os.path.join(os.path.dirname(src), "*", "pages")):
+            if os.path.dirname(d) == src:
+                continue
+            for f in glob.glob(os.path.join(d, "*.txt")):
+                for w in re.findall(r"\b[a-z][a-z']+", open(f, encoding="utf-8", errors="ignore").read()):
+                    common.add(w.strip("'"))
         names = []
         for l in open(a.names, encoding="utf-8"):
             t = l.split("\t")[0].strip()
-            if t and t not in allow and len(t) > 3:
+            if not t or t in allow or len(t) <= 3 or re.search(r"'(re|ve|ll|d|t|m)$", t):
+                continue
+            own = [w for w in re.findall(r"[A-Za-z]+", t.replace("'s", "")) if len(w) >= 4 and w.lower() not in common]
+            if own:
                 names.append(t)
         pats = [(t, re.compile(r"\b" + re.escape(t) + r"\b")) for t in names]
         hits = 0

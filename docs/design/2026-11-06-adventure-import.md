@@ -372,7 +372,7 @@ outside rules. Each of these goes in the calls list for Conner, never fixed sile
 ## The plan, once the calls are in
 
 0. **The review** (Conner's plan): the problems found since November 4 go into the root-causes doc's classes, each with
-   its check, so the import is written against them.
+   its check, so the import is written against them. **Done** (classes 11 and 12, and the table "Since November 4").
 1. **The standard, and the museum inside it**, with no new content:
    - the world model written up as the module standard (people in three tiers, places by layer, threads, items,
      rumours, events, secrets with their ways out, masks, what's shown, line banks with conditions, the fidelity sheet,
@@ -384,8 +384,14 @@ outside rules. Each of these goes in the calls list for Conner, never fixed sile
    - the standard checked against all six books (Part 3): every record kind they need is in it, even where the engine
      doesn't play it yet, so nothing has to be reshaped when the long campaign comes.
    Done when every museum test passes unchanged and the truth test is clean on 20 seeds and three kinds of DM.
+   **Done** (November 6): the full gate green, and the truth test clean on 60 prologues. See
+   `docs/design/adventure-standard.md`.
 2. Ingest, the copy check, the originality check and the calls list, run on the museum's PDF first and then on the
-   other five, so every pitfall in Part 3 is caught.
+   other five, so every pitfall in Part 3 is caught. **Built** (November 6): `tools/import/ingest.py` read all six
+   (Banners of Honour's 372 pages in 12 minutes, 72 of them by OCR), and its `issues.txt` and `names.txt` are the
+   calls list's first draft. `tools/import/copy_check.py` is the copy check (the museum's data, read against its own
+   PDF, had five lines that followed the book too closely; rewritten) and the originality check (the game's own
+   words and the other books' count as ordinary words; `--allow` for an English word the book also uses as a name).
 3. The hand-off from the museum.
 4. The Sheep Chase drafted through the pipeline, with its calls list; Conner's calls on what comes up.
 5. Its monsters, mechanics and maps, a thin region (the inn's hex, the road, the woods), then its lines and table life,

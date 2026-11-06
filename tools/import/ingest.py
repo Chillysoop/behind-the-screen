@@ -132,7 +132,7 @@ def main():
     ap.add_argument("--pages", default=None, help="a range like 1-20 (PDF pages)")
     a = ap.parse_args()
     os.makedirs(os.path.join(a.out, "pages"), exist_ok=True)
-    issues, pages_out = [], []
+    issues, pages_out, unmapped = [], [], []
     names = collections.defaultdict(set)
     all_heads = []
     links = []
@@ -142,19 +142,23 @@ def main():
         if a.pages:
             lo, hi = [int(x) for x in a.pages.split("-")]
         sizes = collections.Counter()
-        for p in pdf.pages[lo - 1:min(hi, n)][:30]:
+        for i in range(lo - 1, min(hi, n, lo + 29)):
+            p = pdf.pages[i]
             for x in p.extract_words(extra_attrs=["size"]):
                 sizes[round(x["size"])] += 1
+            p.close()           # (a big book doesn't fit in memory with every page kept)
         body = sizes.most_common(1)[0][0] if sizes else 10
         # (Every word the book uses in lower case: a capitalised word that's also used lower case is an ordinary
         # word at the start of a sentence, not a name.)
         # (Three times at least: a cover's stylised lower case doesn't make a city's name an ordinary word.)
         lower_count = collections.Counter()
-        for p in pdf.pages[lo - 1:min(hi, n)]:
+        for i in range(lo - 1, min(hi, n)):
+            p = pdf.pages[i]
             for x in p.extract_words():
                 t = x["text"].strip(".,;:!?()\"'")
                 if t and t[0].islower():
                     lower_count[t.lower()] += 1
+            p.close()
         lower_words = {w for w, k in lower_count.items() if k >= 3}
         for pno in range(lo, min(hi, n) + 1):
             page = pdf.pages[pno - 1]
@@ -180,7 +184,7 @@ def main():
             if len(faults) >= 3:
                 issues.append("p%d: %d words that look like a font fault (%s)" % (pno, len(faults), ", ".join(sorted(set(faults))[:5])))
             if "�" in text:
-                issues.append("p%d: characters the PDF doesn't map to text (shown as �)" % pno)
+                unmapped.append(pno)
             for h in rec["headings"]:
                 all_heads.append(dict(h, page=pno))
             for m in re.finditer(r"\b([A-Z][a-z'’]+(?:\s+(?:of|the|de|du|von)?\s*[A-Z][a-z'’]+)*)", text):
@@ -192,20 +196,25 @@ def main():
                 if h.get("uri"):
                     links.append({"page": pno, "uri": h["uri"]})
             pages_out.append(rec)
+            page.close()
     # Printed vs PDF numbers: the usual offset, and pages that disagree with it.
     offs = collections.Counter(r["printed"] - r["pdf_page"] for r in pages_out if r["printed"] is not None)
     offset = offs.most_common(1)[0][0] if offs else None
     if offset not in (None, 0):
         issues.append("printed page numbers are the PDF's %+d: the book's contents and its 'see page N' references use "
                       "the printed ones" % offset)
+    if unmapped:
+        issues.append("%d pages have characters the PDF doesn't map to text (shown as \ufffd, often a lost ligature): p%s"
+                      % (len(unmapped), ",".join(str(x) for x in unmapped[:40])))
     if links:
         issues.append("%d links out of the book (outside rules, videos): what they point to isn't in the PDF" % len(links))
     # Names that look like one name spelled two ways.
     single = sorted(t for t in names if " " not in t and len(names[t]) >= 1)
+    # (One of the two has to be a real name, on two pages or more: not a pair of words run together by the PDF.)
     pairs = []
     for i, x in enumerate(single):
         for y in single[i + 1:i + 40]:
-            if similar(x, y):
+            if similar(x, y) and max(len(names[x]), len(names[y])) >= 2:
                 pairs.append((x, y))
     for x, y in pairs[:60]:
         issues.append("spelled two ways? %s (p%s) / %s (p%s)" % (x, min(names[x]), y, min(names[y])))
