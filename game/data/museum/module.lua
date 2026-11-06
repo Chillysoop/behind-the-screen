@@ -1387,7 +1387,7 @@ M.explore = {
                                      line = "Something glints on the marble under the chandelier. {actor_char} picks it up: a Flitwidget Franc." } } },
     chamber = { "3C", "3H", "3G",
                 finds = { ["3C"] = { francs = 1, what = "a Franc at the bottom of the jackal jug",
-                                     line = "{actor_char} tips the jackal jug. A Flitwidget Franc rolls out into the sand." } },
+                                     line = "{actor_char} tips the jackal jug. A Flitwidget Franc rolls out into the sand, and into {actor_char}'s pocket." } },
                 traps = { ["3H"] = { what = "pull the crocodile's jaw too far and it snaps shut", dc = 12, skill = { "acrobatics", "sleight_of_hand" },
                                      spot_dc = 12, hurt = { 1, 4 },
                                      hit = "The crocodile's jaw snaps shut on {actor_char}'s fingers. The water keeps running.",
@@ -1399,7 +1399,7 @@ M.explore = {
     gift_shop = { "shelves", "souvenirs", looks = 1 },
     hunting = { "6B", "6H", "6F",
                 finds = { ["6H"] = { francs = 1, what = "a strip of razorbark worth a Franc to the right buyer",
-                                     line = "{actor_char} peels off a strip of razorbark without losing a finger, and a Flitwidget Franc drops out from under it." } },
+                                     line = "{actor_char} peels off a strip of razorbark without losing a finger, and a Flitwidget Franc drops out from under it, into {actor_char}'s hand." } },
                 traps = { ["6F"] = { what = "a snare the huntlings strung between the vines", dc = 12, skill = { "acrobatics", "athletics" },
                                      spot_dc = 13, hurt = { 1, 6 },
                                      hit = "A loop of vine whips tight round {actor_char}'s ankle and yanks {actor_them} off {actor_their} feet. Something in the jungle chitters.",
@@ -1411,7 +1411,7 @@ M.explore = {
                                      line = "One of tomorrow's machines has a coin slot, and {actor_char} works the Flitwidget Franc stuck halfway in it free." } } },
     lecture = { "books", "board", looks = 1,
                 finds = { books = { francs = 1, what = "a Franc used as a bookmark",
-                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago. {actor_char} pockets it." } } },
+                                    line = "Somebody used a Flitwidget Franc as a bookmark, a long time ago. Now it's in {actor_char}'s pocket." } } },
 }
 -- Places on a board behind a door that starts locked: nobody walks to them, and nothing there is described,
 -- until it's open (`open`: the flag that opens it). The third round's review: the body at the desk described

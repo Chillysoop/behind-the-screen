@@ -70,6 +70,26 @@ M.HAPPENS = { is = true, has = true, was = true, finds = true, sees = true, hear
               sways = true, coughs = true, chokes = true, sneezes = true, yelps = true, flinches = true, jerks = true,
               tumbles = true, sinks = true, floats = true, shrinks = true, grows = true, changes = true, blinks = true,
               sleeps = true, snores = true, dreams = true, yawns = true }
+function M.move_and_result(s, names)
+    local i = 1
+    while true do
+        local a, b = string.find(s, ", and ", i, true)
+        if not a then
+            return s, nil
+        end
+        local nxt = string.match(string.sub(s, b + 1), "^(%a+)")
+        local own = false
+        for _, n in ipairs(names or {}) do
+            if nxt == n then own = true end
+        end
+        if nxt and not own and (({ a = true, an = true, the = true, some = true, something = true, it = true })[nxt]
+                or (string.match(nxt, "^%u") and nxt ~= "I")) then
+            return string.sub(s, 1, a - 1) .. ".", util.capitalize(string.sub(s, b + 1))
+        end
+        i = b + 1
+    end
+end
+
 function M.any_move(s, hero)
     local v = string.match(s, "^" .. esc(hero) .. " (%a+s)%f[%A]")
     if v and not M.HAPPENS[v] and not string.match(v, "ss$") then
@@ -78,7 +98,7 @@ function M.any_move(s, hero)
 end
 -- (Outcomes stay the DM's: takes N damage, takes a hit; is flung, is knocked, is hit.)
 local OUTCOME_AFTER = { takes = { "^%d", "^a hit", "^the hit", "^damage", "^the full", "^half" },
-                        turns = { "^to stone", "^grey", "^to ", "^pale", "^white" },
+                        turns = { "^to stone", "^grey", "^to ", "^pale", "^white", "^up " },
                         goes = { "^down", "^flying", "^still", "^grey", "^stiff", "^limp", "^pale", "^white", "^under", "^sprawling" },
                         slips = { "^on ", "^and falls", "^off" }, holds = { "^on by", "^up under" } }
 
@@ -290,13 +310,19 @@ function M.split(text, people, last)
                     end
                     if not outcome then
                         handled = true
-                        local echo = last and last.who == p.key and M.overlap(last.text, s)
+                        -- (A move and what comes of it in one sentence, "...the cupboard door up, and Euryale is
+                        -- looking straight into her own eyes": the move is theirs to say, what comes of it is yours.)
+                        local move, result = M.move_and_result(s, names)
+                        local echo = last and last.who == p.key and M.overlap(last.text, move)
                         if not echo then
-                            local fp = M.first_person(s, p.hero, p.pronoun, names)
+                            local fp = M.first_person(move, p.hero, p.pronoun, names)
                             if fp then
                                 flush()
                                 table.insert(out, { kind = "say", who = p.key, ic = true, text = fp, announce = true })
                             end
+                        end
+                        if result then
+                            table.insert(kept, result)
                         end
                         break
                     end

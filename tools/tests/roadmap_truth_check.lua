@@ -606,8 +606,7 @@ table.insert(watchers, function(R, N, ev)
             end
         end
         N.party_card, N.proposal = nil, nil
-    elseif N.backers and night.actor and ((ev.kind == "say" and ev.announce)
-            or ((ev.kind == "narrate") and ev.text and string.find(ev.text, night.actor.char, 1, true))
+    elseif N.backers and night.actor and ((ev.kind == "say" and ev.announce) or ev.kind == "narrate"
             or ev.kind == "roll_where" or ev.kind == "roll") then
         -- (Whoever does it: the player who announces it (game/model/agency.lua: players announce, the DM answers),
         -- the hero a DM line has doing it, or whoever rolls for it.)

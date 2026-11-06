@@ -325,6 +325,9 @@ for r = 1, RUNS do
         local _, said = string.gsub(out, "Digging", "")
         add("REACH", "digging_cards", said)
         local _, find_rolls = string.gsub(out, "\n  %[(%a+)%] [^\n]*\n  %[narration%][^\n]*\n  %(small roll%)", "")
+        -- (Since November 6 the going is the player's own line: "I'll kneel by the scratch marks." agency.lua.)
+        local _, announced = string.gsub(out, "\n  %[(%a+)%] [^\n]*\n  %[(%a+)%] I'll [^\n]*\n  %(small roll%)", "")
+        find_rolls = find_rolls + announced
         add("REACH", "digs_by_the_dice", find_rolls)
     end
 end

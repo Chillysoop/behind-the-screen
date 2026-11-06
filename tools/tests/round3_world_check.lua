@@ -151,7 +151,8 @@ local function play(seed, style)
                         if p.key == ev.who then text = p.char .. ": " .. text end
                     end
                 end
-                put({ kind = "line", w = w, who = tostring(who), text = text, room = night.scene and night.scene.room })
+                put({ kind = "line", w = w, who = tostring(who), text = text, room = night.scene and night.scene.room,
+                      announce = ev.kind == "say" and ev.announce or nil })
             elseif ev.kind == "turn" then
                 put({ kind = "turn", w = w, who = ev.who and tostring(ev.who), steps = ev.steps or {} })
             elseif ev.kind == "battle" then
@@ -634,7 +635,7 @@ local function money_heard(T)
     local events = require "game.model.events"
     local heard = {}
     for _, e in ipairs(T) do
-        if e.kind == "line" and not HERO[e.who] and franc_line(e.text) then
+        if e.kind == "line" and (not HERO[e.who] or e.announce) and franc_line(e.text) then
             heard[e.w] = heard[e.w] or {}
             table.insert(heard[e.w], e.text)
         end
