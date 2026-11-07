@@ -32,6 +32,9 @@ local ruleset = require "game.model.ruleset"
 local function rules()
     return ruleset.current()
 end
+local function W()          -- (the set's words for its own things: game/rules/sets)
+    return ruleset.current().words
+end
 local content = require "game.model.content"
 local score = require "game.model.score"
 local prep_mod = require "game.model.prep"
@@ -2130,8 +2133,8 @@ function M:hero_action(sc, dc, spots)
         local new = rules().die(self.rng)
         p.heroic = nil
         self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
-        self:say(util.fill("{char} spends Heroic Inspiration: the " .. util.int(roll) .. " becomes a " .. util.int(new) .. ".", { char = p.char }), "dice")
-        self:event("inspiration", { who = p.key, text = p.char .. " spent Heroic Inspiration on a check.", spent = true })
+        self:say(util.fill("{char} spends " .. W().inspiration .. ": the " .. util.int(roll) .. " becomes a " .. util.int(new) .. ".", { char = p.char }), "dice")
+        self:event("inspiration", { who = p.key, text = p.char .. " spent " .. W().inspiration .. " on a check.", spent = true })
         self:emit({ kind = "token", who = p.key, what = "inspiration", spent = true })
         roll = new
         total = roll + mod
@@ -2140,9 +2143,9 @@ function M:hero_action(sc, dc, spots)
     local name = rules().name(a.skill)
     local result
     if roll == 20 then
-        result = "natural 20"
+        result = W().crit
     elseif roll == 1 then
-        result = "natural 1"
+        result = W().fumble
     else
         result = success and "success" or "miss"
     end
@@ -2163,7 +2166,7 @@ function M:hero_action(sc, dc, spots)
         score.add(p, "spotlight", big and 10 or 5)
         score.add(p, "fun", big and 4 or 1)
         if big then
-            self:highlight(8, p.char .. " rolls a natural 20 on " .. name, { p }, "crit")
+            self:highlight(8, p.char .. " rolls a " .. W().crit .. " on " .. name, { p }, "crit")
         end
     else
         sc.progress.setbacks = sc.progress.setbacks + 1
@@ -2226,7 +2229,7 @@ function M:hero_action(sc, dc, spots)
     self:say(util.capitalize(util.fill(landed, vars)), success and "good" or "bad")
     -- A natural 20 is a moment the token's made for, if you want to give it (offer_inspiration).
     if roll == 20 then
-        self:offer_inspiration(p, p.char .. " rolled a natural 20.")
+        self:offer_inspiration(p, p.char .. " rolled a " .. W().crit .. ".")
     end
     -- (What it changes in the adventure, as a moment's option would: a bigger reward, a flag.)
     local am = success and a.mus_win or (not success and a.mus_lose)
@@ -2276,7 +2279,7 @@ function M:quick_checks(sc)
     if self:decision_count() >= 14 then
         max_checks = math.min(max_checks, need + 1)
     end
-    local dc = (content.actions.DC[util.clamp(sc.difficulty, 1, 3)] or 12) + ((comp and comp.difficulty > 0) and 1 or 0)
+    local dc = (rules().scene_dc[util.clamp(sc.difficulty, 1, 3)] or 12) + ((comp and comp.difficulty > 0) and 1 or 0)
     sc.dc = dc
     local layout = board_mod.layout(self:board_for(sc))
     local spots = layout.spots or {}
@@ -2324,9 +2327,9 @@ function M:quick_checks(sc)
     -- (The open log keeps it; the header's dots and the final roll's card say it where it counts:
     -- the card-led playtest, October 16, read it twice at once.)
     if sc.edge < 0 then
-        self:say("They've done the groundwork: the scene's final roll will be easier (DC -2).", "record")
+        self:say("They've done the groundwork: the scene's final roll will be easier (" .. W().dc .. " -2).", "record")
     elseif sc.edge > 0 then
-        self:say("Too many setbacks: the scene's final roll will be harder (DC +2).", "record")
+        self:say("Too many setbacks: the scene's final roll will be harder (" .. W().dc .. " +2).", "record")
     end
 end
 
@@ -2432,8 +2435,6 @@ end
 -- A rules card's lead-in is its own asker's, about this question or none in particular (round three:
 -- "[sam] Wait, doesn't concentration break when you take damage?" and then the card said "Dev asks if
 -- Oswin's Bless stacks"). A line that names a rule is said only before a card about that rule.
-M.RULE_TERMS = { "concentrat", "opportunity attack", "cover", "saving throw", "two attacks", "bonus action", "advantage",
-                 "stack", "flank", "grappl", "modifier" }
 function M.rule_line_ok(text, card)
     if not card or type(text) ~= "string" then
         return true
@@ -2443,7 +2444,7 @@ function M.rule_line_ok(text, card)
         about = about .. " " .. string.lower(o.label or "") .. " " .. string.lower(o.log or "")
     end
     local low = string.lower(text)
-    for _, t in ipairs(M.RULE_TERMS) do
+    for _, t in ipairs(rules().rule_terms or {}) do      -- (the set's own rules words: game/rules/sets)
         if string.find(low, t, 1, true) and not string.find(about, t, 1, true) then
             return false
         end
@@ -2605,7 +2606,7 @@ function M:stunt(sc)
     local total = roll + mod
     local success = total >= dc
     local name = rules().name(st.skill)
-    local result = roll == 20 and "natural 20" or (roll == 1 and "natural 1" or (success and "success" or "miss"))
+    local result = roll == 20 and W().crit or (roll == 1 and W().fumble or (success and "success" or "miss"))
     self:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. rules().signed(mod) .. " = "
                     .. util.int(total) .. " vs " .. rules().difficulty_word .. " " .. util.int(dc) .. ", " .. result,
                 roll = roll, bonus = mod, total = total, dc = dc, success = success, actor = p.key, char = p.char,
@@ -2644,7 +2645,6 @@ function M:stunt(sc)
 end
 
 -- Your own DC, said to the table.
-M.OWN_DC = { "\"DC {dc}, {actor_char}.\"", "\"You need a {dc}.\"", "\"That's a DC {dc}. Go on.\"" }
 
 -- When a player holding Heroic Inspiration spends it out of a fight (C15): on a natural 1, or a miss a
 -- new die has a fair chance to turn (it needs 15 or less on the d20); on a quick check, only a near
@@ -2683,8 +2683,8 @@ function M:give_inspiration(p, by_tile)
     score.add(p, "fun", 4)
     self:react({ [p.key] = "cheer" })
     self:emit({ kind = "token", who = p.key, what = "inspiration" })
-    self:say(util.fill(self:fresh(M.INSPIRE_LINES, "inspire_line"), { name = p.name, char = p.char }), "dm")
-    self:event("inspiration", { who = p.key, text = p.char .. " earned Heroic Inspiration." })
+    self:say(util.fill(self:fresh(W().inspire_lines, "inspire_line"), { name = p.name, char = p.char }), "dm")
+    self:event("inspiration", { who = p.key, text = p.char .. " earned " .. W().inspiration .. "." })
     if again then
         self:fairness_noticed(p, "inspiration")
     end
@@ -2702,8 +2702,8 @@ function M:offer_inspiration(p, why)
     local prev_actor = self.actor
     self.actor = p
     local card = { id = "inspire_offer", type = "table", trigger = "museum_fixed", fixed_actor = true,
-                   title = "Heroic Inspiration?",
-                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the Heroic Inspiration token? One reroll, whenever {actor_they} needs it. "
+                   title = W().inspiration .. "?",
+                   text = (why and (why .. " ") or "") .. "Flick {actor_char} the " .. W().inspiration .. " token? One reroll, whenever {actor_they} needs it. "
                        .. "You can also give it any time from their tile.",
                    options = {
                        { label = "Yes: flick {actor_char} the token.", inspire = true,
@@ -3055,7 +3055,7 @@ end
 
 -- Big rolls are checks the table stops for. Raw DCs in the card data are on the old d20-only
 -- scale; a hero adds their modifier now, so the DC the DM sets is this much higher.
-M.DC_SHIFT = 4
+M.SHIFT = 4          -- (a big roll's number up from the book's when it isn't the room's own)
 
 -- A big moment's check. Normally the hero's player rolls it themselves, in front of everyone:
 -- the DM decides whether to say the DC out loud or keep it behind the screen, where it could
@@ -3078,15 +3078,15 @@ function M:big_roll(spec, record)
         mod = mod + self:take_research(p, skill)
     end
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
-    local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)
+    local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.SHIFT)
     local by = spec.secret and "dm" or "player"
     local name = rules().name(skill)
     local text
     if by == "player" then
-        text = util.fill("{actor_char} rolls " .. name .. " (" .. rules().signed(mod) .. "). You'd set the DC at {dc}.",
+        text = util.fill("{actor_char} rolls " .. name .. " (" .. rules().signed(mod) .. "). You'd set the " .. W().dc .. " at {dc}.",
             self:vars({ dc = util.int(dc) }))
     else
-        text = util.fill("A secret " .. name .. " check for {actor_char} (" .. rules().signed(mod) .. "), DC {dc}. You roll it for them.",
+        text = util.fill("A secret " .. name .. " check for {actor_char} (" .. rules().signed(mod) .. "), " .. W().dc .. " {dc}. You roll it for them.",
             self:vars({ dc = util.int(dc) }))
     end
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
@@ -3101,9 +3101,9 @@ function M:big_roll(spec, record)
         text = "The scene's final roll" .. (spec.final.goal and (": " .. spec.final.goal) or "") .. ". " .. text
         local e = spec.final.edge or 0
         if e > 0 then
-            text = text .. " The DC is " .. util.int(e) .. " higher: too many setbacks."
+            text = text .. " The " .. W().dc .. " is " .. util.int(e) .. " higher: too many setbacks."
         elseif e < 0 then
-            text = text .. " The DC is " .. util.int(-e) .. " lower: " .. (spec.final.why or "they did the groundwork") .. "."
+            text = text .. " The " .. W().dc .. " is " .. util.int(-e) .. " lower: " .. (spec.final.why or "they did the groundwork") .. "."
         end
     end
     -- What you agreed at Session Zero, on the night's first big roll (on every one it was the same
@@ -3146,7 +3146,7 @@ function M:big_roll(spec, record)
         own_dc = util.clamp(own_dc, 2, 30)
         local diff = own_dc - dc
         -- (Just the number, out loud: Conner's playtest, C3, "You set it yourself" right after you had.)
-        self:say(util.fill(self:fresh(M.OWN_DC, "own_dc"), self:vars({ dc = util.int(own_dc) })), "dm")
+        self:say(util.fill(self:fresh(W().own_dc, "own_dc"), self:vars({ dc = util.int(own_dc) })), "dm")
         -- (Much easier than the book's: the ones here for a challenge feel it. Much harder: everyone does.)
         if diff <= -4 then
             self:apply({ { "arch:butt_kicker", challenge = -2 }, { "arch:power_gamer", challenge = -1 }, { "arch:casual", fun = 1 } })
@@ -3170,7 +3170,7 @@ function M:big_roll(spec, record)
         if iedge then
             local second = rules().die(self.rng)
             if second > value then
-                self:say(util.fill("{actor_char} rolls again with Advantage (" .. iname .. "): " .. util.int(second)
+                self:say(util.fill("{actor_char} rolls again with " .. W().advantage .. " (" .. iname .. "): " .. util.int(second)
                     .. " beats " .. util.int(value) .. ".", self:vars()), "aside")
                 value = second
             end
@@ -3182,9 +3182,9 @@ function M:big_roll(spec, record)
         local new = rules().die(self.rng)
         p.heroic = nil
         self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
-        self:say(util.fill("{actor_char} spends Heroic Inspiration: the " .. util.int(value) .. " becomes a " .. util.int(new)
+        self:say(util.fill("{actor_char} spends " .. W().inspiration .. ": the " .. util.int(value) .. " becomes a " .. util.int(new)
             .. ", and that's the roll.", self:vars()), "dice")
-        self:event("inspiration", { who = p.key, text = p.char .. " spent Heroic Inspiration on a big roll.", spent = true })
+        self:event("inspiration", { who = p.key, text = p.char .. " spent " .. W().inspiration .. " on a big roll.", spent = true })
         self:emit({ kind = "token", who = p.key, what = "inspiration", spent = true })
         value = new
     end
@@ -3235,7 +3235,7 @@ function M:big_roll(spec, record)
     -- night, folded into this card rather than a card of its own.
     local inspire_at
     if tier == "triumph" and p and by == "player" and not self.inspiration_given and not p.heroic then
-        table.insert(opts, { label = "Yes, and... flick " .. p.char .. " the Heroic Inspiration token.", tone = "good" })
+        table.insert(opts, { label = "Yes, and... flick " .. p.char .. " the " .. W().inspiration .. " token.", tone = "good" })
         inspire_at = #opts
     end
     local cook_offer
@@ -3243,9 +3243,9 @@ function M:big_roll(spec, record)
         local to = success and "a miss" or "a success"
         cook_offer = {
             to_success = not success,
-            label = by == "player" and ("Move the DC: say it was " .. (success and "higher. A miss." or "lower. A success."))
+            label = by == "player" and ("Move the " .. W().dc .. ": say it was " .. (success and "higher. A miss." or "lower. A success."))
                 or ("Cook it: call it " .. to .. "."),
-            note = by == "player" and "Nobody else knows the DC. Someone might wonder." or "Nobody else saw the die. Someone might notice.",
+            note = by == "player" and "Nobody else knows the " .. W().dc .. ". Someone might wonder." or "Nobody else saw the die. Someone might notice.",
         }
     end
     local pick
@@ -3309,18 +3309,18 @@ function M:big_roll(spec, record)
         -- Cooked, it says so on the spot: what the DC really was, and what you let them think (the confirming
         -- playtest: "Pip rolls 2 + 2 = 4. Behind the screen, the DC was 2." read as a bug, and "cooked" was
         -- never explained).
-        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". The DC was " .. util.int(dc) .. ", and you "
-            .. (success and "let it pass" or "call it a miss") .. ((where == "open") and (" by saying DC " .. util.int(shown_dc)) or "")
+        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". The " .. W().dc .. " was " .. util.int(dc) .. ", and you "
+            .. (success and "let it pass" or "call it a miss") .. ((where == "open") and (" by saying " .. W().dc .. " " .. util.int(shown_dc)) or "")
             .. ": you cooked it, changed it behind your screen."
     elseif by == "player" then
-        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". " .. (where == "open" and ("You said DC " .. util.int(shown_dc) .. ".")
-            or ("Behind the screen, the DC was " .. util.int(shown_dc) .. "."))
+        line = (p and p.char or "They") .. " rolls " .. sum(value) .. ". " .. (where == "open" and ("You said " .. W().dc .. " " .. util.int(shown_dc) .. ".")
+            or ("Behind the screen, the " .. W().dc .. " was " .. util.int(shown_dc) .. "."))
     elseif cooked then
-        line = "Behind the screen, the die says " .. sum(value) .. ", against DC " .. util.int(dc) .. ", and you say " .. sum(reported)
+        line = "Behind the screen, the die says " .. sum(value) .. ", against " .. W().dc .. " " .. util.int(dc) .. ", and you say " .. sum(reported)
             .. ": you cooked it, changed it behind your screen."
     else
         line = (where == "open" and "Everyone watches the die: " or "Behind the screen, the die says ")
-            .. sum(reported) .. ", against DC " .. util.int(dc) .. "."
+            .. sum(reported) .. ", against " .. W().dc .. " " .. util.int(dc) .. "."
     end
     -- The card the DM just ruled on showed these numbers, and so does the die: said again as a
     -- caption it was the third telling of one roll (the card-led playtest, October 16). Cooked,
@@ -3977,7 +3977,7 @@ function M:keep_promise(id, who)
     end
     if id == "open_death" then
         score.add(p, "trust", -8)
-        self:suspect(p, 10, "a death save made behind the screen")
+        self:suspect(p, 10, W().hidden_death_save)
         self:react({ [p.key] = "arms" })
         self:say(p.name .. " noticed. At Session Zero he asked you never to save him behind the screen.", "warn")
     elseif id == "no_cut" then
@@ -4864,10 +4864,7 @@ local REACTED = {
 }
 M.READY, M.REACTED = READY, REACTED
 
--- Heroic Inspiration, flicked across the table (most nights): three ways.
-M.INSPIRE_LINES = { "You flick the Heroic Inspiration token across the table. It lands in front of {name}: one reroll, to spend whenever {char} needs it.",
-                    "The Heroic Inspiration token skids across the table and stops in front of {name}: one reroll, whenever {char} needs it.",
-                    "You slide the Heroic Inspiration token over to {name}. One reroll, for whenever {char} needs it." }
+-- (The reroll token flicked across the table, three ways: the set's words, `inspire_lines`.)
 
 -- The night's last line, and the Franc on a great roll: said every week, so three or more ways (R3).
 M.WRAP_LINES = { "That's a wrap. Chairs scrape, someone stacks the dice.", "That's the night. Dice go back in their bags.",
@@ -5248,7 +5245,8 @@ function M:do_rest(rest, kind)
     self.table_min = self.table_min + (long and 15 or 8)
     local spend = rest_rules.SPEND
     local healed = 0
-    local hurt = 0          -- (who needed it: "nobody had Hit Dice left" right after a long rest, F13)
+    -- (Who needed it: nobody saying they'd run out right after a full night's rest, F13.)
+    local hurt = 0
     for _, c in ipairs(self.pc_list) do
         if not c.dead and (c.hp or 0) < (c.hp_max or 0) then
             hurt = hurt + 1
@@ -5280,9 +5278,9 @@ function M:do_rest(rest, kind)
         self.morning_buffs = true
     end
     self:say(long and ("A full night's rest. Everyone wakes whole, spells back, ready." .. fight.buff_line(self)) or
-        (healed > 0 and ("An hour's rest: Hit Dice spent, " .. util.int(healed) .. " HP back across the party.")
+        (healed > 0 and util.fill(W().rest_hour, { healed = util.int(healed) })
          or (hurt == 0 and "An hour's rest. Nobody needed patching up, and the features are back.")
-         or "An hour's rest. Nobody had Hit Dice left to spend, but the features are back."), "aside")
+         or W().rest_none), "aside")
     self.rests = self.rests or {}
     table.insert(self.rests, { kind = long and "long" or "short", place = kind })
     self:emit({ kind = "rested", long = long })     -- (the tiles show what came back)

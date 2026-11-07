@@ -15,8 +15,7 @@
 -- {Cast} at the start of a sentence), {location}, {goal}.
 
 return {
-    -- DC for the scene's checks, by prep difficulty (1 easy to 3 hard); a complication adds 1.
-    DC = { 10, 12, 14 },
+    -- (The number for a scene's checks, by prep difficulty, is the rule set's: game/rules/sets, `scene_dc`.)
 
     social = {
         { skill = "persuasion", cast = true,

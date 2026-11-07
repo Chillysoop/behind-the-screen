@@ -19,7 +19,6 @@ M.WORDS = {
     ["game/model/maps.lua"] = 6,
     ["game/model/museum_night.lua"] = 16,
     ["game/model/museum_week.lua"] = 1,
-    ["game/model/night.lua"] = 40,
     ["game/model/recap.lua"] = 5,
     ["game/model/rng.lua"] = 1,
     ["game/model/table_life.lua"] = 5,

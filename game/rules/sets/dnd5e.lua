@@ -56,11 +56,34 @@ M.engine = setmetatable({}, {
         end
     end,
 })
+-- The words the shared game says 5e's things with, so a line reads the same in a 5e adventure and never shows in
+-- another set's (each set has its own). {dc}, {name}, {char}, {healed} are filled where they're said.
+M.words = {
+    dc = "DC",                                   -- the number to beat
+    inspiration = "Heroic Inspiration",          -- the reroll token the DM hands a player
+    advantage = "Advantage",
+    crit = "natural 20", fumble = "natural 1",   -- the die's own best and worst
+    hidden_death_save = "a death save made behind the screen",
+    rest_hour = "An hour's rest: Hit Dice spent, {healed} HP back across the party.",
+    rest_none = "An hour's rest. Nobody had Hit Dice left to spend, but the features are back.",
+    own_dc = { "\"DC {dc}, {actor_char}.\"", "\"You need a {dc}.\"", "\"That's a DC {dc}. Go on.\"" },
+    inspire_lines = {
+        "You flick the Heroic Inspiration token across the table. It lands in front of {name}: one reroll, to spend whenever {char} needs it.",
+        "The Heroic Inspiration token skids across the table and stops in front of {name}: one reroll, whenever {char} needs it.",
+        "You slide the Heroic Inspiration token over to {name}. One reroll, for whenever {char} needs it.",
+    },
+}
+-- What a player looks up in the rules, by a word on the card (a rules question that names one fits it).
+M.rule_terms = { "concentrat", "opportunity attack", "cover", "saving throw", "two attacks", "bonus action", "advantage",
+                 "stack", "flank", "grappl", "modifier" }
+-- A scene's final roll, by how hard the scene is (easy, middling, hard).
+M.scene_dc = { 10, 12, 14 }
+
 -- 5e's own words: no other set's adventure may show one, and the shared game only says them through this set
 -- (tools/tests/rules_fence_check.lua). Dice and grids aren't here: they're the table's (game/kit/), any set's to use.
 M.owns = {
     "%f[%w]DCs?%f[%W]", "%f[%w]Advantage%f[%W]", "%f[%w]Disadvantage%f[%W]", "natural 20", "natural 1%f[%D]",
-    "spell slot", "hit points", "%f[%w]HP%f[%W]", "%f[%w]AC%f[%W]", "Armor Class", "saving throw", "death save",
+    "spell slot", "hit points", "Hit Dice", "%f[%w]HP%f[%W]", "%f[%w]AC%f[%W]", "Armor Class", "saving throw", "death save",
     "Heroic Inspiration", "Proficiency", "cantrip", "short rest", "long rest", "%f[%w]Insight%f[%W]", "%f[%w]Arcana%f[%W]",
     "%f[%w]Perception%f[%W]", "%f[%w]Investigation%f[%W]", "%f[%w]Persuasion%f[%W]", "%f[%w]Stealth%f[%W]",
     "%f[%w]Athletics%f[%W]", "%f[%w]Concentration%f[%W]", "%f[%w]Bless%f[%W]", "Cure Wounds", "Healing Word", "Detect Magic",
