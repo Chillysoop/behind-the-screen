@@ -79,21 +79,17 @@ function M.choose(campaign, p)
 end
 
 -- After the night (campaign:finish_night, once the report's built): every heart fills by how the
--- night went for them (and a moment like their stolen theory coming true fills it more), and the
--- fullest full heart, of someone who was there, brings a gift. Returns the gift, { id, from, week },
+-- night went for them (more when their own story moved), and the fullest full heart, of someone
+-- who was there, brings a gift. Returns the gift, { id, from, week },
 -- or nil.
 function M.after_night(campaign, rep, night)
     local k = M.get(campaign)
-    local moments = night and night.heart_moments or {}
     for _, row in ipairs(rep.players or {}) do
         if row.present and row.tier then
             local p = campaign:player(row.key)
             local add = data.GOODWILL[row.tier] or 0
             if p and (p.thread_hits or 0) > 0 then
                 add = add + data.THREAD
-            end
-            if moments[row.key] then
-                add = add + data.MOMENT
             end
             k.goodwill[row.key] = util.clamp((k.goodwill[row.key] or 0) + add, 0, data.FULL)
         end

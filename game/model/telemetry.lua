@@ -92,24 +92,10 @@ function M.week_record(campaign, prep_seconds, night_seconds)
         table.insert(talked, k)
     end
     table.sort(talked)
-    -- M6: the table's conflicts, conversations, seeds and level.
+    -- M6: the table's conflicts and level.
     local conflicts = {}
     for id, c in pairs(campaign.conflicts or {}) do
         conflicts[id] = { state = c.state, pressure = math.floor(c.pressure + 0.5), fixed = c.how }
-    end
-    local convos = {}
-    for id, th in pairs(prep.convos or {}) do
-        table.insert(convos, { id = id, done = th.done, cost = th.cost })
-    end
-    table.sort(convos, function(a, b) return a.id < b.id end)
-    local inspired = {}
-    for id in pairs(prep.inspired_by or {}) do
-        table.insert(inspired, id)
-    end
-    table.sort(inspired)
-    local seeds = {}
-    for _, sd in ipairs(campaign.seeds and campaign.seeds.planted or {}) do
-        table.insert(seeds, { id = sd.id, state = sd.state, week = sd.week, hype = sd.hype })
     end
     local safety = {}
     for _, e in ipairs(night.safety or {}) do
@@ -121,9 +107,6 @@ function M.week_record(campaign, prep_seconds, night_seconds)
         week = campaign.week,
         prep_seconds = math.floor((prep_seconds or 0) + 0.5),
         night_seconds = night_seconds and math.floor(night_seconds + 0.5) or nil,
-        story = rep.story_hits and #rep.story_hits or 0,
-        chapter = rep.chapter,
-        arc_session = campaign:arc_beat() and campaign.week or nil,
         prep_hours_used = prep:spent(),
         sketched = prep:sketched(),
         talked = talked,
@@ -131,38 +114,19 @@ function M.week_record(campaign, prep_seconds, night_seconds)
         decisions = night.decisions,
         rolls = night.rolls,
         callouts = night.callouts,
-        improvised = night.improv_count or 0,
         players = players,
         average_fun = math.floor(rep.average + 0.5),
         empathy = campaign:empathy(),
+        thoughts = rep.thoughts,            -- v2: the friends' thoughts the DM caught and answered
         session_zero = campaign.table and { tone = campaign.table.tone, rules = campaign.table.rules,
                                             asks = campaign.table.asks, held = campaign.table.held } or nil,
         conflicts = conflicts,
-        convos = convos,
-        inspired = inspired,
-        planted = prep.planted,
         guide = campaign.guide and { seen = campaign.guide.shown or 0, off = campaign.guide.off or false } or nil,
-        -- The real-session pass: clues found tonight, fights the DM built, how often they opened
-        -- their notes and the character sheets.
-        clues = rep.clues and #rep.clues or 0,
-        built_fights = (function()
-            local n = 0
-            for _, sc in ipairs(prep.scenes or {}) do
-                if sc.encounter then
-                    n = n + 1
-                end
-            end
-            return n
-        end)(),
+        -- How often they opened their notes and the character sheets.
         looked = campaign.looked,
-        seeds = seeds,
         safety = safety,
         level = campaign.level,
         subclasses = campaign.subclasses,
-        -- Storylines (the story playtest): what moved, what the table noticed was dropped.
-        storylines = rep.storylines and { moved = rep.storylines.moved, noticed = rep.storylines.noticed,
-                                          back = rep.storylines.back, opened = rep.storylines.opened,
-                                          thin = rep.storylines.thin } or nil,
     })
 end
 
@@ -192,29 +156,18 @@ function M.slice_survey(campaign, answers)
             subclass = campaign.subclasses and campaign.subclasses[p.class] or nil,
         }
     end
-    -- The table awards they were handed (which ones land is worth knowing).
-    local awarded = require("game.model.awards").pick(campaign)
-    for key, a in pairs(awarded) do
-        if players[key] then
-            players[key].award = a.title
-        end
-    end
     -- The gifts they brought, and how the DM took each one.
     for _, g in ipairs(require("game.model.keepsakes").get(campaign).given) do
         if players[g.from] then
             players[g.from].gift = g.id .. ":" .. tostring(g.how or "kept")
         end
     end
-    local fixes, payoffs = {}, {}
+    local fixes = {}
     for _, e in ipairs(campaign.journal or {}) do
         for _, id in ipairs(e.fixes) do
             table.insert(fixes, id)
         end
-        for _, id in ipairs(e.payoffs) do
-            table.insert(payoffs, id)
-        end
     end
-    local last = campaign.journal and campaign.journal[#campaign.journal]
     return encode({
         type = "slice_survey",
         seed = campaign.seed,
@@ -229,8 +182,6 @@ function M.slice_survey(campaign, answers)
         level = campaign.level,
         players = players,
         fixes = fixes,
-        payoffs = payoffs,
-        chapter = last and last.chapter or nil,
         empathy = campaign:empathy(),
     })
 end

@@ -124,6 +124,12 @@ function M.long(c)
         end
     end
     c.res.potions = potions
+    -- Aid's 8 hours are over (SRD 5.2.1, p. 107): its extra Hit Points go (the playtest, November 3:
+    -- each night's Aid stacked on the last, and the maximum kept climbing).
+    if c.aid_hp then
+        c.hp_max = c.hp_max - c.aid_hp
+        c.aid_hp = nil
+    end
     -- A Hit Point maximum that was drained comes back (SRD 5.2.1, p. 185).
     if c.hp_full and c.hp_max < c.hp_full then
         c.hp_max = c.hp_full

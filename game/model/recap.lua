@@ -20,67 +20,44 @@ M.TEMPLATES = {
              "{who}'s die came up 20. Nobody has stopped talking about it.", "{char} landed the roll of the night.",
              "The 20 that {char} rolled will be in the group chat for weeks." },
     fumble = { "{char} rolled a 1. Of course {char} did.", "A natural 1 for {char}, at the worst moment.",
-               "{who}'s die betrayed them: a 1.", "{char} found out what a 1 looks like up close." },
+               "{who}'s die betrayed {who_them}: a 1.", "{char} found out what a 1 looks like up close." },
     jail = { "{who}'s d20 went to dice jail.", "One d20 is serving time tonight: {who}'s.", "{who} jailed a die. It had it coming.",
              "Dice jail claimed {who}'s d20." },
     down = { "{char} went down, and the table held its breath.", "{char} hit the floor mid-fight.",
              "For a moment it looked bad for {char}.", "{char} dropped, and everyone leaned in." },
     death = { "{text}.", "The table lost {char} tonight.", "{char} didn't make it.",
               "{char}'s story ended tonight." },
-    goodbye = { "They said goodbye to {char} properly.", "{char}'s last words got a silence after them.",
-                "A wake for {char} at the Kettle.", "{who} gave {char} a send-off nobody will forget." },
+    goodbye = { "They said goodbye to {char} properly.", "{char}'s last words got a long silence.",
+                "{who} gave {char} a send-off nobody will forget." },
     back = { "{char} came back, changed.", "Death didn't keep {char}, but it left a mark.", "{char} is back. Mostly." },
     killing_blow = { "{char} landed the killing blow. {who} described every second of it.", "{text}.",
                      "The final hit went to {char}.", "{who} got to finish it, and did it in style.",
                      "{char} ended the fight." },
     villain_falls = { "{text}.", "The one leading them went down, and the rest lost heart.", "The fight's big name hit the floor." },
     escape = { "{text}.", "The villain got away, and will remember.", "Someone slipped out the back, swearing revenge.",
-               "One of them escaped. That's a Grudge now." },
-    defeat = { "They lost the fight. {text}", "A defeat, and they lived.", "Not every fight is won: this one wasn't.",
-               "They were beaten, and the story kept going." },
-    clue = { "They found out: {text}", "They learned something: {text}", "A piece fell into place. {text}",
-             "{text}. That changes things." },
-    payoff = { "{text}.", "A seed planted weeks ago paid off.", "Something you set up a while back came good.",
-               "The payoff landed." },
-    theory = { "{text}.", "{who} was right all along, and knows it.", "A theory from the group chat came true.",
-               "{who}'s theory? True. Unbearable now." },
-    curveball = { "{text}.", "{char} went off the map, as {char} does.", "They didn't do what you planned. {text}.",
-                  "A curveball from {who}." },
+               "One of them escaped." },
     stunt = { "{text}.", "{char} pulled off a stunt.", "A flashy opening from {char}.", "{char} showed off, and it worked." },
-    joke = { "{text}", "The running joke came back.", "An old joke got another outing.", "They called back the joke." },
-    inspiration = { "{text}", "Heroic Inspiration changed hands.", "{who} earned the Inspiration token.",
-                    "The Inspiration token went to {who}." },
+    -- (Its own words, mostly: a token spent isn't one "earned". The playtest, Nov 2.)
+    inspiration = { "{text}", "{text}", "Heroic Inspiration changed hands." },
     new_character = { "{text}", "A new face at the table: {char}.", "{who} brought someone new: {char}.",
                       "{char} joined the party." },
-    fail_card = { "{text}", "It went wrong, and well.", "A failure worth remembering: {text}", "{char} failed with style." },
     callout = { "{text}", "Someone asked to see a roll.", "The table noticed something behind the screen.",
                 "A callout. Awkward." },
     moment = { "{text}." },
-    reputation = { "{text}", "{char} has a reputation now." },
     talk = { "{text}.", "{text}, in your own words." },
     boss_turn = { "{text}" },
-    taunt = { "{text}.", "{text}. Nobody's forgotten it." },
-    interrupt = { "{text}.", "{text}, and the table cheered." },
-    retort = { "{text}.", "{text}. They'd been waiting all night to say it." },
 }
 
 -- Title suggestions, by the night's biggest event.
 M.TITLES = {
     death = { "The Night We Lost {char}", "{char}'s Last Stand", "Goodbye, {char}" },
     death_back = { "{char} Comes Back", "The Price of Coming Back", "Not Yet, {char}" },
-    death_quest = { "The Way Back for {char}", "{char} Falls", "Not the End of {char}" },
     villain_falls = { "The Fall of {boss}", "{char} and the Final Blow", "Down Goes {boss}" },
     killing_blow = { "{char} Finishes It", "The Final Hit", "How {char} Ended It" },
     escape = { "The One That Got Away", "{boss} Runs", "Unfinished Business" },
-    defeat = { "A Bad Night in the Vale", "They Lived, Anyway", "The Long Way Home" },
-    theory = { "{who} Was Right", "The Theory", "Told You So" },
-    payoff = { "It All Comes Back", "The Payoff", "Planted, Harvested" },
     crit = { "The Natural 20", "{char}'s Big Roll", "Twenty" },
     fumble = { "The Natural 1", "{char} and the Die", "One" },
-    curveball = { "Off the Map", "{char}'s Bright Idea", "Nobody Planned This" },
-    retort = { "{char} Answers", "The Last Word", "Paid in Full" },
-    clue = { "What They Found", "The Clue", "A Piece of the Puzzle" },
-    moment = { "Thursday at the Kettle", "Another Night in the Vale", "Session {week}" },
+    moment = { "Session {week}" },
 }
 
 M.VERDICTS = {
@@ -115,9 +92,6 @@ end
 local function vars_for(campaign, night, e)
     local p = e.who and e.who ~= "party" and campaign:player(e.who)
     local text = e.text or ""
-    if e.ev == "clue" then
-        text = string.gsub(text, "^They found out: ", "")
-    end
     text = string.gsub(text, "[%.!]+$", "")
     return {
         who = p and p.name or "The party", char = p and p.char or "the party", text = text,
@@ -130,6 +104,8 @@ end
 -- Build the recap for a finished night: { titles = {3}, title = 1, beats = { {kind, text, weight} },
 -- note = "", snapshots = {...} }.
 -- Drops any beat whose sentence is the opening of another's.
+-- (And one that's inside another: "The Lecturer falls." beside "Oswin's blow lands, and the Lecturer
+-- falls.", the second playtest review, F20.)
 function M.drop_echoes(beats)
     local function stem(t)
         return string.lower((string.gsub(t or "", "[%.!?\"'%s]+$", "")))
@@ -137,7 +113,8 @@ function M.drop_echoes(beats)
     for i = #beats, 1, -1 do
         local a = stem(beats[i].text)
         for j, b in ipairs(beats) do
-            if j ~= i and #a > 0 and #stem(b.text) > #a and string.sub(stem(b.text), 1, #a) == a then
+            local sb = stem(b.text)
+            if j ~= i and #a > 0 and #sb > #a and (string.sub(sb, 1, #a) == a or (#a >= 12 and string.find(sb, a, 1, true))) then
                 table.remove(beats, i)
                 break
             end
@@ -188,8 +165,7 @@ function M.build(campaign, night, rng)
                 used_text[e.text or e.ev] = true
                 used_text[text] = true
                 top = top or e
-                table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who,
-                                      clue = e.clue })
+                table.insert(beats, { kind = e.ev, weight = e.weight or 3, order = x.i, text = text, who = e.who })
             end
         end
     end
@@ -201,190 +177,57 @@ function M.build(campaign, night, rng)
     -- Titles from the biggest event.
     local tk = top and (M.TITLES[top.ev] and top.ev or "moment") or "moment"
     if top and top.ev == "death" and M.DEATH_BACK[top.outcome or ""] then
-        tk = top.outcome == "scar" and "death_back" or "death_quest"
+        tk = "death_back"
     end
     local tv = vars_for(campaign, night, top or {})
     tv.boss = util.title_case(tv.boss)
-    -- One name per session (October 15: "Strangers at the Kettle" in prep, "Brannoc Comes Back" on the
-    -- report and a third after a click were three names for one night). The name it was planned
+    -- One name per session (October 15: one name in prep, "Brannoc Comes Back" on the report and a
+    -- third after a click were three names for one night). The name it was planned
     -- under comes first and stays unless the DM picks another, which then names it everywhere.
     local titles = {}
-    local beat = campaign.arc_beat and campaign:arc_beat()
-    local planned = beat and beat.title and util.title_case(beat.title)
+    local planned
+    -- (v2: an adventure's night is named for its rooms, "The Garden and the Entrance Hall".)
+    if night.mus and campaign.adv then
+        local MODULE = util.lazy("game.model.adventure").data
+        local names = {}
+        for _, r in ipairs(night.mus.rooms or {}) do
+            local room = MODULE.rooms[r.room]
+            if room and not room.virtual and not r.back and not r.side and not room.epilogue
+                and not util.contains(names, room.name) then
+                table.insert(names, room.name)
+            end
+        end
+        -- Two rooms by name; more, from the first to the last, so the title spans the whole night (the
+        -- third playtest: "The Street and the Garden" for a night that went on to two rooms more).
+        if #names > 2 then
+            planned = util.title_case("From " .. names[1] .. " to " .. names[#names])
+        elseif #names > 0 then
+            planned = util.title_case(table.concat(names, " and "))
+        end
+    end
     if planned then
         table.insert(titles, planned)
     end
+    -- (A title another night already had is passed over: "The One That Got Away", twice.)
+    local used = campaign.recap_titles or {}
     for _, t in ipairs(M.TITLES[tk]) do
         local name = util.title_case(util.fill(t, tv))
-        if not util.contains(titles, name) then
+        if not util.contains(titles, name) and not util.contains(used, name) and not string.find(name, "{", 1, true) then
             table.insert(titles, name)
         end
     end
-    return { titles = titles, title = 1, planned = planned, beats = beats, note = "",
-             spoken = M.spoken_beats(campaign, night) }
+    if #titles == 0 then
+        table.insert(titles, "Session " .. util.int(campaign.week or 1))
+    end
+    campaign.recap_titles = campaign.recap_titles or {}
+    if not util.contains(campaign.recap_titles, titles[1]) then
+        table.insert(campaign.recap_titles, titles[1])
+    end
+    return { titles = titles, title = 1, planned = planned, beats = beats, note = "" }
 end
 
--- What the DM says out loud at the start of next session (the session-start recap): the story
--- beats and the big moments, in the DM's voice, past tense. Kept with the recap so the DM's pins
--- and cuts on the report decide what makes it in. {past} is the event's own line in the past
--- tense; {clue} what they found out.
-M.SPOKEN = {
-    clue = "{clue}", killing_blow = "{past}.", villain_falls = "{past}", escape = "{text}.",
-    defeat = "You lost a fight, and lived to tell it.", death = "We lost {char}.", defeat_death = "You lost a fight, and not everyone walked away.", goodbye = "You said goodbye to {char}.",
-    new_character = "{past}", crit = "{past}, right when it counted.", retort = "{char} finally got the last word in.",
-    theory = "{past}.", payoff = "{text}.", goal = "{text}",
-}
-M.SPOKEN_CAP = { clue = 2, goal = 3 }
--- A death that didn't stick: the recap says so (the report beat and the spoken line alike).
-M.DEATH_BACK = { scar = "{char} died, and came back at a cost.", quest = "{char} fell. There may still be a way back." }
-
-local PAST = { { " lands ", " landed " }, { " rolls ", " rolled " }, { " falls%.", " fell." }, { " falls$", " fell" },
-               { " joins ", " joined " }, { " comes true", " came true" }, { " goes down", " went down" },
-               { " brings down ", " brought down " }, { " comes ", " came " }, { " cries ", " cried " },
-               { " stays ", " stayed " }, { " rolls ", " rolled " }, { " walks ", " walked " } }
-
-local function past(text)
-    for _, r in ipairs(PAST) do
-        text = string.gsub(text, r[1], r[2])
-    end
-    return text
-end
-
-function M.spoken_beats(campaign, night)
-    local out, per = {}, {}
-    for i, e in ipairs(night.ledger or {}) do
-        local tpl = e.ev and ((e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or M.SPOKEN[e.ev])
-        -- A lost fight that cost a hero isn't "lived to tell it" (October 15).
-        if e.ev == "defeat" and (per.death or 0) > 0 then
-            tpl = M.SPOKEN.defeat_death
-        end
-        if tpl and (per[e.ev] or 0) < (M.SPOKEN_CAP[e.ev] or 1) then
-            local v = vars_for(campaign, night, e)
-            v.past = past(v.text)
-            v.clue = string.gsub(e.text or "", "^They found out: ", "")
-            local text = util.sentence_case(util.fill(tpl, v))
-            text = string.gsub(text, "%.%.", ".")
-            text = string.gsub(text, "([%.!?]['\"])%.$", "%1")
-            if not string.find(text, "[%.!?\"']$") then
-                text = text .. "."
-            end
-            if #text > 2 then
-                per[e.ev] = (per[e.ev] or 0) + 1
-                table.insert(out, { kind = e.ev, order = i, weight = e.weight or 3, text = text, clue = e.clue, who = e.who })
-            end
-        end
-    end
-    M.drop_echoes(out)
-    -- The killing blow says the villain fell; don't say it twice.
-    if per.killing_blow and per.villain_falls then
-        for i = #out, 1, -1 do
-            if out[i].kind == "villain_falls" then
-                table.remove(out, i)
-            end
-        end
-    end
-    return out
-end
-
--- "Last session: ..." for the start of the night: up to three beats, pinned ones first, then what
--- they found out, then the biggest moments; nothing the DM cut. Nil if there's no last session.
-function M.last_session(campaign)
-    local log = campaign.session_log or {}
-    local entry
-    for _, le in ipairs(log) do
-        if le.week == campaign.week - 1 then
-            entry = le
-        end
-    end
-    local rc = entry and entry.recap
-    if not (rc and rc.spoken and #rc.spoken > 0) then
-        return nil
-    end
-    local cut, pinned = {}, {}
-    for _, b in ipairs(rc.beats or {}) do
-        if b.cut then
-            cut[b.order] = true
-        elseif b.pinned then
-            pinned[b.order] = true
-        end
-    end
-    local pool = {}
-    for _, s in ipairs(rc.spoken) do
-        if not cut[s.order] then
-            table.insert(pool, s)
-        end
-    end
-    -- A clue that came with a handout sticks (game/model/handouts.lua): it leads.
-    local handed = require("game.model.handouts").last_week_cards(campaign)
-    local function rank(s)
-        return (pinned[s.order] and 100 or 0) + ((s.clue and handed[s.clue]) and 60 or 0) + (s.kind == "clue" and 20 or 0)
-            + (s.kind == "goal" and 15 or 0) + (s.weight or 0)
-    end
-    table.sort(pool, function(a, b)
-        if rank(a) ~= rank(b) then
-            return rank(a) > rank(b)
-        end
-        return a.order < b.order
-    end)
-    local picked = {}
-    for i = 1, math.min(3, #pool) do
-        table.insert(picked, pool[i])
-    end
-    if #picked == 0 then
-        return nil
-    end
-    table.sort(picked, function(a, b) return a.order < b.order end)
-    local parts = {}
-    for _, s in ipairs(picked) do
-        table.insert(parts, s.text)
-    end
-    return "Last session: " .. table.concat(parts, " ")
-end
-
--- What last session added to the story, for the card that opens the next one (October 15): the
--- clues they found, in the order they found them (the beats the DM cut stay out). Each
--- { text, clue = its card's id }. Empty in week 1, or when they found nothing. And, second, the
--- biggest thing that happened (a spoken beat: { text, kind, who, weight }), or nil.
-function M.last_learned(campaign)
-    local entry
-    for _, le in ipairs(campaign.session_log or {}) do
-        if le.week == campaign.week - 1 then
-            entry = le
-        end
-    end
-    local rc = entry and entry.recap
-    local out = {}
-    if not (rc and rc.spoken) then
-        return out
-    end
-    local cut = {}
-    for _, b in ipairs(rc.beats or {}) do
-        if b.cut then
-            cut[b.order] = true
-        end
-    end
-    local happened = {}
-    for _, s in ipairs(rc.spoken) do
-        if not cut[s.order] and s.kind == "clue" then
-            table.insert(out, { text = s.text, clue = s.clue })
-        elseif not cut[s.order] and M.HAPPENED[s.kind] then
-            table.insert(happened, s)
-        end
-    end
-    -- The biggest first (a pinned beat leads), then in the order they happened.
-    table.sort(happened, function(a, b)
-        local pa, pb = (a.weight or 0), (b.weight or 0)
-        if pa ~= pb then
-            return pa > pb
-        end
-        return a.order < b.order
-    end)
-    return out, happened
-end
-
--- What counts as "what happened" on that card: how the night's big moments ended, not a lucky roll.
-M.HAPPENED = { killing_blow = true, villain_falls = true, goal = true, escape = true, defeat = true, death = true,
-               payoff = true, goodbye = true }
+-- A death that didn't stick: the recap says so.
+M.DEATH_BACK = { scar = "{char} died, and came back at a cost." }
 
 -- The session log (B7): every report, kept with the campaign so the notebook can reopen it.
 function M.file(campaign, rep)
@@ -403,17 +246,6 @@ function M.file(campaign, rep)
     end
     table.insert(campaign.session_log, entry)
     return entry
-end
-
--- The beats that survive: not cut, pinned ones first-class.
-function M.kept(recap)
-    local out = {}
-    for _, b in ipairs(recap and recap.beats or {}) do
-        if not b.cut then
-            table.insert(out, b)
-        end
-    end
-    return out
 end
 
 return M

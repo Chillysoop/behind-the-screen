@@ -1,0 +1,817 @@
+-- The truth test (November 2): what the table hears has to be true, and what happens has to be
+-- heard. Two halves. Run from the project root:  lua tools/tests/museum_truth.lua [runs]
+--
+-- 1. The adventure's data, read cold:
+--    - every flag something sets is read by something (a condition, an item, a callback, an aside,
+--      what someone remembers, the code): a pickup that does nothing is a broken promise;
+--    - every mark something adds is on Euryale's card and changes her fight or her talk;
+--    - a log that says someone got hurt hurts them; one that says a Franc appeared pays one; one
+--      that says someone pockets, takes or pulls something out sets what they now have;
+--    - no shared moment names a hero (whoever's at the table, or a replacement, may be the one).
+-- 2. Whole prologues, headless, several seeds and three kinds of DM, watching what's said against
+--    what happened:
+--    - Euryale dead means the ending is "fallen", and she never yields after she's dead;
+--    - a boss that ran (or yielded) is never "the last one falls";
+--    - every mark that lands gets her line upstairs, that night or the next;
+--    - an item picked up is on someone's sheet;
+--    - every line fits the adventure (adventure.fits): nothing from the old story;
+--    - a hero who's been replaced isn't named doing things afterwards;
+--    - (roadmap phase 1) a Franc said to turn up on a great roll is paid; a fight won "by name" had one
+--      foe; "+1, they learned from the last miss" follows a near miss you ruled "No, but"; a promised
+--      rest walks them back up to the room they really stopped in.
+--    - lines that say something happened only when it did (the second playtest review, F13): a prayer
+--      that caught someone before they dropped, a move two heroes pulled off together, nobody having
+--      Hit Dice left, the Witness by name, every painting back on its wall, Euryale seeing the fight
+--      turn, foes coming "out of hiding", the number a friend thinks the die showed.
+
+package.path = "./?.lua;" .. package.path
+unpack = unpack or table.unpack
+
+local adventure = require "game.model.adventure"
+-- (Any registered adventure: ADVENTURE=<id>, else the default. game/data/adventures.lua.)
+local ADV = require "game.data.adventures"
+local ADV_ID = ADV.from_env()
+local MODULE = ADV.part(ADV_ID, "module")
+
+-- Lines that remember a hero who died, by name, and don't have them doing anything (the confirming
+-- playtest's fixes: the end names the dead, the new hero has heard, the pack and the pet are handed on, the
+-- gift shop has heard of the wake): their templates, with any fill matching anything.
+local REMEMBER_LISTS = nil
+local function REMEMBERED(text)
+    if not REMEMBER_LISTS then
+        local adv = require("game.model.adventure").data
+        local d = require "game.data.death"
+        REMEMBER_LISTS = {}
+        for _, by in pairs(adv.want_more_sad or {}) do
+            for _, list in pairs(by) do
+                for _, l in ipairs(list) do
+                    table.insert(REMEMBER_LISTS, l)
+                end
+            end
+        end
+        for _, l in pairs(d.INTRO or {}) do
+            table.insert(REMEMBER_LISTS, l)
+        end
+        for _, l in ipairs(d.PACK_FOUND or {}) do
+            table.insert(REMEMBER_LISTS, l)
+        end
+        -- (Flitwidget's word for the dead, at the wake: death.lua's grief_owed. Seed 3 careless.)
+        local ppl = ADV.part(ADV_ID, "people")
+        for _, who in pairs((ppl and ppl.lines) or {}) do
+            for _, g in ipairs((type(who) == "table" and who.grief) or {}) do
+                for _, l in ipairs(type(g.text) == "table" and g.text or { g.text }) do
+                    table.insert(REMEMBER_LISTS, (string.gsub(l, "{was|were}", "{was}")))
+                end
+            end
+        end
+        for _, e in pairs(adv.companions or {}) do
+            for _, l in ipairs((type(e) == "table" and e.lines and e.lines.handed_on) or {}) do
+                table.insert(REMEMBER_LISTS, l)
+            end
+        end
+        for _, cb in ipairs((adv.rooms.gift_shop or {}).callbacks or {}) do
+            if cb.when and cb.when.flag == "wake_away" then
+                table.insert(REMEMBER_LISTS, cb.text)
+            end
+        end
+    end
+    for _, t in ipairs(REMEMBER_LISTS) do
+        local pat = "^" .. string.gsub(string.gsub(t, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[%w_]+}", ".-") .. "$"
+        if string.find(text, pat) then
+            return true
+        end
+    end
+    return false
+end
+local util_lower_first = require("game.model.util").lower_first
+local cards = ADV.part(ADV_ID, "cards")
+
+local failures = 0
+local function fail(msg)
+    failures = failures + 1
+    if failures <= 60 then
+        print("FAIL: " .. msg)
+    end
+end
+
+-- Part 1: the data ------------------------------------------------------------------------------
+
+local sets, reads = {}, {}          -- flag -> where
+local marks_set = {}
+
+-- Walk a table: a `flag`/`mark` in a `mus` table is something set; anywhere else (when, needs,
+-- has, unless, states, memory, items...) it's something read.
+local function walk(t, path, in_mus, seen)
+    if type(t) ~= "table" or seen[t] then
+        return
+    end
+    seen[t] = true
+    for k, v in pairs(t) do
+        local p = path .. "." .. tostring(k)
+        if k == "flag" and type(v) == "string" then
+            if in_mus then
+                sets[v] = sets[v] or p
+            else
+                reads[v] = reads[v] or p
+            end
+        elseif k == "needs_flag" and type(v) == "string" then
+            reads[v] = reads[v] or p
+        elseif k == "mark" and type(v) == "string" and in_mus then
+            marks_set[v] = marks_set[v] or p
+        end
+        if type(v) == "table" then
+            walk(v, p, in_mus or k == "mus", seen)
+        end
+    end
+end
+walk(MODULE, "MODULE", false, {})
+walk(cards, "cards", false, {})
+
+-- What the code reads and sets directly.
+local code_reads, code_sets = {}, {}
+for _, f in ipairs({ "game/model/museum_night.lua", "game/model/adventure.lua", "game/model/museum_week.lua",
+                     "game/model/standing.lua", "game/model/takeover.lua", "game/model/night.lua" }) do
+    local fh = io.open(f, "r")
+    local src = fh:read("*a")
+    fh:close()
+    for name in string.gmatch(src, "flags%.([%w_]+)%s*=%s*true") do
+        code_sets[name] = f
+    end
+    for name in string.gmatch(src, "flags%.([%w_]+)") do
+        code_reads[name] = code_reads[name] or f
+    end
+    for name in string.gmatch(src, "flags%[\"([%w_]+)\"%]") do
+        code_reads[name] = code_reads[name] or f
+    end
+end
+-- (A `flags.x = true` line is a set, not a read: count only reads that aren't the set itself.)
+local function code_read(name)
+    for _, f in ipairs({ "game/model/museum_night.lua", "game/model/adventure.lua", "game/model/museum_week.lua",
+                         "game/model/standing.lua", "game/model/takeover.lua", "game/model/night.lua" }) do
+        local fh = io.open(f, "r")
+        local src = fh:read("*a")
+        fh:close()
+        for line in string.gmatch(src, "[^\n]+") do
+            if string.find(line, "flags%." .. name .. "%f[^%w_]") and not string.find(line, "flags%." .. name .. "%s*=%s*true") then
+                return true
+            end
+        end
+    end
+    return false
+end
+-- The battle options a flag hands its own room's fight (museum_night's FLAG_OPT).
+do
+    local fh = io.open("game/model/museum_night.lua", "r")
+    local src = fh:read("*a")
+    fh:close()
+    local body = string.match(src, "local FLAG_OPT = (%b{})") or ""
+    for name in string.gmatch(body, "([%w_]+)%s*=") do
+        code_reads[name] = "museum_night FLAG_OPT"
+        reads[name] = reads[name] or "museum_night FLAG_OPT"
+    end
+end
+-- A flag the DM's ties can wait on (MODULE.outs, the tie-and-lock editor) is read there.
+for name in pairs(MODULE.outs or {}) do
+    reads[name] = reads[name] or "MODULE.outs"
+end
+for name, where in pairs(code_sets) do
+    sets[name] = sets[name] or where
+end
+for name, where in pairs(sets) do
+    if not reads[name] and not code_read(name) then
+        fail("flag '" .. name .. "' is set (" .. where .. ") but nothing reads it: what does it do?")
+    end
+end
+
+-- Every mark added is on her card and does something there.
+for name, where in pairs(marks_set) do
+    local m = MODULE.marks[name]
+    if not m then
+        fail("mark '" .. name .. "' (" .. where .. ") isn't one of Euryale's marks")
+    elseif not (m.foe or m.ally or m.opt or m.talk) then
+        -- (A mark the talk or a moment reads is still an effect.)
+        local read = false
+        local function find(t, seen)
+            if type(t) ~= "table" or seen[t] then
+                return
+            end
+            seen[t] = true
+            for k, v in pairs(t) do
+                if (k == "when" or k == "needs" or k == "alt_needs" or k == "has" or k == "unless") and type(v) == "table" and v.mark == name then
+                    read = true
+                end
+                find(v, seen)
+            end
+        end
+        find(MODULE, {})
+        find(cards, {})
+        if not read then
+            fail("mark '" .. name .. "' changes nothing on boss night (no foe, ally, option, talk, or anything that reads it)")
+        end
+    end
+end
+
+-- Words that promise an effect, on every option and roll outcome.
+local HURT = { "barely breathing", "cut and", "bleeding", "numb", "frostbite", "lands hard", "bites%.", "flung" }
+local TAKE = { "{actor_char} pockets", "straps it to", "{actor_char} pulls out", "fishes out", "unscrews a" }
+local HEROES = { "Brannoc", "Thessaly", "Pip", "Oswin" }
+local function each_outcome(card, fn)
+    for _, o in ipairs(card.options or {}) do
+        fn(o, o.log, o.mus)
+        if o.roll then
+            fn(o, o.roll.success and o.roll.success.log, o.roll.success and o.roll.success.mus)
+            fn(o, o.roll.fail and o.roll.fail.log, o.roll.fail and o.roll.fail.mus)
+        end
+    end
+end
+local moment_cards = {}
+for _, m in ipairs(MODULE.moments) do
+    table.insert(moment_cards, m)
+end
+for _, k in ipairs({ "drink", "talk", "yield" }) do
+    table.insert(moment_cards, MODULE.showdown[k])
+end
+for _, card in ipairs(moment_cards) do
+    -- (The friends' own table moments may name their own hero: Pip going off alone is Jess's thing.)
+    local own = card.type == "table" and card.actor and #card.actor == 1
+    each_outcome(card, function(o, log, mus)
+        if type(log) ~= "string" then
+            return
+        end
+        local low = string.lower(log)
+        for _, w in ipairs(HURT) do
+            if string.find(low, w) and not (mus and mus.hurt) then
+                fail(card.id .. ": '" .. log .. "' says someone's hurt, but nobody takes damage (mus.hurt)")
+                break
+            end
+        end
+        if string.find(low, "franc") and (string.find(low, "appears") or string.find(low, "materialises") or string.find(low, "pops into"))
+            and not (mus and mus.francs) then
+            fail(card.id .. ": '" .. log .. "' says a Franc appears, but none is paid (mus.francs)")
+        end
+        for _, w in ipairs(TAKE) do
+            if string.find(low, w, 1, true) and not (mus and (mus.flag or mus.mark)) then
+                fail(card.id .. ": '" .. log .. "' says they took something, but it sets nothing they now have")
+                break
+            end
+        end
+        if not own then
+            for _, h in ipairs(HEROES) do
+                if string.find(log, "%f[%a]" .. h .. "%f[%A]") or string.find(o.label or "", "%f[%a]" .. h .. "%f[%A]") then
+                    fail(card.id .. ": names " .. h .. " ('" .. log .. "'): whoever is at the table might be someone else")
+                end
+            end
+        end
+    end)
+end
+
+-- Every item's effect is real: an option the rules know, a magic item that exists.
+local museum_rules = require "game.rules.museum"
+for _, it in ipairs(MODULE.items or {}) do
+    if it.opt and not (function()
+        for _, o in ipairs(museum_rules.OPTIONS) do
+            if o == it.opt then
+                return true
+            end
+        end
+    end)() then
+        fail("item " .. it.id .. ": battle option '" .. it.opt .. "' isn't one the rules know")
+    end
+    if it.magic and not (MODULE.magic_items or {})[it.magic] then
+        fail("item " .. it.id .. ": magic item '" .. it.magic .. "' isn't defined")
+    end
+end
+
+-- A line that names who has something reads the inventory (the second playtest review, F10): every
+-- item line with {holder} is a thing someone carries (`carry`), or the charm (who drank her wine).
+for _, it in ipairs(MODULE.items or {}) do
+    for _, l in ipairs(it.lines or { it.line }) do
+        if string.find(l, "{holder}", 1, true) and not it.carry and not it.charm then
+            fail("item " .. it.id .. ": '" .. l .. "' names who has it, but it isn't in anyone's pack (carry)")
+        end
+    end
+end
+
+local static_failures = failures
+print(string.format("museum truth, the data: %d flags set, %d marks added, %d failures", (function()
+    local n = 0
+    for _ in pairs(sets) do
+        n = n + 1
+    end
+    return n
+end)(), (function()
+    local n = 0
+    for _ in pairs(marks_set) do
+        n = n + 1
+    end
+    return n
+end)(), static_failures))
+
+-- Part 2: whole prologues ----------------------------------------------------------------------
+
+local campaign_mod = require "game.model.campaign"
+local social = require "game.model.social"
+local museum_week = require "game.model.museum_week"
+local items_mod = require "game.model.items"
+
+local runs = tonumber(arg[1]) or 4
+local styles = { "careful", "random", "careless" }
+local endings = {}
+
+local function play(seed, style)
+    adventure.enter()
+    local c = campaign_mod.new(seed)
+    adventure.enter(c)
+    c:session_zero(social.default_choices())
+    local rng = require("game.model.rng").new(seed + 501)
+    for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local hooks = MODULE.hooks[key]
+        adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
+    end
+    local tag = "seed " .. seed .. " " .. style
+    local owed_marks = {}           -- marks on her card nobody's heard her line for yet
+    local learned = {}              -- (a lesson from a miss waits for that hero's next check, next week too: C25)
+    for w = 1, MODULE.MAX_WEEKS do
+        local prep = c:start_week()
+        for _, pr in ipairs(c.adv.prompts) do
+            if pr.kind == "request" then
+                adventure.answer_request(c, pr.id, MODULE.ANSWERS[rng:int(1, 4)])
+            elseif pr.kind == "loose" then
+                adventure.answer_loose(c, pr.id, rng:int(1, #pr.def.options))
+            elseif pr.kind == "ruling" then
+                adventure.answer_ruling(c, pr.id, rng:chance(0.5))
+            elseif pr.kind == "favor" then
+                adventure.answer_favor(c, pr.id, rng:int(1, 2), rng:int(1, 2))
+            end
+        end
+        if style ~= "careless" then
+            museum_week.prep_greedy(prep)
+        end
+        if prep.museum.boss then
+            c.adv.boss = { opener = rng:chance(0.7) and "talk" or "ambush", style = rng:chance(0.6) and "yields" or "last" }
+        end
+        local marks_before = {}
+        for _, id in ipairs(c.adv.mark_list) do
+            marks_before[id] = true
+        end
+        for _, id in ipairs(c.adv.unannounced or {}) do
+            owed_marks[id] = true
+        end
+        local night = c:start_night()
+        local heard = {}
+        local last_die
+        local yield_played_dead = false
+        local found_tonight = false
+        local old_names = {}
+        for _, p in ipairs(c.players) do
+            if p.old_char then
+                old_names[p.old_char] = true
+            end
+        end
+        local night_mod = require "game.model.night"
+        local museum_night = require "game.model.museum_night"
+        local francs_before = c.adv.francs or 0
+        local stopped_in = c.adv.pos or c.adv.last_room
+        -- Lines from the museum's people that say what they know (R11), to check against the log.
+        local people_heard = {}
+        local KNOWS = {}
+        for pid, moments in pairs(MODULE.people_lines or {}) do
+            for _, entries in pairs(moments) do
+                for _, e in ipairs(entries) do
+                    local k = e.when and e.when.knows
+                    if k then
+                        for _, t in ipairs(type(e.text) == "table" and e.text or { e.text }) do
+                            KNOWS[t] = { who = k.who, kind = k.kind }
+                        end
+                    end
+                end
+            end
+        end
+        local ev = night:advance()
+        local guard = 0
+        while ev.kind ~= "done" and guard < 5000 do
+            guard = guard + 1
+            local answer
+            local text = (ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc") and ev.text or nil
+            -- (Roadmap phase 1: lines that assert an outcome, against the state.)
+            if ev.kind == "narrate" and text then
+                for _, l in ipairs(night_mod.FRANC_LINES or {}) do
+                    local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char}", ".-") .. "$"
+                    if string.find(text, pat) and (c.adv.francs or 0) <= francs_before then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', and no Franc was paid")
+                    end
+                end
+                for _, l in ipairs((night_mod.FIGHT_CAPTIONS or {}).party_win_one or {}) do
+                    local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{[Ff]oe}", ".-") .. "$"
+                    if string.find(text, pat) then
+                        local foes = 0
+                        for _, cr in ipairs((night.battle and night.battle.creatures) or {}) do
+                            foes = foes + ((cr.side == "foes" and not cr.ally) and 1 or 0)
+                        end
+                        if foes > 1 then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "' over a fight with " .. foes .. " foes")
+                        end
+                    end
+                end
+                -- (Flitwidget's reward is what the state says: half when she got away. R5.)
+                local paid = tonumber(string.match(text, "^They earn (%d+) gold each") or "")
+                if paid then
+                    local want = adventure.reward_gold(c)
+                    if paid ~= want or (c.adv.ending == "escape" and paid > (c.adv.gold or adventure.REWARD) / 2 + 0.5) then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "' with the ending " .. tostring(c.adv.ending) .. " (the reward is " .. want .. ")")
+                    end
+                end
+                -- (Round three, B3: every Franc in the pool was heard going in; one said is one paid.)
+                for _, key in ipairs({ "franc", "franc_party" }) do
+                    for _, l in ipairs((museum_night.WORLD_LINES or {})[key] or {}) do
+                        local pat = "^" .. string.gsub(string.gsub(l, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char[_%a]*}", ".-") .. "$"
+                        if string.find(text, pat) and (c.adv.francs or 0) <= francs_before then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "', and no Franc went in the pool")
+                        end
+                    end
+                end
+                local back_to = string.match(text, "a walk back up to (.-), where they stopped")
+                if back_to then
+                    local want = stopped_in == "stairs" and "the top of the stairs"
+                        or (MODULE.rooms[stopped_in or ""] and util_lower_first(MODULE.rooms[stopped_in].name))
+                    if back_to ~= want then
+                        fail(tag .. " week " .. w .. ": the rest walks them back to " .. back_to .. ", but they stopped in " .. tostring(stopped_in))
+                    end
+                elseif string.find(text, "after a long rest in the gift shop, fully healed", 1, true) and stopped_in and stopped_in ~= "gift_shop" then
+                    fail(tag .. " week " .. w .. ": a rest 'in the gift shop', but they stopped in " .. stopped_in)
+                end
+            end
+            if ev.kind == "ruling" and ev.tier == "near" and ev.success == false and ev.actor then
+                learned[ev.actor] = true          -- (the truth test always rules the first option: "No, but...")
+            end
+            -- (And a near miss the die settled on its own, with no card: the lesson waits on the campaign,
+            -- `campaign.learned`, which only that ruling sets. C25.)
+            for k, n in pairs(c.learned or {}) do
+                if n and n > 0 then
+                    learned[k] = true
+                end
+            end
+            if ev.kind == "roll_where" and ev.text and string.find(ev.text, "they learned from the last miss", 1, true) then
+                if not learned[ev.actor] then
+                    fail(tag .. " week " .. w .. ": +1 for a lesson nobody learned (" .. tostring(ev.actor) .. ")")
+                end
+                learned[ev.actor] = nil
+            end
+            francs_before = c.adv.francs or 0
+            -- (Round three, B3: what Flitwidget says the reward is, is the reward now: one number.)
+            if text and ev.kind == "npc" and string.find(text, "gold each", 1, true) and not string.find(text, "seems low", 1, true) then
+                local want = adventure.gold_word(adventure.reward_gold(c))
+                if not string.find(string.lower(text), string.lower(want) .. " gold each", 1, true) then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "', and the reward is " .. want .. " gold each")
+                end
+            end
+            if text and ev.kind == "npc" then
+                for line, k in pairs(KNOWS) do
+                    local pat = "^" .. string.gsub(string.gsub(line, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "{char}", ".-") .. "$"
+                    if string.find(text, pat) then
+                        table.insert(people_heard, { who = k.who, kind = k.kind, text = text })
+                    end
+                end
+            end
+            if text then
+                if not adventure.fits(text) then
+                    fail(tag .. " week " .. w .. ": a line from outside the adventure: '" .. text .. "'")
+                end
+                local m = string.match(text, "^Upstairs, Euryale: ")
+                if m then
+                    heard[#heard + 1] = text
+                end
+                local low = string.lower(text)
+                if string.find(low, "the last one falls", 1, true) and night.scene and night.scene.foes_ran and #night.scene.foes_ran > 0 then
+                    fail(tag .. ": 'the last one falls' after a foe ran")
+                end
+                for name in pairs(old_names) do
+                    if string.find(text, "%f[%a]" .. name .. "%f[%A]") and not REMEMBERED(text) and not string.find(low, "died")
+                        and not string.find(low, "fell") and not string.find(low, "place") and not string.find(low, "pack")
+                        and not string.find(low, "wake") and not string.find(low, "last time") then
+                        fail(tag .. ": " .. name .. " was replaced, but a line still has them doing things: '" .. text .. "'")
+                    end
+                end
+            end
+            -- Lines that say something happened, against what did (the second playtest review, F13).
+            if text then
+                local rec = night.fight_record or {}
+                local function key_of(char)
+                    for _, p in ipairs(c.players) do
+                        if p.char == char then
+                            return p.key
+                        end
+                    end
+                end
+                local by, to = string.match(text, "^(%a+)'s prayer catches (%a+) a heartbeat before they drop")
+                if by then
+                    local ok = false
+                    for _, e in ipairs(rec.saves or {}) do
+                        ok = ok or (e.by == key_of(by) and e.to == key_of(to))
+                    end
+                    if not ok then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', and " .. to .. " was never close to dropping")
+                    end
+                end
+                local a, b = string.match(text, "^(%a+) and (%a+) pulled off a move together")
+                if a then
+                    local ok = false
+                    for _, e in ipairs(rec.combos or {}) do
+                        ok = ok or (e.a == key_of(a) and e.b == key_of(b))
+                    end
+                    if not ok then
+                        fail(tag .. " week " .. w .. ": '" .. text .. "', with no foe they both hit and one finished")
+                    end
+                end
+                if string.find(text, "Nobody had Hit Dice left to spend", 1, true) then
+                    local hurt = false
+                    for _, pc in ipairs(night.pc_list or {}) do
+                        hurt = hurt or (not pc.dead and pc.hp < pc.hp_max)
+                    end
+                    if not hurt then
+                        fail(tag .. " week " .. w .. ": 'nobody had Hit Dice left' when nobody was hurt")
+                    end
+                end
+                if string.find(text, "the Witness", 1, true) and ev.kind == "say" and not c.adv.flags.witness_named then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' before anyone heard of the Witness")
+                end
+                if string.find(text, "every painting back where it hangs", 1, true) and (c.adv.chose or {}).mus_knight_frame == 1 then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' with the knight's frame empty")
+                end
+                if string.find(text, "sees the fight turning", 1, true) then
+                    for _, cr in ipairs((night.battle and night.battle.creatures) or {}) do
+                        if cr.boss and not cr.dead and (cr.hp or 0) > (cr.hp_max or 1) * 0.5 then
+                            fail(tag .. " week " .. w .. ": '" .. text .. "' at " .. cr.hp .. " of " .. cr.hp_max)
+                        end
+                    end
+                end
+                local sc = night.scene
+                if (string.find(text, "^Out of hiding comes") or string.find(text, " steps into the open, ")) and sc
+                    and (sc.wake or sc.fight_on or sc.talked or sc.showdown) then
+                    fail(tag .. " week " .. w .. ": '" .. text .. "' for foes already in plain view")
+                end
+                local die = string.match(text, " rolls (%d+) [%+%-] %d+ = ")
+                if die then
+                    last_die = tonumber(die)
+                end
+            end
+            if ev.kind == "thought" and ev.text then
+                local said = string.match(ev.text, "^That was a (%d+) on the die")
+                if said and tonumber(said) ~= last_die then
+                    fail(tag .. " week " .. w .. ": a thought says the die showed " .. said .. ", and the last one everyone saw was " .. tostring(last_die))
+                end
+                if string.find(ev.text, "That die said six", 1, true) and last_die ~= 6 then
+                    fail(tag .. " week " .. w .. ": a thought says the die said six, and the last one everyone saw was " .. tostring(last_die))
+                end
+            end
+            if ev.kind == "scene_end" and ev.reward then
+                found_tonight = true
+            end
+            if ev.kind == "decision" and string.find(ev.card.id or "", "^mus_fork_") then
+                -- A fork describes where the party is standing, nowhere else.
+                local here = c.adv.pos or c.adv.last_room
+                for room, at in pairs(MODULE.fork_at or {}) do
+                    for _, t in ipairs({ at.text, at.after and at.after.text or false }) do
+                        if t and string.find(ev.card.text or "", t, 1, true) and room ~= here then
+                            fail(tag .. " week " .. w .. ": a fork in " .. tostring(here) .. " describes " .. room .. ": '" .. t .. "'")
+                        end
+                    end
+                end
+                -- The reasons the friends give for a vote are true (the playtest, Nov 2: votes said
+                -- nothing about why; now they do, and the why has to hold).
+                for _, p in ipairs(night.players) do
+                    local pc = night.pcs and night.pcs[p.key]
+                    local ft = ev.card.text or ""
+                    if string.find(ft, p.char .. "'s hurt", 1, true) and pc
+                        and not ((pc.hp or 0) > 0 and pc.hp / math.max(1, pc.hp_max) <= 0.6001) then
+                        fail(tag .. " week " .. w .. ": a fork says " .. p.char .. "'s hurt, at " .. tostring(pc.hp) .. "/" .. tostring(pc.hp_max))
+                    end
+                    if string.find(ft, p.char .. " went down in", 1, true) then
+                        local down = false
+                        for _, e in ipairs(night.ledger or {}) do
+                            down = down or (e.ev == "down" and e.who == p.key)
+                        end
+                        if not down then
+                            fail(tag .. " week " .. w .. ": a fork says " .. p.char .. " went down, and nobody did")
+                        end
+                    end
+                    local h = adventure.hook(c, p.key)
+                    local why = string.find(ft, "it's why " .. p.char .. " came", 1, true)
+                    if why and not (h and h.room and string.find(ft, (MODULE.pull[h.room] or {}).want or "?", 1, true)) then
+                        fail(tag .. " week " .. w .. ": a fork says it's why " .. p.char .. " came, for a room that isn't their reason")
+                    end
+                end
+            end
+            if ev.kind == "decision" then
+                if ev.card.id == "mus_yield" and night.scene and night.scene.boss_dead then
+                    yield_played_dead = true
+                end
+                local opts = ev.card.options
+                local pick = (style == "careful") and 1 or rng:int(1, #opts)
+                if opts[pick].disabled then
+                    pick = 1
+                end
+                answer = pick
+            elseif ev.kind == "thought" then
+                require("game.model.thoughts").bot_play(night, ev, style, rng)
+            elseif ev.kind == "ruling" then
+                answer = 1
+            elseif ev.kind == "improv" then
+                answer = { 1 }
+            elseif ev.kind == "roll_where" then
+                answer = "open"
+            elseif ev.kind == "roll" then
+                answer = rng:d20()
+            end
+            ev = night:advance(answer)
+        end
+        if guard >= 5000 then
+            fail(tag .. ": a night never ended")
+        end
+        local rep = c:finish_night()
+        -- The event log (R7) against what the night said and what the state holds.
+        do
+            local events_mod = require "game.model.events"
+            local people_mod = require "game.model.people"
+            for _, ev in ipairs(events_mod.find(c, { session = c.week })) do
+                -- A thing that changed hands is in the pack the log says (or used up there).
+                if ev.kind == "get" and ev.entry then
+                    local found = false
+                    for _, e in ipairs(items_mod.list(c)) do
+                        found = found or e == ev.entry
+                    end
+                    if not found then
+                        fail(tag .. " week " .. w .. ": the log has " .. tostring(ev.thing) .. " going to " .. tostring(ev.who) .. ", and nobody's pack has it")
+                    elseif ev.entry.holder ~= ev.who and not ev.entry.gone then
+                        fail(tag .. " week " .. w .. ": the log gives " .. tostring(ev.thing) .. " to " .. tostring(ev.who) .. ", the pack says " .. tostring(ev.entry.holder))
+                    end
+                end
+                -- A theft that worked put the thing in the thief's pack; one that didn't was seen.
+                if ev.kind == "steal" and ev.outcome == "got" then
+                    local has = false
+                    for _, e in ipairs(items_mod.list(c)) do
+                        has = has or ((e.thing == ev.thing or e.id == ev.thing) and e.holder == ev.who)
+                    end
+                    if not has then
+                        fail(tag .. " week " .. w .. ": '" .. tostring(ev.text) .. "', and it isn't in their pack")
+                    end
+                    local listed = false
+                    for _, l in ipairs((rep.museum or {}).lifted or {}) do
+                        listed = listed or l.text == ev.text
+                    end
+                    if not listed then
+                        fail(tag .. " week " .. w .. ": '" .. tostring(ev.text) .. "', and the report doesn't say so")
+                    end
+                elseif ev.kind == "steal" and ev.outcome == "caught" and not (ev.seen and ev.seen[ev.whom]) then
+                    fail(tag .. " week " .. w .. ": a theft caught with nobody seeing it")
+                end
+                -- Telpur's prices moved only for something he knows about.
+                if ev.kind == "price" then
+                    local lv = ev.level
+                    if not lv or people_mod.MARKUP[lv] ~= ev.n then
+                        fail(tag .. " week " .. w .. ": Telpur moved his prices " .. ev.n .. " while he was " .. tostring(lv))
+                    elseif ev.n > 0 and not (ev.from and events_mod.get(c, ev.from) and events_mod.knows(c, "mus_telpur", events_mod.get(c, ev.from))) then
+                        fail(tag .. " week " .. w .. ": Telpur put his prices up, and the log has nothing he knows that he'd mind")
+                    end
+                end
+                -- A linked beat follows from something earlier in the log.
+                if ev.from and not (events_mod.get(c, ev.from) and ev.from < ev.id) then
+                    fail(tag .. " week " .. w .. ": " .. ev.kind .. " beat follows from an event that isn't before it")
+                end
+            end
+            -- Every mark on her card is in the log, and nothing the log took off is on it.
+            for _, id in ipairs(c.adv.mark_list) do
+                local on = events_mod.last(c, { kind = "mark", thing = id })
+                local off = events_mod.last(c, { kind = "unmark", thing = id })
+                if not on then
+                    fail(tag .. " week " .. w .. ": mark '" .. id .. "' is on her card and not in the log")
+                elseif off and off.id > on.id then
+                    fail(tag .. " week " .. w .. ": mark '" .. id .. "' came off in the log, and it's still on her card")
+                end
+            end
+            -- Each fight the night played is in the log, ending the way the scene says it did.
+            for _, sc in ipairs(night.scenes or {}) do
+                local fev = sc.fight_ev and events_mod.get(c, sc.fight_ev)
+                if sc.result and not fev then
+                    fail(tag .. " week " .. w .. ": a fight in " .. tostring(sc.room) .. " that isn't in the log")
+                elseif fev then
+                    if (fev.outcome == "won") ~= (sc.result.winner == "party") then
+                        fail(tag .. " week " .. w .. ": the log says the fight in " .. sc.room .. " was " .. fev.outcome .. ", the fight says " .. tostring(sc.result.winner))
+                    end
+                    if (fev.fate == "dead") ~= (sc.boss_dead ~= nil) or (fev.fate == "ran") ~= (sc.boss_ran ~= nil) then
+                        fail(tag .. " week " .. w .. ": the log's boss fate " .. tostring(fev.fate) .. " isn't the fight's")
+                    end
+                end
+            end
+            -- The people's lines that say what they know: the log says they know it.
+            for _, t in ipairs(people_heard) do
+                if not people_mod.knows_of(c, t.who, t.kind) then
+                    fail(tag .. " week " .. w .. ": " .. t.who .. " said '" .. t.text .. "' without knowing of any " .. t.kind)
+                end
+            end
+        end
+        -- (Something found means the report says so; nobody ends the night on 0 HP or as stone.)
+        if found_tonight and rep and rep.museum and #(rep.museum.got or {}) == 0 and (rep.museum.francs_tonight or 0) == 0 then
+            fail(tag .. " week " .. w .. ": a prize was found tonight, but the report says nothing was picked up")
+        end
+        for _, pc in ipairs(night.pc_list or {}) do
+            if not pc.dead and (pc.hp or 0) <= 0 then
+                fail(tag .. " week " .. w .. ": " .. pc.name .. " ends the night on 0 hit points, unmentioned")
+            end
+            for _, e in ipairs(pc.effects or {}) do
+                if e.stone or e.petrifying then
+                    fail(tag .. " week " .. w .. ": " .. pc.name .. " is still stone after the night")
+                end
+            end
+        end
+        if yield_played_dead then
+            fail(tag .. ": Euryale yielded after she was dead")
+        end
+        -- What happened in the lair, against how it ended.
+        for _, sc in ipairs(night.scenes or {}) do
+            if sc.showdown and sc.fought and not sc.extras_only then
+                local e = c.adv.ending
+                if sc.boss_dead and e ~= "fallen" then
+                    fail(tag .. ": Euryale died in the fight, but the ending is " .. tostring(e))
+                end
+                if sc.boss_ran and e and e ~= "escape" then
+                    fail(tag .. ": Euryale ran, but the ending is " .. tostring(e))
+                end
+                if sc.boss_yielded and sc.boss_dead then
+                    fail(tag .. ": Euryale both yielded and died")
+                end
+            end
+        end
+        -- Every new mark got her line (tonight, or owed from the week between and said tonight).
+        for _, id in ipairs(c.adv.mark_list) do
+            if not marks_before[id] or owed_marks[id] then
+                local m = MODULE.marks[id]
+                local found = false
+                for _, h in ipairs(heard) do
+                    found = found or string.find(h, adventure.mark_thought(c, id), 1, true) ~= nil or string.find(h, m.thought, 1, true) ~= nil
+                end
+                if found then
+                    owed_marks[id] = nil
+                elseif not marks_before[id] and not (c.adv.unannounced and #c.adv.unannounced > 0) then
+                    fail(tag .. " week " .. w .. ": mark '" .. id .. "' landed on her card without her line")
+                end
+            end
+        end
+        if adventure.over(c) then
+            break
+        end
+        c:level_up()
+    end
+    -- Anything they picked up, bought or were given is in one hero's pack (or was used up there).
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.carry and not it.magic and adventure.test(c, it.when, {}) then
+            local had = false
+            for _, e in ipairs(items_mod.list(c)) do
+                had = had or ((e.thing == it.id or e.id == it.id) and e.holder ~= nil)
+            end
+            if not had then
+                fail(tag .. ": they got " .. it.id .. ", and it's in nobody's pack")
+            end
+        end
+    end
+    -- Anything picked up is on someone's sheet.
+    for _, it in ipairs(MODULE.items or {}) do
+        if it.magic and adventure.test(c, it.when, {}) then
+            local held = false
+            for _, e in ipairs(items_mod.list(c)) do
+                held = held or (e.id == it.magic and e.holder ~= nil)
+            end
+            if not held then
+                fail(tag .. ": they picked up " .. it.id .. ", but it's on nobody's sheet")
+            end
+        end
+    end
+    -- Flags are a view of the event log (adventure.watch_flags): every flag still set has its event.
+    local logged = {}
+    for _, ev in ipairs(c.events or {}) do
+        if ev.kind == "flag" then
+            logged[ev.thing] = true
+        end
+    end
+    for k, v in pairs(c.adv.flags or {}) do
+        if v and not logged[k] then
+            fail(tag .. ": the flag " .. tostring(k) .. " is set, and the event log has no record of it")
+        end
+    end
+    local e = c.adv.ending or "none"
+    endings[e] = (endings[e] or 0) + 1
+end
+
+for s = 1, runs do
+    for _, style in ipairs(styles) do
+        play(s, style)
+    end
+end
+local et = {}
+for k, n in pairs(endings) do
+    table.insert(et, k .. " " .. n)
+end
+table.sort(et)
+print(string.format("museum truth, the prologues: %d runs, endings %s, %d failures", runs * #styles, table.concat(et, ", "),
+    failures - static_failures))
+os.exit(failures == 0 and 0 or 1)

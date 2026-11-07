@@ -1,0 +1,68 @@
+-- The lawn under Noke's Tower (the book's map of the tower: the two pages side by side, Conner's November 6
+-- call), redrawn in our pieces. North is up, as the map has it: the two huts on the west, the outhouse to
+-- the south, the four oaks in the middle with the platforms above them, and the ramp up to the garden
+-- platform in the east. The party comes in up the path from the south-west.
+
+id: sheep_compound
+title: The tower's yard
+light: day
+adventure: sheep
+room: compound
+source: adventure
+credit: The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild): Noke's Tower map, the lawn
+about: The lawn under the platforms: two huts, the outhouse, the four oaks and the ramp up.
+tags: outdoors, tower, lawn, combat
+order: 5
+party: 3,13
+foes: 12,5
+npc: 16,4
+
+grid:
+|t....t.............t|
+|........T.....T.....|
+|.KKK..............*.|
+|.KKK................|
+|..........x.x.......|
+|...*....T.....T....t|
+|....................|
+|.KKK................|
+|.KKK............SSS.|
+|................SSS.|
+|.==........O...*....|
+|t.===.*.............|
+|....t...........t...|
+
+legend:
+-- char | kind | feature | turn
+T       | oak             | trunks     | 
+K       | cottage         | huts       | 0
+O       | wardrobe        | outhouse   | 
+x       | weapon_rack     | swords     | 
+S       | garden_steps    | ramp       | 1
+t       | oak             | woods      | 
+*       | bush            | bushes     | 
+=       | paving          | path       | 
+
+pieces:
+-- feature | kind | x,y | turn
+lawn       | floor_grass  | 1,1 | 
+
+features:
+-- id | flags | words | say
+lawn       | base      | lawn, grass, yard | a lawn under the platforms
+trunks     | base      | oaks, trunks, tower, platforms | four great oaks, their branches woven into platforms overhead
+huts       |           | hut, huts, shed | two small wooden huts
+outhouse   | own_words | outhouse, privy, door | a big wooden outhouse
+swords     | own_words | greatswords, swords, dice | greatswords stuck in the turf by a game of dice
+ramp       |           | ramp, roots, slope, up | a ramp of roots up to the lowest platform
+woods      |           | trees, woods, oaks | the woods all round
+bushes     |           | bush, bushes | bushes
+path       |           | path, track | the end of the path
+
+spots:
+-- key | x,y | name | line | form
+lawn | 12,7 | the lawn | Trampled grass, dice in the dirt, and the smell of a lot of animals. | one area
+huts | 5,4 | the huts | Two small wooden huts, cots and kit inside. Somebody lives here. | many fixtures
+outhouse | 12,10 | the outhouse | A big wooden outhouse. Very big. The door's shut. | one fixture
+slope | 16,10 | the ramp of roots | Roots grown into a ramp up to the lowest platform. | one fixture
+trunks | 10,4 | the four oaks | Living oaks, their branches woven into platforms, one above another. | many fixtures

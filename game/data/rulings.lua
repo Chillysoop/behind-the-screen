@@ -17,6 +17,15 @@ return {
         prompt = "How good does it get?",
         options = {
             { label = "Yes, and... something extra goes their way.", success = true, tone = "good",
+              -- (In an adventure the extra is real, and the button says what it is: the playtest,
+              -- November 3, "is that mechanically something that happens?")
+              adventure_label = "Yes, and... a Flitwidget Franc turns up in {char}'s pocket (+1 Franc).",
+              -- (In an adventure with no money of its own: the extra is +1 on their next roll, and the words say so.
+              -- The playtest, November 6: "they overhear a name that matters later", and nothing ever came of it.)
+              plain_label = "Yes, and... {char} has the measure of it: +1 on {char_their} next roll.",
+              plain_lines = { "Better than they hoped: {char} gets the measure of it. +1 on {char_their} next roll.",
+                              "Better than they hoped: smooth enough to build on. +1 on {char}'s next roll.",
+                              "Better than they hoped. {char} will remember how that went: +1 on the next roll." },
               log = "Better than they hoped. Something extra falls into their lap.",
               lines = { "Better than they hoped: a few silver coins, tucked where nobody looked.",
                         "Better than they hoped: they spot a shortcut, and save themselves an hour.",
@@ -36,6 +45,7 @@ return {
               log = "It works.",
               effects = { { "actor", spotlight = 4 } } },
             { label = "Yes, but... it costs them something.", success = true, tone = "twist",
+              adventure_label = "Yes, but... it costs {char} (1 to 4 damage).",
               log = "It works, but not for free. Something slips, breaks or gets noticed.",
               lines = { "It works, but it costs them: the noise carries, and someone is coming to look.",
                         "It works, but it costs them: a strap snaps, and half a pack of supplies goes with it.",
@@ -49,12 +59,17 @@ return {
         prompt = "How do you call it?",
         options = {
             { label = "No, but... they get something out of it.", success = false, tone = "good",
-              log = "Not quite, but they learn something useful on the way down.",
-              lines = { "Not quite, but on the way down they learn which way not to go.",
-                        "Not quite, but they see enough to know what they're up against.",
-                        "Not quite, but the failure tells them something: this was meant to be hard." },
+              -- (It used to promise a Franc it no longer pays, and to learn things "on the way down" out in
+              -- the street: the second playtest review. What they get is real: +1 on that hero's next roll.)
+              adventure_label = "No, but... they learn from the miss (+1 on {char}'s next check).",
+              log = "Not quite, but they learn something from the miss.",
+              lines = { "Not quite, but now they know which way not to try it.",
+                        "Not quite, but they've got the feel of it now.",
+                        "Not quite, but the miss tells them something: this was meant to be hard.",
+                        "Not quite, but it'll go better next time." },
               effects = { { "actor", fun = 3 }, { "all", story = 3 }, { "arch:casual", fun = 2 } } },
             { label = "Yes, at a cost. Close enough.", success = true, tone = "twist",
+              adventure_label = "Yes, at a cost: it works, and {char} takes 1 to 4 damage.",
               log = "Close enough, if they're willing to pay for it. They are.",
               lines = { "Close enough, and they pay for it: a bruise, a bent buckle, and a lot of noise.",
                         "Close enough, and they pay for it: it takes everything they had left for the scene.",
@@ -72,6 +87,7 @@ return {
               log = "It doesn't work.",
               effects = { { "arch:tactician", trust = 1 } } },
             { label = "No, and... things get worse.", success = false, tone = "bad",
+              adventure_label = "No, and... things get worse (a harsh call: it spends a fair warning, else it costs Trust).",
               log = "It goes wrong, loudly. Now there's a new problem.",
               lines = { "It goes wrong, loudly: a shout from somewhere close. Now there's a new problem.",
                         "It goes wrong, loudly: something gives way under them. Now there's a new problem.",

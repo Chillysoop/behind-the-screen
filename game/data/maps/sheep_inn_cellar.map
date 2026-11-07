@@ -1,0 +1,70 @@
+-- The Bogden Road Country Inn's cellar, in our pieces, from the inn sheet's description: the ladder down from the
+-- trapdoor behind the bar in the north-west, rows of barrels, sacks and crates along the north wall, the storm doors up
+-- to the loading yard in the east, and the dark back of the cellar behind the last row of barrels, where the pack rat
+-- keeps its nest (ours). North is up; the south wall is left off, the DM's side.
+
+id: sheep_inn_cellar
+title: The cellar
+light: candle
+adventure: sheep
+room: inn_cellar
+source: adventure
+credit: The Bogden Road Country Inn sheet for The Wild Sheep Chase (DMs Guild): the cellar
+about: Barrels, sacks of dry goods, a clay floor, and the storm doors up to the yard.
+tags: indoor, inn, cellar, dark
+order: 3
+party: 4,6
+foes: 16,11
+npc: 5,8
+
+grid:
+|####################|
+|#SS........hh.kkkc.#|
+|#SS...........kk.c.#|
+|#SS...BBBBB........#|
+|#..................#|
+|#..................D|
+|#.....BBBBB........#|
+|#..................#|
+|#..................#|
+|#...........BBBBBB.#|
+|#..................#|
+|#..............nn..#|
+|#..................#|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls       | auto
+D       | wall_door       | storm_doors | auto
+S       | stairs_straight | ladder      | 0
+B       | barrel          | barrels     | 
+k       | hay_bale        | sacks       | 
+c       | crate           | crates      | 
+h       | wall_shelf      | shelves     | auto
+n       | rubble          | heap        | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_sand | 1,1 | 
+
+features:
+-- id | flags | words | say
+floor       | base      | floor, clay, cellar | a floor of old clay
+walls       | base      | walls, stone | damp stone walls
+storm_doors | base      | storm doors, doors | slanted storm doors up to the yard
+ladder      | own_words | ladder, trapdoor, steps | a ladder up to the trapdoor
+barrels     |           | barrels, casks, kegs, ale | rows of barrels
+sacks       | own_words | sacks, flour, oats, dry goods | sacks of dry goods
+crates      |           | crates, boxes | crates
+shelves     | own_words | shelves, bottles, spirits | shelves of bottled spirits
+heap        | own_words | heap, junk, odds and ends | a heap of odds and ends
+
+spots:
+-- key | x,y | name | line | form
+barrels | 9,5 | the barrels | Rows of them, ale and cider and worse, each with its tap and its chalk mark. | many fixtures
+sacks | 16,4 | the sacks | Flour, oats and dried peas, stacked up to the beams. | many things
+nest | 15,12 | the back of the cellar | Behind the last row of barrels, where the lamplight hardly reaches. | one area
+floor | 6,9 | the clay floor | Hard as pottery, rutted by a hundred years of boots and barrels. | one area
+corners | 18,8 | the corners | Cobwebs thick as wool in every corner. | many areas
+ladder | 4,4 | the ladder | Up through the trapdoor to the common room, behind the bar. | one fixture
+storm_doors | 19,6 | the storm doors | Two slanted doors up into the loading yard, barred on the inside. | one fixture

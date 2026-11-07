@@ -9,40 +9,41 @@ return {
     SPOTLIGHT = 12,
     FUN = 6,
     WINDOW = 3,
+    -- What handing it over is worth (the playtest, November 3): every one you hand over in the
+    -- window makes the next worth less (FRESH each), never below FLOOR; a big one (the adventure's
+    -- boss, a villain) is worth BIG times as much, so saving them for the big moments pays.
+    FRESH = 0.7,
+    FLOOR = 0.3,
+    BIG = 1.8,
 
     fighter = {
         { "One swing. I put everything into it. {boss} doesn't get up." },
         { "I drop my shield, two hands on the sword, and bring it down like a felled tree.", arch = "butt_kicker" },
         { "I wait for the opening I've been setting up for three rounds. There it is.", arch = "tactician" },
-        { "I say his village's name. Then I end it.", arch = "method_actor" },
-        { "Shield bash, spin, and the pommel to the jaw. Done.", arch = "butt_kicker" },
+        { "Feint, spin, and the pommel to the jaw. Done.", arch = "butt_kicker" },
         { "I don't say anything. I just nod, once, and step in.", arch = "storyteller" },
         { "Low feint, high cut. Textbook. I've practised that one in the yard.", arch = "tactician" },
         { "I catch the blade on my gauntlet, step inside, and that's the end of {boss}.", arch = "power_gamer" },
         { "I yell. Really loud. And then I hit {boss} really hard.", arch = "casual" },
-        { "Is it okay if I kick them off the edge? I'm kicking them off the edge.", arch = "instigator" },
+        { "Is it okay if I kick {boss_them} off the edge? I'm kicking {boss_them} off the edge.", arch = "instigator" },
         { "Brannoc leans on his sword afterwards and lets himself breathe for the first time all night." },
-        { "I offer {boss} a hand up. They swing at me. I don't offer twice." },
+        { "I offer {boss} a hand up. I get a swing for my trouble. I don't offer twice." },
     },
     rogue = {
         { "I'm not there. Then I'm behind {boss}. Then it's over." },
-        { "One knife, thrown from the rafters, while everyone's looking the other way.", arch = "instigator" },
-        { "I whisper 'you dropped this' and hand {boss} their own coin purse. Then the dagger.", arch = "method_actor" },
-        { "Sneak attack, obviously. I've been counting their turns.", arch = "tactician" },
-        { "I slide between their legs, come up behind, and that's that.", arch = "butt_kicker" },
-        { "I take the key off their belt before they even hit the floor.", arch = "power_gamer" },
+        { "Sneak attack, obviously. I've been counting {boss_their} turns.", arch = "tactician" },
+        { "I slide between {boss_their} legs, come up behind, and that's that.", arch = "butt_kicker" },
+        { "I take the key off {boss_their} belt before {boss_they've} even hit the floor.", arch = "power_gamer" },
         { "Pip doesn't gloat. Pip just wipes the knife and says 'well'.", arch = "storyteller" },
         { "I wink at the crowd. There is no crowd. I wink anyway.", arch = "casual" },
         { "Two daggers, one each side. Very neat. Very quiet." },
         { "I trip {boss} with the rug. The rug did most of the work, honestly.", arch = "instigator" },
-        { "From the shadows: 'That's for Lowmarket.'", arch = "method_actor" },
         { "I cut the rope. The chandelier does the rest.", arch = "explorer" },
     },
     cleric = {
-        { "The relic flares, and {boss} falls back from the light and doesn't rise." },
         { "I bring the mace down with a prayer on my lips. A short one.", arch = "butt_kicker" },
         { "Sacred Flame, point blank. 'Go and rest.'", arch = "method_actor" },
-        { "I say the old words over them before the end, so they're not alone.", arch = "storyteller" },
+        { "I say the old words over {boss_them} before the end, so {boss_they're} not alone.", arch = "storyteller" },
         { "Guiding Bolt, and I call the angle so Pip gets advantage on the next one. There's no next one.", arch = "tactician" },
         { "I don't swing. I just stand there, glowing, until {boss} gives up. Then I swing.", arch = "instigator" },
         { "Oswin sits down afterwards, very tired, and pours tea. Nobody knows where the tea came from.", arch = "casual" },
@@ -55,15 +56,41 @@ return {
     wizard = {
         { "Fire Bolt, right where I said it would go. I did the maths." },
         { "I don't even look up from my notes. Magic Missile. Three darts. Done.", arch = "power_gamer" },
-        { "I spoke the word Ilsa taught me. I didn't know it did that.", arch = "storyteller" },
-        { "I point dramatically. Then I remember the spell. Then I point again, and it works.", arch = "instigator" },
-        { "Shatter, and everything in the room, including {boss}, goes very quiet.", arch = "butt_kicker" },
+        { "Shatter, and everything in the room, including {boss}, goes very quiet.", arch = "butt_kicker", level = 3 },
+        { "Thunderwave. {boss} goes one way, the furniture goes the other.", arch = "butt_kicker" },
         { "I've been holding this one back all fight. Now.", arch = "tactician" },
         { "Thessaly adjusts her glasses. 'Fascinating. Goodbye.'", arch = "method_actor" },
         { "The spell goes off a little bigger than planned. Nobody mention the ceiling.", arch = "casual" },
         { "I write {boss}'s name in the margin of my spellbook and cross it out.", arch = "storyteller" },
         { "A single blue flame, very small, very precise. That's all it took." },
-        { "I counted their weak points. They had one. I found it.", arch = "explorer" },
+        { "I counted {boss_their} weak points. There was one. I found it.", arch = "explorer" },
         { "Ray of Frost, and {boss} shatters like a dropped teacup." },
+    },
+
+    -- Handed to someone else (November 3): {hero}'s blow is the one that lands (the dice said so),
+    -- and the friend it's handed to tells the moment. Their words, not their hero's swing: the
+    -- playtest, Nov 2, heard Pip land a blow the dice log gave to Brannoc. {hero} the one who
+    -- landed it, {boss} the one who falls, {char} the teller's own hero.
+    told = {
+        mara = {
+            { "I narrate. {hero}'s blow lands, {boss} looks almost surprised, and then it's very, very quiet." },
+            { "Can I describe it? {hero} strikes, and {char} sees it coming a second before {boss} does." },
+            { "It's {hero}'s blow, but I get the moment: {boss} sways, and I write the date in the margin." },
+        },
+        dev = {
+            { "{hero} hits it SO hard. Like, the whole room shakes. {boss} is done. I'm shaking the table." },
+            { "Okay, okay. {hero} winds up, and BAM: {boss} goes flying. {char} catches the hat." },
+            { "{hero} lands it. {char} just yells. That's my whole description. I yell." },
+        },
+        jess = {
+            { "Slow motion. {hero}'s strike lands, {boss} topples like a very expensive vase, and {char} catches a coin on the way down." },
+            { "{hero} does the hit, I do the commentary: 'And {boss} is DOWN, folks!'" },
+            { "Picture it. {hero}, one perfect blow. {boss}, one perfect fall. {char}, already checking its pockets." },
+        },
+        sam = {
+            { "{hero} gets it. {boss} goes down. {char} just says 'nice' really quietly." },
+            { "Um. {hero}'s blow lands, and {boss} sort of... sighs, and falls over? That's mine." },
+            { "{hero} finishes it, and {char} says a little prayer for {boss}. Even bosses get one." },
+        },
     },
 }

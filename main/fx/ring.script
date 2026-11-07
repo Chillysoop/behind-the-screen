@@ -1,0 +1,41 @@
+-- A status ring around a mini's base (November 3): what the mini is under, at a glance on the
+-- mat (charmed, turning to stone, frightened...). Spawned by the table script with a colour; the
+-- mini script moves it along with the base. A slow turn and a gentle pulse, so it reads as an
+-- effect, not paint; "tint" changes the colour, "fade" takes it away.
+
+go.property("color", vmath.vector4(0.85, 0.45, 0.95, 0.85))
+
+local FADE_IN, FADE_OUT = 0.25, 0.4
+
+function init(self)
+    self.t = 0
+    self.out = nil
+    self.spin = 0
+end
+
+function update(self, dt)
+    self.t = self.t + dt
+    self.spin = self.spin + dt * 0.6
+    go.set_rotation(vmath.quat_rotation_y(self.spin))
+    local c = self.color
+    local a
+    if self.out then
+        self.out = self.out + dt
+        a = math.max(0, 1 - self.out / FADE_OUT)
+        if a <= 0 then
+            go.delete()
+            return
+        end
+    else
+        a = math.min(1, self.t / FADE_IN) * (0.8 + 0.2 * math.sin(self.t * 2.4))
+    end
+    go.set("#model", "tint", vmath.vector4(c.x, c.y, c.z, c.w * a))
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("tint") and message.color then
+        self.color = message.color
+    elseif message_id == hash("fade") and not self.out then
+        self.out = 0
+    end
+end

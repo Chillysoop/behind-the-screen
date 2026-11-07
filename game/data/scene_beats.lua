@@ -21,7 +21,7 @@ return {
         mystery = { "A clue that doesn't fit. Which means it does.", "Somebody's story just fell apart.",
                     "The timeline is starting to make sense.", "A name keeps coming up. Interesting." },
         downtime = { "The whole room is enjoying this.", "A round of applause from the next table.",
-                     "Someone buys them a drink.", "Gus actually smiles. Briefly." },
+                     "Someone buys them a drink." },
     },
     lose = {
         social = { "{Cast} {narrows|narrow} their eyes.", "Wrong thing to say. The room goes chilly.",
@@ -32,7 +32,7 @@ return {
                    "The symbols go dark again.", "Back to square one on that bit." },
         mystery = { "A red herring. A very convincing one.", "{Witness} clams up.",
                     "The evidence points somewhere awkward.", "Somebody saw them snooping." },
-        downtime = { "That went sideways. Hilariously.", "Gus sighs the sigh of a tired man.",
+        downtime = { "That went sideways. Hilariously.",
                      "A chair breaks. Not their fault. Mostly.", "Someone is now banned from the dartboard." },
     },
 
@@ -88,13 +88,9 @@ return {
     -- The heroes talking to each other, in character, between checks.
     -- The DM narrating fights (captions, not character dialogue). {tgt}, {round}.
     fight_captions = {
-        -- (Not "Roll initiative!": the fight's own caption says it next. The second playtest.)
-        start = { "Weapons out. Here we go.", "Here they come.", "Chairs scrape. Here we go." },
+        -- (The start and the wins are night.lua's FIGHT_CAPTIONS now: more ways each, fresh across weeks.)
         round = { "Round {round}.", "Top of round {round}." },
         flee = { "{tgt} breaks and runs.", "{tgt} bolts for the trees." },
-        party_win = { "The last one falls. Silence, then cheering.", "It's over. Everyone breathes out." },
-        party_win_fled = { "The rest scatter and don't look back. The fight is theirs.",
-                           "And they're gone, running hard. Nobody's chasing them. It's over." },
         party_win_surrender = { "Weapons down, hands up. It's over, and nobody else gets hurt.",
                                 "They give up. The fight is theirs, and everyone's still breathing." },
         party_lose = { "The party falls, one by one.", "Everything goes dark." },

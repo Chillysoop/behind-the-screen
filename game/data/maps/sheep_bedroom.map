@@ -1,0 +1,65 @@
+-- The bedroom (the book's map of Noke's Tower, the small round platform), redrawn in our pieces, the
+-- highest of the three. The big bed against the north wall is the one that gets up (page 5); the way down
+-- to the hall is in the south-west.
+
+id: sheep_bedroom
+tight: yes
+title: The bedroom
+light: candle
+adventure: sheep
+room: bedroom
+source: adventure
+credit: The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild): Noke's Tower map, the bedroom
+about: The smallest, highest platform: a big wooden bed, a wardrobe, a cluttered dressing table.
+tags: indoor, tower, bedroom, combat
+order: 8
+party: 9,11
+foes: 11,6
+npc: 13,7
+
+grid:
+|      ########      |
+|    ###......###    |
+|   ##....BB....##   |
+|  ##.....BB...w.##  |
+|  #..............#  |
+|  #.ee...........#  |
+|  #..............#  |
+|  D..............#  |
+|  #..........x...#  |
+|  ##............##  |
+|   ##..........##   |
+|    ###......###    |
+|      #......#      |
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+D       | wall_door       | door       | auto
+B       | bed             | bed        | 
+w       | wardrobe        | wardrobe   | 
+e       | desk            | dressing   | 0
+x       | chest           | chest      | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_boards | 1,1 | 
+rug        | rug          | 9,7 | 
+
+features:
+-- id | flags | words | say
+floor      | base      | floor, boards, bedroom | a floor of woven boards
+walls      | base      | walls, branches | walls of woven branches
+door       | base      | door, slope | the way down to the hall
+bed        | own_words | bed, big bed, sheets, pillows | a big carved wooden bed
+wardrobe   |           | wardrobe, robes, clothes | a wardrobe of robes
+dressing   | own_words | dressing table, mirror, clutter | a dressing table under clutter
+chest      |           | chest, trunk | a chest at the foot of the wall
+rug        |           | rug | a rug
+
+spots:
+-- key | x,y | name | line | form
+bed | 10,6 | the big bed | Carved wood, rumpled sheets, a pile of pillows. The legs look very strong. | one fixture
+wardrobe | 14,5 | the wardrobe | Robes far too long for anyone here, and one far too fine. | one fixture
+dressing | 6,7 | the dressing table | Combs, jars and a mirror, under a heap of papers. | one fixture
+door | 4,8 | the way down | The slope back down to the hall. | one area

@@ -1,0 +1,457 @@
+-- The Museum of Nightmares, played headless from Session Zero to the end (v2). Run from the
+-- project root:  lua tools/sim/museum.lua [seed] [style] [log]
+--   style: careful (preps every room, answers kindly), random, careless (preps nothing)
+--   log:   "log" prints every line the table hears
+-- Checks: the prologue ends inside MAX_WEEKS, no line drags in the old story, no unfilled fill-ins,
+-- every room plays its moments, and the boss night happens.
+
+package.path = "./?.lua;" .. package.path
+unpack = unpack or table.unpack
+
+local adventure = require "game.model.adventure"
+local campaign_mod = require "game.model.campaign"
+local social = require "game.model.social"
+local museum_week = require "game.model.museum_week"
+local events = require "game.model.events"
+local chain_stats = { sessions = 0, beats = 0, linked = 0, longest = 0 }
+
+local seed = tonumber(arg[1]) or 1
+local style = arg[2] or "careful"
+local show = arg[3] == "log"
+
+local failures = 0
+local function check(cond, msg)
+    if not cond then
+        failures = failures + 1
+        if failures <= 30 then
+            print("FAIL: " .. msg)
+        end
+    end
+end
+
+local function text_ok(s, where)
+    if type(s) ~= "string" then
+        return
+    end
+    check(not string.find(s, "{[%w_]+}"), where .. ": unfilled fill-in in '" .. s .. "'")
+    check(not string.find(s, "%f[%a]nil%f[%A]"), where .. ": 'nil' in '" .. s .. "'")
+    check(not adventure.foreign(s), where .. ": the old story in '" .. s .. "'")
+end
+
+adventure.enter()
+local c = campaign_mod.new(seed)
+adventure.enter(c)
+c:session_zero(social.default_choices())
+local rng = require("game.model.rng").new(seed + 77)
+for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+    local hooks = adventure.data.hooks[key]
+    adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
+end
+
+-- The fights, with the book's monsters (game/rules/museum.lua): how many, lost, heroes dropped,
+-- and the big moments that happened.
+local fights = { n = 0, lost = 0, downs = 0, moments = {}, boss = "none" }
+-- The friends' thoughts tonight: how many showed, of what, and what the DM did about them.
+local thoughts_seen = { n = 0, answered = 0, backfired = 0, needs = {}, reads = {} }
+
+-- VIEW=1: what the camera sees of the minis (tools/tests/view_watch.lua, round3_screens_check's V).
+local view = os.getenv("VIEW") and require("tools.tests.view_watch").new()
+
+local function play_night(night)
+    local ev = night:advance()
+    local guard = 0
+    while ev.kind ~= "done" and guard < 4000 do
+        guard = guard + 1
+        if view then
+            view:see(night, ev)
+        end
+        local answer
+        if ev.kind == "narrate" or ev.kind == "say" or ev.kind == "npc" then
+            text_ok(ev.text, ev.kind)
+            if show then
+                local who = ev.kind == "say" and ev.who or (ev.kind == "npc" and ev.name) or ev.style
+                print(string.format("  [%s] %s", tostring(who), ev.text))
+            end
+        elseif ev.kind == "scene" then
+            if show then
+                print(string.format("== Scene %s%s: %s (%s)", ev.index, ev.total and (" of " .. ev.total) or "", ev.title, ev.type_name))
+            end
+        elseif ev.kind == "battle" and ev.phase == "end" then
+            fights.n = fights.n + 1
+            if ev.winner ~= "party" then
+                fights.lost = fights.lost + 1
+            end
+            local sm = ev.summary or {}
+            for _, h in ipairs(sm.heroes or {}) do
+                fights.downs = fights.downs + (h.downs or 0)
+            end
+            for _, m in ipairs(sm.moments or {}) do
+                fights.moments[m.kind] = (fights.moments[m.kind] or 0) + 1
+            end
+            if night.scene and night.scene.room == "lair" then
+                fights.boss = (ev.winner == "party") and "won" or "lost"
+            end
+            if show then
+                print(string.format("  ## fight: %s, %d rounds", tostring(ev.winner), sm.rounds or 0))
+            end
+        elseif ev.kind == "turn" and show then
+            -- (What happened on the turn, short: who did what, who dropped. Every attack names its
+            -- attacker and target, so an opportunity attack on someone's move isn't read as them
+            -- hitting themselves, and every roll shows its die: the second playtest review.)
+            local bits = {}
+            local function id(x)
+                return x ~= nil and tostring(x) or "?"
+            end
+            for _, st in ipairs(ev.steps or {}) do
+                local k = st.kind
+                if k == "spell" then
+                    table.insert(bits, "spell " .. id(st.id) .. ":" .. tostring(st.name) .. ((st.level and st.level > 0) and (" (" .. (st.free and ("level " .. st.level .. ", free: " .. st.free) or ("slot " .. st.level)) .. ")") or (st.level == 0 and " (cantrip)" or ""))
+                        .. (st.reaction and " [reaction]" or "") .. (type(st.target) == "string" and (" -> " .. st.target) or ""))
+                elseif k == "feature" then
+                    table.insert(bits, "feature " .. id(st.id) .. ":" .. tostring(st.name) .. (type(st.target) == "string" and (" -> " .. st.target) or ""))
+                elseif k == "attack" then
+                    local roll = st.roll and (" d20 " .. st.roll .. (st.total and ("=" .. st.total) or "") .. (st.ac and (" vs AC " .. st.ac) or "")) or ""
+                    table.insert(bits, "attack " .. id(st.id) .. "->" .. id(st.target) .. (st.weapon and (" (" .. st.weapon .. ")") or "")
+                        .. roll .. (st.hit and " hit" or " miss") .. (st.crit and " CRIT" or "") .. (st.hidden and " [behind the screen]" or "")
+                        .. (st.blocked and (" [" .. tostring(st.blocked) .. "]") or ""))
+                elseif k == "damage" then
+                    table.insert(bits, id(st.id) .. " -" .. tostring(st.amount) .. " (" .. tostring(st.hp) .. " left)" .. (st.src and (" from " .. st.src) or ""))
+                elseif k == "heal" then
+                    table.insert(bits, id(st.id) .. " +" .. tostring(st.amount) .. (st.by and (" from " .. st.by) or ""))
+                elseif k == "save" then
+                    table.insert(bits, "save " .. id(st.id) .. " " .. tostring(st.ab) .. " d20 " .. tostring(st.roll) .. "=" .. tostring(st.total)
+                        .. " vs DC " .. tostring(st.dc) .. (st.ok and " ok" or " fail") .. (st.hidden and " [behind the screen]" or ""))
+                elseif k == "death_save" then
+                    table.insert(bits, "death save " .. id(st.id) .. " d20 " .. tostring(st.roll))
+                elseif k == "initiative" then
+                    local o = {}
+                    for _, q in ipairs(st.order or {}) do
+                        local b = tonumber(q.bonus) or 0
+                        table.insert(o, id(q.id) .. " " .. tostring(q.roll) .. (b < 0 and "-" or "+") .. math.abs(b) .. "=" .. tostring(q.total))
+                    end
+                    table.insert(bits, "initiative " .. table.concat(o, ", "))
+                elseif k == "down" or k == "death" or k == "up" or k == "flee" or k == "condition" or k == "condition_end" then
+                    table.insert(bits, k .. ":" .. id(st.id) .. (st.name and ("/" .. st.name) or ""))
+                end
+            end
+            if #bits > 0 then
+                -- (Steps outside anyone's turn: the DM's calls on the mat, between turns.)
+                print("    . " .. (ev.who and tostring(ev.who) or "(between turns)") .. ": " .. table.concat(bits, ", "))
+            end
+        elseif ev.kind == "battle" and ev.phase == "start" and show then
+            local ps, fs = {}, {}
+            for _, q in ipairs(ev.party or {}) do table.insert(ps, tostring(q.id) .. "@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.foes or {}) do table.insert(fs, tostring(q.name) .. " (" .. tostring(q.id) .. ")@" .. q.x .. "," .. q.y) end
+            for _, q in ipairs(ev.allies or {}) do table.insert(ps, tostring(q.name) .. " (ally " .. tostring(q.id) .. ", " .. (q.pilot and ("played by " .. q.pilot) or "the DM's") .. ")@" .. q.x .. "," .. q.y) end
+            print("  ## fight starts. party: " .. table.concat(ps, " ") .. " | foes: " .. table.concat(fs, " "))
+        elseif ev.kind == "tiny_roll" then
+            if show then
+                print(string.format("  (small roll) %s %s: %d %s %d = %d", ev.who, ev.skill or "?", ev.roll,
+                    ev.mod < 0 and "-" or "+", math.abs(ev.mod), ev.total))
+            end
+        elseif ev.kind == "mark" then
+            if show then
+                print("  ** EURYALE'S CARD: " .. ev.name .. " (" .. ev.why .. ")")
+            end
+        elseif ev.kind == "thought" then
+            -- What a friend is thinking (game/model/thoughts.lua): the DM answers it, or doesn't.
+            text_ok(ev.text, "thought")
+            text_ok(ev.want, "thought want")
+            for _, a in ipairs(ev.answers) do
+                text_ok(a.label, "thought answer")
+            end
+            local th = require "game.model.thoughts"
+            local aid, good, r = th.bot_play(night, ev, style, rng)
+            thoughts_seen.n = thoughts_seen.n + 1
+            thoughts_seen.needs[ev.need] = (thoughts_seen.needs[ev.need] or 0) + 1
+            if r then
+                thoughts_seen.reads[r.result] = (thoughts_seen.reads[r.result] or 0) + 1
+            end
+            if aid and aid ~= "let_be" then
+                thoughts_seen.answered = thoughts_seen.answered + 1
+                if good == false then
+                    thoughts_seen.backfired = thoughts_seen.backfired + 1
+                end
+            end
+            if show then
+                print(string.format("  (%s thinks) %s  [%s]%s%s", ev.name, ev.text, ev.need,
+                    r and string.format("  read %d+%d vs %d: %s%s", r.roll, r.bonus, r.dc, r.result, r.as and (" as " .. r.as) or "") or "",
+                    aid and ("  -> " .. aid .. (good == false and " (backfired)" or "")) or ""))
+            end
+        elseif ev.kind == "decision" then
+            text_ok(ev.card.text, "decision " .. ev.card.id)
+            text_ok(ev.card.title, "decision title")
+            local opts = ev.card.options
+            for _, o in ipairs(opts) do
+                text_ok(o.label, "option")
+            end
+            local pick = (style == "careful") and 1 or rng:int(1, #opts)
+            -- (Asked to settle a choice that's the players' own, the careful DM leaves it to them: R10.)
+            if style == "careful" and string.find(ev.card.id or "", "^table_asks_") then
+                pick = #opts
+            end
+            -- (A way out that costs something, R5: Euryale getting away for half the reward. The careful
+            -- DM takes it only with the party in real trouble: someone down, or most of their hit points gone.)
+            if style == "careful" and opts[pick] and opts[pick].cost then
+                local hp, max, down = 0, 0, false
+                for _, pc in ipairs(night.pc_list or {}) do
+                    hp, max = hp + math.max(0, pc.hp or 0), max + (pc.hp_max or 0)
+                    down = down or ((pc.hp or 1) <= 0 and not pc.dead)
+                end
+                if not down and hp > 0.35 * max then
+                    for i, o in ipairs(opts) do
+                        if not o.cost and not o.disabled then
+                            pick = i
+                            break
+                        end
+                    end
+                end
+            end
+            -- (Which way out the DM took, for R5's count: one with the party in trouble, or one taken freely.)
+            if opts[pick] and opts[pick].cost then
+                night.dm_way_out = (style == "careful") and "trouble" or "free"
+            end
+            if opts[pick].disabled then
+                pick = 1
+            end
+            if show then
+                print("  >> " .. ev.card.title .. ": " .. ev.card.text)
+                for i, o in ipairs(opts) do
+                    print(string.format("     %s%d. %s%s", i == pick and "*" or " ", i, o.label, o.cost and ("  (" .. tostring(o.sub) .. ")") or ""))
+                end
+            end
+            answer = pick
+        elseif ev.kind == "ruling" then
+            answer = 1
+            if show then
+                print(string.format("  (big roll) %s %s: %s + %s = %s vs DC %s, %s, %s", tostring(ev.char or ev.actor or "?"),
+                    tostring(ev.skill_name or "?"), tostring(ev.value), tostring(ev.mod), tostring(ev.total), tostring(ev.dc),
+                    tostring(ev.tier), ev.where == "hidden" and "behind the screen" or "in the open"))
+            end
+        elseif ev.kind == "improv" then
+            answer = { 1 }
+        elseif ev.kind == "roll_where" then
+            answer = "open"
+        elseif ev.kind == "roll" then
+            answer = rng:d20()
+            if show then
+                print(string.format("  (d20) %s rolls %d%s", tostring(ev.char or ev.actor or "the DM"), answer,
+                    ev.where == "hidden" and " behind the screen" or ""))
+            end
+        elseif ev.kind == "check" then
+            if show then
+                print("  (check) " .. tostring(ev.text))
+            end
+        elseif ev.kind == "cinematic" then
+            for _, sl in ipairs(ev.slides or {}) do
+                text_ok(sl.text, "cinematic")
+            end
+        end
+        ev = night:advance(answer)
+    end
+    check(guard < 4000, "night ended")
+end
+
+local weeks = 0
+local function run_adventure()
+for w = 1, adventure.data.MAX_WEEKS do
+    weeks = w
+    local prep = c:start_week()
+    for _, m in ipairs(c.chat) do
+        text_ok(m.text, "chat")
+        if show then
+            print(string.format("  [chat] %s: %s", tostring(m.who or m.key or "?"), tostring(m.text)))
+        end
+    end
+    local pm = prep.museum
+    if show then
+        print(string.format("\n######## Week %d  (%s)  ahead: %s", w, adventure.where(c), table.concat(pm.ahead, ", ")))
+    end
+    -- Between sessions: the prompts.
+    -- The group chat's questions for the DM: answered as this DM would.
+    for _, m in ipairs(c.chat) do
+        if m.ask and not m.answered then
+            local pick = (style == "careful") and 1 or rng:int(1, 3)
+            museum_week.answer_chat(c, m, pick)
+            if show then
+                print(string.format("  [chat answer] %s -> option %d", tostring(m.ask), pick))
+            end
+        end
+    end
+    for _, pr in ipairs(c.adv.prompts) do
+        if show then
+            print(string.format("  [between sessions] %s %s", tostring(pr.kind), tostring(pr.id)))
+        end
+        if pr.kind == "request" then
+            local a = adventure.data.ANSWERS[style == "careful" and 2 or rng:int(1, 4)]
+            adventure.answer_request(c, pr.id, a)
+            if show then
+                print("    answered: " .. tostring(a))
+            end
+        elseif pr.kind == "loose" then
+            adventure.answer_loose(c, pr.id, 1)
+        elseif pr.kind == "ruling" then
+            adventure.answer_ruling(c, pr.id, style ~= "careless")
+        elseif pr.kind == "favor" then
+            adventure.answer_favor(c, pr.id, 1, 1)
+        end
+    end
+    if style ~= "careless" then
+        museum_week.prep_greedy(prep)
+        for _, id in ipairs(pm.ahead) do
+            for _, kid in ipairs(adventure.data.rooms[id].knobs or {}) do
+                local k = adventure.data.knobs[kid]
+                museum_week.set_knob(prep, kid, k.pick_hero and "mara" or (rng:chance(0.6) or nil))
+            end
+        end
+    end
+    if pm.boss then
+        c.adv.boss = { opener = rng:chance(0.7) and "talk" or "ambush", style = rng:chance(0.6) and "yields" or "last" }
+    end
+    check(prep:spent() <= prep.budget, "budget respected (" .. prep:spent() .. ")")
+    local night = c:start_night()
+    play_night(night)
+    -- (A friend's line that named what the table hadn't been told, said as they'd know it: game/model/told.lua.
+    -- The knowledge check fails on each, so it's fixed where it's written.)
+    if show then
+        for _, m in ipairs(night.masked or {}) do
+            print("  -- masked friend line: " .. m)
+        end
+        -- (A sentence the DM would have said about what a hero or friend feels, wants or looks like: never said,
+        -- game/model/agency.lua. tools/tests/agency_check.lua fails on each, so it's rewritten where it's written.)
+        for _, m in ipairs(night.unsaid or {}) do
+            print("  -- unsaid: " .. m)
+        end
+    end
+    local rep = c:finish_night()
+    if show then
+        print(string.format("  -- report: avg %s; rooms %d; new marks: %s; warned %d",
+            tostring(rep.average), #rep.museum.rooms, table.concat(rep.museum.marks, ", "), rep.museum.warned or 0))
+    end
+    -- Therefore or but (R14): how tonight's beats hang together, from the event log.
+    do
+        local m = events.measure(c, c.week)
+        chain_stats.sessions = chain_stats.sessions + 1
+        chain_stats.beats = chain_stats.beats + m.beats
+        chain_stats.linked = chain_stats.linked + m.linked
+        chain_stats.longest = math.max(chain_stats.longest, m.longest)
+        local starts = {}
+        for _, st in ipairs(m.starts) do
+            table.insert(starts, tostring(st.where) .. "/" .. tostring(st.card or st.kind))
+        end
+        print(string.format("  -- chain week %d: %d of %d beats linked (%d%%), longest unlinked run %d; unlinked runs start at %s",
+            w, m.linked, m.beats, math.floor(m.share * 100 + 0.5), m.longest, #starts > 0 and table.concat(starts, ", ") or "none"))
+        if show then
+            for _, line in ipairs((events.chain(c, c.week))) do
+                print("  -- " .. line)
+            end
+        end
+    end
+    if c:level_up() and show then
+        print("  -- LEVEL UP to " .. c.level)
+    end
+    if adventure.over(c) then
+        break
+    end
+end
+
+local st = c.adv
+check(st.ending ~= nil, "the prologue ended (" .. weeks .. " weeks; at " .. tostring(st.at) .. ")")
+-- (Any adventure: its first scene was played. The museum's: its whole ground floor.)
+check(st.done[adventure.data.start or ""], "played the first scene (" .. tostring(adventure.data.start) .. ")")
+if adventure.current() == "museum" then
+    check(st.done.garden and st.done.entrance, "played the ground floor")
+end
+print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %d%s",
+    seed, style, weeks, tostring(st.ending), table.concat(st.mark_list, ","), st.francs, st.harsh.paid, st.harsh.unpaid,
+    c.level, failures > 0 and ("  FAILURES " .. failures) or ""))
+end
+run_adventure()
+-- CARRY=1: when it ends, the party carries on into the next adventure (the journey screen's "Carry on", app.carry_on):
+-- the hand-off, levels caught up, each friend's hook for the new one, and its sessions played the same way.
+if os.getenv("CARRY") and adventure.next_up(c) then
+    local to = adventure.next_up(c)
+    adventure.handoff(c, to)
+    require("game.model.progression").catch_up(c)
+    for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+        local hooks = adventure.data.hooks[key]
+        adventure.set_hook(c, key, hooks[rng:int(1, #hooks)].id)
+    end
+    if show then
+        print(string.format("\n######## CARRY ON into %s (level %d)", tostring(to), c.level or 0))
+    end
+    run_adventure()
+end
+local mk = {}
+for k, n in pairs(fights.moments) do
+    table.insert(mk, k .. "=" .. n)
+end
+table.sort(mk)
+print(string.format("  fights %d, lost %d, downs %d, boss %s; moments %s", fights.n, fights.lost, fights.downs, fights.boss,
+    table.concat(mk, " ")))
+local tn = {}
+for k, n in pairs(thoughts_seen.needs) do
+    table.insert(tn, k .. "=" .. n)
+end
+table.sort(tn)
+local rd = {}
+for k, n in pairs(thoughts_seen.reads) do
+    table.insert(rd, k .. "=" .. n)
+end
+table.sort(rd)
+-- What the museum's people think of the party at the end (R11: people.lua, from the event log).
+do
+    local people = require "game.model.people"
+    local ops = {}
+    for _, id in ipairs(people.all()) do
+        local sc, lv = people.opinion(c, id)
+        local by = {}
+        for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+            local _, hl = people.opinion(c, id, key)
+            if hl ~= "neutral" then
+                table.insert(by, key .. " " .. hl)
+            end
+        end
+        table.insert(ops, string.format("%s %s (%.1f)%s", string.gsub(id, "^mus_", ""), lv, sc, #by > 0 and (" [" .. table.concat(by, ", ") .. "]") or ""))
+    end
+    local m = chain_stats
+    print(string.format("  people: %s; chain %d of %d beats linked (%d%%) over %d sessions, longest unlinked run %d",
+        table.concat(ops, "; "), m.linked, m.beats, math.floor(100 * m.linked / math.max(1, m.beats) + 0.5), m.sessions, m.longest))
+end
+local fam = {}
+for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do
+    table.insert(fam, key .. " " .. require("game.model.familiar").level(c, key))
+end
+print(string.format("  thoughts %d (%.1f a night), answered %d, backfired %d; %s; reads %s; know %s", thoughts_seen.n,
+    thoughts_seen.n / math.max(1, weeks), thoughts_seen.answered, thoughts_seen.backfired, table.concat(tn, " "),
+    table.concat(rd, " "), table.concat(fam, ", ")))
+if view then
+    print(view:report())
+end
+-- What came out, and how (game/model/secrets.lua): each secret's level, the way it came out and who found it.
+do
+    local secrets = require "game.model.secrets"
+    local out = {}
+    for _, key in ipairs(secrets.list()) do
+        local st = secrets.state(c)[key]
+        if st and st.level then
+            local who = {}
+            for _, p in ipairs(c.players) do
+                if st.heroes and st.heroes[p.key] then
+                    table.insert(who, string.sub(p.key, 1, 1))
+                end
+            end
+            table.insert(out, string.format("%s %s(%s, %s, w%s)", key, st.level == "hint" and "~" or "", st.how or "?",
+                st.by or "-", tostring(st.week or "?")))
+        end
+    end
+    print("  secrets: " .. (#out > 0 and table.concat(out, "; ") or "none"))
+end
+-- The journey page's rooms (JOURNEY=1): what each one's story is, and what it came to.
+if os.getenv("JOURNEY") then
+    for _, r in ipairs(adventure.journey(c).rooms) do
+        print(string.format("  journey %s (S%d) %s: %s | %s", r.id, r.week or 0, tostring(r.outcome),
+            table.concat(r.chain or {}, " "), tostring(r.said)))
+    end
+end
+os.exit(failures == 0 and 0 or 1)

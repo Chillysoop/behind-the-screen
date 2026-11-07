@@ -57,7 +57,7 @@ function M.find_project()
     end
     local function is_project(dir)
         local s = read_file(dir .. "/game.project")
-        return s and string.find(s, "Behind the Screen", 1, true) and dir or nil
+        return s and string.find(string.lower(s), "behind the screen", 1, true) and dir or nil
     end
     local app = sys.get_application_path()
     local listed = read_file(app .. "/project_path.txt")
@@ -294,6 +294,7 @@ function M:pick(trigger, speaker, ctx)
     local fresh, aimed = {}, {}
     for _, l in ipairs(pool) do
         local ok = self:usable(l) and not (ctx.recent and ctx.recent[l.id]) and not needs_missing(l, ctx.missing)
+            and not (self.exclude and self.exclude(l))
             and not (ctx.openers and ctx.openers[M.opener(l.text)])
         if ok and l.mentions and ctx.present then
             for key in pairs(l.mentions) do
@@ -302,6 +303,10 @@ function M:pick(trigger, speaker, ctx)
         end
         -- "What you said last week" can't be said in the first session.
         if ok and ctx.first_week and l.looks_back then
+            ok = false
+        end
+        -- (A line that has to be true in this moment: game/model/barks.lua.)
+        if ok and ctx.fits and not ctx.fits(l) then
             ok = false
         end
         if ok and l.again and ctx.again == false then

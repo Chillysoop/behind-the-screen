@@ -1,6 +1,7 @@
 -- Session report labels and the tells shown under each player on game night.
--- What players write in the group chat and say for the report lives in the
--- dialogue library (game/data/dialogue/, triggers chat_* and report_quote).
+-- What players say for the report lives in the dialogue library (game/data/dialogue/,
+-- the report_quote trigger); the group chat between sessions is the adventure's own
+-- (museum_week.write_chat).
 -- Data only: tune freely.
 
 return {

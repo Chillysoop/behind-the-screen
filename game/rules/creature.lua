@@ -124,7 +124,11 @@ function M.weapon_attack(c, weapon_id, opts)
     local ability = M.abmod(c, ab_name)
     local thrown = opts.thrown and w.thrown
     local ranged = w.kind == "ranged" or thrown
-    local to_hit = ability + c.pb + (c.magic_weapon or 0)
+    -- (A +1, +2 or +3 Weapon from the party's things is one weapon: the hero's main one, game/model/items.lua. The
+    -- Magic Weapon spell's bonus is on whatever they hold.)
+    local item = (c.item_weapon_id == weapon_id and not opts.offhand) and (c.item_weapon or 0) or 0
+    local magic = (c.magic_weapon or 0) + item
+    local to_hit = ability + c.pb + magic
     if ranged and c.feats.archery then
         to_hit = to_hit + 2               -- Archery (p. 87)
     end
@@ -133,12 +137,12 @@ function M.weapon_attack(c, weapon_id, opts)
     if opts.two_handed and w.versatile then
         die = w.versatile
     end
-    local dmg_bonus = ability + (c.magic_weapon or 0)
+    local dmg_bonus = ability + magic
     if ranged and c.item_bow_damage and (weapon_id == "longbow" or weapon_id == "shortbow") then
         dmg_bonus = dmg_bonus + c.item_bow_damage   -- Bracers of Archery (A13)
     end
     if opts.offhand and not c.feats.two_weapon_fighting and ability > 0 then
-        dmg_bonus = (c.magic_weapon or 0)  -- Light extra attack adds no positive modifier (p. 89)
+        dmg_bonus = magic                 -- Light extra attack adds no positive modifier (p. 89)
     end
     local heavy_penalty = w.heavy and ((not ranged and c.abilities.str < 13) or (ranged and c.abilities.dex < 13))
     return {
@@ -155,6 +159,8 @@ function M.weapon_attack(c, weapon_id, opts)
         heavy_disadvantage = heavy_penalty,
         offhand = opts.offhand,
         crit_range = c.crit_range or 20,
+        magical = item > 0 or nil,         -- (a magic weapon's blow is magic: resistances, battle.lua)
+        item_bonus = item > 0 and item or nil,
     }
 end
 
@@ -181,7 +187,7 @@ function M.new_pc(sheet)
         masteries = set_of(sheet.masteries),
         feats = set_of(sheet.feats), traits = set_of(species.traits),
         resist = set_of(species.resist), vulnerable = {}, immune = {}, condition_immune = {},
-        casting = cls.casting, cantrips = sheet.cantrips or {}, prepared = sheet.prepared or {},
+        casting = cls.casting, cantrips = sheet.cantrips or {}, prepared = sheet.prepared or {}, rituals = sheet.rituals,
         tags = {},
     })
     for _, ab in ipairs(ABILITIES) do
@@ -276,6 +282,9 @@ function M.new_monster(id, name_suffix)
         ac_fixed = d.ac, hp = d.hp, hp_max = d.hp,
         resist = set_of(d.resist), vulnerable = set_of(d.vulnerable), immune = set_of(d.immune),
         condition_immune = set_of(d.condition_immune),
+        -- The Museum of Nightmares (v2): Resistance only to attacks that aren't magical, and a
+        -- weakness for paint-touched weapons.
+        resist_nonmagical = d.resist_nonmagical and set_of(d.resist_nonmagical) or nil, paint_vulnerable = d.paint or nil,
         traits = set_of(d.traits), feats = {}, masteries = {},
         attacks = d.attacks, multiattack = d.multiattack,
         bonus_actions = set_of(d.bonus), reactions = set_of(d.reactions),
@@ -310,6 +319,8 @@ function M.monster_attack(c, a, as_ranged)
         -- The Vale Bestiary (A13): grapple (escape DC), pull, mark, drain, swarm damage.
         grapple = a.grapple, pull = a.pull, mark = a.mark, drain = a.drain,
         bloodied_damage = a.bloodied_damage, adv_vs_grappled = a.adv_vs_grappled,
+        -- The Museum of Nightmares (v2): a charge, fists that knock out.
+        charge = a.charge, nonlethal = a.nonlethal,
         crit_range = 20,
         thrown_ammo = a.ammo and a.id or nil,
     }

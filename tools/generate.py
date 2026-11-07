@@ -20,10 +20,8 @@ import numpy as np
 import gen_meshes as gm
 import gen_sprites
 import gen_sprites_m4
-import gen_terrain
 import gen_textures as gt
 import gen_ui
-import terrain_layout
 from gen_common import ROOT, path
 
 # ----------------------------------------------------------------- layout
@@ -31,6 +29,7 @@ from gen_common import ROOT, path
 TABLE_Y = 75.0
 MAT_Y = TABLE_Y + 0.15
 MAT_X0, MAT_Z0, MAT_W, MAT_H = -56.0, -34.5, 100.0, 65.0
+GRID_W, GRID_H = 20, 13       # the battle mat's squares: x west to east, y north to south (game/model/board.lua)
 BASE_TOP = MAT_Y + 0.6
 TRAY = dict(cx=60.0, cz=33.0, w=24.0, d=18.0, wall=1.2, h=4.0, base=0.6)
 FELT_Y = TABLE_Y + TRAY["base"] + 0.02
@@ -77,18 +76,22 @@ PEOPLE = [  # name, (x, z)
     ("jess", (34.0, -80.0)),
     ("sam", (106.0, -14.0)),
 ]
-PERSON_SCALE = 0.21
+PERSON_SCALE = 0.20     # (0.21 till November 5: smaller, so faces fit the Table view, C2)
 # Whole bodies on chairs (A9): the standee reaches the floor, the head where it always was.
 PERSON_PX = (300, 655)
 PERSON_BOTTOM = 0.0
 
 PRESETS = [
     dict(name="Room", eye=(232.0, 212.0, 290.0), target=(-8.0, 84.0, -24.0), fov=42.0, drift=2.0),
-    dict(name="Table", eye=(-4.0, 160.0, 110.0), target=(-4.0, 75.0, -6.0), fov=46.0, drift=0.8),
+    # (Wider, and a touch higher: every face at the table in view, the back two under the top bar and the two
+    # at the sides inside the screen. Conner's playtest, C2. The eye stays put: sight.lua's EYE_* read it.)
+    dict(name="Table", eye=(-4.0, 160.0, 110.0), target=(-4.0, 80.0, -10.0), fov=54.0, drift=0.8),
     dict(name="Imagination", eye=(-33.0, 90.0, 24.0), target=(8.0, 79.0, -16.0), fov=40.0, drift=0.25),
     dict(name="Dice tray", eye=(58.0, 118.0, 78.0), target=(60.0, 76.0, 33.0), fov=30.0, drift=0.15),
 ]
-LARGE = {"ogre": 1.45, "dire_wolf": 1.3, "npc_ghost": 1.0}
+LARGE = {"ogre": 1.45, "dire_wolf": 1.3,
+         # The museum's Large monsters (tools/gen_sprites_museum.py).
+         "sentinel": 1.25, "bone_construct": 1.25, "steam_mech": 1.3}
 
 PAL = gt.palette_uv
 
@@ -254,8 +257,19 @@ def mug(x, z, colour, rng):
     m.add(gm.cylinder((x, TABLE_Y, z), 4.0, 4.2, 9.5, 18, sw, caps=(True, False)))
     m.add(gm.cylinder((x, TABLE_Y + 0.6, z), 3.6, 3.8, 8.9, 18, sw, caps=(False, False), inside=True))
     m.add(gm.cylinder((x, TABLE_Y + 9.5, z), 4.2, 3.8, 0.01, 18, sw, caps=(False, False)))
-    m.add(gm.cylinder((x, TABLE_Y + 7.4, z), 3.6, 3.6, 0.01, 18, gm.swatch(PAL("coffee")), caps=(False, True)))
+    # (The coffee is its own model, so it goes down as the night goes on: drink(), main/snacks/snacks.script.)
     m.add(gm.box((x + 4.8, TABLE_Y + 5, z), (1.6, 5, 1.4), sw))
+    return m
+
+
+MUGS = [(-66.0, 22.0), (-60.0, -42.0), (66.0, 6.0)]
+DRINK_TOP = 7.4          # the coffee's surface in a full mug, above the table
+
+
+def drink():
+    """The coffee in a mug, around its own origin (the surface's middle): drunk over game night (C10)."""
+    m = gm.Mesh()
+    m.add(gm.cylinder((0.0, 0.0, 0.0), 3.62, 3.62, 0.01, 18, gm.swatch(PAL("coffee")), caps=(False, True)))
     return m
 
 
@@ -360,57 +374,6 @@ def pizza_slice(k):
         r = 2.6 + j * 2.2 + rng.uniform(-0.3, 0.3)
         m.add(gm.cylinder((math.cos(a) * r, base + 0.55, math.sin(a) * r), 0.95, 0.95, 0.12, 10,
                           gm.swatch(PAL("mug_red")), caps=(False, True)))
-    return m
-
-
-def terrain():
-    stone = gm.triplanar(12)
-    rocks = gm.Mesh()
-    for (x, z, r, s) in [(22.0, -28.0, 4.2, 1), (27.5, -23.5, 3.0, 2), (18.5, -31.0, 2.4, 3), (32.0, -28.0, 2.0, 4),
-                         (40.0, -14.0, 2.6, 5), (-48.0, 22.0, 3.0, 6), (-6.0, 22.0, 1.8, 7)]:
-        rk = gm.rock((x, MAT_Y + r * 0.35, z), r, s, stone)
-        rocks.add(gm.flatten_below(rk, MAT_Y))
-    # campfire ring
-    fx, fz = FIRE
-    for k in range(9):
-        a = k / 9 * 2 * math.pi
-        rk = gm.rock((fx + math.cos(a) * 3.6, MAT_Y + 0.45, fz + math.sin(a) * 3.6), 1.1, 20 + k, stone, squash=0.8)
-        rocks.add(gm.flatten_below(rk, MAT_Y))
-    # ruined wall
-    ruin = gm.Mesh()
-    rng = np.random.default_rng(9)
-    for row in range(3):
-        n_blocks = [4, 3, 1][row]
-        for b in range(n_blocks):
-            x = 25.0 + b * 4.6 + (2.3 if row % 2 else 0) + rng.uniform(-0.3, 0.3)
-            blk = gm.box((0, 0, 0), (4.3, 3.0, 3.4), stone)
-            ruin.add(blk.transformed(yaw=rng.uniform(-0.08, 0.08),
-                                     offset=(x, MAT_Y + 1.5 + row * 3.05, -3.0 + rng.uniform(-0.3, 0.3))))
-    fallen = gm.box((0, 0, 0), (4.3, 3.0, 3.4), stone)
-    ruin.add(fallen.transformed(yaw=0.7, roll=0.15, offset=(31.0, MAT_Y + 1.5, 2.5)))
-    # trees
-    trees = gm.Mesh()
-    tx, tz = -50.0, -15.0
-    trees.add(gm.cylinder((tx, MAT_Y, tz), 1.3, 1.0, 7, 8, gm.swatch(PAL("bark"))))
-    for (y0, r, h, c) in [(5, 7.0, 9, "leaf_b"), (10, 5.5, 8, "leaf_a"), (15, 3.8, 7, "leaf_c")]:
-        trees.add(gm.cylinder((tx, MAT_Y + y0, tz), r, 0.0, h, 9, gm.swatch(PAL(c)), smooth=False))
-    bx, bz = 38.0, -27.0
-    trees.add(gm.cylinder((bx, MAT_Y, bz), 1.0, 0.8, 4, 8, gm.swatch(PAL("bark"))))
-    for (dx, dy, dz, r, c, s) in [(0, 7, 0, 4.5, "leaf_a", 31), (2.5, 5.5, 1.5, 3.4, "leaf_b", 32), (-2.5, 6, -1, 3.2, "leaf_c", 33)]:
-        trees.add(gm.rock((bx + dx, MAT_Y + dy, bz + dz), r, s, gm.swatch(PAL(c)), squash=0.9))
-    # campfire logs
-    logs = gm.Mesh()
-    for k, a in enumerate((0.3, 1.35, 2.4)):
-        lg = gm.box((0, 0, 0), (6.0, 1.1, 1.1), gm.swatch(PAL("log")))
-        logs.add(lg.transformed(yaw=a, roll=0.18 * (1 if k % 2 else -1), offset=(fx, MAT_Y + 0.9, fz)))
-    return rocks, ruin, trees, logs
-
-
-def bases():
-    m = gm.Mesh()
-    for (name, (x, z), sw) in MINIS:
-        m.add(gm.cylinder((x, MAT_Y, z), 2.25, 2.1, 0.6, 20, gm.swatch(PAL(sw))))
-        m.add(gm.cylinder((x, MAT_Y + 0.6, z), 1.6, 1.6, 0.01, 20, gm.swatch(PAL("base")), caps=(False, True)))
     return m
 
 
@@ -699,6 +662,9 @@ def main():
         snack_comps.append((name, f"/main/snacks/{name}.model"))
     snack_comps.append(("snacks", "/main/snacks/snacks.script"))
     w("main/snacks/pizza.go", go_file(snack_comps))
+    gm.write_glb(path("assets/meshes", "drink.glb"), drink(), "drink")
+    w("main/snacks/drink.model", model_file("drink", T + "palette.png"))
+    w("main/snacks/drink.go", go_file([("model", "/main/snacks/drink.model")]))
     gm.write_glb(path("assets/meshes", "chips.glb"), chips(), "chips")
     w("main/snacks/chips.model", model_file("chips", T + "palette.png"))
     w("main/snacks/chips.go", go_file([("model", "/main/snacks/chips.model")]))
@@ -778,15 +744,17 @@ def main():
                                       ("base_factory", "/main/table/base.factory"),
                                       ("shadow_factory", "/main/table/shadow.factory"),
                                       ("spark_factory", "/main/table/spark.factory"),
-                                      ("mark_factory", "/main/table/mark.factory")]))
+                                      ("mark_factory", "/main/table/mark.factory"),
+                                      ("ring_factory", "/main/table/ring.factory")]))
+    w("main/table/ring.factory", 'prototype: "/main/fx/ring.go"\n')     # status rings (tools/gen_ring.py)
 
     # sprites: atlas, minis, people (with poses), glows
     import gen_sprites_a13
     import gen_pregens
-    import gen_sprites_npcs
+    import gen_sprites_museum
     mini_names = ([m[0] for m in MINIS] + gen_sprites_m4.MONSTERS + gen_sprites_m4.NPCS
                   + [f.__name__ for f in gen_sprites_a13.BUILD] + ["pregen_" + k for k in gen_pregens.PREGENS]
-                  + gen_sprites_npcs.NEW)
+                  + [f.__name__ for f in gen_sprites_museum.BUILD])
     people_names = [p[0] for p in PEOPLE]
     pose_names = [f"{p}_{pose}" for p in people_names for pose in gen_sprites.POSES if pose != "neutral"]
     sprite_names = mini_names + people_names + pose_names + ["chair_empty", "flame", "halo"]
@@ -796,8 +764,13 @@ def main():
 
     for (name, _) in PEOPLE:
         w(f"main/people/{name}.sprite", sprite_file(name, "/materials/standee.material"))
-        w(f"main/people/{name}.go", go_file([("sprite", f"/main/people/{name}.sprite"),
-                                             ("person", "/main/people/person.script")]))
+        # Their outline (the playtest, November 3): the same picture in one flat colour, a little
+        # bigger and just behind, shown while they talk or think (person.script, "outline").
+        w(f"main/people/{name}_outline.sprite", sprite_file(name, "/materials/outline.material"))
+        w(f"main/people/{name}.go", go_file([("sprite", f"/main/people/{name}.sprite")])
+          + ('components {\n  id: "outline"\n  component: "/main/people/' + name + '_outline.sprite"\n'
+             + vec("position", (0, 0, -4)) + vec("rotation", (0, 0, 0, 1)) + vec("scale", (1.06, 1.035, 1.0)) + "}\n")
+          + go_file([("person", "/main/people/person.script")]))
     w("main/fx/flame.sprite", sprite_file("flame", "/materials/glow.material"))
     w("main/fx/flame.go", go_file([("sprite", "/main/fx/flame.sprite"), ("flame", "/main/fx/flame.script")]))
     w("main/fx/halo.sprite", sprite_file("halo", "/materials/glow.material"))
@@ -828,6 +801,8 @@ def main():
     col += instance("audio", "/main/audio/audio.go")  # sounds: tools/gen_audio.py
     col += instance("pizza", "/main/snacks/pizza.go", PLATE)
     col += instance("chips", "/main/snacks/chips.go", CHIPS_ORIGIN)
+    for i, (mx, mz) in enumerate(MUGS):
+        col += instance(f"drink_{i + 1}", "/main/snacks/drink.go", (mx, TABLE_Y + DRINK_TOP, mz))
     col += instance("lamp", "/main/lamp/lamp.go", LAMP_PIVOT)
     bulb = tuple(a + b for a, b in zip(LAMP_PIVOT, BULB_OFFSET))
     col += instance("lamp_halo", "/main/fx/halo.go", (bulb[0], bulb[1] - 2, bulb[2]), scale=0.22)
@@ -861,7 +836,7 @@ def main():
     lua.append(f"    fire = {lua_vec((FIRE[0], MAT_Y, FIRE[1]))},")
     lua.append("    -- battle mat grid (M4): square (x, y) is 1-based, x west to east, y north to south")
     lua.append(f"    grid = {{ x0 = {fmt(MAT_X0)}, z0 = {fmt(MAT_Z0)}, size = 5, y = {fmt(MAT_Y)}, base_top = {fmt(BASE_TOP)}, "
-               f"w = {terrain_layout.GRID_W}, h = {terrain_layout.GRID_H} }},")
+               f"w = {GRID_W}, h = {GRID_H} }},")
     lua.append(f"    mini = {{ scale = {fmt(MINI_SCALE)}, height = {fmt(art_h)} }},")
     lua.append("    large = { " + ", ".join(f"{k} = {fmt(v)}" for k, v in LARGE.items()) + " },")
     # Where each standee's art starts (share of the sprite from the top), so HP bars sit just over the head.

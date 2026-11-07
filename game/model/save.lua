@@ -65,7 +65,7 @@ local function content_paths()
     local queue = {}
     for _, k in ipairs(sorted_keys(content)) do
         local v = content[k]
-        if type(v) == "table" and not paths[v] and not rawget(v, "runtime") then
+        if type(v) == "table" and not paths[v] then
             paths[v] = { k }
             table.insert(queue, v)
         end
@@ -77,9 +77,7 @@ local function content_paths()
         local base = paths[t]
         for _, k in ipairs(sorted_keys(t)) do
             local v = rawget(t, k)
-            -- Cards a campaign made for itself (rawget(v, "runtime")) aren't game data: the
-            -- campaign keeps them in campaign.registered and they're saved with it.
-            if type(v) == "table" and not paths[v] and not rawget(v, "runtime") then
+            if type(v) == "table" and not paths[v] then
                 local p = {}
                 for j = 1, #base do
                     p[j] = base[j]
@@ -125,8 +123,17 @@ local function path_src(p)
     return "{" .. table.concat(parts, ",") .. "}"
 end
 
--- campaign -> string
-function M.dump(campaign)
+-- A line of plain words for the save's header (what the Load list shows): no newlines, no quotes,
+-- plain ASCII.
+local function header_words(text)
+    text = string.gsub(tostring(text or ""), "[\r\n]+", " ")
+    text = string.gsub(text, "[^%w%s%.,:;!%?'%-%(%)]", "")
+    return string.sub(text, 1, 120)
+end
+
+-- campaign -> string. meta (optional): { time = os.time() when saved, where = a line on where the
+-- story stands, done = the adventure is over }, for the Load list; a save without them still loads.
+function M.dump(campaign, meta)
     local cls = classes()
     local class_name = {}
     for name, mt in pairs(cls) do
@@ -173,6 +180,11 @@ function M.dump(campaign)
         local t = order[i]
         local mt = getmetatable(t)
         local fields = {}
+        -- (The flags' watcher, adventure.watch_flags: a plain table to save; it's watched again when the
+        -- adventure is entered after a load.)
+        if mt and mt.__flags_view then
+            mt = nil
+        end
         if mt then
             local name = class_name[mt]
             if not name then
@@ -199,6 +211,19 @@ function M.dump(campaign)
     end
     local head = string.format("F=%d\nW=%d\nS=%s\nQ=%d\nN=%d\nP=%d\n", M.FORMAT, campaign.week or 0, num(campaign.seed or 0),
         campaign.slice_survey_done and 1 or 0, campaign.at_night and 1 or 0, (campaign.at_prep and not campaign.at_night) and 1 or 0)
+    if meta and meta.time then
+        head = head .. "D=" .. string.format("%d", meta.time) .. "\n"
+    end
+    if meta and meta.done then
+        head = head .. "X=1\n"
+    end
+    if meta and meta.where and meta.where ~= "" then
+        head = head .. "L=" .. header_words(meta.where) .. "\n"
+    end
+    -- (Which adventure it is, so the title can say so and a load switches to it first.)
+    if type(campaign.module) == "string" and string.match(campaign.module, "^[%w_]+$") then
+        head = head .. "A=" .. campaign.module .. "\n"
+    end
     return head .. table.concat(out, "\n") .. "\n"
 end
 
@@ -280,8 +305,12 @@ function M.peek(src)
     if not (f and w) then
         return nil
     end
+    -- (The header ends where the tables start: D and L are only looked for before the first one.)
+    local head = string.match(src, "^(.-)\nT%[") or src
     return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil,
-             at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil }
+             at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil,
+             time = tonumber(string.match(head, "\nD=(%d+)")), where = string.match(head, "\nL=([^\n]*)"),
+             done = string.match(head, "\nX=1") ~= nil, adventure = string.match(head, "\nA=([%w_]+)") }
 end
 
 -- string -> campaign, or nil and why.
@@ -292,6 +321,14 @@ function M.load(src)
     end
     if head.format ~= M.FORMAT then
         return nil, "saved by a different version"
+    end
+    -- (A save from another adventure: that adventure first, so what loads reads its data. An old save has no A=,
+    -- and is the museum's.)
+    local adv = require("game.model.util").lazy("game.model.adventure")
+    local want = head.adventure or "museum"
+    if require("game.data.adventures").list[want] and adv.current() ~= want then
+        adv.use(want)
+        adv.enter()
     end
     local env, err = compile(src)
     if not env then
@@ -350,8 +387,34 @@ function M.load(src)
     if campaign.at_prep and not campaign.prep then
         campaign.at_prep = nil
     end
-    for _, card in ipairs(campaign.registered or {}) do
-        content.register(card)
+    -- A save from before the inventory (the second playtest review, F10) held what the party carried
+    -- in flags, marks and who-picked-it-up notes, and the potions on the sheets: into each hero's
+    -- inventory it goes (items.start, once).
+    -- A save from before the event log (R7) has its story in st.path, st.marks, the packs and st.favors:
+    -- into the log it goes, once, before anything reads it (events.start), so what the people
+    -- remember and the favors they owe come out the same.
+    require("game.model.events").start(campaign)
+    require("game.model.items").start(campaign)
+    -- A save from before the confirming playtest's fixes logged a mark someone else put on her card
+    -- between sessions (Flitwidget's Steam Mech) as the party's: the log says whose it was now.
+    require("game.model.adventure").mend_marks_by(campaign)
+    -- A save from before November 4 kept the stunts said lately by their place in a longer list
+    -- (game/data/table_behaviors.lua): the two that can still play now go by their ids.
+    local said = campaign.stunts_said
+    if said then
+        local OLD_STUNTS = { [2] = "draw_fire", [6] = "hold_the_line" }
+        local places = {}
+        for k in pairs(said) do
+            if type(k) == "number" then
+                table.insert(places, k)
+            end
+        end
+        for _, k in ipairs(places) do
+            if OLD_STUNTS[k] then
+                said[OLD_STUNTS[k]] = said[k]
+            end
+            said[k] = nil
+        end
     end
     return campaign
 end

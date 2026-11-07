@@ -3,6 +3,7 @@
 -- an Ability Score Improvement.
 
 local kit = require "game.ui.kit"
+local panels = require "game.ui.panels"
 local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
 local content = require "game.model.content"
@@ -47,6 +48,31 @@ function M.close(app)
     app.refresh()
 end
 
+-- The ability a hero's level-4 improvement raised: { name, from, to, does }, from their sheets at
+-- levels 3 and 4 (game/rules/party.lua), or nil.
+local DOES = {
+    str = "Their weapon hits harder and more often.", dex = "Harder to hit, quicker off the mark, and their weapon lands more often.",
+    con = "More hit points.", int = "Their spells are harder to resist and hit more often.",
+    wis = "Their spells are harder to resist, and they notice more.", cha = "Better at talking anyone round.",
+}
+function M.ability_up(c, p)
+    local party = require "game.rules.party"
+    local sheet = require "game.model.sheet"
+    local sub = c.subclasses and c.subclasses[p.class] or nil
+    local ok3, a = pcall(party.sheet, p.class, 3, sub)
+    local ok4, b = pcall(party.sheet, p.class, 4, sub)
+    if not (ok3 and ok4 and a and b) then
+        return nil
+    end
+    for _, ab in ipairs(sheet.ABILITIES) do
+        local was, now = a.abilities[ab] or 0, b.abilities[ab] or 0
+        if now > was then
+            return { id = ab, name = sheet.ABILITY_NAMES[ab], from = was, to = now, does = DOES[ab] or "" }
+        end
+    end
+    return nil
+end
+
 function M.modal(app)
     local m = app.levelup
     if not m then
@@ -60,12 +86,22 @@ function M.modal(app)
     kit.text(x + w / 2, y + 22, "LEVEL " .. util.int(m.level) .. "!", "title30", theme.gold, { pivot = gui.PIVOT_N })
     local sub = m.level == 3 and "Everyone picks a subclass. You don't get a say, and that's the fun part."
         or "Everyone takes an Ability Score Improvement: +2 to their best ability."
+    -- (Under the headline, not on it: the third playtest's engine run, 8_28.)
     kit.text(x + w / 2, y + 64, sub, "ui18", theme.dim, { pivot = gui.PIVOT_N })
+    -- (The refill a new level brings, said out loud: F23. With the prologue over there's no "next
+    -- session" to be back to full for: the third playtest, 8_56.)
+    local refill = m.refill
+    if refill and c.adv and c.adv.ending then
+        refill = string.gsub(refill, ", for next session%.", ", ready for whatever comes next.")
+    end
+    if refill then
+        kit.text(x + w / 2, y + 88, refill, "ui18", theme.green, { pivot = gui.PIVOT_N, w = w - 80, lines = 1 })
+    end
     local cw, gap = 310, 20
     local cx0 = x + (w - (4 * cw + 3 * gap)) / 2
-    for i, p in ipairs(c.players) do
+    for i, p in ipairs(panels.seated(c.players)) do
         local cx = cx0 + (i - 1) * (cw + gap)
-        local cy = y + 104
+        local cy = y + 116
         kit.box(cx, cy, cw, 540, theme.panel, { radius = 10 })
         kit.text(cx + 16, cy + 12, p.name, "ui22b", theme.text)
         kit.text(cx + 16, cy + 42, p.char .. ", " .. p.class_name, "ui18", theme.dim)
@@ -102,8 +138,20 @@ function M.modal(app)
                 kit.text(cx + 16, ty, "More on their character sheet (Features).", "ui14", theme.faint)
             end
         else
-            kit.text(cx + 16, ty, "+2 to their best ability", "ui18b", theme.gold, { w = cw - 32 })
-            ty = ty + 34
+            -- Which ability, from what to what, and what it does at the table (the third playtest's
+            -- engine run, 8_56: every card said only "+2 to their best ability").
+            local up = M.ability_up(c, p)
+            if up then
+                kit.text(cx + 16, ty, "+2 " .. string.upper(up.name), "ui22b", theme.gold, { w = cw - 32, lines = 1 })
+                ty = ty + 32
+                kit.text(cx + 16, ty, up.name .. " " .. util.int(up.from) .. " to " .. util.int(up.to) .. ". " .. up.does, "ui14",
+                    theme.text, { w = cw - 32, lines = 4 })
+                ty = ty + kit.text_height(up.name .. " " .. util.int(up.from) .. " to " .. util.int(up.to) .. ". " .. up.does, "ui14",
+                    cw - 32) + 12
+            else
+                kit.text(cx + 16, ty, "+2 to their best ability", "ui18b", theme.gold, { w = cw - 32 })
+                ty = ty + 34
+            end
         end
         if line then
             kit.box(cx + 16, qy, cw - 32, qh, kit.rgba("#f3df8a"), { radius = 4 })

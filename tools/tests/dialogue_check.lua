@@ -107,9 +107,9 @@ for _ = 1, 40 do
     end
 end
 for _ = 1, 20 do
-    local l = lib:pick("chat_reaction", "jess", { split = "bored", rng = rng })
+    local l = lib:pick("report_quote", "jess", { split = "bored", rng = rng })
     if not l or l.tier ~= "bored" then
-        problem("chat_reaction for the bored tier picked " .. tostring(l and l.tier))
+        problem("report_quote for the bored tier picked " .. tostring(l and l.tier))
         break
     end
 end

@@ -1,0 +1,61 @@
+-- The path from the lord's road to Noke's Tower (the book gives it in words only, page 4): ours, in our
+-- pieces. The road is off the west edge; the path winds east and climbs towards the tower.
+
+id: sheep_woods_path
+title: The path through the oaks
+light: day
+adventure: sheep
+room: woods_path
+source: adventure
+credit: The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild): the way to the tower
+about: A well-used path winding east through tall oaks, churned with feet and paws.
+tags: outdoors, woods, path
+order: 4
+party: 2,9
+foes: 18,6
+npc: 9,8
+
+grid:
+|..................T.|
+|.T...r..T...T..T....|
+|....T....P......*...|
+|T..P.......T......==|
+|...............=====|
+|..*...====...=====..|
+|...============.....|
+|======....===...P...|
+|===....*.FFF.*.....T|
+|.....T...*.......T..|
+|.P....T.......T.....|
+|..T....P..T..P....P.|
+|*...................|
+
+legend:
+-- char | kind | feature | turn
+=       | paving          | path       | 
+T       | oak             | oaks       | 
+P       | pine            | pines      | 
+*       | bush            | bushes     | 
+F       | fallen_log      | log        | 0
+r       | rock            | rocks      | 
+
+pieces:
+-- feature | kind | x,y | turn
+ground     | floor_grass  | 1,1 | 
+
+features:
+-- id | flags | words | say
+ground     | base      | woods, ground, grass, oaks | woods of tall oaks
+path       | base      | path, track, trail | a well-used path
+oaks       |           | oak, oaks, trees | tall oaks
+pines      |           | pine, pines, trees | a few dark pines among the oaks
+bushes     |           | bush, bushes, undergrowth | undergrowth
+log        |           | log, fallen tree | a fallen oak
+rocks      |           | rock, stone | a mossy rock
+
+spots:
+-- key | x,y | name | line | form
+tracks | 8,7 | the churned ground | Boots, bare feet and paws, a lot of them, all going the same way. | one area
+gap | 2,7 | the gap in the bushes | Where the path leaves the lord's road and goes off into the oaks. | one area
+log | 11,8 | the fallen oak | A great oak down across the undergrowth, its roots in the air. | one fixture
+bend | 18,4 | the last bend | The path climbs here, and there's light through the trees ahead. | one area

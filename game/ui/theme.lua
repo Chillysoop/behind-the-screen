@@ -59,17 +59,14 @@ return {
         screen = c("#2e2620"),
         pacing = c("#9a7432"),
         table = c("#3f7f7a"),
-        curveball = c("#8f4f6a"),
-        agency = c("#2f6f5a"),
         talk = c("#5a6f2f"),
         boss = c("#7a2f2f"),
-        skew = c("#2f5f6f"),
     },
     log = {
         narration = c("#e9dcc3"),
+        interlude = c("#e39aa8"),      -- v2: Euryale, upstairs, thinking
         goal = c("#e8b04a"),
         thread = c("#c2a8f0"),
-        seed = c("#9fd08a"),
         twist = c("#e08a4a"),
         dm = c("#8cc7bf"),
         warn = c("#e07a68"),
@@ -87,5 +84,9 @@ return {
         clue = c("#e8b04a"),
         bridge = c("#e9dcc3"),
         aside = c("#8a7c6a"),
+        screen = c("#b4aec4"),         -- a note only you know (behind your screen), quieter than speech
+        thought = c("#cdbcf0"),        -- v2: what a friend is thinking and not saying
     },
+    -- v2: a friend's thought (the cloud above their panel, its bubble and its card).
+    think = { bg = c("#e7def3"), hover = c("#f4eefb"), ink = c("#2e2440"), dim = c("#6c5d86") },
 }

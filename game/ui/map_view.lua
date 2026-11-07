@@ -1,9 +1,9 @@
--- Set the stage: the map half of the fight builder (B9 rebuilt on the SRD). The place's board on
--- the 20 x 13 grid, its own scenery shown dark; pick a set piece (a table is Half Cover, a pillar
--- Three-Quarters, a wall Total Cover, a door opens, ice is slippery, a torch lights the dark) and
--- click to set it down. Click your own piece again to turn it, or to work a door (shut, open,
--- locked). Clear takes a piece off, or the place's own scenery. The map is saved with the place
--- (game/model/maps.lua) and the table sets it out as the place from then on.
+-- The map maker (B9 rebuilt on the SRD), on one of the DM's own maps from the map repository
+-- (game/ui/map_repo_view.lua). The board on the 20 x 13 grid, its own scenery shown dark; pick a
+-- set piece (a table is Half Cover, a pillar Three-Quarters, a wall Total Cover, a door opens, ice
+-- is slippery, a torch lights the dark) and click to set it down. Click your own piece again to
+-- turn it, or to work a door (shut, open, locked). Clear takes a piece off, or the place's own
+-- scenery. The map is saved with the campaign (game/model/maps.lua).
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
@@ -19,13 +19,14 @@ local M = {}
 M.CELL = 38
 local GROUP_COLOR = {
     Furniture = kit.rgba("#9a7442"), ["Walls and doors"] = kit.rgba("#8a8178"), Cover = kit.rgba("#b08a5a"),
-    Ground = kit.rgba("#5c7a42"), Light = kit.rgba("#e0a640"), ["Traps, starts"] = kit.rgba("#8a52a0"),
+    Ground = kit.rgba("#5c7a42"), Light = kit.rgba("#e0a640"), Museum = kit.rgba("#5a86a0"),
+    ["Traps, starts"] = kit.rgba("#8a52a0"),
 }
 local ICE = kit.rgba("#9cc6d8")
 local TRAP = kit.rgba("#8a52a0")
 local TEMPLATE_NAME = { camp = "Camp", forest = "Woods", road = "Road", ruins = "Ruins", underground = "Underground",
                         tavern = "Tavern", town = "Street", market_generic = "Market", bridge = "Bridge", dock = "Waterside",
-                        blank = "Open ground" }
+                        museum_hall = "Museum hall", blank = "Open ground" }
 local FACING = { [0] = "facing south", "facing west", "facing north", "facing east" }
 
 local function group_of(kind)
@@ -42,6 +43,22 @@ local function group_of(kind)
     return "Furniture"
 end
 
+-- The palette group a tool is in (a piece's kind, or a tool's id such as "wall" or "trap").
+local function group_holding(key)
+    for _, grp in ipairs(maps.PALETTE) do
+        for _, it in ipairs(grp.items) do
+            if (it.id or it.kind) == key then
+                return grp.group
+            end
+        end
+    end
+    return nil
+end
+
+local function slug(name)
+    return (string.gsub(string.gsub(string.lower(name), "[^%w]+", "_"), "_+$", ""))
+end
+
 -- The boards on offer for a place: its own first (when it has one), then the general ones.
 local function templates_for(auto)
     local list = {}
@@ -54,15 +71,16 @@ local function templates_for(auto)
     return list
 end
 
--- The scene's place, and its map (nil until the first piece goes down).
+-- The map being made, as a place (game/model/map_repo.lua keeps its pieces at
+-- campaign.maps["mine:<id>"]), and its map (nil until the first piece goes down).
 local function place_of(app)
-    local s = app.campaign.prep.scenes[app.enc_scene]
-    return s and s.slots.location, s
-end
-
-function M.map_of(app)
-    local loc = place_of(app)
-    return loc and maps.get(app.campaign, loc.id) or nil
+    local t = app.map_target
+    if t and t.mine then
+        local meta = app.campaign.my_maps and app.campaign.my_maps[t.mine]
+        local name = meta and meta.name or "your map"
+        return { id = "mine:" .. t.mine, name = name, short = name }, { type = "exploration", slots = {}, own = true }
+    end
+    return nil
 end
 
 local function redraw(app)
@@ -226,16 +244,13 @@ function M.draw(app, x, y, w, h, ids, hazard)
         kit.button(x + W * C - 150, ly - 4, 150, 26, "Turn (" .. FACING[app.map_rot or 0] .. ")", function()
             app.map_rot = ((app.map_rot or 0) + 1) % 4
             redraw(app)
-        end, { font = "ui14", key = "map_turn", enabled = fw ~= fh or props[kind].door ~= nil or kind == "stone_wall" or kind == "wall_room" })
+        -- (Walls and what hangs on them face a way, a corner wall turns round the room, and the
+        -- museum's statues and exhibits face a way too.)
+        end, { font = "ui14", key = "map_turn", enabled = fw ~= fh or props[kind].door ~= nil or props[kind].opaque == true
+            or group_holding(kind) == "Museum" })
     end
     local hint = app.map_why or "Click a square to set it down. Click your piece again to turn it; a door goes shut, open, locked."
     kit.text(x, ly + 26, hint, "ui14", app.map_why and theme.orange or theme.faint, { w = W * C })
-    if m and m.changed then
-        local ledger = require "game.model.ledger"
-        local st = ledger.place_state(app.campaign, loc.id)
-        kit.text(x, ly + 48, "The world changed this place since you set it" .. (st and (": " .. string.lower(st.label)) or "")
-            .. ". Check the map still fits.", "ui14", theme.orange, { w = W * C - 200 })
-    end
     M.key(x, ly + 84, W * C)
     if m then
         kit.button(x + W * C - 150, ly + 44, 150, 28, "Clear the map", function()
@@ -250,7 +265,7 @@ end
 function M.side(app, x, y, w, ids, hazard)
     local loc, s = place_of(app)
     local m = loc and maps.get(app.campaign, loc.id)
-    local auto = loc and maps.auto_template(app.campaign, loc, s.type)
+    local auto = loc and ((s.own and m and m.template) or maps.auto_template(app.campaign, loc, s.type))
     local function get_map(t)
         return maps.get(app.campaign, loc.id) or maps.new(app.campaign, loc.id, t or auto)
     end
@@ -293,15 +308,52 @@ function M.side(app, x, y, w, ids, hazard)
         kit.text(x, ty, lt.about, "ui14", theme.dim, { w = w, lines = 1 })
         ty = ty + 20
     end
-    -- The set pieces, by what they're for.
+    -- The set pieces, by what they're for: a tab for each group, that group's pieces under it, and the
+    -- traps and starts always there below. (One group at a time since the museum's pieces came,
+    -- October 30: every group open at once ran off the bottom of the builder.)
     local sel = app.map_piece or "table_round"
-    local iw = (w - 110 - 18) / 4
+    local groups, tools = {}, {}
     for _, grp in ipairs(maps.PALETTE) do
-        kit.text(x, ty + 5, grp.group, "ui14", theme.dim, { w = 104, lines = 2 })
+        table.insert(grp.tools and tools or groups, grp)
+    end
+    local open
+    local want = app.map_group or group_holding(sel)
+    for _, grp in ipairs(groups) do
+        if grp.group == want then
+            open = grp
+        end
+    end
+    open = open or groups[1]
+    kit.text(x, ty, "PIECES", "ui14", theme.gold)
+    ty = ty + 20
+    -- The tabs, each as wide as its name, spread to fill the row (on to a second row if they don't fit).
+    local widths, total = {}, 0
+    for i, grp in ipairs(groups) do
+        widths[i] = kit.width(grp.group, "ui14") + 30
+        total = total + widths[i]
+    end
+    local spare = math.max(0, (w - total - 6 * (#groups - 1)) / #groups)
+    local tx = x
+    for i, grp in ipairs(groups) do
+        local tw = widths[i] + spare
+        if tx > x and tx + tw > x + w + 0.5 then
+            tx, ty = x, ty + 30
+        end
+        kit.button(tx, ty, tw, 26, "", function()
+            app.map_group = grp.group
+            redraw(app)
+        end, { color = grp == open and theme.go or theme.panel2, hover = theme.button_hover, key = "map_group_" .. slug(grp.group) })
+        kit.box(tx + 7, ty + 8, 10, 10, GROUP_COLOR[grp.group] or theme.dim, { radius = 3 })
+        kit.text(tx + 22, ty + 4, grp.group, "ui14", theme.text, { w = tw - 26, lines = 1 })
+        tx = tx + tw + 6
+    end
+    ty = ty + 34
+    local iw = (w - 18) / 4
+    local function pieces(grp)
         for k, it in ipairs(grp.items) do
             local col, row = (k - 1) % 4, math.floor((k - 1) / 4)
             local key = it.id or it.kind
-            local bx, by = x + 110 + col * (iw + 6), ty + row * 30
+            local bx, by = x + col * (iw + 6), ty + row * 30
             kit.button(bx, by, iw, 26, "", function()
                 app.map_piece = key
                 app.map_why = nil
@@ -312,9 +364,15 @@ function M.side(app, x, y, w, ids, hazard)
                 or (key == "erase" and theme.faint) or GROUP_COLOR[grp.group], { radius = 3 })
             kit.text(bx + 22, by + 4, it.name, "ui14", theme.text, { w = iw - 26, lines = 1 })
         end
-        ty = ty + math.ceil(#grp.items / 4) * 30 + 4
+        ty = ty + math.ceil(#grp.items / 4) * 30
     end
-    ty = ty + 4
+    pieces(open)
+    for _, grp in ipairs(tools) do
+        kit.text(x, ty + 2, grp.group, "ui14", theme.dim)
+        ty = ty + 22
+        pieces(grp)
+    end
+    ty = ty + 8
     -- Which SRD trap the trap squares are.
     local hz = require "game.rules.data.hazards"
     local trap = (m and m.trap) or maps.TRAP
@@ -338,6 +396,12 @@ function M.side(app, x, y, w, ids, hazard)
         redraw(app)
     end, { font = "ui14", enabled = loc ~= nil, key = "map_trap" })
     ty = ty + 30
+    if s and s.own then
+        -- (One of the DM's own maps: no fight to weigh yet. The repository sets it for a room.)
+        kit.text(x, ty, "Saved in your maps. Back in the map repository, set it for a room or open it as a side room.",
+            "ui14", theme.faint, { w = w })
+        return
+    end
     -- How hard, with the map.
     local tilt, why = maps.tilt(m)
     local a = matchup.analyze(app.campaign, ids, hazard, tilt)

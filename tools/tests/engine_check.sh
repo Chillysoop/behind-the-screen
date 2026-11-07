@@ -3,14 +3,14 @@
 # Lua tests can't: sound, the evening light, the snack table, saving to disk and
 # continuing a saved campaign. Linux only (Xvfb + Mesa); not needed on Windows.
 #
-#   tools/tests/engine_check.sh [out_dir]
+#   tools/tests/engine_check.sh [out_dir]                                # the whole museum prologue
 #   VARIANT=release PLAYTEST=1 tools/tests/engine_check.sh [out_dir]   # the testers' build settings
-#   MODES=4 tools/tests/engine_check.sh [out_dir]                       # screenshots of the real-session pass
+#   MODES=4 tools/tests/engine_check.sh [out_dir]                       # one session's game-night shots
 #
 # Needs BOB (bob.jar), JAVA (Java 25 for Bob 1.13.2), Xvfb, and ImageMagick's `import`
-# for the screenshots. Builds a Linux bundle with tools/tests/autotest1.ini, plays
-# Session Zero and two sessions, quits, then runs again in "continue" mode and plays one
-# more. Fails on any Lua error in the engine log. Screenshots land in out_dir.
+# for the screenshots. Builds a Linux bundle with tools/tests/autotest1.ini and lets the
+# autotest (game/ui/autotest.lua) play: by default mode 8, the prologue from the notice to the
+# journey recap. Fails on any Lua error in the engine log. Screenshots land in out_dir.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="${1:-$ROOT/build/engine_check}"
@@ -53,7 +53,7 @@ run() {  # mode
     al=$(autolog)
     [ -n "$al" ] && start=$(wc -l < "$al")
     (cd "$GAME_DIR" && HOME="$WORK/home" XDG_DATA_HOME="$WORK/home/.local/share" LD_LIBRARY_PATH="$WORK/lib" \
-        DISPLAY=$DISPLAY_N timeout 900 "$GAME" > "$log" 2>&1) &
+        DISPLAY=$DISPLAY_N timeout "${TIMEOUT:-2500}" "$GAME" > "$log" 2>&1) &
     local pid=$! seen=0
     while kill -0 $pid 2>/dev/null; do
         sleep 0.3
@@ -92,12 +92,11 @@ run() {  # mode
 }
 
 ok=0
-# MODES="4": the real-session showcase (story board, notes, sheet, builder, game night shots).
-for m in ${MODES:-1 2}; do
+for m in ${MODES:-8}; do
     run "$m" || ok=1
 done
-if [ "${MODES:-1 2}" != "6" ]; then   # (the board gallery plays no session: nothing to save)
-SAVE=$(find "$WORK/home" -name campaign_save.txt | head -1)
+if [ "${MODES:-8}" != "6" ]; then   # (the board gallery plays no session: nothing to save)
+SAVE=$(find "$WORK/home" -name museum_save.txt | head -1)
 [ -n "$SAVE" ] && echo "  save: $(head -c 40 "$SAVE" | tr '\n' ' ')... $(wc -c < "$SAVE") bytes" || { echo "  no save file written"; ok=1; }
 LOGF=$(find "$WORK/home" -name playtest_log.jsonl | head -1)
 [ -n "$LOGF" ] && echo "  playtest log: $(wc -l < "$LOGF") lines" || { echo "  no playtest log"; ok=1; }

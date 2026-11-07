@@ -25,7 +25,8 @@ local M = {}
 M.MAX_PIECES = 40
 M.TRAP = "hidden_pit"          -- the map's traps, until the DM picks another SRD trap
 -- The general boards a map can be drawn on (a place with its own board offers that one first).
-M.TEMPLATES = { "camp", "forest", "road", "ruins", "underground", "tavern", "town", "market_generic", "bridge", "dock", "blank" }
+M.TEMPLATES = { "camp", "forest", "road", "ruins", "underground", "tavern", "town", "market_generic", "bridge", "dock",
+                "museum_hall", "blank" }
 
 -- A place without a board of its own borrows one by what it is (A18's new places).
 M.BY_SETTING = { { "ship", "dock" }, { "port", "dock" }, { "bridge", "bridge" }, { "tavern", "tavern" },
@@ -34,6 +35,8 @@ M.BY_SETTING = { { "ship", "dock" }, { "port", "dock" }, { "bridge", "bridge" },
                  { "indoor", "tavern" }, { "road", "road" }, { "forest", "forest" }, { "wild", "forest" } }
 
 -- The palette, by what the pieces are for. kind: a prop kind; id: a tool that isn't a piece.
+-- The map maker shows one group of pieces at a time (game/ui/map_view.lua); tools = true marks the
+-- group that's always there under them (traps, starts, clear).
 M.PALETTE = {
     { group = "Furniture", items = {
         { kind = "table_round", name = "Table" }, { kind = "table_long", name = "Long table" },
@@ -42,18 +45,35 @@ M.PALETTE = {
         { kind = "crate", name = "Crate" } } },
     { group = "Walls and doors", items = {
         { id = "wall", name = "Wall" }, { kind = "door", name = "Door" }, { kind = "wall_window", name = "Window" },
-        { kind = "ruin_wall_low", name = "Low wall" }, { kind = "fence", name = "Fence" } } },
+        { kind = "wall_diag", name = "Corner wall" }, { kind = "ruin_wall_low", name = "Low wall" },
+        { kind = "fence", name = "Fence" } } },
     { group = "Cover", items = {
         { kind = "pillar", name = "Pillar" }, { kind = "statue", name = "Statue" }, { kind = "oak", name = "Tree" },
         { kind = "boulder", name = "Boulder" }, { kind = "rock", name = "Rocks" }, { kind = "cart", name = "Cart" },
         { kind = "hay_bale", name = "Hay bale" } } },
     { group = "Ground", items = {
         { kind = "rubble", name = "Rubble" }, { kind = "bush", name = "Brush" }, { kind = "puddle", name = "Water" },
-        { kind = "web", name = "Webs" }, { kind = "ice", name = "Ice" } } },
+        { kind = "web", name = "Webs" }, { kind = "ice", name = "Ice" }, { kind = "paving", name = "Paving" } } },
     { group = "Light", items = {
         { kind = "torch_post", name = "Torch" }, { kind = "brazier", name = "Brazier" }, { kind = "candelabra", name = "Candles" },
         { kind = "lamp_post", name = "Lamp post" }, { kind = "campfire", name = "Campfire" } } },
-    { group = "Traps, starts", items = {
+    -- The Museum of Nightmares' halls, exhibits and garden (its marble floor is the Museum hall board).
+    { group = "Museum", items = {
+        { kind = "wall_painting", name = "Painting" }, { kind = "wall_portrait", name = "Portrait" },
+        { kind = "tapestry", name = "Tapestry" }, { kind = "display_case", name = "Glass case" },
+        { kind = "plinth", name = "Plinth" }, { kind = "donation_box", name = "Donation box" },
+        { kind = "stone_tablet", name = "Stone tablet" }, { kind = "canopic_jars", name = "Jars" },
+        { kind = "ritual_basin", name = "Basin" }, { kind = "stuffed_bird", name = "Stuffed bird" },
+        { kind = "giant_skull", name = "Giant skull" }, { kind = "mech_dais", name = "Gear dais" },
+        { kind = "diorama_cave", name = "Cave diorama" }, { kind = "diorama_kitchen", name = "Kitchen diorama" },
+        { kind = "model_city", name = "Model city" }, { kind = "statue_victim", name = "Scared statue" },
+        { kind = "statue_victim_b", name = "Cowering statue" }, { kind = "statue_victim_c", name = "Reaching statue" },
+        { kind = "lectern", name = "Lectern" }, { kind = "blackboard", name = "Blackboard" },
+        { kind = "bench_museum", name = "Lecture bench" }, { kind = "couch", name = "Couch" },
+        { kind = "souvenir_table", name = "Souvenirs" }, { kind = "hedge", name = "Hedge" },
+        { kind = "topiary", name = "Topiary" }, { kind = "garden_steps", name = "Garden steps" },
+        { kind = "stairs_straight", name = "Stairs up" }, { kind = "stairs_down", name = "Stairs down" } } },
+    { group = "Traps, starts", tools = true, items = {
         { id = "trap", name = "Trap" }, { id = "party", name = "Heroes" }, { id = "foes", name = "Monsters" },
         { id = "erase", name = "Clear" } } },
 }
@@ -115,27 +135,16 @@ function M.rules_text(kind)
     return table.concat(out, " ")
 end
 
--- The world's state of a place (S7), if it has one.
-local function place_state(campaign, lid)
-    local ledger = require "game.model.ledger"
-    local nb = campaign.notebook
-    if not nb then
-        return nil, nil
-    end
-    local st = ledger.world_state(campaign).places[lid]
-    return ledger.place_state(campaign, lid), st and st.state
-end
-
 -- The terrain set a place gets with no map: by the place, then by what it is, then by the scene.
 function M.auto_template(campaign, loc, scene_type)
     local t = content.terrain
     if loc then
-        local st = place_state(campaign, loc.id)
-        if st and st.terrain then
-            return st.terrain          -- the world changed the place (S7)
-        end
         if t.by_location[loc.id] then
             return t.by_location[loc.id]
+        end
+        -- (A place that names its own board: an adventure in the standard's form, game/model/standard.lua.)
+        if loc.board and require("game.data.boards")[loc.board] then
+            return loc.board
         end
         for _, pair in ipairs(M.BY_SETTING) do
             if util.contains(loc.setting or {}, pair[1]) then
@@ -146,11 +155,12 @@ function M.auto_template(campaign, loc, scene_type)
     return t.by_scene[scene_type or "combat"] or "blank"
 end
 
--- The wall that suits the board: plaster indoors on floorboards, stone everywhere else.
+-- The wall that suits the board: plaster indoors (floorboards, the museum's marble), stone everywhere else.
+local INDOOR_FLOOR = { floor_boards = true, floor_marble = true }
 function M.wall_kind(template)
     local c = board.compile(template)
     for _, pc in ipairs(c.pieces) do
-        if pc.kind == "floor_boards" then
+        if INDOOR_FLOOR[pc.kind] then
             return "wall_room"
         end
     end
@@ -188,22 +198,13 @@ function M.migrate(m)
     return m
 end
 
--- The saved map for a place, kept up to date with the world: a new state that brings its own
--- template swaps it, and pieces that land on the new set's scenery come off.
+-- The saved map for a place.
 function M.get(campaign, lid)
     local m = lid and campaign.maps and campaign.maps[lid]
     if not m then
         return nil
     end
     M.migrate(m)
-    local st, state = place_state(campaign, lid)
-    if state ~= m.state then
-        m.changed = state            -- the builder says so
-        m.state = state
-        if st and st.terrain and st.terrain ~= m.template then
-            M.set_template(m, st.terrain)
-        end
-    end
     return m
 end
 
@@ -219,8 +220,7 @@ end
 -- Start a map for a place: its template, nothing drawn yet.
 function M.new(campaign, lid, template)
     campaign.maps = campaign.maps or {}
-    local _, state = place_state(campaign, lid)
-    local m = { v = 2, template = template, props = {}, removed = {}, traps = {}, week = campaign.week, state = state }
+    local m = { v = 2, template = template, props = {}, removed = {}, traps = {}, week = campaign.week }
     campaign.maps[lid] = m
     return m
 end

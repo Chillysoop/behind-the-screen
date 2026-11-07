@@ -70,7 +70,7 @@ M.REACT = {
 -- The notebook's line for the boss's turn.
 M.BOSS_LOG = {
     clever = "{boss} went for {char}, the one hurting it most.",
-    cruel = "{boss} went after {char} when they were weakest.",
+    cruel = "{boss} went after {char} when {char_they} was weakest.",
     gloat = "{boss} stopped to gloat.",
     closest = "{boss} swung at whoever was closest.",
 }

@@ -9,30 +9,30 @@ local campaign_mod = require "game.model.campaign"
 local telemetry = require "game.model.telemetry"
 local dialogue = require "game.model.dialogue"
 local save = require "game.model.save"
-local content = require "game.model.content"
 local ambience = require "game.ui.ambience"
 local guide_view = require "game.ui.guide_view"
 local intro_view = require "game.ui.intro_view"
-local prep_view = require "game.ui.prep_view"
+local museum_prep_view = require "game.ui.museum_prep_view"
 local night_view = require "game.ui.night_view"
 local report_view = require "game.ui.report_view"
 local debug_view = require "game.ui.debug_view"
 local review_view = require "game.ui.review_view"
 local session_zero_view = require "game.ui.session_zero_view"
-local messages_view = require "game.ui.messages_view"
 local levelup_view = require "game.ui.levelup_view"
 local slice_end_view = require "game.ui.slice_end_view"
 local notes_view = require "game.ui.notes_view"
 local ask_view = require "game.ui.ask_view"
+local npc_view = require "game.ui.npc_view"
+local saves_view = require "game.ui.saves_view"
 local talk_view = require "game.ui.talk_view"
-local book_view = require "game.ui.book_view"
-local planner_view = require "game.ui.planner_view"
-local lore_view = require "game.ui.lore_view"
 local sheet_view = require "game.ui.sheet_view"
-local encounter_view = require "game.ui.encounter_view"
 local input_trace = require "game.ui.input_trace"
-local story_log_view = require "game.ui.story_log_view"
+local map_repo_view = require "game.ui.map_repo_view"
+local ties_view = require "game.ui.ties_view"
 local dice_sets = require "game.model.dice_sets"
+-- (Game night reaches the museum's night only through util.lazy, to keep the require graph free of
+-- cycles; this literal require is what makes the builder pack it. tools/tests/require_check.py.)
+require "game.model.museum_night"
 
 local CAMERA = "/camera#camera"
 local HUD = "/hud#hud"
@@ -151,22 +151,43 @@ local function write_file(path, text)
     return false
 end
 
-local function save_campaign(app)
+-- What the Load list shows about a save: when it was made, and where the story stood.
+local function save_meta(app)
+    local where
+    local c = app.campaign
+    if c and c.adv then
+        local ok, w = pcall(require("game.model.adventure").where, c)
+        where = ok and w or nil
+    end
+    local done = c and require("game.model.museum_week").done(c) and not c.slice_survey_done
+    return { time = os.time(), where = where, done = done or nil }
+end
+
+-- Save the campaign to a file: the autosave unless a path is given (a save slot, November 3).
+local function save_campaign(app, path)
+    path = path or app.save_path
     local ok, err = pcall(function()
-        local text = save.dump(app.campaign)
-        assert(write_file(app.save_path, text), "couldn't write " .. tostring(app.save_path))
+        local text = save.dump(app.campaign, save_meta(app))
+        assert(write_file(path, text), "couldn't write " .. tostring(path))
     end)
     if not ok then
         write_playtest_line({ log_path = sys.get_save_file("behind_the_screen", "error_log.txt") }, "save: " .. tostring(err))
     end
-    return ok
+    return ok, err
 end
 
--- The saved campaign, if there is one: { head = { week, seed, ... }, text = ... }.
--- The save, or if the game stopped halfway through swapping files, the new one still
--- waiting as .tmp or the previous one as .bak.
-local function find_save(app)
-    for _, path in ipairs({ app.save_path, app.save_path .. ".tmp", app.save_path .. ".bak" }) do
+-- The saves (November 3): the autosave, which keeps the museum's own file, so a campaign saved
+-- before this version is the autosave, and three slots for saves the DM makes.
+local SLOTS = { "slot1", "slot2", "slot3" }
+
+-- A saved campaign at this path, if there is one: { head = { week, seed, time, where, ... },
+-- text = ..., path = ... }. The save, or if the game stopped halfway through swapping files,
+-- the new one still waiting as .tmp or the previous one as .bak.
+local function find_save(path)
+    if not path then
+        return nil
+    end
+    for _, path in ipairs({ path, path .. ".tmp", path .. ".bak" }) do
         local ok, found = pcall(function()
             local f = io.open(path, "rb")
             if not f then
@@ -175,7 +196,7 @@ local function find_save(app)
             local text = f:read("*a")
             f:close()
             local head = save.peek(text)
-            return head and { head = head, text = text } or nil
+            return head and { head = head, text = text, path = path } or nil
         end)
         if ok and found then
             return found
@@ -200,7 +221,7 @@ local function build_screen(self)
         block_camera(false)
     elseif s == "prep" then
         kit.layer("prep")
-        prep_view.build(app)
+        museum_prep_view.build(app)
         block_camera(true)
     elseif s == "night" then
         night_view.build(app)
@@ -209,58 +230,46 @@ local function build_screen(self)
         kit.layer("report")
         report_view.build(app)
         block_camera(true)
-    elseif s == "planner" then
-        kit.layer("planner")
-        planner_view.build(app)
-        block_camera(true)
     elseif s == "session_zero" then
         kit.layer("session_zero")
         session_zero_view.build(app)
-        block_camera(true)
-    elseif s == "lore" then
-        -- Between the prep board and the night (October 16): what tonight can change in the story.
-        kit.layer("lore")
-        lore_view.build(app)
-        block_camera(true)
-    elseif s == "join" then
-        -- Someone joins a small table (October 15): their backstory page, then the week.
-        kit.layer("join")
-        require("game.ui.backstory_view").build(app)
         block_camera(true)
     elseif s == "slice_end" then
         kit.layer("slice_end")
         slice_end_view.build(app)
         block_camera(true)
     end
-    -- M6 modals: a conversation, the level-up moment.
-    if app.convo and s == "prep" then
-        messages_view.modal(app)
-    end
+    -- The level-up moment.
     if app.levelup then
         levelup_view.modal(app)
     end
     if app.debug then
         debug_view.build(app)
     end
-    -- The real-session pass: the DM's notes, a character sheet, the encounter builder.
+    -- The real-session pass: the DM's notes, a character sheet.
     if app.overlay == "notes" and (s == "prep" or s == "night" or s == "report") then
         notes_view.draw(app)
     elseif app.overlay == "sheet" and (s == "prep" or s == "night" or s == "report") then
         sheet_view.draw(app)
-    elseif app.overlay == "encounter" and s == "prep" then
-        encounter_view.draw(app)
+    elseif (app.overlay == "maps" or app.overlay == "mapmaker") and (s == "prep" or s == "night") then
+        map_repo_view.draw(app)       -- v2: the map repository, and the map maker on the DM's own maps
+    elseif app.overlay == "ties" and s == "prep" then
+        ties_view.draw(app)           -- v2: the tie-and-lock editor
     else
         app.overlay = nil
     end
-    -- An "are you sure?" (the slice rework) sits over everything but the tips.
+    -- A one-on-one with a friend over the board.
     if app.talk and s == "prep" then
         talk_view.draw(app)
     end
-    if app.book and s == "prep" then
-        book_view.draw(app)       -- reading a new book (A13)
+    if app.npc_sheet then
+        npc_view.draw(app)       -- a person's sheet: their name clicked in any line (v2)
     end
     if app.ask then
         ask_view.draw(app)
+    end
+    if app.saves_ui then
+        saves_view.draw(app)    -- Load (the title) or Save (prep, the report), over everything
     end
     review_view.rebuild(app)
     guide_view.refresh(app)   -- the first-session tips, on top
@@ -270,11 +279,14 @@ function init(self)
     msg.post(".", "acquire_input_focus")
     gui.set_render_order(4)
     self.refocused = false
+    -- v2: this build runs The Museum of Nightmares (game/model/adventure.lua). The shared content
+    -- switches over before any campaign is made or loaded.
+    local adventure = require "game.model.adventure"
+    adventure.enter()
     local app = {
         campaign = campaign_mod.new(os.time()),
         screen = "intro",
         layers = {},
-        sel = nil,
         fast = false,
         debug = false,
         sandbox = false,
@@ -285,42 +297,102 @@ function init(self)
         -- (October 20: a release export showed and enabled them).
         dev_keys = dialogue.dev_build() and not dialogue.playtest_build(),
     }
-    -- The old night, for comparison (game.project [behind_the_screen] old_night = 1): the wander-off
-    -- and split-the-party cards instead of the players' pulls (game/model/pulls.lua).
-    local ok_old, old_night = pcall(sys.get_config_int, "behind_the_screen.old_night", 0)
-    if ok_old and old_night == 1 then
-        app.campaign.old_night = true
-    end
+    adventure.enter(app.campaign)
     self.app = app
-    app.save_path = sys.get_save_file("behind_the_screen", "campaign_save.txt")
-    app.resume = find_save(app)
+    -- Its own save slot, so the October builds' campaigns are left alone.
+    app.save_path = sys.get_save_file("behind_the_screen", "museum_save.txt")
+    app.slot_paths = {}
+    for _, id in ipairs(SLOTS) do
+        app.slot_paths[id] = sys.get_save_file("behind_the_screen", "museum_" .. id .. ".txt")
+    end
+    app.broken_saves = {}
+    -- (Which adventure New game starts: the title's choice, when the game has more than one.)
+    app.adventure_pick = adventure.current()
+    app.new_campaign = function()
+        if app.adventure_pick and app.adventure_pick ~= adventure.current() then
+            adventure.use(app.adventure_pick)
+        end
+        app.campaign = campaign_mod.new(os.time())
+        adventure.enter(app.campaign)
+        app.saves_ui = nil
+        app.go("session_zero")
+    end
+    -- Carry the party on into the next adventure (the journey's button): the hand-off, the levels it needs, then why
+    -- each hero goes on (the hooks page), then its first prep. Session Zero isn't played again.
+    app.carry_on = function(to)
+        local c = app.campaign
+        adventure.handoff(c, to)
+        require("game.model.progression").catch_up(c)
+        c.slice_survey_done = nil
+        app.slice_seen = nil
+        app.saves_ui = nil
+        app.go("session_zero")
+        app.s0 = { page = "hooks", carry = true, tone = c.tone, asks = {}, rules = {} }
+        app.refresh()
+    end
+    -- Every save, autosave first: { id, name, path, found, broken }. app.resume is the newest
+    -- one that opens: what Continue picks up.
+    app.scan_saves = function()
+        local list = { { id = "auto", name = "Autosave", path = app.save_path } }
+        for i, id in ipairs(SLOTS) do
+            table.insert(list, { id = id, name = "Save " .. i, path = app.slot_paths[id] })
+        end
+        local newest
+        for _, sv in ipairs(list) do
+            sv.found = find_save(sv.path)
+            sv.broken = sv.found and app.broken_saves[sv.found.path] or nil
+            if sv.found and not sv.broken and (not newest or (sv.found.head.time or 0) > (newest.head.time or 0)) then
+                newest = sv.found
+            end
+        end
+        app.save_list = list
+        app.resume = newest
+        return list
+    end
+    app.scan_saves()
     app.save_campaign = function()
         return save_campaign(app)
     end
-    -- Pick the saved campaign back up: next week's prep, or the end of the first act if
-    -- they stopped before its survey.
-    app.continue_campaign = function()
-        local c, err = save.load(app.resume and app.resume.text)
+    -- A save the DM makes, into one of the slots (from the prep board or the report).
+    app.save_to_slot = function(id)
+        local ok, err = save_campaign(app, app.slot_paths[id])
+        app.scan_saves()
+        return ok, err
+    end
+    -- Pick a saved campaign back up (the newest, or one from the Load list): next week's prep,
+    -- or the end of the prologue if they stopped before its survey.
+    app.load_save = function(found)
+        local c, err = save.load(found and found.text)
         if not c then
-            app.resume = nil
+            if found then
+                app.broken_saves[found.path] = tostring(err)
+            end
             app.resume_error = tostring(err)
+            app.saves_ui = nil
+            app.scan_saves()
             build_screen(self)
             return
         end
+        adventure.enter(c)
         app.campaign = c
         app.resume = nil
+        app.resume_error = nil
+        app.saves_ui = nil
         if c.at_night and c.prep then
             -- Saved at "Run game night": the same board, the same night, from its start.
             app.go("night")
         elseif c.at_prep and c.prep then
             -- Saved mid-prep (A11): the same board, the week not dealt again.
             app.go("prep", { resume = true })
-        elseif c.week >= content.arc.SESSIONS and not c.slice_survey_done then
+        elseif require("game.model.museum_week").done(c) and not c.slice_survey_done then
             app.slice_seen = true
             app.go("slice_end")
         else
             app.go("prep")
         end
+    end
+    app.continue_campaign = function()
+        app.load_save(app.resume)
     end
     -- Development builds read the dialogue straight from the project folder when they
     -- can find it, so the review mode's decisions land in lines.json.
@@ -351,26 +423,47 @@ function init(self)
         looked("notes")
         if app.overlay == "sheet" then
             sheet_view.close(app)
+        elseif app.overlay == "ties" then
+            ties_view.close(app)
         end
         notes_view.open(app, tab)
         guide_view.refresh(app)
     end
-    app.open_encounter = function(i)
-        looked("fights")
-        encounter_view.open(app, i)
+    app.run_night = function()
+        museum_prep_view.run_night(app)
+    end
+    app.open_maps = function(ref)
+        looked("maps")
+        if app.overlay == "notes" then
+            notes_view.close(app)
+        end
+        map_repo_view.open(app, ref)
         guide_view.refresh(app)
     end
-    app.run_night = function()
-        prep_view.run_night(app)
+    -- v2: the tie-and-lock editor, from the museum's prep board.
+    app.open_ties = function(sel)
+        looked("ties")
+        if app.overlay == "notes" then
+            notes_view.close(app)
+        end
+        ties_view.open(app, sel)
+        guide_view.refresh(app)
     end
     app.close_overlay = function()
         local was_notes = app.overlay == "notes"
+        local was_ties = app.overlay == "ties"
         notes_view.close(app)
         sheet_view.close(app)
-        encounter_view.close(app)
+        if app.overlay == "maps" or app.overlay == "mapmaker" then
+            app.map_target = nil
+            map_repo_view.close(app)
+        end
+        if was_ties then
+            ties_view.close(app)
+        end
         app.overlay = nil
-        if was_notes and app.screen == "prep" then
-            build_screen(self)   -- the notes can change the hand (pins, shelves, the world's cards)
+        if (was_notes or was_ties) and app.screen == "prep" then
+            build_screen(self)   -- the ties editor and the notes can change the board
         end
         guide_view.refresh(app)
     end
@@ -409,20 +502,6 @@ function init(self)
     app.place_keepsakes = function(new)
         msg.post(KEEPSAKES, "place", { list = require("game.model.keepsakes").on_table(app.campaign), new = new })
     end
-    -- Handouts at the players' seats (game/model/handouts.lua); `new` is the seat that just got one.
-    app.place_handouts = function(new)
-        local seats = require("game.model.handouts").at_seats(app.campaign)
-        -- Tonight's, landed but not yet filed with the campaign (finish_night), go out too.
-        local night = app.campaign.night
-        for card, key in pairs(night and night.handouts_landed or {}) do
-            local c = require("game.model.content").components[card]
-            if c and not night.filed then
-                seats[key] = seats[key] or {}
-                table.insert(seats[key], require("game.model.handouts").kind(c))
-            end
-        end
-        msg.post(KEEPSAKES, "handouts", { seats = seats, new = new })
-    end
     app.jail_die = function(tray)
         msg.post(DICE, "jail", { tray = tray })
     end
@@ -441,23 +520,6 @@ function init(self)
     app.go = function(screen, opts)
         guide_view.left_screen(app, app.screen)
         app.overlay = nil
-        if screen == "prep" and not (opts and (opts.resume or opts.welcomed)) and app.campaign.joiner_due
-            and app.campaign:joiner_due() then
-            -- A player joins this week (a small table, October 15): welcome them first.
-            app.join = { key = app.campaign:joiner_due() }
-            app.screen = "join"
-            build_screen(self)
-            ambience.screen(app, "session_zero")
-            return
-        end
-        -- From the prep board, the lore screen first (October 16: "this should help telegraph what
-        -- upcoming lore decisions will mean for the DM"); its button runs the night.
-        if screen == "night" and app.screen == "prep" and not (opts and opts.lore_seen) and app.campaign.prep then
-            app.screen = "lore"
-            build_screen(self)
-            ambience.screen(app, "lore")
-            return
-        end
         if screen == "prep" then
             if not (opts and opts.resume) then
                 app.campaign.at_prep = nil
@@ -468,18 +530,14 @@ function init(self)
             app.campaign.at_prep = true
             app.save_campaign()
             app.prep_dirty = nil
-            app.sel = nil
-            -- (Back from the lore screen, prep's clock keeps running from where it started.)
-            if not (opts and opts.from_lore and app.prep_started) then
-                app.prep_started = app.time
-            end
-            -- Back to the campfire vignette, everyone in their chair.
+            app.prep_started = app.time
+            -- Back to the campfire vignette, everyone in their chair (the museum: the board where they stopped,
+            -- Conner's playtest, C11; the night view lays it when the night starts).
             msg.post(TABLE, "vignette")
             app.paint_dice()
             app.update_shelf()
             app.place_keepsakes(require("game.model.keepsakes").new_this_week(app.campaign))
-            app.place_handouts()
-            -- Everyone at the table in their chair; a chair waits for whoever joins later (October 15).
+            -- Everyone at the table in their chair.
             local seated = {}
             for _, key in ipairs(require("game.model.content").players.order) do
                 seated[key] = app.campaign:player(key) ~= nil
@@ -498,7 +556,6 @@ function init(self)
             app.layers = {}
             app.paint_dice()
             app.place_keepsakes()
-            app.place_handouts()
             night_view.start(app)
             block_camera(false)
             if app.debug then
@@ -510,7 +567,6 @@ function init(self)
             app.s0 = nil
         elseif screen == "slice_end" then
             app.slice = nil
-            app.awards = nil      -- picked fresh when the scrapbook opens
             app.zoom(1)
         elseif screen == "report" then
             msg.post(TABLE, "track", { on = false })
@@ -528,6 +584,10 @@ function init(self)
     -- Every button click ticks (M7).
     kit.on_press = function()
         ambience.sfx("click")
+    end
+    -- A person's name in any line opens their sheet (gloss.lua's people words).
+    gloss.on_npc = function(id)
+        npc_view.open(app, id)
     end
     ambience.screen(app, "intro")
     -- Real-click tracing for tools/tests/ui_play/ (off in every normal build).
@@ -564,6 +624,12 @@ function update(self, dt)
     end
     if app.screen == "night" and not app.sandbox and not app.error_layer then
         guard(self, night_view.update, app, dt)
+    end
+    if app.screen == "report" and app.rewards_spin then
+        guard(self, require("game.ui.rewards_view").update, app, dt)    -- (the box rattling open)
+    end
+    if app.screen == "report" and app.replay then
+        guard(self, night_view.update_replay, app, dt)                  -- (a fight playing back under Look)
     end
     -- Prep autosaves (A11), a few seconds after the board last changed.
     if app.screen == "prep" and app.prep_dirty and app.campaign.at_prep and app.time - (app.last_autosave or 0) >= 4 then
@@ -674,27 +740,55 @@ function on_input(self, action_id, action)
         ambience.toggle_music()
         return true
     end
-    -- Esc on what's on top: the "are you sure?" (its no), a book you're reading, a finished
-    -- one-on-one (October 20: these three ignored it).
-    if action_id == A.back and action.pressed and (app.ask or app.book or (app.talk and app.talk.done)) then
+    -- Esc on what's on top: the "are you sure?" (its no), a finished one-on-one (October 20: these
+    -- ignored it).
+    if action_id == A.back and action.pressed and (app.ask or (app.talk and app.talk.done)) then
         if app.ask then
             guard(self, ask_view.cancel, app)
-        elseif app.book then
-            guard(self, book_view.close, app)
         else
             app.talk = nil
             app.refresh()
         end
         return true
     end
-    -- The DM's notes, a character sheet or the encounter builder: Esc closes, N opens the notes.
+    -- A person's sheet: Esc closes it.
+    if app.npc_sheet and action_id == A.back and action.pressed then
+        guard(self, npc_view.close, app)
+        return true
+    end
+    -- The saves window (Load on the title, Save in prep and on the report): Esc closes it, and
+    -- nothing else takes a key while it's open.
+    if app.saves_ui then
+        if action_id == A.back and action.pressed then
+            guard(self, saves_view.close, app)
+        end
+        if action_id == A.touch and action.pressed then
+            guard(self, kit.on_click, action.x, action.y)
+        end
+        return true
+    end
+    -- The DM's notes or a character sheet: Esc closes, N opens the notes.
+    -- The map repository and the ties editor: Esc is their X (put it all back, asking first).
     if app.overlay and action_id == A.back and action.pressed then
-        guard(self, app.close_overlay)
+        if app.overlay == "maps" or app.overlay == "mapmaker" then
+            guard(self, map_repo_view.cancel, app)
+        elseif app.overlay == "ties" then
+            guard(self, ties_view.cancel, app)
+        else
+            guard(self, app.close_overlay)
+        end
+        return true
+    end
+    -- v2: Esc closes a friend's thought you're reading (it stays there to answer).
+    if app.screen == "night" and app.thought_card and action_id == A.back and action.pressed then
+        guard(self, function()
+            night_view.close_thought(app)
+        end)
         return true
     end
     if action_id == A.notes and action.pressed and not (app.review and app.review.queue_open)
-        and (app.screen == "prep" or app.screen == "night" or app.screen == "report") and not app.convo
-        and not app.ask and not app.talk and not app.book then   -- (not under an open book or talk, October 20)
+        and (app.screen == "prep" or app.screen == "night" or app.screen == "report")
+        and not app.ask and not app.talk then   -- (not under an open talk, October 20)
         if app.overlay == "notes" then
             guard(self, app.close_overlay)
         else
@@ -702,36 +796,27 @@ function on_input(self, action_id, action)
         end
         return true
     end
-    -- S: the Story log. On the prep board it's the panel beside the board; on game night and the
-    -- report it's the Story log page in your notes, on the scene's own storyline.
-    if action_id == A.story and action.pressed and not (app.review and app.review.queue_open) and not app.convo
-        and not report_view.typing(app) and not (app.screen == "slice_end" and slice_end_view.typing(app)) then
-        if app.screen == "prep" and not app.overlay and not app.ask and not app.talk and not app.book then
-            guard(self, function()
-                story_log_view.toggle_panel(app)
-                app.refresh()
-            end)
-            return true
-        elseif app.screen == "prep" or app.screen == "night" or app.screen == "report" then
-            if app.overlay == "notes" and app.notes_tab == "storylog" then
-                guard(self, app.close_overlay)
-            else
-                local sc = app.screen == "night" and app.night and app.night.scene
-                if sc and sc.stories and sc.stories[1] and app.overlay ~= "notes" then
-                    app.storylog_id = sc.stories[1]
-                    app.storylog_scroll = nil
-                end
-                guard(self, app.open_notes, "storylog")
-            end
-            return true
-        end
+    -- Game night: S opens and closes your recap, the Story and Table sidebars (game/ui/recap_view.lua).
+    if action_id == A.story and action.pressed and app.screen == "night"
+        and not app.overlay and not (app.review and app.review.queue_open) then
+        guard(self, function()
+            require("game.ui.recap_view").toggle(app, "both")
+        end)
+        return true
     end
-    -- The mouse wheel reads the Story log when the pointer's on it.
+    -- Esc folds the recap away.
+    if app.screen == "night" and (app.recap_left or app.recap_right) and action_id == A.back and action.pressed
+        and not app.overlay and not app.thought_card then
+        guard(self, function()
+            require("game.ui.recap_view").close(app)
+        end)
+        return true
+    end
+    -- The mouse wheel scrolls what the prep board's pointer is over.
     if (action_id == A.wheel_up or action_id == A.wheel_down) and action.pressed and action.x then
         local took = false
         guard(self, function()
-            took = story_log_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
-                or messages_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
+            took = museum_prep_view.on_wheel(app, action.x, action.y, action_id == A.wheel_up and -1 or 1)
         end)
         if took then
             return true
@@ -740,18 +825,9 @@ function on_input(self, action_id, action)
     if app.overlay and (action_id == A.confirm or action_id == A.roll) and action.pressed then
         return true   -- the table waits while you read
     end
-    -- The lore screen: Esc goes back to the prep board.
-    if action_id == A.back and action.pressed and app.screen == "lore" and not app.ask then
-        guard(self, lore_view.back, app)
-        return true
-    end
-    if action_id == A.back and action.pressed and (app.convo or app.levelup) then
-        -- Esc closes a conversation or the level-up moment.
-        if app.levelup then
-            guard(self, levelup_view.close, app)
-        else
-            guard(self, messages_view.close, app)
-        end
+    if action_id == A.back and action.pressed and app.levelup then
+        -- Esc closes the level-up moment.
+        guard(self, levelup_view.close, app)
         return true
     end
     if action_id == A.queue and action.pressed and app.review and app.review.on and app.screen == "night" then
@@ -778,6 +854,10 @@ function on_input(self, action_id, action)
         if guard(self, kit.on_click, action.x, action.y) then
             return true
         end
+        -- A person's mini on the mat: their sheet (the playtest, November 3).
+        if app.screen == "night" and not app.npc_sheet and night_view.click_mini(app, action.x, kit.H - action.y) then
+            return true
+        end
         return app.screen ~= "night"
     end
     if action_id == A.confirm and action.pressed then
@@ -786,27 +866,24 @@ function on_input(self, action_id, action)
         if app.levelup then
             guard(self, levelup_view.close, app)
             return true
-        elseif app.convo then
-            return true
         elseif s == "intro" then
-            -- Enter takes the main button: Continue when there's a save, else Session Zero.
-            if app.resume then
+            -- Enter takes the main button: Continue when there's a save, else a new game.
+            if not app.notice_ok then
+                return true
+            elseif app.resume then
                 guard(self, app.continue_campaign)
             else
-                guard(self, app.go, "planner")
+                guard(self, app.new_campaign)
             end
-            return true
-        elseif s == "planner" then
-            guard(self, planner_view.start, app)
-            return true
-        elseif s == "lore" then
-            guard(self, lore_view.go, app)
             return true
         elseif s == "session_zero" then
             guard(self, session_zero_view.start, app)
             return true
         elseif s == "report" then
-            if not report_view.busy(app) then
+            local rewards = require("game.ui.rewards_view")
+            if rewards.pending(app) and not app.rewards_spin then
+                guard(self, rewards.done, app)         -- (Enter: on to the report)
+            elseif not report_view.busy(app) then
                 guard(self, report_view.next, app)
             end
             return true
@@ -827,8 +904,8 @@ function on_input(self, action_id, action)
             end
             return true
         elseif s == "prep" then
-            if app.ask or app.talk or app.book then
-                return true   -- the "are you sure?", the one-on-one and the book answer with their buttons
+            if app.ask or app.talk then
+                return true   -- the "are you sure?" and the one-on-one answer with their buttons
             end
             if app.campaign.prep:ready() then
                 guard(self, app.run_night)
@@ -840,19 +917,14 @@ function on_input(self, action_id, action)
         end
     end
     if app.screen == "night" then
-        -- A card is up: number keys pick its options, Enter plays the improv cards you picked.
+        -- A card is up: number keys pick its options.
         if app.pending and not app.overlay and NUMKEY[action_id] then
             if action.pressed then
                 guard(self, night_view.pick_key, app, NUMKEY[action_id])
             end
             return true
         end
-        if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
-            and app.pending.kind == "improv" then
-            guard(self, night_view.play_improv, app)
-            return true
-        end
-        -- The opening and the briefing: Space or Enter turns the page.
+        -- The opening: Space or Enter turns the page.
         if app.pending and (action_id == A.roll or action_id == A.confirm) and action.pressed
             and app.pending.kind == "cinematic" then
             guard(self, night_view.cinematic_next, app)
@@ -872,6 +944,9 @@ function on_input(self, action_id, action)
         if action.pressed then
             if action_id == A.fast then
                 guard(self, night_view.cycle_speed, app)
+                return true
+            elseif action_id == hash("prev_cell") then
+                guard(self, night_view.toggle_pause, app)      -- P: pause the night
                 return true
             elseif action_id == A.slow then
                 guard(self, night_view.slow_down, app)

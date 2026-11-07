@@ -12,6 +12,20 @@ M.METER_NAMES = { spotlight = "Spotlight", challenge = "Challenge", story = "Sto
 M.LONG = { "commitment", "investment", "trust", "suspicion" }
 M.LONG_NAMES = { commitment = "Commitment", investment = "Investment", trust = "Trust", suspicion = "Suspicion" }
 M.METER_START = 15
+M.CARRY_WEEK = 0.7      -- how much of last session's mood is still there a week later
+M.CARRY_END = 0.3       -- how much of the mood they came in with still counts by the night's end
+
+-- A new night: the bar starts where the last one left them (a week softer). p.last_fun is the
+-- report's (report.lua); no last night, no carry.
+-- The first night of a new game they've been looking forward to (Conner's playtest, C1: every friend
+-- sat frowning through the opening of session 1): they come in happy, and the night takes over.
+M.FIRST_NIGHT = 62
+function M.start_carry(p)
+    p.carry_target, p.carry_s0, p.carry_t = nil, nil, 0
+    local s0 = M.fun(p)
+    p.carry_target = p.last_fun and util.clamp(50 + (p.last_fun - 50) * M.CARRY_WEEK, 5, 95) or M.FIRST_NIGHT
+    p.carry_s0 = s0
+end
 M.BANTER = 5 -- Social every scene gives just from being at the table together (snacks, jokes)
 
 -- Blend primary (2/3) and secondary (1/3) archetypes.
@@ -103,6 +117,13 @@ function M.fun(p, mood_override)
     end
     local mood = mood_override or M.mood(p)
     total = total * 1.1 + p.fun_bonus * 0.6 - 0.7 * p.boredom + (mood.fun or 0) - 4
+    -- How they came in (the playtest, November 3: "happiness should carry over"). At the start of
+    -- a night the bar is where last session left them, a week softer; as the night goes on, what
+    -- happens tonight takes over, and a little of that mood stays to the end (M.CARRY_END).
+    if p.carry_target then
+        local t = util.clamp(p.carry_t or 0, 0, 1)
+        total = total + (p.carry_target - (p.carry_s0 or 0)) * (1 - t) + (p.carry_target - 50) * M.CARRY_END * t
+    end
     return util.clamp(total, 0, 100)
 end
 

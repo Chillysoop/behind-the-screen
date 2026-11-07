@@ -15,6 +15,48 @@ local set_euler = gui.set_euler or function(node, v)
     gui.set_rotation(node, v)
 end
 
+-- A text's rules-word underlines (game/ui/gloss.lua) go where the text goes (November 3: a hover tip
+-- hidden after it was drawn left its underlines lit on the screen). The underlines are kept by their
+-- text node, and showing, hiding, moving or deleting the text does the same to them, whoever does it.
+M.under_of = setmetatable({}, { __mode = "k" })
+if not gui.kit_follows then
+    gui.kit_follows = true
+    local raw_enabled, raw_delete, raw_set_pos = gui.set_enabled, gui.delete_node, gui.set_position
+    gui.set_enabled = function(n, on)
+        raw_enabled(n, on)
+        local kids = M.under_of[n]
+        if kids then
+            for _, k in ipairs(kids) do
+                pcall(raw_enabled, k, on)
+            end
+        end
+    end
+    gui.delete_node = function(n)
+        local kids = M.under_of[n]
+        if kids then
+            -- (Hidden, not deleted: they're still on their layer's list, which deletes them later.)
+            M.under_of[n] = nil
+            for _, k in ipairs(kids) do
+                pcall(raw_enabled, k, false)
+            end
+        end
+        raw_delete(n)
+    end
+    gui.set_position = function(n, p)
+        local kids = M.under_of[n]
+        if kids then
+            local was = gui.get_position(n)
+            for _, k in ipairs(kids) do
+                pcall(function()
+                    local kp = gui.get_position(k)
+                    raw_set_pos(k, vmath.vector3(kp.x + p.x - was.x, kp.y + p.y - was.y, kp.z))
+                end)
+            end
+        end
+        raw_set_pos(n, p)
+    end
+end
+
 function M.rgba(hex, a)
     hex = string.gsub(hex, "#", "")
     local r = tonumber(string.sub(hex, 1, 2), 16) / 255
@@ -69,6 +111,9 @@ function M.drop(l)
         end
     end
     for _, n in ipairs(l.nodes) do
+        M.under_of[n] = nil      -- (its underlines are on this list too)
+    end
+    for _, n in ipairs(l.nodes) do
         gui.delete_node(n)
     end
     l.nodes, l.buttons, l.spots = {}, {}, {}
@@ -92,6 +137,27 @@ function M.remove(nodes)
     for _, n in ipairs(nodes) do
         doomed[n] = true
     end
+    -- A text's underlines go with it.
+    local all = nodes
+    for _, n in ipairs(nodes) do
+        local kids = M.under_of[n]
+        if kids then
+            M.under_of[n] = nil
+            if all == nodes then
+                all = {}
+                for _, m in ipairs(nodes) do
+                    table.insert(all, m)
+                end
+            end
+            for _, k in ipairs(kids) do
+                if not doomed[k] then
+                    doomed[k] = true
+                    table.insert(all, 1, k)
+                end
+            end
+        end
+    end
+    nodes = all
     local hs = M.spot_hovered
     if hs and hs.node and doomed[hs.node] then
         M.spot_hovered = nil
@@ -172,7 +238,7 @@ function M.icon(x, y, size, name, color)
 end
 
 -- A picture from the portraits atlas (tools/gen_portraits.py): a player's face
--- ("face_mara", "face_mara_cheer"...) or a paper mini ("mini_wizard", "mini_npc_gus"...).
+-- ("face_mara", "face_mara_cheer"...) or a paper mini ("mini_wizard", "mini_telpur"...).
 function M.picture(x, y, w, h, image, color)
     local n = gui.new_box_node(vmath.vector3(x, M.H - y, 0), vmath.vector3(w, h, 0))
     gui.set_pivot(n, gui.PIVOT_NW)
@@ -192,13 +258,49 @@ function M.line(x1, y1, x2, y2, thickness, color)
     return track(n)
 end
 
--- Text. opts: w (wrap width), pivot, lines (max lines, adds "..."), scale.
+-- Text cut short shows the whole of it on hover (the third playtest: "Should enj...", "Sam's ...",
+-- "She skips the drink..." with no way to read the rest). kit.ellipsize remembers what it cut, by the
+-- short string, and kit.text gives whatever it draws cut, by either, a hover with the full text
+-- (M.cut_hook, set by game/ui/gloss.lua: its card). opts.full = false: no hover (the hover card's own
+-- lines, text that moves after it's drawn).
+M.cut_pending = {}
+local cut_pending_n = 0
+local function remember_cut(short, full)
+    if cut_pending_n > 400 then
+        M.cut_pending, cut_pending_n = {}, 0
+    end
+    if M.cut_pending[short] == nil then
+        cut_pending_n = cut_pending_n + 1
+    end
+    M.cut_pending[short] = full
+end
+
+-- Where a text drawn at x, y with this pivot starts (top-left), for its w by h.
+local function top_left(x, y, w, h, pivot)
+    local fx, fy = 0, 0
+    if pivot == gui.PIVOT_N or pivot == gui.PIVOT_CENTER or pivot == gui.PIVOT_S then
+        fx = 0.5
+    elseif pivot == gui.PIVOT_NE or pivot == gui.PIVOT_E or pivot == gui.PIVOT_SE then
+        fx = 1
+    end
+    if pivot == gui.PIVOT_W or pivot == gui.PIVOT_CENTER or pivot == gui.PIVOT_E then
+        fy = 0.5
+    elseif pivot == gui.PIVOT_SW or pivot == gui.PIVOT_S or pivot == gui.PIVOT_SE then
+        fy = 1
+    end
+    return x - fx * w, y - fy * h
+end
+
+-- Text. opts: w (wrap width), pivot, lines (max lines, adds "..." and a hover with the whole text),
+-- scale, full (false: no hover for a cut).
 function M.text(x, y, str, font, color, opts)
     opts = opts or {}
     str = str or ""
+    local full = M.cut_pending[str]
     if opts.w then
         local lines = M.wrap(str, font, opts.w)
         if opts.lines and #lines > opts.lines then
+            full = full or str
             local keep = {}
             for i = 1, opts.lines do
                 keep[i] = lines[i]
@@ -211,17 +313,48 @@ function M.text(x, y, str, font, color, opts)
             while #last > 1 and M.width(last .. "...", font) > opts.w do
                 last = string.sub(last, 1, #last - 1)
             end
-            keep[opts.lines] = last .. "..."
+            keep[opts.lines] = string.gsub(last, "[%s%.,;:]+$", "") .. "..."
             lines = keep
         end
         str = table.concat(lines, "\n")
     end
     -- Rules words in it light up for a hover explanation (game/ui/gloss.lua), where asked.
-    local tags = opts.gloss or M.gloss_tags
+    -- (November 3: on everywhere by default, every game word explained where it stands. Speech,
+    -- the chat and text that moves after it's drawn turn it off: opts.gloss = false.)
+    if opts.gloss == false and M.gloss_audit then
+        M.gloss_audit[str] = true     -- (plain on purpose: speech, the chat; the hover audit skips it)
+    end
+    -- The whole text on hover, under any word's own (a word's spot comes later, so it wins).
+    local cut_spot
+    if full and full ~= str and opts.full ~= false and M.cut_hook and M.current and not opts.scale then
+        local tw, nl = 0, 0
+        for line in string.gmatch(str .. "\n", "(.-)\n") do
+            tw = math.max(tw, M.width(line, font))
+            nl = nl + 1
+        end
+        local th = nl * M.line_height(font)
+        local lx, ly = top_left(x, y, tw, th, opts.pivot or gui.PIVOT_NW)
+        cut_spot = M.cut_hook(lx, ly, tw, th, full)
+    end
+    local tags = opts.gloss or M.gloss_tags or M.gloss_default
+    local n0 = M.current and #M.current.nodes or 0
     if tags and M.gloss_hook and not opts.scale and opts.gloss ~= false and str ~= "" then
         M.gloss_hook(x, y, str, font, color, opts.pivot or gui.PIVOT_NW, tags)
     end
+    local kids
+    if M.current and #M.current.nodes > n0 then
+        kids = {}
+        for i = n0 + 1, #M.current.nodes do
+            table.insert(kids, M.current.nodes[i])
+        end
+    end
     local n = gui.new_text_node(vmath.vector3(x, M.H - y, 0), str)
+    if kids then
+        M.under_of[n] = kids
+    end
+    if cut_spot then
+        cut_spot.node = n         -- (hidden or deleted with its text)
+    end
     gui.set_font(n, font)
     gui.set_pivot(n, opts.pivot or gui.PIVOT_NW)
     gui.set_color(n, color)
@@ -273,7 +406,11 @@ function M.ellipsize(str, font, w)
     while #out > 1 and M.width(out .. "...", font) > w do
         out = string.sub(out, 1, #out - 1)
     end
-    return out .. "..."
+    -- (No "anyway...." or "sale, ...": the cut drops the stop or the comma it lands after.)
+    out = string.gsub(out, "[%s%.,;:]+$", "")
+    out = out .. "..."
+    remember_cut(out, str)
+    return out
 end
 
 function M.wrap(str, font, w)
@@ -375,6 +512,20 @@ local function topmost_buttons()
                 table.insert(out, l.buttons[j])
             end
             if l.modal then
+                -- A modal that lets some buttons under it through (l.pass = { key = true }): game
+                -- night's call cards keep the top bar's Story, Notes, Maps and Table working while
+                -- the night waits on you (the playtest, November 3).
+                if l.pass then
+                    for k = i - 1, 1, -1 do
+                        local below = M.layers[k]
+                        for j = #below.buttons, 1, -1 do
+                            local b = below.buttons[j]
+                            if b.key and l.pass[b.key] then
+                                table.insert(out, b)
+                            end
+                        end
+                    end
+                end
                 break
             end
         end
@@ -430,16 +581,6 @@ function M.rest_hits(l)
     for _, b in ipairs(l and l.buttons or {}) do
         b.rect_hit = true
     end
-end
-
--- True if the point is over any node of a modal layer or a given layer.
-function M.over_layer(l, x, y)
-    for _, n in ipairs(l.nodes) do
-        if gui.pick_node(n, x, y) then
-            return true
-        end
-    end
-    return false
 end
 
 -- Hover spots (game/ui/gloss.lua): a rules word with an explanation. They never take a click
@@ -598,6 +739,17 @@ function M.on_click(x, y)
         end
         b.on_click(b)
         return true
+    end
+    -- A word that does something when clicked (a person's name opens their sheet: gloss.lua).
+    if not b then
+        local s = M.spot_hit(x, y)
+        if s and s.on_click then
+            if M.on_press then
+                M.on_press(s)
+            end
+            s.on_click(s)
+            return true
+        end
     end
     return false
 end

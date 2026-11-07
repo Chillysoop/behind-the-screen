@@ -28,9 +28,9 @@ local function safe(fn, app, c)
     return ok and v and true or false
 end
 
--- Screens where a tip may show, and what keeps tips away (a conversation or the level-up
--- moment over the prep board, the sandbox, an error, the dialogue review queue, the DM's
--- notes, a character sheet or the encounter builder), or a player's gift waiting in the report.
+-- What keeps tips away: a talk or the level-up moment over the prep board, the sandbox, an
+-- error, the dialogue review queue, the DM's notes or a character sheet, or a player's gift
+-- waiting in the report.
 local function gift_open(app)
     if app.screen ~= "report" or not app.campaign then
         return false
@@ -58,9 +58,12 @@ local function hover_up(app)
 end
 
 local function quiet(app)
-    return hover_up(app) or app.sandbox or app.error_layer or app.convo or app.levelup or app.quick or app.overlay or app.talk or app.ask or app.book
+    return hover_up(app) or app.sandbox or app.error_layer or app.levelup or app.quick or app.overlay or app.talk or app.ask
         or (app.review and app.review.queue_open) or gift_open(app)
         or (app.pending and app.pending.kind == "cinematic")   -- the opening has the floor
+        or app.recap_left or app.recap_right   -- the DM's recap is up (game night's tips sit where the Table sidebar opens)
+        or (app.screen == "report" and require("game.ui.rewards_view").pending(app))   -- the rewards come first
+        or app.thought_card                     -- a friend's thought over their tile
 end
 
 -- The tip that should be showing now, or nil.

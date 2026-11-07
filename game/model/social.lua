@@ -1,12 +1,12 @@
--- The social layer (M6): Session Zero, the three table conflicts, the promises
--- the DM makes, and which DM conversations are open each week. Pure Lua.
+-- The social layer (M6): Session Zero, the three table conflicts, and the promises
+-- the DM makes. Pure Lua.
 --
 -- A conflict is a pressure number that game night pushes around (who had the
 -- spotlight, how rules calls went, jokes in serious moments). Past BREWING people
--- notice: a bystander messages you and the conflict's card can come up at the table.
--- Past ACTIVE it costs the people involved Commitment every week. It's settled by a
--- fix: a conversation, a group post, enough good calls at the table, or (for the tone
--- clash) planning a week that gives both sides their scene.
+-- notice: the conflict's card can come up at the table. Past ACTIVE it costs the
+-- people involved Commitment every week. It's settled by a fix: a vote at the table,
+-- enough good calls there, or (for the tone clash) a night that gives both sides
+-- their scene.
 
 local content = require "game.model.content"
 local score = require "game.model.score"
@@ -54,10 +54,6 @@ function M.feelings(choices)
                 total = total + (opt.like[key] or 0)
             end
         end
-        -- Their backstory (October 13): what you asked, their idea, what you wrote in.
-        if choices.backstories then
-            total = total + require("game.model.backstory").like(key, choices.backstories[key])
-        end
         out[key] = total
     end
     return out
@@ -93,8 +89,6 @@ function M.apply_session_zero(campaign, choices, held)
         end
     end
     campaign.table = t
-    -- Their backstories, written into the campaign (October 13).
-    require("game.model.backstory").settle(campaign, choices.backstories)
     -- Where the conflicts start.
     local start = {}
     for _, id in ipairs(defs().order) do
@@ -150,46 +144,6 @@ function M.settle_ask(t, key, answer)
     end
 end
 
--- A player joins a small table (October 15): their ask and their backstory, settled the way
--- Session Zero settles them, and how they feel about it to start. choices = { ask = "agree" |
--- "push", backstory = { asked, idea, hook } }; anything missing takes a default.
-function M.welcome(campaign, key, choices)
-    choices = choices or {}
-    -- Their friction starts fresh (October 15: "tired of the Pip show" before Pip had played a
-    -- scene): whatever Session Zero piled on while they weren't here comes back to where it starts.
-    for _, id in ipairs(defs().order) do
-        local d, c = defs()[id], campaign.conflicts and campaign.conflicts[id]
-        if c and util.contains(d.side or {}, key) and c.state ~= "fixed" then
-            c.pressure = math.min(c.pressure, d.start or 0)
-            c.state = "calm"
-        end
-    end
-    local s0 = content.session_zero
-    local t = campaign.table
-    local answer = choices.ask or s0.defaults.asks[key] or "agree"
-    if t and s0.asks[key] then
-        M.settle_ask(t, key, answer)
-        local a = s0.asks[key][answer]
-        for id, v in pairs(a and a.pressure or {}) do
-            if campaign.conflicts[id] then
-                campaign.conflicts[id].pressure = util.clamp(campaign.conflicts[id].pressure + v, 0, 100)
-            end
-        end
-    end
-    local backstory = require "game.model.backstory"
-    local ch = choices.backstory or backstory.default_choice(key)
-    backstory.settle_one(campaign, key, ch)
-    local p = campaign:player(key)
-    if p then
-        local like = backstory.like(key, ch)
-        local a = s0.asks[key] and s0.asks[key][answer]
-        like = like + (a and a.like or 0)
-        score.add(p, "trust", 1.5 * like + 2)
-        score.add(p, "investment", like + 2)
-        p.lag.trust, p.lag.investment = p.trust, p.investment
-    end
-end
-
 -- Conflicts -------------------------------------------------------------------------------
 
 function M.init(campaign)
@@ -202,11 +156,9 @@ function M.init(campaign)
             progress = 0,       -- good table moves toward settling it
             weeks = 0,          -- weeks brewing or active this time round
             fixes = {},         -- { week, how } for every time it was settled
-            asked = {},         -- bystanders who have already messaged about it
         }
     end
     campaign.promises_due = {}  -- "look_it_up" -> { week, topic }
-    campaign.suggested = {}     -- convo ids the DM offered in a conversation (free to post)
     M.apply_session_zero(campaign, nil, false)
 end
 
@@ -251,7 +203,6 @@ local function restate(campaign, c)
         -- Good table moves made while it simmered down still count (progress keeps).
         c.since = c.since and before == "calm" and c.calmed and (campaign.week - c.calmed) <= 2 and c.since or campaign.week
         c.weeks = 0
-        c.asked = {}
         c.recurred = #c.fixes > 0
     elseif before ~= "calm" and c.state == "calm" then
         c.calmed = campaign.week
@@ -476,98 +427,6 @@ function M.start_week(campaign)
             end
         end
     end
-    campaign.suggested = {}
-    campaign.open_convos = M.open_convos(campaign)
-end
-
--- Conversations ----------------------------------------------------------------------------
-
--- Who's most likely to message you about a conflict this week.
-local function bystander(campaign, id)
-    local c = campaign.conflicts[id]
-    local options = {}
-    if id == "spotlight" then
-        -- The one with the least spotlight lately.
-        local list = {}
-        for _, key in ipairs({ "sam", "mara", "dev" }) do
-            local p = campaign:player(key)
-            if around(campaign, key) and not c.asked[key] then
-                table.insert(list, { key = key, s = p.spot_avg or 50 })
-            end
-        end
-        table.sort(list, function(a, b)
-            return a.s < b.s
-        end)
-        for _, e in ipairs(list) do
-            table.insert(options, e.key)
-        end
-    elseif id == "rules" then
-        local cool = 0
-        for _, call in ipairs(campaign.last_rules_calls or {}) do
-            if call.leans == "cool" then
-                cool = cool + 1
-            elseif call.leans == "book" or call.leans == "strict" then
-                cool = cool - 1
-            end
-        end
-        if cool >= 0 then
-            options = { "sam", "dev" }
-        else
-            options = { "dev", "sam" }
-        end
-    elseif id == "tone" then
-        options = { "mara", "jess" }
-    end
-    for _, key in ipairs(options) do
-        if around(campaign, key) and not c.asked[key] and content.convos[id .. "_" .. key] then
-            return key
-        end
-    end
-end
-
--- The conversations open this week, in the order the Messages list shows them.
-function M.open_convos(campaign)
-    local list = {}
-    local function add(id, why)
-        local def = content.convos[id]
-        if def and (def.with == "group" or around(campaign, def.with)) then
-            table.insert(list, { id = id, why = why })
-        end
-    end
-    for _, id in ipairs(defs().order) do
-        local c = campaign.conflicts[id]
-        if is_live(c) then
-            -- A bystander messages you, once per person per flare-up.
-            local who = bystander(campaign, id)
-            if who then
-                c.asked[who] = true
-                add(id .. "_" .. who, "conflict")
-            end
-            if id == "spotlight" then
-                add("spotlight_jess", "conflict")
-            elseif id == "rules" then
-                add("rules_house", "conflict")
-                add("rules_vote", "conflict")
-            elseif id == "tone" then
-                add("tone_check", "conflict")
-            end
-        end
-    end
-    if campaign.promises_due.look_it_up then
-        add("rules_followup", "promise")
-    end
-    return list
-end
-
--- What the rules argument is about right now.
-function M.topic(campaign)
-    local due = campaign.promises_due.look_it_up
-    if due and due.topic then
-        return due.topic
-    end
-    local calls = campaign.last_rules_calls or {}
-    local last = calls[#calls]
-    return (last and last.topic) or "flanking"
 end
 
 -- One line per conflict for the report and the prep board. Returns a list of

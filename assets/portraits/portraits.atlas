@@ -26,6 +26,9 @@ images {
   image: "/assets/portraits/face_mara_yawn.png"
 }
 images {
+  image: "/assets/portraits/face_mara_frown.png"
+}
+images {
   image: "/assets/portraits/face_dev.png"
 }
 images {
@@ -51,6 +54,9 @@ images {
 }
 images {
   image: "/assets/portraits/face_dev_yawn.png"
+}
+images {
+  image: "/assets/portraits/face_dev_frown.png"
 }
 images {
   image: "/assets/portraits/face_jess.png"
@@ -80,6 +86,9 @@ images {
   image: "/assets/portraits/face_jess_yawn.png"
 }
 images {
+  image: "/assets/portraits/face_jess_frown.png"
+}
+images {
   image: "/assets/portraits/face_sam.png"
 }
 images {
@@ -107,6 +116,9 @@ images {
   image: "/assets/portraits/face_sam_yawn.png"
 }
 images {
+  image: "/assets/portraits/face_sam_frown.png"
+}
+images {
   image: "/assets/portraits/mini_fighter.png"
 }
 images {
@@ -119,76 +131,40 @@ images {
   image: "/assets/portraits/mini_wizard.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_gus.png"
-}
-images {
   image: "/assets/portraits/mini_npc_stranger.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_hermit.png"
+  image: "/assets/portraits/mini_euryale.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_rival.png"
+  image: "/assets/portraits/mini_knight_of_shades.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_corin.png"
+  image: "/assets/portraits/mini_sentinel.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_sable.png"
+  image: "/assets/portraits/mini_giant_scarab_swarm.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_ghost.png"
+  image: "/assets/portraits/mini_bone_construct.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_vask.png"
+  image: "/assets/portraits/mini_kruthik_huntling.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_wren.png"
+  image: "/assets/portraits/mini_the_lecturer.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_grey_coat.png"
+  image: "/assets/portraits/mini_steam_mech.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_tilly.png"
+  image: "/assets/portraits/mini_telpur.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_ottilie.png"
+  image: "/assets/portraits/mini_flitwidget.png"
 }
 images {
-  image: "/assets/portraits/mini_npc_hob.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_holt.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_tumble.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_verrin.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_nib.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_ansel.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_rosin.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_pearl.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_coil.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_stag.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_ashby.png"
-}
-images {
-  image: "/assets/portraits/mini_npc_reeve.png"
+  image: "/assets/portraits/mini_exhibit_b.png"
 }
 images {
   image: "/assets/portraits/mini_goblin_boss.png"
@@ -228,6 +204,15 @@ images {
 }
 images {
   image: "/assets/portraits/mini_ogre.png"
+}
+images {
+  image: "/assets/portraits/mini_briar_beast.png"
+}
+images {
+  image: "/assets/portraits/mini_briar_boar.png"
+}
+images {
+  image: "/assets/portraits/mini_briar_triceratops.png"
 }
 images {
   image: "/assets/portraits/mini_pirate.png"
@@ -314,6 +299,9 @@ images {
   image: "/assets/portraits/dice_deep_sea.png"
 }
 images {
+  image: "/assets/portraits/dice_dragonscale.png"
+}
+images {
   image: "/assets/portraits/dice_ember.png"
 }
 images {
@@ -329,7 +317,16 @@ images {
   image: "/assets/portraits/dice_obsidian.png"
 }
 images {
+  image: "/assets/portraits/dice_prism.png"
+}
+images {
   image: "/assets/portraits/dice_rose.png"
+}
+images {
+  image: "/assets/portraits/dice_sunburst.png"
+}
+images {
+  image: "/assets/portraits/dice_voidstar.png"
 }
 margin: 2
 extrude_borders: 2

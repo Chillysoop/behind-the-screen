@@ -42,12 +42,6 @@ function M.offer(campaign, rng)
     return d.offer
 end
 
-function M.pick_dm(campaign, id)
-    if data.SETS[id] then
-        M.get(campaign).dm = id
-    end
-end
-
 function M.dm(campaign)
     local d = M.get(campaign)
     return d.dm or (d.offer and d.offer[1]) or "amethyst"
@@ -129,6 +123,18 @@ end
 function M.show_off(night)
     local campaign = night.campaign
     local d = M.get(campaign)
+    -- (A friend who said in the chat they'd bought new dice shows off those, that week: round three,
+    -- the chat said Sam's were green and the recap said Obsidian.)
+    local b = d.bought
+    if b and b.week == campaign.week then
+        d.bought = nil
+        for _, p in ipairs(night.players) do
+            if p.key == b.key and M.of(campaign, p.key) == b.set then
+                d.shown[p.key] = campaign.week
+                return p, b.set
+            end
+        end
+    end
     local rng = stream(campaign, 17)
     local cands = {}
     local gifted = d.last_gift and d.last_gift.week == campaign.week - 1 and d.last_gift.key

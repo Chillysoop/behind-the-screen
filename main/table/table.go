@@ -22,3 +22,7 @@ components {
   id: "mark_factory"
   component: "/main/table/mark.factory"
 }
+components {
+  id: "ring_factory"
+  component: "/main/table/ring.factory"
+}

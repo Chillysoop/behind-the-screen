@@ -82,7 +82,8 @@ end
 -- vars may carry other_key (lines written for that pair are preferred), split
 -- (the tier or mood for split triggers), must (repeat a line rather than say
 -- nothing) and any {placeholders}.
-function M:line(trigger, p, vars)
+-- fits (optional): a test a line must pass to be true right now (game/model/barks.lua).
+function M:line(trigger, p, vars, fits)
     if not p then
         return nil
     end
@@ -91,14 +92,15 @@ function M:line(trigger, p, vars)
     local missing
     local t = self.lib.trigger[trigger]
     for _, k in ipairs(t and t.fill or {}) do
-        if vars[k] == nil and k ~= "char" and k ~= "name" then
+        -- (false: this moment has one, but it can't be said, like the name of a boss that ran.)
+        if (vars[k] == nil or vars[k] == false) and k ~= "char" and k ~= "name" then
             missing = missing or {}
             missing[k] = true
         end
     end
     local ctx = { to = vars.other_key, split = vars.split, recent = self:skip(), rng = self.rng, missing = missing,
                   present = self.present, chars = self.chars, openers = self.openers,
-                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again }
+                  first_week = self.campaign ~= nil and (self.campaign.week or 0) <= 1, again = vars.again, fits = fits }
     local l = self.lib:pick(trigger, p.key, ctx)
     if not l and vars.must then
         -- Some things always get said (a warning before someone takes a break), even if it's a repeat.

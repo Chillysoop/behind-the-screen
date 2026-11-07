@@ -1127,6 +1127,131 @@ case("total-cover", "A wall between them is Total Cover: no attack through it", 
         t:eq("a line exactly through a corner between two wall squares is blocked", b:los_xy(5, 5, 7, 5) or b:los_xy(5, 4, 7, 6), false)
     end)
 
+case("sight-heal", "A heal for a friend out of sight goes to one in sight who needs it, or waits",
+    "p. 104 (A Clear Path to the Target); p. 139 (Healing Word)",
+    "A spell's target needs a clear path. Out of sight is no target: the heal goes to a friend in sight who's down or "
+        .. "badly hurt, or the cleric steps round to see, or keeps the slot. Never a heal on someone at full health. "
+        .. "(The fourth playtest, 81 careful: Healing Word on Oswin himself, for 0, while Brannoc lay dying round a corner.)",
+    function(t)
+        local b = fresh()
+        b.opaque, b.blocked = {}, {}
+        for y = 3, 7 do
+            b.opaque["8," .. y] = true
+            b.blocked[8 * 1000 + y] = true
+        end
+        local cl = at(b, pc("cleric", 2), 6, 5)
+        local f = at(b, pc("fighter", 2), 12, 5)
+        local w = at(b, pc("wizard", 2), 6, 7)
+        at(b, mon("goblin_warrior"), 2, 12)
+        cl.res.potions = 0
+        f.hp, f.down = 0, true
+        cl.hp = cl.hp_max - 2                                  -- (a scratch: not worth a heal)
+        t:eq("the wall hides the fighter", b:los_xy(cl.x, cl.y, f.x, f.y), false)
+        local s1, mi = cl.res.slots[1], cl.res.mi_free
+        local hp0 = cl.hp
+        t:eq("Healing Word at the fighter out of sight: not cast", ai.cast(b, cl, "healing_word", f), false)
+        t:eq("so not on the cleric himself, for nothing", cl.hp, hp0)
+        t:eq("no slot spent", cl.res.slots[1], s1)
+        t:eq("and the free one kept", cl.res.mi_free, mi)
+        t:eq("and the Bonus Action kept", cl.turn.bonus, true)
+        w.hp, w.down = 0, true
+        t:eq("with a friend down in sight, it goes to them", ai.cast(b, cl, "healing_word", f), true)
+        t:eq("the wizard is up", w.down, false)
+        t:eq("the fighter still down", f.down, true)
+        -- On his turn: he steps round the wall to see the fighter, and gets him up.
+        local b2 = fresh()
+        b2.opaque, b2.blocked = b.opaque, b.blocked
+        local cl2 = at(b2, pc("cleric", 2), 6, 5)
+        local f2 = at(b2, pc("fighter", 2), 12, 5)
+        at(b2, mon("goblin_warrior"), 2, 12)
+        cl2.res.potions = 0
+        f2.hp, f2.down = 0, true
+        -- (The promise the table hears, fight.lua's medic line, waits on this: he can keep it.)
+        t:eq("a cleric with Healing Word can get the fighter up", ai.can_bring_up(b2, cl2, f2), "healing_word")
+        ai.take_turn(b2, cl2)
+        t:eq("on his turn, round the corner and Healing Word: the fighter is up", f2.down, false)
+        t:eq("from where he can see him", b2:los_xy(cl2.x, cl2.y, f2.x, f2.y), true)
+        t:eq("and the cleric healed nobody else", cl2.hp, cl2.hp_max)
+        local cl3 = at(b2, pc("cleric", 2), 2, 2)
+        cl3.res.potions, cl3.res.mi_free = 0, 0
+        for k in pairs(cl3.res.slots) do cl3.res.slots[k] = 0 end
+        f2.hp, f2.down = 0, true
+        t:eq("one with no slot and no potion can't, so says nothing", ai.can_bring_up(b2, cl3, f2), nil)
+    end)
+
+case("sight-area", "An area spell is placed where the caster can see, and never where it catches friends",
+    "p. 104 (A Clear Path to the Target); p. 161 (Shatter)",
+    "A point of origin needs a clear path too. A point behind a wall is never swapped for the nearest foe in sight: "
+        .. "the fourth playtest, 82 careless, Shatter aimed past a wall landed on a huntling among three friends and "
+        .. "killed Telpur.",
+    function(t)
+        local b = fresh()
+        b.opaque, b.blocked = {}, {}
+        for y = 1, 16 do
+            b.opaque["10," .. y] = true
+            b.blocked[10 * 1000 + y] = true
+        end
+        local w = at(b, pc("wizard", 3), 3, 5)
+        local f = at(b, pc("fighter", 3), 8, 4)
+        local cl = at(b, pc("cleric", 3), 8, 6)
+        local r = at(b, pc("rogue", 3), 9, 5)
+        at(b, mon("goblin_warrior"), 8, 5)                    -- in sight, among three friends
+        at(b, mon("goblin_warrior"), 14, 5)                   -- two behind the wall
+        at(b, mon("goblin_warrior"), 14, 6)
+        local s2 = w.res.slots[2]
+        t:eq("Shatter at a point behind the wall: not cast", ai.cast(b, w, "shatter", { x = 14, y = 5 }), false)
+        t:eq("no slot spent", w.res.slots[2], s2)
+        t:eq("the action kept", w.turn.action, true)
+        ai.take_turn(b, w)
+        local hurt = 0
+        for _, a in ipairs({ f, cl, r }) do
+            if a.hp < a.hp_max then hurt = hurt + 1 end
+        end
+        t:eq("on her turn, nothing of hers catches a friend", hurt, 0)
+        local shattered = false
+        for _, l in ipairs(b.lines) do
+            if string.find(l, "casts Shatter", 1, true) then shattered = true end
+        end
+        t:eq("and no Shatter on the foe among them", shattered, false)
+    end)
+
+case("stare-down", "A foe stared down goes for whoever did it, its own special turn too",
+    "game/model/fight.lua (the stare-down), game/rules/sheep.lua (the bed dragon)",
+    "Taunted: while whoever stared it down is standing, it goes for them. The fourth playtest, carry 86 random: "
+        .. "\"The bed dragon can't take its eyes off Brannoc\", then its breath went at Pip.",
+    function(t)
+        local function dragon(b, x, y)
+            local d = at(b, mon("brown_bear"), x, y)
+            local data = {}
+            for k, v in pairs(d.data or {}) do data[k] = v end
+            data.rules, data.rules_turn = "sheep", "bed_dragon"
+            data.breath = { id = "splinter_breath", name = "Splinter Breath", recharge = { 5, 6 }, cone = 15, save = "dex",
+                            dc = 13, damage = { { 7, 6, 0, "piercing" } }, half = true }
+            d.data = data
+            return d
+        end
+        local function hp_lost(c) return c.hp < c.hp_max end
+        -- Without a stare-down: the breath goes where it catches two.
+        local b = fresh()
+        local d = dragon(b, 10, 10)
+        local f = at(b, pc("fighter", 3), 10, 12)
+        local r = at(b, pc("rogue", 3), 12, 10)
+        local w = at(b, pc("wizard", 3), 13, 10)
+        ai.take_turn(b, d)
+        t:eq("unprovoked, the breath catches the two side by side", hp_lost(r) and hp_lost(w), true)
+        t:eq("and not the fighter off the other way", hp_lost(f), false)
+        -- Stared down by the fighter: the breath goes at him.
+        b = fresh()
+        d = dragon(b, 10, 10)
+        f = at(b, pc("fighter", 3), 10, 12)
+        r = at(b, pc("rogue", 3), 12, 10)
+        w = at(b, pc("wizard", 3), 13, 10)
+        b:add_effect(d, { name = "Taunted", taunt_by = f, conds = { taunted = true } })
+        ai.take_turn(b, d)
+        t:eq("stared down, it breathes at the fighter", hp_lost(f), true)
+        t:eq("and the other two are left alone", hp_lost(r) or hp_lost(w), false)
+    end)
+
 case("doors", "A shut door opens as a hero walks through; a wolf can't open it; a locked one holds",
     "p. 13 (Interacting with Things)",
     "You can interact with one object for free during your move: open a door as you stride toward a foe. A Lock is DC 15 "
@@ -1222,6 +1347,457 @@ case("map-v2", "The DM's map is a board: its pieces block, cover and open", "Set
         local old = { template = "blank", pieces = { ["5,5"] = "wall", ["6,5"] = "cover", ["7,5"] = "rough", ["8,5"] = "trap" } }
         maps.migrate(old)
         t:eq("a version 1 map turns into pieces", #old.props .. ":" .. tostring(old.traps["8,5"]), "3:true")
+    end)
+
+-- The Museum of Nightmares (v2) -------------------------------------------------------------------
+-- The adventure's own monsters (its Appendix B) and the battle options game night passes in
+-- (game/rules/museum.lua). Page references are to the adventure, not the SRD.
+
+local museum = require "game.rules.museum"
+
+case("museum-mundane", "The Knight of Shades shrugs off ordinary blows, and paint cuts it", "Museum, Appendix B (Knight of Shades)",
+    "Resistance to bludgeoning, piercing and slashing from nonmagical attacks; vulnerability to paint-touched weapons.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)        -- AC 12, 67 HP
+        b.dice:force(15, 3, 4)                               -- greatsword 2d6 (3+4) + 3 = 10
+        local r = b:attack(f, k, melee(f))
+        t:eq("a plain greatsword does half", r.damage, 5)
+        b.paint = true
+        b.dice:force(15, 3, 4)
+        r = b:attack(f, k, melee(f))
+        t:eq("a paint-touched one counts as magic, and doubles", r.damage, 20)
+    end)
+
+case("museum-fire-arrows", "Telpur's fire arrows and slime, and a quiver of arrows on its own", "Museum, the gift shop",
+    "The arrows and slime: each hero's first weapon hit a turn deals 1d4 more (fire from a bow, acid from a blade). The arrows alone burn a shot, never a sword.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)
+        museum.setup(b, { fire_arrows = true })
+        b.dice:force(15, 3, 4, 2)                            -- greatsword hit, slime 1d4 (2)
+        local feats = 0
+        b.on_event = function(_, ev) if ev.kind == "feature" and string.find(ev.name or "", "Telpur's slime", 1, true) then feats = feats + 1 end end
+        b:attack(f, k, melee(f))
+        t:eq("the slime bites on a sword", feats, 1)
+        museum.setup(b, { fire_arrows = "arrows" })
+        t:eq("the quiver alone is just arrows", b.fire_arrows, "arrows")
+        f.turn.fire_arrows = nil
+        feats = 0
+        b.dice:force(15, 3, 4)
+        b:attack(f, k, melee(f))
+        t:eq("and a sword gets none of it", feats, 0)
+        -- (A thrown javelin isn't a shot from a bow: the fourth playtest, 82 careless, "Telpur's fire arrow" on
+        -- Brannoc's javelin, and the quiver's words say "first shot".)
+        local fire = 0
+        b.on_event = function(_, ev)
+            if ev.kind == "feature" and string.find(ev.name or "", "Telpur's fire arrow", 1, true) then fire = fire + 1 end
+            if ev.kind == "feature" and string.find(ev.name or "", "Telpur's slime", 1, true) then feats = feats + 1 end
+        end
+        k.x, k.y = 9, 5
+        f.turn.fire_arrows = nil
+        b.dice:force(15, 3)
+        b:attack(f, k, creature.weapon_attack(f, "javelin", { thrown = true }))
+        t:eq("the quiver alone: a thrown javelin doesn't burn", fire, 0)
+        local r = at(b, pc("rogue", 2), 3, 5)
+        b.dice:force(15, 3, 2)
+        b:attack(r, k, creature.weapon_attack(r, "shortbow"))
+        t:eq("a shot from a bow does", fire, 1)
+        museum.setup(b, { fire_arrows = true })
+        f.turn.fire_arrows = nil
+        feats, fire = 0, 0
+        b.dice:force(15, 3, 2)
+        b:attack(f, k, creature.weapon_attack(f, "javelin", { thrown = true }))
+        t:eq("arrows and slime: the javelin gets the slime", feats, 1)
+        t:eq("not a fire arrow", fire, 0)
+    end)
+
+case("museum-knockout", "The Sentinel's fists knock a hero out instead of killing", "Museum, Appendix B (The Sentinel)",
+    "Two non-lethal attacks: a hero it drops is Unconscious and Stable, with no death saves to make.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 2), 5, 5)
+        local s = at(b, mon("sentinel"), 6, 5)
+        w.hp = 3
+        b.dice:force(15, 4)                                  -- fist 1d6 (4) + 2 = 6
+        b:attack(s, w, creature.monster_attack(s, s.attacks[1]))
+        t:eq("down", w.down, true)
+        t:eq("but Stable: no death saves", w.stable, true)
+        t:eq("and knocked out, not dying", w.knocked_out, true)
+    end)
+
+case("museum-charge", "A briar boar's charge: extra damage and a Strength save or Prone", "Museum, Appendix B (Briar Boar)",
+    "Moving at least 20 ft straight toward a target, then hitting with the tusks: +1d6 slashing, DC 11 Strength save or Prone.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local boar = at(b, mon("briar_boar"), 10, 5)
+        boar.turn.start_x, boar.turn.start_y = 10, 5
+        boar.x = 6                                           -- it ran 20 ft in
+        b.active = boar
+        b.dice:force(15, 4, 3, 2)                            -- hit; tusks 4 + 1, charge 3; Str save 2 + 5 fails
+        local r = b:attack(boar, f, creature.monster_attack(boar, boar.attacks[1]))
+        t:eq("tusks 5 + charge 3", r.damage, 8)
+        t:eq("knocked flat", b:has(f, "prone"), true)
+        b.dice:force(15, 15, 4)                              -- (Advantage now: he's Prone)
+        r = b:attack(boar, f, creature.monster_attack(boar, boar.attacks[1]))
+        t:eq("once a turn", r.damage, 5)
+    end)
+
+case("museum-scarabs", "Hurt the bone construct to half and the scarabs pour out", "Museum, Appendix B (Bone Construct)",
+    "Crypt Scarabs: when the Bone Construct has reached 50% of its Hit Points, a swarm of Giant Scarabs joins the fight.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local bc = at(b, mon("bone_construct"), 10, 5)       -- 45 HP
+        local n = #b.creatures
+        b:deal(f, bc, { { 20, "slashing" } })
+        t:eq("25 of 45 left: nothing yet", #b.creatures, n)
+        b:deal(f, bc, { { 5, "slashing" } })
+        t:eq("20 of 45: a swarm joins", #b.creatures, n + 1)
+        t:eq("it's the scarabs, on the construct's side", b.creatures[n + 1].monster_id .. ":" .. b.creatures[n + 1].side,
+            "giant_scarab_swarm:foes")
+        b:deal(f, bc, { { 5, "slashing" } })
+        t:eq("only the once", #b.creatures, n + 1)
+    end)
+
+case("museum-petrify", "Euryale's gaze: Restrained, then stone, then free when she falls", "Museum, Appendix B (Euryale)",
+    "Petrify: DC 12 Con save or Restrained; repeat at the end of its next turn or Petrified; freed when Euryale is defeated.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.dice:force(2)                                      -- 2 + 4 fails
+        museum.petrify(b, e)
+        t:eq("turning to stone (Restrained)", b:has(f, "restrained"), true)
+        b.dice:force(3)                                      -- the repeat save fails too
+        b:end_turn(f)
+        t:eq("stone", b:has(f, "petrified"), true)
+        t:eq("out of the fight: nobody's left standing on the party's side", b:outcome(), "foes")
+        t:eq("and nobody targets a statue", #b:enemies_of(e), 0)
+        b:kill(e)
+        t:eq("she falls, and the stone cracks", b:has(f, "petrified"), false)
+    end)
+
+case("museum-mirror", "With the mirror up, Euryale meets her own eyes", "Museum, Appendix B (Euryale)",
+    "If Euryale uses Petrify while looking at her own reflection, she makes the save too.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.mirror = true
+        b.active = e
+        b.dice:force(20, 2)                                  -- the fighter saves; Euryale (+2) doesn't
+        museum.petrify(b, e)
+        t:eq("the fighter is fine", b:has(f, "restrained"), false)
+        t:eq("she's turning to stone", b:has(e, "restrained"), true)
+        b:end_turn(e)
+        t:eq("her repeat save waits for the end of her next turn", b:has(e, "restrained"), true)
+        b.dice:force(4)
+        b:end_turn(e)
+        t:eq("stone, and beaten", e.dead, true)
+    end)
+
+case("museum-averted", "Averted eyes: Advantage against the gaze", "Museum (Lair of the Gorgon)",
+    "The battle option averted: the heroes' saves against Petrify have Advantage.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 10, 5)
+        b.averted = true
+        b.dice:force(2, 15)                                  -- with Advantage the 15 counts: 19
+        museum.petrify(b, e)
+        t:eq("saved", b:has(f, "restrained"), false)
+        t:eq("both dice rolled", b.dice:pending(), 0)
+    end)
+
+case("museum-drowsy", "Charm Person: Advantage for a hero in the fight, unless the drone made them drowsy",
+    "SRD 5.2.1 p. 116 (Charm Person); Museum (the Lecture Theatre)",
+    "A target you're fighting saves with Advantage; drowsy (the battle option) gives Disadvantage, and the two cancel.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local e = at(b, mon("euryale"), 8, 5)
+        b.dice:force(5, 15)                                  -- Advantage: 15 + 0 saves
+        museum.charm_person(b, e, f)
+        t:eq("saved with Advantage", b:find_effect(f, "Charmed") == nil, true)
+        b.drowsy = true
+        b.dice:force(5)                                      -- one die: 5 fails
+        museum.charm_person(b, e, f)
+        t:eq("drowsy: one die, and charmed", b:find_effect(f, "Charmed") ~= nil, true)
+        t:eq("no attacking her, not even in passing", b:can_make_oa(f, e), false)
+        b:deal(e, f, { { 2, "slashing" } })
+        t:eq("she hurts him and the charm breaks", b:find_effect(f, "Charmed"), nil)
+    end)
+
+case("museum-lecture", "Bored to Death: a hero sits down to listen until someone hurts them", "Museum, Appendix B (The Lecturer)",
+    "DC 14 Wisdom save or Charmed: the target sits and listens; the charm breaks if someone tries to harm it.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local l = at(b, mon("the_lecturer"), 9, 5)
+        b.dice:force(3)
+        museum.lecture(b, l, f)
+        t:eq("sitting, listening (Incapacitated)", b:incapacitated(f), true)
+        t:eq("out of the fight", b:outcome(), "foes")
+        b:deal(nil, f, { { 1, "piercing" } })
+        t:eq("a pinch wakes him", b:incapacitated(f), false)
+        b.earplugs = true
+        b.dice:force(3, 18)                                  -- stopped ears: Advantage
+        museum.lecture(b, l, f)
+        t:eq("earplugs: Advantage, and he stays awake", b:incapacitated(f), false)
+    end)
+
+case("museum-reckless", "The Knight of Shades fights recklessly", "Museum, Appendix B (Knight of Shades)",
+    "At the start of its turn: Advantage on its attacks, and attacks against it have Advantage until its next turn.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        local k = at(b, mon("knight_of_shades"), 6, 5)
+        b.active = k
+        museum.turn(b, k, {})
+        local kp = creature.monster_attack(k, k.attacks[1])
+        t:eq("its swing has Advantage", (b:attack_mode(k, f, kp)), 1)
+        t:eq("so does the fighter's", (b:attack_mode(f, k, melee(f))), 1)
+    end)
+
+case("museum-morale", "Huntlings run once the pack is losing", "Museum (the Hunting Grounds)",
+    "Kruthik Huntlings won't fight to the death: they flee if they believe they will suffer losses.",
+    function(t)
+        local b = fresh()
+        at(b, pc("fighter", 3), 5, 5)
+        local pack = {}
+        for i = 1, 5 do
+            pack[i] = at(b, mon("kruthik_huntling"), 10, 2 + i)
+        end
+        t:eq("a fresh pack holds", museum.loses_nerve(b, pack[5]), false)
+        pack[1].dead, pack[2].dead = true, true
+        t:eq("two lost: still in it", museum.loses_nerve(b, pack[5]), false)
+        pack[3].dead = true
+        t:eq("three lost: they run", museum.loses_nerve(b, pack[5]), true)
+        museum.flee(b, pack[5], { back_off = function() end })
+        t:eq("and leave the fight", pack[5].removed, true)
+    end)
+
+case("museum-overheat", "Hyper Destroyer Mode, and the overheat that shuts the mech down", "Museum, Appendix B (The Steam Mech)",
+    "AC +2 in the mode; at the end of each turn a Con save (DC 10 + turns in it) or 2d6 Fire to all within 5 ft "
+        .. "(DC 12 Dex) and the mech drops to 0 Hit Points.",
+    function(t)
+        local b = fresh()
+        local m = at(b, mon("steam_mech"), 5, 5)
+        m.side, m.ally = "party", true
+        local g = at(b, mon("goblin_warrior"), 6, 5)
+        museum.go_hyper(b, m)
+        t:eq("AC 13 + 2", b:ac(m), 15)
+        b.dice:force(1, 1, 3, 3)                             -- Con save 1; goblin's Dex save 1; 2d6 = 6
+        b:end_turn(m)
+        t:eq("the goblin is scalded", g.hp, 4)
+        t:eq("and the mech is shut down", m.dead and m.shut_down, true)
+    end)
+
+case("museum-commander", "The mech powers down when its commander drops", "Museum (The Steam Mech)",
+    "If the designated commander of a Steam Mech is knocked unconscious, the Steam Mech will disengage.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3), 5, 5)
+        local m = at(b, mon("steam_mech"), 6, 6)
+        m.side, m.ally, m.commander = "party", true, w
+        b:drop(w)
+        t:eq("powered down", m.powered_down and b:incapacitated(m), true)
+    end)
+
+case("dm-target-shot", "Told who to go after, a monster that can't reach them shoots them", "game/rules/ai.lua",
+    "The DM's call (Everyone on the fighter, go for the wizard): out of reach but in range, it shoots that one, not whoever's nearest.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 5, 22)
+        local m = at(b, mon("bandit"), 5, 5)
+        m.side = "foes"
+        local targets = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m then
+                table.insert(targets, ev.tgt)
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", #targets > 0 and targets[1] == w, true)
+        t:eq("not the fighter beside it", (function()
+            for _, x in ipairs(targets) do
+                if x == f then
+                    return true
+                end
+            end
+            return false
+        end)(), false)
+    end)
+
+case("one-slot-a-turn", "One spell slot a turn; a free Quick Reflection doesn't count, and says it's free", "p. 105",
+    "On a turn, you can expend only one spell slot to cast a spell. A spell cast without a slot (Quick Reflection) is no slot spent.",
+    function(t)
+        local b = fresh()
+        local w = at(b, pc("wizard", 3, "mirror_mage"), 5, 5)
+        at(b, mon("goblin_warrior"), 9, 5)
+        local spells_cast = {}
+        b.on_event = function(_, ev)
+            if ev.kind == "spell" and ev.caster == w then
+                table.insert(spells_cast, ev)
+            end
+        end
+        b.active = w
+        b.turn_counter = (b.turn_counter or 0) + 1
+        ai.take_turn(b, w)
+        local paid, free = 0, 0
+        for _, ev in ipairs(spells_cast) do
+            if (ev.slot or 0) > 0 and ev.free then
+                free = free + 1
+            elseif (ev.slot or 0) > 0 then
+                paid = paid + 1
+            end
+        end
+        t:eq("at most one slot spent", paid <= 1, true)
+        t:eq("the free Mirror Image says so", free, 1)
+    end)
+
+case("dm-target-pack", "A pack hunter told who to go after goes after them, not its packmate's target", "game/rules/ai.lua",
+    "Pack Tactics makes a wolf prefer a target an ally is on; the DM's call comes first.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)
+        local w = at(b, pc("wizard", 2), 6, 8)
+        local ally = at(b, mon("wolf"), 7, 5)
+        local m = at(b, mon("wolf"), 5, 6)
+        m.side, ally.side = "foes", "foes"
+        local first
+        b.on_event = function(_, ev)
+            if ev.kind == "attack" and ev.att == m and not first then
+                first = ev.tgt
+            end
+        end
+        m.dm_target = w
+        b.active = m
+        ai.take_turn(b, m)
+        t:eq("it went for the wizard", first == w, true)
+    end)
+
+case("museum-commander-only-mech", "Only the mech powers down: Telpur keeps going when Pip drops", "Museum (The Steam Mech)",
+    "The power-down is the Steam Mech's own rule: a companion who fights beside a hero isn't a machine with a commander.",
+    function(t)
+        local b = fresh()
+        local r = at(b, pc("rogue", 3), 5, 5)
+        local tp = at(b, mon("telpur"), 6, 6)
+        tp.side, tp.ally, tp.commander = "party", true, r
+        b:drop(r)
+        t:eq("Telpur still in it", (tp.powered_down or b:incapacitated(tp)) and true or false, false)
+    end)
+
+case("museum-false-appearance", "Topiary that was never topiary: the party starts surprised", "Museum, Appendix B (Briar Guardians)",
+    "False Appearance: while still, a briar guardian looks like a shaped bush. A fight of only these starts with a surprise.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 5, 5)
+        at(b, mon("briar_beast"), 10, 5)
+        at(b, mon("briar_boar"), 10, 7)
+        t:eq("surprised", museum.false_appearance(b) and f.surprised, true)
+        local b2 = fresh()
+        local f2 = at(b2, pc("fighter", 2), 5, 5)
+        at(b2, mon("briar_beast"), 10, 5)
+        at(b2, mon("euryale"), 10, 7)
+        t:eq("not with Euryale sitting there", museum.false_appearance(b2) or f2.surprised or false, false)
+    end)
+
+-- Round three, A5: the DM's pick and a taunt steer the foes (the third playtest: "Go for Brannoc", then
+-- two swings at Oswin; "it's Oswin it wants", then Bored to Death at Brannoc and Pip).
+case("museum-told-target", "A foe told who to go for keeps after them", "Game night (the DM runs its turn)",
+    "Told to go for a hero it can't reach this turn, it moves toward them, and doesn't swing at whoever's next to it.",
+    function(t)
+        local b = fresh()
+        local near = at(b, pc("cleric", 2), 6, 5)
+        local far = at(b, pc("fighter", 2), 25, 5)
+        local k = at(b, mon("knight_of_shades"), 5, 5)
+        -- (Walled in, with the cleric in the only gap: it can't get to the fighter this turn.)
+        b.blocked = {}
+        for x = 4, 7 do
+            for y = 4, 6 do
+                if not ((x == 5 and y == 5) or (x == 6 and y == 5)) then
+                    b.blocked[x * 1000 + y] = true
+                end
+            end
+        end
+        b.blocked[7 * 1000 + 5] = true
+        k.dm_target = far
+        local swung = {}
+        local attack = b.attack
+        b.attack = function(bb, src, tgt, ...)
+            if src == k then
+                swung[tgt] = (swung[tgt] or 0) + 1
+            end
+            return attack(bb, src, tgt, ...)
+        end
+        b.active = k
+        ai.take_turn(b, k)
+        b.attack = attack
+        t:eq("it doesn't swing at the cleric beside it", swung[near] or 0, 0)
+    end)
+
+case("museum-lecture-taunt", "A taunted Lecturer lectures whoever stared him down", "Museum, Appendix B (The Lecturer)",
+    "Taunted, Bored to Death goes at the taunter, not at whoever's easiest to bore.",
+    function(t)
+        local b = fresh()
+        local f = at(b, pc("fighter", 2), 6, 5)               -- (easier to bore: his Wisdom save is weak)
+        local cl = at(b, pc("cleric", 2), 7, 6)                -- (the cleric stared him down)
+        local l = at(b, mon("the_lecturer"), 9, 5)
+        b:add_effect(l, { name = "Taunted", taunt_by = cl, conds = { taunted = true } })
+        b.active = l
+        local said
+        local old = museum.lecture
+        museum.lecture = function(bb, c, tt)
+            said = tt
+            return old(bb, c, tt)
+        end
+        ai.take_turn(b, l)
+        museum.lecture = old
+        t:eq("he lectures the cleric who stared him down", said == cl, true)
+    end)
+
+case("museum-pick-over-taunt", "The DM running the turn beats a stare-down; a standing call doesn't", "Game night (the DM runs its turn)",
+    "Taunted, the Lecturer lectures whoever the DM picked on the turn they run; with only the tactics card's standing call, the taunter.",
+    function(t)
+        local function who_he_bores(ran)
+            local b = fresh()
+            local f = at(b, pc("fighter", 2), 6, 5)
+            local cl = at(b, pc("cleric", 2), 7, 6)              -- (the cleric stared him down)
+            local l = at(b, mon("the_lecturer"), 9, 5)
+            b:add_effect(l, { name = "Taunted", taunt_by = cl, conds = { taunted = true } })
+            l.dm_target, l.dm_ran = f, ran
+            b.active = l
+            local said
+            local old = museum.lecture
+            museum.lecture = function(bb, c, tt)
+                said = tt
+                return old(bb, c, tt)
+            end
+            ai.take_turn(b, l)
+            museum.lecture = old
+            return said == f and "picked" or said == cl and "taunter" or "someone else"
+        end
+        t:eq("the DM ran his turn and picked the fighter", who_he_bores(true), "picked")
+        t:eq("the tactics card's standing call: the taunter still", who_he_bores(nil), "taunter")
+    end)
+
+case("museum-meter", "The meter counts the scarabs, and the mech on the party's side", "game/rules/encounter.lua",
+    "A monster that bursts into more counts with them; allies add their Hit Points and blunt the monsters'.",
+    function(t)
+        local m = enc.meter(2, 4, { "bone_construct" })
+        t:eq("the construct and its swarm", m.xp, 250)
+        local alone = enc.meter(3, 4, { "euryale" })
+        local helped = enc.meter(3, 4, { "euryale" }, { allies = { "steam_mech" } })
+        t:eq("the mech makes it safer", helped.someone_drops < alone.someone_drops, true)
+        t:eq("the Sentinel can't kill anyone", enc.meter(2, 4, { "sentinel" }).someone_dies, 0)
     end)
 
 local passed, results = 0, {}

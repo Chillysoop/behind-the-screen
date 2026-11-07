@@ -37,17 +37,85 @@ local function applies(t, tags)
     return false
 end
 
+-- The terms: the shared ones, then the adventure's own (MODULE.glossary: its money, its boss's
+-- card), which come and go with the adventure.
+local function terms()
+    local ok, adv = pcall(require, "game.model.adventure")
+    local mod = ok and adv.data and adv.data.glossary
+    if not mod then
+        return data
+    end
+    if M.merged_for ~= mod then
+        M.merged, M.merged_for = {}, mod
+        for _, t in ipairs(mod) do
+            table.insert(M.merged, t)
+            M.by_id[t.id] = t
+        end
+        -- The adventure's people, by name: a hover card, and a click for their sheet (npc_view).
+        local okn, npcs = pcall(require, "game.model.npcs")
+        for _, t in ipairs(okn and npcs.terms() or {}) do
+            table.insert(M.merged, t)
+            M.by_id[t.id] = t
+        end
+        for _, t in ipairs(data) do
+            table.insert(M.merged, t)
+        end
+    end
+    return M.merged
+end
+M.terms = terms
+
+-- A quick test before a pattern runs: the longest run of plain letters a pattern needs, looked
+-- for as plain text (November 3: the glossary is on for every screen now, so every piece of text
+-- goes through every term). "" when the pattern has none worth checking.
+local needle_of = {}
+local function needle(p)
+    local n = needle_of[p]
+    if n then
+        return n
+    end
+    local best = ""
+    -- (Drop frontiers, sets and escapes first; what's left between magic characters is literal.)
+    local plain = string.gsub(p, "%%f%b[]", " ")
+    plain = string.gsub(plain, "%b[]", " ")
+    plain = string.gsub(plain, "%%.", " ")
+    for run in string.gmatch(plain, "[%a']+") do
+        if #run > #best then
+            best = run
+        end
+    end
+    -- A run followed by ?, * or - in the pattern isn't certain: only trust runs of 3 or more that
+    -- aren't right before one.
+    local at = best ~= "" and string.find(p, best, 1, true)
+    local after = at and string.sub(p, at + #best, at + #best)
+    if #best < 3 or after == "?" or after == "*" or after == "-" then
+        best = ""
+    end
+    needle_of[p] = best
+    return best
+end
+M.needle = needle
+
 -- The terms in one line of text: { { s, e, term } }, at most one per term, never overlapping.
 function M.find(line, tags, used, out, limit)
     out = out or {}
     used = used or {}
-    for _, t in ipairs(data) do
+    for _, t in ipairs(terms()) do
         if #out >= limit then
             break
         end
         if not used[t.id] and applies(t, tags) then
             for _, p in ipairs(t.match) do
-                local s, e = string.find(line, p)
+                local nd = needle(p)
+                local s, e
+                if nd == "" or string.find(line, nd, 1, true) then
+                    s, e = string.find(line, p)
+                    -- (A name that's part of something else's: "Flitwidget" in "a Flitwidget Franc".)
+                    local nb = t.not_before
+                    while s and nb and string.sub(line, e + 1, e + #nb) == nb do
+                        s, e = string.find(line, p, e + 1)
+                    end
+                end
                 if s then
                     -- Trim a pattern's edges that aren't the word itself.
                     while e > s and string.find(string.sub(line, e, e), "[%s%p]") and not string.find(string.sub(line, e, e), "[%+%-/!]") do
@@ -88,11 +156,12 @@ function M.hide()
 end
 
 -- Show a card near a rectangle (top-left coordinates): below it when there's room, else above.
-function M.show(title, text, dnd, rx, ry, rw, rh)
+function M.show(title, text, dnd, rx, ry, rw, rh, opts)
     M.hide()
-    local w = M.W
+    local w = (opts and opts.w) or M.W
     local th = kit.text_height(text, "ui18", w - 28)
-    local h = 14 + 26 + th + (dnd and 26 or 0) + 12
+    local head = (title and title ~= "") and 26 or 0       -- (no title: the whole of a text cut short)
+    local h = 14 + head + th + (dnd and 26 or 0) + 12
     local x = math.max(8, math.min(kit.W - w - 8, rx + rw / 2 - w / 2))
     local y = ry + rh + 8
     if y + h > kit.H - 8 then
@@ -104,10 +173,13 @@ function M.show(title, text, dnd, rx, ry, rw, rh)
     kit.into(l, function()
         kit.box(x - 2, y - 2, w + 4, h + 4, kit.rgba("#7fb7a8", 0.85), { radius = 11 })
         kit.box(x, y, w, h, kit.rgba("#1d1612", 0.98), { radius = 10 })
-        kit.text(x + 14, y + 12, title, "ui18b", theme.gold, { w = w - 28, lines = 1, gloss = false })
-        kit.text(x + 14, y + 40, text, "ui18", theme.text, { w = w - 28, gloss = false })
+        if head > 0 then
+            kit.text(x + 14, y + 12, title, "ui18b", theme.gold, { w = w - 28, lines = 1, gloss = false, full = false })
+        end
+        kit.text(x + 14, y + 14 + head, text, "ui18", theme.text, { w = w - 28, gloss = false })
         if dnd then
-            kit.text(x + 14, y + 40 + th + 6, "In D&D: " .. dnd, "ui14", theme.dim, { w = w - 28, lines = 1, gloss = false })
+            kit.text(x + 14, y + 14 + head + th + 6, "In D&D: " .. dnd, "ui14", theme.dim, { w = w - 28, lines = 1, gloss = false,
+                full = false })
         end
     end)
 end
@@ -181,7 +253,7 @@ function M.hook(x, y, str, font, color, pivot, tags)
                 layer.gloss_seen[t.id] = true
                 local base = vmath.vector4(color.x, color.y, color.z, first and 0.38 * (color.w or 1) or 0)
                 local under = kit.box(wx, ly + lh - 4, ww, 1, base, { round = false })
-                kit.spot(wx - 2, ly, ww + 4, lh, function(_, on)
+                local sp = kit.spot(wx - 2, ly, ww + 4, lh, function(_, on)
                     if on then
                         pcall(gui.set_color, under, vmath.vector4(color.x, color.y, color.z, 1))
                         M.show(t.plain, t.text, t.dnd, wx, ly, ww, lh)
@@ -190,6 +262,15 @@ function M.hook(x, y, str, font, color, pivot, tags)
                         M.hide()
                     end
                 end, under)
+                -- A person's name opens their sheet (the playtest, November 3: "NPCs should be clickable").
+                if t.npc then
+                    sp.on_click = function()
+                        M.hide()
+                        if M.on_npc then
+                            M.on_npc(t.npc)
+                        end
+                    end
+                end
                 n = n + 1
             end
         end
@@ -208,7 +289,50 @@ function M.card_spot(x, y, w, h, title, text, dnd, node)
     end, node)
 end
 
+local function util_cap(s)
+    s = s or ""
+    return string.upper(string.sub(s, 1, 1)) .. string.sub(s, 2)
+end
+
+-- A person's name drawn on its own (a recap row, a notebook entry): their card on hover, their
+-- sheet on a click (npc_view). Nothing if they have no sheet.
+function M.npc_spot(x, y, w, h, id, node)
+    local ok, npcs = pcall(require, "game.model.npcs")
+    local n = ok and npcs.get(id)
+    if not n then
+        return nil
+    end
+    local sp = kit.spot(x, y, w, h, function(_, on)
+        if on then
+            M.show(n.name, util_cap(n.role) .. ". " .. (n.about or "") .. " Click for their sheet.", nil, x, y, w, h)
+        else
+            M.hide()
+        end
+    end, node)
+    sp.on_click = function()
+        M.hide()
+        if M.on_npc then
+            M.on_npc(id)
+        end
+    end
+    return sp
+end
+
 kit.gloss_hook = M.hook
+-- A text cut short: the whole of it on hover, in a card a little wider than a word's.
+kit.cut_hook = function(x, y, w, h, full)
+    local sp = kit.spot(x, y, w, h, function(_, on)
+        if on then
+            M.show(nil, full, nil, x, y, w, h, { w = 420 })
+        else
+            M.hide()
+        end
+    end)
+    sp.full = full
+    return sp
+end
+-- Every screen that doesn't choose its own: the terms for fights, the table, the report and the sheet.
+kit.gloss_default = { fight = true, table = true, report = true, sheet = true }
 
 -- Draw with the glossary on for these tags ({ fight = true }, or true for every term).
 function kit.gloss_scope(tags, fn)

@@ -33,6 +33,10 @@ local function place_followers(self, p)
     if self.base then
         go.set_position(vmath.vector3(p.x, scene.grid.y, p.z), self.base)
     end
+    -- A status ring (November 3) rides along with the base.
+    if self.ring then
+        go.set_position(vmath.vector3(p.x, scene.grid.y + 0.08, p.z), self.ring)
+    end
     if self.shadow then
         local L = state.lamp_pos
         local dx, dz = p.x - L.x, p.z - L.z
@@ -41,7 +45,7 @@ local function place_followers(self, p)
         go.set_position(vmath.vector3(p.x + dx * k, scene.grid.y + 0.05, p.z + dz * k), self.shadow)
         go.set_rotation(vmath.quat_rotation_y(math.atan2(dx, dz)), self.shadow)
         local stretch = 1 + math.sqrt(dx * dx + dz * dz) / h * 0.5
-        local s = 5.5 * self.size * (1 - 0.5 * self.tilt)
+        local s = self.waiting and 0.001 or (5.5 * self.size * (1 - 0.5 * self.tilt))
         go.set_scale(vmath.vector3(s, 1, s * stretch), self.shadow)
     end
 end
@@ -142,6 +146,26 @@ function on_message(self, message_id, message)
             -- Dropped onto the mat by the DM's hand.
             self.lift = 30
             go.animate("#mini", "lift", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_OUTBOUNCE, 0.7, message.delay or 0)
+            -- Out of sight until the hand lets go (the third playtest's engine run, 8_36: the party
+            -- waited in mid-air over the table, off the map, while their bases already stood on it).
+            local wait = message.delay or 0
+            if wait > 0 then
+                self.waiting = true
+                msg.post("#sprite", "disable")
+                if self.base then
+                    go.set_scale(vmath.vector3(0.001, 1, 0.001), self.base)
+                end
+                timer.delay(wait, false, function()
+                    self.waiting = nil
+                    if self.leaving then
+                        return
+                    end
+                    msg.post("#sprite", "enable")
+                    if self.base then
+                        pcall(go.set_scale, vmath.vector3(self.size, 1, self.size), self.base)
+                    end
+                end)
+            end
         end
     elseif message_id == hash("place") then
         self.path = nil
@@ -167,6 +191,8 @@ function on_message(self, message_id, message)
             self.lunge_time = 0
             self.lunge_dur = message.time or 0.32
         end
+    elseif message_id == hash("ring") then
+        self.ring = message.ring
     elseif message_id == hash("hit") then
         self.flash = 1
     elseif message_id == hash("glow") then

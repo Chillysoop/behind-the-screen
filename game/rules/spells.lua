@@ -501,8 +501,14 @@ S.aid = { name = "Aid", level = 2, page = 107, casting = "precast", range = 30, 
         for i = 1, math.min(3, #targets) do
             local t = targets[i]
             local n = 5 * (slot - 1)
-            t.hp_max = t.hp_max + n
-            t.hp = t.hp + n
+            -- (A new casting replaces the old one: it never stacks. It lasts 8 hours, so a Long Rest
+            -- ends it: rest.lua takes t.aid_hp back off.)
+            local old = t.aid_hp or 0
+            if n > old then
+                t.hp_max = t.hp_max + (n - old)
+                t.hp = t.hp + (n - old)
+                t.aid_hp = n
+            end
         end
     end }
 

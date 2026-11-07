@@ -1,4 +1,4 @@
--- The snack table (M7): pizza on a plate and chips in the bowl, eaten over game night
+-- The snack table (M7): pizza on a plate, chips in the bowl and coffee in the mugs, eaten over game night
 -- and back again for the next session. The meshes come from tools/generate.py; this
 -- script lives on the pizza and reaches over to the chips.
 --
@@ -10,6 +10,24 @@ local SLICES = 6
 local ORDER = { 3, 6, 1, 4, 2, 5 }   -- the order slices go; the last one always lingers
 local CHIPS = "/chips"
 local AUDIO = "/audio#audio"
+-- The coffee in the three mugs (tools/generate.py's drink(), MUGS): each goes down as the night goes on,
+-- a little out of step with the others (Conner's playtest, C10). DROP: how far down an empty mug's is.
+local DRINKS = { "/drink_1", "/drink_2", "/drink_3" }
+local DRINK_PACE = { 1.0, 0.8, 1.15 }
+local DROP = 6.2
+
+local function drinks(self, a, seconds)
+    for i, id in ipairs(DRINKS) do
+        local ok, pos = pcall(go.get_position, id)
+        if ok and pos then
+            self.drink_top = self.drink_top or {}
+            self.drink_top[i] = self.drink_top[i] or pos.y
+            local f = math.min(1, a * DRINK_PACE[i])
+            go.cancel_animations(id, "position.y")
+            go.animate(id, "position.y", go.PLAYBACK_ONCE_FORWARD, self.drink_top[i] - DROP * f, go.EASING_INOUTSINE, seconds)
+        end
+    end
+end
 
 local function chips_scale(full)
     -- Sinks into the bowl, narrowing so it stays inside the walls.
@@ -41,11 +59,13 @@ function on_message(self, message_id, message)
         end
         go.cancel_animations(CHIPS, "scale")
         go.animate(CHIPS, "scale", go.PLAYBACK_ONCE_FORWARD, chips_scale(1 - 0.85 * a), go.EASING_INOUTSINE, 2.5)
+        drinks(self, a, 2.5)
     elseif message_id == hash("refill") then
         self.amount = 0
         self.gone = 0
         show(0)
         go.cancel_animations(CHIPS, "scale")
         go.animate(CHIPS, "scale", go.PLAYBACK_ONCE_FORWARD, chips_scale(1), go.EASING_OUTBACK, 0.8)
+        drinks(self, 0, 0.8)
     end
 end

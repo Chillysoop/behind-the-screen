@@ -9,7 +9,6 @@ return {
     -- Goodwill a night adds, by how the night went for them (game/model/score.lua's tiers).
     GOODWILL = { loved = 32, fun = 14, fine = 4, bored = 0, out = -10 },
     THREAD = 6,         -- their own story moved tonight
-    MOMENT = 40,        -- a special moment: their stolen theory came true at the table
     DICE = 15,          -- you gave them dice
     FULL = 100,         -- a full heart: they bring something
     ON_TABLE_FUN = 2,   -- a giver who sees their gift on your side of the table, every night
@@ -17,16 +16,17 @@ return {
 
     -- The keepsakes. from: whose kind of gift it is (primary archetype first, then secondary).
     -- short: what the table calls it. line: what they say handing it over. use: putting it to work.
+    -- An adventure can put a gift in its own words (MODULE.keepsakes): the 3D pieces stay the same.
     ORDER = { "dice_tower", "map", "mug", "plush", "candle", "mini", "notebook", "bell" },
     GIFTS = {
-        dice_tower = { name = "a dice tower shaped like the Crooked Kettle", short = "dice tower",
+        dice_tower = { name = "a dice tower shaped like a little tavern", short = "dice tower",
                        from = { power_gamer = true, tactician = true },
                        line = "Painted it myself. The dice come out the chimney.",
                        use = "Your next big roll goes down the chimney and clatters out the front door." },
-        map = { name = "a framed map of the Vale, drawn by hand", short = "map of the Vale",
+        map = { name = "a framed map of the campaign, drawn by hand", short = "campaign map",
                 from = { storyteller = true, explorer = true },
                 line = "I've been drawing it since the first session. Check the bottom corner.",
-                use = "It goes up where everyone can see it. Someone's already pointing at the hills." },
+                use = "It goes up where everyone can see it. Someone's already pointing at where they're going next." },
         mug = { name = "a mug that says WORLD'S OKAYEST DM", short = "mug",
                 from = { casual = true, instigator = true },
                 line = "It was that or 'World's Meanest'. You're welcome.",
@@ -35,21 +35,21 @@ return {
                   from = { instigator = true, casual = true, butt_kicker = true },
                   line = "For when we're mean to you. Squeeze it, not us.",
                   use = "It sits on top of your screen now, watching them." },
-        candle = { name = "a candle called 'Last Call at the Kettle'", short = "candle",
+        candle = { name = "a candle called 'Last Call'", short = "candle",
                    from = { method_actor = true, storyteller = true },
                    line = "Smells like pipe smoke and bad decisions. Light it for tavern scenes.",
                    use = "You light it the moment the party walks into a tavern." },
-        mini = { name = "a painted mini of Kessrick the Wolf", short = "Kessrick mini",
+        mini = { name = "a painted mini of the campaign's big villain", short = "villain mini",
                  from = { butt_kicker = true, tactician = true, explorer = true },
-                 line = "So you can look him in the eye. We're going to get him.",
-                 use = "Kessrick watches from behind your screen. The table eyes him every time they look up." },
+                 line = "So you can look them in the eye. We're going to get them.",
+                 use = "The villain watches from behind your screen. The table eyes it every time they look up." },
         notebook = { name = "a leather notebook for your DM notes", short = "notebook",
                      from = { storyteller = true, explorer = true, power_gamer = true },
                      line = "Yours is held together with tape. Fill this one with everything we don't know yet.",
                      use = "Your notes go in it, and you tap it whenever they ask a question you planned for." },
-        bell = { name = "a little brass bell from the Vale's chapel shop", short = "brass bell",
+        bell = { name = "a little brass bell from a gift shop", short = "brass bell",
                  from = { method_actor = true, casual = true, instigator = true },
-                 line = "For the bells. Ring it when something's coming.",
+                 line = "Ring it when something's coming.",
                  use = "You ring it once when something's coming. Everyone sits up." },
     },
 
@@ -66,9 +66,9 @@ return {
     -- What you see, by how it landed (the Trust it moved).
     LANDED = {
         { at = 3, text = "{name} lights up. That was exactly the right way to take it." },
-        { at = 1, text = "{name} smiles, glad it landed." },
-        { at = 0, text = "{name} nods, and that's that." },
-        { at = -99, text = "{name} looks a little flat. They'd hoped you'd make more of it." },
+        { at = 1, text = "\"Oh, I love that,\" {name} says." },
+        { at = 0, text = "\"Thanks,\" {name} says, and that's that." },
+        { at = -99, text = "{name} looks a little flat. {Name_they'd} hoped you'd make more of it." },
     },
     SAID = {
         gush = "You make a fuss over it, out loud, while everyone's still putting their coats on.",

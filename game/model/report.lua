@@ -46,12 +46,15 @@ function M.why(p, night)
         if e.ev and e.who == p.key then
             if e.ev == "death" then
                 return "Lost " .. (p.old_char or p.char) .. " tonight."
-            elseif e.ev == "theory" then
-                return "Their theory came true."
             elseif e.ev == "killing_blow" then
                 return "Landed the killing blow."
             end
         end
+    end
+    -- (v2: the reason their hero came to the museum, paid off tonight, is what they'll remember.)
+    local adv = night.campaign and night.campaign.adv
+    if night.mus and adv and (adv.hook_paid or {})[p.key] == night.campaign.week then
+        return "Found what " .. p.char .. " came for."
     end
     if p.boredom >= 30 then
         return "Bored for long stretches."
@@ -63,13 +66,14 @@ function M.why(p, night)
             best, bw = k, w
         end
     end
+    -- (These last three are the meter's guess, not something that happened: generic = true.)
     local v = p.m[best] or 0
     if v >= 60 then
-        return "Got " .. GOT[best] .. " they came for."
+        return "Got " .. GOT[best] .. " they wanted.", true
     elseif v < 35 then
-        return "Wanted more " .. MORE[best] .. "."
+        return "Wanted more " .. MORE[best] .. ".", true
     end
-    return SOME[best] .. ", not quite enough."
+    return SOME[best] .. ", not quite enough.", true
 end
 
 -- How they felt, as the table saw it (playtest, October 13: Dev "eyeing his phone" all night,
@@ -118,7 +122,7 @@ function M.build(campaign, night)
 
     -- Cliffhanger in the last scene: everyone can't wait for next week.
     local last = night.scenes[#night.scenes]
-    if last.comps.complication and last.comps.complication.cliffhanger then
+    if last and last.comps.complication and last.comps.complication.cliffhanger then
         rep.hype = 5
     end
 
@@ -128,6 +132,7 @@ function M.build(campaign, night)
         if p.present then
             local fun, drift = M.felt(night, p, score.fun(p))
             row.fun = fun
+            p.last_fun = fun        -- (where next session's smile bar starts: score.start_carry)
             row.drift = drift
             row.tier = score.tier(fun)
             row.meters = {}
@@ -139,24 +144,24 @@ function M.build(campaign, night)
             if p.thread_hits > 0 then
                 p.thread_progress = p.thread_progress + p.thread_hits
                 -- (No bare count: "(2)" meant nothing to anyone, October 15.)
-                table.insert(rep.threads, p.char .. "'s story moved tonight: " .. p.thread .. ".")
-            elseif p.thread then
-                -- And whose didn't, so a hero going quiet shows the night it happens (or died).
-                local fell
-                for _, d in ipairs(campaign.deaths or {}) do
-                    if d.key == p.key and d.char == p.char and d.week == campaign.week then
-                        fell = d
-                    end
-                end
-                table.insert(rep.threads, fell and (p.char .. ((fell.outcome == "scar" and " died tonight, and came back at a cost.")
-                    or (fell.outcome == "quest" and " fell tonight. There may be a way back.") or " died tonight."))
-                    or (p.char .. "'s story didn't come up tonight."))
+                -- (Their own pronouns: "why he came to the museum", the engine run's 8_54.)
+                table.insert(rep.threads, util.fill(p.char .. "'s story moved tonight: " .. p.thread .. ".", { char = p.char }))
             end
             local moment = p.best and p.best.text or nil
             row.moment = moment
             -- What they say for the report card, in their own voice ("The bit where {moment}").
-            local quote, line = night.talk:line("report_quote", p, { split = row.tier,
-                moment = util.mid_sentence(moment, M.names(campaign)) })
+            -- (After a death or a lost boss fight, a friend who still had a good night says it the quiet
+            -- way, not "Best night in ages": round three's merge. The bored and the out keep their own.)
+            local trig = "report_quote"
+            if row.tier ~= "bored" and row.tier ~= "out" then
+                trig = require("game.model.able").quiet_trigger(night, trig)
+            end
+            -- (The adventure's last night: nothing about next week. The confirming gate's seed 54: "That one stung. Next
+            -- week we make it count." on the prologue's last wrap.)
+            local last = campaign.adv and campaign.adv.ending ~= nil
+            local quote, line = night.talk:line(trig, p, { split = row.tier,
+                moment = util.mid_sentence(moment, M.names(campaign)) },
+                last and function(l) return not string.find(string.lower(l.text or ""), "next week", 1, true) end or nil)
             row.quote = quote or content.chat.verdicts[row.tier]
             row.quote_line = line and line.id
             p.last_tier = row.tier
@@ -196,7 +201,6 @@ function M.build(campaign, night)
 
     for _, c in ipairs(night.canon) do
         table.insert(rep.canon, c)
-        table.insert(campaign.canon, c)
     end
 
     -- Average Fun, for the headline.
@@ -229,11 +233,14 @@ function M.build(campaign, night)
     for _, row in ipairs(rep.players) do
         local p = campaign:player(row.key)
         if row.fun and p then
-            row.why = M.why(p, night)
-            -- What the table saw outranks a meter, not a death or a theory come true.
-            if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Their theory")
-                and not string.find(row.why, "^Landed") then
+            local generic
+            row.why, generic = M.why(p, night)
+            row.call = night.player_call and night:player_call(p.key) or nil
+            row.why_generic = generic or nil
+            -- What the table saw outranks a meter, not a death or a killing blow.
+            if row.drift and not string.find(row.why, "^Lost ") and not string.find(row.why, "^Landed") then
                 row.why = row.drift
+                row.why_generic = nil
             end
         end
     end

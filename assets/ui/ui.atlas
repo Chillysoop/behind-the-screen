@@ -71,46 +71,22 @@ images {
   image: "/assets/ui/icon_hourglass.png"
 }
 images {
-  image: "/assets/ui/icon_bell.png"
+  image: "/assets/ui/icon_lock.png"
 }
 images {
-  image: "/assets/ui/icon_wolf.png"
+  image: "/assets/ui/icon_link.png"
+}
+images {
+  image: "/assets/ui/icon_stairs.png"
+}
+images {
+  image: "/assets/ui/icon_shield.png"
+}
+images {
+  image: "/assets/ui/icon_spark.png"
 }
 images {
   image: "/assets/ui/icon_hand.png"
-}
-images {
-  image: "/assets/ui/icon_skull.png"
-}
-images {
-  image: "/assets/ui/icon_candle.png"
-}
-images {
-  image: "/assets/ui/icon_house.png"
-}
-images {
-  image: "/assets/ui/icon_spur.png"
-}
-images {
-  image: "/assets/ui/icon_trail.png"
-}
-images {
-  image: "/assets/ui/icon_wheel.png"
-}
-images {
-  image: "/assets/ui/icon_mask.png"
-}
-images {
-  image: "/assets/ui/icon_coin.png"
-}
-images {
-  image: "/assets/ui/icon_cloud.png"
-}
-images {
-  image: "/assets/ui/icon_grave.png"
-}
-images {
-  image: "/assets/ui/icon_crown.png"
 }
 images {
   image: "/assets/ui/icon_paw.png"

@@ -15,19 +15,20 @@ SPRITES = os.path.join(ROOT, "assets", "sprites")
 OUT = os.path.join(ROOT, "assets", "portraits")
 
 PLAYERS = ["mara", "dev", "jess", "sam"]
-POSES = ["", "arms", "cheer", "gasp", "laugh", "lean", "phone", "think", "yawn"]
+POSES = ["", "arms", "cheer", "gasp", "laugh", "lean", "phone", "think", "yawn", "frown"]
 FACE = 128            # a player's face: head and shoulders, square
 MINI = (96, 120)      # a paper mini: the whole standee
 
 # Paper minis on the table: the heroes, the NPCs and the monsters.
 STANDEES = ["fighter", "rogue", "cleric", "wizard",
-            "npc_gus", "npc_stranger", "npc_hermit", "npc_rival", "npc_corin", "npc_sable", "npc_ghost",
-            # The slice's people (tools/gen_sprites_npcs.py).
-            "npc_vask", "npc_wren", "npc_grey_coat", "npc_tilly", "npc_ottilie", "npc_hob", "npc_holt", "npc_tumble",
-            "npc_verrin", "npc_nib", "npc_ansel",
-            "npc_rosin", "npc_pearl", "npc_coil", "npc_stag", "npc_ashby", "npc_reeve",
+            "npc_stranger",
+            # The museum's own (tools/gen_sprites_museum.py).
+            "euryale", "knight_of_shades", "sentinel", "giant_scarab_swarm", "bone_construct", "kruthik_huntling",
+            "the_lecturer", "steam_mech", "telpur", "flitwidget", "exhibit_b",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
+            # The museum garden's topiary (November 3).
+            "briar_beast", "briar_boar", "briar_triceratops",
             # The Vale Bestiary (A13).
             "pirate", "merrow", "giant_crab", "guard", "spy", "swarm_of_rats", "animated_armor", "giant_spider",
             "specter", "brown_bear", "gnoll_warrior", "bugbear_warrior", "warrior_veteran", "kobold_warrior",

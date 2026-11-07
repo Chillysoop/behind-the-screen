@@ -18,7 +18,7 @@
 -- bonds: the good side: acts that raise rapport between two players.
 -- responses: how the DM answers an act (the "At the table" card); heat: multiplier on the hurt
 --   it causes; effects as decision cards ("doer", "objectors", "target", "all").
--- vents: what a hurt player posts in the group chat once a rift is brewing ({doer_char}).
+-- jabs: what a hurt friend does at the table once a rift is brewing ({doer_char}).
 
 return {
     tag_taste = {
@@ -33,38 +33,15 @@ return {
     },
 
     acts = {
-        { id = "needless_scrap", when = "social", severity = 1, tags = { "reckless" },
-          doers = { butt_kicker = 3, instigator = 1 }, objects = { storyteller = 1, explorer = 1, casual = 1 },
-          enjoys = { butt_kicker = 2, power_gamer = 1 },
-          line = "{actor_char} starts a scrap with a farmhand who only asked them to move their horse." },
-        { id = "strike_the_yielded", when = "fight", severity = 2, tags = { "cruel", "grim" },
-          doers = { butt_kicker = 2, power_gamer = 1 }, objects = { storyteller = 2, casual = 2, method_actor = 1, tactician = 1 },
-          line = "{actor_char} takes one more swing at the last of the crew, who has already dropped everything and put their hands up." },
-        { id = "rough_questioning", when = "fight", severity = 2, tags = { "cruel" },
-          doers = { instigator = 2, butt_kicker = 1 }, objects = { casual = 2, storyteller = 1 }, enjoys = { instigator = 1 },
-          line = "{actor_char} dangles the captured lookout over the millrace by his boots until he squeaks." },
-        { id = "bonk_them", when = "social", needs = "cast", severity = 1, tags = { "chaotic", "reckless" },
-          doers = { butt_kicker = 2, instigator = 2 }, objects = { storyteller = 2, method_actor = 1, casual = 1 },
-          enjoys = { instigator = 1 },
-          line = "'What if I just bonk {cast}?' {actor} asks. For the third time tonight." },
-        { id = "pocket_party_loot", when = "loot", severity = 2, tags = { "selfish", "sneaky" }, target = true, class = "rogue",
-          doers = { instigator = 2, method_actor = 2 }, objects = { power_gamer = 2, tactician = 1 }, enjoys = { instigator = 1 },
-          line = "{actor_char} quietly pockets the coin purse {target_char} won tonight." },
         { id = "skim_the_hoard", when = "loot", severity = 2, tags = { "selfish", "sneaky" },
           doers = { instigator = 2, power_gamer = 1 }, objects = { power_gamer = 1, tactician = 1, casual = 1 },
           line = "{actor_char} counts the loot alone and reports 'about thirty coppers, give or take.'" },
-        { id = "dibs_again", when = "loot", severity = 1, tags = { "selfish" },
-          doers = { power_gamer = 3, butt_kicker = 1 }, objects = { tactician = 1, casual = 1, method_actor = 1 },
-          line = "{actor_char} claims the best of the loot 'because I hit hardest', just like last time." },
-        { id = "secret_letter", when = "any", severity = 2, tags = { "sneaky" }, class = "rogue",
-          doers = { method_actor = 2, instigator = 1 }, objects = { storyteller = 1, tactician = 1 },
-          line = "{actor_char} tells the others the Velvet Hand's letter was 'just a pie recipe.'" },
         { id = "shove_a_friend", when = "social", severity = 2, tags = { "chaotic" }, target = true,
           doers = { instigator = 2, butt_kicker = 1 }, objects = { tactician = 1, casual = 1 }, enjoys = { instigator = 1, butt_kicker = 1 },
           line = "{actor_char} shoves {target_char} into the duck pond to win an argument." },
         { id = "my_guy", when = "any", severity = 2, tags = { "chaotic", "selfish" },
           doers = { method_actor = 2, instigator = 2 }, objects = { tactician = 2, storyteller = 1, casual = 1 },
-          line = "'Sorry, it's just what {actor_char} would do,' {actor} shrugs, and does it anyway." },
+          line = "\"Anything that isn't nailed down is coming with me. Sorry, it's just what {actor_char} would do,\" {actor} says." },
         { id = "lone_wolf", when = "explore", severity = 1, tags = { "reckless" },
           doers = { explorer = 2, storyteller = 1 }, objects = { butt_kicker = 1, tactician = 1, casual = 1 },
           line = "{actor_char} slips off alone to look around, and everyone else waits by the road for an hour." },
@@ -74,57 +51,47 @@ return {
         { id = "barge_the_bargain", when = "social", severity = 2, tags = { "reckless" }, target = true,
           doers = { butt_kicker = 3 }, objects = { method_actor = 1, storyteller = 1, tactician = 1 },
           line = "{actor_char} charges in halfway through {target_char}'s careful bargain." },
-        { id = "joke_in_the_sad_bit", when = "story", severity = 1, tags = { "silly" }, target = true, feeds = "tone",
-          doers = { instigator = 2, casual = 1, method_actor = 1 }, objects = { storyteller = 2 },
-          line = "{actor} does a squeaky goblin voice right in the middle of {target_char}'s big moment." },
-        { id = "grim_in_the_cozy", when = "social", severity = 1, tags = { "grim" }, feeds = "tone",
-          doers = { storyteller = 1, method_actor = 1 }, objects = { casual = 2, instigator = 1 },
-          line = "{actor_char} turns a cheerful evening into a long brood about how everyone in Millbrook dies someday." },
         { id = "metagame", when = "explore", severity = 1, tags = { "meta" },
           doers = { power_gamer = 2, tactician = 1 }, objects = { storyteller = 2, method_actor = 1 },
-          line = "{actor_char} 'just happens' to check exactly where the secret is hidden." },
-        { id = "rules_at_a_friend", when = "any", severity = 1, tags = { "rules" }, target = true, feeds = "rules",
-          doers = { tactician = 2, power_gamer = 1 }, objects = { method_actor = 2, instigator = 2 },
-          line = "{actor} stops {target_char}'s daring swing from the rafters to quote the jumping rules. Again." },
-        { id = "sneer_at_town", when = "social", severity = 1, tags = { "grim", "cruel" },
-          doers = { butt_kicker = 1, power_gamer = 1 }, objects = { casual = 2, storyteller = 1 },
-          line = "{actor_char} sneers at the orphans' bake sale and won't carry a single tray." },
-        { id = "lift_the_patron", when = "social", needs = "cast", severity = 2, tags = { "sneaky", "chaotic" }, class = "rogue",
-          doers = { instigator = 2, method_actor = 1 }, objects = { tactician = 2, storyteller = 1 }, enjoys = { instigator = 1 },
-          line = "{actor_char} lifts {cast}'s purse right in the middle of the job offer." },
+          line = "{actor_char} insists on checking every corner twice, \"because there's always something hidden\"." },
         { id = "answer_for_them", when = "social", needs = "cast", severity = 1, tags = { "selfish" }, target = true, feeds = "spotlight",
           doers = { method_actor = 2, instigator = 1 }, objects = { casual = 1, tactician = 1 },
-          line = "{actor_char} answers for {target_char} when {cast} asks them a question." },
+          line = "{actor_char} answers for {target_char} when {cast} asks {target_them} a question." },
     },
 
     bonds = {
-        { id = "shield_over", when = "fight", class = "fighter", rapport = 4,
-          line = "{actor_char} plants a shield over {target_char} and won't let anything near them." },
-        { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5,
-          line = "{actor_char}'s prayer catches {target_char} a heartbeat before they drop." },
-        { id = "combo", when = "fight", rapport = 4,
-          line = "{actor_char} and {target_char} pull off a move together that neither could alone. The table cheers." },
+        -- `say`: a bond that's a hero's own act is said by their player, as an announcement (Conner, November 6: players
+-- announce, the DM answers); `line` is the DM's, for a bond that's what the table saw happen.
+        -- (needs_fight / needs_close: what has to have happened in the fight, game/model/fight.lua
+        -- record. The second playtest review heard these lines when nothing like them had.)
+        { id = "shield_over", when = "fight", class = "fighter", rapport = 4, needs_close = true,
+          line = "{actor_char} plants {actor_themselves} in front of {target_char} and won't let anything near {target_them}.",
+          say = "I'm putting {actor_char} right in front of {target_char}. Nothing gets near {target_them}." },
+        { id = "last_second_heal", when = "fight", class = "cleric", rapport = 5, needs_fight = "saves",
+          line = "{actor_char}'s prayer got to {target_char} when it counted most." },
+        { id = "combo", when = "fight", rapport = 4, needs_fight = "combos",
+          line = "{actor_char} and {target_char} pulled off a move together in that fight that neither could have alone. The table's still talking about it." },
         { id = "share_the_loot", when = "loot", rapport = 4,
-          line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'" },
-        { id = "ask_after", when = "story", rapport = 5,
-          line = "The whole party spends an hour asking around for {target_char}, without being asked." },
-        { id = "stand_up_for", when = "social", needs = "cast", rapport = 4,
-          line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}." },
-        { id = "plan_and_timing", when = "explore", rapport = 3,
+          line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'",
+          say = "{actor_char} hands the new trinket to {target_char}. \"You'll get more use out of it than me.\"" },
+        { id = "stand_up_for", when = "social", needs = "threat", rapport = 4,
+          line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}.",
+          say = "I step in front of {target_char}. \"Leave {target_them} alone. We're all together.\"" },
+        -- (needs_plan: a choice the table settled on in this room, that the doer wanted and someone
+        -- else carried off without a roll going wrong: round three heard "Brannoc's plan" for a
+        -- ritual Dev argued against.)
+        { id = "plan_and_timing", when = "explore", rapport = 3, needs_plan = true,
           line = "{actor_char}'s plan, {target_char}'s timing: it works perfectly, and they both know it." },
-        { id = "inside_joke", when = "any", rapport = 3, both = true,
-          line = "Someone mentions the goat, and {actor} and {target} lose it all over again." },
+        -- (To whoever's hot with them, for whatever it was: not "what I took" when nothing was. The playtest, November 6.)
         { id = "make_amends", when = "any", rapport = 6, amends = true,
-          line = "{actor_char} quietly gives back what they took, polished, with a bad drawing as an apology." },
+          line = "{actor_char} finds {target_char} a quiet moment and makes it right.",
+          say = "{target_char}. About earlier. I was out of order. Sorry." },
     },
 
     responses = {
         { id = "let_it_ride", label = "Let it ride.", heat = 1.0,
           log = "You nod and keep going.",
           effects = { doer = { fun = 3, spotlight = 2 }, objectors = { trust = -1 } } },
-        { id = "world_reacts", label = "Yes, but the world notices.", heat = 0.7,
-          log = "It happens, and Millbrook remembers who did it.",
-          effects = { doer = { challenge = 3 }, all = { story = 3 } } },
         { id = "party_reacts", label = "Ask {target}: what does {target_char} do?", heat = 0.6, needs_target = true,
           log = "You turn to {target}. 'Your call. What does {target_char} do?'",
           effects = { target = { spotlight = 5, investment = 2 }, all = { social = 3 } } },
@@ -135,20 +102,15 @@ return {
           log = "'Remember what we said at Session Zero?' A couple of nods.",
           effects = { doer = { fun = -3 }, objectors = { trust = 2 } } },
         { id = "outlet", label = "Give {actor_char} a better outlet next scene.", heat = 0.8,
-          log = "You make a note: something for {actor_char} to get stuck into next time.",
+          log = "You make a note: something for {actor_char} to get stuck into next time.", screen = true,
           effects = { doer = { investment = 2 }, objectors = { trust = 1 } } },
     },
 
-    vents = {
-        "anyway. great session. some of us had fun. some of us didn't.",
-        "not to be dramatic but if {doer_char} does that one more time",
-        "is it just me or is {doer_char} kind of making it hard to have fun lately",
-        "fine. it's fine. it's a game. it's fine.",
-        "can we talk about the {doer_char} thing at some point? not now. sometime.",
-    },
+    -- (Said by the friend who minds, from their seat: the DM never says what a hero does or feels about it. The
+    -- playtest, November 6: "Thessaly's mini moves a square further away" said for her.)
     jabs = {
-        "{char} gives {doer_char} a long, flat look.",
-        "{char} mutters something about {doer_char} that isn't quite under their breath.",
-        "{char} moves their mini a square further away from {doer_char}'s.",
+        "{doer_char}. Really?",
+        "Ahem. {doer_char}.",
+        "I'm moving my mini a square further away from {doer_char}'s.",
     },
 }

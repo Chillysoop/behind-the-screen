@@ -1,0 +1,77 @@
+-- The hall (the book's map of Noke's Tower, the big round platform), redrawn in our pieces, twenty feet
+-- up. As the map has it: the dining room with its kitchen corner to the north-west, the sitting room to the
+-- south-west, and the library and lab filling the east half. The door from the garden's bridge is in the
+-- south-east, the slope up to the bedroom in the south-west. The round wall is an octagon on our mat.
+
+id: sheep_hall
+tight: yes
+title: The hall
+light: candle
+adventure: sheep
+room: hall
+source: adventure
+credit: The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild): Noke's Tower map, the hall
+about: The biggest platform: a dining room with a kitchen, a sitting room, and the library and lab.
+tags: indoor, tower, hall, combat
+order: 7
+party: 17,10
+foes: 15,4
+npc: 9,12
+
+grid:
+|     ##########     |
+|   ###..CC#bb.###   |
+|  ##.....C#...bb##  |
+| ##.LLLL..#......## |
+| #........d.....kk# |
+|##........#..ee...##|
+|#####d#####........#|
+|##........#.......##|
+| D.....o..#....o..D |
+| ##.......d......## |
+|  ##......#.....##  |
+|   ###cc..#x..###   |
+|     #....#...#     |
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+d       | door_open       | doors      | auto
+D       | wall_door       | door       | auto
+L       | table_long      | dining     | 
+C       | counter         | kitchen    | 
+c       | couch           | couch      | 
+o       | table_round     | tables     | 
+b       | bookshelf       | library    | 0
+k       | bookshelf       | library    | 0
+e       | desk            | lab        | 0
+x       | chest           | chest      | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_boards | 1,1 | 
+rug        | rug          | 6,9 | 
+
+features:
+-- id | flags | words | say
+floor      | base      | floor, boards, hall | a floor of smooth woven boards
+walls      | base      | walls, branches, windows | walls of woven branches with gaps for windows
+door       | base      | door, front door, bridge | the door from the bridge
+doors      | base      | door, doors | doors between the rooms
+dining     |           | dining table, table, dining room | a long dining table
+kitchen    | own_words | kitchen, counter, pots | a kitchen corner
+couch      |           | couch, sofa | a couch
+rug        |           | rug, carpet | a rug
+tables     |           | table, tables | small round tables
+library    | own_words | books, shelves, library | shelves of books
+lab        | own_words | lab, desk, bench, flasks, notes | a cluttered lab bench
+chest      |           | chest, box | a chest
+
+spots:
+-- key | x,y | name | line | form
+library | 14,3 | the library | Shelves of books on transmutation, half of them with Shinebright's name in them. | one area
+lab | 15,7 | the lab bench | Flasks, notes in a cramped hand, and burn marks everywhere. | one fixture
+sitting_room | 6,11 | the sitting room | A couch, a rug and a table, and nobody's sat here in a while. | one area
+kitchen | 9,3 | the kitchen corner | A kitchen that's seen a lot of quick meals eaten standing up. | one area
+door | 18,9 | the door from the bridge | Heavy oak, the way back down to the garden. | one fixture
+slope | 3,9 | the way up | A small slope of woven branches up to the highest platform. | one area

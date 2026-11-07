@@ -102,9 +102,11 @@ end
 
 do
     -- The party's state carries across nights (cliffhangers pick up where they stopped).
-    local bots = require "slice_bots"
+    local adventure = require "game.model.adventure"
+    adventure.enter()
     local c = campaign_mod.new(77)
-    c:session_zero(bots.DMS.careful.s0)
+    adventure.enter(c)
+    c:session_zero(require("game.model.social").default_choices())
     c:start_week()
     local night = c:start_night()
     fight.party(night)

@@ -1,42 +1,146 @@
--- The DM's notes (real-session pass, grown into the campaign notebook in the slice rework):
--- the binder behind the screen. Open it with N or the Notes button on prep, game night and
--- the report; game night waits while it's open.
---   This week      the world's moves off screen, who this session is for, who shows up
---   This session   what tonight is for, the opening to read, the story cards and the board
---   Campaign       the plan: premise, truths, fronts and their portents, shelved cards
---   People         everyone the party has met: attitude, status, history (hover for it all)
---   Factions       standing, projects and fronts, members, what they've been up to
---   Places         where the party has been, what changed, what happened there
---   The web        the big questions, and who's tied to whom
---   Story log      each storyline told so far, scene by scene (game/ui/story_log_view.lua); the
---                  Storylines tab (a tile per storyline that only led here) went into it, October 20
---   Story so far   the campaign's secrets, every session's clues and moments, seeds in play
+-- The DM's notes: the binder behind the screen. Open it with N or the Notes button on prep, game
+-- night and the report; game night waits while it's open.
+--   The museum     the map, what each room left behind, and why the heroes came
+--   Upstairs       Euryale's card, what they've been warned about, the harsh calls, the Francs
+--   This session   where they are, tonight's rooms as the book has them, and tonight so far
+--   People         the museum's people they've met, and what they know of them
 --   Session log    every session's report, kept
---   The party      who's playing whom, their backstory hooks, and their character sheets
--- The data is game/model/story.lua; the story itself game/data/arc.lua.
+--   The party      who's playing whom, why their heroes came, and their character sheets
 
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
-local content = require "game.model.content"
-local story = require "game.model.story"
 local util = require "game.model.util"
-local seeds_mod = require "game.model.seeds"
 local panels = require "game.ui.panels"
+local adventure = require "game.model.adventure"
 
 local M = {}
 
-local pages = require "game.ui.notebook_pages"
-
 local X, Y, W, H = 110, 44, 1380, 816
--- The binder's tabs, down its left edge (the slice rework adds the campaign organizer).
-local TABS = { { "week", "This week" }, { "session", "This session" }, { "campaign", "Campaign" },
-               { "people", "People" }, { "factions", "Factions" }, { "places", "Places" }, { "web", "The web" },
-               { "storylog", "Story log" }, { "story", "Story so far" }, { "log", "Session log" }, { "party", "The party" } }
+-- The binder's tabs, down its left edge.
+local TABS = { { "museum", "The adventure" }, { "upstairs", "Upstairs" }, { "session", "This session" },
+               { "people", "People" }, { "log", "Session log" }, { "party", "The party" }, { "bag", "Your bag" }, { "tips", "Lore tips" } }
 M.TABS = TABS
-local CLASS_MINI = { fighter = "mini_fighter", rogue = "mini_rogue", cleric = "mini_cleric", wizard = "mini_wizard" }
+-- (The tabs this adventure has: "Upstairs" is the villain's card, and an adventure without one has no such tab.)
+local function tabs_now(app)
+    local out = {}
+    local card = app and app.campaign and adventure.boss_card(app.campaign)
+    for _, t in ipairs(TABS) do
+        if t[1] ~= "upstairs" or card then
+            table.insert(out, t)
+        end
+    end
+    return out
+end
 
-function M.is_open(app)
-    return app.overlay == "notes"
+-- The adventure, room by room: the map, what each room left behind, and why the heroes came.
+local function tab_museum(app, x, y, w, h)
+    local MODULE = adventure.data
+    local c = app.campaign
+    local st = c.adv
+    util.lazy("game.ui.museum_prep_view").draw_map(app, x, y, 420, 330)
+    local rx, ry = x + 440, y
+    kit.text(rx, ry, "ROOM BY ROOM", "ui14", theme.dim)
+    ry = ry + 22
+    for _, id in ipairs(MODULE.order) do
+        local r = MODULE.rooms[id]
+        if not r.virtual then
+            local state = st.done[id] and (st.done[id] == "win" and "Done" or "Done, roughly") or (st.skipped[id] and "Left behind")
+                or (id == st.at and "Next") or "Ahead"
+            local col = st.done[id] and theme.green or (st.skipped[id] and theme.faint or (id == st.at and theme.gold or theme.dim))
+            kit.text(rx, ry, r.name, "ui18b", st.skipped[id] and theme.faint or theme.text)
+            kit.text(rx + 270, ry + 2, state, "ui14", col)
+            local marks = {}
+            for _, mid in ipairs(st.mark_list) do
+                if st.marks[mid].room == id then
+                    -- (Mid-sentence: "she smelled the smoke and a drone through the floor", not "She smelled the
+                    -- smoke, A drone through the floor": the confirming playtest.)
+                    table.insert(marks, util.mid_sentence(MODULE.marks[mid].name, { Euryale = true }))
+                end
+            end
+            local line = #marks > 0 and ("Left on Euryale's card: " .. util.join_names(marks) .. ".") or r.sum
+            -- (Two lines when it needs them: "...somewhere to spend Flitwidget Francs. Th..." in the third playtest.)
+            local nl = math.min(2, #kit.wrap(line, "ui14", w - 460))
+            kit.text(rx, ry + 22, line, "ui14", #marks > 0 and theme.gold or theme.faint, { w = w - 460, lines = 2 })
+            ry = ry + 27 + nl * kit.line_height("ui14")
+        end
+    end
+    local hy = y + 350
+    kit.text(x, hy, "WHY THEY CAME", "ui14", theme.dim)
+    hy = hy + 22
+    for _, p in ipairs(c.players) do
+        local hk = adventure.hook(c, p.key)
+        if hk then
+            kit.text(x, hy, p.char .. ": " .. hk.name, "ui18b", theme.text)
+            kit.text(x, hy + 22, hk.text, "ui14", theme.dim, { w = 420, lines = 2 })
+            hy = hy + 66
+        end
+    end
+    kit.text(x, y + h - 22, MODULE.credit, "ui14", theme.faint, { w = w })
+end
+
+-- Upstairs: Euryale's card, and what they've been warned about.
+local function tab_upstairs(app, x, y, w, h)
+    local c = app.campaign
+    local warnings = require "game.model.warnings"
+    util.lazy("game.ui.museum_prep_view").boss_card(app, x, y, 640, h - 40, true)
+    local bx = x + 664
+    local bw = w - 664
+    kit.text(bx, y, "WHAT THEY'VE BEEN WARNED ABOUT", "ui14", theme.dim)
+    local known = warnings.summary(c, 6)
+    local ty = y + 22
+    if #known == 0 then
+        kit.text(bx, ty, "Nothing yet.", "ui18b", theme.text)
+        ty = ty + 30
+    end
+    for _, line in ipairs(known) do
+        kit.text(bx, ty, line, "ui14", theme.text, { w = bw, lines = 2 })
+        ty = ty + ((#line > 70) and 42 or 24)    -- (about 70 characters to a line at this width)
+    end
+    kit.text(bx, ty + 6, "When something harsh happens, the table asks: did we know? A warning about that very thing, or a "
+        .. "die everyone saw, and it lands as fair. Out of nowhere, and it costs you their Trust. Warn about everything, "
+        .. "though, and nothing feels dangerous.", "ui14", theme.dim, { w = bw, lines = 5 })
+    local hy = ty + 110
+    local harsh = c.adv.harsh or { paid = 0, unpaid = 0 }
+    kit.text(bx, hy, "HARSH CALLS SO FAR", "ui14", theme.dim)
+    kit.text(bx, hy + 22, util.int(harsh.paid) .. " fair, " .. util.int(harsh.unpaid) .. " out of nowhere", "ui18b",
+        harsh.unpaid > 0 and theme.orange or theme.text)
+    kit.text(bx, hy + 64, "FLITWIDGET FRANCS", "ui14", theme.dim)
+    kit.text(bx, hy + 86, util.int(c.adv.francs or 0), "ui22b", theme.gold)
+end
+
+-- The museum's people: who they've met, and what they know of them.
+local function tab_museum_people(app, x, y, w, h)
+    local adventure = require "game.model.adventure"
+    local c = app.campaign
+    local met = c.story and c.story.met or {}
+    -- The people they've met, each with what they know; the rest as one line at the foot (the third
+    -- playtest: "Someone they haven't met", twice, read as a mistake).
+    local unmet = 0
+    for _, pp in ipairs(adventure.data.people) do
+        local seen = pp.known or met[pp.id] or adventure.met(c, pp.id) or (pp.id == "mus_telpur" and c.adv.done.gift_shop)
+            or (pp.id == "mus_mech" and c.adv.done.tomorrow)
+        if not seen then
+            unmet = unmet + 1
+        else
+            -- (Nobody's role before they've met: the notebook isn't the DM's book. The Mech by its name.)
+            local name = pp.name
+            if pp.id == "mus_mech" and c.adv.marks.mech and c.adv.mech_name then
+                name = pp.name .. ", " .. c.adv.mech_name
+            end
+            local nn = kit.text(x, y, name, "ui22b", theme.text, { gloss = false })
+            kit.text(x + 320, y + 6, pp.role, "ui14", theme.dim)
+            -- Their sheet, from their name (the playtest, November 3).
+            require("game.ui.gloss").npc_spot(x - 2, y - 2, math.min(kit.width(name, "ui22b"), 310) + 4, 30, pp.id, nn)
+            local mem = adventure.memory(c, pp.id)
+            local about = pp.about .. (#mem > 0 and (" Knows " .. util.join_names(mem) .. ".") or "")
+            kit.text(x, y + 30, about, "ui18", theme.dim, { w = w, lines = 2 })
+            y = y + 86
+        end
+    end
+    if unmet > 0 then
+        kit.text(x, y, unmet == 1 and "One more person here they haven't met yet." or
+            (util.int(unmet) .. " more people here they haven't met yet."), "ui18", theme.faint, { w = w })
+    end
 end
 
 function M.open(app, tab)
@@ -46,8 +150,6 @@ function M.open(app, tab)
 end
 
 function M.close(app)
-    pages.drop_hover(app)
-    require("game.ui.story_log_view").drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
         app.notes_layer = nil
@@ -56,37 +158,6 @@ function M.close(app)
         app.overlay = nil
     end
     kit.reset_hover()
-end
-
-function M.toggle(app)
-    if M.is_open(app) then
-        M.close(app)
-    else
-        M.open(app)
-    end
-end
-
--- Clues found tonight count before the night is over.
-local function clues(app)
-    local list = {}
-    for _, cl in ipairs(story.init(app.campaign).clues) do
-        table.insert(list, cl)
-    end
-    local night = app.screen == "night" and app.night
-    for _, f in ipairs(night and night.story_found or {}) do
-        if not story.has_clue(app.campaign, f.id) then
-            table.insert(list, { week = app.campaign.week, id = f.id, text = f.text, tonight = true })
-        end
-    end
-    return list
-end
-
-local function has(list, id)
-    for _, cl in ipairs(list) do
-        if cl.id == id then
-            return cl
-        end
-    end
 end
 
 -- A heading inside the binder.
@@ -104,192 +175,257 @@ end
 
 -- This session ---------------------------------------------------------------------------------------
 
+-- An adventure's session is its rooms: where they are, tonight's rooms as the book has them
+-- (what each is, the fight the book gives it, what prepping it means), and tonight so far.
 local function tab_session(app, x, y, w)
     local c = app.campaign
-    local beat = c:arc_beat()
+    local adventure = require "game.model.adventure"
+    local museum_week = require "game.model.museum_week"
+    local MODULE = adventure.data
     local col_w = 640
     local ly = y
-    if not beat then
-        ly = para(x, ly, col_w, "The first act is over. The story carries on from here: keep playing, and the notes keep "
-            .. "what the party found out.", "ui18", theme.dim)
-    else
-        kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF " .. util.int(content.arc.SESSIONS), "ui14", theme.dim)
-        ly = ly + 20
-        kit.text(x, ly, beat.title, "title30", theme.text)
-        ly = ly + 44
-        ly = para(x, ly, col_w, beat.about, "ui18", theme.dim)
-        ly = head(x, ly + 6, "What you're hoping for")
-        ly = para(x, ly, col_w, beat.goal or beat.hint, "ui18", theme.text)
-        ly = head(x, ly + 6, "Read this when the night starts")
-        local open = beat.open
-        if beat.open_if and story.has_clue(c, beat.open_if.clue) then
-            open = beat.open_if.text
-        end
-        local oh = kit.text_height(open or "", "story22", col_w - 32) + 22
-        kit.box(x, ly, col_w, oh, kit.rgba("#efe4c8", 0.1), { radius = 8 })
-        kit.text(x + 16, ly + 10, open or "", "story22", theme.text, { w = col_w - 32 })
-        ly = ly + oh + 10
-        ly = head(x, ly + 4, "This week's story cards")
-        local found = clues(app)
-        for _, id in ipairs(beat.cards) do
-            local card = content.components[id]
-            local prep = c.prep
-            local placed = prep and prep:placed_at(id)
-            local got = has(found, id)
-            local state, scol
-            if got then
-                state, scol = got.tonight and "Played tonight" or "Played", theme.green
-            elseif placed then
-                state, scol = "On stop " .. util.int(placed), theme.gold
-            elseif prep and prep.arc_cards and prep.arc_cards[id] then
-                state, scol = "In your hand", theme.dim
-            else
-                state, scol = "Not this week", theme.faint
-            end
-            kit.text(x, ly, card and card.name or id, "ui18b", theme.text)
-            kit.text(x + col_w, ly + 2, state, "ui14", scol, { pivot = gui.PIVOT_NE })
+    kit.text(x, ly, "SESSION " .. util.int(c.week) .. " OF " .. string.upper(adventure.data.title or "the adventure"), "ui14", theme.dim)
+    ly = ly + 20
+    -- (A long "At a fork: ..." in a smaller hand rather than cut.)
+    local where = adventure.where(c)
+    local wfont = kit.width(where, "title30") > col_w and "ui22b" or "title30"
+    local wh = kit.text_height(where, wfont, col_w)
+    kit.text(x, ly, where, wfont, theme.text, { w = col_w, lines = 2 })
+    ly = ly + math.max(44, math.min(wh, 2 * kit.line_height(wfont)) + 16)
+    ly = head(x, ly, "Tonight's rooms")
+    local pm = c.prep and c.prep.museum
+    for _, id in ipairs(pm and pm.ahead or {}) do
+        local r = MODULE.rooms[id]
+        if r and not r.virtual and ly < 820 then
+            kit.text(x, ly, r.name, "ui18b", theme.text)
+            local prepped = pm.prepped and pm.prepped[id]
+            kit.text(x + col_w, ly + 2, prepped and "Prepped" or "Not prepped", "ui14", prepped and theme.green or theme.faint,
+                { pivot = gui.PIVOT_NE })
             ly = ly + 22
-            local reveal = beat.reveal and beat.reveal[id]
-            if reveal then
-                ly = para(x + 12, ly, col_w - 12, reveal, "ui14", theme.dim)
+            ly = para(x + 12, ly, col_w - 12, r.sum, "ui14", theme.dim)
+            for _, n in ipairs(museum_week.room_prep(c, id)) do
+                ly = para(x + 12, ly, col_w - 12, n.text .. ".", "ui14", n.kind == "ask" and theme.teal or theme.faint)
             end
-            ly = ly + 2
+            ly = ly + 6
         end
-    end
-    -- The board as you wrote it.
-    local rx = x + col_w + 40
-    local rw = w - col_w - 40
-    local ry = head(rx, y, "Your board this week")
-    local prep = c.prep
-    for i, s in ipairs(prep and prep.scenes or {}) do
-        local tname = s.type and content.scenes[s.type].name or "No type yet"
-        kit.text(rx, ry, "Stop " .. util.int(i) .. ":  " .. tname, "ui18b", s.type and theme.text or theme.faint)
-        ry = ry + 24
-        for _, kind in ipairs(content.kinds) do
-            local card = s.slots[kind]
-            kit.text(rx + 12, ry, content.kind_names[kind], "ui14", theme.dim)
-            kit.text(rx + 130, ry, card and card.name or "improvise it", "ui14", card and theme.text or theme.faint,
-                { w = rw - 130 })
-            ry = ry + kit.text_height(card and card.name or "x", "ui14", rw - 130) + 2
-        end
-        if s.type == "combat" or s.type == "set_piece" then
-            local enc = prep:encounter(i)
-            local names = M.monster_list(enc.ids)
-            ry = para(rx + 12, ry + 2, rw - 12, (enc.built and "Your fight: " or "Suggested fight: ") .. names, "ui14",
-                enc.built and theme.gold or theme.dim)
-        end
-        ry = ry + 10
     end
     local night = app.screen == "night" and app.night
+    local rx = x + col_w + 40
     if night and night.scenes then
-        ry = head(rx, ry + 4, "Tonight so far")
+        local ry = head(rx, y, "Tonight so far")
         for _, sc in ipairs(night.scenes) do
             if sc.title then
-                kit.text(rx + 12, ry, "Scene " .. util.int(sc.index) .. ": " .. sc.title, "ui14", theme.text)
+                kit.text(rx + 12, ry, util.int(sc.index) .. ". " .. sc.title, "ui14", theme.text)
                 ry = ry + 20
             end
         end
     end
 end
 
--- "the goblin chief, 3 goblin warriors"
-function M.monster_list(ids)
-    local monsters = require "game.rules.data.monsters"
-    local counts, order = {}, {}
-    for _, id in ipairs(ids or {}) do
-        if not counts[id] then
-            table.insert(order, id)
-        end
-        counts[id] = (counts[id] or 0) + 1
+-- The session log (M8, B7) ---------------------------------------------------------------------------------
+
+-- Every session report, kept. Pick a week to reopen its recap: the title you chose, the beats you
+-- kept (pinned ones marked), your note, the verdict and how each player felt.
+local VERDICT_COLOR = { ["One for the stories"] = theme.gold, ["Great session"] = theme.green, ["Good session"] = theme.teal,
+                        Okay = theme.dim, ["Rough night"] = theme.orange }
+local TIER_COLOR = { loved = theme.green, fun = theme.teal, fine = theme.gold, bored = theme.orange, out = theme.red }
+
+local function tab_log(app, x, y, w, h)
+    local log = app.campaign.session_log or {}
+    if #log == 0 then
+        para(x, y, w, "No sessions yet. Every session report is kept here once the night is over.", "ui18", theme.faint)
+        return
     end
-    local parts = {}
-    for _, id in ipairs(order) do
-        local m = monsters[id]
-        local name = m and m.name or id
-        if counts[id] > 1 then
-            name = util.int(counts[id]) .. " " .. name .. (string.sub(name, -1) == "f" and "s" or (string.sub(name, -1) == "s" and "" or "s"))
-            name = string.gsub(name, "Wolfs$", "Wolves")
-        end
-        table.insert(parts, name)
+    -- The weeks, newest first, down the left; a new week opens on the newest (the third playtest: at
+    -- week 3 it still opened on session 1, picked a fortnight before).
+    if app.log_week_at ~= app.campaign.week then
+        app.log_week, app.log_week_at = nil, app.campaign.week
     end
-    return table.concat(parts, ", ")
+    local pick = app.log_week
+    local found
+    for _, e in ipairs(log) do
+        found = found or (e.week == pick and e)
+    end
+    found = found or log[#log]
+    app.log_week = found.week
+    local lx, ly = x, y
+    for i = #log, 1, -1 do
+        local e = log[i]
+        if ly + 40 > y + h then
+            break
+        end
+        local on = e == found
+        local t = e.recap and e.recap.titles and e.recap.titles[e.recap.title or 1] or ("Session " .. util.int(e.week))
+        -- (The night's title in two lines rather than cut: the confirming playtest's "1. From the Street to the
+        -- Chamber of...".)
+        local label = util.int(e.week) .. ".  " .. t
+        local two = kit.width(label, "ui14") > 276
+        local bh = two and 46 or 36
+        if ly + bh > y + h then
+            break
+        end
+        kit.button(lx, ly, 300, bh, "", function()
+            app.log_week = e.week
+            app.refresh_notes()
+        end, { font = "ui14", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left",
+               key = "log_week_" .. util.int(e.week) })
+        kit.text(lx + 12, ly + (two and 4 or 9), label, "ui14", theme.text, { w = 276, lines = 2 })
+        ly = ly + bh + 6
+    end
+    -- The chosen session.
+    local px, pw = x + 324, w - 324
+    local e = found
+    local r = e.recap or {}
+    local title = r.titles and r.titles[r.title or 1] or ("Session " .. util.int(e.week))
+    kit.text(px, y - 4, "SESSION " .. util.int(e.week), "ui14", theme.gold)
+    kit.text(px, y + 16, title, "title30", theme.text)
+    local vc = VERDICT_COLOR[e.verdict] or theme.dim
+    kit.text(px + pw, y + 24, e.verdict or "", "ui18b", vc, { pivot = gui.PIVOT_NE })
+    local ty = y + 66
+    ty = head(px, ty, "The recap")
+    local any = false
+    for _, b in ipairs(r.beats or {}) do
+        if not b.cut and ty < y + h - 230 then
+            any = true
+            if b.pinned then
+                kit.icon(px, ty + 3, 14, "reward", theme.gold)
+            end
+            ty = para(px + 22, ty, pw - 22, b.text, "ui18", b.pinned and theme.gold or theme.text)
+        end
+    end
+    if not any then
+        ty = para(px, ty, pw, "Nothing kept from this one.", "ui18", theme.faint)
+    end
+    if (r.note or "") ~= "" then
+        ty = para(px, ty + 4, pw, "Your note: " .. r.note, "hand24", kit.rgba("#f3df8a"))
+    end
+    ty = head(px, ty + 10, "How the table felt")
+    for _, row in ipairs(e.players or {}) do
+        if ty + 24 > y + h then
+            break
+        end
+        kit.text(px, ty, row.name, "ui18b", theme.text)
+        kit.text(px + 70, ty + 2, row.char or "", "ui14", theme.dim)
+        local q = row.quote and ('"' .. row.quote .. '"') or (row.fun and "" or "Wasn't there.")
+        kit.text(px + 190, ty + 2, kit.ellipsize(q, "ui14", pw - 190), "ui14", TIER_COLOR[row.tier] or theme.text)
+        ty = ty + 26
+    end
 end
 
--- Story so far ----------------------------------------------------------------------------------------
+-- Your bag (Conner, November 6): what you can tuck where a friend pokes about on game night, and what you've given.
 
-local function tab_story(app, x, y, w)
-    local notes = story.notes(app.campaign)
-    local found = clues(app)
-    local col_w = 620
-    local ly = head(x, y, "Only you know this")
-    for _, line in ipairs(notes.premise) do
-        ly = para(x, ly, col_w, line, "ui18", theme.dim)
+local BOOK_H = 92
+local function tab_bag(app, x, y, w, h)
+    local c = app.campaign
+    local bag = require "game.model.dm_bag"
+    local items = require "game.model.items"
+    local list = bag.stock(c)
+    local bagd = require "game.data.dm_bag"
+    kit.text(x, y, "When a friend pokes at something on game night, you can answer as the dice say, tell them something "
+        .. "real, or tuck one of these there. You can also put them in people's pockets from their sheets. What you give "
+        .. "goes in a hero's pack and works from then on.", "ui18", theme.dim, { w = w })
+    -- The books: an hour of prep reads one, and what it describes joins the bag. Only while you prep.
+    local by = y + 76
+    local bw = math.floor((w - 3 * 12) / 4)
+    BOOK_H = 0
+    for _, b in ipairs(bagd.books) do
+        BOOK_H = math.max(BOOK_H, 10 + kit.text_height(b.name, "ui18b", bw - 20) + kit.text_height(b.about, "ui14", bw - 20) + 40)
     end
-    ly = head(x, ly + 8, "What the party knows")
-    if #found == 0 then
-        ly = para(x, ly, col_w, "Nothing yet. Put this week's story cards on the board and the story starts moving.",
-            "ui18", theme.faint)
-    end
-    for _, cl in ipairs(found) do
-        kit.dot(x + 6, ly + 11, 8, cl.tonight and theme.gold or theme.teal)
-        kit.text(x + 18, ly, (cl.tonight and "Tonight: " or ("Session " .. util.int(cl.week) .. ": ")) .. cl.text, "ui18",
-            theme.text, { w = col_w - 18 })
-        ly = ly + kit.text_height(cl.text .. "Session 0: ", "ui18", col_w - 18) + 6
-    end
-    -- Seeds in play.
-    local growing = seeds_mod.growing(app.campaign)
-    if #growing > 0 then
-        ly = head(x, ly + 8, "Seeds in play")
-        for _, s in ipairs(growing) do
-            local def = content.seeds[s.id]
-            local left = s.week + content.seeds.PAYOFF_WEEKS - app.campaign.week
-            ly = para(x, ly, col_w, def.name .. ": planted in session " .. util.int(s.week)
-                .. (left > 0 and (", " .. util.int(left) .. " more week" .. (left == 1 and "" or "s") .. " to pay it off.") or ". Pay it off now."),
-                "ui14", theme.text)
+    kit.text(x, by, "BOOKS", "ui14", theme.gold)
+    local prep = app.screen == "prep" and c.prep or nil
+    kit.text(x + 70, by, prep and ("An hour of prep each. " .. util.int(prep:left()) .. " hours left.")
+        or "Read between sessions, on the prep board.", "ui14", theme.faint)
+    by = by + 22
+    for i, b in ipairs(bagd.books) do
+        local bx = x + (i - 1) * (bw + 12)
+        -- (Whole, never cut: the name and its words wrap, and the box is as tall as the tallest needs.)
+        kit.box(bx, by, bw, BOOK_H, theme.panel2, { radius = 8 })
+        kit.text(bx + 10, by + 8, b.name, "ui18b", theme.text, { w = bw - 20 })
+        local ay = by + 10 + kit.text_height(b.name, "ui18b", bw - 20)
+        kit.text(bx + 10, ay, b.about, "ui14", theme.dim, { w = bw - 20 })
+        local sy = by + BOOK_H - 30
+        if bag.read_already(c, b.id) then
+            kit.text(bx + 10, sy + 6, "Read. Its things are in your bag.", "ui14", theme.green, { w = bw - 20 })
+        elseif b.needs and not bag.read_already(c, b.needs) then
+            kit.text(bx + 10, sy + 6, "Read the one before it first.", "ui14", theme.faint, { w = bw - 20 })
+        elseif prep then
+            kit.button(bx + 10, sy, bw - 20, 26, "Read it (1 hour)", function()
+                bag.read(c, prep, b.id)
+                app.refresh_notes()
+            end, { font = "ui14", key = "read_book_" .. b.id, enabled = bag.can_read(c, prep, b.id) })
+        else
+            kit.text(bx + 10, by + 68, "Not read yet.", "ui14", theme.faint)
         end
     end
-    -- The sessions.
-    local rx = x + col_w + 40
-    local rw = w - col_w - 40
-    local ry = head(rx, y, content.arc.name .. ", the first act")
-    for i, b in ipairs(notes.beats) do
-        local week = notes.weeks[i]
-        local n_found = 0
-        for _, id in ipairs(b.cards) do
-            if has(found, id) then
-                n_found = n_found + 1
-            end
+    local cy = by + BOOK_H + 12
+    local col_w = math.floor((w - 20) / 2)
+    local rows = math.ceil(#list / 2)
+    local rh = math.min(38, math.floor((h - (cy - y) - 150) / math.max(1, rows)))
+    kit.text(x, cy, "IN YOUR BAG  (" .. util.int(#list) .. ")", "ui14", theme.gold)
+    cy = cy + 22
+    for i, e in ipairs(list) do
+        local col = (i <= rows) and 0 or 1
+        local row = (i <= rows) and (i - 1) or (i - 1 - rows)
+        local ex, ey = x + col * (col_w + 20), cy + row * rh
+        local left = bag.left(c, e)
+        local label = util.capitalize(e.name) .. (left > 1 and ("  x" .. util.int(left)) or "")
+        kit.text(ex, ey, e.rarity, "ui14", (require("game.data.dm_bag").RANK[e.rarity] or 0) >= 4 and theme.gold or theme.faint)
+        kit.text(ex + 92, ey, kit.ellipsize(label, "ui18", col_w - 96), "ui18", theme.text)
+        if rh >= 34 then
+            kit.text(ex + 92, ey + 19, kit.ellipsize(e.text or "", "ui14", col_w - 96), "ui14", theme.dim)
         end
-        local status = b.now and "Now" or (b.done and "Played" or "Coming up")
-        local scol = b.now and theme.gold or (b.done and theme.teal or theme.faint)
-        kit.text(rx, ry, util.int(i) .. ".  " .. b.title, "ui18b", theme.text)
-        kit.text(rx + rw, ry + 2, status, "ui14", scol, { pivot = gui.PIVOT_NE })
-        ry = ry + 24
-        ry = para(rx + 22, ry, rw - 22, b.about, "ui14", theme.dim)
-        if b.total > 0 and (b.done or b.now) then
-            ry = para(rx + 22, ry, rw - 22, "Story found: " .. util.int(n_found) .. " of " .. util.int(b.total), "ui14",
-                n_found == b.total and theme.green or (n_found > 0 and theme.gold or theme.orange))
-        end
-        if week then
-            if #week.scenes > 0 then
-                -- (A place two scenes shared is said once.)
-                local places, seen = {}, {}
-                for _, name in ipairs(week.scenes) do
-                    if not seen[name] then
-                        seen[name] = true
-                        table.insert(places, name)
+    end
+    -- What's been given, and to whom (the inventory owns it now).
+    local given = {}
+    for id, n in util.sorted_pairs((c.dm_bag and c.dm_bag.used) or {}) do
+        local e = require("game.data.dm_bag").by_id[id]
+        if e and n > 0 then
+            local who = {}
+            for _, it in ipairs(items.list(c)) do
+                if (it.thing == (e.thing or e.id) or it.id == (e.magic or e.thing or e.id)) and it.holder and it.from == "found" then
+                    local pl = c:player(it.holder)
+                    if pl and not util.contains(who, pl.char) then
+                        table.insert(who, pl.char)
                     end
                 end
-                ry = para(rx + 22, ry, rw - 22, "Where they went: " .. table.concat(places, ", "), "ui14", theme.text)
             end
-            for _, m in ipairs(week.moments or {}) do
-                ry = para(rx + 22, ry, rw - 22, "Moment: " .. m, "ui14", theme.text)
-            end
-            if week.cliff then
-                ry = para(rx + 22, ry, rw - 22, "Ended on a cliffhanger.", "ui14", theme.gold)
-            end
+            table.insert(given, util.capitalize(e.name) .. (#who > 0 and (": " .. table.concat(who, ", ")) or ""))
         end
-        ry = ry + 8
+    end
+    local gy = y + h - 20 - 20 * math.min(3, math.max(1, #given))
+    kit.text(x, gy - 22, "GIVEN SO FAR", "ui14", theme.gold)
+    if #given == 0 then
+        kit.text(x, gy, "Nothing yet.", "ui18", theme.faint)
+    end
+    for i = 1, math.min(3, #given) do
+        kit.text(x, gy + (i - 1) * 20, kit.ellipsize(given[#given - i + 1], "ui18", w), "ui18", theme.text)
+    end
+end
+
+-- Lore tips (Conner, November 6): pointers you can hand out when a friend pokes about, to send them the right way.
+local function tab_tips(app, x, y, w, h)
+    local c = app.campaign
+    local tips = require "game.model.lore_tips"
+    local adv = require "game.model.adventure"
+    kit.text(x, y, "When a friend pokes at something in the room a tip is for, you can hand it out. A tip points the way "
+        .. "without giving the answer, and counts as a hint about what it points at.", "ui18", theme.dim, { w = w })
+    local ty = y + 54
+    local list = tips.list()
+    local rh = math.min(48, math.floor((h - 60) / math.max(1, #list)))
+    for _, t in ipairs(list) do
+        local room = t.room and adv.data.rooms[t.room]
+        local state = tips.given(c, t.id) and "Given" or (tips.useful(c, t) and "Ready" or "Not now")
+        local tone = state == "Given" and theme.green or (state == "Ready" and theme.gold or theme.faint)
+        kit.text(x, ty, state, "ui14", tone)
+        kit.text(x + 80, ty, kit.ellipsize(t.name .. (room and ("  (" .. room.name .. ")") or "  (anywhere)"), "ui18b", w - 80),
+            "ui18b", theme.text)
+        if rh >= 40 then
+            kit.text(x + 80, ty + 21, kit.ellipsize(t.text, "ui14", w - 80), "ui14", theme.dim)
+        end
+        ty = ty + rh
+    end
+    if #list == 0 then
+        kit.text(x, ty, "This adventure has no tips written yet.", "ui18", theme.faint)
     end
 end
 
@@ -309,7 +445,7 @@ local function tab_party(app, x, y, w, h)
         end
     end
     local cw = math.floor((w - 3 * gap) / 4)
-    for i, p in ipairs(c.players) do
+    for i, p in ipairs(panels.seated(c.players)) do
         local px = x + (i - 1) * (cw + gap)
         kit.box(px, y, cw, h, theme.panel2, { radius = 10 })
         kit.dot(px + 50, y + 50, 80, panels.COLORS[p.key] or theme.panel3)
@@ -328,30 +464,34 @@ local function tab_party(app, x, y, w, h)
             line = line .. ", " .. subs.list[sub].name
         end
         py = para(px + 14, py, cw - 28, line, "ui18", theme.text)
-        py = head(px + 14, py + 6, "Backstory hook")
-        py = para(px + 14, py, cw - 28, util.capitalize(p.thread or ""), "ui18", theme.text)
-        -- What Session Zero wrote in, and everything since: their Story log.
-        local written = require("game.model.backstory").written(c, p.key, p.char)
-        kit.button(px + 14, py, cw - 28, 26, written and "Their past, as you wrote it" or "Their Story log", function()
-            app.storylog_id = "bs_" .. p.key
-            app.storylog_scroll = nil
-            app.notes_tab = "storylog"
-            M.draw(app)
-        end, { font = "ui14", color = theme.panel3, hover = theme.button_hover, key = "party_storylog_" .. p.key })
-        py = py + 32
+        -- The reason their hero came, and where it pays off.
+        local adv = require "game.model.adventure"
+        local hk = adv.hook(c, p.key)
+        if hk then
+            py = head(px + 14, py + 6, "Why they came")
+            local room = adv.data.rooms[hk.room]
+            local paid = (c.adv.hook_paid or {})[p.key]
+            py = para(px + 14, py, cw - 28, hk.name .. ": " .. hk.text .. " It pays off in " .. util.lower_first(room.name)
+                .. (paid and " (found)." or "."), "ui18", theme.text)
+        end
+        -- What they carry (items.lua, as on their sheet), each with what it does on hover (the third
+        -- playtest: "Picked up: the Mech manual (Oswin has it)", and the party page didn't list it).
+        local sheet_view = util.lazy("game.ui.sheet_view")
+        local carried = sheet_view.carrying(c, require("game.model.sheet").build(c, p.key))
+        py = head(px + 14, py + 6, "Carrying")
+        if #carried == 0 then
+            py = para(px + 14, py, cw - 28, "Nothing yet.", "ui14", theme.faint)
+        end
+        local gl = require "game.ui.gloss"
+        for _, it in ipairs(carried) do
+            local tn = kit.text(px + 14, py, it.name, "ui14", theme.text, { w = cw - 28, lines = 1, gloss = false })
+            if it.text and it.text ~= "" then
+                gl.card_spot(px + 12, py - 1, cw - 24, 20, it.name, it.text, nil, tn)
+            end
+            py = py + 20
+        end
         py = head(px + 14, py + 6, "At the table")
         py = para(px + 14, py, cw - 28, p.notes or "", "ui14", theme.dim)
-        -- What Session Zero wrote into their past (as much as there's room for; the Story log has it all).
-        local lines = require("game.model.backstory").lines(c, p.key, p.char)
-        if lines and #lines > 0 and py + 60 < y + h - 140 then
-            py = head(px + 14, py + 6, "Written at Session Zero")
-            for _, l in ipairs(lines) do
-                if py + kit.text_height(l, "ui14", cw - 28) > y + h - 140 then
-                    break
-                end
-                py = para(px + 14, py, cw - 28, l, "ui14", theme.text)
-            end
-        end
         -- How they get on with the others (A17).
         local rapport = require "game.model.rapport"
         local bits = {}
@@ -371,12 +511,7 @@ local function tab_party(app, x, y, w, h)
             py = para(px + 14, py + 4, cw - 28, p.on_break and "Taking a break from Thursdays." or "Out this week.", "ui14",
                 theme.orange)
         end
-        -- What they've been through (B2, B3): a reputation, a scar, the hero they lost.
-        local fails = require "game.model.fails"
-        local rep = fails.reputation(c, p.key)
-        if rep then
-            py = para(px + 14, py + 4, cw - 28, "Known at the table as " .. rep .. ".", "ui14", theme.purple)
-        end
+        -- What they've been through (B3): a scar, the hero they lost.
         if p.scar then
             py = para(px + 14, py + 2, cw - 28, p.scar, "ui14", theme.dim)
         end
@@ -392,54 +527,18 @@ local function tab_party(app, x, y, w, h)
     end
 end
 
--- The shelf of fallen heroes (B3), under the party: name, class, level, how they fell, and the
--- reputation they had.
+-- The shelf of fallen heroes (B3), under the party: name, class, level, and how they fell.
 function M.fallen_rows(app)
     local rows = {}
     for _, f in ipairs(app.campaign.fallen or {}) do
         local p = app.campaign:player(f.key)
         table.insert(rows, f.char .. " (" .. (p and p.name or "?") .. "), " .. util.capitalize(f.class or "hero") .. " " .. util.int(f.level or 1)
-            .. ": " .. f.how .. ", session " .. util.int(f.week) .. (f.rep and (". Remembered as " .. f.rep .. ".") or "."))
+            .. ": " .. f.how .. ", session " .. util.int(f.week) .. ".")
     end
     return rows
 end
 
--- Anything in the binder waiting on you this week (the dot on its tab and on the prep board).
--- A thread that moved this week (a story card that follows from how one went): a dot on the
--- Story log tab until you've looked (A6).
-function M.threads_moved(app)
-    local camp = app.campaign
-    if not (camp and camp.prep) then
-        return false
-    end
-    if app.notes_seen and app.notes_seen.storylog == camp.week then
-        return false
-    end
-    local deck = require "game.model.deck"
-    for _, kind in ipairs(content.kinds) do
-        for _, c in ipairs(camp.prep.hand[kind] or {}) do
-            if c.thread and deck.is_new(camp, c.id) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-function M.attention(app)
-    local out = {}
-    if app.campaign and app.campaign.prep and pages.week_pending(app) > 0 then
-        out.week = true
-    end
-    if M.threads_moved(app) then
-        out.storylog = true
-    end
-    return out
-end
-
 function M.draw(app)
-    pages.drop_hover(app)
-    require("game.ui.story_log_view").drop_hover(app)
     if app.notes_layer then
         kit.drop(app.notes_layer)
     end
@@ -455,40 +554,27 @@ function M.draw(app)
     kit.box(X, Y, W, 60, theme.panel, { radius = 14 })
     kit.text(X + 24, Y + 14, "YOUR NOTES", "title30", theme.gold)
     local tab = app.notes_tab or "session"
-    if tab == "threads" then
-        tab = "storylog"     -- (the old Storylines tab)
-        app.notes_tab = tab
-    end
     local known = false
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         known = known or t[1] == tab
     end
     if not known then
         tab = "session"
         app.notes_tab = tab
     end
-    -- Seen (its dot goes), however you got here: a tab, S, a link on the board.
-    app.notes_seen = app.notes_seen or {}
-    app.notes_seen[tab] = app.campaign and app.campaign.week
     -- The tabs down the left, like a binder's dividers.
-    local attn = M.attention(app)
     local ty = Y + 76
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         local on = tab == t[1]
         kit.button(X + 14, ty, 168, 38, t[2], function()
             app.notes_tab = t[1]
-            app.notes_seen = app.notes_seen or {}
-            app.notes_seen[t[1]] = app.campaign and app.campaign.week
             M.draw(app)
         end, { font = "ui18b", color = on and theme.go or theme.panel2, hover = theme.button_hover, align = "left", pad_y = 9,
                key = "notes_tab_" .. t[1] })
-        if attn[t[1]] then
-            kit.dot(X + 170, ty + 19, 12, theme.orange)
-        end
         ty = ty + 44
     end
     local title = ""
-    for _, t in ipairs(TABS) do
+    for _, t in ipairs(tabs_now(app)) do
         if t[1] == tab then
             title = t[2]
         end
@@ -501,29 +587,22 @@ function M.draw(app)
             M.close(app)
         end
     end, { font = "ui18b", key = "notes_close" })
-    kit.text(X + W - 144, Y + 22, "N or Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     local cx, cy = X + 204, Y + 76
     local cw, ch = W - 204 - 24, H - 76 - 22
-    if tab == "week" then
-        pages.week(app, cx, cy, cw, ch)
+    if tab == "museum" then
+        tab_museum(app, cx, cy, cw, ch)
+    elseif tab == "upstairs" then
+        tab_upstairs(app, cx, cy, cw, ch)
+    elseif tab == "people" then
+        tab_museum_people(app, cx, cy, cw, ch)
     elseif tab == "session" then
         tab_session(app, cx, cy, cw)
-    elseif tab == "campaign" then
-        pages.campaign(app, cx, cy, cw, ch)
-    elseif tab == "web" then
-        pages.web(app, cx, cy, cw, ch)
-    elseif tab == "people" then
-        pages.people(app, cx, cy, cw, ch)
-    elseif tab == "factions" then
-        pages.factions(app, cx, cy, cw, ch)
-    elseif tab == "places" then
-        pages.places(app, cx, cy, cw, ch)
-    elseif tab == "storylog" then
-        require("game.ui.story_log_view").page(app, cx, cy, cw, ch)
-    elseif tab == "story" then
-        tab_story(app, cx, cy, cw)
     elseif tab == "log" then
-        pages.session_log(app, cx, cy, cw, ch)
+        tab_log(app, cx, cy, cw, ch)
+    elseif tab == "bag" then
+        tab_bag(app, cx, cy, cw, ch)
+    elseif tab == "tips" then
+        tab_tips(app, cx, cy, cw, ch)
     else
         tab_party(app, cx, cy, cw, ch)
     end

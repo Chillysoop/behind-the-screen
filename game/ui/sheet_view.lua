@@ -42,6 +42,30 @@ local function stat_box(x, y, w, label, value, note)
     end
 end
 
+-- What a hero carries, for the sheet and the party page: { name, text, gear = its GEAR wording }.
+-- The healing potions first (sheet.lua lists them under its gear as "2 healing potions").
+function M.carrying(c, s)
+    local items = require "game.model.items"
+    local out = {}
+    local n = items.count(c, s.key, items.POTION)
+    if n > 0 then
+        local name = util.int(n) .. " healing potion" .. (n > 1 and "s" or "")
+        local t = items.thing(items.POTION)
+        table.insert(out, { name = name, gear = name, text = t and t.text or "" })
+    end
+    for _, it in ipairs(s.carried or {}) do
+        local d = items.def(it.id)
+        local charges
+        for _, raw in ipairs(items.held_by(c, s.key)) do
+            if raw.id == it.id and raw.charges then
+                charges = raw.charges
+            end
+        end
+        table.insert(out, { name = it.name, text = it.text, gear = d and (d.name .. (charges and (" (" .. util.int(charges) .. " charges)") or "")) or it.name })
+    end
+    return out
+end
+
 local function page_sheet(app, s, x, y)
     -- Left: the core numbers, abilities and saves.
     local hp_now
@@ -127,38 +151,51 @@ local function page_sheet(app, s, x, y)
         end
         ry = ry + 10
     end
+    -- What they carry (their inventory, items.lua), apart from what they set out with: always a
+    -- CARRYING list (the third playtest couldn't find one), the healing potions first, one line each,
+    -- and what each does on hover. GEAR is what they set out with.
+    local carried = M.carrying(app.campaign, s)
+    local in_pack = {}
+    for _, it in ipairs(carried) do
+        in_pack[it.gear or it.name] = true
+    end
+    local gear = {}
+    for _, g in ipairs(s.gear or {}) do
+        if not in_pack[g] then
+            table.insert(gear, g)
+        end
+    end
     kit.text(rx, ry, "GEAR", "ui14", theme.gold)
     ry = ry + 22
-    local g = table.concat(s.gear, ", ")
+    local g = table.concat(gear, ", ")
     kit.text(rx, ry, g, "ui18", theme.text, { w = rw })
     ry = ry + kit.text_height(g, "ui18", rw) + 14
-    kit.text(rx, ry, "BACKSTORY HOOK", "ui14", theme.gold)
+    kit.text(rx, ry, "CARRYING", "ui14", theme.gold)
     ry = ry + 22
-    local hook = util.capitalize(s.thread or "")
-    kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
-    ry = ry + kit.text_height(hook, "ui18", rw) + 6
-    -- How far the villain may go with it (Session Zero's backstory boundary): theirs to say, and
-    -- yours to change after a check-in.
-    local villains = require "game.model.villains"
-    local b = villains.boundary(app.campaign, s.key)
-    local vd = villains.data
-    local bline = "Villains: " .. vd.BOUNDARY_NAME[b] .. ". " .. vd.BOUNDARY_ABOUT[b]
-    kit.text(rx, ry, bline, "ui14", theme.dim, { w = rw - 110 })
-    kit.button(rx + rw - 100, ry - 4, 100, 26, "Change", function()
-        local order = vd.BOUNDARY_ORDER
-        local at = 1
-        for k, id in ipairs(order) do
-            if id == b then
-                at = k
-            end
+    if #carried == 0 then
+        kit.text(rx, ry, "Nothing yet. What they find, buy or are given goes here.", "ui14", theme.faint, { w = rw })
+        ry = ry + 22
+    end
+    for _, it in ipairs(carried) do
+        local tn = kit.text(rx, ry, it.name, "ui18", theme.text, { w = rw, lines = 1, gloss = false })
+        if it.text and it.text ~= "" then
+            require("game.ui.gloss").card_spot(rx, ry, rw, 22, it.name, it.text, nil, tn)
         end
-        villains.set_boundary(app.campaign, s.key, order[at % #order + 1])
-        M.draw(app)
-    end, { font = "ui14", key = "sheet_boundary" })
-    ry = ry + math.max(26, kit.text_height(bline, "ui14", rw - 110)) + 12
-    kit.text(rx, ry, "AT THE TABLE", "ui14", theme.gold)
-    ry = ry + 22
-    kit.text(rx, ry, s.notes or "", "ui14", theme.dim, { w = rw })
+        ry = ry + 24
+    end
+    ry = ry + 8
+    -- The reason their hero came to the museum (Session Zero's hooks page).
+    local c = app.campaign
+    local hk = require("game.model.adventure").hook(c, s.key)
+    if hk then
+        kit.text(rx, ry, "WHY THEY CAME", "ui14", theme.gold)
+        ry = ry + 22
+        local hook = hk.name .. ": " .. hk.text
+        kit.text(rx, ry, hook, "ui18", theme.text, { w = rw })
+        ry = ry + kit.text_height(hook, "ui18", rw) + 6
+    end
+    kit.text(rx, ry + 6, "AT THE TABLE", "ui14", theme.gold)
+    kit.text(rx, ry + 28, s.notes or "", "ui14", theme.dim, { w = rw })
 end
 
 local function page_features(app, s, x, y)
@@ -219,30 +256,42 @@ function M.draw(app)
     kit.dot(X + 62, Y + 56, 92, panels.COLORS[s.key] or theme.panel3)
     kit.picture(X + 16, Y + 10, 92, 92, panels.face(s.key))
     kit.picture(X + 114, Y + 14, 68, 85, panels.mini(app.campaign:player(s.key), s.class))
-    kit.text(X + 196, Y + 14, s.name, "title30", theme.text)
+    -- Three rows, each kept to the room left of the page buttons (the playtest, November 3: the
+    -- played-by, dies and wants lines ran into each other): the name and who plays them, what
+    -- they are, and what happens if they die.
+    local tx = X + 196
+    local room = (X + W - 600) - tx - 16
+    local name = kit.ellipsize(s.name, "title30", math.floor(room * 0.6))
+    kit.text(tx, Y + 10, name, "title30", theme.text, { gloss = false })
+    local by = "played by " .. s.player
+    kit.text(tx + kit.width(name, "title30") + 14, Y + 22, kit.ellipsize(by, "ui18", room - kit.width(name, "title30") - 14),
+        "ui18", theme.gold, { gloss = false })
     local line = s.species .. " " .. s.class_name .. ", level " .. util.int(s.level)
         .. (s.subclass_name and (", " .. s.subclass_name) or "") .. ".  " .. s.background .. " background."
-    kit.text(X + 196, Y + 56, line, "ui18", theme.dim)
-    kit.text(X + 196, Y + 80, "Played by " .. s.player, "ui14", theme.gold)
+    kit.text(tx, Y + 52, kit.ellipsize(line, "ui18", room), "ui18", theme.dim)
     -- When this hero dies (B3): the table's rule, or theirs if you've agreed to honour it. Revisit
     -- it here any time.
     local death = require "game.model.death"
     local camp = app.campaign
     local mode, pref = death.mode_for(camp, s.key), death.pref(s.key)
-    local dx = X + 196 + kit.width("Played by " .. s.player, "ui14") + 18
-    local dline = "If " .. s.name .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
-    local wants = pref and pref ~= mode and (s.player .. " wants: " .. string.lower(death.data.MODE[pref].short) .. ".")
-    local room = (X + W - 600) - dx - 20
+    local first = string.match(s.name, "^(%S+)") or s.name
+    local dline = "If " .. first .. " dies: " .. string.lower(death.data.MODE[mode].short) .. "."
+    -- (Short enough to fit beside the rule, and "their choice" said as whose: "Jess would rather: their
+    -- choice." read as a slip and was cut, the third playtest.)
+    local wants = pref and pref ~= mode and ((pref == "choice")
+        and (s.player .. " wants it to be " .. util.pronoun_of(s.player).their .. " call.")
+        or (s.player .. " wants: " .. string.lower(death.data.MODE[pref].short) .. "."))
     local honour = pref and pref ~= mode
     local undo = camp.death_overrides and camp.death_overrides[s.key]
-    local bw = (honour or undo) and 120 or 0
-    -- Two short lines: the rule, and what the player would rather (A8: nothing cut off).
-    kit.text(dx, wants and Y + 72 or Y + 80, kit.ellipsize(dline, "ui14", room - bw - 8), "ui14", theme.dim)
+    local bw = (honour or undo) and 100 or 0
+    local droom = room - (bw > 0 and (bw + 12) or 0)
+    local dw = math.min(kit.width(dline, "ui14"), wants and math.floor(droom * 0.55) or droom)
+    kit.text(tx, Y + 84, kit.ellipsize(dline, "ui14", dw), "ui14", theme.dim)
     if wants then
-        kit.text(dx, Y + 90, kit.ellipsize(wants, "ui14", room - bw - 8), "ui14", theme.gold)
+        kit.text(tx + dw + 12, Y + 84, kit.ellipsize(wants, "ui14", droom - dw - 12), "ui14", theme.gold)
     end
     if honour or undo then
-        kit.button(dx + room - bw, Y + 74, bw, 28, honour and "Honour it" or "Table's rule", function()
+        kit.button(tx + room - bw, Y + 78, bw, 28, honour and "Honour it" or "Table's rule", function()
             death.set_override(camp, s.key, honour and pref or nil)
             M.draw(app)
         end, { font = "ui14", key = "sheet_death" })
@@ -273,7 +322,6 @@ function M.draw(app)
             M.close(app)
         end
     end, { font = "ui18b", key = "sheet_close" })
-    kit.text(X + W - 20, Y + 70, "Esc", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
     -- Rules words on the sheet explain themselves on hover (the newcomer playtest, October 16).
     kit.gloss_scope({ sheet = true, fight = true }, function()
         if (app.sheet_page or "sheet") == "features" then

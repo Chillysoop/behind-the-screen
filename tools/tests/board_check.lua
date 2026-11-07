@@ -2,7 +2,7 @@
 -- in anything else, everyone's start square free with room around it, the party can reach the
 -- monsters, and every feature has words the DM can mention it by. Every place in the game has a
 -- board to use. Run from the project root: lua tools/tests/board_check.lua
--- With an argument, prints a board as text: lua tools/tests/board_check.lua kettle
+-- With an argument, prints a board as text: lua tools/tests/board_check.lua museum_garden
 
 package.path = "./?.lua;" .. package.path
 
@@ -24,6 +24,12 @@ local GROUND = { floor_boards = true, floor_flags = true, floor_cobbles = true, 
                  path_patch = true, ash = true, sand_ring = true, puddle = true, stream_ns = true, water_strip = true,
                  frost = true, tracks = true, rug = true, tall_grass = true, flowers = true, pit_ring = true,
                  pier = true, rope_bridge = true }
+-- ...and whatever the kit itself says lies flat (the museum's marble floor and paving).
+for kind, k in pairs(props) do
+    if k.flat or k.clear then
+        GROUND[kind] = true
+    end
+end
 
 local function draw(id)
     local c = board.compile(id)

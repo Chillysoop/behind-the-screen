@@ -6,6 +6,9 @@
 local creature = require "game.rules.creature"
 local spells = require "game.rules.spells"
 local equipment = require "game.rules.data.equipment"
+local museum = require "game.rules.museum"
+-- (Each adventure's rule module, by its id: a stat block's `rules`. Required by name so the builder packs it.)
+local RULES = { sheep = require "game.rules.sheep" }
 
 local AI = {}
 
@@ -92,9 +95,11 @@ local function approach(b, c, t, reach)
         return false
     end
     local foes = enemies(b, c)
+    -- (By the walk, not the crow: round a wall, through a door. battle.walk_field)
+    local field = b.walk_field and b:walk_field(t.x, t.y, b.doors and b:opens_doors(c)) or nil
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
-        local s = -d
+        local s = -((field and field[x * 1000 + y]) or (d + 500))
         if d <= reach then
             s = 1000 - adjacent_enemies(b, c, x, y, foes) * 3
         end
@@ -155,9 +160,10 @@ local function get_in_range(b, c, t, range)
         return true
     end
     local foes = enemies(b, c)
+    local field = b.walk_field and b:walk_field(t.x, t.y, b.doors and b:opens_doors(c)) or nil
     local x, y = b:best_square(c, c.turn.move, function(x, y)
         local d = b:dist_xy(x, y, t.x, t.y)
-        local s = in_shot(b, x, y, t, range) and 100 or -d
+        local s = in_shot(b, x, y, t, range) and 100 or -(((field and field[x * 1000 + y]) or (d + 500)) * 0.2)
         s = s - adjacent_enemies(b, c, x, y, foes) * 20 + 6 * cover_from(b, x, y, foes)
         return s
     end)
@@ -175,12 +181,18 @@ local function stand_if_prone(b, c)
 end
 
 -- Potions: drink or administer as a Bonus Action (p. 99).
-local function potion_help(b, c)
+-- first: the friend on the floor to try before any other (the one a healer said they'd come for, c.heal_for).
+local function potion_help(b, c, first)
     if not c.turn.bonus or (c.res.potions or 0) <= 0 then
         return false
     end
     -- A downed ally within reach first.
-    for _, a in ipairs(b:allies_of(c, false, true)) do
+    local downs = b:allies_of(c, false, true)
+    first = first or c.heal_for
+    if first and first.down and not first.dead then
+        table.insert(downs, 1, first)
+    end
+    for _, a in ipairs(downs) do
         if a.down and not a.dead and b:dist(c, a) <= 5 + c.turn.move then
             if b:dist(c, a) > 5 then
                 approach(b, c, a, 5)
@@ -221,6 +233,10 @@ end
 
 local function can_cast(c, id)
     local s = S[id]
+    -- (The Wand of Magic Missiles casts it for whoever holds it, spell or no spell: SRD 5.2.1 p251.)
+    if s and id == "magic_missile" and (c.res.wand or 0) > 0 then
+        return true
+    end
     if not s or not spells.has_spell(c, id) then
         return false
     end
@@ -242,7 +258,9 @@ local function can_cast(c, id)
     return spells.find_slot(c, s.level) ~= nil
 end
 
--- Pay for a spell (free use first) and return the slot level it was cast at.
+-- Pay for a spell (free use first) and return the slot level it was cast at, and what paid for it
+-- when it wasn't a slot (the log and the table can tell a free cast from a second slot spell: the
+-- second playtest review read Mirror Image and Magic Missile in one turn as two slots, F19).
 local function pay(c, id, prefer_level)
     local s = S[id]
     if s.level == 0 then
@@ -250,11 +268,11 @@ local function pay(c, id, prefer_level)
     end
     if c.mi_spell == id and (c.res.mi_free or 0) > 0 then
         c.res.mi_free = c.res.mi_free - 1
-        return s.level
+        return s.level, "Magic Initiate"
     end
     if free_reflection(c, id) then
         c.res.qr_free = c.res.qr_free - 1
-        return s.level
+        return s.level, "Quick Reflection"
     end
     -- The wand first (its charges come back at dawn), up to 3 charges for a level 3 missile.
     if id == "magic_missile" and (c.res.wand or 0) > 0 then
@@ -265,7 +283,7 @@ local function pay(c, id, prefer_level)
             c.battle:log("The Wand of Magic Missiles crumbles to ash.")
         end
         c.wand_cast = true
-        return n
+        return n, "the wand"
     end
     local slot = spells.find_slot(c, prefer_level or s.level)
     if not slot then
@@ -278,49 +296,134 @@ local function pay(c, id, prefer_level)
     return slot
 end
 
+local function has_tag(s, tag)
+    for _, t in ipairs((s and s.tags) or {}) do
+        if t == tag then
+            return true
+        end
+    end
+    return false
+end
+
+-- A creature, not a point on the floor (an area spell's point of origin, Misty Step's square).
+local function is_creature(t)
+    return type(t) == "table" and (t.uid ~= nil or t.side ~= nil)
+end
+
+-- Who a helping spell can go to instead when the friend it was meant for is out of sight: someone in sight and in its
+-- range it does some good. A heal: a friend on the floor first (the nearest), then whoever's lost the most and is down
+-- to half or less, never anyone at full health (the fourth playtest, 81 careful: Oswin's Healing Word "on himself, for
+-- 0" while Brannoc lay dying round a corner). Spare the Dying: a friend on the floor who isn't Stable. Anything else:
+-- the nearest friend who hasn't got it already. Nil: nobody, and the caster does something else.
+local function helped_instead(b, c, id)
+    local s = S[id]
+    local heal, steady = has_tag(s, "heal"), has_tag(s, "stabilize")
+    local best, bv
+    for _, a in ipairs(b:allies_of(c, true, heal or steady)) do
+        local d = b:dist(c, a)
+        if not a.removed and (a == c or b:los_xy(c.x, c.y, a.x, a.y)) and d <= math.max(5, s.range or 0) then
+            local v
+            if steady then
+                v = (a.down and not a.stable and not a.dead) and -d or nil
+            elseif heal then
+                if a.down and not a.dead then
+                    v = 1000 - d
+                elseif a.hp <= a.hp_max / 2 then
+                    v = a.hp_max - a.hp
+                end
+            elseif not a.down and not b:find_effect(a, s.name) then
+                v = -d
+            end
+            if v and (not bv or v > bv) then
+                best, bv = a, v
+            end
+        end
+    end
+    return best
+end
+
+-- Returns true when the spell went off; false (nothing spent) when there was nobody it could reach.
 local function cast(b, c, id, target, prefer_level)
     local s = S[id]
     -- A spell that targets someone needs a clear path to them (p. 104: not behind Total Cover).
-    if type(target) == "table" and target.x and target ~= c and c.x and not b:los_xy(c.x, c.y, target.x, target.y) then
+    if is_creature(target) and target.x and target ~= c and c.x and not b:los_xy(c.x, c.y, target.x, target.y) then
         local alt
-        local pool = target.side == c.side and b:allies_of(c, true) or b:enemies_of(c)
-        for _, o in ipairs(pool) do
-            if b:los_xy(c.x, c.y, o.x, o.y) and (not alt or b:dist(c, o) < b:dist(c, alt)) then
-                alt = o
+        if target.side == c.side then
+            alt = helped_instead(b, c, id)
+        else
+            for _, o in ipairs(b:enemies_of(c)) do
+                if b:los_xy(c.x, c.y, o.x, o.y) and b:dist(c, o) <= math.max(5, s.range or 0)
+                    and (not alt or b:dist(c, o) < b:dist(c, alt)) then
+                    alt = o
+                end
             end
         end
         if not alt then
             b:log("%s can't find a clear line for %s.", c.name, s.name)
-            if s.casting == "bonus" then c.turn.bonus = false else c.turn.action = false end
-            return
+            return false
         end
         target = alt
+    elseif type(target) == "table" and target.x and not is_creature(target) and (s.range or 0) > 0 and c.x
+        and not b:los_xy(c.x, c.y, target.x, target.y) then
+        -- (A point it's placed at needs a clear path too, p. 104. Never swapped for a creature: an area spell aimed
+        -- at the nearest foe in sight caught three friends round it, the fourth playtest, 82 careless's Shatter.)
+        b:log("%s can't see a clear spot for %s.", c.name, s.name)
+        return false
     end
-    local slot = pay(c, id, prefer_level)
+    local slot, free = pay(c, id, prefer_level)
     if s.casting == "bonus" then
         c.turn.bonus = false
         c.turn.cast_bonus_spell = true
     elseif s.casting == "action" then
         c.turn.action = false
     end
-    b:log("%s casts %s%s.", c.name, s.name, slot > 0 and (" (level " .. slot .. ")") or "")
-    b:emit({ kind = "spell", caster = c, id = id, name = s.name, slot = slot, target = target })
+    b:log("%s casts %s%s.", c.name, s.name, slot > 0 and (" (level " .. slot .. (free and (", free: " .. free) or "") .. ")") or "")
+    b:emit({ kind = "spell", caster = c, id = id, name = s.name, slot = slot, target = target, free = free })
     c.stats.spells = (c.stats.spells or 0) + 1
     local sanct = b:any_effect(c, "sanctuary_dc")
     if sanct then
         b:remove_effect(c, sanct, "cast")
     end
     s.cast(b, c, slot, target)
+    return true
 end
+
+-- The Wand of Magic Missiles (SRD 5.2.1 p251): anyone holding it can spend 1 to 3 charges as their action, and the
+-- darts never miss. A friend with it uses it on a foe the darts are sure to finish (2 a dart at the least), or, with
+-- `far`, on the foe they can't reach any other way. Returns true when it went off.
+local function wand_zap(b, c, foes, far)
+    local charges = c.res.wand or 0
+    if charges <= 0 or not c.turn.action then
+        return false
+    end
+    local best, need
+    for _, e in ipairs(foes) do
+        if not e.dead and not e.down and b:dist(c, e) <= 120 and b:can_see(c, e) and b:los_xy(c.x, c.y, e.x, e.y) then
+            local n = math.max(1, math.ceil(e.hp / 2) - 2)
+            if n <= math.min(3, charges) and (not best or e.hp > best.hp) then
+                best, need = e, n
+            end
+        end
+    end
+    if not best and far and not far.dead and b:dist(c, far) <= 120 and b:los_xy(c.x, c.y, far.x, far.y) then
+        best = far
+        need = math.min(3, charges, math.max(1, math.ceil(far.hp / 3.5) - 2))
+    end
+    if not best then
+        return false
+    end
+    return cast(b, c, "magic_missile", best, need)
+end
+AI.wand_zap = wand_zap
 
 function AI.try_shield(b, tgt, att)
     if not tgt.pc or tgt.reaction_used or b:incapacitated(tgt) or not can_cast(tgt, "shield") then
         return false
     end
     tgt.reaction_used = true
-    local slot = pay(tgt, "shield")
+    local slot, free = pay(tgt, "shield")
     b:log("%s casts Shield!", tgt.name)
-    b:emit({ kind = "spell", caster = tgt, id = "shield", name = "Shield", slot = slot, target = tgt, reaction = true })
+    b:emit({ kind = "spell", caster = tgt, id = "shield", name = "Shield", slot = slot, target = tgt, reaction = true, free = free })
     S.shield.cast(b, tgt, slot)
     return true
 end
@@ -351,7 +454,8 @@ local function best_area(b, c, id)
         return e, a
     end
     local candidates = {}
-    if kind == "cone" or kind == "cube" then
+    -- (A cube from the caster, Thunderwave's, is a direction; Web's is a cube placed in range, like Grease's square.)
+    if (kind == "cone" or kind == "cube") and (s.range or 0) == 0 then
         for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
             if kind == "cone" then
                 table.insert(candidates, { x = c.x + d[1] * 3, y = c.y + d[2] * 3, list = spells.cone(b, c, c.x + d[1] * 3, c.y + d[2] * 3, size) })
@@ -361,11 +465,16 @@ local function best_area(b, c, id)
             end
         end
     else
+        local seen = {}
         for _, e in ipairs(enemies(b, c)) do
             for dx = -1, 1 do
                 for dy = -1, 1 do
                     local px, py = e.x + dx, e.y + dy
-                    if b:dist_xy(c.x, c.y, px, py) <= s.range then
+                    -- (Its point needs a clear path from the caster, p. 104: only points in sight are offered, so the
+                    -- spell goes where it was scored, every friend it would catch counted.)
+                    if b:dist_xy(c.x, c.y, px, py) <= s.range and not seen[px * 1000 + py] and b:los_xy(c.x, c.y, px, py)
+                        and (not b.in_bounds or b:in_bounds(px, py)) and not (b.opaque_at and b:opaque_at(px, py)) then
+                        seen[px * 1000 + py] = true
                         local list
                         if kind == "sphere" then
                             list = spells.sphere(b, px, py, size)
@@ -410,9 +519,22 @@ end
 
 -- Game night: the DM can tell the monsters who to go after (b.focus = "squishy" | "big" | "spread").
 local function focus_target(b, c, foes, reach)
-    -- The DM ran this turn (B8): it goes for the one they picked.
+    -- Taunted (an Intimidation stare-down before the fight, game/model/fight.lua): it goes for
+    -- whoever stared it down, while that lasts and they're standing.
+    -- (The DM running this very turn and picking someone beats a stare-down from before: their call
+    -- is the latest. A standing call, the tactics card's, doesn't. c.dm_ran: fight.lua's before_turn.)
     local t = c.dm_target
-    if t and not t.dead and not t.removed and (not t.down or c.dm_finish) then
+    local t_ok = t and not t.dead and not t.removed and (not t.down or c.dm_finish)
+    if c.dm_ran and t_ok then
+        return t
+    end
+    local tn = b:find_effect(c, "Taunted")
+    local tb = tn and tn.taunt_by
+    if tb and not tb.dead and not tb.down and not tb.removed then
+        return tb
+    end
+    -- The DM ran this turn (B8): it goes for the one they picked.
+    if t_ok then
         return t
     end
     local f = b.focus
@@ -496,7 +618,11 @@ local function find_attack(c, kind)
     return nil
 end
 
-local function monster_turn(b, c)
+-- The helpers a museum monster's own turn uses (game/rules/museum.lua); filled in below.
+local H = {}
+
+-- plain: the usual turn, without a museum monster's own tactics (they call it for the basics).
+local function monster_turn(b, c, plain)
     -- Turned Undead flee and do nothing else.
     if b:find_effect(c, "Turned") then
         back_off(b, c, 60)
@@ -514,6 +640,34 @@ local function monster_turn(b, c)
         else
             b:log("%s struggles in the webs.", c.name)
         end
+        return
+    end
+    -- (A briar the pond water seeded spent its action tearing loose, museum.start_turn: it gets up and
+    -- closes in, no attack.)
+    if c.turn.tore_loose then
+        stand_if_prone(b, c)
+        local near = by_distance(b, c, enemies(b, c))[1]
+        if near then
+            approach(b, c, near, 5)
+        end
+        return
+    end
+    -- A creature that runs once it's lost enough (any adventure's stat block, `flees_below`: a share of its Hit
+    -- Points). Not on a turn the DM is running. It leaves the fight; `flee_line` is how it goes.
+    local fb = c.data and c.data.flees_below
+    if not plain and fb and not c.dm_target and c.hp > 0 and c.hp <= c.hp_max * fb and #enemies(b, c) > 0 then
+        c.turn.disengaged = true
+        back_off(b, c, 200)
+        b:log(c.data.flee_line or "%s breaks and runs.", c.name)
+        b:remove(c, "morale")
+        return
+    end
+    -- An adventure's own creatures (its rule module, `rules`): the Sheep Chase's bed dragon breathes, Noke casts.
+    if not plain and c.data and c.data.rules and RULES[c.data.rules] and RULES[c.data.rules].turn(b, c, AI.helpers_for(b, c)) then
+        return
+    end
+    -- The Museum of Nightmares: Euryale, the Lecturer, the Steam Mech and the rest fight their way.
+    if not plain and c.data and c.data.museum and museum.turn(b, c, H) then
         return
     end
     stand_if_prone(b, c)
@@ -543,7 +697,8 @@ local function monster_turn(b, c)
     local melee = find_attack(c, "melee")
     local ranged = find_attack(c, "ranged")
     local nearest = foes[1]
-    local count = c.multiattack and c.multiattack.count or 1
+    -- (Wild vines from the pond water, the museum's mutation table: one more attack a turn.)
+    local count = (c.multiattack and c.multiattack.count or 1) + (c.vines or 0)
     local engaged = adjacent_enemies(b, c) > 0
     -- Skirmishers (goblins): Nimble Escape to disengage and shoot.
     if c.bonus_actions and c.bonus_actions.nimble_escape and ranged then
@@ -583,9 +738,10 @@ local function monster_turn(b, c)
         return
     end
     -- Everyone else: close in and hit; shoot if the target is out of reach.
-    local t = focus_target(b, c, foes, (melee and melee.reach) or 5) or nearest
-    -- Pack hunters prefer a target an ally is already on.
-    if c.traits.pack_tactics then
+    local told = focus_target(b, c, foes, (melee and melee.reach) or 5)
+    local t = told or nearest
+    -- Pack hunters prefer a target an ally is already on (unless the DM, or a taunt, says who).
+    if c.traits.pack_tactics and not told then
         for _, f in ipairs(foes) do
             for _, a in ipairs(b:allies_of(c)) do
                 if b:dist(a, f) <= 5 and b:dist(c, f) <= c.turn.move + 5 then
@@ -600,9 +756,22 @@ local function monster_turn(b, c)
     local in_reach = melee and approach(b, c, t, reach)
     if c.dead or c.down then return end
     if not in_reach then
-        -- Nothing in reach: shoot if possible, or Dash to close the gap.
+        -- Nothing in reach: shoot if possible, or Dash to close the gap. (The one the DM told it to
+        -- go for, if it can shoot them: not whoever's nearest. The second playtest review, F12.)
         local near = by_distance(b, c, enemies(b, c))[1]
-        if near and b:dist(c, near) <= reach and melee then
+        local keen = told
+        told = told and not told.dead and not told.removed and (not told.down or c.dm_finish) and told or nil
+        if ranged and told and not told.down and in_shot(b, c.x, c.y, told, ranged.range[2]) then
+            near = told
+        elseif told and keen then
+            -- (Told who to go for, by the DM or a taunt, and they're out of reach: it keeps after them,
+            -- and doesn't turn on whoever's in its way. Round three, A5: "Go for Brannoc", then two
+            -- swings at Oswin.)
+            c.turn.move = b:speed(c)       -- Dash
+            approach(b, c, told, reach)
+            return
+        end
+        if near and near ~= told and b:dist(c, near) <= reach and melee then
             t, in_reach = near, true
         elseif ranged and near and in_shot(b, c.x, c.y, near, ranged.range[2]) then
             for _ = 1, count do
@@ -676,6 +845,47 @@ local function monster_turn(b, c)
     end
 end
 
+H.standard = function(b, c) return monster_turn(b, c, true) end
+H.enemies, H.by_distance, H.approach, H.back_off = enemies, by_distance, approach, back_off
+H.get_in_range, H.in_shot, H.adjacent_enemies, H.stand_if_prone = get_in_range, in_shot, adjacent_enemies, stand_if_prone
+H.pick_target, H.focus_target, H.find_named, H.attack_with = pick_target, focus_target, find_named, monster_attack_with
+
+-- Who it can't take its eyes off: stared down (Taunted, game/model/fight.lua) by someone still standing, on a turn the
+-- DM isn't running with a pick of their own. As focus_target has it.
+function AI.taunted_by(b, c)
+    if c.dm_ran and c.dm_target and not c.dm_target.dead and not c.dm_target.removed then
+        return nil
+    end
+    local tn = b:find_effect(c, "Taunted")
+    local tb = tn and tn.taunt_by
+    if tb and not tb.dead and not tb.down and not tb.removed then
+        return tb
+    end
+    return nil
+end
+
+-- The helpers for an adventure's own turn (its rule module picks who to aim at from H.by_distance: the bed dragon's
+-- breath, Noke's ray): while it's stared down, that list is just whoever did it, so the turn goes for them. The fourth
+-- playtest, carry 86 random: "The bed dragon can't take its eyes off Brannoc", then it breathed at Pip.
+function AI.helpers_for(b, c)
+    local tb = AI.taunted_by(b, c)
+    if not tb then
+        return H
+    end
+    local h = setmetatable({}, { __index = H })
+    h.by_distance = function(bb, cc, list)
+        if cc == c then
+            for _, o in ipairs(list) do
+                if o == tb then
+                    return { tb }
+                end
+            end
+        end
+        return by_distance(bb, cc, list)
+    end
+    return h
+end
+
 -- Player turns -------------------------------------------------------------------------------
 
 local function weapon_profile(c, kind)
@@ -738,10 +948,12 @@ local function fighter_turn(b, c)
         if reached then
             attack_action(b, c, prof, t)
         else
-            -- Out of reach: Magic Missile (Spellguard), a thrown weapon, or the bow.
+            -- Out of reach: Magic Missile (Spellguard), the wand, a thrown weapon, or the bow.
             do
                 local r = weapon_profile(c, "thrown") or weapon_profile(c, "ranged")
-                if r and in_shot(b, c.x, c.y, t, r.range[2]) then
+                if wand_zap(b, c, foes, t) then
+                    -- (the wand's darts)
+                elseif r and in_shot(b, c.x, c.y, t, r.range[2]) then
                     if r.id == c.weapons.thrown then c.res.thrown = c.res.thrown - 1 end
                     attack_action(b, c, r, t)
                 else
@@ -864,17 +1076,23 @@ local function rogue_turn(b, c)
         attack_action(b, c, melee, t)
         -- Nick: the Light extra attack rides along with the Attack action.
         local off = weapon_profile(c, "offhand")
-        if off and not t.dead and not t.down and c.masteries[c.weapons.offhand] and equipment.weapons[c.weapons.offhand].mastery == "nick" then
-            b:attack(c, t, off)
-        elseif off and c.turn.bonus and not t.dead and not t.down then
-            c.turn.bonus = false
+        local nick = off and c.masteries[c.weapons.offhand] and equipment.weapons[c.weapons.offhand].mastery == "nick"
+        if off and not t.dead and not t.down and nick then
             b:attack(c, t, off)
         end
-        -- Cunning Action: Disengage and slip back out.
-        if c.turn.bonus and c.turn.move > 0 and adjacent_enemies(b, c) > 0 and c.hp < c.hp_max * 0.6 then
+        -- Hit and run (the playtest, November 3: minis that stood in a clump): with a bow to fall back
+        -- on, hurt, or more than one blade on them, Cunning Action Disengages and slips back out of
+        -- reach; otherwise the off-hand blade.
+        local crowded = adjacent_enemies(b, c) >= 2
+        local run = c.turn.bonus and c.turn.move > 0 and adjacent_enemies(b, c) > 0
+            and (ranged ~= nil or crowded or c.hp < c.hp_max * 0.7)
+        if run then
             c.turn.bonus = false
             c.turn.disengaged = true
-            back_off(b, c, 15)
+            back_off(b, c, ranged and 25 or 15)
+        elseif off and not nick and c.turn.bonus and not t.dead and not t.down then
+            c.turn.bonus = false
+            b:attack(c, t, off)
         end
     end
     -- Already in someone's face: fight them rather than walk through Opportunity Attacks.
@@ -891,6 +1109,10 @@ local function rogue_turn(b, c)
             melee_round(best)
             return
         end
+    end
+    -- A foe the wand's darts are sure to finish, before the bow.
+    if wand_zap(b, c, foes) then
+        return
     end
     -- Ranged: Steady Aim (no movement) or Feint, then shoot.
     if ranged then
@@ -956,17 +1178,85 @@ local function caster_position(b, c, range)
     get_in_range(b, c, foes[1], range)
 end
 
+-- The friend on the floor a healer goes to first, of those within `reach` and a move: the one their player has just
+-- said they're coming for (c.heal_for: fight.lua's medic line, "Okay. Healing Pip. Cover me."), then one in sight and
+-- in reach now, then the nearest; one already Stable last.
+function AI.first_down(b, c, reach)
+    local best, bv
+    for _, a in ipairs(b:allies_of(c, false, true)) do
+        local d = b:dist(c, a)
+        if a.down and not a.dead and not a.removed and d <= reach + (c.turn.move or 0) then
+            local v = -d
+            if d <= reach and b:los_xy(c.x, c.y, a.x, a.y) then v = v + 1000 end
+            if a.stable then v = v - 5000 end
+            if a == c.heal_for then v = v + 10000 end
+            if not bv or v > bv then
+                best, bv = a, v
+            end
+        end
+    end
+    return best
+end
+
+-- Can this hero get that friend off the floor on their next turn (a heal, not just Stable)? "healing_word",
+-- "cure_wounds" or "potion", by what they have left and how far it is; nil when they can't. What a medic says
+-- they'll do waits on this (fight.lua): the fourth playtest, 81 careful, "Okay. Healing Pip. Cover me." with no
+-- slot and no potion left, then five turns of Sacred Flame while Pip failed three death saves.
+function AI.can_bring_up(b, c, t)
+    if not (c and t) or c.dead or c.down or c.removed or t.dead or t.removed or b:incapacitated(c) then
+        return nil
+    end
+    local move = b:speed(c)
+    local d = b:dist(c, t)
+    local function next_turn(id)
+        local was = c.slot_turn
+        c.slot_turn = nil                 -- (their next turn: a slot spent on this one doesn't count)
+        local ok = can_cast(c, id)
+        c.slot_turn = was
+        return ok
+    end
+    -- (Within `reach` of them after a move: walked round walls and foes, not as the crow flies.)
+    local field
+    local function gets_to(reach, sight)
+        local function ok_at(x, y)
+            return b:dist_xy(x, y, t.x, t.y) <= reach and (not sight or b:los_xy(x, y, t.x, t.y))
+        end
+        if ok_at(c.x, c.y) then
+            return true
+        end
+        if d > reach + move then
+            return false
+        end
+        field = field or b:paths(c, move)
+        for k in pairs(field) do
+            local x = math.floor(k / 1000)
+            if ok_at(x, k - x * 1000) then
+                return true
+            end
+        end
+        return false
+    end
+    if next_turn("healing_word") and gets_to(60, true) then
+        return "healing_word"
+    end
+    if next_turn("cure_wounds") and gets_to(5) then
+        return "cure_wounds"
+    end
+    if (c.res.potions or 0) > 0 and gets_to(5) then
+        return "potion"
+    end
+    return nil
+end
+
 -- Cleric.
 local function cleric_turn(b, c)
     stand_if_prone(b, c)
     local allies = b:allies_of(c, true, true)
     local foes = enemies(b, c)
     if #foes == 0 then return end
-    -- 1. Pick a friend up off the floor.
-    local downed
-    for _, a in ipairs(allies) do
-        if a.down and not a.dead and b:dist(c, a) <= 60 then downed = a end
-    end
+    -- 1. Pick a friend up off the floor: the one this cleric's player has just said they're coming for (fight.lua's
+    -- medic line sets c.heal_for), else one in sight, else the nearest; one round a corner, they step round to see.
+    local downed = AI.first_down(b, c, 60)
     local bloodied = 0
     for _, a in ipairs(allies) do
         if not a.dead and a.hp <= a.hp_max / 2 and b:dist(c, a) <= 30 then bloodied = bloodied + 1 end
@@ -975,13 +1265,31 @@ local function cleric_turn(b, c)
         AI.preserve_life(b, c)
     end
     if downed and downed.down and c.turn.bonus and can_cast(c, "healing_word") then
-        cast(b, c, "healing_word", downed)
+        if not in_shot(b, c.x, c.y, downed, 60) then
+            get_in_range(b, c, downed, 60)
+        end
+        if not c.down and in_shot(b, c.x, c.y, downed, 60) then
+            cast(b, c, "healing_word", downed)
+        end
     end
     if downed and downed.down and c.turn.action and can_cast(c, "cure_wounds") and b:dist(c, downed) <= 5 + c.turn.move then
         approach(b, c, downed, 5)
         if b:dist(c, downed) <= 5 then cast(b, c, "cure_wounds", downed) end
     end
-    potion_help(b, c)
+    potion_help(b, c, downed)
+    -- (Nothing left to heal with: Spare the Dying keeps them from dying, p. 163, 15 feet.)
+    if downed and downed.down and not downed.stable and not downed.dead and c.turn.action and spells.has_spell(c, "spare_the_dying")
+        and b:dist(c, downed) <= 15 + c.turn.move then
+        if not in_shot(b, c.x, c.y, downed, 15) then
+            get_in_range(b, c, downed, 15)
+        end
+        if not c.down and in_shot(b, c.x, c.y, downed, 15) then
+            cast(b, c, "spare_the_dying", downed)
+        end
+    end
+    if c.heal_for and (c.heal_for.dead or not c.heal_for.down or c.heal_for.stable) then
+        c.heal_for = nil
+    end
     if not c.turn.action then return end
     -- 2. Open with the domain's trick or Bless.
     local undead_near = 0
@@ -1046,17 +1354,37 @@ local function cleric_turn(b, c)
             spells.spiritual_weapon_strike(b, c, w, near)
         end
     end
-    -- 5. Hit something.
+    -- 5. Hit something. A healthy cleric stands in the line beside whoever's holding it (the
+    -- playtest, November 3: "cleric frontliner"): up next to a foe a friend is already fighting.
     foes = enemies(b, c)
     if #foes == 0 then return end
     by_distance(b, c, foes)
     local t = foes[1]
+    if b:dist(c, t) > 5 and c.hp >= c.hp_max * 0.5 and c.turn.move > 0 then
+        local line
+        for _, e in ipairs(foes) do
+            if not line and b:dist(c, e) <= 5 + c.turn.move then
+                for _, a in ipairs(b:allies_of(c)) do
+                    if not a.down and not a.dead and b:dist(a, e) <= 5 then
+                        line = e
+                    end
+                end
+            end
+        end
+        if line and approach(b, c, line, 5) then
+            t = line
+        end
+    end
     if b:dist(c, t) <= 5 then
         if can_cast(c, "inflict_wounds") and t.hp >= 12 and spells.find_slot(c, 1) and (c.res.slots[1] or 0) >= 2 then
             cast(b, c, "inflict_wounds", t)
         else
             attack_action(b, c, weapon_profile(c, "melee"), t)
         end
+        return
+    end
+    -- (The wand: a foe its darts are sure to finish, or one too far for Sacred Flame.)
+    if wand_zap(b, c, foes, b:dist(c, t) > 60 and t or nil) then
         return
     end
     local big = pick_target(b, c, foes, 9)
@@ -1205,6 +1533,10 @@ local function wizard_turn(b, c)
     -- Escape when cornered.
     if adjacent_enemies(b, c) > 0 and c.hp <= c.hp_max * 0.6 and c.turn.bonus and can_cast(c, "misty_step") then
         local x, y = b:best_square(c, 30, function(x, y)
+            -- (Misty Step: a space you can see, p. 150.)
+            if not b:los_xy(c.x, c.y, x, y) then
+                return -1000
+            end
             local nearest = math.huge
             for _, e in ipairs(foes) do nearest = math.min(nearest, b:dist_xy(x, y, e.x, e.y)) end
             return math.min(nearest, 40)
@@ -1217,10 +1549,10 @@ local function wizard_turn(b, c)
     -- Mirror Mage: Quick Reflection puts the images up with a Bonus Action.
     if c.sub and c.sub.quick_reflection and c.turn.bonus and can_cast(c, "mirror_image") and not b:find_effect(c, "Mirror Image")
         and by_distance(b, c, enemies(b, c))[1] and b:dist(c, by_distance(b, c, enemies(b, c))[1]) <= 40 then
-        local slot = pay(c, "mirror_image")
+        local slot, free = pay(c, "mirror_image")
         c.turn.bonus = false
-        b:log("%s casts Mirror Image as a Bonus Action (level %d).", c.name, slot)
-        b:emit({ kind = "spell", caster = c, id = "mirror_image", name = "Mirror Image", slot = slot, target = c })
+        b:log("%s casts Mirror Image as a Bonus Action (level %d%s).", c.name, slot, free and (", free: " .. free) or "")
+        b:emit({ kind = "spell", caster = c, id = "mirror_image", name = "Mirror Image", slot = slot, target = c, free = free })
         S.mirror_image.cast(b, c, slot)
     end
     -- Shocking Grasp then step away if someone's in our face.
@@ -1255,8 +1587,7 @@ local function wizard_turn(b, c)
         end
     end
     local need = 2
-    if best_id and best_v >= need then
-        cast(b, c, best_id, best_p, S[best_id].level)
+    if best_id and best_v >= need and cast(b, c, best_id, best_p, S[best_id].level) then
         if c.turn.move > 0 then back_off(b, c, 25) end
         return
     end
@@ -1274,6 +1605,10 @@ local function wizard_turn(b, c)
     local t = pick_target(b, c, foes, 6)
     if t.hp >= 20 and can_cast(c, "scorching_ray") and b:dist(c, t) <= 120 then
         cast(b, c, "scorching_ray", t)
+        caster_position(b, c, 120)
+        return
+    end
+    if wand_zap(b, c, foes) then
         caster_position(b, c, 120)
         return
     end
@@ -1300,6 +1635,19 @@ local function wizard_turn(b, c)
     end
     if adjacent_enemies(b, c) > 0 and c.turn.move > 0 then
         back_off(b, c, 15)
+    end
+end
+
+-- After a caster's turn: anything closing in gets distance put between it and them, keeping the
+-- target in range (the playtest, November 3: "wizard stays away from threats, in range for spells").
+local function keep_distance(b, c, want, range)
+    if c.down or c.dead or (c.turn.move or 0) <= 0 or adjacent_enemies(b, c) > 0 then
+        return
+    end
+    local foes = by_distance(b, c, enemies(b, c))
+    local near = foes[1]
+    if near and b:dist(c, near) < want then
+        back_off(b, c, want, near, range)
     end
 end
 
@@ -1372,6 +1720,10 @@ function AI.work_lock(b, c)
     if #locked == 0 then
         return false
     end
+    -- (Doors are keyed by square: the nearest of two equally near is the same one every run.)
+    table.sort(locked, function(p, q)
+        return p.x * 1000 + p.y < q.x * 1000 + q.y
+    end)
     local foes = enemies(b, c)
     local dist = b:paths(c, 400)
     for _, e in ipairs(foes) do
@@ -1452,6 +1804,10 @@ function AI.take_turn(b, c)
     if b.doors and AI.work_lock(b, c) then
         return
     end
+    -- Two friends nodding off in the Lecturer's audience: shake one awake (The Museum of Nightmares).
+    if museum.wake_friend(b, c, H) then
+        return
+    end
     if c.class == "fighter" then
         fighter_turn(b, c)
     elseif c.class == "rogue" then
@@ -1460,6 +1816,7 @@ function AI.take_turn(b, c)
         cleric_turn(b, c)
     elseif c.class == "wizard" then
         wizard_turn(b, c)
+        keep_distance(b, c, 25, 120)
     end
     -- Flaming Sphere and Spiritual Weapon get their Bonus Action if still unused.
     if c.conc and c.conc.extra.sphere and c.turn.bonus then

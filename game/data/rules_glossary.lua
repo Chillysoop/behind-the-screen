@@ -1,7 +1,7 @@
 -- The rules glossary (the newcomer playtest, October 16): the D&D words the game uses, each
 -- with a plain word first and one line on what it means at the table. Words in the text light
--- up with a faint underline; point at one for its card (game/ui/gloss.lua). The story's own
--- names (people, places, storylines) are game/data/glossary.lua's.
+-- up with a faint underline; point at one for its card (game/ui/gloss.lua). An adventure's own
+-- words are its MODULE.glossary.
 --
 -- Each term:
 --   id     unique
@@ -9,7 +9,7 @@
 --   plain  the plain word, the card's title
 --   text   what it means, a line or two, for someone who has never played
 --   dnd    what D&D calls it (optional): shown under the text, so they learn the real word too
---   tags   where it applies (optional): fight, sheet, table, story, report. No tags: anywhere the
+--   tags   where it applies (optional): fight, sheet, table, report. No tags: anywhere the
 --          glossary is on. A screen turns the glossary on with the tags it wants.
 -- Order matters: longer phrases first, so "Three-Quarters Cover" wins over "Cover".
 -- Data only: tune freely.
@@ -71,6 +71,10 @@ return {
     { id = "speed", match = { "%f[%w]Speed %d+" }, plain = "Movement",
       text = "How far it moves in a turn, in feet. Every square on the mat is 5 feet.", dnd = "Speed",
       tags = { "fight" } },
+    -- (Before the attack bonus: "your Empathy +1," is a DM's skill, not a weapon.)
+    { id = "empathy", match = { "%f[%w]Empathy%f[%W]", "%f[%w]EMPATHY%f[%W]" }, plain = "Reading the table",
+      text = "Your own skill as a DM at noticing how the players feel. It grows as you play, and the bars "
+          .. "get sharper." },
     { id = "to_hit", match = { "%f[%w]%a+ %+%d+%f[,]", "%f[%w]Attack [%+%-]%d" }, plain = "Attack bonus",
       text = "The weapon, and what's added to the d20 when it attacks with it. The total has to reach the target's "
           .. "Defense (AC).",
@@ -95,7 +99,7 @@ return {
       dnd = "Cover", tags = { "fight" } },
     { id = "graze", match = { "%f[%w]grazes%f[%W]", "%f[%w]graze%f[%W]", "%f[%w]Graze%f[%W]" }, plain = "A graze",
       text = "A weapon trick: when it misses, it still nicks the target for a little damage.", dnd = "Graze (weapon mastery)" },
-    { id = "bonus_action", match = { "bonus action" }, plain = "A quick extra move",
+    { id = "bonus_action", match = { "bonus action", "Bonus Action", "BONUS ACTION" }, plain = "A quick extra move",
       text = "A small thing some heroes can do on their turn as well as their main action. Only some abilities use it.",
       dnd = "Bonus action" },
     { id = "grapple", match = { "%f[%w]grappling%f[%W]", "%f[%w]grapple%f[%W]", "%f[%w]Grappled%f[%W]", "%f[%w]grappled%f[%W]" },
@@ -226,61 +230,36 @@ return {
     -- The table and the DM's craft -------------------------------------------------------------
     { id = "dm", match = { "%f[%w]DMs%f[%W]", "%f[%w]DM%f[%W]" }, plain = "You: the Dungeon Master",
       text = "The one who runs the game: you describe the world, play everyone the heroes meet, and make the calls.",
-      dnd = "Dungeon Master (DM)", tags = { "table", "story" } },
+      dnd = "Dungeon Master (DM)" },
     { id = "npc", match = { "%f[%w]NPCs?%f[%W]" }, plain = "Everyone else in the story",
       text = "Anyone the players don't play: the innkeeper, the villain, the talking goat. You voice them all.",
       dnd = "Non-player character (NPC)" },
     { id = "session_zero", match = { "Session Zero", "SESSION ZERO" }, plain = "The talk before the first game",
       text = "Everyone agrees what the game will be like: the tone, what's off limits, the house rules.",
-      dnd = "Session Zero", tags = { "table", "story" } },
-    -- The lore screen's words (the lore playtest, October 16).
-    { id = "hand_of_cards", match = { "hand of cards", "your hand" }, plain = "Your hand of cards",
-      text = "The cards you prep from: places, people, goals, twists and rewards the story has dealt you. Scenes won and "
-          .. "lost add new ones for the next session.", tags = { "story" } },
-    { id = "world_moves", match = { "%f[%w][Ww]orld moves?%f[%W]" }, plain = "World moves",
-      text = "Every session each faction does something off screen. On the prep board you let it happen (it rolls), "
-          .. "play it out tonight as a card, or hold one back.", tags = { "story" } },
-    { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]" }, plain = "A loose end",
-      text = "A story left alone so long the table noticed. Until a card brings it back, the players who care lose a "
-          .. "little Investment every session.", tags = { "story" } },
+      dnd = "Session Zero" },
+    { id = "loose_end", match = { "%f[%w][Ll]oose end%f[%W]", "LOOSE END" }, plain = "A loose end",
+      text = "A room the party skipped, with someone or something still in it. Between sessions you decide what "
+          .. "happens to it, and where it turns up." },
     { id = "lines", match = { "%f[%w]LINES%f[%W]", "A line:" }, plain = "A line",
-      text = "Something that never happens in the game, full stop.", dnd = "Lines (and veils)", tags = { "table" } },
+      text = "Something that never happens in the game, full stop.", dnd = "Lines (and veils)" },
     { id = "veils", match = { "%f[%w]VEILS%f[%W]", "%f[%w]veils?%f[%W]", "A veil:" }, plain = "A veil",
       text = "Something that can happen in the story, but off screen: a fade to black, no details.",
-      dnd = "Veils (and lines)", tags = { "table" } },
+      dnd = "Veils (and lines)" },
     { id = "xcard", match = { "X%-card" }, plain = "The X-card",
-      text = "A card on the table anyone can tap, no questions asked, to skip whatever's happening.",
-      tags = { "table" } },
-    { id = "screen", match = { "behind the screen", "Behind the screen", "behind your screen", "BEHIND THE SCREEN" },
+      text = "A card on the table anyone can tap, no questions asked, to skip whatever's happening." },
+    { id = "screen", match = { "behind the screen", "Behind the screen", "behind your screen", "BEHIND THE SCREEN",
+                               "BEHIND YOUR SCREEN" },
       plain = "Behind the screen", text = "The DM's cardboard screen hides the notes and the dice. A roll behind it is "
-          .. "one only you see, so you could quietly change it.", dnd = "The DM screen", tags = { "table" } },
+          .. "one only you see, so you could quietly change it.", dnd = "The DM screen" },
     { id = "open", match = { "in the open", "In the open" }, plain = "In the open",
-      text = "Rolled where everyone can see it. Nobody can change it, you included.", tags = { "table" } },
+      text = "Rolled where everyone can see it. Nobody can change it, you included." },
     { id = "cool", match = { "Rule of cool", "rule of cool" }, plain = "Let it be cool",
       text = "If it's fun and it fits, it works, even when the rules say otherwise.", dnd = "Rule of cool" },
     { id = "book", match = { "By the book", "by the book" }, plain = "Look it up",
       text = "Find the rule and play it as written, even if it slows things down.", tags = { "table" } },
-    { id = "fail_forward", match = { "Fail forward", "fail forward" }, plain = "Fail, but keep moving",
-      text = "The roll fails, but the story still moves on, at a cost. Nobody's stuck.", dnd = "Failing forward" },
-    { id = "stock", match = { "Stock move", "stock move" }, plain = "A trick up your sleeve",
-      text = "A move any DM keeps ready for when they're stuck: a messenger arrives, a storm rolls in. It fits "
-          .. "almost anywhere." },
     { id = "improv", match = { "%f[%w]improvise%f[%W]", "%f[%w]improvised%f[%W]", "%f[%w]improv hand%f[%W]" },
-      plain = "Making it up", text = "What you didn't prep, you make up at the table. Cards that fit the moment "
-          .. "work best.", tags = { "table", "story" } },
-    -- The improv hand's labels (the re-test, October 16: "Quantum ogre", "A stretch", "Mara's line").
-    { id = "quantum", match = { "Quantum ogre" }, plain = "Your prep, moved",
-      text = "Something you prepared for somewhere else turns up here instead: wherever they go, the fight finds them. "
-          .. "Players rarely notice, but explorers who catch it feel their choices didn't matter.",
-      dnd = "The quantum ogre (a DM trick)", tags = { "table" } },
-    { id = "unused", match = { "Unused encounter" }, plain = "A fight you haven't used",
-      text = "A fight that's in your deck and hasn't happened yet. Play it and it happens here, now.", tags = { "table" } },
-    { id = "fits", match = { "Fits this scene" }, plain = "Made for this",
-      text = "Suits this kind of scene: it counts fully.", tags = { "table" } },
-    { id = "always", match = { "Always works" }, plain = "Fine anywhere",
-      text = "Fits almost any scene: never the best card, never a bad one.", tags = { "table" } },
-    { id = "stretch", match = { "A stretch" }, plain = "Doesn't quite fit",
-      text = "It'll work, but it doesn't suit this scene, and it pulls the scene down a little.", tags = { "table" } },
+      plain = "Making it up", text = "What you didn't prep, you make up at the table.", tags = { "table" } },
+    -- What a player asked for at Session Zero, where a card would break it (the re-test, October 16).
     { id = "their_line", match = { "%f[%w]%u%l+'s line" }, plain = "Their line",
       text = "Something this player asked at Session Zero never to happen in the game. Playing it breaks that promise.",
       tags = { "table" } },
@@ -289,58 +268,132 @@ return {
     { id = "honour", match = { "Honour it" }, plain = "Go with what they want",
       text = "Use this player's wish for their hero's death instead of the rule the table agreed at Session Zero.",
       tags = { "sheet" } },
-    { id = "dice_jail", match = { "dice jail" }, plain = "Dice jail",
+    { id = "dice_jail", match = { "[Dd]ice jail" }, plain = "Dice jail",
       text = "A die that rolled a 1 gets put in time out, to the table's delight. A real habit at real tables." },
     { id = "spotlight", match = { "%f[%w]spotlight%f[%W]", "%f[%w]Spotlight%f[%W]" }, plain = "Spotlight",
-      text = "Time when the story is about their hero. Everyone needs some; too little and they drift.",
-      tags = { "table", "report", "story" } },
+      text = "Time when the story is about their hero. Everyone needs some; too little and they drift." },
     { id = "ruling", match = { "%f[%w]ruling%f[%W]", "Rules calls" }, plain = "A rules call",
-      text = "When the rules aren't clear, the DM decides. Quick and fair beats slow and perfect.", tags = { "table" } },
+      text = "When the rules aren't clear, the DM decides. Quick and fair beats slow and perfect." },
 
-    -- The story and the campaign ---------------------------------------------------------------
-    { id = "front", match = { "SECOND FRONT", "second front", "%f[%w]fronts%f[%W]" }, plain = "A threat",
-      text = "A danger moving in the background, with its own plan. It acts every week whether the heroes deal "
-          .. "with it or not.", dnd = "A front", tags = { "story" } },
-    { id = "doom", match = { "%f[%w]Doom%f[%W]" }, plain = "If nobody stops it",
-      text = "Where the threat's plan ends if it gets there. The numbered steps are how it gets closer.",
-      tags = { "story" } },
-    { id = "truths", match = { "%f[%w]TRUTHS%f[%W]", "%f[%w]truths%f[%W]" }, plain = "Facts about the world",
-      text = "Things you decide are true before anyone plays: what the land is like, what people believe.",
-      tags = { "story" } },
-    { id = "threads", match = { "FEATURED THREADS", "%f[%w]threads%f[%W]" }, plain = "Hero stories",
-      text = "Each hero brings a storyline from their past. Featured ones come up sooner.", tags = { "story" } },
-    { id = "arc", match = { "%f[%w]arc%f[%W]" }, plain = "The story so far",
-      text = "A run of sessions telling one story, from the first hook to the ending.", tags = { "story" } },
-    { id = "seed", match = { "%f[%w]SEEDS%f[%W]", "Plant a mystery" }, plain = "Plant it now, pay it off later",
-      text = "A small hint dropped tonight that pays off in a later session. Players love it when it does.",
-      dnd = "Foreshadowing", tags = { "story" } },
+    -- The heroes ---------------------------------------------------------------------------------
     { id = "level", match = { "%f[%w]LEVEL %d", "%f[%w]Level %d" }, plain = "How experienced the heroes are",
-      text = "The heroes' level. Every couple of good nights they level up: more health, new tricks.", dnd = "Character level",
-      tags = { "story", "report" } },
-    { id = "deck", match = { "WAITING IN YOUR DECK" }, plain = "Cards for later",
-      text = "Story cards that come into your hand in later weeks, as the story gets there.", tags = { "story" } },
+      text = "The heroes' level. Every couple of good nights they level up: more health, new tricks.", dnd = "Character level" },
 
     -- How the players are doing ------------------------------------------------------------------
     { id = "fun", match = { "%f[%w]Fun%f[%W]" }, plain = "Fun",
       text = "How much they're enjoying tonight. It's what the night is scored on, more than whether the heroes "
-          .. "win.", tags = { "report" } },
+          .. "win." },
     { id = "commitment", match = { "%f[%w]Commitment%f[%W]" }, plain = "Commitment",
-      text = "How much they want to keep coming. Weeks of it low and they take a break.", tags = { "report", "story" } },
+      text = "How much they want to keep coming. Higher is better: weeks of it low and they take a break." },
     { id = "trust", match = { "%f[%w]Trust%f[%W]" }, plain = "Trust",
-      text = "How much they trust you to be fair. Getting caught cooking the dice costs a lot of it.",
-      tags = { "report", "story" } },
+      text = "How much they trust you to be fair. Higher is better: getting caught cooking the dice, or a harsh call out "
+          .. "of nowhere, costs a lot of it." },
     { id = "investment", match = { "%f[%w]Investment%f[%W]" }, plain = "Investment",
-      text = "How much they care about the story and their hero. Their own story moving fills it.", tags = { "report", "story" } },
+      text = "How much they care about the story and their hero. Higher is better: their own story moving fills it." },
     { id = "suspicion", match = { "%f[%w]Suspicion%f[%W]" }, plain = "Suspicion",
-      text = "Whether they think you're changing rolls behind the screen. Too high and trust starts to slip.",
-      tags = { "report", "story" } },
+      text = "Whether they think you're changing rolls behind the screen. Lower is better: too high and trust starts to slip." },
     { id = "goodwill", match = { "%f[%w]Goodwill%f[%W]" }, plain = "Goodwill",
-      text = "Their fondness for you as their DM. Good nights fill it; when it's full they bring you something.",
-      tags = { "report", "story" } },
+      text = "Their fondness for you as their DM. Good nights fill it; when it's full they bring you something." },
+    { id = "cooked", match = { "%f[%w][Cc]ooked%f[%W]" }, plain = "Cooked",
+      text = "A roll you changed behind your screen: you said it went the other way. Nobody saw, but if the table "
+          .. "suspects it, Suspicion rises and Trust falls." },
     { id = "table_score", match = { "Table Score" }, plain = "How the table did",
-      text = "Everyone's fun tonight, pulled toward whoever had the worst night: a good DM brings everyone along.",
-      tags = { "report" } },
-    { id = "empathy", match = { "%f[%w]Empathy%f[%W]" }, plain = "Reading the table",
-      text = "Your own skill as a DM at noticing how the players feel. It grows as you play, and the bars "
-          .. "get sharper.", tags = { "report", "story" } },
+      text = "Everyone's fun tonight, pulled toward whoever had the worst night: a good DM brings everyone along." },
+    -- The game's own words on screen (the hover audit, November 3: tools/tests/gloss_words.lua).
+    { id = "secret_check", match = { "SECRET CHECK", "secret check" }, plain = "A secret check",
+      text = "A roll only you see, for something the heroes shouldn't know they tried: spotting an ambush, reading a "
+          .. "liar. The table only learns what happens.", dnd = "A DM's secret roll" },
+    { id = "big_roll", match = { "THE SCENE'S FINAL ROLL", "BIG ROLL", "[Bb]ig roll" }, plain = "A big roll",
+      text = "A roll that can change the scene. You choose: the table sees the die and the target, or it stays "
+          .. "behind your screen and only you know." },
+    { id = "danger", match = { "%(Breezy%)", "%(Tense%)", "%(Dangerous%)", "%(Deadly%)", ", Breezy%f[%A]", ", Tense%f[%A]",
+                               ", Dangerous%f[%A]", ", Deadly%f[%A]", "Forecast: %u%l+" },
+      plain = "How dangerous the fight is",
+      text = "The game's guess from practice fights. Breezy: nobody falls. Tense: someone might drop. Dangerous: someone "
+          .. "probably drops. Deadly: a hero could die, or the party could lose." },
+    { id = "fair_warning", match = { "FAIR WARNING", "Fair warning", "fair warning", "WARNINGS" }, plain = "Fair warning",
+      text = "A harsh call lands as fair when they knew about that danger: you described it, asked \"Are you sure?\", or they "
+          .. "found out themselves. A die rolled in the open is fair too. Unwarned, it feels arbitrary and costs Trust." },
+    { id = "prep_hours", match = { "PREP HOURS", "Prep hours", "prep hours" }, plain = "Prep hours",
+      text = "Your week before game night. Prepping a room (reading it, setting out its map and minis) costs hours; a "
+          .. "room you didn't prep plays thinner, and the table can tell." },
+    { id = "resist", match = { "resists it", "fails to resist", "%f[%a]resisted%f[%A]" }, plain = "Resisting a spell",
+      text = "Some spells give the target a roll to shrug them off. Make it, and the spell does less, or nothing.",
+      dnd = "Saving throw" },
+    { id = "resistance", match = { "%f[%a]Resistance%f[%A]", "%f[%a]resistance%f[%A]", "%f[%a]resistant%f[%A]" },
+      plain = "Takes half", text = "Resistant to a kind of damage (fire, say): it only takes half.", dnd = "Damage resistance" },
+    { id = "vulnerable", match = { "%f[%a][Vv]ulnerab%a*" }, plain = "Takes double",
+      text = "Weak against a kind of damage: it takes twice as much.", dnd = "Damage vulnerability" },
+    { id = "multiattack", match = { "Multiattack" }, plain = "Several attacks a turn",
+      text = "A monster that attacks more than once on its turn.", dnd = "Multiattack" },
+    { id = "subclass", match = { "%f[%a][Ss]ubclass%a*" }, plain = "A hero's speciality",
+      text = "At level 3 each hero picks a path within their class: a Champion fighter, a Thief rogue. The players "
+          .. "choose for their own reasons.", dnd = "Subclass" },
+    { id = "charmed", match = { "%f[%a]Charmed%f[%A]", "%f[%a]charmed%f[%A]" }, plain = "Charmed",
+      text = "Under someone's spell: they can't attack the one who charmed them, and that one finds them easy to "
+          .. "talk round.", dnd = "Charmed (condition)" },
+    { id = "taunted", match = { "%f[%a]Taunted%f[%A]", "%f[%a]taunted%f[%A]" }, plain = "Taunted",
+      text = "Stared down before the fight: for its first few turns it goes for whoever stared it down, whoever else "
+          .. "is hurting it.", dnd = "the DM's call after an Intimidation check" },
+    { id = "frightened", match = { "%f[%a]Frightened%f[%A]", "%f[%a]frightened%f[%A]" }, plain = "Frightened",
+      text = "Scared: worse at attacks and checks while they can see what scares them, and they won't move closer to it.",
+      dnd = "Frightened (condition)" },
+    { id = "petrified", match = { "%f[%a]Petrified%f[%A]", "%f[%a]petrified%f[%A]", "[Tt]urning to stone", "to stone" },
+      plain = "Turned to stone", text = "Stone, and out of the fight until the curse ends. Here, beating the one who did it "
+          .. "frees them.", dnd = "Petrified (condition)" },
+    { id = "restrained", match = { "%f[%a]Restrained%f[%A]", "%f[%a]restrained%f[%A]" }, plain = "Held fast",
+      text = "Stuck in place: attacks against them are easier, and theirs are harder.", dnd = "Restrained (condition)" },
+    { id = "incapacitated", match = { "%f[%a]Incapacitated%f[%A]", "%f[%a]Incap%." }, plain = "Out of action",
+      text = "Can't act or react this turn: no attacks, no spells.", dnd = "Incapacitated (condition)" },
+    { id = "unconscious", match = { "%f[%a]Unconscious%f[%A]", "%f[%a]unconscious%f[%A]" }, plain = "Out cold",
+      text = "Down and unaware: can't act, drops what they hold, and hits from right next to them are critical.",
+      dnd = "Unconscious (condition)" },
+    { id = "poisoned", match = { "%f[%a]Poisoned%f[%A]", "%f[%a]poisoned%f[%A]" }, plain = "Poisoned",
+      text = "Feeling awful: worse at attacks and checks until it wears off.", dnd = "Poisoned (condition)" },
+    { id = "stunned", match = { "%f[%a]Stunned%f[%A]", "%f[%a]Paralyzed%f[%A]" }, plain = "Can't move",
+      text = "Can't act or move, and fails rolls to dodge or resist with Strength or Dexterity.", dnd = "Stunned / Paralyzed" },
+    { id = "short_rest", match = { "[Ss]hort [Rr]est" }, plain = "A short rest",
+      text = "An hour's breather: heroes spend Hit Dice to heal a little, and a few abilities come back.", dnd = "Short rest" },
+    { id = "long_rest", match = { "[Ll]ong [Rr]est" }, plain = "A long rest",
+      text = "A full night's sleep: all health and every spell come back.", dnd = "Long rest" },
+    -- Words the third playtest's newcomer and lapsed DM didn't know (screens_newcomer 15).
+    { id = "vorpal", match = { "[Vv]orpal sword", "[Vv]orpal [Ss]word" }, plain = "A vorpal sword",
+      text = "The most famous magic sword in the game: on a natural 20 it can cut a head clean off. Every table has "
+          .. "someone who asks for one.", dnd = "Vorpal Sword (legendary magic item)" },
+    { id = "mage_armor", match = { "Mage Armor" }, plain = "Mage Armor",
+      text = "A wizard's spell: a shimmer of force that makes them harder to hit, all day.", dnd = "Mage Armor (spell)",
+      tags = { "sheet", "fight" } },
+    { id = "aid", match = { "%f[%w]Aid%f[%W]" }, plain = "Aid",
+      text = "A cleric's spell: up to three friends get a little more health, for the rest of the day.", dnd = "Aid (spell)",
+      tags = { "sheet", "fight" } },
+    { id = "mastery", match = { "%f[%w]Mastery%f[%W]" }, plain = "Weapon mastery",
+      text = "The newer rules give each weapon a trick its wielder knows. Vex: a hit makes your next attack on that "
+          .. "target easier. Nick: the extra swing with a light second weapon comes free. Graze: a miss still nicks.",
+      dnd = "Weapon Mastery (2024 rules)", tags = { "sheet", "fight" } },
+    { id = "vex", match = { "%f[%w]Vex%f[%W]" }, plain = "Vex",
+      text = "A weapon trick: hit with it, and your next attack on that target has advantage.", dnd = "Vex (weapon mastery)",
+      tags = { "sheet", "fight" } },
+    { id = "nick", match = { "%f[%w]Nick%f[%W]" }, plain = "Nick",
+      text = "A weapon trick: the extra attack with a light second weapon is part of the same action, not a bonus "
+          .. "action.", dnd = "Nick (weapon mastery)", tags = { "sheet", "fight" } },
+    { id = "minis", match = { "%f[%w]Minis%f[%W]", "%f[%w]minis%f[%W]" }, plain = "Minis",
+      text = "The little painted figures for the heroes and the monsters, set out on the map so everyone can see "
+          .. "who's where." },
+    { id = "inspire", match = { "%f[%w]Inspire%f[%W]" }, plain = "Inspire",
+      text = "Hand this hero Heroic Inspiration for great play: a token they can spend to reroll one die.",
+      dnd = "Heroic Inspiration", tags = { "fight", "table" } },
+    { id = "final_roll", match = { "[Ff]inal roll" }, plain = "The scene's final roll",
+      text = "The roll that settles how a scene ends. Good moments on the way (gold dots) make it easier, bad ones "
+          .. "(red dots) harder; normal is neither." },
+    { id = "railroad", match = { "%f[%a]railroad%a*" }, plain = "Railroading",
+      text = "Steering the players where you planned, whatever they chose. A little is fine; too much and they feel "
+          .. "their choices don't matter." },
+    { id = "ties", match = { "Ties and locks", "TIES AND LOCKS" }, plain = "Ties and locks",
+      text = "Your own wiring for the adventure: lock a door, a room or a person until something happens, or tie a "
+          .. "mark on the boss's card to something the party does." },
+    { id = "request", match = { "A REQUEST" }, plain = "A request",
+      text = "Something a player asks between sessions. Yes, with a laugh, no with a reason, or yes but it's dangerous: "
+          .. "each answer changes the adventure a little." },
+    { id = "house_rule", match = { "[Hh]ouse rules?" }, plain = "A house rule",
+      text = "A rules call you made that now stands for the rest of the campaign." },
 }

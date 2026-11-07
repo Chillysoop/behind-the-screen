@@ -19,15 +19,28 @@
 --   b.hooks.before_turn(b, c)   the DM runs a creature's turn (sets c.dm_target or c.dm_skip)
 --   b.blocked[x * 1000 + y] = true                              terrain squares nobody can enter
 --   b.force_end = "party" | "foes"                              end the fight after this turn
+--   b.hooks.before_join(b, c)   a creature is about to join mid-fight (a swarm bursting out)
+--   b.paint, b.mirror, b.averted, b.drowsy, b.earplugs,         The Museum of Nightmares' options
+--   b.fire_arrows, b.manual, b.no_hyper                         (game/rules/museum.lua)
+--                                                               (game/rules/museum.lua)
+--
+-- A creature on the party's side that isn't a hero (an ally, c.ally) fights with them but isn't
+-- counted among the heroes. An effect with out_of_fight (turned to stone, sitting through a
+-- lecture) takes its holder out: nobody targets them and they don't keep their side standing.
 
 local dice_mod = require "game.rules.dice"
 local creature = require "game.rules.creature"
+local museum = require "game.rules.museum"
 
 local M = {}
 local B = {}
 B.__index = B
 
 local abmod = creature.abmod
+
+-- The weapons whose ammunition is arrows (SRD 5.2.1 Equipment: the Longbow and Shortbow shoot Arrows): what a quiver
+-- of fire arrows is for.
+M.ARROW_WEAPONS = { shortbow = true, longbow = true }
 
 function M.new(opts)
     opts = opts or {}
@@ -83,7 +96,8 @@ end
 function B:enemies_of(c, include_down)
     local out = {}
     for _, o in ipairs(self.creatures) do
-        if o.side ~= c.side and not o.dead and (include_down or not o.down) and not o.removed then
+        if o.side ~= c.side and not o.dead and (include_down or not o.down) and not o.removed
+            and not self:any_effect(o, "out_of_fight") then
             table.insert(out, o)
         end
     end
@@ -514,6 +528,7 @@ function B:attack_mode(att, tgt, prof, opts)
         if e.steady_aim then table.insert(adv, "Steady Aim") end
         if e.feint_vs == tgt then table.insert(adv, "Feint") end
         if e.vex_vs == tgt then table.insert(adv, "Vex") end
+        if e.reckless then table.insert(adv, "Reckless") end
         if e.enfeebled and (prof.ability_name == "str" or (prof.kind == "melee" and not prof.ability_name)) then
             table.insert(dis, "Ray of Enfeeblement (Str)")
         end
@@ -531,6 +546,7 @@ function B:attack_mode(att, tgt, prof, opts)
         if e.dodge and self:can_see(tgt, att) and not self:incapacitated(tgt) then table.insert(dis, "Dodge") end
         if e.blur then table.insert(dis, "Blur") end
         if e.marked_adv then table.insert(adv, e.name or "Marked") end
+        if e.reckless then table.insert(adv, "target Reckless") end
     end
     -- Unseen Attackers and Targets (p. 14): in the dark (a staged board's light), a target you
     -- can't see means Disadvantage; an attacker the target can't see has Advantage.
@@ -782,9 +798,11 @@ function B:attack(att, tgt, prof, opts)
     local cover, cover_what = self:cover_bonus(att, tgt)
     local ac = self:ac(tgt) + cover
     res.cover = cover > 0 or nil
-    -- Heroic Inspiration on a miss that matters: against the boss.
+    -- Heroic Inspiration on a miss that matters (C15): against the boss, or to finish a foe that's nearly
+    -- down, when a new die has a fair chance to hit (it needs 15 or less).
     local rerolled
-    if att.heroic and roll < crit_range and (roll == 1 or total < ac) and tgt.boss then
+    local matters = tgt.boss or (tgt.hp_max and tgt.hp <= tgt.hp_max / 4)
+    if att.heroic and roll < crit_range and (roll == 1 or total < ac) and matters and ac - (total - roll) <= 15 then
         local riders = total - roll
         rerolled = roll
         roll = self:heroic_reroll(att, roll, true, "attack", mode, luck)
@@ -946,9 +964,58 @@ function B:attack(att, tgt, prof, opts)
                 total = total, ac = ac, mode = mode, ranged = prof.kind == "ranged", sneak = res.sneak,
                 opportunity = opts.opportunity, spell = prof.spell, cover = cover,
                 cover_what = type(cover_what) == "string" and cover_what or nil, heroic = rerolled })
+    -- A charge (the briars' tusks): closing at least `feet` on the target this turn before the hit.
+    local ch = prof.charge
+    if ch and att.turn and att.turn.start_x and not att.turn.charged and self.active == att
+        and self:dist_xy(att.turn.start_x, att.turn.start_y, tgt.x, tgt.y) - self:dist(att, tgt) >= ch.feet then
+        att.turn.charged = true
+        table.insert(parts, self:roll_parts({ ch.extra }, crit)[1])
+        res.charge = true
+        self:log("  It's a charge!")
+    end
+    -- (The Museum of Nightmares: Telpur's fire arrows and slime, on a hero's first weapon hit a turn.)
+    -- (Only the arrows, no slime: a shot from a bow, "arrows".)
+    -- (An arrow is a bow's ammunition, not a thrown javelin or dagger: the fourth playtest, 82 careless, "Telpur's fire
+    -- arrow, +1 fire" on Brannoc's javelin, and the quiver's words say "first shot". A thrown weapon gets the slime,
+    -- when there's slime.)
+    local arrow = prof.kind == "ranged" and prof.weapon and prof.weapon.ammunition and M.ARROW_WEAPONS[prof.id] or false
+    if self.fire_arrows and att.side == "party" and att.pc and prof.is_weapon and att.turn and not att.turn.fire_arrows
+        and (self.fire_arrows ~= "arrows" or arrow) then
+        att.turn.fire_arrows = true
+        local fp = self:roll_parts({ { 1, 4, 0, arrow and "fire" or "acid" } }, crit)[1]
+        table.insert(parts, fp)
+        -- (Said in the log, so the extra damage isn't a mystery: the playtest, Nov 2.)
+        self:emit({ kind = "feature", who = att, name = (arrow and "Telpur's fire arrow, +" or "Telpur's slime, +")
+                        .. tostring(fp[1]) .. " " .. fp[2] })
+    end
+    -- (The Museum of Nightmares: a briar the pond water made grow, the mutation table's 1: its hits add 1d4
+    -- piercing, for each time.)
+    if att.thorn_growth and att.thorn_growth > 0 then
+        table.insert(parts, self:roll_parts({ { att.thorn_growth, 4, 0, "piercing" } }, crit)[1])
+    end
+    -- (An effect that adds dice to its melee hits: Enlarge, 1d4. Any adventure's spell, the Sheep Chase's Noke.)
+    if prof.kind == "melee" then
+        for _, e in ipairs(att.effects or {}) do
+            if e.hit_dice then
+                local hd = e.hit_dice
+                local dmg_type = parts[1] and parts[1][2] or "bludgeoning"
+                table.insert(parts, self:roll_parts({ { hd[1], hd[2], hd[3] or 0, dmg_type } }, crit)[1])
+            end
+        end
+    end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
-    res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon })
+    -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
+    -- (b.paint = a player key: only that hero's weapon is painted, the one they pulled out of a painting.)
+    local paint = self.paint and att.side == "party" and prof.is_weapon
+        and (self.paint == true or att.player_key == self.paint) or nil
+    local magical = prof.magical or (att.magic_weapon or 0) > 0 or paint or nil
+    res.damage = self:deal(att, tgt, parts, { crit = crit, melee = prof.kind == "melee", weapon = prof.is_weapon,
+                                              magical = magical, paint = paint, nonlethal = prof.nonlethal })
+    if res.charge and not tgt.dead and not tgt.down and ch.save
+        and not self:save(tgt, ch.save, ch.dc, { kind = "prone" }) then
+        self:knock_prone(tgt, att.name .. "'s charge")
+    end
     self:bestiary_on_hit(att, tgt, prof, res, bloodied_before, hp_before)
     -- Monster riders.
     if prof.prone_max_size and not tgt.dead and SIZE_RANK[tgt.size] <= SIZE_RANK[prof.prone_max_size] then
@@ -1242,11 +1309,15 @@ function B:deal(src, tgt, parts, info)
                 amount = math.max(0, amount - self.dice:d(4))
             end
             local under = dtype == "fire" and self.hazard and require("game.rules.hazards").deep(self, tgt)
-            if tgt.resist[dtype] or bond or under then
+            -- (The Museum of Nightmares: Resistance to blows that aren't magical, and a Petrified
+            -- creature resists everything.)
+            local mundane = tgt.resist_nonmagical and info.weapon and not info.magical and tgt.resist_nonmagical[dtype]
+            if tgt.resist[dtype] or bond or under or mundane or (tgt.effects[1] and self:any_effect(tgt, "stone")) then
                 amount = math.floor(amount / 2)            -- (anything underwater resists fire, p. 16)
             end
-            if tgt.vulnerable[dtype] then
+            if tgt.vulnerable[dtype] or (info.paint and tgt.paint_vulnerable) then
                 amount = amount * 2
+                info.weak = (info.paint and tgt.paint_vulnerable) and "paint" or dtype   -- (said with the hit)
             end
         end
         total = total + amount
@@ -1272,14 +1343,14 @@ function B:deal(src, tgt, parts, info)
     if through <= 0 then
         self:log("  %s's Temporary Hit Points soak %d.", tgt.name, absorbed)
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = tgt.hp,
-                    hp_max = tgt.hp_max, crit = info.crit, graze = info.graze })
+                    hp_max = tgt.hp_max, crit = info.crit, graze = info.graze, weak = info.weak })
         self:after_damage(tgt, total, info)
         return total
     end
     -- Damage at 0 Hit Points (p. 18).
     if tgt.down then
         self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = 0,
-                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
+                    hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze, weak = info.weak })
         if through >= tgt.hp_max and not (tgt.pc and self.gentle_deaths) then
             self:kill(tgt, src, "massive damage")
         else
@@ -1290,17 +1361,30 @@ function B:deal(src, tgt, parts, info)
     tgt.hp = tgt.hp - through
     self:log("  %s takes %d damage (%d/%d).", tgt.name, total, math.max(tgt.hp, 0), tgt.hp_max)
     self:emit({ kind = "damage", src = src, tgt = tgt, amount = total, absorbed = absorbed, hp = math.max(tgt.hp, 0),
-                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze })
+                hp_max = tgt.hp_max, crit = info.crit, spell = info.spell, graze = info.graze, weak = info.weak })
     if tgt.hp <= 0 then
         local overflow = -tgt.hp
         tgt.hp = 0
         if tgt.pc then
             -- (Game night keeps heroes to their death saves: no one-hit deaths, October 17.)
-            if overflow >= tgt.hp_max and not self.gentle_deaths then
+            if info.nonlethal and info.melee then
+                -- Knocking Out a Creature: Unconscious and Stable, no death saves (the Sentinel).
+                self:drop(tgt, src)
+                tgt.stable = true
+                tgt.knocked_out = true
+                self:log("  %s is knocked out cold.", tgt.name)
+                museum.feature(self, tgt, "Knocked out", "knocked_out", { by = src })
+            elseif overflow >= tgt.hp_max and not self.gentle_deaths then
                 self:kill(tgt, src, "massive damage")
             else
                 self:drop(tgt, src)
             end
+        elseif tgt.data and tgt.data.escapes and tgt.data.flees_below then
+            -- (A foe the story needs later gets away instead of dying here, any adventure's `escapes`: Noke runs for his
+            -- bedroom with a sliver of his Hit Points.)
+            tgt.hp = 1
+            self:log(tgt.data.flee_line or "%s breaks and runs.", tgt.name)
+            self:remove(tgt, "morale")
         else
             -- Undead Fortitude (Zombie, p. 343).
             if tgt.traits.undead_fortitude and not radiant and not info.crit
@@ -1312,6 +1396,9 @@ function B:deal(src, tgt, parts, info)
                 self:kill(tgt, src)
             end
         end
+    end
+    if tgt.data and tgt.data.source or tgt.effects[1] then
+        museum.on_damaged(self, src, tgt, total, info)   -- a charm breaks, the scarabs pour out
     end
     if bond and not tgt.dead and bond.source and not bond.source.dead then
         -- Warding Bond: the caster takes the same damage.
@@ -1358,6 +1445,7 @@ function B:drop(c, src)
     end
     self:log("  %s drops to 0 Hit Points and falls Unconscious!", c.name)
     self:emit({ kind = "down", who = c, src = src })
+    museum.on_drop(self, c)                    -- a Steam Mech whose commander this was powers down
     if src and src.stats and src ~= c then
         src.stats.kills = src.stats.kills + 0
     end
@@ -1381,6 +1469,7 @@ function B:kill(c, src, why)
         end
     end
     c.dead = true
+    c.dead_why = why
     c.down = false
     if c.conc then
         self:end_concentration(c, "died")
@@ -1395,6 +1484,7 @@ function B:kill(c, src, why)
         self:log("  %s is defeated.", c.name)
     end
     self:emit({ kind = "death", who = c, src = src, why = why })
+    museum.on_kill(self, c)                    -- whatever they held up ends: Petrify, a charm, a lecture
 end
 
 -- Death Saving Throws (p. 18).
@@ -1516,6 +1606,7 @@ function B:save(c, ab, dc, info)
     if ab == "dex" and self:any_effect(c, "dodge") and not self:incapacitated(c) then adv = true end
     if ab == "dex" and self:has(c, "restrained") then dis = true end
     if ab == "str" and self:any_effect(c, "enfeebled") then dis = true end
+    if ab == "str" and self:any_effect(c, "str_adv") then adv = true end      -- (Enlarge)
     local kind = info.kind
     if kind == "frightened" then
         if c.traits.brave then adv = true end
@@ -1525,6 +1616,12 @@ function B:save(c, ab, dc, info)
     end
     if kind == "poisoned" and c.traits.dwarven_resilience then adv = true end
     if kind == "charmed" and c.traits.fey_ancestry then adv = true end
+    local why_mode
+    if self.drowsy or self.averted or self.earplugs or self.manual then
+        local a2, d2, w2 = museum.save_mods(self, c, ab, info)
+        why_mode = (a2 or d2) and w2 or nil
+        adv, dis = adv or a2 or false, dis or d2 or false
+    end
     local mode = 0
     if adv and not dis then mode = 1 elseif dis and not adv then mode = -1 end
     local roll = self.dice:d20(mode, c.traits.halfling_luck)
@@ -1536,7 +1633,9 @@ function B:save(c, ab, dc, info)
     local total = roll + bonus
     local ok = total >= dc
     self:log("  %s %s a DC %d %s save (%d).", c.name, ok and "makes" or "fails", dc, string.upper(ab), total)
-    self:emit({ kind = "save", who = c, ab = ab, dc = dc, ok = ok, roll = roll, total = total, what = info.kind })
+    -- (Why the die was rolled twice, when something in the fight did it: said in the log.)
+    self:emit({ kind = "save", who = c, ab = ab, dc = dc, ok = ok, roll = roll, total = total, what = info.kind,
+                mode = (adv or dis) and (adv and dis and "both" or (adv and "adv" or "dis")) or nil, why_mode = why_mode })
     return ok, total, roll
 end
 
@@ -1689,6 +1788,53 @@ function B:paths(c, max_ft, occ)
     return dist, parent
 end
 
+-- How far it is to walk to (tx, ty) from every square, round the walls and through the doors this
+-- creature can open, in feet (creatures don't count: they move). A map: x * 1000 + y -> feet. The AI
+-- closes in by this, not by a straight line (the playtest, November 3: Brannoc stood behind a wall
+-- the whole fight, as near as the crow flies). Cached until a door opens or shuts.
+function B:walk_field(tx, ty, opener)
+    local fc = self.field_cache
+    if not fc or fc.v ~= (self.stage_v or 0) then
+        fc = { v = self.stage_v or 0 }
+        self.field_cache = fc
+    end
+    local key = (tx * 1000 + ty) * 2 + (opener and 1 or 0)
+    if fc[key] then
+        return fc[key]
+    end
+    local W, H = self.W, self.H
+    local blocked, doors = self.blocked or {}, self.doors
+    local start = tx * 1000 + ty
+    local field = { [start] = 0 }
+    local q, head = { start }, 1
+    while head <= #q do
+        local k = q[head]
+        head = head + 1
+        local x = math.floor(k / 1000)
+        local y = k - x * 1000
+        local d = field[k]
+        for _, dir in ipairs(DIRS) do
+            local nx, ny = x + dir[1], y + dir[2]
+            if nx >= 1 and ny >= 1 and nx <= W and ny <= H then
+                local nk = nx * 1000 + ny
+                if field[nk] == nil then
+                    local dr = doors and doors[nx .. "," .. ny]
+                    local wall = blocked[nk] and not dr
+                    if dr and dr.state ~= "open" and (dr.state == "locked" or not opener) then
+                        wall = true
+                    end
+                    if not wall then
+                        field[nk] = d + 5
+                        table.insert(q, nk)
+                    end
+                end
+            end
+        end
+    end
+    fc[key] = field
+    return field
+end
+
 -- Pick the reachable, unoccupied square that best satisfies score(x, y) (higher is better),
 -- using at most max_ft of movement. Returns x, y, cost (or nil).
 function B:best_square(c, max_ft, score)
@@ -1807,6 +1953,12 @@ function B:can_make_oa(e, mover)
     if self:any_effect(e, "no_oa") then
         return false
     end
+    -- Charmed (Rules Glossary): no attacking the one who charmed you, not even in passing.
+    for _, x in ipairs(e.effects) do
+        if x.charmed_by == mover then
+            return false
+        end
+    end
     if not self:can_see(e, mover) then
         return false
     end
@@ -1818,7 +1970,9 @@ function B:opportunity_attack(e, c)
     self:log("%s takes an Opportunity Attack at %s.", e.name, c.name)
     local prof = self.ai and self.ai.melee_profile and self.ai.melee_profile(self, e)
     if prof then
-        self:attack(e, c, prof, { opportunity = true })
+        -- Briar Hooks (The Museum of Nightmares): the thorns catch whoever pulls away.
+        local hooks = e.data and e.data.briar_hooks
+        self:attack(e, c, prof, { opportunity = true, extra_parts = hooks and { hooks } or nil })
     end
 end
 
@@ -1899,12 +2053,15 @@ end
 function B:start_turn(c)
     self.active = c
     self.turn_counter = (self.turn_counter or 0) + 1
-    c.turn = { action = true, bonus = true, move = self:speed(c), moved = false, attacks = 0 }
+    c.turn = { action = true, bonus = true, move = self:speed(c), moved = false, attacks = 0, start_x = c.x, start_y = c.y }
     c.reaction_used = false
     self:process_expiry(c, "start")
     self:sweep_grapples()
     if self.hazard then
         require("game.rules.hazards").start_turn(self, c)   -- Burning (p. 178)
+    end
+    if c.sands_spent or c.seeded then
+        museum.start_turn(self, c)
     end
     if c.web_spent and self.dice:d(6) >= ((c.data and c.data.web and c.data.web.recharge) or 5) then
         c.web_spent = nil
@@ -1922,9 +2079,11 @@ function B:end_turn(c)
     -- Repeat saves at the end of the creature's turn (Hold Person, Blindness/Deafness...).
     for i = #c.effects, 1, -1 do
         local e = c.effects[i]
-        if e and e.save_end and not c.dead then
+        if e and e.save_end and not c.dead and e.save_end.skip_now then
+            e.save_end.skip_now = nil          -- (it started this turn: the save comes at the end of the next)
+        elseif e and e.save_end and not c.dead then
             local s = e.save_end
-            if self:save(c, s.ab, s.dc, { kind = e.name }) then
+            if self:save(c, s.ab, s.dc, { kind = s.kind or e.name, adv = s.adv }) then
                 self:remove_effect(c, e, "saved")
                 self:log("  %s shakes off %s.", c.name, e.name)
                 if e.on_save then
@@ -1948,6 +2107,13 @@ function B:end_turn(c)
     if z and z.on_end_turn and not c.dead then
         z.on_end_turn(self, z, c)
     end
+    -- Effects that act at the end of their holder's turn (the Steam Mech's overheat check).
+    for i = #c.effects, 1, -1 do
+        local e = c.effects[i]
+        if e and e.on_end_turn and not c.dead then
+            e.on_end_turn(self, c, e)
+        end
+    end
     for _, o in ipairs(self.creatures) do
         local sphere = o.conc and o.conc.extra.sphere
         if sphere and not sphere.gone and o ~= c and o.side ~= c.side and not c.dead
@@ -1963,7 +2129,7 @@ end
 function B:outcome()
     local party, foes = false, false
     for _, c in ipairs(self.creatures) do
-        if not c.dead and not c.down and not c.removed then
+        if not c.dead and not c.down and not c.removed and not (c.effects[1] and self:any_effect(c, "out_of_fight")) then
             if c.side == "party" then party = true else foes = true end
         end
     end
@@ -2022,6 +2188,9 @@ function B:join(c, x, y)
     if self.order then
         table.insert(self.order, c)
     end
+    if self.hooks.before_join then
+        self.hooks.before_join(self, c)       -- game night names its mini
+    end
     self:emit({ kind = "join", who = c })
     return c
 end
@@ -2029,6 +2198,7 @@ end
 -- A creature leaving the fight (fleeing, or written out by the DM).
 function B:remove(c, why)
     c.removed = true
+    c.removed_why = why
     if c.conc then
         self:end_concentration(c, "left")
     end
@@ -2085,8 +2255,19 @@ function B:summary(result)
     local s = { winner = result, rounds = self.round, pcs = {}, foes = {},
                 pc_downs = self.events.pc_downs, pc_deaths = self.events.pc_deaths }
     local hp_lost, hp_max = 0, 0
+    -- (The Museum of Nightmares: allies, foes that ran, and anyone left as stone.)
+    local allies, fled, stone = {}, {}, {}
     for _, c in ipairs(self.creatures) do
-        if c.side == "party" then
+        if c.effects[1] and self:any_effect(c, "stone") then
+            table.insert(stone, c.name)
+        end
+        if c.removed and c.side ~= "party" and not c.dead and c.removed_why ~= "surrender" and c.removed_why ~= "yield" then
+            table.insert(fled, c.name)
+        end
+        if c.ally then
+            table.insert(allies, { name = c.name, monster = c.monster_id, dead = c.dead, hp = c.hp, hp_max = c.hp_max,
+                                   shut_down = c.shut_down, powered_down = c.powered_down, stats = c.stats })
+        elseif c.side == "party" then
             hp_max = hp_max + c.hp_max
             local lost = c.hp_max - (c.dead and 0 or c.hp)
             hp_lost = hp_lost + math.max(0, lost)
@@ -2097,6 +2278,9 @@ function B:summary(result)
         end
     end
     s.hp_lost_frac = hp_max > 0 and hp_lost / hp_max or 0
+    if #allies > 0 then s.allies = allies end
+    if #fled > 0 then s.fled = fled end
+    if #stone > 0 then s.petrified = stone end
     return s
 end
 

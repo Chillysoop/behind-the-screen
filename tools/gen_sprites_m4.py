@@ -387,29 +387,7 @@ def ogre():
 
 
 # ------------------------------------------------------------------ NPCs
-
-def npc_gus():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#e8b48a"
-    legs(d, "#4a3a30", "#2a2020")
-    d.rounded_rectangle([160, 320, 352, 540], 70, fill=C("#7a6a8a"))
-    d.polygon([(196, 340), (316, 340), (330, 560), (182, 560)], fill=C("#f1ebe0"))
-    d.line([(196, 340), (220, 300)], fill=C("#f1ebe0"), width=8)
-    d.line([(316, 340), (292, 300)], fill=C("#f1ebe0"), width=8)
-    gs.limb(d, (172, 360), (150, 450), 40, C("#7a6a8a"))
-    hand(d, (148, 456), skin, 18)
-    d.rounded_rectangle([120, 400, 176, 470], 10, fill=C("#e8dcc0"))
-    d.arc([164, 412, 200, 452], 270, 90, fill=C("#e8dcc0"), width=8)
-    gs.limb(d, (340, 360), (360, 450), 40, C("#7a6a8a"))
-    hand(d, (362, 456), skin, 18)
-    d.polygon([(350, 450), (392, 470), (380, 520), (346, 500)], fill=C("#f1ebe0"))
-    head(d, skin, cy=244, rx=76, ry=74)
-    face(d, 256, 240, "calm", sep=30)
-    d.polygon([(212, 278), (256, 266), (300, 278), (290, 292), (256, 282), (222, 292)], fill=C("#6a4a30"))
-    d.arc([186, 170, 326, 230], 200, 340, fill=C("#6a4a30"), width=10)
-    finish(img, "npc_gus", 121)
-
+# (The stranger is the mini for anyone without one of their own: game/ui/night_view.lua.)
 
 def npc_stranger():
     gs = _sp()
@@ -424,113 +402,6 @@ def npc_stranger():
     for sx in (-1, 1):
         d.ellipse([256 + sx * 22 - 7, 256, 256 + sx * 22 + 7, 266], fill=C("#e8e0c8"))
     finish(img, "npc_stranger", 122)
-
-
-def npc_hermit():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#e8c09a"
-    d.rounded_rectangle([210, 568, 254, 612], 16, fill=C("#5a3a24"))
-    d.rounded_rectangle([258, 568, 302, 612], 16, fill=C("#5a3a24"))
-    d.polygon([(196, 320), (316, 320), (346, 596), (166, 596)], fill=C("#7a6a4a"))
-    for (x, y) in [(200, 480), (290, 420), (230, 540)]:
-        d.rectangle([x, y, x + 28, y + 24], fill=C("#5a5a3a"))
-    d.line([(150, 600), (160, 220)], fill=C("#6b4a32"), width=14)
-    gs.limb(d, (198, 360), (162, 430), 34, C("#7a6a4a"))
-    hand(d, (158, 436), skin)
-    gs.limb(d, (314, 360), (350, 440), 34, C("#7a6a4a"))
-    # the kettle
-    d.ellipse([336, 420, 410, 480], fill=C("#4a4a52"))
-    d.polygon([(400, 440), (440, 420), (436, 432), (404, 452)], fill=C("#4a4a52"))
-    d.arc([346, 396, 400, 450], 180, 360, fill=C("#2a2a30"), width=6)
-    head(d, skin, cy=252, rx=70, ry=70)
-    d.polygon([(196, 290), (316, 290), (296, 430), (256, 470), (216, 430)], fill=C("#f1efe8"))
-    face(d, 256, 244, "kind", sep=30)
-    d.line([(210, 222), (240, 228)], fill=C("#f1efe8"), width=10)
-    d.line([(302, 222), (272, 228)], fill=C("#f1efe8"), width=10)
-    finish(img, "npc_hermit", 123)
-
-
-def npc_sable():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#f0d0b8"
-    d.polygon([(200, 330), (312, 330), (376, 600), (136, 600)], fill=C("#5a2a6a"))
-    d.polygon([(232, 340), (280, 340), (300, 600), (212, 600)], fill=C("#7a3a8a"))
-    d.rectangle([196, 400, 316, 414], fill=C("#d9b24c"))
-    gs.limb(d, (204, 360), (176, 440), 30, C("#5a2a6a"))
-    hand(d, (172, 446), skin)
-    gs.limb(d, (308, 360), (340, 420), 30, C("#5a2a6a"))
-    d.rounded_rectangle([320, 380, 400, 470], 6, fill=C("#3a2a20"))
-    d.rectangle([328, 390, 392, 460], fill=C("#efe4cc"))
-    for y in range(398, 456, 10):
-        d.line([(334, y), (386, y)], fill=C("#8a7a6a"), width=2)
-    head(d, skin, cy=252, rx=66, ry=70)
-    face(d, 256, 248, "sly", sep=28)
-    d.ellipse([140, 170, 372, 220], fill=C("#2a1a30"))
-    d.polygon([(200, 196), (312, 196), (300, 140), (212, 140)], fill=C("#2a1a30"))
-    d.polygon([(300, 150), (392, 120), (380, 150), (310, 170)], fill=C("#d94a6a"))
-    d.ellipse([306, 196, 340, 310], fill=C("#1a1014"))
-    finish(img, "npc_sable", 124)
-
-
-def npc_ghost():
-    gs = _sp()
-    img, d = canvas()
-    robe = "#bfe0ee"
-    d.polygon([(196, 320), (316, 320), (360, 540), (300, 600), (256, 560), (212, 600), (152, 540)], fill=C(robe))
-    d.polygon([(236, 330), (276, 330), (282, 540), (230, 540)], fill=C("#a8d0e2"))
-    gs.limb(d, (200, 360), (230, 430), 34, C(robe))
-    gs.limb(d, (312, 360), (282, 430), 34, C(robe))
-    d.ellipse([236, 416, 276, 448], fill=C("#d8eef6"))
-    head(d, "#d8eef6", cy=250, rx=68, ry=70)
-    d.chord([180, 170, 332, 300], 180, 360, fill=C(robe))
-    face(d, 256, 252, "kind", sep=28, eye="#5a7a8a")
-    finish(img, "npc_ghost", 125, alpha=0.82)
-
-
-def npc_corin():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#c98d62"
-    legs(d, "#3a4a6a", "#3a2a20")
-    d.polygon([(196, 330), (316, 330), (330, 530), (182, 530)], fill=C("#4a6a5a"))
-    d.line([(212, 340), (310, 500)], fill=C("#6a4a30"), width=10)
-    d.rounded_rectangle([290, 470, 352, 530], 10, fill=C("#7a5236"))
-    gs.limb(d, (200, 360), (230, 440), 32, C("#4a6a5a"))
-    gs.limb(d, (312, 360), (282, 440), 32, C("#4a6a5a"))
-    for i, col in enumerate(["#7d2f2b", "#2f4f6b", "#a07a3a"]):
-        d.rectangle([206, 410 - i * 20, 306, 428 - i * 20], fill=C(col))
-    hand(d, (228, 440), skin)
-    hand(d, (284, 440), skin)
-    head(d, skin, cy=250, rx=66, ry=68)
-    d.chord([186, 176, 326, 270], 180, 360, fill=C("#2a1d1a"))
-    face(d, 256, 250, "nervous", sep=28)
-    for sx in (-1, 1):
-        d.ellipse([256 + sx * 28 - 22, 228, 256 + sx * 28 + 22, 272], outline=C("#2a1d1a"), width=5)
-    finish(img, "npc_corin", 126)
-
-
-def npc_rival():
-    gs = _sp()
-    img, d = canvas()
-    skin = "#f0c49c"
-    legs(d, "#c8ccd4", "#8a6a44")
-    for x in (226, 286):
-        d.ellipse([x - 10, 596, x + 10, 616], fill=C("#d9b24c"))
-    d.polygon([(186, 330), (326, 330), (380, 590), (132, 590)], fill=C("#d8dce4"))
-    d.polygon([(206, 330), (306, 330), (316, 500), (196, 500)], fill=C("#a8b0bc"))
-    d.ellipse([236, 380, 276, 420], fill=C("#f0c75a"))
-    gs.limb(d, (318, 350), (356, 300), 34, C("#a8b0bc"))
-    hand(d, (360, 292), skin)
-    sword(d, (362, 288), (392, 140), blade="#f4f6fa", hilt="#d9b24c", width=14)
-    gs.limb(d, (194, 360), (176, 440), 34, C("#a8b0bc"))
-    hand(d, (172, 446), skin)
-    head(d, skin, cy=252, rx=68, ry=70)
-    for k in range(6):
-        d.ellipse([186 + k * 22, 160 - (k % 2) * 14, 236 + k * 22, 220 - (k % 2) * 14], fill=C("#f0d070"))
-    face(d, 256, 252, "grin", sep=28)
-    finish(img, "npc_rival", 127)
 
 
 # ------------------------------------------------------------------ Thessaly, redrawn
@@ -583,9 +454,83 @@ def wizard_thessaly():
     finish(img, "wizard", 104)
 
 
+# The museum garden's topiary come to life (the playtest, November 3: "make custom pieces for them"):
+# beasts of clipped leaves on a thorny frame, a cat, a boar and a three-horned brute, eyes like embers.
+def _leafy(d, rng, cx, cy, rx, ry, n=46, leaf="#3f7a34", dark="#2c5a26", light="#5e9a48"):
+    """A clump of leaves filling an ellipse: overlapping circles in three greens."""
+    import math as _m
+    for i in range(n):
+        a = rng.uniform(0, 2 * _m.pi)
+        r = rng.uniform(0, 1) ** 0.6
+        x = cx + _m.cos(a) * rx * r
+        y = cy + _m.sin(a) * ry * r
+        k = rng.uniform(18, 34)
+        col = rng.choice([leaf, leaf, dark, light])
+        d.ellipse([x - k, y - k, x + k, y + k], fill=C(col))
+
+
+def _thorns(d, rng, cx, cy, rx, ry, n=16):
+    import math as _m
+    for i in range(n):
+        a = rng.uniform(0, 2 * _m.pi)
+        x = cx + _m.cos(a) * rx
+        y = cy + _m.sin(a) * ry
+        ox, oy = _m.cos(a) * 18, _m.sin(a) * 18
+        d.polygon([(x - oy * 0.3, y + ox * 0.3), (x + ox, y + oy), (x + oy * 0.3, y - ox * 0.3)], fill=C("#5a3a22"))
+
+
+def _eyes(d, xs, y, r=9):
+    for x in xs:
+        d.ellipse([x - r - 4, y - r - 4, x + r + 4, y + r + 4], fill=C("#ff7a3a", 120))
+        d.ellipse([x - r, y - r, x + r, y + r], fill=C("#ffb24a"))
+        d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=C("#3a1a0a"))
+
+
+def briar(name, seed, shape):
+    import random as _r
+    rng = _r.Random(seed)
+    img, d = canvas()
+    # The pot it was clipped in: a low stone planter under its feet.
+    d.rounded_rectangle([140, 560, 380, 610], 14, fill=C("#7a6a5a"))
+    d.rounded_rectangle([130, 548, 390, 572], 10, fill=C("#8a7a6a"))
+    # Woody legs.
+    legs_at = {"cat": [(200, 470), (250, 480), (320, 480), (360, 470)],
+               "boar": [(190, 470), (240, 480), (320, 480), (370, 470)],
+               "tri": [(170, 470), (230, 480), (330, 480), (390, 470)]}[shape]
+    for (x, top) in legs_at:
+        d.rounded_rectangle([x - 14, top, x + 14, 556], 8, fill=C("#5a3a22"))
+    if shape == "cat":
+        _leafy(d, rng, 285, 420, 120, 70)               # body
+        _leafy(d, rng, 150, 330, 66, 60, n=28)          # head
+        for ex in (112, 176):                           # ears
+            d.polygon([(ex - 26, 300), (ex, 238), (ex + 24, 300)], fill=C("#2c5a26"))
+        d.line([(390, 400), (430, 320), (436, 280)], fill=C("#2c5a26"), width=30)   # tail
+        _leafy(d, rng, 436, 276, 24, 24, n=8)
+        _thorns(d, rng, 285, 420, 128, 78)
+        _eyes(d, [128, 172], 326)
+    elif shape == "boar":
+        _leafy(d, rng, 280, 410, 140, 86)
+        _leafy(d, rng, 140, 400, 70, 62, n=26)
+        d.ellipse([60, 408, 110, 448], fill=C("#4a7a3a"))                       # snout
+        for tx in (84, 104):
+            d.polygon([(tx, 430), (tx - 14, 380), (tx + 6, 428)], fill=C("#efe6cf"))   # tusks
+        _thorns(d, rng, 280, 400, 150, 92, n=22)
+        _eyes(d, [128, 168], 378)
+    else:
+        _leafy(d, rng, 300, 400, 150, 92)
+        _leafy(d, rng, 136, 380, 78, 70, n=30)
+        d.polygon([(150, 300), (250, 250), (240, 330)], fill=C("#2c5a26"))      # frill
+        _leafy(d, rng, 210, 300, 60, 50, n=16)
+        for (hx, hy, tx, ty) in [(110, 340, 40, 270), (150, 330, 110, 240), (80, 390, 20, 380)]:
+            d.polygon([(hx - 10, hy), (tx, ty), (hx + 10, hy + 8)], fill=C("#efe6cf"))   # three horns
+        _thorns(d, rng, 300, 400, 160, 100, n=24)
+        _eyes(d, [120, 160], 372)
+    finish(img, name, seed)
+
+
 MONSTERS = ["goblin_boss", "bandit", "bandit_captain", "cultist", "tough", "wolf", "dire_wolf", "skeleton",
-            "zombie", "ghoul", "ogre"]
-NPCS = ["npc_gus", "npc_stranger", "npc_hermit", "npc_sable", "npc_ghost", "npc_corin", "npc_rival"]
+            "zombie", "ghoul", "ogre", "briar_beast", "briar_boar", "briar_triceratops"]
+NPCS = ["npc_stranger"]
 POSES = ["lean", "cheer", "laugh", "gasp", "arms", "yawn", "phone", "think"]
 
 
@@ -601,11 +546,8 @@ def build_monsters():
     zombie()
     ghoul()
     ogre()
-    npc_gus()
+    briar("briar_beast", 141, "cat")
+    briar("briar_boar", 142, "boar")
+    briar("briar_triceratops", 143, "tri")
     npc_stranger()
-    npc_hermit()
-    npc_sable()
-    npc_ghost()
-    npc_corin()
-    npc_rival()
     wizard_thessaly()

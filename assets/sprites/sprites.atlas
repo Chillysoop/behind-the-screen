@@ -50,25 +50,16 @@ images {
   image: "/assets/sprites/ogre.png"
 }
 images {
-  image: "/assets/sprites/npc_gus.png"
+  image: "/assets/sprites/briar_beast.png"
+}
+images {
+  image: "/assets/sprites/briar_boar.png"
+}
+images {
+  image: "/assets/sprites/briar_triceratops.png"
 }
 images {
   image: "/assets/sprites/npc_stranger.png"
-}
-images {
-  image: "/assets/sprites/npc_hermit.png"
-}
-images {
-  image: "/assets/sprites/npc_sable.png"
-}
-images {
-  image: "/assets/sprites/npc_ghost.png"
-}
-images {
-  image: "/assets/sprites/npc_corin.png"
-}
-images {
-  image: "/assets/sprites/npc_rival.png"
 }
 images {
   image: "/assets/sprites/pirate.png"
@@ -143,55 +134,37 @@ images {
   image: "/assets/sprites/pregen_ysolde.png"
 }
 images {
-  image: "/assets/sprites/npc_vask.png"
+  image: "/assets/sprites/euryale.png"
 }
 images {
-  image: "/assets/sprites/npc_wren.png"
+  image: "/assets/sprites/knight_of_shades.png"
 }
 images {
-  image: "/assets/sprites/npc_grey_coat.png"
+  image: "/assets/sprites/sentinel.png"
 }
 images {
-  image: "/assets/sprites/npc_tilly.png"
+  image: "/assets/sprites/giant_scarab_swarm.png"
 }
 images {
-  image: "/assets/sprites/npc_ottilie.png"
+  image: "/assets/sprites/bone_construct.png"
 }
 images {
-  image: "/assets/sprites/npc_hob.png"
+  image: "/assets/sprites/kruthik_huntling.png"
 }
 images {
-  image: "/assets/sprites/npc_holt.png"
+  image: "/assets/sprites/the_lecturer.png"
 }
 images {
-  image: "/assets/sprites/npc_tumble.png"
+  image: "/assets/sprites/steam_mech.png"
 }
 images {
-  image: "/assets/sprites/npc_verrin.png"
+  image: "/assets/sprites/telpur.png"
 }
 images {
-  image: "/assets/sprites/npc_nib.png"
+  image: "/assets/sprites/flitwidget.png"
 }
 images {
-  image: "/assets/sprites/npc_ansel.png"
-}
-images {
-  image: "/assets/sprites/npc_rosin.png"
-}
-images {
-  image: "/assets/sprites/npc_pearl.png"
-}
-images {
-  image: "/assets/sprites/npc_coil.png"
-}
-images {
-  image: "/assets/sprites/npc_stag.png"
-}
-images {
-  image: "/assets/sprites/npc_ashby.png"
-}
-images {
-  image: "/assets/sprites/npc_reeve.png"
+  image: "/assets/sprites/exhibit_b.png"
 }
 images {
   image: "/assets/sprites/dev.png"
@@ -230,6 +203,9 @@ images {
   image: "/assets/sprites/dev_think.png"
 }
 images {
+  image: "/assets/sprites/dev_frown.png"
+}
+images {
   image: "/assets/sprites/mara_lean.png"
 }
 images {
@@ -252,6 +228,9 @@ images {
 }
 images {
   image: "/assets/sprites/mara_think.png"
+}
+images {
+  image: "/assets/sprites/mara_frown.png"
 }
 images {
   image: "/assets/sprites/jess_lean.png"
@@ -278,6 +257,9 @@ images {
   image: "/assets/sprites/jess_think.png"
 }
 images {
+  image: "/assets/sprites/jess_frown.png"
+}
+images {
   image: "/assets/sprites/sam_lean.png"
 }
 images {
@@ -300,6 +282,9 @@ images {
 }
 images {
   image: "/assets/sprites/sam_think.png"
+}
+images {
+  image: "/assets/sprites/sam_frown.png"
 }
 images {
   image: "/assets/sprites/chair_empty.png"
