@@ -12,6 +12,7 @@ local M = {}
 
 M.id = "sheep"
 M.title = "The Wild Sheep Chase"
+M.rules = "5e"          -- (its rule set: docs/design/rule-sets.md)
 M.author = "Richard Jansen-Parkes"
 M.credit = "Adapted from The Wild Sheep Chase by Richard Jansen-Parkes (DMs Guild), for private playtesting. "
     .. "The Bogden Road Country Inn from the inn sheet shared with it."

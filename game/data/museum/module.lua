@@ -47,6 +47,7 @@ end
 
 M.id = "museum"
 M.title = "The Museum of Nightmares"
+M.rules = "5e"          -- (its rule set: docs/design/rule-sets.md)
 M.author = "Luke Russell"
 M.credit = "Adapted from The Museum of Nightmares by Luke Russell (DMs Guild), for private playtesting."
 M.pitch = "A gnome's travelling museum rolls into town, and one of its exhibits, a Gorgon, has taken it over. "

@@ -8,6 +8,33 @@ in exactly one rule set. The DM simulator is shared: prep hours, reading the tab
 Session Zero's lines and veils, secrets and lore, forks, moments, recaps, the journey. A rule set is what changes the
 DM's job: what a roll is, who rolls it, what a fight is, what a hero's sheet holds, how heroes grow.
 
+## No leaks: the first rule
+
+Conner, November 6: "It's critical that systems never leak into another system." Not a check at the end: every step
+below builds to it, and the build fails when it's broken.
+
+1. **Nothing defaults.** An adventure names its rule set (`rules`), and the game won't run one that doesn't
+   (game/model/ruleset.lua). There is no "5e unless it says otherwise".
+2. **A system owns its things, and only it reaches them.** Its engine, its data and its words live with the set
+   (game/rules/sets/<id>, and 5e's engine in game/rules/). The shared game (game/model, game/ui) never requires a
+   system's engine: it asks the current set, through ruleset.current().
+3. **Shared content is neutral or tagged.** A thought, bark, rest scene, ruling, glossary entry, DM's bag item or
+   keepsake either says nothing about any system's rules, or carries `rules = "<id>"` and only ever shows in that
+   set's adventures. A tagged thing in another set's adventure is a validation error, not a quiet skip.
+4. **Hand-offs carry the table, not the system.** From one adventure to another in a different set, the friends, their
+   memories, their moods and the table's lines and veils come along; items, sheets, levels, spells, money and
+   anything else with rules in it never do. The heroes are new characters in the new system. (Within one set, the
+   carry works as it does now.)
+5. **Saves know their set.** A save records its rule set, and loading it into an adventure of another set is refused.
+6. **Fences, in the gate:**
+   - *Word fence:* each set lists its own words (5e: DC, Advantage, natural 20, spell slot, hit points, saving throw,
+     Heroic Inspiration, d20...). Every seeded playthrough of every other set's adventure fails on any of them, the
+     way museum words are kept out of the Sheep Chase.
+   - *Require fence:* a shared module that requires a system's engine directly fails the build.
+   - *Data fence:* validation fails on content tagged for a set other than the adventure's, and on an adventure
+     without a `rules` field.
+   - *Hand-off fence:* a carry between sets that brings an item, a sheet, a level or a spell fails.
+
 ## Step 1: where 5e lives today
 
 **game/rules/ (9,300 lines): already a 5e engine, and it stays one.** The SRD 5.2.1 battle on a 5-foot grid
@@ -55,9 +82,11 @@ reactions do too, so every bark, thought and rest beat works in any set.
 
 1. **Map it.** This page.
 2. **The contract.** The table above, agreed.
-3. **The seam, with 5e only.** Adventures get `rules = "5e"`; the nine check sites call `rules.check`; fights, sheets,
-   growth and harm go through the set; the dice tray asks the set what to show. *Done when:* seeded playthroughs of
-   the museum, the Sheep Chase and the carry come out word for word the same before and after, and the gate passes.
+3. **The seam, with 5e only.** Adventures name `rules = "5e"`; the nine check sites call the set's `check`; fights,
+   sheets, growth and harm go through the set; the dice tray asks the set what to show. Everything 5e in the shared
+   layer is either moved behind the set or tagged `rules = "5e"`, and the require, data and hand-off fences go in now
+   (they pass with one set; they're there before the second arrives). *Done when:* seeded playthroughs of the
+   museum, the Sheep Chase and the carry come out word for word the same before and after, and the gate passes.
 4. **Narrative fights.** A fight without the grid: checks, harm, a clock, the foes' moves as the DM's. Built in the
    shared layer so any non-grid set can use it. *Done when:* a 5e test scene can run its fight either way.
 5. **The second set and a one-shot.** A 2d6 "moves" set (our own words, built on the open 10+ / 7-9 / 6- structure)
@@ -66,13 +95,14 @@ reactions do too, so every bark, thought and rest beat works in any set.
 6. **The table meets the system.** Session Zero pitches it; each friend has a taste and a familiarity ("we roll two
    dice?"); the DM's prep changes with it (threats and clocks instead of encounters). *Done when:* the friends'
    reactions to the system show up in the transcripts.
-7. **Guard it.** A gate check per set, and one that fails if 5e words or d20s turn up in a non-5e adventure, the way
-   museum words are kept out of the Sheep Chase.
+7. **Guard it.** The word fence runs both ways from the day the second set lands (no 5e words in its adventure, none
+   of its words in a 5e one), and every set brings its own checks to the gate.
 
 ## Decisions owed
 
 - Step 5's system: a 2d6 moves set (recommended), Forged in the Dark's position and effect, or d100 investigation.
-- Heroes across systems: the same four friends always; new characters per one-shot (recommended, like a real table's
-  one-shot night), or their usual heroes reimagined.
+- Heroes across systems: the same four friends always, with new characters per one-shot (like a real table's
+  one-shot night). Reimagining their usual heroes would mean carrying them between systems, which the no-leaks rule
+  allows only as a name and a story, never their stats or kit.
 - Licensing: build on open reference documents only (the 5e SRD, Forged in the Dark, Fate, the Year Zero Engine,
   Basic Roleplaying), checking each licence first.

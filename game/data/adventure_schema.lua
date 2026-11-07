@@ -125,5 +125,6 @@ return {
     threads = { kind = "list", fields = { source = "string", ours = "boolean", clock = "string", clues = "table", ends = "table", id = "string", name = "string", open_at_end = "boolean", pages = "table", tags = "table", text = "string", when = "table", who = "string" } },
     xp = { kind = "record", fields = { each = "number", page = "number" } },
     why_here = { kind = "value", type = "string" },     -- (each hero's thread: why they came)
+    rules = { kind = "value", type = "string" },        -- (its rule set: "5e", game/model/ruleset.lua)
 
 }
