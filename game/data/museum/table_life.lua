@@ -15,6 +15,10 @@
 -- scare: a natural 1's little scare in this room, in its own words (no lasting harm; never outside the
 --   museum).
 -- table_bits: the rest of the table's small business, told at the table. keepsake: a pocketed bit's name.
+--   One speaker a line, in the forms game/model/agency.lua splits: a hero's own move ("Pip pockets a chunk
+--   of sandstone.", said by their player as "I'll pocket..."), a friend's words ('Jess: "..."' or
+--   '"...," Jess says.'), or what happens (the DM's, never how a hero feels, looks or sounds). Heroes by
+--   name, so a bit waits while one of them is away and retires with them.
 -- when: a condition (adventure.test), plus companion = id (that companion is along).
 
 return {
@@ -113,14 +117,15 @@ return {
       },
       table_bits = {
         { kind = "banter", who = "jess", lines = {
-            "Pip, in a squeaky gnome voice: \"Step right up! Mind the exhibits! No touching the gnome!\"",
-            "Flitwidget peers down at her over his spectacles. \"I do not sound like that.\"" } },
+            "Jess: \"Step right up! Mind the exhibits! No touching the gnome!\"",
+            "Flitwidget peers down over his spectacles. \"I do not sound like that.\"" } },
         { kind = "snack", who = "sam", lines = {
-            "Oswin buys a paper cone of hot chestnuts from a cart at the end of the street. Two each.",
-            "Brannoc somehow ends up with five. Nobody saw how." } },
+            "Oswin buys a paper cone of hot chestnuts from a cart at the end of the street, two for everyone.",
+            "Sam: \"Hang on. How has Brannoc got five?\"",
+            "Dev: \"Chestnuts like me. I can't help it.\"" } },
         { kind = "plan", who = "mara", lines = {
-            "Thessaly: \"Before we go in, everyone gets a buddy. Pip, your buddy is me, so I can watch your hands.\"",
-            "Pip: \"Honestly? Fair.\"" } },
+            "Mara: \"Before we go in, everyone gets a buddy. Pip, your buddy is me, so I can watch your hands.\"",
+            "Jess: \"Honestly? Fair.\"" } },
       },
     },
 
@@ -189,14 +194,16 @@ return {
       },
       table_bits = {
         { kind = "plan", who = "sam", lines = {
-            "At the museum doors, Oswin stops everyone so he can say his little prayer for doors.",
-            "Brannoc waits. Politely. With one boot already raised." } },
+            "Oswin stops at the museum doors and says a little prayer for doors.",
+            "Dev: \"Brannoc waits. Politely. With one boot already raised.\"" } },
         { kind = "cantrip", who = "mara", lines = {
-            "Thessaly casts Light on a pebble and rolls it ahead of the party, under the hedges where the shadows are thickest.",
-            "Pip names the pebble Sir Glowsalot. It is now a member of the party." } },
+            "Thessaly casts Light on a pebble and sets it rolling ahead of the party, under the hedges where the shadows are thickest.",
+            "Pip names the pebble Sir Glowsalot.",
+            "Mara: \"Fine. Sir Glowsalot is in the party now.\"" } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip pockets a chunk of fallen sandstone off the path. \"Souvenir.\"",
-            "Oswin: \"It's a rock, Pip. It's a rock off the floor.\"" },
+            "Pip pockets a chunk of fallen sandstone off the path.",
+            "Jess: \"Souvenir.\"",
+            "Sam: \"It's a rock, Pip. It's a rock off the floor.\"" },
           keepsake = "a lump of the museum's own sandstone" },
       },
     },
@@ -256,14 +263,15 @@ return {
       table_bits = {
         { kind = "banter", who = "dev", lines = {
             "Brannoc salutes the metal man between the doors, soldier to soldier.",
-            "The metal man doesn't salute back. Brannoc is a little hurt." } },
+            "The metal man doesn't salute back.",
+            "Dev: \"Rude. Brannoc will remember that.\"" } },
         { kind = "pocket", who = "jess", lines = {
             "Pip takes a floor plan from a little stand by the door. One per visitor, it says.",
-            "Thessaly reads it over her shoulder. Half the rooms on it are labelled 'Coming Soon'." },
+            "Thessaly reads the floor plan over Pip's shoulder. Half the rooms on it are labelled 'Coming Soon'." },
           keepsake = "a museum floor plan, mostly wrong" },
         { kind = "drink", who = "sam", lines = {
             "Oswin sits on the cool marble and passes round a flask of something warm and sweet.",
-            "Thessaly holds her cup in both hands and reads the little sign on the case again, very slowly." } },
+            "Thessaly reads the little sign on the case again, very slowly, cup in both hands." } },
       },
     },
 
@@ -332,10 +340,12 @@ return {
       },
       table_bits = {
         { kind = "banter", who = "mara", when = { hinted = "ritual" }, lines = {
-            "Thessaly does sums on the back of her hand in ink, crosses it all out, and does it again.",
-            "Oswin watches over her shoulder and nods along like he's following. He is not following." } },
+            "Thessaly works out the jug sums in ink on the back of her hand.",
+            "Mara: \"No. Hang on. Crossing that out. Starting again.\"",
+            "Sam: \"Oswin is nodding along like he's following. He is not following.\"" } },
         { kind = "snack", who = "dev", lines = {
-            "Brannoc offers round his trail mix. It's mostly raisins. He's already eaten the good bits.",
+            "Brannoc offers round his trail mix.",
+            "Dev: \"It's mostly raisins. Brannoc ate the good bits on the way in.\"",
             "Pip takes a raisin, looks at it, and gives it to the nearest skull." } },
         { kind = "cantrip", who = "sam", lines = {
             "Oswin uses a little Thaumaturgy to make the lamp flames flicker, as a hello.",
@@ -409,13 +419,16 @@ return {
       table_bits = {
         { kind = "name", who = "dev", lines = {
             "Brannoc names the black panther in the snowy painting Destroyer.",
-            "Pip: \"Midnight.\" Brannoc: \"Destroyer.\" Thessaly: \"It's a panther.\"" } },
+            "Jess: \"Midnight.\"",
+            "Dev: \"Destroyer.\"",
+            "Mara: \"It's a panther.\"" } },
         { kind = "cantrip", who = "mara", lines = {
             "Thessaly lights the end of her staff so she can read the little brass plaques under each frame.",
             "Every plaque says 'Please Do Not Touch', in nine languages and one drawing of a hand." } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip finds a dried-out paintbrush stuck behind a frame and slips it in her pocket.",
-            "Oswin: \"What if it paints things that come alive?\" Pip: \"Then I'm an artist.\"" },
+            "Pip slips a dried-out paintbrush from behind a frame into her pocket.",
+            "Sam: \"What if it paints things that come alive?\"",
+            "Jess: \"Then I'm an artist.\"" },
           keepsake = "a dried-out paintbrush" },
       },
     },
@@ -507,17 +520,19 @@ return {
       table_bits = {
         -- (buys: a real purchase out of the pool, at price, a Franc off or on by the roll: table_life.bit.)
         { kind = "haggle", who = "dev", buys = "marbles", price = 3, lines = {
-            "Brannoc leans on the counter. \"How much for the marbles? For throwing.\"",
+            "Brannoc leans on the counter.",
+            "Dev: \"How much for the marbles? For throwing.\"",
             "Telpur: \"Three Francs. And you throw them upstairs, not at my shelves.\"" },
           cheaper = "Telpur sighs. \"Fine. Two Francs, for the face.\" Two Francs out of the pool, and the marbles are {char}'s.",
           even = "Three Francs out of the pool, and the bag of marbles is {char}'s.",
-          dearer = "\"Four. Lace tax.\" {char} pays it out of the pool, grumbling, and pockets the marbles.",
-          short = "{char} counts the pool. Not enough for marbles, even at {n}. \"Next time,\" says Telpur." },
+          dearer = "\"Four. Lace tax,\" says Telpur. Four Francs out of the pool, and the marbles are {char}'s.",
+          short = "Not enough in the pool for marbles, even at {n}. \"Next time,\" says Telpur." },
         { kind = "snack", who = "sam", lines = {
-            "Oswin finally sits down on an upturned crate and unwraps his sandwiches.",
-            "Telpur: \"No eating in the shop.\" A long pause. \"What's in them?\"" } },
+            "Oswin sits down on an upturned crate with his sandwiches.",
+            "Telpur: \"No eating in the shop.\" A long pause. \"What's in them?\"",
+            "Sam: \"Cheese and pickle. Want half?\"" } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip takes a badge from the bowl marked 'Free'. Then a second one.",
+            "Pip takes two badges from the bowl marked 'Free'.",
             "Telpur: \"It says free. It doesn't say two.\"" },
           keepsake = "a 'Friend of the Museum' badge" },
       },
@@ -591,15 +606,21 @@ return {
       table_bits = {
         { kind = "drink", who = "sam", lines = {
             "Oswin lights the little stove in the kitchen diorama and puts a pan of water on. Tea, in an exhibit.",
-            "Brannoc: \"Is that allowed?\" Oswin: \"The plaque says it's a working kitchen. So it's working.\"" } },
+            "Dev: \"Is that allowed?\"",
+            "Sam: \"The plaque says it's a working kitchen. So it's working.\"" } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip finds a brass plaque lying by an empty stand and pockets it. \"'Exhibit Fourteen.' That's all it says.\"",
-            "Thessaly looks at the empty stand, then at the dioramas. \"What was in it?\" Nobody wants to guess." },
+            "Pip pockets a brass plaque lying by an empty stand.",
+            "Jess: \"'Exhibit Fourteen.' That's all it says.\"",
+            "Thessaly looks at the empty stand, then at the dioramas.",
+            "Mara: \"So what was in it?\"",
+            "Sam: \"Nobody guess. Please.\"" },
           keepsake = "a brass plaque: 'Exhibit Fourteen'" },
         -- (Only with Pip's rat along.)
         { kind = "name", who = "jess", when = { companion = "exhibit_b" }, lines = {
-            "Pip holds Exhibit B up to the big stuffed bird. \"Exhibit B, meet Exhibit Big.\"",
-            "Thessaly: \"That's not what it's called.\" Pip: \"It is now.\"" } },
+            "Pip lifts Exhibit B up to the big stuffed bird.",
+            "Jess: \"Exhibit B, meet Exhibit Big.\"",
+            "Mara: \"That's not what it's called.\"",
+            "Jess: \"It is now.\"" } },
       },
     },
 
@@ -658,8 +679,10 @@ return {
             "Thessaly copies the bird drawings into her notebook, wing by wing, tongue between her teeth.",
             "Oswin holds the candle steady for her, and very carefully doesn't look at anything else." } },
         { kind = "name", who = "jess", lines = {
-            "Pip names the six-winged bird Flappy Six. There's no stopping her.",
-            "Pip names the six-winged bird Flappy Six. Thessaly writes it down, under protest." } },
+            "Pip names the six-winged bird Flappy Six.",
+            "Mara: \"We are not calling it Flappy Six.\"",
+            "Jess: \"Too late. It's on my character sheet.\"",
+            "Mara: \"Fine. Thessaly writes it down. Under protest.\"" } },
       },
     },
 
@@ -741,11 +764,14 @@ return {
       },
       table_bits = {
         { kind = "banter", who = "dev", lines = {
-            "Brannoc stands next to the Mech to compare. He comes up to its belt buckle.",
-            "Pip: \"It hasn't got a belt.\" Brannoc: \"Then I come up to where its belt would be.\"" } },
+            "Brannoc steps up beside the Mech to compare heights.",
+            "Brannoc comes up to its belt buckle.",
+            "Jess: \"It hasn't got a belt.\"",
+            "Dev: \"Then I come up to where its belt would be.\"" } },
         { kind = "cantrip", who = "mara", lines = {
-            "Thessaly cools Oswin's drink with the tiniest Ray of Frost she can manage.",
-            "Oswin: \"Perfect. You're my favourite wizard.\" Thessaly: \"I'm your only wizard.\"" } },
+            "Thessaly cools Oswin's drink with a tiny Ray of Frost, no bigger than a sneeze.",
+            "Sam: \"Perfect. You're my favourite wizard.\"",
+            "Mara: \"I'm your only wizard.\"" } },
       },
       thin = true,
     },
@@ -803,13 +829,16 @@ return {
       table_bits = {
         { kind = "banter", who = "sam", lines = {
             "Oswin stops by the still figures slumped on the benches and says a short, quiet prayer for each one.",
-            "Brannoc waits beside him with his helmet off, and doesn't make a single joke." } },
+            "Brannoc takes his helmet off and waits beside Oswin.",
+            "Dev: \"No jokes. Not in here.\"" } },
         { kind = "snack", who = "mara", lines = {
-            "Thessaly passes round peppermints from her pocket. \"For staying awake. It's science.\"",
+            "Thessaly hands round peppermints from her pocket.",
+            "Mara: \"For staying awake. It's science.\"",
             "Pip takes three, and tucks one in her cheek for later." } },
         { kind = "pocket", who = "jess", lines = {
-            "Pip pockets a stub of chalk, but first she draws a moustache in the corner of the blackboard.",
-            "Thessaly: \"That's vandalism.\" Pip: \"It's art. Ask the gnome.\"" },
+            "Pip draws a moustache in the corner of the blackboard and pockets the chalk.",
+            "Mara: \"That's vandalism.\"",
+            "Jess: \"It's art. Ask the gnome.\"" },
           keepsake = "a stub of very old chalk" },
       },
     },
@@ -902,15 +931,19 @@ return {
       },
       table_bits = {
         { kind = "plan", who = "mara", lines = {
-            "Thessaly, quietly: \"If it goes badly up there, we fall back down these stairs. Everyone knows the way down?\"",
-            "Brannoc: \"I know the way up.\"" } },
+            "Mara: \"If it goes badly up there, we fall back down these stairs. Everyone knows the way down?\"",
+            "Dev: \"I know the way up.\"" } },
         -- (Only once they know who's up there: round four's review, "Mind the statues" from a table nobody had told.)
+        -- (Each line one speaker's own words: round four's review heard Oswin answer a voice the table never
+        -- heard, when "does what she thinks a Gorgon sounds like" wasn't said.)
         { kind = "banter", who = "jess", when = { told = "gorgon" }, lines = {
-            "Pip, in a whisper, does what she thinks a Gorgon sounds like: \"Come in, darlings. Mind the statues.\"",
-            "Oswin: \"Please don't do her voice. Not on her own stairs.\"" } },
+            "Jess: \"Okay, Gorgon voice. Ahem. Come in, darlings. Mind the statues.\"",
+            "Sam: \"Please don't do her voice. Not on her own stairs.\"" } },
         { kind = "snack", who = "sam", lines = {
-            "Oswin hands round the last of the biscuits. \"In case it's our last biscuit.\"",
-            "Thessaly: \"It is not our last biscuit, Oswin.\" She takes two anyway." } },
+            "Oswin hands round the last of the biscuits.",
+            "Sam: \"In case it's our last biscuit.\"",
+            "Mara: \"It is not our last biscuit, Oswin.\"",
+            "Thessaly takes two anyway." } },
       },
       thin = true,
     },
@@ -994,15 +1027,16 @@ return {
       },
       table_bits = {
         { kind = "banter", who = "dev", lines = {
-            "Brannoc, out of the side of his mouth: \"Her couch is nicer than my bed.\"",
-            "Oswin: \"Everything's nicer than your bed. I've seen your bed.\"" } },
+            "Dev: \"Her couch is nicer than my bed.\"",
+            "Sam: \"Everything's nicer than your bed. I've seen your bed.\"" } },
         { kind = "pocket", who = "jess", lines = {
-            "A blue mosaic tile has come loose by Pip's boot. It's in her pocket before anyone can stop her.",
+            "A blue mosaic tile has come loose by Pip's boot.",
+            "Pip pockets the loose tile, quick as anything.",
             "Euryale, without even turning her head: \"Keep it, little thief. I have thousands.\"" },
           keepsake = "a loose blue mosaic tile from a Gorgon's floor" },
         { kind = "plan", who = "mara", lines = {
-            "Thessaly writes 'EYES DOWN IF THE HOOD COMES OFF' on the back of her hand and shows it round.",
-            "Brannoc's eyes go straight up to Euryale before he catches himself and studies his boots very hard." } },
+            "Thessaly writes 'EYES DOWN IF THE HOOD COMES OFF' on the back of her hand and holds it up for everyone.",
+            "Dev: \"Brannoc is not looking at her. He is looking at his boots. Very hard.\"" } },
       },
     },
   },

@@ -310,6 +310,17 @@ M.told = {
              "One by one, they all go down. Then it's very quiet.",
              "The last of them hits the floor. Nobody at the table says anything for a second." },
     wipe_react = { "Did we... all just go down?", "Okay. That's everyone. That's all of us.", "Well. That went about as badly as it could." },
+    -- A hero at 0 hit points (the fourth playtest: "Pip goes down, and doesn't get up. Death saves." five times in one
+    -- fight, up again each time; the same line for all 18 knockouts in the Sheep Chase). Said by fight.lua's react,
+    -- fresh, and never "doesn't get up": a heal, a potion or a natural 20 can have them up again. {char}: the hero.
+    knocked_down = { "{char} goes down. Death saves.",
+                     "{char} hits the floor at 0 hit points. Death saves.",
+                     "That drops {char}: 0 hit points, and death saves from here.",
+                     "{char} is out cold, and rolling death saves." },
+    -- (Down a second time in the same fight.)
+    knocked_down_again = { "{char} is down again. Back to death saves.",
+                           "And {char} drops again. Death saves.",
+                           "{char} is back on the floor. Death saves again." },
     -- A hero back on their feet while the table grieves ({lost}: who they lost).
     up_quiet = { "{char} is up. Nobody cheers.", "{char} gets back up and looks at {lost}. Nobody says anything.",
                  "{char} is on {char_their} feet again. It doesn't feel like winning." },

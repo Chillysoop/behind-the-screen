@@ -38,6 +38,10 @@ B.__index = B
 
 local abmod = creature.abmod
 
+-- The weapons whose ammunition is arrows (SRD 5.2.1 Equipment: the Longbow and Shortbow shoot Arrows): what a quiver
+-- of fire arrows is for.
+M.ARROW_WEAPONS = { shortbow = true, longbow = true }
+
 function M.new(opts)
     opts = opts or {}
     local b = setmetatable({
@@ -970,14 +974,18 @@ function B:attack(att, tgt, prof, opts)
         self:log("  It's a charge!")
     end
     -- (The Museum of Nightmares: Telpur's fire arrows and slime, on a hero's first weapon hit a turn.)
-    -- (Only the arrows, no slime: a ranged weapon's hit, "arrows".)
+    -- (Only the arrows, no slime: a shot from a bow, "arrows".)
+    -- (An arrow is a bow's ammunition, not a thrown javelin or dagger: the fourth playtest, 82 careless, "Telpur's fire
+    -- arrow, +1 fire" on Brannoc's javelin, and the quiver's words say "first shot". A thrown weapon gets the slime,
+    -- when there's slime.)
+    local arrow = prof.kind == "ranged" and prof.weapon and prof.weapon.ammunition and M.ARROW_WEAPONS[prof.id] or false
     if self.fire_arrows and att.side == "party" and att.pc and prof.is_weapon and att.turn and not att.turn.fire_arrows
-        and (self.fire_arrows ~= "arrows" or prof.kind == "ranged") then
+        and (self.fire_arrows ~= "arrows" or arrow) then
         att.turn.fire_arrows = true
-        local fp = self:roll_parts({ { 1, 4, 0, prof.kind == "ranged" and "fire" or "acid" } }, crit)[1]
+        local fp = self:roll_parts({ { 1, 4, 0, arrow and "fire" or "acid" } }, crit)[1]
         table.insert(parts, fp)
         -- (Said in the log, so the extra damage isn't a mystery: the playtest, Nov 2.)
-        self:emit({ kind = "feature", who = att, name = (prof.kind == "ranged" and "Telpur's fire arrow, +" or "Telpur's slime, +")
+        self:emit({ kind = "feature", who = att, name = (arrow and "Telpur's fire arrow, +" or "Telpur's slime, +")
                         .. tostring(fp[1]) .. " " .. fp[2] })
     end
     -- (The Museum of Nightmares: a briar the pond water made grow, the mutation table's 1: its hits add 1d4

@@ -394,6 +394,17 @@ function M.can_use(campaign, p, id)
     return true
 end
 
+-- A good home for it: someone who can use it and fights the way it's for (its `for` list). A +1 Weapon is for a hero
+-- whose main attack is a weapon (fighter, rogue, cleric), not the wizard who casts every turn: the fourth playtest,
+-- 81 careless, "+1 Weapon." / Mara: "I'll keep it.", and three fights of Fire Bolt with it in her pack.
+function M.good_home(campaign, p, id)
+    local d = M.def(id)
+    if not (d and p and M.can_use(campaign, p, id)) then
+        return false
+    end
+    return d["for"] == nil or util.contains(d["for"], p.class)
+end
+
 -- Who takes it: the first class on its list who's at the table and can use it, else anyone who can.
 function M.pick_holder(campaign, id, players)
     local d = M.def(id)

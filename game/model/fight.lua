@@ -1099,7 +1099,13 @@ local function react(night, f, steps, who)
         if victim then
             night:event("down", { who = victim.key, text = downed.name .. " goes down." })
             -- Said out loud, so the table (and the log) hears it: the death-save card is on the mat.
-            night:say(downed.name .. " goes down, and doesn't get up. Death saves.", "bad")
+            -- (Three ways and more, fresh, and never "doesn't get up" of someone who might: the fourth playtest heard
+            -- "Pip goes down, and doesn't get up. Death saves." five times in one fight, and up she got each time.)
+            local bt = night.battle or {}
+            local before = bt.downed_keys and bt.downed_keys[victim.key]
+            local said = night:fresh(before and TOLD.knocked_down_again or TOLD.knocked_down,
+                before and "told_knocked_down_again" or "told_knocked_down")
+            night:say(util.fill(said or "{char} goes down. Death saves.", { char = downed.name }), "bad")
             poses[victim.key] = "gasp"
             -- (No quip from the floor when it's going this badly: a hero already dead tonight, or this drop
             -- leaves one hero standing or none. The confirming playtest, 56 careful: "Down. Note for later:
@@ -1152,7 +1158,19 @@ local function react(night, f, steps, who)
                 medic = p          -- (a healer who's down or stone isn't coming: round three, A1)
             end
         end
-        if medic and night.rng:chance(0.6) then
+        -- (Every medic's line is a promise, "I'm coming", "Healing Pip. Cover me.": said only when they can get them
+        -- up on their next turn, and then their turn goes to it, ai.lua's c.heal_for. The fourth playtest, 81 careful:
+        -- the promise, then five turns of Sacred Flame with no slot or potion left.)
+        local mc = medic and night.pcs and night.pcs[medic.key]
+        local bb = night.battle
+        local can = mc and bb and ai.can_bring_up and ai.can_bring_up(bb, mc, downed)
+        -- (One promise at a time: they've already said they're coming for someone still on the floor.)
+        local owed = mc and mc.heal_for
+        if owed and owed ~= downed and owed.down and not owed.dead then
+            can = nil
+        end
+        if can and night.rng:chance(0.6) then
+            mc.heal_for = downed
             line = { medic, "ally_down", { other_char = downed.name, other = victim and victim.name,
                                            other_key = victim and victim.key } }
         end
@@ -1372,6 +1390,33 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         night.other = night:pick_actor(card.other, night.actor)
     end
     return night:decision(card, vars)
+end
+
+-- The early knockout card's "let it drop" (game/data/decisions.lua boss_crit): its words, one of these, fresh across
+-- weeks. Only what happens: the boss falls, early ({boss}, {round}).
+M.EARLY_KNOCKOUT = {
+    "{boss} crumples. Short, and very satisfying.",
+    "{boss} goes down in round {round}, before getting to do much of anything.",
+    "One good hit, and {boss} is on the floor. Round {round}, too.",
+    "{boss} drops, just like that. It's round {round}.",
+}
+function M.early_knockout(night, adjust)
+    local card = content.triggered and content.triggered.boss_crit
+    local label
+    for _, o in ipairs((card and card.options) or {}) do
+        if o.battle == "let" then
+            label = o.label
+        end
+    end
+    if not label then
+        return adjust
+    end
+    adjust = adjust or {}
+    adjust.label = adjust.label or {}
+    adjust.log = adjust.log or {}
+    adjust.label.let = adjust.label.let or label
+    adjust.log.let = adjust.log.let or night:fresh(M.EARLY_KNOCKOUT, "early_knockout")
+    return adjust
 end
 
 M.SWITCH_LINES = { "{char} reaches into {mech}'s chest panel and flips the red switch, saved for her all week.",
@@ -1832,6 +1877,9 @@ function M.run(night, sc, plan)
             local rf = M.reinforcement(night, night.scene)
             local adjust = (rf == nil and { drop = { reinforce = true } })
                 or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
+            -- (Letting it drop is said three ways and more, fresh: the fourth playtest heard "crumples. Dev stands on
+            -- his chair." at every early knockout, four times in one prologue.)
+            adjust = M.early_knockout(night, adjust)
             local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round, actor_char = ally and ally.name or nil },
                 ally and (lander and night.pcs and night.pcs[lander.key]) or src, nil, adjust)
             if o and o.battle == "second_phase" then
@@ -1881,7 +1929,10 @@ function M.run(night, sc, plan)
     -- The boss's key turn is the DM's to run (B8).
     f.max_cards = MAX_CARDS_PER_FIGHT
     b.hooks.before_turn = function(bb, c)
-        if c == f.boss and not c.dead and not c.removed and not c.down then
+        -- (Not while it's stared down: the stare-down said who it wants for the next few rounds, and it goes for them.
+        -- The card comes on a turn after it wears off. The fourth playtest, carry 86 random: "it's Brannoc it wants",
+        -- then the boss's turn card sent it after Pip.)
+        if c == f.boss and not c.dead and not c.removed and not c.down and not ai.taunted_by(bb, c) then
             takeover.boss_turn(night, f, bb, c)
         end
         -- (Picked on this very turn, by the DM running it: that beats a stare-down from before.)
@@ -2427,10 +2478,14 @@ end
 function M.stare_line(night, lead, pc, is_boss)
     local sc = night and night.scene
     local foe = util.capitalize((is_boss and sc and sc.boss_name) or barks.foe_label(lead) or "It")
-    -- (A foe with no pronoun of its own is "they", and they want.)
-    local wants = util.pronoun_of(foe).they == "they" and "want" or "wants"
-    return util.fill("{Foe} can't take {foe_their} eyes off {char}. For the next few rounds, it's {char} {foe_they} " .. wants .. ".",
-        { foe = foe, Foe = foe, char = pc.name })
+    -- (One foe with no pronoun of its own is "it", as barks.lua has it: the fourth playtest heard "The bed dragon can't
+    -- take their eyes off Brannoc... it's Brannoc they want". A person keeps theirs: "his eyes", "her eyes".)
+    local pr = util.pronoun_of(foe)
+    if pr.they == "they" then
+        pr = util.PRONOUNS.it or { they = "it", their = "its" }
+    end
+    return util.fill("{Foe} can't take {foe_their} eyes off {char}. For the next few rounds, it's {char} {foe_they} wants.",
+        { foe = foe, Foe = foe, char = pc.name, foe_their = pr.their, foe_they = pr.they })
 end
 
 return M

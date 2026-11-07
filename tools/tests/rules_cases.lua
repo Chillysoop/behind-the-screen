@@ -1127,6 +1127,131 @@ case("total-cover", "A wall between them is Total Cover: no attack through it", 
         t:eq("a line exactly through a corner between two wall squares is blocked", b:los_xy(5, 5, 7, 5) or b:los_xy(5, 4, 7, 6), false)
     end)
 
+case("sight-heal", "A heal for a friend out of sight goes to one in sight who needs it, or waits",
+    "p. 104 (A Clear Path to the Target); p. 139 (Healing Word)",
+    "A spell's target needs a clear path. Out of sight is no target: the heal goes to a friend in sight who's down or "
+        .. "badly hurt, or the cleric steps round to see, or keeps the slot. Never a heal on someone at full health. "
+        .. "(The fourth playtest, 81 careful: Healing Word on Oswin himself, for 0, while Brannoc lay dying round a corner.)",
+    function(t)
+        local b = fresh()
+        b.opaque, b.blocked = {}, {}
+        for y = 3, 7 do
+            b.opaque["8," .. y] = true
+            b.blocked[8 * 1000 + y] = true
+        end
+        local cl = at(b, pc("cleric", 2), 6, 5)
+        local f = at(b, pc("fighter", 2), 12, 5)
+        local w = at(b, pc("wizard", 2), 6, 7)
+        at(b, mon("goblin_warrior"), 2, 12)
+        cl.res.potions = 0
+        f.hp, f.down = 0, true
+        cl.hp = cl.hp_max - 2                                  -- (a scratch: not worth a heal)
+        t:eq("the wall hides the fighter", b:los_xy(cl.x, cl.y, f.x, f.y), false)
+        local s1, mi = cl.res.slots[1], cl.res.mi_free
+        local hp0 = cl.hp
+        t:eq("Healing Word at the fighter out of sight: not cast", ai.cast(b, cl, "healing_word", f), false)
+        t:eq("so not on the cleric himself, for nothing", cl.hp, hp0)
+        t:eq("no slot spent", cl.res.slots[1], s1)
+        t:eq("and the free one kept", cl.res.mi_free, mi)
+        t:eq("and the Bonus Action kept", cl.turn.bonus, true)
+        w.hp, w.down = 0, true
+        t:eq("with a friend down in sight, it goes to them", ai.cast(b, cl, "healing_word", f), true)
+        t:eq("the wizard is up", w.down, false)
+        t:eq("the fighter still down", f.down, true)
+        -- On his turn: he steps round the wall to see the fighter, and gets him up.
+        local b2 = fresh()
+        b2.opaque, b2.blocked = b.opaque, b.blocked
+        local cl2 = at(b2, pc("cleric", 2), 6, 5)
+        local f2 = at(b2, pc("fighter", 2), 12, 5)
+        at(b2, mon("goblin_warrior"), 2, 12)
+        cl2.res.potions = 0
+        f2.hp, f2.down = 0, true
+        -- (The promise the table hears, fight.lua's medic line, waits on this: he can keep it.)
+        t:eq("a cleric with Healing Word can get the fighter up", ai.can_bring_up(b2, cl2, f2), "healing_word")
+        ai.take_turn(b2, cl2)
+        t:eq("on his turn, round the corner and Healing Word: the fighter is up", f2.down, false)
+        t:eq("from where he can see him", b2:los_xy(cl2.x, cl2.y, f2.x, f2.y), true)
+        t:eq("and the cleric healed nobody else", cl2.hp, cl2.hp_max)
+        local cl3 = at(b2, pc("cleric", 2), 2, 2)
+        cl3.res.potions, cl3.res.mi_free = 0, 0
+        for k in pairs(cl3.res.slots) do cl3.res.slots[k] = 0 end
+        f2.hp, f2.down = 0, true
+        t:eq("one with no slot and no potion can't, so says nothing", ai.can_bring_up(b2, cl3, f2), nil)
+    end)
+
+case("sight-area", "An area spell is placed where the caster can see, and never where it catches friends",
+    "p. 104 (A Clear Path to the Target); p. 161 (Shatter)",
+    "A point of origin needs a clear path too. A point behind a wall is never swapped for the nearest foe in sight: "
+        .. "the fourth playtest, 82 careless, Shatter aimed past a wall landed on a huntling among three friends and "
+        .. "killed Telpur.",
+    function(t)
+        local b = fresh()
+        b.opaque, b.blocked = {}, {}
+        for y = 1, 16 do
+            b.opaque["10," .. y] = true
+            b.blocked[10 * 1000 + y] = true
+        end
+        local w = at(b, pc("wizard", 3), 3, 5)
+        local f = at(b, pc("fighter", 3), 8, 4)
+        local cl = at(b, pc("cleric", 3), 8, 6)
+        local r = at(b, pc("rogue", 3), 9, 5)
+        at(b, mon("goblin_warrior"), 8, 5)                    -- in sight, among three friends
+        at(b, mon("goblin_warrior"), 14, 5)                   -- two behind the wall
+        at(b, mon("goblin_warrior"), 14, 6)
+        local s2 = w.res.slots[2]
+        t:eq("Shatter at a point behind the wall: not cast", ai.cast(b, w, "shatter", { x = 14, y = 5 }), false)
+        t:eq("no slot spent", w.res.slots[2], s2)
+        t:eq("the action kept", w.turn.action, true)
+        ai.take_turn(b, w)
+        local hurt = 0
+        for _, a in ipairs({ f, cl, r }) do
+            if a.hp < a.hp_max then hurt = hurt + 1 end
+        end
+        t:eq("on her turn, nothing of hers catches a friend", hurt, 0)
+        local shattered = false
+        for _, l in ipairs(b.lines) do
+            if string.find(l, "casts Shatter", 1, true) then shattered = true end
+        end
+        t:eq("and no Shatter on the foe among them", shattered, false)
+    end)
+
+case("stare-down", "A foe stared down goes for whoever did it, its own special turn too",
+    "game/model/fight.lua (the stare-down), game/rules/sheep.lua (the bed dragon)",
+    "Taunted: while whoever stared it down is standing, it goes for them. The fourth playtest, carry 86 random: "
+        .. "\"The bed dragon can't take its eyes off Brannoc\", then its breath went at Pip.",
+    function(t)
+        local function dragon(b, x, y)
+            local d = at(b, mon("brown_bear"), x, y)
+            local data = {}
+            for k, v in pairs(d.data or {}) do data[k] = v end
+            data.rules, data.rules_turn = "sheep", "bed_dragon"
+            data.breath = { id = "splinter_breath", name = "Splinter Breath", recharge = { 5, 6 }, cone = 15, save = "dex",
+                            dc = 13, damage = { { 7, 6, 0, "piercing" } }, half = true }
+            d.data = data
+            return d
+        end
+        local function hp_lost(c) return c.hp < c.hp_max end
+        -- Without a stare-down: the breath goes where it catches two.
+        local b = fresh()
+        local d = dragon(b, 10, 10)
+        local f = at(b, pc("fighter", 3), 10, 12)
+        local r = at(b, pc("rogue", 3), 12, 10)
+        local w = at(b, pc("wizard", 3), 13, 10)
+        ai.take_turn(b, d)
+        t:eq("unprovoked, the breath catches the two side by side", hp_lost(r) and hp_lost(w), true)
+        t:eq("and not the fighter off the other way", hp_lost(f), false)
+        -- Stared down by the fighter: the breath goes at him.
+        b = fresh()
+        d = dragon(b, 10, 10)
+        f = at(b, pc("fighter", 3), 10, 12)
+        r = at(b, pc("rogue", 3), 12, 10)
+        w = at(b, pc("wizard", 3), 13, 10)
+        b:add_effect(d, { name = "Taunted", taunt_by = f, conds = { taunted = true } })
+        ai.take_turn(b, d)
+        t:eq("stared down, it breathes at the fighter", hp_lost(f), true)
+        t:eq("and the other two are left alone", hp_lost(r) or hp_lost(w), false)
+    end)
+
 case("doors", "A shut door opens as a hero walks through; a wolf can't open it; a locked one holds",
     "p. 13 (Interacting with Things)",
     "You can interact with one object for free during your move: open a door as you stride toward a foe. A Lock is DC 15 "
@@ -1264,6 +1389,29 @@ case("museum-fire-arrows", "Telpur's fire arrows and slime, and a quiver of arro
         b.dice:force(15, 3, 4)
         b:attack(f, k, melee(f))
         t:eq("and a sword gets none of it", feats, 0)
+        -- (A thrown javelin isn't a shot from a bow: the fourth playtest, 82 careless, "Telpur's fire arrow" on
+        -- Brannoc's javelin, and the quiver's words say "first shot".)
+        local fire = 0
+        b.on_event = function(_, ev)
+            if ev.kind == "feature" and string.find(ev.name or "", "Telpur's fire arrow", 1, true) then fire = fire + 1 end
+            if ev.kind == "feature" and string.find(ev.name or "", "Telpur's slime", 1, true) then feats = feats + 1 end
+        end
+        k.x, k.y = 9, 5
+        f.turn.fire_arrows = nil
+        b.dice:force(15, 3)
+        b:attack(f, k, creature.weapon_attack(f, "javelin", { thrown = true }))
+        t:eq("the quiver alone: a thrown javelin doesn't burn", fire, 0)
+        local r = at(b, pc("rogue", 2), 3, 5)
+        b.dice:force(15, 3, 2)
+        b:attack(r, k, creature.weapon_attack(r, "shortbow"))
+        t:eq("a shot from a bow does", fire, 1)
+        museum.setup(b, { fire_arrows = true })
+        f.turn.fire_arrows = nil
+        feats, fire = 0, 0
+        b.dice:force(15, 3, 2)
+        b:attack(f, k, creature.weapon_attack(f, "javelin", { thrown = true }))
+        t:eq("arrows and slime: the javelin gets the slime", feats, 1)
+        t:eq("not a fire arrow", fire, 0)
     end)
 
 case("museum-knockout", "The Sentinel's fists knock a hero out instead of killing", "Museum, Appendix B (The Sentinel)",

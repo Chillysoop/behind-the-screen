@@ -137,11 +137,41 @@ function M.put_back(campaign, e)
     end
 end
 
+-- Who a magic thing from the bag goes to, when p found it: p, if it's a good home (they can use it, and it's for the way
+-- they fight); else the one at the table it's best for (its `for` list, best first: a weapon to whoever fights with
+-- one); else p if they can use it at all; else anyone who can. The fourth playtest, 81 careless: a +1 Weapon kept by the
+-- wizard, who never swung a weapon in three fights.
+function M.home_for(campaign, p, id)
+    if p and items.good_home(campaign, p, id) then
+        return p
+    end
+    local here, all = {}, campaign.players or {}
+    for _, q in ipairs(all) do
+        if q.present ~= false then
+            table.insert(here, q)
+        end
+    end
+    for _, list in ipairs({ here, all }) do
+        for _, q in ipairs(items.def(id) and items.def(id)["for"] or {}) do
+            for _, x in ipairs(list) do
+                if x.class == q and items.good_home(campaign, x, id) then
+                    return x
+                end
+            end
+        end
+    end
+    if p and items.can_use(campaign, p, id) then
+        return p
+    end
+    return items.pick_holder(campaign, id, #here > 0 and here or all) or items.pick_holder(campaign, id, all)
+end
+
 -- A thing from the bag reaching the party some other way (off someone it was put on): into a pack. The bag already
 -- counted it out.
 function M.hand_over(campaign, p, e)
     if e.kind == "magic" then
-        local players = (p and items.can_use(campaign, p, e.magic)) and { p } or campaign.players
+        local home = M.home_for(campaign, p, e.magic)
+        local players = home and { home } or campaign.players
         local it, who = items.earn(campaign, e.magic, players, "found")
         -- (Nobody at the table can use it: whoever found it carries it anyway, never nobody.)
         if it and not it.holder then

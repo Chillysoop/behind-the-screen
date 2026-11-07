@@ -226,6 +226,28 @@ do
     check(w2 and w2.holder ~= w.holder, "a +1 weapon goes to someone without a better one")
 end
 
+-- A magic weapon the wizard finds goes to someone who fights with one (the fourth playtest, 81 careless: "+1 Weapon." /
+-- Mara: "I'll keep it.", and three fights of Fire Bolt with it in her pack); she keeps it only when nobody can use it
+-- better. A cloak she finds is hers.
+do
+    local cc = fresh_camp()
+    local wiz = of_class(cc, "wizard")
+    local it, who = dm_bag.hand_over(cc, wiz, bagd.by_id.bag_weapon_plus1)
+    local cls = who and who.class
+    check(it and who and it.holder == who.key and (cls == "fighter" or cls == "rogue" or cls == "cleric"),
+        "a +1 Weapon the wizard finds goes to a hero who fights with a weapon (" .. tostring(cls) .. ")")
+    check(not items.good_home(cc, wiz, "weapon_plus1"), "the wizard is no home for a +1 Weapon")
+    local _, cw = dm_bag.hand_over(cc, wiz, bagd.by_id.bag_cloak_of_protection)
+    check(cw == wiz, "a cloak the wizard finds is hers")
+    local c2 = fresh_camp()
+    for _, p in ipairs(c2.players) do
+        if p.class ~= "wizard" then items.earn(c2, "weapon_plus3", { p }, "found") end
+    end
+    local w2 = of_class(c2, "wizard")
+    local _, kept = dm_bag.hand_over(c2, w2, bagd.by_id.bag_weapon_plus1)
+    check(kept == w2, "with every weapon hand holding a better one, the wizard who found it keeps it")
+end
+
 -- FIGHTS: the friends use them. The wand from anyone's hand; a potion drunk when it's bad.
 local function at(b, c, x, y)
     b:add(c, x, y)
