@@ -139,6 +139,13 @@ Where v2 lives:
   out when they've just said it), and a feeling is never said; `tools/tests/agency_check.lua` fails any line that
   had to be dropped, so it's rewritten where it's written. Write a hero's choice as the player's line, and the DM's
   as what happens.
+- **No leaks between rule sets (Conner, November 6: "It's critical that systems never leak into another
+  system").** Every adventure names one rule set (`M.rules`), and nothing defaults. Shared code never requires a
+  set's engine or names its own files: it asks `game/model/ruleset.lua` (`current`, `part`, `engine`, `fits`), or
+  `game/ui/sets.lua` for a set's screens. A set's words (5e's DC, Advantage, hit points, Heroic Inspiration, natural
+  20...) are said through the set (`ruleset.current().words`), and shared content in one set's terms is tagged
+  `rules = "5e"`. Dice, maps, grids and clocks are the table's (`game/kit/`), any set's. `rules_fence_check` fails
+  any leak; `docs/design/rule-sets.md` says how each piece is kept to its set.
 - **Seat order, and words from the seat (Conner, November 6).** The tiles along the bottom, and every row of the
   four, are in seat order, left to right as the DM sees the table (`game/data/players.lua`'s `seats`,
   `panels.seated`). A friend's words come from where they sit at the table, in or out of character, never from

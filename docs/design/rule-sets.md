@@ -111,6 +111,22 @@ reactions do too, so every bark, thought and rest beat works in any set.
    layer is either moved behind the set or tagged `rules = "5e"`, and the require, data and hand-off fences go in now
    (they pass with one set; they're there before the second arrives). *Done when:* seeded playthroughs of the
    museum, the Sheep Chase and the carry come out word for word the same before and after, and the gate passes.
+   **Built, November 7.** How a set's things are kept to it, for whoever adds the next set:
+   - *A set's module* (game/rules/sets/<id>.lua) holds its die (`dice`: notation, name, icon), `check`, `tier`,
+     `odds_line`, its approaches (`mod`, `name`), `words` (everything the shared game says in its terms: "DC",
+     "Heroic Inspiration", rests, the tiles' hovers, the recap's crit lines...), `owns` (its words, for the fence),
+     `rule_terms`, `scene_dc`, `difficulty_names`, `piece_rules` and `engine` (its parts, loaded on first use).
+   - *The shared game asks the current set* (game/model/ruleset.lua): `ruleset.current()`, `ruleset.part("battle")`
+     (a stand-in that looks the part up at the moment it's used), `ruleset.engine(name)`, `ruleset.fits(record)`.
+     Screens a set brings of its own go through game/ui/sets.lua (`sets.part`, `sets.screen`).
+   - *A set's own file in the shared folders* starts with `-- rules: 5e` (the grid fight, the sheet, the tiles'
+     stats, levels, the fight's steps on the board, the battle panel, the level-up, the hero's sheet); a line of
+     shared code that's only about one set's things ends with `-- rules: 5e`.
+   - *A set's content in shared data* carries `rules = "5e"`: a record (a decision card, a glossary term, a bag
+     thing, a dialogue line or moment, a bark), or a list of lines (fight moments told). Its picker keeps to the
+     adventure's set (`ruleset.fits`).
+   - *The table's own* (the DM's read of a friend, dice jail, the DM's craft, the friends' moods) names no set's
+     words; the DM's read rolls the table's die (`thoughts.READ_DICE`).
 4. **Fights both ways.** Told as story: checks, harm, a clock, the foes' moves as the DM's. On the grid: the shared
    grid with a set's own combat rules (5e's is the first). Both in the shared layer, so any set can have either.
    *Done when:* a 5e test scene can run its fight either way, and a test set fights on the grid with rules of its own.
