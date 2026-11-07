@@ -514,15 +514,17 @@ return {
           answer = "\"She's out of my museum, which is all I asked for.\"",
           better = "\"Her sort never stay gone, not really. But she'll think twice before she comes back to my museum.\"" },
         { who = "flitwidget", skill = "persuasion", when = { done = "lair" }, ask = "Where does the caravan go next?",
-          answer = "\"The mountains, I think. I've had troubling news from the elves up there.\"",
-          better = "\"A death among the mountain clans, and nobody asking the right questions. I could use sturdy guards. Know any?\"" },
+          -- (Not the news itself: the epilogue tells it once, right after the thanks. Round four's review heard
+          -- the mountain news twice in one scene.)
+          answer = "\"North, and up, I think. I've had a letter I don't much like. Reward first, then I'll tell you.\"",
+          better = "\"Up the mountain road, if I'm brave. I'll need sturdy guards for it. Let me get the kettle on, and I'll explain.\"" },
       },
       table_bits = {
         -- (buys: a real purchase out of the pool, at price, a Franc off or on by the roll: table_life.bit.)
         { kind = "haggle", who = "dev", buys = "marbles", price = 3, lines = {
             "Brannoc leans on the counter.",
-            "Dev: \"How much for the marbles? For throwing.\"",
-            "Telpur: \"Three Francs. And you throw them upstairs, not at my shelves.\"" },
+            "Dev: \"How much for the marbles? I want the blue one. And the other blue one.\"",
+            "Telpur: \"Three Francs for the bag. And they stay off my shelves.\"" },
           cheaper = "Telpur sighs. \"Fine. Two Francs, for the face.\" Two Francs out of the pool, and the marbles are {char}'s.",
           even = "Three Francs out of the pool, and the bag of marbles is {char}'s.",
           dearer = "\"Four. Lace tax,\" says Telpur. Four Francs out of the pool, and the marbles are {char}'s.",
