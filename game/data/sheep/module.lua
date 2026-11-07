@@ -166,9 +166,10 @@ M.places = {
       exits = { { to = "garden", by = "a ramp of roots" } },
       -- (p5: Noke is up on the platforms, working. He orders the party to give back the sheep, and fights from up
       -- there: Enlarge on the bear once it's out, Ray of Frost, his concentration kept. When the fight's lost or
-      -- someone gets close, he runs into the hall and locks it: game/rules/sheep.lua. On to the garden straight away.)
+      -- someone gets close, he runs into the hall and locks it: game/rules/sheep.lua. His bed is a dragon by the time
+      -- anyone reaches the bedroom, however long that takes.)
       scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn, and Noke above them.",
-                hurry_on = true, foes_at = { noke = { 17, 8 } },
+                foes_at = { noke = { 17, 8 } },
                 foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard", "noke" }, foes_name = "Noke's guards",
                 foes_short = "the guards", boss_name = "the bear",
                 foes_line = "Three big apes in iron collars squat over a game of dice, greatswords stuck in the turf beside them.",
@@ -183,8 +184,7 @@ M.places = {
       read = "The lowest platform, about forty feet across, ringed with curling branches, flowers and small trees.",
       exits = { { to = "compound" }, { to = "hall", gates = { { check = "athletics", dc = 14, page = 4 },
                                                                { check = "thieves_tools", dc = 12, page = 4 } } } },
-      -- (Hot on Noke's heels, from the yard to the bedroom: no stopping on the way.)
-      scene = { type = "puzzle", quick = true, setting = { "outdoor" }, sum = "A locked door into the hall.", hurry_on = true,
+      scene = { type = "puzzle", quick = true, setting = { "outdoor" }, sum = "A locked door into the hall.",
                 goal = { name = "Get into the hall", line = "Goal: get through the locked door into the hall.",
                          win = "They're through into the hall.", lose = "They get through in the end, with a lot of noise.",
                          got = "a way into the hall" } } },
