@@ -1392,9 +1392,13 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
     return night:decision(card, vars)
 end
 
-M.SWITCH_LINES = { "{char} reaches into {mech}'s chest panel and flips the red switch, saved for her all week.",
-                   "\"For the Gorgon,\" says {char}, and flips {mech}'s red switch.",
-                   "{char} has been waiting all week for this. The red switch goes over, and {mech} starts to shake." }
+-- (The commander flips it: their player says so, and the DM's line is what the Mech does. The playtest, November 6:
+-- "'For the Gorgon,' says Thessaly" in the DM's words, and "has been waiting all week" for a hero.)
+M.SWITCH_LINES = { "{mech}'s chest panel swings open, and the red switch goes over. Saved for her all week.",
+                   "The red switch goes over, and {mech} starts to shake.",
+                   "Click. The red switch is down, and {mech} begins to hum, louder and louder." }
+M.SWITCH_SAY = { "I reach into {mech}'s chest panel and flip the red switch.", "For the Gorgon. I flip {mech}'s red switch.",
+                 "Now. I flip the red switch." }
 function M.saved_switch(night, f, bb, r)
     local st = night.mus and night.campaign.adv
     if not (st and st.flags and st.flags.hyper_saved) or f.switch_flipped or r < 1 or bb.no_hyper then
@@ -1413,7 +1417,9 @@ function M.saved_switch(night, f, bb, r)
                 f.switch_flipped = true
                 st.flags.hyper_saved = nil           -- (spent: it's been flipped, as they planned)
                 night:flush_turn()
-                night:say(util.fill(night:fresh(M.SWITCH_LINES, "saved_switch"), { char = p.char, mech = st.mech_name or "the Mech" }), "good")
+                local sv = { char = p.char, mech = st.mech_name or "the Mech" }
+                night:emit({ kind = "say", who = p.key, ic = true, announce = true, text = util.fill(night:fresh(M.SWITCH_SAY, "saved_switch_say"), sv) })
+                night:say(util.fill(night:fresh(M.SWITCH_LINES, "saved_switch"), sv), "good")
                 museum.go_hyper(bb, c)
                 -- (The switch is this line's; the mode it sets off is tell_moments', after it.)
                 local steps = night:flush_turn()

@@ -367,6 +367,20 @@ local function attack_words(c)
     local pr = util.pronoun_of(c.name)
     local they = pr.they == "they" and "it" or pr.they
     local their = pr.their == "their" and "its" or pr.their
+    -- (Hooded, she shoots when she can and claws whoever's close: say both, since the engine picks by reach. The
+    -- playtest, November 6: "She attacks with her poison bow, 3 times", then three claws.)
+    if veil and c.veiled ~= false then
+        local melee
+        for _, x in ipairs(c.attacks or {}) do
+            if x.kind == "melee" then
+                melee = melee or x
+            end
+        end
+        if melee and melee ~= a then
+            return " " .. util.capitalize(they) .. " attacks " .. util.int(n) .. (n == 1 and " time" or " times") .. ": " .. their .. " "
+                .. string.lower(melee.name) .. " up close, " .. their .. " " .. string.lower(a.name) .. " from further off."
+        end
+    end
     return " " .. util.capitalize(they) .. " attacks with " .. their .. " " .. string.lower(a.name) .. (n > 1 and (", " .. util.int(n) .. " times") or "") .. "."
 end
 

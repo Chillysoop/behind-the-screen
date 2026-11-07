@@ -112,14 +112,16 @@ M.WORLD_LINES = {
                    "{to_char} gets first pick, as {by_char} promised.",
                    "\"Yours,\" says {by}, nodding at {to_char}. \"First pick. A promise is a promise.\"" },
     -- What a hero pocketed, given back at Flitwidget's thanks if it hasn't come back already.
-    pocket_back = { "{char} quietly puts {thing} back on Flitwidget's counter. Flitwidget pretends not to see.",
-                    "Before the biscuits, {char} slides {thing} across the counter to Flitwidget. \"Found it.\"",
-                    "{char} gives {thing} back to Flitwidget, a little sheepishly. He pockets it and says nothing." },
+    -- (The hero's part in their own player's words, `say`, and what happens, `line`: the playtest, November 6,
+    -- "He pockets it and says nothing", and then he spoke.)
+    pocket_back = { { say = "I put {thing} back on Flitwidget's counter. Quietly.", line = "Flitwidget pretends not to see." },
+                    { say = "Before the biscuits: {thing}. Found it, Flitwidget.", line = "Flitwidget takes it back with a little bow." },
+                    { say = "I give {thing} back to Flitwidget. Sorry about that.", line = "Flitwidget pockets it, and leaves it at that." } },
     -- The same, when the one who pocketed it can't (dead, or stone): a friend gives it back for them
     -- ({who}: the hero who pocketed it). Round three: "Pip quietly puts a glass eye back" with Pip dead.
-    pocket_back_for = { "In {who}'s place, {char} puts {thing} back on Flitwidget's counter. Flitwidget nods.",
-                        "{char} gives {thing} back to Flitwidget in {who}'s place, a little sheepishly.",
-                        "{char} sets {thing} back on the counter, in {who}'s place. Flitwidget takes it gently." },
+    pocket_back_for = { { say = "This is {who}'s. I'm putting {thing} back on your counter, Flitwidget.", line = "Flitwidget nods." },
+                        { say = "{thing}, from {who}. It goes back to Flitwidget.", line = "Flitwidget takes it, very gently." },
+                        { say = "For {who}: {thing}, back where it belongs.", line = "Flitwidget sets it on the counter without a word." } },
     -- The archivist's notebook, taken by whoever took the second study in (the room's end).
     notebook = { "{char} tucks the archivist's notebook under {char_their} arm.",
                  "{char} slips the notebook into {char_their} pack, carefully, as if it might bite.",
@@ -6072,11 +6074,14 @@ function M.thanks_word(night, sc)
         local by = own or (not ev.returned and night:at_hand()[1]) or nil
         if by then
             ev.returned = c.week
-            if by == own then
-                night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back, "pocket_back"), { char = by.char, thing = ev.thing }), "table")
+            local pick = (by == own) and night:fresh(M.WORLD_LINES.pocket_back, "pocket_back")
+                or night:fresh(M.WORLD_LINES.pocket_back_for, "pocket_back_for")
+            local v = { char = by.char, thing = ev.thing, who = ev.char or (p and p.char) or "someone" }
+            if type(pick) == "table" then
+                night:emit({ kind = "say", who = by.key, ic = true, announce = true, text = util.capitalize(util.fill(pick.say, v)) })
+                night:say(util.fill(pick.line, v), "dm")
             else
-                night:say(util.fill(night:fresh(M.WORLD_LINES.pocket_back_for, "pocket_back_for"),
-                    { char = by.char, thing = ev.thing, who = ev.char or (p and p.char) or "someone" }), "table")
+                night:say(util.fill(pick, v), "table")
             end
         end
     end
@@ -6328,8 +6333,12 @@ function M.after_showdown(night, sc)
         st.at, st.choices = nil, nil
         break_after_lair(night)       -- (the lull: her part's over, the gift shop's next)
         M.thanks(night)
+        -- (Each line plain, or in the one conditional shape: a list of { when, text } ending on a plain line.)
         for _, line in ipairs(MODULE.epilogue) do
-            night:say(line, "narration")
+            local said = adventure.say(c, line)
+            if type(said) == "string" and said ~= "" then
+                night:say(said, "narration")
+            end
         end
         -- (After a death tonight, the friends want the campaign the quiet way: not "Same heroes, bigger
         -- fights?" nor "Oswin says a prayer for the road" with Oswin dead. Round three's merge.
