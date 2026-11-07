@@ -4,16 +4,26 @@
 -- the battle on its grid, the foes' tactics, spells, skills, monsters. Pure Lua, like the rest of game/rules/.
 
 local skills = require "game.rules.skills"
+local dice = require "game.kit.dice"      -- (the table's dice, any kind: 5e rolls the d20)
 
 local M = {}
 
 M.id = "5e"
 M.name = "D&D 5e (SRD 5.2.1)"
-M.dice = { kind = "d20", sides = 20 }      -- what the dice tray shows
+M.dice = { notation = "1d20", sides = 20 }  -- what the dice tray shows (from game/kit/dice.lua, like any set's)
 M.who_rolls = "dm"                         -- the DM rolls, in the open or behind the screen
 M.fight = "tactical"                       -- fights on the battle grid (game/rules/battle.lua)
 M.approaches = skills.NAMES                -- what a hero can try: the 18 skills, and the six abilities
 M.difficulty_word = "DC"
+-- 5e's own words: no other set's adventure may show one, and the shared game only says them through this set
+-- (tools/tests/rules_fence_check.lua). Dice and grids aren't here: they're the table's (game/kit/), any set's to use.
+M.owns = {
+    "%f[%w]DCs?%f[%W]", "%f[%w]Advantage%f[%W]", "%f[%w]Disadvantage%f[%W]", "natural 20", "natural 1%f[%D]",
+    "spell slot", "hit points", "%f[%w]HP%f[%W]", "%f[%w]AC%f[%W]", "Armor Class", "saving throw", "death save",
+    "Heroic Inspiration", "Proficiency", "cantrip", "short rest", "long rest", "%f[%w]Insight%f[%W]", "%f[%w]Arcana%f[%W]",
+    "%f[%w]Perception%f[%W]", "%f[%w]Investigation%f[%W]", "%f[%w]Persuasion%f[%W]", "%f[%w]Stealth%f[%W]",
+    "%f[%w]Athletics%f[%W]", "%f[%w]Concentration%f[%W]", "%f[%w]Bless%f[%W]", "Cure Wounds", "Healing Word", "Detect Magic",
+}
 
 -- A hero's bonus for an approach: ability modifier and Proficiency Bonus (twice it with Expertise).
 function M.mod(class, approach, level, subclass)
@@ -26,23 +36,22 @@ function M.signed(n)
     return skills.signed(n)
 end
 
--- One die of the set's, off `rng` (game/model/rng.lua or game/rules/dice.lua: both roll a d20).
+local D20, ADVANTAGE = dice.parse("1d20"), dice.parse("2d20kh1")
+
+-- One die of the set's, off `rng` (game/model/rng.lua, or game/rules/dice.lua's forced faces).
 function M.die(rng)
-    return rng:d20()
+    return dice.roll(rng, D20).total
 end
 
 -- The die: one d20, or two and the better with Advantage ("adv"). The order the dice come off `rng` is part of the
 -- result: a seeded playthrough is the same playthrough.
 function M.roll(rng, edge)
-    local roll = rng:d20()
-    local other
     if edge == "adv" then
-        other = rng:d20()
-        if other > roll then
-            roll, other = other, roll
-        end
+        local g = dice.roll(rng, ADVANTAGE).groups[1]
+        local keep = g.kept[1] and 1 or 2
+        return g.faces[keep], g.faces[3 - keep]
     end
-    return roll, other
+    return M.die(rng), nil
 end
 
 -- How it came out, in the tiers the shared game reads (the DM's rulings, game/data/rulings.lua): triumph, success,

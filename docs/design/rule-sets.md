@@ -8,6 +8,22 @@ in exactly one rule set. The DM simulator is shared: prep hours, reading the tab
 Session Zero's lines and veils, secrets and lore, forks, moments, recaps, the journey. A rule set is what changes the
 DM's job: what a roll is, who rolls it, what a fight is, what a hero's sheet holds, how heroes grow.
 
+## Shared toolkits: the table's, any system's
+
+Conner, November 6: "Other systems should also be able to use maps and grids and d20s and all types of dice." What's
+on a real table belongs to no system. Every rule set may use any of it; what a set owns is its rules on top.
+
+| Toolkit | What it is | Where |
+|---|---|---|
+| **Dice** | Any die and any way of rolling it: d4 to d100, sums and modifiers, keep highest or lowest (Advantage is "2d20kh1"), exploding dice, Fate dice, pools that count successes. A roll says its own faces, so the tray and the log show the dice that were really rolled. | game/kit/dice.lua (built; tools/tests/dice_kit_check.lua) |
+| **Maps** | The map repository, the room boards and the three layers (region, settlement, battle), with their DM and player views. | game/model/map_repo.lua, maps.lua, game/data/maps (already shared) |
+| **Grids** | Squares on a board: positions, movement and paths, reach, line of sight and light, doors, terrain, minis. Any set's fight can be on the grid, with its own combat rules on it. | Today inside game/rules/battle.lua with 5e's combat; split out in step 3 |
+| **Clocks and tokens** | Countdowns (Noke's men), progress clocks, tokens handed to a player (inspiration's chip, a hold). | game/model/adventure.lua's clocks; the tokens on the tiles |
+
+A rule set picks from the kit: its dice ("1d20" for 5e's checks, "2d6" for a moves set, "1d100" for d100), whether
+its fights are on the grid, and its square size. The words "d20", "grid" or "roll" are the kit's, not a system's:
+shared text says the dice the roll used ("You roll the d20 behind your screen" comes from the roll, never fixed).
+
 ## No leaks: the first rule
 
 Conner, November 6: "It's critical that systems never leak into another system." Not a check at the end: every step
@@ -15,9 +31,10 @@ below builds to it, and the build fails when it's broken.
 
 1. **Nothing defaults.** An adventure names its rule set (`rules`), and the game won't run one that doesn't
    (game/model/ruleset.lua). There is no "5e unless it says otherwise".
-2. **A system owns its things, and only it reaches them.** Its engine, its data and its words live with the set
+2. **A system owns its rules, and only it reaches them.** Its rules, its data and its words live with the set
    (game/rules/sets/<id>, and 5e's engine in game/rules/). The shared game (game/model, game/ui) never requires a
-   system's engine: it asks the current set, through ruleset.current().
+   system's rules: it asks the current set, through ruleset.current(). The toolkits (dice, maps, grids, clocks)
+   are everyone's, and any set or shared module uses them directly.
 3. **Shared content is neutral or tagged.** A thought, bark, rest scene, ruling, glossary entry, DM's bag item or
    keepsake either says nothing about any system's rules, or carries `rules = "<id>"` and only ever shows in that
    set's adventures. A tagged thing in another set's adventure is a validation error, not a quiet skip.
@@ -27,9 +44,10 @@ below builds to it, and the build fails when it's broken.
    carry works as it does now.)
 5. **Saves know their set.** A save records its rule set, and loading it into an adventure of another set is refused.
 6. **Fences, in the gate:**
-   - *Word fence:* each set lists its own words (5e: DC, Advantage, natural 20, spell slot, hit points, saving throw,
-     Heroic Inspiration, d20...). Every seeded playthrough of every other set's adventure fails on any of them, the
-     way museum words are kept out of the Sheep Chase.
+   - *Word fence:* each set lists its own words (`owns`; 5e: DC, Advantage, natural 20, spell slot, hit points,
+     saving throw, Heroic Inspiration...). Every seeded playthrough of another set's adventure fails on any word
+     that set doesn't own too, the way museum words are kept out of the Sheep Chase. Two sets that both roll d20s
+     both say "d20": the dice are the kit's.
    - *Require fence:* a shared module that requires a system's engine directly fails the build.
    - *Data fence:* validation fails on content tagged for a set other than the adventure's, and on an adventure
      without a `rules` field.
@@ -37,9 +55,11 @@ below builds to it, and the build fails when it's broken.
 
 ## Step 1: where 5e lives today
 
-**game/rules/ (9,300 lines): already a 5e engine, and it stays one.** The SRD 5.2.1 battle on a 5-foot grid
-(battle.lua), the foes' tactics (ai.lua), spells, skills, dice, monsters, rests, encounters, and each adventure's own
-monster rules (museum.lua, sheep.lua). Pure Lua, no Defold. This becomes the 5e rule set's engine more or less as it is.
+**game/rules/ (9,300 lines): already a 5e engine, with the table's toolkits mixed in.** The SRD 5.2.1 battle on a
+5-foot grid (battle.lua), the foes' tactics (ai.lua), spells, skills, dice, monsters, rests, encounters, and each
+adventure's own monster rules (museum.lua, sheep.lua). Pure Lua, no Defold. It becomes the 5e rule set's engine more
+or less as it is, once the toolkits come out of it: the dice (dice.lua was already general; game/kit/dice.lua is the
+shared one now) and the grid (positions, movement, sight, doors and reach, inside battle.lua with 5e's attacks).
 
 **The leaks: 5e in the shared layer.** These are what the seam moves behind the rule set.
 
@@ -68,7 +88,8 @@ layer only ever asks it these things.
 | `check(rng, {mod, dc, edge})` | The roll and its **tier**: triumph, success, near, flop. Plus the dice to show and the line to log. | d20 + mod vs DC; a natural 20 or 5 over is a triumph, a natural 1 or 5 under a flop, a smaller miss near | 2d6 + stat; 12+ triumph, 10+ success, 7-9 near (the "yes, but"), 6- flop |
 | `approaches` | What a hero can try, and which hero is best at it | the 18 skills | a handful of moves or stats |
 | `who_rolls` | Whether the DM rolls (and can hide it behind the screen) or the players do | DM, open or hidden | players, always in the open |
-| `fight` | "tactical" (the grid, game/rules/battle) or "narrative" (a fight is a run of checks, harm and a clock) | tactical | narrative |
+| `dice` | The dice its rolls use, from the kit | "1d20" (Advantage "2d20kh1") | "2d6" |
+| `fight` | On the grid (the shared grid, with the set's own combat rules) or told as story (a run of checks, harm and a clock). Any set can have either, or both. | on the grid, SRD 5.2.1 combat | told as story, or on the grid |
 | `sheet` | What a hero's sheet holds and shows | class, abilities, skills, HP, AC, slots | stats, moves, harm, a playbook |
 | `harm` | What going down is | HP, death saves | harm boxes, a last breath |
 | `grow` | How heroes advance | levels, XP | advances, milestones |
@@ -84,12 +105,15 @@ reactions do too, so every bark, thought and rest beat works in any set.
 1. **Map it.** This page.
 2. **The contract.** The table above, agreed.
 3. **The seam, with 5e only.** Adventures name `rules = "5e"`; the nine check sites call the set's `check`; fights,
-   sheets, growth and harm go through the set; the dice tray asks the set what to show. Everything 5e in the shared
+   sheets, growth and harm go through the set; the dice tray shows the dice the roll used. The toolkits come out
+   of game/rules into game/kit: the dice (done), then the grid out of battle.lua, so another set's fight can stand on
+   it with its own rules. Everything 5e in the shared
    layer is either moved behind the set or tagged `rules = "5e"`, and the require, data and hand-off fences go in now
    (they pass with one set; they're there before the second arrives). *Done when:* seeded playthroughs of the
    museum, the Sheep Chase and the carry come out word for word the same before and after, and the gate passes.
-4. **Narrative fights.** A fight without the grid: checks, harm, a clock, the foes' moves as the DM's. Built in the
-   shared layer so any non-grid set can use it. *Done when:* a 5e test scene can run its fight either way.
+4. **Fights both ways.** Told as story: checks, harm, a clock, the foes' moves as the DM's. On the grid: the shared
+   grid with a set's own combat rules (5e's is the first). Both in the shared layer, so any set can have either.
+   *Done when:* a 5e test scene can run its fight either way, and a test set fights on the grid with rules of its own.
 5. **The second set and a one-shot.** A 2d6 "moves" set (our own words, built on the open 10+ / 7-9 / 6- structure)
    and a short original adventure in it, ideally written through the upload pipeline. *Done when:* it plays start to
    end in the sims and the engine, with its own checks in the gate.

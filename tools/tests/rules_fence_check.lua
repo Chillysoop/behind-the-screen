@@ -1,12 +1,15 @@
 -- No leaks between rule sets (docs/design/rule-sets.md, "No leaks: the first rule"; Conner, November 6: "It's critical
 -- that systems never leak into another system"). The fences that can stand now, with one set:
 --   RULES    every adventure names a rule set the game has; none goes without (nothing defaults to 5e).
---   DICE     no shared module rolls a system's die itself: rolls come from the rule set (its `die`, `check`).
+--   ROLLS    no shared module rolls a check's die itself: the rule set picks the dice (from the table's own,
+--            game/kit/dice.lua, which any set may use: d20s, d6s, pools, Fate dice).
 --   REQUIRE  the shared game (game/model, game/ui) reaches a system's engine (game/rules) only through
 --            game/model/ruleset.lua. The ones still to move are listed in rules_fence_known.lua: a new one fails, and so
 --            does a listed one that's gone (so the list only shrinks, and stays true).
---   WORDS    5e's own words (DC, Advantage, natural 20, hit points...) in the shared layer's code and data, per file:
---            no file may gain any (the known counts are in rules_fence_known.lua, and they only go down).
+--   WORDS    a rule set's own words (5e's: DC, Advantage, hit points... its `owns`) and fixed dice ("the d20") in the
+--            shared layer's code and data, per file: no file may gain any (the known counts are in
+--            rules_fence_known.lua, and they only go down). Dice and grids are the table's, not a system's: shared text
+--            names the dice the roll used, never a fixed one.
 --     lua tools/tests/rules_fence_check.lua
 
 package.path = "./?.lua;./tools/tests/?.lua;" .. package.path
@@ -77,13 +80,17 @@ for _, glob in ipairs({ "game/model/*.lua", "game/ui/*.lua", "game/data/*.lua", 
         table.insert(shared, f)
     end
 end
-local WORDS = {      -- 5e's own words (game/rules/sets/dnd5e.lua is the only shared door to them)
-    "%f[%w]d20s?%f[%W]", "%f[%w]DCs?%f[%W]", "%f[%w]Advantage%f[%W]", "%f[%w]Disadvantage%f[%W]", "natural 20", "natural 1%f[%D]",
-    "spell slot", "hit points", "%f[%w]HP%f[%W]", "%f[%w]AC%f[%W]", "Armor Class", "saving throw", "death save",
-    "Heroic Inspiration", "Proficiency", "cantrip", "short rest", "long rest", "%f[%w]Insight%f[%W]", "%f[%w]Arcana%f[%W]",
-    "%f[%w]Perception%f[%W]", "%f[%w]Investigation%f[%W]", "%f[%w]Persuasion%f[%W]", "%f[%w]Stealth%f[%W]",
-    "%f[%w]Athletics%f[%W]", "%f[%w]Concentration%f[%W]", "%f[%w]Bless%f[%W]", "Cure Wounds", "Healing Word", "Detect Magic",
-}
+-- Every set's own words, and the dice shared text mustn't fix: what a roll used comes from the roll.
+local FIXED_DICE = { "%f[%w]d20s?%f[%W]", "%f[%w]d6s?%f[%W]", "%f[%w]2d6%f[%W]", "%f[%w]d100%f[%W]" }
+local WORDS = {}
+for _, w in ipairs(FIXED_DICE) do
+    table.insert(WORDS, w)
+end
+for _, set in pairs(ruleset.SETS) do
+    for _, w in ipairs(set.owns or {}) do
+        table.insert(WORDS, w)
+    end
+end
 local leaks, counts, seen_known = {}, {}, {}
 for _, path in ipairs(shared) do
     local s = read(path)
@@ -91,7 +98,7 @@ for _, path in ipairs(shared) do
     local n = 0
     for _, line in ipairs(lines) do
         if path ~= "game/model/rng.lua" and string.find(line, ":d20%(") then
-            fail("DICE " .. path .. " rolls a d20 itself: " .. line:gsub("^%s+", ""))
+            fail("ROLLS " .. path .. " rolls a d20 itself (the rule set picks the dice): " .. line:gsub("^%s+", ""))
         end
         for _, w in ipairs(WORDS) do
             if string.find(line, w) then
@@ -128,8 +135,8 @@ for path, n in pairs(counts) do
     local k = known.WORDS[path] or 0
     was = was + math.min(n, k)
     if n > k then
-        fail("WORDS " .. path .. " has " .. n .. " lines with 5e's words, " .. k .. " known: put them behind the rule set, "
-            .. "or tag the record rules = \"5e\" (and lower the count once the fence can read tags)")
+        fail("WORDS " .. path .. " has " .. n .. " lines with a rule set's own words or a fixed die, " .. k .. " known: "
+            .. "put them behind the rule set, say the roll's own dice, or tag the record rules = \"<set>\"")
     end
 end
 for path, k in pairs(known.WORDS) do
@@ -177,6 +184,6 @@ local nreq = 0
 for _ in pairs(known.REQUIRES) do
     nreq = nreq + 1
 end
-print(string.format("rules fence: %s (%d adventures; %d direct reaches into the 5e engine still to move; %d shared lines with 5e words)",
+print(string.format("rules fence: %s (%d adventures; %d direct reaches into the 5e engine still to move; %d shared lines with a set's own words or a fixed die)",
     #fails == 0 and "all clear" or (#fails .. " failures"), n_adv, nreq, total))
 os.exit(#fails == 0 and 0 or 1)
