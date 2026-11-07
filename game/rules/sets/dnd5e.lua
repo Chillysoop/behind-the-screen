@@ -26,6 +26,11 @@ function M.signed(n)
     return skills.signed(n)
 end
 
+-- One die of the set's, off `rng` (game/model/rng.lua or game/rules/dice.lua: both roll a d20).
+function M.die(rng)
+    return rng:d20()
+end
+
 -- The die: one d20, or two and the better with Advantage ("adv"). The order the dice come off `rng` is part of the
 -- result: a seeded playthrough is the same playthrough.
 function M.roll(rng, edge)
@@ -40,14 +45,35 @@ function M.roll(rng, edge)
     return roll, other
 end
 
--- How it came out. A check succeeds on total >= DC; a natural 20 that succeeds is a great one, a natural 1 that
--- misses is a botch.
-function M.tier(roll, total, dc)
-    local success = total >= dc
-    if success then
-        return roll == 20 and "great" or "full", success
+-- How it came out, in the tiers the shared game reads (the DM's rulings, game/data/rulings.lua): triumph, success,
+-- near, flop. A natural 20 or beating the DC by 5 is a triumph; a natural 1 or missing by 5 is a flop; a miss by
+-- less is near, where a "yes, but" lives. (The DM's big rolls, game/model/night.lua's roll card.)
+function M.tier(total, dc, natural)
+    if natural == 20 or total >= dc + 5 then
+        return "triumph"
+    elseif total >= dc then
+        return "success"
+    elseif natural == 1 or total <= dc - 5 then
+        return "flop"
     end
-    return roll == 1 and "botch" or "miss", success
+    return "near"
+end
+
+-- What a DC means for this roller, in words a newcomer can weigh: the number they need on the d20 and how often that
+-- comes up. (A natural 20 always makes it: M.tier.)
+function M.odds_line(dc, mod)
+    local need = dc - (mod or 0)
+    if need <= 2 then
+        return "They make it on almost any roll."
+    elseif need >= 20 then
+        return "Only a natural 20 makes it (1 in 20)."
+    end
+    local chance = (21 - need) / 20
+    -- (40% isn't "a coin flip": the card-led playtest, October 16.)
+    local word = (chance >= 0.85 and "very likely") or (chance >= 0.6 and "likely") or (chance >= 0.45 and "a coin flip")
+        or (chance >= 0.3 and "less likely than not") or (chance >= 0.15 and "unlikely") or "a long shot"
+    return "They need " .. string.format("%d", math.floor(need + 0.5)) .. " or more on the d20: about "
+        .. string.format("%d", math.floor(math.floor(chance * 100 + 0.5) + 0.5)) .. "%, " .. word .. "."
 end
 
 -- A check, whole: the die, the bonus, the tier, and the line for the log ("Pip: Stealth 14+7 = 21 vs DC 15,
@@ -56,9 +82,8 @@ function M.check(rng, opts)
     local roll, other = M.roll(rng, opts.edge)
     local mod = opts.mod or 0
     local total = roll + mod
-    local tier, success = M.tier(roll, total, opts.dc)
-    return { roll = roll, other = other, mod = mod, total = total, dc = opts.dc, success = success, tier = tier,
-             crit = roll == 20, fumble = roll == 1 }
+    return { roll = roll, other = other, mod = mod, total = total, dc = opts.dc, success = total >= opts.dc,
+             tier = M.tier(total, opts.dc, roll), crit = roll == 20, fumble = roll == 1 }
 end
 
 -- The result's word for the log: "natural 20" and "natural 1" whatever the total, as the table says them.

@@ -258,6 +258,9 @@ least:
     lua tools/tests/sheep_rules_check.lua # the Sheep Chase's own rules: Noke's spells in the yard, his guards, the bed dragon and its rider
     lua tools/tests/sheep_inn_check.lua   # the inn's upstairs and cellar: the fork, Sir Luenn's ring each way, the rats, Teddy's
                                           # bottle, the road out leaving them behind, the drover for a party from the museum
+    lua tools/tests/rules_fence_check.lua # no leaks between rule sets: every adventure names its set, no shared module rolls a
+                                          # d20 itself or reaches the 5e engine except through game/model/ruleset.lua, and no
+                                          # shared file gains 5e words (the list still to move, rules_fence_known.lua, only shrinks)
     lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
                                           # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

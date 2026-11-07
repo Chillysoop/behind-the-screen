@@ -13,7 +13,8 @@
 
 local util = require "game.model.util"
 local score = require "game.model.score"
-local skills = require "game.rules.skills"
+-- (A roll's die, numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
 local able = require "game.model.able"
 
 local M = {}
@@ -238,11 +239,11 @@ local function tiny_roll(night, p, skill)
         bonus = e.helps.bonus or 0
     end
     bonus = bonus + night:take_learned(p)      -- (a miss they learned from: C25)
-    local d = night.rng:d20()
+    local d = ruleset.current().die(night.rng)
     local total = d + (mod or 0) + bonus
     night.tl_roller = p.key           -- (whose little die rolled last: the friends' ideas give someone else a turn)
     night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = (mod or 0) + bonus, total = total,
-                 skill = skills.name(name or skill or "perception") })
+                 skill = ruleset.current().name(name or skill or "perception") })
     return d, total, e and bonus > 0 and e or nil
 end
 

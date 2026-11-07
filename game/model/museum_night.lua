@@ -4,6 +4,8 @@
 -- Engine-free; it drives game/model/night.lua's methods (the night is passed in, never required).
 
 local content = require "game.model.content"
+-- (A roll's die, numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
 local util = require "game.model.util"
 local score = require "game.model.score"
 local rapport = require "game.model.rapport"
@@ -413,7 +415,6 @@ local FLAG_OPT = { paint = "paint", deaf = "earplugs" }
 M.RITUAL_TRIES = 7         -- (a round of the guardian's patience each: about half the time, enough lines come clear)
 function M.ritual_read(night, sc)
     local secrets = require "game.model.secrets"
-    local skills = require "game.rules.skills"
     local c = night.campaign
     local d = secrets.def("ritual")
     -- (The notebook goes to whoever reads old writing best: the table hands it over, as players would. The third
@@ -451,9 +452,9 @@ function M.ritual_read(night, sc)
             break
         end
         local name, mod = night:best_skill(reader, { "history" })
-        local dd = night.rng:d20()
+        local dd = ruleset.current().die(night.rng)
         local total = dd + (mod or 0)
-        night:emit({ kind = "tiny_roll", who = reader.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "history"), what = "ritual" })
+        night:emit({ kind = "tiny_roll", who = reader.key, roll = dd, mod = mod or 0, total = total, skill = ruleset.current().name(name or "history"), what = "ritual" })
         if total >= 12 then
             -- (One random line a success, as the book has it; a great one, two.)
             for _ = 1, (total >= 17 and 2 or 1) do
@@ -1656,13 +1657,12 @@ end
 -- follow it. Returns the total.
 M.FIND_DC = 12
 local function poke_roll(night, p)
-    local skills = require "game.rules.skills"
     local name, mod = night:best_skill(p, { "investigation" })
     mod = (mod or 0) + night:take_learned(p)
-    local d = night:side_dice():d20()
+    local d = ruleset.current().die(night:side_dice())
     local total = d + mod
     -- (`what`: a roll a card is about, not one of table life's small moments, which wait out 4x.)
-    night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "investigation"), what = "find" })
+    night:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = ruleset.current().name(name or "investigation"), what = "find" })
     return total, d
 end
 
@@ -5948,7 +5948,6 @@ function M.lair_questions(night, sc)
         return
     end
     local secrets = require "game.model.secrets"
-    local skills = require "game.rules.skills"
     local c = night.campaign
     local asked, last = 0, nil
     for _, q in ipairs(qs) do
@@ -5982,9 +5981,9 @@ function M.lair_questions(night, sc)
                     if watcher ~= p then
                         night:say(util.fill(M.LAIR_WATCH[night.rng:int(1, #M.LAIR_WATCH)], { char = watcher.char }), "narration")
                     end
-                    local dd = night.rng:d20()
+                    local dd = ruleset.current().die(night.rng)
                     local total = dd + (mod or 0)
-                    night:emit({ kind = "tiny_roll", who = watcher.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or "insight"), what = "read" })
+                    night:emit({ kind = "tiny_roll", who = watcher.key, roll = dd, mod = mod or 0, total = total, skill = ruleset.current().name(name or "insight"), what = "read" })
                     local level = (total >= (q.read.known or 99) and "known") or (total >= (q.read.hint or 13) and "hint") or nil
                     if level and (secrets.RANK[level] or 0) > (secrets.RANK[secrets.level(c, q.read.key)] or 0) then
                         local line = level == "known" and q.read.tell or q.read.hint_says

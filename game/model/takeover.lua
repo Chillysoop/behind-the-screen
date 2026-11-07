@@ -7,7 +7,8 @@
 
 local score = require "game.model.score"
 local util = require "game.model.util"
-local skills = require "game.rules.skills"
+-- (A roll's die, numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
 local data = require "game.data.takeover"
 
 local M = {}
@@ -217,12 +218,12 @@ local function insight(night, sc, cast)
     local p = night:pick_roller({ "insight" }, sc) or night.actor
     local mod = night:mod_for(p, "insight")
     local dc = data.LIE_DC + (cast.villain and 2 or 0) + util.clamp((sc.difficulty or 2) - 2, -1, 2)
-    local roll = night.rng:d20()
+    local roll = ruleset.current().die(night.rng)
     local total = roll + mod
     local ok = total >= dc
-    local name = skills.name("insight")
-    night:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = "
-                     .. util.int(total) .. " vs DC " .. util.int(dc) .. ", " .. (ok and "sees through it" or "believes it"),
+    local name = ruleset.current().name("insight")
+    night:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. ruleset.current().signed(mod) .. " = "
+                     .. util.int(total) .. " vs " .. ruleset.current().difficulty_word .. " " .. util.int(dc) .. ", " .. (ok and "sees through it" or "believes it"),
                  roll = roll, bonus = mod, total = total, dc = dc, success = ok, actor = p.key, char = p.char,
                  skill = "insight", skill_name = name, crit = roll == 20, fumble = roll == 1 })
     return ok, p

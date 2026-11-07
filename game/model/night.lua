@@ -55,7 +55,11 @@ local BARKS = require "game.data.barks"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
-local skills = require "game.rules.skills"
+-- (A check's numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
+local function rules()
+    return ruleset.current()
+end
 
 local M = {}
 M.__index = M
@@ -664,7 +668,7 @@ function M:take_research(p, skill)
     end
     self.research = self.research - 1
     self:say(self:fresh(M.RESEARCH_LINES, "research_line"), "aside",
-        { char = p.char, skill = skill and skills.name(skill) or "next" })
+        { char = p.char, skill = skill and rules().name(skill) or "next" })
     return 2
 end
 
@@ -672,7 +676,7 @@ function M:mod_for(p, skill)
     local c = self.campaign
     local sub = c.subclasses and c.subclasses[p.class]
     -- Magic items: the Luckstone, the Gloves when there's climbing or swimming (A13).
-    return skills.mod(p.class, skill, c.level or 2, sub)
+    return rules().mod(p.class, skill, c.level or 2, sub)
         + require("game.model.items").check_bonus(c, p.key, skill, self.scene and self.scene.comps.location)
 end
 
@@ -2106,10 +2110,10 @@ function M:hero_action(sc, dc, spots)
     -- An item's Advantage (Boots of Elvenkind, Eyes of the Eagle, A13): a second die, the better counts.
     local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill, a.topic)
     local edge = iedge and "adv" or nil
-    local roll = self.rng:d20()
+    local roll = rules().die(self.rng)
     local other_roll
     if edge then
-        other_roll = self.rng:d20()
+        other_roll = rules().die(self.rng)
         if other_roll > roll then
             roll, other_roll = other_roll, roll
         end
@@ -2123,7 +2127,7 @@ function M:hero_action(sc, dc, spots)
     -- (Heroic Inspiration on a near miss that's worth it: Conner's playtest, C15, the friends sat on
     -- the token. M.spends_inspiration says when a player would.)
     if not (total >= dc) and M.spends_inspiration(p, roll, mod, dc, "check") then
-        local new = self.rng:d20()
+        local new = rules().die(self.rng)
         p.heroic = nil
         self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
         self:say(util.fill("{char} spends Heroic Inspiration: the " .. util.int(roll) .. " becomes a " .. util.int(new) .. ".", { char = p.char }), "dice")
@@ -2133,7 +2137,7 @@ function M:hero_action(sc, dc, spots)
         total = roll + mod
     end
     local success = total >= dc
-    local name = skills.name(a.skill)
+    local name = rules().name(a.skill)
     local result
     if roll == 20 then
         result = "natural 20"
@@ -2142,8 +2146,8 @@ function M:hero_action(sc, dc, spots)
     else
         result = success and "success" or "miss"
     end
-    local text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = " .. util.int(total)
-        .. " vs DC " .. util.int(dc) .. ", " .. result
+    local text = p.char .. ": " .. name .. " " .. util.int(roll) .. rules().signed(mod) .. " = " .. util.int(total)
+        .. " vs " .. rules().difficulty_word .. " " .. util.int(dc) .. ", " .. result
     if edge then
         text = text .. " (advantage: " .. item_edge .. "; the other die was " .. util.int(other_roll) .. ")"
     end
@@ -2597,13 +2601,13 @@ function M:stunt(sc)
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(st.say, vars)), ic = true })
     local mod = self:mod_for(p, st.skill) + self:take_learned(p)
     local dc = 12 + util.clamp((sc.difficulty or 2) - 2, -1, 2)
-    local roll = self.rng:d20()
+    local roll = rules().die(self.rng)
     local total = roll + mod
     local success = total >= dc
-    local name = skills.name(st.skill)
+    local name = rules().name(st.skill)
     local result = roll == 20 and "natural 20" or (roll == 1 and "natural 1" or (success and "success" or "miss"))
-    self:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. skills.signed(mod) .. " = "
-                    .. util.int(total) .. " vs DC " .. util.int(dc) .. ", " .. result,
+    self:emit({ kind = "check", text = p.char .. ": " .. name .. " " .. util.int(roll) .. rules().signed(mod) .. " = "
+                    .. util.int(total) .. " vs " .. rules().difficulty_word .. " " .. util.int(dc) .. ", " .. result,
                 roll = roll, bonus = mod, total = total, dc = dc, success = success, actor = p.key, char = p.char,
                 skill = st.skill, skill_name = name, crit = roll == 20, fumble = roll == 1 })
     self:say(util.capitalize(util.fill(success and st.win or st.lose, vars)), success and "good" or "bad")
@@ -3022,34 +3026,12 @@ end
 
 -- Big rolls and rulings -----------------------------------------------------------------------
 
--- How a check landed: a natural 20 or beating the DC by 5 is a triumph, a natural 1 or
--- missing by 5 a flop.
+-- How a roll came out (triumph, success, near, flop) and what a DC means in words: the rule set's (game/rules/sets).
 local function tier_of(total, dc, natural)
-    if natural == 20 or total >= dc + 5 then
-        return "triumph"
-    elseif total >= dc then
-        return "success"
-    elseif natural == 1 or total <= dc - 5 then
-        return "flop"
-    end
-    return "near"
+    return rules().tier(total, dc, natural)
 end
-
--- What a DC means for this roller, in words a newcomer can weigh: the number they need on the
--- d20 and how often that comes up. (A natural 20 always makes it: tier_of.)
 function M.odds_line(dc, mod)
-    local need = dc - (mod or 0)
-    if need <= 2 then
-        return "They make it on almost any roll."
-    elseif need >= 20 then
-        return "Only a natural 20 makes it (1 in 20)."
-    end
-    local chance = (21 - need) / 20
-    -- (40% isn't "a coin flip": the card-led playtest, October 16.)
-    local word = (chance >= 0.85 and "very likely") or (chance >= 0.6 and "likely") or (chance >= 0.45 and "a coin flip")
-        or (chance >= 0.3 and "less likely than not") or (chance >= 0.15 and "unlikely") or "a long shot"
-    return "They need " .. util.int(need) .. " or more on the d20: about " .. util.int(math.floor(chance * 100 + 0.5))
-        .. "%, " .. word .. "."
+    return rules().odds_line(dc, mod)
 end
 
 -- What the table agreed about your screen at Session Zero, said on the card where it matters
@@ -3097,13 +3079,13 @@ function M:big_roll(spec, record)
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
     local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.DC_SHIFT)
     local by = spec.secret and "dm" or "player"
-    local name = skills.name(skill)
+    local name = rules().name(skill)
     local text
     if by == "player" then
-        text = util.fill("{actor_char} rolls " .. name .. " (" .. skills.signed(mod) .. "). You'd set the DC at {dc}.",
+        text = util.fill("{actor_char} rolls " .. name .. " (" .. rules().signed(mod) .. "). You'd set the DC at {dc}.",
             self:vars({ dc = util.int(dc) }))
     else
-        text = util.fill("A secret " .. name .. " check for {actor_char} (" .. skills.signed(mod) .. "), DC {dc}. You roll it for them.",
+        text = util.fill("A secret " .. name .. " check for {actor_char} (" .. rules().signed(mod) .. "), DC {dc}. You roll it for them.",
             self:vars({ dc = util.int(dc) }))
     end
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
@@ -3180,12 +3162,12 @@ function M:big_roll(spec, record)
     end
     local value = self:emit({ kind = "roll", where = where, dc = dc, actor = p and p.key, by = by,
                               skill_name = name, mod = mod })
-    value = util.clamp(math.floor(tonumber(value) or self.rng:d20()), 1, 20)
+    value = util.clamp(math.floor(tonumber(value) or rules().die(self.rng)), 1, rules().dice.sides)
     -- Advantage from an item the hero carries (A13): a second die, the better one counts.
     if p then
         local iedge, iname = require("game.model.items").check_edge(self.campaign, p.key, skill)
         if iedge then
-            local second = self.rng:d20()
+            local second = rules().die(self.rng)
             if second > value then
                 self:say(util.fill("{actor_char} rolls again with Advantage (" .. iname .. "): " .. util.int(second)
                     .. " beats " .. util.int(value) .. ".", self:vars()), "aside")
@@ -3196,7 +3178,7 @@ function M:big_roll(spec, record)
     -- Heroic Inspiration (B4): a player holding the token rerolls a miss worth rerolling (a natural 1, or
     -- one a new die could turn: not a hopeless one) and keeps the new roll.
     if p and by == "player" and value + mod < dc and M.spends_inspiration(p, value, mod, dc, "big") then
-        local new = self.rng:d20()
+        local new = rules().die(self.rng)
         p.heroic = nil
         self:emit({ kind = "say", who = p.key, text = self:fresh(M.INSPIRE_SAY, "inspire_say"), ic = false })
         self:say(util.fill("{actor_char} spends Heroic Inspiration: the " .. util.int(value) .. " becomes a " .. util.int(new)
@@ -3351,7 +3333,7 @@ function M:big_roll(spec, record)
         self:event("cooked", { who = p and p.key or "party", text = "You cooked " .. ((p and by == "player") and (p.char .. "'s ") or "a ")
             .. name .. " roll behind the screen." })
         local convenient = (success and spec.convenient == "success") or (not success and spec.convenient == "fail")
-        self:add_cook_suspicion(convenient, skill and (skills.name(skill) .. " roll") or "roll", by == "player" and value or nil)
+        self:add_cook_suspicion(convenient, skill and (rules().name(skill) .. " roll") or "roll", by == "player" and value or nil)
     end
     -- A third lucky break in a row looks convenient even when it's honest.
     if success and where == "hidden" then
@@ -3691,7 +3673,7 @@ function M:decision(card, extra)
     for i, o in ipairs(card.options) do
         local keeps = (rul == "book" and (o.leans == "book" or o.leans == "strict")) or (rul == "cool" and o.leans == "cool")
         view.options[i] = { label = util.sentence_case(util.fill(o.label, vars)), roll = o.roll ~= nil, cooked = o.cooked,
-                            skill = o.roll and o.roll.skill and skills.name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
+                            skill = o.roll and o.roll.skill and rules().name(select(1, self:best_skill(self.actor or self.players[1], o.roll.skill))),
                             leans = self:leans(o.preview or o.effects), promise = keeps or nil,
                             sub = (o.kb == "actor" and kb_note) or o.sub, sub_tone = o.sub_tone,
                             disabled = o.disabled, cost = o.cost }
@@ -4587,16 +4569,15 @@ function M:split_off(sc)
         end
     end
     -- The cut to each of them, alone: a small roll in the open.
-    local skills = require "game.rules.skills"
     for _, p in ipairs(self.players) do
         if split.away[p.key] then
             local vars = { char = p.char, place = split.at[p.key] }
             self:say(util.fill(self:fresh(M.SPLIT_CUT, "split_cut"), vars), "narration")
             local name, mod = self:best_skill(p, { "perception", "investigation" })
             mod = (mod or 0) + self:take_learned(p)
-            local d = self:side_dice():d20()
+            local d = rules().die(self:side_dice())
             local total = d + mod
-            self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = skills.name(name or "perception"), what = "split" })
+            self:emit({ kind = "tiny_roll", who = p.key, roll = d, mod = mod, total = total, skill = rules().name(name or "perception"), what = "split" })
             -- (A secret at that place, found alone: that hero knows it, the others don't until they're told.
             -- game/model/secrets.lua.)
             local found = total >= 13 and self:split_find(p, sc, split.place_id and split.place_id[p.key], total)

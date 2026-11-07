@@ -23,7 +23,8 @@ local util = require "game.model.util"
 local score = require "game.model.score"
 local events = require "game.model.events"
 local people = require "game.model.people"
-local skills = require "game.rules.skills"
+-- (A roll's die, numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
 
 local M = {}
 
@@ -229,11 +230,11 @@ end
 local function tiny(night, p, skill, what)
     local name, mod = night:best_skill(p, { skill or "perception" })
     mod = (mod or 0) + night:take_learned(p)      -- (a miss they learned from: C25)
-    local dd = night.rng:d20()
+    local dd = ruleset.current().die(night.rng)
     local total = dd + (mod or 0)
     night.tl_roller = p.key
     -- (what: a roll with a purpose, digging for a secret, not a small moment.)
-    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = skills.name(name or skill or "perception"), what = what })
+    night:emit({ kind = "tiny_roll", who = p.key, roll = dd, mod = mod or 0, total = total, skill = ruleset.current().name(name or skill or "perception"), what = what })
     return dd, total
 end
 
@@ -752,7 +753,6 @@ end
 -- The card the DM rules on: roll the path's check, give it, give a hint, or hold it back tonight.
 local function find_card(night, idea, vars, lines)
     local secrets = require "game.model.secrets"
-    local skills_mod = require "game.rules.skills"
     local p, path, way = idea.p, idea.path, idea.way
     local d = secrets.def(idea.key) or {}
     local gives = idea.gives == "part" and "hint" or idea.gives
@@ -760,7 +760,7 @@ local function find_card(night, idea, vars, lines)
     local notes = {}
     for _, q in ipairs(secrets.paths(idea.key, night.campaign)) do
         if q.book and q.skill and q.dc then
-            table.insert(notes, skills_mod.name(q.skill[1]) .. " " .. q.dc)
+            table.insert(notes, ruleset.current().name(q.skill[1]) .. " " .. q.dc)
         end
     end
     local improvised = path.improvised or path.default
@@ -778,7 +778,7 @@ local function find_card(night, idea, vars, lines)
     local options = {}
     if #(idea.skills or {}) > 0 then
         local dc = path.dc or way.dc or 13
-        table.insert(options, { label = "Roll for it: " .. skills_mod.name(idea.skills[1]) .. ", DC " .. dc .. (path.book and " (the book's)" or "") .. ".",
+        table.insert(options, { label = "Roll for it: " .. ruleset.current().name(idea.skills[1]) .. ", " .. ruleset.current().difficulty_word .. " " .. dc .. (path.book and " (the book's)" or "") .. ".",
                                 sub = gives == "known" and "Make it, and they have it." or "Make it, and they get a hint.",
                                 roll = { dc = dc, true_dc = true, skill = idea.skills, convenient = "success", adv = way.adv,
                                          success = { log = lines.win, tells = tells, tells_how = path.kind }, fail = { log = lines.miss } },
