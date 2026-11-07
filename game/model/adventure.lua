@@ -511,6 +511,15 @@ function M.handoff(campaign, to, opts)
     assert(adventures.list[to], "no adventure called " .. tostring(to))
     local events = require "game.model.events"
     local from, old = campaign.module or CURRENT, MODULE
+    -- (Carrying on into another rule set's adventure carries the table, never the system: no items, sheets, levels
+    -- or spells across. That carry isn't built yet, so it's refused rather than letting 5e's things through:
+    -- docs/design/rule-sets.md, no leaks, rule 4.)
+    local to_rules = adventures.part(to, "module").rules
+    if to_rules ~= old.rules then
+        error("can't carry on from " .. tostring(old.title) .. " (" .. tostring(old.rules) .. ") into " .. tostring(to)
+            .. " (" .. tostring(to_rules) .. "): a hand-off between rule sets carries the table, not the system, "
+            .. "and isn't built yet", 2)
+    end
     local adv = campaign.adv or {}
     -- How it ended: the ending it recorded, or the first whose condition holds.
     local ending = adv.ending

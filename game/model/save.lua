@@ -224,6 +224,11 @@ function M.dump(campaign, meta)
     if type(campaign.module) == "string" and string.match(campaign.module, "^[%w_]+$") then
         head = head .. "A=" .. campaign.module .. "\n"
     end
+    -- (And its rule set, so a save never loads into an adventure of another: docs/design/rule-sets.md, no leaks.)
+    local okr, set = pcall(require("game.model.util").lazy("game.model.ruleset").current)
+    if okr and set and string.match(tostring(set.id), "^[%w_]+$") then
+        head = head .. "R=" .. set.id .. "\n"
+    end
     return head .. table.concat(out, "\n") .. "\n"
 end
 
@@ -310,7 +315,8 @@ function M.peek(src)
     return { format = f, week = w, seed = s, survey_done = string.match(src, "\nQ=1") ~= nil,
              at_night = string.match(src, "\nN=1") ~= nil, at_prep = string.match(src, "\nP=1") ~= nil,
              time = tonumber(string.match(head, "\nD=(%d+)")), where = string.match(head, "\nL=([^\n]*)"),
-             done = string.match(head, "\nX=1") ~= nil, adventure = string.match(head, "\nA=([%w_]+)") }
+             done = string.match(head, "\nX=1") ~= nil, adventure = string.match(head, "\nA=([%w_]+)"),
+             rules = string.match(head, "\nR=([%w_]+)") }
 end
 
 -- string -> campaign, or nil and why.
@@ -329,6 +335,13 @@ function M.load(src)
     if require("game.data.adventures").list[want] and adv.current() ~= want then
         adv.use(want)
         adv.enter()
+    end
+    -- (Saved under one rule set, never loaded under another. A save from before sets has no R=.)
+    if head.rules then
+        local okr, set = pcall(require("game.model.util").lazy("game.model.ruleset").current)
+        if not okr or not set or set.id ~= head.rules then
+            return nil, "saved under another rule set (" .. head.rules .. ")"
+        end
     end
     local env, err = compile(src)
     if not env then

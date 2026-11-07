@@ -73,6 +73,50 @@ do
     end
 end
 
+-- SAVES and HAND-OFFS: a save names its rule set and won't load under another; carrying on into another set's
+-- adventure is refused (the table carries, the system doesn't, and that carry isn't built yet) -------------------
+do
+    local adventure = require "game.model.adventure"
+    local save = require "game.model.save"
+    local campaign_mod = require "game.model.campaign"
+    adventure.use("museum")
+    local c = campaign_mod.new(3)
+    adventure.enter(c)
+    local text = save.dump(c, { where = "fence" })
+    local head = save.peek(text)
+    if not (head and head.rules == "5e") then
+        fail("SAVES a save doesn't say its rule set (R=): " .. tostring(head and head.rules))
+    end
+    local other = string.gsub(text, "\nR=5e\n", "\nR=fence_test\n", 1)
+    local back, why = save.load(other)
+    if back or not string.find(tostring(why), "another rule set", 1, true) then
+        fail("SAVES a save made under another rule set loaded anyway (" .. tostring(why) .. ")")
+    end
+    if not save.load(text) then
+        fail("SAVES the same save under its own rule set didn't load")
+    end
+    -- A second set, for the test only, and the Sheep Chase pretending to be in it.
+    ruleset.SETS.fence_test = { id = "fence_test", title = "Fence test" }
+    local part = adventures.part
+    adventures.part = function(id, name)
+        local m = part(id, name)
+        if id == "sheep" and name == "module" then
+            local copy = setmetatable({ rules = "fence_test" }, { __index = m })
+            return copy
+        end
+        return m
+    end
+    adventure.use("museum")
+    c = campaign_mod.new(4)
+    adventure.enter(c)
+    local ok, err = pcall(adventure.handoff, c, "sheep")
+    if ok or not string.find(tostring(err), "carries the table, not the system", 1, true) then
+        fail("HANDOFF carrying on into another rule set's adventure wasn't refused (" .. tostring(err) .. ")")
+    end
+    adventures.part = part
+    ruleset.SETS.fence_test = nil
+end
+
 -- DICE, REQUIRE, WORDS -------------------------------------------------------------------------------------------
 local shared = {}
 for _, glob in ipairs({ "game/model/*.lua", "game/ui/*.lua", "game/data/*.lua", "game/data/dialogue/*.json" }) do
