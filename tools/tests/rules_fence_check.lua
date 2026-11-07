@@ -207,7 +207,7 @@ for _, path in ipairs(shared) do
         end
         -- (A set's own module named from the shared game: it goes through the rule set instead.)
         for name in string.gmatch(line, '"(game%.[%w_%.]+)"') do
-            if owned_by[name] then
+            if owned_by[name] and path ~= "game/ui/sets.lua" then     -- (the set's screens' own door)
                 leaks[path] = leaks[path] or {}
                 leaks[path]["owned " .. name] = true
             end

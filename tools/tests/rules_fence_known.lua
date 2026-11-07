@@ -26,7 +26,6 @@ M.WORDS = {
     ["game/ui/battle_hud.lua"] = 2,
     ["game/ui/levelup_view.lua"] = 1,
     ["game/ui/map_view.lua"] = 1,
-    ["game/ui/night_view.lua"] = 52,
     ["game/ui/npc_view.lua"] = 1,
     ["game/ui/panels.lua"] = 12,
     ["game/ui/sheet_view.lua"] = 2,

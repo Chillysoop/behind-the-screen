@@ -10,7 +10,8 @@ local M = {}
 
 M.id = "5e"
 M.title = "D&D 5e (SRD 5.2.1)"      -- (M.name is an approach's name: "Stealth")
-M.dice = { notation = "1d20", sides = 20 }  -- what the dice tray shows (from game/kit/dice.lua, like any set's)
+M.dice = { notation = "1d20", sides = 20, name = "d20", icon = "d20" }  -- the check's die, from game/kit/dice.lua:
+                                                                          -- its name in the captions, its icon in the tray
 M.who_rolls = "dm"                         -- the DM rolls, in the open or behind the screen
 M.fight = "tactical"                       -- fights on the battle grid (game/rules/battle.lua)
 M.approaches = skills.NAMES                -- what a hero can try: the 18 skills, and the six abilities
@@ -63,6 +64,10 @@ M.words = {
     inspiration = "Heroic Inspiration",          -- the reroll token the DM hands a player
     advantage = "Advantage",
     crit = "natural 20", fumble = "natural 1",   -- the die's own best and worst
+    extremes = "natural 20 or 1", extremes_both = "a natural 20 or a natural 1",
+    hp = "HP",
+    -- (The DM's own read of a friend is called for the skill it's most like: "an Insight roll".)
+    read = "an Insight roll", read_button = "roll Insight", read_crit = "a natural 20 always reads",
     hidden_death_save = "a death save made behind the screen",
     rest_hour = "An hour's rest: Hit Dice spent, {healed} HP back across the party.",
     rest_none = "An hour's rest. Nobody had Hit Dice left to spend, but the features are back.",
@@ -76,6 +81,8 @@ M.words = {
 -- What a player looks up in the rules, by a word on the card (a rules question that names one fits it).
 M.rule_terms = { "concentrat", "opportunity attack", "cover", "saving throw", "two attacks", "bonus action", "advantage",
                  "stack", "flank", "grappl", "modifier" }
+-- What a number to beat means, in words, when the DM sets their own (the DC card).
+M.difficulty_names = { { 5, "Very easy" }, { 10, "Easy" }, { 15, "Medium" }, { 20, "Hard" }, { 25, "Very hard" }, { 30, "Nearly impossible" } }
 -- A scene's final roll, by how hard the scene is (easy, middling, hard).
 M.scene_dc = { 10, 12, 14 }
 

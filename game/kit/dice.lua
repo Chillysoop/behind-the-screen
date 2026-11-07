@@ -155,6 +155,16 @@ function M.roll(rng, notation)
     return out
 end
 
+-- How the table says a roll's dice: "d20" for 1d20, "2d6", "4dF", "d100".
+function M.name(notation)
+    local spec = type(notation) == "table" and notation or M.parse(notation)
+    local bits = {}
+    for _, g in ipairs(spec.groups) do
+        table.insert(bits, (g.n > 1 and tostring(g.n) or "") .. "d" .. (g.fate and "F" or tostring(g.sides)))
+    end
+    return table.concat(bits, " + ")
+end
+
 -- The lowest and highest a roll can come to (an exploding die counts as its sides: the usual top).
 function M.range(notation)
     local spec = type(notation) == "table" and notation or M.parse(notation)

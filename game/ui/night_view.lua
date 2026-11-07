@@ -16,6 +16,15 @@
 
 -- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
 local ruleset = require "game.model.ruleset"
+local function W()          -- (the adventure's set's words for its things, and its check's die: game/rules/sets)
+    return ruleset.current().words
+end
+local function SET_DIE()          -- (the check's die: its name and icon)
+    return ruleset.current().dice
+end
+local function thoughts_die()       -- (the DM's own read rolls the table's die, any set: game/model/thoughts.lua)
+    return require("game.kit.dice").name(require("game.model.thoughts").READ_DICE)
+end
 local kit = require "game.ui.kit"
 local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
@@ -282,7 +291,7 @@ function M.build(app)
         local p = app.night and app.campaign:player(key)
         if p and app.night:inspire_from_tile(p) then
             panels.set_token(app, key, true)
-            M.float(app, key, "Heroic Inspiration!", theme.gold)
+            M.float(app, key, W().inspiration .. "!", theme.gold)
             post("spark", { id = key, color = SPARK.crit })
         end
     end
@@ -498,7 +507,7 @@ function M.draw_strip(app)
         else
             kit.unspot(sp)
             app.strip_spot = gloss.card_spot(rect[1], rect[2], rect[3], rect[4], "This scene's rolls",
-                "Every d20 rolled this scene, newest on the right. Green worked, red didn't, gold is a natural 20 (or a "
+                "Every " .. SET_DIE().name .. " rolled this scene, newest on the right. Green worked, red didn't, gold is a " .. W().crit .. " (or a "
                 .. "big roll still being decided), purple is yours for the monsters. A grey ? was rolled behind your "
                 .. "screen: only you saw it.")
         end
@@ -520,7 +529,7 @@ function M.draw_strip(app)
         elseif d.fumble or d.success == false then
             col = theme.red
         end
-        table.insert(app.strip_nodes, kit.icon(x, STRIP_Y, DIE, "d20", col))
+        table.insert(app.strip_nodes, kit.icon(x, STRIP_Y, DIE, SET_DIE().icon, col))
         table.insert(app.strip_nodes, kit.text(x + DIE / 2, STRIP_Y + DIE / 2, label, "ui14", ink, { pivot = gui.PIVOT_CENTER }))
     end
 end
@@ -562,9 +571,9 @@ function M.draw_pips(app)
     local word, col, short
     local edge = (pr.wins >= pr.need) and -2 or ((pr.setbacks >= pr.max) and 2 or 0)
     if edge < 0 then
-        word, short, col = "final roll: easier (DC " .. util.int(edge) .. ")", "final roll: easier", theme.green
+        word, short, col = "final roll: easier (" .. W().dc .. " " .. util.int(edge) .. ")", "final roll: easier", theme.green
     elseif edge > 0 then
-        word, short, col = "final roll: harder (DC +" .. util.int(edge) .. ")", "final roll: harder", theme.red
+        word, short, col = "final roll: harder (" .. W().dc .. " +" .. util.int(edge) .. ")", "final roll: harder", theme.red
     else
         word, short, col = "final roll: normal", "final roll: normal", theme.dim
     end
@@ -577,8 +586,8 @@ function M.draw_pips(app)
         app.pips_label_w = 8 + lw
     end
     gloss.card_spot(x0 - 2, 32, x + pr.max * 14 - x0 + 4 + app.pips_label_w, 18, "How the scene is going",
-        "Gold dots: good moments. Fill every gold dot and the scene's final roll gets easier (DC -2). Red dots: "
-        .. "setbacks. Fill every red one first and it gets harder (DC +2). Someone in the scene telling them where "
+        "Gold dots: good moments. Fill every gold dot and the scene's final roll gets easier (" .. W().dc .. " -2). Red dots: "
+        .. "setbacks. Fill every red one first and it gets harder (" .. W().dc .. " +2). Someone in the scene telling them where "
         .. "to look makes it 2 easier again. The words beside the dots say where it stands right now.", nil, app.pip_nodes[1])
 end
 
@@ -882,7 +891,7 @@ function M.paint_replay(app)
         local hp = at and at.hp
         if hp then
             pcall(kit.set_bar, row.fill, hud.w, hp, row.max)
-            pcall(gui.set_text, row.text, at.down and (hp > 0 and (util.int(hp) .. " HP, down") or "Down") or (util.int(hp) .. " / " .. util.int(row.max)))
+            pcall(gui.set_text, row.text, at.down and (hp > 0 and (util.int(hp) .. " " .. W().hp .. ", down") or "Down") or (util.int(hp) .. " / " .. util.int(row.max)))
         elseif not at then
             pcall(gui.set_text, row.text, "Gone")
         end
@@ -2096,11 +2105,11 @@ function M.draw_crits(app)
             pcall(gui.set_color, app.n_crits.node, now and theme.panel3 or app.n_crits.color)
         end
         M.toast(app, now and "SMALL-MOMENT CRITS ON" or "SMALL-MOMENT CRITS OFF",
-            now and "A natural 20 or 1 in a small moment gives you a card to improvise." or "Small moments play out on their own.")
+            now and ("A " .. W().extremes .. " in a small moment gives you a card to improvise.") or "Small moments play out on their own.")
     end, { font = "ui14", key = "night_crits", color = on and theme.panel3 or nil })
     require("game.ui.gloss").card_spot(1452, 66, 124, 30, "Small-moment crits",
         "In the quiet bits of a room, the friends poke at things, ask questions and chat, and a little die rolls on its "
-        .. "own. On: when one of those little rolls is a natural 20 or a natural 1, you get a quick card to improvise: hide "
+        .. "own. On: when one of those little rolls is " .. W().extremes_both .. ", you get a quick card to improvise: hide "
         .. "a small find, give them a clue, or a mishap, a small trap, or just a laugh. Off: those rolls play out on their "
         .. "own, and you're never asked. Big rolls aren't affected.")
 end
@@ -2367,378 +2376,14 @@ local function spark(app, target, color)
     end
 end
 
-local function set_hp(app, id, hp, max)
-    if app.hp[id] and hp then
-        app.hp[id] = { hp, max or app.hp[id][2] }
-        M.refresh_hp(app)
-    end
-    battle_hud.set_hp(app, id, hp, max)
-end
-
--- Whose turn: the mini acting, for the turn order.
-local function is_party(app, id)
-    return type(id) == "string" and app.campaign:player(id) ~= nil
-end
-
--- Why an attack landed or didn't, in one line anyone can follow (the newcomer playtest, October
--- 16: "a 9 against 15 both missed and hit", three ACs for one bandit, no reason given).
--- "Thessaly's Fire Bolt" / "the road's bandit chief's scimitar"
--- A spell's name from its id ("sacred_flame" is Sacred Flame); a name stays as it is.
-local function spell_name(id)
-    local ok, spells = pcall(ruleset.engine, "spells")
-    local sp = ok and spells.list and spells.list[id]
-    return (type(sp) == "table" and sp.name) or (string.gsub(tostring(id), "_", " "))
-end
-
-local spell_names
-local function is_spell(name)
-    if not spell_names then
-        spell_names = {}
-        local ok, spells = pcall(ruleset.engine, "spells")
-        for _, sp in pairs(ok and spells.list or {}) do
-            if type(sp) == "table" and sp.name then
-                spell_names[sp.name] = true
-            end
-        end
-    end
-    return spell_names[name] or false
-end
-
-local function weapon_of(app, a)
-    local who = name_of(app, a.id)
-    local w = a.weapon or "attack"
-    if not (a.spell or is_spell(w)) then
-        w = string.lower(w)
-    end
-    return who .. (string.sub(who, -1) == "s" and "' " or "'s ") .. w
-end
-
-local function target_of(app, id)
-    return mid(name_of(app, id))
-end
-
--- "8 + 5 = 13 against AC 20 (15, +5 behind the boulder), with Advantage"
-local function versus(a)
-    local bonus = (a.total or a.roll or 0) - (a.roll or 0)
-    local out = util.int(a.roll or 0) .. " " .. (bonus < 0 and "- " or "+ ") .. util.int(math.abs(bonus)) .. " = "
-        .. util.int(a.total or 0) .. " against AC " .. util.int(a.ac or 0)
-    if a.cover then
-        out = out .. " (" .. util.int((a.ac or 0) - a.cover) .. ", +" .. util.int(a.cover)
-            .. (a.cover_what and (" behind the " .. a.cover_what) or " for cover") .. ")"
-    end
-    if (a.mode or 0) > 0 then
-        out = out .. ", with Advantage"
-    elseif (a.mode or 0) < 0 then
-        out = out .. ", with Disadvantage"
-    end
-    if a.heroic then
-        out = out .. " (a reroll: Heroic Inspiration)"
-    end
-    return out
-end
-
--- "45 of 52 left", or "down to 0"
-local function left_of(s)
-    if not s.hp or not s.hp_max then
-        return ""
-    end
-    if s.hp <= 0 then
-        return " Down to 0."
-    end
-    return " " .. util.int(s.hp) .. " of " .. util.int(s.hp_max) .. " left."
-end
-
--- One step of a combat turn on the mat.
+-- A grid fight's steps on the board are the rule set's to show (5e's: game/ui/fight_steps_5e.lua, through the set's
+-- screens), with the night screen's own pieces bound in once.
 function M.play_step(app, s, pace)
-    local k = s.kind
-    local sp = speed(app) / (pace or 1)
-    if k == "move" then
-        if s.path and #s.path > 0 then
-            post("walk", { id = s.id, path = s.path, step = pacing.PER_SQUARE / sp })
-        end
-    elseif k == "initiative" then
-        -- Everyone rolls initiative: the heroes' dice show on their panels, the order along the top.
-        for _, o in ipairs(s.order or {}) do
-            if o.pc and is_party(app, o.id) then
-                panels.roll(app, o.id, { roll = o.roll, mod = o.bonus, total = o.total, what = "Initiative" })
-            end
-        end
-        battle_hud.initiative(app, s.order)
-        local first = s.order and s.order[1]
-        if first then
-            M.push(app, "Initiative: " .. (function()
-                local parts = {}
-                for _, o in ipairs(s.order) do
-                    table.insert(parts, (o.name or "?") .. " " .. util.int(o.total or 0))
-                end
-                return table.concat(parts, ", ")
-            end)(), "system")
-        end
-    elseif k == "attack" then
-        if s.target then
-            post("lunge", { id = s.id, target = s.target, ranged = s.ranged, time = 0.32 / sp })
-        end
-        M.add_die(app, { roll = s.roll, success = s.hit, crit = s.crit, dm = s.dm, hidden = s.hidden })
-        app.last_attack = s
-        if is_party(app, s.id) and s.roll then
-            panels.roll(app, s.id, { roll = s.roll, mod = (s.total or s.roll) - s.roll, total = s.total,
-                                     against = s.ac and ("AC " .. util.int(s.ac)) or nil, what = s.weapon or "Attack",
-                                     success = s.hit, crit = s.crit, fumble = s.roll == 1 })
-        end
-        if not s.hit then
-            M.float(app, s.target, s.blocked and (BLOCKED[s.blocked] or "Blocked") or "miss", theme.dim)
-            local tgt = target_of(app, s.target)
-            if s.blocked == "no_line" then
-                M.push(app, name_of(app, s.id) .. " can't see " .. tgt .. " from there: there's a wall in the way.", "system")
-            elseif s.hidden then
-                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. " (you rolled it behind your screen).", "system")
-            elseif s.blocked == "cover" then
-                -- The board earning its keep: the shot that would have landed hits the scenery.
-                M.push(app, util.capitalize(tgt) .. " ducks behind " .. (s.cover_what and ("the " .. s.cover_what) or "cover")
-                    .. ", and " .. mid(weapon_of(app, s)) .. " hits that instead: " .. versus(s) .. ".", "system")
-            elseif s.blocked then
-                M.push(app, util.capitalize(weapon_of(app, s)) .. " would have hit " .. tgt .. " (" .. versus(s) .. "), but it's stopped: "
-                    .. (BLOCKED[s.blocked] or "blocked") .. ".", "system")
-            elseif s.roll == 1 then
-                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. ": a natural 1 always misses.", "system")
-            else
-                M.push(app, util.capitalize(weapon_of(app, s)) .. " misses " .. tgt .. ": " .. versus(s) .. ".", "system")
-            end
-        end
-    elseif k == "damage" then
-        post("hit", { id = s.id })
-        M.float(app, s.id, "-" .. util.int(s.amount or 0), s.crit and theme.gold or theme.red, s.crit)
-        set_hp(app, s.id, s.hp, s.hp_max)
-        local a = app.last_attack
-        local amount = util.int(s.amount or 0)
-        if s.graze and a and a.target == s.id then
-            -- A miss that still hurts: say it's the weapon's trick, not a hit.
-            M.push(app, "Even missing, " .. mid(weapon_of(app, a)) .. " grazes " .. target_of(app, s.id) .. " for " .. amount
-                .. " (the weapon's Graze trick: a miss still nicks)." .. left_of(s), "system")
-            app.last_attack = nil
-        elseif a and a.target == s.id and a.hit then
-            -- (Damage past what the dice can do says why: a crit, or a weakness.)
-            local weak = s.weak and (s.weak == "paint" and ", doubled: painted things fear it" or (", doubled: weak to " .. s.weak)) or ""
-            local dice = (a.dmg and a.dmg ~= "") and (" (" .. a.dmg .. (s.crit and ", doubled" or "") .. weak .. ")") or ""
-            if a.hidden then
-                M.push(app, util.capitalize(weapon_of(app, a)) .. " hits " .. target_of(app, s.id) .. " (your roll, behind the screen): "
-                    .. amount .. " damage" .. dice .. "." .. left_of(s), "system")
-            elseif s.crit then
-                M.push(app, util.capitalize(weapon_of(app, a)) .. " crits " .. target_of(app, s.id) .. ": a natural 20, so the damage "
-                    .. "dice double. " .. amount .. " damage" .. dice .. "!" .. left_of(s), "good")
-            else
-                local tie = (a.total and a.ac and a.total == a.ac) and " (matching the AC is enough)" or ""
-                M.push(app, util.capitalize(weapon_of(app, a)) .. " hits " .. target_of(app, s.id) .. ": " .. versus(a) .. tie .. ". "
-                    .. amount .. " damage" .. dice .. "." .. left_of(s), "system")
-            end
-            app.last_attack = nil
-        else
-            local from = s.spell and (" from " .. spell_name(s.spell)) or ""
-            M.push(app, name_of(app, s.id) .. " takes " .. amount .. " damage" .. from .. "." .. left_of(s), "system")
-        end
-    elseif k == "heal" then
-        M.float(app, s.id, "+" .. util.int(s.amount or 0), theme.green)
-        spark(app, s.id, SPARK.heal)
-        set_hp(app, s.id, s.hp, s.hp_max)
-        -- Healing shows in the log (A7).
-        if (s.amount or 0) > 0 then
-            local hp = s.hp and s.hp_max and (" (" .. util.int(s.hp) .. "/" .. util.int(s.hp_max) .. ")") or ""
-            if s.by and s.by ~= s.id then
-                M.push(app, name_of(app, s.by) .. " heals " .. name_of(app, s.id) .. " for " .. util.int(s.amount) .. hp .. ".", "good")
-            else
-                M.push(app, name_of(app, s.id) .. " regains " .. util.int(s.amount) .. " hit points" .. hp .. ".", "good")
-            end
-        end
-    elseif k == "temp" then
-        M.float(app, s.id, "+" .. util.int(s.amount or 0) .. " temp", theme.teal)
-        M.push(app, name_of(app, s.id) .. " gains " .. util.int(s.amount or 0) .. " temporary hit points.", "good")
-    elseif k == "down" then
-        post("down", { id = s.id })
-        M.float(app, s.id, "Down!", theme.orange, true)
-        set_hp(app, s.id, 0)
-        -- A hero at 0: a moment the whole table feels (the playtest, November 3: "a more pronounced
-        -- downed scene"). Over their tile until they're up, stable or gone: their death saves.
-        if is_party(app, s.id) then
-            app.ds = app.ds or {}
-            app.ds[s.id] = { s = 0, f = 0 }
-            M.dying(app, s.id)
-            post("pose", { who = s.id, pose = "gasp", hold = true })
-        end
-        -- The first time, what it means (a newcomer thinks "down" is "dead").
-        if is_party(app, s.id) and not app.down_said then
-            app.down_said = true
-            M.push(app, name_of(app, s.id) .. " goes down! At 0 health a hero isn't dead yet: they roll each turn to stay "
-                .. "alive, and any healing brings them back up.", "bad")
-        else
-            M.push(app, name_of(app, s.id) .. " goes down!", "bad")
-        end
-    elseif k == "up" then
-        post("up", { id = s.id })
-        M.float(app, s.id, "Back up!", theme.green, true)
-        M.drop_dying(app, s.id)
-    elseif k == "death" then
-        if app.hp[s.id] then
-            post("down", { id = s.id })
-        else
-            -- A beat for it before the mini goes (the newcomer playtest, October 16: the wolf just vanished).
-            M.float(app, s.id, "Beaten!", theme.gold, true)
-            spark(app, s.id, SPARK.crit)
-            post("die", { id = s.id })
-            battle_hud.gone(app, s.id)
-            M.push(app, name_of(app, s.id) .. " is beaten: out of the fight.", "good")
-        end
-    elseif k == "spell" then
-        local col = SPARK[s.spell] or rgba(1.0, 0.8, 0.5)
-        -- The caster's hands light up, then the spell lands: on a target, or across an area.
-        spark(app, s.id, col)
-        if s.area then
-            battle_hud.area(app, s.area, col)
-        else
-            spark(app, s.target or s.id, col)
-        end
-        if s.name then
-            M.float(app, s.id, s.name, theme.purple)
-            M.push(app, name_of(app, s.id) .. " casts " .. s.name .. ((s.level or 0) > 0 and (" (level " .. util.int(s.level)
-                .. (s.free and (", free: " .. s.free) or "") .. ")") or "")
-                .. (s.area and (", " .. util.int(#s.area) .. " squares") or "") .. ".", "system")
-        end
-    elseif k == "hazard" then
-        M.push(app, "Hazard: " .. (s.name or "") .. (s.from and (", from the " .. s.from) or "") .. ". " .. (s.about or ""),
-            "system")
-    elseif k == "hazard_act" then
-        M.push(app, (s.name or "The hazard acts") .. ".", "bad")
-    elseif k == "zone" then
-        local col = SPARK[s.what] or rgba(0.9, 0.9, 0.9)
-        battle_hud.area(app, s.cells, col, s.zone)
-    elseif k == "zone_end" then
-        battle_hud.zone_end(app, s.zone)
-    elseif k == "door" then
-        -- Set the stage: a door swings open on the mat as someone walks through, or a lock gives.
-        post_board("door", { fid = s.fid, state = s.state })
-        if s.state == "open" then
-            M.push(app, (s.id and name_of(app, s.id) or "Someone") .. " opens the door.", "system")
-        elseif s.state == "closed" then
-            M.push(app, "The lock gives.", "good")
-        end
-    elseif k == "feature" then
-        if s.name == "Potion of Healing" then
-            M.float(app, s.id, "Potion!", theme.teal)
-            if s.target and s.target ~= s.id and type(s.target) ~= "table" then
-                M.push(app, name_of(app, s.id) .. " pours a Potion of Healing into " .. name_of(app, s.target) .. ".", "good")
-            else
-                M.push(app, name_of(app, s.id) .. " drinks a Potion of Healing.", "good")
-            end
-        elseif s.name == "Heroic Inspiration" and s.from and s.to then
-            M.float(app, s.id, s.name, theme.gold)
-            M.push(app, name_of(app, s.id) .. " spends Heroic Inspiration to reroll the die: " .. util.int(s.from) .. " becomes "
-                .. util.int(s.to) .. ".", "good")
-        elseif s.museum and MUSEUM_SAY[s.museum] then
-            -- The museum's big moments (v2, game/rules/museum.lua), said the way the DM would.
-            local say = MUSEUM_SAY[s.museum]
-            local function nm(id)
-                return (type(id) == "string" and name_of(app, id)) or "someone"
-            end
-            local text = say[1]
-            if say.soft and app.campaign and app.campaign.adv then
-                local adv = require "game.model.adventure"
-                for tag, alt in pairs(say.soft) do
-                    if adv.test(app.campaign, { soft = tag }) then
-                        text = alt
-                    end
-                end
-            end
-            M.float(app, s.id, s.name, say[2] or theme.teal)
-            M.push(app, (string.gsub(text, "{(%w+)}", { who = nm(s.id), target = nm(s.target), by = nm(s.by) })), say[3] or "system")
-        elseif s.name then
-            M.float(app, s.id, s.name, theme.teal)
-            M.push(app, name_of(app, s.id) .. ": " .. s.name .. ".", "system")
-        end
-    elseif k == "condition" then
-        if s.name then
-            M.float(app, s.id, s.name, theme.purple)
-        end
-        battle_hud.condition(app, s.id, s.name, s.conds, true)
-    elseif k == "condition_end" then
-        battle_hud.condition(app, s.id, s.name, s.conds, false)
-    elseif k == "save" then
-        M.add_die(app, { roll = s.roll, success = s.ok, dm = s.dm, hidden = s.hidden })
-        M.float(app, s.id, s.ok and "Saved" or "Failed save", s.ok and theme.teal or theme.orange)
-        -- A roll to resist, said in the log like an attack (the newcomer playtest, October 16).
-        local ab = s.ab and (string.upper(s.ab) .. " save") or "save"
-        -- (Rolled twice, and why: "with Disadvantage: the drone left them half asleep".)
-        if s.mode then
-            ab = ab .. ((s.mode == "adv" and ", with Advantage") or (s.mode == "dis" and ", with Disadvantage")
-                or ", Advantage and Disadvantage cancel out") .. (s.why_mode and (": " .. s.why_mode) or "")
-        end
-        if s.hidden or not (s.roll and s.total and s.dc) then
-            M.push(app, name_of(app, s.id) .. (s.ok and " resists it" or " fails to resist") .. " (a " .. ab
-                .. (s.hidden and ", behind your screen)." or ")."), "system")
-        else
-            M.push(app, name_of(app, s.id) .. (s.ok and " resists it" or " fails to resist") .. " (a " .. ab .. "): "
-                .. util.int(s.roll) .. " " .. ((s.total - s.roll) < 0 and "- " or "+ ") .. util.int(math.abs(s.total - s.roll))
-                .. " = " .. util.int(s.total) .. " against DC " .. util.int(s.dc) .. ".", "system")
-        end
-        if is_party(app, s.id) and s.roll then
-            panels.roll(app, s.id, { roll = s.roll, mod = (s.total or s.roll) - s.roll, total = s.total,
-                                     against = s.dc and ("DC " .. util.int(s.dc)) or nil,
-                                     what = (s.ab and string.upper(s.ab) or "") .. " save", success = s.ok })
-        end
-    elseif k == "death_save" then
-        M.add_die(app, { roll = s.roll, success = (s.roll or 0) >= 10, crit = s.roll == 20, fumble = s.roll == 1 })
-        local t = app.ds and app.ds[s.id]
-        if t then
-            local r = s.roll or 0
-            if r == 1 then
-                t.f = t.f + 2
-            elseif r >= 10 and r < 20 then
-                t.s = t.s + 1
-            elseif r < 10 then
-                t.f = t.f + 1
-            end
-            if r == 20 then
-                M.drop_dying(app, s.id)
-            else
-                M.dying(app, s.id)
-            end
-        end
-        M.float(app, s.id, "Death save: " .. util.int(s.roll or 0), (s.roll or 0) >= 10 and theme.teal or theme.red)
-        if is_party(app, s.id) then
-            panels.roll(app, s.id, { roll = s.roll, total = s.roll, against = "DC 10", what = "Death save",
-                                     success = (s.roll or 0) >= 10, crit = s.roll == 20 })
-        end
-    elseif k == "stable" then
-        M.float(app, s.id, "Stable", theme.teal)
-        if app.ds and app.ds[s.id] then
-            app.ds[s.id].stable = true
-            M.dying(app, s.id)
-        end
-    elseif k == "fortitude" then
-        M.float(app, s.id, "Undead Fortitude", theme.purple)
-    elseif k == "flee" and s.why == "yield" then
-        -- Standing down with a boss who yielded: her line says it, once (fight.lua's yield).
-        M.float(app, s.id, "Stands down", theme.teal)
-        battle_hud.gone(app, s.id)
-    elseif k == "flee" then
-        post("flee", { id = s.id })
-        battle_hud.gone(app, s.id)
-        M.push(app, name_of(app, s.id) .. " runs for it.", "system")
-    elseif k == "join" and s.pc then
-        -- A hero who split off comes running back into the fight (the split party, November 3).
-        local pl = app.campaign:player(s.id)
-        local sprite = (pl and pl.mini) or CLASS_SPRITE[s.class] or "fighter"
-        post("spawn", { list = { { id = s.id, sprite = sprite, x = s.x, y = s.y, side = "party" } } })
-        app.hp[s.id] = { s.hp, s.hp_max }
-        M.refresh_hp(app)
-        M.push(app, (s.name or "Someone") .. " is back, and in the fight.", "good")
-    elseif k == "join" then
-        app.names[s.id] = s.name
-        app.join_n = (app.join_n or 0) + 1
-        local sprite = monster_sprite(s.monster, app.join_n)
-        post("spawn", { list = { { id = s.id, sprite = sprite, x = s.x, y = s.y } } })
-        battle_hud.join(app, s.id, s.name, sprite, s.hp, s.hp_max)
-        app.hp[s.id] = nil
-        M.push(app, (s.name or "Someone") .. " joins the fight!", "twist")
+    local steps = require("game.ui.sets").part("fight_steps")
+    if not steps.bound then
+        steps.bind({ M = M, BLOCKED = BLOCKED, CLASS_SPRITE = CLASS_SPRITE, MUSEUM_SAY = MUSEUM_SAY, SPARK = SPARK, battle_hud = battle_hud, mid = mid, monster_sprite = monster_sprite, name_of = name_of, pacing = pacing, panels = panels, post = post, post_board = post_board, rgba = rgba, ruleset = ruleset, spark = spark, speed = speed, stage = stage, theme = theme, util = util })
     end
+    return steps.play_step(app, s, pace)
 end
 
 -- Beats --------------------------------------------------------------------------------------
@@ -2888,14 +2533,14 @@ function M.handle(app, ev)
         -- Heroic Inspiration (B4): the token lands in front of them, or goes back when it's spent.
         panels.set_token(app, ev.who, not ev.spent)
         if not ev.spent then
-            M.float(app, ev.who, "Heroic Inspiration!", theme.gold)
+            M.float(app, ev.who, W().inspiration .. "!", theme.gold)
             post("spark", { id = ev.who, color = SPARK.crit })
         end
     elseif k == "jail" then
         -- B2: the die that rolled a 1 goes to dice jail, to the table's delight.
         local p = player(app, ev.who)
         if p then
-            M.push(app, p.name .. "'s d20 goes to dice jail.", "reaction", true)
+            M.push(app, p.name .. "'s " .. SET_DIE().name .. " goes to dice jail.", "reaction", true)
             M.float(app, ev.who, "Dice jail!", theme.orange)
         end
         post("pose", { who = ev.who, pose = "laugh", hold = true })
@@ -2941,7 +2586,8 @@ function M.handle(app, ev)
     elseif k == "hp" then
         M.refresh_hp(app)        -- (a small trap's sting, on the tile)
     elseif k == "rested" then
-        M.refresh_hp(app)        -- (a rest: hit points and resources back on the tiles)
+        -- (A rest: what the heroes have back, on the tiles.)
+        M.refresh_hp(app)
     elseif k == "door" then
         -- A hero walking through a door outside a fight (sight.lua): it swings open on the mat.
         post_board("door", { fid = ev.fid, state = ev.state })
@@ -3024,7 +2670,7 @@ function M.handle(app, ev)
         if app.tumble_die then
             app.tumble_die(ev.actor, ev.roll)
         end
-        panels.roll(app, ev.actor, { roll = ev.roll, mod = ev.bonus, total = total, against = "DC " .. util.int(ev.dc or 0),
+        panels.roll(app, ev.actor, { roll = ev.roll, mod = ev.bonus, total = total, against = W().dc .. " " .. util.int(ev.dc or 0),
                                      what = ev.skill_name, success = ev.success, crit = ev.crit, fumble = ev.fumble })
         if ev.spot then
             post("walk", { id = ev.actor, path = { ev.spot }, step = 0.3 / speed(app) })
@@ -3202,12 +2848,12 @@ function M.handle(app, ev)
         local p = ev.actor and player(app, ev.actor)
         if ev.by == "player" and p then
             -- The player throws the d20 themselves, in front of everyone.
-            M.caption(app, p.name .. " rolls the d20 for " .. p.char .. "'s " .. (ev.skill_name or "check") .. "...", "dice")
+            M.caption(app, p.name .. " rolls the " .. SET_DIE().name .. " for " .. p.char .. "'s " .. (ev.skill_name or "check") .. "...", "dice")
             M.push(app, p.name .. " rolls " .. (ev.skill_name or "the check") .. ".", "dice", true)
             post("pose", { who = p.key, pose = "lean", hold = true })
             panels.pose(app, p.key, "lean")
         else
-            M.caption(app, ev.where == "open" and "You roll the d20 where everyone can see it..." or "You roll the d20 behind your screen...", "dice")
+            M.caption(app, ev.where == "open" and ("You roll the " .. SET_DIE().name .. " where everyone can see it...") or ("You roll the " .. SET_DIE().name .. " behind your screen..."), "dice")
             M.push(app, ev.where == "open" and "You roll in the open." or "You roll behind the screen.", "dice", true)
         end
         -- Into the right tray (A9): theirs at their seat, or yours, in the open or behind the screen.
@@ -3249,7 +2895,7 @@ function M.handle(app, ev)
             -- A DC behind the screen stays there on their card (playtest, October 13): the table
             -- sees the roll, not the number it had to beat.
             panels.roll(app, ev.actor, { roll = ev.value, mod = ev.mod, total = ev.total, what = ev.skill_name,
-                                         against = ev.where == "hidden" and "DC ?" or ("DC " .. util.int(ev.dc or 0)),
+                                         against = ev.where == "hidden" and (W().dc .. " ?") or (W().dc .. " " .. util.int(ev.dc or 0)),
                                          success = ev.tier == "success" or ev.tier == "triumph",
                                          crit = ev.value == 20, fumble = ev.value == 1 })
         end
@@ -3287,7 +2933,7 @@ function M.on_roll(app, value)
         -- A player's own roll lands on their panel; whether it's enough depends on the DC.
         if ev and ev.by == "player" and ev.actor then
             panels.roll(app, ev.actor, { roll = value, mod = ev.mod, total = value + (ev.mod or 0), what = ev.skill_name,
-                                         against = ev.where == "open" and ("DC " .. util.int(ev.dc or 0)) or "DC ?",
+                                         against = ev.where == "open" and (W().dc .. " " .. util.int(ev.dc or 0)) or (W().dc .. " ?"),
                                          success = ev.where == "open" and (value + (ev.mod or 0) >= (ev.dc or 0)) or nil,
                                          crit = value == 20, fumble = value == 1 })
         end
@@ -3586,17 +3232,17 @@ function M.draw_thought_card(app)
         add(util.capitalize(ev.name .. " " .. ev.tell .. "."), "ui22b", theme.think.ink)
         -- (The totals, and what a near miss still gets: the third playtest's failed roll that still
         -- answered read as a bug. thoughts.read: the words at the target, the gist within 4 of it.)
-        add("Read " .. pr.them .. ": an Insight roll, d20 + " .. util.int(o.bonus) .. " (your Empathy +" .. util.int(o.empathy)
+        add("Read " .. pr.them .. ": " .. W().read .. ", " .. thoughts_die() .. " + " .. util.int(o.bonus) .. " (your Empathy +" .. util.int(o.empathy)
             .. ", you know " .. ev.name .. " +" .. util.int(o.familiar) .. ((o.rested or 0) > 0 and ", a good night's sleep +1" or "")
             .. "). A total of " .. util.int(o.dc) .. " hears what's on " .. pr.their .. " mind: about "
             .. util.int(math.floor(o.chance * 100 + 0.5)) .. "%. " .. util.int(o.dc - 4) .. " or more still gets the gist.",
             "ui18", theme.think.dim)
-        table.insert(buttons, { label = "Read " .. pr.them .. " (roll Insight)", key = "thought_read", go = true })
+        table.insert(buttons, { label = "Read " .. pr.them .. " (" .. W().read_button .. ")", key = "thought_read", go = true })
         -- The first time: you have stats too, and where to find them (the playtest, November 3).
         local seen = app.campaign.seen_tips or {}
         if not seen.dm_stats then
             add("You have stats too. Empathy is how well you read a table; each friend also has how well you know them. "
-                .. "A read is an Insight roll: d20 + your Empathy + how well you know them. Both grow as you play. "
+                .. "A read is " .. W().read .. ": " .. thoughts_die() .. " + your Empathy + how well you know them. Both grow as you play. "
                 .. "Your Empathy is at the top of THE TABLE on the prep board, how well you know each friend is the dots "
                 .. "on their card, and tonight the Table button at the top has both (or S, twice).", "ui14",
                 theme.think.ink, 12)
@@ -3608,7 +3254,7 @@ function M.draw_thought_card(app)
         -- The total against the target, and what the roll got: the words, the gist (a near miss), or
         -- nothing. (A natural 20 always reads; a natural 1 always misreads, and looks like a read.)
         local dc = r.dc or ((r.need or 0) + (r.bonus or 0))
-        local got = ((r.result == "clear" or r.result == "book") and ((r.roll == 20 and r.total < dc) and "a natural 20 always reads"
+        local got = ((r.result == "clear" or r.result == "book") and ((r.roll == 20 and r.total < dc) and W().read_crit
                 or "a clear read"))
             or (r.result == "gist" and ("short, but " .. util.int(dc - 4) .. " or more gets the gist"))
             or (r.result == "miss" and "too far off to read")
@@ -3670,7 +3316,7 @@ function M.draw_thought_card(app)
     if r then
         local col = (r.result == "clear" or r.result == "asked" or r.roll == 20) and theme.green
             or (r.result == "gist" or r.result == "misread") and theme.gold or theme.red
-        kit.icon(x + w - 58, y + 12, 44, "d20", col)
+        kit.icon(x + w - 58, y + 12, 44, SET_DIE().icon, col)
         kit.text(x + w - 36, y + 34, util.int(r.roll), "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
     end
     local ty = y + 16 + 60 + 12
@@ -3915,7 +3561,7 @@ function M.draw_modal(app, ev, instant)
         local lean_h = {}
         local sub_h = {}
         for i, o in ipairs(card.options) do
-            labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or "d20") .. " check)") or "")
+            labels[i] = o.label .. (o.roll and ("  (" .. (o.skill or SET_DIE().name) .. " check)") or "")
                 .. (o.cooked and "  (overrules the die)" or "") .. (o.promise and "  (as agreed)" or "")
             lean_h[i] = (o.leans and next(o.leans)) and 30 or 0
             -- What an answer costs and gives, under it.
@@ -3981,10 +3627,10 @@ function M.draw_modal(app, ev, instant)
         if ev.by ~= "dm" then
             local mod = ev.mod or 0
             shown = (ev.char or "They") .. " rolled " .. util.int(ev.value or 0) .. (mod < 0 and " - " or " + ") .. util.int(math.abs(mod))
-                .. " = " .. util.int(total) .. (ev.skill_name and (" " .. ev.skill_name) or "") .. " against DC " .. util.int(ev.dc or 0) .. "."
+                .. " = " .. util.int(total) .. (ev.skill_name and (" " .. ev.skill_name) or "") .. " against " .. W().dc .. " " .. util.int(ev.dc or 0) .. "."
         else
             shown = (ev.where == "hidden" and "Behind the screen: " or "On the table: ") .. "the die says "
-                .. util.int(ev.value or 0) .. " (" .. util.int(total) .. "), DC " .. util.int(ev.dc or 0) .. "."
+                .. util.int(ev.value or 0) .. " (" .. util.int(total) .. "), " .. W().dc .. " " .. util.int(ev.dc or 0) .. "."
         end
         -- One card per big roll (A11): behind the screen, overruling the die is this card's last
         -- button, not a card of its own.
@@ -4061,15 +3707,15 @@ function M.draw_modal(app, ev, instant)
         kit.box(x, y, w, h, theme.paper, { radius = 12 })
         badge(x + 20, y + 18, player_roll and (ev.final and "THE SCENE'S FINAL ROLL" or "BIG ROLL") or "SECRET CHECK",
             theme.decision.screen)
-        kit.text(x + 20, y + 52, player_roll and "Set the DC" or "Where do you roll it?", "title30", theme.ink)
+        kit.text(x + 20, y + 52, player_roll and ("Set the " .. W().dc) or "Where do you roll it?", "title30", theme.ink)
         kit.text(x + 20, y + 96, ev.text or "", "ui18", theme.ink, { w = w - 40 })
         if ev.promise then
             kit.text(x + 20, y + 102 + text_h, ev.promise, "ui14", theme.ink_dim, { w = w - 40 })
         end
         local oy = y + 110 + text_h + promise_h
-        local open_label = player_roll and ("Say it out loud: DC " .. util.int(ev.dc or 0) .. "\nThey know what they need. The table trusts it.")
+        local open_label = player_roll and ("Say it out loud: " .. W().dc .. " " .. util.int(ev.dc or 0) .. "\nThey know what they need. The table trusts it.")
             or "Roll it in the open\nEveryone sees the die. The table trusts it."
-        local hidden_label = player_roll and "Keep the DC behind your screen\nOnly you know it. You could move it..."
+        local hidden_label = player_roll and ("Keep the " .. W().dc .. " behind your screen\nOnly you know it. You could move it...")
             or "Roll it behind your screen\nOnly you see it. You could misread it..."
         kit.button(x + 20, oy, w - 40, 58, open_label, function()
             M.answer(app, "open")
@@ -4092,10 +3738,9 @@ function M.draw_modal(app, ev, instant)
 end
 
 -- The DC ladder (SRD 5.2.1, "Difficulty Class"): what a number means at the table.
-local DC_WORDS = { { 5, "Very easy" }, { 10, "Easy" }, { 15, "Medium" }, { 20, "Hard" }, { 25, "Very hard" }, { 30, "Nearly impossible" } }
 local function dc_word(n)
-    local best = DC_WORDS[1][2]
-    for _, d in ipairs(DC_WORDS) do
+    local best = ruleset.current().difficulty_names[1][2]
+    for _, d in ipairs(ruleset.current().difficulty_names) do
         if n >= d[1] - 2 then
             best = d[2]
         end
@@ -4109,18 +3754,18 @@ function M.draw_dc_pick(app, ev, x, y, w)
     app.dc_pick_for = ev
     local n = app.dc_pick
     kit.box(x, y, w, 68, kit.rgba("#000000", 0.08), { radius = 10 })
-    kit.text(x + 14, y + 8, "Or set your own DC, out loud:", "ui14", theme.ink_dim)
+    kit.text(x + 14, y + 8, "Or set your own " .. W().dc .. ", out loud:", "ui14", theme.ink_dim)
     kit.button(x + 14, y + 28, 32, 32, "-", function()
         app.dc_pick = math.max(2, n - 1)
         M.show_modal(app, app.pending, true)
     end, { key = "dc_minus" })
-    kit.text(x + 62, y + 30, "DC " .. util.int(n), "ui22b", theme.ink, { gloss = false })
+    kit.text(x + 62, y + 30, W().dc .. " " .. util.int(n), "ui22b", theme.ink, { gloss = false })
     kit.button(x + 128, y + 28, 32, 32, "+", function()
         app.dc_pick = math.min(30, n + 1)
         M.show_modal(app, app.pending, true)
     end, { key = "dc_plus" })
     kit.text(x + 172, y + 36, dc_word(n) .. (n == ev.dc and " (the book's)" or ""), "ui14", theme.ink_dim, { gloss = false })
-    kit.button(x + w - 190, y + 24, 176, 40, "Say DC " .. util.int(n), function()
+    kit.button(x + w - 190, y + 24, 176, 40, "Say " .. W().dc .. " " .. util.int(n), function()
         M.answer(app, "dc:" .. util.int(n))
     end, { font = "ui18b", key = "dc_say", key_hint = 3, color = theme.button, hover = theme.button_hover })
 end

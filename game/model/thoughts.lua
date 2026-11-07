@@ -28,6 +28,8 @@ local DATA = require "game.data.thoughts"
 local M = {}
 
 M.DATA = DATA
+-- (The DM's own read of a friend is the table's, not a rule set's: always this die, whatever the adventure plays by.)
+M.READ_DICE = "1d20"
 M.CAP = { 2, 3, 4, 4, 5 }   -- thoughts you catch a night, by Empathy level (a happy one doesn't count)
 M.GLOW_CAP = 1              -- happy thoughts a night
 M.BREW_AT = 6.5             -- how hungry (meter weight x shortfall) before a want shows
