@@ -2993,6 +2993,7 @@ function M:pick_decision(sc, kinds)
         local settled = (d.type == "rules" and camp.house_rules and camp.house_rules[d.id])   -- A5: asked once
             or (d.once and camp.cards_once and camp.cards_once[d.id])
         if not settled and not d.table_only and not self.used_cards[d.id] and (d.scenes == nil or util.contains(d.scenes, sc.type))
+            and ruleset.fits(d)       -- (a set's own cards only come up in its own adventures)
             and (not kinds or kinds[d.type]) and content.fits_setting(d, sc.comps.location)
             and not (d.unnamed_keeper and sc.comps.location and sc.comps.location.keeper)
             and (not d.actor_class or self:by_class(d.actor_class))

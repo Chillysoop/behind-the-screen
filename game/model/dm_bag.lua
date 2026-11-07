@@ -4,6 +4,7 @@
 
 local util = require "game.model.util"
 local items = require "game.model.items"
+local ruleset = require "game.model.ruleset"        -- (the bag offers only the adventure's set's things)
 
 local M = {}
 
@@ -52,7 +53,7 @@ function M.read(campaign, prep, book_id)
     state(campaign).books[book_id] = campaign.week or 0
     local added = {}
     for _, e in ipairs(data().list) do
-        if e.book == book_id then
+        if e.book == book_id and ruleset.fits(e) then
             table.insert(added, e)
         end
     end
@@ -63,7 +64,7 @@ end
 function M.stock(campaign)
     local out = {}
     for _, e in ipairs(data().list) do
-        if M.unlocked(campaign, e) and M.left(campaign, e) > 0 then
+        if ruleset.fits(e) and M.unlocked(campaign, e) and M.left(campaign, e) > 0 then
             table.insert(out, e)
         end
     end

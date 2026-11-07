@@ -523,8 +523,15 @@ M.FIND_PER_NIGHT = { lots = 4, some = 3, quiet = 2 }
 M.FIND_AT = 3.0           -- how strong the want to dig has to be
 M.CURIOUS = 1.7           -- everyone's a little curious (Conner: "by default friends should generally be curious")
 
+-- (The ways of digging are a rule set's, `rules`; the friends' reactions are the table's. Another set's adventure
+-- gets none of 5e's ways: docs/design/rule-sets.md, no leaks.)
+local NO_WAYS = {}
 local function ways()
-    return require "game.data.find_out"
+    local f = require "game.data.find_out"
+    if ruleset.fits(f.ways) then
+        return f
+    end
+    return setmetatable({ ways = NO_WAYS }, { __index = f })
 end
 
 -- The person, place or thing a path is on, if it's here: { kind = "person" | "place" | "item", name, npc }.

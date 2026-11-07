@@ -6,11 +6,8 @@ M.REQUIRES = {
 -- Lines with 5e's words in a shared file (not comments).
 M.WORDS = {
     ["game/data/barks.lua"] = 13,
-    ["game/data/decisions.lua"] = 11,
     ["game/data/dialogue/lines.json"] = 14,
     ["game/data/dialogue/triggers.json"] = 8,
-    ["game/data/dm_bag.lua"] = 19,
-    ["game/data/find_out.lua"] = 12,
     ["game/data/killing_blows.lua"] = 1,
     ["game/data/session_zero.lua"] = 1,
     ["game/data/table_behaviors.lua"] = 2,

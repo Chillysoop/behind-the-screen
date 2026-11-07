@@ -94,7 +94,7 @@ return {
     },
 
     {
-        id = "boss_crit", type = "combat", trigger = "boss_crit",
+        id = "boss_crit", rules = "5e", type = "combat", trigger = "boss_crit",
         actor = { "butt_kicker", "power_gamer" },
         title = "An early knockout",
         text = "{actor_char} is about to drop {boss} in round {round}, before {boss} has done much at all.",
@@ -135,7 +135,7 @@ return {
     },
 
     {
-        id = "cornered", type = "combat", trigger = "cornered",
+        id = "cornered", rules = "5e", type = "combat", trigger = "cornered",
         actor = { "storyteller", "casual", "explorer" },
         title = "Cornered",
         text = "{target_count} enemies have {actor_char} pinned, and {actor_char} is down to {hp} hit points.",
@@ -151,7 +151,7 @@ return {
     },
 
     {
-        id = "death_roll", type = "screen", trigger = "death_roll",
+        id = "death_roll", rules = "5e", type = "screen", trigger = "death_roll",
         actor = { "butt_kicker", "method_actor", "explorer", "instigator", "storyteller", "casual" },
         title = "A roll that could drop them",
         text = "Behind your screen: {target} hits {actor_char} for {damage}. That's enough to knock {actor_them} out cold. Nobody saw the die.",
@@ -171,7 +171,7 @@ return {
     },
 
     {
-        id = "last_save", type = "screen", trigger = "last_save",
+        id = "last_save", rules = "5e", type = "screen", trigger = "last_save",
         actor = { "butt_kicker", "method_actor", "explorer", "instigator", "storyteller", "casual" },
         title = "The last death save",
         text = "{actor_char} just failed a third death save. By the rules, {actor_char} is dead. {actor} is staring at you.",
@@ -193,7 +193,7 @@ return {
     },
 
     {
-        id = "dragging_fight", type = "pacing", trigger = "dragging",
+        id = "dragging_fight", rules = "5e", type = "pacing", trigger = "dragging",
         actor = { "tactician", "butt_kicker" },
         title = "Round {round}",
         text = "This fight is on round {round}. Everyone is tracking hit points on napkins, and {lowest} is checking the time.",
@@ -211,7 +211,7 @@ return {
     },
 
     {
-        id = "grapple", type = "rules", scenes = { "combat", "set_piece" }, fight_needs = "grapple",
+        id = "grapple", rules = "5e", type = "rules", scenes = { "combat", "set_piece" }, fight_needs = "grapple",
         actor = { "tactician", "power_gamer" },
         title = "That's not how grappling works",
         text = "{actor} insists grappling doesn't work like that. The table goes quiet.",
@@ -230,7 +230,7 @@ return {
     },
 
     {
-        id = "stacking", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric", fight_needs = "bless",
+        id = "stacking", rules = "5e", type = "rules", scenes = { "combat", "set_piece" }, needs_class = "cleric", fight_needs = "bless",
         actor = { "power_gamer", "tactician" },
         title = "Do those stack?",
         text = "{actor} asks if Oswin's Bless stacks with his other bonus. Then: would a second Bless stack on top?",
@@ -250,7 +250,7 @@ return {
 
     {
         -- Only when someone actually drinks one (A7): the fight deals it.
-        id = "potion_action", type = "rules", trigger = "potion",
+        id = "potion_action", rules = "5e", type = "rules", trigger = "potion",
         actor = { "power_gamer", "tactician", "casual" },
         title = "How long does a potion take?",
         text = "{actor} drank a healing potion last turn, and asks: was that {actor_their} whole turn?",
@@ -271,7 +271,7 @@ return {
     },
 
     {
-        id = "flanking", type = "rules", scenes = { "combat", "set_piece" }, actor_class = "fighter", fight_needs = "melee",
+        id = "flanking", rules = "5e", type = "rules", scenes = { "combat", "set_piece" }, actor_class = "fighter", fight_needs = "melee",
         actor = { "tactician", "power_gamer" },
         title = "Flanking",
         text = "{actor} moves {actor_char} round behind {boss}. 'That's flanking. I get Advantage, right?'",

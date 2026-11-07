@@ -117,6 +117,42 @@ do
     ruleset.SETS.fence_test = nil
 end
 
+-- FITS: under another set, none of 5e's tagged things are offered: its decision cards, its bag, its ways of digging --
+do
+    local adventure = require "game.model.adventure"
+    local campaign_mod = require "game.model.campaign"
+    local dm_bag = require "game.model.dm_bag"
+    adventure.use("museum")
+    local c = campaign_mod.new(5)
+    adventure.enter(c)
+    local five = #dm_bag.stock(c)
+    local current = ruleset.current
+    ruleset.current = function()
+        return { id = "fence_test", title = "Fence test" }
+    end
+    local n = #dm_bag.stock(c)
+    local cards = 0
+    for _, d in ipairs(require("game.model.content").decisions) do
+        if ruleset.fits(d) and d.rules then
+            cards = cards + 1
+        end
+    end
+    local ways_fit = ruleset.fits(require("game.data.find_out").ways)
+    ruleset.current = current
+    if five == 0 then
+        fail("FITS the DM's bag is empty in a 5e adventure")
+    end
+    if n > 0 then
+        fail("FITS another set's adventure is offered " .. n .. " of 5e's things from the DM's bag")
+    end
+    if cards > 0 then
+        fail("FITS another set's adventure would be dealt " .. cards .. " of 5e's decision cards")
+    end
+    if ways_fit then
+        fail("FITS another set's adventure would dig with 5e's ways (skills and spells)")
+    end
+end
+
 -- DICE, REQUIRE, WORDS -------------------------------------------------------------------------------------------
 local shared = {}
 for _, glob in ipairs({ "game/model/*.lua", "game/ui/*.lua", "game/data/*.lua", "game/data/dialogue/*.json" }) do

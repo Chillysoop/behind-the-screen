@@ -32,6 +32,13 @@ function M.current()
     return set
 end
 
+-- Whether a shared record (a decision card, a bag's thing, a way of finding out) belongs in this adventure: it's the
+-- table's own (no `rules`), or the current set's (`rules = "5e"`). Another set's never is (no leaks).
+function M.fits(record)
+    local r = type(record) == "table" and record.rules or nil
+    return r == nil or r == M.current().id
+end
+
 -- A part of the current set's engine ("battle", "data.monsters"...), looked up when it's used, never kept: a shared
 -- module that touches 5e's battle while another set's adventure is on gets an error, not 5e (no leaks).
 function M.engine(name)

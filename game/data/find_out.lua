@@ -19,7 +19,9 @@
 
 local M = {}
 
+-- (The ways are 5e's: its skills, its spells, its classes. Another set brings its own: docs/design/rule-sets.md.)
 M.ways = {
+    rules = "5e",
     person = {
         { id = "talk", want = "talk {who} round", kind = "check", skill = { "persuasion" }, likes = { storyteller = 1.5, casual = 1.2, method_actor = 1, tactician = 0.6 },
           say = { "Can {char} just talk to {who}? Nicely. See what comes out.", "I want to talk {who} round. Kindly. Persuasion?",
