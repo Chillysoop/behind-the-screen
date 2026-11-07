@@ -565,7 +565,7 @@ L.boards = {
         tags = { "indoor", "inn", "cellar", "dark" },
         party = { 4, 6 }, npc = { 5, 8 }, foes = { 16, 11 },
         features = {
-            { id = "floor", kind = "floor_dirt", at = { { 1, 1, 0 } }, base = true, words = { "floor", "clay", "cellar" }, say = "a floor of old clay" },
+            { id = "floor", kind = "floor_sand", at = { { 1, 1, 0 } }, base = true, words = { "floor", "clay", "cellar" }, say = "a floor of old clay" },
             { id = "walls", kind = "wall_room", at = {
                 { 1, 1, 0 }, { 2, 1, 0 }, { 3, 1, 0 }, { 4, 1, 0 }, { 5, 1, 0 }, { 6, 1, 0 }, { 7, 1, 0 }, { 8, 1, 0 }, { 9, 1, 0 }, { 10, 1, 0 },
                 { 11, 1, 0 }, { 12, 1, 0 }, { 13, 1, 0 }, { 14, 1, 0 }, { 15, 1, 0 }, { 16, 1, 0 }, { 17, 1, 0 }, { 18, 1, 0 }, { 19, 1, 0 }, { 20, 1, 0 },

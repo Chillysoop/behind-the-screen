@@ -87,12 +87,14 @@ a scene's way on is its exits to a later scene, else the next one listed. The ad
 | `hurry_on` | The next scene follows straight on: no break, rest or wrap-up card between (Noke up the slope to his bed) | plays |
 | `goal.lose_sets`, `goal.line_if` | A flag losing here sets (the guards take the sheep), and the goal's words as things stand (no wand before he's explained) | plays |
 | `on` (the place) | A place you're on, not in, for the recap: a path, a platform | plays |
+| `leaves` | The scenes walking in here leaves behind for good, if they haven't been played: once they're on the road, the Sheep Chase's upstairs and cellar (`adventure.enter_room` skips them) | plays |
 
 Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in that order: `title`, `text`, `actor`
 (the kinds of player who lead it), `party` (the table settles it), `options` (game night's choice record: `label`,
 `want`, `short`, `lean`, `roll`, `log`, `mus`, `tells`, `effects`), `only_if`, `tells` (what it tells, whichever way it
 goes), `risks` (whose risk it is, when not theirs). An event that fires on a fight is said as that place's fight
-starts (`on_fight`); its `sets` are set then. An event with no options is said and played on. A creature's
+starts (`on_fight`); its `sets` are set then. An event with no options is said and played on, and its `sets` are set
+as it plays (the cellar's heap is theirs once the rats are gone). A creature's
 `flees_below` (a share of its Hit Points) and `flee_line` make it run (the rules engine, any adventure); with
 `escapes` it gets away instead of dropping when a blow would finish it. A `rider` on a creature acts from its back each
 turn (Noke's Ray of Frost from the bed dragon). An option's roll with `best` goes to whoever at the table is best at it,
@@ -146,7 +148,7 @@ on shared screens; without them the screens say something neutral.
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `secrets` | Every DM-only fact: holder, page, hint and tell, the book's reveal and two ways out or more | all | plays |
+| `secrets` | Every DM-only fact: holder, page (or `ours`, for one the game adds), hint and tell, the book's reveal and two ways out or more | all | plays |
 | `told` | What the table calls a secret name before it's told | all | plays |
 | `clues` | Where a clue is, what it points to, the DC | all | plays (as secret paths) |
 | `rumours` | A claim, `truth` (true, false, half), who knows it, where; `only_if` (a thread carried in) | S, B | data |
@@ -158,7 +160,7 @@ on shared screens; without them the screens say something neutral.
 
 | Field | Holds | Books | Status |
 | --- | --- | --- | --- |
-| `items` | What it is, who holds it, what it does in rules terms, what it opens or proves | all | plays |
+| `items` | What it is, who holds it, what it does in rules terms, what it opens or proves; a carried one handed over by a flag (`carry`, `when`), and `as` for the shared thing it really is (Teddy's dusty bottle is a healing potion) | all | plays |
 | `items[].state` | What it holds that can change (a flame's colour, charges, cracked or whole) | T, S | data |
 | `items[].hidden` | What's unknown until found out: the secrets about it | N, S | data |
 | `magic_items` | The adventure's own magic items | all | plays |

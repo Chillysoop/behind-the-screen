@@ -45,7 +45,7 @@ n       | rubble          | heap        |
 
 pieces:
 -- feature | kind | x,y | turn
-floor      | floor_dirt | 1,1 | 
+floor      | floor_sand | 1,1 | 
 
 features:
 -- id | flags | words | say

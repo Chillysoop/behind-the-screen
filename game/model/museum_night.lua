@@ -4496,6 +4496,11 @@ function M.flee(night, sc)
     if night.end_early or (night.mus.backs or 0) >= M.MAX_BACKS + 1 then
         return
     end
+    -- (The fight that was lost ended the adventure: its ending has played, and there's nowhere to fall back to. The
+    -- Sheep Chase, November 6: "Noke's men brought the sheep home", then a retreat to the path and a rest.)
+    if st.ending then
+        return
+    end
     local _, cleared = adventure.reachable(c, sc.room)
     local best, bs
     for _, id in ipairs(MODULE.order) do
