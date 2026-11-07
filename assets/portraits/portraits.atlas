@@ -167,6 +167,18 @@ images {
   image: "/assets/portraits/mini_exhibit_b.png"
 }
 images {
+  image: "/assets/portraits/mini_crew_ilse.png"
+}
+images {
+  image: "/assets/portraits/mini_crew_brask.png"
+}
+images {
+  image: "/assets/portraits/mini_crew_mox.png"
+}
+images {
+  image: "/assets/portraits/mini_crew_pell.png"
+}
+images {
   image: "/assets/portraits/mini_goblin_boss.png"
 }
 images {

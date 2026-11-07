@@ -274,6 +274,9 @@ least:
     lua tools/tests/grid_kit_check.lua    # the table's grid (game/kit/grid.lua) on a board that isn't 5e's: distance, sight, doors, light, paths
     lua tools/tests/rule_sets_check.lua   # fights both ways: a second test set on the shared grid with its own rules, a story fight
                                           # under it, and whole Sheep Chases with rooms told as story (fight_mode = "story")
+    ADVENTURE=ring lua tools/sim/museum.lua 1 careful log > ring.txt; lua tools/tests/set_words_check.lua dis ring.txt
+                                          # Death in Space's Welcome to the Ring end to end, and no other set's words in what the
+                                          # table hears (the same both ways: `5e` on a museum or Sheep Chase log)
     lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
                                           # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

@@ -460,6 +460,56 @@ L.boards = {
               line = "A wheel of candles hangs on a rope and pulley from the wall. Cut the rope and it falls." },
         },
     },
+    ring_hub = {
+        title = "The Brittle Star", light = "candle", tight = true,
+        adventure = "ring", order = 1, room = "hub",
+        source = "adventure", credit = "Ours, after the hub steps in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)",
+        about = "The crew's spacecraft: quarters, command center, mess, life support and a cold engine.",
+        tags = { "indoor", "ship", "hub" },
+        party = { 4, 7 }, npc = { 16, 4 }, foes = { 17, 10 },
+        features = {
+            { id = "floor", kind = "floor_marble", at = { { 1, 1, 0 } }, base = true, words = { "floor", "deck", "plating" }, say = "a deck of scuffed metal plates" },
+            { id = "walls", kind = "wall_room", at = {
+                { 2, 2, 0 }, { 3, 2, 0 }, { 4, 2, 0 }, { 5, 2, 0 }, { 6, 2, 0 }, { 7, 2, 0 }, { 8, 2, 0 }, { 9, 2, 0 }, { 10, 2, 0 }, { 11, 2, 0 },
+                { 12, 2, 0 }, { 13, 2, 0 }, { 14, 2, 0 }, { 15, 2, 0 }, { 16, 2, 0 }, { 17, 2, 0 }, { 18, 2, 0 }, { 19, 2, 0 }, { 2, 3, 3 }, { 9, 3, 3 },
+                { 19, 3, 1 }, { 2, 4, 3 }, { 9, 4, 3 }, { 19, 4, 1 }, { 2, 5, 3 }, { 9, 5, 3 }, { 19, 5, 1 }, { 2, 6, 0 }, { 3, 6, 0 }, { 4, 6, 0 },
+                { 6, 6, 0 }, { 7, 6, 0 }, { 8, 6, 0 }, { 9, 6, 0 }, { 10, 6, 0 }, { 11, 6, 0 }, { 12, 6, 0 }, { 14, 6, 0 }, { 15, 6, 0 }, { 16, 6, 0 },
+                { 17, 6, 0 }, { 18, 6, 0 }, { 19, 6, 0 }, { 19, 7, 1 }, { 2, 8, 0 }, { 3, 8, 0 }, { 4, 8, 0 }, { 6, 8, 0 }, { 7, 8, 0 }, { 8, 8, 0 },
+                { 9, 8, 0 }, { 10, 8, 0 }, { 11, 8, 0 }, { 12, 8, 0 }, { 14, 8, 0 }, { 15, 8, 0 }, { 16, 8, 0 }, { 17, 8, 0 }, { 18, 8, 0 }, { 19, 8, 0 },
+                { 2, 9, 3 }, { 9, 9, 3 }, { 19, 9, 1 }, { 2, 10, 3 }, { 9, 10, 3 }, { 19, 10, 1 }, { 2, 11, 3 }, { 9, 11, 3 }, { 19, 11, 1 }, { 2, 12, 2 },
+                { 3, 12, 2 }, { 4, 12, 2 }, { 5, 12, 2 }, { 6, 12, 2 }, { 7, 12, 2 }, { 8, 12, 2 }, { 9, 12, 2 }, { 10, 12, 2 }, { 11, 12, 2 }, { 12, 12, 2 },
+                { 13, 12, 2 }, { 14, 12, 2 }, { 15, 12, 2 }, { 16, 12, 2 }, { 17, 12, 2 }, { 18, 12, 2 }, { 19, 12, 2 },
+            }, base = true, words = { "walls", "hull", "bulkheads" }, say = "the hull's bulkheads, patched in a dozen places" },
+            { id = "airlock", kind = "wall_door", at = { { 2, 7, 3 } }, base = true, words = { "airlock", "outer door", "13C" }, say = "airlock 13C, out to the docking bay" },
+            { id = "hatches", kind = "door_open", at = { { 5, 6, 0 }, { 13, 6, 0 }, { 5, 8, 0 }, { 13, 8, 0 } }, base = true, words = { "hatch", "hatches", "door" }, say = "hatches between the compartments" },
+            { id = "bunks", kind = "bed", at = { { 3, 3, 0 }, { 4, 3, 0 }, { 7, 3, 0 }, { 8, 3, 0 } }, words = { "bunks", "beds", "quarters" }, own_words = true, say = "four narrow bunks with thin mattresses" },
+            { id = "consoles", kind = "desk", at = { { 14, 3, 0 } }, words = { "console", "consoles", "controls", "command chair" }, own_words = true, say = "the command consoles, half of them dark" },
+            { id = "comms", kind = "counter", at = { { 17, 3, 0 } }, words = { "comms", "speaker", "grille" }, own_words = true, say = "a speaker grille with a light that blinks before it talks" },
+            { id = "mess_table", kind = "table_long", at = { { 5, 10, 0 } }, words = { "table", "mess", "long table" }, own_words = true, say = "the mess's one long table" },
+            { id = "tanks", kind = "barrel", at = { { 3, 9, 0 }, { 3, 11, 0 } }, words = { "tanks", "life support", "air" }, own_words = true, say = "life support's tanks, wheezing" },
+            { id = "cargo", kind = "crate", at = { { 11, 9, 0 }, { 11, 11, 0 } }, words = { "crates", "cargo", "boxes" }, own_words = true, say = "cargo crates nobody's opened" },
+            { id = "engine", kind = "mech_dais", at = { { 15, 9, 0 } }, words = { "engine", "drive", "machine" }, own_words = true, say = "the chemical engine, cold and silent" },
+            { id = "fuel_tank", kind = "barrel", at = { { 18, 11, 0 } }, words = { "fuel", "fuel tank", "tank" }, own_words = true, say = "the fuel tank, bone dry" },
+        },
+        places = {
+            { id = "command_center", x = 14, y = 4, name = "the command center", near = { "consoles" }, kind = "area",
+              line = "A command chair, a ring of consoles, and loose cables everywhere." },
+            { id = "comms", x = 17, y = 4, name = "the comms", near = { "comms" }, kind = "fixture",
+              line = "A speaker grille by the command chair, and a little light that blinks before it speaks." },
+            { id = "quarters", x = 5, y = 4, name = "the crew quarters", near = { "bunks" }, kind = "area",
+              line = "Four bunks, four lockers, and names scratched into every frame." },
+            { id = "mess", x = 6, y = 11, name = "the mess", near = { "walls", "mess_table" }, kind = "area",
+              line = "One long table, a galley that mostly works, and a smell of old coffee." },
+            { id = "life_support", x = 4, y = 9, name = "life support", near = { "walls", "hatches", "mess_table", "tanks" }, kind = "area",
+              line = "Tanks and pumps, wheezing away, keeping the air just about breathable." },
+            { id = "engine", x = 14, y = 10, name = "the engine", near = { "engine" }, kind = "fixture",
+              line = "A standard chemical engine, cold, its couplings burnt black." },
+            { id = "fuel_tank", x = 17, y = 11, name = "the fuel tank", near = { "walls", "engine", "fuel_tank" }, kind = "fixture",
+              line = "A tank for six loads of fuel, and not a drop in it." },
+            { id = "airlock", x = 3, y = 7, name = "airlock 13C", near = { "walls", "airlock" }, kind = "fixture",
+              line = "The airlock out to the docking bay, sticking a little on the left." },
+        },
+    },
     sheep_inn_common = {
         title = "The common room", light = "hearth",
         adventure = "sheep", order = 1, room = "inn_common",
@@ -782,6 +832,6 @@ L.boards = {
     },
 }
 
-L.order = { "museum_garden", "museum_entrance", "museum_chamber", "museum_paintings", "museum_gift_shop", "museum_hunting", "museum_offices", "museum_tomorrow", "museum_lecture", "museum_lair", "sheep_inn_common", "sheep_inn_upstairs", "sheep_inn_cellar", "sheep_woods_path", "sheep_compound", "sheep_garden", "sheep_hall", "sheep_bedroom" }
+L.order = { "museum_garden", "museum_entrance", "museum_chamber", "museum_paintings", "museum_gift_shop", "museum_hunting", "museum_offices", "museum_tomorrow", "museum_lecture", "museum_lair", "ring_hub", "sheep_inn_common", "sheep_inn_upstairs", "sheep_inn_cellar", "sheep_woods_path", "sheep_compound", "sheep_garden", "sheep_hall", "sheep_bedroom" }
 
 return L

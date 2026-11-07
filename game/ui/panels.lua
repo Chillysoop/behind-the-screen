@@ -382,7 +382,7 @@ function M.draw_stats(app, chip, p, x, y)
                 end
                 tip = tip .. " Left now, " .. table.concat(bits, "; ") .. "."
             else
-                tip = tip .. " Left now: " .. util.int(r.cur) .. " of " .. util.int(r.max) .. "."
+                tip = tip .. " " .. (r.now_word or "Left now") .. ": " .. util.int(r.cur) .. " of " .. util.int(r.max) .. "."
             end
             gl.card_spot(start - 2, ry - 2, rx - start + 4, 20, label == "Slots" and "Spell slots" or label, tip)
         end

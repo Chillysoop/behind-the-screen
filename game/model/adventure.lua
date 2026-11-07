@@ -263,8 +263,22 @@ function M.enter(campaign)
                 pd.premise = h.gist .. "."
                 pd.intro = h.gist .. "."
                 pd.short = h.short
+                -- (An adventure with heroes of its own, made for it: Death in Space's crew. Who they are, on the
+                -- shared player records and on the campaign's: name, class, pronouns.)
+                if h.char then
+                    pd.char, pd.pronouns = h.char, h.pronouns or pd.pronouns
+                    pd.class, pd.class_name = h.class or pd.class, h.class_name or pd.class_name
+                    pd.premise = h.intro or pd.premise
+                    for _, p in ipairs(campaign and campaign.players or {}) do
+                        if p.key == key then
+                            p.char, p.class, p.class_name = pd.char, pd.class, pd.class_name
+                            p.mini = h.mini or p.mini       -- (their own paper mini: tools/gen_sprites_ring.py)
+                        end
+                    end
+                end
             end
         end
+        util.forget_pronouns()
         -- Session Zero for this adventure: its pitch and the asks that touch what's in it, over
         -- the shared one (same keys, so everything that reads them still does).
         local s0, ms0 = content.session_zero, MODULE.session_zero
@@ -409,6 +423,11 @@ function M.enter(campaign)
         -- The first session's introductions: each hero's story is the book's hook for them.
         local intros = require "game.data.intros"
         for key, p in pairs(intros.PLAYERS or {}) do
+            -- (Heroes of the adventure's own say hello as themselves.)
+            local hero = (MODULE.heroes or {})[key]
+            if hero and hero.hello then
+                p.hello = hero.hello
+            end
             local h = (MODULE.hooks or {})[key]
             if h and h[1] and h[1].intro then
                 p.story = { h[1].intro, h[2] and h[2].intro }

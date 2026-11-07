@@ -752,9 +752,10 @@ def main():
     import gen_sprites_a13
     import gen_pregens
     import gen_sprites_museum
+    import gen_sprites_ring
     mini_names = ([m[0] for m in MINIS] + gen_sprites_m4.MONSTERS + gen_sprites_m4.NPCS
                   + [f.__name__ for f in gen_sprites_a13.BUILD] + ["pregen_" + k for k in gen_pregens.PREGENS]
-                  + [f.__name__ for f in gen_sprites_museum.BUILD])
+                  + [f.__name__ for f in gen_sprites_museum.BUILD] + [f.__name__ for f in gen_sprites_ring.BUILD])
     people_names = [p[0] for p in PEOPLE]
     pose_names = [f"{p}_{pose}" for p in people_names for pose in gen_sprites.POSES if pose != "neutral"]
     sprite_names = mini_names + people_names + pose_names + ["chair_empty", "flame", "halo"]

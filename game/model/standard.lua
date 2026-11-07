@@ -166,7 +166,7 @@ function M.cards(mod)
                             fits = fits, tags = g.tags or { "action" }, line = g.line or ("Goal: " .. (sc.sum or pl.name) .. "."),
                             line_if = g.line_if,
                             win = g.win or "They're through.", win_if = g.win_if, lose = g.lose or "They're through, battered.",
-                            lose_if = g.lose_if, lose_sets = g.lose_sets, got = g.got or "the way on", ask = g.ask })
+                            lose_if = g.lose_if, lose_sets = g.lose_sets, win_sets = g.win_sets, got = g.got or "the way on", ask = g.ask })
         if sc.snag then
             table.insert(out, { id = card_id(mod, pl.id, "snag"), kind = "complication", name = sc.snag.name, skill = sc.snag.skill,
                                 fits = fits, tags = { "danger" }, difficulty = 1, line = sc.snag.line, moment = sc.snag.moment })
@@ -353,7 +353,7 @@ function M.compile(src)
         mod.rooms[pl.id] = {
             name = pl.name, part = 1, type = sc.type or "exploration", cost = sc.cost or (sc.quick and 1 or 2),
             quick = sc.quick, at = sc.at_map or M.map_at(i, #list), map = sc.map or pl.name, comps = comps,
-            encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight, fight_mode = sc.fight_mode,
+            encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight, fight_mode = sc.fight_mode, fight_hard = sc.difficulty,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest, on = pl.on,
             hurry_on = sc.hurry_on, leaves = sc.leaves,
             level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,

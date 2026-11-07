@@ -85,7 +85,7 @@ a scene's way on is its exits to a later scene, else the next one listed. The ad
 | `digs` | How many times the friends can dig for a secret there (default one) | plays |
 | `clears` | What wears off once the party leaves: `flags` cleared, and the `line` the DM says (the Sheep Chase's scroll, after the woods path) | plays |
 | `hurry_on` | The next scene follows straight on: no break, rest or wrap-up card between (Noke up the slope to his bed) | plays |
-| `goal.lose_sets`, `goal.line_if` | A flag losing here sets (the guards take the sheep), and the goal's words as things stand (no wand before he's explained) | plays |
+| `goal.lose_sets`, `goal.win_sets`, `goal.line_if` | A flag losing (or winning) here sets (the guards take the sheep; Ragosa beaten), and the goal's words as things stand (no wand before he's explained) | plays |
 | `on` (the place) | A place you're on, not in, for the recap: a path, a platform | plays |
 | `leaves` | The scenes walking in here leaves behind for good, if they haven't been played: once they're on the road, the Sheep Chase's upstairs and cellar (`adventure.enter_room` skips them) | plays |
 

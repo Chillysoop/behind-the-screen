@@ -77,6 +77,11 @@ local pronoun_names
 function M.reset_pronouns()
     pronoun_names = nil
 end
+-- (Who's who changes when an adventure brings its own heroes: adventure.enter forgets the names it knew.)
+function M.forget_pronouns()
+    pronoun_names = nil
+end
+
 function M.pronoun_of(name)
     if not pronoun_names then
         pronoun_names = {}

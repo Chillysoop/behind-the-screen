@@ -139,18 +139,35 @@ reactions do too, so every bark, thought and rest beat works in any set.
    three harm and you're out) whose grid fight stands on game/kit/grid with none of 5e loaded;
    tools/tests/rule_sets_check.lua plays it, a story fight under it, and whole Sheep Chases with the yard and the
    bedroom told as story (`STORY_ROOMS=compound,bedroom` on the sim).
-5. **The second set and a one-shot.** A 2d6 "moves" set (our own words, built on the open 10+ / 7-9 / 6- structure)
-   and a short original adventure in it, ideally written through the upload pipeline. *Done when:* it plays start to
-   end in the sims and the engine, with its own checks in the gate.
+5. **The second set and a one-shot.** *Done when:* it plays start to end in the sims and the engine, with its own
+   checks in the gate. **Built, November 7, with Death in Space** (Conner uploaded the core rules and its starting
+   adventure, for private playtesting) instead of a 2d6 set of our own:
+   - *The set* (game/rules/sets/dis.lua): a d20 and one of four abilities (Body, Dexterity, Savvy, Tech) against 12,
+     always (`fixed_dc`: how hard a thing is shows as advantage or disadvantage, never a moved number); a miss gives a
+     void point, four at most, and a player spends one for advantage on a roll that matters (`edge`), at the risk of a
+     mark if it still misses (`after_check`). The table's ways of trying things (its stock moves name 5e's skills) map
+     to the abilities (`approach`). No inspiration token, no levels, fights told as story (`fight = "story"`, harder:
+     `story_marks`). Its engine parts are its own (game/rules/dis/: party, progression, tile_stats), and so are its
+     screens (game/ui/sheet_view_dis.lua; game/ui/battle_hud_none.lua, a HUD with nothing on the mat).
+   - *The adventure* (game/data/ring/): Welcome to the Ring on Aurum 80, in our words with the book's pages. Four new
+     characters, one per friend, by the book's steps (an adventure's `heroes` with `char`, `class_name`, `pronouns`,
+     `mini`, `sheet` and the rest replace the friends' usual heroes while it runs), and their hub, the Brittle Star,
+     by the hub steps (`M.hub`, its own board game/data/maps/ring_hub.map and minis tools/gen_sprites_ring.py).
+   - *What the sweep moved:* board placement out of 5e's fight (game/model/placement.lua), the secrets' usual ways out
+     by set (`secret_defaults`), the bag's books tagged 5e, rests and hurts said without hit points for a set whose
+     fights are told, `ruleset.has` for a screen that shows a part only when the set has one, `goal.win_sets`.
 6. **The table meets the system.** Session Zero pitches it; each friend has a taste and a familiarity ("we roll two
    dice?"); the DM's prep changes with it (threats and clocks instead of encounters). *Done when:* the friends'
    reactions to the system show up in the transcripts.
 7. **Guard it.** The word fence runs both ways from the day the second set lands (no 5e words in its adventure, none
    of its words in a 5e one), and every set brings its own checks to the gate.
+   **Built, November 7:** tools/tests/set_words_check.lua reads what a playthrough says to the table and fails on any
+   word another set owns; the gate runs it on Death in Space's sims and on 5e's, with the ring's schema, secrets,
+   copy check against the book, sims and engine smokes.
 
 ## Decisions owed
 
-- Step 5's system: a 2d6 moves set (recommended), Forged in the Dark's position and effect, or d100 investigation.
+- Step 5's system: settled, Death in Space (Conner, November 7). A set of our own can still come later.
 - Heroes across systems: the same four friends always, with new characters per one-shot (like a real table's
   one-shot night). Reimagining their usual heroes would mean carrying them between systems, which the no-leaks rule
   allows only as a name and a story, never their stats or kit.

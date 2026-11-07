@@ -167,6 +167,18 @@ images {
   image: "/assets/sprites/exhibit_b.png"
 }
 images {
+  image: "/assets/sprites/crew_ilse.png"
+}
+images {
+  image: "/assets/sprites/crew_brask.png"
+}
+images {
+  image: "/assets/sprites/crew_mox.png"
+}
+images {
+  image: "/assets/sprites/crew_pell.png"
+}
+images {
   image: "/assets/sprites/dev.png"
 }
 images {

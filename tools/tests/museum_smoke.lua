@@ -1010,7 +1010,11 @@ for week = 1, WEEKS do
         dump_once("4n_notes_bag_open_w1")      -- (the notebook over the board: not a bare prep screen)
         scan("the bag's page" .. where)
         local before, hours = #dm_bag.stock(c), c.prep:left()
-        if not click_key("read_book_armourer") then
+        local has_books = require("game.model.ruleset").fits(require("game.data.dm_bag").books[1])
+        if not has_books then
+            -- (A rule set with no books of its own, Death in Space's: none to read, and none shown.)
+            if click_key("read_book_armourer") then problem("another rule set's book is on the bag's page" .. where) end
+        elseif not click_key("read_book_armourer") then
             problem("no way to read the first book" .. where)
         elseif #dm_bag.stock(c) ~= before + 4 or c.prep:left() ~= hours - 1 then
             problem("reading a book didn't put its things in the bag for an hour (" .. before .. " -> " .. #dm_bag.stock(c)
@@ -1053,20 +1057,22 @@ for week = 1, WEEKS do
             click_key("open_maps")
             click_key("mr_group_basics")
             click_key("mr_use_room")
-            click_key("mr_room_garden")
-            if not repo.room_map(c, "garden") then problem("setting the garden's map didn't stick") end
+            -- (The museum's and the Sheep Chase's garden; another adventure's first room.)
+            local room = adventure.data.rooms.garden and "garden" or adventure.data.start
+            click_key("mr_room_" .. room)
+            if not repo.room_map(c, room) then problem("setting the " .. room .. "'s map didn't stick") end
             click_key("mr_cancel")
             if not app.ask then problem("the X after a change didn't ask first") end
             dump_once("4m_maps_cancel")
             click_key("ask_no")
-            if app.overlay ~= "maps" or not repo.room_map(c, "garden") then problem("Keep editing didn't keep the change") end
+            if app.overlay ~= "maps" or not repo.room_map(c, room) then problem("Keep editing didn't keep the change") end
             click_key("mr_cancel")
             click_key("ask_yes")
             if app.overlay then problem("Delete my changes didn't close the repository") end
-            if repo.room_map(c, "garden") then problem("the X didn't put the garden's map back") end
+            if repo.room_map(c, room) then problem("the X didn't put the " .. room .. "'s map back") end
         end
-        -- The tie editor's X does the same for a lock.
-        do
+        -- The tie editor's X does the same for a lock (on the garden's door, where there's one).
+        if adventure.data.rooms.garden and adventure.data.rooms.entrance then
             click_key("open_ties")
             click_key("tl_door_" .. require("game.model.ties").door_key("garden", "entrance"))
             click_key("tl_lock_door")
@@ -1410,7 +1416,10 @@ else
     dump("8_survey")
 end
 if not boss_seen then problem("there was never a boss night") end
-if app.campaign.level < 3 then problem("the party never levelled up (level " .. tostring(app.campaign.level) .. ")") end
+-- (A rule set with no levels, Death in Space's, has nothing to level up.)
+if not app.campaign:level_status().none and app.campaign.level < 3 then
+    problem("the party never levelled up (level " .. tostring(app.campaign.level) .. ")")
+end
 
 -- (A one-shot, the Sheep Chase, is a gentle first night and a short second one, R6: it may have no thought at all. The
 -- thoughts themselves are the museum smokes' to show, and thoughts_check's.)
@@ -1494,8 +1503,8 @@ if OVERLAP then
     table.sort(ks)
     for _, k in ipairs(ks) do print("OVERLAP_PIECE\t" .. k .. "\t" .. OVERLAP.pieces[k]) end
 end
-print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %d, thoughts %d (opened %d, answered %d)", SEED, nights,
-    tostring(final_ending), marks_seen, final_level, thoughts_seen, thoughts_opened,
+print(string.format("museum smoke %d: %d nights, ending %s, marks %d, level %s, thoughts %d (opened %d, answered %d)", SEED, nights,
+    tostring(final_ending), marks_seen, final_level and string.format("%d", final_level) or "none", thoughts_seen, thoughts_opened,
     thoughts_answered))
 if #problems > 0 then
     for _, p in ipairs(problems) do print("PROBLEM: " .. p) end

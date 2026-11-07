@@ -1,0 +1,78 @@
+-- The Brittle Star (ours): the crew's spacecraft, made by Death in Space's hub steps (pp. 26-33) and drawn in our pieces.
+-- An old chrome ship: crew quarters with four bunks to the north-west, the command center to the north-east with its
+-- consoles and the comms that won't stop talking, a corridor from airlock 13C on the west, the mess and life support's
+-- tanks to the south-west, and the engine room to the south-east, with the cold engine, cargo and the empty fuel tank.
+
+id: ring_hub
+tight: yes
+title: The Brittle Star
+light: candle
+adventure: ring
+room: hub
+source: adventure
+credit: Ours, after the hub steps in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: The crew's spacecraft: quarters, command center, mess, life support and a cold engine.
+tags: indoor, ship, hub
+order: 1
+party: 4,7
+foes: 17,10
+npc: 16,4
+
+grid:
+|                    |
+| ################## |
+| #BB..BB#....kk.c.# |
+| #BB..BB#.........# |
+| #......#.........# |
+| ###d#######d###### |
+| D................# |
+| ###d#######d###### |
+| #o.....#.x...MM..# |
+| #..LL..#.....MM..# |
+| #o.....#.x......f# |
+| ################## |
+|                    |
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+d       | door_open       | hatches    | auto
+D       | wall_door       | airlock    | auto
+B       | bed             | bunks      | 0
+k       | desk            | consoles   | 0
+c       | counter         | comms      | 0
+L       | table_long      | mess_table | 
+o       | barrel          | tanks      | 
+x       | crate           | cargo      | 
+M       | mech_dais       | engine     | 
+f       | barrel          | fuel_tank  | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_marble | 1,1 | 
+
+features:
+-- id | flags | words | say
+floor      | base      | floor, deck, plating | a deck of scuffed metal plates
+walls      | base      | walls, hull, bulkheads | the hull's bulkheads, patched in a dozen places
+airlock    | base      | airlock, outer door, 13C | airlock 13C, out to the docking bay
+hatches    | base      | hatch, hatches, door | hatches between the compartments
+bunks      | own_words | bunks, beds, quarters | four narrow bunks with thin mattresses
+consoles   | own_words | console, consoles, controls, command chair | the command consoles, half of them dark
+comms      | own_words | comms, speaker, grille | a speaker grille with a light that blinks before it talks
+mess_table | own_words | table, mess, long table | the mess's one long table
+tanks      | own_words | tanks, life support, air | life support's tanks, wheezing
+cargo      | own_words | crates, cargo, boxes | cargo crates nobody's opened
+engine     | own_words | engine, drive, machine | the chemical engine, cold and silent
+fuel_tank  | own_words | fuel, fuel tank, tank | the fuel tank, bone dry
+
+spots:
+-- key | x,y | name | line | form
+command_center | 14,4 | the command center | A command chair, a ring of consoles, and loose cables everywhere. | one area
+comms | 17,4 | the comms | A speaker grille by the command chair, and a little light that blinks before it speaks. | one fixture
+quarters | 5,4 | the crew quarters | Four bunks, four lockers, and names scratched into every frame. | one area
+mess | 6,11 | the mess | One long table, a galley that mostly works, and a smell of old coffee. | one area
+life_support | 4,9 | life support | Tanks and pumps, wheezing away, keeping the air just about breathable. | one area
+engine | 14,10 | the engine | A standard chemical engine, cold, its couplings burnt black. | one fixture
+fuel_tank | 17,11 | the fuel tank | A tank for six loads of fuel, and not a drop in it. | one fixture
+airlock | 3,7 | airlock 13C | The airlock out to the docking bay, sticking a little on the left. | one fixture

@@ -1,0 +1,182 @@
+-- Table life for Welcome to the Ring (game/model/table_life.lua): the small back-and-forth of a real table, played in
+-- quiet moments. The book (Death in Space, pp. 78-91) says what is in each place; every line here is our own words, and
+-- the small things to poke at are ours, made to fit. Nothing here gives a secret away (game/data/ring/secrets.lua).
+-- The shape is the museum's (game/data/museum/table_life.lua has the full notes). A curio's `skill` is an ability:
+-- bdy, dex, svy or tec (game/rules/sets/dis.lua).
+
+return {
+  people = {
+    ri_comms = {
+      slip = { "\"I used to have colleagues, you know. Six of them. Mainframes. We had a book club.\"",
+               "\"Between us, the airlock on the left sticks. The left one. Or is it my left?\"",
+               "\"Nobody's talked to me in eleven months. I counted. Hello!\"" },
+      misheard = { "\"Fuel? No, I said FOOL. Affectionately!\"", "\"The engine? Oh, the engine's fine. Fine-ish. On fire, briefly.\"",
+                   "\"Did you say 'reboot'? Please don't say reboot.\"" },
+    },
+    ri_hina = {
+      slip = { "\"Don't drink the blue one. I mean it. That's for the computer center.\"",
+               "\"Between you and me, I've never once seen a real beach.\"", "\"Rozzie's been with me nine years. I'd miss her.\"" },
+      misheard = { "\"Fuel? Fool? Both, darling, at these prices.\"", "\"Monotone? Never heard of them. Next question.\"" },
+    },
+    ri_roy = {
+      slip = { "\"The mangoes are my mother's. Her seeds, I mean. Took them when I left.\"",
+               "\"I was a bodyguard, once. Out on the satellites. Never lost anybody.\"" },
+      misheard = { "\"Water? WATER. Not war. Though give it a day.\"", "\"Parliament? Don't say that word in here.\"" },
+    },
+    ri_monotone = {
+      slip = { "\"We used to race drones in the engine hall. Roy always cheated.\"", "\"I fixed that window myself. Twice.\"" },
+      misheard = { "\"Lonely? I said only. Only Parliament. Only us.\"", "\"Roy? I don't know a Roy.\" The cartridge clicks." },
+    },
+  },
+  rooms = {
+    dock = {
+      present = { "ri_salvagers" },
+      scare = { "A work light drops a foot on its chain right over {char}'s head, swings, and stops. Nobody else even flinches." },
+      curios = {
+        { id = "dock_timer", what = "the huge timer on the wall", spot = "timer", skill = "svy", who = { "tactician", "explorer" },
+          ask = "Everyone keeps looking at that timer. What happens when it hits zero?",
+          dull = "Big red numbers, counting down. Under four hours.",
+          detail = "Someone's taped a sign under it: SHUTTLE. Someone else has written a rude word about the shuttle under that.",
+          lore = "Scratched round the timer's frame: tally marks, hundreds of them, one for every shuttle that's ever landed here.",
+          react = { dull = { "Under four hours. Right. Brilliant." }, detail = { "Somebody really doesn't like that shuttle." },
+                    lore = { "Hundreds of shuttles. This place used to be busy." } },
+          crit20 = { find = "a holo chip somebody dropped under the timer, still with a few holos on it", clue = nil },
+          crit1 = "You stare up so long you walk straight into a vendor's stall and buy a skewer of something to say sorry." },
+        { id = "dock_shops", what = "the repair shops", spot = "repair_shops", skill = "tec", who = { "butt_kicker", "power_gamer" },
+          ask = "Repair shops! What've they got for sale?",
+          dull = "Bolts, cable, half an engine, and a sign saying NO CREDIT in four languages.",
+          detail = "A shop with a whole shelf of spacecraft parts, every one tagged with a price that's frankly an insult.",
+          lore = "The part they'd need for the Brittle Star's engine is here, at three hundred holos, which is more than the crew has.",
+          react = { dull = { "No credit. In four languages. Harsh." }, detail = { "That's daylight robbery. In space." },
+                    lore = { "Three hundred holos. We have, what, none?" } },
+          crit20 = { find = "a roll of duct tape the shopkeeper throws in for nothing, because you made her laugh", clue = nil },
+          crit1 = "You pick up a coupling and it comes apart in your hands. You've just bought a coupling." },
+      },
+      npc_questions = {
+        { who = "ri_ezra", skill = "svy", ask = "How did you end up with our debt?",
+          answer = "\"Bought it. That's what I do. I buy debts, I tow things, I'm very reasonable.\"",
+          better = "\"Bought it cheap, needed it quick. Let's just say I have bills of my own.\"" },
+      },
+      table_bits = {
+        { kind = "banter", who = "jess", lines = { "\"I've decided I'm Mox Fontaine here. Very rich. Very unlucky,\" Jess says.",
+                                                    "Dev: \"You've been on the station four minutes.\"" } },
+      },
+    },
+    hub = {
+      present = { "ri_cassius" },
+      scare = { "Something furry drops from a ceiling vent onto {char}'s shoulder, hisses, and stalks off. It's only Cassius." },
+      curios = {
+        { id = "hub_cassius", what = "the robot pet", spot = "mess", skill = "svy", who = { "casual", "storyteller" },
+          ask = "There's a cat-thing under the table. Can I pet it?",
+          dull = "It lets you, for exactly one second, and then it bites.",
+          detail = "Under the fur it's an old maintenance robot, the kind that crawls in vents. Someone sewed it a coat.",
+          lore = "There's a little tag sewn into the fur: CASSIUS, and a stitched heart. Somebody loved this horrible thing.",
+          react = { dull = { "Fair. I'd bite me too." }, detail = { "Someone sewed a coat for a vent robot. I love them." },
+                    lore = { "Cassius. Cassius, you are part of this crew now." } },
+          crit20 = { find = "Cassius, curled up asleep on your boots, purring like a broken fan", clue = nil },
+          crit1 = "Cassius takes your glove and disappears into the vents with it. You'll see it again. Probably." },
+        { id = "hub_bunks", what = "the crew quarters", spot = "quarters", skill = "svy", who = { "explorer", "method_actor" },
+          ask = "Four bunks. I'm picking mine. What's in them?",
+          dull = "Thin mattresses, a smell of old coffee, a locker each.",
+          detail = "Names scratched into the bunk frames, then scratched out, then new names over the top. A lot of crews.",
+          lore = "Under one mattress: a child's drawing of the Brittle Star, with a sun next to it, and four stick people waving.",
+          react = { dull = { "Top bunk. Called it." }, detail = { "A lot of crews. Where'd they all go?" },
+                    lore = { "Someone was happy here. We can be happy here." } },
+          crit20 = { find = "a working pocket lamp in one locker, left for whoever came next", clue = nil },
+          crit1 = "You sit on the bunk, and the bunk folds up into the wall, with you in it." },
+      },
+      npc_questions = {
+        { who = "ri_comms", skill = "tec", ask = "Comms, what's your name?",
+          answer = "\"I don't have one! You could give me one. No pressure. Lots of pressure.\"",
+          better = "\"The old mainframes called me Bel. I liked Bel. You can call me Bel, if you like.\"" },
+      },
+      table_bits = {
+        { kind = "snack", who = "sam", lines = { "\"I brought crisps. Space crisps,\" Sam says. \"They're normal crisps.\"",
+                                                  "Mara: \"They're beautiful. Hand them over.\"" } },
+      },
+    },
+    bar_machine = {
+      scare = { "The old drilling machine shudders and groans like it's about to start up, and {char} nearly falls off a stool. It doesn't." },
+      curios = {
+        { id = "bar_drill", what = "the drilling machine bar", spot = "drill_bar", skill = "tec", who = { "explorer", "power_gamer" },
+          ask = "They made a bar out of a drill. Does the drill still work?",
+          dull = "Water, sake, two stools that wobble.", detail = "The drill head is still in there behind the bottles, and still sharp.",
+          lore = "The machine's plate: it dug the first tunnels into Aurum 80, back when this was all new.",
+          react = { dull = { "Sake, please. Lots of sake." }, detail = { "Still sharp. Great. Lovely bar." },
+                    lore = { "It built the place. Now it serves drinks in it." } },
+          crit20 = { find = "a free round, because the barman likes anyone who asks about his drill", clue = nil },
+          crit1 = "You lean on the wrong lever and the drill coughs once, loudly, and every bottle rattles." },
+      },
+      table_bits = {
+        { kind = "banter", who = "mara", lines = { "\"An old friend who turns up just when we need one? I trust Dace completely,\" Mara says, flatly.",
+                                                    "Sam: \"I liked them!\"" } },
+      },
+    },
+    common = {
+      present = { "ri_hina" },
+      scare = { "A bed capsule three floors up slams shut with a bang like a gunshot, and {char} ducks. Somebody up there laughs." },
+      curios = {
+        { id = "common_stands", what = "the food stands", spot = "food_stands", skill = "svy", who = { "casual", "storyteller" },
+          ask = "I'm getting street food. What's good?", dull = "Noodles, noodles, something on a stick, and noodles.",
+          detail = "One stand sells real fruit, tiny and bruised, for more holos than a bed for the night.",
+          lore = "The fruit's from the engine room: the Passel's farm. Everyone here knows where the only fresh food comes from.",
+          react = { dull = { "Noodles it is." }, detail = { "Real fruit? Out here?" }, lore = { "So the Passel feed this whole place." } },
+          crit20 = { find = "a free bowl of noodles, because the cook thinks you look half-starved", clue = nil },
+          crit1 = "The thing on a stick turns out to be still moving, a little." },
+        { id = "common_screens", what = "the holo screens", spot = "holo_screens", skill = "svy", who = { "explorer", "instigator" },
+          ask = "What's on the screens?", dull = "Adverts. Cryo tickets off the Ring, monthly payments.",
+          detail = "Between the adverts: a UWA notice. Suro Ragosa is coming to settle the gangs' quarrel.",
+          lore = "Someone's hacked one screen to run the same thing over and over: Monotone's old drone-racing videos.",
+          react = { dull = { "Monthly payments for a cryo ticket. Grim." }, detail = { "Settle it. That's not good, is it." },
+                    lore = { "Monotone used to race drones? I want to see that." } },
+          crit20 = { find = nil, clue = "In one drone-race video, two kids cheer at the finish line, arms round each other: Roy and Monotone." },
+          crit1 = "The screen flickers to an advert that won't stop following you down the walkway." },
+      },
+      npc_questions = {
+        { who = "ri_hina", skill = "svy", ask = "How's business?",
+          answer = "\"Busy. Always busy. Busy is good, until it's busy with guns.\"",
+          better = "\"Busy, and I'm tired of it. Tired of this place, darling. Ask me again when you've a ship that flies.\"" },
+      },
+      table_bits = {
+        { kind = "drink", who = "dev", lines = { "\"Round's on me. In space,\" Dev says.", "Jess: \"It's the same as normal drinks, Dev.\"" } },
+      },
+    },
+    engine_room = {
+      present = { "ri_roy" },
+      scare = { "A burst of steam shoots up through the floor grating right in front of {char}. The kids nearby think it's hilarious." },
+      curios = {
+        { id = "engine_stalls", what = "the fruit stalls", spot = "fruit_stalls", skill = "svy", who = { "casual", "storyteller" },
+          ask = "Fruit! Real fruit! I'm buying all of it.", dull = "Small fruit, steaming air, kids everywhere.",
+          detail = "Mangoes, mostly, and every stall has fewer than it did yesterday. The farm's drying out.",
+          lore = "Every stall has a little picture of an old woman pinned up beside the scales. Nobody's said who she is.",
+          react = { dull = { "All of it. I said all of it." }, detail = { "The farm's dying. That's Roy's problem." },
+                    lore = { "Someone everyone here loved." } },
+          crit20 = { find = "a ripe mango, pressed into your hand by a kid who won't take holos for it", clue = nil },
+          crit1 = "You knock a whole crate of fruit over, and twelve kids help you pick it up and keep half." },
+      },
+      npc_questions = {
+        { who = "ri_roy", skill = "svy", ask = "What happens if the farm dies?",
+          answer = "\"Then half of Aurum 80 eats noodles forever. Mine included.\"",
+          better = "\"Then everything my mother planted goes with it. So it won't.\"" },
+      },
+    },
+    computer_center = {
+      present = { "ri_monotone" },
+      scare = { "One of the dreamers on the floor sits bolt upright, stares straight at {char}, and lies back down. Still dreaming." },
+      curios = {
+        { id = "cc_window", what = "the big window", spot = "window", skill = "svy", who = { "explorer", "tactician" },
+          ask = "There's a window. What's out there?", dull = "The dark, and stars, and the station's hull.",
+          detail = "The big communications dish, and beside it a battered little unit with blinking lights.",
+          lore = "Wires run from that unit straight down into the water systems. Whatever it says, the water does.",
+          react = { dull = { "Space. Still big." }, detail = { "What's that little box doing out there?" },
+                    lore = { "So that's the back door." } },
+          crit20 = { find = nil, clue = "The little unit outside has no lock on it at all. Just a cover, and bolts." },
+          crit1 = "You lean on the glass and it creaks, and every Parliament member in the room stares at you." },
+      },
+      table_bits = {
+        { kind = "banter", who = "sam", lines = { "\"This place makes me want to unplug everything and go for a walk,\" Sam says.",
+                                                   "Mara: \"There's nowhere to walk. We're in space.\"" } },
+      },
+    },
+  },
+}

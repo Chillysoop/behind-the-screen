@@ -15,6 +15,11 @@ M.SCREENS = {
         levelup_view = function() return require "game.ui.levelup_view" end,
         sheet_view = function() return require "game.ui.sheet_view" end,
     },
+    -- (Death in Space's: its crew's sheet, and no battle HUD, since its fights are told.)
+    dis = {
+        battle_hud = function() return require "game.ui.battle_hud_none" end,
+        sheet_view = function() return require "game.ui.sheet_view_dis" end,
+    },
 }
 
 function M.part(name)

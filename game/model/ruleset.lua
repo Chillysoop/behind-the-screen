@@ -51,6 +51,12 @@ function M.engine(name)
     return part
 end
 
+-- Whether the current set has a part at all (a screen that shows 5e's traps shows nothing of them for a set with none).
+function M.has(name)
+    local set = M.current()
+    return set.engine ~= nil and set.engine[name] ~= nil
+end
+
 -- The same, as a stand-in a module can hold from load time (`local battle = ruleset.part("battle")`): every field
 -- read or written goes to the current set's part at that moment.
 function M.part(name)

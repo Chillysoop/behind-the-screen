@@ -12,7 +12,7 @@
 
 local M = {}
 
-M.order = { "museum", "sheep" }
+M.order = { "museum", "sheep", "ring" }
 M.default = "museum"
 
 M.list = {
@@ -34,6 +34,16 @@ M.list = {
         cards = function() return { cards = require("game.model.standard").cards(require "game.data.sheep.module") } end,
         table_life = function() return require "game.data.sheep.table_life" end,
         fidelity = function() return require "game.data.sheep.fidelity" end,
+        follows = { any = true },
+    },
+    -- (Death in Space's starting adventure: its own rule set, game/rules/sets/dis.lua.)
+    ring = {
+        id = "ring",
+        title = "Welcome to the Ring",
+        module = function() return require "game.data.ring.module" end,
+        cards = function() return { cards = require("game.model.standard").cards(require "game.data.ring.module") } end,
+        table_life = function() return require "game.data.ring.table_life" end,
+        fidelity = function() return require "game.data.ring.fidelity" end,
         follows = { any = true },
     },
 }

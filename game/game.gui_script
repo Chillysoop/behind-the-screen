@@ -31,7 +31,8 @@ local ask_view = require "game.ui.ask_view"
 local npc_view = require "game.ui.npc_view"
 local saves_view = require "game.ui.saves_view"
 local talk_view = require "game.ui.talk_view"
-local sheet_view = require "game.ui.sheet_view"
+-- (A hero's sheet is the adventure's rule set's own screen: game/ui/sets.lua.)
+local sheet_view = require("game.ui.sets").screen("sheet_view")
 local input_trace = require "game.ui.input_trace"
 local map_repo_view = require "game.ui.map_repo_view"
 local ties_view = require "game.ui.ties_view"

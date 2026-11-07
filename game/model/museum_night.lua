@@ -288,6 +288,7 @@ function M.build_scene(night, id)
         difficulty = prep_mod.difficulty(comps),
         optional_fight = r.optional_fight,
         fight_mode = r.fight_mode,     -- ("story": its fight is told without the grid, game/model/story_fight.lua)
+        fight_hard = r.fight_hard,     -- (how hard that fight is told, 1 to 3: the scene's `difficulty`)
         boss = r.boss,
         epilogue = r.epilogue,
         rest_here = r.rest or nil,
@@ -648,7 +649,10 @@ function M.handle(night, mus, sc)
     if mus.drag and who and sc then
         M.drag(night, sc, who, mus.drag)
     end
-    if mus.hurt and who then
+    if mus.hurt and who and ruleset.current().fight == "story" then
+        -- (A set whose fights are told keeps no hit points between them: the hurt is said, and felt.)
+        night:say(util.fill(night:fresh(M.HURT_TOLD, "hurt_told"), { char = who.char }), "bad")
+    elseif mus.hurt and who then
         fight.party(night)
         local pc = night.pcs and night.pcs[who.key]
         if pc and not pc.dead then
@@ -755,11 +759,18 @@ local function alt_holds(night, sc, alt)
     return true
 end
 
+M.HURT_TOLD = { "{char} takes a nasty knock, and feels it.", "That hurts {char}. Nothing broken, probably.",
+                "{char} comes away bruised and sore." }
+
 function M.goal_text(night, sc, goal)
     local win = sc.outcome == "win"
     -- (What losing here does to the story, `lose_sets`: the Sheep Chase's guards win the yard and take the sheep.)
     if not win and goal.lose_sets and night.campaign.adv then
         night.campaign.adv.flags[goal.lose_sets] = true
+    end
+    -- (And what winning does, `win_sets`: Welcome to the Ring's Ragosa, beaten in her own docking bay.)
+    if win and goal.win_sets and night.campaign.adv then
+        night.campaign.adv.flags[goal.win_sets] = true
     end
     local text = win and goal.win or (goal.lose or goal.win)
     local alt_said = false
@@ -5783,7 +5794,8 @@ function M.maybe_break(night, before_boss)
         end
     end
     if o and o.rest then
-        if not night.pc_list then
+        -- (A set whose fights are told as story keeps no hit points between them: nothing to build.)
+        if not night.pc_list and ruleset.current().fight ~= "story" then
             fight.party(night)
         end
         night:do_rest(o.rest == "long" and "long" or "short", "town")

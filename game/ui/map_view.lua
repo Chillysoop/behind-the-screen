@@ -375,36 +375,41 @@ function M.side(app, x, y, w, ids, hazard)
         pieces(grp)
     end
     ty = ty + 8
-    -- Which SRD trap the trap squares are.
-    local hz = ruleset.part("data.hazards")
-    local trap = (m and m.trap) or maps.TRAP
-    local td = hz.traps[trap]
-    kit.text(x, ty, "TRAP", "ui14", theme.gold)
-    kit.text(x + 52, ty, td.name .. " (" .. td.src .. ")", "ui14", theme.text, { w = w - 140, lines = 1 })
-    kit.button(x + w - 80, ty - 4, 80, 26, "Change", function()
-        if not loc then
-            return
-        end
-        local mm = get_map()
-        local order = hz.trap_order
-        local at = 1
-        for k, tid in ipairs(order) do
-            if tid == trap then
-                at = k
+    -- Which SRD trap the trap squares are (a set with no traps of its own, Death in Space's, shows none).
+    if ruleset.has("data.hazards") then
+        local hz = ruleset.part("data.hazards")
+        local trap = (m and m.trap) or maps.TRAP
+        local td = hz.traps[trap]
+        kit.text(x, ty, "TRAP", "ui14", theme.gold)
+        kit.text(x + 52, ty, td.name .. " (" .. td.src .. ")", "ui14", theme.text, { w = w - 140, lines = 1 })
+        kit.button(x + w - 80, ty - 4, 80, 26, "Change", function()
+            if not loc then
+                return
             end
-        end
-        mm.trap = order[at % #order + 1]
-        app.prep_dirty = true
-        redraw(app)
-    end, { font = "ui14", enabled = loc ~= nil, key = "map_trap" })
-    ty = ty + 30
+            local mm = get_map()
+            local order = hz.trap_order
+            local at = 1
+            for k, tid in ipairs(order) do
+                if tid == trap then
+                    at = k
+                end
+            end
+            mm.trap = order[at % #order + 1]
+            app.prep_dirty = true
+            redraw(app)
+        end, { font = "ui14", enabled = loc ~= nil, key = "map_trap" })
+        ty = ty + 30
+    end
     if s and s.own then
         -- (One of the DM's own maps: no fight to weigh yet. The repository sets it for a room.)
         kit.text(x, ty, "Saved in your maps. Back in the map repository, set it for a room or open it as a side room.",
             "ui14", theme.faint, { w = w })
         return
     end
-    -- How hard, with the map.
+    -- How hard, with the map (a set whose fights are told, not fought on the grid, has nothing to weigh).
+    if not ruleset.has("matchup") then
+        return
+    end
     local tilt, why = maps.tilt(m)
     local a = matchup.analyze(app.campaign, ids, hazard, tilt)
     kit.text(x, ty, "HOW HARD, WITH THE MAP", "ui14", theme.gold)

@@ -19,13 +19,13 @@ M.RANK = { Bit = 1, Common = 2, Uncommon = 3, Rare = 4, ["Very Rare"] = 5, Legen
 -- before it read first. A thing with no `book` is in the bag from the start.
 M.READ_COST = 1
 M.books = {
-    { id = "armourer", name = "The Wandering Armourer's Ledger",
+    { id = "armourer", rules = "5e", name = "The Wandering Armourer's Ledger",
       about = "A travelling smith's notes on shields, gloves and bows." },
-    { id = "wonders", name = "Notes on Lesser Wonders", needs = "armourer",
+    { id = "wonders", rules = "5e", name = "Notes on Lesser Wonders", needs = "armourer",
       about = "A hedge-wizard's list of wands, pearls and lucky charms." },
-    { id = "vault", name = "The Vault-Keeper's Catalogue", needs = "wonders",
+    { id = "vault", rules = "5e", name = "The Vault-Keeper's Catalogue", needs = "wonders",
       about = "What a collector locks away: armour, rings, robes, blades." },
-    { id = "legend", name = "Treasures of Legend", needs = "vault",
+    { id = "legend", rules = "5e", name = "Treasures of Legend", needs = "vault",
       about = "Old stories of arms and armour made by masters." },
 }
 
@@ -80,8 +80,8 @@ M.list = {
     { id = "bag_armor_plus3", rules = "5e", book = "legend", kind = "magic", magic = "armor_plus3" },
 }
 
--- (A magic entry takes its name, rarity and words from the rules.)
-local mi = ruleset.part("data.magic_items")
+-- (A magic entry takes its name, rarity and words from its own rule set's magic items: the set it's tagged with,
+-- whichever adventure is on.)
 M.by_id = {}
 M.book_by_id = {}
 for _, b in ipairs(M.books) do
@@ -89,6 +89,7 @@ for _, b in ipairs(M.books) do
 end
 for _, e in ipairs(M.list) do
     if e.kind == "magic" then
+        local mi = ruleset.get(e.rules).engine["data.magic_items"]
         local d = assert(mi[e.magic], "no magic item " .. tostring(e.magic))
         e.name = e.name or d.name
         e.rarity = e.rarity or d.rarity

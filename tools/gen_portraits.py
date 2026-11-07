@@ -25,6 +25,8 @@ STANDEES = ["fighter", "rogue", "cleric", "wizard",
             # The museum's own (tools/gen_sprites_museum.py).
             "euryale", "knight_of_shades", "sentinel", "giant_scarab_swarm", "bone_construct", "kruthik_huntling",
             "the_lecturer", "steam_mech", "telpur", "flitwidget", "exhibit_b",
+            # Welcome to the Ring's crew (tools/gen_sprites_ring.py).
+            "crew_ilse", "crew_brask", "crew_mox", "crew_pell",
             "goblin_boss", "goblin_club", "goblin_spear", "bandit", "bandit_captain", "cultist", "tough",
             "wolf", "dire_wolf", "skeleton", "zombie", "ghoul", "ogre",
             # The museum garden's topiary (November 3).

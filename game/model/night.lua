@@ -45,6 +45,7 @@ local told = require "game.model.told"
 local agency = require "game.model.agency"
 local voice_of = require "game.model.voice"
 local fight = ruleset.part("fight")
+local placement = require "game.model.placement"
 local social = require "game.model.social"
 local rest_rules = ruleset.part("rest")
 local rapport = require "game.model.rapport"
@@ -1829,11 +1830,11 @@ end
 
 -- Where the party stands when a scene opens, and who the DM is voicing.
 function M:staging(sc)
-    local blocked, layout = fight.blocked_set(sc.terrain, self:map_for(sc))
+    local blocked, layout = placement.blocked_set(sc.terrain, self:map_for(sc))
     local taken = {}
     local party = {}
-    -- (Spread so every mini shows, none behind another or behind a wall: fight.squares_shown.)
-    local spots = fight.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
+    -- (Spread so every mini shows, none behind another or behind a wall: placement.squares_shown.)
+    local spots = placement.squares_shown(blocked, taken, layout.party[1], layout.party[2], #self.players,
         content.terrain_layout.W, content.terrain_layout.H, nil, layout.occ, nil, layout.doors)
     for i, p in ipairs(self.players) do
         local sq = spots[i] or { 2, i + 3 }
@@ -1856,7 +1857,7 @@ function M:staging(sc)
                 table.insert(stood, spots[i])
             end
         end
-        local sq = fight.squares_shown(blocked, taken, at[1], at[2], 1,
+        local sq = placement.squares_shown(blocked, taken, at[1], at[2], 1,
             content.terrain_layout.W, content.terrain_layout.H, stood, layout.occ, 2, layout.doors)[1]
         if sq then
             npc = { id = "npc", cast = cast.id, name = cast.name, x = sq[1], y = sq[2] }
@@ -2305,6 +2306,7 @@ function M:quick_checks(sc)
         max_checks = math.min(max_checks, need + 1)
     end
     local dc = (rules().scene_dc[util.clamp(sc.difficulty, 1, 3)] or 12) + ((comp and comp.difficulty > 0) and 1 or 0)
+    dc = rules().fixed_dc or dc
     sc.dc = dc
     local layout = board_mod.layout(self:board_for(sc))
     local spots = layout.spots or {}
@@ -2351,10 +2353,13 @@ function M:quick_checks(sc)
     -- playtest, October 16, read "the big moment" as the big roll they had just made.)
     -- (The open log keeps it; the header's dots and the final roll's card say it where it counts:
     -- the card-led playtest, October 16, read it twice at once.)
+    local fixed = rules().fixed_dc
     if sc.edge < 0 then
-        self:say("They've done the groundwork: the scene's final roll will be easier (" .. W().dc .. " -2).", "record")
+        self:say("They've done the groundwork: the scene's final roll will be easier ("
+            .. (fixed and W().advantage or (W().dc .. " -2")) .. ").", "record")
     elseif sc.edge > 0 then
-        self:say("Too many setbacks: the scene's final roll will be harder (" .. W().dc .. " +2).", "record")
+        self:say("Too many setbacks: the scene's final roll will be harder ("
+            .. (fixed and W().disadvantage or (W().dc .. " +2")) .. ").", "record")
     end
 end
 
@@ -2630,7 +2635,7 @@ function M:stunt(sc)
     local vars = self:vars({ char = p.char, other_char = self.other and self.other.char or "" })
     self:emit({ kind = "say", who = p.key, text = util.capitalize(util.fill(st.say, vars)), ic = true })
     local mod = self:mod_for(p, st.skill) + self:take_learned(p)
-    local dc = 12 + util.clamp((sc.difficulty or 2) - 2, -1, 2)
+    local dc = rules().fixed_dc or (12 + util.clamp((sc.difficulty or 2) - 2, -1, 2))
     local roll = rules().die(self.rng)
     local total = roll + mod
     local success = total >= dc
@@ -3114,6 +3119,11 @@ function M:big_roll(spec, record)
     end
     -- (v2: in a museum room the checks are pitched at the book's level: a smaller shift.)
     local dc = spec.dc + ((spec.true_dc and 0) or ((self.scene and self.scene.room) and 2) or M.SHIFT)
+    -- (A set whose number never moves, Death in Space's 12: how hard it is shows as advantage or disadvantage.)
+    local fixed = rules().fixed_dc
+    if fixed then
+        dc = fixed
+    end
     local by = spec.secret and "dm" or "player"
     local name = rules().name(skill)
     local text
@@ -3135,7 +3145,10 @@ function M:big_roll(spec, record)
     if spec.final then
         text = "The scene's final roll" .. (spec.final.goal and (": " .. spec.final.goal) or "") .. ". " .. text
         local e = spec.final.edge or 0
-        if e > 0 then
+        if fixed and e ~= 0 then
+            text = text .. " " .. util.capitalize(e > 0 and W().disadvantage or W().advantage) .. ": "
+                .. (e > 0 and "too many setbacks." or ((spec.final.why or "they did the groundwork") .. "."))
+        elseif e > 0 then
             text = text .. " The " .. W().dc .. " is " .. util.int(e) .. " higher: too many setbacks."
         elseif e < 0 then
             text = text .. " The " .. W().dc .. " is " .. util.int(-e) .. " lower: " .. (spec.final.why or "they did the groundwork") .. "."
@@ -3177,7 +3190,9 @@ function M:big_roll(spec, record)
     if where ~= "hidden" then
         where = "open"
     end
-    if own_dc and by == "player" then
+    if own_dc and by == "player" and fixed then
+        self:say(util.fill(self:fresh(W().own_dc, "own_dc"), self:vars({ dc = util.int(dc) })), "dm")
+    elseif own_dc and by == "player" then
         own_dc = util.clamp(own_dc, 2, 30)
         local diff = own_dc - dc
         -- (Just the number, out loud: Conner's playtest, C3, "You set it yourself" right after you had.)
@@ -3196,6 +3211,26 @@ function M:big_roll(spec, record)
     if where == "open" and self.rng:chance(0.35) then
         self:bark(self:pick_actor(nil, p), "open_roll")
     end
+    -- (A fixed-number set: the dots on the top bar give advantage or disadvantage, and a player may spend the set's own
+    -- edge, Death in Space's void point, on a roll that matters: said before the die.)
+    local spent, edge_kind
+    if p and fixed then
+        local e = spec.final and spec.final.edge or 0
+        edge_kind = e < 0 and "adv" or (e > 0 and "dis" or nil)
+        if rules().edge and edge_kind ~= "adv" then
+            local ve, note = rules().edge(self.campaign, p, { dc = dc, mod = mod, big = true })
+            if ve then
+                spent = note
+                local said = edge_kind == "dis" and W().void_cancel and "void_cancel" or note.kind
+                self:say(util.fill(self:fresh(W()[said], said), note.vars), "dice")
+                if edge_kind == "dis" then
+                    edge_kind = nil      -- (the edge spent against disadvantage: the two cancel out)
+                else
+                    edge_kind = "adv"
+                end
+            end
+        end
+    end
     local value = self:emit({ kind = "roll", where = where, dc = dc, actor = p and p.key, by = by,
                               skill_name = name, mod = mod })
     value = util.clamp(math.floor(tonumber(value) or rules().die(self.rng)), 1, rules().dice.sides)
@@ -3210,6 +3245,14 @@ function M:big_roll(spec, record)
                 value = second
             end
         end
+    end
+    -- (A fixed-number set: the second die the edge decided on, before the roll.)
+    if edge_kind then
+        local second = rules().die(self.rng)
+        local keep = edge_kind == "adv" and math.max(value, second) or math.min(value, second)
+        self:say(util.fill("{actor_char} rolls again with " .. (edge_kind == "adv" and W().advantage or W().disadvantage) .. ": "
+            .. util.int(value) .. " and " .. util.int(second) .. ", the " .. util.int(keep) .. " counts.", self:vars()), "aside")
+        value = keep
     end
     -- Heroic Inspiration (B4): a player holding the token rerolls a miss worth rerolling (a natural 1, or
     -- one a new die could turn: not a hopeless one) and keeps the new roll.
@@ -3269,7 +3312,7 @@ function M:big_roll(spec, record)
     -- A great roll can earn Heroic Inspiration (B4): the token, flicked across the table, one a
     -- night, folded into this card rather than a card of its own.
     local inspire_at
-    if tier == "triumph" and p and by == "player" and not self.inspiration_given and not p.heroic then
+    if tier == "triumph" and p and by == "player" and not self.inspiration_given and not p.heroic and rules().inspiration ~= false then
         table.insert(opts, { label = "Yes, and... flick " .. p.char .. " the " .. W().inspiration .. " token.", tone = "good" })
         inspire_at = #opts
     end
@@ -3498,6 +3541,9 @@ function M:big_roll(spec, record)
     end
     if cooked then
         self:maybe_callout(0.35)
+    end
+    if p and fixed then
+        self:set_after_check(p, { success = success, roll = value, total = value + mod }, spent)
     end
     return success
 end
@@ -5283,6 +5329,11 @@ end
 function M:do_rest(rest, kind)
     local long = rest == "long"
     self.table_min = self.table_min + (long and 15 or 8)
+    -- (A set whose fights are told as story keeps no hit points between them: the rest is said, and that's all.)
+    if rules().fight == "story" then
+        self:say(long and W().rest_long_said or W().rest_none, "aside")
+        return
+    end
     local spend = rest_rules.SPEND
     local healed = 0
     -- (Who needed it: nobody saying they'd run out right after a full night's rest, F13.)

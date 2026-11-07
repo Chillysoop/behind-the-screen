@@ -349,7 +349,9 @@ end
 -- a person's by reading them (a hint), talking them round, leaning on them, a good enough opinion, or a
 -- spell; a document's by study or a spell; a place's by searching; a body's by examining it; an item's by
 -- study; a creature's by knowing its kind. The book's own path, where there is one, says its DC.
+-- (5e's: its skills and spells. Another rule set's adventure takes its set's own, `secret_defaults`: no leaks.)
 M.DEFAULTS = {
+    rules = "5e",
     person = {
         { kind = "check", skill = { "insight" }, dc = 13, gives = "hint" },
         { kind = "check", skill = { "persuasion" }, dc = 14, gives = "known" },
@@ -381,6 +383,14 @@ M.DEFAULTS = {
         { kind = "check", skill = { "arcana", "nature", "religion", "history" }, dc = 13, gives = "known" },
     },
 }
+
+-- The usual ways out for a kind of secret, by the adventure's rule set.
+local function defaults_for(kind)
+    local ruleset = require "game.model.ruleset"
+    local defs = ruleset.fits(M.DEFAULTS) and M.DEFAULTS or ruleset.current().secret_defaults or {}
+    return defs[kind or ""]
+end
+M.defaults_for = defaults_for
 
 M.KIND_WORDS = { check = "a check", ask = "asking", read = "reading", see = "seeing it", spell = "a spell",
                  perform = "a performance", trade = "a trade", steal = "stealing it", event = "it happening", dm = "you" }
@@ -438,7 +448,8 @@ function M.paths(key, c)
     for _, p in ipairs(d.paths or {}) do
         table.insert(out, holder_of(d, p))
     end
-    if d.defaults ~= false and M.DEFAULTS[d.type or ""] then
+    local kind_defaults = d.defaults ~= false and defaults_for(d.type) or nil
+    if kind_defaults then
         local holders = {}
         if d.on then
             table.insert(holders, d.on)
@@ -451,7 +462,7 @@ function M.paths(key, c)
             table.insert(holders, { on = id, planted = true })
         end
         for _, h in ipairs(holders) do
-            for _, dp in ipairs(M.DEFAULTS[d.type]) do
+            for _, dp in ipairs(kind_defaults) do
                 local p = {}
                 for f, v in pairs(dp) do
                     p[f] = v

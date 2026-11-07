@@ -21,18 +21,36 @@ M.TARGET = 12                              -- a check works on 12 or more, alway
 M.VOID_MAX = 4                             -- void points a hero can hold (p. 38)
 M.inspiration = false                      -- (no reroll token the DM hands out: the void points are the players' own)
 M.difficulty_word = "target"
+M.fixed_dc = 12                            -- (the shared game never moves it: what helps or hinders is advantage)
 M.scene_dc = { 12, 12, 12 }                -- (the same 12 however hard: the book makes a hard thing hard by its cost)
 
 -- What a hero can try: the four abilities (p. 36).
 M.ABILITIES = { bdy = "Body", dex = "Dexterity", svy = "Savvy", tec = "Tech" }
 M.approaches = M.ABILITIES
+-- The table's ways of trying something, in the shared game's words (its stock moves and goals name them), as Death in
+-- Space's abilities: what a hero rolls for each. An ability is itself.
+M.APPROACH = {
+    athletics = "bdy", intimidation = "bdy", strength = "bdy", constitution = "bdy",
+    acrobatics = "dex", stealth = "dex", sleight_of_hand = "dex", dexterity = "dex", initiative = "dex",
+    perception = "svy", insight = "svy", persuasion = "svy", deception = "svy", performance = "svy",
+    investigation = "svy", survival = "svy", animal_handling = "svy", religion = "svy", nature = "svy",
+    wisdom = "svy", charisma = "svy",
+    history = "tec", arcana = "tec", medicine = "tec", intelligence = "tec", thieves_tools = "tec",
+}
+function M.approach(sk)
+    if M.ABILITIES[sk] then
+        return sk
+    end
+    return M.APPROACH[sk] or "svy"
+end
 -- A fight told as story: what a hero rolls to get the better of it, their best of these.
 M.story_approaches = { "bdy", "tec", "dex" }
+M.story_marks = { 4, 6, 8 }                -- (a fight told as story takes longer to win here: the book's fights are deadly)
 
 -- The words the shared game says Death in Space's things with (each set has its own).
 M.words = {
     dc = "target",
-    advantage = "advantage",
+    advantage = "advantage", disadvantage = "disadvantage",
     crit = "natural 20", fumble = "natural 1",
     extremes = "natural 20 or 1", extremes_both = "a natural 20 or a natural 1",
     hp = "HP", hit_points = "hit points",
@@ -43,6 +61,7 @@ M.words = {
     rest_long_label = "They sleep it off in the hub.",
     rest_hour = "A breather. {healed} hit points back across the crew.",
     rest_none = "A breather. Nobody's patched up, but nobody's worse.",
+    rest_long_said = "A full night's sleep aboard the hub. Everyone wakes up stiff, but whole.",
     spot_first = "A Savvy check. Miss it, and it goes off.",
     find_check = "Savvy check",
     tile_hp = { "Hit points", "How much more {char} can take. At 0, a Body check decides whether {char} lives." },
@@ -67,7 +86,9 @@ M.words = {
     own_dc = { "\"Twelve, {actor_char}. It's always twelve.\"", "\"You need a twelve.\"", "\"Twelve or more. Go on.\"" },
     -- (The void taking a hero's miss, and what it leaves when a spent point fails anyway: our own, after p. 39.)
     void_gain = { "{char} takes a void point ({n} now).", "The miss leaves its mark: a void point for {char} ({n}).",
-                  "{char} feels the void lean in: {n} void points." },
+                  "{char} feels the void lean in ({n} now)." },
+    void_cancel = { "{char} spends a void point against the setbacks: one die, straight.",
+                    "A void point from {char} cancels the setbacks out: just the one die." },
     void_spend = { "{char} spends a void point and rolls twice.", "A void point from {char}: two dice, the better one counts." },
     void_mark = { "The void leaves something behind on {char}: {mark}.", "That one costs {char} more than a roll: {mark}." },
     void_marks = { "whispers in any static, ever after", "a cold patch of skin that won't warm", "dreams of a suffocating dark",
@@ -86,18 +107,33 @@ M.shares = { "hit points", "%f[%w]HP%f[%W]", "%f[%w]Advantage%f[%W]", "%f[%w]Dis
 M.rule_terms = { "advantage", "void", "cover", "morale" }
 M.difficulty_names = { { 12, "What every check needs" } }
 
+-- The usual ways a secret of each kind comes out, besides the adventure's own (game/model/secrets.lua): an ability
+-- check against 12, asking someone who likes the crew, listening in.
+M.secret_defaults = {
+    person = {
+        { kind = "check", skill = { "svy" }, dc = 12, gives = "hint" },
+        { kind = "ask", opinion = "warm", gives = "known" },
+        { kind = "check", skill = { "dex" }, dc = 12, gives = "hint", eavesdrop = true },
+    },
+    document = { { kind = "read", skill = { "tec", "svy" }, dc = 12, gives = "known" } },
+    place = { { kind = "check", skill = { "svy" }, dc = 12, gives = "known" } },
+    body = { { kind = "check", skill = { "tec" }, dc = 12, gives = "known" } },
+    item = { { kind = "check", skill = { "tec" }, dc = 12, gives = "known" } },
+    creature = { { kind = "check", skill = { "svy", "tec" }, dc = 12, gives = "known" } },
+}
+
 -- A hero's bonus for an approach: the ability's value on their sheet (the adventure's heroes, `sheet`).
 function M.hero_mod(campaign, p, approach)
     local adv = package.loaded["game.model.adventure"]
     local h = adv and adv.data and adv.data.heroes and adv.data.heroes[p.key]
     local sheet = h and h.sheet or {}
-    return sheet[approach] or 0
+    return sheet[M.approach(approach)] or 0
 end
 function M.mod()
     return 0
 end
 function M.name(approach)
-    return M.ABILITIES[approach] or tostring(approach)
+    return M.ABILITIES[M.approach(approach)]
 end
 function M.signed(n)
     local r = math.floor(n + 0.5)
@@ -215,6 +251,9 @@ end
 -- own creatures (standard.lua puts its stat blocks here), and nothing of 5e's.
 M.engine = {
     ["data.monsters"] = {},
+    progression = require "game.rules.dis.progression",
+    party = require "game.rules.dis.party",
+    tile_stats = require "game.rules.dis.tile_stats",
 }
 
 return M

@@ -367,9 +367,9 @@ check(st.done[adventure.data.start or ""], "played the first scene (" .. tostrin
 if adventure.current() == "museum" then
     check(st.done.garden and st.done.entrance, "played the ground floor")
 end
-print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %d%s",
+print(string.format("museum seed %d %s: %d weeks, ending %s, marks %s, francs %d, harsh paid %d unpaid %d, level %s%s",
     seed, style, weeks, tostring(st.ending), table.concat(st.mark_list, ","), st.francs, st.harsh.paid, st.harsh.unpaid,
-    c.level, failures > 0 and ("  FAILURES " .. failures) or ""))
+    c.level and string.format("%d", c.level) or "none", failures > 0 and ("  FAILURES " .. failures) or ""))
 end
 run_adventure()
 -- CARRY=1: when it ends, the party carries on into the next adventure (the journey screen's "Carry on", app.carry_on):

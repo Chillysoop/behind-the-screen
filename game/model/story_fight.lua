@@ -59,8 +59,8 @@ end
 
 function M.run(night, sc)
     local set = ruleset.current()
-    local threat = util.clamp(math.floor((sc.difficulty or 2) + 0.5), 1, 3)
-    local need = M.MARKS[threat]
+    local threat = util.clamp(math.floor((sc.fight_hard or sc.difficulty or 2) + 0.5), 1, 3)
+    local need = (set.story_marks or M.MARKS)[threat]
     local dc = (set.scene_dc and set.scene_dc[threat]) or 12
     local foe = M.foe_name(sc)
     local vars = { foe = foe, Foe = util.capitalize(foe) }

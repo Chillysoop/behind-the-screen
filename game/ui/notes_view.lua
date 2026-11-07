@@ -323,6 +323,13 @@ local function tab_bag(app, x, y, w, h)
     local items = require "game.model.items"
     local list = bag.stock(c)
     local bagd = require "game.data.dm_bag"
+    -- (The books are the adventure's rule set's: 5e's describe its magic items. Another set's adventure has none.)
+    local books = {}
+    for _, b in ipairs(bagd.books) do
+        if ruleset.fits(b) then
+            table.insert(books, b)
+        end
+    end
     kit.text(x, y, "When a friend pokes at something on game night, you can answer as the dice say, tell them something "
         .. "real, or tuck one of these there. You can also put them in people's pockets from their sheets. What you give "
         .. "goes in a hero's pack and works from then on.", "ui18", theme.dim, { w = w })
@@ -330,15 +337,17 @@ local function tab_bag(app, x, y, w, h)
     local by = y + 76
     local bw = math.floor((w - 3 * 12) / 4)
     BOOK_H = 0
-    for _, b in ipairs(bagd.books) do
+    for _, b in ipairs(books) do
         BOOK_H = math.max(BOOK_H, 10 + kit.text_height(b.name, "ui18b", bw - 20) + kit.text_height(b.about, "ui14", bw - 20) + 40)
     end
-    kit.text(x, by, "BOOKS", "ui14", theme.gold)
     local prep = app.screen == "prep" and c.prep or nil
-    kit.text(x + 70, by, prep and ("An hour of prep each. " .. util.int(prep:left()) .. " hours left.")
-        or "Read between sessions, on the prep board.", "ui14", theme.faint)
-    by = by + 22
-    for i, b in ipairs(bagd.books) do
+    if #books > 0 then
+        kit.text(x, by, "BOOKS", "ui14", theme.gold)
+        kit.text(x + 70, by, prep and ("An hour of prep each. " .. util.int(prep:left()) .. " hours left.")
+            or "Read between sessions, on the prep board.", "ui14", theme.faint)
+        by = by + 22
+    end
+    for i, b in ipairs(books) do
         local bx = x + (i - 1) * (bw + 12)
         -- (Whole, never cut: the name and its words wrap, and the box is as tall as the tallest needs.)
         kit.box(bx, by, bw, BOOK_H, theme.panel2, { radius = 8 })
@@ -479,7 +488,7 @@ local function tab_party(app, x, y, w, h)
         -- What they carry (items.lua, as on their sheet), each with what it does on hover (the third
         -- playtest: "Picked up: the Mech manual (Oswin has it)", and the party page didn't list it).
         local sheet_view = require("game.ui.sets").part("sheet_view")
-        local carried = sheet_view.carrying(c, ruleset.engine("sheet").build(c, p.key))
+        local carried = sheet_view.carrying(c, ruleset.has("sheet") and ruleset.engine("sheet").build(c, p.key) or { key = p.key })
         py = head(px + 14, py + 6, "Carrying")
         if #carried == 0 then
             py = para(px + 14, py, cw - 28, "Nothing yet.", "ui14", theme.faint)

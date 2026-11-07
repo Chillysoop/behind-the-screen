@@ -139,7 +139,11 @@ for _, key in ipairs(secrets.list()) do
         end
         if p.item and not things[p.item] then fail("DATA", key .. ": a way out through a thing the adventure doesn't have: " .. p.item) end
         for _, s in ipairs(p.skill or {}) do
-            if not skills.ABILITY[s] then fail("DATA", key .. ": no such skill: " .. s) end
+            -- (A skill of the adventure's own rule set: 5e's skills, or Death in Space's four abilities.)
+            local own = require("game.model.ruleset").get(MODULE.rules or "5e").approaches
+            if not (own and own[s]) and not (MODULE.rules == "5e" and skills.ABILITY[s]) then
+                fail("DATA", key .. ": no such skill: " .. s)
+            end
         end
         for _, sp in ipairs(p.spell or {}) do
             -- (A spell the rules don't have yet is fine for a hero who might: but it has to be a spell's name.)
