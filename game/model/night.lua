@@ -637,9 +637,9 @@ function M:take_learned(p, quiet)
         c.learned[p.key] = nil
         -- (Where it came from: a miss they learned from, or a great roll's "Yes, and" with no money to give. The
         -- playtest, November 6: "The last miss taught Thessaly something" after a triumph.)
-        why = c.learned_from and c.learned_from[p.key] or "miss"
-        if c.learned_from then
-            c.learned_from[p.key] = nil
+        why = (c.learned_roll and c.learned_roll[p.key]) and "roll" or "missed"
+        if c.learned_roll then
+            c.learned_roll[p.key] = nil
         end
         self.learned_used = self.learned_used or {}
         table.insert(self.learned_used, { who = p.key, n = l, week = c.week, why = why })
@@ -3391,8 +3391,11 @@ function M:big_roll(spec, record)
         local c = self.campaign
         c.learned = c.learned or {}
         c.learned[p.key] = (c.learned[p.key] or 0) + 1
-        c.learned_from = c.learned_from or {}
-        c.learned_from[p.key] = c.learned_from[p.key] or "roll"
+        -- (Marked as a great roll's, unless a miss is already in the pool.)
+        c.learned_roll = c.learned_roll or {}
+        if not (c.learned[p.key] > 1 and not c.learned_roll[p.key]) then
+            c.learned_roll[p.key] = true
+        end
     end
     if ro.tone == "good" and self.campaign.adv and not inspired and success
             and util.lazy("game.model.adventure").data.currency then
@@ -3423,8 +3426,9 @@ function M:big_roll(spec, record)
             local c = self.campaign
             c.learned = c.learned or {}
             c.learned[p.key] = (c.learned[p.key] or 0) + 1
-            c.learned_from = c.learned_from or {}
-            c.learned_from[p.key] = "miss"      -- (a miss in the pool makes it "the last miss")
+            if c.learned_roll then
+                c.learned_roll[p.key] = nil      -- (a miss in the pool makes it "the last miss")
+            end
         end
         self:bark(self.actor, "ruling_rueful")
     elseif ro.tone == "good" then
@@ -4603,8 +4607,10 @@ function M:split_off(sc)
                 local c = self.campaign
                 c.learned = c.learned or {}
                 c.learned[p.key] = (c.learned[p.key] or 0) + 1
-                c.learned_from = c.learned_from or {}
-                c.learned_from[p.key] = c.learned_from[p.key] or "roll"
+                c.learned_roll = c.learned_roll or {}
+                if not (c.learned[p.key] > 1 and not c.learned_roll[p.key]) then
+                    c.learned_roll[p.key] = true
+                end
                 self:say(util.fill(self:fresh(M.SPLIT_WIN, "split_win"), vars), "good")
             else
                 self:say(util.fill(self:fresh(M.SPLIT_LOSE, "split_lose"), vars), "narration")
