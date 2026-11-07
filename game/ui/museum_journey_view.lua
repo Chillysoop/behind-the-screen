@@ -65,17 +65,22 @@ function M.build(app, on_next)
         local head = util.int(i) .. ".  " .. r.name .. " (S" .. util.int(r.week or 0) .. "): "
         local plain = (OUTCOME[r.outcome] or "done") .. (r.fought and (", and a fight with " .. r.fought) or "")
         local told, whole
+        local said = r.said and ("They " .. r.said) or nil
         if r.chain and #r.chain > 0 then
             whole = table.concat(r.chain, " ")
             local all = string.gsub(whole, "%.$", "")
             local first = string.gsub(r.chain[1], "%.$", "")
             local clause = string.match(first, "^(.-), [sb][ou]t? ") or first
             local part = string.match(clause, "^(.-), ") or clause
-            for _, t in ipairs({ all, first, clause, part }) do
+            -- (All of it, or what it came to, before its first beat alone: "they tried to coax the rats out with
+            -- food, but it didn't work" was a fight they won.)
+            for _, t in ipairs({ all, said or first, first, clause, part }) do
                 if not told and #kit.wrap(head .. t, "ui14", w) <= per then
                     told = t
                 end
             end
+        elseif said and #kit.wrap(head .. said, "ui14", w) <= per then
+            told = said     -- (not "went their way": the rooms upstairs, where they found a cork for a ring)
         end
         -- (The plain words must fit too: just how it went, if a fight's name makes them too long.)
         if not told and #kit.wrap(head .. plain, "ui14", w) > per then

@@ -298,7 +298,7 @@ M.CHAT = {
     lost_hero_reply = { "{was} deserved better tbh", "pouring one out for {was}", "we will remember {was}" },
     down_once = { "{char} hit the floor and i'm still annoyed about it", "next time {char} is standing at the back", "{char} took a nap on the floor. not by choice" },
     down_twice = { "{char} went down TWICE. i want a refund", "two times on the floor for {char}. two", "{char} spent half the night on the floor. twice" },
-    down_many = { "{char} went down {n} times. {n}", "{char} was on the floor more than standing up", "i lost count of how often {char} went down. {n}?" },
+    down_many = { "{char} went down {n} times. {n} TIMES", "{char} was on the floor more than standing up", "i lost count of how often {char} went down. {n}?" },
     -- (Stone when she beat them, and she let them go: the friend whose hero it was. The confirming playtest,
     -- seed 54: Oswin was a statue, and Sam said nothing.)
     stone = { "{char} was stone when it ended. she just let us go. why", "being a statue was the worst bit. {char} felt every second",
@@ -776,9 +776,15 @@ function M.room_prep(c, id)
                 local name = string.lower(raw)
                 local n = count[mid]
                 if n > 1 then
-                    local last = string.match(name, "(%S+)$")
-                    name = PLURAL[last] and (string.sub(name, 1, #name - #last) .. PLURAL[last])
-                        or (string.find(name, "s$") and name or (name .. "s"))
+                    -- ("Two swarms of rats", not "two swarm of rats": the head word takes the plural.)
+                    local head, tail = string.match(name, "^(.-)( of .+)$")
+                    if not (head and head ~= "") then
+                        head, tail = name, ""
+                    end
+                    local last = string.match(head, "(%S+)$")
+                    head = PLURAL[last] and (string.sub(head, 1, #head - #last) .. PLURAL[last])
+                        or (string.find(head, "s$") and head or (head .. "s"))
+                    name = head .. tail
                 end
                 local w = WORD[n] or util.int(n)
                 if n == 1 and string.find(name, "^[aeiou]") then

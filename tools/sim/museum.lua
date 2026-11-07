@@ -447,4 +447,11 @@ do
     end
     print("  secrets: " .. (#out > 0 and table.concat(out, "; ") or "none"))
 end
+-- The journey page's rooms (JOURNEY=1): what each one's story is, and what it came to.
+if os.getenv("JOURNEY") then
+    for _, r in ipairs(adventure.journey(c).rooms) do
+        print(string.format("  journey %s (S%d) %s: %s | %s", r.id, r.week or 0, tostring(r.outcome),
+            table.concat(r.chain or {}, " "), tostring(r.said)))
+    end
+end
 os.exit(failures == 0 and 0 or 1)

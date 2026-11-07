@@ -267,6 +267,20 @@ for _, seed in ipairs({ 21, 22 }) do
     end
 end
 
+-- THREAD: heroes carried over from the museum say why they came on this adventure, not "to the museum" (the
+-- screens review, 8_73) -----------------------------------------------------------------------------------------
+do
+    adventure.use("museum")
+    local c = campaign_mod.new(31)
+    adventure.enter(c)
+    local before = c.players[1].thread
+    adventure.handoff(c, "sheep")
+    for _, p in ipairs(c.players) do
+        ok("THREAD", not tostring(p.thread):find("museum"), p.key .. "'s thread is the inn's (" .. tostring(p.thread) .. ")")
+    end
+    ok("THREAD", tostring(before):find("museum") ~= nil, "the museum's own words were there before")
+end
+
 local n = 0
 for _ in pairs(seen) do
     n = n + 1

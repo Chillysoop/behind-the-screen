@@ -181,7 +181,7 @@ return {
           crit20 = { find = "a mug of Teddy's Own, straight from the barrel", clue = nil },
           crit1 = "You knock on a barrel to see if it's full. It is. It's also not quite shut." },
         -- (The inn sheet's spiders, only when Session Zero left them on screen: Sam's veil.)
-        { id = "cel_webs", what = "the cobwebbed corners", spot = "corners", when = { not_soft = "spiders" },
+        { id = "cel_webs", what = "the cobwebbed corners", spot = "corners", when = { not_soft = { "spiders", "bugs" } },
           skill = "nature", who = { "explorer", "storyteller" },
           ask = "That's a lot of webs. How many spiders are we talking?",
           dull = "A lot. Small ones. Busy.",

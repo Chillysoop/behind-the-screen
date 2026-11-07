@@ -95,6 +95,8 @@ M.content = {
     animals = { inn_common = "wolves in iron collars, and people trapped in beasts' bodies" },
     body_horror = { hall = "a man turned into a heap of mouths and eyes by a wand that misfires" },
     spiders = { inn_cellar = "a cellar full of webs, and the spiders that spin them" },
+    -- (The same webs to a table carried from the museum, whose Session Zero called them creepy-crawlies.)
+    bugs = { inn_cellar = "a cellar full of webs, and the spiders that spin them" },
 }
 
 -- Where the table can go next, when there's more than one way (museum_night.fork): after the common room, up the

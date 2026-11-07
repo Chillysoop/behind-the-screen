@@ -240,11 +240,23 @@ end
 function M.enter(campaign)
     if not M.entered then
         M.entered = true
+        local before = {}
+        for key, pd in pairs(content.players) do
+            before[key] = pd.thread
+        end
         M.shared_reset()
         for key, h in pairs(MODULE.heroes) do
             local pd = content.players[key]
             if pd then
+                local was = before[key]
                 pd.thread = MODULE.why_here or "why {char_they} came"
+                -- (A hero carried over keeps the last adventure's words for why they came, unless it's
+                -- changed: "why he came to the museum" on an inn's report, the screens review's 8_73.)
+                for _, p in ipairs(campaign and campaign.players or {}) do
+                    if p.key == key and (p.thread == was or p.thread == nil) and not p.pregen then
+                        p.thread = pd.thread
+                    end
+                end
                 pd.gist = h.gist
                 pd.premise = h.gist .. "."
                 pd.intro = h.gist .. "."
@@ -910,8 +922,15 @@ function M.test(campaign, cond, knobs, hero)
         end
     end
     if cond.soft then
-        local t = campaign.table
-        if not (t and ((t.veils and t.veils[cond.soft]) or (t.lines and t.lines[cond.soft]))) then
+        -- (One tag, or a list where any will do: the inn's spiders are "spiders" to its own Session Zero, and
+        -- "bugs" to a table carried from the museum's.)
+        local t, any = campaign.table, false
+        for _, tag in ipairs(type(cond.soft) == "table" and cond.soft or { cond.soft }) do
+            if t and ((t.veils and t.veils[tag]) or (t.lines and t.lines[tag])) then
+                any = true
+            end
+        end
+        if not any then
             return false
         end
     end
@@ -2109,7 +2128,7 @@ function M.where(campaign)
 end
 
 -- The journey recap at the end: the route, what each room left behind, Euryale's final card.
-M.JOURNEY_CLAUSES = 2        -- (a room's story on the route: its first big beats, a line or two)
+M.JOURNEY_CLAUSES = 4        -- (a room's story on the route: its big beats, as far as the fight's end; the view cuts it)
 M.JOURNEY_SKIP = { find = true, get = true, look = true, idea = true, help = true }
 function M.journey(campaign)
     local st = campaign.adv
@@ -2130,7 +2149,11 @@ function M.journey(campaign)
             local fought = events.any(campaign, { kind = "fight", where = step.room, session = step.week })
             table.insert(rooms, { id = step.room, name = r.name, week = step.week, outcome = step.outcome, marks = marks,
                                   at = r.at, fought = (fought and r.optional_fight) and r.boss_name or nil,
-                                  chain = told[1] and told or nil })
+                                  chain = told[1] and told or nil,
+                                  -- (What it came to, as "Last time" says it: when the story's too long for its
+                                  -- line, or the log has none. The cellar's rats coaxed and failed, then beaten,
+                                  -- and Sir Luenn's ring, the fourth playtest's screens.)
+                                  said = M.recap_clause(campaign, step) })
         end
     end
     local skipped = {}

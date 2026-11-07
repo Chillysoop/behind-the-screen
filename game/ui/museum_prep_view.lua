@@ -888,6 +888,9 @@ local function room_row(app, prep, id, x, y, w)
     if parts.sum then
         kit.text(x + 18, y + 30, parts.sum, "ui14", parts.sides and theme.gold or theme.dim, { w = w - SUM_W, lines = 2 })
     end
+    -- (Room on the right of the first notes line for "Unprepped": the hall's secrets ran under it, the fourth
+    -- playtest's screens.)
+    local cut = 0
     if not r.virtual and (r.cost or 0) > 0 then
         local on = pm.prepped[id]
         local label = on and ("Prepped  (" .. util.int(r.cost) .. "h)") or ("Prep it  (" .. util.int(r.cost) .. "h)")
@@ -904,22 +907,26 @@ local function room_row(app, prep, id, x, y, w)
         end
         if not on and #knobs == 0 then
             kit.text(x + w - 14, y + 42, "Unprepped: it plays thinner.", "ui14", theme.faint, { pivot = gui.PIVOT_NE })
+            cut = kit.width("Unprepped: it plays thinner.", "ui14") + 24
         end
     end
     local ny = y + 50 + ((parts.sum_lines or 1) - 1) * lh
+    local function line_w(at)
+        return (at < y + 62) and (w - 36 - cut) or (w - 36)
+    end
     local ky = y + 52 + ((parts.sum_lines or 1) - 1) * lh
     if #parts.plain > 0 then
         local bits, full = {}, {}
         for _, n in ipairs(parts.plain) do
-            table.insert(bits, n.text)
-            table.insert(full, n.text .. ".")
+            table.insert(bits, (string.gsub(n.text, "%.$", "")))
+            table.insert(full, n.text .. (string.find(n.text, "[%.!?]$") and "" or "."))     -- (not "Ahmed Noke..")
         end
         -- (All of it on hover: a long room's notes don't fit one line.)
         local gloss = util.lazy("game.ui.gloss")
         if gloss.card_spot then
             gloss.card_spot(x + 14, ny - 2, w - 28, 20, "Prepping " .. util.lower_first(r.name), table.concat(full, " "))
         end
-        kit.text(x + 18, ny, table.concat(bits, ".  "), "ui14", theme.faint, { w = w - 36, lines = 1 })
+        kit.text(x + 18, ny, table.concat(bits, ".  "), "ui14", theme.faint, { w = line_w(ny), lines = 1 })
         ny, ky = ny + 22, ky + 22
     end
     -- The secrets here: their names, and on hover where the table stands and every way each could come out.
@@ -939,12 +946,12 @@ local function room_row(app, prep, id, x, y, w)
             gloss.card_spot(x + 14, ny - 2, w - 28, 20, "Secrets in " .. util.lower_first(r.name),
                 table.concat(full, "\n\n") .. "\n\nThe friends may find their own way in, too. Their sheets let you reveal, hint or hold back.")
         end
-        kit.text(x + 18, ny, line, "ui14", theme.gold, { w = w - 36, lines = 1 })
+        kit.text(x + 18, ny, line, "ui14", theme.gold, { w = line_w(ny), lines = 1 })
         ny, ky = ny + 22, ky + 22
     end
     -- What a friend asked for at Session Zero, where this room touches it: a line each, in their colour.
     for _, n in ipairs(parts.asks) do
-        kit.text(x + 18, ny, n.text .. ".", "ui14", theme.teal, { w = w - 36, lines = 1 })
+        kit.text(x + 18, ny, n.text .. ".", "ui14", theme.teal, { w = line_w(ny), lines = 1 })
         ny, ky = ny + 22, ky + 22
     end
     for _, kid in ipairs(knobs) do
