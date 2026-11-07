@@ -5,6 +5,8 @@
 -- the d20 tumbles when they roll and lands on the number, with the skill, the total and the
 -- DC or Armor Class it was against. Click a panel for the character sheet.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
@@ -333,7 +335,7 @@ end
 -- name and pips (lit: still there; dim: used). Pips are drawn for the most there can be.
 local HP_W = 104
 function M.draw_stats(app, chip, p, x, y)
-    local tile_stats = require "game.model.tile_stats"
+    local tile_stats = ruleset.part("tile_stats")
     local st = tile_stats.of(app.campaign, app.night, p.key)
     if not st then
         return
@@ -398,7 +400,7 @@ function M.draw_stats(app, chip, p, x, y)
 end
 
 function M.refresh_hp(app)
-    local tile_stats = require "game.model.tile_stats"
+    local tile_stats = ruleset.part("tile_stats")
     for key, chip in pairs(app.chips or {}) do
         local st = chip.hp_text and tile_stats.of(app.campaign, app.night, key)
         if st then

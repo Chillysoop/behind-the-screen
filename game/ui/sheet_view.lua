@@ -4,10 +4,12 @@
 -- The numbers come from the rules engine (game/model/sheet.lua): they're the ones the
 -- table rolls with. Game night waits while a sheet is open.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
-local sheet_mod = require "game.model.sheet"
+local sheet_mod = ruleset.part("sheet")
 local panels = require "game.ui.panels"
 
 local M = {}

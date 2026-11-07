@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own, reached through the rule set: docs/design/rule-sets.md)
 -- The encounter builder's read on a fight (real-session pass): how hard it is (the M3 meter
 -- and the SRD XP budget), and how it lines up against what this party can actually do:
 -- who can hit what, who gets hit, damage they resist or are weak to, spells that won't

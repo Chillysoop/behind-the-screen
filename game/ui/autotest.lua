@@ -15,6 +15,8 @@
 --   autotest = 8   The Museum of Nightmares from the notice to the journey recap, with shots of
 --                  the hooks, every between-session page and prep board, the nights and the reports
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 
 local M = {}
@@ -331,7 +333,7 @@ local function gallery(app, a)
     msg.post("/board#board", "board", { id = id, show = "all", animate = false })
     local party, foes = {}, {}
     local taken = {}
-    local fight = require "game.model.fight"
+    local fight = ruleset.part("fight")
     local blocked = {}
     for _, sq in ipairs(c.blocked) do
         blocked[sq[1] * 1000 + sq[2]] = true

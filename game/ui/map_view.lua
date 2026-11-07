@@ -14,7 +14,7 @@ local util = require "game.model.util"
 local maps = require "game.model.maps"
 local board = require "game.model.board"
 local props = require "game.data.props"
-local matchup = require "game.model.matchup"
+local matchup = ruleset.part("matchup")
 
 local M = {}
 

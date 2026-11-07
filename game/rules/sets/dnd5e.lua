@@ -36,6 +36,16 @@ local PARTS = {
     ["data.magic_items"] = function() return require "game.rules.data.magic_items" end,
     ["data.monsters"] = function() return require "game.rules.data.monsters" end,
 }
+-- 5e's drivers in the shared folder: the grid fight with 5e's rules, the 5e sheet, a fight's danger, the tiles' HP and
+-- slots, levels. Each file says `-- rules: 5e` at its top, and the shared game reaches them only through the set too.
+-- (Through util.lazy, since each of them asks game/model/ruleset.lua back; game/game.gui_script requires each
+-- literally, so the builder packs them.)
+local util = require "game.model.util"
+for _, name in ipairs({ "fight", "sheet", "matchup", "tile_stats", "progression" }) do
+    PARTS[name] = function()
+        return util.lazy("game.model." .. name)
+    end
+end
 M.engine = setmetatable({}, {
     __index = function(t, k)
         local load = PARTS[k]

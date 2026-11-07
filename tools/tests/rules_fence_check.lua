@@ -171,11 +171,30 @@ for _, set in pairs(ruleset.SETS) do
         table.insert(WORDS, w)
     end
 end
+-- A file that says "-- rules: <set>" at its top is that set's own (5e's grid fight, its sheet...): its words are its
+-- set's, and the shared game may only reach it through the rule set, never by name.
+local owned, owned_by = {}, {}
+for _, path in ipairs(shared) do
+    local set_id = string.match(read(path), "^%-%- rules: ([%w_]+)")
+    if set_id then
+        owned[path] = set_id
+        local mod = string.match(path, "^(game/.+)%.lua$")
+        if mod then
+            owned_by[string.gsub(mod, "/", ".")] = set_id
+        end
+    end
+end
 local leaks, counts, seen_known = {}, {}, {}
 for _, path in ipairs(shared) do
     local s = read(path)
     local lines = code_lines(s, path)
     local n = 0
+    if owned[path] then
+        if not ruleset.SETS[owned[path]] then
+            fail("OWNED " .. path .. " says it's the rule set " .. owned[path] .. "'s, and there's no such set")
+        end
+        lines = {}
+    end
     for _, line in ipairs(lines) do
         if path ~= "game/model/rng.lua" and string.find(line, ":d20%(") then
             fail("ROLLS " .. path .. " rolls a d20 itself (the rule set picks the dice): " .. line:gsub("^%s+", ""))
@@ -184,6 +203,13 @@ for _, path in ipairs(shared) do
             if string.find(line, w) then
                 n = n + 1
                 break
+            end
+        end
+        -- (A set's own module named from the shared game: it goes through the rule set instead.)
+        for name in string.gmatch(line, '"(game%.[%w_%.]+)"') do
+            if owned_by[name] then
+                leaks[path] = leaks[path] or {}
+                leaks[path]["owned " .. name] = true
             end
         end
         -- (Any way of naming a module of game/rules: require, pcall(require, ...), util.lazy.)

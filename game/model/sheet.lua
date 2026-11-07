@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own, reached through the rule set: docs/design/rule-sets.md)
 -- A character sheet for the DM (real-session pass): everything about a hero as the rules
 -- engine has it at the party's level, laid out the way a 5e sheet reads. The sheet view is
 -- game/ui/sheet_view.lua; the numbers are the same ones game night's checks and fights use.

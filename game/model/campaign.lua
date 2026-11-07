@@ -1,6 +1,8 @@
 -- The campaign: the group, the week counter, and everything that carries over
 -- from week to week. Pure Lua.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local content = require "game.model.content"
 local score = require "game.model.score"
 local rng_mod = require "game.model.rng"
@@ -10,7 +12,7 @@ local bars = require "game.model.bars"
 local empathy = require "game.model.empathy"
 local util = require "game.model.util"
 local social = require "game.model.social"
-local progression = require "game.model.progression"
+local progression = ruleset.part("progression")
 local jokes = require "game.model.jokes"
 
 local M = {}

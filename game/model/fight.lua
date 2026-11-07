@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own, reached through the rule set: docs/design/rule-sets.md)
 -- Fights on game night: takes the room's encounter, runs it on the M3 rules engine turn by
 -- turn, and turns the engine's events into beats for the table (minis moving, dice in the strip,
 -- speech bubbles). The DM's decision cards arrive at the moments the fight creates: a crit about

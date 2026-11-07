@@ -480,7 +480,7 @@ function M.boss_turn(night, f, b, c)
                    options = opts }
     -- How bad its turn could be (the newcomer playtest, October 16): one turn of its attacks
     -- when they hit, and who that could drop.
-    local per = math.floor(require("game.model.matchup").round_damage(c.monster_id) + 0.5)
+    local per = math.floor(ruleset.engine("matchup").round_damage(c.monster_id) + 0.5)
     local danger
     if per > 0 then
         local low = {}

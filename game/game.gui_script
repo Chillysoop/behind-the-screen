@@ -3,6 +3,12 @@
 -- the camera, the HUD, the physical d20 and (M4) the table, which stages game
 -- night with terrain, minis and the players' poses.
 
+-- (5e's drivers, reached through the rule set with util.lazy: required here so the builder packs them.)
+require "game.model.fight"
+require "game.model.sheet"
+require "game.model.matchup"
+require "game.model.tile_stats"
+require "game.model.progression"
 local kit = require "game.ui.kit"
 local gloss = require "game.ui.gloss"   -- rules words explained on hover (sets kit's text hook)
 local campaign_mod = require "game.model.campaign"
@@ -322,7 +328,7 @@ function init(self)
     app.carry_on = function(to)
         local c = app.campaign
         adventure.handoff(c, to)
-        require("game.model.progression").catch_up(c)
+        require("game.model.ruleset").engine("progression").catch_up(c)
         c.slice_survey_done = nil
         app.slice_seen = nil
         app.saves_ui = nil

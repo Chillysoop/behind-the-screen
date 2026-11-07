@@ -59,7 +59,7 @@ local DOES = {
 }
 function M.ability_up(c, p)
     local party = ruleset.part("party")
-    local sheet = require "game.model.sheet"
+    local sheet = ruleset.part("sheet")
     local sub = c.subclasses and c.subclasses[p.class] or nil
     local ok3, a = pcall(party.sheet, p.class, 3, sub)
     local ok4, b = pcall(party.sheet, p.class, 4, sub)

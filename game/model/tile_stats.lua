@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own, reached through the rule set: docs/design/rule-sets.md)
 -- What a player's tile at the bottom of game night shows about their hero (the playtest, November 3:
 -- "add key character references per class: AC, current/max health, spell slots, Channel Divinity,
 -- Second Wind, Action Surge; only what's relevant for the class; always health and AC").

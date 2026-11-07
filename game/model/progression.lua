@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own, reached through the rule set: docs/design/rule-sets.md)
 -- Level-ups (M6): when the party levels, and what each player picks. Pure Lua.
 --
 -- The DM decides when (the report and the prep board offer it once the party has

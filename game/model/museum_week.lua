@@ -10,7 +10,7 @@ local adventure = require "game.model.adventure"
 local events = require "game.model.events"
 local prep_mod = require "game.model.prep"
 local social = require "game.model.social"
-local progression = require "game.model.progression"
+local progression = ruleset.part("progression")
 local ties = require "game.model.ties"
 
 -- (The current adventure, read as it is now: another can be made current, adventure.use, the hand-off.)

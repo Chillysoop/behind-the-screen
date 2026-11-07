@@ -15,7 +15,7 @@ local map_repo = require "game.model.map_repo"
 local thoughts = require "game.model.thoughts"
 local standing = require "game.model.standing"
 local ties = require "game.model.ties"
-local fight = require "game.model.fight"
+local fight = ruleset.part("fight")
 
 local events = require "game.model.events"
 local able = require "game.model.able"
@@ -2462,7 +2462,7 @@ function M.quick_room(night, sc)
     if sc.rest_here and not night.end_early then
         night:say("They sit down among the souvenirs and catch their breath: a short rest.", "aside")
         if not night.pc_list then
-            require("game.model.fight").party(night)
+            ruleset.engine("fight").party(night)
         end
         night:do_rest("short", "town")
     end
@@ -4542,7 +4542,7 @@ function M.go_back(night, b)
             night:say(b.why == "flee" and "They slam the door behind them and catch their breath: a short rest."
                 or "They sit down among the souvenirs and catch their breath: a short rest.", "aside")
             if not night.pc_list then
-                require("game.model.fight").party(night)
+                ruleset.engine("fight").party(night)
             end
             night:do_rest("short", "town")
         end
