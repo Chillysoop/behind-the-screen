@@ -321,10 +321,15 @@ M.places = {
       exits = { { to = "engine_room" } },
       scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "Monotone's circuit board, in the Passel's engine hall.",
                 foes = { "passel", "passel" }, foes_name = "the Passel's guards", foes_short = "the guards",
-                boss_name = "the Passel's guards", optional_fight = true,
+                boss_name = "the woken guard", optional_fight = true,
                 goal = { name = "The circuit board", aim = "install Monotone's circuit board", short = "install the board",
                          line = "Goal: get Monotone's circuit board into the control panel without being caught.",
-                         win = "The board is in.", lose = "They're caught at the panel.", got = "Monotone's favor, done" } } },
+                         win = "The board is in.",
+                         win_if = { { when = { flag = "caught_at_panel" },
+                                      text = "They fight their way out of the engine hall, the board still in their pocket." },
+                                    { when = { flag = "roy_deal_done", not_flag = "monotone_deal_done" },
+                                      text = "The board stays out of the panel, and Roy knows what Monotone wanted." } },
+                         lose = "They're caught at the panel.", got = "Monotone's favor, done" } } },
     -- The shuttle (p. 79): Suro Ragosa and her thugs, come to settle it.
     { id = "shuttle", name = "The shuttle docks", layer = "area", ["in"] = "aurum80", pages = { 79 },
       read = "The timer hits zero. The shuttle grinds into its airlock, the docking bay empties of everyone with any sense, and "
