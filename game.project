@@ -44,3 +44,6 @@ max_count = 256
 
 [resource]
 max_resources = 2048
+
+[windows]
+app_icon = /tools/launcher/behind_the_screen.ico
