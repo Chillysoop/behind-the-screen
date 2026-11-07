@@ -266,8 +266,8 @@ local function crit_card(night, sc, p, b, nat)
     local prev = night.actor
     night.actor = p
     if nat == 20 then
-        card.title = "A natural 20"
-        card.text = "{actor_char} rolled a natural 20 poking at " .. what .. ". Improvise something?"
+        card.title = "A " .. ruleset.current().words.crit
+        card.text = "{actor_char} rolled a " .. ruleset.current().words.crit .. " poking at " .. what .. ". Improvise something?"
         table.insert(card.options, { label = "Nope. Still just " .. what .. ".", sub = "The table laughs. Nothing changes.",
             log = "\"It's " .. what .. ". Really, truly ordinary.\" The table loses it.", laugh = true,
             effects = { { "all", fun = 1 }, { "arch:casual", fun = 1 } } })
@@ -287,8 +287,8 @@ local function crit_card(night, sc, p, b, nat)
                 effects = { { "actor", fun = 2 }, { "arch:storyteller", fun = 2 } } })
         end
     else
-        card.title = "A natural 1"
-        card.text = "{actor_char} rolled a natural 1 poking at " .. what .. ". Improvise something?"
+        card.title = "A " .. ruleset.current().words.fumble
+        card.text = "{actor_char} rolled a " .. ruleset.current().words.fumble .. " poking at " .. what .. ". Improvise something?"
         table.insert(card.options, { label = "Laugh it off.", sub = "A groan, a laugh, on you go.",
             log = "A groan round the table, and then a laugh. On you go.", laugh = true, effects = { { "all", fun = 1 } } })
         table.insert(card.options, { label = "A little mishap: noisy.", sub = "Whatever's in the next fight hears them coming.",
@@ -354,7 +354,7 @@ local function ask_crit(night, sc, p, q, name, nat)
     night.actor = p
     local plain = (nat == 20 and q.better) or q.answer
     name = string.match(name, "^([^,]+)") or name       -- ("Telpur", not "Telpur, a talking boot")
-    card.title = nat == 20 and "A natural 20" or "A natural 1"
+    card.title = "A " .. (nat == 20 and ruleset.current().words.crit or ruleset.current().words.fumble)
     card.text = "{actor_char} rolled a natural " .. util.int(nat) .. " asking " .. name .. " a question. Improvise something?"
     table.insert(card.options, { label = "Just the answer.", sub = "Nothing more. On you go.", answer = plain,
         effects = { { "actor", fun = 1 } } })

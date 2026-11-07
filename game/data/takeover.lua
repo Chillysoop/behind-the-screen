@@ -5,7 +5,7 @@ local M = {}
 
 -- Talk as the NPC: how often a night's first key person gets it, and the liar's Deception DC.
 M.TALK_CHANCE = 0.7
-M.LIE_DC = 12
+M.LIE_AT = 12
 
 -- If the library ever runs dry for someone.
 M.FALLBACK = {

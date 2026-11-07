@@ -65,7 +65,37 @@ M.words = {
     advantage = "Advantage",
     crit = "natural 20", fumble = "natural 1",   -- the die's own best and worst
     extremes = "natural 20 or 1", extremes_both = "a natural 20 or a natural 1",
-    hp = "HP",
+    hp = "HP", hit_points = "hit points",
+    hit_while_down = " A hit on {char} while {char_they're} down counts as a failed death save.",
+    short_rest = "a short rest", long_rest = "a long rest",
+    rest_short_label = "They take a short rest while we eat.",
+    rest_short_sub = "An hour in the game: Hit Dice, Second Wind, Channel Divinity, Arcane Recovery.",
+    rest_long_label = "They take a long rest here.",
+    spot_first = "A Perception roll. Miss it, and it goes off.",
+    find_check = "Investigation check",
+    -- (The player tiles' hovers: the hero's numbers in 5e's terms, and the token you hand out.)
+    tile_hp = { "Hit points", "How much more of a beating {char} can take. At 0 they drop, and start making death saves." },
+    tile_ac = { "Armor Class (AC)", "How hard {char} is to hit: an attack has to roll this or more." },
+    tile_sneak = { "Sneak Attack", "Extra damage once a turn when the rogue has Advantage or an ally next to the target. It never runs out." },
+    roll_hover = "The die, what it was for, and the total against what it needed: AC is how hard the target is to hit, "
+        .. "DC the number a check or a save has to reach. Green: it worked. Red: it didn't. Gold: a natural 20.",
+    -- (The board's light, over the whole map.)
+    light = {
+        bright = "Daylight, or a well-lit room. Everyone sees.",
+        dim = "Dusk, firelight, a gloomy hall: Lightly Obscured (Disadvantage on Perception by sight).",
+        dark = "Night outside, an unlit cellar: Heavily Obscured. Only Darkvision, torches and fires see.",
+    },
+    -- (The recap's lines for a roll's best and worst, a die sent to jail, a token spent.)
+    recap = {
+        crit = { "{char} rolled a natural 20 and the table lost its mind.", "A natural 20 from {char}, right when it counted.",
+                 "{who}'s die came up 20. Nobody has stopped talking about it.", "{char} landed the roll of the night.",
+                 "The 20 that {char} rolled will be in the group chat for weeks." },
+        fumble = { "{char} rolled a 1. Of course {char} did.", "A natural 1 for {char}, at the worst moment.",
+                   "{who}'s die betrayed {who_them}: a 1.", "{char} found out what a 1 looks like up close." },
+        jail = { "{who}'s d20 went to dice jail.", "One d20 is serving time tonight: {who}'s.", "{who} jailed a die. It had it coming.",
+                 "Dice jail claimed {who}'s d20." },
+        inspiration = { "{text}", "{text}", "Heroic Inspiration changed hands." },
+    },
     -- (The DM's own read of a friend is called for the skill it's most like: "an Insight roll".)
     read = "an Insight roll", read_button = "roll Insight", read_crit = "a natural 20 always reads",
     hidden_death_save = "a death save made behind the screen",
@@ -83,6 +113,35 @@ M.rule_terms = { "concentrat", "opportunity attack", "cover", "saving throw", "t
                  "stack", "flank", "grappl", "modifier" }
 -- What a number to beat means, in words, when the DM sets their own (the DC card).
 M.difficulty_names = { { 5, "Very easy" }, { 10, "Easy" }, { 15, "Medium" }, { 20, "Hard" }, { 25, "Very hard" }, { 30, "Nearly impossible" } }
+-- What a piece on the board does, in a line of 5e's rules (SRD 5.2.1): game/model/maps.lua's rules_text.
+local function int(x)
+    return string.format("%d", math.floor(x + 0.5))
+end
+function M.piece_rules(k)
+    local out = {}
+    if k.door then
+        table.insert(out, k.door == "open" and "An open door: walk through. Shut it again as you pass."
+            or k.door == "locked" and "Locked: DC 15 to pick (Thieves' Tools) or DC 20 Strength to force. Wood, AC 15, 18 HP."
+            or "Opens as someone walks through (a free interaction). Shut, it blocks sight. Wood, AC 15, 18 HP.")
+    elseif k.opaque then
+        table.insert(out, "Total Cover: blocks sight and movement.")
+    elseif k.deg == "three_quarters" then
+        table.insert(out, "Three-Quarters Cover: +5 AC and Dex saves behind it.")
+    elseif k.deg == "half" then
+        table.insert(out, "Half Cover: +2 AC and Dex saves behind it.")
+    elseif k.blocks then
+        table.insert(out, "Blocks movement.")
+    end
+    if k.slippery then
+        table.insert(out, "Slippery: Difficult Terrain, and a DC 10 Dex save or Prone.")
+    elseif k.rough then
+        table.insert(out, "Difficult Terrain: every foot costs 2.")
+    end
+    if k.bright then
+        table.insert(out, "Bright Light " .. int(k.bright) .. " ft, Dim " .. int(k.dim or 0) .. " ft more.")
+    end
+    return table.concat(out, " ")
+end
 -- A scene's final roll, by how hard the scene is (easy, middling, hard).
 M.scene_dc = { 10, 12, 14 }
 

@@ -16,13 +16,6 @@ M.TEMPLATES = {
     goal = { "{text}" },
     start = { "It started at {place}.", "The night opened at {place}.", "First stop: {place}.",
               "They began at {place}, as planned.", "{place} first, where it all kicked off." },
-    crit = { "{char} rolled a natural 20 and the table lost its mind.", "A natural 20 from {char}, right when it counted.",
-             "{who}'s die came up 20. Nobody has stopped talking about it.", "{char} landed the roll of the night.",
-             "The 20 that {char} rolled will be in the group chat for weeks." },
-    fumble = { "{char} rolled a 1. Of course {char} did.", "A natural 1 for {char}, at the worst moment.",
-               "{who}'s die betrayed {who_them}: a 1.", "{char} found out what a 1 looks like up close." },
-    jail = { "{who}'s d20 went to dice jail.", "One d20 is serving time tonight: {who}'s.", "{who} jailed a die. It had it coming.",
-             "Dice jail claimed {who}'s d20." },
     down = { "{char} went down, and the table held its breath.", "{char} hit the floor mid-fight.",
              "For a moment it looked bad for {char}.", "{char} dropped, and everyone leaned in." },
     death = { "{text}.", "The table lost {char} tonight.", "{char} didn't make it.",
@@ -37,8 +30,7 @@ M.TEMPLATES = {
     escape = { "{text}.", "The villain got away, and will remember.", "Someone slipped out the back, swearing revenge.",
                "One of them escaped." },
     stunt = { "{text}.", "{char} pulled off a stunt.", "A flashy opening from {char}.", "{char} showed off, and it worked." },
-    -- (Its own words, mostly: a token spent isn't one "earned". The playtest, Nov 2.)
-    inspiration = { "{text}", "{text}", "Heroic Inspiration changed hands." },
+    -- (A roll's best and worst, a die in jail, a token spent: the rule set's own lines, `words.recap`.)
     new_character = { "{text}", "A new face at the table: {char}.", "{who} brought someone new: {char}.",
                       "{char} joined the party." },
     callout = { "{text}", "Someone asked to see a roll.", "The table noticed something behind the screen.",
@@ -47,6 +39,10 @@ M.TEMPLATES = {
     talk = { "{text}.", "{text}, in your own words." },
     boss_turn = { "{text}" },
 }
+-- (A line for an event: the adventure's own first, through M.TEMPLATES, then the rule set's for its rolls and tokens.)
+local function template(ev)
+    return M.TEMPLATES[ev] or (require("game.model.ruleset").current().words.recap or {})[ev]
+end
 
 -- Title suggestions, by the night's biggest event.
 M.TITLES = {
@@ -136,7 +132,7 @@ function M.build(campaign, night, rng)
     -- The night's events, biggest first, one per kind (two for moments).
     local evs = {}
     for i, e in ipairs(night.ledger or {}) do
-        if e.ev and M.TEMPLATES[e.ev] then
+        if e.ev and template(e.ev) then
             table.insert(evs, { e = e, i = i })
         end
     end
@@ -152,7 +148,7 @@ function M.build(campaign, night, rng)
         local e = x.e
         local cap = e.ev == "moment" and 2 or 1
         if (per[e.ev] or 0) < cap and #beats < 6 and not used_text[e.text or e.ev] then
-            local tpl = (e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or pick(M.TEMPLATES[e.ev], rng)
+            local tpl = (e.ev == "death" and M.DEATH_BACK[e.outcome or ""]) or pick(template(e.ev), rng)
             local text = util.sentence_case(util.fill(tpl, vars_for(campaign, night, e)))
             text = string.gsub(text, "%.%.", ".")
             text = string.gsub(text, "([%.!?]['\"])%.$", "%1")   -- ("hollow.'." from a "{text}." template)

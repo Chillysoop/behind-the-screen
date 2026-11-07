@@ -84,13 +84,16 @@ for _, grp in ipairs(M.PALETTE) do
     end
 end
 
--- The light over the whole map (SRD 5.2.1 "Light"): Bright Light; Dim Light is Lightly
--- Obscured; Darkness is Heavily Obscured, and a creature without Darkvision can't see into it.
+-- The light over the whole map: bright, dim or dark. What each means is the rule set's (light_about).
+function M.light_about(id)
+    local w = require("game.model.ruleset").current().words
+    return id and w.light and w.light[id] or nil
+end
 M.LIGHTS = {
     { id = nil, name = "As the place is" },
-    { id = "bright", name = "Bright", about = "Daylight, or a well-lit room. Everyone sees." },
-    { id = "dim", name = "Dim", about = "Dusk, firelight, a gloomy hall: Lightly Obscured (Disadvantage on Perception by sight)." },
-    { id = "dark", name = "Dark", about = "Night outside, an unlit cellar: Heavily Obscured. Only Darkvision, torches and fires see." },
+    { id = "bright", name = "Bright" },
+    { id = "dim", name = "Dim" },
+    { id = "dark", name = "Dark" },
 }
 
 local function key(x, y)
@@ -104,35 +107,14 @@ local function split(k)
 end
 M.split = split
 
--- What a piece does, in a line of rules (SRD 5.2.1).
+-- What a piece does, in a line of the adventure's rule set's rules (5e's: game/rules/sets/dnd5e.lua, piece_rules).
 function M.rules_text(kind)
     local k = props[kind]
-    if not k then
+    local set = require("game.model.ruleset").current()
+    if not k or not set.piece_rules then
         return ""
     end
-    local out = {}
-    if k.door then
-        table.insert(out, k.door == "open" and "An open door: walk through. Shut it again as you pass."
-            or k.door == "locked" and "Locked: DC 15 to pick (Thieves' Tools) or DC 20 Strength to force. Wood, AC 15, 18 HP."
-            or "Opens as someone walks through (a free interaction). Shut, it blocks sight. Wood, AC 15, 18 HP.")
-    elseif k.opaque then
-        table.insert(out, "Total Cover: blocks sight and movement.")
-    elseif k.deg == "three_quarters" then
-        table.insert(out, "Three-Quarters Cover: +5 AC and Dex saves behind it.")
-    elseif k.deg == "half" then
-        table.insert(out, "Half Cover: +2 AC and Dex saves behind it.")
-    elseif k.blocks then
-        table.insert(out, "Blocks movement.")
-    end
-    if k.slippery then
-        table.insert(out, "Slippery: Difficult Terrain, and a DC 10 Dex save or Prone.")
-    elseif k.rough then
-        table.insert(out, "Difficult Terrain: every foot costs 2.")
-    end
-    if k.bright then
-        table.insert(out, "Bright Light " .. util.int(k.bright) .. " ft, Dim " .. util.int(k.dim or 0) .. " ft more.")
-    end
-    return table.concat(out, " ")
+    return set.piece_rules(k)
 end
 
 -- The terrain set a place gets with no map: by the place, then by what it is, then by the scene.

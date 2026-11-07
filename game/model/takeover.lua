@@ -217,7 +217,7 @@ end
 local function insight(night, sc, cast)
     local p = night:pick_roller({ "insight" }, sc) or night.actor
     local mod = night:mod_for(p, "insight")
-    local dc = data.LIE_DC + (cast.villain and 2 or 0) + util.clamp((sc.difficulty or 2) - 2, -1, 2)
+    local dc = data.LIE_AT + (cast.villain and 2 or 0) + util.clamp((sc.difficulty or 2) - 2, -1, 2)
     local roll = ruleset.current().die(night.rng)
     local total = roll + mod
     local ok = total >= dc
@@ -455,7 +455,7 @@ function M.boss_turn(night, f, b, c)
                          effects = data.BOSS.clever, target = threat, kind = "clever", who = threat_p })
     local frac = weakest and weakest.hp / math.max(1, weakest.hp_max) or 1
     local how_weak = (frac <= 0.34 and ", who's barely standing") or (frac < 1 and ", who's already hurt")
-        or ", who has the fewest hit points"
+        or (", who has the fewest " .. ruleset.current().words.hit_points)
     if threat ~= cruel then
         table.insert(opts, { label = downed and util.fill("Stand over {char} and strike while {char_they're} down.", { char = downed.name })
                                  or ("Go after " .. weakest.name .. how_weak .. "."),
@@ -475,7 +475,7 @@ function M.boss_turn(night, f, b, c)
     -- it still lit whoever went before).
     local card = { id = "boss_turn", type = "boss", title = "The boss's turn", monster = c.monster_id, turn_of = c.mini,
                    text = util.capitalize(boss) .. "'s turn, and you're running it. " .. util.int(c.hp) .. " of "
-                       .. util.int(c.hp_max) .. " hit points left." .. (downed and (" " .. downed.name .. " is down.") or "")
+                       .. util.int(c.hp_max) .. " " .. ruleset.current().words.hit_points .. " left." .. (downed and (" " .. downed.name .. " is down.") or "")
                        .. util.fill(" Who's {boss} going for?", { boss = boss }),
                    options = opts }
     -- How bad its turn could be (the newcomer playtest, October 16): one turn of its attacks
@@ -499,7 +499,7 @@ function M.boss_turn(night, f, b, c)
         end
         danger = "One turn of its attacks does about " .. util.int(per) .. " damage when they all hit. " .. who
         if downed then
-            danger = danger .. util.fill(" A hit on {char} while {char_they're} down counts as a failed death save.", { char = downed.name })
+            danger = danger .. util.fill(ruleset.current().words.hit_while_down, { char = downed.name })
         end
     end
     night.actor = threat_p or night.actor
@@ -564,7 +564,8 @@ function M.boss_turn(night, f, b, c)
         if downed then
             local dp = player_of(night, downed)
             if dp then
-                score.add(dp, "fun", 3)    -- a breather for whoever's making death saves
+                -- (A breather for whoever's down and rolling to stay alive.)
+                score.add(dp, "fun", 3)
             end
         end
     else

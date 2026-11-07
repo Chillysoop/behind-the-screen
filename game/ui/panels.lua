@@ -149,7 +149,7 @@ function M.draw(app, on_click)
                    on_hover = function(_, on)
                        local gl = require "game.ui.gloss"
                        if on then
-                           gl.show("Give Heroic Inspiration", "Flick " .. p.char .. " the token for great play: one reroll, whenever "
+                           gl.show("Give " .. ruleset.current().words.inspiration, "Flick " .. p.char .. " the token for great play: one reroll, whenever "
                                .. p.name .. " wants it. Your call, any time. Give it to the same friend too often and the others notice.",
                                nil, bx, y + 6, 68, 22)
                        else
@@ -160,7 +160,7 @@ function M.draw(app, on_click)
         end
         -- (The re-test, October 16: "the gold dot by Mara's name" meant nothing.)
         require("game.ui.gloss").card_spot(x + TEXT_X + kit.width(p.name, "ui18b") + 5, y + 8, 18, 18,
-            "Heroic Inspiration", "A token you gave " .. p.name .. " for great play. " .. p.char .. " can spend it to reroll "
+            ruleset.current().words.inspiration, "A token you gave " .. p.name .. " for great play. " .. p.char .. " can spend it to reroll "
             .. "one die, and it goes back to you once " .. util.pronoun_of(p.char)["they've"] .. " used it.", nil, chip.token)
         -- Who's with them (companions.lua): a paw by the name, the companion's card on hover.
         local okc, companions = pcall(require, "game.model.companions")
@@ -197,7 +197,7 @@ function M.draw(app, on_click)
             -- The last roll.
             local rx = x + ROLL_X
             kit.box(rx, y + 8, ROLL_W, h - 16, kit.rgba("#000000", 0.28), { radius = 8 })
-            chip.die = kit.icon(rx + ROLL_W / 2 - 21, y + 12, 42, "d20", kit.rgba("#ffffff", 0.12))
+            chip.die = kit.icon(rx + ROLL_W / 2 - 21, y + 12, 42, ruleset.current().dice.icon, kit.rgba("#ffffff", 0.12))
             chip.num = kit.text(rx + ROLL_W / 2, y + 33, "", "ui18b", theme.bg, { pivot = gui.PIVOT_CENTER })
             chip.what = kit.text(rx + ROLL_W / 2, y + 58, "no rolls yet", "ui14", theme.faint, { pivot = gui.PIVOT_N })
             -- The sum, bold (the playtest, November 3: "13 + 5 = 18, with 18 big"), and what it was against.
@@ -208,8 +208,7 @@ function M.draw(app, on_click)
             local gl = require("game.ui.gloss")
             if gl.card_spot then
                 gl.card_spot(rx, y + 8, ROLL_W, h - 16, "Their last roll",
-                    "The die, what it was for, and the total against what it needed: AC is how hard the target is to hit, "
-                    .. "DC the number a check or a save has to reach. Green: it worked. Red: it didn't. Gold: a natural 20.")
+                    ruleset.current().words.roll_hover)
             end
             -- Their dice (grey to start; a gift or a set they bought shows here).
             chip.dice = kit.picture(rx + ROLL_W - 22, y + 11, 18, 18,
@@ -333,25 +332,24 @@ end
 
 -- The stats rows: hit points and AC under the face, and one row of the class's resources, each a
 -- name and pips (lit: still there; dim: used). Pips are drawn for the most there can be.
-local HP_W = 104
+local BAR_W = 104
 function M.draw_stats(app, chip, p, x, y)
     local tile_stats = ruleset.part("tile_stats")
     local st = tile_stats.of(app.campaign, app.night, p.key)
     if not st then
         return
     end
-    chip.hp_back = kit.box(x + 7, y + 81, HP_W, 5, kit.rgba("#000000", 0.5), { round = false })
-    chip.hp_fill = kit.box(x + 7, y + 81, HP_W, 5, theme.green, { round = false })
+    chip.hp_back = kit.box(x + 7, y + 81, BAR_W, 5, kit.rgba("#000000", 0.5), { round = false })
+    chip.hp_fill = kit.box(x + 7, y + 81, BAR_W, 5, theme.green, { round = false })
     chip.hp_icon = kit.icon(x + 7, y + 91, 14, "heart", theme.red)
     chip.hp_text = kit.text(x + 24, y + 89, "", "ui14", theme.text, { gloss = false })
     chip.ac_icon = kit.icon(x + 72, y + 91, 14, "shield", theme.dim)
     chip.ac_text = kit.text(x + 89, y + 89, util.int(st.ac), "ui14", theme.text, { gloss = false })
     local gl = require("game.ui.gloss")
     if gl.card_spot then
-        gl.card_spot(x + 5, y + 79, 64, 28, "Hit points", "How much more of a beating " .. (p.char or "they") .. " can take. "
-            .. "At 0 they drop, and start making death saves.")
-        gl.card_spot(x + 70, y + 88, 42, 20, "Armor Class (AC)", "How hard " .. (p.char or "they") .. " is to hit: an attack "
-            .. "has to roll this or more.")
+        local w = ruleset.current().words
+        gl.card_spot(x + 5, y + 79, 64, 28, w.tile_hp[1], util.fill(w.tile_hp[2], { char = p.char or "they" }))
+        gl.card_spot(x + 70, y + 88, 42, 20, w.tile_ac[1], util.fill(w.tile_ac[2], { char = p.char or "they" }))
     end
     -- The class's own resources.
     chip.res_pips = {}       -- (not chip.res: that's the last roll's result text)
@@ -393,8 +391,8 @@ function M.draw_stats(app, chip, p, x, y)
     if #st.res == 0 then
         kit.text(rx, ry, p.class == "rogue" and "Sneak Attack once a turn" or "", "ui14", theme.faint, { gloss = false })
         if gl.card_spot and p.class == "rogue" then
-            gl.card_spot(rx - 2, ry - 2, 180, 20, "Sneak Attack", "Extra damage once a turn when the rogue has Advantage or an ally "
-                .. "next to the target. It never runs out.")
+            local sneak = ruleset.current().words.tile_sneak
+            gl.card_spot(rx - 2, ry - 2, 180, 20, sneak[1], sneak[2])
         end
     end
 end
@@ -407,7 +405,7 @@ function M.refresh_hp(app)
             local hp = app.in_battle and app.hp and app.hp[key]
             local cur, max = math.max(0, hp and hp[1] or st.hp), math.max(1, hp and hp[2] or st.hp_max)
             gui.set_text(chip.hp_text, util.int(cur) .. "/" .. util.int(max))
-            kit.set_bar(chip.hp_fill, HP_W, cur, max)
+            kit.set_bar(chip.hp_fill, BAR_W, cur, max)
             local f = cur / max
             gui.set_color(chip.hp_fill, f > 0.5 and theme.green or (f > 0.25 and theme.gold or theme.red))
             gui.set_color(chip.hp_text, cur == 0 and theme.red or theme.text)

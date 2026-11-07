@@ -307,7 +307,7 @@ function M.side(app, x, y, w, ids, hazard)
     local lt = m and m.light and maps.LIGHTS[({ bright = 2, dim = 3, dark = 4 })[m.light]]
     ty = ty + 52
     if lt then
-        kit.text(x, ty, lt.about, "ui14", theme.dim, { w = w, lines = 1 })
+        kit.text(x, ty, maps.light_about(lt.id), "ui14", theme.dim, { w = w, lines = 1 })
         ty = ty + 20
     end
     -- The set pieces, by what they're for: a tab for each group, that group's pieces under it, and the

@@ -6,6 +6,9 @@
 local content = require "game.model.content"
 -- (A roll's die, numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
 local ruleset = require "game.model.ruleset"
+local function W()          -- (the adventure's set's words for its things: game/rules/sets)
+    return ruleset.current().words
+end
 local util = require "game.model.util"
 local score = require "game.model.score"
 local rapport = require "game.model.rapport"
@@ -655,7 +658,7 @@ function M.handle(night, mus, sc)
             local was = pc.hp
             pc.hp = math.max(1, pc.hp - n)
             night:say(who.char .. " takes " .. util.int(was - pc.hp) .. " damage (" .. util.int(pc.hp) .. "/"
-                .. util.int(pc.hp_max) .. " HP).", "bad")
+                .. util.int(pc.hp_max) .. " " .. W().hp .. ").", "bad")
         end
     end
     -- (The museum's thanks is an offer: the token is yours to give. The playtest, November 3.)
@@ -1655,7 +1658,7 @@ end
 -- Poking around is an Investigation check in the open (Conner's playtest, C13: the find card didn't say
 -- whether they'd rolled): the small die over their tile, the total on the card, so the DM's call can
 -- follow it. Returns the total.
-M.FIND_DC = 12
+M.FIND_AT = 12         -- (what it takes to find a thing poking about)
 local function poke_roll(night, p)
     local name, mod = night:best_skill(p, { "investigation" })
     mod = (mod or 0) + night:take_learned(p)
@@ -1681,7 +1684,7 @@ local function look_card(night, sc, pl, ex, p)
                        roll = { dc = t.dc or 12, skill = t.skill or { "acrobatics" }, convenient = "success",
                                 success = { log = t.dodge, effects = { { "actor", spotlight = 6, fun = 3 }, { "all", challenge = 2 } } },
                                 fail = hurt } },
-                     { label = "Give them a chance to spot it first.", sub = "A Perception roll. Miss it, and it goes off.",
+                     { label = "Give them a chance to spot it first.", sub = W().spot_first,
                        roll = { dc = t.spot_dc or 13, skill = { "perception", "investigation" }, convenient = "success",
                                 success = { log = t.spotted, effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:tactician", fun = 3 },
                                                                          { "arch:explorer", fun = 2 } } },
@@ -1698,19 +1701,19 @@ local function look_card(night, sc, pl, ex, p)
     if p then
         total, d = poke_roll(night, p)
     end
-    local found = total and total >= M.FIND_DC
+    local found = total and total >= M.FIND_AT
     local function a_num(x)
         local t = util.int(x)
         return ((t == "8" or t == "11" or t == "18" or string.find(t, "^8")) and "an " or "a ") .. t
     end
-    local rolled = total and (" with " .. a_num(total) .. " Investigation check"
-        .. (d == 20 and " (a natural 20)" or (d == 1 and " (a natural 1)" or ""))) or ""
+    local rolled = total and (" with " .. a_num(total) .. " " .. W().find_check
+        .. (d == 20 and (" (a " .. W().crit .. ")") or (d == 1 and (" (a " .. W().fumble .. ")") or ""))) or ""
     local who = p and ("{actor_char} ({actor})") or "{actor_char}"
     return { id = "mus_look_find_" .. sc.room .. "_" .. pl.id, type = "screen", trigger = "museum_fixed", fixed_actor = true,
              keep_actor = true, actor = { "explorer" }, look = what,
              title = "Something to find: " .. what,
              text = who .. " is poking around " .. what .. rolled .. ". Your notes put " .. f.what .. " here"
-                 .. (total and (", and it takes a " .. util.int(M.FIND_DC) .. " to find.") or "."),
+                 .. (total and (", and it takes a " .. util.int(M.FIND_AT) .. " to find.") or "."),
              options = {
                  { label = "They find it.", log = f.line,
                    sub = total and (found and ("Their " .. util.int(total) .. " finds it.") or ("Generous: " .. a_num(total) .. " wouldn't usually find it.")) or nil,
@@ -1949,7 +1952,7 @@ function M.drops_social(night, sc)
                              options = {
                                  { label = "They hand it over.", log = who .. " digs in a pocket and holds out " .. item .. ". \"Look after it.\"",
                                    effects = { { "actor", spotlight = 6, fun = 4 }, { "arch:storyteller", fun = 2 } }, drop = true },
-                                 { label = "Only if they're talked round. Persuasion.",
+                                 { label = "Only if they're talked round. " .. ruleset.current().name("persuasion") .. ".",
                                    roll = { dc = 13, skill = { "persuasion", "deception" }, convenient = "success",
                                             success = { log = who .. " sighs, digs in a pocket, and holds out " .. item .. ".", effects = { { "actor", spotlight = 8, fun = 5 } }, drop = true },
                                             fail = { log = who .. " pats {actor_char} on the arm. \"Good luck in there.\" That's all.", effects = { { "actor", fun = -1 } } } } },
@@ -2460,7 +2463,7 @@ function M.quick_room(night, sc)
         night:combat_scene(sc)
     end
     if sc.rest_here and not night.end_early then
-        night:say("They sit down among the souvenirs and catch their breath: a short rest.", "aside")
+        night:say("They sit down among the souvenirs and catch their breath: " .. W().short_rest .. ".", "aside")
         if not night.pc_list then
             ruleset.engine("fight").party(night)
         end
@@ -4539,8 +4542,8 @@ function M.go_back(night, b)
             end
         end
         if not night.end_early and (b.why ~= "shop" or hurt(night) > 0.2) then
-            night:say(b.why == "flee" and "They slam the door behind them and catch their breath: a short rest."
-                or "They sit down among the souvenirs and catch their breath: a short rest.", "aside")
+            night:say(b.why == "flee" and ("They slam the door behind them and catch their breath: " .. W().short_rest .. ".")
+                or ("They sit down among the souvenirs and catch their breath: " .. W().short_rest .. "."), "aside")
             if not night.pc_list then
                 ruleset.engine("fight").party(night)
             end
@@ -5135,13 +5138,13 @@ function M.intro(night)
             local back = (not in_shop) and (here == "stairs" and "the top of the stairs" or util.lower_first(MODULE.rooms[here].name)) or nil
             local line
             if in_shop then
-                line = "As promised in the group chat: they start tonight after a long rest in the gift shop, fully healed, every spell back."
+                line = "As promised in the group chat: they start tonight after " .. W().long_rest .. " in the gift shop, fully healed, every spell back."
             elseif statue then
-                line = "As promised in the group chat: they start tonight after a long rest in the gift shop. They wake to find, just as you "
+                line = "As promised in the group chat: they start tonight after " .. W().long_rest .. " in the gift shop. They wake to find, just as you "
                     .. "told them, a statue that wasn't there last night at the foot of its stairs, its stone hand reaching for the first "
                     .. "step. Then a walk back up to " .. back .. ", where they stopped. Fully healed, every spell back."
             else
-                line = "As promised in the group chat: they start tonight after a long rest in the gift shop, and a walk back up to "
+                line = "As promised in the group chat: they start tonight after " .. W().long_rest .. " in the gift shop, and a walk back up to "
                     .. back .. ", where they stopped. Fully healed, every spell back."
             end
             night:say(line .. fight.buff_line(night), "recap")
@@ -5749,10 +5752,10 @@ function M.maybe_break(night, before_boss)
                    options = {
                        { label = "Nothing. It's just a break.", break_log = "nothing",
                          effects = { { "all", social = 3, fun = 2 } } },
-                       { label = "They take a short rest while we eat.", sub = "An hour in the game: Hit Dice, Second Wind, Channel Divinity, Arcane Recovery.",
+                       { label = W().rest_short_label, sub = W().rest_short_sub,
                          break_log = "short", rest = "short",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:tactician", fun = 2 } } },
-                       { label = "They take a long rest here.", sub = safe and "A full night's sleep: everything back." or "Nowhere here is safe enough to sleep.",
+                       { label = W().rest_long_label, sub = safe and "A full night's sleep: everything back." or "Nowhere here is safe enough to sleep.",
                          disabled = not safe, rest = "long",
                          break_log = "long",
                          effects = { { "all", social = 2, fun = 1 }, { "arch:butt_kicker", challenge = -2 } } },
