@@ -1103,8 +1103,8 @@ local function react(night, f, steps, who)
             -- "Pip goes down, and doesn't get up. Death saves." five times in one fight, and up she got each time.)
             local bt = night.battle or {}
             local before = bt.downed_keys and bt.downed_keys[victim.key]
-            local said = night:fresh(before and TOLD.knocked_down_again or TOLD.knocked_down,
-                before and "told_knocked_down_again" or "told_knocked_down")
+            local key = (downed.stable and not downed.dead and "knocked_out") or (before and "knocked_down_again") or "knocked_down"
+            local said = night:fresh(TOLD[key], "told_" .. key)
             night:say(util.fill(said or "{char} goes down. Death saves.", { char = downed.name }), "bad")
             poses[victim.key] = "gasp"
             -- (No quip from the floor when it's going this badly: a hero already dead tonight, or this drop
@@ -1390,33 +1390,6 @@ local function moment(night, f, trigger, vars, actor_c, other_c, adjust)
         night.other = night:pick_actor(card.other, night.actor)
     end
     return night:decision(card, vars)
-end
-
--- The early knockout card's "let it drop" (game/data/decisions.lua boss_crit): its words, one of these, fresh across
--- weeks. Only what happens: the boss falls, early ({boss}, {round}).
-M.EARLY_KNOCKOUT = {
-    "{boss} crumples. Short, and very satisfying.",
-    "{boss} goes down in round {round}, before getting to do much of anything.",
-    "One good hit, and {boss} is on the floor. Round {round}, too.",
-    "{boss} drops, just like that. It's round {round}.",
-}
-function M.early_knockout(night, adjust)
-    local card = content.triggered and content.triggered.boss_crit
-    local label
-    for _, o in ipairs((card and card.options) or {}) do
-        if o.battle == "let" then
-            label = o.label
-        end
-    end
-    if not label then
-        return adjust
-    end
-    adjust = adjust or {}
-    adjust.label = adjust.label or {}
-    adjust.log = adjust.log or {}
-    adjust.label.let = adjust.label.let or label
-    adjust.log.let = adjust.log.let or night:fresh(M.EARLY_KNOCKOUT, "early_knockout")
-    return adjust
 end
 
 M.SWITCH_LINES = { "{char} reaches into {mech}'s chest panel and flips the red switch, saved for her all week.",
@@ -1877,9 +1850,6 @@ function M.run(night, sc, plan)
             local rf = M.reinforcement(night, night.scene)
             local adjust = (rf == nil and { drop = { reinforce = true } })
                 or (type(rf) == "table" and { label = { reinforce = rf.label }, log = { reinforce = rf.log } }) or nil
-            -- (Letting it drop is said three ways and more, fresh: the fourth playtest heard "crumples. Dev stands on
-            -- his chair." at every early knockout, four times in one prologue.)
-            adjust = M.early_knockout(night, adjust)
             local o = moment(night, f, "boss_crit", { boss = f.boss_name, round = bb.round, actor_char = ally and ally.name or nil },
                 ally and (lander and night.pcs and night.pcs[lander.key]) or src, nil, adjust)
             if o and o.battle == "second_phase" then

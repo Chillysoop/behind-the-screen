@@ -3734,7 +3734,10 @@ function M:decision(card, extra)
     if o.tells then
         told.tell(self.campaign, o.tells, { how = o.tells_how or "moment", by = self.actor and self.actor.key or nil })
     end
-    if o.log then
+    -- (`logs`: an outcome said often, three ways or more, fresh: the early knockout every fight.)
+    if o.logs then
+        self:say(self:fresh(o.logs, "log_" .. tostring(card.id) .. "_" .. tostring(pick)), o.screen and "screen" or "dm", extra)
+    elseif o.log then
         self:say(o.log, o.screen and "screen" or "dm", extra)
     end
     -- Breaks and lookups take real time at the table (A14).

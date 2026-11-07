@@ -317,6 +317,10 @@ M.told = {
                      "{char} hits the floor at 0 hit points. Death saves.",
                      "That drops {char}: 0 hit points, and death saves from here.",
                      "{char} is out cold, and rolling death saves." },
+    -- (Knocked out and Stable, not dying: the Sentinel's fists. No death saves to roll.)
+    knocked_out = { "{char} is knocked out cold. Stable: no death saves.",
+                    "That knocks {char} out, breathing but out of it. No death saves for this one.",
+                    "{char} drops, knocked out. Stable, so no death saves." },
     -- (Down a second time in the same fight.)
     knocked_down_again = { "{char} is down again. Back to death saves.",
                            "And {char} drops again. Death saves.",

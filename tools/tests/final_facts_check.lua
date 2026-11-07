@@ -440,7 +440,10 @@ local function d_watch(R)
                     fail("D", R.tag .. " week " .. w .. ": the card promised last words, and they're \"" .. t .. "\"")
                 end
             end
-            if string.find(t, "doesn't get up. Death saves.", 1, true) then
+            -- (A hero down and dying, said any of its ways: game/data/barks.lua's told.knocked_down and knocked_down_again,
+            -- never the Stable knock-out with no death saves.)
+            local lt = string.lower(t)
+            if string.find(lt, "death saves", 1, true) and not string.find(lt, "no death saves", 1, true) then
                 for j = i + 1, math.min(#said, i + 3) do
                     for _, q in ipairs(QUIPS) do
                         if death_card and string.find(said[j].text, q, 1, true) then

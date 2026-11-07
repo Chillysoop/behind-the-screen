@@ -101,6 +101,8 @@ return {
         options = {
             { label = "Let it drop. They earned it.", battle = "let",
               log = "{boss} crumples. Short, and very satisfying.",
+              logs = { "{boss} crumples. Short, and very satisfying.", "{boss} goes down before it's done much of anything.",
+                       "One good hit, and {boss} is finished. Fast.", "{boss} drops. That was quicker than anyone expected." },
               effects = { { "actor", spotlight = 16, fun = 8 }, { "arch:butt_kicker", fun = 5 }, { "arch:power_gamer", fun = 4 },
                           { "arch:tactician", challenge = -6 }, { "arch:storyteller", story = -4 } } },
             { label = "Second phase! It rises, angrier.", battle = "second_phase",
