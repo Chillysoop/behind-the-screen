@@ -4215,6 +4215,11 @@ function M:turn_trigger(steps, who)
 end
 
 function M:combat_scene(sc)
+    -- (Told as story, with no grid, when the scene or the adventure's rule set says so: any set's, step 4 of
+    -- docs/design/rule-sets.md. On the grid, the set's own fight: 5e's, below.)
+    if (sc.fight_mode or rules().fight) == "story" then
+        return require("game.model.story_fight").run(self, sc)
+    end
     fight.party(self)
     if #self.pc_list == 0 then
         return

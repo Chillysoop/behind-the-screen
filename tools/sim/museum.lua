@@ -41,6 +41,11 @@ end
 adventure.enter()
 local c = campaign_mod.new(seed)
 adventure.enter(c)
+-- STORY_ROOMS=compound,bedroom: those rooms' fights are told as story, without the grid (game/model/story_fight.lua).
+for id in string.gmatch(os.getenv("STORY_ROOMS") or "", "[^,]+") do
+    assert(adventure.data.rooms[id], "no room called " .. id)
+    adventure.data.rooms[id].fight_mode = "story"
+end
 c:session_zero(social.default_choices())
 local rng = require("game.model.rng").new(seed + 77)
 for _, key in ipairs({ "mara", "dev", "jess", "sam" }) do

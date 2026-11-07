@@ -287,6 +287,7 @@ function M.build_scene(night, id)
         quality = q - ((prepped or r.virtual or r.cost == 0) and 0 or MODULE.UNPREPPED_QUALITY) - (improv and 0.1 or 0),
         difficulty = prep_mod.difficulty(comps),
         optional_fight = r.optional_fight,
+        fight_mode = r.fight_mode,     -- ("story": its fight is told without the grid, game/model/story_fight.lua)
         boss = r.boss,
         epilogue = r.epilogue,
         rest_here = r.rest or nil,

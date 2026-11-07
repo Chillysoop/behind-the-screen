@@ -19,6 +19,7 @@
 --             cast = "<person id>",                                  -- who's here to talk to (M.people)
 --             foes = { "<creature id>", ... }, boss_name = "...",    -- who fights them (M.creatures)
 --             optional_fight = true, quick = true, stop = true, rest = true,
+--             fight_mode = "story" (its fight told without the grid, by game/model/story_fight.lua),
 --             leaves = { "<place id>", ... },                        -- walking in leaves these behind for good
 --             stays = true,                                          -- its foes never run (the bed is a bed)
 --             voiced = true,                                         -- one of the foes talks to them (Noke, over the rail)
@@ -352,7 +353,7 @@ function M.compile(src)
         mod.rooms[pl.id] = {
             name = pl.name, part = 1, type = sc.type or "exploration", cost = sc.cost or (sc.quick and 1 or 2),
             quick = sc.quick, at = sc.at_map or M.map_at(i, #list), map = sc.map or pl.name, comps = comps,
-            encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
+            encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight, fight_mode = sc.fight_mode,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest, on = pl.on,
             hurry_on = sc.hurry_on, leaves = sc.leaves,
             level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,

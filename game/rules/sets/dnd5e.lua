@@ -13,7 +13,10 @@ M.title = "D&D 5e (SRD 5.2.1)"      -- (M.name is an approach's name: "Stealth")
 M.dice = { notation = "1d20", sides = 20, name = "d20", icon = "d20" }  -- the check's die, from game/kit/dice.lua:
                                                                           -- its name in the captions, its icon in the tray
 M.who_rolls = "dm"                         -- the DM rolls, in the open or behind the screen
-M.fight = "tactical"                       -- fights on the battle grid (game/rules/battle.lua)
+M.fight = "grid"                           -- fights on the battle grid (game/rules/battle.lua), unless a scene says
+                                           -- "story" (game/model/story_fight.lua)
+-- A fight told as story: what a hero rolls to get the better of it, their best of these.
+M.story_approaches = { "athletics", "acrobatics", "stealth", "arcana", "religion", "intimidation" }
 M.approaches = skills.NAMES                -- what a hero can try: the 18 skills, and the six abilities
 M.difficulty_word = "DC"
 

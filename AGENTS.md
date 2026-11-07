@@ -271,7 +271,9 @@ least:
                                           # no shared file gains a set's own words or a fixed die (the list still to move,
                                           # rules_fence_known.lua, only shrinks)
     lua tools/tests/dice_kit_check.lua    # the table's dice (game/kit/dice.lua): every kind read right, in range, seeded the same
-    lua tools/tests/grid_kit_check.lua    # the table's grid (game/kit/grid.lua) on a board that isn't 5e's: distance, sight, doors, light
+    lua tools/tests/grid_kit_check.lua    # the table's grid (game/kit/grid.lua) on a board that isn't 5e's: distance, sight, doors, light, paths
+    lua tools/tests/rule_sets_check.lua   # fights both ways: a second test set on the shared grid with its own rules, a story fight
+                                          # under it, and whole Sheep Chases with rooms told as story (fight_mode = "story")
     lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
                                           # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

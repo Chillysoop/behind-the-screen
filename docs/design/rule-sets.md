@@ -130,6 +130,15 @@ reactions do too, so every bark, thought and rest beat works in any set.
 4. **Fights both ways.** Told as story: checks, harm, a clock, the foes' moves as the DM's. On the grid: the shared
    grid with a set's own combat rules (5e's is the first). Both in the shared layer, so any set can have either.
    *Done when:* a 5e test scene can run its fight either way, and a test set fights on the grid with rules of its own.
+   **Built, November 7.** A scene's `fight_mode = "story"` (or a set whose `fight` is "story") plays its fight with
+   game/model/story_fight.lua: each hero at hand says what they go for, rolls the set's check against the set's
+   number for the scene (`scene_dc`), and the tier moves a clock (4 to 6 marks by how hard the scene is) or costs
+   the hero a hit (two and they're out of it); it's logged like any fight, so the report, the recap and the journey
+   tell it. The set says which approaches count in a story fight (`story_approaches`). The shared grid has the way
+   round walls (`path`). tools/tests/fixtures/skirmish_set.lua is a second set for the tests (2d6, its own stats,
+   three harm and you're out) whose grid fight stands on game/kit/grid with none of 5e loaded;
+   tools/tests/rule_sets_check.lua plays it, a story fight under it, and whole Sheep Chases with the yard and the
+   bedroom told as story (`STORY_ROOMS=compound,bedroom` on the sim).
 5. **The second set and a one-shot.** A 2d6 "moves" set (our own words, built on the open 10+ / 7-9 / 6- structure)
    and a short original adventure in it, ideally written through the upload pipeline. *Done when:* it plays start to
    end in the sims and the engine, with its own checks in the gate.

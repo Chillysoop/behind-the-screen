@@ -167,6 +167,47 @@ function G:set_door(x, y, state, who)
     end
 end
 
+-- The shortest way from one square to another, stepping to any of the eight squares around, round walls, shut doors
+-- and anyone standing in the way (the goal's own square may be taken: it's who you're walking up to). The steps, not
+-- counting the start; nil when there's no way. opts.max: give up past this many steps (40 when it doesn't say).
+function G:path(x1, y1, x2, y2, opts)
+    local max = (opts and opts.max) or 40
+    if x1 == x2 and y1 == y2 then
+        return {}
+    end
+    local from, frontier, seen = {}, { { x1, y1 } }, { [key(x1, y1)] = 0 }
+    local steps = 0
+    while #frontier > 0 and steps < max do
+        steps = steps + 1
+        local next_frontier = {}
+        for _, sq in ipairs(frontier) do
+            for dy = -1, 1 do
+                for dx = -1, 1 do
+                    local nx, ny = sq[1] + dx, sq[2] + dy
+                    local k = key(nx, ny)
+                    local goal = nx == x2 and ny == y2
+                    if (dx ~= 0 or dy ~= 0) and seen[k] == nil and self:in_bounds(nx, ny) and not self:opaque_at(nx, ny)
+                        and (goal or not self:occupant(nx, ny)) then
+                        seen[k] = steps
+                        from[k] = sq
+                        if goal then
+                            local out, at = {}, { nx, ny }
+                            while at and not (at[1] == x1 and at[2] == y1) do
+                                table.insert(out, 1, at)
+                                at = from[key(at[1], at[2])]
+                            end
+                            return out
+                        end
+                        table.insert(next_frontier, { nx, ny })
+                    end
+                end
+            end
+        end
+        frontier = next_frontier
+    end
+    return nil
+end
+
 -- Put the grid's methods on a class (a rule set's battle), leaving any it already has.
 function M.mix(class)
     for name, f in pairs(G) do

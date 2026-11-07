@@ -57,6 +57,27 @@ do
 end
 
 do
+    -- The way round: a wall down column 5 with one gap at row 8; a wall all the way down shuts the way.
+    local opaque = {}
+    for y = 1, 7 do
+        opaque[grid.key(5, y)] = true
+    end
+    local b = board({ opaque = opaque })
+    local path = b:path(2, 2, 8, 2)
+    ok(path ~= nil and path[#path][1] == 8 and path[#path][2] == 2, "a way round the wall, to the square asked for")
+    local through = false
+    for _, sq in ipairs(path or {}) do
+        through = through or b:opaque_at(sq[1], sq[2])
+    end
+    ok(not through, "the way never goes through the wall")
+    ok(path and #path >= 11, "the way goes round by the gap, not straight across (" .. tostring(path and #path) .. " steps)")
+    opaque[grid.key(5, 8)] = true
+    ok(b:path(2, 2, 8, 2) == nil, "no way at all when the wall runs the whole board")
+    table.insert(b.creatures, { x = 3, y = 2 })
+    ok(#(b:path(2, 2, 3, 2) or {}) == 1, "walking up to someone: their square is the last step")
+end
+
+do
     local b = board({ light = { ambient = "dark", sources = { { x = 2, y = 2, bright = 10, dim = 10 } } } })
     ok(b:light_at(2, 3) == "bright", "next to the lamp is bright")
     ok(b:light_at(5, 2) == "dim", "three squares off is dim")
