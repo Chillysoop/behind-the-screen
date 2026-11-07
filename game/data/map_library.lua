@@ -620,7 +620,7 @@ L.boards = {
                 { 19, 1, 0 }, { 2, 2, 0 }, { 9, 2, 0 }, { 13, 2, 0 }, { 16, 2, 0 }, { 5, 3, 0 }, { 1, 4, 0 }, { 12, 4, 0 }, { 20, 9, 0 }, { 6, 10, 0 },
                 { 18, 10, 0 }, { 7, 11, 0 }, { 15, 11, 0 }, { 3, 12, 0 }, { 11, 12, 0 },
             }, words = { "oak", "oaks", "trees" }, say = "tall oaks" },
-            { id = "pines", kind = "pine", at = { { 10, 3, 0 }, { 4, 4, 0 }, { 17, 8, 0 }, { 2, 11, 0 }, { 8, 12, 0 }, { 14, 12, 0 }, { 19, 12, 0 } }, words = { "pine", "pines", "trees" }, say = "a few dark pines" },
+            { id = "pines", kind = "pine", at = { { 10, 3, 0 }, { 4, 4, 0 }, { 17, 8, 0 }, { 2, 11, 0 }, { 8, 12, 0 }, { 14, 12, 0 }, { 19, 12, 0 } }, words = { "pine", "pines", "trees" }, say = "a few dark pines among the oaks" },
             { id = "bushes", kind = "bush", at = { { 17, 3, 0 }, { 3, 6, 0 }, { 8, 9, 0 }, { 14, 9, 0 }, { 10, 10, 0 }, { 1, 13, 0 } }, words = { "bush", "bushes", "undergrowth" }, say = "undergrowth" },
             { id = "log", kind = "fallen_log", at = { { 10, 9, 0 } }, words = { "log", "fallen tree" }, say = "a fallen oak" },
             { id = "rocks", kind = "rock", at = { { 6, 2, 0 } }, words = { "rock", "stone" }, say = "a mossy rock" },

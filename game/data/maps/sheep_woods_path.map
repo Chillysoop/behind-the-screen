@@ -48,7 +48,7 @@ features:
 ground     | base      | woods, ground, grass, oaks | woods of tall oaks
 path       | base      | path, track, trail | a well-used path
 oaks       |           | oak, oaks, trees | tall oaks
-pines      |           | pine, pines, trees | a few dark pines
+pines      |           | pine, pines, trees | a few dark pines among the oaks
 bushes     |           | bush, bushes, undergrowth | undergrowth
 log        |           | log, fallen tree | a fallen oak
 rocks      |           | rock, stone | a mossy rock

@@ -368,7 +368,7 @@ return {
           lore = "Under a cushion, a list in a cramped hand: things to say to the master, if he were ever to come back. Crossed out, and started again.",
           react = { dull = { "Soft is all I needed to know." },
                     detail = { "Sheep height. Somebody's been sitting with the sheep." },
-                    lore = { "He's been practising what to say. That's worse than the bed dragon would be." } },
+                    lore = { "He's been practising what to say. That's the saddest thing in this whole house." } },
           crit20 = { find = "a cushion's worth of comfort: a short rest's worth, almost", clue = nil },
           crit1 = "The couch is softer than it looks and swallows you up to the elbows. It takes two to get you out." },
       },

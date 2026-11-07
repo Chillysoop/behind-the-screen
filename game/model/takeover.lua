@@ -155,17 +155,21 @@ local function turn(night, step, info)
     local vars = { char = info.p.char }
     local card = { id = "talk_" .. info.id .. "_" .. step, type = "talk", cast = info.cast.id, options = {} }
     local name = talk_name(night, info)
+    -- (Their own pronouns: "You speak for him", not "them", for Flitwidget. The playtest, November 6.)
+    local pr = util.PRONOUNS[util.pronoun_of(name) or ""] or util.PRONOUNS[info.cast.pronoun or ""] or util.PRONOUNS.they
+    local they, them, their = pr.they, pr.them, pr.their
+    local open_up = they == "they" and "they open up" or (they .. " opens up")
     if step == 1 then
         card.title = "Talk as " .. name
         card.text = info.p.char .. " walks up to " .. name .. ". " .. info.feel
-            .. " You speak for them: what are their first words?"
+            .. " You speak for " .. them .. ": what are " .. their .. " first words?"
     else
         card.title = info.p.char .. " asks"
         -- A goal card's name is an instruction ("Find old Dunnet"), not a topic: say it as the goal.
         card.text = (info.ask and (info.p.char .. " asks " .. name .. " " .. info.ask .. ". ")
-            or (info.p.char .. " asks " .. name .. " what they know"
+            or (info.p.char .. " asks " .. name .. " what " .. they .. (they == "they" and " know" or " knows")
                 .. (info.goal and (", for the party's goal: " .. util.lower_first(info.goal) .. ". ") or " about what's going on. ")))
-            .. "Warm, and they open up. Guarded keeps their secrets. A lie might get caught."
+            .. "Warm, and " .. open_up .. ". Guarded keeps " .. their .. " secrets. A lie might get caught."
     end
     local fits = info.fits
     for i, stance in ipairs(M.STANCES) do
@@ -252,7 +256,10 @@ function M.talk(night, sc)
     sc.talked = true
     night.actor, night.other = p, nil
     local att = 0   -- (nobody starts out for or against the party: what they remember of it is below)
-    local feel = cast.villain and "They're no friend of the party." or "They don't know the party yet."
+    local cpr = util.PRONOUNS[cast.pronoun or ""] or util.PRONOUNS[util.pronoun_of(cast.short or cast.name or "") or ""] or util.PRONOUNS.they
+    local cthey = util.capitalize(cpr.they)
+    local feel = cast.villain and (cthey .. (cpr.they == "they" and " aren't" or " isn't") .. " any friend of the party.")
+        or (cthey .. (cpr.they == "they" and " don't" or " doesn't") .. " know the party yet.")
     -- v2: the museum's people remember the party, as the DM would.
     local adventure = night.mus and require("game.model.adventure")
     local module_talk = adventure and adventure.data.talk and adventure.data.talk[cast.id]
@@ -261,9 +268,9 @@ function M.talk(night, sc)
         local mem = adventure.memory(campaign, cast.id)
         local who = util.capitalize(cast.short or cast.name)
         if met and #mem > 0 then
-            feel = who .. " knows them: " .. util.join_names(mem) .. "."
+            feel = who .. " knows the party: " .. util.join_names(mem) .. "."
         elseif met then
-            feel = who .. " has met them before."
+            feel = who .. " has met the party before."
         else
             feel = who .. " hasn't met the party yet."
         end
@@ -530,9 +537,12 @@ function M.boss_turn(night, f, b, c)
         c.dm_skip_name = "Gloats"
         -- The speech the card promised, even from someone with no lines of their own (the second
         -- card-led playtest, October 17: "Chief Nettle: Gloats." and nothing else).
-        if not night:npc_line("taunt") then
-            local cast = night.scene and night.scene.comps.cast
-            night:emit({ kind = "npc", name = cast and night:cast_label(cast) or util.capitalize(boss),
+        -- (The boss says it: the scene's cast only when that's who's fighting. The Sheep Chase's common room has the
+        -- sheep for its cast, and the sheep gloated Guz's speech, November 6.)
+        local cast = night.scene and night.scene.comps.cast
+        local theirs = cast and cast.foe
+        if not (theirs and night:npc_line("taunt")) then
+            night:emit({ kind = "npc", name = theirs and night:cast_label(cast) or util.capitalize(boss),
                          text = night.rng:pick(data.GLOAT_LINES) })
         end
         M.react(night, "gloat", { "storyteller", "method_actor" })

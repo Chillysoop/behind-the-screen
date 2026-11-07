@@ -20,9 +20,12 @@
 --             foes = { "<creature id>", ... }, boss_name = "...",    -- who fights them (M.creatures)
 --             optional_fight = true, quick = true, stop = true, rest = true,
 --             leaves = { "<place id>", ... },                        -- walking in leaves these behind for good
+--             stays = true,                                          -- its foes never run (the bed is a bed)
+--             voiced = true,                                         -- one of the foes talks to them (Noke, over the rail)
 --             snag = { name, line, skill = {...} }, prize = { name, line, got } }
 -- And a story event with `options` (game night's choice records: label, want, short, lean, log, roll, mus, tells,
--- when) plays as a moment where it happens (`at`), at the start of the scene, mid-way or at its end (`when`).
+-- when) plays as a moment where it happens (`at`), as they walk in before anyone looks round (`when_in = "arrive"`), at
+-- the start of the scene, mid-way or at its end.
 
 local util = require "game.model.util"
 
@@ -150,7 +153,7 @@ function M.cards(mod)
         elseif sc.foes and #sc.foes > 0 then
             table.insert(out, { id = card_id(mod, pl.id, "cast"), kind = "cast", short = sc.foes_short or "the foes", group = #sc.foes > 1,
                                 foe = true, talks = sc.talks or false, name = sc.foes_name or "The foes", fits = fits,
-                                tags = { "action", "danger" }, difficulty = 1, seen = sc.seen, wake = sc.wake,
+                                tags = { "action", "danger" }, difficulty = 1, seen = sc.seen, wake = sc.wake, stays = sc.stays, voiced = sc.voiced,
                                 line = sc.foes_line or pl.read })
         end
         local g = sc.goal or {}

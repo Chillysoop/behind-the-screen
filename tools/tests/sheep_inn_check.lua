@@ -88,8 +88,8 @@ local function play(seed, opts)
             if ev.kind == "scene" then
                 table.insert(R.rooms, room)
             end
-            if type(ev.text) == "string" then
-                table.insert(R.lines, { room = room, kind = ev.kind, name = ev.name, text = ev.text })
+            if type(ev.text) == "string" or ev.kind == "tiny_roll" then
+                table.insert(R.lines, { room = room, kind = ev.kind, name = ev.name, text = type(ev.text) == "string" and ev.text or "" })
             end
             local answer
             if ev.kind == "decision" then
@@ -180,6 +180,20 @@ for _, seed in ipairs({ 11, 12 }) do
     ok(tag, R.flags.ring_back and said(R, "counts out twenty gold") ~= nil, "Sir Luenn gets his ring back, and pays")
     ok(tag, not said(R, "token", "inn_cellar"), "no drover's token without the museum's mountain road")
     ok(tag, R.ending ~= nil, "the adventure still reaches an ending (" .. tostring(R.ending) .. ")")
+    -- (Order: Sir Luenn opens his door before anyone pokes about upstairs; nothing happens in the cellar once they've
+    -- climbed back up with the ring.)
+    local door, first_poke, ladder, after_ladder
+    for i, l in ipairs(R.lines) do
+        if l.room == "inn_upstairs" then
+            if not door and string.find(l.text, "Sir Luenn flings open his door", 1, true) then door = i end
+            if not first_poke and l.kind == "tiny_roll" then first_poke = i end
+        elseif l.room == "inn_cellar" then
+            if string.find(l.text, "Back up the ladder", 1, true) then ladder = i end
+            if ladder and i > ladder and l.kind == "tiny_roll" then after_ladder = i end
+        end
+    end
+    ok(tag, door and (not first_poke or door < first_poke), "Sir Luenn's door opens before anyone pokes about upstairs")
+    ok(tag, ladder and not after_ladder, "no small moments in the cellar after they climb back up")
 end
 
 -- DOWN FIRST: the cellar first, the ring lifted, Wenna hands it back, Teddy's bottle -------------------

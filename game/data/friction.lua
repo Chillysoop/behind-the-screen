@@ -74,7 +74,7 @@ return {
         { id = "share_the_loot", when = "loot", rapport = 4,
           line = "{actor_char} hands the new trinket to {target_char}: 'You'll get more use out of it than me.'",
           say = "{actor_char} hands the new trinket to {target_char}. \"You'll get more use out of it than me.\"" },
-        { id = "stand_up_for", when = "social", needs = "cast", rapport = 4,
+        { id = "stand_up_for", when = "social", needs = "threat", rapport = 4,
           line = "'They're with us,' {actor_char} tells {cast}, stepping in front of {target_char}.",
           say = "I step in front of {target_char}. \"Leave {target_them} alone. We're all together.\"" },
         -- (needs_plan: a choice the table settled on in this room, that the doer wanted and someone
@@ -82,9 +82,10 @@ return {
         -- ritual Dev argued against.)
         { id = "plan_and_timing", when = "explore", rapport = 3, needs_plan = true,
           line = "{actor_char}'s plan, {target_char}'s timing: it works perfectly, and they both know it." },
+        -- (To whoever's hot with them, for whatever it was: not "what I took" when nothing was. The playtest, November 6.)
         { id = "make_amends", when = "any", rapport = 6, amends = true,
-          line = "{actor_char} quietly gives back what {actor_they} took, polished, with a bad drawing as an apology.",
-          say = "I give back what I took. Polished. With a drawing. It's an apology." },
+          line = "{actor_char} finds {target_char} a quiet moment and makes it right.",
+          say = "{target_char}. About earlier. I was out of order. Sorry." },
     },
 
     responses = {

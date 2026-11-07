@@ -941,6 +941,13 @@ local function gained(mus)
     return mus ~= nil and (mus.flag or mus.francs or mus.mark or mus.careful or mus.favor) ~= nil
 end
 
+-- Said by the one who has to do what the table settled when they argued against it (and only they can).
+M.RELUCTANT = {
+    "Fine. I said no, but if we're doing it, it'd better be me.",
+    "Okay. Not my vote, but I'm the one who can. Give it here.",
+    "I'm doing it under protest. For the record.",
+}
+
 function M.play_moment(night, card, sc)
     local st = st_of(night)
     local copy = {}
@@ -1160,15 +1167,29 @@ function M.play_moment(night, card, sc)
         -- and the follow-up keeps them: round three, "Pip cracks her knuckles" then Brannoc had the picks.)
         local best_skill = chosen and ((chosen.roll and chosen.roll.best and chosen.roll.skill) or (type(chosen.best) == "table" and chosen.best))
         if best_skill then
-            local best, bm
-            local pool = chosen.roll and night:at_hand() or (#backers > 0 and backers) or night:at_hand()
             -- (`casters`: only someone who casts spells can do it at all, the Sheep Chase's wand, p6.)
             local CASTER = { wizard = true, cleric = true }
-            for _, p in ipairs(pool) do
-                local _, m = night:best_skill(p, best_skill)
-                if m and (not bm or m > bm) and not (chosen.roll and chosen.roll.casters and not CASTER[p.class]) then
-                    best, bm = p, m
+            local function top(pool)
+                local best, bm
+                for _, p in ipairs(pool) do
+                    local _, m = night:best_skill(p, best_skill)
+                    if m and (not bm or m > bm) and not (chosen.roll and chosen.roll.casters and not CASTER[p.class]) then
+                        best, bm = p, m
+                    end
                 end
+                return best, bm
+            end
+            -- (Whoever's best at it, of those who wanted it, when one of them is nearly as good as anyone: the
+            -- friend who argued against it isn't made to do it for a point or two. The playtest, November 6: Dev
+            -- talked Guz round straight after voting to refuse him. Only someone else can, and then they say so.)
+            local best, bm = top(chosen.roll and night:at_hand() or (#backers > 0 and backers) or night:at_hand())
+            local bb, bbm = top(backers)
+            if bb and bm and bbm >= bm - 2 then
+                best, bm = bb, bbm
+            end
+            if best and #backers > 0 and not util.contains(backers, best) then
+                night:emit({ kind = "say", who = best.key, ic = false, text = night:fresh(M.RELUCTANT, "reluctant") })
+                night.reluctant = best.key
             end
             if copy.walked and best and best ~= night.actor then
                 night:walk(best, card.spot, nil, sc)      -- (the one doing it goes over too)
@@ -1219,7 +1240,16 @@ function M.play_moment(night, card, sc)
     if card.id == "mus_reach" and night.mus_vars and night.mus_vars.painting then
         night:say("One painting holds everyone's eye: " .. night.mus_vars.painting .. ".", "narration")
     end
-    local o = night:decision(copy, night.mus_vars)
+    -- (A story beat said aloud with one way on, the adventure's own (`see = true`, "Go on." alone): it's been said,
+    -- so it plays on without a card that only repeats it. The playtest, November 6: each Sheep Chase beat printed
+    -- twice, as narration and then as a "Go on" card.)
+    local o
+    if card.see == true and card.book and not card.party and #(copy.options or {}) == 1 and copy.options[1].label == "Go on." then
+        o = copy.options[1]
+        copy.party_pick = 1
+    else
+        o = night:decision(copy, night.mus_vars)
+    end
     if not o then
         return nil
     end
@@ -1250,6 +1280,15 @@ function M.play_moment(night, card, sc)
     local c = night.campaign
     local rolled_ok = o.roll and night.last_roll and true or false
     local out_pre = o.roll and (rolled_ok and o.roll.success or o.roll.fail) or nil
+    -- (The vote just recorded says what came of it, now the roll's in.)
+    local vt = c.adv and c.adv.votes
+    if vt and o.roll then
+        for _, rec in ipairs({ vt.last or false, vt.lost_to or false }) do
+            if rec and rec.card == card.id then
+                rec.did = M.we_did(card.id, o, rolled_ok) or rec.did
+            end
+        end
+    end
     local prev_cause = events.cause(c)
     local gate = (card.follows_ev and events.get(c, card.follows_ev))
         or gate_cause(night, { card.when, o.needs, o.when, card.needs })
@@ -1526,7 +1565,7 @@ function M.moments(night, sc, at)
     end
     -- (A lost fight: they're getting out, not fishing in the pond or prising off a cupboard door with the
     -- huntlings still out there. Round three, A6.)
-    if at == "end" and ((sc.fought and sc.outcome ~= "win") or sc.outcome == "lose") then
+    if (at == "end" or at == "leave") and ((sc.fought and sc.outcome ~= "win") or sc.outcome == "lose") then
         return
     end
     local knobs = knobs_of(night)
@@ -1753,6 +1792,11 @@ function M.quiet_stretch(night, sc)
     -- (Nor after backing out of a room: "They back out of the hall", then a compliment for the dwarf
     -- king's beard. Round three, A6.)
     if night.end_early or (sc.fought and sc.outcome ~= "win") or sc.outcome == "lose" then
+        return
+    end
+    -- (Nor when they've rushed straight on: "No time for the shelves. Up the slope, after him." and then a friend
+    -- searching the shelves. The playtest, November 6.)
+    if sc.rushed then
         return
     end
     -- (Digging first, then the small stuff: a friend's question after a small answer would read as their
@@ -2201,6 +2245,9 @@ function M.room_start(night, sc)
     end
     M.rumours(night, sc)
     M.callbacks(night, sc)
+    -- (What happens as they walk in, before anyone pokes at anything: `when_in = "arrive"`. Sir Luenn opens his door
+    -- before the jewel box is looked at; the gap in the bushes before the path's curios. The playtest, November 6.)
+    M.moments(night, sc, "arrive")
     -- (Back where a hero fell with nobody to take their pack: it's picked up now. death.pick_up_pack.)
     require("game.model.death").pick_up_pack(night, sc.room)
     -- (A room with a fight in it gets looked around once it's safe: after the fight.)
@@ -2425,6 +2472,9 @@ function M.quick_room(night, sc)
     M.explore_after(night, sc)
     M.moments(night, sc, "end")
     M.quiet_stretch(night, sc)
+    -- (As they go, once the room's small stuff is done: `when_in = "leave"`. Back up the ladder with the ring, so the
+    -- cellar's curios don't come after they've climbed out. The playtest, November 6.)
+    M.moments(night, sc, "leave")
     local r = sc.comps.reward
     M.reward(night, sc)
     if not sc.virtual and not night.end_early then
@@ -2447,7 +2497,7 @@ end
 -- A friend saying where they'd go at a fork ({way}: "on to the offices", "back to the gift shop for a
 -- breather"), and a second fan agreeing.
 M.FORK_SAY = { "I say we go {way}.", "Can we go {way}?", "{Way}. That's my vote.", "I want to go {way}." }
-M.FORK_SAME = { "Same.", "Yeah, that.", "Seconded.", "What they said." }
+M.FORK_SAME = { "Same.", "Yeah, that.", "Seconded.", "What {said} said." }
 -- The DM's read of who wants what (C7): behind the screen, as a hunch, and only as good as the DM knows
 -- them (familiar.lua): new to you, it's often wrong; like a book, nearly always right.
 M.READ_LINES = { "Your hunch: {read}.", "Reading the table: {read}.", "Your read on them: {read}." }
@@ -2461,13 +2511,25 @@ end
 local function night_side(night, key)
     return require("game.model.night").side_roll(night, key)
 end
-function M.fork_read(night, voters, first, choices, said_of, truth)
+function M.fork_read(night, voters, first, choices, said_of, truth, spoke)
     if #choices < 2 or #voters == 0 then
         return
     end
     local familiar = require "game.model.familiar"
     local bits = {}
+    -- (A hunch is about the ones who haven't said: what a friend just said out loud is no guess. The playtest,
+    -- November 6: "Dev would go down" just after Dev agreed to go up.)
+    local quiet = {}
     for _, p in ipairs(voters) do
+        if not (spoke and spoke[p.key]) then
+            table.insert(quiet, p)
+        end
+    end
+    if #quiet == 0 then
+        night.fork_truth = truth
+        return
+    end
+    for _, p in ipairs(quiet) do
         local lv = familiar.level(night.campaign, p.key)
         local right = 0.45 + 0.12 * lv
         local i = first[p.key]
@@ -2628,7 +2690,7 @@ local LEAN_WHY = {
     storyteller = { "It feels right, for the story.", "That's the better story.", "Think how it'll sound in the recap." },
     casual = { "Easiest way through.", "I'm happy with that.", "Works for me, honestly." },
     power_gamer = { "That's the best payoff.", "Best reward, easy.", "More loot that way." },
-    method_actor = { "It's what {char} would do.", "{char} wouldn't have it any other way.", "{char} is already halfway there." },
+    method_actor = { "It's what {char} would do.", "{char} wouldn't have it any other way.", "That's {char} all over." },
 }
 M.LEAN_WHY = LEAN_WHY
 M.LEAN_WHY_MAX = 2         -- reasons a night from one friend
@@ -2740,10 +2802,10 @@ M.VOTE_WHY = {
     -- playtest, C26, heard "last time" as a game they'd played before. It's always their first time.)
     pushed = { "I went along {back}. This one's mine.", "I gave way {back}. Not on this one.",
                "I came round {back}. This time you can." },
-    safe_last = { "We played it safe {back}. Let's not.", "We were careful {back}. Where's the fun in that?",
+    safe_last = { "We played it safe {back}. Not again.", "We were careful {back}. Where's the fun in that?",
                   "Come on, we played it safe {back}." },
     bold_last = { "We went in swinging {back}. Let's be smart for once.", "We charged in {back}. Maybe not again.",
-                  "We were reckless {back}. Let's not push it." },
+                  "We were reckless {back}. Let's not push it this time." },
     tired = { "I'm wiped tonight. The easy way, please.", "Long week. Let's keep it simple.", "I'm running on fumes. Easy does it." },
     celebrating = { "I'm in too good a mood to play it safe.", "Tonight's a good night. Let's go big.", "I'm feeling lucky tonight." },
     stressed = { "I just need one thing to go right tonight.", "No surprises, please. Not tonight.", "Let's do the one we know works." },
@@ -2755,8 +2817,8 @@ M.VOTE_WHY = {
     mine = { "What did I bring {mine} up here for, then?", "I've been saving {mine} for her.",
              "I've got {mine}. I want to use it on her." },
     -- (The moment, R3 C1: {char} their own hero, {hurt} the hero who's hurt.)
-    hurt = { "{char}'s hurt. Let's not.", "Not with {char} like this. The careful way.", "{char} needs a breather. Let's not risk it." },
-    hurt_other = { "{hurt} is in no state for this. Easy does it.", "Look at {hurt}. Let's not.", "{hurt} needs a minute. The careful way, please." },
+    hurt = { "{char}'s hurt. Let's go carefully.", "Not with {char} like this. The careful way.", "{char} needs a breather. No risks." },
+    hurt_other = { "{hurt} is in no state for this. Easy does it.", "Look at {hurt}. Gently does it.", "{hurt} needs a minute. The careful way, please." },
     rough = { "After that last fight? Let's be careful.", "We only just got through the last one. Gently, please.",
               "I'm still shaking from that last fight." },
     easy = { "That last lot went down easy. Let's keep going.", "We've got this. Look how the last fight went.",
@@ -2771,12 +2833,12 @@ M.VOTE_WHY = {
 -- friend who'd argued against X, or said nothing). (The third playtest, alive 4: "I lost last time" in three
 -- phrasings, 159 times; name what was lost.)
 M.VOTE_NAMED = {
-    pushed = { "I let you {won} {back}. This one's mine.", "I wanted to {lost} {back}, and we didn't. Not again.",
+    pushed = { "I gave way {back}, and you got to {won}. This one's mine.", "I wanted to {lost} {back}, and we didn't. Not again.",
                "I went along when {did}. My turn now." },
     safe_last = { "{Did} {back}. Let's do something braver.", "{Did} {back}. Let's not play it safe twice.",
                   "We were good {back}: {did}. My turn for some fun." },
     bold_last = { "{Did} {back}. Let's be smart for once.", "{Did} {back}. Maybe not again.",
-                  "We pushed our luck {back}: {did}. Let's not." },
+                  "We pushed our luck {back}: {did}. Not again." },
 }
 -- Someone on the winning side talks round one friend who barely minds ({name}: them; {want}, {Want}:
 -- the winning side's), and they come round in their own voice ({name}: whoever talked them round). At
@@ -2898,7 +2960,7 @@ end
 
 -- The vote before, as the table would say it: "we set the bushes on fire" (its beat, MODULE.beats,
 -- by the option's place on the card as written: the card played may have fewer).
-local function we_did(card_id, o)
+local function we_did(card_id, o, ok)
     local b = MODULE.beats and MODULE.beats[card_id]
     local card
     for _, m in ipairs(MODULE.moments) do
@@ -2919,7 +2981,8 @@ local function we_did(card_id, o)
         end
     end
     local ob = b and i and b[i]
-    local t = type(ob) == "table" and ob.did or ob
+    -- (How it went, once the roll's in: "we picked the hall door's lock", not "we tried to", the playtest, November 6.)
+    local t = type(ob) == "table" and ((ok and ob.ok) or ob.did) or ob
     if type(t) ~= "string" or not string.find(t, "^they ") then
         return nil
     end
@@ -3889,6 +3952,9 @@ local function back_label(b)
 end
 
 -- The fork: new rooms and any trip back worth raising. Returns { id = room } or { back = trip }.
+-- Minutes of table time a room that hurries on needs for the room after it too (the bedroom's fight).
+M.HURRY_MARGIN = 45
+
 function M.fork(night, options, backs, sides)
     local c = night.campaign
     local st = st_of(night)
@@ -4088,6 +4154,7 @@ function M.fork(night, options, backs, sides)
         return label_of(i)
     end
     -- Each says where they'd go, in their own words: the first for each way, and one "same" after.
+    local spoke = {}
     local here = {}
     for _, p in ipairs(night:at_hand()) do
         here[p.key] = true
@@ -4107,12 +4174,16 @@ function M.fork(night, options, backs, sides)
             local w = string.find(line, "^{Way}") and said_of(i) or way
             night:emit({ kind = "say", who = fans[1].key, ic = false,
                          text = util.fill(line, { way = w, Way = util.capitalize(w) }) })
+            spoke[fans[1].key] = true
             if fans[2] then
-                night:emit({ kind = "say", who = fans[2].key, ic = false, text = night:fresh(M.FORK_SAME, "fork_same") })
+                -- ("What she said": the one just heard, not "they". The playtest, November 6.)
+                night:emit({ kind = "say", who = fans[2].key, ic = false,
+                             text = util.fill(night:fresh(M.FORK_SAME, "fork_same"), { said = util.pronoun_of(fans[1].name) == "he" and "he" or "she" }) })
+                spoke[fans[2].key] = true
             end
         end
     end
-    M.fork_read(night, voters, first, choices, said_of, truth_parts)
+    M.fork_read(night, voters, first, choices, said_of, truth_parts, spoke)
     local function tally()
         local n, t, tn = {}, nil, 0
         for _, p in ipairs(voters) do
@@ -4293,9 +4364,11 @@ function M.fork(night, options, backs, sides)
         night:emit({ kind = "say", who = keen.key, text = "Okay, I'm calling it: " .. said_of(top) .. ".", ic = false })
     end
     do
+        -- (The credit names only who was heard saying so: round three's rule, and the playtest, November 6: "Mara, Dev
+        -- and Sam's pick" with Sam silent.)
         local names = {}
         for _, p in ipairs(voters) do
-            if first[p.key] == top then
+            if first[p.key] == top and spoke[p.key] then
                 table.insert(names, p.name)
             end
         end
@@ -4749,8 +4822,48 @@ function M.play_ending(night, id)
             table.insert(kept, k.text)
         end
     end
-    for _, t in ipairs(kept) do
-        night:say("They come away with this: " .. util.lower_first(t) .. ".", "good")
+    -- (And what they picked up along the way in this adventure, by name, from the log: what the DM tucked in for them,
+    -- a magic item handed over. Healing potions are counted, not listed.)
+    local items_mod = require "game.model.items"
+    local w0 = (c.adv and c.adv.week0) or 0
+    local seen_thing = {}
+    for _, ev in ipairs(events.find(c, { kind = "get" })) do
+        local t = ev.thing and ev.thing ~= items_mod.POTION and (ev.session or 0) > w0 and items_mod.about({ id = ev.thing, thing = ev.thing })
+        local nm = t and t.name
+        if nm and nm ~= "" and not seen_thing[nm] and #kept < 8 then
+            seen_thing[nm] = true
+            local who = ev.who and c:player(ev.who)
+            table.insert(kept, util.lower_first(nm) .. (who and who.char and (" (" .. who.char .. ")") or ""))
+        end
+    end
+    -- (One line, not "They come away with this:" four times running. The playtest, November 6.)
+    if #kept == 1 then
+        night:say("They come away with " .. util.lower_first(kept[1]) .. ".", "good")
+    elseif #kept > 1 then
+        local low = {}
+        for i, t in ipairs(kept) do
+            low[i] = util.lower_first(t)
+        end
+        night:say("They come away with " .. table.concat(low, "; ", 1, #low - 1) .. "; and " .. low[#low] .. ".", "good")
+    end
+    -- (What's still open goes on with them, said so: the next adventure can pick it up.)
+    -- (Ones that something tonight opened, `when`, and ones carried in from before: the museum's mountain road. Not a
+    -- hook for another book the table never heard of.)
+    local open, named = {}, {}
+    for _, t in ipairs(MODULE.threads or {}) do
+        if t.open_at_end and t.name and t.when and adventure.test(c, t.when) and not named[t.name] then
+            named[t.name] = true
+            table.insert(open, util.lower_first(t.name))
+        end
+    end
+    for _, t in ipairs(c.threads or {}) do
+        if t.name and not named[t.name] then
+            named[t.name] = true
+            table.insert(open, util.lower_first(t.name))
+        end
+    end
+    if #open > 0 then
+        night:say("Still open, for another day: " .. util.join_names(open) .. ".", "aside")
     end
     if MODULE.xp and MODULE.xp.each then
         night:say("Everyone marks down " .. util.int(MODULE.xp.each) .. " XP.", "system")
@@ -4902,6 +5015,30 @@ function M.intro(night)
             night:say("Same table, same heroes: " .. util.join_names(names) .. ", on from " .. tostring(past.title or from)
                 .. ". Level " .. util.int(c.level or 1) .. " now, with everything they carried out.", "system")
             night.introduced = true
+            -- (The magic they carried out, by name: it works in the fights, and now the table hears it's there. The
+            -- playtest, November 6: a +3 greatsword swung all night and never mentioned.)
+            local items_mod = require "game.model.items"
+            local gear = {}
+            for _, p in ipairs(night.players) do
+                for _, it in ipairs(items_mod.held_by(c, p.key)) do
+                    local d = items_mod.def(it.id)
+                    if d and d.name and #gear < 4 then
+                        table.insert(gear, p.char .. "'s " .. d.name)
+                    end
+                end
+            end
+            if #gear > 0 then
+                night:say("Still with them from before: " .. util.join_names(gear) .. ".", "aside")
+            end
+            -- (Each hero's reason for being here this time, in their player's words, since there are no introductions
+            -- to say it in: the playtest, November 6, "This is what Brannoc came for" with no reason ever given.)
+            for _, p in ipairs(night.players) do
+                local h = adventure.hook(c, p.key)
+                local says = h and (h.intro or h.says)
+                if type(says) == "string" and says ~= "" then
+                    night:emit({ kind = "say", who = p.key, ic = true, text = says })
+                end
+            end
         else
             require("game.model.intros").run(night)
         end
@@ -4930,7 +5067,7 @@ function M.intro(night)
             night:say("Last time, they " .. util.join_names(bits) .. ".", "recap")
         end
         if night.campaign.last_cliff then
-            night:say("They stopped mid-museum, with " .. night.campaign.last_cliff .. " still ahead.", "recap")
+            night:say("They stopped partway, with " .. night.campaign.last_cliff .. " still ahead.", "recap")
         end
         local last = st.last_room and MODULE.rooms[st.last_room]
         if last and last.part ~= part then
@@ -4946,7 +5083,13 @@ function M.intro(night)
                 end
                 night:say("They pick up where they stopped, at a fork: " .. util.join_names(names, "or") .. ".", "opening")
             else
-                night:say("They pick up right where they stopped: " .. util.lower_first(MODULE.rooms[first].name) .. ".", "opening")
+                -- (Where they're headed, not where they stopped: "right where they stopped: the path through the oaks",
+                -- when they'd stopped at the inn. The playtest, November 6.)
+                local stopped = st.last_room and MODULE.rooms[st.last_room]
+                night:say(stopped and stopped ~= MODULE.rooms[first]
+                    and ("They pick up where they left off in " .. util.lower_first(stopped.name) .. ", and head on to "
+                        .. util.lower_first(MODULE.rooms[first].name) .. ".")
+                    or ("They pick up right where they stopped: " .. util.lower_first(MODULE.rooms[first].name) .. "."), "opening")
             end
         else
             night:say("They pick up right where they stopped, at a fork.", "opening")
@@ -4955,7 +5098,10 @@ function M.intro(night)
         -- the world: a clock's own words when it means someone's coming. The playtest, November 6: the clock nobody heard.)
         for _, k in ipairs(adventure.clocks_now(c)) do
             if k.clock.unit == "days" and k.clock.said then
-                night:say(util.fill(k.left > 0 and k.clock.said or (k.clock.said_out or k.clock.said), { left = util.int(math.max(0, k.left)),
+                -- (Its words as things stand, the one conditional shape: not "still looking for that sheep" with the sheep
+                -- in Noke's own yard. The playtest, November 6.)
+                local said = adventure.say(c, k.left > 0 and k.clock.said or (k.clock.said_out or k.clock.said))
+                night:say(util.fill(said, { left = util.int(math.max(0, k.left)),
                     days = k.left == 1 and "day" or "days" }), "narration")
             end
         end
@@ -5321,9 +5467,12 @@ function M.run(night)
             -- each room from here on.
             -- (Hot on someone's heels, `hurry_on`: Noke up the slope, three rounds to wake his bed. The next room comes
             -- straight after, late or not: no wrap-up card, no break in between. The playtest, November 6.)
+            -- (A room that hurries straight on into the next, the hall into the bedroom: the late call comes before it, with
+            -- room for both. The playtest, November 6: no wrap-up card all night, then 11:14 pm after the bed dragon.)
+            local margin = M.STOP_BEFORE_END + ((nxt and nxt.hurry_on) and M.HURRY_MARGIN or 0)
             if night.hurry and #options > 0 then
                 -- (skip the late call)
-            elseif #night.scenes > 0 and night.table_min > night.table_planned - M.STOP_BEFORE_END and #options > 0 then
+            elseif #night.scenes > 0 and night.table_min > night.table_planned - margin and #options > 0 then
                 -- (Late, and the only way on is the stairs to her door: that's not one more room, it's the
                 -- end of the night either way, so the night ends here. 569 random: "one more room" was the
                 -- stairs and goodbyes.)
@@ -5472,7 +5621,7 @@ local BREAK_END = {
     "Everyone drifts back to the table. Someone reads the last line of their notes out loud.",
     "Chairs pulled back in. \"Recap, quick: where were we standing?\"",
     "Mugs refilled, crumbs swept off the map. \"Okay. Back in.\"",
-    "Dev drums the table. \"Right. Back in. Go.\"",
+    "Dice back out, drinks topped up. \"Right. Back in. Go.\"",
     "Everyone finds their dice again. One of Sam's has rolled under the sofa.",
 }
 M.BREAK_START, M.BREAK_END = BREAK_START, BREAK_END

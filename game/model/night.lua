@@ -631,16 +631,24 @@ function M:take_learned(p, quiet)
     end
     local c = self.campaign
     local l = c and c.learned and c.learned[p.key]
+    local why
     if l and l > 0 then
         n = n + l
         c.learned[p.key] = nil
+        -- (Where it came from: a miss they learned from, or a great roll's "Yes, and" with no money to give. The
+        -- playtest, November 6: "The last miss taught Thessaly something" after a triumph.)
+        why = c.learned_from and c.learned_from[p.key] or "miss"
+        if c.learned_from then
+            c.learned_from[p.key] = nil
+        end
         self.learned_used = self.learned_used or {}
-        table.insert(self.learned_used, { who = p.key, n = l, week = c.week })
+        table.insert(self.learned_used, { who = p.key, n = l, week = c.week, why = why })
         if not quiet then
-            self:say(util.fill("The last miss taught {char} something: +" .. util.int(l) .. " on this one.", { char = p.char }), "record")
+            local line = why == "roll" and "{char} is still riding that last great roll: +" or "The last miss taught {char} something: +"
+            self:say(util.fill(line .. util.int(l) .. " on this one.", { char = p.char }), "record")
         end
     end
-    return n, l or 0
+    return n, l or 0, why
 end
 
 -- The break's homework (museum_night.maybe_break: "they read up"): +2 on the next rolls tonight.
@@ -892,7 +900,8 @@ function M:bark_context(more)
     local ctx = {}
     if sc then
         local cast = sc.comps and sc.comps.cast
-        ctx.someone = (cast ~= nil and not cast.foe and not self:muted(cast)) or (cast ~= nil and cast.villain == true) or nil
+        -- (`voiced`: a foe who talks to them, Noke over the rail: not "Nobody to talk to" while he's talking.)
+        ctx.someone = (cast ~= nil and not cast.foe and not self:muted(cast)) or (cast ~= nil and (cast.villain == true or cast.voiced == true)) or nil
         if self.mus then
             local mus = util.lazy("game.model.museum_night")
             local r = util.lazy("game.model.adventure").data.rooms[sc.room or ""]
@@ -3080,7 +3089,7 @@ function M:big_roll(spec, record)
     local skill, mod = self:best_skill(p, spec.skill or { "perception" })
     -- A near miss (B2), or one you ruled "No, but...": they learned from it, +1 on this roll (said
     -- with the roll, below).
-    local all_bonus, learned = self:take_learned(p, true)
+    local all_bonus, learned, learned_why = self:take_learned(p, true)
     mod = mod + all_bonus
     if p then
         mod = mod + self:take_research(p, skill)
@@ -3100,7 +3109,8 @@ function M:big_roll(spec, record)
     -- The odds, beside the DC (the newcomer playtest, October 16: "is 16 a lot?").
     text = text .. " " .. M.odds_line(dc, mod)
     if learned and learned > 0 then
-        text = text .. " (That includes +" .. util.int(learned) .. ": they learned from the last miss.)"
+        text = text .. " (That includes +" .. util.int(learned) .. (learned_why == "roll" and ": still riding the last great roll.)"
+            or ": they learned from the last miss.)")
     end
     -- The scene's final roll says so, and what it's for (the card-led playtest, October 16:
     -- "nothing says this is the goal roll").
@@ -3164,8 +3174,9 @@ function M:big_roll(spec, record)
     end
     -- (A harsh result from a die everyone saw is fair on its own: warnings.judge.)
     self.last_roll_where, self.last_roll_fresh = where, true
+    -- (Someone watching says it, not the one rolling: "[mara] I can't look", then Mara rolls. The playtest, November 6.)
     if where == "open" and self.rng:chance(0.35) then
-        self:bark(self:pick_actor(nil), "open_roll")
+        self:bark(self:pick_actor(nil, p), "open_roll")
     end
     local value = self:emit({ kind = "roll", where = where, dc = dc, actor = p and p.key, by = by,
                               skill_name = name, mod = mod })
@@ -3380,6 +3391,8 @@ function M:big_roll(spec, record)
         local c = self.campaign
         c.learned = c.learned or {}
         c.learned[p.key] = (c.learned[p.key] or 0) + 1
+        c.learned_from = c.learned_from or {}
+        c.learned_from[p.key] = c.learned_from[p.key] or "roll"
     end
     if ro.tone == "good" and self.campaign.adv and not inspired and success
             and util.lazy("game.model.adventure").data.currency then
@@ -3410,6 +3423,8 @@ function M:big_roll(spec, record)
             local c = self.campaign
             c.learned = c.learned or {}
             c.learned[p.key] = (c.learned[p.key] or 0) + 1
+            c.learned_from = c.learned_from or {}
+            c.learned_from[p.key] = "miss"      -- (a miss in the pool makes it "the last miss")
         end
         self:bark(self.actor, "ruling_rueful")
     elseif ro.tone == "good" then
@@ -4585,6 +4600,8 @@ function M:split_off(sc)
                 local c = self.campaign
                 c.learned = c.learned or {}
                 c.learned[p.key] = (c.learned[p.key] or 0) + 1
+                c.learned_from = c.learned_from or {}
+                c.learned_from[p.key] = c.learned_from[p.key] or "roll"
                 self:say(util.fill(self:fresh(M.SPLIT_WIN, "split_win"), vars), "good")
             else
                 self:say(util.fill(self:fresh(M.SPLIT_LOSE, "split_lose"), vars), "narration")
@@ -4947,7 +4964,12 @@ function M:party_moment(sc)
             -- (In an adventure, each act happens once in the whole of it, not once a night.)
             local once = self.campaign.adv and (self.campaign.adv.acts_done or {})[def.id]
             -- (And only in words this adventure has: no duck pond at the Sheep Chase's inn.)
-            if moments[def.when or "any"] and (def.needs ~= "cast" or (sc.comps.cast and not self:muted(sc.comps.cast)))
+            -- (`threat`: someone the party needs defending from, a foe or a villain, or a fight just now. Not "Leave him
+            -- alone" in the middle of Flitwidget's thanks: the playtest, November 6.)
+            local cast = sc.comps.cast
+            local threat = (cast and not self:muted(cast) and (cast.foe or cast.villain)) or sc.fought
+            if moments[def.when or "any"] and (def.needs ~= "cast" or (cast and not self:muted(cast)))
+                and (def.needs ~= "threat" or threat)
                 and not (self.friction_done and self.friction_done[def.id]) and not once
                 and util.lazy("game.model.adventure").fits(def.line) then
                 for _, p in ipairs(here) do
@@ -5303,7 +5325,9 @@ function M:rest_beat(kind)
             local p = k == "pc" and find_present(self.players, id)
             -- (Both of them there, able to do it, and still the heroes the line names: not dead Oswin
             -- mending a strap, round three, A1; nor "Oswin" with Sister Aldith in Sam's seat.)
-            if k == "pc" and not (p and able.can_act(self, p) and p.char and string.find(b.line, p.char, 1, true)) then
+            -- (Written for the table's own heroes: each pair's player still plays the hero the beat names.)
+            local def = content.players[id] and content.players[id].char
+            if k == "pc" and not (p and able.can_act(self, p) and p.char and p.char == def) then
                 ok = false
             end
         end
@@ -5318,7 +5342,13 @@ function M:rest_beat(kind)
     local b = self.rng:weighted(cands, w)
     camp.beats_seen[b.id] = camp.week
     self.table_min = self.table_min + 5
-    self:say(b.line, "narration")
+    -- (Each hero's part from their own seat, then what happens.)
+    for _, sy in ipairs(b.says or {}) do
+        self:emit({ kind = "say", who = sy.who, ic = sy.ic ~= false, text = sy.text })
+    end
+    if b.line and b.line ~= "" then
+        self:say(b.line, "narration")
+    end
     self:apply(b.effects or {})
     if b.thread then
         local p = find_present(self.players, b.thread)
@@ -5327,6 +5357,14 @@ function M:rest_beat(kind)
         end
     end
 end
+
+-- The night's last word when the adventure ended badly, or neither well nor badly, tonight.
+M.END_BAD = { "Quiet round the table. Nobody wanted it to end like that.",
+              "Nobody says much while the books go away. That one's going to sit with them.",
+              "A long quiet. Then someone says \"Well,\" and starts stacking the dice." }
+M.END_MIXED = { "Not a win, not a loss. People pack up slowly, still arguing about it.",
+                "It ends somewhere in between, and the table can't stop talking about what they'd have done differently.",
+                "Not the ending anyone planned. Nobody's sorry they came." }
 
 -- The table clock (A14) --------------------------------------------------------------------------
 -- Each player has their own ideal length (players.lua), moved by their mood this week and by
@@ -5915,6 +5953,7 @@ function M:play_scene(sc)
     mus.explore_after(self, sc)    -- (looking around once the fight's done: museum_night.explore)
     mus.moments(self, sc, "end")
     mus.quiet_stretch(self, sc)    -- (the small moments, once the room's danger is settled)
+    mus.moments(self, sc, "leave")  -- (as they go: back up the ladder with the ring)
     mus.reward(self, sc)          -- only what they earned, said once (museum_night.reward)
     -- How the scene went, as a card beside the table while the night moves on (the newcomer
     -- playtest, October 16: "damp squib" and "empty-handed" in the log, then "Loved it" in the
@@ -6053,12 +6092,29 @@ function M:run_tail()
         self:say(self:fresh(M.LATE_LINES, "late_night"), "warn", { time = self:clock_text(), agreed = self:clock_text(self.table_planned) })
     end
     local sad = able.somber(self)
+    -- (How the adventure ended, when it ended tonight: its ending's tone.)
+    local ending_tone
+    local adv = self.campaign.adv
+    if adv and adv.ending then
+        local ev = events.last(self.campaign, { kind = "ending" })
+        local ad = util.lazy("game.model.adventure").data
+        local e = ad and ad.endings and ad.endings[adv.ending]
+        if e and (not ev or ev.session == nil or ev.session == self.campaign.week) then
+            ending_tone = e.tone
+        end
+    end
     if self.dm_ended then
         -- (You closed the book yourself, and the table already reacted: museum_night.end_session.)
     elseif pv.finish_high and (next(self.dead_handled or {}) or sad == "death") then
         -- Not "applause" after someone's hero died tonight (the story playtest), late or not: "It was
         -- a good night" came first on a late one, round three's merge.
         self:say("Nobody's in a hurry to pack up. It was a big night, and a sad one.", "good")
+    elseif ending_tone == "bad" then
+        -- (The adventure ended badly tonight: not "It ends on a high. Somebody actually applauds." straight after
+        -- Shinebright became a heap of mouths. The playtest, November 6.)
+        self:say(self:fresh(M.END_BAD, "end_bad"), "good")
+    elseif ending_tone == "mixed" then
+        self:say(self:fresh(M.END_MIXED, "end_mixed"), "good")
     elseif late and pv.finish_high and not sad then
         self:say(self:fresh(M.LATE_HIGH, "late_high"), "good")
     elseif self.end_early and not sad then

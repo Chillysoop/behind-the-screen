@@ -120,6 +120,8 @@ local OUTCOME_AFTER = { takes = { "^%d", "^a hit", "^the hit", "^damage", "^the 
                         starts = { "^to go ", "^to turn", "^to stiffen", "^turning", "^going", "^to grey" },
                         start = { "^to go ", "^to turn", "^to stiffen", "^turning", "^going" } }
 
+local SPEECH = { says = true, asks = true, adds = true, calls = true, whispers = true, shouts = true, mutters = true,
+                 laughs = true, groans = true, replies = true, snaps = true, sighs = true }
 local function sentences(text)
     local out = {}
     -- (A sentence ends at . ! or ? followed by a space and a capital or a quote; quotes stay whole.)
@@ -133,7 +135,10 @@ local function sentences(text)
             if ch == '"' then
                 inq = not inq
                 -- (A quote that ends a sentence: '..."Lit." Pip looks', cut after the quote.)
-                if not inq and string.match(string.sub(rest, i - 1, i - 1), "[%.!?]") and string.match(string.sub(rest, i + 1, i + 2), "^ [A-Z\"']") then
+                -- (Not when who said it comes next: '"With what?" Dev says.' is one sentence, the playtest, November 6.)
+                local said_by = string.match(string.sub(rest, i + 1), "^ %u%a* (%l+s)%f[%A]")
+                if not inq and string.match(string.sub(rest, i - 1, i - 1), "[%.!?]") and string.match(string.sub(rest, i + 1, i + 2), "^ [A-Z\"']")
+                        and not SPEECH[said_by or ""] then
                     cut = i
                     break
                 end
@@ -181,6 +186,17 @@ end
 
 -- Said by the hero's own player: "Thessaly unscrews a cupboard door and straps it to her pack." becomes "I'll
 -- unscrew a cupboard door and strap it to my pack." (their own pronouns only: another hero's "her" stays).
+-- What comes after a second verb (not a plural noun): "launches into", "fishes out a", "shoulders Brannoc's".
+local FOLLOWS_VERB = { a = true, an = true, the = true, my = true, his = true, her = true, their = true, its = true, it = true,
+                 them = true, him = true, up = true, out = true, down = true, off = true, into = true, onto = true, over = true,
+                 back = true, away = true, through = true, to = true, ["in"] = true, on = true, at = true, round = true,
+                 across = true, along = true, past = true, behind = true, under = true, some = true, one = true, two = true }
+-- What comes after "her" when she's the one it's done to: "find her here", "hand her the", "leave her alone".
+local OBJ_NEXT = { here = true, there = true, to = true, at = true, ["in"] = true, on = true, up = true, down = true, out = true,
+             off = true, away = true, back = true, alone = true, ["and"] = true, ["or"] = true, with = true, ["for"] = true,
+             from = true, again = true, now = true, too = true, a = true, an = true, the = true, by = true, into = true,
+             onto = true, over = true, through = true, ["if"] = true, when = true, before = true, after = true, that = true }
+
 function M.first_person(sentence, hero, pronoun, others)
     local rest = string.sub(sentence, #hero + 2)
     local verb, after = string.match(rest, "^(%a+)(.*)$")
@@ -200,6 +216,18 @@ function M.first_person(sentence, hero, pronoun, others)
     end)
     out = string.gsub(out, " and (%a+s)%f[%A]", function(v)
         return M.VERB[v] and (" and " .. M.base(v)) or nil
+    end)
+    -- (A second verb the list doesn't know, told by what follows it: "and launches into a song", "and fishes out a
+    -- little brass key", "and shoulders Brannoc's pack". The playtest, November 6: "I'll clear my throat and
+    -- launches into a song".)
+    out = string.gsub(out, " and (%l+s) (%a+)", function(v, nxt)
+        if M.VERB[v] or string.match(v, "ss$") then
+            return nil
+        end
+        if FOLLOWS_VERB[nxt] or string.match(nxt, "^%u") then
+            return " and " .. M.base(v) .. " " .. nxt
+        end
+        return nil
     end)
     local own = (pronoun == "she" and { her = "my", herself = "myself", she = "I" })
         or (pronoun == "he" and { his = "my", himself = "myself", he = "I", him = "me" })
@@ -222,6 +250,16 @@ function M.first_person(sentence, hero, pronoun, others)
         head = string.gsub(head, "%f[%a]" .. subj .. pair[1], "I" .. pair[2])
     end
     head = string.gsub(head, "%f[%a]" .. subj .. "'re%f[%A]", "I'm")
+    -- ("Her" as the one something's done to is "me", not "my": "nobody will find her here" is "nobody will find me
+    -- here". The playtest, November 6: "nobody will find my here".)
+    if pronoun == "she" then
+        head = string.gsub(head, "%f[%a]her([%s%p]*)(%a*)", function(gap, nxt)
+            if nxt == "" or OBJ_NEXT[nxt] or string.match(gap, "%p") then
+                return "me" .. gap .. nxt
+            end
+            return nil
+        end)
+    end
     head = string.gsub(head, "%f[%a](%a+)%f[%A]", function(w)
         return own[w] or w
     end)
@@ -305,10 +343,11 @@ function M.split(text, people, last)
     for _, s in ipairs(sentences(text)) do
         local handled = false
         for _, p in ipairs(people) do
-            local q, f = string.match(s, "^['\"](.-)[,.!?]?['\"],? (%a+) %a+s%.?$")
+            local q, mark, f = string.match(s, "^['\"](.-)([,.!?]?)['\"],? (%a+) %a+s%.?$")
             if q and f == p.friend then
                 flush()
-                table.insert(out, { kind = "say", who = p.key, ic = false, text = util.sentence_case(q) .. "." })
+                table.insert(out, { kind = "say", who = p.key, ic = false,
+                                    text = util.sentence_case(q) .. ((mark == "?" or mark == "!") and mark or ".") })
                 handled = true
                 break
             end

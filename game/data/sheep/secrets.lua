@@ -108,6 +108,9 @@ M.bear_outhouse = {
         { kind = "event", event = "bear_comes_out", gives = "known", book = true, page = 5 },
         { kind = "check", on = { room = "compound", spot = "outhouse" }, skill = { "perception" }, dc = 13, gives = "known" },
         { kind = "check", on = { room = "compound", spot = "lawn" }, skill = { "survival" }, dc = 12, gives = "hint" },
+        -- (Detect Magic answered as magic: the bear is a changed man. The playtest, November 6: "Huge paw prints".)
+        { kind = "spell", spell = { "detect_magic" }, on = { room = "compound", spot = "outhouse" }, gives = "hint",
+          hint_says = { "Transmutation, strong and old, coming from inside the outhouse. Something in there isn't what it seems." } },
     },
 }
 

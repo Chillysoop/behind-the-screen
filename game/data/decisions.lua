@@ -64,7 +64,7 @@ return {
         id = "kb_share", type = "combat", trigger = "kb_share",
         actor = { "storyteller" },
         title = "Passing it on",
-        text = "{actor} looks across the table at {other}. \"You've been waiting all night. You tell it: how does {actor_char}'s blow land?\"",
+        text = "{actor} turns to {other}: \"You tell it. How does {actor_char}'s blow land?\"",
         options = {
             { label = "Sure. {other}, go ahead.", share = true,
               log = "{other} sits up. Everyone leans in.",
@@ -97,10 +97,10 @@ return {
         id = "boss_crit", type = "combat", trigger = "boss_crit",
         actor = { "butt_kicker", "power_gamer" },
         title = "An early knockout",
-        text = "{actor_char} is about to drop {boss} in round {round}. That's the villain you spent all week on.",
+        text = "{actor_char} is about to drop {boss} in round {round}, before {boss} has done much at all.",
         options = {
             { label = "Let it drop. They earned it.", battle = "let",
-              log = "{boss} crumples. {actor} stands on {friend_their} chair.",
+              log = "{boss} crumples. Short, and very satisfying.",
               effects = { { "actor", spotlight = 16, fun = 8 }, { "arch:butt_kicker", fun = 5 }, { "arch:power_gamer", fun = 4 },
                           { "arch:tactician", challenge = -6 }, { "arch:storyteller", story = -4 } } },
             { label = "Second phase! It rises, angrier.", battle = "second_phase",
@@ -152,7 +152,7 @@ return {
         id = "death_roll", type = "screen", trigger = "death_roll",
         actor = { "butt_kicker", "method_actor", "explorer", "instigator", "storyteller", "casual" },
         title = "A roll that could drop them",
-        text = "Behind your screen, {target} hits {actor_char} for {damage}. That's enough to knock {actor_them} out cold. Nobody saw the die.",
+        text = "Behind your screen: {target} hits {actor_char} for {damage}. That's enough to knock {actor_them} out cold. Nobody saw the die.",
         options = {
             { label = "Let it ride. Call the hit.", battle = "let",
               log = "You read out the damage. \"Ouch,\" {actor} says.",
@@ -235,13 +235,13 @@ return {
         options = {
             -- SRD 5.2.1: different effects add together; the same spell's effects don't (p. 108).
             { label = "Different effects stack. The same spell twice doesn't.", leans = "book",
-              log = "Bless and the bonus, yes. Bless twice, no. {actor} takes the win and the loss.",
+              log = "Bless and the bonus, yes. Bless twice, no. One win, one loss.",
               effects = { { "arch:tactician", trust = 4, fun = 2 }, { "actor", fun = 1 } } },
             { label = "Let both Blesses count, just this once.", leans = "cool",
-              log = "The numbers get very large. {actor} punches the air.",
+              log = "Both count. The numbers get very large.",
               effects = { { "actor", reward = 8, fun = 4 }, { "arch:tactician", trust = -3 }, { "all", challenge = -4 } } },
             { label = "Nothing stacks. Keep the numbers small.", leans = "strict",
-              log = "'Nope. Pick one.' A dramatic sigh from {actor}. Someone mutters that the book says otherwise.",
+              log = "'Nope. Pick one.' The bonus or the Bless, not both.",
               effects = { { "actor", fun = -4 }, { "arch:tactician", trust = -3 }, { "all", challenge = 2 } } },
         },
     },

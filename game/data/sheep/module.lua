@@ -38,7 +38,11 @@ M.follows = { any = true }
 M.handoff = {
     time_skip = "a week or two later",          -- (Conner, November 6)
     arrive = "inn_common",
-    say = { { when = { past = "museum" }, text = "A week or two after the museum, the road brings you to a country "
+    say = { { when = { past = "museum", thread = "mountain_road" },
+              text = "A week or two after the museum. Flitwidget's caravan won't head up the mountain road until the passes "
+                  .. "dry out, so for now the road brings you to a country inn where the Bogden road meets the lord's road. "
+                  .. "An afternoon with nothing to do." },
+            { when = { past = "museum" }, text = "A week or two after the museum, the road brings you to a country "
                 .. "inn where the Bogden road meets the lord's road. An afternoon with nothing to do." },
             "The road brings you to a country inn where the Bogden road meets the lord's road. An afternoon with "
                 .. "nothing to do." },
@@ -47,13 +51,19 @@ M.handoff = {
 M.keeps = {
     { id = "transmuter", text = "A wizard in their debt who'll do transmutations up to 5th level for the cost of "
           .. "the components", when = { flag = "restored" }, page = 6 },
-    { id = "debt", text = "Shinebright owes them, and says so, even while he's still a sheep", when = { flag = "refused" }, page = 6 },
+    -- (As things stand at the end: said aloud only if he can still talk, and not when he's sulking. The playtest,
+    -- November 6: "says so" two lines after "the sheep doesn't speak to them all the way back".)
+    { id = "debt", text = "Shinebright owes them, and says so, even while he's still a sheep",
+      when = { flag = { "refused", "talking" }, not_flag = "sulking" }, page = 6 },
+    { id = "debt_quiet", text = "Shinebright owes them. He can't say so, but he walks them all the way to the edge of the oaks",
+      when = { flag = "refused", not_flag = { "talking", "sulking" } }, page = 6 },
     { id = "oak_house", text = "Noke's Tower, if they take it, and the nobles who'll come asking for Noke",
       when = { flag = "took_house" }, page = 6 },
     { id = "lab_gear", text = "Lab gear and arcane odds and ends worth about 1,000 gp", when = { flag = "looted" }, page = 6 },
     -- (Ours: the side quest at the inn, and the museum's mountain road.)
     { id = "luenn_gold", text = "Sir Luenn's twenty gold, for finding his ring", when = { flag = "ring_back" } },
-    { id = "inn_friends", text = "Friends at the Bogden Road Country Inn: Wenna, and Teddy", when = { flag = "wenna_thanked" } },
+    { id = "inn_friends", text = "Teddy's dusty bottle (a healing potion), and friends at the Bogden Road Country Inn: Wenna, and Teddy",
+      when = { flag = "wenna_thanked" } },
     { id = "hobbs_word", text = "Hobb's word on the death up the mountain road: the messenger was carried to where he was found",
       when = { flag = "drover_talked" } },
 }
@@ -164,7 +174,7 @@ M.places = {
           .. "stories into the night.",
       spots = { "sitting_room", "hearth", "shared_rooms", "sargents_room", "luenn_room", "stairs" }, exits = { { to = "inn_common" } },
       scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "Sir Luenn's missing ring, and a look round the rooms.",
-                cast = "sh_luenn", cast_line = "A pale young noble, dressed far too well for the road, and in a temper.",
+                cast = "sh_luenn", cast_line = false,     -- (introduced on the stairs already)
                 goal = { name = "Sir Luenn's ring", aim = "look into Sir Luenn's ring", short = "find the ring",
                          line = "Goal: find out what happened to Sir Luenn's ring.",
                          line_if = { { when = { flag = "ring_back" }, text = "Goal: a look round upstairs, now the ring's back where it belongs." } },
@@ -220,7 +230,7 @@ M.places = {
       -- someone gets close, he runs into the hall and locks it: game/rules/sheep.lua. His bed is a dragon by the time
       -- anyone reaches the bedroom, however long that takes.)
       scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn, and Noke above them.",
-                foes_at = { noke = { 17, 8 } },
+                foes_at = { noke = { 17, 8 } }, voiced = true,
                 foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard", "noke" }, foes_name = "Noke's guards",
                 foes_short = "the guards", boss_name = "the bear",
                 foes_line = "Three big apes in iron collars squat over a game of dice, greatswords stuck in the turf beside them.",
@@ -259,6 +269,7 @@ M.places = {
       scene = { type = "combat", setting = { "indoor" }, sum = "Noke's last trick.", foes = { "bed_dragon" },
                 foes_name = "The bed dragon", foes_short = "the bed dragon", boss_name = "the bed dragon",
                 foes_line = "The big bed against the far wall creaks, all by itself.", seen = false,
+                stays = true,       -- (a bed doesn't run: it falls apart. The playtest, November 6: it "ran for it", then fell apart)
                 wakes = { feature = "bed", at = { bed_dragon = { 10, 3 } } },
                 wake = "The bed rears up on its legs: carved wood for scales, sheets for wings, a pillow on its tail. Noke "
                     .. "scrambles up onto its back.",
@@ -474,7 +485,7 @@ M.events = {
     { id = "guz_arrives", at = "inn_common", when_in = "mid", required = true, page = 2, party = true, title = "Noke's man",
       actor = { "tactician", "butt_kicker", "method_actor" },
       text = "Howling outside, and shouting. A huge half-orc shoulders in behind three collared wolves, a big figure in a "
-          .. "dirty cloak at his back. \"Master Noke's sheep,\" he says, and holds out his hand. \"Give it here, and "
+          .. "dirty cloak at his back. \"Name's Guz. Master Noke's sheep,\" he says, and holds out his hand. \"Give it here, and "
           .. "there won't be no unpleasantries.\"",
       options = {
           { label = "No. The sheep stays with us.", want = "tell him no, and see what he does", short = "refuse",
@@ -530,7 +541,7 @@ M.events = {
                         .. "anything, since he came down.\"" } } },
     { id = "sheep_taken", trigger = { on = "choice", choice = "the wolves carry the sheep off" }, page = 2,
       text = "Guz's lot make for the woods with the sheep. A chase, if anyone follows." },
-    { id = "ring_room", at = "inn_upstairs", when_in = "start", only_if = { seen = "luenn_ring", not_flag = "ring_found" }, ours = true,
+    { id = "ring_room", at = "inn_upstairs", when_in = "arrive", only_if = { seen = "luenn_ring", not_flag = "ring_found" }, ours = true,
       party = true, title = "Sir Luenn's room", actor = { "explorer", "method_actor", "instigator" },
       text = "Sir Luenn flings open his door: a good bed, a washstand, a small window, and on the washstand an open jewel box "
           .. "with nothing in it. \"There,\" he says. \"Gone in the night.\" Wenna hovers in the doorway behind them, twisting "
@@ -595,7 +606,7 @@ M.events = {
       ours = true, type = "story", title = "The heap", sets = { "ring_found" },
       text = "With the last rat gone through a crack in the clay, the heap is theirs: spoons, buttons, a thimble, and a heavy "
           .. "gold ring with a crest on it." },
-    { id = "ring_back", at = "inn_cellar", when_in = "end", only_if = { flag = "ring_found" }, ours = true, party = true,
+    { id = "ring_back", at = "inn_cellar", when_in = "leave", only_if = { flag = "ring_found" }, ours = true, party = true,
       title = "The ring", actor = { "storyteller", "method_actor", "casual" },
       text = "Back up the ladder, Sir Luenn is at the bar telling anyone who'll listen about thieving staff, and Wenna is "
           .. "behind it, red-eyed.",
@@ -603,31 +614,41 @@ M.events = {
                     text = "Back up the ladder, Sir Luenn is at the bar, waiting for his proof with very bad grace. Wenna is "
                         .. "behind it, watching the trapdoor." } },
       options = {
-          { label = "Give it back to Sir Luenn.", want = "hand Sir Luenn his ring", short = "give it back", lean = "safe",
-            log = "Sir Luenn turns the ring over, slides it on, and counts out twenty gold as if every coin hurts. He doesn't "
-                .. "look at Wenna. Teddy does, and squeezes her shoulder.", mus = { flag = "ring_back" } },
+          { label = "Give it back to Sir Luenn, and tell him about the rat.", want = "hand Sir Luenn his ring and tell him who took it",
+            short = "give it back", lean = "safe",
+            log = "Sir Luenn hears about the pack rat with his mouth slightly open. He turns the ring over, slides it on, and "
+                .. "counts out twenty gold as if every coin hurts. He even nods to Wenna, almost. Teddy squeezes her shoulder.",
+            mus = { flag = "ring_back" } },
           { label = "Let Wenna give it back to him.", want = "let Wenna hand it over herself", short = "let Wenna do it", lean = "talk",
             log = "Wenna holds the ring out in front of the whole common room, and Sir Luenn has to thank her, and does, badly, "
                 .. "and pays up. Teddy brings a dusty bottle out from under the bar and won't hear no: a healing potion a "
                 .. "traveller paid his bill with, years back.", mus = { flag = "wenna_thanked", flags = { "ring_back" } } },
       } },
     -- (The museum's last thread, for a party carried on from it: what the pack rat took from the drover.)
-    { id = "token_back", at = "inn_cellar", when_in = "end", only_if = { thread = "mountain_road", flag = "ring_found" }, ours = true,
+    { id = "token_back", at = "inn_cellar", when_in = "leave", only_if = { thread = "mountain_road", flag = "ring_found" }, ours = true,
       party = true, title = "The drover's token", actor = { "storyteller", "method_actor", "explorer" },
       text = "One more thing out of the heap: a little horn token on a cord, capped in silver, a mountain clan's mark cut into "
           .. "it. Teddy knows it at once. \"That's Hobb's. The drover by the fire, down off the mountain road. He's not said "
-          .. "ten words since he came in.\" Hobb holds it in both hands for a long moment.",
+          .. "ten words since he came in.\" Across the room, Hobb has gone very still, his eyes on the token.",
       options = {
           { label = "Ask him what happened up the mountain road.", want = "hear what Hobb saw up the mountain road", short = "ask him",
             lean = "talk",
             log = "\"I found him,\" Hobb says. \"A clan messenger, at the foot of the pass, like he'd fallen. It rained all that "
                 .. "night, and his cloak was bone dry. Somebody carried him there after.\" He turns the token over. \"This was "
-                .. "his. I was taking it down to his mother. Nobody up there wanted it asked about.\"",
+                .. "his. I was taking it down to his mother. Nobody up there wanted it asked about.\" He looks at them a moment longer. "
+                .. "\"There's a gnome with a painted caravan bound up that road, asking the same questions. If you're going "
+                .. "with him, watch the pass.\"",
             mus = { flag = "drover_talked" } },
           { label = "Give it back, and let him be.", want = "give Hobb his token and leave him in peace", short = "let him be",
             lean = "safe", log = "Hobb closes his hand round it, nods his thanks, and goes back to staring at the fire." },
       } },
-    { id = "tracks", at = "woods_path", when_in = "start", page = 4, party = true, title = "The path",
+    -- (Leaving the inn with the ring still missing: it's still missing, and someone's still paying for it.)
+    { id = "ring_left", at = "woods_path", when_in = "arrive", only_if = { seen = "luenn_ring", not_flag = "ring_back" }, ours = true,
+      type = "story", title = "Behind them",
+      text = "The inn falls away behind them. Sir Luenn's ring is still missing, and Wenna is still the one he blames.",
+      text_if = { { when = { flag = "wenna_safe" },
+                    text = "The inn falls away behind them. Sir Luenn's ring is still missing, though at least he's stopped blaming Wenna." } } },
+    { id = "tracks", at = "woods_path", when_in = "arrive", page = 4, party = true, title = "The path",
       actor = { "explorer", "tactician", "casual" },
       text = "A mile along the lord's road, there's a gap in the bushes, and the path goes off into the oaks.",
       options = {
@@ -641,7 +662,7 @@ M.events = {
       } },
     { id = "bear_comes_out", at = "compound", trigger = { on = "fight", at = "compound" }, page = 5,
       text = "The outhouse door bangs open, and a bear comes out to see what the noise is.", sets = { "bear_seen" } },
-    { id = "the_door", at = "garden", when_in = "start", page = 4, party = true, title = "The hall door",
+    { id = "the_door", at = "garden", when_in = "arrive", page = 4, party = true, title = "The hall door",
       actor = { "instigator", "butt_kicker", "tactician" },
       text = "The door into the hall is heavy oak, and locked.",
       options = {
@@ -733,7 +754,7 @@ M.events = {
                      success = { log = "It takes a while, and a good argument. In the end he lets the wand go in a pack, and thanks them for it.",
                                  mus = { flag = "refused" } },
                      fail = { log = "He won't hear it. The wand goes in a pack anyway, and the sheep doesn't speak to them all the way back.",
-                              mus = { flag = "refused" } } } },
+                              mus = { flag = "refused", flags = { "sulking" } } } } },
       } },
 }
 
@@ -767,11 +788,33 @@ M.beats = {
                         { ok = "they talked Shinebright out of the wand", did = "they tried to talk Shinebright out of the wand" } },
 }
 
+-- What each room came to, for "Last time, they..." at the next night's start (adventure.recap_clause: `since` first,
+-- the fight's words when there was one, then win or lose). The playtest, November 6: the Sheep Chase's second night
+-- had no "Last time" but the downs.
+M.recap = {
+    inn_common = { win = "kept the sheep out of Guz's hands at the inn", lose = "lost the sheep to Guz at the inn",
+                   since = { { when = { flag = "guz_left" }, win = "talked Guz out of taking the sheep at the inn" } },
+                   fought = { win = "saw off Guz and his beasts in the inn's common room", lose = "lost the sheep to Guz at the inn" } },
+    inn_upstairs = { win = "had a look round the rooms upstairs", lose = "came away from Sir Luenn's room none the wiser",
+                     since = { { when = { flag = "ring_clue", not_flag = "ring_back" }, win = "worked out that something small took Sir Luenn's ring" } } },
+    inn_cellar = { win = "poked about in the inn's cellar", lose = "were seen off by the cellar's rats",
+                   since = { { when = { flag = "ring_back" }, win = "found Sir Luenn's ring in a pack rat's nest in the cellar" } },
+                   fought = { win = "saw off the rats in the cellar", lose = "were seen off by the cellar's rats" } },
+    woods_path = { win = "followed the sheep into the oaks", lose = "found their way through the oaks the long way round" },
+    compound = { win = "got past Noke's guards in the yard", lose = "lost the fight in Noke's yard",
+                 fought = { win = "beat Noke's guards in the yard", lose = "lost the fight in Noke's yard" } },
+    garden = { win = "got through the locked door into the hall", lose = "forced the hall door, loudly" },
+    hall = { win = "went through Noke's hall", lose = "lost a minute among Noke's shelves",
+             since = { { when = { flag = "looted" }, win = "searched Noke's hall and found a second scroll" } } },
+    bedroom = { win = "beat the bed dragon", lose = "lost to the bed dragon" },
+}
+
 M.endings = {
     restored = { name = "Restored", when = { flag = "restored" }, page = 6, tone = "good",
                  line = "Shinebright is an elf again, delighted, and has to be reminded of everything he promised." },
     dead = { name = "The spell failed", when = { flag = "dead" }, page = 6, tone = "bad",
-             line = "The wand failed him. What's left of Shinebright's house is theirs to leave alone or strip bare." },
+             line = "The wand failed him. What it made of Shinebright drags itself off into the trees, and the tower in the "
+                 .. "oaks stands empty behind them." },
     refused = { name = "Still a sheep", when = { flag = "refused" }, page = 6, tone = "mixed",
                 line = "They wouldn't risk the wand. Shinebright puts on an old robe over his fleece and keeps hoping." },
     -- (Ours, as the failure: Conner, November 6.)
@@ -785,7 +828,9 @@ M.clocks = {
     -- (Three days: Conner, November 6.)
     { id = "guards_search", name = "Noke's men are looking", unit = "days", count = 3, ours = true, page = 3,
       text = "Noke has more guards. Left alone, they find the sheep again.", fires = "sheep_taken", sets = "taken",
-      said = "A day later. Somewhere out in the oaks, Noke's other guards are still looking for that sheep.",
+      said = { { when = { done = "compound" },
+                 text = "A day later. Noke's other guards are still out in the oaks somewhere, and sooner or later they'll come home." },
+               "A day later. Somewhere out in the oaks, Noke's other guards are still looking for that sheep." },
       when = { not_flag = "restored" } },
     { id = "bed_dragon", name = "Three rounds", unit = "rounds", count = 3, page = 5, after = "noke_flees", fires = "bed_dragon" },
 }
@@ -799,11 +844,11 @@ M.rumours = {
     { id = "beasts", who = "sh_teddy", where = "inn_common", truth = "true", page = 4, ours = true,
       text = "\"Keeps animals for guards out there. Wolves that look at you like they're doing sums.\"" },
     { id = "unpaid", who = "sh_teddy", where = "inn_common", truth = "true", page = 6, ours = true,
-      text = "\"He's been selling things. Books, bottles, a carriage. Owes half of Bogden, the way I hear it.\"" },
+      text = "\"The wizard's been selling things. Books, bottles, a carriage. Owes half of Bogden, the way I hear it.\"" },
     { id = "elf_left", who = "sh_teddy", where = "inn_common", truth = "false", ours = true,
       text = "\"The old elf went travelling a couple of years back and left his boy the whole place.\"" },
     { id = "long_words", who = "sh_teddy", where = "inn_common", truth = "true", page = 3, ours = true,
-      text = "\"His big half-orc comes in for supplies now and then. Uses words like 'sentimental' and gets them wrong.\"" },
+      text = "\"The wizard's big half-orc comes in for supplies now and then. Uses words like 'sentimental' and gets them wrong.\"" },
     { id = "mountains", who = "sh_teddy", where = "inn_common", truth = "true", ours = true, picks_up = { "mountain_road" },
       only_if = { thread = "mountain_road" },
       text = "\"Travellers down from the mountains won't say much. Somebody died up there, and nobody's asking how.\"" },

@@ -708,6 +708,9 @@ function M.respond(night, id, aid)
     -- What you did goes in the log at the next beat (the night is waiting between beats).
     table.insert(th.queue, { kind = "narrate", style = a.screen and "screen" or "dm", text = util.sentence_case(util.fill(a.log, vars(p))),
                              hero_acts = M.HERO_ACTS[aid] and p.key or nil })
+    -- (What the answer promised, done: the detail itself, the question and their hero's answer, their reply to a
+    -- quiet word. The playtest, November 6: "A question just for Brannoc, in a new voice" and then nothing.)
+    M.follow_up(night, p, a)
     if good then
         table.insert(th.queue, { kind = "react", poses = { [p.key] = "lean" } })
         if not th.read and night.campaign and night.campaign.gain_empathy then
@@ -739,6 +742,55 @@ function M.dawn(night)
             local want = util.fill(DATA.needs[t.need].want, vars(p))
             night:emit({ kind = "narrate", style = "aside",
                          text = util.sentence_case(util.fill(DATA.misread_after, { name = p.name, want = want })) })
+        end
+    end
+end
+
+-- The rest of an answer: `follow` on it (game/data/thoughts.lua).
+--   place: one thing on the board, described for their hero; ask/reply: someone in the scene asks their hero, and
+--   their player answers in character; reply alone: their hero's answer; aside: their own word to you.
+function M.follow_up(night, p, a)
+    local f = a and a.follow
+    if not f then
+        return
+    end
+    local th = night.th
+    local v = vars(p)
+    v.Char = p.char
+    local function pick(list)
+        return list and #list > 0 and night.rng:pick(list) or nil
+    end
+    if f.place and night.scene and night.board_places then
+        local places = night:board_places(night.scene)
+        local looked = night.looked or {}
+        local free = {}
+        for _, pl in ipairs(places) do
+            if pl.line and not looked[(night.scene.room or "") .. "/" .. pl.id] then
+                table.insert(free, pl)
+            end
+        end
+        local pl = pick(free)
+        if pl then
+            table.insert(th.queue, { kind = "narrate", style = "dm", hero_acts = p.key,
+                                     text = util.fill("Just for {char}: " .. util.lower_first(pl.name) .. ". " .. pl.line, v) })
+        end
+    end
+    if f.ask then
+        local cast = night.scene and night.scene.comps and night.scene.comps.cast
+        local who = (cast and not cast.foe and night.cast_label and night:cast_label(cast)) or "A voice from across the room"
+        table.insert(th.queue, { kind = "npc", name = who, hero_acts = p.key, text = (string.gsub(util.fill(pick(f.ask), v), '^"(.*)"$', "%1")) })
+    end
+    if f.reply then
+        local line = pick(f.reply[p.key] or f.reply.any)
+        if line then
+            table.insert(th.queue, { kind = "say", who = p.key, ic = true, hero_acts = p.key,
+                                     text = (string.gsub(util.fill(line, v), '^"(.*)"$', "%1")) })
+        end
+    end
+    if f.aside then
+        local line = pick(f.aside)
+        if line then
+            table.insert(th.queue, { kind = "narrate", style = "aside", text = util.fill(line, v) })
         end
     end
 end

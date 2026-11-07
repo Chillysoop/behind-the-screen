@@ -104,6 +104,16 @@ function M.somber(night)
     if loss and (loss.night or (sc and loss.scene == sc)) then
         return loss.kind
     end
+    -- (An adventure that ended badly tonight: Shinebright a heap of mouths, the sheep gone with Noke. Not "Anything
+    -- that isn't nailed down is coming with me" straight after. The playtest, November 6.)
+    local ended = night.ending_played or (night.campaign and night.campaign.adv and night.campaign.adv.ending)
+    if ended then
+        local ok, adv = pcall(require, "game.model.adventure")
+        local e = ok and adv.data and adv.data.endings and adv.data.endings[ended]
+        if e and e.tone == "bad" then
+            return "ending"
+        end
+    end
     return nil
 end
 

@@ -89,7 +89,8 @@ a scene's way on is its exits to a later scene, else the next one listed. The ad
 | `on` (the place) | A place you're on, not in, for the recap: a path, a platform | plays |
 | `leaves` | The scenes walking in here leaves behind for good, if they haven't been played: once they're on the road, the Sheep Chase's upstairs and cellar (`adventure.enter_room` skips them) | plays |
 
-Story events with `at` and `when_in` (`start`, `mid`, `end`) are its moments, in that order: `title`, `text`, `actor`
+Story events with `at` and `when_in` (`arrive`, `start`, `mid`, `end`, `leave`) are its moments, in that order (`arrive`:
+as they walk in, before anyone looks round; `leave`: as they go, after the room's small moments): `title`, `text`, `actor`
 (the kinds of player who lead it), `party` (the table settles it), `options` (game night's choice record: `label`,
 `want`, `short`, `lean`, `roll`, `log`, `mus`, `tells`, `effects`), `only_if`, `tells` (what it tells, whichever way it
 goes), `risks` (whose risk it is, when not theirs). An event that fires on a fight is said as that place's fight

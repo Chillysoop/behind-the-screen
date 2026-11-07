@@ -110,6 +110,17 @@ function M.pronoun_of(name)
             end
         end
         local oka, adv = pcall(M.lazy, "game.model.adventure")
+        -- (Everyone the adventure names with a pronoun, by name and short name, not just a scene's cast: "Teddy narrows
+        -- their eyes", the playtest, November 6.)
+        for _, pp in ipairs(oka and adv.data and adv.data.people or {}) do
+            if M.PRONOUNS[pp.pronoun or ""] then
+                for _, n in ipairs({ pp.name, pp.short }) do
+                    if n then
+                        pronoun_names[n] = pronoun_names[n] or pp.pronoun
+                    end
+                end
+            end
+        end
         local comps = oka and adv.data and adv.data.companions or {}
         for _, id in ipairs(comps.order or {}) do
             local d = comps[id]
