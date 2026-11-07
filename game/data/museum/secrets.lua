@@ -85,6 +85,10 @@ M.sisters = {
         { kind = "see", on = { room = "lair", spot = "mosaics" }, gives = "hint", book = true, page = 27 },
         { kind = "check", on = { room = "lair", spot = "pedestals" }, skill = { "investigation" }, dc = 12, gives = "hint", page = 25 },
         { kind = "check", on = "mus_euryale", skill = { "insight" }, dc = 13, needs = "hint", gives = "known", page = 27 },
+        -- (Reading her face with no hint yet: that she's lost someone, not who. Ours, so the secret has a way in from
+        -- her as well as from the room: round four's gate found it only ever came out two ways.)
+        { kind = "check", on = "mus_euryale", skill = { "insight" }, dc = 15, gives = "hint",
+          hint_says = { "Her eyes go to the smashed pots every time someone moves. Whatever she's lost, she hasn't stopped looking." } },
         { kind = "ask", on = "mus_euryale", needs = "hint", gives = "known", page = 25 },
         { kind = "check", on = { room = "lair", spot = "mosaics" }, skill = { "history", "religion" }, dc = 13, needs = "hint", gives = "known", page = 27,
           says = { "Old stories about gorgons always come in threes: three sisters, and three jars for three souls. Two of them are still sealed somewhere." } },

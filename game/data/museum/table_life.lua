@@ -530,7 +530,7 @@ return {
           dearer = "\"Four. Lace tax,\" says Telpur. Four Francs out of the pool, and the marbles are {char}'s.",
           short = "Not enough in the pool for marbles, even at {n}. \"Next time,\" says Telpur." },
         { kind = "snack", who = "sam", lines = {
-            "Oswin sits down on an upturned crate with his sandwiches.",
+            "Oswin unwraps his sandwiches on an upturned crate.",
             "Telpur: \"No eating in the shop.\" A long pause. \"What's in them?\"",
             "Sam: \"Cheese and pickle. Want half?\"" } },
         { kind = "pocket", who = "jess", lines = {
