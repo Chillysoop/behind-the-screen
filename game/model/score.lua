@@ -69,6 +69,7 @@ function M.new_player(key)
         char = d.char,
         class = d.class,
         class_name = d.class_name,
+        mini = d.mini,          -- (an adventure's own hero's paper mini, when it brings heroes of its own)
         primary = d.primary,
         secondary = d.secondary,
         notes = d.notes,

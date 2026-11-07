@@ -268,6 +268,7 @@ function M.enter(campaign)
                 if h.char then
                     pd.char, pd.pronouns = h.char, h.pronouns or pd.pronouns
                     pd.class, pd.class_name = h.class or pd.class, h.class_name or pd.class_name
+                    pd.mini = h.mini or pd.mini
                     pd.premise = h.intro or pd.premise
                     for _, p in ipairs(campaign and campaign.players or {}) do
                         if p.key == key then
