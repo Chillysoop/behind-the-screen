@@ -2,12 +2,14 @@
 -- everyone picks a subclass on their own, and says why; at level 4 everyone takes
 -- an Ability Score Improvement.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local panels = require "game.ui.panels"
 local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
 local content = require "game.model.content"
-local subclasses = require "game.rules.subclasses"
+local subclasses = ruleset.part("subclasses")
 local util = require "game.model.util"
 local talk_mod = require "game.model.talk"
 
@@ -56,7 +58,7 @@ local DOES = {
     wis = "Their spells are harder to resist, and they notice more.", cha = "Better at talking anyone round.",
 }
 function M.ability_up(c, p)
-    local party = require "game.rules.party"
+    local party = ruleset.part("party")
     local sheet = require "game.model.sheet"
     local sub = c.subclasses and c.subclasses[p.class] or nil
     local ok3, a = pcall(party.sheet, p.class, 3, sub)

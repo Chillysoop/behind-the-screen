@@ -14,6 +14,8 @@
 -- and their dice; fights show everyone's hit points, conditions, spell areas and the turn
 -- order on the mat (game/ui/battle_hud.lua); clues the party finds go in the DM's notes.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local ambience = require "game.ui.ambience"
 local theme = require "game.ui.theme"
@@ -2383,7 +2385,7 @@ end
 -- "Thessaly's Fire Bolt" / "the road's bandit chief's scimitar"
 -- A spell's name from its id ("sacred_flame" is Sacred Flame); a name stays as it is.
 local function spell_name(id)
-    local ok, spells = pcall(require, "game.rules.spells")
+    local ok, spells = pcall(ruleset.engine, "spells")
     local sp = ok and spells.list and spells.list[id]
     return (type(sp) == "table" and sp.name) or (string.gsub(tostring(id), "_", " "))
 end
@@ -2392,7 +2394,7 @@ local spell_names
 local function is_spell(name)
     if not spell_names then
         spell_names = {}
-        local ok, spells = pcall(require, "game.rules.spells")
+        local ok, spells = pcall(ruleset.engine, "spells")
         for _, sp in pairs(ok and spells.list or {}) do
             if type(sp) == "table" and sp.name then
                 spell_names[sp.name] = true

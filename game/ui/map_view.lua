@@ -5,6 +5,8 @@
 -- turn it, or to work a door (shut, open, locked). Clear takes a piece off, or the place's own
 -- scenery. The map is saved with the campaign (game/model/maps.lua).
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local content = require "game.model.content"
@@ -374,7 +376,7 @@ function M.side(app, x, y, w, ids, hazard)
     end
     ty = ty + 8
     -- Which SRD trap the trap squares are.
-    local hz = require "game.rules.data.hazards"
+    local hz = ruleset.part("data.hazards")
     local trap = (m and m.trap) or maps.TRAP
     local td = hz.traps[trap]
     kit.text(x, ty, "TRAP", "ui14", theme.gold)

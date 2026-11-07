@@ -27,6 +27,8 @@
 -- when) plays as a moment where it happens (`at`), as they walk in before anyone looks round (`when_in = "arrive"`), at
 -- the start of the scene, mid-way or at its end.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local util = require "game.model.util"
 
 local M = {}
@@ -378,7 +380,7 @@ function M.compile(src)
     end
     mod.start = (mod.start and mod.rooms[mod.start]) and mod.start or mod.order[1]
     -- (Its creatures join the rules' roster, under their own ids, so a fight can build them.)
-    local roster = require "game.rules.data.monsters"
+    local roster = ruleset.part("data.monsters")
     for id, block in pairs(M.creatures(src, roster)) do
         if not roster[id] then
             roster[id] = block

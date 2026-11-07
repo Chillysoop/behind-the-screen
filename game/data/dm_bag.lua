@@ -8,6 +8,8 @@
 --       "magic"  one of the rules' magic items (game/rules/data/magic_items.lua): it works on the hero's sheet
 -- rarity: for the bag's order and the card's line. Bits are "Bit"; the rest as SRD 5.2.1 has them.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local M = {}
 
 M.RANK = { Bit = 1, Common = 2, Uncommon = 3, Rare = 4, ["Very Rare"] = 5, Legendary = 6 }
@@ -78,7 +80,7 @@ M.list = {
 }
 
 -- (A magic entry takes its name, rarity and words from the rules.)
-local mi = require "game.rules.data.magic_items"
+local mi = ruleset.part("data.magic_items")
 M.by_id = {}
 M.book_by_id = {}
 for _, b in ipairs(M.books) do

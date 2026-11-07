@@ -6,9 +6,11 @@
 -- who they are (archetypes) and what they've enjoyed (their meter history). You can't
 -- pick for them.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local content = require "game.model.content"
 local score = require "game.model.score"
-local subclasses = require "game.rules.subclasses"
+local subclasses = ruleset.part("subclasses")
 local util = require "game.model.util"
 
 local M = {}

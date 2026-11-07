@@ -134,7 +134,7 @@ function M.pronoun_of(name)
         -- monster, else MODULE.foe_pronouns. Round three's merge: "The Knight of Shades came at them,
         -- and they brought them down"; "Who does they go for?" for the biggest huntling.)
         local data = oka and adv.data or {}
-        local okm, mons = pcall(M.lazy, "game.rules.data.monsters")
+        local okm, mons = pcall(function() return M.lazy("game.model.ruleset").engine("data.monsters") end)
         local by_id = {}
         for id, pr in M.sorted_pairs(data.foe_pronouns or {}) do
             by_id[id] = pr

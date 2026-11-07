@@ -8,6 +8,8 @@
 --
 -- campaign.adv.drops = { [npc id] = { { item = magic item id, how = "beaten" | "pocket" | "ask", got = week } } }
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local util = require "game.model.util"
 
 local M = {}
@@ -84,7 +86,7 @@ function M.stats(n)
     if not n.monster then
         return nil
     end
-    local ok, mons = pcall(require, "game.rules.data.monsters")
+    local ok, mons = pcall(ruleset.engine, "data.monsters")
     local m = ok and mons[n.monster]
     if not m then
         return nil
@@ -111,7 +113,7 @@ function M.item_choices(campaign)
         end
         return out
     end
-    local mi = require "game.rules.data.magic_items"
+    local mi = ruleset.part("data.magic_items")
     for _, id in ipairs(mi.order or {}) do
         if mi[id] then
             table.insert(out, id)

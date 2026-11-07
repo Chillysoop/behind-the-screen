@@ -3,19 +3,21 @@
 -- speech bubbles). The DM's decision cards arrive at the moments the fight creates: a crit about
 -- to end the boss in round one, a hidden roll that would drop a hero, a fight dragging on. Pure Lua.
 
-local battle = require "game.rules.battle"
-local creature = require "game.rules.creature"
-local monsters = require "game.rules.data.monsters"
-local party_mod = require "game.rules.party"
-local encounter = require "game.rules.encounter"
-local ai = require "game.rules.ai"
-local spells = require "game.rules.spells"
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
+local battle = ruleset.part("battle")
+local creature = ruleset.part("creature")
+local monsters = ruleset.part("data.monsters")
+local party_mod = ruleset.part("party")
+local encounter = ruleset.part("encounter")
+local ai = ruleset.part("ai")
+local spells = ruleset.part("spells")
 local content = require "game.model.content"
 local score = require "game.model.score"
 local util = require "game.model.util"
 local takeover = require "game.model.takeover"
 local maps = require "game.model.maps"
-local museum = require "game.rules.museum"
+local museum = ruleset.part("museum")
 local barks = require "game.model.barks"
 local BARKS = require "game.data.barks"
 local able = require "game.model.able"
@@ -1088,7 +1090,7 @@ local function react(night, f, steps, who)
             -- (Turning to stone resolves out loud, either way: F19. Stone has its caption, the
             -- petrified moment; shaking it off had none.)
             local c = f.by_ref[s.id]
-            if c and not c.dead and not (require("game.rules.museum").stone_effect(night.battle, c)) then
+            if c and not c.dead and not (ruleset.engine("museum").stone_effect(night.battle, c)) then
                 -- (The DM's words for what the save did, not a move of the hero's: game/model/agency.lua.)
                 night:say(util.fill("The grey drains out of {char}'s legs, and the stone lets go: {char_they} can move again.", { char = c.name }), "good")
             end
@@ -1542,7 +1544,7 @@ function M.run(night, sc, plan)
         b.deg = extras.deg
         b.opaque = extras.opaque and next(extras.opaque) and extras.opaque or nil
         if extras.slippery and next(extras.slippery) then
-            require("game.rules.hazards").slip_zone(b, extras.slippery)
+            ruleset.engine("hazards").slip_zone(b, extras.slippery)
         end
         -- The dark (SRD 5.2.1 "Light"): only the map's lights, the board's fires and the heroes'
         -- torches show anyone; Darkvision sees past them.
@@ -1556,7 +1558,7 @@ function M.run(night, sc, plan)
             table.insert(b.zones, { kind = "rough", difficult = true, cells = extras.rough })
         end
         if map and map.template == set_name then
-            require("game.rules.hazards").place_traps(b, extras.traps, map.trap or maps.TRAP)
+            ruleset.engine("hazards").place_traps(b, extras.traps, map.trap or maps.TRAP)
             f.map = map
         end
     end
@@ -1831,7 +1833,7 @@ function M.run(night, sc, plan)
     -- up once the table is listening, so "Hazard: ..." and its fire or ice reach the mat.
     local hz = M.hazard_of(sc)
     if hz then
-        require("game.rules.hazards").setup(b, hz)
+        ruleset.engine("hazards").setup(b, hz)
         sc.hazard = hz
     end
 

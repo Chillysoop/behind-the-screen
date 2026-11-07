@@ -27,6 +27,11 @@
 --   done       {}
 -- Unanswered questions (nil) take a sensible default, so a headless run never stalls.
 
+-- (A check's numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
+local ruleset = require "game.model.ruleset"
+local function rules()
+    return ruleset.current()
+end
 local content = require "game.model.content"
 local score = require "game.model.score"
 local prep_mod = require "game.model.prep"
@@ -38,7 +43,7 @@ local agency = require "game.model.agency"
 local voice_of = require "game.model.voice"
 local fight = require "game.model.fight"
 local social = require "game.model.social"
-local rest_rules = require "game.rules.rest"
+local rest_rules = ruleset.part("rest")
 local rapport = require "game.model.rapport"
 local rests = require "game.data.rests"
 local fails_mod = require "game.model.fails"
@@ -55,11 +60,6 @@ local BARKS = require "game.data.barks"
 
 -- Skills for talking to someone: a hero who uses one walks over to the person (A9).
 local SOCIAL_SKILL = { persuasion = true, deception = true, intimidation = true, insight = true, performance = true }
--- (A check's numbers and words are the adventure's rule set's, never 5e's own module: docs/design/rule-sets.md.)
-local ruleset = require "game.model.ruleset"
-local function rules()
-    return ruleset.current()
-end
 
 local M = {}
 M.__index = M
@@ -887,7 +887,7 @@ end
 
 -- Who's in front of them as a fight starts: the leader's size, how many, whether it's a person.
 function M:boss_context(plan, sc)
-    local ok, mons = pcall(require, "game.rules.data.monsters")
+    local ok, mons = pcall(ruleset.engine, "data.monsters")
     local foes = (plan and plan.ids) or (sc and sc.encounter) or {}
     local id = foes[1]
     local m = ok and type(mons) == "table" and type(id) == "string" and mons[id] or nil
@@ -4785,7 +4785,7 @@ M.FOE_HIDDEN = {
 M.FOE_ALONE = { "{Boss}, alone, and not worried about it.", "Just {boss}. That's plenty.", "Only {boss}. One's enough." }
 
 function M:foe_line(plan, sc)
-    local monsters = require "game.rules.data.monsters"
+    local monsters = ruleset.part("data.monsters")
     local counts, order = {}, {}
     for i, id in ipairs(plan.ids or {}) do
         if i > 1 and monsters[id] then

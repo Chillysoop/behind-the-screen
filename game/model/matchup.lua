@@ -3,10 +3,12 @@
 -- who can hit what, who gets hit, damage they resist or are weak to, spells that won't
 -- work on them, and anything that can drop a hero in one blow. Pure Lua.
 
-local encounter = require "game.rules.encounter"
-local monsters = require "game.rules.data.monsters"
-local party_mod = require "game.rules.party"
-local creature = require "game.rules.creature"
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
+local encounter = ruleset.part("encounter")
+local monsters = ruleset.part("data.monsters")
+local party_mod = ruleset.part("party")
+local creature = ruleset.part("creature")
 local util = require "game.model.util"
 
 local M = {}
@@ -93,7 +95,7 @@ function M.analyze(campaign, ids, hazard, tilt)
     out.meter = encounter.meter(level, n, ids, opts)
     out.budget = { low = low, moderate = mod, high = high }
     out.map_xp = map_xp
-    out.xp = math.max(0, encounter.xp(ids) + (hazard and (require("game.rules.hazards").weight(hazard)) or 0) + map_xp)
+    out.xp = math.max(0, encounter.xp(ids) + (hazard and (ruleset.engine("hazards").weight(hazard)) or 0) + map_xp)
     local seen, kinds = {}, {}
     for _, id in ipairs(ids) do
         if not seen[id] then

@@ -3,13 +3,15 @@
 -- game/ui/sheet_view.lua; the numbers are the same ones game night's checks and fights use.
 -- Pure Lua.
 
-local party = require "game.rules.party"
-local creature = require "game.rules.creature"
-local classes = require "game.rules.data.classes"
-local equipment = require "game.rules.data.equipment"
-local spells = require "game.rules.spells"
-local subclasses = require "game.rules.subclasses"
-local skills = require "game.rules.skills"
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
+local party = ruleset.part("party")
+local creature = ruleset.part("creature")
+local classes = ruleset.part("data.classes")
+local equipment = ruleset.part("data.equipment")
+local spells = ruleset.part("spells")
+local subclasses = ruleset.part("subclasses")
+local skills = ruleset.part("skills")
 local util = require "game.model.util"
 
 local M = {}

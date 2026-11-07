@@ -106,7 +106,8 @@ for _, path in ipairs(shared) do
                 break
             end
         end
-        for mod in string.gmatch(line, 'require%(?%s*"game%.rules%.([%w_%.]+)"') do
+        -- (Any way of naming a module of game/rules: require, pcall(require, ...), util.lazy.)
+        for mod in string.gmatch(line, '"game%.rules%.([%w_%.]+)"') do
             if not (path == "game/model/ruleset.lua" and string.find(mod, "^sets%.")) then
                 leaks[path] = leaks[path] or {}
                 leaks[path][mod] = true

@@ -4,8 +4,10 @@
 -- Read from the night's own sheets when there are any (live in a fight), else from where the party
 -- left off (campaign.party_state), else the fresh sheet. Engine-free, and never touches the dice.
 
-local creature = require "game.rules.creature"
-local party = require "game.rules.party"
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
+local creature = ruleset.part("creature")
+local party = ruleset.part("party")
 
 local M = {}
 

@@ -6,6 +6,8 @@
 -- state. Which adventure, and where its data lives, is game/data/adventures.lua (the museum's is game/data/museum/:
 -- module.lua, cards.lua and the rest); M.use(id) switches to another.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local content = require "game.model.content"
 local util = require "game.model.util"
 local score = require "game.model.score"
@@ -342,7 +344,7 @@ function M.enter(campaign)
             end
         end
         -- The adventure's own magic items join the rules' list (a pickup goes on a hero's sheet).
-        local mi = require "game.rules.data.magic_items"
+        local mi = ruleset.part("data.magic_items")
         for id, def in pairs(MODULE.magic_items or {}) do
             if not mi[id] then
                 def.id = id

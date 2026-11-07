@@ -5,6 +5,8 @@
 --     local ruleset = require "game.model.ruleset"
 --     local r = ruleset.current().check(night.rng, { mod = 5, dc = 15 })     -- r.tier: great, full, partial, miss, botch
 
+local util = require "game.model.util"
+
 local M = {}
 
 -- (Listed by name, so the build takes every one: require_check.py.)
@@ -13,14 +15,45 @@ M.SETS = {
 }
 
 function M.get(id)
-    return assert(id and M.SETS[id], "no rule set called " .. tostring(id))
+    local set = id and M.SETS[id]
+    if not set then
+        error("no rule set called " .. tostring(id), 2)
+    end
+    return set
 end
 
 function M.current()
-    local adventure = package.loaded["game.model.adventure"]
+    local adventure = util.lazy("game.model.adventure")     -- (at use time: it requires the standard, which asks here)
     local data = assert(adventure and adventure.data, "no adventure, so no rule set")
-    return assert(data.rules and M.SETS[data.rules],
-        tostring(data.title) .. " doesn't name a rule set it can play by (`rules`: " .. tostring(data.rules) .. ")")
+    local set = data.rules and M.SETS[data.rules]
+    if not set then
+        error(tostring(data.title) .. " doesn't name a rule set it can play by (`rules`: " .. tostring(data.rules) .. ")", 2)
+    end
+    return set
+end
+
+-- A part of the current set's engine ("battle", "data.monsters"...), looked up when it's used, never kept: a shared
+-- module that touches 5e's battle while another set's adventure is on gets an error, not 5e (no leaks).
+function M.engine(name)
+    local set = M.current()
+    local part = set.engine and set.engine[name]
+    if not part then
+        error(tostring(set.title or set.id) .. " has no " .. tostring(name) .. " (docs/design/rule-sets.md: no leaks between sets)", 2)
+    end
+    return part
+end
+
+-- The same, as a stand-in a module can hold from load time (`local battle = ruleset.part("battle")`): every field
+-- read or written goes to the current set's part at that moment.
+function M.part(name)
+    return setmetatable({}, {
+        __index = function(_, k)
+            return M.engine(name)[k]
+        end,
+        __newindex = function(_, k, v)
+            M.engine(name)[k] = v
+        end,
+    })
 end
 
 return M

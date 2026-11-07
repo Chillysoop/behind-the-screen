@@ -9,12 +9,43 @@ local dice = require "game.kit.dice"      -- (the table's dice, any kind: 5e rol
 local M = {}
 
 M.id = "5e"
-M.name = "D&D 5e (SRD 5.2.1)"
+M.title = "D&D 5e (SRD 5.2.1)"      -- (M.name is an approach's name: "Stealth")
 M.dice = { notation = "1d20", sides = 20 }  -- what the dice tray shows (from game/kit/dice.lua, like any set's)
 M.who_rolls = "dm"                         -- the DM rolls, in the open or behind the screen
 M.fight = "tactical"                       -- fights on the battle grid (game/rules/battle.lua)
 M.approaches = skills.NAMES                -- what a hero can try: the 18 skills, and the six abilities
 M.difficulty_word = "DC"
+
+-- 5e's engine, the parts the shared game reaches through game/model/ruleset.lua (`ruleset.part("battle")`), loaded on
+-- first use. (Listed with literal requires, so Defold's builder packs each one.)
+local PARTS = {
+    ai = function() return require "game.rules.ai" end,
+    battle = function() return require "game.rules.battle" end,
+    creature = function() return require "game.rules.creature" end,
+    encounter = function() return require "game.rules.encounter" end,
+    hazards = function() return require "game.rules.hazards" end,
+    museum = function() return require "game.rules.museum" end,
+    party = function() return require "game.rules.party" end,
+    rest = function() return require "game.rules.rest" end,
+    skills = function() return require "game.rules.skills" end,
+    spells = function() return require "game.rules.spells" end,
+    subclasses = function() return require "game.rules.subclasses" end,
+    ["data.classes"] = function() return require "game.rules.data.classes" end,
+    ["data.equipment"] = function() return require "game.rules.data.equipment" end,
+    ["data.hazards"] = function() return require "game.rules.data.hazards" end,
+    ["data.magic_items"] = function() return require "game.rules.data.magic_items" end,
+    ["data.monsters"] = function() return require "game.rules.data.monsters" end,
+}
+M.engine = setmetatable({}, {
+    __index = function(t, k)
+        local load = PARTS[k]
+        if load then
+            local part = load()
+            rawset(t, k, part)
+            return part
+        end
+    end,
+})
 -- 5e's own words: no other set's adventure may show one, and the shared game only says them through this set
 -- (tools/tests/rules_fence_check.lua). Dice and grids aren't here: they're the table's (game/kit/), any set's to use.
 M.owns = {

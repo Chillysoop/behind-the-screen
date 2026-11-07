@@ -18,6 +18,8 @@
 --                      | "start", thing = MODULE.items id, count, charges, used = { pearl = true },
 --                      gone = week, destroyed, introduced = week }... }
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local util = require "game.model.util"
 local events = require "game.model.events"
 
@@ -58,7 +60,7 @@ end
 M.log_get = log_get
 
 local function data()
-    return require "game.rules.data.magic_items"
+    return ruleset.engine("data.magic_items")
 end
 M.data = data
 
@@ -257,7 +259,7 @@ function M.start(campaign)
 end
 
 function M.start_body(campaign)
-    local party = require "game.rules.party"
+    local party = ruleset.part("party")
     local ps = campaign.party_state
     for _, p in ipairs(campaign.players or {}) do
         local raw = p.class and party.sheet(p.class, campaign.level or 2)
@@ -330,7 +332,7 @@ end
 -- Brannoc's greatsword), armour some armour, bracers a bow, the pearl a spellcaster.
 local function sheet_of(campaign, p)
     local ok, sh = pcall(function()
-        local party = require "game.rules.party"
+        local party = ruleset.part("party")
         local lvl = campaign.level or 2
         local sub = lvl >= 3 and campaign.subclasses and campaign.subclasses[p.class] or nil
         return party.sheet(p.class, lvl, sub)
@@ -488,7 +490,7 @@ function M.apply(campaign, key, pc)
             elseif e.weapon then
                 -- (One weapon: their main one. The rest of their attacks are as they were.)
                 local main = pc.weapons and (pc.weapons.main or pc.weapons.ranged)
-                local ok, eq = pcall(require, "game.rules.data.equipment")
+                local ok, eq = pcall(ruleset.engine, "data.equipment")
                 local w = main and ok and eq.weapons and eq.weapons[main]
                 pc.item_weapon = e.weapon
                 pc.item_weapon_id = main

@@ -7,6 +7,8 @@
 --   Session log    every session's report, kept
 --   The party      who's playing whom, why their heroes came, and their character sheets
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
@@ -458,7 +460,7 @@ local function tab_party(app, x, y, w, h)
         py = py + 34
         local level = c.level or 2
         local sub = level >= 3 and c.subclasses and c.subclasses[p.class]
-        local subs = require "game.rules.subclasses"
+        local subs = ruleset.part("subclasses")
         local line = p.class_name .. ", level " .. util.int(level)
         if sub and subs.list[sub] then
             line = line .. ", " .. subs.list[sub].name

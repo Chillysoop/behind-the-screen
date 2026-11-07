@@ -1,6 +1,8 @@
 -- The week in the museum (v2): starting a week, the prep board's hours and choices, and what the
 -- adventure keeps after a night. Engine-free.
 
+-- (5e's engine only through the adventure's rule set: docs/design/rule-sets.md, no leaks.)
+local ruleset = require "game.model.ruleset"
 local content = require "game.model.content"
 local util = require "game.model.util"
 local score = require "game.model.score"
@@ -747,7 +749,7 @@ function M.room_prep(c, id)
         ids = adventure.boss_encounter(c).ids
     end
     if ids and #ids > 0 then
-        local monsters = require "game.rules.data.monsters"
+        local monsters = ruleset.part("data.monsters")
         local count, order = {}, {}
         for _, mid in ipairs(ids) do
             if not count[mid] then
