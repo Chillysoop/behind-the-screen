@@ -37,16 +37,32 @@ local function applies(t, tags)
     return false
 end
 
+-- The shared terms that fit the adventure's rule set: the table's own words, and the set's (`rules`). Another set's
+-- words never light up (docs/design/rule-sets.md, no leaks).
+local function fitting(set_id)
+    if M.fit_for ~= set_id then
+        M.fit, M.fit_for = {}, set_id
+        for _, t in ipairs(data) do
+            if t.rules == nil or t.rules == set_id then
+                table.insert(M.fit, t)
+            end
+        end
+    end
+    return M.fit
+end
+
 -- The terms: the shared ones, then the adventure's own (MODULE.glossary: its money, its boss's
 -- card), which come and go with the adventure.
 local function terms()
     local ok, adv = pcall(require, "game.model.adventure")
+    local okr, set = pcall(function() return require("game.model.ruleset").current() end)
+    local shared = fitting(okr and set and set.id or false)
     local mod = ok and adv.data and adv.data.glossary
     if not mod then
-        return data
+        return shared
     end
-    if M.merged_for ~= mod then
-        M.merged, M.merged_for = {}, mod
+    if M.merged_for ~= mod or M.merged_set ~= M.fit_for then
+        M.merged, M.merged_for, M.merged_set = {}, mod, M.fit_for
         for _, t in ipairs(mod) do
             table.insert(M.merged, t)
             M.by_id[t.id] = t
@@ -57,7 +73,7 @@ local function terms()
             table.insert(M.merged, t)
             M.by_id[t.id] = t
         end
-        for _, t in ipairs(data) do
+        for _, t in ipairs(shared) do
             table.insert(M.merged, t)
         end
     end

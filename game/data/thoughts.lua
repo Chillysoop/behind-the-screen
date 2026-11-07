@@ -177,7 +177,7 @@ return {
         spotlight = { "When's it my turn to do something cool?", "Everyone's had a moment but me." },
         story = { "I want to know what's really going on here." },
         story_after = { "That was the interesting bit, and we just left it." },
-        pace = { "How many hit points does this thing HAVE?" },
+        pace = { "How much more can this thing TAKE?" },
         challenge = { "I'd like something to go wrong. Just a little." },
         challenge_after = { "That's not the call I'd have made." },
         social = { "Can we talk to someone instead of something?" },

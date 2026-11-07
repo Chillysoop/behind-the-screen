@@ -160,6 +160,45 @@ for _, path in ipairs(shared) do
     end
     counts[path] = n
 end
+-- The shared data (game/data/*.lua) is read as data, not lines: a record tagged `rules = "<set>"` (and everything in
+-- it) is that set's, and only shows in its adventures; a string with a set's words or a fixed die anywhere else is a
+-- leak. So tagging a record takes it off the count.
+local function has_words(str)
+    for _, w in ipairs(WORDS) do
+        if string.find(str, w) then
+            return true
+        end
+    end
+    return false
+end
+local function walk(v, seen, tally)
+    if type(v) == "string" then
+        if has_words(v) then
+            tally.n = tally.n + 1
+        end
+    elseif type(v) == "table" and not seen[v] then
+        seen[v] = true
+        if v.rules ~= nil and ruleset.SETS[v.rules] then
+            return
+        end
+        for k, x in pairs(v) do
+            if k ~= "match" then         -- (a glossary term's patterns aren't shown: its words are)
+                walk(x, seen, tally)
+            end
+        end
+    end
+end
+for _, path in ipairs(shared) do
+    local mod = string.match(path, "^game/data/([%w_]+)%.lua$")
+    if mod then
+        local ok, data = pcall(require, "game.data." .. mod)
+        if ok and type(data) == "table" then
+            local tally = { n = 0 }
+            walk(data, {}, tally)
+            counts[path] = tally.n
+        end
+    end
+end
 for path, mods in pairs(leaks) do
     for mod in pairs(mods) do
         local k = path .. " " .. mod
