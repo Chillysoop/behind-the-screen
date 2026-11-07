@@ -5325,7 +5325,8 @@ function M:rest_beat(kind)
         local ok = not camp.beats_seen[b.id] and (util.contains(b.where or { "any" }, "any") or util.contains(b.where, kind))
         for _, who in ipairs(b.pair or {}) do
             local k, id = string.match(who, "^(%a+):(.+)$")
-            local p = k == "pc" and find_present(self.players, id)
+            -- (Of the heroes in this scene: not one who wandered off, now that their player says their part. F11.)
+            local p = k == "pc" and find_present(self:at_hand(), id)
             -- (Both of them there, able to do it, and still the heroes the line names: not dead Oswin
             -- mending a strap, round three, A1; nor "Oswin" with Sister Aldith in Sam's seat.)
             -- (Written for the table's own heroes: each pair's player still plays the hero the beat names.)
