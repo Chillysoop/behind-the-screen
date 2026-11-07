@@ -13,7 +13,7 @@ M.GAIN = { night = 1,         -- a game night together
            clear = 1,         -- a clear read of one of their thoughts
            good = 1,          -- an answer that landed with them
            asked = 1,         -- you asked them straight out
-           book = 1,          -- a natural 20 on a read: something clicks
+           book = 1,          -- a top roll on a read: something clicks
            talk = 2 }         -- a talk away from the table (prep)
 M.READ_CAP = 2                -- xp from reading one friend in one night
 

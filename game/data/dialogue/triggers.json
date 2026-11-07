@@ -169,6 +169,7 @@
    "id": "crit",
    "group": "Checks",
    "voice": "table",
+   "rules": "5e",
    "when": "They rolled a natural 20. Big reaction at the table.",
    "speakers": [
     "mara",
@@ -186,6 +187,7 @@
    "id": "fumble",
    "group": "Checks",
    "voice": "table",
+   "rules": "5e",
    "when": "They rolled a natural 1. A laugh or a groan, never real anger.",
    "speakers": [
     "mara",
@@ -377,6 +379,7 @@
    "id": "ouch",
    "group": "Fights",
    "voice": "table",
+   "rules": "5e",
    "when": "Their character takes a big hit (a third of their hit points or more) but stays up.",
    "speakers": [
     "mara",
@@ -394,6 +397,7 @@
    "id": "down_self",
    "group": "Fights",
    "voice": "table",
+   "rules": "5e",
    "when": "Their character drops to 0 hit points.",
    "speakers": [
     "mara",
@@ -411,6 +415,7 @@
    "id": "ally_down",
    "group": "Fights",
    "voice": "table",
+   "rules": "5e",
    "when": "Another character ({other_char}, played by {other}) just dropped to 0 hit points.",
    "speakers": [
     "mara",
@@ -851,6 +856,7 @@
    "id": "pick_spellguard",
    "group": "Level-ups",
    "voice": "table",
+   "rules": "5e",
    "when": "Level 3: announcing they've picked Spellguard for their character (a fighter who learns wizard cantrips and turns a hit into a miss). In their own words, why it's them.",
    "speakers": [
     "dev"
@@ -921,6 +927,7 @@
    "id": "pick_hearth",
    "group": "Level-ups",
    "voice": "table",
+   "rules": "5e",
    "when": "Level 3: announcing they've picked Hearth Domain for their character (temporary hit points for friends and courage against fear). In their own words, why it's them.",
    "speakers": [
     "sam"
@@ -949,6 +956,7 @@
    "id": "pick_evoker",
    "group": "Level-ups",
    "voice": "table",
+   "rules": "5e",
    "when": "Level 3: announcing they've picked Evoker for their character (damage spells, and cantrips that still hurt when they miss). In their own words, why it's them.",
    "speakers": [
     "mara"

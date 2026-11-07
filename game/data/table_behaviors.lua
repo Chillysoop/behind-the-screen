@@ -14,7 +14,7 @@
 return {
     behaviors = {
         -- dice rituals and superstitions
-        { id = "dice_jail", archetype = "any", by = "roller", when = "after_fail", mood = "any", lines = { "that's it. you're going in dice jail.", "sit there and think about what you did, d20.", "getting out the backup die. the backup die is hungry." }, effect = "fun+ speaker" },
+        { id = "dice_jail", archetype = "any", by = "roller", when = "after_fail", mood = "any", lines = { "that's it. you're going in dice jail.", { "sit there and think about what you did, d20.", rules = "5e" }, "getting out the backup die. the backup die is hungry." }, effect = "fun+ speaker" },
         { id = "blow_on_dice", archetype = "any", when = "combat", mood = "engaged", lines = { "everybody blow on it. come on, for luck.", "hang on, i'm warming it up first.", "it has to be the green one. trust me on this." }, effect = "fun+ group" },
         { id = "reroll_to_prove_it", archetype = "any", by = "roller", when = "after_fail", mood = "any", lines = { "watch, NOW it rolls a twenty.", "see? that's the one that should've counted.", "the die is literally mocking me right now." }, effect = "fun+ speaker" },
         { id = "lend_lucky_die", archetype = "casual", by = "other", when = "after_fail", mood = "any", lines = { "here, borrow my lucky die.", "it's never rolled under ten. well. almost never.", "careful with it, it's sensitive." }, effect = "social+ group" },
@@ -40,7 +40,7 @@ return {
         -- combat habits
         { id = "analysis_paralysis", archetype = "tactician", when = "combat", mood = "engaged", lines = { "okay so if i move here... no, wait.", "what's the range on that again?", "one sec. okay, two secs. okay, three." }, effect = "boredom+ group" },
         { id = "backseat_tactics", archetype = "tactician", when = "combat", mood = "engaged", lines = { "if you heal now you're wasting it.", "you should flank. no, the other flank.", "not telling you what to do. but do this." }, effect = "challenge+ group" },
-        { id = "hp_fishing", archetype = "tactician", when = "combat", mood = "engaged", lines = { "does it look tired yet?", "how many hit points has it got? ballpark.", "is it at least a little bit worried?" }, effect = "challenge+ group" },
+        { id = "hp_fishing", archetype = "tactician", when = "combat", mood = "engaged", lines = { "does it look tired yet?", { "how many hit points has it got? ballpark.", rules = "5e" }, "is it at least a little bit worried?" }, effect = "challenge+ group" },
         { id = "fireball_reflex", archetype = "any", class = "wizard", when = "combat", mood = "engaged", lines = { "can i cast fireball yet? no? next level?", "what do you mean it's too small a room?", "okay. smaller fire. a modest fire." }, effect = "fun+ group" },
         { id = "heal_me_please", archetype = "any", not_class = "cleric", when = "combat", mood = "engaged", hurt = true, lines = { "i'm getting low here, just so everyone knows.", "healing word? please? i'll owe you.", "i'm fine. totally fine. please heal me." }, effect = "social+ group" },
         { id = "metagame_whisper", archetype = "power_gamer", when = "combat", mood = "engaged", lines = { "has anyone tried fire? fire solves most things.", "my character doesn't know anything. but... fire?", "i'm just saying, hypothetically, fire." }, effect = "none" },

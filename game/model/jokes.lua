@@ -24,7 +24,7 @@ function M.after_night(campaign, night)
             local n = (campaign.fails and campaign.fails.jail and campaign.fails.jail[e.who]) or 0
             if n >= 2 and not jailed[e.who] then
                 local p = campaign:player(e.who)
-                text = p and (p.name .. "'s d20 is a repeat offender") or nil
+                text = p and (p.name .. "'s " .. require("game.model.ruleset").current().dice.name .. " is a repeat offender") or nil
                 jailed[e.who] = true
             end
             if text and not have[text] and #new < 2 then

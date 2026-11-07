@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own screen, reached through game/ui/sets.lua: docs/design/rule-sets.md)
 -- Character sheets (real-session pass): open one from a player's panel on game night, their
 -- card on the prep board, or the party page of your notes. Two pages: the sheet (abilities,
 -- saves, skills, attacks, spells) and everything the character can do (features in full).

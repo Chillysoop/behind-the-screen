@@ -47,7 +47,7 @@ return {
         { "Guiding Bolt, and I call the angle so Pip gets advantage on the next one. There's no next one.", arch = "tactician" },
         { "I don't swing. I just stand there, glowing, until {boss} gives up. Then I swing.", arch = "instigator" },
         { "Oswin sits down afterwards, very tired, and pours tea. Nobody knows where the tea came from.", arch = "casual" },
-        { "One spell slot left. I spend it. Worth it.", arch = "power_gamer" },
+        { "One spell slot left. I spend it. Worth it.", arch = "power_gamer", rules = "5e" },
         { "The light goes out of {boss}'s eyes, and comes back into the room." },
         { "My mace, my god, and a very firm opinion. In that order." },
         { "I heal Brannoc first, then deal with {boss}. Priorities.", arch = "tactician" },

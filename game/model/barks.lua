@@ -68,7 +68,7 @@ local FACT = {
     never = function() return false end,
     spell_fire_bolt = function(mo) return mo.spell == "Fire Bolt" end,
     spell_sacred_flame = function(mo) return mo.spell == "Sacred Flame" end,
-    spell_bless = function(mo) return mo.spell == "Bless" end,
+    spell_bless = function(mo) return mo.spell == "Bless" end,      -- rules: 5e
     survivors = function(mo) return mo.survivors == true end,
     no_slots = function(mo) return mo.no_slots == true end,
     cleric = function(mo) return mo.class == "cleric" end,
@@ -188,7 +188,7 @@ function M.made(night, trigger, p, mo)
     local week = camp and camp.week or 0
     for i, l in ipairs(pool) do
         local id = "made." .. trigger .. "." .. p.key .. "." .. i
-        local text = (not l.when or FACT[l.when](mo)) and filled(l[1], v) or nil
+        local text = (not l.when or FACT[l.when](mo)) and require("game.model.ruleset").fits(l) and filled(l[1], v) or nil
         local w = text and said["made:" .. text]
         if text and not night.made_used[id] and not (w and week - w < 3) then
             table.insert(out, { id = id, text = text })

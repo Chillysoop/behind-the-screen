@@ -1353,7 +1353,7 @@ local function top_bar(app, prep)
     local lv = c:level_status()
     if lv.ready then
         kit.button(1252, 12, 92, 42, "Level up", function()
-            util.lazy("game.ui.levelup_view").level_up(app)
+            require("game.ui.sets").part("levelup_view").level_up(app)
         end, { font = "ui18b", color = lv.overdue and kit.rgba("#8a4a2a") or theme.button, key = "level_up" })
         kit.dot(1256, 16, 12, theme.orange)
     end

@@ -438,7 +438,7 @@ function M.key(x, y, w)
         { "P", theme.gold, "The heroes start here" },
         { "M", theme.red, "The monsters start here" },
         { "", TRAP, "A trap, hidden till stepped on" },
-        { "", kit.rgba("#4a3626", 0.85), "Cover: +2 to AC, +5 at 3/4" },
+        { "", kit.rgba("#4a3626", 0.85), require("game.model.ruleset").current().words.cover_legend },
         { "", kit.rgba("#1b1714", 0.75), "Blocks the way and the view" },
     }
     local kw = (w - 24) / 3

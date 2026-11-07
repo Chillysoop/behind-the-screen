@@ -607,7 +607,7 @@ local function has_spell(night, p, spell)
     if not pc then
         return false
     end
-    for _, list in ipairs({ pc.prepared or {}, pc.cantrips or {}, pc.rituals or {} }) do
+    for _, list in ipairs({ pc.prepared or {}, pc.cantrips or {}, pc.rituals or {} }) do      -- rules: 5e (its ways dig with spells)
         for _, sp in ipairs(list) do
             if sp == spell then
                 return true

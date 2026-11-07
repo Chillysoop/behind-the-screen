@@ -120,7 +120,7 @@ local S0 = {
         },
         dice = {
             name = "Your screen",
-            about = "Behind your screen: your rolls, and the DCs (the number to beat).",
+            about = "Behind your screen: your rolls, and the numbers they need to beat.",
             order = { "big_open", "open", "screen" },
             big_open = { name = "Big moments in the open", like = { mara = 1, dev = 1, jess = 0, sam = 1 },
                          says = { dev = "Crits and deaths where I can see them. Good." } },

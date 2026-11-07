@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own screen, reached through game/ui/sets.lua: docs/design/rule-sets.md)
 -- Fights on the mat, readable at a glance (real-session pass): a hit point bar over every
 -- mini (heroes and monsters), the conditions they're under, the turn order along the top
 -- with whoever's acting lit up, and spell areas and zones laid on the mat as tinted squares

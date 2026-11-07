@@ -199,8 +199,10 @@ for _, path in ipairs(shared) do
         if path ~= "game/model/rng.lua" and string.find(line, ":d20%(") then
             fail("ROLLS " .. path .. " rolls a d20 itself (the rule set picks the dice): " .. line:gsub("^%s+", ""))
         end
+        -- (A line of shared code that's only ever about one set's things says so: "-- rules: 5e" at its end.)
+        local line_set = string.match(line, "%-%- rules: ([%w_]+)")
         for _, w in ipairs(WORDS) do
-            if string.find(line, w) then
+            if not line_set and path ~= "game/model/rng.lua" and string.find(line, w) then
                 n = n + 1
                 break
             end
@@ -244,21 +246,25 @@ local function walk(v, seen, tally)
             return
         end
         for k, x in pairs(v) do
-            if k ~= "match" then         -- (a glossary term's patterns aren't shown: its words are)
+            if k ~= "match" and k ~= "fits" then     -- (a glossary term's or a bark's patterns aren't shown: their words are)
                 walk(x, seen, tally)
             end
         end
     end
 end
+local json = require "game.model.jsonlite"
 for _, path in ipairs(shared) do
     local mod = string.match(path, "^game/data/([%w_]+)%.lua$")
+    local data, ok
     if mod then
-        local ok, data = pcall(require, "game.data." .. mod)
-        if ok and type(data) == "table" then
-            local tally = { n = 0 }
-            walk(data, {}, tally)
-            counts[path] = tally.n
-        end
+        ok, data = pcall(require, "game.data." .. mod)
+    elseif string.find(path, "%.json$") then
+        ok, data = pcall(json.decode, read(path))
+    end
+    if ok and type(data) == "table" then
+        local tally = { n = 0 }
+        walk(data, {}, tally)
+        counts[path] = tally.n
     end
 end
 for path, mods in pairs(leaks) do
@@ -266,7 +272,10 @@ for path, mods in pairs(leaks) do
         local k = path .. " " .. mod
         seen_known[k] = true
         if not known.REQUIRES[k] then
-            fail("REQUIRE " .. path .. " reaches the 5e engine directly (game.rules." .. mod .. "): go through the rule set")
+            local owned_name = string.match(mod, "^owned (.+)$")
+            fail("REQUIRE " .. path .. (owned_name and (" names a set's own module (" .. owned_name .. "): go through "
+                .. "ruleset.part, or game/ui/sets.lua for a screen") or (" reaches the 5e engine directly (game.rules." .. mod
+                .. "): go through the rule set")))
         end
     end
 end

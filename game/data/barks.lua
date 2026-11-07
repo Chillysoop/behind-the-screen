@@ -113,10 +113,10 @@ M.made = {
         dev = {
             { "{Foe} hits like a truck." },
             { "{Dmg} damage?! From {foe}?!" },
-            { "{Hp} hit points left. I'm fine. {char}'s fine." },
+            { "{Hp} hit points left. I'm fine. {char}'s fine.", rules = "5e" },
         },
         mara = {
-            { "That's {dmg} hit points. I had plans for those." },
+            { "That's {dmg} hit points. I had plans for those.", rules = "5e" },
             { "{Hp} left. Could someone please do something about {foe}?" },
         },
         jess = {
@@ -125,7 +125,7 @@ M.made = {
         },
         sam = {
             { "{Foe} hits hard. Can we not stand next to {foe}?" },
-            { "{Hp} hit points. {char} is fine. {char} is very fine." },
+            { "{Hp} hit points. {char} is fine. {char} is very fine.", rules = "5e" },
         },
     },
     down_self = {
@@ -169,7 +169,7 @@ M.made = {
     },
     fight_chat = {
         dev = {
-            { "Round {round}. How many hit points does {foe} even have?" },
+            { "Round {round}. How many hit points does {foe} even have?", rules = "5e" },
             { "{Left} of them left. Come and get it.", when = "more_left" },
         },
         mara = {
@@ -302,7 +302,7 @@ M.told = {
                    "With {target} on the floor, {mech} stops dead and waits for an order that doesn't come.",
                    "{mech} goes still the moment {target} drops." },
     -- A natural 20 on a death save: back up with 1 hit point (SRD 5.2.1).
-    nat20_save = { "Natural 20 on the death save: {char}'s eyes snap open, and {char_they're} back on {char_their} feet.",
+    nat20_save = { rules = "5e", "Natural 20 on the death save: {char}'s eyes snap open, and {char_they're} back on {char_their} feet.",
                    "A twenty! {char} gasps awake on the floor and gets up, swaying.",
                    "The die says twenty. {char} sits bolt upright, alive, and grabs a weapon." },
     -- A lost fight with every hero on the floor (round three, A6), and the friend who says something.
@@ -313,16 +313,16 @@ M.told = {
     -- A hero at 0 hit points (the fourth playtest: "Pip goes down, and doesn't get up. Death saves." five times in one
     -- fight, up again each time; the same line for all 18 knockouts in the Sheep Chase). Said by fight.lua's react,
     -- fresh, and never "doesn't get up": a heal, a potion or a natural 20 can have them up again. {char}: the hero.
-    knocked_down = { "{char} goes down. Death saves.",
+    knocked_down = { rules = "5e", "{char} goes down. Death saves.",
                      "{char} hits the floor at 0 hit points. Death saves.",
                      "That drops {char}: 0 hit points, and death saves from here.",
                      "{char} is out cold, and rolling death saves." },
     -- (Knocked out and Stable, not dying: the Sentinel's fists. No death saves to roll.)
-    knocked_out = { "{char} is knocked out cold. Stable: no death saves.",
+    knocked_out = { rules = "5e", "{char} is knocked out cold. Stable: no death saves.",
                     "That knocks {char} out, breathing but out of it. No death saves for this one.",
                     "{char} drops, knocked out. Stable, so no death saves." },
     -- (Down a second time in the same fight.)
-    knocked_down_again = { "{char} is down again. Back to death saves.",
+    knocked_down_again = { rules = "5e", "{char} is down again. Back to death saves.",
                            "And {char} drops again. Death saves.",
                            "{char} is back on the floor. Death saves again." },
     -- A hero back on their feet while the table grieves ({lost}: who they lost).

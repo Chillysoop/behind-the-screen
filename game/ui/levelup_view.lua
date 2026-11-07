@@ -1,3 +1,4 @@
+-- rules: 5e   (5e's own screen, reached through game/ui/sets.lua: docs/design/rule-sets.md)
 -- The level-up moment (M6): a modal over the report or the prep board. At level 3
 -- everyone picks a subclass on their own, and says why; at level 4 everyone takes
 -- an Ability Score Improvement.

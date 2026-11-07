@@ -5,7 +5,7 @@ local theme = require "game.ui.theme"
 local score = require "game.model.score"
 local empathy = require "game.model.empathy"
 local util = require "game.model.util"
-local levelup_view = require "game.ui.levelup_view"
+local levelup_view = require("game.ui.sets").screen("levelup_view")
 local keepsakes = require "game.model.keepsakes"
 local panels = require "game.ui.panels"
 

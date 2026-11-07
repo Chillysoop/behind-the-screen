@@ -478,7 +478,7 @@ local function tab_party(app, x, y, w, h)
         end
         -- What they carry (items.lua, as on their sheet), each with what it does on hover (the third
         -- playtest: "Picked up: the Mech manual (Oswin has it)", and the party page didn't list it).
-        local sheet_view = util.lazy("game.ui.sheet_view")
+        local sheet_view = require("game.ui.sets").part("sheet_view")
         local carried = sheet_view.carrying(c, ruleset.engine("sheet").build(c, p.key))
         py = head(px + 14, py + 6, "Carrying")
         if #carried == 0 then

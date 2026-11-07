@@ -309,6 +309,10 @@ function M:pick(trigger, speaker, ctx)
         if ok and ctx.fits and not ctx.fits(l) then
             ok = false
         end
+        -- (A line that's one rule set's, "rules", only in that set's adventures: docs/design/rule-sets.md.)
+        if ok and l.rules and not require("game.model.ruleset").fits(l) then
+            ok = false
+        end
         if ok and l.again and ctx.again == false then
             ok = false
         end

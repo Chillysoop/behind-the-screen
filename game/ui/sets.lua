@@ -11,6 +11,9 @@ local M = {}
 M.SCREENS = {
     ["5e"] = {
         fight_steps = function() return require "game.ui.fight_steps_5e" end,
+        battle_hud = function() return require "game.ui.battle_hud" end,
+        levelup_view = function() return require "game.ui.levelup_view" end,
+        sheet_view = function() return require "game.ui.sheet_view" end,
     },
 }
 
@@ -22,6 +25,16 @@ function M.part(name)
         error(tostring(set.title or set.id) .. " has no " .. tostring(name) .. " screen (docs/design/rule-sets.md: no leaks)", 2)
     end
     return load()
+end
+
+-- The same, as a stand-in a screen can hold from load time (`local battle_hud = sets.screen("battle_hud")`): every
+-- field read goes to the current set's screen at that moment.
+function M.screen(name)
+    return setmetatable({}, {
+        __index = function(_, k)
+            return M.part(name)[k]
+        end,
+    })
 end
 
 return M

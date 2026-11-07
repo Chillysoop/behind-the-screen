@@ -81,7 +81,7 @@ function M.draw(app)
     end
     local st = npcs.stats(n)
     if st then
-        local line = "In a fight: " .. util.int(st.hp or 0) .. " Hit Points, Armor Class " .. util.int(st.ac or 0)
+        local line = util.fill(require("game.model.ruleset").current().words.npc_fight, { hp = util.int(st.hp or 0), ac = util.int(st.ac or 0) })
             .. (st.cr and (", Challenge " .. tostring(st.cr)) or "") .. "."
         kit.text(tx, ty, line, "ui18", theme.text, { w = tw })
         ty = ty + kit.text_height(line, "ui18", tw) + 8

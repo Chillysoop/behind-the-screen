@@ -2453,11 +2453,15 @@ function M.rule_line_ok(text, card)
 end
 
 function M.behavior_line_ok(night, line, p)
-    if night.tb_card and not M.rule_line_ok(type(line) == "table" and line.text or line, night.tb_card) then
+    -- (A line that's one rule set's, `rules`, is said only in that set's adventures, and read like a plain one.)
+    if night.tb_card and not M.rule_line_ok(type(line) == "table" and (line.text or (line.rules and line[1])) or line, night.tb_card) then
         return false
     end
     if type(line) ~= "table" then
         return true
+    end
+    if line.rules and not ruleset.fits(line) then
+        return false
     end
     if line.late then
         local late = night.campaign.adv and night.campaign.adv.late

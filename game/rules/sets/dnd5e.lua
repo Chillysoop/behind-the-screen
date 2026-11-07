@@ -79,6 +79,8 @@ M.words = {
     tile_sneak = { "Sneak Attack", "Extra damage once a turn when the rogue has Advantage or an ally next to the target. It never runs out." },
     roll_hover = "The die, what it was for, and the total against what it needed: AC is how hard the target is to hit, "
         .. "DC the number a check or a save has to reach. Green: it worked. Red: it didn't. Gold: a natural 20.",
+    cover_legend = "Cover: +2 to AC, +5 at 3/4",
+    npc_fight = "In a fight: {hp} Hit Points, Armor Class {ac}",
     -- (The board's light, over the whole map.)
     light = {
         bright = "Daylight, or a well-lit room. Everyone sees.",
@@ -152,7 +154,7 @@ M.owns = {
     "spell slot", "hit points", "Hit Dice", "%f[%w]HP%f[%W]", "%f[%w]AC%f[%W]", "Armor Class", "saving throw", "death save",
     "Heroic Inspiration", "Proficiency", "cantrip", "short rest", "long rest", "%f[%w]Insight%f[%W]", "%f[%w]Arcana%f[%W]",
     "%f[%w]Perception%f[%W]", "%f[%w]Investigation%f[%W]", "%f[%w]Persuasion%f[%W]", "%f[%w]Stealth%f[%W]",
-    "%f[%w]Athletics%f[%W]", "%f[%w]Concentration%f[%W]", "%f[%w]Bless%f[%W]", "Cure Wounds", "Healing Word", "Detect Magic",
+    "%f[%w]Athletics%f[%W]", "%f[%w]Concentration%f[%W]", "Cure Wounds", "Healing Word", "Detect Magic",
 }
 
 -- A hero's bonus for an approach: ability modifier and Proficiency Bonus (twice it with Expertise).

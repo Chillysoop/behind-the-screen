@@ -25,7 +25,7 @@ local M = {}
 -- next week (up to CARRY_MAX), set when the night starts (campaign.lua).
 M.SPARE = {
     { id = "rest", cost = 1, name = "Get a good night's sleep",
-      what = "+1 to every read of the table tonight (your Insight rolls on their thoughts)." },
+      what = "+1 to every read of the table tonight (your rolls on their thoughts)." },
     { id = "backup", cost = 1, name = "Write a backup page",
       what = "The first room tonight you didn't prep (a side room, a detour, one past tonight's) plays as if you had." },
 }
