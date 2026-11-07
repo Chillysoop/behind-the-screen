@@ -57,7 +57,7 @@ function M.find_project()
     end
     local function is_project(dir)
         local s = read_file(dir .. "/game.project")
-        return s and string.find(s, "Behind the Screen", 1, true) and dir or nil
+        return s and string.find(string.lower(s), "behind the screen", 1, true) and dir or nil
     end
     local app = sys.get_application_path()
     local listed = read_file(app .. "/project_path.txt")

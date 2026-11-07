@@ -3,7 +3,7 @@ main_collection = /main/main.collectionc
 render = /render/cozy.renderc
 
 [project]
-title = Behind the Screen
+title = Behind The Screen
 version = 0.1.0
 developer = Conner
 custom_resources = /game/data/dialogue

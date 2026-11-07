@@ -1,5 +1,5 @@
-BEHIND THE SCREEN v2 - The Museum of Nightmares (playtest build)
-=================================================================
+BEHIND THE SCREEN - The Museum of Nightmares (playtest build)
+=============================================================
 
 Thank you for playing! You're the Dungeon Master for four friends who meet once a
 week to play a fantasy tabletop game. This build runs one real published adventure
@@ -192,7 +192,7 @@ title card lists them all.
 STARTING
 --------
 1. Unzip the whole folder somewhere (your Desktop is fine). Don't run it from inside the zip.
-2. Open "BehindtheScreen.exe".
+2. Open "BehindTheScreen.exe".
 3. Windows may say "Windows protected your PC", because this test build isn't signed.
    Click "More info", then "Run anyway".
 4. A short note says what this prototype is (and isn't). Click "Agree" to start.
