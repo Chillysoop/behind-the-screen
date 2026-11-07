@@ -380,8 +380,14 @@ function M.compile(src)
         end
     end
     mod.start = (mod.start and mod.rooms[mod.start]) and mod.start or mod.order[1]
-    -- (Its creatures join the rules' roster, under their own ids, so a fight can build them.)
-    local roster = ruleset.part("data.monsters")
+    -- (Its creatures join its own rule set's roster, under their own ids, so a fight can build them: the adventure's
+    -- set, never whichever was on when it loads. Switching from a 5e adventure to a Death in Space one used to file
+    -- its foes under 5e's.)
+    local own = ruleset.get(src.rules)
+    local roster = own.engine and own.engine["data.monsters"]
+    if not roster then
+        error(tostring(src.title) .. "'s rule set has no roster for its creatures (docs/design/rule-sets.md)")
+    end
     for id, block in pairs(M.creatures(src, roster)) do
         if not roster[id] then
             roster[id] = block

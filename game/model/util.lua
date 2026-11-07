@@ -73,12 +73,9 @@ M.PRONOUNS = {
            ["they've"] = "it's", ["they'll"] = "it'll", ["they'd"] = "it'd" },
 }
 local pronoun_names
--- (Built once from the adventure's cards and people; adventure.use starts it again for the next adventure.)
+-- (Built once from the adventure's cards and people; adventure.use starts it again for the next adventure, and
+-- adventure.enter again when the adventure brings heroes of its own.)
 function M.reset_pronouns()
-    pronoun_names = nil
-end
--- (Who's who changes when an adventure brings its own heroes: adventure.enter forgets the names it knew.)
-function M.forget_pronouns()
     pronoun_names = nil
 end
 

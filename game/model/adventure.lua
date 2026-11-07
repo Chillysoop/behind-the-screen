@@ -278,7 +278,7 @@ function M.enter(campaign)
                 end
             end
         end
-        util.forget_pronouns()
+        util.reset_pronouns()
         -- Session Zero for this adventure: its pitch and the asks that touch what's in it, over
         -- the shared one (same keys, so everything that reads them still does).
         local s0, ms0 = content.session_zero, MODULE.session_zero
