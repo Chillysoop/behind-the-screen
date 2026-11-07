@@ -86,10 +86,21 @@ function M.run(night, sc)
             v.char = p.char
             night:emit({ kind = "say", who = p.key, ic = true, text = util.capitalize(words(night, M.GO, "story_go", v)) })
             local approach, mod = night:best_skill(p, set.story_approaches or {})
-            local r = set.check(night.rng, { mod = mod or 0, dc = dc })
+            -- (The set's own edge: Death in Space's void points, spent when it matters.)
+            local edge, note
+            if set.edge then
+                edge, note = set.edge(night.campaign, p, { dc = dc, mod = mod or 0, big = true })
+                if note then
+                    night:say(util.fill(night:fresh(set.words[note.kind], note.kind), note.vars), "dice")
+                end
+            end
+            local r = set.check(night.rng, { mod = mod or 0, dc = dc, edge = edge })
             night:emit({ kind = "check", text = set.line(p.char, approach, r), roll = r.roll, bonus = r.mod, total = r.total,
                          dc = dc, success = r.success, actor = p.key, char = p.char, skill = approach,
                          skill_name = set.name(approach), crit = r.crit, fumble = r.fumble, tier = r.tier, story = true })
+            if night.set_after_check then
+                night:set_after_check(p, r, note)
+            end
             local tier = r.tier
             night:say(words(night, M.SAID[tier], "story_" .. tier, v), (tier == "triumph" or tier == "success") and "good" or "bad")
             if tier == "triumph" then

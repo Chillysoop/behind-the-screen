@@ -12,6 +12,7 @@ local M = {}
 -- (Listed by name, so the build takes every one: require_check.py.)
 M.SETS = {
     ["5e"] = require "game.rules.sets.dnd5e",
+    ["dis"] = require "game.rules.sets.dis",
 }
 
 function M.get(id)

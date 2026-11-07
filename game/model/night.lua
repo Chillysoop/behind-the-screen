@@ -675,8 +675,23 @@ function M:take_research(p, skill)
     return 2
 end
 
+-- What the rule set says after a check (Death in Space: a miss is a void point, a spent one that misses may leave a
+-- mark), in its own words, three ways.
+function M:set_after_check(p, r, spent)
+    if not rules().after_check then
+        return
+    end
+    for _, s in ipairs(rules().after_check(self.campaign, p, r, self.rng, spent)) do
+        self:say(util.fill(self:fresh(W()[s.kind], s.kind), s.vars), "dice")
+    end
+end
+
 function M:mod_for(p, skill)
     local c = self.campaign
+    -- (A set whose heroes carry their own numbers says them: Death in Space's abilities, on the adventure's sheets.)
+    if rules().hero_mod then
+        return rules().hero_mod(c, p, skill)
+    end
     local sub = c.subclasses and c.subclasses[p.class]
     -- Magic items: the Luckstone, the Gloves when there's climbing or swimming (A13).
     return rules().mod(p.class, skill, c.level or 2, sub)
@@ -2113,6 +2128,15 @@ function M:hero_action(sc, dc, spots)
     -- An item's Advantage (Boots of Elvenkind, Eyes of the Eagle, A13): a second die, the better counts.
     local iedge, item_edge = require("game.model.items").check_edge(self.campaign, p.key, a.skill, a.topic)
     local edge = iedge and "adv" or nil
+    -- (The set's own edge, when its players hold one to spend: Death in Space's void points.)
+    local spent
+    if not edge and rules().edge then
+        local e, note = rules().edge(self.campaign, p, { dc = dc, mod = mod })
+        if e then
+            edge, spent = e, note
+            self:say(util.fill(self:fresh(W()[note.kind], note.kind), note.vars), "dice")
+        end
+    end
     local roll = rules().die(self.rng)
     local other_roll
     if edge then
@@ -2152,7 +2176,7 @@ function M:hero_action(sc, dc, spots)
     local text = p.char .. ": " .. name .. " " .. util.int(roll) .. rules().signed(mod) .. " = " .. util.int(total)
         .. " vs " .. rules().difficulty_word .. " " .. util.int(dc) .. ", " .. result
     if edge then
-        text = text .. " (advantage: " .. item_edge .. "; the other die was " .. util.int(other_roll) .. ")"
+        text = text .. " (advantage: " .. (item_edge or (spent and W().void) or "an edge") .. "; the other die was " .. util.int(other_roll) .. ")"
     end
     table.insert(self.checks, success)
     -- Stared down before a fight: whoever they faced goes for them first, for a few rounds (the
@@ -2219,6 +2243,7 @@ function M:hero_action(sc, dc, spots)
                 actor = p.key, char = p.char, skill = a.skill, skill_name = name, crit = roll == 20,
                 fumble = roll == 1, spot = spot, edge = edge, other_roll = other_roll,
                 progress = self:progress_view(sc) })
+    self:set_after_check(p, { success = success, roll = roll, total = total }, spent)
     -- How it lands in the story, then at the table.
     -- (A second miss at the same move isn't the first miss again, word for word: the second playtest.)
     local landed = success and a.win or ((retry and self:fresh(RETRY_LOSE, "retry_lose")) or a.lose)
@@ -2656,6 +2681,9 @@ end
 M.INSPIRE_SAY = { "Wait, I've got inspiration. I'm using it.", "Hang on. Inspiration. Rerolling that.",
                   "I'm spending my inspiration on this one.", "Nope. Inspiration. Again." }
 function M.spends_inspiration(p, roll, mod, dc, kind)
+    if ruleset.current().inspiration == false then
+        return false        -- (a set with no reroll token: Death in Space)
+    end
     if not (p and p.heroic) then
         return false
     end
@@ -2699,6 +2727,9 @@ end
 -- time. One offer a night, never to someone already holding one, and only while the night has
 -- calls to spare. why: what they did, said on the card.
 function M:offer_inspiration(p, why)
+    if rules().inspiration == false then
+        return
+    end
     if not p or p.heroic or self.inspiration_given or self.inspiration_offered or not self:room(13) then
         return false
     end
