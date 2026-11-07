@@ -23,6 +23,21 @@ M.rooms = {
         people = { { cast = "sh_teddy", at = "bar" }, { cast = "sh_shinebright", at = "tables" } },
         items = { { id = "speak_scroll", at = "tables", note = "in the sheep's mouth" } },
     },
+    -- (The inn sheet has the rooms and Sir Luenn as colour; the side quest in them, Wenna and Hobb, is ours.)
+    inn_upstairs = {
+        source = "inn",
+        sees = "five bedrooms, two of them shared, and a sitting room round a great hearth",
+        ours = { what = "Sir Luenn's missing ring and the accused maid", instead = "the sheet has the rooms, and Sir Luenn staying in one" },
+        people = { { cast = "sh_luenn", at = "luenn_room" }, { cast = "sh_wenna", at = "luenn_room" } },
+    },
+    inn_cellar = {
+        source = "inn",
+        sees = "barrels, spirits, sacks of dry goods, cobwebs, a clay floor, the trapdoor and the storm doors",
+        ours = { what = "a pack rat's nest of the inn's lost things, with the ring in it", instead = "the sheet has the cellar's stores and its spiders" },
+        foes = { { cast = "pack_rat", start = "hidden", wakes = "the nest disturbed", at = "nest" },
+                 { cast = "cellar_rats", n = 2, start = "hidden", wakes = "the nest disturbed", at = "nest" } },
+        items = { { id = "signet_ring", at = "nest" } },
+    },
     woods_path = {
         pages = { 4 },
         sees = "a well-used path into the oaks, the ground churned by feet and paws",

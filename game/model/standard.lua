@@ -19,6 +19,7 @@
 --             cast = "<person id>",                                  -- who's here to talk to (M.people)
 --             foes = { "<creature id>", ... }, boss_name = "...",    -- who fights them (M.creatures)
 --             optional_fight = true, quick = true, stop = true, rest = true,
+--             leaves = { "<place id>", ... },                        -- walking in leaves these behind for good
 --             snag = { name, line, skill = {...} }, prize = { name, line, got } }
 -- And a story event with `options` (game night's choice records: label, want, short, lean, log, roll, mus, tells,
 -- when) plays as a moment where it happens (`at`), at the start of the scene, mid-way or at its end (`when`).
@@ -249,6 +250,14 @@ local function moment_of(mod, ev, rooms)
     if #opts == 0 then
         opts = { { label = "Go on.", short = "go on", lean = "safe", effects = {} } }
         see = ev.see == nil and true or ev.see
+        -- (What it sets, when it plays: the heap in the cellar is theirs once the rats are gone.)
+        if ev.sets and ev.sets[1] then
+            local more = {}
+            for i = 2, #ev.sets do
+                table.insert(more, ev.sets[i])
+            end
+            opts[1].mus = { flag = ev.sets[1], flags = (#more > 0) and more or nil }
+        end
     end
     -- (What the event itself tells the table, whichever way it goes: Shinebright's story.)
     if ev.tells then
@@ -340,7 +349,7 @@ function M.compile(src)
             quick = sc.quick, at = sc.at_map or M.map_at(i, #list), map = sc.map or pl.name, comps = comps,
             encounter = (#foes > 0) and foes or nil, boss_name = sc.boss_name, optional_fight = sc.optional_fight,
             read = pl.read, sum = sc.sum or pl.read, next = nxt, knobs = {}, stop = sc.stop, rest = sc.rest, on = pl.on,
-            hurry_on = sc.hurry_on,
+            hurry_on = sc.hurry_on, leaves = sc.leaves,
             level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,
         }
         -- (Where one of its foes starts, when not with the rest: Noke up on the platform above the yard.)

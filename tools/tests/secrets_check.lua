@@ -119,7 +119,8 @@ local KINDS = { check = true, ask = true, read = true, see = true, spell = true,
 for _, key in ipairs(secrets.list()) do
     local d = secrets.def(key)
     add("DATA", "secrets")
-    if not d.page then fail("DATA", key .. ": no page") end
+    -- (A page in the book, or `ours`: a secret the game adds, never passed off as the book's.)
+    if not d.page and not d.ours then fail("DATA", key .. ": no page") end
     if not d.type or not (secrets.DEFAULTS[d.type] or d.defaults == false) then fail("DATA", key .. ": no kind of holder (type)") end
     if not d.tell or #d.tell == 0 then fail("DATA", key .. ": nothing for the DM to say when it comes out (tell)") end
     if d.parts and not d.needs then fail("DATA", key .. ": told a piece at a time, but doesn't say which pieces it needs") end

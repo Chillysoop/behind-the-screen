@@ -51,6 +51,11 @@ M.keeps = {
     { id = "oak_house", text = "Noke's Tower, if they take it, and the nobles who'll come asking for Noke",
       when = { flag = "took_house" }, page = 6 },
     { id = "lab_gear", text = "Lab gear and arcane odds and ends worth about 1,000 gp", when = { flag = "looted" }, page = 6 },
+    -- (Ours: the side quest at the inn, and the museum's mountain road.)
+    { id = "luenn_gold", text = "Sir Luenn's twenty gold, for finding his ring", when = { flag = "ring_back" } },
+    { id = "inn_friends", text = "Friends at the Bogden Road Country Inn: Wenna, and Teddy", when = { flag = "wenna_thanked" } },
+    { id = "hobbs_word", text = "Hobb's word on the death up the mountain road: the messenger was carried to where he was found",
+      when = { flag = "drover_talked" } },
 }
 M.money = { coins = { "gp", "sp", "cp" }, note = "Rooms in silver, meals and drink in copper (inn sheet)." }
 
@@ -79,6 +84,22 @@ M.hooks = {
 M.content = {
     animals = { inn_common = "wolves in iron collars, and people trapped in beasts' bodies" },
     body_horror = { hall = "a man turned into a heap of mouths and eyes by a wand that misfires" },
+    spiders = { inn_cellar = "a cellar full of webs, and the spiders that spin them" },
+}
+
+-- Where the table can go next, when there's more than one way (museum_night.fork): after the common room, up the
+-- stairs, down to the cellar, or out onto the road. What they see from where they stand, and what each way is.
+M.forks = { hub = { title = "Where now?", text = "Stairs up, a trapdoor down, and the road outside." } }
+M.fork_at = {
+    inn_common = { text = "Tables going back on their legs. Stairs up to the rooms, the cellar trapdoor behind the bar, and the "
+                       .. "front door onto the lord's road." },
+    inn_upstairs = { text = "Back down the stairs into the warm: the cellar trapdoor behind the bar, and the road outside." },
+    inn_cellar = { text = "Up the ladder into the common room: the stairs to the rooms, and the road outside." },
+}
+M.pull = {
+    inn_upstairs = { label = "Up the stairs to Sir Luenn's room", want = "to look into Sir Luenn's ring", tags = { "mystery", "funny" } },
+    inn_cellar = { label = "Down through the trapdoor, into the cellar", want = "to poke about in the cellar", tags = { "explore", "danger" } },
+    woods_path = { label = "Out onto the lord's road with the sheep", want = "to get going with the sheep", tags = { "action", "explore" } },
 }
 
 -- Places, by layer ----------------------------------------------------------------------------------------------------
@@ -134,16 +155,44 @@ M.places = {
                          win_if = { { when = { flag = "guz_left" }, text = "The sheep stays put, and the common room goes back to its drinks." } },
                          lose = "Guz's lot go out through the door with the sheep under the half-orc's arm.",
                          got = "a sheep with a wizard inside" } } },
-    { id = "inn_upstairs", name = "Upstairs", layer = "area", ["in"] = "inn", source = "inn",
+    -- (The inn's upstairs and cellar, from the inn sheet, play as two short scenes off the common room, after Guz: the
+    -- table picks one, both or neither, and setting off for the woods leaves them behind. What happens in them is ours
+    -- (Conner, November 6: "fun exploration, with a mini side quest"): Sir Luenn's missing ring. A carried-on party
+    -- also finds the museum's loose end there: a drover down off the mountain road, and what he saw.)
+    { id = "inn_upstairs", name = "The rooms upstairs", layer = "area", ["in"] = "inn", source = "inn",
       read = "Five bedrooms, two of them shared, and a big sitting room round a great hearth where people tell "
           .. "stories into the night.",
-      spots = { "sitting_room", "hearth", "shared_rooms", "private_rooms", "stairs" }, exits = { { to = "inn_common" } } },
+      spots = { "sitting_room", "hearth", "shared_rooms", "sargents_room", "luenn_room", "stairs" }, exits = { { to = "inn_common" } },
+      scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "Sir Luenn's missing ring, and a look round the rooms.",
+                cast = "sh_luenn", cast_line = "A pale young noble, dressed far too well for the road, and in a temper.",
+                goal = { name = "Sir Luenn's ring", aim = "look into Sir Luenn's ring", short = "find the ring",
+                         line = "Goal: find out what happened to Sir Luenn's ring.",
+                         line_if = { { when = { flag = "ring_back" }, text = "Goal: a look round upstairs, now the ring's back where it belongs." } },
+                         win = "They've had a good look round upstairs.",
+                         win_if = { { when = { flag = "ring_back" }, text = "Sir Luenn has his ring, and nobody's blaming Wenna." },
+                                    { when = { flag = "ring_clue" }, text = "They've a good idea where the ring went: down." } },
+                         lose = "Nobody upstairs can say where the ring went.", got = "a look at Sir Luenn's room" } } },
     { id = "inn_cellar", name = "The cellar", layer = "area", ["in"] = "inn", source = "inn",
-      read = "Barrels of beer, spirits, sacks of dry goods and a good many spiders. The old mud floor has turned to "
-          .. "clay, and the place reeks of mildew.",
+      -- (The inn sheet's spiders are in the room's content, M.content: Sam's veil keeps them off screen.)
+      read = "Barrels of beer and spirits, sacks of dry goods, and cobwebs in every corner. The old mud floor has turned "
+          .. "to clay, and the place reeks of mildew.",
       note = "Dark but for what comes in when the storm doors are open.",
-      spots = { "barrels", "trapdoor", "storm_doors" },
-      exits = { { to = "inn_common", by = "the trapdoor" }, { to = "inn_yard", by = "the storm doors" } } },
+      spots = { "barrels", "sacks", "nest", "floor", "corners", "ladder", "storm_doors" },
+      exits = { { to = "inn_common", by = "the trapdoor" }, { to = "inn_yard", by = "the storm doors" } },
+      scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "The inn's cellar, and something behind the barrels.",
+                foes = { "pack_rat", "cellar_rats", "cellar_rats" }, foes_name = "The cellar's rats", foes_short = "the rats",
+                boss_name = "the pack rat", optional_fight = true, seen = false,
+                foes_line = "Behind the last row of barrels, something rustles.",
+                wake = "The heap heaves, and rats pour out from behind the barrels, a fat grey one at their head.",
+                goal = { name = "The cellar", aim = "poke about in the cellar", short = "look round the cellar",
+                         line = "Goal: a look round the cellar.",
+                         line_if = { { when = { seen = "luenn_ring", not_flag = "ring_back" },
+                                       text = "Goal: a look round the cellar, and an eye out for Sir Luenn's ring." } },
+                         win = "They've seen what the cellar has to show.",
+                         win_if = { { when = { flag = "ring_found" }, text = "The ring's found, and the cellar's quiet again." },
+                                    { when = { flag = "rats_fought" }, text = "The rats are seen off, back into the walls." } },
+                         lose = "The rats see them off, nipped and dusty, and the heap goes back behind the barrels.",
+                         got = "what was behind the barrels" } } },
     { id = "inn_yard", name = "The loading yard", layer = "area", ["in"] = "inn", source = "inn",
       read = "Room outside for wagons to unload and horses to be tied up. On a fine day it's a stage.",
       note = "In the open, frightened onlookers make difficult ground (p2).", spots = { "stage", "hitching_rail", "gate" },
@@ -151,7 +200,9 @@ M.places = {
     { id = "woods_path", on = true, name = "The path through the oaks", layer = "site", ["in"] = "bogden_road", pages = { 4 },
       read = "A well-used path winding between tall oaks. The ground is churned with feet and paws.",
       spots = { "tracks" }, exits = { { to = "compound", by = "the path" } },
+      -- (leaves: once they're on the road, the inn's rooms they didn't look into are behind them for good.)
       scene = { clears = { flags = { "talking" }, line = "Somewhere along the path the scroll wears off. The sheep's next word comes out as a bleat." },
+                leaves = { "inn_upstairs", "inn_cellar" },
                  type = "exploration", quick = true, setting = { "outdoor", "wild" }, sum = "A walk into the oaks.",
                 goal = { name = "Follow the sheep", line = "Goal: follow the path into the oaks, and see where the sheep leads.",
                          win = "Through the last of the oaks, the tower comes into sight.",
@@ -270,6 +321,19 @@ M.people = {
       about = "Lives on his father's money and his looks, and expects to be treated accordingly; when he isn't, he's "
           .. "unbearable. Would hire adventurers as bodyguards if a fight broke out, and carries the gold and jewels to do it.",
       wants = "Courtesy, and somebody else between him and trouble", where = { "inn_upstairs" } },
+    -- (Ours, for the side quest upstairs: Teddy's niece, whom Sir Luenn blames for his ring.)
+    { id = "sh_wenna", name = "Wenna Bolandeere", short = "Wenna", tier = "named", role = "A maid, and Teddy's niece", pronoun = "she",
+      look = "Freckled and quick, flour to the elbows, her hair coming down.",
+      about = "Teddy's sister's girl, who has worked at the inn since she was small and knows every room in it. She's never "
+          .. "taken a thing, and right now nobody but her uncle believes her.",
+      wants = "Her name cleared", where = { "inn_upstairs" } },
+    -- (Ours, for a party carried on from the museum: the traveller down from the mountains that Teddy's rumour speaks of,
+    -- who found the dead man the museum's last thread is about. A later adventure on the mountain road can bring him back.)
+    { id = "sh_drover", name = "Hobb Marrow", short = "Hobb", tier = "named", role = "A drover down off the mountain road", pronoun = "he",
+      look = "Weathered and silent, a hat turning round and round in his hands.",
+      about = "Brought a string of mules down the mountain road and hasn't said ten words since. He found the dead man up "
+          .. "there, and he was carrying something of the dead man's home to his mother, until it went missing in the night.",
+      wants = "What he lost, back, and someone to tell" },
     { id = "inn_staff", name = "The inn's people", tier = "local", role = "Staff", source = "inn",
       about = "Two dozen of them, and half are family to the Bolandeeres, born or married in; the rest are farmers' children lucky "
           .. "to get the work. Teddy pays well, and they're loyal to him.",
@@ -332,6 +396,16 @@ M.creatures = {
                   tweaks = { attacks = { { id = "greatsword", name = "Greatsword", kind = "melee", to_hit = 5, reach = 5,
                                            damage = { { 2, 6, 3, "slashing" } } } } } },
     sheep = { core = "pony", page = 2, int = 18, wis = 14, note = "Shinebright, as a sheep." },
+    -- (Ours, the cellar's side quest: a pack rat the size of a cat, numbers like the SRD's giant rat, and the rats of its
+    -- nest as swarms. A quick scrap for a party of fourth level, or none at all if they're clever.)
+    pack_rat = { name = "Pack Rat", short = "the pack rat", size = "small", type = "beast", ac = 13, hp = 9, hit_dice = "2d6+2",
+                 speed = 30, abilities = { str = 7, dex = 16, con = 12, int = 3, wis = 10, cha = 4 }, cr = "1/8", xp = 25,
+                 traits = { "pack_tactics" },
+                 attacks = { { id = "bite", name = "Bite", kind = "melee", to_hit = 5, reach = 5, damage = { { 1, 4, 3, "piercing" } } } },
+                 flees_below = 0.5, flee_line = "%s drops what's in its teeth and dives into a crack in the clay wall.",
+                 look = "A fat grey rat the size of a cat, with something shiny always in its teeth.",
+                 tactics = "Bites from behind its swarms, and bolts for the wall when it's hurt." },
+    cellar_rats = { core = "swarm_of_rats", note = "The rest of the nest." },
     mouther = { core = "gibbering_mouther", page = 5, note = "What the wand makes of Noke, or of anyone it misfires on." },
 }
 
@@ -356,6 +430,11 @@ M.threads = {
     { id = "noke_free", name = "Noke and the wand", tags = { "noke", "polymorph", "wand" }, open_at_end = true,
       when = { flag = "taken" }, ours = true,
       text = "Noke has his master back in the garden, the wand still in his sleeve, and he knows the party's faces." },
+    -- (Ours: the museum's mountain road, picked up at the inn. What Hobb saw goes on with the party, under the same tags.)
+    { id = "hobbs_word", name = "What Hobb saw", who = "sh_drover", tags = { "mountain_road", "murder", "mountains" }, ours = true,
+      open_at_end = true, when = { flag = "drover_talked" },
+      text = "Hobb the drover found the dead clan messenger at the foot of the pass, his cloak dry after a night of rain: "
+          .. "carried there after, not fallen." },
     { id = "the_guards", name = "The changed guards", pages = { 6 }, tags = { "polymorph", "shinebright" },
       open_at_end = true, when = { flag = "restored" },
       text = "Shinebright takes in the changed guards who ran, and means to give them their shapes back." },
@@ -431,8 +510,123 @@ M.events = {
       text = "Shinebright tells it all, at length: the tower in the oaks, and the wand his apprentice Noke turned on him "
           .. "and keeps on him day and night. Guz's beasts, the bear and the wolves, were people once: Noke's guards, changed. "
           .. "Noke has more of them, and they'll come looking. He promises them riches if they'll get his wand back.", tells = { "guards_are_people", "wand_on_noke" } },
+    -- Sir Luenn's ring (ours): the side quest across the inn's upstairs and cellar. The hook comes down the stairs once
+    -- the Guz business is over; the clues are upstairs; the ring is in a pack rat's nest behind the cellar barrels.
+    { id = "luenn_ring", at = "inn_common", when_in = "end", only_if = { not_flag = "taken" }, ours = true, type = "story",
+      title = "Sir Luenn's ring",
+      text = "Boots on the stairs, and down them in a temper comes a pale young man in clothes far too good for the road: "
+          .. "Sir Luenn of Nordenin, as he tells the whole room. His father's signet ring is gone from his room, and he knows "
+          .. "who took it: the girl who made his bed. Teddy goes red to the ears. \"Wenna's my sister's girl, my lord. She's "
+          .. "never taken so much as a crust.\" Sir Luenn offers twenty gold to whoever finds the ring, and the magistrate to "
+          .. "whoever took it.",
+      -- (A party carrying the museum's mountain road: the quiet traveller Teddy's rumour spoke of lost something too.)
+      text_if = { { when = { thread = "mountain_road" },
+                    text = "Boots on the stairs, and down them in a temper comes a pale young man in clothes far too good for the "
+                        .. "road: Sir Luenn of Nordenin, as he tells the whole room. His father's signet ring is gone from his room, "
+                        .. "and he knows who took it: the girl who made his bed. Teddy goes red to the ears. \"Wenna's my sister's "
+                        .. "girl, my lord. She's never taken so much as a crust.\" Sir Luenn offers twenty gold to whoever finds the "
+                        .. "ring. By the fire, a drover down off the mountain road looks up at that, then back at his hands. "
+                        .. "\"Hobb lost something in the night as well,\" Teddy says quietly. \"Won't say what. Won't say much of "
+                        .. "anything, since he came down.\"" } } },
     { id = "sheep_taken", trigger = { on = "choice", choice = "the wolves carry the sheep off" }, page = 2,
       text = "Guz's lot make for the woods with the sheep. A chase, if anyone follows." },
+    { id = "ring_room", at = "inn_upstairs", when_in = "start", only_if = { seen = "luenn_ring", not_flag = "ring_found" }, ours = true,
+      party = true, title = "Sir Luenn's room", actor = { "explorer", "method_actor", "instigator" },
+      text = "Sir Luenn flings open his door: a good bed, a washstand, a small window, and on the washstand an open jewel box "
+          .. "with nothing in it. \"There,\" he says. \"Gone in the night.\" Wenna hovers in the doorway behind them, twisting "
+          .. "her apron.",
+      options = {
+          { label = "Look the room over.", want = "look the room over for whoever took it", short = "search the room", lean = "look",
+            roll = { dc = 12, skill = { "investigation", "perception" }, best = true,
+                     success = { log = "In the jewel box, where the ring should be, sits a beer cork stamped with the inn's B. Under "
+                                     .. "the washstand, a hole gnawed through the skirting, grey hairs caught on its edge. Something "
+                                     .. "small took the ring, and left a cork from the cellar in its place.",
+                                 mus = { flag = "ring_clue" }, tells = { "ring_thief" }, tells_how = "check" },
+                     fail = { log = "A good bed, a washstand, an empty box. Nothing that says who." } } },
+          { label = "Ask Wenna what she saw.", want = "hear Wenna's side of it", short = "ask Wenna", lean = "talk",
+            roll = { dc = 10, skill = { "insight", "persuasion" }, best = true,
+                     success = { log = "Wenna's telling the truth, and she's frightened. \"Things go missing here all the time,\" she "
+                                     .. "whispers. \"Spoons. Buttons. Mam's thimble. Uncle Teddy says it's the damp in the cellar. "
+                                     .. "Damp doesn't take thimbles.\"",
+                                 mus = { flag = "ring_clue" } },
+                     fail = { log = "Wenna just cries, and Sir Luenn says that proves it." } } },
+          { label = "Tell Sir Luenn to leave the girl alone.", want = "stand up for Wenna", short = "stand up for her", lean = "bold",
+            roll = { dc = 13, skill = { "persuasion", "intimidation" }, best = true,
+                     success = { log = "Sir Luenn opens his mouth, shuts it again, and allows that he'll wait for proof. Wenna gives "
+                                     .. "them a look of pure gratitude.", mus = { flag = "wenna_safe" } },
+                     fail = { log = "Sir Luenn draws himself up. \"The magistrate in Bogden will hear of it by morning,\" he says, "
+                                  .. "and shuts the door on them." } } },
+      } },
+    { id = "the_nest", at = "inn_cellar", when_in = "mid", ours = true, party = true, title = "Behind the barrels",
+      actor = { "explorer", "butt_kicker", "casual" },
+      text = "Behind the last row of barrels, a heap of the inn's lost things: spoons, buttons, a thimble, a bent fork, all "
+          .. "winking in the lamplight. Something under the heap is breathing.",
+      text_if = {
+          { when = { flag = "ring_clue", thread = "mountain_road" },
+            text = "Behind the last row of barrels, the heap they were looking for: spoons, buttons, a thimble, a little horn "
+                .. "token on a cord, and in among them a glint of gold the size of a signet ring. Something under the heap is breathing." },
+          { when = { flag = "ring_clue" },
+            text = "Behind the last row of barrels, the heap they were looking for: spoons, buttons, a thimble, and in among them "
+                .. "a glint of gold the size of a signet ring. Something under the heap is breathing." },
+          { when = { thread = "mountain_road" },
+            text = "Behind the last row of barrels, a heap of the inn's lost things: spoons, buttons, a thimble, a little horn "
+                .. "token on a cord, all winking in the lamplight. Something under the heap is breathing." } },
+      options = {
+          { label = "Shift the barrels and grab the lot.", want = "shift the barrels and grab the heap", short = "grab it", lean = "bold",
+            log = "The first barrel rolls aside, and the heap explodes into rats.", mus = { fight = true, flag = "rats_fought" } },
+          { label = "Coax out whatever's under there with something to eat.", want = "lure whatever's under there out with food",
+            short = "lure it out", lean = "safe",
+            roll = { dc = 12, skill = { "animal_handling", "nature" }, best = true,
+                     success = { log = "A crust, a rind of cheese, and a lot of patience. A fat grey rat noses out, then another and "
+                                     .. "another, and they follow the crumbs out through the storm doors and away across the yard. "
+                                     .. "The heap is theirs.", mus = { flag = "ring_found" } },
+                     fail = { log = "The cheese goes, and very nearly a finger with it. The heap boils over with rats.",
+                              mus = { fight = true, flag = "rats_fought" } } } },
+          { label = "Reach in quietly and lift out what shines.", want = "lift the shiny things out without waking anything",
+            short = "lift it", lean = "look",
+            roll = { dc = 13, skill = { "sleight_of_hand", "stealth" }, best = true,
+                     success = { log = "Two fingers, very slowly. Out come a spoon, a thimble, a button, and a heavy gold ring with "
+                                     .. "a crest on it. The heap sighs, and settles.", mus = { flag = "ring_found" } },
+                     fail = { log = "A spoon clinks against a fork, and the whole heap wakes up at once.",
+                              mus = { fight = true, flag = "rats_fought" } } } },
+      } },
+    -- (After a fight they won: the heap is theirs. A lost fight plays no end moments, so the ring stays in the nest.)
+    { id = "nest_after_fight", at = "inn_cellar", when_in = "end", only_if = { flag = "rats_fought", not_flag = "ring_found" },
+      ours = true, type = "story", title = "The heap", sets = { "ring_found" },
+      text = "With the last rat gone through a crack in the clay, the heap is theirs: spoons, buttons, a thimble, and a heavy "
+          .. "gold ring with a crest on it." },
+    { id = "ring_back", at = "inn_cellar", when_in = "end", only_if = { flag = "ring_found" }, ours = true, party = true,
+      title = "The ring", actor = { "storyteller", "method_actor", "casual" },
+      text = "Back up the ladder, Sir Luenn is at the bar telling anyone who'll listen about thieving staff, and Wenna is "
+          .. "behind it, red-eyed.",
+      text_if = { { when = { flag = "wenna_safe" },
+                    text = "Back up the ladder, Sir Luenn is at the bar, waiting for his proof with very bad grace. Wenna is "
+                        .. "behind it, watching the trapdoor." } },
+      options = {
+          { label = "Give it back to Sir Luenn.", want = "hand Sir Luenn his ring", short = "give it back", lean = "safe",
+            log = "Sir Luenn turns the ring over, slides it on, and counts out twenty gold as if every coin hurts. He doesn't "
+                .. "look at Wenna. Teddy does, and squeezes her shoulder.", mus = { flag = "ring_back" } },
+          { label = "Let Wenna give it back to him.", want = "let Wenna hand it over herself", short = "let Wenna do it", lean = "talk",
+            log = "Wenna holds the ring out in front of the whole common room, and Sir Luenn has to thank her, and does, badly, "
+                .. "and pays up. Teddy brings a dusty bottle out from under the bar and won't hear no: a healing potion a "
+                .. "traveller paid his bill with, years back.", mus = { flag = "wenna_thanked", flags = { "ring_back" } } },
+      } },
+    -- (The museum's last thread, for a party carried on from it: what the pack rat took from the drover.)
+    { id = "token_back", at = "inn_cellar", when_in = "end", only_if = { thread = "mountain_road", flag = "ring_found" }, ours = true,
+      party = true, title = "The drover's token", actor = { "storyteller", "method_actor", "explorer" },
+      text = "One more thing out of the heap: a little horn token on a cord, capped in silver, a mountain clan's mark cut into "
+          .. "it. Teddy knows it at once. \"That's Hobb's. The drover by the fire, down off the mountain road. He's not said "
+          .. "ten words since he came in.\" Hobb holds it in both hands for a long moment.",
+      options = {
+          { label = "Ask him what happened up the mountain road.", want = "hear what Hobb saw up the mountain road", short = "ask him",
+            lean = "talk",
+            log = "\"I found him,\" Hobb says. \"A clan messenger, at the foot of the pass, like he'd fallen. It rained all that "
+                .. "night, and his cloak was bone dry. Somebody carried him there after.\" He turns the token over. \"This was "
+                .. "his. I was taking it down to his mother. Nobody up there wanted it asked about.\"",
+            mus = { flag = "drover_talked" } },
+          { label = "Give it back, and let him be.", want = "give Hobb his token and leave him in peace", short = "let him be",
+            lean = "safe", log = "Hobb closes his hand round it, nods his thanks, and goes back to staring at the fire." },
+      } },
     { id = "tracks", at = "woods_path", when_in = "start", page = 4, party = true, title = "The path",
       actor = { "explorer", "tactician", "casual" },
       text = "A mile along the lord's road, there's a gap in the bushes, and the path goes off into the oaks.",
@@ -553,6 +747,14 @@ M.beats = {
     guz_arrives = { "they told Guz the sheep was staying", { ok = "they talked Guz round", did = "they tried to talk Guz round" },
                     "they handed the sheep over to Guz" },
     scroll_again = { "they read the sheep's scroll at last, and the sheep began to talk", "they kept the sheep's scroll sealed" },
+    ring_room = { { ok = "they searched Sir Luenn's room and found a cork where his ring should be", did = "they searched Sir Luenn's room" },
+                  { ok = "they heard Wenna out, and believed her", did = "they tried to get Wenna's side of it" },
+                  { ok = "they stood up for Wenna", did = "they tried to stand up for Wenna" } },
+    the_nest = { "they shifted the cellar barrels and found a rats' nest",
+                 { ok = "they coaxed the rats out of their nest with food", did = "they tried to coax the rats out with food" },
+                 { ok = "they lifted the shiny things out of a rats' nest", did = "they tried to lift the shiny things out of a rats' nest" } },
+    ring_back = { "they gave Sir Luenn back his ring", "they let Wenna give Sir Luenn back his ring" },
+    token_back = { "they gave Hobb back his token, and heard what he saw up the mountain road", "they gave Hobb back his token" },
     tracks = { { ok = "they read the tracks on the path", did = "they tried to read the tracks" }, "they let the sheep lead the way" },
     the_door = { { ok = "they shouldered the hall door open", did = "they put a shoulder to the hall door" },
                  { ok = "they picked the hall door's lock", did = "they tried to pick the hall door's lock" } },
@@ -591,18 +793,18 @@ M.clocks = {
 -- What the table knows -------------------------------------------------------------------------------------------
 -- Teddy's rumours (p2: the town speaks of Noke with fear and awe). truth: true, false, or a half of it.
 M.rumours = {
-    { id = "boulders", who = "sh_teddy", where = "inn", truth = "half", page = 2,
+    { id = "boulders", who = "sh_teddy", where = "inn_common", truth = "half", page = 2,
       text = "\"The wizard in the woods once cleared a rockslide off the lord's road by turning the rocks into rabbits.\"",
       dm = "That was Shinebright, years ago. The town thinks it's the same wizard." },
-    { id = "beasts", who = "sh_teddy", where = "inn", truth = "true", page = 4, ours = true,
+    { id = "beasts", who = "sh_teddy", where = "inn_common", truth = "true", page = 4, ours = true,
       text = "\"Keeps animals for guards out there. Wolves that look at you like they're doing sums.\"" },
-    { id = "unpaid", who = "sh_teddy", where = "inn", truth = "true", page = 6, ours = true,
+    { id = "unpaid", who = "sh_teddy", where = "inn_common", truth = "true", page = 6, ours = true,
       text = "\"He's been selling things. Books, bottles, a carriage. Owes half of Bogden, the way I hear it.\"" },
-    { id = "elf_left", who = "sh_teddy", where = "inn", truth = "false", ours = true,
+    { id = "elf_left", who = "sh_teddy", where = "inn_common", truth = "false", ours = true,
       text = "\"The old elf went travelling a couple of years back and left his boy the whole place.\"" },
-    { id = "long_words", who = "sh_teddy", where = "inn", truth = "true", page = 3, ours = true,
+    { id = "long_words", who = "sh_teddy", where = "inn_common", truth = "true", page = 3, ours = true,
       text = "\"His big half-orc comes in for supplies now and then. Uses words like 'sentimental' and gets them wrong.\"" },
-    { id = "mountains", who = "sh_teddy", where = "inn", truth = "true", ours = true, picks_up = { "mountain_road" },
+    { id = "mountains", who = "sh_teddy", where = "inn_common", truth = "true", ours = true, picks_up = { "mountain_road" },
       only_if = { thread = "mountain_road" },
       text = "\"Travellers down from the mountains won't say much. Somebody died up there, and nobody's asking how.\"" },
 }
@@ -639,6 +841,11 @@ M.items = {
     { id = "lab_gear", name = "Lab gear", holder = "hall", page = 6, value = { gp = 1000 },
       text = "Glassware, burners, jars and arcane bric-a-brac. Worth about a thousand gold to the right buyer." },
     { id = "robe", name = "An old robe", holder = "bedroom", page = 6, text = "One of Shinebright's robes, far too long for a sheep." },
+    -- (Ours, the side quest's.)
+    { id = "signet_ring", name = "Sir Luenn's signet ring", holder = "inn_cellar",
+      text = "A heavy gold ring with the Nordenin crest, for sealing letters. In a pack rat's nest, behind the barrels." },
+    { id = "teddys_potion", name = "Teddy's dusty bottle", carry = true, as = "potion_healing", when = { flag = "wenna_thanked" },
+      text = "A healing potion a traveller paid his bill with, years back, from under Teddy's bar." },
 }
 M.magic_items = {
     wand_true_polymorph = { name = "Modified Wand of True Polymorph", rarity = "legendary", attune = true,

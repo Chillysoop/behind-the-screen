@@ -1387,6 +1387,14 @@ function M.enter_room(campaign, id, week)
             end
         end
     end
+    -- (A room that leaves others behind for good: out on the road, the inn's rooms they didn't look into are past.)
+    for _, oid in ipairs(r.leaves or {}) do
+        if MODULE.rooms[oid] and not st.done[oid] and not st.skipped[oid] then
+            st.skipped[oid] = week or true
+            st.passed[oid] = nil
+            table.insert(left, oid)
+        end
+    end
     -- Back for a room they'd walked past: whatever a loose end moved out of it is here after all.
     if st.passed[id] then
         st.passed[id] = nil
@@ -1565,7 +1573,8 @@ function M.apply(campaign, mus, room, holder)
     local items = require "game.model.items"
     local thing = items.thing_for(mus)
     if thing and not thing.magic then
-        items.give(campaign, thing.id, holder, mus.spend and "bought" or (room == "loose" and "given") or (room and "found") or "given")
+        -- (`as`: the shared thing it is, so it works like one: Teddy's dusty bottle is a healing potion.)
+        items.give(campaign, thing.as or thing.id, holder, mus.spend and "bought" or (room == "loose" and "given") or (room and "found") or "given")
     end
     if mus.use then
         -- (Out of the pack of whoever used it, else whoever was carrying it for the party.)

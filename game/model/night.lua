@@ -4749,6 +4749,11 @@ end
 -- behind them." The first id is the boss (the scene's villain when there is one).
 local NUMBERS = { "a", "two", "three", "four", "five", "six", "seven", "eight" }
 local function plural(name)
+    -- ("Two swarms of rats", not "two swarm of ratss": the cellar's rats, November 6.)
+    local head, tail = string.match(name, "^(.-) (of .+)$")
+    if head and head ~= "" then
+        return plural(head) .. " " .. tail
+    end
     if string.match(name, "wolf$") then
         return string.sub(name, 1, -2) .. "ves"
     end

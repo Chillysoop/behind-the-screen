@@ -8,6 +8,11 @@ return {
       text = "A sealed scroll from a frantic animal is usually a message, and messages want reading." },
     { id = "tip_guz", name = "Guz would rather go home", room = "inn_common", page = 3, moot = { { flag = "guz_left" }, { flag = "bear_seen" } },
       text = "Guz is loyal, not clever. Give him a reason to walk away, and he'd rather go home with a story than lose a fight in front of a crowd." },
+    -- (Ours: the side quest at the inn.)
+    { id = "tip_ring", name = "Something left in trade", room = "inn_upstairs", hints = "ring_thief", moot = { flag = "ring_found" },
+      text = "Thieves take. Whatever took this ring left something behind in its place, and only some animals do that." },
+    { id = "tip_nest", name = "The cellar's lost things", room = "inn_cellar", moot = { flag = "ring_found" },
+      text = "Everything that's ever gone missing at this inn ends up somewhere. Somewhere dark, and close, and full of things to hide behind." },
     { id = "tip_beasts", name = "Odd beasts", room = "inn_common", hints = "guards_are_people", page = 3,
       text = "Those wolves keep looking to the big man before they move, like soldiers waiting on an order." },
     { id = "tip_trail", name = "The trail east", room = "woods_path", page = 4,

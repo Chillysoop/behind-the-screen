@@ -4059,7 +4059,8 @@ function M.fork(night, options, backs, sides)
     -- (A way, said mid-sentence: "the offices", "up the stairs now", "back to the gift shop".)
     local function low(t)
         local first = string.match(t, "^(%a+)")
-        if first == "On" or first == "Up" or first == "Back" or first == "Into" or first == "Down" then
+        if first == "On" or first == "Up" or first == "Back" or first == "Into" or first == "Down" or first == "Out"
+            or first == "Through" then
             return string.lower(string.sub(t, 1, 1)) .. string.sub(t, 2)
         end
         return util.lower_first(t)

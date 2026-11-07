@@ -188,4 +188,32 @@ M.lure = {
     },
 }
 
+-- (Ours: the side quest at the inn, Sir Luenn's ring.)
+M.ring_thief = {
+    ours = true,
+    covered_by = { { flag = "ring_found" } },
+    name = "Who took the ring", type = "creature", room = "inn_upstairs", about = "the empty jewel box", defaults = false,
+    what = "Nobody at the inn took Sir Luenn's ring. A pack rat from the cellar did, up through the walls in the night, and "
+        .. "left a beer cork in its place, the way pack rats do. Its nest behind the cellar barrels is full of the inn's "
+        .. "lost spoons and buttons.",
+    held_by = { { on = "sh_wenna", gives = "hint",
+                  hint_says = { "\"Things go missing here all the time,\" Wenna says. \"Spoons, buttons. The cellar's the worst for it.\"" } } },
+    hint_words = { "pack rat", "in trade" },
+    hint = { "In the jewel box, where the ring should be, sits a beer cork stamped with the inn's B.",
+             "Under the washstand, a hole gnawed through the skirting board, grey hairs caught on its edge." },
+    tell = { "Something small took the ring through the wall and left a cork from the cellar in its place. Whatever it was, "
+                 .. "its nest is down there.",
+             "Not Wenna. A pack rat, up through the walls from the cellar, and it left a cork in trade." },
+    theory = { "Who leaves a cork where a ring was? That's not a thief, that's a swap.", "Wenna didn't do this. Something small did.",
+               "Thieves don't leave things behind. Animals might." },
+    paths = {
+        -- (Once Sir Luenn has shown them the room: the card's own search comes first.)
+        { kind = "check", on = { room = "inn_upstairs", spot = "luenn_room" }, skill = { "investigation", "perception" }, dc = 12,
+          gives = "known", when = { seen = "ring_room" } },
+        { kind = "ask", on = "sh_wenna", gives = "hint" },
+        { kind = "check", skill = { "nature" }, dc = 12, gives = "known", needs = "hint", when = { seen = "ring_room" } },
+        { kind = "event", event = "the_nest", gives = "known" },
+    },
+}
+
 return M

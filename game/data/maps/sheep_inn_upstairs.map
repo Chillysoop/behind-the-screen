@@ -1,0 +1,82 @@
+-- The Bogden Road Country Inn's upper floor, in our pieces, from the inn sheet's description: two shared rooms of
+-- beds to the west, the sitting room round its great hearth in the middle with the stairs down at its south end, and
+-- three private rooms to the east, the Sargent's Room the best of them. North is up; the south wall is left off, the
+-- DM's side.
+
+id: sheep_inn_upstairs
+tight: yes
+title: The rooms upstairs
+light: hearth
+adventure: sheep
+room: inn_upstairs
+source: adventure
+credit: The Bogden Road Country Inn sheet for The Wild Sheep Chase (DMs Guild): the rooms upstairs
+about: Two shared rooms, three private ones, and a sitting room round a great hearth.
+tags: indoor, inn, rooms, quiet
+order: 2
+party: 11,10
+foes: 8,9
+npc: 16,7
+
+grid:
+|###W#######W####W###|
+|#b.b.#..HH...#.b..r#|
+|#b.b.#o....o.#.b...#|
+|#....d..cc...d.....#|
+|#...x#.......#....w#|
+|######.....o.#######|
+|#b.b.#o......#s...b#|
+|#b.b.#.......d....b#|
+|#....d.......#..w..#|
+|#b.b.#.......#######|
+|#b.b.#..SS...#....b#|
+|#....#..SS...d....b#|
+|#....#..SS...#x....#|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+W       | wall_window     | windows    | auto
+d       | door            | doors      | auto
+b       | bed             | beds       | 
+x       | chest           | chests     | 
+H       | hearth          | hearth     | 
+c       | couch           | settle     | 
+o       | table_round     | chairs     | 
+S       | stairs_down     | stairs     | 0
+r       | weapon_rack     | rack       | 
+w       | wardrobe        | wardrobes  | 
+s       | chest           | washstand  | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_boards | 1,1 | 
+rug        | rug          | 9,6 | 
+rug_best   | rug          | 17,3 | 
+
+features:
+-- id | flags | words | say
+floor      | base      | floor, boards, upstairs | a floor of old boards
+walls      | base      | walls | thick old walls
+windows    | base      | window, windows | small windows under the eaves
+doors      |           | door, doors | the bedroom doors
+beds       |           | bed, beds | beds
+chests     |           | chest, trunk | a travelling chest
+hearth     |           | hearth, fire, fireplace | a great hearth with chairs drawn round it
+settle     | own_words | settle, bench, couch | a long settle by the fire
+chairs     | own_words | chairs, armchairs, little tables | deep armchairs round little tables
+stairs     |           | stairs, downstairs | stairs down to the common room
+rack       | own_words | weapon rack, rack, helmet | an old weapon rack from the barracks days
+wardrobes  |           | wardrobe, cupboard | a wardrobe
+washstand  | own_words | washstand, jewel box, basin | a washstand with a jewel box on it
+rug        |           | rug | a rug worn thin
+rug_best   |           | rug | a good rug
+
+spots:
+-- key | x,y | name | line | form
+sitting_room | 10,8 | the sitting room | Deep chairs round a great hearth, and a rug worn thin by a hundred years of feet. | one area
+hearth | 10,3 | the great hearth | A fire you could stand up in, the chairs drawn in close round it. | one fixture
+shared_rooms | 3,9 | the shared rooms | Two rooms of beds at three silver a night, boots lined up by the doors. | many areas
+sargents_room | 17,5 | the Sargent's Room | The best room in the house, its name painted on the door. | one area
+luenn_room | 16,8 | Sir Luenn's room | A good private room: a bed, a washstand, a small window. | one area
+stairs | 11,12 | the stairs | Stairs down to the common room, the warm and the noise. | many fixtures
