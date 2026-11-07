@@ -4792,12 +4792,22 @@ function M:foe_line(plan, sc)
         for _, id in ipairs(order) do
             local name = string.lower(monsters[id].name)
             local n = counts[id]
-            table.insert(parts, n == 1 and a_an(name) or ((NUMBERS[n] or tostring(n)) .. " " .. plural(name)))
+            -- (Someone the adventure names, by name: "Noke", not "an ahmed noke". As the table knows them: told.lua.)
+            if n == 1 and monsters[id].short then
+                table.insert(parts, require("game.model.told").name(monsters[id].short))
+            else
+                table.insert(parts, n == 1 and a_an(name) or ((NUMBERS[n] or tostring(n)) .. " " .. plural(name)))
+            end
         end
     end
     local boss = plan.boss_name or "their leader"
     sc.foes_said = { boss = boss, rest = util.join_names(parts) }
     local v = { boss = boss, Boss = util.capitalize(boss), rest = util.join_names(parts) }
+    -- (Not alone with someone riding it: the bed dragon, and Noke on its back.)
+    local lead_def = plan.ids and plan.ids[1] and monsters[plan.ids[1]]
+    if #parts == 0 and lead_def and lead_def.rider and lead_def.rider.name then
+        return util.fill("{Boss}, with " .. require("game.model.told").name(lead_def.rider.name) .. " on its back.", v)
+    end
     if #parts == 0 then
         return util.fill(self:fresh(M.FOE_ALONE, "foe_alone"), v)
     end

@@ -56,7 +56,7 @@ M.guards_are_people = {
 M.noke_why = {
     major = true,
     covered_by = { { flag = "heard_noke" } },
-    name = "Why Noke did it", page = 4, type = "person", room = "hall",
+    name = "Why Noke did it", page = 4, type = "person", room = "compound",
     what = "Noke served Shinebright for decades and was always treated as a boy: cooking, cleaning, reciting by rote, "
         .. "told it takes a century to learn, when a human hasn't got one. He saw the wand made half his master's name, "
         .. "took it, and set up as a master himself. Guilt and fear have him barely sleeping.",
@@ -112,7 +112,7 @@ M.bear_outhouse = {
 }
 
 M.wand_on_noke = {
-    name = "The wand never leaves him", page = 3, type = "person", room = "hall",
+    name = "The wand never leaves him", page = 3, type = "person", room = "compound",
     what = "Noke carries the wand everywhere, and only leaves the house when he must.",
     held_by = { { on = "sh_shinebright", when = { flag = "talking" } }, "sh_noke" },
     hint = { "Noke's hand keeps going to his sleeve.", "Whatever's up his sleeve, he checks it's there every few breaths." },

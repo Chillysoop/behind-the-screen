@@ -1605,6 +1605,26 @@ function M.run(night, sc, plan)
             foe_spots[1] = { nx, ny }
         end
     end
+    -- A foe the adventure puts somewhere of its own (`foes_at`: Noke on the platform above the yard), when that square's
+    -- free.
+    local room_def = util.lazy("game.model.adventure").data.rooms[sc.room]
+    for i, id in ipairs(plan.ids) do
+        local want = room_def and room_def.foes_at and room_def.foes_at[id]
+        if want and not blocked[want[1] * 1000 + want[2]] then
+            local clash = false
+            for _, ps in ipairs(party_spots) do
+                clash = clash or (ps[1] == want[1] and ps[2] == want[2])
+            end
+            if not clash then
+                for j, fs in ipairs(foe_spots) do
+                    if j ~= i and fs[1] == want[1] and fs[2] == want[2] then
+                        foe_spots[j] = foe_spots[i]
+                    end
+                end
+                foe_spots[i] = { want[1], want[2] }
+            end
+        end
+    end
     -- The room's own pieces that come alive (the garden's topiary: module.lua `wake`). Each foe
     -- steps off the hedge it was, and that hedge is gone from the mat: its square opens and its
     -- cover goes with it (the playtest, November 3: the hedges were still there after they woke).

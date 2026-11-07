@@ -1,5 +1,6 @@
--- The Wild Sheep Chase's creatures' own turns (the book's stat blocks, page 5): the bed dragon's Splinter Breath, and
--- Ahmed Noke's Thunderwave from his spell list. A stat block names its turn: `rules = "sheep"`, `rules_turn` (the
+-- The Wild Sheep Chase's creatures' own turns (the book's stat blocks, page 5): the bed dragon's Splinter Breath and
+-- its rider, Ahmed Noke's spells in the yard (Enlarge, Haste, Ray of Frost, Thunderwave, Expeditious Retreat), and his
+-- men's hasted blows. A stat block names its turn: `rules = "sheep"`, `rules_turn` (the
 -- adventure's creatures in game/data/sheep/module.lua, through game/model/standard.lua). Our words for what happens.
 -- Engine-free, like the rest of game/rules/.
 
@@ -100,32 +101,186 @@ function M.breathe(b, c, H)
     return true
 end
 
--- Noke (p5): Thunderwave when someone's right up close and he has a first-level slot (a 15-foot cube from him:
--- everyone within 10 feet of him), then he steps back. Otherwise his dagger and Ray of Frost, and running when it's lost
--- (flees_below, ai.lua).
+-- Noke (p5): offensively weak, he buffs his men. Up on the platform above the yard he keeps one spell going
+-- (concentration): Enlarge on the bear once it's out, else Haste on an ape. Otherwise Ray of Frost, which slows whoever
+-- it hits. Someone right up close gets a Thunderwave, once; after that, close again, or with nobody left fighting
+-- for him, he casts Expeditious Retreat and runs into the hall (escapes: never killed here, his bed is waiting).
+local function standing(b, o)
+    return not o.dead and not o.down and not o.removed
+end
+local function run(b, c)
+    c.turn.disengaged = true
+    b:log(c.data.flee_line or "%s runs.", c.name)
+    b:emit({ kind = "feature", who = c, name = "Expeditious Retreat" })
+    b:remove(c, "morale")
+end
+local function buff(b, c, H)
+    local bf = c.data.buffs
+    if not bf then
+        return false
+    end
+    -- (Still holding one on someone standing: he keeps it. Held on nobody now, the bear down: he lets it go.)
+    if c.conc then
+        for _, eff in ipairs(c.conc.effects or {}) do
+            if eff.holder and standing(b, eff.holder) then
+                return false
+            end
+        end
+        b:end_concentration(c, "nobody left to hold it on")
+    end
+    c.buff_slots = c.buff_slots or {}
+    local function left(k)
+        local def = bf[k]
+        if not def then
+            return 0
+        end
+        c.buff_slots[k] = c.buff_slots[k] or def.slots or 1
+        return c.buff_slots[k]
+    end
+    local bear, ape
+    for _, o in ipairs(b:allies_of(c)) do
+        if standing(b, o) and o.monster_id then
+            if bf.enlarge and string.find(o.monster_id, bf.enlarge.on .. "$") and not bear then
+                bear = o
+            elseif bf.haste and string.find(o.monster_id, bf.haste.on .. "$") and (not ape or o.hp > ape.hp) then
+                ape = o
+            end
+        end
+    end
+    local target, which = nil, nil
+    if bear and left("enlarge") > 0 and b:dist(c, bear) <= 30 then
+        target, which = bear, "enlarge"
+    elseif ape and left("haste") > 0 and b:dist(c, ape) <= 30 then
+        target, which = ape, "haste"
+    end
+    if not target then
+        return false
+    end
+    c.buff_slots[which] = c.buff_slots[which] - 1
+    c.turn.action = false
+    b:start_concentration(c, which == "enlarge" and "enlarge_reduce" or "haste")
+    if which == "enlarge" then
+        b:log("%s casts Enlarge on %s: it swells to twice its size.", c.name, target.name)
+        b:emit({ kind = "feature", who = c, name = "Enlarge", target = target })
+        b:add_effect(target, { name = "Enlarged", hit_dice = bf.enlarge.dice or { 1, 4, 0 }, str_adv = true, conc_of = c })
+    else
+        b:log("%s casts Haste on %s.", c.name, target.name)
+        b:emit({ kind = "feature", who = c, name = "Haste", target = target })
+        b:add_effect(target, { name = "Hasted", ac = 2, speed_bonus = target.speed or 30, hasted = true, conc_of = c })
+    end
+    return true
+end
+local function ray(b, c, H)
+    local a
+    for _, at in ipairs(c.data.attacks or {}) do
+        if at.id == "ray_of_frost" then
+            a = at
+        end
+    end
+    if not a then
+        return false
+    end
+    local best, bd
+    for _, e in ipairs(H.by_distance(b, c, H.enemies(b, c))) do
+        local d = b:dist(c, e)
+        if d <= a.range[1] and H.in_shot(b, c.x, c.y, e, a.range[1]) and (not best or e.hp < best.hp) then
+            best, bd = e, d
+        end
+    end
+    if not best then
+        return false
+    end
+    local creature = require "game.rules.creature"
+    local prof = creature.monster_attack(c, a, true)
+    local r = b:attack(c, best, prof)
+    c.turn.action = false
+    -- (A hit slows them: 10 feet less, until the start of his next turn. SRD 5.2.1, Ray of Frost.)
+    if r and r.hit and not best.dead and not best.down then
+        b:add_effect(best, { name = "Ray of Frost", speed_minus = 10, expires = b:next_turn(c, "start") })
+    end
+    return true
+end
 function M.noke(b, c, H)
     local tw = c.data.thunderwave
     c.slots1 = c.slots1 or (tw and tw.slots) or 0
-    if not tw or c.slots1 <= 0 then
+    local foes = H.enemies(b, c)
+    if #foes == 0 then
         return false
     end
+    local friends = 0
+    for _, o in ipairs(b:allies_of(c)) do
+        if standing(b, o) then
+            friends = friends + 1
+        end
+    end
     local close = {}
-    for _, e in ipairs(H.enemies(b, c)) do
+    for _, e in ipairs(foes) do
         if b:dist(c, e) <= 10 then
             table.insert(close, e)
         end
     end
-    if #close == 0 then
+    -- The fight's lost: nobody left fighting for him.
+    if friends == 0 and c.data.escapes and c.had_friends then
+        run(b, c)
+        return true
+    end
+    c.had_friends = c.had_friends or friends > 0
+    if #close > 0 then
+        if tw and c.slots1 > 0 and not c.thundered then
+            c.thundered = true
+            c.slots1 = c.slots1 - 1
+            c.turn.action = false
+            area(b, c, close, tw, "Thunderwave")
+            H.back_off(b, c, 15)
+            return true
+        end
+        if c.data.escapes then
+            run(b, c)
+            return true
+        end
+    end
+    if buff(b, c, H) or ray(b, c, H) then
+        if #close == 0 then
+            -- (He stays up on his platform: a step back from anyone coming.)
+            for _, e in ipairs(foes) do
+                if b:dist(c, e) <= 20 then
+                    H.back_off(b, c, 10)
+                    break
+                end
+            end
+        end
+        return true
+    end
+    return false
+end
+
+-- Noke's men (p5): a hasted one gets a second blow, after its usual turn.
+function M.guard(b, c, H)
+    if not (c.data and c.data.attacks) then
         return false
     end
-    c.slots1 = c.slots1 - 1
-    c.turn.action = false
-    area(b, c, close, tw, "Thunderwave")
-    H.back_off(b, c, 15)
+    H.standard(b, c)
+    if b:any_effect(c, "hasted") and standing(b, c) then
+        for _, e in ipairs(H.enemies(b, c)) do
+            if b:dist(c, e) <= 5 and standing(b, e) then
+                local a
+                for _, at in ipairs(c.data.attacks) do
+                    if at.kind == "melee" and not a then
+                        a = at
+                    end
+                end
+                if a then
+                    b:log("  %s, hasted, swings again.", c.name)
+                    H.attack_with(b, c, e, a, false)
+                end
+                break
+            end
+        end
+    end
     return true
 end
 
-local TURNS = { bed_dragon = M.bed_dragon, noke = M.noke }
+local TURNS = { bed_dragon = M.bed_dragon, noke = M.noke, guard = M.guard }
 
 -- A Sheep Chase creature's turn. Returns true when the turn is done, false for the usual monster turn.
 function M.turn(b, c, H)

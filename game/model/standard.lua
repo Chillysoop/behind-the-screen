@@ -343,6 +343,14 @@ function M.compile(src)
             hurry_on = sc.hurry_on,
             level = sc.level, statues = nil, pages = pl.pages, digs = sc.digs, clears = sc.clears,
         }
+        -- (Where one of its foes starts, when not with the rest: Noke up on the platform above the yard.)
+        if sc.foes_at then
+            local at = {}
+            for cid, xy in pairs(sc.foes_at) do
+                at[M.creature_id(mod, cid)] = xy
+            end
+            mod.rooms[pl.id].foes_at = at
+        end
         -- (A piece of the board that gets up as the fight starts: the bed. fight.lua's wake.)
         if sc.wakes then
             local at = {}

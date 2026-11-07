@@ -252,6 +252,7 @@ least:
     lua tools/tests/agency_check.lua 2    # players announce, the DM answers: no hero's move or feeling said for them, seats in order
     lua tools/tests/handoff_check.lua     # adventures tied together: the party, the log, lore, the past and open threads carry over; a fresh start has none
     CARRY=1 lua tools/tests/museum_smoke.lua 1   # the museum, then "Carry on" into the Sheep Chase through the real UI
+    lua tools/tests/sheep_rules_check.lua # the Sheep Chase's own rules: Noke's spells in the yard, his guards, the bed dragon and its rider
     lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
                                           # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

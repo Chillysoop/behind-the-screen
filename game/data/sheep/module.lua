@@ -164,8 +164,12 @@ M.places = {
           .. "wooden huts and a big outhouse.",
       spots = { "lawn", "huts", "outhouse", "slope" },
       exits = { { to = "garden", by = "a ramp of roots" } },
-      scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn.",
-                foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard" }, foes_name = "Noke's guards",
+      -- (p5: Noke is up on the platforms, working. He orders the party to give back the sheep, and fights from up
+      -- there: Enlarge on the bear once it's out, Ray of Frost, his concentration kept. When the fight's lost or
+      -- someone gets close, he runs into the hall and locks it: game/rules/sheep.lua. On to the garden straight away.)
+      scene = { type = "combat", setting = { "outdoor", "wild" }, sum = "Noke's guards on the lawn, and Noke above them.",
+                hurry_on = true, foes_at = { noke = { 17, 8 } },
+                foes = { "bear_guard", "ape_guard", "ape_guard", "ape_guard", "noke" }, foes_name = "Noke's guards",
                 foes_short = "the guards", boss_name = "the bear",
                 foes_line = "Three big apes in iron collars squat over a game of dice, greatswords stuck in the turf beside them.",
                 goal = { name = "Get past the guards", line = "Goal: get past the guards to the platforms.",
@@ -179,7 +183,8 @@ M.places = {
       read = "The lowest platform, about forty feet across, ringed with curling branches, flowers and small trees.",
       exits = { { to = "compound" }, { to = "hall", gates = { { check = "athletics", dc = 14, page = 4 },
                                                                { check = "thieves_tools", dc = 12, page = 4 } } } },
-      scene = { type = "puzzle", quick = true, setting = { "outdoor" }, sum = "A locked door into the hall.",
+      -- (Hot on Noke's heels, from the yard to the bedroom: no stopping on the way.)
+      scene = { type = "puzzle", quick = true, setting = { "outdoor" }, sum = "A locked door into the hall.", hurry_on = true,
                 goal = { name = "Get into the hall", line = "Goal: get through the locked door into the hall.",
                          win = "They're through into the hall.", lose = "They get through in the end, with a lot of noise.",
                          got = "a way into the hall" } } },
@@ -188,15 +193,15 @@ M.places = {
           .. "a dining room with a kitchen.",
       spots = { "library", "lab", "sitting_room", "kitchen", "door" },
       exits = { { to = "garden" }, { to = "bedroom", by = "a small slope" } },
-      -- (p5: Noke runs for the bedroom and has three rounds to wake his bed: the bedroom comes straight after.)
-      scene = { type = "combat", setting = { "indoor" }, sum = "Ahmed Noke, at home.", cast = "sh_noke", foes = { "noke" }, digs = 3,
+      -- (p5: Noke ran through here and up to the bedroom, and has three rounds to wake his bed: the bedroom comes
+      -- straight after.)
+      scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "Noke's hall, and Noke gone up the slope.", digs = 3,
                 hurry_on = true,
-                boss_name = "Noke", optional_fight = true,
                 -- (The wand is the goal once Shinebright's told them about it: a sealed scroll keeps it from them.)
-                goal = { name = "Face Noke", line = "Goal: find out who lives up here, and what he wants with a sheep.",
-                         line_if = { { when = { flag = "understood" }, text = "Goal: get the wand from Noke." } },
-                         win = "Noke breaks and runs for the top platform.", lose = "Noke drives them back down the slope, laughing.",
-                         got = "Noke on the run" } } },
+                goal = { name = "After Noke", aim = "go after Noke", short = "go after Noke", line = "Goal: through the hall, and after Noke.",
+                         line_if = { { when = { flag = "understood" }, text = "Goal: through the hall, and after Noke and the wand." } },
+                         win = "The slope up to the bedroom is right there.", lose = "They lose a minute among the shelves.",
+                         got = "the way up after Noke" } } },
     { id = "bedroom", name = "The bedroom", layer = "area", ["in"] = "noke_house", pages = { 5, 6 },
       read = "The smallest, highest platform: a wardrobe, a big wooden bed, a dressing table under clutter.",
       spots = { "bed", "wardrobe" }, exits = { { to = "hall" } },
@@ -281,7 +286,7 @@ M.creatures = {
                           targets = 2, damage = { { 2, 6, 3, "slashing" } } } },
             tactics = "Talks, bribes or threatens first; attacks without warning when it isn't working. Fights the "
                 .. "heavy hitters beside the bear while the wolves go for the sheep." },
-    noke = { name = "Ahmed Noke", page = 5, size = "medium", type = "humanoid", ac = 12, hp = 55, hit_dice = "10d8+10",
+    noke = { name = "Ahmed Noke", short = "Noke", page = 5, size = "medium", type = "humanoid", ac = 12, hp = 55, hit_dice = "10d8+10",
              speed = 30, abilities = { str = 9, dex = 14, con = 12, int = 16, wis = 12, cha = 10 },
              saves = { int = 5, wis = 4 }, skills = { arcana = 6 }, cr = "2", xp = 450,
              spellcasting = { level = 7, ability = "int", dc = 14, to_hit = 6,
@@ -297,7 +302,11 @@ M.creatures = {
              -- (Thunderwave, from his first-level slots: game/rules/sheep.lua.)
              rules_turn = "noke", thunderwave = { id = "thunderwave", save = "con", dc = 14, damage = { { 2, 8, 0, "thunder" } },
                                                   half = true, slots = 4 },
-             flees_below = 0.5, escapes = true, flee_line = "%s casts, blurs away up the slope, and slams the bedroom door behind him.",
+             -- (His second- and third-level slots: Enlarge on the bear once it's out, else Haste on an ape. One at a time:
+             -- concentration. p5.)
+             buffs = { enlarge = { slots = 3, on = "bear_guard", dice = { 1, 4, 0 } }, haste = { slots = 3, on = "ape_guard" } },
+             flees_below = 0.5, escapes = true,
+             flee_line = "%s casts Expeditious Retreat, blurs up the ramp into the hall, and the door slams and locks behind him.",
              tactics = "Weak in a fight himself. Enlarges the bear once it's out, adds Ray of Frost, guards his "
                  .. "concentration, and runs for the bedroom when it's lost or someone gets close." },
     bed_dragon = { name = "Bed Dragon Wyrmling", page = 5, size = "large", type = "dragon", ac = 16, hp = 75, rules_turn = "bed_dragon",
@@ -315,9 +324,9 @@ M.creatures = {
                        .. "Turns back into a battered bed if it drops or Noke's concentration breaks." },
     wolf_guard = { core = "wolf", page = 2, mind = "a person inside", note = "Iron collars, eyes far too clever. Goes "
                        .. "round the party for the sheep." },
-    bear_guard = { core = "brown_bear", page = 2, mind = "a person inside", note = "Under a filthy brown cloak until the "
+    bear_guard = { core = "brown_bear", page = 2, rules_turn = "guard", mind = "a person inside", note = "Under a filthy brown cloak until the "
                        .. "hood comes down." },
-    ape_guard = { core = "ape", page = 5, mind = "a person inside", flees_below = 0.5,
+    ape_guard = { core = "ape", page = 5, rules_turn = "guard", mind = "a person inside", flees_below = 0.5,
                   tweaks = { attacks = { { id = "greatsword", name = "Greatsword", kind = "melee", to_hit = 5, reach = 5,
                                            damage = { { 2, 6, 3, "slashing" } } } } } },
     sheep = { core = "pony", page = 2, int = 18, wis = 14, note = "Shinebright, as a sheep." },
@@ -449,21 +458,28 @@ M.events = {
                      success = { log = "A click, and the door eases open without a sound." },
                      fail = { log = "The pick snaps. In the end they force it, loudly.", mus = { flag = "noisy" } } } },
       } },
-    { id = "noke_demand", at = "hall", when_in = "start", page = 5, party = true, title = "Noke",
+    { id = "noke_demand", at = "compound", when_in = "start", page = 5, party = true, title = "Noke",
       actor = { "method_actor", "storyteller", "butt_kicker" },
-      text = "\"Where's Guz?\" he says from among the shelves, and then, when nobody answers: \"Never mind. Give me back "
-          .. "the sheep, and I won't destroy you.\"",
+      text = "A thin man in a stained robe leans over the rail of the platform above. \"My man, Guz,\" he calls down. "
+          .. "\"Where is he?\" Nobody answers, and his face falls. \"Never mind. Give me back the sheep, and I won't destroy you.\"",
+      text_if = { { when = { flag = "guz_left" },
+                    text = "A thin man in a stained robe leans over the rail of the platform above. \"Guz came back without my "
+                        .. "sheep,\" he calls down. \"Talked out of it, he says. Well. Give me back the sheep, and I won't destroy you.\"" } },
       options = {
           { label = "Refuse. They're taking the wand.", want = "refuse him and go for the wand", short = "refuse", lean = "bold",
-            log = "Noke's hand goes to his sleeve, and the air starts to fizz.", mus = { fight = true } },
+            log = "\"Then you're no use to me,\" Noke says, and shouts to the apes: \"Get my sheep!\"", mus = { fight = true } },
+          { label = "Give him the sheep.", want = "give the sheep back to Noke", short = "give it back", lean = "safe",
+            when = { not_flag = { "restored", "understood" } },     -- (once they've heard Shinebright, unthinkable)
+            log = "The apes come and lead the sheep up the ramp, bleating. Noke doesn't even look at it. \"Good. Now go away.\"",
+            mus = { flag = "taken", no_fight = true } },
           { label = "Hear him out first.", want = "hear his side before anyone casts anything", short = "hear him out", lean = "talk",
             log = "It comes out of him in a rush: years of chores, a master who never once called him a wizard. \"Take the "
                 .. "wand if you like,\" he says. \"See what it makes of you. It's not the wand it was.\" Then he remembers "
                 .. "who they've brought with them, and the air starts to fizz.",
             tells = { "noke_why", "wand_unreliable" }, tells_how = "ask", mus = { fight = true, flag = "heard_noke" } },
       } },
-    { id = "noke_flees", at = "hall", trigger = { on = "fight", turn = "lost or someone close" }, page = 5,
-      text = "Noke casts, blurs away into the hall, and locks the door behind him." },
+    { id = "noke_flees", at = "compound", trigger = { on = "fight", turn = "lost or someone close" }, page = 5,
+      text = "Noke casts, blurs up the ramp into the hall, and locks the door behind him." },
     { id = "hall_search", at = "hall", when_in = "end", page = 6, party = true, title = "Noke's things",
       actor = { "explorer", "power_gamer", "instigator" },
       text = "With Noke gone up the slope, the hall is theirs: the library, the lab, and everything he bought with his "
@@ -474,7 +490,7 @@ M.events = {
                 .. "first. {actor_char} reads it out, and the sheep's bleating turns into words.",
             mus = { flag = "looted", flags = { "talking", "understood" } }, tells = { "second_scroll", "sheep_wizard" },
             tells_how = "check" },
-          { label = "Leave it. Noke first.", want = "go straight after Noke", short = "after him", lean = "bold",
+          { label = "Leave it. Noke first.", want = "go straight after Noke", short = "go after him", lean = "bold",
             log = "No time for the shelves. Up the slope, after him.", mus = { rush = true } },
       } },
     { id = "bed_dragon", at = "bedroom", when_in = "start", required = true, page = 5, type = "story", title = "The bed",

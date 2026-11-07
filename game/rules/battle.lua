@@ -985,6 +985,16 @@ function B:attack(att, tgt, prof, opts)
     if att.thorn_growth and att.thorn_growth > 0 then
         table.insert(parts, self:roll_parts({ { att.thorn_growth, 4, 0, "piercing" } }, crit)[1])
     end
+    -- (An effect that adds dice to its melee hits: Enlarge, 1d4. Any adventure's spell, the Sheep Chase's Noke.)
+    if prof.kind == "melee" then
+        for _, e in ipairs(att.effects or {}) do
+            if e.hit_dice then
+                local hd = e.hit_dice
+                local dmg_type = parts[1] and parts[1][2] or "bludgeoning"
+                table.insert(parts, self:roll_parts({ { hd[1], hd[2], hd[3] or 0, dmg_type } }, crit)[1])
+            end
+        end
+    end
     local bloodied_before = tgt.hp <= tgt.hp_max / 2 and tgt.hp > 0
     local hp_before = tgt.hp
     -- Magic in the blow: a magic weapon, or (The Museum of Nightmares) a paint-touched one.
@@ -1588,6 +1598,7 @@ function B:save(c, ab, dc, info)
     if ab == "dex" and self:any_effect(c, "dodge") and not self:incapacitated(c) then adv = true end
     if ab == "dex" and self:has(c, "restrained") then dis = true end
     if ab == "str" and self:any_effect(c, "enfeebled") then dis = true end
+    if ab == "str" and self:any_effect(c, "str_adv") then adv = true end      -- (Enlarge)
     local kind = info.kind
     if kind == "frightened" then
         if c.traits.brave then adv = true end

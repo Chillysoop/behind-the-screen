@@ -27,6 +27,10 @@ function M.foe_label(c)
     if not c or not c.name then
         return nil
     end
+    -- (Someone the adventure names, by what the table calls them: "Noke", not "the Ahmed Noke".)
+    if c.data and c.data.short then
+        return require("game.model.told").name(c.data.short)
+    end
     local n = (string.gsub(c.name, "%s+%d+$", ""))
     -- (As the table knows them: "the hooded woman" until someone's said Euryale, "the black knight" for the
     -- DM's Knight of Shades. game/model/told.lua.)
