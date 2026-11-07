@@ -40,7 +40,7 @@ local content = require "game.model.content"
 local review = require "game.ui.review_view"
 local panels = require "game.ui.panels"
 local gloss = require "game.ui.gloss"
-local battle_hud = require("game.ui.sets").screen("battle_hud")
+local battle_hud = require "game.ui.battle_hud"
 local input_trace = require "game.ui.input_trace"
 
 local M = {}

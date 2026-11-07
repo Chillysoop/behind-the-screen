@@ -443,22 +443,38 @@ function M.fudged(night)
     end
 end
 
+-- Who can take a fallen hero's place: the adventure's own new characters for that friend (Death in Space's crew), or the
+-- rule set's by class (5e's). Another set's adventure with none of its own has nobody: no leaks.
+local function pregens_for(p)
+    local adv = package.loaded["game.model.adventure"]
+    local own = adv and adv.data and adv.data.pregens
+    if own then
+        return own[p.key] or {}
+    end
+    if not require("game.model.ruleset").fits(data.PREGENS_RULES) then
+        return {}
+    end
+    return data.PREGENS[p.class] or data.PREGENS.fighter
+end
+M.pregens_for = pregens_for
+
 -- The start of a week: whoever fell rolls up a new character (the next pregen of their class),
 -- and a way back that went unused closes.
 function M.start_week(campaign)
     local out = {}
     for key, nc in util.sorted_pairs(campaign.new_char or {}) do
         local p = campaign:player(key)
+        local used, pick = campaign.pregens_used or {}, nil
         if p and not nc.done then
-            local used = campaign.pregens_used or {}
             campaign.pregens_used = used
-            local pick
-            for _, g in ipairs(data.PREGENS[p.class] or {}) do
+            for _, g in ipairs(pregens_for(p)) do
                 if not pick and not used[g.id] then
                     pick = g
                 end
             end
-            pick = pick or (data.PREGENS[p.class] or data.PREGENS.fighter)[1]
+            pick = pick or pregens_for(p)[1]
+        end
+        if p and not nc.done and pick then
             used[pick.id] = true
             -- The fallen hero's sheet goes on the shelf; the new character starts fresh.
             if campaign.party_state and campaign.party_state.pcs then
@@ -469,6 +485,10 @@ function M.start_week(campaign)
             p.pregen = pick.id
             p.mini = pick.mini
             p.hook = pick.hook
+            -- (An adventure's own new character is a different kind of hero: Death in Space's.)
+            if pick.class then
+                p.class, p.class_name = pick.class, pick.class_name
+            end
             -- The fallen hero's story ended with them; the new one's starts here.
             p.thread = util.lower_first(pick.hook)
             p.thread_progress = 0
@@ -488,7 +508,7 @@ function M.intro(night)
         if nc.joins and nc.joins <= campaign.week and not nc.introduced then
             local p = night.campaign:player(key)
             local g
-            for _, x in ipairs(data.PREGENS[p.class] or {}) do
+            for _, x in ipairs(p and pregens_for(p) or {}) do
                 if x.id == nc.pregen then
                     g = x
                 end

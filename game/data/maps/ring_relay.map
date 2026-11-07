@@ -1,0 +1,64 @@
+-- The final relay unit (ours, after p. 86 and the floor plan, p. 87): out on the hull in vacuum, the big
+-- communications dish, the relay unit beside it, and the station's wall with a window into the main hall.
+
+id: ring_relay
+tight: yes
+title: The final relay unit
+light: dark
+adventure: ring
+room: relay
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: Outside in vacuum: the hull, the big dish, and the relay unit beside it.
+tags: outdoor, space, hull
+order: 8
+party: 15,11
+foes: 5,2
+npc: 10,6
+
+grid:
+|....................|
+|...r................|
+|.............p......|
+|.....MM.............|
+|.....MM..c..........|
+|...............r....|
+|....................|
+|..p.................|
+|........r.......p...|
+|...........p........|
+|....................|
+|....................|
+|#######ww#####A#####|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | station    | auto
+w       | wall_window     | window     | auto
+A       | wall_door       | airlock    | auto
+M       | mech_dais       | dish       | 
+c       | counter         | relay      | 
+p       | pillar          | masts      | 
+r       | rubble          | debris     | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+station    | base      | station, wall, hull | the station's outer wall
+window     | base      | window | a window into the computer center's main hall
+airlock    | base      | airlock | the airlock back inside
+dish       | own_words | dish, communications dish | a huge communications dish, turning
+relay      | own_words | relay, relay unit, unit | the final relay unit, bolted down and rusted
+masts      | own_words | masts, antennas | antenna masts
+debris     | own_words | debris, scrap | debris caught on the hull
+
+spots:
+-- key | x,y | name | line | form
+hull | 12,7 | the hull | Plates of hull, and nothing but the dark above. | one area
+dish | 8,6 | the dish | The big communications dish, turning slowly. | one fixture
+relay_unit | 11,5 | the relay unit | A battered unit that tells the water systems what to do. | one fixture
+window | 9,12 | the window | Through it: the main hall, full of dreamers. | one fixture
+airlock | 15,12 | the airlock | The way back inside. | one fixture

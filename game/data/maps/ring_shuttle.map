@@ -1,0 +1,64 @@
+-- The shuttle docks (ours, after p. 79): the docking bay at the shuttle's airlock when Ragosa lands. Cargo and fuel
+-- drums give cover (a shot at someone behind them has disadvantage); the way back to airlock 13C is south.
+
+id: ring_shuttle
+tight: yes
+title: The shuttle docks
+light: candle
+adventure: ring
+room: shuttle
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: The shuttle's airlock, the timer at zero, and cargo everywhere to hide behind.
+tags: indoor, station, dock, combat
+order: 9
+party: 6,12
+foes: 10,3
+npc: 10,3
+
+grid:
+|########DD##########|
+|#..............T...#|
+|#.xx...............#|
+|#......x...xx......#|
+|#....o..........xx.#|
+|#.x...........o....#|
+|#......xx.o........#|
+|#...........xx.....#|
+|#.xx............x..#|
+|#........x.........#|
+|#....x.............#|
+|#l................l#|
+|####A###############|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+D       | wall_door       | shuttle_lock | auto
+A       | wall_door       | back_way   | auto
+T       | notice_board    | timer      | 0
+x       | crate           | crates     | 
+o       | barrel          | drums      | 
+l       | lamp_post       | lights     | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, bulkheads | the docking bay's bulkheads
+shuttle_lock | base      | shuttle, airlock, shuttle airlock | the shuttle's airlock, wide open
+back_way   | base      | way back, airlock 13C | the way back toward airlock 13C
+timer      | own_words | timer, countdown | the timer, reading zero
+crates     | own_words | crates, cargo, boxes | crates and cargo, stacked high enough to hide behind
+drums      | own_words | drums, fuel drums, barrels | fuel drums nobody should be shooting near
+lights     | own_words | lights, work lights | work lights swinging on their chains
+
+spots:
+-- key | x,y | name | line | form
+shuttle_airlock | 10,2 | the shuttle's airlock | The shuttle's airlock, wide open. | one fixture
+timer | 16,3 | the timer | The timer, at zero. | one fixture
+thugs | 11,3 | Ragosa's thugs | Where Ragosa's thugs spread out. | one area
+crates | 9,8 | the crates | Cargo, stacked high enough to hide behind. | one area
+airlock_13c | 5,12 | the way back | Back toward airlock 13C and the Brittle Star. | one area

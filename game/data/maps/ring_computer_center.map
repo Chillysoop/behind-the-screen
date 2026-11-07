@@ -1,0 +1,79 @@
+-- The computer center (ours, after the book's floor plan, p. 87): the corridor up from the elevator into the main
+-- hall, the server room and Monotone's office to the west, the sleeping pods and mess hall to the east, and the
+-- window out to the final relay unit on the hull.
+
+id: ring_computer_center
+tight: yes
+title: The computer center
+light: candle
+adventure: ring
+room: computer_center
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: Blue light, padded walls, dreamers on the floor of the main hall: Parliament's turf.
+tags: indoor, station, computers
+order: 7
+party: 11,8
+foes: 12,7
+npc: 4,3
+
+grid:
+|####################|
+|#kk.P..........#B.B#|
+|#....##d###w####B.B#|
+|A....#........dd...#|
+|#P...#.z..z.z.##...#|
+|######.z..z.z.######|
+|#....#........dd...#|
+|#RRRRd..z....h##...#|
+|#....#..z.....##LL.#|
+|#RRRR#####d#d###...#|
+|#........#.#####...#|
+|#........#.##..#..c#|
+|#########E##########|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+E       | wall_door       | elevator   | auto
+d       | door_open       | doors      | auto
+w       | wall_window     | window     | auto
+A       | wall_door       | airlock    | auto
+k       | desk            | office     | 0
+P       | wall_painting   | photos     | 0
+R       | bookshelf       | servers    | 0
+z       | bedroll         | dreamers   | 0
+h       | chest           | hatch      | 
+B       | bed             | pods       | 0
+L       | table_long      | mess       | 
+c       | counter         | fridge     | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_marble | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, padding | walls padded against the noise
+elevator   | base      | elevator, lift | the elevator down
+doors      | base      | door, doors, entrance | doors between the rooms
+window     | base      | window, window out | a window out onto the hull, and the big dish
+airlock    | base      | airlock | an airlock out onto the hull
+office     | own_words | desk, office, computer | Monotone's desk and personal computer
+photos     | own_words | photos, holo photos, pictures | holo photos of old friends
+servers    | own_words | servers, racks, stacks | racks of thundering servers
+dreamers   | own_words | dreamers, addicts, visors | dreamers on the floor, lost in their visors, cables everywhere
+hatch      | own_words | hatch, ducts, ventilation | a hatch to the ventilation ducts
+pods       | own_words | pods, sleeping pods | sleeping pods with health displays
+mess       | own_words | mess, table, mess hall | the mess hall's table
+fridge     | own_words | fridge, kitchen | a shut-down fridge with something rude scrawled on it
+
+spots:
+-- key | x,y | name | line | form
+corridor | 11,12 | the corridor | The corridor up from the elevator. | one area
+main_hall | 10,7 | the main hall | Flashing blue lights, and dreamers everywhere. | one area
+dreamers | 12,6 | the dreamers | Dreamers on the floor, cables running to their visors. | one area
+server_room | 3,9 | the server room | Thundering servers, dimly lit by their diodes. | one area
+sleeping_pods | 18,4 | the sleeping pods | Pods with health displays, and a few sleepers. | one area
+office_door | 4,3 | Monotone's office | Patterns on the ceiling, and photos on every wall. | one area
+window | 12,4 | the window out | A window onto the hull and the big dish. | one fixture

@@ -67,6 +67,7 @@ M.heroes = {
         allegiance = "An idea: through the whole Gem War she kept to her work and away from the fighting",
         kit = { "a tablet computer", "a translator that gets most languages", "a light EVA suit" },
         trinket = "A weatherproof notebook full of symbols nobody else can read",
+        weapons = { { name = "Pistol", uses = 5, damage = "1d6", ranged = true } },
     },
     dev = {
         char = "Brask Hollin", pronouns = "he", mini = "crew_brask", class = "driller", class_name = "Asteroid driller",
@@ -81,6 +82,7 @@ M.heroes = {
         allegiance = "The losing side: he lived through it, and it cost him",
         kit = { "an electric multi-tool", "a fusion welder", "duct tape", "a battered raid rifle" },
         trinket = "A wrench with a name engraved on the handle, not his",
+        weapons = { { name = "Raid rifle", uses = 10, damage = "1d10", ranged = true }, { name = "Wrench", damage = "1d4" } },
     },
     jess = {
         char = "Mox Calloway", pronouns = "she", mini = "crew_mox", class = "swindler", class_name = "Gravity swindler",
@@ -95,6 +97,7 @@ M.heroes = {
         allegiance = "The contract: whoever paid best, on any side",
         kit = { "lockpicks", "a deck of holographic playing cards", "a voice scrambler" },
         trinket = "A small toy figure of herself, in a different mask every time anyone looks",
+        weapons = { { name = "Pistol", uses = 5, damage = "1d6", ranged = true }, { name = "Knife", damage = "1d4" } },
     },
     sam = {
         char = "Pell Abernathy", pronouns = "he", mini = "crew_pell", class = "vagabond", class_name = "Orbit vagabond",
@@ -109,8 +112,29 @@ M.heroes = {
         allegiance = "Family: he stayed with his own and kept them fed",
         kit = { "a liquid purifier", "a hover hammock", "a box of spices", "incense" },
         trinket = "A music box with a little holographic galaxy turning inside",
+        weapons = { { name = "Hammer", damage = "1d4" } },
     },
 }
+-- Who takes a fallen hero's place (the book: a new character joins the crew as soon as they can, p. 54). Ours.
+M.pregens = {
+    mara = { { id = "ri_juna", name = "Juna Ferro", pronouns = "she", intro = "hired", mini = "npc_stranger",
+               class = "signal_tech", class_name = "Signal technician",
+               hook = "The Brittle Star's last comms tech, who left in a hurry and wants to know what she left behind.",
+               sheet = { bdy = 0, dex = 1, svy = 2, tec = 2, hp = 5, dr = 13 }, weapons = { { name = "Pistol", uses = 5, damage = "1d6", ranged = true } } } },
+    dev = { { id = "ri_okke", name = "Okke Brandt", pronouns = "he", intro = "hired", mini = "npc_stranger",
+              class = "hull_welder", class_name = "Hull welder",
+              hook = "A welder from the docking bay's repair shops, owed a favor by the dead and calling it in.",
+              sheet = { bdy = 3, dex = -1, svy = 0, tec = 1, hp = 7, dr = 11 }, weapons = { { name = "Fusion cutter", damage = "1d4" } } } },
+    jess = { { id = "ri_vesper", name = "Vesper Quill", pronouns = "they", intro = "rescued", mini = "npc_stranger",
+               class = "card_sharp", class_name = "Card sharp",
+               hook = "A card sharp the crew pulled out of a bad game at the Tsurutsuru, who owes them a life.",
+               sheet = { bdy = -1, dex = 3, svy = 1, tec = 0, hp = 5, dr = 15 }, weapons = { { name = "Knife", damage = "1d4" } } } },
+    sam = { { id = "ri_tamsin", name = "Tamsin Reed", pronouns = "she", intro = "sibling", mini = "npc_stranger",
+              class = "farm_hand", class_name = "Farm hand",
+              hook = "A hand off Roy's farm who knew the dead from the fruit stalls, and won't hear of them going alone.",
+              sheet = { bdy = 2, dex = 0, svy = 1, tec = -1, hp = 7, dr = 12 }, weapons = { { name = "Hammer", damage = "1d4" } } } },
+}
+
 -- Why each of them came aboard (ours: the book's crew come for a hub of their own, p. 78).
 M.hooks = {
     mara = { { id = "signal", name = "A voice in the static", ours = true, room = "computer_center",
@@ -296,6 +320,8 @@ M.places = {
       spots = { "plants", "engine", "control_panel", "racks", "sleeper", "inner_door" },
       exits = { { to = "engine_room" } },
       scene = { type = "exploration", quick = true, setting = { "indoor" }, sum = "Monotone's circuit board, in the Passel's engine hall.",
+                foes = { "passel", "passel" }, foes_name = "the Passel's guards", foes_short = "the guards",
+                boss_name = "the Passel's guards", optional_fight = true,
                 goal = { name = "The circuit board", aim = "install Monotone's circuit board", short = "install the board",
                          line = "Goal: get Monotone's circuit board into the control panel without being caught.",
                          win = "The board is in.", lose = "They're caught at the panel.", got = "Monotone's favor, done" } } },
@@ -383,25 +409,25 @@ M.people = {
           .. "non-phys dreamers." },
 }
 
--- Their numbers (the book's, p. 79-90): abilities, morale, hit points, defense rating and weapon. The story fight
--- reads only who they are; the numbers are here for a grid fight to come.
+-- Their numbers (the book's, pp. 79-90): abilities, morale, hit points, defense rating and weapon (its damage and
+-- shots before a reload from the weapons table, p. 122). The grid fight (game/rules/dis/battle.lua) fights with them.
 M.creatures = {
     salvager = { name = "Salvaging crew", page = 81, abilities = { bdy = 2, dex = 0, svy = 1, tec = 1 }, morale = 7, hp = 8, dr = 12,
-                 weapon = { name = "Pistol", damage = "1d6" } },
+                 type = "humanoid", weapon = { ranged = true, uses = 5, name = "Pistol", damage = "1d6" } },
     hina = { name = "Hina Tsurutsuru", page = 83, abilities = { bdy = 0, dex = 0, svy = 4, tec = 1 }, morale = 9, hp = 7, dr = 12,
-             weapon = { name = "Pistol", damage = "1d6" } },
+             type = "humanoid", weapon = { ranged = true, uses = 5, name = "Pistol", damage = "1d6" } },
     roy = { name = "Roy Mirra", page = 85, abilities = { bdy = 4, dex = 0, svy = 0, tec = 2 }, morale = 9, hp = 14, dr = 12,
-            weapon = { name = "Raid rifle", damage = "1d10" } },
+            type = "humanoid", weapon = { ranged = true, uses = 10, name = "Raid rifle", damage = "1d10" } },
     passel = { name = "Passel member", page = 86, abilities = { bdy = 2, dex = -1, svy = 0, tec = 0 }, morale = 7, hp = 5, dr = 11,
-               weapon = { name = "Pistol", damage = "1d6" } },
+               type = "humanoid", weapon = { ranged = true, uses = 5, name = "Pistol", damage = "1d6" } },
     monotone = { name = "Monotone Tynall", page = 89, abilities = { bdy = 0, dex = 0, svy = 2, tec = 4 }, morale = 8, hp = 10, dr = 12,
-                 weapon = { name = "Compact rifle", damage = "1d8" } },
+                 type = "humanoid", weapon = { ranged = true, uses = 10, name = "Compact rifle", damage = "1d8" } },
     parliament = { name = "Parliament member", page = 90, abilities = { bdy = -2, dex = 0, svy = 1, tec = 2 }, morale = 5, hp = 5, dr = 12,
-                   weapon = { name = "Pistol", damage = "1d6" } },
+                   type = "humanoid", weapon = { ranged = true, uses = 5, name = "Pistol", damage = "1d6" } },
     ragosa = { name = "Suro Ragosa", short = "Ragosa", page = 79, abilities = { bdy = 2, dex = 1, svy = 0, tec = 0 }, morale = 10, hp = 5, dr = 13,
-               weapon = { name = "Shotgun", damage = "2d4" } },
+               type = "humanoid", weapon = { ranged = true, uses = 4, name = "Shotgun", damage = "2d4" } },
     uwa_thug = { name = "UWA thug", page = 79, abilities = { bdy = 2, dex = 1, svy = 0, tec = 0 }, morale = 10, hp = 5, dr = 13,
-                 weapon = { name = "Shotgun", damage = "2d4" } },
+                 type = "humanoid", weapon = { ranged = true, uses = 4, name = "Shotgun", damage = "2d4" } },
 }
 
 -- Threads, story events and endings --------------------------------------------------------------------------------
@@ -603,7 +629,7 @@ M.events = {
                      success = { log = "Twenty sweaty minutes and the board clicks home. The panel blinks, and Monotone has the power. "
                                      .. "Their people are already on the Brittle Star.", mus = { flag = "monotone_deal_done", flags = { "repaired", "roy_betrayed" } } },
                      fail = { log = "A spark, a shout: the sleeper's awake, and the Passel know who was at their panel.",
-                              mus = { flag = "caught_at_panel", flags = { "roy_angry" } } } } },
+                              mus = { flag = "caught_at_panel", flags = { "roy_angry" }, fight = true } } } },
           { label = "Leave the board, and tell Roy instead.", want = "tell Roy what Monotone wanted", short = "tell Roy", lean = "bold",
             log = "Roy reads the board in his big hands for a long time. \"Thank you,\" he says. He'll fix their ship, and he'll "
                 .. "remember this.", mus = { flag = "roy_deal_done", flags = { "repaired", "monotone_angry" } } },

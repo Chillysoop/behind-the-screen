@@ -1,0 +1,78 @@
+-- The common area (ours, after p. 82): bed capsules up the scaffolding, food stands and rubbish below, the
+-- Tsurutsuru's bar on its balcony, Hina's office in an old airlock at the back, and the ways down and along.
+
+id: ring_common
+tight: yes
+title: The common area
+light: candle
+adventure: ring
+room: common
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: Food stands, bed capsules up the scaffolding, and the Tsurutsuru's balcony.
+tags: indoor, station, bar, crowd
+order: 4
+party: 4,6
+foes: 16,10
+npc: 18,3
+
+grid:
+|####################|
+|#BB.BB.BB.BB.#.kk..#|
+|#BB.BB.BB.BB.#.....#|
+|#P...........##d####|
+|#.r................#|
+|E.........ffff.....#|
+|#.........f.b.b.b..#|
+|#.MM.MM...f........#|
+|#.MM.MM......o..o..#|
+|#..................C|
+|#...MM.r.......o...#|
+|#r..MM............P#|
+|#########S##########|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+E       | wall_door       | elevators  | auto
+S       | wall_door       | stairs     | auto
+C       | wall_door       | way_cc     | auto
+d       | door_open       | office_door | auto
+B       | bed             | capsules   | 0
+k       | desk            | office     | 0
+f       | fence           | balcony    | 
+b       | bar             | tsurutsuru | 
+o       | table_round     | tables     | 
+M       | stall           | stands     | 
+r       | rubble          | rubbish    | 
+P       | wall_painting   | screens    | 0
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, bulkheads | walls hung with cables and cloth
+elevators  | base      | elevators, lifts | the elevators down to the docking bay
+stairs     | base      | stairs, stairs down | the stairs down to the engine room
+way_cc     | base      | way, corridor | the way along to the computer center
+office_door | base      | airlock, office door | an old airlock door: Hina's office
+capsules   | own_words | capsules, bed capsules, scaffolding | bed capsules stacked up the scaffolding
+office     | own_words | desk, office | Hina's desk, piled with tabs and bottles
+balcony    | own_words | balcony, railing, platform | the railing of the Tsurutsuru's platform
+tsurutsuru | own_words | bar, Tsurutsuru, counter | the Tsurutsuru's bar
+tables     | own_words | tables, seats | the Tsurutsuru's crowded tables
+stands     | own_words | food stands, stands, stalls | food stands, steaming
+rubbish    | own_words | rubbish, heaps, trash | heaps of rubbish with paths cut through them
+screens    | own_words | holo screens, screens, adverts | holo screens running adverts
+
+spots:
+-- key | x,y | name | line | form
+food_stands | 5,10 | the food stands | Noodles, skewers, and real fruit at a terrible price. | one area
+scaffolding | 7,4 | the scaffolding | Walkways up the scaffolding, levels above the floor. | one area
+capsules | 4,4 | the bed capsules | Tight bed capsules, stacked like crates. | one area
+bar | 15,8 | the Tsurutsuru | The bar on the platform, smoky and packed. | one area
+balcony | 12,5 | the balcony | The Tsurutsuru's balcony, over the whole common area. | one area
+hinas_office | 18,3 | Hina's office | An old airlock at the back of the bar: Hina's office. | one area
+holo_screens | 18,12 | the holo screens | Adverts for cryo tickets, and a UWA notice. | one fixture

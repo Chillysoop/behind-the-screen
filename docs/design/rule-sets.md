@@ -146,16 +146,33 @@ reactions do too, so every bark, thought and rest beat works in any set.
      always (`fixed_dc`: how hard a thing is shows as advantage or disadvantage, never a moved number); a miss gives a
      void point, four at most, and a player spends one for advantage on a roll that matters (`edge`), at the risk of a
      mark if it still misses (`after_check`). The table's ways of trying things (its stock moves name 5e's skills) map
-     to the abilities (`approach`). No inspiration token, no levels, fights told as story (`fight = "story"`, harder:
-     `story_marks`). Its engine parts are its own (game/rules/dis/: party, progression, tile_stats), and so are its
-     screens (game/ui/sheet_view_dis.lua; game/ui/battle_hud_none.lua, a HUD with nothing on the mat).
+     to the abilities (`approach`). No inspiration token, no levels. Its engine parts are its own (game/rules/dis/:
+     party, progression, tile_stats, fight), and so are its screens (game/ui/sheet_view_dis.lua, fight_steps_dis.lua).
+   - *Its fights, on the board, as written* (Conner, November 7: "Follow combat rules as written. Have me weigh in on
+     gaps"): game/rules/dis/battle.lua on the shared grid. A round is a turn each, a move of about 15 meters and an
+     action; whoever started goes first and each one who acts picks who's next (the crew among themselves first). An
+     attack is a d20 plus Body in melee or Tech at range against the defense rating; a natural 20 or a risky hit adds a
+     damage die, and a risky miss gets hit straight back by a target who then picks who's next; a gun fires its shots
+     (the weapons table) and then the action is a reload; partly behind cover is disadvantage; a hero's miss is a void
+     point, and a void point spent is advantage. At 0 anyone rolls Body against 12: stable and out cold, or dead. Foes
+     test morale on 2d6 when half their side is down, a lone foe is at half, or their leader falls. tools/tests/
+     dis_rules_check.lua pins each on forced dice. Conner's calls on the gaps: a failed Body check kills by the book and
+     then the DM's usual card offers what Session Zero agreed; a broken foe surrenders, runs or asks to talk on a DM
+     card (past the night's calls: a leader talks, the rest run); gear wearing down is left out for now; a square is
+     1.5 meters (10 a turn), and guns reach anything in sight. Not yet: full cover, splitting a shotgun's dice, armor
+     (nobody in this adventure wears any), and unarmed blows (1d2, ours).
+   - *Its boards* (game/data/maps/ring_*.map): the engine room and the computer center after the book's floor plans,
+     the docking bay, the shuttle docks, the bar in the machine, the common area, the engine hall and the relay after
+     its descriptions, and the Brittle Star by the hub steps; all in our pieces.
    - *The adventure* (game/data/ring/): Welcome to the Ring on Aurum 80, in our words with the book's pages. Four new
      characters, one per friend, by the book's steps (an adventure's `heroes` with `char`, `class_name`, `pronouns`,
      `mini`, `sheet` and the rest replace the friends' usual heroes while it runs), and their hub, the Brittle Star,
      by the hub steps (`M.hub`, its own board game/data/maps/ring_hub.map and minis tools/gen_sprites_ring.py).
    - *What the sweep moved:* board placement out of 5e's fight (game/model/placement.lua), the secrets' usual ways out
      by set (`secret_defaults`), the bag's books tagged 5e, rests and hurts said without hit points for a set whose
-     fights are told, `ruleset.has` for a screen that shows a part only when the set has one, `goal.win_sets`.
+     fights are told, `ruleset.has` for a screen that shows a part only when the set has one, `goal.win_sets`, the
+     battle HUD made the table's (its hovers in the set's words), a set's own rests (`rest_with`), and a fallen hero's
+     replacement from the adventure's own `pregens` (5e's by class, `PREGENS_RULES`; another set's never).
 6. **The table meets the system.** Session Zero pitches it; each friend has a taste and a familiarity ("we roll two
    dice?"); the DM's prep changes with it (threats and clocks instead of encounters). *Done when:* the friends'
    reactions to the system show up in the transcripts.

@@ -65,6 +65,8 @@ M.SCARS = {
 -- New characters: two for each class the rules engine supports. Same class as the fallen, so
 -- the party still works; the player keeps their own voice. pronouns: the new hero's own (D6). intro: how they join. An adventure
 -- gives them its own hooks and introductions (adventure.museum_death).
+-- (5e's new characters, by class: another set's adventure brings its own, `pregens`. game/model/death.lua's pregens_for.)
+M.PREGENS_RULES = { rules = "5e" }
 M.PREGENS = {
     fighter = {
         { id = "bryn", name = "Bryn", pronouns = "she", hook = "Brannoc's younger sister, who followed him from home and never told him.",

@@ -1,0 +1,67 @@
+-- The central engine hall (ours, after p. 84 and the floor plan, p. 83): an overgrown farm round the engine that
+-- powers the sector, racks of electronics by a control panel, and a Passel member asleep by the inner door.
+
+id: ring_engine_hall
+tight: yes
+title: The central engine hall
+light: candle
+adventure: ring
+room: engine_hall
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: A jungle round a deafening engine, racks by the control panel.
+tags: indoor, station, engine, farm
+order: 6
+party: 10,12
+foes: 14,8
+npc: 9,11
+
+grid:
+| ################## |
+| ##..............## |
+| #.t..g.......c...# |
+| #..g......g...RR.# |
+| #...t.......g....# |
+| #..g..g.MM....RR.# |
+| #.......MM.......# |
+| #.g..g...........# |
+| #......t...g..g..# |
+| #...g.....g......# |
+| #.....z......t...# |
+| ##....z.........## |
+| ########D######### |
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+D       | wall_door       | inner_door | auto
+M       | mech_dais       | engine     | 
+c       | counter         | panel      | 
+R       | bookshelf       | racks      | 0
+g       | bush            | plants     | 
+t       | tall_grass      | dry        | 
+z       | bedroll         | sleeper    | 0
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, hall | the engine hall's sweating walls
+inner_door | base      | inner door, door | the inner door, back to the cooling corridors
+engine     | own_words | engine, drive | the engine that powers the whole sector, deafening
+panel      | own_words | control panel, panel, controls | the control panel, password-protected
+racks      | own_words | racks, electronics | racks of electronics
+plants     | own_words | plants, jungle, vines, farm | fruit and vegetables climbing everything, most of them withered
+dry        | own_words | dry plants, withered | withered plants
+sleeper    | own_words | sleeper, guard, Passel member | a Passel member asleep by the door
+
+spots:
+-- key | x,y | name | line | form
+plants | 6,7 | the plants | Fruit and flowers climbing everything, most of them dry. | one area
+engine | 12,8 | the engine | The engine that powers Aurum 80, too loud to think over. | one fixture
+control_panel | 15,4 | the control panel | A computer panel, password-protected, by the racks. | one fixture
+racks | 18,5 | the racks | Racks of electronics, humming. | one area
+sleeper | 9,12 | the sleeper | A Passel member asleep by the inner door. | one area
+inner_door | 11,12 | the inner door | The way back to the cooling corridors. | one fixture

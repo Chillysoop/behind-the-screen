@@ -1,0 +1,73 @@
+-- The docking bay of Aurum 80 (ours, after the book's description, p. 80): shipping containers and booths in a maze,
+-- repair shops, docking airlocks along the outer wall, the timer, the elevators up, the way to the plaza, and in
+-- the south-west corner airlock 13C, almost hidden behind a heap of junk.
+
+id: ring_dock
+tight: yes
+title: The docking bay
+light: candle
+adventure: ring
+room: dock
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: A metal shantytown: containers, repair shops, the timer, and airlock 13C behind its junk.
+tags: indoor, station, dock
+order: 1
+party: 10,3
+foes: 15,7
+npc: 5,10
+
+grid:
+|####D#######D####D##|
+|#..........T.......#|
+|#xx..SS.........xx.#|
+|#xx..SS.........xx.#|
+|#..................#|
+|#l.....xx..xx......#|
+|#..................E|
+|#..................#|
+|#rr...SS....SS.....#|
+|A.xr..SS....SS.....#|
+|#rr...............l#|
+|#..................#|
+|##########P#########|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+D       | wall_door       | airlocks   | auto
+A       | wall_door       | airlock13c | auto
+E       | wall_door       | elevators  | auto
+S       | stall           | shops      | 
+T       | notice_board    | timer      | 0
+r       | rubble          | junk       | 
+x       | crate           | containers | 
+l       | lamp_post       | lights     | 
+P       | wall_door       | plaza_way  | auto
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, hull, bulkheads | the docking bay's rust-streaked bulkheads
+airlocks   | base      | airlocks, docking airlocks | docking airlocks along the outer wall, most of them still working
+airlock13c | base      | airlock 13C, 13C, airlock | airlock 13C, almost hidden behind a heap of junk
+elevators  | base      | elevators, lifts | the elevators up into Aurum 80
+plaza_way  | base      | plaza, way through | the way through to the plaza and the bar in the machine
+timer      | own_words | timer, countdown, clock | a huge timer counting down to the next shuttle
+junk       | own_words | junk, scrap, heap | a heap of rusted junk
+containers | own_words | containers, crates, shipping containers | painted shipping containers, stacked
+shops      | own_words | repair shops, booths, stalls | booths and repair shops in an alley maze
+lights     | own_words | lights, work lights | work lights swinging on chains
+
+spots:
+-- key | x,y | name | line | form
+airlock_13c | 4,9 | airlock 13C | A jammed airlock door, almost buried in junk. | one fixture
+junk | 4,11 | the junk | Scrap, cable and a whole broken engine heaped against the wall. | one area
+repair_shops | 9,4 | the repair shops | Booths of spare parts, every one with a price that's an insult. | one area
+containers | 4,5 | the containers | Shipping containers somebody lives in. | one area
+timer | 12,3 | the timer | Big red numbers, counting down to the next shuttle. | one fixture
+plaza | 11,12 | the way to the plaza | Through to the plaza and the bar in the drilling machine. | one area
+airlocks | 5,2 | the docking airlocks | Airlocks to the shuttles, and space beyond. | one area

@@ -63,6 +63,10 @@ M.engine = setmetatable({}, {
 -- The words the shared game says 5e's things with, so a line reads the same in a 5e adventure and never shows in
 -- another set's (each set has its own). {dc}, {name}, {char}, {healed} are filled where they're said.
 M.words = {
+    -- (The fight's turn order on the mat, and its hover: game/ui/battle_hud.lua.)
+    turn_order = { "Everyone in the fight, in the order they act. When the fight started, each rolled a d20 (the number "
+        .. "under them); highest goes first. The lit one is acting now. Once everyone has gone, it's the next round.",
+        "Initiative" },
     dc = "DC",                                   -- the number to beat
     inspiration = "Heroic Inspiration",          -- the reroll token the DM hands a player
     advantage = "Advantage",

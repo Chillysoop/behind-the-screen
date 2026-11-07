@@ -1,0 +1,75 @@
+-- The engine room (ours, after the book's floor plan, p. 83): the ring of cooling corridors round the locked
+-- central engine hall, the entrance from the south, storage to the south-east, fruit stalls and the noodle stand to
+-- the west, the self-selling AIs to the east, and Roy's office, locked, to the north.
+
+id: ring_engine_room
+tight: yes
+title: The engine room
+light: candle
+adventure: ring
+room: engine_room
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: Cooling corridors in a ring round the engine hall: the Passel's turf.
+tags: indoor, station, engine
+order: 5
+party: 11,12
+foes: 16,3
+npc: 6,11
+
+grid:
+| ################## |
+| ##....#kk.R#....## |
+| #...p.###L##.....# |
+| #................# |
+| #....########....# |
+| #.MM.#......#.a..# |
+| #.MM.#......#....# |
+| #....#......#.a..# |
+| #...p#......#p...# |
+| #....###L####....# |
+| #.nn.........d.x.# |
+| ##...........#xx## |
+| #########S######## |
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+L       | door_locked     | locked     | auto
+S       | wall_door       | entrance   | auto
+d       | door_open       | storage_door | auto
+k       | desk            | roys_desk  | 0
+R       | wall_shelf      | drives     | 0
+x       | crate           | storage    | 
+M       | stall           | fruit      | 
+n       | counter         | noodles    | 
+a       | display_case    | ais        | 
+p       | pillar          | fans       | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, corridors, pipes | corridor walls sweating with heat
+locked     | base      | locked door, door | a heavy locked door
+entrance   | base      | entrance, stairs | the entrance from the stairs
+storage_door | base      | hatch, storage | the storage room's hatch
+roys_desk  | own_words | desk, office | Roy's desk, and security footage on a screen
+drives     | own_words | drives, racks, files | racks of drives
+storage    | own_words | crates, storage | storage crates
+fruit      | own_words | fruit, stalls, vendors | fruit stalls, half empty
+noodles    | own_words | noodle stand, noodles, soup | the noodle stand, always steaming
+ais        | own_words | AIs, guard services, vending | two self-selling AIs, offering guard services
+fans       | own_words | fans, giant fans | giant shut-down fans, gates between the corridors
+
+spots:
+-- key | x,y | name | line | form
+corridors | 4,9 | the cooling corridors | A ring of hot corridors, lit like stars. | one area
+fruit_stalls | 6,7 | the fruit stalls | Fruit stalls, half of them empty. | one area
+noodle_stand | 6,11 | the noodle stand | A noodle stand, where Roy eats his soup. | one fixture
+fans | 6,4 | the fans | A giant shut-down fan, a gate between corridors. | one fixture
+guards | 11,4 | the guards | Passel guards outside Roy's office. | one area
+roys_office | 11,2 | Roy's office | Roy's office, locked, behind its guards. | one area
+engine_hall_door | 10,11 | the engine hall's door | The locked door into the central engine hall. | one fixture

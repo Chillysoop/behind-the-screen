@@ -273,7 +273,7 @@ function M.night_shots(app, a)
         if app.in_battle and app.hud and #app.hud.order > 0 and (a.turns or 0) >= 6 and not a.shots.battle then
             -- A zone on the mat for the shot, so the screenshot shows how areas look.
             -- Centred on the first monster still standing, so it's in the camera's frame.
-            local battle_hud = require("game.ui.sets").screen("battle_hud")
+            local battle_hud = require "game.ui.battle_hud"
             local cx, cy = 8, 6
             local b = app.night and app.night.battle
             for _, c in ipairs(b and b.creatures or {}) do
@@ -294,7 +294,7 @@ function M.night_shots(app, a)
         end
         if a.zone_up and a.shots.battle then
             a.zone_up = false
-            require("game.ui.sets").part("battle_hud").zone_end(app, 9999)
+            require("game.ui.battle_hud").zone_end(app, 9999)
         end
         a.turns = (a.turns or 0) + 1
     end

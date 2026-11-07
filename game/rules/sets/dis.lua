@@ -5,8 +5,8 @@
 -- A check is a d20 plus one of four abilities, Body, Dexterity, Savvy and Tech (from -3 to +3), and 12 or more works
 -- (p. 36). A miss always costs something, and it opens the hero to the void: a void point, four at most (p. 38). A
 -- void point spent rolls the check twice and keeps the better (p. 38), but if that roll still misses, the void may
--- leave a mark (p. 38). Fights are told as story for now (game/model/story_fight.lua); the book's own fight, attacks
--- against a defense rating on hit points (p. 52), can stand on the table's grid later. Pure Lua.
+-- leave a mark (p. 38). Fights stand on the room's board, by the book (pp. 52-54): game/rules/dis/battle.lua, told by
+-- game/rules/dis/fight.lua and game/ui/fight_steps_dis.lua. Pure Lua.
 
 local dice = require "game.kit.dice"      -- (the table's dice: Death in Space rolls the d20 too)
 
@@ -16,7 +16,7 @@ M.id = "dis"
 M.title = "Death in Space"
 M.dice = { notation = "1d20", sides = 20, name = "d20", icon = "d20" }
 M.who_rolls = "dm"                         -- (the DM rolls for the table here, in the open or behind the screen)
-M.fight = "story"                          -- (told as story: game/model/story_fight.lua)
+M.fight = "grid"                           -- (on the room's board: game/rules/dis/battle.lua; a scene can still be told)
 M.TARGET = 12                              -- a check works on 12 or more, always (p. 36)
 M.VOID_MAX = 4                             -- void points a hero can hold (p. 38)
 M.inspiration = false                      -- (no reroll token the DM hands out: the void points are the players' own)
@@ -49,6 +49,9 @@ M.story_marks = { 4, 6, 8 }                -- (a fight told as story takes longe
 
 -- The words the shared game says Death in Space's things with (each set has its own).
 M.words = {
+    turn_order = { "Everyone in the fight, in the order they act. Whoever started it went first, and each one who acts "
+        .. "picks who's next: the crew pass their turns among themselves while any of them are left to go. The lit one "
+        .. "is acting now. Once everyone has gone, it's the next round.", "Turn order" },
     dc = "target",
     advantage = "advantage", disadvantage = "disadvantage",
     crit = "natural 20", fumble = "natural 1",
@@ -61,7 +64,8 @@ M.words = {
     rest_long_label = "They sleep it off in the hub.",
     rest_hour = "A breather. {healed} hit points back across the crew.",
     rest_none = "A breather. Nobody's patched up, but nobody's worse.",
-    rest_long_said = "A full night's sleep aboard the hub. Everyone wakes up stiff, but whole.",
+    rest_long_said = "A full night's sleep. Everyone wakes up stiff, but whole.",
+    rest_long_healed = { "A full night's sleep and a hot meal: {healed} hit points back across the crew." },
     spot_first = "A Savvy check. Miss it, and it goes off.",
     find_check = "Savvy check",
     tile_hp = { "Hit points", "How much more {char} can take. At 0, a Body check decides whether {char} lives." },
@@ -99,7 +103,7 @@ M.words = {
 -- adventure's set doesn't own it.
 M.owns = {
     "%f[%w]void points?%f[%W]", "%f[%w]Void points?%f[%W]", "%f[%w]void corruption%f[%W]", "%f[%w]cosmic mutation",
-    "%f[%w]defense rating%f[%W]", "%f[%w]holos?%f[%W]", "%f[%w]Savvy%f[%W]", "%f[%w]Tech check", "%f[%w]Body check",
+    "%f[%w]defense rating%f[%W]", "%f[%w]holos%f[%W]", "%d holo%f[%W]", "%f[%w]Savvy%f[%W]", "%f[%w]Tech check", "%f[%w]Body check",
     "%f[%w]BDY%f[%W]", "%f[%w]SVY%f[%W]", "%f[%w]TEC%f[%W]", "%f[%w]non%-phys%f[%W]",
 }
 -- (Words 5e owns that this set also uses, so the fence lets them through here: game/rules/sets/dnd5e.lua's owns.)
@@ -122,12 +126,42 @@ M.secret_defaults = {
     creature = { { kind = "check", skill = { "svy", "tec" }, dc = 12, gives = "known" } },
 }
 
--- A hero's bonus for an approach: the ability's value on their sheet (the adventure's heroes, `sheet`).
-function M.hero_mod(campaign, p, approach)
+-- Who a player's hero is: the adventure's crew member (its `heroes`), or the new character who took their place after
+-- a death (its `pregens`, by the player's `pregen`).
+function M.hero_of(campaign, key)
     local adv = package.loaded["game.model.adventure"]
-    local h = adv and adv.data and adv.data.heroes and adv.data.heroes[p.key]
+    local data = adv and adv.data or {}
+    local p = campaign and campaign.player and campaign:player(key)
+    if p and p.pregen then
+        for _, g in ipairs((data.pregens or {})[key] or {}) do
+            if g.id == p.pregen then
+                return g
+            end
+        end
+    end
+    return (data.heroes or {})[key]
+end
+
+-- A hero's bonus for an approach: the ability's value on their sheet.
+function M.hero_mod(campaign, p, approach)
+    local h = M.hero_of(campaign, p.key)
     local sheet = h and h.sheet or {}
     return sheet[M.approach(approach)] or 0
+end
+
+-- A rest (p. 54): game/rules/dis/fight.lua heals the crew, and this says it.
+function M.rest_with(night, long)
+    local f = M.engine.fight
+    if not night.pc_list then
+        f.party(night)
+    end
+    local healed = f.rest(night, long, night.scene and night.scene.room == "hub")
+    if long then
+        local util = require "game.model.util"
+        return healed > 0 and util.fill(night:fresh(M.words.rest_long_healed, "rest_long_healed"), { healed = tostring(healed) })
+            or M.words.rest_long_said
+    end
+    return M.words.rest_none
 end
 function M.mod()
     return 0
@@ -254,6 +288,7 @@ M.engine = {
     progression = require "game.rules.dis.progression",
     party = require "game.rules.dis.party",
     tile_stats = require "game.rules.dis.tile_stats",
+    fight = require "game.rules.dis.fight",
 }
 
 return M

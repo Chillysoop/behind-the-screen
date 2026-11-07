@@ -1,5 +1,4 @@
--- rules: 5e   (5e's own screen, reached through game/ui/sets.lua: docs/design/rule-sets.md)
--- Fights on the mat, readable at a glance (real-session pass): a hit point bar over every
+-- Fights on the mat, for any rule set's grid fight, readable at a glance (real-session pass): a hit point bar over every
 -- mini (heroes and monsters), the conditions they're under, the turn order along the top
 -- with whoever's acting lit up, and spell areas and zones laid on the mat as tinted squares
 -- (main/table/table.script draws them). The model's fight events arrive as turn steps
@@ -10,6 +9,12 @@ local kit = require "game.ui.kit"
 local theme = require "game.ui.theme"
 local util = require "game.model.util"
 local gloss = require "game.ui.gloss"
+local ruleset = require "game.model.ruleset"
+
+-- (The set's own words for the turn order and the boss's health: game/rules/sets.)
+local function W()
+    return ruleset.current().words
+end
 
 local M = {}
 
@@ -447,9 +452,7 @@ function M.draw_order(app)
     -- (What a friend's speech steps round, now it comes from their seat: night_view.zones.)
     st.zone_rects = { { x = x0 - 8 - 62, y = INIT_Y, w = step * n + 16 + 62, h = 60 + 22 } }
     st.order_spot = M.keep_spot(app, st.order_spot, x0 - 8 - 62, INIT_Y, step * n + 16 + 62, 60 + 22, "Turn order",
-        "Everyone in the fight, in the order they act. When the fight started, each rolled a d20 (the number "
-        .. "under them); highest goes first. The lit one is acting now. Once everyone has gone, it's the next round.",
-        "Initiative")
+        W().turn_order[1], W().turn_order[2])
     local boss = boss_of(st)
     if not (boss and not boss.gone) then
         kit.unspot(st.boss_spot)
@@ -461,7 +464,7 @@ function M.draw_order(app)
         table.insert(st.zone_rects, { x = bx - 10, y = by - 4, w = BOSS_W + 20, h = 40 })
         st.boss_spot = M.keep_spot(app, st.boss_spot, bx - 10, by - 4, BOSS_W + 20, 40, "The boss's health",
             "How much the boss can still take before it's beaten: what's left, out of what it started with. "
-            .. "Every hit takes some off.", "Hit points (HP)")
+            .. "Every hit takes some off.", util.capitalize(W().hit_points) .. " (" .. W().hp .. ")")
         local name = kit.ellipsize(boss.name or "The boss", "ui14", BOSS_W)
         table.insert(nodes, kit.box(bx - 10, by - 4, BOSS_W + 20, 40, kit.rgba("#140e0b", 0.7), { radius = 8 }))
         table.insert(nodes, kit.text(bx, by, name, "ui14", theme.text))
@@ -484,7 +487,7 @@ function M.draw_order(app)
         local pic = m and m.pic or "mini_bandit"
         table.insert(nodes, kit.picture(x + (step - 34) / 2, INIT_Y + 4, 30, 37, pic,
             kit.rgba("#ffffff", gone and 0.25 or 1)))
-        table.insert(nodes, kit.text(x + step / 2 - 2, INIT_Y + 42, util.int(o.total or 0), "ui14",
+        table.insert(nodes, kit.text(x + step / 2 - 2, INIT_Y + 42, (o.total and util.int(o.total) or ""), "ui14",
             now and theme.bg or (o.side == "party" and theme.teal or theme.dim), { pivot = gui.PIVOT_N }))
     end
 end

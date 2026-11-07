@@ -50,7 +50,9 @@ return {
                                         class = "string", class_name = "string", intro = "string", hello = "table",
                                         sheet = "table", origin = "table", background = "string", trait = "string",
                                         drive = "string", looks = "string", allegiance = "string", kit = "table",
-                                        trinket = "string" } },
+                                        trinket = "string", weapons = "table" } },
+    -- (Who takes a fallen hero's place, for each friend: an adventure's own new characters.)
+    pregens = { kind = "map", fields = { ["[]"] = "table" } },
     hooks = { kind = "map", fields = { ["[]"] = "table",  } },
     id = { kind = "value", type = "string" },
     ideas = { kind = "map", fields = { ask = "table", fail = "table", follow = "table", gift_shop = "table", help = "table", hide = "table", join = "table", mus_flitwidget = "table", mus_telpur = "table", no = "table", notice = "table", object = "table", ok = "table", poke = "table", say = "table", street = "table", take = "table", thanks = "table" } },

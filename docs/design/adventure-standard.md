@@ -48,6 +48,8 @@ Status: **plays** (the engine runs it today), **data** (the standard holds it, t
 | `keeps` | What the party keeps afterwards: a title, renown, a base, a debt owed, each with its `when` | S, N, T, B | data |
 | `depends` | Other files the book relies on (mask cards, a lore supplement), and outside rules | N, W | data |
 | `heroes`, `hooks`, `all_in` | The heroes' reasons for coming, and what each player adds | all | plays |
+| `heroes` (own crew), `pregens` | An adventure's own new characters, one per friend, replacing their usual heroes while it runs (`char`, `pronouns`, `class`, `class_name`, `mini`, `hello`, `sheet`, `weapons`, the book's character-step fields), and who takes a fallen one's place (Death in Space's Welcome to the Ring) | R | plays |
+| `hub` | The crew's spacecraft or station by the book's hub steps: its numbers, background, quirk and status | R | data |
 | `session_zero`, `content`, `prep_notes` | Its Session Zero, content tags by place, real prep for each place | all | plays |
 
 ### Places, by layer

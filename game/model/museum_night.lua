@@ -5795,7 +5795,7 @@ function M.maybe_break(night, before_boss)
     end
     if o and o.rest then
         -- (A set whose fights are told as story keeps no hit points between them: nothing to build.)
-        if not night.pc_list and ruleset.current().fight ~= "story" then
+        if not night.pc_list and ruleset.current().fight ~= "story" and not ruleset.current().rest_with then
             fight.party(night)
         end
         night:do_rest(o.rest == "long" and "long" or "short", "town")

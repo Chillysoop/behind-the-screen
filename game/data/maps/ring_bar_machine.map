@@ -1,0 +1,70 @@
+-- The plaza in the docking bay (ours, after p. 80): an old drilling machine in the middle, made into a tiny bar
+-- with a tarp over it, stools round it, and the ways out: corridor, stairs, elevators, and back to the dock.
+
+id: ring_bar_machine
+tight: yes
+title: The bar in the machine
+light: candle
+adventure: ring
+room: bar_machine
+source: adventure
+credit: Ours, after Welcome to the Ring in Death in Space by Christian Plogfors and Carl Niblaeus (Free League)
+about: A plaza round an old drilling machine made into a tiny bar.
+tags: indoor, station, bar
+order: 3
+party: 11,11
+foes: 14,3
+npc: 6,6
+
+grid:
+|#########C##########|
+|#xx..............xx#|
+|#x.r..............x#|
+|#.r....bbbb........#|
+|#...o..bMMb...o....#|
+|#......bMMb........#|
+|S......bbbb........E|
+|#..................#|
+|#...o.........o....#|
+|#..........o......x#|
+|#xx..............xx#|
+|#..................#|
+|##########D#########|
+
+legend:
+-- char | kind | feature | turn
+#       | wall_room       | walls      | auto
+C       | wall_door       | corridor   | auto
+S       | wall_door       | stairs     | auto
+E       | wall_door       | elevators  | auto
+D       | wall_door       | dock_way   | auto
+M       | mech_dais       | drill      | 
+b       | bar             | bar        | 
+o       | table_round     | stools     | 
+x       | crate           | crates     | 
+r       | rubble          | alley      | 
+
+pieces:
+-- feature | kind | x,y | turn
+floor      | floor_flags | 1,1 | 
+
+features:
+-- id | flags | words | say
+walls      | base      | walls, bulkheads | the plaza's walls, dripping
+corridor   | base      | corridor | the corridor to the computer center
+stairs     | base      | stairs, stairs down | the stairs down to the engine room
+elevators  | base      | elevators, lifts | the elevators up to the common area
+dock_way   | base      | docking bay, way back | the way back into the docking bay
+drill      | own_words | drilling machine, drill, machine | an old drilling machine, now a bar
+bar        | own_words | bar, counter, sake, water | the bar counter round the machine, under a tarp
+stools     | own_words | stools, tables | stools and tiny tables
+crates     | own_words | crates, boxes | crates stacked in the corners
+alley      | own_words | alley, scrap | a narrow alley of scrap
+
+spots:
+-- key | x,y | name | line | form
+drill_bar | 10,8 | the bar in the machine | Water and sake, served out of an old drilling machine. | one fixture
+tarp | 12,5 | the tarp | A tarp strung over the bar against the drips. | one area
+stools | 6,6 | the stools | Wobbly stools round little tables. | one area
+old_friend | 6,9 | a familiar face | Someone at the bar who's seen you before. | one area
+alley | 4,2 | the alley | A narrow alley of scrap, behind the crates. | one area

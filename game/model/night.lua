@@ -5329,8 +5329,12 @@ end
 function M:do_rest(rest, kind)
     local long = rest == "long"
     self.table_min = self.table_min + (long and 15 or 8)
-    -- (A set whose fights are told as story keeps no hit points between them: the rest is said, and that's all.)
-    if rules().fight == "story" then
+    -- (A set with rests of its own says them: Death in Space's. One whose fights are told as story keeps no hit points
+    -- between them: the rest is said, and that's all.)
+    if rules().rest_with then
+        self:say(rules().rest_with(self, long), "aside")
+        return
+    elseif rules().fight == "story" then
         self:say(long and W().rest_long_said or W().rest_none, "aside")
         return
     end

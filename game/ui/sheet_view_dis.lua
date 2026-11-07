@@ -16,9 +16,8 @@ local X, Y, W, H = 130, 40, 1340, 824
 local ABILITIES = { { "bdy", "BODY", "Strength, toughness, endurance" }, { "dex", "DEXTERITY", "Agility, reflexes, aim" },
                     { "svy", "SAVVY", "Awareness, knowing things, reading people" }, { "tec", "TECH", "Machines, computers, repairs" } }
 
-local function hero(key)
-    local adv = package.loaded["game.model.adventure"]
-    return adv and adv.data and adv.data.heroes and adv.data.heroes[key] or {}
+local function hero(key, campaign)
+    return require("game.model.ruleset").get("dis").hero_of(campaign, key) or {}
 end
 
 function M.open(app, key)
@@ -40,7 +39,7 @@ end
 
 -- What a hero carries, for the party page: their kit and trinket ({ name, text, gear }).
 function M.carrying(_c, s)
-    local h = hero(s.key)
+    local h = hero(s.key, _c)
     local out = {}
     for _, k in ipairs(h.kit or {}) do
         table.insert(out, { name = k, gear = k, text = "" })
@@ -71,7 +70,7 @@ function M.draw(app)
     app.sheet_layer = l
     local c = app.campaign
     local p = c:player(app.sheet_key)
-    local h = hero(p.key)
+    local h = hero(p.key, c)
     local sh = h.sheet or {}
     kit.box(0, 0, kit.W, kit.H, kit.rgba("#000000", 0.55), { round = false })
     kit.box(X, Y, W, H, theme.bg, { radius = 14 })
@@ -108,7 +107,8 @@ function M.draw(app)
         -- Left: the numbers.
         local x, y = X + 30, Y + 136
         local void = (c.void or {})[p.key] or 0
-        stat_box(x, y, 130, "HIT POINTS", util.int(sh.hp or 0))
+        local st = require("game.model.ruleset").part("tile_stats").of(c, app.night, p.key)
+        stat_box(x, y, 130, "HIT POINTS", util.int(st and st.hp or sh.hp or 0) .. " / " .. util.int(sh.hp or 0))
         stat_box(x + 140, y, 150, "DEFENSE RATING", util.int(sh.dr or 0))
         stat_box(x + 300, y, 136, "VOID POINTS", util.int(void) .. " / 4")
         local ay = y + 100
@@ -144,7 +144,13 @@ function M.draw(app)
         ry = row(rx, ry, rw, "DRIVE", h.drive or "")
         ry = row(rx, ry, rw, "LOOKS", h.looks or "")
         ry = row(rx, ry, rw, "ALLEGIANCE", h.allegiance or "")
-        ry = row(rx, ry + 8, rw, "KIT", table.concat(h.kit or {}, ", "))
+        local arms = {}
+        for _, w in ipairs(h.weapons or {}) do
+            table.insert(arms, w.name .. " (" .. (w.damage or "1d4") .. (w.ranged and ((w.uses and (", " .. util.int(w.uses) .. " shots")) or "") .. ", Tech to hit"
+                or ", Body to hit") .. ")")
+        end
+        ry = row(rx, ry + 8, rw, "WEAPONS", #arms > 0 and table.concat(arms, "; ") or "Bare hands (1d2)")
+        ry = row(rx, ry, rw, "KIT", table.concat(h.kit or {}, ", "))
         ry = row(rx, ry, rw, "TRINKET", h.trinket or "")
         ry = row(rx, ry + 8, rw, "WHO THEY ARE", h.intro or "")
         row(rx, ry, rw, "AT THE TABLE", h.short or "")
