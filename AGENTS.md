@@ -14,7 +14,10 @@ then the museum room by room for as many sessions as it takes, a boss night, and
 (the Silent Bells campaign with its random story deck, factions, seeds, valley map and campaign planner) is gone: it
 was removed in the November 4 purge, and the `v2-museum-before-purge` branch and git history keep it. The four
 friends, Session Zero, the rules engine and game night stay. The design and the feedback behind it are in
-`docs/design/2026-10-30-museum-v2.md`. `main` is still the October 20 build; don't merge this into it unless asked.
+`docs/design/2026-10-30-museum-v2.md`. This is the main version of the game, titled Behind The Screen (Conner,
+November 6); pull request #1 moves `main` up to it, and the October 20 build stays in history at 90823ab.
+Every adventure uses exactly one rule set, 5e for now; other systems are planned as their own adventures, through
+the steps in `docs/design/rule-sets.md`.
 A longer, full pre-written adventure will follow as the main campaign, in the same adventure format.
 **Before starting it, read `docs/design/longer-adventure-notes.md`:** the November 2 playtest feedback on cause
 and effect, what to build first (one event log, one shape for conditional text, the truth test as the gate), what's
