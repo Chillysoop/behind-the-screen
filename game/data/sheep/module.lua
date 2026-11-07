@@ -97,9 +97,9 @@ M.fork_at = {
     inn_cellar = { text = "Up the ladder into the common room: the stairs to the rooms, and the road outside." },
 }
 M.pull = {
-    inn_upstairs = { label = "Up the stairs to Sir Luenn's room", want = "to look into Sir Luenn's ring", tags = { "mystery", "funny" } },
-    inn_cellar = { label = "Down through the trapdoor, into the cellar", want = "to poke about in the cellar", tags = { "explore", "danger" } },
-    woods_path = { label = "Out onto the lord's road with the sheep", want = "to get going with the sheep", tags = { "action", "explore" } },
+    inn_upstairs = { label = "Up the stairs to Sir Luenn's room", want = "to look into Sir Luenn's ring", tags = { "mystery", "funny", "cozy" } },
+    inn_cellar = { label = "Down through the trapdoor, into the cellar", want = "to poke about in the cellar", tags = { "explore", "danger", "loot" } },
+    woods_path = { label = "Out onto the lord's road with the sheep", want = "to get going with the sheep", tags = { "action" } },
 }
 
 -- Places, by layer ----------------------------------------------------------------------------------------------------
