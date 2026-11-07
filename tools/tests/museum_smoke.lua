@@ -1412,8 +1412,9 @@ end
 if not boss_seen then problem("there was never a boss night") end
 if app.campaign.level < 3 then problem("the party never levelled up (level " .. tostring(app.campaign.level) .. ")") end
 
--- (A one-night adventure is all one gentle first night, R6: it may have no thought at all.)
-if thoughts_seen == 0 and nights > 1 then problem("nobody at the table ever had a thought") end
+-- (A one-shot, the Sheep Chase, is a gentle first night and a short second one, R6: it may have no thought at all. The
+-- thoughts themselves are the museum smokes' to show, and thoughts_check's.)
+if thoughts_seen == 0 and nights > 2 then problem("nobody at the table ever had a thought") end
 local final_ending, final_level = app.campaign.adv and app.campaign.adv.ending, app.campaign.level
 -- A fresh launch: the main menu offers Continue, Load and New game, and Load picks up the save
 -- made on the first prep board, right where it was.
