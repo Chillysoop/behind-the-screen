@@ -32,6 +32,8 @@ local dice_mod = require "game.rules.dice"
 local creature = require "game.rules.creature"
 local museum = require "game.rules.museum"
 
+local grid = require "game.kit.grid"      -- (the table's grid, any set's: squares, sight, light, doors)
+
 local M = {}
 local B = {}
 B.__index = B
@@ -112,28 +114,6 @@ function B:allies_of(c, include_self, include_down)
         end
     end
     return out
-end
-
--- Distance in feet: the grid counts diagonals as 5 feet (p. 16 "Grid" optional rule style).
-function B:dist_xy(x1, y1, x2, y2)
-    return 5 * math.max(math.abs(x1 - x2), math.abs(y1 - y2))
-end
-
-function B:dist(a, b)
-    return self:dist_xy(a.x, a.y, b.x, b.y)
-end
-
-function B:occupant(x, y)
-    for _, o in ipairs(self.creatures) do
-        if not o.dead and o.x == x and o.y == y then
-            return o
-        end
-    end
-    return nil
-end
-
-function B:in_bounds(x, y)
-    return x >= 1 and y >= 1 and x <= self.W and y <= self.H
 end
 
 -- Effects and conditions ------------------------------------------------------------------
@@ -361,109 +341,14 @@ end
 --   b.cover[k]   cover pieces and what they're called; b.deg[k] = "half" | "three_quarters"
 --   b.doors[k]   { state = "closed" | "open" | "locked", x, y, fid }
 --   b.light      nil (everyone sees), or { ambient = "bright" | "dim" | "dark", sources = { { x, y, bright, dim } } }
-local function sqk(x, y)
-    return x .. "," .. y
-end
-
-function B:opaque_at(x, y)
-    local k = sqk(x, y)
-    local d = self.doors and self.doors[k]
-    if d then
-        return d.state ~= "open"
-    end
-    return self.opaque ~= nil and self.opaque[k] == true
-end
-
--- The squares a straight line from the middle of one square to the middle of another crosses,
--- neither end counted. A line exactly through a corner passes between the two squares there:
--- { corner = { a, b } }.
-function B:line(x1, y1, x2, y2)
-    local out = {}
-    local dx, dy = x2 - x1, y2 - y1
-    local sx = dx > 0 and 1 or (dx < 0 and -1 or 0)
-    local sy = dy > 0 and 1 or (dy < 0 and -1 or 0)
-    local adx, ady = math.abs(dx), math.abs(dy)
-    local tx = adx > 0 and 0.5 / adx or math.huge
-    local ty = ady > 0 and 0.5 / ady or math.huge
-    local ddx = adx > 0 and 1 / adx or math.huge
-    local ddy = ady > 0 and 1 / ady or math.huge
-    local x, y, guard = x1, y1, 0
-    while (x ~= x2 or y ~= y2) and guard < 100 do
-        guard = guard + 1
-        if math.abs(tx - ty) < 1e-9 then
-            table.insert(out, { corner = { { x + sx, y }, { x, y + sy } } })
-            x, y = x + sx, y + sy
-            tx, ty = tx + ddx, ty + ddy
-        elseif tx < ty then
-            x, tx = x + sx, tx + ddx
-        else
-            y, ty = y + sy, ty + ddy
-        end
-        if x ~= x2 or y ~= y2 then
-            table.insert(out, { x, y })
-        end
-    end
-    return out
-end
-
--- Line of sight between two squares: nothing opaque in the way (a corner blocks only when both
--- squares beside it do). Cached until a door opens or shuts.
-function B:los_xy(x1, y1, x2, y2)
-    if (not self.opaque and not self.doors) or (x1 == x2 and y1 == y2) then
-        return true
-    end
-    local ck = self.los_cache
-    if not ck or ck.v ~= (self.stage_v or 0) then
-        ck = { v = self.stage_v or 0 }
-        self.los_cache = ck
-    end
-    local key = ((x1 * 64 + y1) * 64 + x2) * 64 + y2
-    local v = ck[key]
-    if v ~= nil then
-        return v
-    end
-    v = true
-    for _, s in ipairs(self:line(x1, y1, x2, y2)) do
-        if s.corner then
-            if self:opaque_at(s.corner[1][1], s.corner[1][2]) and self:opaque_at(s.corner[2][1], s.corner[2][2]) then
-                v = false
-                break
-            end
-        elseif self:opaque_at(s[1], s[2]) then
-            v = false
-            break
-        end
-    end
-    ck[key] = v
-    return v
-end
-
--- How lit a square is: "bright", "dim" or "dark" (the map's light, its fires and lamps, and the
--- torches heroes without Darkvision carry; light doesn't go through walls).
-function B:light_at(x, y)
-    local L = self.light
-    if not L then
-        return "bright"
-    end
-    local best = L.ambient == "bright" and 3 or (L.ambient == "dim" and 2 or 1)
-    if best == 3 then
-        return "bright"
-    end
-    local function from(sx, sy, bright, dim)
-        local d = self:dist_xy(sx, sy, x, y)
-        if d <= bright + dim and self:los_xy(math.floor(sx + 0.5), math.floor(sy + 0.5), x, y) then
-            best = math.max(best, d <= bright and 3 or 2)
-        end
-    end
-    for _, src in ipairs(L.sources or {}) do
-        from(src.x, src.y, src.bright, src.dim)
-    end
+-- (The board's squares, lines, sight past walls and doors, and light are the shared grid's: game/kit/grid.lua. What's 5e's
+-- on it is here: torches, Darkvision and Blindsight, who has hands for a door.)
+function B:light_extra(from)
     for _, o in ipairs(self.creatures) do
         if o.torch and not o.dead and not o.removed then
             from(o.x, o.y, 20, 20)       -- a Torch: Bright Light 20 ft, Dim Light 20 ft more
         end
     end
-    return best == 3 and "bright" or (best == 2 and "dim" or "dark")
 end
 
 -- Can this creature make out what's on that square, by the light?
@@ -488,17 +373,6 @@ function B:opens_doors(c)
     end
     local d = c.data
     return d ~= nil and HANDS[d.type or ""] == true and not d.no_hands
-end
-
--- A door opens (someone walked through it) or a lock gives.
-function B:set_door(x, y, state, who)
-    local d = self.doors and self.doors[sqk(x, y)]
-    if not d or d.state == state then
-        return
-    end
-    d.state = state
-    self.stage_v = (self.stage_v or 0) + 1
-    self:emit({ kind = "door", x = x, y = y, state = state, fid = d.fid, who = who })
 end
 
 -- Attack rolls (pp. 7-8, 14-15, Rules Glossary) -------------------------------------------------
@@ -2285,4 +2159,6 @@ function B:summary(result)
 end
 
 M.B = B
+grid.mix(B)       -- (after 5e's own: a method battle has keeps its own)
+
 return M

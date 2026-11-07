@@ -92,7 +92,7 @@ Where v2 lives:
 | `game/data/` | All content as plain data: players, the adventure's rooms and cards, scenes, dialogue. Safe to tune. |
 | `game/model/` | The simulation, engine-free: prep, game night, the friends, the adventure, saves. |
 | `game/rules/` | The SRD 5.2.1 rules engine, engine-free: creatures, battles, spells, encounters. `game/rules/sets/` holds each rule set (5e's is `dnd5e.lua`), picked by the adventure's `rules` through `game/model/ruleset.lua` (`docs/design/rule-sets.md`). |
-| `game/kit/` | The table's toolkits, any rule set's to use (Conner, November 6: "maps and grids and d20s and all types of dice"): `dice.lua` rolls any notation (d4 to d100, keep highest, exploding, Fate dice, pools). The grid comes out of `game/rules/battle.lua` into here next. |
+| `game/kit/` | The table's toolkits, any rule set's to use (Conner, November 6: "maps and grids and d20s and all types of dice"): `dice.lua` rolls any notation (d4 to d100, keep highest, exploding, Fate dice, pools); `grid.lua` is the board's squares, distance, sight past walls and doors, light and doors, mixed into 5e's battle (`grid.mix`), which adds its own rules on top. |
 | `game/ui/` | The screens, drawn from GUI nodes through `game/ui/kit.lua`. `game/game.gui_script` ties them together. |
 | `main/`, `render/`, `materials/`, `assets/` | The 3D table scene. Much of it is generated; see "Generated files". |
 | `tools/tests/`, `tools/sim/` | Headless tests and simulations. |
@@ -264,6 +264,7 @@ least:
                                           # no shared file gains a set's own words or a fixed die (the list still to move,
                                           # rules_fence_known.lua, only shrinks)
     lua tools/tests/dice_kit_check.lua    # the table's dice (game/kit/dice.lua): every kind read right, in range, seeded the same
+    lua tools/tests/grid_kit_check.lua    # the table's grid (game/kit/grid.lua) on a board that isn't 5e's: distance, sight, doors, light
     lua tools/tests/dm_bag_check.lua; ADVENTURE=sheep lua tools/tests/dm_bag_check.lua
                                           # the DM's bag, its books, people's pockets and lore tips, both adventures
     lua tools/tests/secrets_check.lua 4   # every secret from the data: real ways out, friend lines that wait,

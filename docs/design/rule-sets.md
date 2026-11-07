@@ -17,7 +17,7 @@ on a real table belongs to no system. Every rule set may use any of it; what a s
 |---|---|---|
 | **Dice** | Any die and any way of rolling it: d4 to d100, sums and modifiers, keep highest or lowest (Advantage is "2d20kh1"), exploding dice, Fate dice, pools that count successes. A roll says its own faces, so the tray and the log show the dice that were really rolled. | game/kit/dice.lua (built; tools/tests/dice_kit_check.lua) |
 | **Maps** | The map repository, the room boards and the three layers (region, settlement, battle), with their DM and player views. | game/model/map_repo.lua, maps.lua, game/data/maps (already shared) |
-| **Grids** | Squares on a board: positions, movement and paths, reach, line of sight and light, doors, terrain, minis. Any set's fight can be on the grid, with its own combat rules on it. | Today inside game/rules/battle.lua with 5e's combat; split out in step 3 |
+| **Grids** | Squares on a board: distance (the board's own square size and diagonal rule), who stands where, the edges, straight lines, line of sight past walls and doors, light and its sources, doors opening. Any set's fight can be on the grid, with its own combat rules on it; 5e's battle stands on it and adds attacks, cover, torches and Darkvision. | game/kit/grid.lua (built; tools/tests/grid_kit_check.lua). Still to join it: the walking minis' sight and paths (game/model/sight.lua) |
 | **Clocks and tokens** | Countdowns (Noke's men), progress clocks, tokens handed to a player (inspiration's chip, a hold). | game/model/adventure.lua's clocks; the tokens on the tiles |
 
 A rule set picks from the kit: its dice ("1d20" for 5e's checks, "2d6" for a moves set, "1d100" for d100), whether
