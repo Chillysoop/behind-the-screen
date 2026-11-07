@@ -122,7 +122,7 @@ function M.build(campaign, night)
 
     -- Cliffhanger in the last scene: everyone can't wait for next week.
     local last = night.scenes[#night.scenes]
-    if last.comps.complication and last.comps.complication.cliffhanger then
+    if last and last.comps.complication and last.comps.complication.cliffhanger then
         rep.hype = 5
     end
 

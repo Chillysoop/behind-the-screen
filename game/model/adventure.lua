@@ -565,6 +565,17 @@ function M.clocks_now(campaign)
 end
 function M.run_clocks(campaign)
     local st = campaign.adv
+    -- (Between sessions, nowhere left to go and no ending yet: the adventure's own way of running out,
+    -- `timeout_ending`. Never a night with nothing in it. The gate, November 6.)
+    if st and not st.ending and MODULE.timeout_ending and MODULE.endings and MODULE.endings[MODULE.timeout_ending]
+            and st.done and next(st.done) and #M.frontier(campaign) == 0 then
+        st.ending = MODULE.timeout_ending
+        local w = MODULE.endings[st.ending].when
+        if w and w.flag and type(w.flag) == "string" and st.flags then
+            st.flags[w.flag] = true
+        end
+        require("game.model.events").add(campaign, { kind = "ending", thing = st.ending, where = st.pos or st.at })
+    end
     for _, k in ipairs(M.clocks_now(campaign)) do
         if k.left <= 0 and k.clock.sets and st and not st.ending then
             st.flags[k.clock.sets] = true

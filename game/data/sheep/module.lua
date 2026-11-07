@@ -213,7 +213,9 @@ M.places = {
                     .. "scrambles up onto its back.",
                 goal = { name = "Stop Noke", line = "Goal: get the wand, and decide what to do with it.",
                          win = "The dragon falls apart into a broken bed.",
-                         lose = "They drag themselves out of the wreckage with the wand, and not much else.",
+                         -- (Ours: the dragon wins, and Noke has his sheep. The gate, November 6: a lost bedroom left nothing to play.)
+                         lose = "The bed dragon wins. When they come round among the splinters, Noke is gone, and so is the sheep.",
+                         lose_sets = "taken",
                          got = "the wand" } } },
 }
 M.start = "inn_common"
