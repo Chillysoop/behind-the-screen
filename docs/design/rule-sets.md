@@ -65,7 +65,7 @@ layer only ever asks it these things.
 
 | Hook | What it answers | 5e | A 2d6 "moves" set |
 |---|---|---|---|
-| `check(hero, approach, difficulty, edge)` | The roll and its **tier**: great, full, partial, miss, botch. Plus the dice to show and the line to log. | d20 + mod vs DC; 20 great, 1 botch; partial only by the DM's ruling | 2d6 + stat; 10+ full, 7-9 partial, 6- miss |
+| `check(rng, {mod, dc, edge})` | The roll and its **tier**: triumph, success, near, flop. Plus the dice to show and the line to log. | d20 + mod vs DC; a natural 20 or 5 over is a triumph, a natural 1 or 5 under a flop, a smaller miss near | 2d6 + stat; 12+ triumph, 10+ success, 7-9 near (the "yes, but"), 6- flop |
 | `approaches` | What a hero can try, and which hero is best at it | the 18 skills | a handful of moves or stats |
 | `who_rolls` | Whether the DM rolls (and can hide it behind the screen) or the players do | DM, open or hidden | players, always in the open |
 | `fight` | "tactical" (the grid, game/rules/battle) or "narrative" (a fight is a run of checks, harm and a clock) | tactical | narrative |
@@ -75,7 +75,8 @@ layer only ever asks it these things.
 | `words` | The glossary and the table's words for it | DC, Advantage, natural 20 | hit, weak hit, miss |
 
 The shared layer reads tiers, never numbers: a scene's win and setback, a split win, fail forward, spotlight and fun,
-callbacks ("still riding that last great roll") all key off great / full / partial / miss / botch. The friends'
+callbacks ("still riding that last great roll") all key off triumph / success / near / flop, the words the DM's
+rulings already used (game/data/rulings.lua). The friends'
 reactions do too, so every bark, thought and rest beat works in any set.
 
 ## The steps
